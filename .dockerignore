@@ -1,0 +1,10 @@
+.husky
+node_modules
+ui/dist
+api/node_modules
+shared/node_modules
+*.log
+.env
+.DS_Store
+coverage/
+.nyc_output/

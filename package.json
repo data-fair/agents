@@ -1,0 +1,63 @@
+{
+  "name": "agents",
+  "version": "0.0.1",
+  "description": "Agentic capabilities for the data-fair stack. Manage AI providers and configure agents using tools that integrate with other data-fair services.",
+  "type": "module",
+  "scripts": {
+    "test-base": "NODE_CONFIG_DIR=./api/config/ NODE_ENV=test dotenv -v EVENTS_LOG_LEVEL=alert -- node --disable-warning=ExperimentalWarning --test-force-exit --test-concurrency=1 --test",
+    "test": "npm run test-base test-it/*.ts",
+    "test-deps": "docker compose --profile test up -d --wait",
+    "lint": "eslint . && npm -w ui run lint",
+    "lint-fix": "eslint --fix . && npm -w ui run lint-fix",
+    "dev-api": "npm -w api run dev",
+    "dev-ui": "npm -w ui run dev",
+    "dev-deps": "docker compose --profile dev up -d",
+    "stop-dev-deps": "docker compose --profile dev stop",
+    "dev-zellij": "dotenv -- zellij --layout .zellij.kdl",
+    "build-types": "df-build-types .",
+    "prepare": "husky || true",
+    "check-types": "tsc && npm -w ui run check-types",
+    "quality": "npm run test-deps && npm run lint && npm run build-types && npm run check-types && npm run test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/data-fair/agents.git"
+  },
+  "workspaces": [
+    "ui",
+    "api",
+    "shared"
+  ],
+  "author": "",
+  "license": "AGPL-3.0-only",
+  "bugs": {
+    "url": "https://github.com/data-fair/agents/issues"
+  },
+  "homepage": "https://github.com/data-fair/agents#readme",
+  "devDependencies": {
+    "@commitlint/config-conventional": "^19.2.2",
+    "@data-fair/lib-express": "^1.19.0",
+    "@data-fair/lib-node": "^2.8.1",
+    "@reporters/bail": "^1.2.1",
+    "@types/config": "^3.3.5",
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.12.0",
+    "commitlint": "^19.2.2",
+    "dotenv": "^17.3.1",
+    "dotenv-cli": "^11.0.0",
+    "eslint": "^9.10.0",
+    "eslint-plugin-vue": "^9.29.0",
+    "eslint-plugin-vuetify": "^2.5.1",
+    "husky": "^9.1.6",
+    "neostandard": "^0.11.5",
+    "typescript": "~5.6.3"
+  },
+  "dependencies": {
+    "@data-fair/lib-types-builder": "^1.8.3",
+    "ajv": "^8.17.1"
+  },
+  "relativeDependencies": {
+    "@data-fair/lib-vuetify": "../lib/packages/vuetify",
+    "@data-fair/lib-vue": "../lib/packages/vue"
+  }
+}

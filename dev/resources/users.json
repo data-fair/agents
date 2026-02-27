@@ -1,0 +1,29 @@
+[
+  {
+    "id": "dmeadus0",
+    "firstName": "Danna",
+    "lastName": "Meadus",
+    "email": "dmeadus0@answers.com",
+    "password": {
+      "clear": "TestPasswd01"
+    }
+  },
+  {
+    "id": "albanm",
+    "firstName": "Alban",
+    "lastName": "Mouton",
+    "email": "alban.mouton@koumoul.com",
+    "isAdmin": true,
+    "password": {
+      "clear": "TestPasswd01"
+    }
+  },
+  {
+    "id": "superadmin",
+    "email": "admin@test.com",
+    "isAdmin": true,
+    "password": {
+      "clear": "TestPasswd01"
+    }
+  }
+]

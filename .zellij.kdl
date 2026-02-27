@@ -1,0 +1,14 @@
+layout {
+    pane size=1 borderless=true {
+        plugin location="zellij:status-bar"
+    }
+    pane {
+        command "npm"
+        args "run" "dev-api"
+        focus=true
+    }
+    pane {
+        command "npm"
+        args "run" "dev-ui"
+    }
+}

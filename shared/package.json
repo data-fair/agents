@@ -1,0 +1,6 @@
+{
+  "name": "@agents/shared",
+  "main": "index.js",
+  "type": "module",
+  "license": "MIT"
+}
