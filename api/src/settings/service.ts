@@ -56,26 +56,6 @@ export const getSettingsByOwner = async (sessionState: SessionStateAuthenticated
   }
 }
 
-export const createSettings = async (sessionState: SessionStateAuthenticated, data: any): Promise<any> => {
-  assertAccountRole(sessionState, data.owner, 'admin')
-
-  const settings = {
-    _id: randomUUID(),
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    owner: data.owner,
-    globalPrompt: data.globalPrompt || '',
-    providers: encryptProviderApiKeys(data.providers || [])
-  }
-
-  await mongo.settings.insertOne(settings)
-
-  return {
-    ...settings,
-    providers: decryptProviderApiKeys(settings.providers)
-  }
-}
-
 export const putSettings = async (
   sessionState: SessionStateAuthenticated,
   ownerType: string,

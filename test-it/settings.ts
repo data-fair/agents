@@ -25,7 +25,6 @@ describe('settings', () => {
 
   it('should create and get settings', async () => {
     const settingsData = {
-      owner: testAccount,
       globalPrompt: 'You are a helpful assistant.',
       providers: [
         {
@@ -41,62 +40,40 @@ describe('settings', () => {
       ]
     }
 
-    const createRes = await user.post('/api/settings', {
+    const createRes = await user.put(`/api/settings/${testAccount.type}/${testAccount.id}`, {
       body: settingsData,
       query: {}
     })
-    assert.equal(createRes.status, 201)
+    assert.equal(createRes.status, 200)
     assert.equal(createRes.data.owner.type, 'user')
-    assert.equal(createRes.data.owner.id, 'test-user-id')
+    assert.equal(createRes.data.owner.id, 'albanm')
     assert.equal(createRes.data.globalPrompt, 'You are a helpful assistant.')
     assert.equal(createRes.data.providers.length, 1)
     assert.equal(createRes.data.providers[0].type, 'openai')
     assert.equal(createRes.data.providers[0].openai.apiKey, 'sk-test-key-123')
 
-    const getRes = await user.get(`/api/settings/${createRes.data._id}`)
+    const getRes = await user.get(`/api/settings/${testAccount.type}/${testAccount.id}`)
     assert.equal(getRes.status, 200)
     assert.equal(getRes.data.globalPrompt, 'You are a helpful assistant.')
   })
 
-  it('should list settings', async () => {
-    const listRes = await user.get('/api/settings')
-    assert.equal(listRes.status, 200)
-    assert.ok(Array.isArray(listRes.data.results))
-    assert.ok(listRes.data.count >= 1)
-  })
-
-  it('should patch settings', async () => {
-    const listRes = await user.get('/api/settings')
-    const settings = listRes.data.results[0]
-
-    const patchRes = await user.patch(`/api/settings/${settings._id}`, {
-      body: {
-        globalPrompt: 'You are a coding assistant.'
-      },
-      query: {}
-    })
-    assert.equal(patchRes.status, 200)
-    assert.equal(patchRes.data.globalPrompt, 'You are a coding assistant.')
-  })
-
-  it('should delete settings', async () => {
+  it('should update settings', async () => {
     const settingsData = {
-      owner: testAccount,
-      globalPrompt: 'To be deleted',
+      globalPrompt: 'You are a helpful assistant.',
       providers: []
     }
 
-    const createRes = await user.post('/api/settings', {
+    await user.put(`/api/settings/${testAccount.type}/${testAccount.id}`, {
       body: settingsData,
       query: {}
     })
-    assert.equal(createRes.status, 201)
 
-    const deleteRes = await user.delete(`/api/settings/${createRes.data._id}`)
-    assert.equal(deleteRes.status, 204)
-
-    const getRes = await user.get(`/api/settings/${createRes.data._id}`)
-    assert.equal(getRes.status, 404)
+    const updateRes = await user.put(`/api/settings/${testAccount.type}/${testAccount.id}`, {
+      body: { globalPrompt: 'You are a coding assistant.', providers: [] },
+      query: {}
+    })
+    assert.equal(updateRes.status, 200)
+    assert.equal(updateRes.data.globalPrompt, 'You are a coding assistant.')
   })
 
   it('should list models from OpenAI API with mock', async () => {
@@ -112,7 +89,6 @@ describe('settings', () => {
       })
 
     const settingsData = {
-      owner: testAccount,
       globalPrompt: 'Test',
       providers: [
         {
@@ -127,7 +103,7 @@ describe('settings', () => {
       ]
     }
 
-    await user.post(`/api/settings/${testAccount.type}/${testAccount.id}`, {
+    await user.put(`/api/settings/${testAccount.type}/${testAccount.id}`, {
       body: settingsData,
       query: {}
     })
