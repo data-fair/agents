@@ -1,5 +1,6 @@
 import { axiosBuilder } from '@data-fair/lib-node/axios.js'
 import { axiosAuth as _axiosAuth } from '@data-fair/lib-node/axios-auth.js'
+import mongo from '../../api/src/mongo.ts'
 
 const directoryUrl = `http://localhost:${process.env.NGINX_PORT}/simple-directory`
 export const baseURL = `http://localhost:${process.env.DEV_API_PORT}`
@@ -13,7 +14,7 @@ export const axiosAuth = (email: string) => {
 }
 
 export const clean = async () => {
-  // TODO: add collections as they are created
+  await mongo.db.collection('settings').deleteMany({})
 }
 
 export const startApiServer = async () => {

@@ -18,6 +18,7 @@
     "@agents/shared": "*",
     "@data-fair/lib-vue": "latest",
     "@data-fair/lib-vuetify": "latest",
+    "@koumoul/vjsf": "^3.0.0",
     "@mdi/font": "^7.4.47"
   },
   "devDependencies": {

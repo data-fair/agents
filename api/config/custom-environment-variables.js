@@ -10,5 +10,6 @@ export default {
     active: 'OBSERVER_ACTIVE',
     port: 'OBSERVER_PORT'
   },
-  upgradeRoot: 'UPGRADE_ROOT'
+  upgradeRoot: 'UPGRADE_ROOT',
+  cipherPassword: 'CIPHER_PASSWORD'
 }

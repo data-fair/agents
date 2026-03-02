@@ -1,8 +1,18 @@
 <template>
   <v-container class="fill-height">
-    <v-row align="center" justify="center">
-      <v-col cols="12" sm="8" md="6">
-        <v-card class="pa-8" elevation="4">
+    <v-row
+      align="center"
+      justify="center"
+    >
+      <v-col
+        cols="12"
+        sm="8"
+        md="6"
+      >
+        <v-card
+          class="pa-8"
+          elevation="4"
+        >
           <v-card-title class="text-h4 text-center mb-4">
             Welcome to Agents
           </v-card-title>
@@ -15,7 +25,11 @@
             </p>
           </v-card-text>
           <v-card-actions class="justify-center mt-4">
-            <v-btn color="primary" variant="elevated" disabled>
+            <v-btn
+              color="primary"
+              variant="elevated"
+              disabled
+            >
               Coming Soon
             </v-btn>
           </v-card-actions>

@@ -13,5 +13,6 @@ export default {
   secretKeys: {
     admin: 'secret-admin-key'
   },
+  cipherPassword: 'test',
   upgradeRoot: '../'
 }

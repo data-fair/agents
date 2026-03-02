@@ -11,5 +11,6 @@ export default {
   secretKeys: {
     admin: undefined
   },
+  cipherPassword: undefined,
   upgradeRoot: '/app/'
 }

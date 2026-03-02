@@ -16,7 +16,8 @@
     "port",
     "tmpDir",
     "observer",
-    "secretKeys"
+    "secretKeys",
+    "cipherPassword"
   ],
   "properties": {
     "mongoUrl": {
@@ -62,6 +63,9 @@
       }
     },
     "upgradeRoot": {
+      "type": "string"
+    },
+    "cipherPassword": {
       "type": "string"
     },
     "util": {},

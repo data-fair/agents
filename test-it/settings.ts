@@ -1,8 +1,8 @@
 import { strict as assert } from 'node:assert'
-import { it, describe, before, after } from 'node:test'
+import { it, describe, before, beforeEach, after } from 'node:test'
 import 'dotenv/config'
 import nock from 'nock'
-import { startApiServer, stopApiServer, axios, axiosAuth, clean } from './utils/index.ts'
+import { startApiServer, stopApiServer, axiosAuth, clean } from './utils/index.ts'
 
 const user = await axiosAuth('alban.mouton@koumoul.com')
 
@@ -16,8 +16,10 @@ describe('settings', () => {
   before(async () => {
     await startApiServer()
   })
-  after(async () => {
+  beforeEach(async () => {
     await clean()
+  })
+  after(async () => {
     await stopApiServer()
   })
 
@@ -39,7 +41,7 @@ describe('settings', () => {
       ]
     }
 
-    const createRes = await axios().post('/api/settings', {
+    const createRes = await user.post('/api/settings', {
       body: settingsData,
       query: {}
     })
@@ -51,23 +53,23 @@ describe('settings', () => {
     assert.equal(createRes.data.providers[0].type, 'openai')
     assert.equal(createRes.data.providers[0].openai.apiKey, 'sk-test-key-123')
 
-    const getRes = await axios().get(`/api/settings/${createRes.data._id}`)
+    const getRes = await user.get(`/api/settings/${createRes.data._id}`)
     assert.equal(getRes.status, 200)
     assert.equal(getRes.data.globalPrompt, 'You are a helpful assistant.')
   })
 
   it('should list settings', async () => {
-    const listRes = await axios().get('/api/settings')
+    const listRes = await user.get('/api/settings')
     assert.equal(listRes.status, 200)
     assert.ok(Array.isArray(listRes.data.results))
     assert.ok(listRes.data.count >= 1)
   })
 
   it('should patch settings', async () => {
-    const listRes = await axios().get('/api/settings')
+    const listRes = await user.get('/api/settings')
     const settings = listRes.data.results[0]
 
-    const patchRes = await axios().patch(`/api/settings/${settings._id}`, {
+    const patchRes = await user.patch(`/api/settings/${settings._id}`, {
       body: {
         globalPrompt: 'You are a coding assistant.'
       },
@@ -84,16 +86,16 @@ describe('settings', () => {
       providers: []
     }
 
-    const createRes = await axios().post('/api/settings', {
+    const createRes = await user.post('/api/settings', {
       body: settingsData,
       query: {}
     })
     assert.equal(createRes.status, 201)
 
-    const deleteRes = await axios().delete(`/api/settings/${createRes.data._id}`)
+    const deleteRes = await user.delete(`/api/settings/${createRes.data._id}`)
     assert.equal(deleteRes.status, 204)
 
-    const getRes = await axios().get(`/api/settings/${createRes.data._id}`)
+    const getRes = await user.get(`/api/settings/${createRes.data._id}`)
     assert.equal(getRes.status, 404)
   })
 
