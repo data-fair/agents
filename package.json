@@ -41,6 +41,8 @@
     "@reporters/bail": "^1.2.1",
     "@types/config": "^3.3.5",
     "@types/express": "^5.0.6",
+    "@types/memoizee": "^0.4.12",
+    "@types/nock": "^10.0.3",
     "@types/node": "^22.12.0",
     "commitlint": "^19.2.2",
     "dotenv": "^17.3.1",
@@ -50,11 +52,13 @@
     "eslint-plugin-vuetify": "^2.5.1",
     "husky": "^9.1.6",
     "neostandard": "^0.11.5",
+    "nock": "^14.0.11",
     "typescript": "~5.6.3"
   },
   "dependencies": {
     "@data-fair/lib-types-builder": "^1.8.3",
-    "ajv": "^8.17.1"
+    "ajv": "^8.17.1",
+    "tough-cookie": "^5.1.2"
   },
   "relativeDependencies": {
     "@data-fair/lib-vuetify": "../lib/packages/vuetify",
