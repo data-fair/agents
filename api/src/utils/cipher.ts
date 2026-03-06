@@ -20,8 +20,7 @@ export const cipher = (content: string): CipheredContent => {
   }
 }
 
-export const decipher = (cipheredContent: CipheredContent | string): string => {
-  if (!cipheredContent || typeof cipheredContent === 'string') return cipheredContent as string
+export const decipher = (cipheredContent: CipheredContent): string => {
   const decipher = createDecipheriv(cipheredContent.alg, securityKey, Buffer.from(cipheredContent.iv, 'hex'))
   let content = decipher.update(cipheredContent.data, 'hex', 'utf-8')
   content += decipher.final('utf8')

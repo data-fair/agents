@@ -12,19 +12,24 @@ import '@koumoul/vjsf/styles/vjsf.css'
 
 import sectionNode from '@koumoul/vjsf/components/nodes/section.vue'
 
+import datetimepickerNode from '@koumoul/vjsf/components/nodes/date-time-picker.vue'
+
+import selectNode from '@koumoul/vjsf/components/nodes/select.vue'
+
 import textfieldNode from '@koumoul/vjsf/components/nodes/text-field.vue'
 
 import listNode from '@koumoul/vjsf/components/nodes/list.vue'
 
-import selectNode from '@koumoul/vjsf/components/nodes/select.vue'
+import oneofselectNode from '@koumoul/vjsf/components/nodes/one-of-select.vue'
 
 import checkboxNode from '@koumoul/vjsf/components/nodes/checkbox.vue'
 
 
 import localizeErrors from "ajv-i18n/localize/en/index.js";
-const schema26 = {"$id":"export0","$ref":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items"};
-const schema28 = {"type":"object","title":"Provider","additionalProperties":false,"required":["type"],"properties":{"id":{"type":"string","title":"Provider ID","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/id","errorMessage":{}},"type":{"type":"string","title":"Provider Type","enum":["openai","anthropic","google","mistral","openrouter","ollama","custom"],"__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/type","errorMessage":{}},"name":{"type":"string","title":"Display Name","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/enabled","errorMessage":{}},"openai":{"type":"object","title":"OpenAI Configuration","properties":{"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai/properties/apiKey","errorMessage":{}},"organization":{"type":"string","title":"Organization ID","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai/properties/organization","errorMessage":{}},"project":{"type":"string","title":"Project ID","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai/properties/project","errorMessage":{}},"defaultModel":{"type":"string","title":"Default Model","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai/properties/defaultModel","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai","errorMessage":{}},"anthropic":{"type":"object","title":"Anthropic Configuration","properties":{"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/anthropic/properties/apiKey","errorMessage":{}},"defaultModel":{"type":"string","title":"Default Model","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/anthropic/properties/defaultModel","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/anthropic","errorMessage":{}},"google":{"type":"object","title":"Google AI Configuration","properties":{"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google/properties/apiKey","errorMessage":{}},"project":{"type":"string","title":"Project ID","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google/properties/project","errorMessage":{}},"location":{"type":"string","title":"Location","default":"us-central1","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google/properties/location","errorMessage":{}},"defaultModel":{"type":"string","title":"Default Model","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google/properties/defaultModel","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google","errorMessage":{}},"mistral":{"type":"object","title":"Mistral AI Configuration","properties":{"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/mistral/properties/apiKey","errorMessage":{}},"defaultModel":{"type":"string","title":"Default Model","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/mistral/properties/defaultModel","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/mistral","errorMessage":{}},"openrouter":{"type":"object","title":"OpenRouter Configuration","properties":{"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openrouter/properties/apiKey","errorMessage":{}},"defaultModel":{"type":"string","title":"Default Model","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openrouter/properties/defaultModel","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openrouter","errorMessage":{}},"ollama":{"type":"object","title":"Ollama Configuration","properties":{"baseURL":{"type":"string","title":"Base URL","default":"http://localhost:11434","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/ollama/properties/baseURL","errorMessage":{}},"defaultModel":{"type":"string","title":"Default Model","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/ollama/properties/defaultModel","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/ollama","errorMessage":{}},"custom":{"type":"object","title":"Custom Provider","properties":{"name":{"type":"string","title":"Provider Name","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/properties/name","errorMessage":{}},"baseURL":{"type":"string","title":"Base URL","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/properties/baseURL","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/properties/apiKey","errorMessage":{}},"defaultModel":{"type":"string","title":"Default Model","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/properties/defaultModel","errorMessage":{}}},"required":["name","baseURL"],"__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom","errorMessage":{"required":{"name":"required information","baseURL":"required information"}}}},"__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items","errorMessage":{"required":{"type":"required information"}}};
-const func1 = Object.prototype.hasOwnProperty;
+import { fullFormats } from "ajv-formats/dist/formats.js";
+
+const schema26 = {"$id":"export0","$ref":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0"};
+const schema28 = {"required":["type","name","id","enabled"],"title":"Open AI","properties":{"type":{"type":"string","title":"Provider Type","const":"openai","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Open AI\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}};
 const obj0 = {"required":"missingProperty","dependencies":"property","dependentRequired":"property"};
 
 function validate22(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
@@ -40,7 +45,7 @@ evaluated0.items = undefined;
 }
 if(data && typeof data == "object" && !Array.isArray(data)){
 if(data.type === undefined){
-const err0 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema28.required,parentSchema:schema28,data};
+const err0 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema28.required,parentSchema:schema28,data};
 if(vErrors === null){
 vErrors = [err0];
 }
@@ -49,9 +54,8 @@ vErrors.push(err0);
 }
 errors++;
 }
-for(const key0 in data){
-if(!(func1.call(schema28.properties, key0))){
-const err1 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties",schema:false,parentSchema:schema28,data};
+if(data.name === undefined){
+const err1 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.required,parentSchema:schema28,data};
 if(vErrors === null){
 vErrors = [err1];
 }
@@ -60,11 +64,8 @@ vErrors.push(err1);
 }
 errors++;
 }
-}
-if(data.id !== undefined){
-let data0 = data.id;
-if(typeof data0 !== "string"){
-const err2 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.id.type,parentSchema:schema28.properties.id,data:data0};
+if(data.id === undefined){
+const err2 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.required,parentSchema:schema28,data};
 if(vErrors === null){
 vErrors = [err2];
 }
@@ -73,21 +74,20 @@ vErrors.push(err2);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs0 = [];
-for(const err3 of vErrors){
-if(!err3.emUsed){
-emErrs0.push(err3);
+if(data.enabled === undefined){
+const err3 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema28.required,parentSchema:schema28,data};
+if(vErrors === null){
+vErrors = [err3];
 }
+else {
+vErrors.push(err3);
 }
-vErrors = emErrs0;
-errors = emErrs0.length;
-}
+errors++;
 }
 if(data.type !== undefined){
-let data1 = data.type;
-if(typeof data1 !== "string"){
-const err4 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.type.type,parentSchema:schema28.properties.type,data:data1};
+let data0 = data.type;
+if(typeof data0 !== "string"){
+const err4 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.type.type,parentSchema:schema28.properties.type,data:data0};
 if(vErrors === null){
 vErrors = [err4];
 }
@@ -96,8 +96,8 @@ vErrors.push(err4);
 }
 errors++;
 }
-if(!(((((((data1 === "openai") || (data1 === "anthropic")) || (data1 === "google")) || (data1 === "mistral")) || (data1 === "openrouter")) || (data1 === "ollama")) || (data1 === "custom"))){
-const err5 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/type/enum",keyword:"enum",params:{allowedValues: schema28.properties.type.enum},message:"must be equal to one of the allowed values",schema:schema28.properties.type.enum,parentSchema:schema28.properties.type,data:data1};
+if("openai" !== data0){
+const err5 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type/const",keyword:"const",params:{allowedValue: "openai"},message:"must be equal to constant",schema:"openai",parentSchema:schema28.properties.type,data:data0};
 if(vErrors === null){
 vErrors = [err5];
 }
@@ -107,20 +107,20 @@ vErrors.push(err5);
 errors++;
 }
 if(errors > 0){
-const emErrs1 = [];
+const emErrs0 = [];
 for(const err6 of vErrors){
 if(!err6.emUsed){
-emErrs1.push(err6);
+emErrs0.push(err6);
 }
 }
-vErrors = emErrs1;
-errors = emErrs1.length;
+vErrors = emErrs0;
+errors = emErrs0.length;
 }
 }
-if(data.name !== undefined){
-let data2 = data.name;
-if(typeof data2 !== "string"){
-const err7 = {instancePath:instancePath+"/name",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.name.type,parentSchema:schema28.properties.name,data:data2};
+if(data.id !== undefined){
+let data1 = data.id;
+if(typeof data1 !== "string"){
+const err7 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.id.type,parentSchema:schema28.properties.id,data:data1};
 if(vErrors === null){
 vErrors = [err7];
 }
@@ -130,906 +130,20 @@ vErrors.push(err7);
 errors++;
 }
 if(errors > 0){
-const emErrs2 = [];
+const emErrs1 = [];
 for(const err8 of vErrors){
 if(!err8.emUsed){
-emErrs2.push(err8);
-}
-}
-vErrors = emErrs2;
-errors = emErrs2.length;
-}
-}
-if(data.enabled !== undefined){
-let data3 = data.enabled;
-if(typeof data3 !== "boolean"){
-const err9 = {instancePath:instancePath+"/enabled",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema28.properties.enabled.type,parentSchema:schema28.properties.enabled,data:data3};
-if(vErrors === null){
-vErrors = [err9];
-}
-else {
-vErrors.push(err9);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs3 = [];
-for(const err10 of vErrors){
-if(!err10.emUsed){
-emErrs3.push(err10);
-}
-}
-vErrors = emErrs3;
-errors = emErrs3.length;
-}
-}
-if(data.openai !== undefined){
-let data4 = data.openai;
-if(data4 && typeof data4 == "object" && !Array.isArray(data4)){
-if(data4.apiKey !== undefined){
-let data5 = data4.apiKey;
-if(typeof data5 !== "string"){
-const err11 = {instancePath:instancePath+"/openai/apiKey",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.openai.properties.apiKey.type,parentSchema:schema28.properties.openai.properties.apiKey,data:data5};
-if(vErrors === null){
-vErrors = [err11];
-}
-else {
-vErrors.push(err11);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs4 = [];
-for(const err12 of vErrors){
-if(!err12.emUsed){
-emErrs4.push(err12);
-}
-}
-vErrors = emErrs4;
-errors = emErrs4.length;
-}
-}
-if(data4.organization !== undefined){
-let data6 = data4.organization;
-if(typeof data6 !== "string"){
-const err13 = {instancePath:instancePath+"/openai/organization",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai/properties/organization/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.openai.properties.organization.type,parentSchema:schema28.properties.openai.properties.organization,data:data6};
-if(vErrors === null){
-vErrors = [err13];
-}
-else {
-vErrors.push(err13);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs5 = [];
-for(const err14 of vErrors){
-if(!err14.emUsed){
-emErrs5.push(err14);
-}
-}
-vErrors = emErrs5;
-errors = emErrs5.length;
-}
-}
-if(data4.project !== undefined){
-let data7 = data4.project;
-if(typeof data7 !== "string"){
-const err15 = {instancePath:instancePath+"/openai/project",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai/properties/project/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.openai.properties.project.type,parentSchema:schema28.properties.openai.properties.project,data:data7};
-if(vErrors === null){
-vErrors = [err15];
-}
-else {
-vErrors.push(err15);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs6 = [];
-for(const err16 of vErrors){
-if(!err16.emUsed){
-emErrs6.push(err16);
-}
-}
-vErrors = emErrs6;
-errors = emErrs6.length;
-}
-}
-if(data4.defaultModel !== undefined){
-let data8 = data4.defaultModel;
-if(typeof data8 !== "string"){
-const err17 = {instancePath:instancePath+"/openai/defaultModel",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai/properties/defaultModel/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.openai.properties.defaultModel.type,parentSchema:schema28.properties.openai.properties.defaultModel,data:data8};
-if(vErrors === null){
-vErrors = [err17];
-}
-else {
-vErrors.push(err17);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs7 = [];
-for(const err18 of vErrors){
-if(!err18.emUsed){
-emErrs7.push(err18);
-}
-}
-vErrors = emErrs7;
-errors = emErrs7.length;
-}
-}
-}
-else {
-const err19 = {instancePath:instancePath+"/openai",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.properties.openai.type,parentSchema:schema28.properties.openai,data:data4};
-if(vErrors === null){
-vErrors = [err19];
-}
-else {
-vErrors.push(err19);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs8 = [];
-for(const err20 of vErrors){
-if(!err20.emUsed){
-emErrs8.push(err20);
-}
-}
-vErrors = emErrs8;
-errors = emErrs8.length;
-}
-}
-if(data.anthropic !== undefined){
-let data9 = data.anthropic;
-if(data9 && typeof data9 == "object" && !Array.isArray(data9)){
-if(data9.apiKey !== undefined){
-let data10 = data9.apiKey;
-if(typeof data10 !== "string"){
-const err21 = {instancePath:instancePath+"/anthropic/apiKey",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/anthropic/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.anthropic.properties.apiKey.type,parentSchema:schema28.properties.anthropic.properties.apiKey,data:data10};
-if(vErrors === null){
-vErrors = [err21];
-}
-else {
-vErrors.push(err21);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs9 = [];
-for(const err22 of vErrors){
-if(!err22.emUsed){
-emErrs9.push(err22);
-}
-}
-vErrors = emErrs9;
-errors = emErrs9.length;
-}
-}
-if(data9.defaultModel !== undefined){
-let data11 = data9.defaultModel;
-if(typeof data11 !== "string"){
-const err23 = {instancePath:instancePath+"/anthropic/defaultModel",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/anthropic/properties/defaultModel/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.anthropic.properties.defaultModel.type,parentSchema:schema28.properties.anthropic.properties.defaultModel,data:data11};
-if(vErrors === null){
-vErrors = [err23];
-}
-else {
-vErrors.push(err23);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs10 = [];
-for(const err24 of vErrors){
-if(!err24.emUsed){
-emErrs10.push(err24);
-}
-}
-vErrors = emErrs10;
-errors = emErrs10.length;
-}
-}
-}
-else {
-const err25 = {instancePath:instancePath+"/anthropic",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/anthropic/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.properties.anthropic.type,parentSchema:schema28.properties.anthropic,data:data9};
-if(vErrors === null){
-vErrors = [err25];
-}
-else {
-vErrors.push(err25);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs11 = [];
-for(const err26 of vErrors){
-if(!err26.emUsed){
-emErrs11.push(err26);
-}
-}
-vErrors = emErrs11;
-errors = emErrs11.length;
-}
-}
-if(data.google !== undefined){
-let data12 = data.google;
-if(data12 && typeof data12 == "object" && !Array.isArray(data12)){
-if(data12.apiKey !== undefined){
-let data13 = data12.apiKey;
-if(typeof data13 !== "string"){
-const err27 = {instancePath:instancePath+"/google/apiKey",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.google.properties.apiKey.type,parentSchema:schema28.properties.google.properties.apiKey,data:data13};
-if(vErrors === null){
-vErrors = [err27];
-}
-else {
-vErrors.push(err27);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs12 = [];
-for(const err28 of vErrors){
-if(!err28.emUsed){
-emErrs12.push(err28);
-}
-}
-vErrors = emErrs12;
-errors = emErrs12.length;
-}
-}
-if(data12.project !== undefined){
-let data14 = data12.project;
-if(typeof data14 !== "string"){
-const err29 = {instancePath:instancePath+"/google/project",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google/properties/project/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.google.properties.project.type,parentSchema:schema28.properties.google.properties.project,data:data14};
-if(vErrors === null){
-vErrors = [err29];
-}
-else {
-vErrors.push(err29);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs13 = [];
-for(const err30 of vErrors){
-if(!err30.emUsed){
-emErrs13.push(err30);
-}
-}
-vErrors = emErrs13;
-errors = emErrs13.length;
-}
-}
-if(data12.location !== undefined){
-let data15 = data12.location;
-if(typeof data15 !== "string"){
-const err31 = {instancePath:instancePath+"/google/location",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google/properties/location/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.google.properties.location.type,parentSchema:schema28.properties.google.properties.location,data:data15};
-if(vErrors === null){
-vErrors = [err31];
-}
-else {
-vErrors.push(err31);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs14 = [];
-for(const err32 of vErrors){
-if(!err32.emUsed){
-emErrs14.push(err32);
-}
-}
-vErrors = emErrs14;
-errors = emErrs14.length;
-}
-}
-if(data12.defaultModel !== undefined){
-let data16 = data12.defaultModel;
-if(typeof data16 !== "string"){
-const err33 = {instancePath:instancePath+"/google/defaultModel",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google/properties/defaultModel/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.google.properties.defaultModel.type,parentSchema:schema28.properties.google.properties.defaultModel,data:data16};
-if(vErrors === null){
-vErrors = [err33];
-}
-else {
-vErrors.push(err33);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs15 = [];
-for(const err34 of vErrors){
-if(!err34.emUsed){
-emErrs15.push(err34);
-}
-}
-vErrors = emErrs15;
-errors = emErrs15.length;
-}
-}
-}
-else {
-const err35 = {instancePath:instancePath+"/google",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.properties.google.type,parentSchema:schema28.properties.google,data:data12};
-if(vErrors === null){
-vErrors = [err35];
-}
-else {
-vErrors.push(err35);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs16 = [];
-for(const err36 of vErrors){
-if(!err36.emUsed){
-emErrs16.push(err36);
-}
-}
-vErrors = emErrs16;
-errors = emErrs16.length;
-}
-}
-if(data.mistral !== undefined){
-let data17 = data.mistral;
-if(data17 && typeof data17 == "object" && !Array.isArray(data17)){
-if(data17.apiKey !== undefined){
-let data18 = data17.apiKey;
-if(typeof data18 !== "string"){
-const err37 = {instancePath:instancePath+"/mistral/apiKey",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/mistral/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.mistral.properties.apiKey.type,parentSchema:schema28.properties.mistral.properties.apiKey,data:data18};
-if(vErrors === null){
-vErrors = [err37];
-}
-else {
-vErrors.push(err37);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs17 = [];
-for(const err38 of vErrors){
-if(!err38.emUsed){
-emErrs17.push(err38);
-}
-}
-vErrors = emErrs17;
-errors = emErrs17.length;
-}
-}
-if(data17.defaultModel !== undefined){
-let data19 = data17.defaultModel;
-if(typeof data19 !== "string"){
-const err39 = {instancePath:instancePath+"/mistral/defaultModel",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/mistral/properties/defaultModel/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.mistral.properties.defaultModel.type,parentSchema:schema28.properties.mistral.properties.defaultModel,data:data19};
-if(vErrors === null){
-vErrors = [err39];
-}
-else {
-vErrors.push(err39);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs18 = [];
-for(const err40 of vErrors){
-if(!err40.emUsed){
-emErrs18.push(err40);
-}
-}
-vErrors = emErrs18;
-errors = emErrs18.length;
-}
-}
-}
-else {
-const err41 = {instancePath:instancePath+"/mistral",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/mistral/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.properties.mistral.type,parentSchema:schema28.properties.mistral,data:data17};
-if(vErrors === null){
-vErrors = [err41];
-}
-else {
-vErrors.push(err41);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs19 = [];
-for(const err42 of vErrors){
-if(!err42.emUsed){
-emErrs19.push(err42);
-}
-}
-vErrors = emErrs19;
-errors = emErrs19.length;
-}
-}
-if(data.openrouter !== undefined){
-let data20 = data.openrouter;
-if(data20 && typeof data20 == "object" && !Array.isArray(data20)){
-if(data20.apiKey !== undefined){
-let data21 = data20.apiKey;
-if(typeof data21 !== "string"){
-const err43 = {instancePath:instancePath+"/openrouter/apiKey",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openrouter/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.openrouter.properties.apiKey.type,parentSchema:schema28.properties.openrouter.properties.apiKey,data:data21};
-if(vErrors === null){
-vErrors = [err43];
-}
-else {
-vErrors.push(err43);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs20 = [];
-for(const err44 of vErrors){
-if(!err44.emUsed){
-emErrs20.push(err44);
-}
-}
-vErrors = emErrs20;
-errors = emErrs20.length;
-}
-}
-if(data20.defaultModel !== undefined){
-let data22 = data20.defaultModel;
-if(typeof data22 !== "string"){
-const err45 = {instancePath:instancePath+"/openrouter/defaultModel",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openrouter/properties/defaultModel/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.openrouter.properties.defaultModel.type,parentSchema:schema28.properties.openrouter.properties.defaultModel,data:data22};
-if(vErrors === null){
-vErrors = [err45];
-}
-else {
-vErrors.push(err45);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs21 = [];
-for(const err46 of vErrors){
-if(!err46.emUsed){
-emErrs21.push(err46);
-}
-}
-vErrors = emErrs21;
-errors = emErrs21.length;
-}
-}
-}
-else {
-const err47 = {instancePath:instancePath+"/openrouter",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openrouter/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.properties.openrouter.type,parentSchema:schema28.properties.openrouter,data:data20};
-if(vErrors === null){
-vErrors = [err47];
-}
-else {
-vErrors.push(err47);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs22 = [];
-for(const err48 of vErrors){
-if(!err48.emUsed){
-emErrs22.push(err48);
-}
-}
-vErrors = emErrs22;
-errors = emErrs22.length;
-}
-}
-if(data.ollama !== undefined){
-let data23 = data.ollama;
-if(data23 && typeof data23 == "object" && !Array.isArray(data23)){
-if(data23.baseURL !== undefined){
-let data24 = data23.baseURL;
-if(typeof data24 !== "string"){
-const err49 = {instancePath:instancePath+"/ollama/baseURL",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/ollama/properties/baseURL/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.ollama.properties.baseURL.type,parentSchema:schema28.properties.ollama.properties.baseURL,data:data24};
-if(vErrors === null){
-vErrors = [err49];
-}
-else {
-vErrors.push(err49);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs23 = [];
-for(const err50 of vErrors){
-if(!err50.emUsed){
-emErrs23.push(err50);
-}
-}
-vErrors = emErrs23;
-errors = emErrs23.length;
-}
-}
-if(data23.defaultModel !== undefined){
-let data25 = data23.defaultModel;
-if(typeof data25 !== "string"){
-const err51 = {instancePath:instancePath+"/ollama/defaultModel",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/ollama/properties/defaultModel/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.ollama.properties.defaultModel.type,parentSchema:schema28.properties.ollama.properties.defaultModel,data:data25};
-if(vErrors === null){
-vErrors = [err51];
-}
-else {
-vErrors.push(err51);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs24 = [];
-for(const err52 of vErrors){
-if(!err52.emUsed){
-emErrs24.push(err52);
-}
-}
-vErrors = emErrs24;
-errors = emErrs24.length;
-}
-}
-}
-else {
-const err53 = {instancePath:instancePath+"/ollama",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/ollama/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.properties.ollama.type,parentSchema:schema28.properties.ollama,data:data23};
-if(vErrors === null){
-vErrors = [err53];
-}
-else {
-vErrors.push(err53);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs25 = [];
-for(const err54 of vErrors){
-if(!err54.emUsed){
-emErrs25.push(err54);
-}
-}
-vErrors = emErrs25;
-errors = emErrs25.length;
-}
-}
-if(data.custom !== undefined){
-let data26 = data.custom;
-if(data26 && typeof data26 == "object" && !Array.isArray(data26)){
-if(data26.name === undefined){
-const err55 = {instancePath:instancePath+"/custom",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.properties.custom.required,parentSchema:schema28.properties.custom,data:data26};
-if(vErrors === null){
-vErrors = [err55];
-}
-else {
-vErrors.push(err55);
-}
-errors++;
-}
-if(data26.baseURL === undefined){
-const err56 = {instancePath:instancePath+"/custom",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/required",keyword:"required",params:{missingProperty: "baseURL"},message:"must have required property '"+"baseURL"+"'",schema:schema28.properties.custom.required,parentSchema:schema28.properties.custom,data:data26};
-if(vErrors === null){
-vErrors = [err56];
-}
-else {
-vErrors.push(err56);
-}
-errors++;
-}
-if(data26.name !== undefined){
-let data27 = data26.name;
-if(typeof data27 !== "string"){
-const err57 = {instancePath:instancePath+"/custom/name",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.custom.properties.name.type,parentSchema:schema28.properties.custom.properties.name,data:data27};
-if(vErrors === null){
-vErrors = [err57];
-}
-else {
-vErrors.push(err57);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs26 = [];
-for(const err58 of vErrors){
-if(!err58.emUsed){
-emErrs26.push(err58);
-}
-}
-vErrors = emErrs26;
-errors = emErrs26.length;
-}
-}
-if(data26.baseURL !== undefined){
-let data28 = data26.baseURL;
-if(typeof data28 !== "string"){
-const err59 = {instancePath:instancePath+"/custom/baseURL",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/properties/baseURL/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.custom.properties.baseURL.type,parentSchema:schema28.properties.custom.properties.baseURL,data:data28};
-if(vErrors === null){
-vErrors = [err59];
-}
-else {
-vErrors.push(err59);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs27 = [];
-for(const err60 of vErrors){
-if(!err60.emUsed){
-emErrs27.push(err60);
-}
-}
-vErrors = emErrs27;
-errors = emErrs27.length;
-}
-}
-if(data26.apiKey !== undefined){
-let data29 = data26.apiKey;
-if(typeof data29 !== "string"){
-const err61 = {instancePath:instancePath+"/custom/apiKey",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.custom.properties.apiKey.type,parentSchema:schema28.properties.custom.properties.apiKey,data:data29};
-if(vErrors === null){
-vErrors = [err61];
-}
-else {
-vErrors.push(err61);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs28 = [];
-for(const err62 of vErrors){
-if(!err62.emUsed){
-emErrs28.push(err62);
-}
-}
-vErrors = emErrs28;
-errors = emErrs28.length;
-}
-}
-if(data26.defaultModel !== undefined){
-let data30 = data26.defaultModel;
-if(typeof data30 !== "string"){
-const err63 = {instancePath:instancePath+"/custom/defaultModel",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/properties/defaultModel/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.custom.properties.defaultModel.type,parentSchema:schema28.properties.custom.properties.defaultModel,data:data30};
-if(vErrors === null){
-vErrors = [err63];
-}
-else {
-vErrors.push(err63);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs29 = [];
-for(const err64 of vErrors){
-if(!err64.emUsed){
-emErrs29.push(err64);
-}
-}
-vErrors = emErrs29;
-errors = emErrs29.length;
-}
-}
-}
-else {
-const err65 = {instancePath:instancePath+"/custom",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.properties.custom.type,parentSchema:schema28.properties.custom,data:data26};
-if(vErrors === null){
-vErrors = [err65];
-}
-else {
-vErrors.push(err65);
-}
-errors++;
-}
-if(errors > 0){
-const emErrors0 = {"required":{"name":[],"baseURL":[]}};
-const templates0 = {required:{}};
-let emPropParams0;
-let emParamsErrors0;
-for(const err66 of vErrors){
-if((((((err66.keyword !== "errorMessage") && (!err66.emUsed)) && (err66.instancePath === instancePath+"/custom")) && (err66.keyword in emErrors0)) && (err66.schemaPath.indexOf("https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom") === 0)) && (/^\/[^\/]*$/.test(err66.schemaPath.slice(98)))){
-emPropParams0 = obj0[err66.keyword];
-emParamsErrors0 = emErrors0[err66.keyword][err66.params[emPropParams0]];
-if(emParamsErrors0){
-emParamsErrors0.push(err66);
-err66.emUsed = true;
-}
-}
-}
-for(const key1 in emErrors0){
-for(const keyProp0 in emErrors0[key1]){
-emParamsErrors0 = emErrors0[key1][keyProp0];
-if(emParamsErrors0.length){
-const tmpl0 = templates0[key1] && templates0[key1][keyProp0];
-const err67 = {instancePath:instancePath+"/custom",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema28.properties.custom.errorMessage[key1][keyProp0],schema:schema28.properties.custom.errorMessage,parentSchema:schema28.properties.custom,data:data26};
-if(vErrors === null){
-vErrors = [err67];
-}
-else {
-vErrors.push(err67);
-}
-errors++;
-}
-}
-}
-const emErrs30 = [];
-for(const err68 of vErrors){
-if(!err68.emUsed){
-emErrs30.push(err68);
-}
-}
-vErrors = emErrs30;
-errors = emErrs30.length;
-}
-}
-}
-else {
-const err69 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.type,parentSchema:schema28,data};
-if(vErrors === null){
-vErrors = [err69];
-}
-else {
-vErrors.push(err69);
-}
-errors++;
-}
-if(errors > 0){
-const emErrors1 = {"required":{"type":[]}};
-const templates1 = {required:{}};
-let emPropParams1;
-let emParamsErrors1;
-for(const err70 of vErrors){
-if((((((err70.keyword !== "errorMessage") && (!err70.emUsed)) && (err70.instancePath === instancePath)) && (err70.keyword in emErrors1)) && (err70.schemaPath.indexOf("https://github.com/data-fair/agents/settings/put-req#/properties/providers/items") === 0)) && (/^\/[^\/]*$/.test(err70.schemaPath.slice(80)))){
-emPropParams1 = obj0[err70.keyword];
-emParamsErrors1 = emErrors1[err70.keyword][err70.params[emPropParams1]];
-if(emParamsErrors1){
-emParamsErrors1.push(err70);
-err70.emUsed = true;
-}
-}
-}
-for(const key2 in emErrors1){
-for(const keyProp1 in emErrors1[key2]){
-emParamsErrors1 = emErrors1[key2][keyProp1];
-if(emParamsErrors1.length){
-const tmpl1 = templates1[key2] && templates1[key2][keyProp1];
-const err71 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors1},message:tmpl1 ? tmpl1() : schema28.errorMessage[key2][keyProp1],schema:schema28.errorMessage,parentSchema:schema28,data};
-if(vErrors === null){
-vErrors = [err71];
-}
-else {
-vErrors.push(err71);
-}
-errors++;
-}
-}
-}
-const emErrs31 = [];
-for(const err72 of vErrors){
-if(!err72.emUsed){
-emErrs31.push(err72);
-}
-}
-vErrors = emErrs31;
-errors = emErrs31.length;
-}
-validate22.errors = vErrors;
-return errors === 0;
-}
-validate22.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
-
-const schema29 = {"$id":"export1","$ref":"https://github.com/data-fair/agents/settings/put-req#"};
-const schema27 = {"x-exports":["validate","types","vjsf"],"title":"Settings put","type":"object","additionalProperties":false,"required":["providers"],"properties":{"globalPrompt":{"type":"string","title":"Global Prompt","description":"This prompt will be injected into all AI agents for this account","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/globalPrompt","errorMessage":{}},"providers":{"type":"array","title":"AI Providers","items":{"type":"object","title":"Provider","additionalProperties":false,"required":["type"],"properties":{"id":{"type":"string","title":"Provider ID","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/id","errorMessage":{}},"type":{"type":"string","title":"Provider Type","enum":["openai","anthropic","google","mistral","openrouter","ollama","custom"],"__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/type","errorMessage":{}},"name":{"type":"string","title":"Display Name","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/enabled","errorMessage":{}},"openai":{"type":"object","title":"OpenAI Configuration","properties":{"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai/properties/apiKey","errorMessage":{}},"organization":{"type":"string","title":"Organization ID","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai/properties/organization","errorMessage":{}},"project":{"type":"string","title":"Project ID","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai/properties/project","errorMessage":{}},"defaultModel":{"type":"string","title":"Default Model","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai/properties/defaultModel","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai","errorMessage":{}},"anthropic":{"type":"object","title":"Anthropic Configuration","properties":{"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/anthropic/properties/apiKey","errorMessage":{}},"defaultModel":{"type":"string","title":"Default Model","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/anthropic/properties/defaultModel","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/anthropic","errorMessage":{}},"google":{"type":"object","title":"Google AI Configuration","properties":{"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google/properties/apiKey","errorMessage":{}},"project":{"type":"string","title":"Project ID","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google/properties/project","errorMessage":{}},"location":{"type":"string","title":"Location","default":"us-central1","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google/properties/location","errorMessage":{}},"defaultModel":{"type":"string","title":"Default Model","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google/properties/defaultModel","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google","errorMessage":{}},"mistral":{"type":"object","title":"Mistral AI Configuration","properties":{"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/mistral/properties/apiKey","errorMessage":{}},"defaultModel":{"type":"string","title":"Default Model","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/mistral/properties/defaultModel","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/mistral","errorMessage":{}},"openrouter":{"type":"object","title":"OpenRouter Configuration","properties":{"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openrouter/properties/apiKey","errorMessage":{}},"defaultModel":{"type":"string","title":"Default Model","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openrouter/properties/defaultModel","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openrouter","errorMessage":{}},"ollama":{"type":"object","title":"Ollama Configuration","properties":{"baseURL":{"type":"string","title":"Base URL","default":"http://localhost:11434","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/ollama/properties/baseURL","errorMessage":{}},"defaultModel":{"type":"string","title":"Default Model","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/ollama/properties/defaultModel","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/ollama","errorMessage":{}},"custom":{"type":"object","title":"Custom Provider","properties":{"name":{"type":"string","title":"Provider Name","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/properties/name","errorMessage":{}},"baseURL":{"type":"string","title":"Base URL","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/properties/baseURL","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/properties/apiKey","errorMessage":{}},"defaultModel":{"type":"string","title":"Default Model","__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/properties/defaultModel","errorMessage":{}}},"required":["name","baseURL"],"__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom","errorMessage":{"required":{"name":"required information","baseURL":"required information"}}}},"__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items","errorMessage":{"required":{"type":"required information"}}},"__pointer":"https://github.com/data-fair/agents/settings/put-req#/properties/providers","errorMessage":{}}},"$id":"https://github.com/data-fair/agents/settings/put-req","x-vjsf":{"xI18n":true},"x-vjsf-locales":["en","fr"],"__pointer":"https://github.com/data-fair/agents/settings/put-req#","errorMessage":{"required":{"providers":"required information"}}};
-
-function validate24(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
-/*# sourceURL="export1" */;
-let vErrors = null;
-let errors = 0;
-const evaluated0 = validate24.evaluated;
-if(evaluated0.dynamicProps){
-evaluated0.props = undefined;
-}
-if(evaluated0.dynamicItems){
-evaluated0.items = undefined;
-}
-if(data && typeof data == "object" && !Array.isArray(data)){
-if(data.providers === undefined){
-const err0 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings/put-req#/required",keyword:"required",params:{missingProperty: "providers"},message:"must have required property '"+"providers"+"'",schema:schema27.required,parentSchema:schema27,data};
-if(vErrors === null){
-vErrors = [err0];
-}
-else {
-vErrors.push(err0);
-}
-errors++;
-}
-for(const key0 in data){
-if(!((key0 === "globalPrompt") || (key0 === "providers"))){
-const err1 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings/put-req#/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties",schema:false,parentSchema:schema27,data};
-if(vErrors === null){
-vErrors = [err1];
-}
-else {
-vErrors.push(err1);
-}
-errors++;
-}
-}
-if(data.globalPrompt !== undefined){
-let data0 = data.globalPrompt;
-if(typeof data0 !== "string"){
-const err2 = {instancePath:instancePath+"/globalPrompt",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/globalPrompt/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.globalPrompt.type,parentSchema:schema27.properties.globalPrompt,data:data0};
-if(vErrors === null){
-vErrors = [err2];
-}
-else {
-vErrors.push(err2);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs0 = [];
-for(const err3 of vErrors){
-if(!err3.emUsed){
-emErrs0.push(err3);
-}
-}
-vErrors = emErrs0;
-errors = emErrs0.length;
-}
-}
-if(data.providers !== undefined){
-let data1 = data.providers;
-if(Array.isArray(data1)){
-const len0 = data1.length;
-for(let i0=0; i0<len0; i0++){
-let data2 = data1[i0];
-if(data2 && typeof data2 == "object" && !Array.isArray(data2)){
-if(data2.type === undefined){
-const err4 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema27.properties.providers.items.required,parentSchema:schema27.properties.providers.items,data:data2};
-if(vErrors === null){
-vErrors = [err4];
-}
-else {
-vErrors.push(err4);
-}
-errors++;
-}
-for(const key1 in data2){
-if(!(func1.call(schema27.properties.providers.items.properties, key1))){
-const err5 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key1},message:"must NOT have additional properties",schema:false,parentSchema:schema27.properties.providers.items,data:data2};
-if(vErrors === null){
-vErrors = [err5];
-}
-else {
-vErrors.push(err5);
-}
-errors++;
-}
-}
-if(data2.id !== undefined){
-let data3 = data2.id;
-if(typeof data3 !== "string"){
-const err6 = {instancePath:instancePath+"/providers/" + i0+"/id",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.properties.id.type,parentSchema:schema27.properties.providers.items.properties.id,data:data3};
-if(vErrors === null){
-vErrors = [err6];
-}
-else {
-vErrors.push(err6);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs1 = [];
-for(const err7 of vErrors){
-if(!err7.emUsed){
-emErrs1.push(err7);
+emErrs1.push(err8);
 }
 }
 vErrors = emErrs1;
 errors = emErrs1.length;
 }
 }
-if(data2.type !== undefined){
-let data4 = data2.type;
-if(typeof data4 !== "string"){
-const err8 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.properties.type.type,parentSchema:schema27.properties.providers.items.properties.type,data:data4};
-if(vErrors === null){
-vErrors = [err8];
-}
-else {
-vErrors.push(err8);
-}
-errors++;
-}
-if(!(((((((data4 === "openai") || (data4 === "anthropic")) || (data4 === "google")) || (data4 === "mistral")) || (data4 === "openrouter")) || (data4 === "ollama")) || (data4 === "custom"))){
-const err9 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/type/enum",keyword:"enum",params:{allowedValues: schema27.properties.providers.items.properties.type.enum},message:"must be equal to one of the allowed values",schema:schema27.properties.providers.items.properties.type.enum,parentSchema:schema27.properties.providers.items.properties.type,data:data4};
+if(data.name !== undefined){
+let data2 = data.name;
+if(typeof data2 !== "string"){
+const err9 = {instancePath:instancePath+"/name",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.name.type,parentSchema:schema28.properties.name,data:data2};
 if(vErrors === null){
 vErrors = [err9];
 }
@@ -1049,10 +163,10 @@ vErrors = emErrs2;
 errors = emErrs2.length;
 }
 }
-if(data2.name !== undefined){
-let data5 = data2.name;
-if(typeof data5 !== "string"){
-const err11 = {instancePath:instancePath+"/providers/" + i0+"/name",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.properties.name.type,parentSchema:schema27.properties.providers.items.properties.name,data:data5};
+if(data.enabled !== undefined){
+let data3 = data.enabled;
+if(typeof data3 !== "boolean"){
+const err11 = {instancePath:instancePath+"/enabled",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema28.properties.enabled.type,parentSchema:schema28.properties.enabled,data:data3};
 if(vErrors === null){
 vErrors = [err11];
 }
@@ -1072,10 +186,10 @@ vErrors = emErrs3;
 errors = emErrs3.length;
 }
 }
-if(data2.enabled !== undefined){
-let data6 = data2.enabled;
-if(typeof data6 !== "boolean"){
-const err13 = {instancePath:instancePath+"/providers/" + i0+"/enabled",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema27.properties.providers.items.properties.enabled.type,parentSchema:schema27.properties.providers.items.properties.enabled,data:data6};
+if(data.apiKey !== undefined){
+let data4 = data.apiKey;
+if(typeof data4 !== "string"){
+const err13 = {instancePath:instancePath+"/apiKey",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.apiKey.type,parentSchema:schema28.properties.apiKey,data:data4};
 if(vErrors === null){
 vErrors = [err13];
 }
@@ -1095,13 +209,9 @@ vErrors = emErrs4;
 errors = emErrs4.length;
 }
 }
-if(data2.openai !== undefined){
-let data7 = data2.openai;
-if(data7 && typeof data7 == "object" && !Array.isArray(data7)){
-if(data7.apiKey !== undefined){
-let data8 = data7.apiKey;
-if(typeof data8 !== "string"){
-const err15 = {instancePath:instancePath+"/providers/" + i0+"/openai/apiKey",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.properties.openai.properties.apiKey.type,parentSchema:schema27.properties.providers.items.properties.openai.properties.apiKey,data:data8};
+}
+else {
+const err15 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.type,parentSchema:schema28,data};
 if(vErrors === null){
 vErrors = [err15];
 }
@@ -1111,20 +221,26 @@ vErrors.push(err15);
 errors++;
 }
 if(errors > 0){
-const emErrs5 = [];
+const emErrors0 = {"required":{"type":[],"id":[],"name":[],"enabled":[]}};
+const templates0 = {required:{}};
+let emPropParams0;
+let emParamsErrors0;
 for(const err16 of vErrors){
-if(!err16.emUsed){
-emErrs5.push(err16);
+if((((((err16.keyword !== "errorMessage") && (!err16.emUsed)) && (err16.instancePath === instancePath)) && (err16.keyword in emErrors0)) && (err16.schemaPath.indexOf("https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0") === 0)) && (/^\/[^\/]*$/.test(err16.schemaPath.slice(84)))){
+emPropParams0 = obj0[err16.keyword];
+emParamsErrors0 = emErrors0[err16.keyword][err16.params[emPropParams0]];
+if(emParamsErrors0){
+emParamsErrors0.push(err16);
+err16.emUsed = true;
 }
 }
-vErrors = emErrs5;
-errors = emErrs5.length;
 }
-}
-if(data7.organization !== undefined){
-let data9 = data7.organization;
-if(typeof data9 !== "string"){
-const err17 = {instancePath:instancePath+"/providers/" + i0+"/openai/organization",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai/properties/organization/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.properties.openai.properties.organization.type,parentSchema:schema27.properties.providers.items.properties.openai.properties.organization,data:data9};
+for(const key0 in emErrors0){
+for(const keyProp0 in emErrors0[key0]){
+emParamsErrors0 = emErrors0[key0][keyProp0];
+if(emParamsErrors0.length){
+const tmpl0 = templates0[key0] && templates0[key0][keyProp0];
+const err17 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema28.errorMessage[key0][keyProp0],schema:schema28.errorMessage,parentSchema:schema28,data};
 if(vErrors === null){
 vErrors = [err17];
 }
@@ -1133,21 +249,270 @@ vErrors.push(err17);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs6 = [];
+}
+}
+const emErrs5 = [];
 for(const err18 of vErrors){
 if(!err18.emUsed){
-emErrs6.push(err18);
+emErrs5.push(err18);
 }
 }
-vErrors = emErrs6;
-errors = emErrs6.length;
+vErrors = emErrs5;
+errors = emErrs5.length;
+}
+validate22.errors = vErrors;
+return errors === 0;
+}
+validate22.evaluated = {"props":{"type":true,"id":true,"name":true,"enabled":true,"apiKey":true},"dynamicProps":false,"dynamicItems":false};
+
+const schema29 = {"$id":"export1","$ref":"https://github.com/data-fair/agents/settings-put#/properties/providers/items"};
+const schema30 = {"type":"object","title":"Provider","unevaluatedProperties":false,"oneOfLayout":{"emptyData":true},"discriminator":{"propertyName":"type"},"layout":{"getDefaultData":"{ id: crypto.randomUUID() }","switch":[{"if":"summary","children":[]}]},"oneOf":[{"required":["type","name","id","enabled"],"title":"Open AI","properties":{"type":{"type":"string","title":"Provider Type","const":"openai","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Open AI\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}}],"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items","errorMessage":{"oneOf":"chose one"}};
+
+function validate24(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+/*# sourceURL="export1" */;
+let vErrors = null;
+let errors = 0;
+const evaluated0 = validate24.evaluated;
+if(evaluated0.dynamicProps){
+evaluated0.props = undefined;
+}
+if(evaluated0.dynamicItems){
+evaluated0.items = undefined;
+}
+const _errs2 = errors;
+let valid1 = false;
+let passing0 = null;
+const _errs3 = errors;
+if(data && typeof data == "object" && !Array.isArray(data)){
+if(data.type === undefined){
+const err0 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema30.oneOf[0].required,parentSchema:schema30.oneOf[0],data};
+if(vErrors === null){
+vErrors = [err0];
+}
+else {
+vErrors.push(err0);
+}
+errors++;
+}
+if(data.name === undefined){
+const err1 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema30.oneOf[0].required,parentSchema:schema30.oneOf[0],data};
+if(vErrors === null){
+vErrors = [err1];
+}
+else {
+vErrors.push(err1);
+}
+errors++;
+}
+if(data.id === undefined){
+const err2 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema30.oneOf[0].required,parentSchema:schema30.oneOf[0],data};
+if(vErrors === null){
+vErrors = [err2];
+}
+else {
+vErrors.push(err2);
+}
+errors++;
+}
+if(data.enabled === undefined){
+const err3 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema30.oneOf[0].required,parentSchema:schema30.oneOf[0],data};
+if(vErrors === null){
+vErrors = [err3];
+}
+else {
+vErrors.push(err3);
+}
+errors++;
+}
+if(data.type !== undefined){
+let data0 = data.type;
+if(typeof data0 !== "string"){
+const err4 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema30.oneOf[0].properties.type.type,parentSchema:schema30.oneOf[0].properties.type,data:data0};
+if(vErrors === null){
+vErrors = [err4];
+}
+else {
+vErrors.push(err4);
+}
+errors++;
+}
+if("openai" !== data0){
+const err5 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type/const",keyword:"const",params:{allowedValue: "openai"},message:"must be equal to constant",schema:"openai",parentSchema:schema30.oneOf[0].properties.type,data:data0};
+if(vErrors === null){
+vErrors = [err5];
+}
+else {
+vErrors.push(err5);
+}
+errors++;
+}
+if(errors > 0){
+const emErrs0 = [];
+for(const err6 of vErrors){
+if(!err6.emUsed){
+emErrs0.push(err6);
 }
 }
-if(data7.project !== undefined){
-let data10 = data7.project;
-if(typeof data10 !== "string"){
-const err19 = {instancePath:instancePath+"/providers/" + i0+"/openai/project",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai/properties/project/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.properties.openai.properties.project.type,parentSchema:schema27.properties.providers.items.properties.openai.properties.project,data:data10};
+vErrors = emErrs0;
+errors = emErrs0.length;
+}
+}
+if(data.id !== undefined){
+let data1 = data.id;
+if(typeof data1 !== "string"){
+const err7 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema30.oneOf[0].properties.id.type,parentSchema:schema30.oneOf[0].properties.id,data:data1};
+if(vErrors === null){
+vErrors = [err7];
+}
+else {
+vErrors.push(err7);
+}
+errors++;
+}
+if(errors > 0){
+const emErrs1 = [];
+for(const err8 of vErrors){
+if(!err8.emUsed){
+emErrs1.push(err8);
+}
+}
+vErrors = emErrs1;
+errors = emErrs1.length;
+}
+}
+if(data.name !== undefined){
+let data2 = data.name;
+if(typeof data2 !== "string"){
+const err9 = {instancePath:instancePath+"/name",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema30.oneOf[0].properties.name.type,parentSchema:schema30.oneOf[0].properties.name,data:data2};
+if(vErrors === null){
+vErrors = [err9];
+}
+else {
+vErrors.push(err9);
+}
+errors++;
+}
+if(errors > 0){
+const emErrs2 = [];
+for(const err10 of vErrors){
+if(!err10.emUsed){
+emErrs2.push(err10);
+}
+}
+vErrors = emErrs2;
+errors = emErrs2.length;
+}
+}
+if(data.enabled !== undefined){
+let data3 = data.enabled;
+if(typeof data3 !== "boolean"){
+const err11 = {instancePath:instancePath+"/enabled",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema30.oneOf[0].properties.enabled.type,parentSchema:schema30.oneOf[0].properties.enabled,data:data3};
+if(vErrors === null){
+vErrors = [err11];
+}
+else {
+vErrors.push(err11);
+}
+errors++;
+}
+if(errors > 0){
+const emErrs3 = [];
+for(const err12 of vErrors){
+if(!err12.emUsed){
+emErrs3.push(err12);
+}
+}
+vErrors = emErrs3;
+errors = emErrs3.length;
+}
+}
+if(data.apiKey !== undefined){
+let data4 = data.apiKey;
+if(typeof data4 !== "string"){
+const err13 = {instancePath:instancePath+"/apiKey",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema30.oneOf[0].properties.apiKey.type,parentSchema:schema30.oneOf[0].properties.apiKey,data:data4};
+if(vErrors === null){
+vErrors = [err13];
+}
+else {
+vErrors.push(err13);
+}
+errors++;
+}
+if(errors > 0){
+const emErrs4 = [];
+for(const err14 of vErrors){
+if(!err14.emUsed){
+emErrs4.push(err14);
+}
+}
+vErrors = emErrs4;
+errors = emErrs4.length;
+}
+}
+}
+else {
+const err15 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema30.oneOf[0].type,parentSchema:schema30.oneOf[0],data};
+if(vErrors === null){
+vErrors = [err15];
+}
+else {
+vErrors.push(err15);
+}
+errors++;
+}
+if(errors > 0){
+const emErrors0 = {"required":{"type":[],"id":[],"name":[],"enabled":[]}};
+const templates0 = {required:{}};
+let emPropParams0;
+let emParamsErrors0;
+for(const err16 of vErrors){
+if((((((err16.keyword !== "errorMessage") && (!err16.emUsed)) && (err16.instancePath === instancePath)) && (err16.keyword in emErrors0)) && (err16.schemaPath.indexOf("https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0") === 0)) && (/^\/[^\/]*$/.test(err16.schemaPath.slice(84)))){
+emPropParams0 = obj0[err16.keyword];
+emParamsErrors0 = emErrors0[err16.keyword][err16.params[emPropParams0]];
+if(emParamsErrors0){
+emParamsErrors0.push(err16);
+err16.emUsed = true;
+}
+}
+}
+for(const key0 in emErrors0){
+for(const keyProp0 in emErrors0[key0]){
+emParamsErrors0 = emErrors0[key0][keyProp0];
+if(emParamsErrors0.length){
+const tmpl0 = templates0[key0] && templates0[key0][keyProp0];
+const err17 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema30.oneOf[0].errorMessage[key0][keyProp0],schema:schema30.oneOf[0].errorMessage,parentSchema:schema30.oneOf[0],data};
+if(vErrors === null){
+vErrors = [err17];
+}
+else {
+vErrors.push(err17);
+}
+errors++;
+}
+}
+}
+const emErrs5 = [];
+for(const err18 of vErrors){
+if(!err18.emUsed){
+emErrs5.push(err18);
+}
+}
+vErrors = emErrs5;
+errors = emErrs5.length;
+}
+var _valid0 = _errs3 === errors;
+if(_valid0){
+valid1 = true;
+passing0 = 0;
+var props0 = {};
+props0.type = true;
+props0.id = true;
+props0.name = true;
+props0.enabled = true;
+props0.apiKey = true;
+}
+if(!valid1){
+const err19 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf",keyword:"oneOf",params:{passingSchemas: passing0},message:"must match exactly one schema in oneOf",schema:schema30.oneOf,parentSchema:schema30,data};
 if(vErrors === null){
 vErrors = [err19];
 }
@@ -1156,21 +521,35 @@ vErrors.push(err19);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs7 = [];
-for(const err20 of vErrors){
-if(!err20.emUsed){
-emErrs7.push(err20);
+else {
+errors = _errs2;
+if(vErrors !== null){
+if(_errs2){
+vErrors.length = _errs2;
+}
+else {
+vErrors = null;
 }
 }
-vErrors = emErrs7;
-errors = emErrs7.length;
+}
+if(data && typeof data == "object" && !Array.isArray(data)){
+if(props0 !== true){
+for(const key1 in data){
+if(!props0 || !props0[key1]){
+const err20 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/unevaluatedProperties",keyword:"unevaluatedProperties",params:{unevaluatedProperty: key1},message:"must NOT have unevaluated properties",schema:false,parentSchema:schema30,data};
+if(vErrors === null){
+vErrors = [err20];
+}
+else {
+vErrors.push(err20);
+}
+errors++;
 }
 }
-if(data7.defaultModel !== undefined){
-let data11 = data7.defaultModel;
-if(typeof data11 !== "string"){
-const err21 = {instancePath:instancePath+"/providers/" + i0+"/openai/defaultModel",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai/properties/defaultModel/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.properties.openai.properties.defaultModel.type,parentSchema:schema27.properties.providers.items.properties.openai.properties.defaultModel,data:data11};
+}
+}
+else {
+const err21 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema30.type,parentSchema:schema30,data};
 if(vErrors === null){
 vErrors = [err21];
 }
@@ -1180,19 +559,17 @@ vErrors.push(err21);
 errors++;
 }
 if(errors > 0){
-const emErrs8 = [];
+const emErrors1 = {"oneOf":[]};
+const templates1 = {};
 for(const err22 of vErrors){
-if(!err22.emUsed){
-emErrs8.push(err22);
+if((((((err22.keyword !== "errorMessage") && (!err22.emUsed)) && (err22.instancePath === instancePath)) && (err22.keyword in emErrors1)) && (err22.schemaPath.indexOf("https://github.com/data-fair/agents/settings-put#/properties/providers/items") === 0)) && (/^\/[^\/]*$/.test(err22.schemaPath.slice(76)))){
+emErrors1[err22.keyword].push(err22);
+err22.emUsed = true;
 }
 }
-vErrors = emErrs8;
-errors = emErrs8.length;
-}
-}
-}
-else {
-const err23 = {instancePath:instancePath+"/providers/" + i0+"/openai",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.providers.items.properties.openai.type,parentSchema:schema27.properties.providers.items.properties.openai,data:data7};
+for(const key2 in emErrors1){
+if(emErrors1[key2].length){
+const err23 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/errorMessage",keyword:"errorMessage",params:{errors: emErrors1[key2]},message:key2 in templates1 ? templates1[key2]() : schema30.errorMessage[key2],schema:schema30.errorMessage,parentSchema:schema30,data};
 if(vErrors === null){
 vErrors = [err23];
 }
@@ -1201,24 +578,341 @@ vErrors.push(err23);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs9 = [];
+}
+const emErrs6 = [];
 for(const err24 of vErrors){
 if(!err24.emUsed){
-emErrs9.push(err24);
+emErrs6.push(err24);
 }
 }
-vErrors = emErrs9;
-errors = emErrs9.length;
+vErrors = emErrs6;
+errors = emErrs6.length;
+}
+validate24.errors = vErrors;
+return errors === 0;
+}
+validate24.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
+
+const schema31 = {"$id":"export2","$ref":"https://github.com/data-fair/agents/settings-put#"};
+const schema27 = {"$id":"https://github.com/data-fair/agents/settings-put","x-exports":["validate","types","vjsf"],"title":"Settings","layout":{"title":null},"type":"object","additionalProperties":false,"required":["providers"],"properties":{"createdAt":{"type":"string","format":"date-time","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/createdAt","errorMessage":{}},"updatedAt":{"type":"string","format":"date-time","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/updatedAt","errorMessage":{}},"owner":{"type":"object","additionalProperties":false,"required":["type","id"],"readOnly":true,"properties":{"type":{"type":"string","enum":["user","organization"],"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/type","errorMessage":{}},"id":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/id","errorMessage":{}},"name":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/name","errorMessage":{}},"department":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/department","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner","errorMessage":{"required":{"type":"required information","id":"required information"}}},"providers":{"type":"array","title":"AI Providers","layout":{"itemTitle":"`${item.name || \"\"} - ${item.id}`","listActions":["add","edit","delete"]},"items":{"type":"object","title":"Provider","unevaluatedProperties":false,"oneOfLayout":{"emptyData":true},"discriminator":{"propertyName":"type"},"layout":{"getDefaultData":"{ id: crypto.randomUUID() }","switch":[{"if":"summary","children":[]}]},"oneOf":[{"required":["type","name","id","enabled"],"title":"Open AI","properties":{"type":{"type":"string","title":"Provider Type","const":"openai","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Open AI\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}}],"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items","errorMessage":{"oneOf":"chose one"}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers","errorMessage":{}}},"x-vjsf":{"xI18n":true},"x-vjsf-locales":["en","fr"],"__pointer":"https://github.com/data-fair/agents/settings-put#","errorMessage":{"required":{"providers":"required information"}}};
+const formats0 = fullFormats["date-time"];
+
+function validate25(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+/*# sourceURL="export2" */;
+let vErrors = null;
+let errors = 0;
+const evaluated0 = validate25.evaluated;
+if(evaluated0.dynamicProps){
+evaluated0.props = undefined;
+}
+if(evaluated0.dynamicItems){
+evaluated0.items = undefined;
+}
+if(data && typeof data == "object" && !Array.isArray(data)){
+if(data.providers === undefined){
+const err0 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/required",keyword:"required",params:{missingProperty: "providers"},message:"must have required property '"+"providers"+"'",schema:schema27.required,parentSchema:schema27,data};
+if(vErrors === null){
+vErrors = [err0];
+}
+else {
+vErrors.push(err0);
+}
+errors++;
+}
+for(const key0 in data){
+if(!((((key0 === "createdAt") || (key0 === "updatedAt")) || (key0 === "owner")) || (key0 === "providers"))){
+const err1 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties",schema:false,parentSchema:schema27,data};
+if(vErrors === null){
+vErrors = [err1];
+}
+else {
+vErrors.push(err1);
+}
+errors++;
 }
 }
-if(data2.anthropic !== undefined){
-let data12 = data2.anthropic;
-if(data12 && typeof data12 == "object" && !Array.isArray(data12)){
-if(data12.apiKey !== undefined){
-let data13 = data12.apiKey;
-if(typeof data13 !== "string"){
-const err25 = {instancePath:instancePath+"/providers/" + i0+"/anthropic/apiKey",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/anthropic/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.properties.anthropic.properties.apiKey.type,parentSchema:schema27.properties.providers.items.properties.anthropic.properties.apiKey,data:data13};
+if(data.createdAt !== undefined){
+let data0 = data.createdAt;
+if(typeof data0 === "string"){
+if(!(formats0.validate(data0))){
+const err2 = {instancePath:instancePath+"/createdAt",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/createdAt/format",keyword:"format",params:{format: "date-time"},message:"must match format \""+"date-time"+"\"",schema:"date-time",parentSchema:schema27.properties.createdAt,data:data0};
+if(vErrors === null){
+vErrors = [err2];
+}
+else {
+vErrors.push(err2);
+}
+errors++;
+}
+}
+else {
+const err3 = {instancePath:instancePath+"/createdAt",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/createdAt/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.createdAt.type,parentSchema:schema27.properties.createdAt,data:data0};
+if(vErrors === null){
+vErrors = [err3];
+}
+else {
+vErrors.push(err3);
+}
+errors++;
+}
+if(errors > 0){
+const emErrs0 = [];
+for(const err4 of vErrors){
+if(!err4.emUsed){
+emErrs0.push(err4);
+}
+}
+vErrors = emErrs0;
+errors = emErrs0.length;
+}
+}
+if(data.updatedAt !== undefined){
+let data1 = data.updatedAt;
+if(typeof data1 === "string"){
+if(!(formats0.validate(data1))){
+const err5 = {instancePath:instancePath+"/updatedAt",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/updatedAt/format",keyword:"format",params:{format: "date-time"},message:"must match format \""+"date-time"+"\"",schema:"date-time",parentSchema:schema27.properties.updatedAt,data:data1};
+if(vErrors === null){
+vErrors = [err5];
+}
+else {
+vErrors.push(err5);
+}
+errors++;
+}
+}
+else {
+const err6 = {instancePath:instancePath+"/updatedAt",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/updatedAt/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.updatedAt.type,parentSchema:schema27.properties.updatedAt,data:data1};
+if(vErrors === null){
+vErrors = [err6];
+}
+else {
+vErrors.push(err6);
+}
+errors++;
+}
+if(errors > 0){
+const emErrs1 = [];
+for(const err7 of vErrors){
+if(!err7.emUsed){
+emErrs1.push(err7);
+}
+}
+vErrors = emErrs1;
+errors = emErrs1.length;
+}
+}
+if(data.owner !== undefined){
+let data2 = data.owner;
+if(data2 && typeof data2 == "object" && !Array.isArray(data2)){
+if(data2.type === undefined){
+const err8 = {instancePath:instancePath+"/owner",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/owner/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema27.properties.owner.required,parentSchema:schema27.properties.owner,data:data2};
+if(vErrors === null){
+vErrors = [err8];
+}
+else {
+vErrors.push(err8);
+}
+errors++;
+}
+if(data2.id === undefined){
+const err9 = {instancePath:instancePath+"/owner",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/owner/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema27.properties.owner.required,parentSchema:schema27.properties.owner,data:data2};
+if(vErrors === null){
+vErrors = [err9];
+}
+else {
+vErrors.push(err9);
+}
+errors++;
+}
+for(const key1 in data2){
+if(!((((key1 === "type") || (key1 === "id")) || (key1 === "name")) || (key1 === "department"))){
+const err10 = {instancePath:instancePath+"/owner",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/owner/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key1},message:"must NOT have additional properties",schema:false,parentSchema:schema27.properties.owner,data:data2};
+if(vErrors === null){
+vErrors = [err10];
+}
+else {
+vErrors.push(err10);
+}
+errors++;
+}
+}
+if(data2.type !== undefined){
+let data3 = data2.type;
+if(typeof data3 !== "string"){
+const err11 = {instancePath:instancePath+"/owner/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.owner.properties.type.type,parentSchema:schema27.properties.owner.properties.type,data:data3};
+if(vErrors === null){
+vErrors = [err11];
+}
+else {
+vErrors.push(err11);
+}
+errors++;
+}
+if(!((data3 === "user") || (data3 === "organization"))){
+const err12 = {instancePath:instancePath+"/owner/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/type/enum",keyword:"enum",params:{allowedValues: schema27.properties.owner.properties.type.enum},message:"must be equal to one of the allowed values",schema:schema27.properties.owner.properties.type.enum,parentSchema:schema27.properties.owner.properties.type,data:data3};
+if(vErrors === null){
+vErrors = [err12];
+}
+else {
+vErrors.push(err12);
+}
+errors++;
+}
+if(errors > 0){
+const emErrs2 = [];
+for(const err13 of vErrors){
+if(!err13.emUsed){
+emErrs2.push(err13);
+}
+}
+vErrors = emErrs2;
+errors = emErrs2.length;
+}
+}
+if(data2.id !== undefined){
+let data4 = data2.id;
+if(typeof data4 !== "string"){
+const err14 = {instancePath:instancePath+"/owner/id",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.owner.properties.id.type,parentSchema:schema27.properties.owner.properties.id,data:data4};
+if(vErrors === null){
+vErrors = [err14];
+}
+else {
+vErrors.push(err14);
+}
+errors++;
+}
+if(errors > 0){
+const emErrs3 = [];
+for(const err15 of vErrors){
+if(!err15.emUsed){
+emErrs3.push(err15);
+}
+}
+vErrors = emErrs3;
+errors = emErrs3.length;
+}
+}
+if(data2.name !== undefined){
+let data5 = data2.name;
+if(typeof data5 !== "string"){
+const err16 = {instancePath:instancePath+"/owner/name",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.owner.properties.name.type,parentSchema:schema27.properties.owner.properties.name,data:data5};
+if(vErrors === null){
+vErrors = [err16];
+}
+else {
+vErrors.push(err16);
+}
+errors++;
+}
+if(errors > 0){
+const emErrs4 = [];
+for(const err17 of vErrors){
+if(!err17.emUsed){
+emErrs4.push(err17);
+}
+}
+vErrors = emErrs4;
+errors = emErrs4.length;
+}
+}
+if(data2.department !== undefined){
+let data6 = data2.department;
+if(typeof data6 !== "string"){
+const err18 = {instancePath:instancePath+"/owner/department",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/department/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.owner.properties.department.type,parentSchema:schema27.properties.owner.properties.department,data:data6};
+if(vErrors === null){
+vErrors = [err18];
+}
+else {
+vErrors.push(err18);
+}
+errors++;
+}
+if(errors > 0){
+const emErrs5 = [];
+for(const err19 of vErrors){
+if(!err19.emUsed){
+emErrs5.push(err19);
+}
+}
+vErrors = emErrs5;
+errors = emErrs5.length;
+}
+}
+}
+else {
+const err20 = {instancePath:instancePath+"/owner",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/owner/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.owner.type,parentSchema:schema27.properties.owner,data:data2};
+if(vErrors === null){
+vErrors = [err20];
+}
+else {
+vErrors.push(err20);
+}
+errors++;
+}
+if(errors > 0){
+const emErrors0 = {"required":{"type":[],"id":[]}};
+const templates0 = {required:{}};
+let emPropParams0;
+let emParamsErrors0;
+for(const err21 of vErrors){
+if((((((err21.keyword !== "errorMessage") && (!err21.emUsed)) && (err21.instancePath === instancePath+"/owner")) && (err21.keyword in emErrors0)) && (err21.schemaPath.indexOf("https://github.com/data-fair/agents/settings-put#/properties/owner") === 0)) && (/^\/[^\/]*$/.test(err21.schemaPath.slice(66)))){
+emPropParams0 = obj0[err21.keyword];
+emParamsErrors0 = emErrors0[err21.keyword][err21.params[emPropParams0]];
+if(emParamsErrors0){
+emParamsErrors0.push(err21);
+err21.emUsed = true;
+}
+}
+}
+for(const key2 in emErrors0){
+for(const keyProp0 in emErrors0[key2]){
+emParamsErrors0 = emErrors0[key2][keyProp0];
+if(emParamsErrors0.length){
+const tmpl0 = templates0[key2] && templates0[key2][keyProp0];
+const err22 = {instancePath:instancePath+"/owner",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/owner/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema27.properties.owner.errorMessage[key2][keyProp0],schema:schema27.properties.owner.errorMessage,parentSchema:schema27.properties.owner,data:data2};
+if(vErrors === null){
+vErrors = [err22];
+}
+else {
+vErrors.push(err22);
+}
+errors++;
+}
+}
+}
+const emErrs6 = [];
+for(const err23 of vErrors){
+if(!err23.emUsed){
+emErrs6.push(err23);
+}
+}
+vErrors = emErrs6;
+errors = emErrs6.length;
+}
+}
+if(data.providers !== undefined){
+let data7 = data.providers;
+if(Array.isArray(data7)){
+const len0 = data7.length;
+for(let i0=0; i0<len0; i0++){
+let data8 = data7[i0];
+const _errs22 = errors;
+let valid5 = false;
+let passing0 = null;
+const _errs23 = errors;
+if(data8 && typeof data8 == "object" && !Array.isArray(data8)){
+if(data8.type === undefined){
+const err24 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema27.properties.providers.items.oneOf[0].required,parentSchema:schema27.properties.providers.items.oneOf[0],data:data8};
+if(vErrors === null){
+vErrors = [err24];
+}
+else {
+vErrors.push(err24);
+}
+errors++;
+}
+if(data8.name === undefined){
+const err25 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema27.properties.providers.items.oneOf[0].required,parentSchema:schema27.properties.providers.items.oneOf[0],data:data8};
 if(vErrors === null){
 vErrors = [err25];
 }
@@ -1227,21 +921,18 @@ vErrors.push(err25);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs10 = [];
-for(const err26 of vErrors){
-if(!err26.emUsed){
-emErrs10.push(err26);
+if(data8.id === undefined){
+const err26 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema27.properties.providers.items.oneOf[0].required,parentSchema:schema27.properties.providers.items.oneOf[0],data:data8};
+if(vErrors === null){
+vErrors = [err26];
 }
+else {
+vErrors.push(err26);
 }
-vErrors = emErrs10;
-errors = emErrs10.length;
+errors++;
 }
-}
-if(data12.defaultModel !== undefined){
-let data14 = data12.defaultModel;
-if(typeof data14 !== "string"){
-const err27 = {instancePath:instancePath+"/providers/" + i0+"/anthropic/defaultModel",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/anthropic/properties/defaultModel/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.properties.anthropic.properties.defaultModel.type,parentSchema:schema27.properties.providers.items.properties.anthropic.properties.defaultModel,data:data14};
+if(data8.enabled === undefined){
+const err27 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema27.properties.providers.items.oneOf[0].required,parentSchema:schema27.properties.providers.items.oneOf[0],data:data8};
 if(vErrors === null){
 vErrors = [err27];
 }
@@ -1250,20 +941,20 @@ vErrors.push(err27);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs11 = [];
-for(const err28 of vErrors){
-if(!err28.emUsed){
-emErrs11.push(err28);
-}
-}
-vErrors = emErrs11;
-errors = emErrs11.length;
-}
-}
+if(data8.type !== undefined){
+let data9 = data8.type;
+if(typeof data9 !== "string"){
+const err28 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[0].properties.type.type,parentSchema:schema27.properties.providers.items.oneOf[0].properties.type,data:data9};
+if(vErrors === null){
+vErrors = [err28];
 }
 else {
-const err29 = {instancePath:instancePath+"/providers/" + i0+"/anthropic",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/anthropic/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.providers.items.properties.anthropic.type,parentSchema:schema27.properties.providers.items.properties.anthropic,data:data12};
+vErrors.push(err28);
+}
+errors++;
+}
+if("openai" !== data9){
+const err29 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type/const",keyword:"const",params:{allowedValue: "openai"},message:"must be equal to constant",schema:"openai",parentSchema:schema27.properties.providers.items.oneOf[0].properties.type,data:data9};
 if(vErrors === null){
 vErrors = [err29];
 }
@@ -1273,23 +964,20 @@ vErrors.push(err29);
 errors++;
 }
 if(errors > 0){
-const emErrs12 = [];
+const emErrs7 = [];
 for(const err30 of vErrors){
 if(!err30.emUsed){
-emErrs12.push(err30);
+emErrs7.push(err30);
 }
 }
-vErrors = emErrs12;
-errors = emErrs12.length;
+vErrors = emErrs7;
+errors = emErrs7.length;
 }
 }
-if(data2.google !== undefined){
-let data15 = data2.google;
-if(data15 && typeof data15 == "object" && !Array.isArray(data15)){
-if(data15.apiKey !== undefined){
-let data16 = data15.apiKey;
-if(typeof data16 !== "string"){
-const err31 = {instancePath:instancePath+"/providers/" + i0+"/google/apiKey",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.properties.google.properties.apiKey.type,parentSchema:schema27.properties.providers.items.properties.google.properties.apiKey,data:data16};
+if(data8.id !== undefined){
+let data10 = data8.id;
+if(typeof data10 !== "string"){
+const err31 = {instancePath:instancePath+"/providers/" + i0+"/id",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[0].properties.id.type,parentSchema:schema27.properties.providers.items.oneOf[0].properties.id,data:data10};
 if(vErrors === null){
 vErrors = [err31];
 }
@@ -1299,20 +987,20 @@ vErrors.push(err31);
 errors++;
 }
 if(errors > 0){
-const emErrs13 = [];
+const emErrs8 = [];
 for(const err32 of vErrors){
 if(!err32.emUsed){
-emErrs13.push(err32);
+emErrs8.push(err32);
 }
 }
-vErrors = emErrs13;
-errors = emErrs13.length;
+vErrors = emErrs8;
+errors = emErrs8.length;
 }
 }
-if(data15.project !== undefined){
-let data17 = data15.project;
-if(typeof data17 !== "string"){
-const err33 = {instancePath:instancePath+"/providers/" + i0+"/google/project",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google/properties/project/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.properties.google.properties.project.type,parentSchema:schema27.properties.providers.items.properties.google.properties.project,data:data17};
+if(data8.name !== undefined){
+let data11 = data8.name;
+if(typeof data11 !== "string"){
+const err33 = {instancePath:instancePath+"/providers/" + i0+"/name",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[0].properties.name.type,parentSchema:schema27.properties.providers.items.oneOf[0].properties.name,data:data11};
 if(vErrors === null){
 vErrors = [err33];
 }
@@ -1322,20 +1010,20 @@ vErrors.push(err33);
 errors++;
 }
 if(errors > 0){
-const emErrs14 = [];
+const emErrs9 = [];
 for(const err34 of vErrors){
 if(!err34.emUsed){
-emErrs14.push(err34);
+emErrs9.push(err34);
 }
 }
-vErrors = emErrs14;
-errors = emErrs14.length;
+vErrors = emErrs9;
+errors = emErrs9.length;
 }
 }
-if(data15.location !== undefined){
-let data18 = data15.location;
-if(typeof data18 !== "string"){
-const err35 = {instancePath:instancePath+"/providers/" + i0+"/google/location",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google/properties/location/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.properties.google.properties.location.type,parentSchema:schema27.properties.providers.items.properties.google.properties.location,data:data18};
+if(data8.enabled !== undefined){
+let data12 = data8.enabled;
+if(typeof data12 !== "boolean"){
+const err35 = {instancePath:instancePath+"/providers/" + i0+"/enabled",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema27.properties.providers.items.oneOf[0].properties.enabled.type,parentSchema:schema27.properties.providers.items.oneOf[0].properties.enabled,data:data12};
 if(vErrors === null){
 vErrors = [err35];
 }
@@ -1345,20 +1033,20 @@ vErrors.push(err35);
 errors++;
 }
 if(errors > 0){
-const emErrs15 = [];
+const emErrs10 = [];
 for(const err36 of vErrors){
 if(!err36.emUsed){
-emErrs15.push(err36);
+emErrs10.push(err36);
 }
 }
-vErrors = emErrs15;
-errors = emErrs15.length;
+vErrors = emErrs10;
+errors = emErrs10.length;
 }
 }
-if(data15.defaultModel !== undefined){
-let data19 = data15.defaultModel;
-if(typeof data19 !== "string"){
-const err37 = {instancePath:instancePath+"/providers/" + i0+"/google/defaultModel",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google/properties/defaultModel/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.properties.google.properties.defaultModel.type,parentSchema:schema27.properties.providers.items.properties.google.properties.defaultModel,data:data19};
+if(data8.apiKey !== undefined){
+let data13 = data8.apiKey;
+if(typeof data13 !== "string"){
+const err37 = {instancePath:instancePath+"/providers/" + i0+"/apiKey",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[0].properties.apiKey.type,parentSchema:schema27.properties.providers.items.oneOf[0].properties.apiKey,data:data13};
 if(vErrors === null){
 vErrors = [err37];
 }
@@ -1368,19 +1056,19 @@ vErrors.push(err37);
 errors++;
 }
 if(errors > 0){
-const emErrs16 = [];
+const emErrs11 = [];
 for(const err38 of vErrors){
 if(!err38.emUsed){
-emErrs16.push(err38);
+emErrs11.push(err38);
 }
 }
-vErrors = emErrs16;
-errors = emErrs16.length;
+vErrors = emErrs11;
+errors = emErrs11.length;
 }
 }
 }
 else {
-const err39 = {instancePath:instancePath+"/providers/" + i0+"/google",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.providers.items.properties.google.type,parentSchema:schema27.properties.providers.items.properties.google,data:data15};
+const err39 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.providers.items.oneOf[0].type,parentSchema:schema27.properties.providers.items.oneOf[0],data:data8};
 if(vErrors === null){
 vErrors = [err39];
 }
@@ -1390,23 +1078,26 @@ vErrors.push(err39);
 errors++;
 }
 if(errors > 0){
-const emErrs17 = [];
+const emErrors1 = {"required":{"type":[],"id":[],"name":[],"enabled":[]}};
+const templates1 = {required:{}};
+let emPropParams1;
+let emParamsErrors1;
 for(const err40 of vErrors){
-if(!err40.emUsed){
-emErrs17.push(err40);
+if((((((err40.keyword !== "errorMessage") && (!err40.emUsed)) && (err40.instancePath === instancePath+"/providers/" + i0)) && (err40.keyword in emErrors1)) && (err40.schemaPath.indexOf("https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0") === 0)) && (/^\/[^\/]*$/.test(err40.schemaPath.slice(84)))){
+emPropParams1 = obj0[err40.keyword];
+emParamsErrors1 = emErrors1[err40.keyword][err40.params[emPropParams1]];
+if(emParamsErrors1){
+emParamsErrors1.push(err40);
+err40.emUsed = true;
 }
 }
-vErrors = emErrs17;
-errors = emErrs17.length;
 }
-}
-if(data2.mistral !== undefined){
-let data20 = data2.mistral;
-if(data20 && typeof data20 == "object" && !Array.isArray(data20)){
-if(data20.apiKey !== undefined){
-let data21 = data20.apiKey;
-if(typeof data21 !== "string"){
-const err41 = {instancePath:instancePath+"/providers/" + i0+"/mistral/apiKey",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/mistral/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.properties.mistral.properties.apiKey.type,parentSchema:schema27.properties.providers.items.properties.mistral.properties.apiKey,data:data21};
+for(const key3 in emErrors1){
+for(const keyProp1 in emErrors1[key3]){
+emParamsErrors1 = emErrors1[key3][keyProp1];
+if(emParamsErrors1.length){
+const tmpl1 = templates1[key3] && templates1[key3][keyProp1];
+const err41 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors1},message:tmpl1 ? tmpl1() : schema27.properties.providers.items.oneOf[0].errorMessage[key3][keyProp1],schema:schema27.properties.providers.items.oneOf[0].errorMessage,parentSchema:schema27.properties.providers.items.oneOf[0],data:data8};
 if(vErrors === null){
 vErrors = [err41];
 }
@@ -1415,21 +1106,30 @@ vErrors.push(err41);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs18 = [];
+}
+}
+const emErrs12 = [];
 for(const err42 of vErrors){
 if(!err42.emUsed){
-emErrs18.push(err42);
+emErrs12.push(err42);
 }
 }
-vErrors = emErrs18;
-errors = emErrs18.length;
+vErrors = emErrs12;
+errors = emErrs12.length;
 }
+var _valid0 = _errs23 === errors;
+if(_valid0){
+valid5 = true;
+passing0 = 0;
+var props0 = {};
+props0.type = true;
+props0.id = true;
+props0.name = true;
+props0.enabled = true;
+props0.apiKey = true;
 }
-if(data20.defaultModel !== undefined){
-let data22 = data20.defaultModel;
-if(typeof data22 !== "string"){
-const err43 = {instancePath:instancePath+"/providers/" + i0+"/mistral/defaultModel",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/mistral/properties/defaultModel/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.properties.mistral.properties.defaultModel.type,parentSchema:schema27.properties.providers.items.properties.mistral.properties.defaultModel,data:data22};
+if(!valid5){
+const err43 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf",keyword:"oneOf",params:{passingSchemas: passing0},message:"must match exactly one schema in oneOf",schema:schema27.properties.providers.items.oneOf,parentSchema:schema27.properties.providers.items,data:data8};
 if(vErrors === null){
 vErrors = [err43];
 }
@@ -1438,20 +1138,35 @@ vErrors.push(err43);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs19 = [];
-for(const err44 of vErrors){
-if(!err44.emUsed){
-emErrs19.push(err44);
+else {
+errors = _errs22;
+if(vErrors !== null){
+if(_errs22){
+vErrors.length = _errs22;
+}
+else {
+vErrors = null;
 }
 }
-vErrors = emErrs19;
-errors = emErrs19.length;
+}
+if(data8 && typeof data8 == "object" && !Array.isArray(data8)){
+if(props0 !== true){
+for(const key4 in data8){
+if(!props0 || !props0[key4]){
+const err44 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/unevaluatedProperties",keyword:"unevaluatedProperties",params:{unevaluatedProperty: key4},message:"must NOT have unevaluated properties",schema:false,parentSchema:schema27.properties.providers.items,data:data8};
+if(vErrors === null){
+vErrors = [err44];
+}
+else {
+vErrors.push(err44);
+}
+errors++;
+}
 }
 }
 }
 else {
-const err45 = {instancePath:instancePath+"/providers/" + i0+"/mistral",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/mistral/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.providers.items.properties.mistral.type,parentSchema:schema27.properties.providers.items.properties.mistral,data:data20};
+const err45 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.providers.items.type,parentSchema:schema27.properties.providers.items,data:data8};
 if(vErrors === null){
 vErrors = [err45];
 }
@@ -1461,23 +1176,17 @@ vErrors.push(err45);
 errors++;
 }
 if(errors > 0){
-const emErrs20 = [];
+const emErrors2 = {"oneOf":[]};
+const templates2 = {};
 for(const err46 of vErrors){
-if(!err46.emUsed){
-emErrs20.push(err46);
+if((((((err46.keyword !== "errorMessage") && (!err46.emUsed)) && (err46.instancePath === instancePath+"/providers/" + i0)) && (err46.keyword in emErrors2)) && (err46.schemaPath.indexOf("https://github.com/data-fair/agents/settings-put#/properties/providers/items") === 0)) && (/^\/[^\/]*$/.test(err46.schemaPath.slice(76)))){
+emErrors2[err46.keyword].push(err46);
+err46.emUsed = true;
 }
 }
-vErrors = emErrs20;
-errors = emErrs20.length;
-}
-}
-if(data2.openrouter !== undefined){
-let data23 = data2.openrouter;
-if(data23 && typeof data23 == "object" && !Array.isArray(data23)){
-if(data23.apiKey !== undefined){
-let data24 = data23.apiKey;
-if(typeof data24 !== "string"){
-const err47 = {instancePath:instancePath+"/providers/" + i0+"/openrouter/apiKey",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openrouter/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.properties.openrouter.properties.apiKey.type,parentSchema:schema27.properties.providers.items.properties.openrouter.properties.apiKey,data:data24};
+for(const key5 in emErrors2){
+if(emErrors2[key5].length){
+const err47 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/errorMessage",keyword:"errorMessage",params:{errors: emErrors2[key5]},message:key5 in templates2 ? templates2[key5]() : schema27.properties.providers.items.errorMessage[key5],schema:schema27.properties.providers.items.errorMessage,parentSchema:schema27.properties.providers.items,data:data8};
 if(vErrors === null){
 vErrors = [err47];
 }
@@ -1486,21 +1195,20 @@ vErrors.push(err47);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs21 = [];
+}
+const emErrs13 = [];
 for(const err48 of vErrors){
 if(!err48.emUsed){
-emErrs21.push(err48);
+emErrs13.push(err48);
 }
 }
-vErrors = emErrs21;
-errors = emErrs21.length;
+vErrors = emErrs13;
+errors = emErrs13.length;
 }
 }
-if(data23.defaultModel !== undefined){
-let data25 = data23.defaultModel;
-if(typeof data25 !== "string"){
-const err49 = {instancePath:instancePath+"/providers/" + i0+"/openrouter/defaultModel",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openrouter/properties/defaultModel/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.properties.openrouter.properties.defaultModel.type,parentSchema:schema27.properties.providers.items.properties.openrouter.properties.defaultModel,data:data25};
+}
+else {
+const err49 = {instancePath:instancePath+"/providers",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/type",keyword:"type",params:{type: "array"},message:"must be array",schema:schema27.properties.providers.type,parentSchema:schema27.properties.providers,data:data7};
 if(vErrors === null){
 vErrors = [err49];
 }
@@ -1510,19 +1218,19 @@ vErrors.push(err49);
 errors++;
 }
 if(errors > 0){
-const emErrs22 = [];
+const emErrs14 = [];
 for(const err50 of vErrors){
 if(!err50.emUsed){
-emErrs22.push(err50);
+emErrs14.push(err50);
 }
 }
-vErrors = emErrs22;
-errors = emErrs22.length;
+vErrors = emErrs14;
+errors = emErrs14.length;
 }
 }
 }
 else {
-const err51 = {instancePath:instancePath+"/providers/" + i0+"/openrouter",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openrouter/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.providers.items.properties.openrouter.type,parentSchema:schema27.properties.providers.items.properties.openrouter,data:data23};
+const err51 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.type,parentSchema:schema27,data};
 if(vErrors === null){
 vErrors = [err51];
 }
@@ -1532,23 +1240,26 @@ vErrors.push(err51);
 errors++;
 }
 if(errors > 0){
-const emErrs23 = [];
+const emErrors3 = {"required":{"providers":[]}};
+const templates3 = {required:{}};
+let emPropParams2;
+let emParamsErrors2;
 for(const err52 of vErrors){
-if(!err52.emUsed){
-emErrs23.push(err52);
+if((((((err52.keyword !== "errorMessage") && (!err52.emUsed)) && (err52.instancePath === instancePath)) && (err52.keyword in emErrors3)) && (err52.schemaPath.indexOf("https://github.com/data-fair/agents/settings-put#") === 0)) && (/^\/[^\/]*$/.test(err52.schemaPath.slice(49)))){
+emPropParams2 = obj0[err52.keyword];
+emParamsErrors2 = emErrors3[err52.keyword][err52.params[emPropParams2]];
+if(emParamsErrors2){
+emParamsErrors2.push(err52);
+err52.emUsed = true;
 }
 }
-vErrors = emErrs23;
-errors = emErrs23.length;
 }
-}
-if(data2.ollama !== undefined){
-let data26 = data2.ollama;
-if(data26 && typeof data26 == "object" && !Array.isArray(data26)){
-if(data26.baseURL !== undefined){
-let data27 = data26.baseURL;
-if(typeof data27 !== "string"){
-const err53 = {instancePath:instancePath+"/providers/" + i0+"/ollama/baseURL",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/ollama/properties/baseURL/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.properties.ollama.properties.baseURL.type,parentSchema:schema27.properties.providers.items.properties.ollama.properties.baseURL,data:data27};
+for(const key6 in emErrors3){
+for(const keyProp2 in emErrors3[key6]){
+emParamsErrors2 = emErrors3[key6][keyProp2];
+if(emParamsErrors2.length){
+const tmpl2 = templates3[key6] && templates3[key6][keyProp2];
+const err53 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors2},message:tmpl2 ? tmpl2() : schema27.errorMessage[key6][keyProp2],schema:schema27.errorMessage,parentSchema:schema27,data};
 if(vErrors === null){
 vErrors = [err53];
 }
@@ -1557,404 +1268,92 @@ vErrors.push(err53);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs24 = [];
+}
+}
+const emErrs15 = [];
 for(const err54 of vErrors){
 if(!err54.emUsed){
-emErrs24.push(err54);
+emErrs15.push(err54);
 }
 }
-vErrors = emErrs24;
-errors = emErrs24.length;
+vErrors = emErrs15;
+errors = emErrs15.length;
 }
-}
-if(data26.defaultModel !== undefined){
-let data28 = data26.defaultModel;
-if(typeof data28 !== "string"){
-const err55 = {instancePath:instancePath+"/providers/" + i0+"/ollama/defaultModel",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/ollama/properties/defaultModel/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.properties.ollama.properties.defaultModel.type,parentSchema:schema27.properties.providers.items.properties.ollama.properties.defaultModel,data:data28};
-if(vErrors === null){
-vErrors = [err55];
-}
-else {
-vErrors.push(err55);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs25 = [];
-for(const err56 of vErrors){
-if(!err56.emUsed){
-emErrs25.push(err56);
-}
-}
-vErrors = emErrs25;
-errors = emErrs25.length;
-}
-}
-}
-else {
-const err57 = {instancePath:instancePath+"/providers/" + i0+"/ollama",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/ollama/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.providers.items.properties.ollama.type,parentSchema:schema27.properties.providers.items.properties.ollama,data:data26};
-if(vErrors === null){
-vErrors = [err57];
-}
-else {
-vErrors.push(err57);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs26 = [];
-for(const err58 of vErrors){
-if(!err58.emUsed){
-emErrs26.push(err58);
-}
-}
-vErrors = emErrs26;
-errors = emErrs26.length;
-}
-}
-if(data2.custom !== undefined){
-let data29 = data2.custom;
-if(data29 && typeof data29 == "object" && !Array.isArray(data29)){
-if(data29.name === undefined){
-const err59 = {instancePath:instancePath+"/providers/" + i0+"/custom",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema27.properties.providers.items.properties.custom.required,parentSchema:schema27.properties.providers.items.properties.custom,data:data29};
-if(vErrors === null){
-vErrors = [err59];
-}
-else {
-vErrors.push(err59);
-}
-errors++;
-}
-if(data29.baseURL === undefined){
-const err60 = {instancePath:instancePath+"/providers/" + i0+"/custom",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/required",keyword:"required",params:{missingProperty: "baseURL"},message:"must have required property '"+"baseURL"+"'",schema:schema27.properties.providers.items.properties.custom.required,parentSchema:schema27.properties.providers.items.properties.custom,data:data29};
-if(vErrors === null){
-vErrors = [err60];
-}
-else {
-vErrors.push(err60);
-}
-errors++;
-}
-if(data29.name !== undefined){
-let data30 = data29.name;
-if(typeof data30 !== "string"){
-const err61 = {instancePath:instancePath+"/providers/" + i0+"/custom/name",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.properties.custom.properties.name.type,parentSchema:schema27.properties.providers.items.properties.custom.properties.name,data:data30};
-if(vErrors === null){
-vErrors = [err61];
-}
-else {
-vErrors.push(err61);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs27 = [];
-for(const err62 of vErrors){
-if(!err62.emUsed){
-emErrs27.push(err62);
-}
-}
-vErrors = emErrs27;
-errors = emErrs27.length;
-}
-}
-if(data29.baseURL !== undefined){
-let data31 = data29.baseURL;
-if(typeof data31 !== "string"){
-const err63 = {instancePath:instancePath+"/providers/" + i0+"/custom/baseURL",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/properties/baseURL/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.properties.custom.properties.baseURL.type,parentSchema:schema27.properties.providers.items.properties.custom.properties.baseURL,data:data31};
-if(vErrors === null){
-vErrors = [err63];
-}
-else {
-vErrors.push(err63);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs28 = [];
-for(const err64 of vErrors){
-if(!err64.emUsed){
-emErrs28.push(err64);
-}
-}
-vErrors = emErrs28;
-errors = emErrs28.length;
-}
-}
-if(data29.apiKey !== undefined){
-let data32 = data29.apiKey;
-if(typeof data32 !== "string"){
-const err65 = {instancePath:instancePath+"/providers/" + i0+"/custom/apiKey",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.properties.custom.properties.apiKey.type,parentSchema:schema27.properties.providers.items.properties.custom.properties.apiKey,data:data32};
-if(vErrors === null){
-vErrors = [err65];
-}
-else {
-vErrors.push(err65);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs29 = [];
-for(const err66 of vErrors){
-if(!err66.emUsed){
-emErrs29.push(err66);
-}
-}
-vErrors = emErrs29;
-errors = emErrs29.length;
-}
-}
-if(data29.defaultModel !== undefined){
-let data33 = data29.defaultModel;
-if(typeof data33 !== "string"){
-const err67 = {instancePath:instancePath+"/providers/" + i0+"/custom/defaultModel",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/properties/defaultModel/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.properties.custom.properties.defaultModel.type,parentSchema:schema27.properties.providers.items.properties.custom.properties.defaultModel,data:data33};
-if(vErrors === null){
-vErrors = [err67];
-}
-else {
-vErrors.push(err67);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs30 = [];
-for(const err68 of vErrors){
-if(!err68.emUsed){
-emErrs30.push(err68);
-}
-}
-vErrors = emErrs30;
-errors = emErrs30.length;
-}
-}
-}
-else {
-const err69 = {instancePath:instancePath+"/providers/" + i0+"/custom",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.providers.items.properties.custom.type,parentSchema:schema27.properties.providers.items.properties.custom,data:data29};
-if(vErrors === null){
-vErrors = [err69];
-}
-else {
-vErrors.push(err69);
-}
-errors++;
-}
-if(errors > 0){
-const emErrors0 = {"required":{"name":[],"baseURL":[]}};
-const templates0 = {required:{}};
-let emPropParams0;
-let emParamsErrors0;
-for(const err70 of vErrors){
-if((((((err70.keyword !== "errorMessage") && (!err70.emUsed)) && (err70.instancePath === instancePath+"/providers/" + i0+"/custom")) && (err70.keyword in emErrors0)) && (err70.schemaPath.indexOf("https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom") === 0)) && (/^\/[^\/]*$/.test(err70.schemaPath.slice(98)))){
-emPropParams0 = obj0[err70.keyword];
-emParamsErrors0 = emErrors0[err70.keyword][err70.params[emPropParams0]];
-if(emParamsErrors0){
-emParamsErrors0.push(err70);
-err70.emUsed = true;
-}
-}
-}
-for(const key2 in emErrors0){
-for(const keyProp0 in emErrors0[key2]){
-emParamsErrors0 = emErrors0[key2][keyProp0];
-if(emParamsErrors0.length){
-const tmpl0 = templates0[key2] && templates0[key2][keyProp0];
-const err71 = {instancePath:instancePath+"/providers/" + i0+"/custom",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema27.properties.providers.items.properties.custom.errorMessage[key2][keyProp0],schema:schema27.properties.providers.items.properties.custom.errorMessage,parentSchema:schema27.properties.providers.items.properties.custom,data:data29};
-if(vErrors === null){
-vErrors = [err71];
-}
-else {
-vErrors.push(err71);
-}
-errors++;
-}
-}
-}
-const emErrs31 = [];
-for(const err72 of vErrors){
-if(!err72.emUsed){
-emErrs31.push(err72);
-}
-}
-vErrors = emErrs31;
-errors = emErrs31.length;
-}
-}
-}
-else {
-const err73 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.providers.items.type,parentSchema:schema27.properties.providers.items,data:data2};
-if(vErrors === null){
-vErrors = [err73];
-}
-else {
-vErrors.push(err73);
-}
-errors++;
-}
-if(errors > 0){
-const emErrors1 = {"required":{"type":[]}};
-const templates1 = {required:{}};
-let emPropParams1;
-let emParamsErrors1;
-for(const err74 of vErrors){
-if((((((err74.keyword !== "errorMessage") && (!err74.emUsed)) && (err74.instancePath === instancePath+"/providers/" + i0)) && (err74.keyword in emErrors1)) && (err74.schemaPath.indexOf("https://github.com/data-fair/agents/settings/put-req#/properties/providers/items") === 0)) && (/^\/[^\/]*$/.test(err74.schemaPath.slice(80)))){
-emPropParams1 = obj0[err74.keyword];
-emParamsErrors1 = emErrors1[err74.keyword][err74.params[emPropParams1]];
-if(emParamsErrors1){
-emParamsErrors1.push(err74);
-err74.emUsed = true;
-}
-}
-}
-for(const key3 in emErrors1){
-for(const keyProp1 in emErrors1[key3]){
-emParamsErrors1 = emErrors1[key3][keyProp1];
-if(emParamsErrors1.length){
-const tmpl1 = templates1[key3] && templates1[key3][keyProp1];
-const err75 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors1},message:tmpl1 ? tmpl1() : schema27.properties.providers.items.errorMessage[key3][keyProp1],schema:schema27.properties.providers.items.errorMessage,parentSchema:schema27.properties.providers.items,data:data2};
-if(vErrors === null){
-vErrors = [err75];
-}
-else {
-vErrors.push(err75);
-}
-errors++;
-}
-}
-}
-const emErrs32 = [];
-for(const err76 of vErrors){
-if(!err76.emUsed){
-emErrs32.push(err76);
-}
-}
-vErrors = emErrs32;
-errors = emErrs32.length;
-}
-}
-}
-else {
-const err77 = {instancePath:instancePath+"/providers",schemaPath:"https://github.com/data-fair/agents/settings/put-req#/properties/providers/type",keyword:"type",params:{type: "array"},message:"must be array",schema:schema27.properties.providers.type,parentSchema:schema27.properties.providers,data:data1};
-if(vErrors === null){
-vErrors = [err77];
-}
-else {
-vErrors.push(err77);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs33 = [];
-for(const err78 of vErrors){
-if(!err78.emUsed){
-emErrs33.push(err78);
-}
-}
-vErrors = emErrs33;
-errors = emErrs33.length;
-}
-}
-}
-else {
-const err79 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings/put-req#/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.type,parentSchema:schema27,data};
-if(vErrors === null){
-vErrors = [err79];
-}
-else {
-vErrors.push(err79);
-}
-errors++;
-}
-if(errors > 0){
-const emErrors2 = {"required":{"providers":[]}};
-const templates2 = {required:{}};
-let emPropParams2;
-let emParamsErrors2;
-for(const err80 of vErrors){
-if((((((err80.keyword !== "errorMessage") && (!err80.emUsed)) && (err80.instancePath === instancePath)) && (err80.keyword in emErrors2)) && (err80.schemaPath.indexOf("https://github.com/data-fair/agents/settings/put-req#") === 0)) && (/^\/[^\/]*$/.test(err80.schemaPath.slice(53)))){
-emPropParams2 = obj0[err80.keyword];
-emParamsErrors2 = emErrors2[err80.keyword][err80.params[emPropParams2]];
-if(emParamsErrors2){
-emParamsErrors2.push(err80);
-err80.emUsed = true;
-}
-}
-}
-for(const key4 in emErrors2){
-for(const keyProp2 in emErrors2[key4]){
-emParamsErrors2 = emErrors2[key4][keyProp2];
-if(emParamsErrors2.length){
-const tmpl2 = templates2[key4] && templates2[key4][keyProp2];
-const err81 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings/put-req#/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors2},message:tmpl2 ? tmpl2() : schema27.errorMessage[key4][keyProp2],schema:schema27.errorMessage,parentSchema:schema27,data};
-if(vErrors === null){
-vErrors = [err81];
-}
-else {
-vErrors.push(err81);
-}
-errors++;
-}
-}
-}
-const emErrs34 = [];
-for(const err82 of vErrors){
-if(!err82.emUsed){
-emErrs34.push(err82);
-}
-}
-vErrors = emErrs34;
-errors = emErrs34.length;
-}
-validate24.errors = vErrors;
+validate25.errors = vErrors;
 return errors === 0;
 }
-validate24.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
+validate25.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 function expression0(data,value,options,context,display,layout,readOnly,summary,validates
 ) {
 return (layout.defaultData)
 }function expression1(data,value,options,context,display,layout,readOnly,summary,validates
 ) {
-return ([{"key":"openai","title":"openai","value":"openai"},{"key":"anthropic","title":"anthropic","value":"anthropic"},{"key":"google","title":"google","value":"google"},{"key":"mistral","title":"mistral","value":"mistral"},{"key":"openrouter","title":"openrouter","value":"openrouter"},{"key":"ollama","title":"ollama","value":"ollama"},{"key":"custom","title":"custom","value":"custom"}])
+return (layout.options)
+}function expression2(data,value,options,context,display,layout,readOnly,summary,validates
+) {
+return ([{"key":"user","title":"user","value":"user"},{"key":"organization","title":"organization","value":"organization"}])
+}function expression3(data,item,options,context,display,layout,readOnly,summary,validates
+) {
+return (`${item.name || ""} - ${item.id}`)
+}function expression4(data,value,options,context,display,layout,readOnly,summary,validates
+) {
+return (summary)
+}function expression5(data,value,options,context,display,layout,readOnly,summary,validates
+) {
+return ({ id: crypto.randomUUID() })
+}function expression6(data,value,options,context,display,layout,readOnly,summary,validates
+) {
+return (layout.constData)
+}function expression7(data,value,options,context,display,layout,readOnly,summary,validates
+) {
+return ("Open AI")
 }
 
 const compiledLayout = {
-  mainTree: "https://github.com/data-fair/agents/settings/put-req#",
+  mainTree: "https://github.com/data-fair/agents/settings-put#",
 
   skeletonTrees: {
-    "https://github.com/data-fair/agents/settings/put-req#": {
-      title: "Settings put",
-      root: "https://github.com/data-fair/agents/settings/put-req#",
-      refPointer: "https://github.com/data-fair/agents/settings/put-req#",
+    "https://github.com/data-fair/agents/settings-put#": {
+      title: "Settings",
+      root: "https://github.com/data-fair/agents/settings-put#",
+      refPointer: "https://github.com/data-fair/agents/settings-put#",
       discriminatorValue: undefined
     },
 
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items": {
+    "https://github.com/data-fair/agents/settings-put#/properties/providers/items": {
       title: "Provider",
-      root: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items",
-      refPointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items",
+      root: "https://github.com/data-fair/agents/settings-put#/properties/providers/items",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/providers/items",
       discriminatorValue: undefined
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0": {
+      title: "Open AI",
+      root: "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0",
+      discriminatorValue: "openai"
     }
   },
 
   skeletonNodes: {
-    "https://github.com/data-fair/agents/settings/put-req#": {
-      title: "Settings put",
+    "https://github.com/data-fair/agents/settings-put#": {
+      title: "Settings",
       key: "",
-      pointer: "https://github.com/data-fair/agents/settings/put-req#",
-      refPointer: "https://github.com/data-fair/agents/settings/put-req#",
+      pointer: "https://github.com/data-fair/agents/settings-put#",
+      refPointer: "https://github.com/data-fair/agents/settings-put#",
       pure: true,
-      propertyKeys: ["globalPrompt", "providers"],
-      roPropertyKeys: [],
+      propertyKeys: ["createdAt", "updatedAt", "owner", "providers"],
+      roPropertyKeys: ["createdAt", "updatedAt", "owner"],
       nullable: false,
       required: true,
-      children: ["https://github.com/data-fair/agents/settings/put-req#/properties/globalPrompt", "https://github.com/data-fair/agents/settings/put-req#/properties/providers"]
+      children: ["https://github.com/data-fair/agents/settings-put#/properties/createdAt", "https://github.com/data-fair/agents/settings-put#/properties/updatedAt", "https://github.com/data-fair/agents/settings-put#/properties/owner", "https://github.com/data-fair/agents/settings-put#/properties/providers"]
     },
 
-    "https://github.com/data-fair/agents/settings/put-req#/properties/globalPrompt": {
-      title: "Global Prompt",
-      key: "globalPrompt",
-      pointer: "https://github.com/data-fair/agents/settings/put-req#/properties/globalPrompt",
-      refPointer: "https://github.com/data-fair/agents/settings/put-req#/properties/globalPrompt",
+    "https://github.com/data-fair/agents/settings-put#/properties/createdAt": {
+      title: undefined,
+      key: "createdAt",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/createdAt",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/createdAt",
       pure: true,
       propertyKeys: [],
       roPropertyKeys: [],
@@ -1962,49 +1361,122 @@ const compiledLayout = {
       required: false
     },
 
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers": {
+    "https://github.com/data-fair/agents/settings-put#/properties/updatedAt": {
+      title: undefined,
+      key: "updatedAt",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/updatedAt",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/updatedAt",
+      pure: true,
+      propertyKeys: [],
+      roPropertyKeys: [],
+      nullable: false,
+      required: false
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/owner": {
+      title: undefined,
+      key: "owner",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/owner",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/owner",
+      pure: true,
+      propertyKeys: ["type", "id", "name", "department"],
+      roPropertyKeys: [],
+      nullable: false,
+      required: false,
+      children: ["https://github.com/data-fair/agents/settings-put#/properties/owner/properties/type", "https://github.com/data-fair/agents/settings-put#/properties/owner/properties/id", "https://github.com/data-fair/agents/settings-put#/properties/owner/properties/name", "https://github.com/data-fair/agents/settings-put#/properties/owner/properties/department"]
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/owner/properties/type": {
+      title: undefined,
+      key: "type",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/owner/properties/type",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/owner/properties/type",
+      pure: true,
+      propertyKeys: [],
+      roPropertyKeys: [],
+      nullable: false,
+      required: true
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/owner/properties/id": {
+      title: undefined,
+      key: "id",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/owner/properties/id",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/owner/properties/id",
+      pure: true,
+      propertyKeys: [],
+      roPropertyKeys: [],
+      nullable: false,
+      required: true
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/owner/properties/name": {
+      title: undefined,
+      key: "name",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/owner/properties/name",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/owner/properties/name",
+      pure: true,
+      propertyKeys: [],
+      roPropertyKeys: [],
+      nullable: false,
+      required: false
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/owner/properties/department": {
+      title: undefined,
+      key: "department",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/owner/properties/department",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/owner/properties/department",
+      pure: true,
+      propertyKeys: [],
+      roPropertyKeys: [],
+      nullable: false,
+      required: false
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/providers": {
       title: "AI Providers",
       key: "providers",
-      pointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers",
-      refPointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/providers",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/providers",
       pure: true,
       propertyKeys: [],
       roPropertyKeys: [],
       nullable: false,
       required: true,
-      childrenTrees: ["https://github.com/data-fair/agents/settings/put-req#/properties/providers/items"]
+      childrenTrees: ["https://github.com/data-fair/agents/settings-put#/properties/providers/items"]
     },
 
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items": {
+    "https://github.com/data-fair/agents/settings-put#/properties/providers/items": {
       title: "Provider",
       key: "",
-      pointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items",
-      refPointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/providers/items",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/providers/items",
       pure: true,
-      propertyKeys: ["id", "type", "name", "enabled", "openai", "anthropic", "google", "mistral", "openrouter", "ollama", "custom"],
-      roPropertyKeys: [],
+      propertyKeys: ["type", "id", "name", "enabled", "apiKey"],
+      roPropertyKeys: ["id"],
       nullable: false,
       required: true,
-      children: ["https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/id", "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/type", "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/name", "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/enabled", "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai", "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/anthropic", "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google", "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/mistral", "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openrouter", "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/ollama", "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom"]
+      children: ["https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf"]
     },
 
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/id": {
-      title: "Provider ID",
-      key: "id",
-      pointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/id",
-      refPointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/id",
+    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0": {
+      key: "",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0",
       pure: true,
-      propertyKeys: [],
-      roPropertyKeys: [],
+      propertyKeys: ["type", "id", "name", "enabled", "apiKey"],
+      roPropertyKeys: ["id"],
       nullable: false,
-      required: false
+      required: true,
+      children: ["https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/id", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/name", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/enabled", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/apiKey"]
     },
 
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/type": {
+    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type": {
       title: "Provider Type",
       key: "type",
-      pointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/type",
-      refPointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/type",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type",
       pure: true,
       propertyKeys: [],
       roPropertyKeys: [],
@@ -2012,318 +1484,35 @@ const compiledLayout = {
       required: true
     },
 
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/name": {
+    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/id": {
+      title: "Provider ID",
+      key: "id",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/id",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/id",
+      pure: true,
+      propertyKeys: [],
+      roPropertyKeys: [],
+      nullable: false,
+      required: true
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/name": {
       title: "Display Name",
       key: "name",
-      pointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/name",
-      refPointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/name",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/name",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/name",
       pure: true,
       propertyKeys: [],
       roPropertyKeys: [],
       nullable: false,
-      required: false
+      required: true
     },
 
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/enabled": {
+    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/enabled": {
       title: "Enabled",
       key: "enabled",
-      pointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/enabled",
-      refPointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/enabled",
-      pure: true,
-      propertyKeys: [],
-      roPropertyKeys: [],
-      nullable: false,
-      required: false
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai": {
-      title: "OpenAI Configuration",
-      key: "openai",
-      pointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai",
-      refPointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai",
-      pure: true,
-      propertyKeys: ["apiKey", "organization", "project", "defaultModel"],
-      roPropertyKeys: [],
-      nullable: false,
-      required: false,
-      children: ["https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai/properties/apiKey", "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai/properties/organization", "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai/properties/project", "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai/properties/defaultModel"]
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai/properties/apiKey": {
-      title: "API Key",
-      key: "apiKey",
-      pointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai/properties/apiKey",
-      refPointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai/properties/apiKey",
-      pure: true,
-      propertyKeys: [],
-      roPropertyKeys: [],
-      nullable: false,
-      required: undefined
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai/properties/organization": {
-      title: "Organization ID",
-      key: "organization",
-      pointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai/properties/organization",
-      refPointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai/properties/organization",
-      pure: true,
-      propertyKeys: [],
-      roPropertyKeys: [],
-      nullable: false,
-      required: undefined
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai/properties/project": {
-      title: "Project ID",
-      key: "project",
-      pointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai/properties/project",
-      refPointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai/properties/project",
-      pure: true,
-      propertyKeys: [],
-      roPropertyKeys: [],
-      nullable: false,
-      required: undefined
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai/properties/defaultModel": {
-      title: "Default Model",
-      key: "defaultModel",
-      pointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai/properties/defaultModel",
-      refPointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai/properties/defaultModel",
-      pure: true,
-      propertyKeys: [],
-      roPropertyKeys: [],
-      nullable: false,
-      required: undefined
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/anthropic": {
-      title: "Anthropic Configuration",
-      key: "anthropic",
-      pointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/anthropic",
-      refPointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/anthropic",
-      pure: true,
-      propertyKeys: ["apiKey", "defaultModel"],
-      roPropertyKeys: [],
-      nullable: false,
-      required: false,
-      children: ["https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/anthropic/properties/apiKey", "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/anthropic/properties/defaultModel"]
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/anthropic/properties/apiKey": {
-      title: "API Key",
-      key: "apiKey",
-      pointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/anthropic/properties/apiKey",
-      refPointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/anthropic/properties/apiKey",
-      pure: true,
-      propertyKeys: [],
-      roPropertyKeys: [],
-      nullable: false,
-      required: undefined
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/anthropic/properties/defaultModel": {
-      title: "Default Model",
-      key: "defaultModel",
-      pointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/anthropic/properties/defaultModel",
-      refPointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/anthropic/properties/defaultModel",
-      pure: true,
-      propertyKeys: [],
-      roPropertyKeys: [],
-      nullable: false,
-      required: undefined
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google": {
-      title: "Google AI Configuration",
-      key: "google",
-      pointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google",
-      refPointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google",
-      pure: true,
-      propertyKeys: ["apiKey", "project", "location", "defaultModel"],
-      roPropertyKeys: [],
-      nullable: false,
-      required: false,
-      children: ["https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google/properties/apiKey", "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google/properties/project", "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google/properties/location", "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google/properties/defaultModel"]
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google/properties/apiKey": {
-      title: "API Key",
-      key: "apiKey",
-      pointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google/properties/apiKey",
-      refPointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google/properties/apiKey",
-      pure: true,
-      propertyKeys: [],
-      roPropertyKeys: [],
-      nullable: false,
-      required: undefined
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google/properties/project": {
-      title: "Project ID",
-      key: "project",
-      pointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google/properties/project",
-      refPointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google/properties/project",
-      pure: true,
-      propertyKeys: [],
-      roPropertyKeys: [],
-      nullable: false,
-      required: undefined
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google/properties/location": {
-      title: "Location",
-      key: "location",
-      pointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google/properties/location",
-      refPointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google/properties/location",
-      pure: true,
-      propertyKeys: [],
-      roPropertyKeys: [],
-      nullable: false,
-      required: undefined
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google/properties/defaultModel": {
-      title: "Default Model",
-      key: "defaultModel",
-      pointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google/properties/defaultModel",
-      refPointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google/properties/defaultModel",
-      pure: true,
-      propertyKeys: [],
-      roPropertyKeys: [],
-      nullable: false,
-      required: undefined
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/mistral": {
-      title: "Mistral AI Configuration",
-      key: "mistral",
-      pointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/mistral",
-      refPointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/mistral",
-      pure: true,
-      propertyKeys: ["apiKey", "defaultModel"],
-      roPropertyKeys: [],
-      nullable: false,
-      required: false,
-      children: ["https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/mistral/properties/apiKey", "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/mistral/properties/defaultModel"]
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/mistral/properties/apiKey": {
-      title: "API Key",
-      key: "apiKey",
-      pointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/mistral/properties/apiKey",
-      refPointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/mistral/properties/apiKey",
-      pure: true,
-      propertyKeys: [],
-      roPropertyKeys: [],
-      nullable: false,
-      required: undefined
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/mistral/properties/defaultModel": {
-      title: "Default Model",
-      key: "defaultModel",
-      pointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/mistral/properties/defaultModel",
-      refPointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/mistral/properties/defaultModel",
-      pure: true,
-      propertyKeys: [],
-      roPropertyKeys: [],
-      nullable: false,
-      required: undefined
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openrouter": {
-      title: "OpenRouter Configuration",
-      key: "openrouter",
-      pointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openrouter",
-      refPointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openrouter",
-      pure: true,
-      propertyKeys: ["apiKey", "defaultModel"],
-      roPropertyKeys: [],
-      nullable: false,
-      required: false,
-      children: ["https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openrouter/properties/apiKey", "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openrouter/properties/defaultModel"]
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openrouter/properties/apiKey": {
-      title: "API Key",
-      key: "apiKey",
-      pointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openrouter/properties/apiKey",
-      refPointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openrouter/properties/apiKey",
-      pure: true,
-      propertyKeys: [],
-      roPropertyKeys: [],
-      nullable: false,
-      required: undefined
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openrouter/properties/defaultModel": {
-      title: "Default Model",
-      key: "defaultModel",
-      pointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openrouter/properties/defaultModel",
-      refPointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openrouter/properties/defaultModel",
-      pure: true,
-      propertyKeys: [],
-      roPropertyKeys: [],
-      nullable: false,
-      required: undefined
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/ollama": {
-      title: "Ollama Configuration",
-      key: "ollama",
-      pointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/ollama",
-      refPointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/ollama",
-      pure: true,
-      propertyKeys: ["baseURL", "defaultModel"],
-      roPropertyKeys: [],
-      nullable: false,
-      required: false,
-      children: ["https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/ollama/properties/baseURL", "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/ollama/properties/defaultModel"]
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/ollama/properties/baseURL": {
-      title: "Base URL",
-      key: "baseURL",
-      pointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/ollama/properties/baseURL",
-      refPointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/ollama/properties/baseURL",
-      pure: true,
-      propertyKeys: [],
-      roPropertyKeys: [],
-      nullable: false,
-      required: undefined
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/ollama/properties/defaultModel": {
-      title: "Default Model",
-      key: "defaultModel",
-      pointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/ollama/properties/defaultModel",
-      refPointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/ollama/properties/defaultModel",
-      pure: true,
-      propertyKeys: [],
-      roPropertyKeys: [],
-      nullable: false,
-      required: undefined
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom": {
-      title: "Custom Provider",
-      key: "custom",
-      pointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom",
-      refPointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom",
-      pure: true,
-      propertyKeys: ["name", "baseURL", "apiKey", "defaultModel"],
-      roPropertyKeys: [],
-      nullable: false,
-      required: false,
-      children: ["https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/properties/name", "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/properties/baseURL", "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/properties/apiKey", "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/properties/defaultModel"]
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/properties/name": {
-      title: "Provider Name",
-      key: "name",
-      pointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/properties/name",
-      refPointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/properties/name",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/enabled",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/enabled",
       pure: true,
       propertyKeys: [],
       roPropertyKeys: [],
@@ -2331,23 +1520,11 @@ const compiledLayout = {
       required: true
     },
 
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/properties/baseURL": {
-      title: "Base URL",
-      key: "baseURL",
-      pointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/properties/baseURL",
-      refPointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/properties/baseURL",
-      pure: true,
-      propertyKeys: [],
-      roPropertyKeys: [],
-      nullable: false,
-      required: true
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/properties/apiKey": {
+    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/apiKey": {
       title: "API Key",
       key: "apiKey",
-      pointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/properties/apiKey",
-      refPointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/properties/apiKey",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/apiKey",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/apiKey",
       pure: true,
       propertyKeys: [],
       roPropertyKeys: [],
@@ -2355,30 +1532,33 @@ const compiledLayout = {
       required: false
     },
 
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/properties/defaultModel": {
-      title: "Default Model",
-      key: "defaultModel",
-      pointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/properties/defaultModel",
-      refPointer: "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/properties/defaultModel",
+    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf": {
+      key: "$oneOf",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf",
+      childrenTrees: ["https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0"],
+      discriminator: "type",
       pure: true,
-      propertyKeys: [],
-      roPropertyKeys: [],
-      nullable: false,
-      required: false
+      propertyKeys: ["type", "id", "name", "enabled", "apiKey"],
+      roPropertyKeys: ["id"]
     }
   },
 
   normalizedLayouts: {
-    "https://github.com/data-fair/agents/settings/put-req#": {
+    "https://github.com/data-fair/agents/settings-put#": {
+      title: null,
       comp: "section",
 
       children: [{
-        key: "globalPrompt"
+        key: "createdAt"
+      }, {
+        key: "updatedAt"
+      }, {
+        key: "owner"
       }, {
         key: "providers"
       }],
 
-      title: "Settings put",
       defaultData: {},
 
       getDefaultData: {
@@ -2390,17 +1570,113 @@ const compiledLayout = {
       }
     },
 
-    "https://github.com/data-fair/agents/settings/put-req#/properties/globalPrompt": {
-      comp: "text-field",
-      label: "Global Prompt",
-      help: "<p>This prompt will be injected into all AI agents for this account</p>"
+    "https://github.com/data-fair/agents/settings-put#/properties/createdAt": {
+      comp: "date-time-picker",
+
+      options: {
+        readOnly: true
+      },
+
+      label: "createdAt",
+
+      getOptions: {
+        type: "js-eval",
+        expr: "layout.options",
+        pure: true,
+        dataAlias: "value",
+        ref: 1
+      }
     },
 
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers": {
+    "https://github.com/data-fair/agents/settings-put#/properties/updatedAt": {
+      comp: "date-time-picker",
+
+      options: {
+        readOnly: true
+      },
+
+      label: "updatedAt",
+
+      getOptions: {
+        type: "js-eval",
+        expr: "layout.options",
+        pure: true,
+        dataAlias: "value",
+        ref: 1
+      }
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/owner": {
+      comp: "section",
+
+      children: [{
+        key: "type"
+      }, {
+        key: "id"
+      }, {
+        key: "name"
+      }, {
+        key: "department"
+      }],
+
+      title: null,
+
+      options: {
+        readOnly: true
+      },
+
+      getOptions: {
+        type: "js-eval",
+        expr: "layout.options",
+        pure: true,
+        dataAlias: "value",
+        ref: 1
+      }
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/owner/properties/type": {
+      comp: "select",
+
+      getItems: {
+        pure: true,
+        type: "js-eval",
+        dataAlias: "value",
+        expr: "[{\"key\":\"user\",\"title\":\"user\",\"value\":\"user\"},{\"key\":\"organization\",\"title\":\"organization\",\"value\":\"organization\"}]",
+        immutable: true,
+        ref: 2
+      },
+
+      label: "type"
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/owner/properties/id": {
+      comp: "text-field",
+      label: "id"
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/owner/properties/name": {
+      comp: "text-field",
+      label: "name"
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/owner/properties/department": {
+      comp: "text-field",
+      label: "department"
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/providers": {
+      itemTitle: {
+        type: "js-eval",
+        expr: "`${item.name || \"\"} - ${item.id}`",
+        pure: true,
+        dataAlias: "item",
+        ref: 3
+      },
+
+      listActions: ["add", "edit", "delete"],
       comp: "list",
       title: "AI Providers",
       listEditMode: "inline-single",
-      listActions: ["add", "edit", "delete", "sort", "duplicate"],
       defaultData: [],
 
       getDefaultData: {
@@ -2412,34 +1688,59 @@ const compiledLayout = {
       }
     },
 
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items": {
-      comp: "section",
+    "https://github.com/data-fair/agents/settings-put#/properties/providers/items": {
+      switch: [{
+        getDefaultData: {
+          type: "js-eval",
+          expr: "{ id: crypto.randomUUID() }",
+          pure: true,
+          dataAlias: "value",
+          ref: 5
+        },
 
-      children: [{
-        key: "id"
+        if: {
+          type: "js-eval",
+          expr: "summary",
+          pure: true,
+          dataAlias: "value",
+          ref: 4
+        },
+
+        children: [],
+        comp: "section",
+        title: "Provider",
+        defaultData: {},
+        nullable: true
       }, {
-        key: "type"
-      }, {
-        key: "name"
-      }, {
-        key: "enabled"
-      }, {
-        key: "openai"
-      }, {
-        key: "anthropic"
-      }, {
-        key: "google"
-      }, {
-        key: "mistral"
-      }, {
-        key: "openrouter"
-      }, {
-        key: "ollama"
-      }, {
-        key: "custom"
+        getDefaultData: {
+          type: "js-eval",
+          expr: "{ id: crypto.randomUUID() }",
+          pure: true,
+          dataAlias: "value",
+          ref: 5
+        },
+
+        comp: "section",
+
+        children: [{
+          key: "$oneOf"
+        }],
+
+        title: "Provider",
+        defaultData: {},
+        nullable: true
+      }]
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf": {
+      emptyData: true,
+      comp: "one-of-select",
+
+      oneOfItems: [{
+        key: 0,
+        title: "Open AI"
       }],
 
-      title: "Provider",
       defaultData: {},
 
       getDefaultData: {
@@ -2448,37 +1749,81 @@ const compiledLayout = {
         pure: true,
         dataAlias: "value",
         ref: 0
-      },
-
-      nullable: true
+      }
     },
 
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/id": {
-      comp: "text-field",
-      label: "Provider ID"
-    },
+    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0": {
+      comp: "section",
 
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/type": {
-      comp: "select",
+      children: [{
+        key: "type"
+      }, {
+        key: "id"
+      }, {
+        key: "name"
+      }, {
+        key: "enabled"
+      }, {
+        key: "apiKey"
+      }],
 
-      getItems: {
-        pure: true,
+      title: "Open AI",
+      defaultData: {},
+
+      getDefaultData: {
         type: "js-eval",
+        expr: "layout.defaultData",
+        pure: true,
         dataAlias: "value",
-        expr: "[{\"key\":\"openai\",\"title\":\"openai\",\"value\":\"openai\"},{\"key\":\"anthropic\",\"title\":\"anthropic\",\"value\":\"anthropic\"},{\"key\":\"google\",\"title\":\"google\",\"value\":\"google\"},{\"key\":\"mistral\",\"title\":\"mistral\",\"value\":\"mistral\"},{\"key\":\"openrouter\",\"title\":\"openrouter\",\"value\":\"openrouter\"},{\"key\":\"ollama\",\"title\":\"ollama\",\"value\":\"ollama\"},{\"key\":\"custom\",\"title\":\"custom\",\"value\":\"custom\"}]",
-        immutable: true,
-        ref: 1
-      },
-
-      label: "Provider Type"
+        ref: 0
+      }
     },
 
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/name": {
+    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type": {
+      comp: "none",
+      constData: "openai",
+
+      getConstData: {
+        type: "js-eval",
+        expr: "layout.constData",
+        pure: true,
+        dataAlias: "value",
+        ref: 6
+      }
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/id": {
+      comp: "text-field",
+
+      options: {
+        readOnly: true
+      },
+
+      label: "Provider ID",
+
+      getOptions: {
+        type: "js-eval",
+        expr: "layout.options",
+        pure: true,
+        dataAlias: "value",
+        ref: 1
+      }
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/name": {
+      getDefaultData: {
+        type: "js-eval",
+        expr: "\"Open AI\"",
+        pure: true,
+        dataAlias: "value",
+        ref: 7
+      },
+
       comp: "text-field",
       label: "Display Name"
     },
 
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/enabled": {
+    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/enabled": {
       comp: "checkbox",
       label: "Enabled",
       defaultData: true,
@@ -2492,228 +1837,20 @@ const compiledLayout = {
       }
     },
 
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai": {
-      comp: "section",
-
-      children: [{
-        key: "apiKey"
-      }, {
-        key: "organization"
-      }, {
-        key: "project"
-      }, {
-        key: "defaultModel"
-      }],
-
-      title: "OpenAI Configuration"
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai/properties/apiKey": {
+    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/apiKey": {
       comp: "text-field",
       label: "API Key"
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai/properties/organization": {
-      comp: "text-field",
-      label: "Organization ID"
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai/properties/project": {
-      comp: "text-field",
-      label: "Project ID"
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openai/properties/defaultModel": {
-      comp: "text-field",
-      label: "Default Model"
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/anthropic": {
-      comp: "section",
-
-      children: [{
-        key: "apiKey"
-      }, {
-        key: "defaultModel"
-      }],
-
-      title: "Anthropic Configuration"
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/anthropic/properties/apiKey": {
-      comp: "text-field",
-      label: "API Key"
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/anthropic/properties/defaultModel": {
-      comp: "text-field",
-      label: "Default Model"
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google": {
-      comp: "section",
-
-      children: [{
-        key: "apiKey"
-      }, {
-        key: "project"
-      }, {
-        key: "location"
-      }, {
-        key: "defaultModel"
-      }],
-
-      title: "Google AI Configuration"
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google/properties/apiKey": {
-      comp: "text-field",
-      label: "API Key"
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google/properties/project": {
-      comp: "text-field",
-      label: "Project ID"
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google/properties/location": {
-      comp: "text-field",
-      label: "Location",
-      defaultData: "us-central1",
-
-      getDefaultData: {
-        type: "js-eval",
-        expr: "layout.defaultData",
-        pure: true,
-        dataAlias: "value",
-        ref: 0
-      }
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/google/properties/defaultModel": {
-      comp: "text-field",
-      label: "Default Model"
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/mistral": {
-      comp: "section",
-
-      children: [{
-        key: "apiKey"
-      }, {
-        key: "defaultModel"
-      }],
-
-      title: "Mistral AI Configuration"
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/mistral/properties/apiKey": {
-      comp: "text-field",
-      label: "API Key"
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/mistral/properties/defaultModel": {
-      comp: "text-field",
-      label: "Default Model"
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openrouter": {
-      comp: "section",
-
-      children: [{
-        key: "apiKey"
-      }, {
-        key: "defaultModel"
-      }],
-
-      title: "OpenRouter Configuration"
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openrouter/properties/apiKey": {
-      comp: "text-field",
-      label: "API Key"
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/openrouter/properties/defaultModel": {
-      comp: "text-field",
-      label: "Default Model"
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/ollama": {
-      comp: "section",
-
-      children: [{
-        key: "baseURL"
-      }, {
-        key: "defaultModel"
-      }],
-
-      title: "Ollama Configuration"
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/ollama/properties/baseURL": {
-      comp: "text-field",
-      label: "Base URL",
-      defaultData: "http://localhost:11434",
-
-      getDefaultData: {
-        type: "js-eval",
-        expr: "layout.defaultData",
-        pure: true,
-        dataAlias: "value",
-        ref: 0
-      }
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/ollama/properties/defaultModel": {
-      comp: "text-field",
-      label: "Default Model"
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom": {
-      comp: "section",
-
-      children: [{
-        key: "name"
-      }, {
-        key: "baseURL"
-      }, {
-        key: "apiKey"
-      }, {
-        key: "defaultModel"
-      }],
-
-      title: "Custom Provider"
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/properties/name": {
-      comp: "text-field",
-      label: "Provider Name"
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/properties/baseURL": {
-      comp: "text-field",
-      label: "Base URL"
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/properties/apiKey": {
-      comp: "text-field",
-      label: "API Key"
-    },
-
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items/properties/custom/properties/defaultModel": {
-      comp: "text-field",
-      label: "Default Model"
     }
   },
 
   validates: {
-    "https://github.com/data-fair/agents/settings/put-req#/properties/providers/items": validate22,
-    "https://github.com/data-fair/agents/settings/put-req#": validate24
+    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0": validate22,
+    "https://github.com/data-fair/agents/settings-put#/properties/providers/items": validate24,
+    "https://github.com/data-fair/agents/settings-put#": validate25
   },
 
   validationErrors: {},
-  expressions: [expression0, expression1],
+  expressions: [expression0, expression1, expression2, expression3, expression4, expression5, expression6, expression7],
   locale: "en",
 
   messages: {
@@ -3178,11 +2315,15 @@ const nodeComponents = {
   
   "section": sectionNode,
   
+  "date-time-picker": datetimepickerNode,
+  
+  "select": selectNode,
+  
   "text-field": textfieldNode,
   
   "list": listNode,
   
-  "select": selectNode,
+  "one-of-select": oneofselectNode,
   
   "checkbox": checkboxNode,
     

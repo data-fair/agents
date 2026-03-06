@@ -12,7 +12,7 @@
       <v-col>
         <v-form v-model="valid">
           <vjsf-put-req
-            v-model="editSettings"
+            v-model="settingsEditFetch.data.value"
             :options="vjsfOptions"
             :locale="locale"
           />
@@ -29,6 +29,7 @@
           <v-btn
             width="100%"
             color="accent"
+            :disabled="!valid"
             :loading="settingsEditFetch.save.loading.value"
             @click="settingsEditFetch.save.execute()"
           >
@@ -56,14 +57,9 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSessionAuthenticated } from '@data-fair/lib-vue/session.js'
 import { useEditFetch } from '@data-fair/lib-vue/edit-fetch.js'
-import { watchDeepDiff } from '@data-fair/lib-vue/deep-diff.js'
 import type { Settings } from '#api/types'
 import DfNavigationRight from '@data-fair/lib-vuetify/navigation-right.vue'
-
-interface SettingsPut {
-  globalPrompt?: string
-  providers: Settings['providers']
-}
+import type { VjsfOptions } from '@koumoul/vjsf/types.js'
 
 const { t, locale } = useI18n()
 const session = useSessionAuthenticated()
@@ -71,7 +67,6 @@ const session = useSessionAuthenticated()
 const settingsEditFetch = useEditFetch<Settings>(
   () => `${$apiPath}/settings/${session.account.value.type}/${session.account.value.id}`,
   {
-    patch: true,
     saveOptions: {
       success: t('saved')
     }
@@ -79,26 +74,13 @@ const settingsEditFetch = useEditFetch<Settings>(
 )
 
 const valid = ref(true)
-const editSettings = ref<SettingsPut>()
-watchDeepDiff(() => settingsEditFetch.data.value, () => {
-  if (settingsEditFetch.data.value) {
-    editSettings.value = {
-      globalPrompt: settingsEditFetch.data.value.globalPrompt,
-      providers: settingsEditFetch.data.value.providers
-    }
-  }
-}, { immediate: true })
-watchDeepDiff(() => editSettings.value, () => {
-  if (valid.value && editSettings.value && settingsEditFetch.data.value) {
-    settingsEditFetch.data.value.globalPrompt = editSettings.value.globalPrompt
-    settingsEditFetch.data.value.providers = editSettings.value.providers
-  }
-}, {})
 
-const vjsfOptions = {
+const vjsfOptions: Partial<VjsfOptions> = {
   validateOn: 'input',
   updateOn: 'blur',
-  density: 'comfortable'
+  density: 'comfortable',
+  readOnlyPropertiesMode: 'hide',
+  initialValidation: 'always'
 }
 
 </script>
