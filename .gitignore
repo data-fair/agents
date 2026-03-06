@@ -9,3 +9,4 @@ shared/node_modules/
 coverage/
 .nyc_output/
 *.db
+.type/

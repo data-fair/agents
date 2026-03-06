@@ -20,10 +20,10 @@
   },
   {
     "id": "superadmin",
-    "email": "admin@test.com",
+    "email": "superadmin@test.com",
     "isAdmin": true,
     "password": {
-      "clear": "TestPasswd01"
+      "clear": "superpasswd"
     }
   }
 ]

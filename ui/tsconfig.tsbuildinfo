@@ -1,0 +1,1 @@
+{"root":["./dts/auto-imports.d.ts","./dts/typed-router.d.ts","./src/context.ts","./src/main.ts","./src/vite-env.d.ts","./src/App.vue","./src/pages/index.vue","./src/pages/settings.vue"],"errors":true,"version":"5.6.3"}

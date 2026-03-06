@@ -3,25 +3,14 @@ import SettingsSchema from '#types/settings/schema.js'
 
 const body = jsonSchema(SettingsSchema)
   .removeReadonlyProperties()
-  .pickProperties(['globalPrompt', 'providers'])
   .removeId()
   .appendTitle(' put')
   .schema
 
 export default {
+  ...body,
   $id: 'https://github.com/data-fair/agents/settings/put-req',
-  title: 'Put settings req',
-  'x-exports': ['validate', 'types', 'resolvedSchemaJson', 'vjsf'],
-  type: 'object',
-  required: ['body', 'query'],
-  properties: {
-    body,
-    query: {
-      type: 'object',
-      additionalProperties: false,
-      properties: {}
-    }
-  },
+  'x-exports': ['validate', 'types', 'vjsf'],
   'x-vjsf': { xI18n: true },
-  'x-vjsf-locales': ['en', 'fr', 'it', 'de', 'pt', 'es']
+  'x-vjsf-locales': ['en', 'fr']
 }

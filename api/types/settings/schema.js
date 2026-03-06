@@ -6,21 +6,21 @@ export default {
   additionalProperties: false,
   required: ['owner', 'providers'],
   properties: {
-    _id: {
-      type: 'string'
-    },
     createdAt: {
       type: 'string',
-      format: 'date-time'
+      format: 'date-time',
+      readOnly: true,
     },
     updatedAt: {
       type: 'string',
-      format: 'date-time'
+      format: 'date-time',
+      readOnly: true,
     },
     owner: {
       type: 'object',
       additionalProperties: false,
       required: ['type', 'id'],
+      readOnly: true,
       properties: {
         type: {
           type: 'string',

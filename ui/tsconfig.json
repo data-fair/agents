@@ -21,6 +21,8 @@
     "noFallthroughCasesInSwitch": true,
 
     "paths": {
+      "#api/types": ["../api/types/index.ts"],
+      "#api-doc/*": ["../api/doc/*"],
       "~/*": ["./src/*"]
     },
 
@@ -32,6 +34,5 @@
     "src/**/*.ts",
     "src/**/*.tsx",
     "src/**/*.vue"
-  ],
-  "types": ["vuetify"]
+  ]
 }

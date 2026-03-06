@@ -1,4 +1,11 @@
 <template>
+  <v-app-bar density="comfortable">
+    <v-spacer />
+    <v-btn to="/settings">
+      settings
+    </v-btn>
+    <personal-menu dark-mode-switch />
+  </v-app-bar>
   <v-container class="fill-height">
     <v-row
       align="center"
@@ -9,12 +16,9 @@
         sm="8"
         md="6"
       >
-        <v-card
-          class="pa-8"
-          elevation="4"
-        >
+        <v-card class="pt-8 pb-4 px-8">
           <v-card-title class="text-h4 text-center mb-4">
-            Welcome to Agents
+            Welcome to @data-fair/agents
           </v-card-title>
           <v-card-text class="text-center text-body-1">
             <p class="mb-4">
@@ -24,20 +28,12 @@
               Manage AI providers and configure agents using tools that integrate with other data-fair services.
             </p>
           </v-card-text>
-          <v-card-actions class="justify-center mt-4">
-            <v-btn
-              color="primary"
-              variant="elevated"
-              disabled
-            >
-              Coming Soon
-            </v-btn>
-          </v-card-actions>
         </v-card>
       </v-col>
     </v-row>
   </v-container>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
+import personalMenu from '@data-fair/lib-vuetify/personal-menu.vue'
 </script>

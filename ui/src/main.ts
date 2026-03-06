@@ -1,53 +1,50 @@
 import { createApp } from 'vue'
 import { createRouter, createWebHistory } from 'vue-router'
+import { routes } from 'vue-router/auto-routes'
 import { createVuetify } from 'vuetify'
-import * as components from 'vuetify/components'
-import * as directives from 'vuetify/directives'
-import 'vuetify/styles'
-import '@mdi/font/css/materialdesignicons.css'
-
+import { aliases, mdi } from 'vuetify/iconsets/mdi-svg'
+import { vuetifySessionOptions } from '@data-fair/lib-vuetify'
+import '@data-fair/lib-vuetify/style/global.scss'
+import 'vuetify/lib/components/VTable/VTable.css' // Ensure VTable styles are included, as the component is used in markdown rendering
+import { createVueRouterDFrameContent } from '@data-fair/frame/lib/vue-router/d-frame-content.js'
+import { createReactiveSearchParams } from '@data-fair/lib-vue/reactive-search-params.js'
+import { createLocaleDayjs } from '@data-fair/lib-vue/locale-dayjs.js'
+import { createSession } from '@data-fair/lib-vue/session.js'
+import { createUiNotif } from '@data-fair/lib-vue/ui-notif.js'
+import { createHead } from '@unhead/vue/client'
+import { createI18n } from 'vue-i18n'
 import App from './App.vue'
 
-const routes = [
-  {
-    path: '/',
-    name: 'home',
-    component: () => import('./pages/HomePage.vue')
-  },
-  {
-    path: '/settings',
-    name: 'settings',
-    component: () => import('./pages/SettingsPage.vue')
-  }
-]
+(async function () {
+  const router = createRouter({ history: createWebHistory($sitePath + '/agents/'), routes })
+  const dFrameContent = createVueRouterDFrameContent(router)
+  const reactiveSearchParams = createReactiveSearchParams(router)
+  const session = await createSession({ directoryUrl: $sitePath + '/simple-directory' })
+  const localeDayjs = createLocaleDayjs(session.state.lang)
+  const uiNotif = createUiNotif()
+  const vuetify = createVuetify({
+    ...vuetifySessionOptions(session, $cspNonce),
+    icons: { defaultSet: 'mdi', aliases, sets: { mdi } }
+  })
+  vuetify.defaults.value!.VColorPicker = { mode: 'hex', modes: ['hex', 'rgb', 'hsl'] }
+  vuetify.defaults.value!['VjsfVerticalTabs-VSheet'] = { border: false, color: 'background' }
+  vuetify.defaults.value!['VjsfTabs-VSheet'] = { rounded: true, color: 'background' }
 
-const router = createRouter({
-  history: createWebHistory(),
-  routes
-})
+  const i18n = createI18n({ locale: session.state.lang })
+  const head = createHead()
 
-const vuetify = createVuetify({
-  components,
-  directives,
-  theme: {
-    defaultTheme: 'light',
-    themes: {
-      light: {
-        colors: {
-          primary: '#1976D2',
-          secondary: '#424242',
-          accent: '#82B1FF',
-          error: '#FF5252',
-          info: '#2196F3',
-          success: '#4CAF50',
-          warning: '#FFC107'
-        }
-      }
-    }
-  }
-})
+  const app = createApp(App)
+    .use(router)
+    .use(dFrameContent)
+    .use(reactiveSearchParams)
+    .use(session)
+    .use(localeDayjs)
+    .use(uiNotif)
+    .use(vuetify)
+    .use(i18n)
+    .use(head)
 
-const app = createApp(App)
-app.use(router)
-app.use(vuetify)
-app.mount('#app')
+  await router.isReady()
+
+  app.mount('#app')
+})()

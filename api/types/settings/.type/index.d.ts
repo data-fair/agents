@@ -33,7 +33,6 @@ export type DefaultModel6 = string;
 export type AIProviders = Provider[];
 
 export type Settings = {
-  _id?: string;
   createdAt?: string;
   updatedAt?: string;
   owner: {

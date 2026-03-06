@@ -21,10 +21,6 @@
         return 302 /agents/;
       }
 
-      location = /agents/ {
-        return 302 /agents;
-      }
-
       location /agents/api {
         proxy_pass http://localhost:${DEV_API_PORT};
       }

@@ -1,9 +1,9 @@
 
 export const schemaExports: string[]
 
-export declare function validate(data: any): data is PutSettingsReq
-export declare function assertValid(data: any, options?: import('@data-fair/lib-validation').AssertValidOptions): asserts data is PutSettingsReq
-export declare function returnValid(data: any, options?: import('@data-fair/lib-validation').AssertValidOptions): PutSettingsReq
+export declare function validate(data: any): data is SettingsPut
+export declare function assertValid(data: any, options?: import('@data-fair/lib-validation').AssertValidOptions): asserts data is SettingsPut
+export declare function returnValid(data: any, options?: import('@data-fair/lib-validation').AssertValidOptions): SettingsPut
       
 // see https://github.com/bcherny/json-schema-to-typescript/issues/439 if some types are not exported
 /**
@@ -36,11 +36,6 @@ export type APIKey5 = string;
 export type DefaultModel6 = string;
 export type AIProviders = Provider[];
 
-export type PutSettingsReq = {
-  body: SettingsPut;
-  query: {};
-  [k: string]: unknown;
-}
 export type SettingsPut = {
   globalPrompt?: GlobalPrompt;
   providers: AIProviders;

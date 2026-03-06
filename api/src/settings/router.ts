@@ -13,7 +13,7 @@ router.get('/:type/:id', async (req, res, next) => {
   const settings = await getSettingsByOwner(session, type, id)
 
   if (!settings) {
-    res.status(404).json({ message: 'settings not found' })
+    res.json({ owner: { type, id }, globalPrompt: '', providers: [] })
     return
   }
 
@@ -23,7 +23,7 @@ router.get('/:type/:id', async (req, res, next) => {
 router.put('/:type/:id', async (req, res, next) => {
   const session = reqSessionAuthenticated(req)
   const { type, id } = req.params
-  const { body } = putReqBody.returnValid(req.body, { name: 'body' })
+  const body = putReqBody.returnValid(req.body, { name: 'body' })
 
   const settings = await putSettings(session, type, id, body)
   res.json(settings)

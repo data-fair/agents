@@ -1,14 +1,28 @@
 layout {
-    pane size=1 borderless=true {
-        plugin location="zellij:status-bar"
+    pane {
+      split_direction "vertical"
+      pane name="agents" borderless=true {
+        command "bash"
+        args "-ic" "nvm use > /dev/null 2>&1 && bash"
+      }
+      pane name="deps" {
+        command "bash"
+        args "-ic" "npm run dev-deps && watch -n 4 \"docker compose ps --all --format 'table {{.Name}}\t{{.Status}}'\""
+      }
     }
     pane {
-        command "npm"
-        args "run" "dev-api"
-        focus=true
+      split_direction "vertical"
+      pane name="ui" {
+        command "bash"
+        args "-ic" "nvm use > /dev/null 2>&1 && npm -w ui run dev"
+      }
+      pane name="api" {
+        command "bash"
+        args "-ic" "nvm use > /dev/null 2>&1 && npm -w api run dev"
+      }
     }
-    pane {
-        command "npm"
-        args "run" "dev-ui"
+    pane size=2 borderless=true {
+        command "bash"
+        args "-ic" "echo -n -e \"Dev server available at \\e[1;96mhttp://localhost:$NGINX_PORT\\033[0m\""
     }
 }
