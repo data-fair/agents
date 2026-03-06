@@ -7,6 +7,7 @@ export type ApiConfig = {
   port: number;
   tmpDir: string;
   privateDirectoryUrl: string;
+  privateDataFairUrl: string;
   privateEventsUrl?: string;
   secretKeys: {
     admin: string;

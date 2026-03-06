@@ -12,6 +12,7 @@
   "additionalProperties": false,
   "required": [
     "privateDirectoryUrl",
+    "privateDataFairUrl",
     "mongoUrl",
     "port",
     "tmpDir",
@@ -30,6 +31,10 @@
       "type": "string"
     },
     "privateDirectoryUrl": {
+      "type": "string",
+      "pattern": "^https?://"
+    },
+    "privateDataFairUrl": {
       "type": "string",
       "pattern": "^https?://"
     },

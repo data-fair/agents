@@ -5,6 +5,7 @@ import helmet from 'helmet'
 import { uiConfig } from './ui-config.ts'
 import settingsRouter from './settings/router.ts'
 import modelsRouter from './models/router.ts'
+import mcpRouter from './mcp/router.ts'
 
 export const app = express()
 
@@ -27,12 +28,9 @@ app.use(session.middleware())
 
 app.use(express.json())
 
-app.get('/api/ping', async (req, res) => {
-  res.send('ok')
-})
-
 app.use('/api/settings', settingsRouter)
 app.use('/api/models', modelsRouter)
+app.use('/api/mcp', mcpRouter)
 
 app.use('/api', (req, res) => res.status(404).send('unknown api endpoint'))
 
