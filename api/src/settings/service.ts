@@ -39,7 +39,9 @@ function obfuscateProviderApiKeys (providers: AIProviders): AIProviders {
 }
 
 export const getRawSettings = async (owner: AccountKeys): Promise<Settings | null> => {
-  return mongo.settings.findOne({ 'owner.type': owner.type, 'owner.id': owner.id }, { projection: { _id: 0 } })
+  const settings = await mongo.settings.findOne({ 'owner.type': owner.type, 'owner.id': owner.id }, { projection: { _id: 0 } })
+  if (!settings) return null
+  return { ...settings, providers: decryptProviderApiKeys(settings.providers) }
 }
 
 export const getSettings = async (owner: AccountKeys): Promise<Settings | null> => {

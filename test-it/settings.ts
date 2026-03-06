@@ -25,7 +25,6 @@ describe('settings', () => {
 
   it('should create and get settings', async () => {
     const settingsData = {
-      globalPrompt: 'You are a helpful assistant.',
       providers: [
         {
           id: 'provider-1',
@@ -37,43 +36,31 @@ describe('settings', () => {
             defaultModel: 'gpt-4o'
           }
         }
-      ]
+      ],
+      agents: {}
     }
 
-    const createRes = await user.put(`/api/settings/${testAccount.type}/${testAccount.id}`, {
-      body: settingsData,
-      query: {}
-    })
+    const createRes = await user.put(`/api/settings/${testAccount.type}/${testAccount.id}`, settingsData)
     assert.equal(createRes.status, 200)
     assert.equal(createRes.data.owner.type, 'user')
     assert.equal(createRes.data.owner.id, 'albanm')
-    assert.equal(createRes.data.globalPrompt, 'You are a helpful assistant.')
     assert.equal(createRes.data.providers.length, 1)
     assert.equal(createRes.data.providers[0].type, 'openai')
     assert.equal(createRes.data.providers[0].openai.apiKey, 'sk-test-key-123')
 
     const getRes = await user.get(`/api/settings/${testAccount.type}/${testAccount.id}`)
     assert.equal(getRes.status, 200)
-    assert.equal(getRes.data.globalPrompt, 'You are a helpful assistant.')
   })
 
   it('should update settings', async () => {
     const settingsData = {
-      globalPrompt: 'You are a helpful assistant.',
+      agents: { dataFairAssistant: { prompt: 'You are a helpful assistant.' } },
       providers: []
     }
 
-    await user.put(`/api/settings/${testAccount.type}/${testAccount.id}`, {
-      body: settingsData,
-      query: {}
-    })
-
-    const updateRes = await user.put(`/api/settings/${testAccount.type}/${testAccount.id}`, {
-      body: { globalPrompt: 'You are a coding assistant.', providers: [] },
-      query: {}
-    })
+    const updateRes = await user.put(`/api/settings/${testAccount.type}/${testAccount.id}`, settingsData)
     assert.equal(updateRes.status, 200)
-    assert.equal(updateRes.data.globalPrompt, 'You are a coding assistant.')
+    assert.equal(updateRes.data.agents.dataFairAssistant.prompt, 'You are a helpful assistant.')
   })
 
   it('should list models from OpenAI API with mock', async () => {
@@ -89,30 +76,25 @@ describe('settings', () => {
       })
 
     const settingsData = {
-      globalPrompt: 'Test',
       providers: [
         {
           id: 'openai-test',
           type: 'openai',
           name: 'OpenAI',
           enabled: true,
-          openai: {
-            apiKey: 'sk-test-mock-key-123'
-          }
+          apiKey: 'sk-test-mock-key-123'
         }
-      ]
+      ],
+      agents: {}
     }
 
-    await user.put(`/api/settings/${testAccount.type}/${testAccount.id}`, {
-      body: settingsData,
-      query: {}
-    })
+    await user.put(`/api/settings/${testAccount.type}/${testAccount.id}`, settingsData)
 
     const res = await user.get(`/api/models/${testAccount.type}/${testAccount.id}`)
     assert.equal(res.status, 200)
     assert.ok(Array.isArray(res.data.results))
 
-    const openaiModels = res.data.results.filter((m: any) => m.providerType === 'openai')
+    const openaiModels = res.data.results.filter((m: any) => m.provider.type === 'openai')
     assert.equal(openaiModels.length, 3)
     assert.equal(openaiModels[0].id, 'gpt-4o')
     assert.equal(openaiModels[1].id, 'gpt-4o-mini')
