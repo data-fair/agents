@@ -108,7 +108,7 @@ describe('settings', () => {
       query: {}
     })
 
-    const res = await user.get('/api/models')
+    const res = await user.get(`/api/models/${testAccount.type}/${testAccount.id}`)
     assert.equal(res.status, 200)
     assert.ok(Array.isArray(res.data.results))
 

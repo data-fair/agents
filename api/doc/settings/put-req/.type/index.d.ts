@@ -39,6 +39,15 @@ export type Enabled5 = boolean;
 export type APIKey5 = string;
 export type BaseURL = string;
 export type AIProviders = Provider[];
+export type Name = string;
+/**
+ * In this prompt you can instruct your assistant to behave in certain ways.
+ */
+export type MainPrompt = string;
+/**
+ * TODO: provide a list of models well-suited for this agent.
+ */
+export type ModeleIA = string;
 
 export type SettingsPut = {
   createdAt?: string;
@@ -50,6 +59,7 @@ export type SettingsPut = {
     department?: string;
   };
   providers: AIProviders;
+  agents: Agents;
 }
 export type OpenAI = {
   type: ProviderType;
@@ -97,7 +107,16 @@ export type Ollama = {
   name: DisplayName5;
   enabled: Enabled5;
   apiKey?: APIKey5;
-  baseURL?: BaseURL;
+  baseURL: BaseURL;
+  [k: string]: unknown;
+}
+export type Agents = {
+  backOfficeAssistant?: {
+    name: Name;
+    prompt: MainPrompt;
+    model: ModeleIA;
+    [k: string]: unknown;
+  };
   [k: string]: unknown;
 }
 

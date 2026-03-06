@@ -57,7 +57,7 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSessionAuthenticated } from '@data-fair/lib-vue/session.js'
 import { useEditFetch } from '@data-fair/lib-vue/edit-fetch.js'
-import type { Settings } from '#api/types'
+import type { Settings, ModelInfo } from '#api/types'
 import DfNavigationRight from '@data-fair/lib-vuetify/navigation-right.vue'
 import type { VjsfOptions } from '@koumoul/vjsf/types.js'
 
@@ -73,14 +73,22 @@ const settingsEditFetch = useEditFetch<Settings>(
   }
 )
 
+const modelsFetch = useFetch<{ results: ModelInfo[] }>(() => `${$apiPath}/models/${session.account.value.type}/${session.account.value.id}`)
+
+watchDeepDiff(() => settingsEditFetch.serverData.value?.providers, () => {
+  if (!settingsEditFetch.serverData.value?.providers) return
+  modelsFetch.refresh()
+})
+
 const valid = ref(true)
 
-const vjsfOptions: Partial<VjsfOptions> = {
+const vjsfOptions = computed<Partial<VjsfOptions>>(() => ({
   validateOn: 'input',
   updateOn: 'blur',
   density: 'comfortable',
   readOnlyPropertiesMode: 'hide',
-  initialValidation: 'always'
-}
+  initialValidation: 'always',
+  context: { models: modelsFetch.data.value?.results ?? [] }
+}))
 
 </script>

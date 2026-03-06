@@ -1,29 +1,17 @@
 import { Router } from 'express'
-import { reqSessionAuthenticated } from '@data-fair/lib-express'
-import { getSettingsByOwner } from '../settings/service.ts'
+import { type AccountKeys, assertAccountRole, reqSessionAuthenticated } from '@data-fair/lib-express'
+import { getRawSettings } from '../settings/service.ts'
 import { Ollama } from 'ollama'
 import memoize from 'memoizee'
 import axios from 'axios'
+import type { ModelInfo, Provider, Settings } from '#types'
 
 const router = Router()
 export default router
 
-interface ModelInfo {
-  id: string
-  name: string
-  provider: string
-  providerType: string
-}
+type CoreModelInfo = { id: string, name: string }
 
-interface ProviderConfig {
-  apiKey?: string
-  baseURL?: string
-  defaultModel?: string
-  name?: string
-  [key: string]: unknown
-}
-
-async function fetchOpenAIModels (apiKey: string): Promise<ModelInfo[]> {
+async function fetchOpenAIModels (apiKey: string): Promise<CoreModelInfo[]> {
   try {
     const response = await axios.get('https://api.openai.com/v1/models', {
       headers: { Authorization: `Bearer ${apiKey}` }
@@ -32,9 +20,7 @@ async function fetchOpenAIModels (apiKey: string): Promise<ModelInfo[]> {
       .filter((m: any) => !m.id.startsWith('gpt-') || m.id.includes('-'))
       .map((model: any) => ({
         id: model.id,
-        name: model.name || model.id,
-        provider: 'OpenAI',
-        providerType: 'openai'
+        name: model.name || model.id
       }))
   } catch (err) {
     console.error('Failed to fetch OpenAI models:', err)
@@ -42,7 +28,7 @@ async function fetchOpenAIModels (apiKey: string): Promise<ModelInfo[]> {
   }
 }
 
-async function fetchAnthropicModels (apiKey: string): Promise<ModelInfo[]> {
+async function fetchAnthropicModels (apiKey: string): Promise<CoreModelInfo[]> {
   try {
     const response = await axios.get('https://api.anthropic.com/v1/models', {
       headers: {
@@ -52,9 +38,7 @@ async function fetchAnthropicModels (apiKey: string): Promise<ModelInfo[]> {
     })
     return response.data.data.map((model: any) => ({
       id: model.id,
-      name: model.display_name || model.id,
-      provider: 'Anthropic',
-      providerType: 'anthropic'
+      name: model.display_name || model.id
     }))
   } catch (err) {
     console.error('Failed to fetch Anthropic models:', err)
@@ -62,16 +46,14 @@ async function fetchAnthropicModels (apiKey: string): Promise<ModelInfo[]> {
   }
 }
 
-async function fetchGoogleModels (apiKey: string): Promise<ModelInfo[]> {
+async function fetchGoogleModels (apiKey: string): Promise<CoreModelInfo[]> {
   try {
     const response = await axios.get(
       `https://generativelanguage.googleapis.com/v1/models?key=${apiKey}`
     )
     return response.data.models.map((model: any) => ({
       id: model.name.split('/').pop(),
-      name: model.displayName || model.name,
-      provider: 'Google',
-      providerType: 'google'
+      name: model.displayName || model.name
     }))
   } catch (err) {
     console.error('Failed to fetch Google models:', err)
@@ -79,16 +61,14 @@ async function fetchGoogleModels (apiKey: string): Promise<ModelInfo[]> {
   }
 }
 
-async function fetchMistralModels (apiKey: string): Promise<ModelInfo[]> {
+async function fetchMistralModels (apiKey: string): Promise<CoreModelInfo[]> {
   try {
     const response = await axios.get('https://api.mistral.ai/v1/models', {
       headers: { Authorization: `Bearer ${apiKey}` }
     })
     return response.data.data.map((model: any) => ({
       id: model.id,
-      name: model.id,
-      provider: 'Mistral',
-      providerType: 'mistral'
+      name: model.id
     }))
   } catch (err) {
     console.error('Failed to fetch Mistral models:', err)
@@ -96,16 +76,14 @@ async function fetchMistralModels (apiKey: string): Promise<ModelInfo[]> {
   }
 }
 
-async function fetchOpenRouterModels (apiKey: string): Promise<ModelInfo[]> {
+async function fetchOpenRouterModels (apiKey: string): Promise<CoreModelInfo[]> {
   try {
     const response = await axios.get('https://openrouter.ai/api/v1/models', {
       headers: { Authorization: `Bearer ${apiKey}` }
     })
     return response.data.data.map((model: any) => ({
       id: model.id,
-      name: model.name || model.id,
-      provider: 'OpenRouter',
-      providerType: 'openrouter'
+      name: model.name || model.id
     }))
   } catch (err) {
     console.error('Failed to fetch OpenRouter models:', err)
@@ -113,15 +91,13 @@ async function fetchOpenRouterModels (apiKey: string): Promise<ModelInfo[]> {
   }
 }
 
-async function fetchOllamaModels (baseURL: string): Promise<ModelInfo[]> {
+async function fetchOllamaModels (baseURL: string): Promise<CoreModelInfo[]> {
   try {
     const ollama = new Ollama({ host: baseURL })
     const models = await ollama.list()
     return models.models.map((model: any) => ({
       id: model.name,
-      name: model.name,
-      provider: 'Ollama',
-      providerType: 'ollama'
+      name: model.name
     }))
   } catch (err) {
     console.error('Failed to fetch Ollama models:', err)
@@ -130,50 +106,41 @@ async function fetchOllamaModels (baseURL: string): Promise<ModelInfo[]> {
 }
 
 async function fetchModelsForProvider (
-  providerType: string,
-  config: ProviderConfig
-): Promise<ModelInfo[]> {
-  if (providerType === 'ollama') {
-    const baseURL = config.baseURL || 'http://localhost:11434'
+  provider: Provider
+): Promise<CoreModelInfo[]> {
+  if (provider.type === 'ollama') {
+    const baseURL = provider.baseURL
     return fetchOllamaModels(baseURL)
   }
 
-  if (providerType === 'custom') {
+  if (!provider.apiKey) {
     return []
   }
 
-  if (!config.apiKey) {
-    return []
-  }
-
-  switch (providerType) {
+  switch (provider.type) {
     case 'openai':
-      return fetchOpenAIModels(config.apiKey)
+      return fetchOpenAIModels(provider.apiKey)
     case 'anthropic':
-      return fetchAnthropicModels(config.apiKey)
+      return fetchAnthropicModels(provider.apiKey)
     case 'google':
-      return fetchGoogleModels(config.apiKey)
+      return fetchGoogleModels(provider.apiKey)
     case 'mistral':
-      return fetchMistralModels(config.apiKey)
+      return fetchMistralModels(provider.apiKey)
     case 'openrouter':
-      return fetchOpenRouterModels(config.apiKey)
+      return fetchOpenRouterModels(provider.apiKey)
     default:
       return []
   }
 }
 
 const getModelsForOwner = memoize(
-  async (ownerType: string, ownerId: string, settings: any): Promise<ModelInfo[]> => {
+  async (ownerType: string, ownerId: string, settings: Settings): Promise<ModelInfo[]> => {
     const allModels: ModelInfo[] = []
 
     for (const provider of settings.providers) {
       if (!provider.enabled) continue
-
-      const config = provider[provider.type] as ProviderConfig | undefined
-      if (!config) continue
-
-      const models = await fetchModelsForProvider(provider.type, config)
-      allModels.push(...models)
+      const models = await fetchModelsForProvider(provider)
+      allModels.push(...models.map(m => ({ ...m, provider: { type: provider.type, name: provider.name, id: provider.id } })))
     }
 
     return allModels
@@ -187,18 +154,19 @@ const getModelsForOwner = memoize(
   }
 )
 
-router.get('', async (req, res, next) => {
+router.get('/:type/:id', async (req, res, next) => {
+  const owner = req.params as AccountKeys
   const session = reqSessionAuthenticated(req)
-  const account = session.account
+  assertAccountRole(session, owner, 'admin')
 
-  const settings = await getSettingsByOwner(session, account.type, account.id)
+  const settings = await getRawSettings(owner)
 
   if (!settings || !settings.providers || settings.providers.length === 0) {
     res.json({ results: [], count: 0 })
     return
   }
 
-  const allModels = await getModelsForOwner(account.type, account.id, settings)
+  const allModels = await getModelsForOwner(owner.type, owner.id, settings)
 
   res.json({ results: allModels, count: allModels.length })
 })

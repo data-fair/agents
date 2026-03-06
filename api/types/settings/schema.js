@@ -11,7 +11,7 @@ export default {
   },
   type: 'object',
   additionalProperties: false,
-  required: ['owner', 'providers'],
+  required: ['owner', 'providers', 'agents'],
   properties: {
     createdAt: {
       type: 'string',
@@ -53,7 +53,7 @@ export default {
       },
       layout: {
         // eslint-disable-next-line no-template-curly-in-string
-        itemTitle: '`${item.name || ""} - ${item.id.slice(0, 8)}`',
+        itemTitle: 'item ? `${item.name || ""} - ${item.id.slice(0, 8)}` : ""',
         listActions: ['add', 'edit', 'delete']
       },
       items: {
@@ -306,7 +306,7 @@ export default {
             }
           }
         }, {
-          required: ['type', 'name', 'id', 'enabled'],
+          required: ['type', 'name', 'id', 'enabled', 'baseURL'],
           title: 'Ollama',
           properties: {
             type: {
@@ -362,6 +362,46 @@ export default {
             }
           }
         }]
+      }
+    },
+    agents: {
+      type: 'object',
+      title: 'Agents',
+      properties: {
+        backOfficeAssistant: {
+          type: 'object',
+          required: ['name', 'prompt', 'model'],
+          properties: {
+            name: {
+              type: 'string',
+              title: 'Name',
+              default: 'Data Fair Assistant',
+              'x-i18n-default': {
+                fr: 'Assistant Data Fair',
+                en: 'Data Fair Assistance'
+              }
+            },
+            prompt: {
+              type: 'string',
+              title: 'Main prompt',
+              layout: 'markdown',
+              description: 'In this prompt you can instruct your assistant to behave in certain ways.'
+            },
+            model: {
+              type: 'string',
+              title: 'Modèle IA',
+              description: 'TODO: provide a list of models well-suited for this agent.',
+              layout: {
+                comp: 'autocomplete',
+                getItems: {
+                  expr: 'context.models',
+                  // eslint-disable-next-line no-template-curly-in-string
+                  itemTitle: '`${item.name} (${item.provider.name} - ${item.provider.id.slice(0, 8)})`'
+                },
+              }
+            }
+          }
+        }
       }
     }
   }
