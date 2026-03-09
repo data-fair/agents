@@ -4,7 +4,7 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "dev": "NODE_ENV=development node --watch index.ts"
+    "dev": "mkdir -p ../dev/logs && NODE_ENV=development nodemon --exec \"node\" index.ts 2>&1 | ts '[%Y-%m-%d %H:%M:%S]' | tee ../dev/logs/dev-api.log"
   },
   "imports": {
     "#config": "./src/config.ts",

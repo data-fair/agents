@@ -1,26 +1,14 @@
 import { strict as assert } from 'node:assert'
-import { it, describe, before, beforeEach, after } from 'node:test'
+import { it, describe, beforeEach } from 'node:test'
 import 'dotenv/config'
 import nock from 'nock'
-import { startApiServer, stopApiServer, axiosAuth, clean } from './utils/index.ts'
+import { axiosAuth, clean } from './utils/index.ts'
 
-const user = await axiosAuth('alban.mouton@koumoul.com')
-
-const testAccount = {
-  type: 'user' as const,
-  id: 'albanm',
-  name: 'Test User'
-}
+const user = await axiosAuth('test-standalone1@test.com')
 
 describe('settings', () => {
-  before(async () => {
-    await startApiServer()
-  })
   beforeEach(async () => {
     await clean()
-  })
-  after(async () => {
-    await stopApiServer()
   })
 
   it('should create and get settings', async () => {
@@ -40,15 +28,15 @@ describe('settings', () => {
       agents: {}
     }
 
-    const createRes = await user.put(`/api/settings/${testAccount.type}/${testAccount.id}`, settingsData)
+    const createRes = await user.put('/api/settings/user/test-standalone1', settingsData)
     assert.equal(createRes.status, 200)
     assert.equal(createRes.data.owner.type, 'user')
-    assert.equal(createRes.data.owner.id, 'albanm')
+    assert.equal(createRes.data.owner.id, 'test-standalone1')
     assert.equal(createRes.data.providers.length, 1)
     assert.equal(createRes.data.providers[0].type, 'openai')
     assert.equal(createRes.data.providers[0].openai.apiKey, 'sk-test-key-123')
 
-    const getRes = await user.get(`/api/settings/${testAccount.type}/${testAccount.id}`)
+    const getRes = await user.get('/api/settings/user/test-standalone1')
     assert.equal(getRes.status, 200)
   })
 
@@ -58,7 +46,7 @@ describe('settings', () => {
       providers: []
     }
 
-    const updateRes = await user.put(`/api/settings/${testAccount.type}/${testAccount.id}`, settingsData)
+    const updateRes = await user.put('/api/settings/user/test-standalone1', settingsData)
     assert.equal(updateRes.status, 200)
     assert.equal(updateRes.data.agents.dataFairAssistant.prompt, 'You are a helpful assistant.')
   })
@@ -88,9 +76,9 @@ describe('settings', () => {
       agents: {}
     }
 
-    await user.put(`/api/settings/${testAccount.type}/${testAccount.id}`, settingsData)
+    await user.put('/api/settings/user/test-standalone1', settingsData)
 
-    const res = await user.get(`/api/models/${testAccount.type}/${testAccount.id}`)
+    const res = await user.get('/api/models/user/test-standalone1')
     assert.equal(res.status, 200)
     assert.ok(Array.isArray(res.data.results))
 

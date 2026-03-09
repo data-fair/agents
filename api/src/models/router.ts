@@ -133,7 +133,7 @@ async function fetchModelsForProvider (
   }
 }
 
-const getModelsForOwner = memoize(
+export const getModelsForOwner = memoize(
   async (ownerType: string, ownerId: string, settings: Settings): Promise<ModelInfo[]> => {
     const allModels: ModelInfo[] = []
 
@@ -160,6 +160,7 @@ router.get('/:type/:id', async (req, res, next) => {
   assertAccountRole(session, owner, 'admin')
 
   const settings = await getRawSettings(owner)
+  console.log('settings', settings)
 
   if (!settings || !settings.providers || settings.providers.length === 0) {
     res.json({ results: [], count: 0 })

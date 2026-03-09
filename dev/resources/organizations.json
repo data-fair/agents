@@ -1,7 +1,7 @@
 [
   {
-    "id": "test-org",
-    "name": "Test Organization",
+    "id": "dev-org",
+    "name": "Dev Organization",
     "members": [
       {
         "id": "dmeadus0",
@@ -10,6 +10,24 @@
       {
         "id": "albanm",
         "role": "admin"
+      }
+    ]
+  },
+  {
+    "id": "test1",
+    "name": "Test Organization 1",
+    "members": [
+      {
+        "id": "test1-admin1",
+        "role": "admin"
+      },
+      {
+        "id": "test1-contrib1",
+        "role": "contrib"
+      },
+      {
+        "id": "test1-user1",
+        "role": "user1"
       }
     ]
   }
