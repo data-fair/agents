@@ -1,15 +1,16 @@
 import { tool } from 'ai'
 import { z } from 'zod'
-import { createAxios } from './axios.ts'
+import { createPrivateAxios } from '../axios.ts'
 import type { AxiosInstance } from 'axios'
+import type { ToolModule } from '../types.ts'
 
-export const description = 'Full-text search for datasets in DataFair. Uses French keywords to search across dataset titles, descriptions, and metadata. Returns a preview of datasets with their essential metadata: ID, title, description, and link to the dataset page that must be included in responses. Then use describe_dataset to get detailed metadata.'
+const description = 'Full-text search for datasets in DataFair. Uses French keywords to search across dataset titles, descriptions, and metadata. Returns a preview of datasets with their essential metadata: ID, title, description, and link to the dataset page that must be included in responses. Then use describe_dataset to get detailed metadata.'
 
-export const inputSchema = z.object({
+const inputSchema = z.object({
   query: z.string().min(3, 'Search term must be at least 3 characters long').describe('French keywords for full-text search (simple keywords, not sentences). Examples: "élus", "DPE", "entreprises", "logement social"')
 })
 
-export const outputSchema = z.object({
+const outputSchema = z.object({
   count: z.number().describe('Number of datasets matching the full-text search criteria'),
   datasets: z.array(
     z.object({
@@ -21,8 +22,7 @@ export const outputSchema = z.object({
   ).describe('An array of the top 20 datasets matching the full-text search criteria.')
 })
 
-export const execute = async (params: z.infer<typeof inputSchema>, axios: AxiosInstance): Promise<z.infer<typeof outputSchema>> => {
-  // Fetch datasets matching the search criteria - optimized for discovery
+const execute = async (params: z.infer<typeof inputSchema>, axios: AxiosInstance): Promise<z.infer<typeof outputSchema>> => {
   const fetchedData = (await axios.get(
     '/catalog/datasets',
     { params: { q: params.query, size: 20, select: 'id,title,summary' } }
@@ -44,8 +44,8 @@ export const execute = async (params: z.infer<typeof inputSchema>, axios: AxiosI
   }
 }
 
-export const createTool = (dataFairUrl: string, cookies?: string) => {
-  const axios = createAxios(dataFairUrl, cookies)
+const createTool = (dataFairUrl: string, cookies?: string) => {
+  const axios = createPrivateAxios(dataFairUrl, cookies)
   return tool({
     description,
     inputSchema,
@@ -54,3 +54,13 @@ export const createTool = (dataFairUrl: string, cookies?: string) => {
     execute: async (params) => execute(params, axios)
   })
 }
+
+const toolModule: ToolModule = {
+  description,
+  inputSchema,
+  outputSchema,
+  execute,
+  createTool
+}
+
+export default toolModule

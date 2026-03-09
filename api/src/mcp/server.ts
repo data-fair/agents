@@ -1,22 +1,16 @@
 import config from '#config'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import * as searchDatasets from '../tools/datasets/search-datasets.ts'
-import * as describeDatasets from '../tools/datasets/describe-dataset.ts'
-import * as searchData from '../tools/datasets/search-data.ts'
-import * as aggregateData from '../tools/datasets/aggregate-data.ts'
-import { createAxios } from '../tools/datasets/axios.ts'
+import { searchDatasets, describeDataset, searchData, aggregateData } from '../tools/datasets/index.ts'
+import { createPrivateAxios } from '../tools/axios.ts'
 
-const publicAxios = createAxios(config.privateDataFairUrl)
+const publicAxios = createPrivateAxios(config.privateDataFairUrl)
 
 const server = new McpServer({ name: 'datafair-datasets', version: '1.0.0' })
 export default server
 
 function prepareResult<T> (structuredContent: T) {
   return {
-    // https://modelcontextprotocol.io/specification/2025-06-18/server/tools#tool-result
     structuredContent,
-    // For backwards compatibility, a tool that returns structured content
-    // SHOULD also return the serialized JSON in a TextContent block.
     content: [{ type: 'text' as const, text: JSON.stringify(structuredContent) }]
   }
 }
@@ -33,7 +27,7 @@ server.registerTool(
     },
   },
   async (params) => {
-    return prepareResult(await searchDatasets.execute!(params, publicAxios))
+    return prepareResult(await searchDatasets.execute(params, publicAxios))
   }
 )
 
@@ -41,15 +35,15 @@ server.registerTool(
   'describe_dataset',
   {
     title: 'Describe Dataset',
-    description: describeDatasets.description,
-    inputSchema: describeDatasets.inputSchema,
-    outputSchema: describeDatasets.outputSchema,
+    description: describeDataset.description,
+    inputSchema: describeDataset.inputSchema,
+    outputSchema: describeDataset.outputSchema,
     annotations: {
       readOnlyHint: true
     },
   },
   async (params) => {
-    return prepareResult(await describeDatasets.execute!(params, publicAxios))
+    return prepareResult(await describeDataset.execute(params, publicAxios))
   }
 )
 
@@ -65,7 +59,7 @@ server.registerTool(
     },
   },
   async (params) => {
-    return prepareResult(await searchData.execute!(params, publicAxios))
+    return prepareResult(await searchData.execute(params, publicAxios))
   }
 )
 
@@ -81,6 +75,6 @@ server.registerTool(
     },
   },
   async (params) => {
-    return prepareResult(await aggregateData.execute!(params, publicAxios))
+    return prepareResult(await aggregateData.execute(params, publicAxios))
   }
 )

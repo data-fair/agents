@@ -1,15 +1,16 @@
 import { tool } from 'ai'
 import { z } from 'zod'
-import { createAxios } from './axios.ts'
+import { createPrivateAxios } from '../axios.ts'
 import type { AxiosInstance } from 'axios'
 import { filtersSchema } from './utils.ts'
 import debugModule from 'debug'
+import type { ToolModule } from '../types.ts'
 
 const debug = debugModule('tools:aggregate-data')
 
-export const description = 'Perform aggregations on dataset columns, such as counting unique values, summing numeric columns, or calculating averages. Use this after describe_dataset to understand the dataset structure and available column keys. Example: {"datasetId": "123", "aggregationColumns": ["code_sexe", "region"], "aggregation": {"column": "age", "metric": "avg"}} this will return the average age grouped by code_sexe and region. Aggregation is limited to a maximum of 3 columns.'
+const description = 'Perform aggregations on dataset columns, such as counting unique values, summing numeric columns, or calculating averages. Use this after describe_dataset to understand the dataset structure and available column keys. Example: {"datasetId": "123", "aggregationColumns": ["code_sexe", "region"], "aggregation": {"column": "age", "metric": "avg"}} this will return the average age grouped by code_sexe and region. Aggregation is limited to a maximum of 3 columns.'
 
-export const inputSchema = z.object({
+const inputSchema = z.object({
   datasetId: z.string().describe('The unique dataset ID obtained from search_datasets tool'),
   aggregationColumns: z.array(z.string())
     .min(1, 'You must specify at least one column to aggregate')
@@ -33,24 +34,21 @@ const AggregationResult: z.ZodType<any> = z.object({
   aggregations: z.lazy(() => z.array(AggregationResult)).optional().describe('Nested aggregation results when multiple columns are specified (max 3 levels deep)')
 })
 
-export const outputSchema = z.object({
+const outputSchema = z.object({
   total: z.number().describe('The total number of rows in the dataset'),
   totalAggregated: z.number().describe('The total number of different values aggregated across all specified columns'),
   nonRepresented: z.number().describe('The number of non-represented rows in the dataset, 0 if totalAggregated is less than 20, otherwise the number of non-represented rows'),
   datasetId: z.string().describe('The dataset ID that was aggregated'),
-  // requestUrl: z.string().describe('Direct URL to API results in JSON format (must be included in responses for citation and direct access to aggregated view)'),
   aggregations: z.array(AggregationResult).describe('Array of aggregation results for each specified column (limited to 20 rows)')
 })
 
-export const execute = async (params: z.infer<typeof inputSchema>, axios: AxiosInstance): Promise<z.infer<typeof outputSchema>> => {
+const execute = async (params: z.infer<typeof inputSchema>, axios: AxiosInstance): Promise<z.infer<typeof outputSchema>> => {
   debug('Executing aggregate_data tool with dataset:', params.datasetId, 'columns:', params.aggregationColumns, 'aggregation:', JSON.stringify(params.aggregation))
 
-  // Limit aggregationColumns to 3 elements max
   if (params.aggregationColumns.length > 3) {
     throw new Error('You can aggregate by at most 3 columns')
   }
 
-  // Build common search parameters for both fetch and source URLs
   const aggsParams: Record<string, string> = { field: params.aggregationColumns.slice(0, 3).join(';') }
 
   if (params.aggregation && params.aggregation.metric !== 'count') {
@@ -64,11 +62,9 @@ export const execute = async (params: z.infer<typeof inputSchema>, axios: AxiosI
     }
   }
 
-  // Fetch detailed dataset information
   const response = (await axios.get(`/data-fair/api/v1/datasets/${params.datasetId}/values_agg`, { params: aggsParams }
   )).data
 
-  // Map the aggregation results to a structured format (recursive)
   const mapAggregation = (agg: any): any => ({
     total: agg.total,
     totalAggregated: agg.total_values,
@@ -80,20 +76,17 @@ export const execute = async (params: z.infer<typeof inputSchema>, axios: AxiosI
     })
   })
 
-  // Format the fetched data into a structured content object
   return {
     total: response.total,
     totalAggregated: response.total_values,
     nonRepresented: response.total_other,
     datasetId: params.datasetId,
-    // TODO: return a requestUrl for citing source. how do we determine the portal url ?
-    // requestUrl: fetchUrl.toString(),
     aggregations: response.aggs.map(mapAggregation)
   }
 }
 
-export const createTool = (dataFairUrl: string, cookies?: string) => {
-  const axios = createAxios(dataFairUrl, cookies)
+const createTool = (dataFairUrl: string, cookies?: string) => {
+  const axios = createPrivateAxios(dataFairUrl, cookies)
   return tool({
     description,
     inputSchema,
@@ -102,3 +95,13 @@ export const createTool = (dataFairUrl: string, cookies?: string) => {
     execute: async (params) => execute(params, axios)
   })
 }
+
+const toolModule: ToolModule = {
+  description,
+  inputSchema,
+  outputSchema,
+  execute,
+  createTool
+}
+
+export default toolModule

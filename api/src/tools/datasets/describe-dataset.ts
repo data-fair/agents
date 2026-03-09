@@ -1,18 +1,19 @@
 import { tool } from 'ai'
 import { z } from 'zod'
-import { createAxios } from './axios.ts'
+import { createPrivateAxios } from '../axios.ts'
 import type { AxiosInstance } from 'axios'
 import debugModule from 'debug'
+import type { ToolModule } from '../types.ts'
 
 const debug = debugModule('tools:describe-dataset')
 
-export const description = 'Retrieve detailed metadata for a dataset by its ID including column schema, spatial/temporal coverage, and other metadata. Use this to understand dataset structure after finding it with search_datasets and before searching data with search_data.'
+const description = 'Retrieve detailed metadata for a dataset by its ID including column schema, spatial/temporal coverage, and other metadata. Use this to understand dataset structure after finding it with search_datasets and before searching data with search_data.'
 
-export const inputSchema = z.object({
+const inputSchema = z.object({
   datasetId: z.string().describe('The unique dataset ID obtained from search_datasets or provided by the user')
 })
 
-export const outputSchema = z.object({
+const outputSchema = z.object({
   id: z.string().describe('Unique dataset Id (required for search_data tools)'),
   slug: z.string().optional().describe('Human-readable unique identifier for the dataset, used in URLs'),
   title: z.string().describe('Dataset title'),
@@ -46,13 +47,11 @@ export const outputSchema = z.object({
   )
 })
 
-export const execute = async (params: z.infer<typeof inputSchema>, axios: AxiosInstance): Promise<z.infer<typeof outputSchema>> => {
+const execute = async (params: z.infer<typeof inputSchema>, axios: AxiosInstance): Promise<z.infer<typeof outputSchema>> => {
   debug('Executing describe_dataset tool with datasetId:', params.datasetId)
 
-  // Fetch detailed dataset information
   const fetchedData = (await axios.get(`/datasets/${params.datasetId}`)).data
 
-  // Format the fetched data
   const dataset: any = {
     id: fetchedData.id,
     title: fetchedData.title,
@@ -60,7 +59,6 @@ export const execute = async (params: z.infer<typeof inputSchema>, axios: AxiosI
     count: fetchedData.count
   }
 
-  // Add optional fields if they exist
   if (fetchedData.slug) dataset.slug = fetchedData.slug
   if (fetchedData.summary) dataset.summary = fetchedData.summary
   if (fetchedData.description) dataset.description = fetchedData.description
@@ -72,9 +70,7 @@ export const execute = async (params: z.infer<typeof inputSchema>, axios: AxiosI
   if (fetchedData.temporal) dataset.temporal = fetchedData.temporal
   if (fetchedData.frequency) dataset.frequency = fetchedData.frequency
 
-  // Add schema information
   if (fetchedData.schema) {
-    // Filter out special columns before mapping
     dataset.schema = fetchedData.schema
       .filter((col: any) => !['_i', '_id', '_rand'].includes(col.key))
       .map((col: any) => {
@@ -95,15 +91,14 @@ export const execute = async (params: z.infer<typeof inputSchema>, axios: AxiosI
       })
   }
 
-  // Add sample lines if available
   const sampleLines = (await axios.get(`/datasets/${params.datasetId}/lines?size=3`)).data.results
   dataset.sampleLines = sampleLines
 
   return dataset
 }
 
-export const createTool = (dataFairUrl: string, cookies?: string) => {
-  const axios = createAxios(dataFairUrl, cookies)
+const createTool = (dataFairUrl: string, cookies?: string) => {
+  const axios = createPrivateAxios(dataFairUrl, cookies)
   return tool({
     description,
     inputSchema,
@@ -112,3 +107,13 @@ export const createTool = (dataFairUrl: string, cookies?: string) => {
     execute: async (params) => execute(params, axios)
   })
 }
+
+const toolModule: ToolModule = {
+  description,
+  inputSchema,
+  outputSchema,
+  execute,
+  createTool
+}
+
+export default toolModule
