@@ -14,17 +14,23 @@
    npm ci
    ```
 
-2. Start development dependencies (MongoDB, Elasticsearch, etc.):
+2. Install browser automation skills (for the `@web-browser` coding agent):
+   ```bash
+   npm install -g @playwright/cli@latest
+   playwright-cli install --skills
+   ```
+
+3. Start development dependencies (MongoDB, Elasticsearch, etc.):
    ```bash
    npm run dev-deps
    ```
 
-3. Start the API server:
+4. Start the API server:
    ```bash
    npm run dev-api
    ```
 
-4. Start the UI development server:
+5. Start the UI development server:
    ```bash
    npm run dev-ui
    ```

@@ -1,6 +1,6 @@
 [
   {
-    "id": "dev-org",
+    "id": "dev1",
     "name": "Dev Organization",
     "members": [
       {
@@ -10,6 +10,14 @@
       {
         "id": "albanm",
         "role": "admin"
+      },
+      {
+        "id": "dev1-contrib1",
+        "role": "contrib"
+      },
+      {
+        "id": "dev1-user1",
+        "role": "user1"
       }
     ]
   },

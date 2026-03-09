@@ -160,7 +160,6 @@ router.get('/:type/:id', async (req, res, next) => {
   assertAccountRole(session, owner, 'admin')
 
   const settings = await getRawSettings(owner)
-  console.log('settings', settings)
 
   if (!settings || !settings.providers || settings.providers.length === 0) {
     res.json({ results: [], count: 0 })

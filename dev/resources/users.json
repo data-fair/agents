@@ -27,6 +27,27 @@
     }
   },
   {
+    "id": "dev-standalone1",
+    "email": "dev-standalone1@test.com",
+    "password": {
+      "clear": "passwd"
+    }
+  },
+  {
+    "id": "dev1-contrib1",
+    "email": "dev1-contrib1@test.com",
+    "password": {
+      "clear": "passwd"
+    }
+  },
+  {
+    "id": "dev1-user1",
+    "email": "dev1-user1@test.com",
+    "password": {
+      "clear": "passwd"
+    }
+  },
+  {
     "id": "test-standalone1",
     "email": "test-standalone1@test.com",
     "password": {
