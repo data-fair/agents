@@ -113,6 +113,10 @@ async function fetchModelsForProvider (
     return fetchOllamaModels(baseURL)
   }
 
+  if (provider.type === 'mock') {
+    return [{ id: 'mock-model', name: 'Mock Model' }]
+  }
+
   if (!provider.apiKey) {
     return []
   }

@@ -361,6 +361,46 @@ export default {
               default: 'http://localhost:11434'
             }
           }
+        }, {
+          required: ['type', 'name', 'id', 'enabled'],
+          title: 'Mock',
+          description: 'To a message "hello" respond "world", to a message "call tool ARG1 ARG2" respond with a tool call, to anything else respond "what do you mean ?"',
+          properties: {
+            type: {
+              type: 'string',
+              title: 'Provider Type',
+              const: 'mock'
+            },
+            id: {
+              type: 'string',
+              title: 'Provider ID',
+              'x-i18n-title': {
+                en: 'Provider ID',
+                fr: 'ID du fournisseur'
+              },
+              readOnly: true
+            },
+            name: {
+              type: 'string',
+              title: 'Display Name',
+              'x-i18n-title': {
+                en: 'Display Name',
+                fr: "Nom d'affichage"
+              },
+              layout: {
+                getDefaultData: '"Mock"',
+              },
+            },
+            enabled: {
+              type: 'boolean',
+              title: 'Enabled',
+              'x-i18n-title': {
+                en: 'Enabled',
+                fr: 'Activé'
+              },
+              default: true
+            }
+          }
         }]
       }
     },

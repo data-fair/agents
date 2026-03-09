@@ -6,7 +6,7 @@ export declare function assertValid(data: any, options?: import('@data-fair/lib-
 export declare function returnValid(data: any, options?: import('@data-fair/lib-validation').AssertValidOptions): SettingsPut
       
 // see https://github.com/bcherny/json-schema-to-typescript/issues/439 if some types are not exported
-export type Provider = OpenAI | Anthropic | Google | Mistral | OpenRouter | Ollama;
+export type Provider = OpenAI | Anthropic | Google | Mistral | OpenRouter | Ollama | Mock;
 export type ProviderType = "openai";
 export type ProviderID = string;
 export type DisplayName = string;
@@ -38,6 +38,11 @@ export type DisplayName5 = string;
 export type Enabled5 = boolean;
 export type APIKey5 = string;
 export type BaseURL = string;
+export type ProviderType6 = "mock";
+export type ProviderID6 = string;
+export type DisplayName6 = string;
+export type Enabled6 = boolean;
+export type BehaviorDescription = string;
 export type AIProviders = Provider[];
 export type Name = string;
 /**
@@ -108,6 +113,17 @@ export type Ollama = {
   enabled: Enabled5;
   apiKey?: APIKey5;
   baseURL: BaseURL;
+  [k: string]: unknown;
+}
+/**
+ * To a message "hello" respond "world", to a message "call tool ARG1 ARG2" respond with a tool call, to anything else respond "what do you mean ?"
+ */
+export type Mock = {
+  type: ProviderType6;
+  id: ProviderID6;
+  name: DisplayName6;
+  enabled: Enabled6;
+  description?: BehaviorDescription;
   [k: string]: unknown;
 }
 export type Agents = {
