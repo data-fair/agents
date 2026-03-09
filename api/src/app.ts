@@ -5,6 +5,7 @@ import helmet from 'helmet'
 import { uiConfig } from './ui-config.ts'
 import settingsRouter from './settings/router.ts'
 import modelsRouter, { getModelsForOwner } from './models/router.ts'
+import agentsRouter from './agents/router.ts'
 import mcpRouter from './mcp/router.ts'
 import mongo from '#mongo'
 
@@ -31,6 +32,7 @@ app.use(express.json())
 
 app.use('/api/settings', settingsRouter)
 app.use('/api/models', modelsRouter)
+app.use('/api/agents', agentsRouter)
 app.use('/api/mcp', mcpRouter)
 
 if (process.env.NODE_ENV === 'development') {

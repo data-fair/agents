@@ -4,7 +4,7 @@ import { getRawSettings } from '../settings/service.ts'
 import { Ollama } from 'ollama'
 import memoize from 'memoizee'
 import axios from 'axios'
-import type { ModelInfo, Provider, Settings } from '#types'
+import type { Model, Provider, Settings } from '#types'
 
 const router = Router()
 export default router
@@ -138,13 +138,17 @@ async function fetchModelsForProvider (
 }
 
 export const getModelsForOwner = memoize(
-  async (ownerType: string, ownerId: string, settings: Settings): Promise<ModelInfo[]> => {
-    const allModels: ModelInfo[] = []
+  async (ownerType: string, ownerId: string, settings: Settings): Promise<Model[]> => {
+    const allModels: Model[] = []
 
     for (const provider of settings.providers) {
       if (!provider.enabled) continue
       const models = await fetchModelsForProvider(provider)
-      allModels.push(...models.map(m => ({ ...m, provider: { type: provider.type, name: provider.name, id: provider.id } })))
+      allModels.push(...models.map(m => ({
+        id: m.id,
+        name: m.name,
+        provider: { type: provider.type, name: provider.name, id: provider.id }
+      })))
     }
 
     return allModels

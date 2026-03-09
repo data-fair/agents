@@ -9,6 +9,9 @@ export default {
   layout: {
     title: null
   },
+  definitions: {
+    Model: { $ref: 'https://github.com/data-fair/agents/model' }
+  },
   type: 'object',
   additionalProperties: false,
   required: ['owner', 'providers', 'agents'],
@@ -427,19 +430,7 @@ export default {
               layout: 'markdown',
               description: 'In this prompt you can instruct your assistant to behave in certain ways.'
             },
-            model: {
-              type: 'string',
-              title: 'Modèle IA',
-              description: 'TODO: provide a list of models well-suited for this agent.',
-              layout: {
-                comp: 'autocomplete',
-                getItems: {
-                  expr: 'context.models',
-                  // eslint-disable-next-line no-template-curly-in-string
-                  itemTitle: '`${item.name} (${item.provider.name} - ${item.provider.id.slice(0, 8)})`'
-                },
-              }
-            }
+            model: { $ref: '#/definitions/Model' }
           }
         }
       }

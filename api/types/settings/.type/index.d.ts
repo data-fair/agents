@@ -38,17 +38,17 @@ export type ProviderType6 = "mock";
 export type ProviderID6 = string;
 export type DisplayName6 = string;
 export type Enabled6 = boolean;
-export type BehaviorDescription = string;
 export type AIProviders = Provider[];
 export type Name = string;
 /**
  * In this prompt you can instruct your assistant to behave in certain ways.
  */
 export type MainPrompt = string;
-/**
- * TODO: provide a list of models well-suited for this agent.
- */
-export type ModeleIA = string;
+export type ModelID = string;
+export type Name1 = string;
+export type ProviderType7 = string;
+export type ProviderName = string;
+export type ProviderID7 = string;
 
 export type Settings = {
   createdAt?: string;
@@ -119,14 +119,28 @@ export type Mock = {
   id: ProviderID6;
   name: DisplayName6;
   enabled: Enabled6;
-  description?: BehaviorDescription;
   [k: string]: unknown;
 }
 export type Agents = {
   backOfficeAssistant?: {
     name: Name;
     prompt: MainPrompt;
-    model: ModeleIA;
+    model: Model;
+    [k: string]: unknown;
+  };
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `Settings`'s JSON-Schema
+ * via the `definition` "Model".
+ */
+export type Model = {
+  id: ModelID;
+  name: Name1;
+  provider: {
+    type: ProviderType7;
+    name: ProviderName;
+    id: ProviderID7;
     [k: string]: unknown;
   };
   [k: string]: unknown;
