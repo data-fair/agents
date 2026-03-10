@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { generateText } from 'ai'
-import { type AccountKeys, assertAccountRole, reqSessionAuthenticated } from '@data-fair/lib-express'
+import { assertAccountRole, reqSessionAuthenticated } from '@data-fair/lib-express'
 import { getRawSettings } from '../settings/service.ts'
 import { listAgents, createModel, getTools } from './service.ts'
 import type { Settings } from '#types'
@@ -15,7 +15,7 @@ router.get('/', async (req, res, next) => {
 
 router.post('/:id/generate-text', async (req, res, next) => {
   const session = reqSessionAuthenticated(req)
-  const owner = req.params as AccountKeys
+  const owner = session.account
   assertAccountRole(session, owner, 'admin')
 
   const agentId = req.params.id

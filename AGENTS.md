@@ -2,7 +2,7 @@
 
 ## Typing
 
-Types are mostly managed from JSON schemas and prepared using `npm run build-types`.
+Types are mostly managed from JSON schemas (for example @api/types/settings/schema.js), prepared using `npm run build-types` and imported from #types in which is an alias for @api/types/index.ts.
 
 ## Quality checks
 
