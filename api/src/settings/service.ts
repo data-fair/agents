@@ -9,7 +9,7 @@ function encryptProviderApiKeys (providers: AIProviders, existingProviders: AIPr
     const encryptedProvider = { ...provider }
     const existingProvider = existingProviders.find(p => p.id === provider.id)
 
-    if (provider.apiKey) {
+    if (typeof provider.apiKey === 'string') {
       if (existingProvider?.apiKey && provider.apiKey.match(/^\*+$/)) {
         // case where we received the obfuscated API key, keep existing value
         encryptedProvider.apiKey = existingProvider.apiKey
@@ -25,7 +25,7 @@ function encryptProviderApiKeys (providers: AIProviders, existingProviders: AIPr
 export function decryptProviderApiKeys (providers: AIProviders): AIProviders {
   return providers.map(provider => {
     const decryptedProvider = { ...provider }
-    if (provider.apiKey) decryptedProvider.apiKey = decipher(JSON.parse(provider.apiKey))
+    if (typeof provider.apiKey === 'string') decryptedProvider.apiKey = decipher(JSON.parse(provider.apiKey))
     return decryptedProvider
   })
 }

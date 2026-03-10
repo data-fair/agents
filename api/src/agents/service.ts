@@ -6,7 +6,7 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { createMistral } from '@ai-sdk/mistral'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { createOllama } from 'ai-sdk-ollama'
-import type { LanguageModelV3, LanguageModelV3TextPart } from '@ai-sdk/provider'
+import type { LanguageModelV3Text } from '@ai-sdk/provider'
 import config from '#config'
 import { searchDatasets, describeDataset, searchData, aggregateData } from '../tools/datasets/index.ts'
 
@@ -19,11 +19,15 @@ export const listAgents = (): AgentInfo[] => [
   { id: 'back-office-assistant', name: 'Data Fair Assistant' }
 ]
 
-function createMockLanguageModel (): LanguageModelV3 {
+function createMockLanguageModel (): LanguageModel {
   return {
     specificationVersion: 'v3',
     provider: 'mock',
     modelId: 'mock-model',
+    supportedUrls: {},
+    doStream: async () => {
+      throw new Error('Mock model does not support streaming')
+    },
     doGenerate: async (options) => {
       console.error('MOCK doGenerate called with options:', JSON.stringify(options, (k, v) => typeof v === 'function' ? '[Function]' : v, 2))
       let lastMessage = ''
@@ -38,7 +42,7 @@ function createMockLanguageModel (): LanguageModelV3 {
           if (typeof content === 'string') {
             lastMessage = content
           } else if (Array.isArray(content)) {
-            const textPart = content.find((c: any) => c.type === 'text') as LanguageModelV3TextPart
+            const textPart = content.find((c: any) => c.type === 'text') as LanguageModelV3Text
             lastMessage = textPart?.text || ''
           }
         }
@@ -46,17 +50,19 @@ function createMockLanguageModel (): LanguageModelV3 {
 
       if (!lastMessage) {
         return {
-          text: 'what do you mean ?',
-          finishReason: 'stop',
-          usage: { promptTokens: 0, completionTokens: 0, total: 0 }
+          content: [{ type: 'text' as const, text: 'what do you mean ?' }],
+          finishReason: { unified: 'stop' as const, raw: undefined },
+          usage: { inputTokens: { total: 0, noCache: undefined, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 0, text: undefined, reasoning: undefined } },
+          warnings: []
         }
       }
 
       if (lastMessage.toLowerCase() === 'hello') {
         return {
-          text: 'world',
-          finishReason: 'stop',
-          usage: { promptTokens: 0, completionTokens: 0, total: 0 }
+          content: [{ type: 'text' as const, text: 'world' }],
+          finishReason: { unified: 'stop' as const, raw: undefined },
+          usage: { inputTokens: { total: 0, noCache: undefined, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 0, text: undefined, reasoning: undefined } },
+          warnings: []
         }
       }
 
@@ -65,21 +71,23 @@ function createMockLanguageModel (): LanguageModelV3 {
         const toolName = callToolMatch[1]
         const toolArgs = callToolMatch[2].trim()
         return {
-          text: '',
-          toolCalls: [{
+          content: [{
+            type: 'tool-call' as const,
             toolCallId: 'mock-tool-call-id',
             toolName,
-            args: toolArgs ? JSON.parse(toolArgs) : {}
+            input: toolArgs || '{}'
           }],
-          finishReason: 'tool-calls',
-          usage: { promptTokens: 0, completionTokens: 0, total: 0 }
+          finishReason: { unified: 'tool-calls' as const, raw: undefined },
+          usage: { inputTokens: { total: 0, noCache: undefined, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 0, text: undefined, reasoning: undefined } },
+          warnings: []
         }
       }
 
       return {
-        text: 'what do you mean ?',
-        finishReason: 'stop',
-        usage: { promptTokens: 0, completionTokens: 0, total: 0 }
+        content: [{ type: 'text' as const, text: 'what do you mean ?' }],
+        finishReason: { unified: 'stop' as const, raw: undefined },
+        usage: { inputTokens: { total: 0, noCache: undefined, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 0, text: undefined, reasoning: undefined } },
+        warnings: []
       }
     },
     // doStream: async function * () {
