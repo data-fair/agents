@@ -1,0 +1,19 @@
+import assert from 'node:assert/strict'
+import { spawn } from 'child_process'
+import { axiosBuilder } from '@data-fair/lib-node/axios.js'
+import { test as setup } from '@playwright/test'
+
+const anonymousAx = axiosBuilder()
+
+// Unit block: test pure functions from operations.ts
+setup('Stateful tests setup', async () => {
+  // Check that the server to be up
+  await assert.doesNotReject(anonymousAx.get(`http://localhost:${process.env.DEV_API_PORT}/api/ping`),
+    'Dev web server seems to be unavailable. If you are agent do not try to fix this, instead report this problem to your user.')
+  await assert.doesNotReject(anonymousAx.get(`http://localhost:${process.env.NGINX_PORT}/simple-directory`),
+    'Simple Directory server seems to be unavailable. If you are agent do not try to fix this, instead report this problem to your user.')
+
+  // more visible dev api server logs straight in the test output
+  const tail = spawn('tail', ['-n', '0', '-f', 'dev/logs/dev-api.log'], { stdio: 'inherit', detached: true })
+  process.env.TAIL_PID = tail.pid?.toString()
+})

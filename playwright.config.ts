@@ -16,15 +16,31 @@ export default defineConfig({
 
   projects: [
     {
-      name: 'api-and-unit',
-      testMatch: /.*\.spec\.ts/, // Matches all your feature files
-      grep: /@api|@unit/, // Allows agents to filter specific runs
+      name: 'state-setup',
+      testMatch: /state-setup\.ts/,
+      teardown: 'state-teardown'
+    },
+    {
+      name: 'state-teardown',
+      testMatch: /state-teardown\.ts/,
+    },
+    {
+      name: 'unit',
+      testMatch: /.*\.spec\.ts/,
+      grep: /@unit/,
+    },
+    {
+      name: 'api',
+      testMatch: /.*\.spec\.ts/,
+      grep: /@api/,
+      dependencies: ['state-setup'],
     },
     {
       name: 'e2e',
       testMatch: /.*\.spec\.ts/,
       grep: /@e2e/,
       use: { ...devices['Desktop Chrome'] },
+      dependencies: ['state-setup'],
     },
   ],
 })
