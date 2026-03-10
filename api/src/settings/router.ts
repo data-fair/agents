@@ -1,8 +1,16 @@
+/**
+ * router.ts contains the HTTP layer logic and stateful logic
+ * it should not be imported anywhere else than app.ts
+ * it is tested by api integration tests
+ */
+
+import mongo from '#mongo'
 import { Router } from 'express'
 import { type AccountKeys, assertAccountRole, reqSessionAuthenticated } from '@data-fair/lib-express'
 import * as putReqBody from '#doc/settings/put-req/index.ts'
-import { getSettings, putSettings } from './service.ts'
 import { type Settings } from '#types'
+import { encryptProviderApiKeys, obfuscateProviderApiKeys } from './operations.ts'
+import { securityKey } from '../cipher/service.ts'
 
 const router = Router()
 export default router
@@ -14,13 +22,13 @@ router.get('/:type/:id', async (req, res, next) => {
   const owner = req.params as AccountKeys
   assertAccountRole(session, owner, 'admin')
 
-  const settings = await getSettings(owner)
-
+  const settings = await mongo.settings.findOne({ 'owner.type': owner.type, 'owner.id': owner.id }, { projection: { _id: 0 } })
   if (!settings) {
     res.json(emptySettings(owner))
     return
   }
 
+  settings.providers = obfuscateProviderApiKeys(settings.providers)
   res.json(settings)
 })
 
@@ -30,6 +38,16 @@ router.put('/:type/:id', async (req, res, next) => {
   assertAccountRole(session, owner, 'admin')
   const body = putReqBody.returnValid(req.body, { name: 'body' })
 
-  const settings = await putSettings(owner, body)
+  const existing = await mongo.settings.findOne({ 'owner.type': owner.type, 'owner.id': owner.id })
+  const settings = {
+    createdAt: existing?.createdAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    owner,
+    providers: encryptProviderApiKeys(body.providers || [], existing?.providers || [], securityKey),
+    agents: body.agents
+  }
+  await mongo.settings.replaceOne({ owner }, settings, { upsert: true })
+
+  settings.providers = obfuscateProviderApiKeys(settings.providers)
   res.json(settings)
 })

@@ -4,9 +4,7 @@
   "description": "Agentic capabilities for the data-fair stack. Manage AI providers and configure agents using tools that integrate with other data-fair services.",
   "type": "module",
   "scripts": {
-    "test-base": "NODE_CONFIG_DIR=./api/config/ NODE_ENV=test dotenv -v EVENTS_LOG_LEVEL=alert -- node --disable-warning=ExperimentalWarning --test-force-exit --test-concurrency=1 --test",
-    "test": "npm run test-base test-it/*.ts",
-    "test-deps": "docker compose --profile test up -d --wait",
+    "test": "playwright test --max-failures=1",
     "lint": "eslint . && npm -w ui run lint",
     "lint-fix": "eslint --fix . && npm -w ui run lint-fix",
     "dev-api": "npm -w api run dev",
@@ -39,6 +37,7 @@
     "@data-fair/lib-express": "^1.19.0",
     "@data-fair/lib-node": "^2.8.1",
     "@koumoul/vjsf-compiler": "^1.2.3",
+    "@playwright/test": "^1.58.2",
     "@reporters/bail": "^1.2.1",
     "@types/config": "^3.3.5",
     "@types/express": "^5.0.6",

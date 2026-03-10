@@ -1,8 +1,9 @@
+import config from '#config'
 import { Router } from 'express'
 import { generateText } from 'ai'
 import { assertAccountRole, reqSessionAuthenticated } from '@data-fair/lib-express'
 import { getRawSettings } from '../settings/service.ts'
-import { listAgents, createModel, getTools } from './service.ts'
+import { listAgents, createModel, getTools } from './operations.ts'
 import type { Settings } from '#types'
 
 const router = Router()
@@ -48,7 +49,7 @@ router.post('/:id/generate-text', async (req, res, next) => {
   }
 
   const aiModel = createModel(provider, model.id)
-  const tools = getTools(req.headers.cookie)
+  const tools = getTools(config.privateDataFairUrl, req.headers.cookie)
 
   const result = await generateText({
     model: aiModel,

@@ -1,3 +1,8 @@
+/**
+ * operations.ts contains pure stateless functions
+ * should not reference #mongo, #config, store state in memory or import anything else than other operations.ts
+ */
+
 import type { Provider } from '#types'
 import type { ToolSet, LanguageModel } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
@@ -7,7 +12,6 @@ import { createMistral } from '@ai-sdk/mistral'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { createOllama } from 'ai-sdk-ollama'
 import type { LanguageModelV3Text } from '@ai-sdk/provider'
-import config from '#config'
 import { searchDatasets, describeDataset, searchData, aggregateData } from '../tools/datasets/index.ts'
 
 export interface AgentInfo {
@@ -75,7 +79,7 @@ function createMockLanguageModel (): LanguageModel {
             type: 'tool-call' as const,
             toolCallId: 'mock-tool-call-id',
             toolName,
-            input: toolArgs || '{}'
+            input: toolArgs ? JSON.parse(toolArgs) : {}
           }],
           finishReason: { unified: 'tool-calls' as const, raw: undefined },
           usage: { inputTokens: { total: 0, noCache: undefined, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 0, text: undefined, reasoning: undefined } },
@@ -117,8 +121,7 @@ export function createModel (provider: Provider, modelId: string): LanguageModel
   }
 }
 
-export function getTools (cookies?: string): ToolSet {
-  const dataFairUrl = config.privateDataFairUrl
+export function getTools (dataFairUrl: string, cookies?: string): ToolSet {
   return {
     searchDatasets: searchDatasets.createTool(dataFairUrl, cookies),
     describeDataset: describeDataset.createTool(dataFairUrl, cookies),

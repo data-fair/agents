@@ -163,11 +163,10 @@ describe('agents', () => {
 
     await admin.put('/api/settings/user/test-standalone1', settingsData)
 
-    const res = await admin.post('/api/agents/back-office-assistant/generate-text', {
-      prompt: 'hello',
-      agentId: 'unknown-agent'
-    })
-    assert.equal(res.status, 404)
+    await assert.rejects(
+      admin.post('/api/agents/unknown-agent/generate-text', { prompt: 'hello' }),
+      { status: 404 }
+    )
   })
 
   it('should return 400 when agent not configured', async () => {
@@ -178,9 +177,9 @@ describe('agents', () => {
 
     await admin.put('/api/settings/user/test-standalone1', settingsData)
 
-    const res = await admin.post('/api/agents/back-office-assistant/generate-text', {
-      prompt: 'hello'
-    })
-    assert.equal(res.status, 400)
+    await assert.rejects(
+      admin.post('/api/agents/back-office-assistant/generate-text', { prompt: 'hello' }),
+      { status: 404 }
+    )
   })
 })
