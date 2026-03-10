@@ -413,7 +413,7 @@ export default {
       properties: {
         backOfficeAssistant: {
           type: 'object',
-          required: ['name', 'prompt', 'model'],
+          required: ['model'],
           properties: {
             name: {
               type: 'string',

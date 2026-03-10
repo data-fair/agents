@@ -127,8 +127,8 @@ export type Mock = {
 }
 export type Agents = {
   backOfficeAssistant?: {
-    name: Name;
-    prompt: MainPrompt;
+    name?: Name;
+    prompt?: MainPrompt;
     model: Model;
     [k: string]: unknown;
   };
