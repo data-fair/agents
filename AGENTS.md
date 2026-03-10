@@ -12,7 +12,7 @@ Types are mostly managed from JSON schemas and prepared using `npm run build-typ
 
 ## Testing
 
-Test dependencies should be run by the user. You can check in @.env for the ports that will be used. If the dev api port is not opended the user forgot to make it available for you, you can tell them.
+Test dependencies should be run by the user. You can check in @.env for the ports that will be used. If a container is not up or if the dev api server is not available or any error of this kind DO NOT try to fix the situation yourself and ask the user for help.
 
 2. Run tests: `npm run test`
 3. Run specific tests: `npm run test-base test-it/specific-test.ts`
