@@ -5,6 +5,9 @@ import { assertAccountRole, reqSessionAuthenticated } from '@data-fair/lib-expre
 import { getRawSettings } from '../settings/service.ts'
 import { listAgents, createModel, createDatasetsExplorerTool } from './operations.ts'
 import type { Settings } from '#types'
+import agentsMongo from '../mongo.ts'
+import { createTraceIntegration } from '../telemetry/trace-integration.ts'
+import { randomUUID } from 'crypto'
 
 const router = Router()
 export default router
@@ -106,6 +109,15 @@ router.post('/:id/stream-text', async (req, res, next) => {
     return
   }
 
+  const enableTrace = req.query.trace === 'true'
+  let traceId: string | undefined
+  let traceIntegration: ReturnType<typeof createTraceIntegration> | undefined
+
+  if (enableTrace) {
+    traceId = randomUUID()
+    traceIntegration = createTraceIntegration(owner.id, agentsMongo.traces, traceId)
+  }
+
   const aiModel = createModel(provider, model.id)
   const datasetsExplorerConfigStream = agentConfig.datasetsExplorer as { model?: { id: string; name: string; provider: { type: string; name: string; id: string } } } | undefined
   const datasetsExplorerToolStream = createDatasetsExplorerTool(
@@ -113,15 +125,38 @@ router.post('/:id/stream-text', async (req, res, next) => {
     req.headers.cookie,
     settings.providers,
     datasetsExplorerConfigStream?.model,
-    aiModel
+    aiModel,
+    traceId,
+    owner.id,
+    enableTrace ? agentsMongo.traces : undefined
   )
 
-  const result = streamText({
-    model: aiModel,
-    system: agentConfig.prompt,
-    prompt: req.body.prompt,
-    tools: { datasetsExplorer: datasetsExplorerToolStream }
-  })
+  const result = enableTrace && traceIntegration && traceId
+    ? streamText({
+      model: aiModel,
+      system: agentConfig.prompt,
+      prompt: req.body.prompt,
+      tools: { datasetsExplorer: datasetsExplorerToolStream },
+      experimental_telemetry: {
+        isEnabled: true,
+        functionId: traceId!,
+        metadata: {
+          traceId: traceId!,
+          userId: owner.id
+        },
+        integrations: [traceIntegration]
+      }
+    })
+    : streamText({
+      model: aiModel,
+      system: agentConfig.prompt,
+      prompt: req.body.prompt,
+      tools: { datasetsExplorer: datasetsExplorerToolStream }
+    })
+
+  if (traceId) {
+    res.setHeader('X-Trace-ID', traceId)
+  }
 
   result.pipeTextStreamToResponse(res, { headers: { 'Cache-Control': 'no-cache' } })
 })

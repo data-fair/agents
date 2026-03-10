@@ -8,6 +8,7 @@ import adminRouter from './admin/router.ts'
 import modelsRouter, { getModelsForOwner } from './models/router.ts'
 import agentsRouter from './agents/router.ts'
 import mcpRouter from './mcp/router.ts'
+import tracesRouter from './traces/router.ts'
 import mongo from '#mongo'
 
 export const app = express()
@@ -35,6 +36,7 @@ app.use('/api/admin', adminRouter)
 app.use('/api/settings', settingsRouter)
 app.use('/api/models', modelsRouter)
 app.use('/api/agents', agentsRouter)
+app.use('/api/traces', tracesRouter)
 app.use('/api/mcp', mcpRouter)
 app.use('/api/ping', (req, res) => res.send('ok'))
 

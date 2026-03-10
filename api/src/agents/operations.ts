@@ -62,7 +62,10 @@ export function createDatasetsExplorerTool (
   cookies: string | undefined,
   providers: Provider[],
   modelInfo: ModelInfo | undefined,
-  fallbackModel: LanguageModel
+  fallbackModel: LanguageModel,
+  traceId?: string,
+  traceUserId?: string,
+  traceCollection?: any
 ) {
   const model = modelInfo
     ? createModel(providers.find(p => p.id === modelInfo.provider.id)!, modelInfo.id)
@@ -82,6 +85,20 @@ export function createDatasetsExplorerTool (
     })).optional().describe('The tools that were called to answer the question, providing sourcing information')
   })
 
+  const telemetryConfig = traceId && traceUserId && traceCollection
+    ? {
+        experimental_telemetry: {
+          isEnabled: true,
+          functionId: `datasetsExplorer-${traceId}`,
+          metadata: {
+            traceId,
+            userId: traceUserId
+          },
+          integrations: [new (require('../telemetry/trace-integration.ts').TraceIntegration)(traceId, traceUserId, traceCollection)]
+        }
+      }
+    : {}
+
   return tool({
     description: 'Explore datasets in Data Fair to answer user questions about data. Use this tool when users ask about datasets, data, statistics, or want to analyze data.',
     inputSchema,
@@ -92,7 +109,8 @@ export function createDatasetsExplorerTool (
         model,
         system: 'You are a data-fair datasets explorer. You aim at answering user questions using search tools and provide both responses and some sourcing elements.',
         prompt: question,
-        tools: datasetsTools
+        tools: datasetsTools,
+        ...telemetryConfig
       })
 
       const toolCalls = result.toolCalls.map(tc => ({
