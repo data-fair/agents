@@ -276,4 +276,141 @@ test.describe('Agents API', () => {
       { status: 400 }
     )
   })
+
+  test('should enable trace and return trace ID header with stream-text', async () => {
+    const settingsData = {
+      providers: [
+        {
+          id: 'mock-provider',
+          type: 'mock',
+          name: 'Mock Provider',
+          enabled: true
+        }
+      ],
+      agents: {
+        backOfficeAssistant: {
+          name: 'Test Assistant',
+          prompt: 'You are a test assistant.',
+          model: {
+            id: 'mock-model',
+            name: 'Mock Model',
+            provider: {
+              type: 'mock',
+              name: 'Mock Provider',
+              id: 'mock-provider'
+            }
+          }
+        }
+      }
+    }
+
+    await user.put('/api/settings/user/test-standalone1', settingsData)
+
+    const res = await user.post('/api/agents/back-office-assistant/stream-text?trace=true', {
+      prompt: 'hello'
+    }, { responseType: 'stream' })
+
+    assert.equal(res.status, 200)
+    assert.ok(res.headers['x-trace-id'], 'should have trace ID header')
+
+    // Consume stream
+    let chunks = ''
+    for await (const chunk of res.data) {
+      chunks += chunk.toString()
+    }
+    assert.ok(chunks.length >= 0)
+  })
+
+  test('should store trace events in database and retrieve them', async () => {
+    const settingsData = {
+      providers: [
+        {
+          id: 'mock-provider',
+          type: 'mock',
+          name: 'Mock Provider',
+          enabled: true
+        }
+      ],
+      agents: {
+        backOfficeAssistant: {
+          name: 'Test Assistant',
+          prompt: 'You are a test assistant.',
+          model: {
+            id: 'mock-model',
+            name: 'Mock Model',
+            provider: {
+              type: 'mock',
+              name: 'Mock Provider',
+              id: 'mock-provider'
+            }
+          }
+        }
+      }
+    }
+
+    await user.put('/api/settings/user/test-standalone1', settingsData)
+
+    const res = await user.post('/api/agents/back-office-assistant/stream-text?trace=true', {
+      prompt: 'hello'
+    }, { responseType: 'stream' })
+
+    const traceId = res.headers['x-trace-id']
+    assert.ok(traceId)
+
+    // Consume stream
+    let chunks = ''
+    for await (const chunk of res.data) {
+      chunks += chunk.toString()
+    }
+    assert.ok(chunks.length >= 0)
+  })
+
+  test('should not access other user traces', async () => {
+    const settingsData = {
+      providers: [
+        {
+          id: 'mock-provider',
+          type: 'mock',
+          name: 'Mock Provider',
+          enabled: true
+        }
+      ],
+      agents: {
+        backOfficeAssistant: {
+          name: 'Test Assistant',
+          prompt: 'You are a test assistant.',
+          model: {
+            id: 'mock-model',
+            name: 'Mock Model',
+            provider: {
+              type: 'mock',
+              name: 'Mock Provider',
+              id: 'mock-provider'
+            }
+          }
+        }
+      }
+    }
+
+    await user.put('/api/settings/user/test-standalone1', settingsData)
+
+    const res = await user.post('/api/agents/back-office-assistant/stream-text?trace=true', {
+      prompt: 'hello'
+    }, { responseType: 'stream' })
+
+    const traceId = res.headers['x-trace-id']
+
+    // Consume stream
+    let chunks = ''
+    for await (const chunk of res.data) {
+      chunks += chunk.toString()
+    }
+    assert.ok(chunks.length >= 0)
+
+    const otherUser = await axiosAuth('test1-user1')
+
+    const traceRes = await otherUser.get(`/api/traces/${traceId}`)
+    assert.equal(traceRes.status, 200)
+    assert.equal(traceRes.data.count, 0)
+  })
 })

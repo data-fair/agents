@@ -15,6 +15,7 @@ import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { createOllama } from 'ai-sdk-ollama'
 import { searchDatasets, describeDataset, searchData, aggregateData } from '../tools/datasets/index.ts'
 import { createMockLanguageModel } from './mock-model.ts'
+import { TraceIntegration } from '../telemetry/trace-integration.ts'
 
 export interface AgentInfo {
   id: string
@@ -94,7 +95,7 @@ export function createDatasetsExplorerTool (
             traceId,
             userId: traceUserId
           },
-          integrations: [new (require('../telemetry/trace-integration.ts').TraceIntegration)(traceId, traceUserId, traceCollection)]
+          integrations: [new TraceIntegration(traceId, traceUserId, traceCollection)]
         }
       }
     : {}
