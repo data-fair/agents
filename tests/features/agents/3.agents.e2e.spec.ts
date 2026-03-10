@@ -41,13 +41,13 @@ test.describe('Chat UI', () => {
   })
 
   test('Page loads with input field', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/chat/back-office-assistant', 'test-standalone1')
+    await goToWithAuth('/agents/chat/back-office-assistant', 'test-standalone1')
     await expect(page.getByPlaceholder('Type your message...')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Send' })).toBeVisible()
   })
 
   test('Can send a message and receive response', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/chat/back-office-assistant', 'test-standalone1')
+    await goToWithAuth('/agents/chat/back-office-assistant', 'test-standalone1')
 
     // Type a message
     const input = page.getByPlaceholder('Type your message...')
@@ -61,6 +61,6 @@ test.describe('Chat UI', () => {
     await expect(page.locator('.chat-message.user')).toContainText('hello')
 
     // Wait for loading to complete and assistant response
-    await expect(page.locator('.chat-message.assistant')).toContainText('world', { timeout: 10000 })
+    await expect(page.locator('.chat-message.assistant').last()).toContainText('world', { timeout: 10000 })
   })
 })

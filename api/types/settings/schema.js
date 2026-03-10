@@ -430,7 +430,19 @@ export default {
               layout: 'markdown',
               description: 'In this prompt you can instruct your assistant to behave in certain ways.'
             },
-            model: { $ref: '#/definitions/Model' }
+            model: { $ref: '#/definitions/Model' },
+            datasetsExplorer: {
+              type: 'object',
+              title: 'Datasets Explorer',
+              description: 'Optional sub-agent for exploring datasets. If not configured, uses the main model.',
+              properties: {
+                model: {
+                  $ref: '#/definitions/Model',
+                  title: 'Model',
+                  description: 'Model to use for datasets exploration. Uses main model if not set.'
+                }
+              }
+            }
           }
         }
       }

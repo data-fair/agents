@@ -4,7 +4,7 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { listAgents, createModel, getTools, createMockLanguageModel } from '../../../api/src/agents/operations.ts'
+import { listAgents, createModel, getDatasetTools, createMockLanguageModel } from '../../../api/src/agents/operations.ts'
 
 test.describe('Agents operations - listAgents', () => {
   test('returns list of available agents', () => {
@@ -83,9 +83,9 @@ test.describe('Agents operations - createModel', () => {
   })
 })
 
-test.describe('Agents operations - getTools', () => {
+test.describe('Agents operations - getDatasetTools', () => {
   test('returns 4 dataset tools', () => {
-    const tools = getTools('http://localhost:3200')
+    const tools = getDatasetTools('http://localhost:3200')
     assert.ok(tools.searchDatasets)
     assert.ok(tools.describeDataset)
     assert.ok(tools.searchData)
@@ -93,7 +93,7 @@ test.describe('Agents operations - getTools', () => {
   })
 
   test('tools have execute method', () => {
-    const tools = getTools('http://localhost:3200')
+    const tools = getDatasetTools('http://localhost:3200')
     assert.equal(typeof tools.searchDatasets.execute, 'function')
     assert.equal(typeof tools.describeDataset.execute, 'function')
     assert.equal(typeof tools.searchData.execute, 'function')

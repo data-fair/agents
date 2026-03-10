@@ -130,6 +130,7 @@ export type Agents = {
     name?: Name;
     prompt?: MainPrompt;
     model: Model;
+    datasetsExplorer?: DatasetsExplorer;
     [k: string]: unknown;
   };
   [k: string]: unknown;
@@ -139,6 +140,27 @@ export type Agents = {
  * via the `definition` "Model".
  */
 export type Model = {
+  id: ModelID;
+  name: Name1;
+  provider: {
+    type: ProviderType7;
+    name: ProviderName;
+    id: ProviderID7;
+    [k: string]: unknown;
+  };
+  [k: string]: unknown;
+}
+/**
+ * Optional sub-agent for exploring datasets. If not configured, uses the main model.
+ */
+export type DatasetsExplorer = {
+  model?: Model1;
+  [k: string]: unknown;
+}
+/**
+ * Model to use for datasets exploration. Uses main model if not set.
+ */
+export type Model1 = {
   id: ModelID;
   name: Name1;
   provider: {

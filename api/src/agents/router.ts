@@ -3,7 +3,7 @@ import { Router } from 'express'
 import { generateText, streamText } from 'ai'
 import { assertAccountRole, reqSessionAuthenticated } from '@data-fair/lib-express'
 import { getRawSettings } from '../settings/service.ts'
-import { listAgents, createModel, getTools } from './operations.ts'
+import { listAgents, createModel, createDatasetsExplorerTool } from './operations.ts'
 import type { Settings } from '#types'
 
 const router = Router()
@@ -49,13 +49,20 @@ router.post('/:id/generate-text', async (req, res, next) => {
   }
 
   const aiModel = createModel(provider, model.id)
-  const tools = getTools(config.privateDataFairUrl, req.headers.cookie)
+  const datasetsExplorerConfig = agentConfig.datasetsExplorer as { model?: { id: string; name: string; provider: { type: string; name: string; id: string } } } | undefined
+  const datasetsExplorerTool = createDatasetsExplorerTool(
+    config.privateDataFairUrl,
+    req.headers.cookie,
+    settings.providers,
+    datasetsExplorerConfig?.model,
+    aiModel
+  )
 
   const result = await generateText({
     model: aiModel,
     system: agentConfig.prompt,
     prompt: req.body.prompt,
-    tools
+    tools: { datasetsExplorer: datasetsExplorerTool }
   })
 
   res.json({
@@ -100,13 +107,20 @@ router.post('/:id/stream-text', async (req, res, next) => {
   }
 
   const aiModel = createModel(provider, model.id)
-  const tools = getTools(config.privateDataFairUrl, req.headers.cookie)
+  const datasetsExplorerConfigStream = agentConfig.datasetsExplorer as { model?: { id: string; name: string; provider: { type: string; name: string; id: string } } } | undefined
+  const datasetsExplorerToolStream = createDatasetsExplorerTool(
+    config.privateDataFairUrl,
+    req.headers.cookie,
+    settings.providers,
+    datasetsExplorerConfigStream?.model,
+    aiModel
+  )
 
   const result = streamText({
     model: aiModel,
     system: agentConfig.prompt,
     prompt: req.body.prompt,
-    tools
+    tools: { datasetsExplorer: datasetsExplorerToolStream }
   })
 
   result.pipeTextStreamToResponse(res, { headers: { 'Cache-Control': 'no-cache' } })
