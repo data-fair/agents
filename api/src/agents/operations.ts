@@ -23,7 +23,7 @@ export const listAgents = (): AgentInfo[] => [
   { id: 'back-office-assistant', name: 'Data Fair Assistant' }
 ]
 
-function createMockLanguageModel (): LanguageModel {
+export function createMockLanguageModel (): LanguageModel {
   return {
     specificationVersion: 'v3',
     provider: 'mock',
