@@ -184,4 +184,96 @@ test.describe('Agents API', () => {
       { status: 400 }
     )
   })
+
+  test('should stream text with mock provider', async () => {
+    const settingsData = {
+      providers: [
+        {
+          id: 'mock-provider',
+          type: 'mock',
+          name: 'Mock Provider',
+          enabled: true
+        }
+      ],
+      agents: {
+        backOfficeAssistant: {
+          name: 'Test Assistant',
+          prompt: 'You are a test assistant.',
+          model: {
+            id: 'mock-model',
+            name: 'Mock Model',
+            provider: {
+              type: 'mock',
+              name: 'Mock Provider',
+              id: 'mock-provider'
+            }
+          }
+        }
+      }
+    }
+
+    await user.put('/api/settings/user/test-standalone1', settingsData)
+
+    const res = await user.post('/api/agents/back-office-assistant/stream-text', {
+      prompt: 'hello'
+    }, { responseType: 'stream' })
+
+    assert.equal(res.status, 200)
+    assert.equal(res.headers['content-type'], 'text/plain; charset=utf-8')
+
+    let fullText = ''
+    for await (const chunk of res.data) {
+      fullText += chunk.toString()
+    }
+    assert.ok(fullText.includes('world'))
+  })
+
+  test('should return 404 for unknown agent with stream-text', async () => {
+    const settingsData = {
+      providers: [
+        {
+          id: 'mock-provider',
+          type: 'mock',
+          name: 'Mock Provider',
+          enabled: true
+        }
+      ],
+      agents: {
+        backOfficeAssistant: {
+          name: 'Test Assistant',
+          prompt: 'You are a test assistant.',
+          model: {
+            id: 'mock-model',
+            name: 'Mock Model',
+            provider: {
+              type: 'mock',
+              name: 'Mock Provider',
+              id: 'mock-provider'
+            }
+          }
+        }
+      }
+    }
+
+    await user.put('/api/settings/user/test-standalone1', settingsData)
+
+    await assert.rejects(
+      user.post('/api/agents/unknown-agent/stream-text', { prompt: 'hello' }),
+      { status: 404 }
+    )
+  })
+
+  test('should return 400 when agent not configured for stream-text', async () => {
+    const settingsData = {
+      providers: [],
+      agents: {}
+    }
+
+    await user.put('/api/settings/user/test-standalone1', settingsData)
+
+    await assert.rejects(
+      user.post('/api/agents/back-office-assistant/stream-text', { prompt: 'hello' }),
+      { status: 400 }
+    )
+  })
 })
