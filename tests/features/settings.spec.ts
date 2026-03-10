@@ -7,9 +7,7 @@ const user = await axiosAuth('test-standalone1')
 
 // Unit block: test pure functions from operations.ts
 test.describe('Settings @unit', () => {
-  test('should validate password complexity', () => {
-    // ... pure logic testing
-  })
+  // ... pure logic testing
 })
 
 // API block: test HTTP and stateful database layer with HTTP client querying the dev server

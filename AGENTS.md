@@ -19,6 +19,8 @@ Test dependencies should be run by the user, not you. You can check in @.env for
 
 Test users are defined in @dev/resources/users.json and organizations in @dev/resources/organizations.json. Modify these as little as possible, but if you do you need to force reload of the simple-directory container `docker compose restart simple-directory`.
 
+Tests are separated in @unit (pure functions) @api (stateful layers through HTTP) and @e2e (UI with playwright browser intrumentation) playwright projects in the same test suite. When working on the e2e part you can use subagents `playwright-test-generator` and `playwright-test-generator`.
+
 In case of failures you might find error contexts in @test-results.
 
 ## Code patterns
