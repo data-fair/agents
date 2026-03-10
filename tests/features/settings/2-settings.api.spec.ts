@@ -1,18 +1,18 @@
-import { test } from '../fixtures/login.ts'
+/**
+ * stateful API tests, validate API endpoints using axios HTTP clients
+ */
+
+import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { axiosAuth, clean } from '../support/axios.ts'
-import { beforeEach } from 'node:test'
+import { axiosAuth, clean } from '../../support/axios.ts'
 
 const user = await axiosAuth('test-standalone1')
 
-// Unit block: test pure functions from operations.ts
-test.describe('Settings @unit', () => {
-  // ... pure logic testing
-})
-
 // API block: test HTTP and stateful database layer with HTTP client querying the dev server
-test.describe('Settings @api', () => {
-  beforeEach(clean)
+test.describe('Settings API', () => {
+  test.beforeEach(async () => {
+    await clean()
+  })
 
   test('should create and get settings', async () => {
     const settingsData = {
@@ -76,14 +76,5 @@ test.describe('Settings @api', () => {
     const mockModels = res.data.results.filter((m: any) => m.provider.type === 'mock')
     assert.equal(mockModels.length, 1)
     assert.equal(mockModels[0].id, 'mock-model')
-  })
-})
-
-// E2E block: use full playwright capabilities to test the UI and indirectly the API
-test.describe('Settings UI @e2e', () => {
-  beforeEach(clean)
-  test('Authenticated user can use settings form', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/settings', 'test-standalone1')
-    // TODO: check settings form
   })
 })

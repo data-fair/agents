@@ -19,7 +19,7 @@ Test dependencies should be run by the user, not you. You can check in @.env for
 
 Test users are defined in @dev/resources/users.json and organizations in @dev/resources/organizations.json. Modify these as little as possible, but if you do you need to force reload of the simple-directory container `docker compose restart simple-directory`.
 
-Tests are separated in @unit (pure functions) @api (stateful layers through HTTP) and @e2e (UI with playwright browser intrumentation) playwright projects in the same test suite. When working on the e2e part you can use subagents `playwright-test-generator` and `playwright-test-generator`.
+Tests are separated in playwright projects: unit (pure functions), api (stateful API endpoints through HTTP) and e2e (UI with playwright browser intrumentation). When working on the e2e part you can use subagents `playwright-test-generator` and `playwright-test-generator`.
 
 In case of failures you might find error contexts in @test-results.
 
@@ -32,5 +32,7 @@ When working on this project, read the following files on a need-to-know basis t
 - Dataset tool pattern: @api/src/tools/datasets/search-data.ts
 - MCP server setup: @api/src/mcp/server.ts
 - Vue page pattern: @ui/src/pages/settings.vue
-- Test pattern: @tests/features/settings.spec.ts
+- Unit test pattern: @tests/features/settings/1-settings.unit.spec.ts
+- API test pattern: @tests/features/settings/1-settings.api.spec.ts
+- E2E test pattern: @tests/features/settings/1-settings.e2e.spec.ts
 - Type generation from JSON schemas: @api/types/settings/schema.js

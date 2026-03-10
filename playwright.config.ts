@@ -26,19 +26,16 @@ export default defineConfig({
     },
     {
       name: 'unit',
-      testMatch: /.*\.spec\.ts/,
-      grep: /@unit/,
+      testMatch: /.*\.unit\.spec\.ts/,
     },
     {
       name: 'api',
-      testMatch: /.*\.spec\.ts/,
-      grep: /@api/,
+      testMatch: /.*\.api\.spec\.ts/,
       dependencies: ['state-setup'],
     },
     {
       name: 'e2e',
-      testMatch: /.*\.spec\.ts/,
-      grep: /@e2e/,
+      testMatch: /.*\.e2e\.spec\.ts/,
       use: { ...devices['Desktop Chrome'] },
       dependencies: ['state-setup'],
     },
