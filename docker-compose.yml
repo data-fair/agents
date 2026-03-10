@@ -6,9 +6,6 @@ services:
 
   nginx:
     image: nginx:1.29.4-alpine
-    profiles:
-      - dev
-      - test
     network_mode: host
     environment:
       - NGINX_PORT=${NGINX_PORT}
@@ -26,9 +23,6 @@ services:
   #####
 
   maildev:
-    profiles:
-      - dev
-      - test
     image: maildev/maildev:2.1.0
     ports:
       - ${MAILDEV_UI_PORT}:1080
@@ -41,9 +35,6 @@ services:
   #####
 
   simple-directory:
-    profiles:
-      - dev
-      - test
     image: ghcr.io/data-fair/simple-directory:master
     network_mode: host
     depends_on:
@@ -72,9 +63,6 @@ services:
       - ./dev/resources/organizations.json:/app/data/organizations.json
 
   data-fair:
-    profiles:
-      - dev
-      - test
     image: ghcr.io/data-fair/data-fair:master
     restart: on-failure:10
     network_mode: host
@@ -96,8 +84,6 @@ services:
       - SECRET_EVENTS=secret-events
 
   events:
-    profiles:
-      - dev
     image: ghcr.io/data-fair/events:main
     network_mode: host
     environment:
@@ -114,9 +100,6 @@ services:
   #####
 
   mongo:
-    profiles:
-      - dev
-      - test
     image: mongo:4.2
     ports:
       - ${MONGO_PORT}:27017
@@ -124,9 +107,6 @@ services:
       - mongo-data:/data/db
 
   elasticsearch:
-    profiles:
-      - dev
-      - test
     image: ghcr.io/data-fair/elasticsearch:7.x
     ports:
       - ${ES_PORT}:9200
