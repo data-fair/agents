@@ -52,6 +52,12 @@ router.post('/:id/generate-text', async (req, res, next) => {
   }
 
   const aiModel = createModel(provider, model.id)
+
+  if (!req.body.prompt?.trim()) {
+    res.status(400).json({ error: 'Prompt is required' })
+    return
+  }
+
   const datasetsExplorerConfig = agentConfig.datasetsExplorer as { model?: { id: string; name: string; provider: { type: string; name: string; id: string } } } | undefined
   const datasetsExplorerTool = createDatasetsExplorerTool(
     config.privateDataFairUrl,
@@ -61,12 +67,22 @@ router.post('/:id/generate-text', async (req, res, next) => {
     aiModel
   )
 
-  const result = await generateText({
-    model: aiModel,
-    system: agentConfig.prompt,
-    prompt: req.body.prompt,
-    tools: { datasetsExplorer: datasetsExplorerTool }
-  })
+  let result
+  try {
+    result = await generateText({
+      model: aiModel,
+      system: agentConfig.prompt,
+      prompt: req.body.prompt,
+      tools: { datasetsExplorer: datasetsExplorerTool }
+    })
+  } catch (err: any) {
+    if (err?.Symbol === Symbol.for('vercel.ai.error.AI_NoOutputGeneratedError')) {
+      console.error('No output generated', { prompt: req.body.prompt })
+      res.status(502).json({ error: 'Model failed to generate output' })
+      return
+    }
+    throw err
+  }
 
   res.json({
     text: result.text,
@@ -119,6 +135,12 @@ router.post('/:id/stream-text', async (req, res, next) => {
   }
 
   const aiModel = createModel(provider, model.id)
+
+  if (!req.body.prompt?.trim()) {
+    res.status(400).json({ error: 'Prompt is required' })
+    return
+  }
+
   const datasetsExplorerConfigStream = agentConfig.datasetsExplorer as { model?: { id: string; name: string; provider: { type: string; name: string; id: string } } } | undefined
   const datasetsExplorerToolStream = createDatasetsExplorerTool(
     config.privateDataFairUrl,
@@ -157,6 +179,15 @@ router.post('/:id/stream-text', async (req, res, next) => {
   if (traceId) {
     res.setHeader('X-Trace-ID', traceId)
   }
+
+  res.on('error', (err: any) => {
+    if (err?.Symbol === Symbol.for('vercel.ai.error.AI_NoOutputGeneratedError')) {
+      console.error('No output generated in stream', { prompt: req.body.prompt, traceId })
+      if (!res.headersSent) {
+        res.status(502).json({ error: 'Model failed to generate output' })
+      }
+    }
+  })
 
   result.pipeTextStreamToResponse(res, { headers: { 'Cache-Control': 'no-cache' } })
 })

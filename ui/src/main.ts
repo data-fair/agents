@@ -13,6 +13,7 @@ import { createSession } from '@data-fair/lib-vue/session.js'
 import { createUiNotif } from '@data-fair/lib-vue/ui-notif.js'
 import { createHead } from '@unhead/vue/client'
 import { createI18n } from 'vue-i18n'
+import { createAgentTools } from './composables/use-agent-tools'
 import App from './App.vue'
 
 (async function () {
@@ -43,6 +44,7 @@ import App from './App.vue'
     .use(vuetify)
     .use(i18n)
     .use(head)
+    .use(createAgentTools())
 
   await router.isReady()
 

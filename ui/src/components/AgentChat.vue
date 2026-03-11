@@ -116,7 +116,7 @@
       flat
     >
       <v-card-text class="pa-2">
-        <v-form @submit.prevent="sendMessage">
+        <v-form @submit.prevent="handleSend">
           <v-row
             density="comfortable"
             align="center"
@@ -129,7 +129,7 @@
                 density="comfortable"
                 hide-details
                 :disabled="isLoading"
-                @keydown.enter.prevent="sendMessage"
+                @keydown.enter.prevent="handleSend"
               />
             </v-col>
             <v-col cols="auto">
@@ -154,26 +154,16 @@ fr:
   placeholder: Tapez votre message...
   send: Envoyer
   executing: en cours d'exécution
-  error: Une erreur est survenue
 en:
   placeholder: Type your message...
   send: Send
   executing: executing
-  error: An error occurred
 </i18n>
 
 <script lang="ts" setup>
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-
-interface ChatMessage {
-  role: 'user' | 'assistant'
-  content: string
-  toolInvocations?: Array<{
-    toolCallId: string
-    toolName: string
-  }>
-}
+import { useAgentChat } from '~/composables/use-agent-chat'
 
 const props = defineProps<{
   agentId: string
@@ -186,9 +176,22 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 
-const messages = ref<ChatMessage[]>([])
+const chatResult = useAgentChat(props.agentId, props.traceEnabled)
+
+if (!chatResult) {
+  throw new Error('WebSocket not supported')
+}
+
+const messages = computed(() => chatResult.messages.value)
+const status = computed(() => chatResult.status.value)
+const sendMessage = chatResult.sendMessage
+chatResult.emitTraceId = (traceId: string) => {
+  emit('trace-id', traceId)
+}
+
 const input = ref('')
-const isLoading = ref(false)
+
+const isLoading = computed(() => status.value === 'waiting')
 
 const chatMaxHeight = computed(() => {
   if (typeof window !== 'undefined') {
@@ -197,69 +200,12 @@ const chatMaxHeight = computed(() => {
   return 500
 })
 
-const scrollToBottom = () => {
-  nextTick(() => {
-    const chatList = document.querySelector('.chat-list')
-    if (chatList) {
-      chatList.scrollTop = chatList.scrollHeight
-    }
-  })
-}
-
-const sendMessage = async () => {
+const handleSend = () => {
   const userMessage = input.value.trim()
   if (!userMessage || isLoading.value) return
 
-  messages.value.push({ role: 'user', content: userMessage })
+  sendMessage(userMessage)
   input.value = ''
-  isLoading.value = true
-
-  const assistantMessage: ChatMessage = { role: 'assistant', content: '', toolInvocations: [] }
-  messages.value.push(assistantMessage)
-  scrollToBottom()
-
-  try {
-    const queryParams = new URLSearchParams()
-    if (props.traceEnabled) queryParams.append('trace', 'true')
-
-    const response = await fetch(
-      `${$apiPath}/agents/${props.agentId}/stream-text?${queryParams}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: userMessage }),
-        credentials: 'include'
-      }
-    )
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`)
-    }
-
-    if (props.traceEnabled) {
-      emit('trace-id', response.headers.get('x-trace-id') || '')
-    }
-
-    const reader = response.body?.getReader()
-    if (!reader) throw new Error('No response body')
-
-    const decoder = new TextDecoder()
-    let buffer = ''
-
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-
-      buffer += decoder.decode(value, { stream: true })
-      assistantMessage.content = buffer
-      scrollToBottom()
-    }
-  } catch (error) {
-    console.error('Chat error:', error)
-    assistantMessage.content = t('error')
-  } finally {
-    isLoading.value = false
-  }
 }
 </script>
 

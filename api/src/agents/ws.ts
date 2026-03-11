@@ -1,10 +1,16 @@
-import { type ModelMessage, type Tool, ToolLoopAgent, generateText, tool } from 'ai'
+import { type LanguageModel, type ModelMessage, type Tool, ToolLoopAgent, generateText, tool } from 'ai'
 import type { Server } from 'node:http'
 import { WebSocketServer, type WebSocket } from 'ws'
 import { randomUUID } from 'crypto'
 import { getEncoding } from 'js-tiktoken'
 import { match } from 'path-to-regexp'
 import type { PageAgentTool, ChatWsServerMessage } from '#types'
+import { assertAccountRole, session, type SessionStateAuthenticated } from '@data-fair/lib-express/index.js'
+import agentsMongo from '../mongo.ts'
+import { createTraceIntegration } from '../telemetry/trace-integration.ts'
+import { getRawSettings } from '../settings/service.ts'
+import { createModel } from './operations.ts'
+import { internalError } from '@data-fair/lib-node/observer.js'
 
 let wss: WebSocketServer | undefined
 const livingAgents: Record<string, AgentWsSocket> = {}
@@ -30,14 +36,17 @@ export class AgentWsSocket {
   private history: ModelMessage[] = []
   public isAlive = true
   private status: 'handshake' | 'working' | 'ready' = 'handshake'
-  private model: string
   public socket: WebSocket
-  public agentId: string
+  private model: LanguageModel
+  private sessionState: SessionStateAuthenticated
+  private traceEnabled = false
+  private traceId: string | undefined
+  private traceIntegration: ReturnType<typeof createTraceIntegration> | undefined
 
-  constructor (socket: WebSocket, agentId: string) {
+  constructor (socket: WebSocket, sessionState: SessionStateAuthenticated, model: LanguageModel) {
     this.socket = socket
-    this.agentId = agentId
-    this.model = 'mock-model' // TODO: fetch from settings based on agentId
+    this.model = model
+    this.sessionState = sessionState
     this.setupSocketListeners()
   }
 
@@ -46,43 +55,57 @@ export class AgentWsSocket {
   }
 
   private setupSocketListeners () {
+    console.log('setup listener')
     this.socket.on('message', async (data: any) => {
-      const msg = JSON.parse(data)
+      try {
+        const msg = JSON.parse(data)
 
-      if (msg.type === 'init-state') {
-        if (this.status !== 'handshake') throw new Error(`received a init-state message while in status ${this.status}`)
-        checkTools(msg.tools)
-        this.history = msg.history
-        this.agentTools = msg.tools
-        this.status = 'ready'
-        this.send({ type: 'init-state-ok' })
-      } else {
-        if (msg.type === 'update-tools') {
+        if (msg.type === 'init-state') {
+          if (this.status !== 'handshake') throw new Error(`received a init-state message while in status ${this.status}`)
           checkTools(msg.tools)
+          this.history = msg.history
           this.agentTools = msg.tools
-        } else if (msg.type === 'tool-result') {
-          const pendingCall = this.pendingCalls.get(msg.callId)
-          if (!pendingCall) throw new Error('received a tool-result without a matching pending call')
-          pendingCall.resolve(msg.result)
-          clearTimeout(pendingCall.timeout)
-          this.pendingCalls.delete(msg.callId)
-        } else if (msg.type === 'user-input') {
-          if (this.status !== 'ready') throw new Error(`received a user-input message while in status ${this.status}`)
-          this.status = 'working'
-          const stream = await this.createAgent().stream({ messages: [...this.history, { role: 'user', content: msg.content }] })
-          for await (const content of stream.textStream) {
-            this.send({ type: 'agent-output', content })
+
+          // Handle tracing
+          this.traceEnabled = msg.trace || false
+          if (this.traceEnabled) {
+            this.traceId = msg.traceId || randomUUID()
+            this.traceIntegration = createTraceIntegration(this.sessionState.user.id, agentsMongo.traces, this.traceId)
           }
-          const newMessages = (await stream.response).messages
-          this.history = this.history.concat(newMessages)
-          const compacted = await this.compactIfNeeded()
-          if (compacted) {
-            this.send({ type: 'reset-history', history: this.history })
-          } else {
-            this.send({ type: 'push-history', history: newMessages })
-          }
+
           this.status = 'ready'
+          this.send({ type: 'init-state-ok', traceId: this.traceId })
+        } else {
+          if (msg.type === 'update-tools') {
+            checkTools(msg.tools)
+            this.agentTools = msg.tools
+          } else if (msg.type === 'tool-result') {
+            const pendingCall = this.pendingCalls.get(msg.callId)
+            if (!pendingCall) throw new Error('received a tool-result without a matching pending call')
+            pendingCall.resolve(msg.result)
+            clearTimeout(pendingCall.timeout)
+            this.pendingCalls.delete(msg.callId)
+          } else if (msg.type === 'user-input') {
+            if (this.status !== 'ready') throw new Error(`received a user-input message while in status ${this.status}`)
+            this.status = 'working'
+            const stream = await this.createAgent().stream({ messages: [...this.history, { role: 'user', content: msg.content }] })
+            for await (const content of stream.textStream) {
+              this.send({ type: 'agent-output', content })
+            }
+            const newMessages = (await stream.response).messages
+            this.history = this.history.concat(newMessages)
+            const compacted = await this.compactIfNeeded()
+            if (compacted) {
+              this.send({ type: 'reset-history', history: this.history })
+            } else {
+              this.send({ type: 'push-history', history: newMessages })
+            }
+            this.status = 'ready'
+          }
         }
+      } catch (err: any) {
+        internalError('chat-ws', err)
+        this.socket.close(500, err.message)
       }
     })
 
@@ -92,6 +115,8 @@ export class AgentWsSocket {
         this.pendingCalls.delete(id)
       }
     })
+
+    this.send({ type: 'ready' })
   }
 
   public createAgent () {
@@ -105,6 +130,23 @@ export class AgentWsSocket {
         execute: async (args) => this.callBrowserTool(t.name, args),
       })
     })
+
+    if (this.traceEnabled && this.traceId && this.traceIntegration) {
+      return new ToolLoopAgent({
+        model: this.model,
+        tools,
+        experimental_telemetry: {
+          isEnabled: true,
+          functionId: this.traceId,
+          metadata: {
+            traceId: this.traceId,
+            userId: this.sessionState.user.id
+          },
+          integrations: [this.traceIntegration]
+        }
+      })
+    }
+
     return new ToolLoopAgent({ model: this.model, tools })
   }
 
@@ -174,26 +216,64 @@ const agentPathMatcher = match<{ agentId: string }>('/agents/api/agents/:agentId
 export const start = async (server: Server) => {
   wss = new WebSocketServer({ server })
   wss.on('connection', async (ws, req) => {
-    const url = req.url || ''
-    const matchResult = agentPathMatcher(url)
-    if (!matchResult) {
-      ws.close(4000, 'Invalid path')
-      return
+    try {
+      const url = req.url || ''
+      const matchResult = agentPathMatcher(url)
+      if (!matchResult) {
+        ws.close(4000, 'Invalid path')
+        return
+      }
+      const { agentId } = matchResult.params
+
+      const sessionState = await session.reqAuthenticated(req)
+      const owner = sessionState.account
+      assertAccountRole(sessionState, owner, 'admin')
+
+      if (agentId !== 'back-office-assistant') {
+        ws.close(404, 'Agent not found')
+        return
+      }
+
+      const settings = await getRawSettings(owner)
+
+      if (!settings || !settings.agents?.backOfficeAssistant) {
+        ws.close(404, 'Agent not configured')
+        return
+      }
+
+      const agentConfig = settings.agents.backOfficeAssistant
+      const model = agentConfig.model
+
+      const provider = settings.providers.find(p => p.id === model.provider.id)
+
+      if (!provider) {
+        ws.close(400, 'Provider not configured')
+        return
+      }
+
+      if (!provider.enabled) {
+        ws.close(400, 'Provider is disabled')
+        return
+      }
+
+      const aiModel = createModel(provider, model.id)
+
+      const clientId = randomUUID()
+      const agentWsSocket = livingAgents[clientId] = new AgentWsSocket(ws, sessionState, aiModel)
+
+      agentWsSocket.socket.on('close', () => {
+        delete livingAgents[clientId]
+      })
+
+      agentWsSocket.socket.on('error', () => agentWsSocket.socket.terminate())
+
+      agentWsSocket.socket.on('pong', () => {
+        agentWsSocket.isAlive = true
+      })
+    } catch (error) {
+      console.error('WebSocket connection error:', error)
+      ws.close(401, 'Authentication failed')
     }
-    const { agentId } = matchResult.params
-
-    const clientId = randomUUID()
-    const agentWsSocket = livingAgents[clientId] = new AgentWsSocket(ws, agentId)
-
-    agentWsSocket.socket.on('close', () => {
-      delete livingAgents[clientId]
-    })
-
-    agentWsSocket.socket.on('error', () => agentWsSocket.socket.terminate())
-
-    agentWsSocket.socket.on('pong', () => {
-      agentWsSocket.isAlive = true
-    })
   })
 
   // standard ping/pong used to detect lost connections

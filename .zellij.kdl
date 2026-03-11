@@ -18,7 +18,7 @@ layout {
       }
       pane name="api" {
         command "bash"
-        args "-ic" "nvm use > /dev/null 2>&1 && npm -w api run dev"
+        args "-ic" "nvm use > /dev/null 2>&1 && while ! npm -w api run dev; do sleep 2; done"
       }
     }
     pane size=2 borderless=true {

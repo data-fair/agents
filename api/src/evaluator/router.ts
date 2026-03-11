@@ -139,23 +139,44 @@ async function runEvaluationTask (
 
   let currentPrompt = task.initialPrompt
 
+  if (!currentPrompt?.trim()) {
+    throw new Error('Task initialPrompt is required')
+  }
+
   for (let turn = 0; turn < maxTurns; turn++) {
     conversation.push({ role: 'user', content: currentPrompt })
 
-    const streamResult = await streamText({
-      model: assistantModel,
-      prompt: currentPrompt,
-      experimental_telemetry: {
-        isEnabled: true,
-        functionId: traceId,
-        metadata: { traceId, userId, turn: turn.toString() },
-        integrations: [traceIntegration]
-      }
-    })
-
     let fullResponse = ''
-    for await (const chunk of streamResult.textStream) {
-      fullResponse += chunk
+    try {
+      const streamResult = await streamText({
+        model: assistantModel,
+        prompt: currentPrompt,
+        experimental_telemetry: {
+          isEnabled: true,
+          functionId: traceId,
+          metadata: { traceId, userId, turn: turn.toString() },
+          integrations: [traceIntegration]
+        }
+      })
+
+      for await (const chunk of streamResult.textStream) {
+        fullResponse += chunk
+      }
+    } catch (err: any) {
+      if (err?.Symbol === Symbol.for('vercel.ai.error.AI_NoOutputGeneratedError')) {
+        console.error(`No output generated at turn ${turn}`, { traceId, prompt: currentPrompt })
+        return {
+          taskIndex: 0,
+          initialPrompt: task.initialPrompt,
+          conversation,
+          traceIds: [traceId],
+          finalResponse: fullResponse || 'Error: No output generated',
+          rankings: { quality: 0, efficiency: 0 },
+          summary: `Failed to generate output after ${turn + 1} turn(s)`,
+          suggestions: ['Check model configuration and API keys']
+        }
+      }
+      throw err
     }
 
     conversation.push({ role: 'assistant', content: fullResponse })

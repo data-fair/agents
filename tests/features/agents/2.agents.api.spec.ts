@@ -5,7 +5,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import WebSocket from 'ws'
-import { axiosAuth, clean } from '../../support/axios.ts'
+import { axiosAuth, clean, directoryUrl } from '../../support/axios.ts'
 
 const user = await axiosAuth('test-standalone1')
 
@@ -445,20 +445,15 @@ test.describe('Agents API', () => {
     await user.put('/api/settings/user/test-standalone1', settingsData)
 
     const wsUrl = `ws://localhost:${process.env.DEV_API_PORT}/agents/api/agents/back-office-assistant/chat`
-    const headers = Object.fromEntries(
-      Object.entries(user.defaults.headers.common as Record<string, string>)
-        .filter(([, v]) => v !== undefined)
-    )
-
-    const ws = new WebSocket(wsUrl, { headers })
+    const ws = new WebSocket(wsUrl, { headers: { cookie: await user.cookieJar.getCookieString(directoryUrl) } })
 
     await new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('Timeout waiting for init-state-ok')), 5000)
-      ws.on('open', () => {
-        ws.send(JSON.stringify({ type: 'init-state', history: [], tools: [] }))
-      })
       ws.on('message', (data) => {
         const msg = JSON.parse(data.toString())
+        if (msg.type === 'ready') {
+          ws.send(JSON.stringify({ type: 'init-state', history: [], tools: [] }))
+        }
         if (msg.type === 'init-state-ok') {
           clearTimeout(timeout)
           resolve()
