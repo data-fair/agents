@@ -19,9 +19,11 @@
     "@data-fair/lib-vuetify": "2.0.0",
     "@koumoul/vjsf": "^4.0.0",
     "@koumoul/vjsf-markdown": "^0.5.0",
+    "@mcp-b/webmcp-polyfill": "^2.1.0",
     "@mdi/font": "^7.4.47",
     "@unhead/vue": "^2.1.10",
     "dayjs": "^1.11.19",
+    "reconnecting-websocket": "^4.4.0",
     "vue": "^3.5.13",
     "vue-router": "^4.5.1",
     "vuetify": "^4.0.1"
