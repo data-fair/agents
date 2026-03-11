@@ -1,8 +1,9 @@
 import settingsSchema from './settings/schema.js'
 import modelSchema from './model/schema.js'
+import evaluatorSchema from './evaluator/schema.js'
 
 export * from './settings/index.ts'
-export { settingsSchema, modelSchema }
+export { settingsSchema, modelSchema, evaluatorSchema }
 
 export type ModelInfo = {
   id: string

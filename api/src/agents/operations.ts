@@ -15,6 +15,7 @@ import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { createOllama } from 'ai-sdk-ollama'
 import { searchDatasets, describeDataset, searchData, aggregateData } from '../tools/datasets/index.ts'
 import { createMockLanguageModel } from './mock-model.ts'
+import { createEvaluatorMockLanguageModel } from './evaluator-mock-model.ts'
 import { TraceIntegration } from '../telemetry/trace-integration.ts'
 
 export interface AgentInfo {
@@ -26,7 +27,7 @@ export const listAgents = (): AgentInfo[] => [
   { id: 'back-office-assistant', name: 'Data Fair Assistant' }
 ]
 
-export { createMockLanguageModel }
+export { createMockLanguageModel, createEvaluatorMockLanguageModel }
 
 export function createModel (provider: Provider, modelId: string): LanguageModel {
   switch (provider.type) {

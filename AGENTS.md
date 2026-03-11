@@ -32,7 +32,7 @@ When working on this project, read the following files on a need-to-know basis t
 - Dataset tool pattern: @api/src/tools/datasets/search-data.ts
 - MCP server setup: @api/src/mcp/server.ts
 - Vue page pattern: @ui/src/pages/settings.vue
-- Unit test pattern: @tests/features/settings/1-settings.unit.spec.ts
-- API test pattern: @tests/features/settings/1-settings.api.spec.ts
-- E2E test pattern: @tests/features/settings/1-settings.e2e.spec.ts
+- Unit test pattern: @tests/features/settings/1.settings.unit.spec.ts
+- API test pattern: @tests/features/settings/2.settings.api.spec.ts
+- E2E test pattern: @tests/features/settings/3.settings.e2e.spec.ts
 - Type generation from JSON schemas: @api/types/settings/schema.js

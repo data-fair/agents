@@ -53,6 +53,15 @@ export type Name1 = string;
 export type ProviderType7 = string;
 export type ProviderName = string;
 export type ProviderID7 = string;
+export type Name2 = string;
+/**
+ * System prompt for the evaluator to grade responses and analyze traces.
+ */
+export type EvaluationPrompt = string;
+/**
+ * Use the same model as back-office-assistant by default.
+ */
+export type UseBackOfficeAssistantModel = boolean;
 
 export type SettingsPut = {
   createdAt?: string;
@@ -131,6 +140,13 @@ export type Agents = {
     prompt?: MainPrompt;
     model: Model;
     datasetsExplorer?: DatasetsExplorer;
+    [k: string]: unknown;
+  };
+  evaluator?: {
+    name?: Name2;
+    prompt?: EvaluationPrompt;
+    model?: Model;
+    defaultToBackOfficeModel?: UseBackOfficeAssistantModel;
     [k: string]: unknown;
   };
   [k: string]: unknown;

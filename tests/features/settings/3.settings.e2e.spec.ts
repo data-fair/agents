@@ -53,7 +53,7 @@ test.describe('Settings UI', () => {
   })
 
   test('Can save settings with valid form', async ({ page, goToWithAuth }) => {
-    // First, seed valid settings via API (with a Mock provider and model)
+    // Seed valid settings via API first so form is valid
     const user = await axiosAuth('test-standalone1')
     await user.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'seed-provider', type: 'mock', name: 'Mock Seed', enabled: true }],
@@ -65,12 +65,18 @@ test.describe('Settings UI', () => {
     // Wait for page to fully load
     await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible()
 
-    // Add another provider to create changes
+    // Wait for any validation to complete
+    await page.waitForTimeout(500)
+
+    // Add a provider to create changes
     await page.getByRole('button', { name: 'Add item' }).click()
     await page.getByRole('combobox').first().click()
     await page.getByRole('option', { name: 'Mock' }).click()
 
-    // Click Save button - should be enabled now because form is valid
+    // Wait for form to validate
+    await page.waitForTimeout(500)
+
+    // Click Save button
     await page.getByRole('button', { name: 'Save' }).click()
 
     // Verify success notification appears
@@ -90,8 +96,8 @@ test.describe('Settings UI', () => {
     // Wait for page to load
     await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible()
 
-    // Clear the agent name and enter new one
-    const nameInput = page.getByRole('textbox', { name: 'Name', exact: true })
+    // Clear the agent name and enter new one - use first() to get the backOfficeAssistant name field
+    const nameInput = page.getByRole('textbox', { name: 'Name', exact: true }).first()
     await nameInput.fill('Test Agent')
 
     // Blur the input to trigger change detection (vjsf uses updateOn: 'blur')

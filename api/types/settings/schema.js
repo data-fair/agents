@@ -444,6 +444,33 @@ export default {
               }
             }
           }
+        },
+        evaluator: {
+          type: 'object',
+          properties: {
+            name: {
+              type: 'string',
+              title: 'Name',
+              default: 'Evaluator',
+              'x-i18n-default': {
+                fr: 'Évaluateur',
+                en: 'Evaluator'
+              }
+            },
+            prompt: {
+              type: 'string',
+              title: 'Evaluation prompt',
+              layout: 'markdown',
+              description: 'System prompt for the evaluator to grade responses and analyze traces.'
+            },
+            model: { $ref: '#/definitions/Model' },
+            defaultToBackOfficeModel: {
+              type: 'boolean',
+              default: true,
+              title: 'Use back-office-assistant model',
+              description: 'Use the same model as back-office-assistant by default.'
+            }
+          }
         }
       }
     }
