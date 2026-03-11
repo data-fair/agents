@@ -1,6 +1,5 @@
 export default {
   privateDirectoryUrl: 'http://simple-directory:8080',
-  privateDataFairUrl: 'http://data-fair:8080',
   privateEventsUrl: undefined,
   mongoUrl: 'mongodb://localhost:27017/data-fair-agents',
   port: 8080,
