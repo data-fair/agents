@@ -7,6 +7,7 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    AgentChat: typeof import('./src/components/AgentChat.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     VjsfPutReq: typeof import('./src/components/vjsf/vjsf-put-req.vue')['default']
