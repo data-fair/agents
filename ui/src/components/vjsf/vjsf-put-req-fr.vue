@@ -24,8 +24,6 @@ import oneofselectNode from '@koumoul/vjsf/components/nodes/one-of-select.vue'
 
 import checkboxNode from '@koumoul/vjsf/components/nodes/checkbox.vue'
 
-import markdownNode from '@koumoul/vjsf-markdown/node.vue'
-
 
 import localizeErrors from "ajv-i18n/localize/fr/index.js";
 import { fullFormats } from "ajv-formats/dist/formats.js";
@@ -270,11 +268,11 @@ validate22.evaluated = {"props":{"type":true,"id":true,"name":true,"enabled":tru
 const schema31 = {"$id":"export1","$ref":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1"};
 const schema32 = {"required":["type","name","id","enabled"],"title":"Anthropic","properties":{"type":{"type":"string","title":"Provider Type","const":"anthropic","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Anthropic\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}};
 
-function validate28(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+function validate27(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 /*# sourceURL="export1" */;
 let vErrors = null;
 let errors = 0;
-const evaluated0 = validate28.evaluated;
+const evaluated0 = validate27.evaluated;
 if(evaluated0.dynamicProps){
 evaluated0.props = undefined;
 }
@@ -498,19 +496,19 @@ emErrs5.push(err18);
 vErrors = emErrs5;
 errors = emErrs5.length;
 }
-validate28.errors = vErrors;
+validate27.errors = vErrors;
 return errors === 0;
 }
-validate28.evaluated = {"props":{"type":true,"id":true,"name":true,"enabled":true,"apiKey":true},"dynamicProps":false,"dynamicItems":false};
+validate27.evaluated = {"props":{"type":true,"id":true,"name":true,"enabled":true,"apiKey":true},"dynamicProps":false,"dynamicItems":false};
 
 const schema33 = {"$id":"export2","$ref":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2"};
 const schema34 = {"required":["type","name","id","enabled"],"title":"Google","properties":{"type":{"type":"string","title":"Provider Type","const":"google","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Google\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}};
 
-function validate29(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+function validate28(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 /*# sourceURL="export2" */;
 let vErrors = null;
 let errors = 0;
-const evaluated0 = validate29.evaluated;
+const evaluated0 = validate28.evaluated;
 if(evaluated0.dynamicProps){
 evaluated0.props = undefined;
 }
@@ -734,19 +732,19 @@ emErrs5.push(err18);
 vErrors = emErrs5;
 errors = emErrs5.length;
 }
-validate29.errors = vErrors;
+validate28.errors = vErrors;
 return errors === 0;
 }
-validate29.evaluated = {"props":{"type":true,"id":true,"name":true,"enabled":true,"apiKey":true},"dynamicProps":false,"dynamicItems":false};
+validate28.evaluated = {"props":{"type":true,"id":true,"name":true,"enabled":true,"apiKey":true},"dynamicProps":false,"dynamicItems":false};
 
 const schema35 = {"$id":"export3","$ref":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3"};
 const schema36 = {"required":["type","name","id","enabled"],"title":"Mistral","properties":{"type":{"type":"string","title":"Provider Type","const":"mistral","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Mistral\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}};
 
-function validate30(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+function validate29(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 /*# sourceURL="export3" */;
 let vErrors = null;
 let errors = 0;
-const evaluated0 = validate30.evaluated;
+const evaluated0 = validate29.evaluated;
 if(evaluated0.dynamicProps){
 evaluated0.props = undefined;
 }
@@ -970,19 +968,19 @@ emErrs5.push(err18);
 vErrors = emErrs5;
 errors = emErrs5.length;
 }
-validate30.errors = vErrors;
+validate29.errors = vErrors;
 return errors === 0;
 }
-validate30.evaluated = {"props":{"type":true,"id":true,"name":true,"enabled":true,"apiKey":true},"dynamicProps":false,"dynamicItems":false};
+validate29.evaluated = {"props":{"type":true,"id":true,"name":true,"enabled":true,"apiKey":true},"dynamicProps":false,"dynamicItems":false};
 
 const schema37 = {"$id":"export4","$ref":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4"};
 const schema38 = {"required":["type","name","id","enabled"],"title":"OpenRouter","properties":{"type":{"type":"string","title":"Provider Type","const":"openrouter","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"OpenRouter\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}};
 
-function validate31(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+function validate30(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 /*# sourceURL="export4" */;
 let vErrors = null;
 let errors = 0;
-const evaluated0 = validate31.evaluated;
+const evaluated0 = validate30.evaluated;
 if(evaluated0.dynamicProps){
 evaluated0.props = undefined;
 }
@@ -1206,19 +1204,19 @@ emErrs5.push(err18);
 vErrors = emErrs5;
 errors = emErrs5.length;
 }
-validate31.errors = vErrors;
+validate30.errors = vErrors;
 return errors === 0;
 }
-validate31.evaluated = {"props":{"type":true,"id":true,"name":true,"enabled":true,"apiKey":true},"dynamicProps":false,"dynamicItems":false};
+validate30.evaluated = {"props":{"type":true,"id":true,"name":true,"enabled":true,"apiKey":true},"dynamicProps":false,"dynamicItems":false};
 
 const schema39 = {"$id":"export5","$ref":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5"};
 const schema40 = {"required":["type","name","id","enabled","baseURL"],"title":"Ollama","properties":{"type":{"type":"string","title":"Provider Type","const":"ollama","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Ollama\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/apiKey","errorMessage":{}},"baseURL":{"type":"string","title":"URL de base","default":"http://localhost:11434","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/baseURL","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire","baseURL":"information obligatoire"}}};
 
-function validate32(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+function validate31(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 /*# sourceURL="export5" */;
 let vErrors = null;
 let errors = 0;
-const evaluated0 = validate32.evaluated;
+const evaluated0 = validate31.evaluated;
 if(evaluated0.dynamicProps){
 evaluated0.props = undefined;
 }
@@ -1475,19 +1473,19 @@ emErrs6.push(err21);
 vErrors = emErrs6;
 errors = emErrs6.length;
 }
-validate32.errors = vErrors;
+validate31.errors = vErrors;
 return errors === 0;
 }
-validate32.evaluated = {"props":{"type":true,"id":true,"name":true,"enabled":true,"apiKey":true,"baseURL":true},"dynamicProps":false,"dynamicItems":false};
+validate31.evaluated = {"props":{"type":true,"id":true,"name":true,"enabled":true,"apiKey":true,"baseURL":true},"dynamicProps":false,"dynamicItems":false};
 
 const schema41 = {"$id":"export6","$ref":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6"};
 const schema42 = {"required":["type","name","id","enabled"],"title":"Mock","description":"To a message \"hello\" respond \"world\", to a message \"call tool ARG1 ARG2\" respond with a tool call, to anything else respond \"what do you mean ?\"","properties":{"type":{"type":"string","title":"Provider Type","const":"mock","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Mock\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/enabled","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}};
 
-function validate33(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+function validate32(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 /*# sourceURL="export6" */;
 let vErrors = null;
 let errors = 0;
-const evaluated0 = validate33.evaluated;
+const evaluated0 = validate32.evaluated;
 if(evaluated0.dynamicProps){
 evaluated0.props = undefined;
 }
@@ -1688,19 +1686,19 @@ emErrs4.push(err16);
 vErrors = emErrs4;
 errors = emErrs4.length;
 }
-validate33.errors = vErrors;
+validate32.errors = vErrors;
 return errors === 0;
 }
-validate33.evaluated = {"props":{"type":true,"id":true,"name":true,"enabled":true},"dynamicProps":false,"dynamicItems":false};
+validate32.evaluated = {"props":{"type":true,"id":true,"name":true,"enabled":true},"dynamicProps":false,"dynamicItems":false};
 
 const schema43 = {"$id":"export7","$ref":"https://github.com/data-fair/agents/settings-put#/properties/providers/items"};
 const schema44 = {"type":"object","title":"Fournisseur","unevaluatedProperties":false,"oneOfLayout":{"emptyData":true},"discriminator":{"propertyName":"type"},"layout":{"getDefaultData":"{ id: crypto.randomUUID() }","switch":[{"if":"summary","children":[]}]},"oneOf":[{"required":["type","name","id","enabled"],"title":"Open AI","properties":{"type":{"type":"string","title":"Provider Type","const":"openai","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Open AI\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}},{"required":["type","name","id","enabled"],"title":"Anthropic","properties":{"type":{"type":"string","title":"Provider Type","const":"anthropic","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Anthropic\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}},{"required":["type","name","id","enabled"],"title":"Google","properties":{"type":{"type":"string","title":"Provider Type","const":"google","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Google\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}},{"required":["type","name","id","enabled"],"title":"Mistral","properties":{"type":{"type":"string","title":"Provider Type","const":"mistral","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Mistral\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}},{"required":["type","name","id","enabled"],"title":"OpenRouter","properties":{"type":{"type":"string","title":"Provider Type","const":"openrouter","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"OpenRouter\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}},{"required":["type","name","id","enabled","baseURL"],"title":"Ollama","properties":{"type":{"type":"string","title":"Provider Type","const":"ollama","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Ollama\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/apiKey","errorMessage":{}},"baseURL":{"type":"string","title":"URL de base","default":"http://localhost:11434","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/baseURL","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire","baseURL":"information obligatoire"}}},{"required":["type","name","id","enabled"],"title":"Mock","description":"To a message \"hello\" respond \"world\", to a message \"call tool ARG1 ARG2\" respond with a tool call, to anything else respond \"what do you mean ?\"","properties":{"type":{"type":"string","title":"Provider Type","const":"mock","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Mock\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/enabled","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}}],"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items","errorMessage":{"oneOf":"choisissez une valeur"}};
 
-function validate34(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+function validate33(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 /*# sourceURL="export7" */;
 let vErrors = null;
 let errors = 0;
-const evaluated0 = validate34.evaluated;
+const evaluated0 = validate33.evaluated;
 if(evaluated0.dynamicProps){
 evaluated0.props = undefined;
 }
@@ -3448,13 +3446,13 @@ emErrs42.push(err139);
 vErrors = emErrs42;
 errors = emErrs42.length;
 }
-validate34.errors = vErrors;
+validate33.errors = vErrors;
 return errors === 0;
 }
-validate34.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
+validate33.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
 const schema45 = {"$id":"export8","$ref":"https://github.com/data-fair/agents/settings-put#"};
-const schema27 = {"$id":"https://github.com/data-fair/agents/settings-put","x-exports":["validate","types","vjsf"],"title":"Paramètres","layout":{"title":null},"definitions":{"Model":{"$ref":"https://github.com/data-fair/agents/model","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model","errorMessage":{}}},"type":"object","additionalProperties":false,"required":["providers","agents"],"properties":{"createdAt":{"type":"string","format":"date-time","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/createdAt","errorMessage":{}},"updatedAt":{"type":"string","format":"date-time","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/updatedAt","errorMessage":{}},"owner":{"type":"object","additionalProperties":false,"required":["type","id"],"readOnly":true,"properties":{"type":{"type":"string","enum":["user","organization"],"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/type","errorMessage":{}},"id":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/id","errorMessage":{}},"name":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/name","errorMessage":{}},"department":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/department","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire"}}},"providers":{"type":"array","title":"Fournisseurs IA","layout":{"itemTitle":"item ? `${item.name || \"\"} - ${item.id.slice(0, 8)}` : \"\"","listActions":["add","edit","delete"]},"items":{"type":"object","title":"Fournisseur","unevaluatedProperties":false,"oneOfLayout":{"emptyData":true},"discriminator":{"propertyName":"type"},"layout":{"getDefaultData":"{ id: crypto.randomUUID() }","switch":[{"if":"summary","children":[]}]},"oneOf":[{"required":["type","name","id","enabled"],"title":"Open AI","properties":{"type":{"type":"string","title":"Provider Type","const":"openai","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Open AI\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}},{"required":["type","name","id","enabled"],"title":"Anthropic","properties":{"type":{"type":"string","title":"Provider Type","const":"anthropic","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Anthropic\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}},{"required":["type","name","id","enabled"],"title":"Google","properties":{"type":{"type":"string","title":"Provider Type","const":"google","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Google\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}},{"required":["type","name","id","enabled"],"title":"Mistral","properties":{"type":{"type":"string","title":"Provider Type","const":"mistral","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Mistral\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}},{"required":["type","name","id","enabled"],"title":"OpenRouter","properties":{"type":{"type":"string","title":"Provider Type","const":"openrouter","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"OpenRouter\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}},{"required":["type","name","id","enabled","baseURL"],"title":"Ollama","properties":{"type":{"type":"string","title":"Provider Type","const":"ollama","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Ollama\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/apiKey","errorMessage":{}},"baseURL":{"type":"string","title":"URL de base","default":"http://localhost:11434","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/baseURL","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire","baseURL":"information obligatoire"}}},{"required":["type","name","id","enabled"],"title":"Mock","description":"To a message \"hello\" respond \"world\", to a message \"call tool ARG1 ARG2\" respond with a tool call, to anything else respond \"what do you mean ?\"","properties":{"type":{"type":"string","title":"Provider Type","const":"mock","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Mock\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/enabled","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}}],"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items","errorMessage":{"oneOf":"choisissez une valeur"}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers","errorMessage":{}},"agents":{"type":"object","title":"Agents","properties":{"backOfficeAssistant":{"type":"object","required":["model"],"properties":{"name":{"type":"string","title":"Name","default":"Assistant Data Fair","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/agents/properties/backOfficeAssistant/properties/name","errorMessage":{}},"prompt":{"type":"string","title":"Main prompt","layout":"markdown","description":"In this prompt you can instruct your assistant to behave in certain ways.","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/agents/properties/backOfficeAssistant/properties/prompt","errorMessage":{}},"model":{"$ref":"#/definitions/Model","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/agents/properties/backOfficeAssistant/properties/model","errorMessage":{}},"datasetsExplorer":{"type":"object","title":"Datasets Explorer","description":"Optional sub-agent for exploring datasets. If not configured, uses the main model.","properties":{"model":{"$ref":"#/definitions/Model","title":"Model","description":"Model to use for datasets exploration. Uses main model if not set.","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/agents/properties/backOfficeAssistant/properties/datasetsExplorer/properties/model","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/agents/properties/backOfficeAssistant/properties/datasetsExplorer","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/agents/properties/backOfficeAssistant","errorMessage":{"required":{"model":"information obligatoire"}}},"evaluator":{"type":"object","properties":{"name":{"type":"string","title":"Name","default":"Évaluateur","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/agents/properties/evaluator/properties/name","errorMessage":{}},"prompt":{"type":"string","title":"Evaluation prompt","layout":"markdown","description":"System prompt for the evaluator to grade responses and analyze traces.","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/agents/properties/evaluator/properties/prompt","errorMessage":{}},"model":{"$ref":"#/definitions/Model","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/agents/properties/evaluator/properties/model","errorMessage":{}},"defaultToBackOfficeModel":{"type":"boolean","default":true,"title":"Use back-office-assistant model","description":"Use the same model as back-office-assistant by default.","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/agents/properties/evaluator/properties/defaultToBackOfficeModel","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/agents/properties/evaluator","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/agents","errorMessage":{}}},"x-vjsf":{"xI18n":true,"pluginsImports":["@koumoul/vjsf-markdown"]},"x-vjsf-locales":["en","fr"],"__pointer":"https://github.com/data-fair/agents/settings-put#","errorMessage":{"required":{"providers":"information obligatoire","agents":"information obligatoire"}}};
+const schema27 = {"$id":"https://github.com/data-fair/agents/settings-put","x-exports":["validate","types","vjsf"],"title":"Paramètres","layout":{"title":null},"definitions":{"Model":{"$ref":"https://github.com/data-fair/agents/model","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model","errorMessage":{}}},"type":"object","additionalProperties":false,"required":["providers","chatModel"],"properties":{"createdAt":{"type":"string","format":"date-time","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/createdAt","errorMessage":{}},"updatedAt":{"type":"string","format":"date-time","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/updatedAt","errorMessage":{}},"owner":{"type":"object","additionalProperties":false,"required":["type","id"],"readOnly":true,"properties":{"type":{"type":"string","enum":["user","organization"],"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/type","errorMessage":{}},"id":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/id","errorMessage":{}},"name":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/name","errorMessage":{}},"department":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/department","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire"}}},"providers":{"type":"array","title":"Fournisseurs IA","layout":{"itemTitle":"item ? `${item.name || \"\"} - ${item.id.slice(0, 8)}` : \"\"","listActions":["add","edit","delete"]},"items":{"type":"object","title":"Fournisseur","unevaluatedProperties":false,"oneOfLayout":{"emptyData":true},"discriminator":{"propertyName":"type"},"layout":{"getDefaultData":"{ id: crypto.randomUUID() }","switch":[{"if":"summary","children":[]}]},"oneOf":[{"required":["type","name","id","enabled"],"title":"Open AI","properties":{"type":{"type":"string","title":"Provider Type","const":"openai","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Open AI\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}},{"required":["type","name","id","enabled"],"title":"Anthropic","properties":{"type":{"type":"string","title":"Provider Type","const":"anthropic","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Anthropic\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}},{"required":["type","name","id","enabled"],"title":"Google","properties":{"type":{"type":"string","title":"Provider Type","const":"google","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Google\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}},{"required":["type","name","id","enabled"],"title":"Mistral","properties":{"type":{"type":"string","title":"Provider Type","const":"mistral","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Mistral\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}},{"required":["type","name","id","enabled"],"title":"OpenRouter","properties":{"type":{"type":"string","title":"Provider Type","const":"openrouter","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"OpenRouter\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}},{"required":["type","name","id","enabled","baseURL"],"title":"Ollama","properties":{"type":{"type":"string","title":"Provider Type","const":"ollama","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Ollama\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/apiKey","errorMessage":{}},"baseURL":{"type":"string","title":"URL de base","default":"http://localhost:11434","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/baseURL","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire","baseURL":"information obligatoire"}}},{"required":["type","name","id","enabled"],"title":"Mock","description":"To a message \"hello\" respond \"world\", to a message \"call tool ARG1 ARG2\" respond with a tool call, to anything else respond \"what do you mean ?\"","properties":{"type":{"type":"string","title":"Provider Type","const":"mock","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Mock\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/enabled","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}}],"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items","errorMessage":{"oneOf":"choisissez une valeur"}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers","errorMessage":{}},"chatModel":{"$ref":"#/definitions/Model","title":"Chat Model","description":"Model used for the chat interface","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/chatModel","errorMessage":{}},"evaluatorModel":{"$ref":"#/definitions/Model","title":"Evaluator Model","description":"Model used for evaluation (optional, defaults to chat model)","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/evaluatorModel","errorMessage":{}}},"x-vjsf":{"xI18n":true,"pluginsImports":["@koumoul/vjsf-markdown"]},"x-vjsf-locales":["en","fr"],"__pointer":"https://github.com/data-fair/agents/settings-put#","errorMessage":{"required":{"providers":"information obligatoire","chatModel":"information obligatoire"}}};
 const formats0 = fullFormats["date-time"];
 const schema28 = {"$ref":"https://github.com/data-fair/agents/model","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model","errorMessage":{}};
 const schema29 = {"$id":"https://github.com/data-fair/agents/model","title":"Model","type":"object","required":["id","name","provider"],"properties":{"id":{"type":"string","title":"Model ID"},"name":{"type":"string","title":"Name"},"provider":{"type":"object","required":["type","name","id"],"properties":{"type":{"type":"string","title":"Provider Type"},"name":{"type":"string","title":"Provider Name"},"id":{"type":"string","title":"Provider ID"}}}}};
@@ -3659,8 +3657,8 @@ vErrors.push(err0);
 }
 errors++;
 }
-if(data.agents === undefined){
-const err1 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "agents"},message:"must have required property '"+"agents"+"'",schema:schema27.required,parentSchema:schema27,data};
+if(data.chatModel === undefined){
+const err1 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "chatModel"},message:"must have required property '"+"chatModel"+"'",schema:schema27.required,parentSchema:schema27,data};
 if(vErrors === null){
 vErrors = [err1];
 }
@@ -3670,7 +3668,7 @@ vErrors.push(err1);
 errors++;
 }
 for(const key0 in data){
-if(!(((((key0 === "createdAt") || (key0 === "updatedAt")) || (key0 === "owner")) || (key0 === "providers")) || (key0 === "agents"))){
+if(!((((((key0 === "createdAt") || (key0 === "updatedAt")) || (key0 === "owner")) || (key0 === "providers")) || (key0 === "chatModel")) || (key0 === "evaluatorModel"))){
 const err2 = {instancePath,schemaPath:"#/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties",schema:false,parentSchema:schema27,data};
 if(vErrors === null){
 vErrors = [err2];
@@ -5710,74 +5708,80 @@ vErrors = emErrs50;
 errors = emErrs50.length;
 }
 }
-if(data.agents !== undefined){
-let data44 = data.agents;
-if(data44 && typeof data44 == "object" && !Array.isArray(data44)){
-if(data44.backOfficeAssistant !== undefined){
-let data45 = data44.backOfficeAssistant;
-if(data45 && typeof data45 == "object" && !Array.isArray(data45)){
-if(data45.model === undefined){
-const err167 = {instancePath:instancePath+"/agents/backOfficeAssistant",schemaPath:"#/properties/agents/properties/backOfficeAssistant/required",keyword:"required",params:{missingProperty: "model"},message:"must have required property '"+"model"+"'",schema:schema27.properties.agents.properties.backOfficeAssistant.required,parentSchema:schema27.properties.agents.properties.backOfficeAssistant,data:data45};
-if(vErrors === null){
-vErrors = [err167];
-}
-else {
-vErrors.push(err167);
-}
-errors++;
-}
-if(data45.name !== undefined){
-let data46 = data45.name;
-if(typeof data46 !== "string"){
-const err168 = {instancePath:instancePath+"/agents/backOfficeAssistant/name",schemaPath:"#/properties/agents/properties/backOfficeAssistant/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.agents.properties.backOfficeAssistant.properties.name.type,parentSchema:schema27.properties.agents.properties.backOfficeAssistant.properties.name,data:data46};
-if(vErrors === null){
-vErrors = [err168];
-}
-else {
-vErrors.push(err168);
-}
-errors++;
+if(data.chatModel !== undefined){
+if(!(validate24(data.chatModel, {instancePath:instancePath+"/chatModel",parentData:data,parentDataProperty:"chatModel",rootData,dynamicAnchors}))){
+vErrors = vErrors === null ? validate24.errors : vErrors.concat(validate24.errors);
+errors = vErrors.length;
 }
 if(errors > 0){
 const emErrs51 = [];
-for(const err169 of vErrors){
-if(!err169.emUsed){
-emErrs51.push(err169);
+for(const err167 of vErrors){
+if(!err167.emUsed){
+emErrs51.push(err167);
 }
 }
 vErrors = emErrs51;
 errors = emErrs51.length;
 }
 }
-if(data45.prompt !== undefined){
-let data47 = data45.prompt;
-if(typeof data47 !== "string"){
-const err170 = {instancePath:instancePath+"/agents/backOfficeAssistant/prompt",schemaPath:"#/properties/agents/properties/backOfficeAssistant/properties/prompt/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.agents.properties.backOfficeAssistant.properties.prompt.type,parentSchema:schema27.properties.agents.properties.backOfficeAssistant.properties.prompt,data:data47};
-if(vErrors === null){
-vErrors = [err170];
-}
-else {
-vErrors.push(err170);
-}
-errors++;
+if(data.evaluatorModel !== undefined){
+if(!(validate24(data.evaluatorModel, {instancePath:instancePath+"/evaluatorModel",parentData:data,parentDataProperty:"evaluatorModel",rootData,dynamicAnchors}))){
+vErrors = vErrors === null ? validate24.errors : vErrors.concat(validate24.errors);
+errors = vErrors.length;
 }
 if(errors > 0){
 const emErrs52 = [];
-for(const err171 of vErrors){
-if(!err171.emUsed){
-emErrs52.push(err171);
+for(const err168 of vErrors){
+if(!err168.emUsed){
+emErrs52.push(err168);
 }
 }
 vErrors = emErrs52;
 errors = emErrs52.length;
 }
 }
-if(data45.model !== undefined){
-if(!(validate24(data45.model, {instancePath:instancePath+"/agents/backOfficeAssistant/model",parentData:data45,parentDataProperty:"model",rootData,dynamicAnchors}))){
-vErrors = vErrors === null ? validate24.errors : vErrors.concat(validate24.errors);
-errors = vErrors.length;
+}
+else {
+const err169 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.type,parentSchema:schema27,data};
+if(vErrors === null){
+vErrors = [err169];
+}
+else {
+vErrors.push(err169);
+}
+errors++;
 }
 if(errors > 0){
+const emErrors9 = {"required":{"providers":[],"chatModel":[]}};
+const templates9 = {required:{}};
+let emPropParams8;
+let emParamsErrors8;
+for(const err170 of vErrors){
+if((((((err170.keyword !== "errorMessage") && (!err170.emUsed)) && (err170.instancePath === instancePath)) && (err170.keyword in emErrors9)) && (err170.schemaPath.indexOf("#") === 0)) && (/^\/[^\/]*$/.test(err170.schemaPath.slice(1)))){
+emPropParams8 = obj0[err170.keyword];
+emParamsErrors8 = emErrors9[err170.keyword][err170.params[emPropParams8]];
+if(emParamsErrors8){
+emParamsErrors8.push(err170);
+err170.emUsed = true;
+}
+}
+}
+for(const key12 in emErrors9){
+for(const keyProp8 in emErrors9[key12]){
+emParamsErrors8 = emErrors9[key12][keyProp8];
+if(emParamsErrors8.length){
+const tmpl8 = templates9[key12] && templates9[key12][keyProp8];
+const err171 = {instancePath,schemaPath:"#/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors8},message:tmpl8 ? tmpl8() : schema27.errorMessage[key12][keyProp8],schema:schema27.errorMessage,parentSchema:schema27,data};
+if(vErrors === null){
+vErrors = [err171];
+}
+else {
+vErrors.push(err171);
+}
+errors++;
+}
+}
+}
 const emErrs53 = [];
 for(const err172 of vErrors){
 if(!err172.emUsed){
@@ -5787,294 +5791,17 @@ emErrs53.push(err172);
 vErrors = emErrs53;
 errors = emErrs53.length;
 }
-}
-if(data45.datasetsExplorer !== undefined){
-let data49 = data45.datasetsExplorer;
-if(data49 && typeof data49 == "object" && !Array.isArray(data49)){
-if(data49.model !== undefined){
-if(!(validate24(data49.model, {instancePath:instancePath+"/agents/backOfficeAssistant/datasetsExplorer/model",parentData:data49,parentDataProperty:"model",rootData,dynamicAnchors}))){
-vErrors = vErrors === null ? validate24.errors : vErrors.concat(validate24.errors);
-errors = vErrors.length;
-}
-if(errors > 0){
-const emErrs54 = [];
-for(const err173 of vErrors){
-if(!err173.emUsed){
-emErrs54.push(err173);
-}
-}
-vErrors = emErrs54;
-errors = emErrs54.length;
-}
-}
-}
-else {
-const err174 = {instancePath:instancePath+"/agents/backOfficeAssistant/datasetsExplorer",schemaPath:"#/properties/agents/properties/backOfficeAssistant/properties/datasetsExplorer/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.agents.properties.backOfficeAssistant.properties.datasetsExplorer.type,parentSchema:schema27.properties.agents.properties.backOfficeAssistant.properties.datasetsExplorer,data:data49};
-if(vErrors === null){
-vErrors = [err174];
-}
-else {
-vErrors.push(err174);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs55 = [];
-for(const err175 of vErrors){
-if(!err175.emUsed){
-emErrs55.push(err175);
-}
-}
-vErrors = emErrs55;
-errors = emErrs55.length;
-}
-}
-}
-else {
-const err176 = {instancePath:instancePath+"/agents/backOfficeAssistant",schemaPath:"#/properties/agents/properties/backOfficeAssistant/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.agents.properties.backOfficeAssistant.type,parentSchema:schema27.properties.agents.properties.backOfficeAssistant,data:data45};
-if(vErrors === null){
-vErrors = [err176];
-}
-else {
-vErrors.push(err176);
-}
-errors++;
-}
-if(errors > 0){
-const emErrors9 = {"required":{"model":[]}};
-const templates9 = {required:{}};
-let emPropParams8;
-let emParamsErrors8;
-for(const err177 of vErrors){
-if((((((err177.keyword !== "errorMessage") && (!err177.emUsed)) && (err177.instancePath === instancePath+"/agents/backOfficeAssistant")) && (err177.keyword in emErrors9)) && (err177.schemaPath.indexOf("#/properties/agents/properties/backOfficeAssistant") === 0)) && (/^\/[^\/]*$/.test(err177.schemaPath.slice(50)))){
-emPropParams8 = obj0[err177.keyword];
-emParamsErrors8 = emErrors9[err177.keyword][err177.params[emPropParams8]];
-if(emParamsErrors8){
-emParamsErrors8.push(err177);
-err177.emUsed = true;
-}
-}
-}
-for(const key12 in emErrors9){
-for(const keyProp8 in emErrors9[key12]){
-emParamsErrors8 = emErrors9[key12][keyProp8];
-if(emParamsErrors8.length){
-const tmpl8 = templates9[key12] && templates9[key12][keyProp8];
-const err178 = {instancePath:instancePath+"/agents/backOfficeAssistant",schemaPath:"#/properties/agents/properties/backOfficeAssistant/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors8},message:tmpl8 ? tmpl8() : schema27.properties.agents.properties.backOfficeAssistant.errorMessage[key12][keyProp8],schema:schema27.properties.agents.properties.backOfficeAssistant.errorMessage,parentSchema:schema27.properties.agents.properties.backOfficeAssistant,data:data45};
-if(vErrors === null){
-vErrors = [err178];
-}
-else {
-vErrors.push(err178);
-}
-errors++;
-}
-}
-}
-const emErrs56 = [];
-for(const err179 of vErrors){
-if(!err179.emUsed){
-emErrs56.push(err179);
-}
-}
-vErrors = emErrs56;
-errors = emErrs56.length;
-}
-}
-if(data44.evaluator !== undefined){
-let data51 = data44.evaluator;
-if(data51 && typeof data51 == "object" && !Array.isArray(data51)){
-if(data51.name !== undefined){
-let data52 = data51.name;
-if(typeof data52 !== "string"){
-const err180 = {instancePath:instancePath+"/agents/evaluator/name",schemaPath:"#/properties/agents/properties/evaluator/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.agents.properties.evaluator.properties.name.type,parentSchema:schema27.properties.agents.properties.evaluator.properties.name,data:data52};
-if(vErrors === null){
-vErrors = [err180];
-}
-else {
-vErrors.push(err180);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs57 = [];
-for(const err181 of vErrors){
-if(!err181.emUsed){
-emErrs57.push(err181);
-}
-}
-vErrors = emErrs57;
-errors = emErrs57.length;
-}
-}
-if(data51.prompt !== undefined){
-let data53 = data51.prompt;
-if(typeof data53 !== "string"){
-const err182 = {instancePath:instancePath+"/agents/evaluator/prompt",schemaPath:"#/properties/agents/properties/evaluator/properties/prompt/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.agents.properties.evaluator.properties.prompt.type,parentSchema:schema27.properties.agents.properties.evaluator.properties.prompt,data:data53};
-if(vErrors === null){
-vErrors = [err182];
-}
-else {
-vErrors.push(err182);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs58 = [];
-for(const err183 of vErrors){
-if(!err183.emUsed){
-emErrs58.push(err183);
-}
-}
-vErrors = emErrs58;
-errors = emErrs58.length;
-}
-}
-if(data51.model !== undefined){
-if(!(validate24(data51.model, {instancePath:instancePath+"/agents/evaluator/model",parentData:data51,parentDataProperty:"model",rootData,dynamicAnchors}))){
-vErrors = vErrors === null ? validate24.errors : vErrors.concat(validate24.errors);
-errors = vErrors.length;
-}
-if(errors > 0){
-const emErrs59 = [];
-for(const err184 of vErrors){
-if(!err184.emUsed){
-emErrs59.push(err184);
-}
-}
-vErrors = emErrs59;
-errors = emErrs59.length;
-}
-}
-if(data51.defaultToBackOfficeModel !== undefined){
-let data55 = data51.defaultToBackOfficeModel;
-if(typeof data55 !== "boolean"){
-const err185 = {instancePath:instancePath+"/agents/evaluator/defaultToBackOfficeModel",schemaPath:"#/properties/agents/properties/evaluator/properties/defaultToBackOfficeModel/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema27.properties.agents.properties.evaluator.properties.defaultToBackOfficeModel.type,parentSchema:schema27.properties.agents.properties.evaluator.properties.defaultToBackOfficeModel,data:data55};
-if(vErrors === null){
-vErrors = [err185];
-}
-else {
-vErrors.push(err185);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs60 = [];
-for(const err186 of vErrors){
-if(!err186.emUsed){
-emErrs60.push(err186);
-}
-}
-vErrors = emErrs60;
-errors = emErrs60.length;
-}
-}
-}
-else {
-const err187 = {instancePath:instancePath+"/agents/evaluator",schemaPath:"#/properties/agents/properties/evaluator/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.agents.properties.evaluator.type,parentSchema:schema27.properties.agents.properties.evaluator,data:data51};
-if(vErrors === null){
-vErrors = [err187];
-}
-else {
-vErrors.push(err187);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs61 = [];
-for(const err188 of vErrors){
-if(!err188.emUsed){
-emErrs61.push(err188);
-}
-}
-vErrors = emErrs61;
-errors = emErrs61.length;
-}
-}
-}
-else {
-const err189 = {instancePath:instancePath+"/agents",schemaPath:"#/properties/agents/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.agents.type,parentSchema:schema27.properties.agents,data:data44};
-if(vErrors === null){
-vErrors = [err189];
-}
-else {
-vErrors.push(err189);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs62 = [];
-for(const err190 of vErrors){
-if(!err190.emUsed){
-emErrs62.push(err190);
-}
-}
-vErrors = emErrs62;
-errors = emErrs62.length;
-}
-}
-}
-else {
-const err191 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.type,parentSchema:schema27,data};
-if(vErrors === null){
-vErrors = [err191];
-}
-else {
-vErrors.push(err191);
-}
-errors++;
-}
-if(errors > 0){
-const emErrors10 = {"required":{"providers":[],"agents":[]}};
-const templates10 = {required:{}};
-let emPropParams9;
-let emParamsErrors9;
-for(const err192 of vErrors){
-if((((((err192.keyword !== "errorMessage") && (!err192.emUsed)) && (err192.instancePath === instancePath)) && (err192.keyword in emErrors10)) && (err192.schemaPath.indexOf("#") === 0)) && (/^\/[^\/]*$/.test(err192.schemaPath.slice(1)))){
-emPropParams9 = obj0[err192.keyword];
-emParamsErrors9 = emErrors10[err192.keyword][err192.params[emPropParams9]];
-if(emParamsErrors9){
-emParamsErrors9.push(err192);
-err192.emUsed = true;
-}
-}
-}
-for(const key13 in emErrors10){
-for(const keyProp9 in emErrors10[key13]){
-emParamsErrors9 = emErrors10[key13][keyProp9];
-if(emParamsErrors9.length){
-const tmpl9 = templates10[key13] && templates10[key13][keyProp9];
-const err193 = {instancePath,schemaPath:"#/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors9},message:tmpl9 ? tmpl9() : schema27.errorMessage[key13][keyProp9],schema:schema27.errorMessage,parentSchema:schema27,data};
-if(vErrors === null){
-vErrors = [err193];
-}
-else {
-vErrors.push(err193);
-}
-errors++;
-}
-}
-}
-const emErrs63 = [];
-for(const err194 of vErrors){
-if(!err194.emUsed){
-emErrs63.push(err194);
-}
-}
-vErrors = emErrs63;
-errors = emErrs63.length;
-}
 validate23.errors = vErrors;
 return errors === 0;
 }
 validate23.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
 
-function validate35(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+function validate34(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 /*# sourceURL="export8" */;
 let vErrors = null;
 let errors = 0;
-const evaluated0 = validate35.evaluated;
+const evaluated0 = validate34.evaluated;
 if(evaluated0.dynamicProps){
 evaluated0.props = undefined;
 }
@@ -6085,10 +5812,10 @@ if(!(validate23(data, {instancePath,parentData,parentDataProperty,rootData,dynam
 vErrors = vErrors === null ? validate23.errors : vErrors.concat(validate23.errors);
 errors = vErrors.length;
 }
-validate35.errors = vErrors;
+validate34.errors = vErrors;
 return errors === 0;
 }
-validate35.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
+validate34.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 function expression0(data,value,options,context,display,layout,readOnly,summary,validates
 ) {
 return (layout.defaultData)
@@ -6208,11 +5935,11 @@ const compiledLayout = {
       pointer: "https://github.com/data-fair/agents/settings-put#",
       refPointer: "https://github.com/data-fair/agents/settings-put#",
       pure: true,
-      propertyKeys: ["createdAt", "updatedAt", "owner", "providers", "agents"],
+      propertyKeys: ["createdAt", "updatedAt", "owner", "providers", "chatModel", "evaluatorModel"],
       roPropertyKeys: ["createdAt", "updatedAt", "owner"],
       nullable: false,
       required: true,
-      children: ["https://github.com/data-fair/agents/settings-put#/properties/createdAt", "https://github.com/data-fair/agents/settings-put#/properties/updatedAt", "https://github.com/data-fair/agents/settings-put#/properties/owner", "https://github.com/data-fair/agents/settings-put#/properties/providers", "https://github.com/data-fair/agents/settings-put#/properties/agents"]
+      children: ["https://github.com/data-fair/agents/settings-put#/properties/createdAt", "https://github.com/data-fair/agents/settings-put#/properties/updatedAt", "https://github.com/data-fair/agents/settings-put#/properties/owner", "https://github.com/data-fair/agents/settings-put#/properties/providers", "https://github.com/data-fair/agents/settings-put#/properties/chatModel", "https://github.com/data-fair/agents/settings-put#/properties/evaluatorModel"]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/createdAt": {
@@ -6841,60 +6568,10 @@ const compiledLayout = {
       roPropertyKeys: ["id"]
     },
 
-    "https://github.com/data-fair/agents/settings-put#/properties/agents": {
-      title: "Agents",
-      key: "agents",
-      pointer: "https://github.com/data-fair/agents/settings-put#/properties/agents",
-      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/agents",
-      pure: true,
-      propertyKeys: ["backOfficeAssistant", "evaluator"],
-      roPropertyKeys: [],
-      nullable: false,
-      required: true,
-      children: ["https://github.com/data-fair/agents/settings-put#/properties/agents/properties/backOfficeAssistant", "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/evaluator"]
-    },
-
-    "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/backOfficeAssistant": {
-      title: undefined,
-      key: "backOfficeAssistant",
-      pointer: "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/backOfficeAssistant",
-      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/backOfficeAssistant",
-      pure: true,
-      propertyKeys: ["name", "prompt", "model", "datasetsExplorer"],
-      roPropertyKeys: [],
-      nullable: false,
-      required: undefined,
-      children: ["https://github.com/data-fair/agents/settings-put#/properties/agents/properties/backOfficeAssistant/properties/name", "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/backOfficeAssistant/properties/prompt", "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/backOfficeAssistant/properties/model", "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/backOfficeAssistant/properties/datasetsExplorer"]
-    },
-
-    "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/backOfficeAssistant/properties/name": {
-      title: "Name",
-      key: "name",
-      pointer: "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/backOfficeAssistant/properties/name",
-      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/backOfficeAssistant/properties/name",
-      pure: true,
-      propertyKeys: [],
-      roPropertyKeys: [],
-      nullable: false,
-      required: false
-    },
-
-    "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/backOfficeAssistant/properties/prompt": {
-      title: "Main prompt",
-      key: "prompt",
-      pointer: "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/backOfficeAssistant/properties/prompt",
-      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/backOfficeAssistant/properties/prompt",
-      pure: true,
-      propertyKeys: [],
-      roPropertyKeys: [],
-      nullable: false,
-      required: false
-    },
-
-    "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/backOfficeAssistant/properties/model": {
-      title: undefined,
-      key: "model",
-      pointer: "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/backOfficeAssistant/properties/model",
+    "https://github.com/data-fair/agents/settings-put#/properties/chatModel": {
+      title: "Chat Model",
+      key: "chatModel",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/chatModel",
       refPointer: "https://github.com/data-fair/agents/settings-put#/definitions/Model",
       pure: true,
       propertyKeys: [],
@@ -6903,90 +6580,16 @@ const compiledLayout = {
       required: true
     },
 
-    "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/backOfficeAssistant/properties/datasetsExplorer": {
-      title: "Datasets Explorer",
-      key: "datasetsExplorer",
-      pointer: "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/backOfficeAssistant/properties/datasetsExplorer",
-      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/backOfficeAssistant/properties/datasetsExplorer",
-      pure: true,
-      propertyKeys: ["model"],
-      roPropertyKeys: [],
-      nullable: false,
-      required: false,
-      children: ["https://github.com/data-fair/agents/settings-put#/properties/agents/properties/backOfficeAssistant/properties/datasetsExplorer/properties/model"]
-    },
-
-    "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/backOfficeAssistant/properties/datasetsExplorer/properties/model": {
-      title: "Model",
-      key: "model",
-      pointer: "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/backOfficeAssistant/properties/datasetsExplorer/properties/model",
+    "https://github.com/data-fair/agents/settings-put#/properties/evaluatorModel": {
+      title: "Evaluator Model",
+      key: "evaluatorModel",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/evaluatorModel",
       refPointer: "https://github.com/data-fair/agents/settings-put#/definitions/Model",
       pure: true,
       propertyKeys: [],
       roPropertyKeys: [],
       nullable: false,
-      required: undefined
-    },
-
-    "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/evaluator": {
-      title: undefined,
-      key: "evaluator",
-      pointer: "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/evaluator",
-      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/evaluator",
-      pure: true,
-      propertyKeys: ["name", "prompt", "model", "defaultToBackOfficeModel"],
-      roPropertyKeys: [],
-      nullable: false,
-      required: undefined,
-      children: ["https://github.com/data-fair/agents/settings-put#/properties/agents/properties/evaluator/properties/name", "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/evaluator/properties/prompt", "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/evaluator/properties/model", "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/evaluator/properties/defaultToBackOfficeModel"]
-    },
-
-    "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/evaluator/properties/name": {
-      title: "Name",
-      key: "name",
-      pointer: "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/evaluator/properties/name",
-      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/evaluator/properties/name",
-      pure: true,
-      propertyKeys: [],
-      roPropertyKeys: [],
-      nullable: false,
-      required: undefined
-    },
-
-    "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/evaluator/properties/prompt": {
-      title: "Evaluation prompt",
-      key: "prompt",
-      pointer: "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/evaluator/properties/prompt",
-      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/evaluator/properties/prompt",
-      pure: true,
-      propertyKeys: [],
-      roPropertyKeys: [],
-      nullable: false,
-      required: undefined
-    },
-
-    "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/evaluator/properties/model": {
-      title: undefined,
-      key: "model",
-      pointer: "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/evaluator/properties/model",
-      refPointer: "https://github.com/data-fair/agents/settings-put#/definitions/Model",
-      pure: true,
-      propertyKeys: [],
-      roPropertyKeys: [],
-      nullable: false,
-      required: undefined
-    },
-
-    "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/evaluator/properties/defaultToBackOfficeModel": {
-      title: "Use back-office-assistant model",
-      key: "defaultToBackOfficeModel",
-      pointer: "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/evaluator/properties/defaultToBackOfficeModel",
-      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/evaluator/properties/defaultToBackOfficeModel",
-      pure: true,
-      propertyKeys: [],
-      roPropertyKeys: [],
-      nullable: false,
-      required: undefined
+      required: false
     }
   },
 
@@ -7004,7 +6607,9 @@ const compiledLayout = {
       }, {
         key: "providers"
       }, {
-        key: "agents"
+        key: "chatModel"
+      }, {
+        key: "evaluatorModel"
       }],
 
       defaultData: {},
@@ -7858,148 +7463,25 @@ const compiledLayout = {
       }
     },
 
-    "https://github.com/data-fair/agents/settings-put#/properties/agents": {
-      comp: "section",
-
-      children: [{
-        key: "backOfficeAssistant"
-      }, {
-        key: "evaluator"
-      }],
-
-      title: "Agents",
-      defaultData: {},
-
-      getDefaultData: {
-        type: "js-eval",
-        expr: "layout.defaultData",
-        pure: true,
-        dataAlias: "value",
-        ref: 0
-      }
-    },
-
-    "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/backOfficeAssistant": {
-      comp: "section",
-
-      children: [{
-        key: "name"
-      }, {
-        key: "prompt"
-      }, {
-        key: "model"
-      }, {
-        key: "datasetsExplorer"
-      }],
-
-      title: null
-    },
-
-    "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/backOfficeAssistant/properties/name": {
-      comp: "text-field",
-      label: "Name",
-      defaultData: "Assistant Data Fair",
-
-      getDefaultData: {
-        type: "js-eval",
-        expr: "layout.defaultData",
-        pure: true,
-        dataAlias: "value",
-        ref: 0
-      }
-    },
-
-    "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/backOfficeAssistant/properties/prompt": {
-      comp: "markdown",
-      label: "Main prompt",
-      help: "<p>In this prompt you can instruct your assistant to behave in certain ways.</p>"
-    },
-
-    "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/backOfficeAssistant/properties/model": {
+    "https://github.com/data-fair/agents/settings-put#/properties/chatModel": {
       comp: "none"
     },
 
-    "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/backOfficeAssistant/properties/datasetsExplorer": {
-      comp: "section",
-
-      children: [{
-        key: "model"
-      }],
-
-      title: "Datasets Explorer",
-      subtitle: "<p>Optional sub-agent for exploring datasets. If not configured, uses the main model.</p>"
-    },
-
-    "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/backOfficeAssistant/properties/datasetsExplorer/properties/model": {
+    "https://github.com/data-fair/agents/settings-put#/properties/evaluatorModel": {
       comp: "none"
-    },
-
-    "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/evaluator": {
-      comp: "section",
-
-      children: [{
-        key: "name"
-      }, {
-        key: "prompt"
-      }, {
-        key: "model"
-      }, {
-        key: "defaultToBackOfficeModel"
-      }],
-
-      title: null
-    },
-
-    "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/evaluator/properties/name": {
-      comp: "text-field",
-      label: "Name",
-      defaultData: "Évaluateur",
-
-      getDefaultData: {
-        type: "js-eval",
-        expr: "layout.defaultData",
-        pure: true,
-        dataAlias: "value",
-        ref: 0
-      }
-    },
-
-    "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/evaluator/properties/prompt": {
-      comp: "markdown",
-      label: "Evaluation prompt",
-      help: "<p>System prompt for the evaluator to grade responses and analyze traces.</p>"
-    },
-
-    "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/evaluator/properties/model": {
-      comp: "none"
-    },
-
-    "https://github.com/data-fair/agents/settings-put#/properties/agents/properties/evaluator/properties/defaultToBackOfficeModel": {
-      comp: "checkbox",
-      label: "Use back-office-assistant model",
-      help: "<p>Use the same model as back-office-assistant by default.</p>",
-      defaultData: true,
-
-      getDefaultData: {
-        type: "js-eval",
-        expr: "layout.defaultData",
-        pure: true,
-        dataAlias: "value",
-        ref: 0
-      }
     }
   },
 
   validates: {
     "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0": validate22,
-    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1": validate28,
-    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2": validate29,
-    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3": validate30,
-    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4": validate31,
-    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5": validate32,
-    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6": validate33,
-    "https://github.com/data-fair/agents/settings-put#/properties/providers/items": validate34,
-    "https://github.com/data-fair/agents/settings-put#": validate35
+    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1": validate27,
+    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2": validate28,
+    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3": validate29,
+    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4": validate30,
+    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5": validate31,
+    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6": validate32,
+    "https://github.com/data-fair/agents/settings-put#/properties/providers/items": validate33,
+    "https://github.com/data-fair/agents/settings-put#": validate34
   },
 
   validationErrors: {},
@@ -8486,8 +7968,6 @@ const nodeComponents = {
   "one-of-select": oneofselectNode,
   
   "checkbox": checkboxNode,
-  
-  "markdown": markdownNode,
     
 }
 
@@ -8508,7 +7988,7 @@ const emit = defineEmits(emits)
 const { el, statefulLayout, stateTree } = useVjsf(
   null,
   computed(() => props.modelValue),
-  computed(() => ({...props.options, components: {"markdown":{"name":"markdown","shouldDebounce":true,"emitsBlur":true,"focusable":true}}})),
+  computed(() => ({...props.options, components: {}})),
   nodeComponents,
   emit,
   null,

@@ -128,7 +128,7 @@
                 variant="outlined"
                 density="comfortable"
                 hide-details
-                :disabled="isLoading"
+                :disabled="isLoading || !isReady"
                 @keydown.enter.prevent="handleSend"
               />
             </v-col>
@@ -137,7 +137,7 @@
                 type="submit"
                 color="accent"
                 :loading="isLoading"
-                :disabled="!input.trim()"
+                :disabled="!input.trim() || !isReady"
               >
                 {{ t('send') }}
               </v-btn>
@@ -166,7 +166,6 @@ import { useI18n } from 'vue-i18n'
 import { useAgentChat } from '~/composables/use-agent-chat'
 
 const props = defineProps<{
-  agentId: string
   traceEnabled?: boolean
 }>()
 
@@ -176,7 +175,7 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 
-const chatResult = useAgentChat(props.agentId, props.traceEnabled)
+const chatResult = useAgentChat(props.traceEnabled)
 
 if (!chatResult) {
   throw new Error('WebSocket not supported')
@@ -192,6 +191,7 @@ chatResult.emitTraceId = (traceId: string) => {
 const input = ref('')
 
 const isLoading = computed(() => status.value === 'waiting')
+const isReady = computed(() => status.value === 'open')
 
 const chatMaxHeight = computed(() => {
   if (typeof window !== 'undefined') {

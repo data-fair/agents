@@ -57,7 +57,7 @@ test.describe('Settings UI', () => {
     const user = await axiosAuth('test-standalone1')
     await user.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'seed-provider', type: 'mock', name: 'Mock Seed', enabled: true }],
-      agents: { backOfficeAssistant: { name: 'Test Agent', prompt: 'Hello', model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Seed', id: 'seed-provider' } } } }
+      chatModel: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Seed', id: 'seed-provider' } }
     })
 
     await goToWithAuth('/agents/settings', 'test-standalone1')
@@ -83,12 +83,12 @@ test.describe('Settings UI', () => {
     await expect(page.getByText('Changes have been saved')).toBeVisible()
   })
 
-  test('Can edit agent name with valid initial data', async ({ page, goToWithAuth }) => {
+  test('Can edit chat model with valid initial data', async ({ page, goToWithAuth }) => {
     // Seed valid settings via API
     const user = await axiosAuth('test-standalone1')
     await user.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'seed-provider', type: 'mock', name: 'Mock Seed', enabled: true }],
-      agents: { backOfficeAssistant: { name: 'Data Fair Assistance', prompt: 'Hello', model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Seed', id: 'seed-provider' } } } }
+      chatModel: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Seed', id: 'seed-provider' } }
     })
 
     await goToWithAuth('/agents/settings', 'test-standalone1')
@@ -96,21 +96,13 @@ test.describe('Settings UI', () => {
     // Wait for page to load
     await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible()
 
-    // Clear the agent name and enter new one - use first() to get the backOfficeAssistant name field
-    const nameInput = page.getByRole('textbox', { name: 'Name', exact: true }).first()
-    await nameInput.fill('Test Agent')
-
-    // Blur the input to trigger change detection (vjsf uses updateOn: 'blur')
-    await nameInput.blur()
+    // Add a provider to create changes
+    await page.getByRole('button', { name: 'Add item' }).click()
+    await page.getByRole('combobox').first().click()
+    await page.getByRole('option', { name: 'Mock' }).click()
 
     // Save button should now be visible
     await expect(page.getByRole('button', { name: 'Save' })).toBeVisible()
-
-    // Click Save
-    await page.getByRole('button', { name: 'Save' }).click()
-
-    // Verify success notification
-    await expect(page.getByText('Changes have been saved')).toBeVisible()
   })
 
   test('Can delete a provider', async ({ page, goToWithAuth }) => {

@@ -4,7 +4,7 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { createEvaluatorMockLanguageModel } from '../../../api/src/agents/operations.ts'
+import { createEvaluatorMockLanguageModel } from '../../../api/src/models/operations.ts'
 
 test.describe('Evaluator Mock Model', () => {
   test('should return quality evaluation when prompted with quality evaluation', async () => {

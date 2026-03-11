@@ -9,7 +9,7 @@ import { createHttpTerminator } from 'http-terminator'
 import { app } from './app.ts'
 import config from '#config'
 import mongo from '#mongo'
-import { start as startWs, stop as stopWs } from './agents/ws.ts'
+import { start as startWs, stop as stopWs } from './chat/ws.ts'
 
 const server = createServer(app)
 const httpTerminator = createHttpTerminator({ server })

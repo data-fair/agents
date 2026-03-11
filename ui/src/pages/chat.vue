@@ -37,7 +37,6 @@
         </div>
 
         <AgentChat
-          :agent-id="agentId"
           :trace-enabled="traceEnabled"
           @trace-id="currentTraceId = $event"
         />
@@ -140,7 +139,6 @@ const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 
-const agentId = computed(() => route.params.id as string)
 const traceEnabled = computed(() => route.query.trace === 'true')
 const currentTraceId = ref<string | null>(null)
 const showTraceDialog = ref(false)

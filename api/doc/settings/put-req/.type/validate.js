@@ -5,7 +5,7 @@ import { fullFormats } from "ajv-formats/dist/formats.js";
 "use strict";
 export const validate = validate14;
 export default validate14;
-const schema16 = {"$id":"https://github.com/data-fair/agents/settings-put","x-exports":["validate","types","vjsf"],"title":"Settings put","x-i18n-title":{"en":"Settings","fr":"Paramètres"},"layout":{"title":null},"definitions":{"Model":{"$ref":"https://github.com/data-fair/agents/model"}},"type":"object","additionalProperties":false,"required":["providers","agents"],"properties":{"createdAt":{"type":"string","format":"date-time","readOnly":true},"updatedAt":{"type":"string","format":"date-time","readOnly":true},"owner":{"type":"object","additionalProperties":false,"required":["type","id"],"readOnly":true,"properties":{"type":{"type":"string","enum":["user","organization"]},"id":{"type":"string"},"name":{"type":"string"},"department":{"type":"string"}}},"providers":{"type":"array","title":"AI Providers","x-i18n-title":{"en":"AI Providers","fr":"Fournisseurs IA"},"layout":{"itemTitle":"item ? `${item.name || \"\"} - ${item.id.slice(0, 8)}` : \"\"","listActions":["add","edit","delete"]},"items":{"type":"object","title":"Provider","x-i18n-title":{"en":"Provider","fr":"Fournisseur"},"unevaluatedProperties":false,"oneOfLayout":{"emptyData":true},"discriminator":{"propertyName":"type"},"layout":{"getDefaultData":"{ id: crypto.randomUUID() }","switch":[{"if":"summary","children":[]}]},"oneOf":[{"required":["type","name","id","enabled"],"title":"Open AI","properties":{"type":{"type":"string","title":"Provider Type","const":"openai"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"Open AI\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true},"apiKey":{"type":"string","title":"API Key","x-i18n-title":{"en":"API Key","fr":"Clé API"}}}},{"required":["type","name","id","enabled"],"title":"Anthropic","properties":{"type":{"type":"string","title":"Provider Type","const":"anthropic"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"Anthropic\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true},"apiKey":{"type":"string","title":"API Key","x-i18n-title":{"en":"API Key","fr":"Clé API"}}}},{"required":["type","name","id","enabled"],"title":"Google","properties":{"type":{"type":"string","title":"Provider Type","const":"google"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"Google\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true},"apiKey":{"type":"string","title":"API Key","x-i18n-title":{"en":"API Key","fr":"Clé API"}}}},{"required":["type","name","id","enabled"],"title":"Mistral","properties":{"type":{"type":"string","title":"Provider Type","const":"mistral"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"Mistral\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true},"apiKey":{"type":"string","title":"API Key","x-i18n-title":{"en":"API Key","fr":"Clé API"}}}},{"required":["type","name","id","enabled"],"title":"OpenRouter","properties":{"type":{"type":"string","title":"Provider Type","const":"openrouter"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"OpenRouter\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true},"apiKey":{"type":"string","title":"API Key","x-i18n-title":{"en":"API Key","fr":"Clé API"}}}},{"required":["type","name","id","enabled","baseURL"],"title":"Ollama","properties":{"type":{"type":"string","title":"Provider Type","const":"ollama"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"Ollama\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true},"apiKey":{"type":"string","title":"API Key","x-i18n-title":{"en":"API Key","fr":"Clé API"}},"baseURL":{"type":"string","title":"Base URL","x-i18n-title":{"en":"Base URL","fr":"URL de base"},"default":"http://localhost:11434"}}},{"required":["type","name","id","enabled"],"title":"Mock","description":"To a message \"hello\" respond \"world\", to a message \"call tool ARG1 ARG2\" respond with a tool call, to anything else respond \"what do you mean ?\"","properties":{"type":{"type":"string","title":"Provider Type","const":"mock"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"Mock\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true}}}]}},"agents":{"type":"object","title":"Agents","properties":{"backOfficeAssistant":{"type":"object","required":["model"],"properties":{"name":{"type":"string","title":"Name","default":"Data Fair Assistant","x-i18n-default":{"fr":"Assistant Data Fair","en":"Data Fair Assistance"}},"prompt":{"type":"string","title":"Main prompt","layout":"markdown","description":"In this prompt you can instruct your assistant to behave in certain ways."},"model":{"$ref":"#/definitions/Model"},"datasetsExplorer":{"type":"object","title":"Datasets Explorer","description":"Optional sub-agent for exploring datasets. If not configured, uses the main model.","properties":{"model":{"$ref":"#/definitions/Model","title":"Model","description":"Model to use for datasets exploration. Uses main model if not set."}}}}},"evaluator":{"type":"object","properties":{"name":{"type":"string","title":"Name","default":"Evaluator","x-i18n-default":{"fr":"Évaluateur","en":"Evaluator"}},"prompt":{"type":"string","title":"Evaluation prompt","layout":"markdown","description":"System prompt for the evaluator to grade responses and analyze traces."},"model":{"$ref":"#/definitions/Model"},"defaultToBackOfficeModel":{"type":"boolean","default":true,"title":"Use back-office-assistant model","description":"Use the same model as back-office-assistant by default."}}}}}},"x-vjsf":{"xI18n":true,"pluginsImports":["@koumoul/vjsf-markdown"]},"x-vjsf-locales":["en","fr"]};
+const schema16 = {"$id":"https://github.com/data-fair/agents/settings-put","x-exports":["validate","types","vjsf"],"title":"Settings put","x-i18n-title":{"en":"Settings","fr":"Paramètres"},"layout":{"title":null},"definitions":{"Model":{"$ref":"https://github.com/data-fair/agents/model"}},"type":"object","additionalProperties":false,"required":["providers","chatModel"],"properties":{"createdAt":{"type":"string","format":"date-time","readOnly":true},"updatedAt":{"type":"string","format":"date-time","readOnly":true},"owner":{"type":"object","additionalProperties":false,"required":["type","id"],"readOnly":true,"properties":{"type":{"type":"string","enum":["user","organization"]},"id":{"type":"string"},"name":{"type":"string"},"department":{"type":"string"}}},"providers":{"type":"array","title":"AI Providers","x-i18n-title":{"en":"AI Providers","fr":"Fournisseurs IA"},"layout":{"itemTitle":"item ? `${item.name || \"\"} - ${item.id.slice(0, 8)}` : \"\"","listActions":["add","edit","delete"]},"items":{"type":"object","title":"Provider","x-i18n-title":{"en":"Provider","fr":"Fournisseur"},"unevaluatedProperties":false,"oneOfLayout":{"emptyData":true},"discriminator":{"propertyName":"type"},"layout":{"getDefaultData":"{ id: crypto.randomUUID() }","switch":[{"if":"summary","children":[]}]},"oneOf":[{"required":["type","name","id","enabled"],"title":"Open AI","properties":{"type":{"type":"string","title":"Provider Type","const":"openai"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"Open AI\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true},"apiKey":{"type":"string","title":"API Key","x-i18n-title":{"en":"API Key","fr":"Clé API"}}}},{"required":["type","name","id","enabled"],"title":"Anthropic","properties":{"type":{"type":"string","title":"Provider Type","const":"anthropic"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"Anthropic\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true},"apiKey":{"type":"string","title":"API Key","x-i18n-title":{"en":"API Key","fr":"Clé API"}}}},{"required":["type","name","id","enabled"],"title":"Google","properties":{"type":{"type":"string","title":"Provider Type","const":"google"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"Google\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true},"apiKey":{"type":"string","title":"API Key","x-i18n-title":{"en":"API Key","fr":"Clé API"}}}},{"required":["type","name","id","enabled"],"title":"Mistral","properties":{"type":{"type":"string","title":"Provider Type","const":"mistral"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"Mistral\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true},"apiKey":{"type":"string","title":"API Key","x-i18n-title":{"en":"API Key","fr":"Clé API"}}}},{"required":["type","name","id","enabled"],"title":"OpenRouter","properties":{"type":{"type":"string","title":"Provider Type","const":"openrouter"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"OpenRouter\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true},"apiKey":{"type":"string","title":"API Key","x-i18n-title":{"en":"API Key","fr":"Clé API"}}}},{"required":["type","name","id","enabled","baseURL"],"title":"Ollama","properties":{"type":{"type":"string","title":"Provider Type","const":"ollama"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"Ollama\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true},"apiKey":{"type":"string","title":"API Key","x-i18n-title":{"en":"API Key","fr":"Clé API"}},"baseURL":{"type":"string","title":"Base URL","x-i18n-title":{"en":"Base URL","fr":"URL de base"},"default":"http://localhost:11434"}}},{"required":["type","name","id","enabled"],"title":"Mock","description":"To a message \"hello\" respond \"world\", to a message \"call tool ARG1 ARG2\" respond with a tool call, to anything else respond \"what do you mean ?\"","properties":{"type":{"type":"string","title":"Provider Type","const":"mock"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"Mock\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true}}}]}},"chatModel":{"$ref":"#/definitions/Model","title":"Chat Model","description":"Model used for the chat interface"},"evaluatorModel":{"$ref":"#/definitions/Model","title":"Evaluator Model","description":"Model used for evaluation (optional, defaults to chat model)"}},"x-vjsf":{"xI18n":true,"pluginsImports":["@koumoul/vjsf-markdown"]},"x-vjsf-locales":["en","fr"]};
 const schema17 = {"$id":"https://github.com/data-fair/agents/model","title":"Model","type":"object","required":["id","name","provider"],"properties":{"id":{"type":"string","title":"Model ID"},"name":{"type":"string","title":"Name"},"provider":{"type":"object","required":["type","name","id"],"properties":{"type":{"type":"string","title":"Provider Type"},"name":{"type":"string","title":"Provider Name"},"id":{"type":"string","title":"Provider ID"}}}}};
 const formats0 = fullFormats["date-time"];
 
@@ -24,8 +24,8 @@ vErrors.push(err0);
 }
 errors++;
 }
-if(data.agents === undefined){
-const err1 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "agents"},message:"must have required property '"+"agents"+"'"};
+if(data.chatModel === undefined){
+const err1 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "chatModel"},message:"must have required property '"+"chatModel"+"'"};
 if(vErrors === null){
 vErrors = [err1];
 }
@@ -35,7 +35,7 @@ vErrors.push(err1);
 errors++;
 }
 for(const key0 in data){
-if(!(((((key0 === "createdAt") || (key0 === "updatedAt")) || (key0 === "owner")) || (key0 === "providers")) || (key0 === "agents"))){
+if(!((((((key0 === "createdAt") || (key0 === "updatedAt")) || (key0 === "owner")) || (key0 === "providers")) || (key0 === "chatModel")) || (key0 === "evaluatorModel"))){
 const err2 = {instancePath,schemaPath:"#/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties"};
 if(vErrors === null){
 vErrors = [err2];
@@ -1134,14 +1134,11 @@ vErrors.push(err89);
 errors++;
 }
 }
-if(data.agents !== undefined){
-let data44 = data.agents;
+if(data.chatModel !== undefined){
+let data44 = data.chatModel;
 if(data44 && typeof data44 == "object" && !Array.isArray(data44)){
-if(data44.backOfficeAssistant !== undefined){
-let data45 = data44.backOfficeAssistant;
-if(data45 && typeof data45 == "object" && !Array.isArray(data45)){
-if(data45.model === undefined){
-const err90 = {instancePath:instancePath+"/agents/backOfficeAssistant",schemaPath:"#/properties/agents/properties/backOfficeAssistant/required",keyword:"required",params:{missingProperty: "model"},message:"must have required property '"+"model"+"'"};
+if(data44.id === undefined){
+const err90 = {instancePath:instancePath+"/chatModel",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
 if(vErrors === null){
 vErrors = [err90];
 }
@@ -1150,9 +1147,8 @@ vErrors.push(err90);
 }
 errors++;
 }
-if(data45.name !== undefined){
-if(typeof data45.name !== "string"){
-const err91 = {instancePath:instancePath+"/agents/backOfficeAssistant/name",schemaPath:"#/properties/agents/properties/backOfficeAssistant/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data44.name === undefined){
+const err91 = {instancePath:instancePath+"/chatModel",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
 if(vErrors === null){
 vErrors = [err91];
 }
@@ -1161,10 +1157,8 @@ vErrors.push(err91);
 }
 errors++;
 }
-}
-if(data45.prompt !== undefined){
-if(typeof data45.prompt !== "string"){
-const err92 = {instancePath:instancePath+"/agents/backOfficeAssistant/prompt",schemaPath:"#/properties/agents/properties/backOfficeAssistant/properties/prompt/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data44.provider === undefined){
+const err92 = {instancePath:instancePath+"/chatModel",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'"};
 if(vErrors === null){
 vErrors = [err92];
 }
@@ -1173,12 +1167,9 @@ vErrors.push(err92);
 }
 errors++;
 }
-}
-if(data45.model !== undefined){
-let data48 = data45.model;
-if(data48 && typeof data48 == "object" && !Array.isArray(data48)){
-if(data48.id === undefined){
-const err93 = {instancePath:instancePath+"/agents/backOfficeAssistant/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+if(data44.id !== undefined){
+if(typeof data44.id !== "string"){
+const err93 = {instancePath:instancePath+"/chatModel/id",schemaPath:"#/definitions/Model/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err93];
 }
@@ -1187,8 +1178,10 @@ vErrors.push(err93);
 }
 errors++;
 }
-if(data48.name === undefined){
-const err94 = {instancePath:instancePath+"/agents/backOfficeAssistant/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
+}
+if(data44.name !== undefined){
+if(typeof data44.name !== "string"){
+const err94 = {instancePath:instancePath+"/chatModel/name",schemaPath:"#/definitions/Model/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err94];
 }
@@ -1197,8 +1190,12 @@ vErrors.push(err94);
 }
 errors++;
 }
-if(data48.provider === undefined){
-const err95 = {instancePath:instancePath+"/agents/backOfficeAssistant/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'"};
+}
+if(data44.provider !== undefined){
+let data47 = data44.provider;
+if(data47 && typeof data47 == "object" && !Array.isArray(data47)){
+if(data47.type === undefined){
+const err95 = {instancePath:instancePath+"/chatModel/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'"};
 if(vErrors === null){
 vErrors = [err95];
 }
@@ -1207,9 +1204,8 @@ vErrors.push(err95);
 }
 errors++;
 }
-if(data48.id !== undefined){
-if(typeof data48.id !== "string"){
-const err96 = {instancePath:instancePath+"/agents/backOfficeAssistant/model/id",schemaPath:"#/definitions/Model/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data47.name === undefined){
+const err96 = {instancePath:instancePath+"/chatModel/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
 if(vErrors === null){
 vErrors = [err96];
 }
@@ -1218,10 +1214,8 @@ vErrors.push(err96);
 }
 errors++;
 }
-}
-if(data48.name !== undefined){
-if(typeof data48.name !== "string"){
-const err97 = {instancePath:instancePath+"/agents/backOfficeAssistant/model/name",schemaPath:"#/definitions/Model/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data47.id === undefined){
+const err97 = {instancePath:instancePath+"/chatModel/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
 if(vErrors === null){
 vErrors = [err97];
 }
@@ -1230,12 +1224,9 @@ vErrors.push(err97);
 }
 errors++;
 }
-}
-if(data48.provider !== undefined){
-let data51 = data48.provider;
-if(data51 && typeof data51 == "object" && !Array.isArray(data51)){
-if(data51.type === undefined){
-const err98 = {instancePath:instancePath+"/agents/backOfficeAssistant/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'"};
+if(data47.type !== undefined){
+if(typeof data47.type !== "string"){
+const err98 = {instancePath:instancePath+"/chatModel/provider/type",schemaPath:"#/definitions/Model/properties/provider/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err98];
 }
@@ -1244,8 +1235,10 @@ vErrors.push(err98);
 }
 errors++;
 }
-if(data51.name === undefined){
-const err99 = {instancePath:instancePath+"/agents/backOfficeAssistant/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
+}
+if(data47.name !== undefined){
+if(typeof data47.name !== "string"){
+const err99 = {instancePath:instancePath+"/chatModel/provider/name",schemaPath:"#/definitions/Model/properties/provider/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err99];
 }
@@ -1254,8 +1247,10 @@ vErrors.push(err99);
 }
 errors++;
 }
-if(data51.id === undefined){
-const err100 = {instancePath:instancePath+"/agents/backOfficeAssistant/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+}
+if(data47.id !== undefined){
+if(typeof data47.id !== "string"){
+const err100 = {instancePath:instancePath+"/chatModel/provider/id",schemaPath:"#/definitions/Model/properties/provider/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err100];
 }
@@ -1264,9 +1259,10 @@ vErrors.push(err100);
 }
 errors++;
 }
-if(data51.type !== undefined){
-if(typeof data51.type !== "string"){
-const err101 = {instancePath:instancePath+"/agents/backOfficeAssistant/model/provider/type",schemaPath:"#/definitions/Model/properties/provider/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string"};
+}
+}
+else {
+const err101 = {instancePath:instancePath+"/chatModel/provider",schemaPath:"#/definitions/Model/properties/provider/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err101];
 }
@@ -1276,9 +1272,9 @@ vErrors.push(err101);
 errors++;
 }
 }
-if(data51.name !== undefined){
-if(typeof data51.name !== "string"){
-const err102 = {instancePath:instancePath+"/agents/backOfficeAssistant/model/provider/name",schemaPath:"#/definitions/Model/properties/provider/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
+}
+else {
+const err102 = {instancePath:instancePath+"/chatModel",schemaPath:"#/definitions/Model/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err102];
 }
@@ -1288,9 +1284,11 @@ vErrors.push(err102);
 errors++;
 }
 }
-if(data51.id !== undefined){
-if(typeof data51.id !== "string"){
-const err103 = {instancePath:instancePath+"/agents/backOfficeAssistant/model/provider/id",schemaPath:"#/definitions/Model/properties/provider/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data.evaluatorModel !== undefined){
+let data51 = data.evaluatorModel;
+if(data51 && typeof data51 == "object" && !Array.isArray(data51)){
+if(data51.id === undefined){
+const err103 = {instancePath:instancePath+"/evaluatorModel",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
 if(vErrors === null){
 vErrors = [err103];
 }
@@ -1299,10 +1297,8 @@ vErrors.push(err103);
 }
 errors++;
 }
-}
-}
-else {
-const err104 = {instancePath:instancePath+"/agents/backOfficeAssistant/model/provider",schemaPath:"#/definitions/Model/properties/provider/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(data51.name === undefined){
+const err104 = {instancePath:instancePath+"/evaluatorModel",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
 if(vErrors === null){
 vErrors = [err104];
 }
@@ -1311,10 +1307,8 @@ vErrors.push(err104);
 }
 errors++;
 }
-}
-}
-else {
-const err105 = {instancePath:instancePath+"/agents/backOfficeAssistant/model",schemaPath:"#/definitions/Model/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(data51.provider === undefined){
+const err105 = {instancePath:instancePath+"/evaluatorModel",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'"};
 if(vErrors === null){
 vErrors = [err105];
 }
@@ -1323,15 +1317,9 @@ vErrors.push(err105);
 }
 errors++;
 }
-}
-if(data45.datasetsExplorer !== undefined){
-let data55 = data45.datasetsExplorer;
-if(data55 && typeof data55 == "object" && !Array.isArray(data55)){
-if(data55.model !== undefined){
-let data56 = data55.model;
-if(data56 && typeof data56 == "object" && !Array.isArray(data56)){
-if(data56.id === undefined){
-const err106 = {instancePath:instancePath+"/agents/backOfficeAssistant/datasetsExplorer/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+if(data51.id !== undefined){
+if(typeof data51.id !== "string"){
+const err106 = {instancePath:instancePath+"/evaluatorModel/id",schemaPath:"#/definitions/Model/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err106];
 }
@@ -1340,8 +1328,10 @@ vErrors.push(err106);
 }
 errors++;
 }
-if(data56.name === undefined){
-const err107 = {instancePath:instancePath+"/agents/backOfficeAssistant/datasetsExplorer/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
+}
+if(data51.name !== undefined){
+if(typeof data51.name !== "string"){
+const err107 = {instancePath:instancePath+"/evaluatorModel/name",schemaPath:"#/definitions/Model/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err107];
 }
@@ -1350,8 +1340,12 @@ vErrors.push(err107);
 }
 errors++;
 }
-if(data56.provider === undefined){
-const err108 = {instancePath:instancePath+"/agents/backOfficeAssistant/datasetsExplorer/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'"};
+}
+if(data51.provider !== undefined){
+let data54 = data51.provider;
+if(data54 && typeof data54 == "object" && !Array.isArray(data54)){
+if(data54.type === undefined){
+const err108 = {instancePath:instancePath+"/evaluatorModel/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'"};
 if(vErrors === null){
 vErrors = [err108];
 }
@@ -1360,9 +1354,8 @@ vErrors.push(err108);
 }
 errors++;
 }
-if(data56.id !== undefined){
-if(typeof data56.id !== "string"){
-const err109 = {instancePath:instancePath+"/agents/backOfficeAssistant/datasetsExplorer/model/id",schemaPath:"#/definitions/Model/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data54.name === undefined){
+const err109 = {instancePath:instancePath+"/evaluatorModel/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
 if(vErrors === null){
 vErrors = [err109];
 }
@@ -1371,10 +1364,8 @@ vErrors.push(err109);
 }
 errors++;
 }
-}
-if(data56.name !== undefined){
-if(typeof data56.name !== "string"){
-const err110 = {instancePath:instancePath+"/agents/backOfficeAssistant/datasetsExplorer/model/name",schemaPath:"#/definitions/Model/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data54.id === undefined){
+const err110 = {instancePath:instancePath+"/evaluatorModel/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
 if(vErrors === null){
 vErrors = [err110];
 }
@@ -1383,12 +1374,9 @@ vErrors.push(err110);
 }
 errors++;
 }
-}
-if(data56.provider !== undefined){
-let data59 = data56.provider;
-if(data59 && typeof data59 == "object" && !Array.isArray(data59)){
-if(data59.type === undefined){
-const err111 = {instancePath:instancePath+"/agents/backOfficeAssistant/datasetsExplorer/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'"};
+if(data54.type !== undefined){
+if(typeof data54.type !== "string"){
+const err111 = {instancePath:instancePath+"/evaluatorModel/provider/type",schemaPath:"#/definitions/Model/properties/provider/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err111];
 }
@@ -1397,8 +1385,10 @@ vErrors.push(err111);
 }
 errors++;
 }
-if(data59.name === undefined){
-const err112 = {instancePath:instancePath+"/agents/backOfficeAssistant/datasetsExplorer/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
+}
+if(data54.name !== undefined){
+if(typeof data54.name !== "string"){
+const err112 = {instancePath:instancePath+"/evaluatorModel/provider/name",schemaPath:"#/definitions/Model/properties/provider/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err112];
 }
@@ -1407,8 +1397,10 @@ vErrors.push(err112);
 }
 errors++;
 }
-if(data59.id === undefined){
-const err113 = {instancePath:instancePath+"/agents/backOfficeAssistant/datasetsExplorer/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+}
+if(data54.id !== undefined){
+if(typeof data54.id !== "string"){
+const err113 = {instancePath:instancePath+"/evaluatorModel/provider/id",schemaPath:"#/definitions/Model/properties/provider/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err113];
 }
@@ -1417,9 +1409,10 @@ vErrors.push(err113);
 }
 errors++;
 }
-if(data59.type !== undefined){
-if(typeof data59.type !== "string"){
-const err114 = {instancePath:instancePath+"/agents/backOfficeAssistant/datasetsExplorer/model/provider/type",schemaPath:"#/definitions/Model/properties/provider/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string"};
+}
+}
+else {
+const err114 = {instancePath:instancePath+"/evaluatorModel/provider",schemaPath:"#/definitions/Model/properties/provider/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err114];
 }
@@ -1429,9 +1422,9 @@ vErrors.push(err114);
 errors++;
 }
 }
-if(data59.name !== undefined){
-if(typeof data59.name !== "string"){
-const err115 = {instancePath:instancePath+"/agents/backOfficeAssistant/datasetsExplorer/model/provider/name",schemaPath:"#/definitions/Model/properties/provider/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
+}
+else {
+const err115 = {instancePath:instancePath+"/evaluatorModel",schemaPath:"#/definitions/Model/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err115];
 }
@@ -1441,287 +1434,14 @@ vErrors.push(err115);
 errors++;
 }
 }
-if(data59.id !== undefined){
-if(typeof data59.id !== "string"){
-const err116 = {instancePath:instancePath+"/agents/backOfficeAssistant/datasetsExplorer/model/provider/id",schemaPath:"#/definitions/Model/properties/provider/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+}
+else {
+const err116 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err116];
 }
 else {
 vErrors.push(err116);
-}
-errors++;
-}
-}
-}
-else {
-const err117 = {instancePath:instancePath+"/agents/backOfficeAssistant/datasetsExplorer/model/provider",schemaPath:"#/definitions/Model/properties/provider/type",keyword:"type",params:{type: "object"},message:"must be object"};
-if(vErrors === null){
-vErrors = [err117];
-}
-else {
-vErrors.push(err117);
-}
-errors++;
-}
-}
-}
-else {
-const err118 = {instancePath:instancePath+"/agents/backOfficeAssistant/datasetsExplorer/model",schemaPath:"#/definitions/Model/type",keyword:"type",params:{type: "object"},message:"must be object"};
-if(vErrors === null){
-vErrors = [err118];
-}
-else {
-vErrors.push(err118);
-}
-errors++;
-}
-}
-}
-else {
-const err119 = {instancePath:instancePath+"/agents/backOfficeAssistant/datasetsExplorer",schemaPath:"#/properties/agents/properties/backOfficeAssistant/properties/datasetsExplorer/type",keyword:"type",params:{type: "object"},message:"must be object"};
-if(vErrors === null){
-vErrors = [err119];
-}
-else {
-vErrors.push(err119);
-}
-errors++;
-}
-}
-}
-else {
-const err120 = {instancePath:instancePath+"/agents/backOfficeAssistant",schemaPath:"#/properties/agents/properties/backOfficeAssistant/type",keyword:"type",params:{type: "object"},message:"must be object"};
-if(vErrors === null){
-vErrors = [err120];
-}
-else {
-vErrors.push(err120);
-}
-errors++;
-}
-}
-if(data44.evaluator !== undefined){
-let data63 = data44.evaluator;
-if(data63 && typeof data63 == "object" && !Array.isArray(data63)){
-if(data63.name !== undefined){
-if(typeof data63.name !== "string"){
-const err121 = {instancePath:instancePath+"/agents/evaluator/name",schemaPath:"#/properties/agents/properties/evaluator/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
-if(vErrors === null){
-vErrors = [err121];
-}
-else {
-vErrors.push(err121);
-}
-errors++;
-}
-}
-if(data63.prompt !== undefined){
-if(typeof data63.prompt !== "string"){
-const err122 = {instancePath:instancePath+"/agents/evaluator/prompt",schemaPath:"#/properties/agents/properties/evaluator/properties/prompt/type",keyword:"type",params:{type: "string"},message:"must be string"};
-if(vErrors === null){
-vErrors = [err122];
-}
-else {
-vErrors.push(err122);
-}
-errors++;
-}
-}
-if(data63.model !== undefined){
-let data66 = data63.model;
-if(data66 && typeof data66 == "object" && !Array.isArray(data66)){
-if(data66.id === undefined){
-const err123 = {instancePath:instancePath+"/agents/evaluator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
-if(vErrors === null){
-vErrors = [err123];
-}
-else {
-vErrors.push(err123);
-}
-errors++;
-}
-if(data66.name === undefined){
-const err124 = {instancePath:instancePath+"/agents/evaluator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
-if(vErrors === null){
-vErrors = [err124];
-}
-else {
-vErrors.push(err124);
-}
-errors++;
-}
-if(data66.provider === undefined){
-const err125 = {instancePath:instancePath+"/agents/evaluator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'"};
-if(vErrors === null){
-vErrors = [err125];
-}
-else {
-vErrors.push(err125);
-}
-errors++;
-}
-if(data66.id !== undefined){
-if(typeof data66.id !== "string"){
-const err126 = {instancePath:instancePath+"/agents/evaluator/model/id",schemaPath:"#/definitions/Model/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
-if(vErrors === null){
-vErrors = [err126];
-}
-else {
-vErrors.push(err126);
-}
-errors++;
-}
-}
-if(data66.name !== undefined){
-if(typeof data66.name !== "string"){
-const err127 = {instancePath:instancePath+"/agents/evaluator/model/name",schemaPath:"#/definitions/Model/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
-if(vErrors === null){
-vErrors = [err127];
-}
-else {
-vErrors.push(err127);
-}
-errors++;
-}
-}
-if(data66.provider !== undefined){
-let data69 = data66.provider;
-if(data69 && typeof data69 == "object" && !Array.isArray(data69)){
-if(data69.type === undefined){
-const err128 = {instancePath:instancePath+"/agents/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'"};
-if(vErrors === null){
-vErrors = [err128];
-}
-else {
-vErrors.push(err128);
-}
-errors++;
-}
-if(data69.name === undefined){
-const err129 = {instancePath:instancePath+"/agents/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
-if(vErrors === null){
-vErrors = [err129];
-}
-else {
-vErrors.push(err129);
-}
-errors++;
-}
-if(data69.id === undefined){
-const err130 = {instancePath:instancePath+"/agents/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
-if(vErrors === null){
-vErrors = [err130];
-}
-else {
-vErrors.push(err130);
-}
-errors++;
-}
-if(data69.type !== undefined){
-if(typeof data69.type !== "string"){
-const err131 = {instancePath:instancePath+"/agents/evaluator/model/provider/type",schemaPath:"#/definitions/Model/properties/provider/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string"};
-if(vErrors === null){
-vErrors = [err131];
-}
-else {
-vErrors.push(err131);
-}
-errors++;
-}
-}
-if(data69.name !== undefined){
-if(typeof data69.name !== "string"){
-const err132 = {instancePath:instancePath+"/agents/evaluator/model/provider/name",schemaPath:"#/definitions/Model/properties/provider/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
-if(vErrors === null){
-vErrors = [err132];
-}
-else {
-vErrors.push(err132);
-}
-errors++;
-}
-}
-if(data69.id !== undefined){
-if(typeof data69.id !== "string"){
-const err133 = {instancePath:instancePath+"/agents/evaluator/model/provider/id",schemaPath:"#/definitions/Model/properties/provider/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
-if(vErrors === null){
-vErrors = [err133];
-}
-else {
-vErrors.push(err133);
-}
-errors++;
-}
-}
-}
-else {
-const err134 = {instancePath:instancePath+"/agents/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/type",keyword:"type",params:{type: "object"},message:"must be object"};
-if(vErrors === null){
-vErrors = [err134];
-}
-else {
-vErrors.push(err134);
-}
-errors++;
-}
-}
-}
-else {
-const err135 = {instancePath:instancePath+"/agents/evaluator/model",schemaPath:"#/definitions/Model/type",keyword:"type",params:{type: "object"},message:"must be object"};
-if(vErrors === null){
-vErrors = [err135];
-}
-else {
-vErrors.push(err135);
-}
-errors++;
-}
-}
-if(data63.defaultToBackOfficeModel !== undefined){
-if(typeof data63.defaultToBackOfficeModel !== "boolean"){
-const err136 = {instancePath:instancePath+"/agents/evaluator/defaultToBackOfficeModel",schemaPath:"#/properties/agents/properties/evaluator/properties/defaultToBackOfficeModel/type",keyword:"type",params:{type: "boolean"},message:"must be boolean"};
-if(vErrors === null){
-vErrors = [err136];
-}
-else {
-vErrors.push(err136);
-}
-errors++;
-}
-}
-}
-else {
-const err137 = {instancePath:instancePath+"/agents/evaluator",schemaPath:"#/properties/agents/properties/evaluator/type",keyword:"type",params:{type: "object"},message:"must be object"};
-if(vErrors === null){
-vErrors = [err137];
-}
-else {
-vErrors.push(err137);
-}
-errors++;
-}
-}
-}
-else {
-const err138 = {instancePath:instancePath+"/agents",schemaPath:"#/properties/agents/type",keyword:"type",params:{type: "object"},message:"must be object"};
-if(vErrors === null){
-vErrors = [err138];
-}
-else {
-vErrors.push(err138);
-}
-errors++;
-}
-}
-}
-else {
-const err139 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object"};
-if(vErrors === null){
-vErrors = [err139];
-}
-else {
-vErrors.push(err139);
 }
 errors++;
 }

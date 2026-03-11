@@ -43,25 +43,11 @@ export type ProviderID6 = string;
 export type DisplayName6 = string;
 export type Enabled6 = boolean;
 export type AIProviders = Provider[];
-export type Name = string;
-/**
- * In this prompt you can instruct your assistant to behave in certain ways.
- */
-export type MainPrompt = string;
 export type ModelID = string;
-export type Name1 = string;
+export type Name = string;
 export type ProviderType7 = string;
 export type ProviderName = string;
 export type ProviderID7 = string;
-export type Name2 = string;
-/**
- * System prompt for the evaluator to grade responses and analyze traces.
- */
-export type EvaluationPrompt = string;
-/**
- * Use the same model as back-office-assistant by default.
- */
-export type UseBackOfficeAssistantModel = boolean;
 
 export type SettingsPut = {
   createdAt?: string;
@@ -73,7 +59,8 @@ export type SettingsPut = {
     department?: string;
   };
   providers: AIProviders;
-  agents: Agents;
+  chatModel: ChatModel;
+  evaluatorModel?: EvaluatorModel;
 }
 export type OpenAI = {
   type: ProviderType;
@@ -134,19 +121,30 @@ export type Mock = {
   enabled: Enabled6;
   [k: string]: unknown;
 }
-export type Agents = {
-  backOfficeAssistant?: {
-    name?: Name;
-    prompt?: MainPrompt;
-    model: Model;
-    datasetsExplorer?: DatasetsExplorer;
+/**
+ * Model used for the chat interface
+ */
+export type ChatModel = {
+  id: ModelID;
+  name: Name;
+  provider: {
+    type: ProviderType7;
+    name: ProviderName;
+    id: ProviderID7;
     [k: string]: unknown;
   };
-  evaluator?: {
-    name?: Name2;
-    prompt?: EvaluationPrompt;
-    model?: Model;
-    defaultToBackOfficeModel?: UseBackOfficeAssistantModel;
+  [k: string]: unknown;
+}
+/**
+ * Model used for evaluation (optional, defaults to chat model)
+ */
+export type EvaluatorModel = {
+  id: ModelID;
+  name: Name;
+  provider: {
+    type: ProviderType7;
+    name: ProviderName;
+    id: ProviderID7;
     [k: string]: unknown;
   };
   [k: string]: unknown;
@@ -157,28 +155,7 @@ export type Agents = {
  */
 export type Model = {
   id: ModelID;
-  name: Name1;
-  provider: {
-    type: ProviderType7;
-    name: ProviderName;
-    id: ProviderID7;
-    [k: string]: unknown;
-  };
-  [k: string]: unknown;
-}
-/**
- * Optional sub-agent for exploring datasets. If not configured, uses the main model.
- */
-export type DatasetsExplorer = {
-  model?: Model1;
-  [k: string]: unknown;
-}
-/**
- * Model to use for datasets exploration. Uses main model if not set.
- */
-export type Model1 = {
-  id: ModelID;
-  name: Name1;
+  name: Name;
   provider: {
     type: ProviderType7;
     name: ProviderName;

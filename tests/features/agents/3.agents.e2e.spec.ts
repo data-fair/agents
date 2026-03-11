@@ -17,19 +17,13 @@ const settingsData = {
       enabled: true
     }
   ],
-  agents: {
-    backOfficeAssistant: {
-      name: 'Test Assistant',
-      prompt: 'You are a test assistant.',
-      model: {
-        id: 'mock-model',
-        name: 'Mock Model',
-        provider: {
-          type: 'mock',
-          name: 'Mock Provider',
-          id: 'mock-provider'
-        }
-      }
+  chatModel: {
+    id: 'mock-model',
+    name: 'Mock Model',
+    provider: {
+      type: 'mock',
+      name: 'Mock Provider',
+      id: 'mock-provider'
     }
   }
 }
@@ -41,16 +35,19 @@ test.describe('Chat UI', () => {
   })
 
   test('Page loads with input field', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/chat/back-office-assistant', 'test-standalone1')
+    await goToWithAuth('/agents/chat', 'test-standalone1')
     await expect(page.getByPlaceholder('Type your message...')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Send' })).toBeVisible()
   })
 
   test('Can send a message and receive response', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/chat/back-office-assistant', 'test-standalone1')
+    await goToWithAuth('/agents/chat', 'test-standalone1')
+
+    // Wait for WebSocket connection to be ready
+    const input = page.getByPlaceholder('Type your message...')
+    await expect(input).toBeEnabled({ timeout: 10000 })
 
     // Type a message
-    const input = page.getByPlaceholder('Type your message...')
     await input.fill('hello')
     await expect(input).toHaveValue('hello')
 

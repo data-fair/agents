@@ -14,7 +14,7 @@ export default {
   },
   type: 'object',
   additionalProperties: false,
-  required: ['owner', 'providers', 'agents'],
+  required: ['owner', 'providers', 'chatModel'],
   properties: {
     createdAt: {
       type: 'string',
@@ -407,72 +407,15 @@ export default {
         }]
       }
     },
-    agents: {
-      type: 'object',
-      title: 'Agents',
-      properties: {
-        backOfficeAssistant: {
-          type: 'object',
-          required: ['model'],
-          properties: {
-            name: {
-              type: 'string',
-              title: 'Name',
-              default: 'Data Fair Assistant',
-              'x-i18n-default': {
-                fr: 'Assistant Data Fair',
-                en: 'Data Fair Assistance'
-              }
-            },
-            prompt: {
-              type: 'string',
-              title: 'Main prompt',
-              layout: 'markdown',
-              description: 'In this prompt you can instruct your assistant to behave in certain ways.'
-            },
-            model: { $ref: '#/definitions/Model' },
-            datasetsExplorer: {
-              type: 'object',
-              title: 'Datasets Explorer',
-              description: 'Optional sub-agent for exploring datasets. If not configured, uses the main model.',
-              properties: {
-                model: {
-                  $ref: '#/definitions/Model',
-                  title: 'Model',
-                  description: 'Model to use for datasets exploration. Uses main model if not set.'
-                }
-              }
-            }
-          }
-        },
-        evaluator: {
-          type: 'object',
-          properties: {
-            name: {
-              type: 'string',
-              title: 'Name',
-              default: 'Evaluator',
-              'x-i18n-default': {
-                fr: 'Évaluateur',
-                en: 'Evaluator'
-              }
-            },
-            prompt: {
-              type: 'string',
-              title: 'Evaluation prompt',
-              layout: 'markdown',
-              description: 'System prompt for the evaluator to grade responses and analyze traces.'
-            },
-            model: { $ref: '#/definitions/Model' },
-            defaultToBackOfficeModel: {
-              type: 'boolean',
-              default: true,
-              title: 'Use back-office-assistant model',
-              description: 'Use the same model as back-office-assistant by default.'
-            }
-          }
-        }
-      }
+    chatModel: {
+      $ref: '#/definitions/Model',
+      title: 'Chat Model',
+      description: 'Model used for the chat interface'
+    },
+    evaluatorModel: {
+      $ref: '#/definitions/Model',
+      title: 'Evaluator Model',
+      description: 'Model used for evaluation (optional, defaults to chat model)'
     }
   }
 }

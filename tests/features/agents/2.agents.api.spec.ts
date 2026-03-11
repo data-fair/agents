@@ -3,23 +3,14 @@
  */
 
 import { test } from 'playwright/test'
-import assert from 'node:assert/strict'
 import WebSocket from 'ws'
 import { axiosAuth, clean, directoryUrl } from '../../support/axios.ts'
 
 const user = await axiosAuth('test-standalone1')
 
-test.describe('Agents API', () => {
+test.describe('Chat API', () => {
   test.beforeEach(async () => {
     await clean()
-  })
-
-  test('should list agents', async () => {
-    const res = await user.get('/api/agents')
-    assert.equal(res.status, 200)
-    assert.equal(res.data.count, 1)
-    assert.equal(res.data.results[0].id, 'back-office-assistant')
-    assert.equal(res.data.results[0].name, 'Data Fair Assistant')
   })
 
   test('should connect via WebSocket and exchange messages', async () => {
@@ -32,26 +23,20 @@ test.describe('Agents API', () => {
           enabled: true
         }
       ],
-      agents: {
-        backOfficeAssistant: {
-          name: 'Test Assistant',
-          prompt: 'You are a test assistant.',
-          model: {
-            id: 'mock-model',
-            name: 'Mock Model',
-            provider: {
-              type: 'mock',
-              name: 'Mock Provider',
-              id: 'mock-provider'
-            }
-          }
+      chatModel: {
+        id: 'mock-model',
+        name: 'Mock Model',
+        provider: {
+          type: 'mock',
+          name: 'Mock Provider',
+          id: 'mock-provider'
         }
       }
     }
 
     await user.put('/api/settings/user/test-standalone1', settingsData)
 
-    const wsUrl = `ws://localhost:${process.env.DEV_API_PORT}/agents/api/agents/back-office-assistant/chat`
+    const wsUrl = `ws://localhost:${process.env.DEV_API_PORT}/api/chat`
     const ws = new WebSocket(wsUrl, { headers: { cookie: await user.cookieJar.getCookieString(directoryUrl) } })
 
     await new Promise<void>((resolve, reject) => {

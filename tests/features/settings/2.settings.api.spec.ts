@@ -9,6 +9,8 @@ import { axiosAuth, clean } from '../../support/axios.ts'
 const user = await axiosAuth('test-standalone1')
 const otherUser = await axiosAuth('test1-user1')
 
+const mockModel = { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' } }
+
 // API block: test HTTP and stateful database layer with HTTP client querying the dev server
 test.describe('Settings API', () => {
   test.beforeEach(async () => {
@@ -29,7 +31,7 @@ test.describe('Settings API', () => {
           }
         }
       ],
-      agents: {}
+      chatModel: mockModel
     }
 
     const createRes = await user.put('/api/settings/user/test-standalone1', settingsData)
@@ -46,13 +48,13 @@ test.describe('Settings API', () => {
 
   test('should update settings', async () => {
     const settingsData = {
-      agents: { dataFairAssistant: { prompt: 'You are a helpful assistant.' } },
-      providers: []
+      providers: [],
+      chatModel: mockModel
     }
 
     const updateRes = await user.put('/api/settings/user/test-standalone1', settingsData)
     assert.equal(updateRes.status, 200)
-    assert.equal(updateRes.data.agents.dataFairAssistant.prompt, 'You are a helpful assistant.')
+    assert.equal(updateRes.data.chatModel.id, 'mock-model')
   })
 
   test('should list mock models', async () => {
@@ -65,7 +67,7 @@ test.describe('Settings API', () => {
           enabled: true
         }
       ],
-      agents: {}
+      chatModel: mockModel
     }
 
     await user.put('/api/settings/user/test-standalone1', settingsData)
@@ -85,7 +87,6 @@ test.describe('Settings API', () => {
     assert.equal(res.data.owner.type, 'user')
     assert.equal(res.data.owner.id, 'test-standalone1')
     assert.deepEqual(res.data.providers, [])
-    assert.deepEqual(res.data.agents, {})
   })
 
   test('should create provider with different types', async () => {
@@ -100,7 +101,7 @@ test.describe('Settings API', () => {
     for (const p of providerTypes) {
       const settingsData = {
         providers: [{ id: `provider-${p.type}`, ...p, enabled: true }],
-        agents: {}
+        chatModel: mockModel
       }
 
       const res = await user.put('/api/settings/user/test-standalone1', settingsData)
@@ -123,7 +124,7 @@ test.describe('Settings API', () => {
           apiKey: 'sk-original-key-123'
         }
       ],
-      agents: {}
+      chatModel: mockModel
     }
 
     await user.put('/api/settings/user/test-standalone1', initialData)
@@ -138,7 +139,7 @@ test.describe('Settings API', () => {
           apiKey: '********'
         }
       ],
-      agents: {}
+      chatModel: mockModel
     }
 
     const res = await user.put('/api/settings/user/test-standalone1', updateData)
@@ -162,7 +163,7 @@ test.describe('Settings API', () => {
           baseURL: 'http://localhost:11434'
         }
       ],
-      agents: {}
+      chatModel: mockModel
     }
 
     const res = await user.put('/api/settings/user/test-standalone1', settingsData)
@@ -174,13 +175,7 @@ test.describe('Settings API', () => {
   test('should update settings multiple times (idempotency)', async () => {
     const settingsData1 = {
       providers: [{ id: 'p1', type: 'mock', name: 'Mock 1', enabled: true }],
-      agents: {
-        backOfficeAssistant: {
-          name: 'Assistant 1',
-          prompt: 'First prompt',
-          model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' } }
-        }
-      }
+      chatModel: mockModel
     }
 
     const res1 = await user.put('/api/settings/user/test-standalone1', settingsData1)
@@ -188,30 +183,22 @@ test.describe('Settings API', () => {
 
     const settingsData2 = {
       providers: [{ id: 'p2', type: 'mock', name: 'Mock 2', enabled: true }],
-      agents: {
-        backOfficeAssistant: {
-          name: 'Assistant 2',
-          prompt: 'Second prompt',
-          model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' } }
-        }
-      }
+      chatModel: mockModel
     }
 
     const res2 = await user.put('/api/settings/user/test-standalone1', settingsData2)
     assert.equal(res2.status, 200)
     assert.equal(res2.data.providers.length, 1)
     assert.equal(res2.data.providers[0].name, 'Mock 2')
-    assert.equal(res2.data.agents.backOfficeAssistant?.prompt, 'Second prompt')
 
     const getRes = await user.get('/api/settings/user/test-standalone1')
     assert.equal(getRes.data.providers[0].name, 'Mock 2')
-    assert.equal(getRes.data.agents.backOfficeAssistant?.prompt, 'Second prompt')
   })
 
   test('should handle empty providers array', async () => {
     const settingsData = {
       providers: [],
-      agents: {}
+      chatModel: mockModel
     }
 
     const res = await user.put('/api/settings/user/test-standalone1', settingsData)
@@ -219,102 +206,87 @@ test.describe('Settings API', () => {
     assert.deepEqual(res.data.providers, [])
   })
 
-  test('should create and update backOfficeAssistant agent', async () => {
-    const settingsData = {
-      providers: [],
-      agents: {
-        backOfficeAssistant: {
-          name: 'Test Assistant',
-          prompt: 'You are a helpful test assistant.',
-          model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' } }
-        }
-      }
-    }
-
-    const res = await user.put('/api/settings/user/test-standalone1', settingsData)
-    assert.equal(res.status, 200)
-    assert.equal(res.data.agents.backOfficeAssistant.name, 'Test Assistant')
-    assert.equal(res.data.agents.backOfficeAssistant.prompt, 'You are a helpful test assistant.')
-    assert.equal(res.data.agents.backOfficeAssistant.model.id, 'mock-model')
-
-    const getRes = await user.get('/api/settings/user/test-standalone1')
-    assert.equal(getRes.data.agents.backOfficeAssistant.name, 'Test Assistant')
-  })
-
   test('should fail with invalid provider type', async () => {
     const settingsData = {
       providers: [
         {
-          id: 'provider-invalid',
-          type: 'invalid-provider',
+          id: 'invalid-provider',
+          type: 'invalid-type',
           name: 'Invalid Provider',
           enabled: true
         }
       ],
-      agents: {}
+      chatModel: mockModel
     }
 
-    await assert.rejects(user.put('/api/settings/user/test-standalone1', settingsData), { status: 400 })
+    await assert.rejects(
+      user.put('/api/settings/user/test-standalone1', settingsData),
+      { status: 400 }
+    )
   })
 
   test('should fail with missing required provider fields', async () => {
     const settingsData = {
       providers: [
         {
-          id: 'provider-incomplete',
-          type: 'openai',
-          enabled: true
+          id: 'incomplete-provider',
+          type: 'openai'
         }
       ],
-      agents: {}
+      chatModel: mockModel
     }
 
-    await assert.rejects(user.put('/api/settings/user/test-standalone1', settingsData), { status: 400 })
+    await assert.rejects(
+      user.put('/api/settings/user/test-standalone1', settingsData),
+      { status: 400 }
+    )
   })
 
   test('should fail when accessing another user settings', async () => {
-    await user.put('/api/settings/user/test-standalone1', { providers: [], agents: {} })
+    await user.put('/api/settings/user/test-standalone1', { providers: [], chatModel: mockModel })
     await assert.rejects(otherUser.get('/api/settings/user/test-standalone1'), { status: 403 })
   })
 
   test('should fail when updating another user settings', async () => {
-    await assert.rejects(otherUser.put('/api/settings/user/test-standalone1', { providers: [], agents: {} }), { status: 403 })
+    await user.put('/api/settings/user/test-standalone1', { providers: [], chatModel: mockModel })
+    await assert.rejects(otherUser.put('/api/settings/user/test-standalone1', { providers: [], chatModel: mockModel }), { status: 403 })
   })
 
   test('should add multiple providers in single request', async () => {
     const settingsData = {
       providers: [
-        { id: 'p1', type: 'mock', name: 'Mock 1', enabled: true },
-        { id: 'p2', type: 'openai', name: 'OpenAI', enabled: true, apiKey: 'sk-test-key' },
-        { id: 'p3', type: 'anthropic', name: 'Anthropic', enabled: true, apiKey: 'sk-ant-key' }
+        { id: 'p1', type: 'openai', name: 'OpenAI', enabled: true, apiKey: 'sk-test1' },
+        { id: 'p2', type: 'anthropic', name: 'Anthropic', enabled: true, apiKey: 'sk-test2' }
       ],
-      agents: {}
+      chatModel: mockModel
     }
+
     const res = await user.put('/api/settings/user/test-standalone1', settingsData)
     assert.equal(res.status, 200)
-    assert.equal(res.data.providers.length, 3)
+    assert.equal(res.data.providers.length, 2)
   })
 
   test('should remove providers not included in update', async () => {
     const initialData = {
       providers: [
-        { id: 'p1', type: 'mock', name: 'Mock', enabled: true }
+        { id: 'p1', type: 'openai', name: 'OpenAI', enabled: true },
+        { id: 'p2', type: 'anthropic', name: 'Anthropic', enabled: true }
       ],
-      agents: {}
+      chatModel: mockModel
     }
 
     await user.put('/api/settings/user/test-standalone1', initialData)
 
     const updateData = {
       providers: [
-        { id: 'p2', type: 'mock', name: 'Mock 2', enabled: true }
+        { id: 'p1', type: 'openai', name: 'OpenAI', enabled: true }
       ],
-      agents: {}
+      chatModel: mockModel
     }
 
     const res = await user.put('/api/settings/user/test-standalone1', updateData)
     assert.equal(res.status, 200)
     assert.equal(res.data.providers.length, 1)
-    assert.equal(res.data.providers[0].id, 'p2')
+    assert.equal(res.data.providers[0].id, 'p1')
   })
 })

@@ -15,7 +15,7 @@ import { securityKey } from '../cipher/service.ts'
 const router = Router()
 export default router
 
-const emptySettings = (owner: AccountKeys): Settings => ({ owner, providers: [], agents: {} })
+const emptySettings = (owner: AccountKeys): Settings => ({ owner, providers: [], chatModel: undefined as unknown as Settings['chatModel'] })
 
 router.get('/:type/:id', async (req, res, next) => {
   const session = reqSessionAuthenticated(req)
@@ -44,7 +44,8 @@ router.put('/:type/:id', async (req, res, next) => {
     updatedAt: new Date().toISOString(),
     owner,
     providers: encryptProviderApiKeys(body.providers || [], existing?.providers || [], securityKey),
-    agents: body.agents
+    chatModel: body.chatModel,
+    evaluatorModel: body.evaluatorModel
   }
   await mongo.settings.replaceOne({ owner }, settings, { upsert: true })
 

@@ -1,5 +1,5 @@
 /**
- * operations.ts contains pure stateless functions
+ * operations.ts contains pure stateless functions for model creation
  * should not reference #mongo, #config, store state in memory or import anything else than other operations.ts
  */
 
@@ -13,15 +13,6 @@ import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { createOllama } from 'ai-sdk-ollama'
 import { createMockLanguageModel } from './mock-model.ts'
 import { createEvaluatorMockLanguageModel } from './evaluator-mock-model.ts'
-
-export interface AgentInfo {
-  id: string
-  name: string
-}
-
-export const listAgents = (): AgentInfo[] => [
-  { id: 'back-office-assistant', name: 'Data Fair Assistant' }
-]
 
 export { createMockLanguageModel, createEvaluatorMockLanguageModel }
 

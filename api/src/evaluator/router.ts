@@ -3,9 +3,9 @@ import { generateText, streamText, tool } from 'ai'
 import { z } from 'zod'
 import { assertAccountRole, reqSessionAuthenticated } from '@data-fair/lib-express'
 import { getRawSettings } from '../settings/service.ts'
-import { createModel } from '../agents/operations.ts'
+import { createModel } from '../models/operations.ts'
 import agentsMongo from '../mongo.ts'
-import { createTraceIntegration } from '../telemetry/trace-integration.ts'
+import { createTraceIntegration } from '../traces/trace-integration.ts'
 import { randomUUID } from 'crypto'
 import type { Settings } from '#types'
 
@@ -49,13 +49,7 @@ interface EvaluationResult {
 }
 
 async function getEvaluatorModel (settings: Settings) {
-  const evaluatorConfig = settings.agents?.evaluator
-  if (!evaluatorConfig) throw new Error('Evaluator not configured')
-
-  const modelConfig = evaluatorConfig.defaultToBackOfficeModel
-    ? settings.agents?.backOfficeAssistant?.model
-    : evaluatorConfig.model
-
+  const modelConfig = settings.evaluatorModel || settings.chatModel
   if (!modelConfig) throw new Error('No model configured')
 
   const provider = settings.providers.find(p => p.id === modelConfig.provider.id)
@@ -66,14 +60,14 @@ async function getEvaluatorModel (settings: Settings) {
 }
 
 async function getAssistantModel (settings: Settings) {
-  const agentConfig = settings.agents?.backOfficeAssistant
-  if (!agentConfig) throw new Error('Back-office-assistant not configured')
+  const modelConfig = settings.chatModel
+  if (!modelConfig) throw new Error('Chat model not configured')
 
-  const provider = settings.providers.find(p => p.id === agentConfig.model.provider.id)
+  const provider = settings.providers.find(p => p.id === modelConfig.provider.id)
   if (!provider) throw new Error('Provider not found')
   if (!provider.enabled) throw new Error('Provider is disabled')
 
-  return createModel(provider, agentConfig.model.id)
+  return createModel(provider, modelConfig.id)
 }
 
 router.post('/run', async (req, res, next) => {

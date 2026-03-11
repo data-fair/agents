@@ -23,33 +23,22 @@ test.describe('Evaluator API', () => {
           enabled: true
         }
       ],
-      agents: {
-        backOfficeAssistant: {
-          name: 'Test Assistant',
-          prompt: 'You are a test assistant.',
-          model: {
-            id: 'mock-model',
-            name: 'Mock Model',
-            provider: {
-              type: 'mock',
-              name: 'Mock Provider',
-              id: 'mock-provider'
-            }
-          }
-        },
-        evaluator: {
-          name: 'Evaluator',
-          prompt: 'You are an evaluator.',
-          model: {
-            id: 'mock-model',
-            name: 'Mock Model',
-            provider: {
-              type: 'mock',
-              name: 'Mock Provider',
-              id: 'mock-provider'
-            }
-          },
-          defaultToBackOfficeModel: false
+      chatModel: {
+        id: 'mock-model',
+        name: 'Mock Model',
+        provider: {
+          type: 'mock',
+          name: 'Mock Provider',
+          id: 'mock-provider'
+        }
+      },
+      evaluatorModel: {
+        id: 'mock-model',
+        name: 'Mock Model',
+        provider: {
+          type: 'mock',
+          name: 'Mock Provider',
+          id: 'mock-provider'
         }
       }
     }
@@ -77,43 +66,6 @@ test.describe('Evaluator API', () => {
     assert.ok(res.data.overallEfficiency >= 0)
   })
 
-  test('should return 400 when evaluator not configured', async () => {
-    const settingsData = {
-      providers: [
-        {
-          id: 'mock-provider',
-          type: 'mock',
-          name: 'Mock Provider',
-          enabled: true
-        }
-      ],
-      agents: {
-        backOfficeAssistant: {
-          name: 'Test Assistant',
-          prompt: 'You are a test assistant.',
-          model: {
-            id: 'mock-model',
-            name: 'Mock Model',
-            provider: {
-              type: 'mock',
-              name: 'Mock Provider',
-              id: 'mock-provider'
-            }
-          }
-        }
-      }
-    }
-
-    await user.put('/api/settings/user/test-standalone1', settingsData)
-
-    await assert.rejects(
-      user.post('/api/evaluator/run', {
-        tasks: [{ initialPrompt: 'hello', idealResult: 'world' }]
-      }),
-      { status: 500 }
-    )
-  })
-
   test('should return 400 when tasks is missing', async () => {
     const settingsData = {
       providers: [
@@ -124,32 +76,22 @@ test.describe('Evaluator API', () => {
           enabled: true
         }
       ],
-      agents: {
-        backOfficeAssistant: {
-          name: 'Test Assistant',
-          prompt: 'You are a test assistant.',
-          model: {
-            id: 'mock-model',
-            name: 'Mock Model',
-            provider: {
-              type: 'mock',
-              name: 'Mock Provider',
-              id: 'mock-provider'
-            }
-          }
-        },
-        evaluator: {
-          name: 'Evaluator',
-          prompt: 'You are an evaluator.',
-          model: {
-            id: 'mock-model',
-            name: 'Mock Model',
-            provider: {
-              type: 'mock',
-              name: 'Mock Provider',
-              id: 'mock-provider'
-            }
-          }
+      chatModel: {
+        id: 'mock-model',
+        name: 'Mock Model',
+        provider: {
+          type: 'mock',
+          name: 'Mock Provider',
+          id: 'mock-provider'
+        }
+      },
+      evaluatorModel: {
+        id: 'mock-model',
+        name: 'Mock Model',
+        provider: {
+          type: 'mock',
+          name: 'Mock Provider',
+          id: 'mock-provider'
         }
       }
     }
@@ -169,32 +111,22 @@ test.describe('Evaluator API', () => {
           enabled: true
         }
       ],
-      agents: {
-        backOfficeAssistant: {
-          name: 'Test Assistant',
-          prompt: 'You are a test assistant.',
-          model: {
-            id: 'mock-model',
-            name: 'Mock Model',
-            provider: {
-              type: 'mock',
-              name: 'Mock Provider',
-              id: 'mock-provider'
-            }
-          }
-        },
-        evaluator: {
-          name: 'Evaluator',
-          prompt: 'You are an evaluator.',
-          model: {
-            id: 'mock-model',
-            name: 'Mock Model',
-            provider: {
-              type: 'mock',
-              name: 'Mock Provider',
-              id: 'mock-provider'
-            }
-          }
+      chatModel: {
+        id: 'mock-model',
+        name: 'Mock Model',
+        provider: {
+          type: 'mock',
+          name: 'Mock Provider',
+          id: 'mock-provider'
+        }
+      },
+      evaluatorModel: {
+        id: 'mock-model',
+        name: 'Mock Model',
+        provider: {
+          type: 'mock',
+          name: 'Mock Provider',
+          id: 'mock-provider'
         }
       }
     }
@@ -238,32 +170,22 @@ test.describe('Evaluator API', () => {
           enabled: true
         }
       ],
-      agents: {
-        backOfficeAssistant: {
-          name: 'Test Assistant',
-          prompt: 'You are a test assistant.',
-          model: {
-            id: 'mock-model',
-            name: 'Mock Model',
-            provider: {
-              type: 'mock',
-              name: 'Mock Provider',
-              id: 'mock-provider'
-            }
-          }
-        },
-        evaluator: {
-          name: 'Evaluator',
-          prompt: 'You are an evaluator.',
-          model: {
-            id: 'mock-model',
-            name: 'Mock Model',
-            provider: {
-              type: 'mock',
-              name: 'Mock Provider',
-              id: 'mock-provider'
-            }
-          }
+      chatModel: {
+        id: 'mock-model',
+        name: 'Mock Model',
+        provider: {
+          type: 'mock',
+          name: 'Mock Provider',
+          id: 'mock-provider'
+        }
+      },
+      evaluatorModel: {
+        id: 'mock-model',
+        name: 'Mock Model',
+        provider: {
+          type: 'mock',
+          name: 'Mock Provider',
+          id: 'mock-provider'
         }
       }
     }

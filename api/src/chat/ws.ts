@@ -6,10 +6,10 @@ import { getEncoding } from 'js-tiktoken'
 import { match } from 'path-to-regexp'
 import type { PageAgentTool, ChatWsServerMessage } from '#types'
 import { assertAccountRole, session, type SessionStateAuthenticated } from '@data-fair/lib-express/index.js'
-import agentsMongo from '../mongo.ts'
-import { createTraceIntegration } from '../telemetry/trace-integration.ts'
+import mongo from '#mongo'
+import { createTraceIntegration } from '../traces/trace-integration.ts'
 import { getRawSettings } from '../settings/service.ts'
-import { createModel } from './operations.ts'
+import { createModel } from '../models/operations.ts'
 import { internalError } from '@data-fair/lib-node/observer.js'
 
 let wss: WebSocketServer | undefined
@@ -70,7 +70,7 @@ export class AgentWsSocket {
           this.traceEnabled = msg.trace || false
           if (this.traceEnabled) {
             this.traceId = msg.traceId || randomUUID()
-            this.traceIntegration = createTraceIntegration(this.sessionState.user.id, agentsMongo.traces, this.traceId)
+            this.traceIntegration = createTraceIntegration(this.sessionState.user.id, mongo.db.collection('traces'), this.traceId)
           }
 
           this.status = 'ready'
@@ -212,39 +212,32 @@ export class AgentWsSocket {
 
 let stopped = false
 let pingInterval: ReturnType<typeof setInterval> | null = null
-const agentPathMatcher = match<{ agentId: string }>('/agents/api/agents/:agentId/chat')
+const chatPathMatcher = match('{/agents}/api/chat')
 export const start = async (server: Server) => {
   wss = new WebSocketServer({ server })
   wss.on('connection', async (ws, req) => {
     try {
       const url = req.url || ''
-      const matchResult = agentPathMatcher(url)
+      const matchResult = chatPathMatcher(url)
       if (!matchResult) {
         ws.close(4000, 'Invalid path')
         return
       }
-      const { agentId } = matchResult.params
 
       const sessionState = await session.reqAuthenticated(req)
       const owner = sessionState.account
       assertAccountRole(sessionState, owner, 'admin')
 
-      if (agentId !== 'back-office-assistant') {
-        ws.close(404, 'Agent not found')
-        return
-      }
-
       const settings = await getRawSettings(owner)
 
-      if (!settings || !settings.agents?.backOfficeAssistant) {
-        ws.close(404, 'Agent not configured')
+      if (!settings?.chatModel) {
+        ws.close(404, 'Chat model not configured')
         return
       }
 
-      const agentConfig = settings.agents.backOfficeAssistant
-      const model = agentConfig.model
+      const modelConfig = settings.chatModel
 
-      const provider = settings.providers.find(p => p.id === model.provider.id)
+      const provider = settings.providers.find(p => p.id === modelConfig.provider.id)
 
       if (!provider) {
         ws.close(400, 'Provider not configured')
@@ -256,7 +249,7 @@ export const start = async (server: Server) => {
         return
       }
 
-      const aiModel = createModel(provider, model.id)
+      const aiModel = createModel(provider, modelConfig.id)
 
       const clientId = randomUUID()
       const agentWsSocket = livingAgents[clientId] = new AgentWsSocket(ws, sessionState, aiModel)

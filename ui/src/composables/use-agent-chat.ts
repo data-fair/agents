@@ -3,6 +3,7 @@ import { ref, computed, onScopeDispose, watch } from 'vue'
 import type { ModelMessage } from 'ai'
 import type { ChatWsClientMessage, ChatWsServerMessage } from '#api/types'
 import { useAgentTools } from './use-agent-tools'
+import { $apiPath } from '~/context'
 
 export interface ChatMessage {
   role: 'user' | 'assistant'
@@ -13,14 +14,14 @@ export interface ChatMessage {
   }>
 }
 
-export function useAgentChat (agentId: string, traceEnabled = false) {
+export function useAgentChat (traceEnabled = false) {
   if (!window.WebSocket) return
   // @ts-ignore
   if (import.meta.env?.SSR) return
 
   const agentTools = computed(() => Object.values(useAgentTools()).map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })))
 
-  const url = (`${window.location.origin}/agents/api/agents/${agentId}/chat`).replace('http:', 'ws:').replace('https:', 'wss:')
+  const url = (`${window.location.origin}${$apiPath}/chat`).replace('http:', 'ws:').replace('https:', 'wss:')
   const ws = new ReconnectingWebSocket(url)
   let history: ModelMessage[] = []
   const messages = ref<ChatMessage[]>([])
