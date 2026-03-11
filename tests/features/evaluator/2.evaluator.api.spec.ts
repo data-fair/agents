@@ -201,30 +201,31 @@ test.describe('Evaluator API', () => {
 
     await user.put('/api/settings/user/test-standalone1', settingsData)
 
-    const streamRes = await user.post(
-      '/api/agents/back-office-assistant/stream-text?trace=true',
-      { prompt: 'hello' },
-      { responseType: 'stream' }
-    )
-
-    const traceId = streamRes.headers['x-trace-id']
-
-    // Consume stream
-    let chunks = ''
-    for await (const chunk of streamRes.data) {
-      chunks += chunk.toString()
-    }
-    assert.ok(chunks.length >= 0)
-
     const evalRes = await user.post('/api/evaluator/run', {
-      traceId,
-      idealResult: 'world'
+      tasks: [
+        {
+          initialPrompt: 'hello',
+          idealResult: 'world',
+          maxTurns: 1
+        }
+      ]
     })
 
     assert.equal(evalRes.status, 200)
     assert.ok(evalRes.data.results)
     assert.ok(evalRes.data.results.length > 0)
-    assert.equal(evalRes.data.results[0].traceIds[0], traceId)
+
+    const traceId = evalRes.data.results[0].traceIds[0]
+
+    const reEvalRes = await user.post('/api/evaluator/run', {
+      traceId,
+      idealResult: 'world'
+    })
+
+    assert.equal(reEvalRes.status, 200)
+    assert.ok(reEvalRes.data.results)
+    assert.ok(reEvalRes.data.results.length > 0)
+    assert.equal(reEvalRes.data.results[0].traceIds[0], traceId)
   })
 
   test('should get trace events', async () => {
@@ -250,26 +251,40 @@ test.describe('Evaluator API', () => {
               id: 'mock-provider'
             }
           }
+        },
+        evaluator: {
+          name: 'Evaluator',
+          prompt: 'You are an evaluator.',
+          model: {
+            id: 'mock-model',
+            name: 'Mock Model',
+            provider: {
+              type: 'mock',
+              name: 'Mock Provider',
+              id: 'mock-provider'
+            }
+          }
         }
       }
     }
 
     await user.put('/api/settings/user/test-standalone1', settingsData)
 
-    const streamRes = await user.post(
-      '/api/agents/back-office-assistant/stream-text?trace=true',
-      { prompt: 'hello' },
-      { responseType: 'stream' }
-    )
+    const evalRes = await user.post('/api/evaluator/run', {
+      tasks: [
+        {
+          initialPrompt: 'hello',
+          idealResult: 'world',
+          maxTurns: 1
+        }
+      ]
+    })
 
-    const traceId = streamRes.headers['x-trace-id']
+    assert.equal(evalRes.status, 200)
+    assert.ok(evalRes.data.results)
+    assert.ok(evalRes.data.results.length > 0)
 
-    // Consume stream
-    let chunks = ''
-    for await (const chunk of streamRes.data) {
-      chunks += chunk.toString()
-    }
-    assert.ok(chunks.length >= 0)
+    const traceId = evalRes.data.results[0].traceIds[0]
 
     const traceRes = await user.get(`/api/evaluator/traces/${traceId}`)
 
