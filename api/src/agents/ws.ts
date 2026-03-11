@@ -1,4 +1,4 @@
-import { type ModelMessage, ToolLoopAgent, generateText, tool } from 'ai'
+import { type ModelMessage, type Tool, ToolLoopAgent, generateText, tool } from 'ai'
 import type { Server } from 'node:http'
 import { WebSocketServer, type WebSocket } from 'ws'
 import { randomUUID } from 'crypto'
@@ -23,7 +23,7 @@ function sanitizeToolName (name: string): string {
     .substring(0, 64)              // Enforce length limits
 }
 
-function checkTools (tools) {
+function checkTools (tools: PageAgentTool[]) {
   for (const tool of tools) {
     if (tool.name !== sanitizeToolName(tool.name)) throw new Error('invalid tool name: ' + tool.name)
   }
@@ -32,14 +32,12 @@ function checkTools (tools) {
 export class AgentWsSocket {
   private pendingCalls = new Map<string, { resolve: (res: any) => void, timeout: NodeJS.Timeout }>()
   private agentTools: PageAgentTool[] = []
-  private agent: ToolLoopAgent
   private history: ModelMessage[] = []
   public isAlive = true
   private status: 'handshake' | 'working' | 'ready' = 'handshake'
 
   constructor (public socket: WebSocket, public model: string) {
     this.setupSocketListeners()
-    this.agent = this.createAgent()
   }
 
   private setupSocketListeners () {
@@ -65,7 +63,7 @@ export class AgentWsSocket {
         } else if (msg.type === 'user-input') {
           if (this.status !== 'ready') throw new Error(`received a user-input message while in status ${this.status}`)
           this.status = 'working'
-          const stream = await this.agent.stream({ messages: [...this.history, { role: 'user', content: msg.content }] })
+          const stream = await this.createAgent().stream({ messages: [...this.history, { role: 'user', content: msg.content }] })
           for await (const content of stream.textStream) {
             this.socket.send(JSON.stringify({ type: 'agent-output', content }))
           }
@@ -91,23 +89,17 @@ export class AgentWsSocket {
   }
 
   public createAgent () {
-    return new ToolLoopAgent({
-      model: this.model,
-      // The core of our "generic" agent: it generates tools on the fly
-      prepareStep: async () => {
-        const dynamicTools: Record<string, any> = {}
+    // The core of our "generic" WebMCP agent: it generates tools on the fly
+    const tools: Record<string, Tool> = {}
 
-        this.agentTools.forEach((t) => {
-          dynamicTools[t.name] = tool({
-            description: t.description,
-            inputSchema: t.inputSchema,
-            execute: async (args) => this.callBrowserTool(t.name, args),
-          })
-        })
-
-        return { tools: dynamicTools }
-      },
+    this.agentTools.forEach((t) => {
+      tools[t.name] = tool({
+        description: t.description,
+        inputSchema: t.inputSchema,
+        execute: async (args) => this.callBrowserTool(t.name, args),
+      })
     })
+    return new ToolLoopAgent({ model: this.model, tools })
   }
 
   private async callBrowserTool (name: string, args: any) {
