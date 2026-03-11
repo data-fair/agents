@@ -4,11 +4,12 @@ import { startObserver, stopObserver, internalError } from '@data-fair/lib-node/
 import eventPromise from '@data-fair/lib-utils/event-promise.js'
 import eventsQueue from '@data-fair/lib-node/events-queue.js'
 import locks from '@data-fair/lib-node/locks.js'
-import upgradeScripts from '@data-fair/lib-node/upgrade-scripts.js'
+// import upgradeScripts from '@data-fair/lib-node/upgrade-scripts.js'
 import { createHttpTerminator } from 'http-terminator'
 import { app } from './app.ts'
 import config from '#config'
 import mongo from '#mongo'
+import { start as startWs, stop as stopWs } from './agents/ws.ts'
 
 const server = createServer(app)
 const httpTerminator = createHttpTerminator({ server })
@@ -21,7 +22,7 @@ export const start = async () => {
   session.init(config.privateDirectoryUrl)
   await mongo.init()
   await locks.start(mongo.db)
-  await upgradeScripts(mongo.db, locks, config.upgradeRoot)
+  // await upgradeScripts(mongo.db, locks, config.upgradeRoot)
 
   if (config.privateEventsUrl) {
     if (!config.secretKeys?.events) {
@@ -34,10 +35,13 @@ export const start = async () => {
   server.listen(config.port)
   await eventPromise(server, 'listening')
 
+  await startWs(server)
+
   console.log(`API server listening on port ${config.port}`)
 }
 
 export const stop = async () => {
+  await stopWs()
   await httpTerminator.terminate()
   if (config.observer?.active) await stopObserver()
   await locks.stop()

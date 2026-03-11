@@ -3,6 +3,7 @@ import type { Server } from 'node:http'
 import { WebSocketServer, type WebSocket } from 'ws'
 import { randomUUID } from 'crypto'
 import { getEncoding } from 'js-tiktoken'
+import { match } from 'path-to-regexp'
 import type { PageAgentTool, ChatWsServerMessage } from '#types'
 
 let wss: WebSocketServer | undefined
@@ -29,8 +30,14 @@ export class AgentWsSocket {
   private history: ModelMessage[] = []
   public isAlive = true
   private status: 'handshake' | 'working' | 'ready' = 'handshake'
+  private model: string
+  public socket: WebSocket
+  public agentId: string
 
-  constructor (public socket: WebSocket, public model: string) {
+  constructor (socket: WebSocket, agentId: string) {
+    this.socket = socket
+    this.agentId = agentId
+    this.model = 'mock-model' // TODO: fetch from settings based on agentId
     this.setupSocketListeners()
   }
 
@@ -163,14 +170,20 @@ export class AgentWsSocket {
 
 let stopped = false
 let pingInterval: ReturnType<typeof setInterval> | null = null
+const agentPathMatcher = match<{ agentId: string }>('/agents/api/agents/:agentId/chat')
 export const start = async (server: Server) => {
   wss = new WebSocketServer({ server })
   wss.on('connection', async (ws, req) => {
-    // Associate ws connections to ids for subscriptions
+    const url = req.url || ''
+    const matchResult = agentPathMatcher(url)
+    if (!matchResult) {
+      ws.close(4000, 'Invalid path')
+      return
+    }
+    const { agentId } = matchResult.params
+
     const clientId = randomUUID()
-    // TODO: fetch settings / model for back-office assistant
-    // const sessionState = await session.req(req)
-    const agentWsSocket = livingAgents[clientId] = new AgentWsSocket(ws, 'mock-model')
+    const agentWsSocket = livingAgents[clientId] = new AgentWsSocket(ws, agentId)
 
     agentWsSocket.socket.on('close', () => {
       delete livingAgents[clientId]

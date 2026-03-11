@@ -4,6 +4,7 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
+import WebSocket from 'ws'
 import { axiosAuth, clean } from '../../support/axios.ts'
 
 const user = await axiosAuth('test-standalone1')
@@ -412,5 +413,63 @@ test.describe('Agents API', () => {
     const traceRes = await otherUser.get(`/api/traces/${traceId}`)
     assert.equal(traceRes.status, 200)
     assert.equal(traceRes.data.count, 0)
+  })
+
+  test('should connect via WebSocket and exchange messages', async () => {
+    const settingsData = {
+      providers: [
+        {
+          id: 'mock-provider',
+          type: 'mock',
+          name: 'Mock Provider',
+          enabled: true
+        }
+      ],
+      agents: {
+        backOfficeAssistant: {
+          name: 'Test Assistant',
+          prompt: 'You are a test assistant.',
+          model: {
+            id: 'mock-model',
+            name: 'Mock Model',
+            provider: {
+              type: 'mock',
+              name: 'Mock Provider',
+              id: 'mock-provider'
+            }
+          }
+        }
+      }
+    }
+
+    await user.put('/api/settings/user/test-standalone1', settingsData)
+
+    const wsUrl = `ws://localhost:${process.env.DEV_API_PORT}/agents/api/agents/back-office-assistant/chat`
+    const headers = Object.fromEntries(
+      Object.entries(user.defaults.headers.common as Record<string, string>)
+        .filter(([, v]) => v !== undefined)
+    )
+
+    const ws = new WebSocket(wsUrl, { headers })
+
+    await new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error('Timeout waiting for init-state-ok')), 5000)
+      ws.on('open', () => {
+        ws.send(JSON.stringify({ type: 'init-state', history: [], tools: [] }))
+      })
+      ws.on('message', (data) => {
+        const msg = JSON.parse(data.toString())
+        if (msg.type === 'init-state-ok') {
+          clearTimeout(timeout)
+          resolve()
+        }
+      })
+      ws.on('error', (err) => {
+        clearTimeout(timeout)
+        reject(err)
+      })
+    })
+
+    ws.close()
   })
 })
