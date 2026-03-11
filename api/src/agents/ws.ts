@@ -3,17 +3,11 @@ import type { Server } from 'node:http'
 import { WebSocketServer, type WebSocket } from 'ws'
 import { randomUUID } from 'crypto'
 import { getEncoding } from 'js-tiktoken'
-// import { session } from '@data-fair/lib-express'
+import type { PageAgentTool, ChatWsServerMessage } from '#types'
 
 let wss: WebSocketServer | undefined
 const livingAgents: Record<string, AgentWsSocket> = {}
 const encoding = getEncoding('cl100k_base') // Standard encoding for GPT-4/Claude
-
-type PageAgentTool = {
-  name: string;
-  description: string;
-  inputSchema: any;
-}
 
 function sanitizeToolName (name: string): string {
   return name
@@ -40,6 +34,10 @@ export class AgentWsSocket {
     this.setupSocketListeners()
   }
 
+  private send (msg: ChatWsServerMessage) {
+    this.socket.send(JSON.stringify(msg))
+  }
+
   private setupSocketListeners () {
     this.socket.on('message', async (data: any) => {
       const msg = JSON.parse(data)
@@ -50,6 +48,7 @@ export class AgentWsSocket {
         this.history = msg.history
         this.agentTools = msg.tools
         this.status = 'ready'
+        this.send({ type: 'init-state-ok' })
       } else {
         if (msg.type === 'update-tools') {
           checkTools(msg.tools)
@@ -65,15 +64,15 @@ export class AgentWsSocket {
           this.status = 'working'
           const stream = await this.createAgent().stream({ messages: [...this.history, { role: 'user', content: msg.content }] })
           for await (const content of stream.textStream) {
-            this.socket.send(JSON.stringify({ type: 'agent-output', content }))
+            this.send({ type: 'agent-output', content })
           }
           const newMessages = (await stream.response).messages
           this.history = this.history.concat(newMessages)
           const compacted = await this.compactIfNeeded()
           if (compacted) {
-            this.socket.send(JSON.stringify({ type: 'reset-history', history: this.history }))
+            this.send({ type: 'reset-history', history: this.history })
           } else {
-            this.socket.send(JSON.stringify({ type: 'push-history', history: newMessages }))
+            this.send({ type: 'push-history', history: newMessages })
           }
           this.status = 'ready'
         }
@@ -107,7 +106,7 @@ export class AgentWsSocket {
     if (!toolExists) throw new Error(`attempted to call unknown/unauthorized tool: ${name}`)
 
     const callId = randomUUID()
-    this.socket.send(JSON.stringify({ type: 'tool-call', name, args, callId }))
+    this.send({ type: 'tool-call', name, args, callId })
 
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
