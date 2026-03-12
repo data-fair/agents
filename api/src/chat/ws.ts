@@ -38,14 +38,16 @@ export class AgentWsSocket {
   private status: 'handshake' | 'working' | 'ready' = 'handshake'
   public socket: WebSocket
   private model: LanguageModel
+  private summaryModel: LanguageModel
   private sessionState: SessionStateAuthenticated
   private traceEnabled = false
   private traceId: string | undefined
   private traceIntegration: ReturnType<typeof createTraceIntegration> | undefined
 
-  constructor (socket: WebSocket, sessionState: SessionStateAuthenticated, model: LanguageModel) {
+  constructor (socket: WebSocket, sessionState: SessionStateAuthenticated, model: LanguageModel, summaryModel: LanguageModel) {
     this.socket = socket
     this.model = model
+    this.summaryModel = summaryModel
     this.sessionState = sessionState
     this.setupSocketListeners()
   }
@@ -190,7 +192,7 @@ export class AgentWsSocket {
 
       try {
         const { text } = await generateText({
-          model: this.model,
+          model: this.summaryModel,
           system: 'Summarize the key outcomes and state of this chat so far.',
           messages: toSummarize,
         })
@@ -251,8 +253,20 @@ export const start = async (server: Server) => {
 
       const aiModel = createModel(provider, modelConfig.id)
 
+      const summaryModelConfig = settings.summaryModel || settings.chatModel
+      const summaryProvider = settings.providers.find(p => p.id === summaryModelConfig.provider.id)
+      if (!summaryProvider) {
+        ws.close(400, 'Summary provider not configured')
+        return
+      }
+      if (!summaryProvider.enabled) {
+        ws.close(400, 'Summary provider is disabled')
+        return
+      }
+      const summaryModel = createModel(summaryProvider, summaryModelConfig.id)
+
       const clientId = randomUUID()
-      const agentWsSocket = livingAgents[clientId] = new AgentWsSocket(ws, sessionState, aiModel)
+      const agentWsSocket = livingAgents[clientId] = new AgentWsSocket(ws, sessionState, aiModel, summaryModel)
 
       agentWsSocket.socket.on('close', () => {
         delete livingAgents[clientId]

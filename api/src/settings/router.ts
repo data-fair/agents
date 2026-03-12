@@ -45,6 +45,7 @@ router.put('/:type/:id', async (req, res, next) => {
     owner,
     providers: encryptProviderApiKeys(body.providers || [], existing?.providers || [], securityKey),
     chatModel: body.chatModel,
+    summaryModel: body.summaryModel,
     evaluatorModel: body.evaluatorModel
   }
   await mongo.settings.replaceOne({ owner }, settings, { upsert: true })

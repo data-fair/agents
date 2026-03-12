@@ -60,6 +60,7 @@ export type SettingsPut = {
   };
   providers: AIProviders;
   chatModel: ChatModel;
+  summaryModel?: SummaryModel;
   evaluatorModel?: EvaluatorModel;
 }
 export type OpenAI = {
@@ -125,6 +126,20 @@ export type Mock = {
  * Model used for the chat interface
  */
 export type ChatModel = {
+  id: ModelID;
+  name: Name;
+  provider: {
+    type: ProviderType7;
+    name: ProviderName;
+    id: ProviderID7;
+    [k: string]: unknown;
+  };
+  [k: string]: unknown;
+}
+/**
+ * Model used for chat history summarization (optional, defaults to chat model)
+ */
+export type SummaryModel = {
   id: ModelID;
   name: Name;
   provider: {

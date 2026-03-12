@@ -8,6 +8,7 @@ import adminRouter from './admin/router.ts'
 import modelsRouter, { getModelsForOwner } from './models/router.ts'
 import tracesRouter from './traces/router.ts'
 import evaluatorRouter from './evaluator/router.ts'
+import summaryRouter from './summary/router.ts'
 import mongo from '#mongo'
 
 export const app = express()
@@ -36,6 +37,7 @@ app.use('/api/settings', settingsRouter)
 app.use('/api/models', modelsRouter)
 app.use('/api/traces', tracesRouter)
 app.use('/api/evaluator', evaluatorRouter)
+app.use('/api/summary', summaryRouter)
 app.use('/api/ping', (req, res) => res.send('ok'))
 
 if (process.env.NODE_ENV === 'development') {

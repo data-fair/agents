@@ -412,6 +412,11 @@ export default {
       title: 'Chat Model',
       description: 'Model used for the chat interface'
     },
+    summaryModel: {
+      $ref: '#/definitions/Model',
+      title: 'Summary Model',
+      description: 'Model used for chat history summarization (optional, defaults to chat model)'
+    },
     evaluatorModel: {
       $ref: '#/definitions/Model',
       title: 'Evaluator Model',
