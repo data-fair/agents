@@ -39,6 +39,10 @@ function processMockPrompt (lastMessage: string): MockPromptResult {
     return { type: 'text', text: 'what do you mean ?' }
   }
 
+  if (lastMessage.toLowerCase() === 'help' || lastMessage === '?') {
+    return { type: 'text', text: 'I respond to:\n- "hello" → returns "world"\n- "call tool <name> <args>" → triggers a tool call\n- Any other text → "what do you mean?"' }
+  }
+
   if (lastMessage.toLowerCase() === 'hello') {
     return { type: 'text', text: 'world' }
   }
