@@ -20,7 +20,7 @@ export interface ChatMessage {
   }>
 }
 
-export function useAgentChat (traceEnabled = false) {
+export function useAgentChat (traceEnabled = false, systemPrompt?: string) {
   if (!window.WebSocket) return
   // @ts-ignore
   if (import.meta.env?.SSR) return
@@ -58,7 +58,8 @@ export function useAgentChat (traceEnabled = false) {
         history,
         tools: agentTools.value,
         trace: traceEnabled,
-        traceId: currentTraceId.value || undefined
+        traceId: currentTraceId.value || undefined,
+        systemPrompt
       } as ChatWsClientMessage))
     } else if (msg.type === 'init-state-ok') {
       status.value = 'open'

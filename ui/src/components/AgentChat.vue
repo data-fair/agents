@@ -189,9 +189,7 @@
           <v-window v-model="activeDebugTab">
             <v-window-item value="systemPrompt">
               <div class="pa-4">
-                <p class="text-body-2 text-medium-emphasis">
-                  {{ t('noSystemPrompt') }}
-                </p>
+                <pre class="trace-data">{{ finalSystemPrompt }}</pre>
               </div>
             </v-window-item>
 
@@ -285,11 +283,16 @@ fr:
   systemPrompt: Prompt système
   tools: Outils
   trace: Traçage
-  noSystemPrompt: Aucun prompt système configuré
   noTools: Aucun outil enregistré
   noTraceEvents: Aucun événement de trace
   inputSchema: Schéma d'entrée
   close: Fermer
+  systemPromptBase: Tu es un assistant IA utile pour la plateforme Data Fair.
+  systemPromptUser: L'utilisateur actuel est {userName}{orgPart}.
+  systemPromptUserDefault: Utilisateur
+  systemPromptLang: La langue de l'utilisateur est {lang}.
+  systemPromptOrg: ", membre de l'organisation {orgName}"
+  systemPromptDep: ", département {depName}"
 en:
   placeholder: Type your message...
   send: Send
@@ -299,16 +302,22 @@ en:
   systemPrompt: System Prompt
   tools: Tools
   trace: Trace
-  noSystemPrompt: No system prompt configured
   noTools: No tools registered
   noTraceEvents: No trace events
   inputSchema: Input Schema
   close: Close
+  systemPromptBase: You are a helpful AI assistant for the Data Fair platform.
+  systemPromptUser: The current user is {userName}{orgPart}.
+  systemPromptUserDefault: User
+  systemPromptLang: The user's language is {lang}.
+  systemPromptOrg: ", member of the organization {orgName}"
+  systemPromptDep: ", department {depName}"
 </i18n>
 
 <script lang="ts" setup>
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useSession } from '@data-fair/lib-vue/session.js'
 import { useAgentChat } from '~/composables/use-agent-chat'
 import { $apiPath } from '~/context'
 
@@ -323,11 +332,40 @@ interface TraceEvent {
 
 const props = defineProps<{
   debug?: boolean
+  systemPrompt?: string
 }>()
 
 const { t } = useI18n()
+const session = useSession()
 
-const chatResult = useAgentChat(props.debug)
+const finalSystemPrompt = computed(() => {
+  if (props.systemPrompt) {
+    return props.systemPrompt
+  }
+
+  const lang = session.state.lang || 'fr'
+  const userName = session.state.user?.name || t('systemPromptUserDefault', { lang })
+  const orgName = session.state.account?.name
+  const depName = session.state.account?.departmentName
+
+  let orgPart = ''
+  if (orgName) {
+    orgPart = t('systemPromptOrg', { orgName })
+    if (depName) {
+      orgPart += t('systemPromptDep', { depName })
+    }
+  }
+
+  const parts = [
+    t('systemPromptBase'),
+    t('systemPromptUser', { userName, orgPart }),
+    t('systemPromptLang', { lang })
+  ]
+
+  return parts.join(' ')
+})
+
+const chatResult = useAgentChat(props.debug, finalSystemPrompt.value)
 
 if (!chatResult) {
   throw new Error('WebSocket not supported')

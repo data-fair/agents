@@ -7,7 +7,7 @@ export type PageAgentTool = {
 }
 
 export type ChatWsClientMessage =
-  | { type: 'init-state'; history: ModelMessage[]; tools: PageAgentTool[]; trace?: boolean; traceId?: string }
+  | { type: 'init-state'; history: ModelMessage[]; tools: PageAgentTool[]; trace?: boolean; traceId?: string; systemPrompt?: string }
   | { type: 'update-tools'; tools: PageAgentTool[] }
   | { type: 'tool-result'; callId: string; result: any }
   | { type: 'user-input'; content: string }
