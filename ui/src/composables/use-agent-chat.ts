@@ -1,9 +1,15 @@
 import ReconnectingWebSocket from 'reconnecting-websocket'
-import { ref, computed, onScopeDispose, watch } from 'vue'
+import { ref, onScopeDispose, watch } from 'vue'
 import type { ModelMessage } from 'ai'
 import type { ChatWsClientMessage, ChatWsServerMessage } from '#api/types'
 import { useAgentTools } from './use-agent-tools'
 import { $apiPath } from '~/context'
+
+export interface AgentToolInfo {
+  name: string
+  description: string
+  inputSchema: any
+}
 
 export interface ChatMessage {
   role: 'user' | 'assistant'
@@ -19,7 +25,10 @@ export function useAgentChat (traceEnabled = false) {
   // @ts-ignore
   if (import.meta.env?.SSR) return
 
-  const agentTools = computed(() => Object.values(useAgentTools()).map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })))
+  const agentTools = ref<AgentToolInfo[]>(
+    Object.values(useAgentTools()).map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema }))
+  )
+  const currentTraceId = ref<string | null>(null)
 
   const url = (`${window.location.origin}${$apiPath}/chat`).replace('http:', 'ws:').replace('https:', 'wss:')
   const ws = new ReconnectingWebSocket(url)
@@ -27,11 +36,6 @@ export function useAgentChat (traceEnabled = false) {
   const messages = ref<ChatMessage[]>([])
   const status = ref<'closed' | 'handshake' | 'open' | 'waiting'>('closed')
   let currentAssistantMessage: ChatMessage | null = null
-  let currentTraceId: string | null = null
-
-  const emitTraceId = (traceId: string) => {
-    currentTraceId = traceId
-  }
 
   watch(agentTools, () => {
     if (status.value === 'open') {
@@ -54,12 +58,12 @@ export function useAgentChat (traceEnabled = false) {
         history,
         tools: agentTools.value,
         trace: traceEnabled,
-        traceId: currentTraceId || undefined
+        traceId: currentTraceId.value || undefined
       } as ChatWsClientMessage))
     } else if (msg.type === 'init-state-ok') {
       status.value = 'open'
       if (msg.traceId) {
-        emitTraceId(msg.traceId)
+        currentTraceId.value = msg.traceId
       }
     } else {
       if (status.value !== 'waiting') {
@@ -114,7 +118,7 @@ export function useAgentChat (traceEnabled = false) {
     ws.send(JSON.stringify({ type: 'user-input', content: msg } as ChatWsClientMessage))
   }
 
-  return { messages, status, sendMessage, emitTraceId }
+  return { messages, status, sendMessage, agentTools, currentTraceId }
 }
 
 export default useAgentChat
