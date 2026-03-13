@@ -48,6 +48,14 @@ export type Name = string;
 export type ProviderType7 = string;
 export type ProviderName = string;
 export type ProviderID7 = string;
+/**
+ * Maximum number of tokens allowed per day (0 for unlimited)
+ */
+export type DailyTokenLimit = number;
+/**
+ * Maximum number of tokens allowed per month (0 for unlimited)
+ */
+export type MonthlyTokenLimit = number;
 
 export type SettingsPut = {
   createdAt?: string;
@@ -62,6 +70,7 @@ export type SettingsPut = {
   chatModel: ChatModel;
   summaryModel?: SummaryModel;
   evaluatorModel?: EvaluatorModel;
+  limits: UsageLimits;
 }
 export type OpenAI = {
   type: ProviderType;
@@ -162,6 +171,11 @@ export type EvaluatorModel = {
     id: ProviderID7;
     [k: string]: unknown;
   };
+  [k: string]: unknown;
+}
+export type UsageLimits = {
+  dailyTokenLimit: DailyTokenLimit;
+  monthlyTokenLimit: MonthlyTokenLimit;
   [k: string]: unknown;
 }
 /**

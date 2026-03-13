@@ -3,6 +3,7 @@ import { generateText, streamText } from 'ai'
 import { reqSessionAuthenticated } from '@data-fair/lib-express'
 import { getRawSettings } from '../settings/service.ts'
 import { createModel } from '../models/operations.ts'
+import { getUsage, recordUsage, checkQuota } from '../usage/service.ts'
 import { convertOpenAITools, convertOpenAIMessages, convertToolChoice, mapFinishReason } from './operations.ts'
 import type { Settings } from '#types'
 import type { OpenAIMessage, OpenAIToolDefinition, OpenAIToolChoice, FinishReason } from './operations.ts'
@@ -39,6 +40,13 @@ async function getModelForGateway (settings: Settings, modelId: ModelId) {
   if (!provider.enabled) throw new Error('Provider is disabled')
 
   return createModel(provider, modelConfig.id)
+}
+
+function setUsageHeaders (res: import('express').Response, usage: Awaited<ReturnType<typeof getUsage>>, limits?: Settings['limits']) {
+  res.setHeader('X-Token-Usage-Daily', usage.daily.totalTokens)
+  res.setHeader('X-Token-Usage-Monthly', usage.monthly.totalTokens)
+  if (limits?.dailyTokenLimit) res.setHeader('X-Token-Limit-Daily', limits.dailyTokenLimit)
+  if (limits?.monthlyTokenLimit) res.setHeader('X-Token-Limit-Monthly', limits.monthlyTokenLimit)
 }
 
 // OpenAI-compatible chat completions endpoint
@@ -84,6 +92,57 @@ router.post('/v1/chat/completions', async (req, res, next) => {
       return
     }
 
+    // Two-level quota enforcement
+    const isOrgContext = session.account.type === 'organization'
+    const accountLimits = settings.limits
+    let userLimits: Settings['limits'] | undefined
+
+    if (isOrgContext) {
+      const userSettings = await getRawSettings({ type: 'user', id: session.user.id })
+      userLimits = userSettings?.limits
+    }
+
+    // Check account limits against account usage
+    if (accountLimits.dailyTokenLimit || accountLimits.monthlyTokenLimit) {
+      const accountUsage = await getUsage(owner)
+      const quotaCheck = checkQuota(accountUsage, accountLimits, isOrgContext ? 'organization' : 'user')
+      if (quotaCheck) {
+        setUsageHeaders(res, accountUsage, accountLimits)
+        res.status(429).json({
+          error: {
+            message: quotaCheck.reason,
+            type: 'rate_limit_error',
+            scope: quotaCheck.scope,
+            usage: quotaCheck.usage,
+            limit: quotaCheck.limit,
+            resets_at: quotaCheck.resetsAt
+          }
+        })
+        return
+      }
+    }
+
+    // Check user limits against user's total personal usage
+    if (isOrgContext && (userLimits?.dailyTokenLimit || userLimits?.monthlyTokenLimit)) {
+      const userOwner = { type: 'user' as const, id: session.user.id }
+      const userUsage = await getUsage(userOwner)
+      const quotaCheck = checkQuota(userUsage, userLimits, 'user')
+      if (quotaCheck) {
+        setUsageHeaders(res, userUsage, userLimits)
+        res.status(429).json({
+          error: {
+            message: quotaCheck.reason,
+            type: 'rate_limit_error',
+            scope: quotaCheck.scope,
+            usage: quotaCheck.usage,
+            limit: quotaCheck.limit,
+            resets_at: quotaCheck.resetsAt
+          }
+        })
+        return
+      }
+    }
+
     const model = await getModelForGateway(settings, modelId)
 
     // Extract system message from OpenAI messages array
@@ -102,6 +161,12 @@ router.post('/v1/chat/completions', async (req, res, next) => {
       res.setHeader('Content-Type', 'text/event-stream')
       res.setHeader('Cache-Control', 'no-cache')
       res.setHeader('Connection', 'keep-alive')
+
+      // Set usage headers before streaming starts (pre-request usage)
+      if (accountLimits.dailyTokenLimit || accountLimits.monthlyTokenLimit) {
+        const preUsage = await getUsage(owner)
+        setUsageHeaders(res, preUsage, accountLimits)
+      }
 
       const result = await streamText({
         model,
@@ -169,6 +234,17 @@ router.post('/v1/chat/completions', async (req, res, next) => {
             }]
           })}\n\n`)
         } else if (part.type === 'finish') {
+          // Record usage for streaming responses
+          const inputTokens = part.totalUsage?.inputTokens ?? 0
+          const outputTokens = part.totalUsage?.outputTokens ?? 0
+          if (inputTokens || outputTokens) {
+            const recordings = [recordUsage(owner, inputTokens, outputTokens)]
+            if (isOrgContext) {
+              recordings.push(recordUsage({ type: 'user', id: session.user.id }, inputTokens, outputTokens))
+            }
+            await Promise.all(recordings)
+          }
+
           res.write(`data: ${JSON.stringify({
             id: completionId,
             object: 'chat.completion.chunk',
@@ -199,6 +275,23 @@ router.post('/v1/chat/completions', async (req, res, next) => {
         stopSequences: stop,
         ...(hasTools ? { tools, toolChoice: convertToolChoice(toolChoice) } : {})
       })
+
+      // Record usage
+      const inputTokens = result.usage?.inputTokens ?? 0
+      const outputTokens = result.usage?.outputTokens ?? 0
+      if (inputTokens || outputTokens) {
+        const recordings = [recordUsage(owner, inputTokens, outputTokens)]
+        if (isOrgContext) {
+          recordings.push(recordUsage({ type: 'user', id: session.user.id }, inputTokens, outputTokens))
+        }
+        await Promise.all(recordings)
+      }
+
+      // Set usage headers
+      if (accountLimits.dailyTokenLimit || accountLimits.monthlyTokenLimit) {
+        const updatedUsage = await getUsage(owner)
+        setUsageHeaders(res, updatedUsage, accountLimits)
+      }
 
       // Build response message
       const responseMessage: { role: string, content: string | null, tool_calls?: Array<{ id: string, type: string, function: { name: string, arguments: string } }> } = {

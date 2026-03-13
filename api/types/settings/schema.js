@@ -14,7 +14,7 @@ export default {
   },
   type: 'object',
   additionalProperties: false,
-  required: ['owner', 'providers', 'chatModel'],
+  required: ['owner', 'providers', 'chatModel', 'limits'],
   properties: {
     createdAt: {
       type: 'string',
@@ -421,6 +421,51 @@ export default {
       $ref: '#/definitions/Model',
       title: 'Evaluator Model',
       description: 'Model used for evaluation (optional, defaults to chat model)'
+    },
+    limits: {
+      type: 'object',
+      title: 'Usage Limits',
+      'x-i18n-title': {
+        en: 'Usage Limits',
+        fr: "Limites d'utilisation"
+      },
+      required: ['dailyTokenLimit', 'monthlyTokenLimit'],
+      default: {
+        dailyTokenLimit: 100000,
+        monthlyTokenLimit: 1000000
+      },
+      properties: {
+        dailyTokenLimit: {
+          type: 'integer',
+          title: 'Daily Token Limit',
+          'x-i18n-title': {
+            en: 'Daily Token Limit',
+            fr: 'Limite de tokens journalière'
+          },
+          description: 'Maximum number of tokens allowed per day (0 for unlimited)',
+          'x-i18n-description': {
+            en: 'Maximum number of tokens allowed per day (0 for unlimited)',
+            fr: 'Nombre maximum de tokens autorisés par jour (0 pour illimité)'
+          },
+          default: 100000,
+          minimum: 0
+        },
+        monthlyTokenLimit: {
+          type: 'integer',
+          title: 'Monthly Token Limit',
+          'x-i18n-title': {
+            en: 'Monthly Token Limit',
+            fr: 'Limite de tokens mensuelle'
+          },
+          description: 'Maximum number of tokens allowed per month (0 for unlimited)',
+          'x-i18n-description': {
+            en: 'Maximum number of tokens allowed per month (0 for unlimited)',
+            fr: 'Nombre maximum de tokens autorisés par mois (0 pour illimité)'
+          },
+          default: 1000000,
+          minimum: 0
+        }
+      }
     }
   }
 }

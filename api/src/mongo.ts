@@ -1,4 +1,5 @@
 import type { Settings } from '#types/settings/index.ts'
+import type { TokenUsage } from './usage/service.ts'
 
 import mongoLib from '@data-fair/lib-node/mongo.js'
 import config from '#config'
@@ -16,6 +17,10 @@ export class AgentsMongo {
     return mongoLib.db.collection<Settings>('settings')
   }
 
+  get usage () {
+    return mongoLib.db.collection<TokenUsage>('usage')
+  }
+
   async connect () {
     await mongoLib.connect(config.mongoUrl)
   }
@@ -26,6 +31,9 @@ export class AgentsMongo {
     await mongoLib.configure({
       settings: {
         'main-keys': [{ 'owner.type': 1, 'owner.id': 1 }, { unique: true }]
+      },
+      usage: {
+        'main-keys': [{ 'owner.type': 1, 'owner.id': 1, period: 1 }, { unique: true }]
       }
     })
   }
