@@ -317,7 +317,6 @@ import { useAgentChat } from '~/composables/use-agent-chat'
 const props = defineProps<{
   debug?: boolean
   systemPrompt?: string
-  externalTools?: Record<string, import('ai').Tool>
 }>()
 
 const { t } = useI18n()
@@ -350,7 +349,7 @@ const finalSystemPrompt = computed(() => {
   return parts.join(' ')
 })
 
-const chatResult = useAgentChat(props.debug, finalSystemPrompt.value, props.externalTools)
+const chatResult = useAgentChat(props.debug, finalSystemPrompt.value)
 
 if (!chatResult) {
   throw new Error('Chat not supported in SSR')
@@ -376,8 +375,7 @@ const chatMaxHeight = computed(() => {
 })
 
 const debugTools = computed(() => {
-  if (!props.externalTools) return []
-  return Object.entries(props.externalTools).map(([name, t]) => ({
+  return Object.entries(chatResult.tools.value).map(([name, t]) => ({
     name,
     description: (t as any).description ?? '',
     inputSchema: (t as any).parameters ?? {}

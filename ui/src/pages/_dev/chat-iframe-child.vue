@@ -1,15 +1,9 @@
 <template>
-  <AgentChat
-    :debug="true"
-    :external-tools="tools"
-  />
+  <AgentChat :debug="true" />
 </template>
 
 <script lang="ts" setup>
 import AgentChat from '~/components/AgentChat.vue'
-import { useFrameTools } from '~/composables/use-frame-tools'
-
-const { tools } = useFrameTools()
 </script>
 
 <style scoped>

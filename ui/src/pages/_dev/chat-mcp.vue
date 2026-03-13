@@ -28,10 +28,7 @@
         cols="7"
         class="d-flex flex-column"
       >
-        <AgentChat
-          :debug="true"
-          :external-tools="tools"
-        />
+        <AgentChat :debug="true" />
       </v-col>
     </v-row>
   </v-container>
@@ -56,7 +53,6 @@ en:
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAgentTool, useFrameServer } from '@data-fair/lib-vue-agents'
-import { useFrameTools } from '~/composables/use-frame-tools'
 import AgentChat from '~/components/AgentChat.vue'
 
 const { t } = useI18n()
@@ -64,7 +60,6 @@ const { t } = useI18n()
 const toolData = ref('')
 
 useFrameServer('self')
-const { tools } = useFrameTools()
 
 onMounted(() => {
   useAgentTool({

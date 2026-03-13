@@ -2,6 +2,7 @@ import { ref, computed, onScopeDispose } from 'vue'
 import { streamText, generateText, stepCountIs, tool, jsonSchema } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import type { ModelMessage, Tool } from 'ai'
+import { FrameClientAggregator } from '~/transports/frame-client-aggregator'
 import { BrowserTraceIntegration } from '../traces/browser-trace-integration'
 import type { BrowserTraceEvent } from '../traces/browser-trace-integration'
 import { $apiPath } from '~/context'
@@ -56,7 +57,7 @@ const scoringTool = tool({
   })
 })
 
-export function useAgentEvaluator (externalTools?: Record<string, Tool>) {
+export function useAgentEvaluator () {
   // @ts-ignore
   if (import.meta.env?.SSR) return
 
@@ -67,8 +68,16 @@ export function useAgentEvaluator (externalTools?: Record<string, Tool>) {
   const results = ref<EvaluationResult[]>([])
   const error = ref<string | null>(null)
   const traceEvents = ref<BrowserTraceEvent[]>([])
+  const tools = ref<Record<string, Tool>>({})
 
   let abortController: AbortController | null = null
+
+  const aggregator = new FrameClientAggregator({
+    onToolsChanged: (newTools) => {
+      tools.value = { ...newTools }
+    }
+  })
+  aggregator.start()
 
   const provider = createOpenAI({
     baseURL: `${window.location.origin}${$apiPath}/gateway/v1`,
@@ -86,6 +95,7 @@ export function useAgentEvaluator (externalTools?: Record<string, Tool>) {
   })
 
   onScopeDispose(() => {
+    aggregator.close()
     if (abortController) {
       abortController.abort()
       abortController = null
@@ -131,8 +141,8 @@ export function useAgentEvaluator (externalTools?: Record<string, Tool>) {
 
   async function runSingleTask (task: EvaluationTask, taskIndex: number, maxTurns: number): Promise<EvaluationResult> {
     const signal = abortController!.signal
-    const tools = externalTools ?? {}
-    const hasTools = Object.keys(tools).length > 0
+    const currentTools = tools.value
+    const hasTools = Object.keys(currentTools).length > 0
 
     const traceId = crypto.randomUUID()
     const traceIntegration = new BrowserTraceIntegration(traceId)
@@ -155,7 +165,7 @@ export function useAgentEvaluator (externalTools?: Record<string, Tool>) {
       const streamResult = streamText({
         model: provider.chat('assistant'),
         messages: history,
-        tools: hasTools ? tools : undefined,
+        tools: hasTools ? currentTools : undefined,
         stopWhen: stepCountIs(10),
         abortSignal: signal,
         experimental_telemetry: {

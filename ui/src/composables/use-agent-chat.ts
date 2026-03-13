@@ -2,6 +2,7 @@ import { ref, onScopeDispose } from 'vue'
 import { streamText, stepCountIs } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import type { ModelMessage, Tool } from 'ai'
+import { FrameClientAggregator } from '~/transports/frame-client-aggregator'
 import { BrowserTraceIntegration } from '../traces/browser-trace-integration'
 import type { BrowserTraceEvent } from '../traces/browser-trace-integration'
 import { $apiPath } from '~/context'
@@ -16,7 +17,7 @@ export interface ChatMessage {
   }>
 }
 
-export function useAgentChat (traceEnabled = false, systemPrompt?: string, externalTools?: Record<string, Tool>) {
+export function useAgentChat (traceEnabled = false, systemPrompt?: string) {
   // @ts-ignore
   if (import.meta.env?.SSR) return
 
@@ -24,6 +25,7 @@ export function useAgentChat (traceEnabled = false, systemPrompt?: string, exter
   const status = ref<'ready' | 'streaming' | 'error'>('ready')
   const error = ref<string | null>(null)
   const traceEvents = ref<BrowserTraceEvent[]>([])
+  const tools = ref<Record<string, Tool>>({})
   let history: ModelMessage[] = []
   let abortController: AbortController | null = null
   let traceIntegration: BrowserTraceIntegration | null = null
@@ -32,12 +34,20 @@ export function useAgentChat (traceEnabled = false, systemPrompt?: string, exter
     traceIntegration = new BrowserTraceIntegration(crypto.randomUUID())
   }
 
+  const aggregator = new FrameClientAggregator({
+    onToolsChanged: (newTools) => {
+      tools.value = { ...newTools }
+    }
+  })
+  aggregator.start()
+
   const provider = createOpenAI({
     baseURL: `${window.location.origin}${$apiPath}/gateway/v1`,
     apiKey: 'unused'
   })
 
   onScopeDispose(() => {
+    aggregator.close()
     if (abortController) {
       abortController.abort()
       abortController = null
@@ -58,13 +68,13 @@ export function useAgentChat (traceEnabled = false, systemPrompt?: string, exter
     let currentAssistantMessage: ChatMessage | null = null
 
     try {
-      const tools = externalTools ?? {}
+      const currentTools = tools.value
 
       const result = streamText({
         model: provider.chat('assistant'),
         system: systemPrompt,
         messages: history,
-        tools: Object.keys(tools).length > 0 ? tools : undefined,
+        tools: Object.keys(currentTools).length > 0 ? currentTools : undefined,
         stopWhen: stepCountIs(10),
         abortSignal: abortController.signal,
         ...(traceIntegration
@@ -133,7 +143,7 @@ export function useAgentChat (traceEnabled = false, systemPrompt?: string, exter
     }
   }
 
-  return { messages, status, error, traceEvents, sendMessage }
+  return { messages, status, error, traceEvents, tools, sendMessage }
 }
 
 export default useAgentChat
