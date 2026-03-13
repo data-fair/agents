@@ -3,6 +3,7 @@ import mongo from '#mongo'
 
 export interface TokenUsage {
   owner: { type: string, id: string }
+  userId?: string
   period: string // 'daily:2026-03-13' or 'monthly:2026-03'
   inputTokens: number
   outputTokens: number
@@ -42,13 +43,15 @@ function getMonthlyResetsAt (): string {
   return nextMonth.toISOString()
 }
 
-export async function getUsage (owner: AccountKeys): Promise<UsageInfo> {
+export async function getUsage (owner: AccountKeys, userId?: string): Promise<UsageInfo> {
   const dailyPeriod = getDailyPeriod()
   const monthlyPeriod = getMonthlyPeriod()
 
+  const filter = { 'owner.type': owner.type, 'owner.id': owner.id, ...(userId ? { userId } : {}) }
+
   const [daily, monthly] = await Promise.all([
-    mongo.usage.findOne({ 'owner.type': owner.type, 'owner.id': owner.id, period: dailyPeriod }),
-    mongo.usage.findOne({ 'owner.type': owner.type, 'owner.id': owner.id, period: monthlyPeriod })
+    mongo.usage.findOne({ ...filter, period: dailyPeriod }),
+    mongo.usage.findOne({ ...filter, period: monthlyPeriod })
   ])
 
   return {
@@ -67,33 +70,58 @@ export async function getUsage (owner: AccountKeys): Promise<UsageInfo> {
   }
 }
 
-export async function recordUsage (owner: AccountKeys, inputTokens: number, outputTokens: number): Promise<void> {
+export async function recordUsage (owner: AccountKeys, inputTokens: number, outputTokens: number, userId?: string): Promise<void> {
   const totalTokens = inputTokens + outputTokens
   const now = new Date().toISOString()
 
   const dailyPeriod = getDailyPeriod()
   const monthlyPeriod = getMonthlyPeriod()
 
+  const filter = { 'owner.type': owner.type, 'owner.id': owner.id, ...(userId ? { userId } : {}) }
+  const setOnInsertBase = { owner: { type: owner.type, id: owner.id }, ...(userId ? { userId } : {}) }
+
   await Promise.all([
     mongo.usage.updateOne(
-      { 'owner.type': owner.type, 'owner.id': owner.id, period: dailyPeriod },
+      { ...filter, period: dailyPeriod },
       {
         $inc: { inputTokens, outputTokens, totalTokens },
         $set: { updatedAt: now },
-        $setOnInsert: { owner: { type: owner.type, id: owner.id }, period: dailyPeriod }
+        $setOnInsert: { ...setOnInsertBase, period: dailyPeriod }
       },
       { upsert: true }
     ),
     mongo.usage.updateOne(
-      { 'owner.type': owner.type, 'owner.id': owner.id, period: monthlyPeriod },
+      { ...filter, period: monthlyPeriod },
       {
         $inc: { inputTokens, outputTokens, totalTokens },
         $set: { updatedAt: now },
-        $setOnInsert: { owner: { type: owner.type, id: owner.id }, period: monthlyPeriod }
+        $setOnInsert: { ...setOnInsertBase, period: monthlyPeriod }
       },
       { upsert: true }
     )
   ])
+}
+
+export async function getOwnerUsage (owner: AccountKeys): Promise<UsageInfo> {
+  if (owner.type === 'user') return getUsage(owner)
+
+  const dailyPeriod = getDailyPeriod()
+  const monthlyPeriod = getMonthlyPeriod()
+
+  const aggregate = async (period: string) => {
+    const result = await mongo.usage.aggregate<{ inputTokens: number, outputTokens: number, totalTokens: number }>([
+      { $match: { 'owner.type': owner.type, 'owner.id': owner.id, userId: { $ne: null }, period } },
+      { $group: { _id: null, inputTokens: { $sum: '$inputTokens' }, outputTokens: { $sum: '$outputTokens' }, totalTokens: { $sum: '$totalTokens' } } }
+    ]).toArray()
+    return result[0] ?? { inputTokens: 0, outputTokens: 0, totalTokens: 0 }
+  }
+
+  const [daily, monthly] = await Promise.all([aggregate(dailyPeriod), aggregate(monthlyPeriod)])
+
+  return {
+    daily: { ...daily, resetsAt: getDailyResetsAt() },
+    monthly: { ...monthly, resetsAt: getMonthlyResetsAt() }
+  }
 }
 
 export interface QuotaExceeded {

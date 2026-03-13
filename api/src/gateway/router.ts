@@ -3,7 +3,7 @@ import { generateText, streamText } from 'ai'
 import { reqSessionAuthenticated } from '@data-fair/lib-express'
 import { getRawSettings } from '../settings/service.ts'
 import { createModel } from '../models/operations.ts'
-import { getUsage, recordUsage, checkQuota } from '../usage/service.ts'
+import { getUsage, getOwnerUsage, recordUsage, checkQuota } from '../usage/service.ts'
 import { convertOpenAITools, convertOpenAIMessages, convertToolChoice, mapFinishReason } from './operations.ts'
 import type { Settings } from '#types'
 import type { OpenAIMessage, OpenAIToolDefinition, OpenAIToolChoice, FinishReason } from './operations.ts'
@@ -40,13 +40,6 @@ async function getModelForGateway (settings: Settings, modelId: ModelId) {
   if (!provider.enabled) throw new Error('Provider is disabled')
 
   return createModel(provider, modelConfig.id)
-}
-
-function setUsageHeaders (res: import('express').Response, usage: Awaited<ReturnType<typeof getUsage>>, limits?: Settings['limits']) {
-  res.setHeader('X-Token-Usage-Daily', usage.daily.totalTokens)
-  res.setHeader('X-Token-Usage-Monthly', usage.monthly.totalTokens)
-  if (limits?.dailyTokenLimit) res.setHeader('X-Token-Limit-Daily', limits.dailyTokenLimit)
-  if (limits?.monthlyTokenLimit) res.setHeader('X-Token-Limit-Monthly', limits.monthlyTokenLimit)
 }
 
 // OpenAI-compatible chat completions endpoint
@@ -95,19 +88,13 @@ router.post('/v1/chat/completions', async (req, res, next) => {
     // Two-level quota enforcement
     const isOrgContext = session.account.type === 'organization'
     const accountLimits = settings.limits
-    let userLimits: Settings['limits'] | undefined
-
-    if (isOrgContext) {
-      const userSettings = await getRawSettings({ type: 'user', id: session.user.id })
-      userLimits = userSettings?.limits
-    }
+    const userLimits = isOrgContext ? settings.userLimits : undefined
 
     // Check account limits against account usage
     if (accountLimits.dailyTokenLimit || accountLimits.monthlyTokenLimit) {
-      const accountUsage = await getUsage(owner)
+      const accountUsage = isOrgContext ? await getOwnerUsage(owner) : await getUsage(owner)
       const quotaCheck = checkQuota(accountUsage, accountLimits, isOrgContext ? 'organization' : 'user')
       if (quotaCheck) {
-        setUsageHeaders(res, accountUsage, accountLimits)
         res.status(429).json({
           error: {
             message: quotaCheck.reason,
@@ -124,11 +111,9 @@ router.post('/v1/chat/completions', async (req, res, next) => {
 
     // Check user limits against user's total personal usage
     if (isOrgContext && (userLimits?.dailyTokenLimit || userLimits?.monthlyTokenLimit)) {
-      const userOwner = { type: 'user' as const, id: session.user.id }
-      const userUsage = await getUsage(userOwner)
+      const userUsage = await getUsage(owner, session.user.id)
       const quotaCheck = checkQuota(userUsage, userLimits, 'user')
       if (quotaCheck) {
-        setUsageHeaders(res, userUsage, userLimits)
         res.status(429).json({
           error: {
             message: quotaCheck.reason,
@@ -161,12 +146,6 @@ router.post('/v1/chat/completions', async (req, res, next) => {
       res.setHeader('Content-Type', 'text/event-stream')
       res.setHeader('Cache-Control', 'no-cache')
       res.setHeader('Connection', 'keep-alive')
-
-      // Set usage headers before streaming starts (pre-request usage)
-      if (accountLimits.dailyTokenLimit || accountLimits.monthlyTokenLimit) {
-        const preUsage = await getUsage(owner)
-        setUsageHeaders(res, preUsage, accountLimits)
-      }
 
       const result = await streamText({
         model,
@@ -238,11 +217,7 @@ router.post('/v1/chat/completions', async (req, res, next) => {
           const inputTokens = part.totalUsage?.inputTokens ?? 0
           const outputTokens = part.totalUsage?.outputTokens ?? 0
           if (inputTokens || outputTokens) {
-            const recordings = [recordUsage(owner, inputTokens, outputTokens)]
-            if (isOrgContext) {
-              recordings.push(recordUsage({ type: 'user', id: session.user.id }, inputTokens, outputTokens))
-            }
-            await Promise.all(recordings)
+            await recordUsage(owner, inputTokens, outputTokens, isOrgContext ? session.user.id : undefined)
           }
 
           res.write(`data: ${JSON.stringify({
@@ -280,17 +255,7 @@ router.post('/v1/chat/completions', async (req, res, next) => {
       const inputTokens = result.usage?.inputTokens ?? 0
       const outputTokens = result.usage?.outputTokens ?? 0
       if (inputTokens || outputTokens) {
-        const recordings = [recordUsage(owner, inputTokens, outputTokens)]
-        if (isOrgContext) {
-          recordings.push(recordUsage({ type: 'user', id: session.user.id }, inputTokens, outputTokens))
-        }
-        await Promise.all(recordings)
-      }
-
-      // Set usage headers
-      if (accountLimits.dailyTokenLimit || accountLimits.monthlyTokenLimit) {
-        const updatedUsage = await getUsage(owner)
-        setUsageHeaders(res, updatedUsage, accountLimits)
+        await recordUsage(owner, inputTokens, outputTokens, isOrgContext ? session.user.id : undefined)
       }
 
       // Build response message

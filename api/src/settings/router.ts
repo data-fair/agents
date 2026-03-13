@@ -15,7 +15,7 @@ import { securityKey } from '../cipher/service.ts'
 const router = Router()
 export default router
 
-const emptySettings = (owner: AccountKeys): Settings => ({ owner, providers: [], chatModel: undefined as unknown as Settings['chatModel'], limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 } })
+const emptySettings = (owner: AccountKeys): Settings => ({ owner, providers: [], chatModel: undefined as unknown as Settings['chatModel'], limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }, userLimits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 } })
 
 router.get('/:type/:id', async (req, res, next) => {
   const session = reqSessionAuthenticated(req)
@@ -47,7 +47,8 @@ router.put('/:type/:id', async (req, res, next) => {
     chatModel: body.chatModel,
     summaryModel: body.summaryModel,
     evaluatorModel: body.evaluatorModel,
-    limits: body.limits ?? { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
+    limits: body.limits ?? { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 },
+    userLimits: body.userLimits ?? { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
   }
   await mongo.settings.replaceOne({ owner }, settings, { upsert: true })
 

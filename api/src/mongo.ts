@@ -33,7 +33,7 @@ export class AgentsMongo {
         'main-keys': [{ 'owner.type': 1, 'owner.id': 1 }, { unique: true }]
       },
       usage: {
-        'main-keys': [{ 'owner.type': 1, 'owner.id': 1, period: 1 }, { unique: true }]
+        'main-keys': [{ 'owner.type': 1, 'owner.id': 1, userId: 1, period: 1 }, { unique: true }]
       }
     })
   }

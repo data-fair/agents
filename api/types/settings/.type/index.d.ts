@@ -52,6 +52,14 @@ export type DailyTokenLimit = number;
  * Maximum number of tokens allowed per month (0 for unlimited)
  */
 export type MonthlyTokenLimit = number;
+/**
+ * Maximum number of tokens allowed per day (0 for unlimited)
+ */
+export type DailyTokenLimit1 = number;
+/**
+ * Maximum number of tokens allowed per month (0 for unlimited)
+ */
+export type MonthlyTokenLimit1 = number;
 
 export type Settings = {
   createdAt?: string;
@@ -67,6 +75,7 @@ export type Settings = {
   summaryModel?: SummaryModel;
   evaluatorModel?: EvaluatorModel;
   limits: UsageLimits;
+  userLimits?: PerUserUsageLimits;
 }
 export type OpenAI = {
   type: ProviderType;
@@ -172,6 +181,11 @@ export type EvaluatorModel = {
 export type UsageLimits = {
   dailyTokenLimit: DailyTokenLimit;
   monthlyTokenLimit: MonthlyTokenLimit;
+  [k: string]: unknown;
+}
+export type PerUserUsageLimits = {
+  dailyTokenLimit: DailyTokenLimit1;
+  monthlyTokenLimit: MonthlyTokenLimit1;
   [k: string]: unknown;
 }
 /**

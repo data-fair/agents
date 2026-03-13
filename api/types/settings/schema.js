@@ -466,6 +466,51 @@ export default {
           minimum: 0
         }
       }
+    },
+    userLimits: {
+      type: 'object',
+      title: 'Per-User Usage Limits',
+      'x-i18n-title': {
+        en: 'Per-User Usage Limits',
+        fr: "Limites d'utilisation par utilisateur"
+      },
+      required: ['dailyTokenLimit', 'monthlyTokenLimit'],
+      default: {
+        dailyTokenLimit: 100000,
+        monthlyTokenLimit: 1000000
+      },
+      properties: {
+        dailyTokenLimit: {
+          type: 'integer',
+          title: 'Daily Token Limit',
+          'x-i18n-title': {
+            en: 'Daily Token Limit',
+            fr: 'Limite de tokens journalière'
+          },
+          description: 'Maximum number of tokens allowed per day (0 for unlimited)',
+          'x-i18n-description': {
+            en: 'Maximum number of tokens allowed per day (0 for unlimited)',
+            fr: 'Nombre maximum de tokens autorisés par jour (0 pour illimité)'
+          },
+          default: 100000,
+          minimum: 0
+        },
+        monthlyTokenLimit: {
+          type: 'integer',
+          title: 'Monthly Token Limit',
+          'x-i18n-title': {
+            en: 'Monthly Token Limit',
+            fr: 'Limite de tokens mensuelle'
+          },
+          description: 'Maximum number of tokens allowed per month (0 for unlimited)',
+          'x-i18n-description': {
+            en: 'Maximum number of tokens allowed per month (0 for unlimited)',
+            fr: 'Nombre maximum de tokens autorisés par mois (0 pour illimité)'
+          },
+          default: 1000000,
+          minimum: 0
+        }
+      }
     }
   }
 }
