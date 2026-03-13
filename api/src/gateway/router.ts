@@ -4,6 +4,7 @@ import { reqSessionAuthenticated } from '@data-fair/lib-express'
 import { getRawSettings } from '../settings/service.ts'
 import { createModel } from '../models/operations.ts'
 import type { Settings } from '#types'
+import crypto from 'node:crypto'
 
 const router = Router()
 export default router
@@ -38,96 +39,164 @@ async function getModelForGateway (settings: Settings, modelId: ModelId) {
   return createModel(provider, modelConfig.id)
 }
 
-interface GenerateRequest {
-  system?: string
-  messages: Array<{ role: 'user' | 'assistant'; content: string }>
-  tools?: any
+type FinishReason = 'stop' | 'length' | 'content-filter' | 'tool-calls' | 'error' | 'other' | 'unknown'
+
+function mapFinishReason (reason: FinishReason): string {
+  if (reason === 'tool-calls') return 'tool_calls'
+  if (reason === 'content-filter') return 'content_filter'
+  return reason
 }
 
-interface StreamRequest {
-  system?: string
-  messages: Array<{ role: 'user' | 'assistant'; content: string }>
-}
-
-router.post('/:modelId/generate', async (req, res, next) => {
+// OpenAI-compatible chat completions endpoint
+router.post('/v1/chat/completions', async (req, res, next) => {
   try {
     const session = reqSessionAuthenticated(req)
     const owner = session.account
-    const { modelId } = req.params
 
-    if (!isValidModelId(modelId)) {
-      res.status(400).json({ error: `Invalid modelId. Must be one of: ${MODEL_IDS.join(', ')}` })
+    const { model: modelId, messages, stream, temperature, max_tokens: maxTokens, top_p: topP, stop } = req.body
+
+    if (!modelId || !isValidModelId(modelId)) {
+      res.status(400).json({
+        error: { message: `Invalid model. Must be one of: ${MODEL_IDS.join(', ')}`, type: 'invalid_request_error' }
+      })
       return
     }
 
     const settings = await getRawSettings(owner)
     if (!settings?.chatModel) {
-      res.status(404).json({ error: 'Chat model not configured' })
-      return
-    }
-
-    const model = await getModelForGateway(settings, modelId)
-    const body = req.body as GenerateRequest
-
-    const result = await generateText({
-      model,
-      system: body.system,
-      messages: body.messages,
-      tools: body.tools
-    })
-
-    res.json({
-      text: result.text,
-      finishReason: result.finishReason,
-      usage: result.usage,
-      toolCalls: result.toolCalls,
-      toolResults: result.toolResults
-    })
-  } catch (err) {
-    next(err)
-  }
-})
-
-router.post('/:modelId/stream', async (req, res, next) => {
-  try {
-    const session = reqSessionAuthenticated(req)
-    const owner = session.account
-    const { modelId } = req.params
-
-    if (!isValidModelId(modelId)) {
-      res.status(400).json({ error: `Invalid modelId. Must be one of: ${MODEL_IDS.join(', ')}` })
-      return
-    }
-
-    const settings = await getRawSettings(owner)
-    if (!settings?.chatModel) {
-      res.status(404).json({ error: 'Chat model not configured' })
+      res.status(404).json({
+        error: { message: 'Chat model not configured', type: 'invalid_request_error' }
+      })
       return
     }
 
     const model = await getModelForGateway(settings, modelId)
 
-    const body = req.body as StreamRequest | undefined
-    const system = body?.system
-    const messages = body?.messages
-    const prompt = typeof req.query.prompt === 'string' ? req.query.prompt : undefined
+    // Extract system message from OpenAI messages array
+    const systemMessages = messages.filter((m: any) => m.role === 'system')
+    const nonSystemMessages = messages.filter((m: any) => m.role !== 'system')
+    const system = systemMessages.length > 0 ? systemMessages.map((m: any) => m.content).join('\n') : undefined
 
-    if (!prompt && !messages) {
-      res.status(400).json({ error: 'Either prompt query param or messages in body is required' })
-      return
+    const completionId = `chatcmpl-${crypto.randomUUID()}`
+    const created = Math.floor(Date.now() / 1000)
+
+    if (stream) {
+      res.setHeader('Content-Type', 'text/event-stream')
+      res.setHeader('Cache-Control', 'no-cache')
+      res.setHeader('Connection', 'keep-alive')
+
+      const result = await streamText({
+        model,
+        system,
+        messages: nonSystemMessages,
+        temperature,
+        maxOutputTokens: maxTokens,
+        topP,
+        stopSequences: stop
+      })
+
+      // Send initial chunk with role
+      res.write(`data: ${JSON.stringify({
+        id: completionId,
+        object: 'chat.completion.chunk',
+        created,
+        model: modelId,
+        choices: [{ index: 0, delta: { role: 'assistant', content: '' }, finish_reason: null }]
+      })}\n\n`)
+
+      for await (const part of result.fullStream) {
+        if (part.type === 'text-delta') {
+          res.write(`data: ${JSON.stringify({
+            id: completionId,
+            object: 'chat.completion.chunk',
+            created,
+            model: modelId,
+            choices: [{ index: 0, delta: { content: part.text }, finish_reason: null }]
+          })}\n\n`)
+        } else if (part.type === 'tool-input-start') {
+          res.write(`data: ${JSON.stringify({
+            id: completionId,
+            object: 'chat.completion.chunk',
+            created,
+            model: modelId,
+            choices: [{
+              index: 0,
+              delta: {
+                tool_calls: [{
+                  index: 0,
+                  id: part.id,
+                  type: 'function',
+                  function: { name: part.toolName, arguments: '' }
+                }]
+              },
+              finish_reason: null
+            }]
+          })}\n\n`)
+        } else if (part.type === 'tool-input-delta') {
+          res.write(`data: ${JSON.stringify({
+            id: completionId,
+            object: 'chat.completion.chunk',
+            created,
+            model: modelId,
+            choices: [{
+              index: 0,
+              delta: {
+                tool_calls: [{
+                  index: 0,
+                  function: { arguments: part.delta }
+                }]
+              },
+              finish_reason: null
+            }]
+          })}\n\n`)
+        } else if (part.type === 'finish') {
+          res.write(`data: ${JSON.stringify({
+            id: completionId,
+            object: 'chat.completion.chunk',
+            created,
+            model: modelId,
+            choices: [{ index: 0, delta: {}, finish_reason: mapFinishReason(part.finishReason) }],
+            usage: part.totalUsage
+              ? {
+                  prompt_tokens: part.totalUsage.inputTokens ?? 0,
+                  completion_tokens: part.totalUsage.outputTokens ?? 0,
+                  total_tokens: (part.totalUsage.inputTokens ?? 0) + (part.totalUsage.outputTokens ?? 0)
+                }
+              : undefined
+          })}\n\n`)
+        }
+      }
+
+      res.write('data: [DONE]\n\n')
+      res.end()
+    } else {
+      const result = await generateText({
+        model,
+        system,
+        messages: nonSystemMessages,
+        temperature,
+        maxOutputTokens: maxTokens,
+        topP,
+        stopSequences: stop
+      })
+
+      res.json({
+        id: completionId,
+        object: 'chat.completion',
+        created,
+        model: modelId,
+        choices: [{
+          index: 0,
+          message: { role: 'assistant', content: result.text },
+          finish_reason: mapFinishReason(result.finishReason)
+        }],
+        usage: {
+          prompt_tokens: result.usage?.inputTokens ?? 0,
+          completion_tokens: result.usage?.outputTokens ?? 0,
+          total_tokens: (result.usage?.inputTokens ?? 0) + (result.usage?.outputTokens ?? 0)
+        }
+      })
     }
-
-    const result = prompt
-      ? await streamText({ model, system, prompt })
-      : await streamText({ model, system, messages: messages! })
-
-    res.setHeader('Content-Type', 'text/event-stream')
-    res.write('event: start\ndata:\n\n')
-    for await (const chunk of result.fullStream) {
-      res.write(`event: chunk\ndata: ${JSON.stringify(chunk)}\n\n`)
-    }
-    res.write('event: done\ndata:\n\n')
-    res.end()
   } catch (err) {
     next(err)
   }
