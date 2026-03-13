@@ -19,6 +19,7 @@
     "@data-fair/lib-vuetify": "2.0.0",
     "@koumoul/vjsf": "^4.1.0",
     "@koumoul/vjsf-markdown": "^0.5.0",
+    "@mcp-b/global": "^2.2.0",
     "@mcp-b/webmcp-polyfill": "^2.1.0",
     "@mdi/font": "^7.4.47",
     "@unhead/vue": "^2.1.10",

@@ -14,6 +14,8 @@ import { createUiNotif } from '@data-fair/lib-vue/ui-notif.js'
 import { createHead } from '@unhead/vue/client'
 import { createI18n } from 'vue-i18n'
 import { createAgentTools } from './composables/use-agent-tools'
+import './composables/init-mcp-server'
+import './composables/init-mcp-client'
 import App from './App.vue'
 
 (async function () {
