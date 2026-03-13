@@ -1,5 +1,5 @@
 import { resolve } from 'node:path'
-import { session, errorHandler, createSiteMiddleware, createSpaMiddleware } from '@data-fair/lib-express/index.js'
+import { session, errorHandler, createSiteMiddleware, createSpaMiddleware, reqSessionAuthenticated } from '@data-fair/lib-express/index.js'
 import express from 'express'
 import helmet from 'helmet'
 import { uiConfig } from './ui-config.ts'
@@ -29,7 +29,7 @@ app.set('query parser', 'simple')
 app.use(createSiteMiddleware('agents'))
 app.use(session.middleware())
 
-app.use(express.json())
+app.use(express.json({ limit: '1mb' }))
 
 app.use('/api/admin', adminRouter)
 app.use('/api/settings', settingsRouter)
@@ -40,6 +40,7 @@ app.use('/api/ping', (req, res) => res.send('ok'))
 
 if (process.env.NODE_ENV === 'development') {
   app.delete('/api/test-env', async (req, res) => {
+    reqSessionAuthenticated(req)
     getModelsForOwner.clear()
     await mongo.db.collection('settings').deleteMany({ 'owner.id': /^test/ })
     res.send()

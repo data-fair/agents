@@ -1,11 +1,11 @@
-import { createHash, randomBytes, createCipheriv, createDecipheriv } from 'node:crypto'
+import { scryptSync, randomBytes, createCipheriv, createDecipheriv } from 'node:crypto'
 
 export type CipheredContent = { iv: string, alg: 'aes256', data: string }
 
+const SCRYPT_SALT = 'data-fair-agents-cipher'
+
 export const getSecurityKey = (cipherPassword: string): Buffer => {
-  const hash = createHash('sha256')
-  hash.update(cipherPassword)
-  return hash.digest()
+  return scryptSync(cipherPassword, SCRYPT_SALT, 32, { N: 16384, r: 8, p: 1 })
 }
 
 export const cipher = (content: string, securityKey: Buffer): CipheredContent => {

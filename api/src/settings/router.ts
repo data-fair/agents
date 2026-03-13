@@ -50,6 +50,8 @@ router.put('/:type/:id', async (req, res, next) => {
   }
   await mongo.settings.replaceOne({ owner }, settings, { upsert: true })
 
+  console.log(`[audit] settings updated by ${session.account.type}/${session.account.id} (user: ${session.user?.id}) for owner ${owner.type}/${owner.id}`)
+
   settings.providers = obfuscateProviderApiKeys(settings.providers)
   res.json(settings)
 })

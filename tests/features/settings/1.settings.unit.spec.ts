@@ -41,6 +41,28 @@ test.describe('Cipher operations', () => {
     const decrypted = decipher(encrypted, securityKey)
     assert.equal(decrypted, original)
   })
+
+  test('decryption with wrong key throws', () => {
+    const original = 'sk-test-secret'
+    const encrypted = cipher(original, securityKey)
+    const wrongKey = getSecurityKey('wrong-password')
+    assert.throws(() => decipher(encrypted, wrongKey))
+  })
+
+  test('each encryption produces different ciphertext (random IV)', () => {
+    const original = 'sk-test-123'
+    const encrypted1 = cipher(original, securityKey)
+    const encrypted2 = cipher(original, securityKey)
+    assert.notEqual(encrypted1.iv, encrypted2.iv)
+    assert.notEqual(encrypted1.data, encrypted2.data)
+  })
+
+  test('handles long content', () => {
+    const original = 'x'.repeat(10000)
+    const encrypted = cipher(original, securityKey)
+    const decrypted = decipher(encrypted, securityKey)
+    assert.equal(decrypted, original)
+  })
 })
 
 test.describe('Settings operations - encrypt/decrypt', () => {

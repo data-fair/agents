@@ -1,10 +1,11 @@
 import { Router } from 'express'
-import { generateText, streamText, tool, jsonSchema } from 'ai'
+import { generateText, streamText } from 'ai'
 import { reqSessionAuthenticated } from '@data-fair/lib-express'
 import { getRawSettings } from '../settings/service.ts'
 import { createModel } from '../models/operations.ts'
+import { convertOpenAITools, convertOpenAIMessages, convertToolChoice, mapFinishReason } from './operations.ts'
 import type { Settings } from '#types'
-import type { Tool, ModelMessage } from 'ai'
+import type { OpenAIMessage, OpenAIToolDefinition, OpenAIToolChoice, FinishReason } from './operations.ts'
 import crypto from 'node:crypto'
 
 const router = Router()
@@ -40,99 +41,6 @@ async function getModelForGateway (settings: Settings, modelId: ModelId) {
   return createModel(provider, modelConfig.id)
 }
 
-type FinishReason = 'stop' | 'length' | 'content-filter' | 'tool-calls' | 'error' | 'other' | 'unknown'
-
-function mapFinishReason (reason: FinishReason): string {
-  if (reason === 'tool-calls') return 'tool_calls'
-  if (reason === 'content-filter') return 'content_filter'
-  return reason
-}
-
-/** Convert OpenAI tool definitions to AI SDK tools (without execute) */
-function convertOpenAITools (openaiTools: any[]): Record<string, Tool> {
-  const tools: Record<string, Tool> = {}
-  if (!openaiTools) return tools
-  for (const t of openaiTools) {
-    if (t.type !== 'function' || !t.function) continue
-    const fn = t.function
-    tools[fn.name] = tool({
-      description: fn.description || '',
-      inputSchema: jsonSchema(fn.parameters || { type: 'object', properties: {} })
-    })
-  }
-  return tools
-}
-
-/** Convert OpenAI messages (including tool_calls and tool role) to AI SDK ModelMessage[] */
-function convertOpenAIMessages (messages: any[]): ModelMessage[] {
-  const result: ModelMessage[] = []
-  // Track tool call names for tool-result messages
-  const toolCallNames: Record<string, string> = {}
-
-  for (const msg of messages) {
-    if (msg.role === 'system') {
-      // system messages are handled separately
-      continue
-    } else if (msg.role === 'user') {
-      result.push({ role: 'user', content: msg.content })
-    } else if (msg.role === 'assistant') {
-      if (msg.tool_calls && msg.tool_calls.length > 0) {
-        // Assistant message with tool calls
-        const content: any[] = []
-        if (msg.content) {
-          content.push({ type: 'text', text: msg.content })
-        }
-        for (const tc of msg.tool_calls) {
-          const parsedInput = typeof tc.function.arguments === 'string'
-            ? JSON.parse(tc.function.arguments)
-            : tc.function.arguments
-          toolCallNames[tc.id] = tc.function.name
-          content.push({
-            type: 'tool-call',
-            toolCallId: tc.id,
-            toolName: tc.function.name,
-            input: parsedInput
-          })
-        }
-        result.push({ role: 'assistant', content })
-      } else {
-        result.push({ role: 'assistant', content: msg.content || '' })
-      }
-    } else if (msg.role === 'tool') {
-      // Tool result message
-      const toolName = toolCallNames[msg.tool_call_id] || 'unknown'
-      let outputValue: any
-      try {
-        outputValue = typeof msg.content === 'string' ? JSON.parse(msg.content) : msg.content
-      } catch {
-        outputValue = msg.content
-      }
-      result.push({
-        role: 'tool',
-        content: [{
-          type: 'tool-result',
-          toolCallId: msg.tool_call_id,
-          toolName,
-          output: { type: 'json', value: outputValue }
-        }]
-      } as any)
-    }
-  }
-  return result
-}
-
-/** Map AI SDK toolChoice string to the format expected */
-function convertToolChoice (toolChoice: any) {
-  if (!toolChoice) return undefined
-  if (toolChoice === 'none') return 'none' as const
-  if (toolChoice === 'auto') return 'auto' as const
-  if (toolChoice === 'required') return 'required' as const
-  if (typeof toolChoice === 'object' && toolChoice.type === 'function') {
-    return { type: 'tool' as const, toolName: toolChoice.function.name }
-  }
-  return undefined
-}
-
 // OpenAI-compatible chat completions endpoint
 router.post('/v1/chat/completions', async (req, res, next) => {
   try {
@@ -140,10 +48,26 @@ router.post('/v1/chat/completions', async (req, res, next) => {
     const owner = session.account
 
     const {
-      model: modelId, messages, stream, temperature,
-      max_tokens: maxTokens, top_p: topP, stop,
-      tools: openaiTools, tool_choice: toolChoice
-    } = req.body
+      model: modelId,
+      messages,
+      stream,
+      temperature,
+      max_tokens: maxTokens,
+      top_p: topP,
+      stop,
+      tools: openaiTools,
+      tool_choice: toolChoice
+    } = req.body as {
+      model: string
+      messages: OpenAIMessage[]
+      stream?: boolean
+      temperature?: number
+      max_tokens?: number
+      top_p?: number
+      stop?: string[]
+      tools?: OpenAIToolDefinition[]
+      tool_choice?: OpenAIToolChoice
+    }
 
     if (!modelId || !isValidModelId(modelId)) {
       res.status(400).json({
@@ -163,12 +87,12 @@ router.post('/v1/chat/completions', async (req, res, next) => {
     const model = await getModelForGateway(settings, modelId)
 
     // Extract system message from OpenAI messages array
-    const systemMessages = messages.filter((m: any) => m.role === 'system')
-    const system = systemMessages.length > 0 ? systemMessages.map((m: any) => m.content).join('\n') : undefined
+    const systemMessages = messages.filter(m => m.role === 'system')
+    const system = systemMessages.length > 0 ? systemMessages.map(m => m.content).join('\n') : undefined
 
     // Convert messages and tools
     const aiMessages = convertOpenAIMessages(messages)
-    const tools = convertOpenAITools(openaiTools)
+    const tools = openaiTools ? convertOpenAITools(openaiTools) : {}
     const hasTools = Object.keys(tools).length > 0
 
     const completionId = `chatcmpl-${crypto.randomUUID()}`
@@ -250,7 +174,7 @@ router.post('/v1/chat/completions', async (req, res, next) => {
             object: 'chat.completion.chunk',
             created,
             model: modelId,
-            choices: [{ index: 0, delta: {}, finish_reason: mapFinishReason(part.finishReason) }],
+            choices: [{ index: 0, delta: {}, finish_reason: mapFinishReason(part.finishReason as FinishReason) }],
             usage: part.totalUsage
               ? {
                   prompt_tokens: part.totalUsage.inputTokens ?? 0,
@@ -277,11 +201,14 @@ router.post('/v1/chat/completions', async (req, res, next) => {
       })
 
       // Build response message
-      const responseMessage: any = { role: 'assistant', content: result.text || null }
+      const responseMessage: { role: string, content: string | null, tool_calls?: Array<{ id: string, type: string, function: { name: string, arguments: string } }> } = {
+        role: 'assistant',
+        content: result.text || null
+      }
 
       // Include tool calls if present
       if (result.toolCalls && result.toolCalls.length > 0) {
-        responseMessage.tool_calls = result.toolCalls.map((tc: any) => ({
+        responseMessage.tool_calls = result.toolCalls.map((tc: { toolCallId: string, toolName: string, args?: unknown }) => ({
           id: tc.toolCallId,
           type: 'function',
           function: {
@@ -299,7 +226,7 @@ router.post('/v1/chat/completions', async (req, res, next) => {
         choices: [{
           index: 0,
           message: responseMessage,
-          finish_reason: mapFinishReason(result.finishReason)
+          finish_reason: mapFinishReason(result.finishReason as FinishReason)
         }],
         usage: {
           prompt_tokens: result.usage?.inputTokens ?? 0,
