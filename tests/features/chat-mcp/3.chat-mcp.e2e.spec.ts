@@ -31,6 +31,12 @@ test.describe('Chat MCP UI', () => {
 
     await goToWithAuth('/agents/_dev/chat-mcp', 'test-standalone1')
 
+    // Wait for tools to be discovered via BroadcastChannel before sending a message
+    await page.getByRole('button', { name: 'Open debugger' }).click()
+    await page.getByRole('tab', { name: 'Tools' }).click()
+    await expect(page.getByText('set_data')).toBeVisible({ timeout: 5000 })
+    await page.getByRole('button', { name: 'Close' }).click()
+
     await page.getByLabel('Type your message...').fill('call tool set_data {"data":"Hello World"}')
     await page.getByRole('button', { name: 'Send' }).click()
 
