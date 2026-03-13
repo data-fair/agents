@@ -1,5 +1,5 @@
 import { resolve } from 'node:path'
-import { session, errorHandler, createSiteMiddleware, createSpaMiddleware, reqSessionAuthenticated } from '@data-fair/lib-express/index.js'
+import { session, errorHandler, createSiteMiddleware, createSpaMiddleware } from '@data-fair/lib-express/index.js'
 import express from 'express'
 import helmet from 'helmet'
 import { uiConfig } from './ui-config.ts'
@@ -8,6 +8,7 @@ import adminRouter from './admin/router.ts'
 import modelsRouter, { getModelsForOwner } from './models/router.ts'
 import summaryRouter from './summary/router.ts'
 import gatewayRouter from './gateway/router.ts'
+import usageRouter from './usage/router.ts'
 import mongo from '#mongo'
 
 export const app = express()
@@ -36,13 +37,14 @@ app.use('/api/settings', settingsRouter)
 app.use('/api/models', modelsRouter)
 app.use('/api/gateway', gatewayRouter)
 app.use('/api/summary', summaryRouter)
+app.use('/api/usage', usageRouter)
 app.use('/api/ping', (req, res) => res.send('ok'))
 
 if (process.env.NODE_ENV === 'development') {
   app.delete('/api/test-env', async (req, res) => {
-    reqSessionAuthenticated(req)
     getModelsForOwner.clear()
     await mongo.db.collection('settings').deleteMany({ 'owner.id': /^test/ })
+    await mongo.db.collection('usage').deleteMany({ 'owner.id': /^test/ })
     res.send()
   })
 }

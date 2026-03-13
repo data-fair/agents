@@ -10,6 +10,7 @@ declare module 'vue' {
     AgentChat: typeof import('./src/components/AgentChat.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    UsageCard: typeof import('./src/components/UsageCard.vue')['default']
     VjsfPutReq: typeof import('./src/components/vjsf/vjsf-put-req.vue')['default']
     VjsfPutReqEn: typeof import('./src/components/vjsf/vjsf-put-req-en.vue')['default']
     VjsfPutReqFr: typeof import('./src/components/vjsf/vjsf-put-req-fr.vue')['default']

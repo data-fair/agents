@@ -10,6 +10,12 @@
 
     <v-row>
       <v-col>
+        <usage-card />
+      </v-col>
+    </v-row>
+
+    <v-row>
+      <v-col>
         <v-form v-model="valid">
           <vjsf-put-req
             v-model="settingsEditFetch.data.value"
@@ -60,6 +66,7 @@ import { useEditFetch } from '@data-fair/lib-vue/edit-fetch.js'
 import type { Settings, ModelInfo } from '#api/types'
 import DfNavigationRight from '@data-fair/lib-vuetify/navigation-right.vue'
 import type { VjsfOptions } from '@koumoul/vjsf/types.js'
+import UsageCard from '../components/UsageCard.vue'
 
 const { t, locale } = useI18n()
 const session = useSessionAuthenticated()
