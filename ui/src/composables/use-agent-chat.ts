@@ -1,7 +1,7 @@
 import { ref, onScopeDispose } from 'vue'
 import { streamText, stepCountIs } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
-import type { ModelMessage } from 'ai'
+import type { ModelMessage, Tool } from 'ai'
 import { bridgeWebMCPTools, useAgentTools } from './use-agent-tools'
 import type { AgentTool } from './use-agent-tools'
 import { $apiPath } from '~/context'
@@ -16,7 +16,7 @@ export interface ChatMessage {
   }>
 }
 
-export function useAgentChat (_traceEnabled = false, systemPrompt?: string) {
+export function useAgentChat (_traceEnabled = false, systemPrompt?: string, externalTools?: Record<string, Tool>) {
   // @ts-ignore
   if (import.meta.env?.SSR) return
 
@@ -60,7 +60,7 @@ export function useAgentChat (_traceEnabled = false, systemPrompt?: string) {
     let currentAssistantMessage: ChatMessage | null = null
 
     try {
-      const tools = bridgeWebMCPTools(agentToolsRef)
+      const tools = { ...bridgeWebMCPTools(agentToolsRef), ...externalTools }
 
       const result = streamText({
         model: provider.chat('assistant'),

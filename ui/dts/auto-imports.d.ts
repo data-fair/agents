@@ -91,6 +91,7 @@ declare global {
   const useCssVars: typeof import('vue')['useCssVars']
   const useEditFetch: typeof import('@data-fair/lib-vue/edit-fetch.js')['useEditFetch']
   const useFetch: typeof import('@data-fair/lib-vue/fetch.js')['useFetch']
+  const useFrameTools: typeof import('../src/composables/use-frame-tools')['useFrameTools']
   const useHead: typeof import('@unhead/vue')['useHead']
   const useHeadSafe: typeof import('@unhead/vue')['useHeadSafe']
   const useI18n: typeof import('vue-i18n')['useI18n']
@@ -215,6 +216,7 @@ declare module 'vue' {
     readonly useCssVars: UnwrapRef<typeof import('vue')['useCssVars']>
     readonly useEditFetch: UnwrapRef<typeof import('@data-fair/lib-vue/edit-fetch.js')['useEditFetch']>
     readonly useFetch: UnwrapRef<typeof import('@data-fair/lib-vue/fetch.js')['useFetch']>
+    readonly useFrameTools: UnwrapRef<typeof import('../src/composables/use-frame-tools')['useFrameTools']>
     readonly useHead: UnwrapRef<typeof import('@unhead/vue')['useHead']>
     readonly useHeadSafe: UnwrapRef<typeof import('@unhead/vue')['useHeadSafe']>
     readonly useI18n: UnwrapRef<typeof import('vue-i18n')['useI18n']>

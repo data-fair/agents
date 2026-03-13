@@ -318,6 +318,7 @@ import { useAgentTools } from '~/composables/use-agent-tools'
 const props = defineProps<{
   debug?: boolean
   systemPrompt?: string
+  externalTools?: Record<string, import('ai').Tool>
 }>()
 
 const { t } = useI18n()
@@ -351,7 +352,7 @@ const finalSystemPrompt = computed(() => {
   return parts.join(' ')
 })
 
-const chatResult = useAgentChat(props.debug, finalSystemPrompt.value)
+const chatResult = useAgentChat(props.debug, finalSystemPrompt.value, props.externalTools)
 
 if (!chatResult) {
   throw new Error('Chat not supported in SSR')
