@@ -19,21 +19,15 @@ function isValidModelId (id: string): id is ModelId {
   return MODEL_IDS.includes(id as ModelId)
 }
 
-async function getModelForGateway (settings: Settings, modelId: ModelId) {
-  let modelConfig
-  switch (modelId) {
-    case 'assistant':
-      modelConfig = settings.chatModel
-      break
-    case 'evaluator':
-      modelConfig = settings.evaluatorModel || settings.chatModel
-      break
-    case 'summarizer':
-      modelConfig = settings.summaryModel || settings.chatModel
-      break
-  }
-
+function getModelConfig (settings: Settings, modelId: ModelId) {
+  const modelEntry = settings.models[modelId]
+  const modelConfig = modelEntry?.model || settings.models.assistant?.model
   if (!modelConfig) throw new Error(`No model configured for ${modelId}`)
+  return { modelConfig, ratio: modelEntry?.ratio ?? settings.models.assistant?.ratio ?? 1 }
+}
+
+async function getModelForGateway (settings: Settings, modelId: ModelId) {
+  const { modelConfig } = getModelConfig(settings, modelId)
 
   const provider = settings.providers.find(p => p.id === modelConfig.provider.id)
   if (!provider) throw new Error('Provider not found')
@@ -78,9 +72,9 @@ router.post('/v1/chat/completions', async (req, res, next) => {
     }
 
     const settings = await getRawSettings(owner)
-    if (!settings?.chatModel) {
+    if (!settings?.models?.assistant?.model) {
       res.status(404).json({
-        error: { message: 'Chat model not configured', type: 'invalid_request_error' }
+        error: { message: 'Assistant model not configured', type: 'invalid_request_error' }
       })
       return
     }
@@ -128,6 +122,7 @@ router.post('/v1/chat/completions', async (req, res, next) => {
       }
     }
 
+    const { ratio } = getModelConfig(settings, modelId)
     const model = await getModelForGateway(settings, modelId)
 
     // Extract system message from OpenAI messages array
@@ -213,9 +208,9 @@ router.post('/v1/chat/completions', async (req, res, next) => {
             }]
           })}\n\n`)
         } else if (part.type === 'finish') {
-          // Record usage for streaming responses
-          const inputTokens = part.totalUsage?.inputTokens ?? 0
-          const outputTokens = part.totalUsage?.outputTokens ?? 0
+          // Record usage for streaming responses (apply ratio for quota accounting)
+          const inputTokens = Math.round((part.totalUsage?.inputTokens ?? 0) * ratio)
+          const outputTokens = Math.round((part.totalUsage?.outputTokens ?? 0) * ratio)
           if (inputTokens || outputTokens) {
             await recordUsage(owner, inputTokens, outputTokens, isOrgContext ? session.user.id : undefined)
           }
@@ -251,9 +246,9 @@ router.post('/v1/chat/completions', async (req, res, next) => {
         ...(hasTools ? { tools, toolChoice: convertToolChoice(toolChoice) } : {})
       })
 
-      // Record usage
-      const inputTokens = result.usage?.inputTokens ?? 0
-      const outputTokens = result.usage?.outputTokens ?? 0
+      // Record usage (apply ratio for quota accounting)
+      const inputTokens = Math.round((result.usage?.inputTokens ?? 0) * ratio)
+      const outputTokens = Math.round((result.usage?.outputTokens ?? 0) * ratio)
       if (inputTokens || outputTokens) {
         await recordUsage(owner, inputTokens, outputTokens, isOrgContext ? session.user.id : undefined)
       }

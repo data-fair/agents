@@ -57,7 +57,8 @@ test.describe('Settings UI', () => {
     const user = await axiosAuth('test-standalone1')
     await user.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'seed-provider', type: 'mock', name: 'Mock Seed', enabled: true }],
-      chatModel: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Seed', id: 'seed-provider' } }
+      models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Seed', id: 'seed-provider' } } } },
+      limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
     })
 
     await goToWithAuth('/agents/settings', 'test-standalone1')
@@ -88,7 +89,8 @@ test.describe('Settings UI', () => {
     const user = await axiosAuth('test-standalone1')
     await user.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'seed-provider', type: 'mock', name: 'Mock Seed', enabled: true }],
-      chatModel: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Seed', id: 'seed-provider' } }
+      models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Seed', id: 'seed-provider' } } } },
+      limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
     })
 
     await goToWithAuth('/agents/settings', 'test-standalone1')

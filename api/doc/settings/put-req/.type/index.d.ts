@@ -49,6 +49,30 @@ export type ProviderType7 = string;
 export type ProviderName = string;
 export type ProviderID7 = string;
 /**
+ * Roles allowed to use this model through the gateway (empty = admin only)
+ */
+export type Roles = string[];
+/**
+ * Multiplier applied to token usage for quota accounting (e.g. 1.0 = full cost, 0.5 = half cost)
+ */
+export type UsageRatio = number;
+/**
+ * Roles allowed to use this model through the gateway (empty = admin only)
+ */
+export type Roles1 = string[];
+/**
+ * Multiplier applied to token usage for quota accounting (e.g. 0.5 for cheaper summarization)
+ */
+export type UsageRatio1 = number;
+/**
+ * Roles allowed to use this model through the gateway (empty = admin only)
+ */
+export type Roles2 = string[];
+/**
+ * Multiplier applied to token usage for quota accounting
+ */
+export type UsageRatio2 = number;
+/**
  * Maximum number of tokens allowed per day (0 for unlimited)
  */
 export type DailyTokenLimit = number;
@@ -75,9 +99,7 @@ export type SettingsPut = {
     department?: string;
   };
   providers: AIProviders;
-  chatModel: ChatModel;
-  summaryModel?: SummaryModel;
-  evaluatorModel?: EvaluatorModel;
+  models: Models;
   limits: UsageLimits;
   userLimits?: PerUserUsageLimits;
 }
@@ -140,10 +162,22 @@ export type Mock = {
   enabled: Enabled6;
   [k: string]: unknown;
 }
+export type Models = {
+  assistant: Assistant;
+  summarizer?: Summarizer;
+  evaluator?: Evaluator;
+  [k: string]: unknown;
+}
 /**
- * Model used for the chat interface
+ * Main conversational model. Suggested models: claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash, mistral-small-latest, minimax-01.
  */
-export type ChatModel = {
+export type Assistant = {
+  model: Model;
+  roles?: Roles;
+  ratio?: UsageRatio;
+  [k: string]: unknown;
+}
+export type Model = {
   id: ModelID;
   name: Name;
   provider: {
@@ -155,9 +189,15 @@ export type ChatModel = {
   [k: string]: unknown;
 }
 /**
- * Model used for chat history summarization (optional, defaults to chat model)
+ * Model used for chat history summarization (optional, defaults to assistant). Suggested models: claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash-lite, mistral-small-latest.
  */
-export type SummaryModel = {
+export type Summarizer = {
+  model?: Model1;
+  roles?: Roles1;
+  ratio?: UsageRatio1;
+  [k: string]: unknown;
+}
+export type Model1 = {
   id: ModelID;
   name: Name;
   provider: {
@@ -169,9 +209,15 @@ export type SummaryModel = {
   [k: string]: unknown;
 }
 /**
- * Model used for evaluation (optional, defaults to chat model)
+ * Model used for evaluation tasks (optional, defaults to assistant). Suggested models: claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash, mistral-small-latest.
  */
-export type EvaluatorModel = {
+export type Evaluator = {
+  model?: Model2;
+  roles?: Roles2;
+  ratio?: UsageRatio2;
+  [k: string]: unknown;
+}
+export type Model2 = {
   id: ModelID;
   name: Name;
   provider: {
@@ -196,7 +242,7 @@ export type PerUserUsageLimits = {
  * This interface was referenced by `SettingsPut`'s JSON-Schema
  * via the `definition` "Model".
  */
-export type Model = {
+export type Model3 = {
   id: ModelID;
   name: Name;
   provider: {

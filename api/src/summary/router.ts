@@ -14,7 +14,7 @@ interface SummaryRequest {
 }
 
 async function getSummaryModel (settings: Settings) {
-  const modelConfig = settings.summaryModel || settings.chatModel
+  const modelConfig = settings.models.summarizer?.model || settings.models.assistant?.model
   if (!modelConfig) throw new Error('No model configured')
 
   const provider = settings.providers.find(p => p.id === modelConfig.provider.id)
@@ -38,8 +38,8 @@ router.post('/', async (req, res, next) => {
     }
 
     const settings = await getRawSettings(owner)
-    if (!settings?.chatModel) {
-      res.status(404).json({ error: 'Chat model not configured' })
+    if (!settings?.models?.assistant?.model) {
+      res.status(404).json({ error: 'Assistant model not configured' })
       return
     }
 

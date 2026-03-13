@@ -19,7 +19,8 @@ test.describe('Summary API', () => {
   test('should summarize content with default prompt', async () => {
     await user.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
-      chatModel: mockModel
+      models: { assistant: { model: mockModel } },
+      limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
     })
 
     const res = await user.post('/api/summary', {
@@ -34,7 +35,8 @@ test.describe('Summary API', () => {
   test('should summarize content with custom prompt', async () => {
     await user.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
-      chatModel: mockModel
+      models: { assistant: { model: mockModel } },
+      limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
     })
 
     const res = await user.post('/api/summary', {
@@ -46,20 +48,20 @@ test.describe('Summary API', () => {
     assert.ok(res.data.summary)
   })
 
-  test('should fail when chatModel not configured', async () => {
+  test('should fail when assistant model not configured', async () => {
     await assert.rejects(
       user.post('/api/summary', { content: 'Test content' }),
       (err: any) => err.status === 404
     )
   })
 
-  test('should use summaryModel when configured', async () => {
-    const summaryModel = { id: 'summary-model', name: 'Summary Model', provider: { type: 'mock', id: 'mock', name: 'Mock' } }
+  test('should use summarizer model when configured', async () => {
+    const summarizerModel = { id: 'summary-model', name: 'Summary Model', provider: { type: 'mock', id: 'mock', name: 'Mock' } }
 
     await user.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
-      chatModel: mockModel,
-      summaryModel
+      models: { assistant: { model: mockModel }, summarizer: { model: summarizerModel } },
+      limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
     })
 
     const res = await user.post('/api/summary', {
@@ -82,7 +84,8 @@ test.describe('Summary API', () => {
   test('should fail when other user has no settings configured', async () => {
     await user.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
-      chatModel: mockModel
+      models: { assistant: { model: mockModel } },
+      limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
     })
 
     await assert.rejects(
@@ -94,7 +97,8 @@ test.describe('Summary API', () => {
   test('should fail when content is missing', async () => {
     await user.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
-      chatModel: mockModel
+      models: { assistant: { model: mockModel } },
+      limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
     })
 
     await assert.rejects(
@@ -106,7 +110,8 @@ test.describe('Summary API', () => {
   test('should handle empty content', async () => {
     await user.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
-      chatModel: mockModel
+      models: { assistant: { model: mockModel } },
+      limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
     })
 
     await assert.rejects(

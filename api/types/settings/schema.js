@@ -14,7 +14,7 @@ export default {
   },
   type: 'object',
   additionalProperties: false,
-  required: ['owner', 'providers', 'chatModel', 'limits'],
+  required: ['owner', 'providers', 'models', 'limits'],
   properties: {
     createdAt: {
       type: 'string',
@@ -407,20 +407,176 @@ export default {
         }]
       }
     },
-    chatModel: {
-      $ref: '#/definitions/Model',
-      title: 'Chat Model',
-      description: 'Model used for the chat interface'
-    },
-    summaryModel: {
-      $ref: '#/definitions/Model',
-      title: 'Summary Model',
-      description: 'Model used for chat history summarization (optional, defaults to chat model)'
-    },
-    evaluatorModel: {
-      $ref: '#/definitions/Model',
-      title: 'Evaluator Model',
-      description: 'Model used for evaluation (optional, defaults to chat model)'
+    models: {
+      type: 'object',
+      title: 'Models',
+      'x-i18n-title': {
+        en: 'Models',
+        fr: 'Modèles'
+      },
+      required: ['assistant'],
+      properties: {
+        assistant: {
+          type: 'object',
+          title: 'Assistant',
+          description: 'Main conversational model. Suggested models: claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash, mistral-small-latest, minimax-01.',
+          'x-i18n-title': {
+            en: 'Assistant',
+            fr: 'Assistant'
+          },
+          'x-i18n-description': {
+            en: 'Main conversational model. Suggested models: claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash, mistral-small-latest, minimax-01.',
+            fr: 'Modèle conversationnel principal. Modèles suggérés : claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash, mistral-small-latest, minimax-01.'
+          },
+          required: ['model'],
+          properties: {
+            model: {
+              $ref: '#/definitions/Model',
+              title: 'Model',
+              'x-i18n-title': {
+                en: 'Model',
+                fr: 'Modèle'
+              }
+            },
+            roles: {
+              type: 'array',
+              title: 'Roles',
+              'x-i18n-title': {
+                en: 'Allowed Roles',
+                fr: 'Rôles autorisés'
+              },
+              description: 'Roles allowed to use this model through the gateway (empty = admin only)',
+              'x-i18n-description': {
+                en: 'Roles allowed to use this model through the gateway (empty = admin only)',
+                fr: 'Rôles autorisés à utiliser ce modèle via la passerelle (vide = admin uniquement)'
+              },
+              items: { type: 'string' },
+              default: []
+            },
+            ratio: {
+              type: 'number',
+              title: 'Usage Ratio',
+              'x-i18n-title': {
+                en: 'Usage Ratio',
+                fr: "Ratio d'utilisation"
+              },
+              description: 'Multiplier applied to token usage for quota accounting (e.g. 1.0 = full cost, 0.5 = half cost)',
+              'x-i18n-description': {
+                en: 'Multiplier applied to token usage for quota accounting (e.g. 1.0 = full cost, 0.5 = half cost)',
+                fr: "Multiplicateur appliqué à l'utilisation des tokens pour le calcul des quotas (ex : 1.0 = coût plein, 0.5 = demi-coût)"
+              },
+              default: 1,
+              minimum: 0
+            }
+          }
+        },
+        summarizer: {
+          type: 'object',
+          title: 'Summarizer',
+          description: 'Model used for chat history summarization (optional, defaults to assistant). Suggested models: claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash-lite, mistral-small-latest.',
+          'x-i18n-title': {
+            en: 'Summarizer',
+            fr: 'Résumeur'
+          },
+          'x-i18n-description': {
+            en: 'Model used for chat history summarization (optional, defaults to assistant). Suggested models: claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash-lite, mistral-small-latest.',
+            fr: "Modèle utilisé pour la synthèse de l'historique (optionnel, par défaut l'assistant). Modèles suggérés : claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash-lite, mistral-small-latest."
+          },
+          properties: {
+            model: {
+              $ref: '#/definitions/Model',
+              title: 'Model',
+              'x-i18n-title': {
+                en: 'Model',
+                fr: 'Modèle'
+              }
+            },
+            roles: {
+              type: 'array',
+              title: 'Roles',
+              'x-i18n-title': {
+                en: 'Allowed Roles',
+                fr: 'Rôles autorisés'
+              },
+              description: 'Roles allowed to use this model through the gateway (empty = admin only)',
+              'x-i18n-description': {
+                en: 'Roles allowed to use this model through the gateway (empty = admin only)',
+                fr: 'Rôles autorisés à utiliser ce modèle via la passerelle (vide = admin uniquement)'
+              },
+              items: { type: 'string' },
+              default: []
+            },
+            ratio: {
+              type: 'number',
+              title: 'Usage Ratio',
+              'x-i18n-title': {
+                en: 'Usage Ratio',
+                fr: "Ratio d'utilisation"
+              },
+              description: 'Multiplier applied to token usage for quota accounting (e.g. 0.5 for cheaper summarization)',
+              'x-i18n-description': {
+                en: 'Multiplier applied to token usage for quota accounting (e.g. 0.5 for cheaper summarization)',
+                fr: "Multiplicateur appliqué à l'utilisation des tokens pour le calcul des quotas (ex : 0.5 pour une synthèse moins coûteuse)"
+              },
+              default: 0.5,
+              minimum: 0
+            }
+          }
+        },
+        evaluator: {
+          type: 'object',
+          title: 'Evaluator',
+          description: 'Model used for evaluation tasks (optional, defaults to assistant). Suggested models: claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash, mistral-small-latest.',
+          'x-i18n-title': {
+            en: 'Evaluator',
+            fr: 'Évaluateur'
+          },
+          'x-i18n-description': {
+            en: 'Model used for evaluation tasks (optional, defaults to assistant). Suggested models: claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash, mistral-small-latest.',
+            fr: "Modèle utilisé pour les tâches d'évaluation (optionnel, par défaut l'assistant). Modèles suggérés : claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash, mistral-small-latest."
+          },
+          properties: {
+            model: {
+              $ref: '#/definitions/Model',
+              title: 'Model',
+              'x-i18n-title': {
+                en: 'Model',
+                fr: 'Modèle'
+              }
+            },
+            roles: {
+              type: 'array',
+              title: 'Roles',
+              'x-i18n-title': {
+                en: 'Allowed Roles',
+                fr: 'Rôles autorisés'
+              },
+              description: 'Roles allowed to use this model through the gateway (empty = admin only)',
+              'x-i18n-description': {
+                en: 'Roles allowed to use this model through the gateway (empty = admin only)',
+                fr: 'Rôles autorisés à utiliser ce modèle via la passerelle (vide = admin uniquement)'
+              },
+              items: { type: 'string' },
+              default: []
+            },
+            ratio: {
+              type: 'number',
+              title: 'Usage Ratio',
+              'x-i18n-title': {
+                en: 'Usage Ratio',
+                fr: "Ratio d'utilisation"
+              },
+              description: 'Multiplier applied to token usage for quota accounting',
+              'x-i18n-description': {
+                en: 'Multiplier applied to token usage for quota accounting',
+                fr: "Multiplicateur appliqué à l'utilisation des tokens pour le calcul des quotas"
+              },
+              default: 1,
+              minimum: 0
+            }
+          }
+        }
+      }
     },
     limits: {
       type: 'object',

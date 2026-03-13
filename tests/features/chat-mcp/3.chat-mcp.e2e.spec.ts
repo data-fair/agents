@@ -25,7 +25,8 @@ test.describe('Chat MCP UI', () => {
     const user = await axiosAuth('test-standalone1')
     await user.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
-      chatModel: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' } }
+      models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' } } } },
+      limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
     })
 
     await goToWithAuth('/agents/_dev/chat-mcp', 'test-standalone1')

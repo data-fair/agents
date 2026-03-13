@@ -15,7 +15,7 @@ import { securityKey } from '../cipher/service.ts'
 const router = Router()
 export default router
 
-const emptySettings = (owner: AccountKeys): Settings => ({ owner, providers: [], chatModel: undefined as unknown as Settings['chatModel'], limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }, userLimits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 } })
+const emptySettings = (owner: AccountKeys): Settings => ({ owner, providers: [], models: {} as unknown as Settings['models'], limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }, userLimits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 } })
 
 router.get('/:type/:id', async (req, res, next) => {
   const session = reqSessionAuthenticated(req)
@@ -44,9 +44,7 @@ router.put('/:type/:id', async (req, res, next) => {
     updatedAt: new Date().toISOString(),
     owner,
     providers: encryptProviderApiKeys(body.providers || [], existing?.providers || [], securityKey),
-    chatModel: body.chatModel,
-    summaryModel: body.summaryModel,
-    evaluatorModel: body.evaluatorModel,
+    models: body.models,
     limits: body.limits ?? { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 },
     userLimits: body.userLimits ?? { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
   }

@@ -17,7 +17,7 @@ test.describe('Usage UI', () => {
     // Seed settings
     await user.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
-      chatModel: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
+      models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } } } },
       limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
     })
 
@@ -33,7 +33,7 @@ test.describe('Usage UI', () => {
     const user = await axiosAuth('test-standalone1')
     await user.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
-      chatModel: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
+      models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } } } },
       limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
     })
 

@@ -24,6 +24,8 @@ import oneofselectNode from '@koumoul/vjsf/components/nodes/one-of-select.vue'
 
 import checkboxNode from '@koumoul/vjsf/components/nodes/checkbox.vue'
 
+import comboboxNode from '@koumoul/vjsf/components/nodes/combobox.vue'
+
 import numberfieldNode from '@koumoul/vjsf/components/nodes/number-field.vue'
 
 
@@ -3453,9 +3455,125 @@ return errors === 0;
 }
 validate34.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
-const schema45 = {"$id":"export8","$ref":"https://github.com/data-fair/agents/settings-put#"};
-const schema27 = {"$id":"https://github.com/data-fair/agents/settings-put","x-exports":["validate","types","vjsf"],"title":"Settings","layout":{"title":null},"definitions":{"Model":{"$ref":"https://github.com/data-fair/agents/model","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model","errorMessage":{}}},"type":"object","additionalProperties":false,"required":["providers","chatModel","limits"],"properties":{"createdAt":{"type":"string","format":"date-time","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/createdAt","errorMessage":{}},"updatedAt":{"type":"string","format":"date-time","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/updatedAt","errorMessage":{}},"owner":{"type":"object","additionalProperties":false,"required":["type","id"],"readOnly":true,"properties":{"type":{"type":"string","enum":["user","organization"],"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/type","errorMessage":{}},"id":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/id","errorMessage":{}},"name":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/name","errorMessage":{}},"department":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/department","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner","errorMessage":{"required":{"type":"required information","id":"required information"}}},"providers":{"type":"array","title":"AI Providers","layout":{"itemTitle":"item ? `${item.name || \"\"} - ${item.id.slice(0, 8)}` : \"\"","listActions":["add","edit","delete"]},"items":{"type":"object","title":"Provider","unevaluatedProperties":false,"oneOfLayout":{"emptyData":true},"discriminator":{"propertyName":"type"},"layout":{"getDefaultData":"{ id: crypto.randomUUID() }","switch":[{"if":"summary","children":[]}]},"oneOf":[{"required":["type","name","id","enabled"],"title":"Open AI","properties":{"type":{"type":"string","title":"Provider Type","const":"openai","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Open AI\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}},{"required":["type","name","id","enabled"],"title":"Anthropic","properties":{"type":{"type":"string","title":"Provider Type","const":"anthropic","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Anthropic\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}},{"required":["type","name","id","enabled"],"title":"Google","properties":{"type":{"type":"string","title":"Provider Type","const":"google","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Google\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}},{"required":["type","name","id","enabled"],"title":"Mistral","properties":{"type":{"type":"string","title":"Provider Type","const":"mistral","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Mistral\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}},{"required":["type","name","id","enabled"],"title":"OpenRouter","properties":{"type":{"type":"string","title":"Provider Type","const":"openrouter","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"OpenRouter\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}},{"required":["type","name","id","enabled","baseURL"],"title":"Ollama","properties":{"type":{"type":"string","title":"Provider Type","const":"ollama","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Ollama\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/apiKey","errorMessage":{}},"baseURL":{"type":"string","title":"Base URL","default":"http://localhost:11434","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/baseURL","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information","baseURL":"required information"}}},{"required":["type","name","id","enabled"],"title":"Mock","description":"To a message \"hello\" respond \"world\", to a message \"call tool ARG1 ARG2\" respond with a tool call, to anything else respond \"what do you mean ?\"","properties":{"type":{"type":"string","title":"Provider Type","const":"mock","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Mock\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/enabled","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}}],"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items","errorMessage":{"oneOf":"chose one"}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers","errorMessage":{}},"chatModel":{"$ref":"#/definitions/Model","title":"Chat Model","description":"Model used for the chat interface","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/chatModel","errorMessage":{}},"summaryModel":{"$ref":"#/definitions/Model","title":"Summary Model","description":"Model used for chat history summarization (optional, defaults to chat model)","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/summaryModel","errorMessage":{}},"evaluatorModel":{"$ref":"#/definitions/Model","title":"Evaluator Model","description":"Model used for evaluation (optional, defaults to chat model)","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/evaluatorModel","errorMessage":{}},"limits":{"type":"object","title":"Usage Limits","required":["dailyTokenLimit","monthlyTokenLimit"],"default":{"dailyTokenLimit":100000,"monthlyTokenLimit":1000000},"properties":{"dailyTokenLimit":{"type":"integer","title":"Daily Token Limit","description":"Maximum number of tokens allowed per day (0 for unlimited)","default":100000,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/limits/properties/dailyTokenLimit","errorMessage":{}},"monthlyTokenLimit":{"type":"integer","title":"Monthly Token Limit","description":"Maximum number of tokens allowed per month (0 for unlimited)","default":1000000,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/limits/properties/monthlyTokenLimit","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/limits","errorMessage":{"required":{"dailyTokenLimit":"required information","monthlyTokenLimit":"required information"}}},"userLimits":{"type":"object","title":"Per-User Usage Limits","required":["dailyTokenLimit","monthlyTokenLimit"],"default":{"dailyTokenLimit":100000,"monthlyTokenLimit":1000000},"properties":{"dailyTokenLimit":{"type":"integer","title":"Daily Token Limit","description":"Maximum number of tokens allowed per day (0 for unlimited)","default":100000,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/userLimits/properties/dailyTokenLimit","errorMessage":{}},"monthlyTokenLimit":{"type":"integer","title":"Monthly Token Limit","description":"Maximum number of tokens allowed per month (0 for unlimited)","default":1000000,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/userLimits/properties/monthlyTokenLimit","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/userLimits","errorMessage":{"required":{"dailyTokenLimit":"required information","monthlyTokenLimit":"required information"}}}},"x-vjsf":{"xI18n":true,"pluginsImports":["@koumoul/vjsf-markdown"]},"x-vjsf-locales":["en","fr"],"__pointer":"https://github.com/data-fair/agents/settings-put#","errorMessage":{"required":{"providers":"required information","chatModel":"required information","limits":"required information"}}};
-const func1 = Object.prototype.hasOwnProperty;
+const schema45 = {"$id":"export8","$ref":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/roles/items"};
+const schema46 = {"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/roles/items","errorMessage":{}};
+
+function validate35(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+/*# sourceURL="export8" */;
+let vErrors = null;
+let errors = 0;
+const evaluated0 = validate35.evaluated;
+if(evaluated0.dynamicProps){
+evaluated0.props = undefined;
+}
+if(evaluated0.dynamicItems){
+evaluated0.items = undefined;
+}
+if(typeof data !== "string"){
+const err0 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/roles/items/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema46.type,parentSchema:schema46,data};
+if(vErrors === null){
+vErrors = [err0];
+}
+else {
+vErrors.push(err0);
+}
+errors++;
+}
+if(errors > 0){
+const emErrs0 = [];
+for(const err1 of vErrors){
+if(!err1.emUsed){
+emErrs0.push(err1);
+}
+}
+vErrors = emErrs0;
+errors = emErrs0.length;
+}
+validate35.errors = vErrors;
+return errors === 0;
+}
+validate35.evaluated = {"dynamicProps":false,"dynamicItems":false};
+
+const schema47 = {"$id":"export9","$ref":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/roles/items"};
+const schema48 = {"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/roles/items","errorMessage":{}};
+
+function validate36(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+/*# sourceURL="export9" */;
+let vErrors = null;
+let errors = 0;
+const evaluated0 = validate36.evaluated;
+if(evaluated0.dynamicProps){
+evaluated0.props = undefined;
+}
+if(evaluated0.dynamicItems){
+evaluated0.items = undefined;
+}
+if(typeof data !== "string"){
+const err0 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/roles/items/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema48.type,parentSchema:schema48,data};
+if(vErrors === null){
+vErrors = [err0];
+}
+else {
+vErrors.push(err0);
+}
+errors++;
+}
+if(errors > 0){
+const emErrs0 = [];
+for(const err1 of vErrors){
+if(!err1.emUsed){
+emErrs0.push(err1);
+}
+}
+vErrors = emErrs0;
+errors = emErrs0.length;
+}
+validate36.errors = vErrors;
+return errors === 0;
+}
+validate36.evaluated = {"dynamicProps":false,"dynamicItems":false};
+
+const schema49 = {"$id":"export10","$ref":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/roles/items"};
+const schema50 = {"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/roles/items","errorMessage":{}};
+
+function validate37(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+/*# sourceURL="export10" */;
+let vErrors = null;
+let errors = 0;
+const evaluated0 = validate37.evaluated;
+if(evaluated0.dynamicProps){
+evaluated0.props = undefined;
+}
+if(evaluated0.dynamicItems){
+evaluated0.items = undefined;
+}
+if(typeof data !== "string"){
+const err0 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/roles/items/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema50.type,parentSchema:schema50,data};
+if(vErrors === null){
+vErrors = [err0];
+}
+else {
+vErrors.push(err0);
+}
+errors++;
+}
+if(errors > 0){
+const emErrs0 = [];
+for(const err1 of vErrors){
+if(!err1.emUsed){
+emErrs0.push(err1);
+}
+}
+vErrors = emErrs0;
+errors = emErrs0.length;
+}
+validate37.errors = vErrors;
+return errors === 0;
+}
+validate37.evaluated = {"dynamicProps":false,"dynamicItems":false};
+
+const schema51 = {"$id":"export11","$ref":"https://github.com/data-fair/agents/settings-put#"};
+const schema27 = {"$id":"https://github.com/data-fair/agents/settings-put","x-exports":["validate","types","vjsf"],"title":"Settings","layout":{"title":null},"definitions":{"Model":{"$ref":"https://github.com/data-fair/agents/model","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model","errorMessage":{}}},"type":"object","additionalProperties":false,"required":["providers","models","limits"],"properties":{"createdAt":{"type":"string","format":"date-time","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/createdAt","errorMessage":{}},"updatedAt":{"type":"string","format":"date-time","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/updatedAt","errorMessage":{}},"owner":{"type":"object","additionalProperties":false,"required":["type","id"],"readOnly":true,"properties":{"type":{"type":"string","enum":["user","organization"],"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/type","errorMessage":{}},"id":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/id","errorMessage":{}},"name":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/name","errorMessage":{}},"department":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/department","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner","errorMessage":{"required":{"type":"required information","id":"required information"}}},"providers":{"type":"array","title":"AI Providers","layout":{"itemTitle":"item ? `${item.name || \"\"} - ${item.id.slice(0, 8)}` : \"\"","listActions":["add","edit","delete"]},"items":{"type":"object","title":"Provider","unevaluatedProperties":false,"oneOfLayout":{"emptyData":true},"discriminator":{"propertyName":"type"},"layout":{"getDefaultData":"{ id: crypto.randomUUID() }","switch":[{"if":"summary","children":[]}]},"oneOf":[{"required":["type","name","id","enabled"],"title":"Open AI","properties":{"type":{"type":"string","title":"Provider Type","const":"openai","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Open AI\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}},{"required":["type","name","id","enabled"],"title":"Anthropic","properties":{"type":{"type":"string","title":"Provider Type","const":"anthropic","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Anthropic\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}},{"required":["type","name","id","enabled"],"title":"Google","properties":{"type":{"type":"string","title":"Provider Type","const":"google","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Google\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}},{"required":["type","name","id","enabled"],"title":"Mistral","properties":{"type":{"type":"string","title":"Provider Type","const":"mistral","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Mistral\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}},{"required":["type","name","id","enabled"],"title":"OpenRouter","properties":{"type":{"type":"string","title":"Provider Type","const":"openrouter","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"OpenRouter\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}},{"required":["type","name","id","enabled","baseURL"],"title":"Ollama","properties":{"type":{"type":"string","title":"Provider Type","const":"ollama","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Ollama\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/apiKey","errorMessage":{}},"baseURL":{"type":"string","title":"Base URL","default":"http://localhost:11434","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/baseURL","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information","baseURL":"required information"}}},{"required":["type","name","id","enabled"],"title":"Mock","description":"To a message \"hello\" respond \"world\", to a message \"call tool ARG1 ARG2\" respond with a tool call, to anything else respond \"what do you mean ?\"","properties":{"type":{"type":"string","title":"Provider Type","const":"mock","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Mock\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/enabled","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}}],"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items","errorMessage":{"oneOf":"chose one"}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers","errorMessage":{}},"models":{"type":"object","title":"Models","required":["assistant"],"properties":{"assistant":{"type":"object","title":"Assistant","description":"Main conversational model. Suggested models: claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash, mistral-small-latest, minimax-01.","required":["model"],"properties":{"model":{"$ref":"#/definitions/Model","title":"Model","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/model","errorMessage":{}},"roles":{"type":"array","title":"Allowed Roles","description":"Roles allowed to use this model through the gateway (empty = admin only)","items":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/roles/items","errorMessage":{}},"default":[],"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/roles","errorMessage":{}},"ratio":{"type":"number","title":"Usage Ratio","description":"Multiplier applied to token usage for quota accounting (e.g. 1.0 = full cost, 0.5 = half cost)","default":1,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/ratio","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant","errorMessage":{"required":{"model":"required information"}}},"summarizer":{"type":"object","title":"Summarizer","description":"Model used for chat history summarization (optional, defaults to assistant). Suggested models: claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash-lite, mistral-small-latest.","properties":{"model":{"$ref":"#/definitions/Model","title":"Model","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/model","errorMessage":{}},"roles":{"type":"array","title":"Allowed Roles","description":"Roles allowed to use this model through the gateway (empty = admin only)","items":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/roles/items","errorMessage":{}},"default":[],"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/roles","errorMessage":{}},"ratio":{"type":"number","title":"Usage Ratio","description":"Multiplier applied to token usage for quota accounting (e.g. 0.5 for cheaper summarization)","default":0.5,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/ratio","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer","errorMessage":{}},"evaluator":{"type":"object","title":"Evaluator","description":"Model used for evaluation tasks (optional, defaults to assistant). Suggested models: claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash, mistral-small-latest.","properties":{"model":{"$ref":"#/definitions/Model","title":"Model","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/model","errorMessage":{}},"roles":{"type":"array","title":"Allowed Roles","description":"Roles allowed to use this model through the gateway (empty = admin only)","items":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/roles/items","errorMessage":{}},"default":[],"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/roles","errorMessage":{}},"ratio":{"type":"number","title":"Usage Ratio","description":"Multiplier applied to token usage for quota accounting","default":1,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/ratio","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models","errorMessage":{"required":{"assistant":"required information"}}},"limits":{"type":"object","title":"Usage Limits","required":["dailyTokenLimit","monthlyTokenLimit"],"default":{"dailyTokenLimit":100000,"monthlyTokenLimit":1000000},"properties":{"dailyTokenLimit":{"type":"integer","title":"Daily Token Limit","description":"Maximum number of tokens allowed per day (0 for unlimited)","default":100000,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/limits/properties/dailyTokenLimit","errorMessage":{}},"monthlyTokenLimit":{"type":"integer","title":"Monthly Token Limit","description":"Maximum number of tokens allowed per month (0 for unlimited)","default":1000000,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/limits/properties/monthlyTokenLimit","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/limits","errorMessage":{"required":{"dailyTokenLimit":"required information","monthlyTokenLimit":"required information"}}},"userLimits":{"type":"object","title":"Per-User Usage Limits","required":["dailyTokenLimit","monthlyTokenLimit"],"default":{"dailyTokenLimit":100000,"monthlyTokenLimit":1000000},"properties":{"dailyTokenLimit":{"type":"integer","title":"Daily Token Limit","description":"Maximum number of tokens allowed per day (0 for unlimited)","default":100000,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/userLimits/properties/dailyTokenLimit","errorMessage":{}},"monthlyTokenLimit":{"type":"integer","title":"Monthly Token Limit","description":"Maximum number of tokens allowed per month (0 for unlimited)","default":1000000,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/userLimits/properties/monthlyTokenLimit","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/userLimits","errorMessage":{"required":{"dailyTokenLimit":"required information","monthlyTokenLimit":"required information"}}}},"x-vjsf":{"xI18n":true,"pluginsImports":["@koumoul/vjsf-markdown"]},"x-vjsf-locales":["en","fr"],"__pointer":"https://github.com/data-fair/agents/settings-put#","errorMessage":{"required":{"providers":"required information","models":"required information","limits":"required information"}}};
 const formats0 = fullFormats["date-time"];
 const schema28 = {"$ref":"https://github.com/data-fair/agents/model","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model","errorMessage":{}};
 const schema29 = {"$id":"https://github.com/data-fair/agents/model","title":"Model","type":"object","required":["id","name","provider"],"properties":{"id":{"type":"string","title":"Model ID"},"name":{"type":"string","title":"Name"},"provider":{"type":"object","required":["type","name","id"],"properties":{"type":{"type":"string","title":"Provider Type"},"name":{"type":"string","title":"Provider Name"},"id":{"type":"string","title":"Provider ID"}}}}};
@@ -3660,8 +3778,8 @@ vErrors.push(err0);
 }
 errors++;
 }
-if(data.chatModel === undefined){
-const err1 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "chatModel"},message:"must have required property '"+"chatModel"+"'",schema:schema27.required,parentSchema:schema27,data};
+if(data.models === undefined){
+const err1 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "models"},message:"must have required property '"+"models"+"'",schema:schema27.required,parentSchema:schema27,data};
 if(vErrors === null){
 vErrors = [err1];
 }
@@ -3681,7 +3799,7 @@ vErrors.push(err2);
 errors++;
 }
 for(const key0 in data){
-if(!(func1.call(schema27.properties, key0))){
+if(!(((((((key0 === "createdAt") || (key0 === "updatedAt")) || (key0 === "owner")) || (key0 === "providers")) || (key0 === "models")) || (key0 === "limits")) || (key0 === "userLimits"))){
 const err3 = {instancePath,schemaPath:"#/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties",schema:false,parentSchema:schema27,data};
 if(vErrors === null){
 vErrors = [err3];
@@ -5721,59 +5839,56 @@ vErrors = emErrs50;
 errors = emErrs50.length;
 }
 }
-if(data.chatModel !== undefined){
-if(!(validate24(data.chatModel, {instancePath:instancePath+"/chatModel",parentData:data,parentDataProperty:"chatModel",rootData,dynamicAnchors}))){
+if(data.models !== undefined){
+let data44 = data.models;
+if(data44 && typeof data44 == "object" && !Array.isArray(data44)){
+if(data44.assistant === undefined){
+const err168 = {instancePath:instancePath+"/models",schemaPath:"#/properties/models/required",keyword:"required",params:{missingProperty: "assistant"},message:"must have required property '"+"assistant"+"'",schema:schema27.properties.models.required,parentSchema:schema27.properties.models,data:data44};
+if(vErrors === null){
+vErrors = [err168];
+}
+else {
+vErrors.push(err168);
+}
+errors++;
+}
+if(data44.assistant !== undefined){
+let data45 = data44.assistant;
+if(data45 && typeof data45 == "object" && !Array.isArray(data45)){
+if(data45.model === undefined){
+const err169 = {instancePath:instancePath+"/models/assistant",schemaPath:"#/properties/models/properties/assistant/required",keyword:"required",params:{missingProperty: "model"},message:"must have required property '"+"model"+"'",schema:schema27.properties.models.properties.assistant.required,parentSchema:schema27.properties.models.properties.assistant,data:data45};
+if(vErrors === null){
+vErrors = [err169];
+}
+else {
+vErrors.push(err169);
+}
+errors++;
+}
+if(data45.model !== undefined){
+if(!(validate24(data45.model, {instancePath:instancePath+"/models/assistant/model",parentData:data45,parentDataProperty:"model",rootData,dynamicAnchors}))){
 vErrors = vErrors === null ? validate24.errors : vErrors.concat(validate24.errors);
 errors = vErrors.length;
 }
 if(errors > 0){
 const emErrs51 = [];
-for(const err168 of vErrors){
-if(!err168.emUsed){
-emErrs51.push(err168);
+for(const err170 of vErrors){
+if(!err170.emUsed){
+emErrs51.push(err170);
 }
 }
 vErrors = emErrs51;
 errors = emErrs51.length;
 }
 }
-if(data.summaryModel !== undefined){
-if(!(validate24(data.summaryModel, {instancePath:instancePath+"/summaryModel",parentData:data,parentDataProperty:"summaryModel",rootData,dynamicAnchors}))){
-vErrors = vErrors === null ? validate24.errors : vErrors.concat(validate24.errors);
-errors = vErrors.length;
-}
-if(errors > 0){
-const emErrs52 = [];
-for(const err169 of vErrors){
-if(!err169.emUsed){
-emErrs52.push(err169);
-}
-}
-vErrors = emErrs52;
-errors = emErrs52.length;
-}
-}
-if(data.evaluatorModel !== undefined){
-if(!(validate24(data.evaluatorModel, {instancePath:instancePath+"/evaluatorModel",parentData:data,parentDataProperty:"evaluatorModel",rootData,dynamicAnchors}))){
-vErrors = vErrors === null ? validate24.errors : vErrors.concat(validate24.errors);
-errors = vErrors.length;
-}
-if(errors > 0){
-const emErrs53 = [];
-for(const err170 of vErrors){
-if(!err170.emUsed){
-emErrs53.push(err170);
-}
-}
-vErrors = emErrs53;
-errors = emErrs53.length;
-}
-}
-if(data.limits !== undefined){
-let data47 = data.limits;
-if(data47 && typeof data47 == "object" && !Array.isArray(data47)){
-if(data47.dailyTokenLimit === undefined){
-const err171 = {instancePath:instancePath+"/limits",schemaPath:"#/properties/limits/required",keyword:"required",params:{missingProperty: "dailyTokenLimit"},message:"must have required property '"+"dailyTokenLimit"+"'",schema:schema27.properties.limits.required,parentSchema:schema27.properties.limits,data:data47};
+if(data45.roles !== undefined){
+let data47 = data45.roles;
+if(Array.isArray(data47)){
+const len1 = data47.length;
+for(let i1=0; i1<len1; i1++){
+let data48 = data47[i1];
+if(typeof data48 !== "string"){
+const err171 = {instancePath:instancePath+"/models/assistant/roles/" + i1,schemaPath:"#/properties/models/properties/assistant/properties/roles/items/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.models.properties.assistant.properties.roles.items.type,parentSchema:schema27.properties.models.properties.assistant.properties.roles.items,data:data48};
 if(vErrors === null){
 vErrors = [err171];
 }
@@ -5782,20 +5897,20 @@ vErrors.push(err171);
 }
 errors++;
 }
-if(data47.monthlyTokenLimit === undefined){
-const err172 = {instancePath:instancePath+"/limits",schemaPath:"#/properties/limits/required",keyword:"required",params:{missingProperty: "monthlyTokenLimit"},message:"must have required property '"+"monthlyTokenLimit"+"'",schema:schema27.properties.limits.required,parentSchema:schema27.properties.limits,data:data47};
-if(vErrors === null){
-vErrors = [err172];
+if(errors > 0){
+const emErrs52 = [];
+for(const err172 of vErrors){
+if(!err172.emUsed){
+emErrs52.push(err172);
+}
+}
+vErrors = emErrs52;
+errors = emErrs52.length;
+}
+}
 }
 else {
-vErrors.push(err172);
-}
-errors++;
-}
-if(data47.dailyTokenLimit !== undefined){
-let data48 = data47.dailyTokenLimit;
-if(!((typeof data48 == "number") && (!(data48 % 1) && !isNaN(data48)))){
-const err173 = {instancePath:instancePath+"/limits/dailyTokenLimit",schemaPath:"#/properties/limits/properties/dailyTokenLimit/type",keyword:"type",params:{type: "integer"},message:"must be integer",schema:schema27.properties.limits.properties.dailyTokenLimit.type,parentSchema:schema27.properties.limits.properties.dailyTokenLimit,data:data48};
+const err173 = {instancePath:instancePath+"/models/assistant/roles",schemaPath:"#/properties/models/properties/assistant/properties/roles/type",keyword:"type",params:{type: "array"},message:"must be array",schema:schema27.properties.models.properties.assistant.properties.roles.type,parentSchema:schema27.properties.models.properties.assistant.properties.roles,data:data47};
 if(vErrors === null){
 vErrors = [err173];
 }
@@ -5804,33 +5919,33 @@ vErrors.push(err173);
 }
 errors++;
 }
-if(typeof data48 == "number"){
-if(data48 < 0 || isNaN(data48)){
-const err174 = {instancePath:instancePath+"/limits/dailyTokenLimit",schemaPath:"#/properties/limits/properties/dailyTokenLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.limits.properties.dailyTokenLimit,data:data48};
+if(errors > 0){
+const emErrs53 = [];
+for(const err174 of vErrors){
+if(!err174.emUsed){
+emErrs53.push(err174);
+}
+}
+vErrors = emErrs53;
+errors = emErrs53.length;
+}
+}
+if(data45.ratio !== undefined){
+let data49 = data45.ratio;
+if(typeof data49 == "number"){
+if(data49 < 0 || isNaN(data49)){
+const err175 = {instancePath:instancePath+"/models/assistant/ratio",schemaPath:"#/properties/models/properties/assistant/properties/ratio/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.assistant.properties.ratio,data:data49};
 if(vErrors === null){
-vErrors = [err174];
+vErrors = [err175];
 }
 else {
-vErrors.push(err174);
+vErrors.push(err175);
 }
 errors++;
 }
 }
-if(errors > 0){
-const emErrs54 = [];
-for(const err175 of vErrors){
-if(!err175.emUsed){
-emErrs54.push(err175);
-}
-}
-vErrors = emErrs54;
-errors = emErrs54.length;
-}
-}
-if(data47.monthlyTokenLimit !== undefined){
-let data49 = data47.monthlyTokenLimit;
-if(!((typeof data49 == "number") && (!(data49 % 1) && !isNaN(data49)))){
-const err176 = {instancePath:instancePath+"/limits/monthlyTokenLimit",schemaPath:"#/properties/limits/properties/monthlyTokenLimit/type",keyword:"type",params:{type: "integer"},message:"must be integer",schema:schema27.properties.limits.properties.monthlyTokenLimit.type,parentSchema:schema27.properties.limits.properties.monthlyTokenLimit,data:data49};
+else {
+const err176 = {instancePath:instancePath+"/models/assistant/ratio",schemaPath:"#/properties/models/properties/assistant/properties/ratio/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.assistant.properties.ratio.type,parentSchema:schema27.properties.models.properties.assistant.properties.ratio,data:data49};
 if(vErrors === null){
 vErrors = [err176];
 }
@@ -5839,52 +5954,40 @@ vErrors.push(err176);
 }
 errors++;
 }
-if(typeof data49 == "number"){
-if(data49 < 0 || isNaN(data49)){
-const err177 = {instancePath:instancePath+"/limits/monthlyTokenLimit",schemaPath:"#/properties/limits/properties/monthlyTokenLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.limits.properties.monthlyTokenLimit,data:data49};
-if(vErrors === null){
-vErrors = [err177];
-}
-else {
-vErrors.push(err177);
-}
-errors++;
-}
-}
 if(errors > 0){
-const emErrs55 = [];
-for(const err178 of vErrors){
-if(!err178.emUsed){
-emErrs55.push(err178);
+const emErrs54 = [];
+for(const err177 of vErrors){
+if(!err177.emUsed){
+emErrs54.push(err177);
 }
 }
-vErrors = emErrs55;
-errors = emErrs55.length;
+vErrors = emErrs54;
+errors = emErrs54.length;
 }
 }
 }
 else {
-const err179 = {instancePath:instancePath+"/limits",schemaPath:"#/properties/limits/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.limits.type,parentSchema:schema27.properties.limits,data:data47};
+const err178 = {instancePath:instancePath+"/models/assistant",schemaPath:"#/properties/models/properties/assistant/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.models.properties.assistant.type,parentSchema:schema27.properties.models.properties.assistant,data:data45};
 if(vErrors === null){
-vErrors = [err179];
+vErrors = [err178];
 }
 else {
-vErrors.push(err179);
+vErrors.push(err178);
 }
 errors++;
 }
 if(errors > 0){
-const emErrors9 = {"required":{"dailyTokenLimit":[],"monthlyTokenLimit":[]}};
+const emErrors9 = {"required":{"model":[]}};
 const templates9 = {required:{}};
 let emPropParams8;
 let emParamsErrors8;
-for(const err180 of vErrors){
-if((((((err180.keyword !== "errorMessage") && (!err180.emUsed)) && (err180.instancePath === instancePath+"/limits")) && (err180.keyword in emErrors9)) && (err180.schemaPath.indexOf("#/properties/limits") === 0)) && (/^\/[^\/]*$/.test(err180.schemaPath.slice(19)))){
-emPropParams8 = obj0[err180.keyword];
-emParamsErrors8 = emErrors9[err180.keyword][err180.params[emPropParams8]];
+for(const err179 of vErrors){
+if((((((err179.keyword !== "errorMessage") && (!err179.emUsed)) && (err179.instancePath === instancePath+"/models/assistant")) && (err179.keyword in emErrors9)) && (err179.schemaPath.indexOf("#/properties/models/properties/assistant") === 0)) && (/^\/[^\/]*$/.test(err179.schemaPath.slice(40)))){
+emPropParams8 = obj0[err179.keyword];
+emParamsErrors8 = emErrors9[err179.keyword][err179.params[emPropParams8]];
 if(emParamsErrors8){
-emParamsErrors8.push(err180);
-err180.emUsed = true;
+emParamsErrors8.push(err179);
+err179.emUsed = true;
 }
 }
 }
@@ -5893,17 +5996,36 @@ for(const keyProp8 in emErrors9[key12]){
 emParamsErrors8 = emErrors9[key12][keyProp8];
 if(emParamsErrors8.length){
 const tmpl8 = templates9[key12] && templates9[key12][keyProp8];
-const err181 = {instancePath:instancePath+"/limits",schemaPath:"#/properties/limits/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors8},message:tmpl8 ? tmpl8() : schema27.properties.limits.errorMessage[key12][keyProp8],schema:schema27.properties.limits.errorMessage,parentSchema:schema27.properties.limits,data:data47};
+const err180 = {instancePath:instancePath+"/models/assistant",schemaPath:"#/properties/models/properties/assistant/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors8},message:tmpl8 ? tmpl8() : schema27.properties.models.properties.assistant.errorMessage[key12][keyProp8],schema:schema27.properties.models.properties.assistant.errorMessage,parentSchema:schema27.properties.models.properties.assistant,data:data45};
 if(vErrors === null){
-vErrors = [err181];
+vErrors = [err180];
 }
 else {
-vErrors.push(err181);
+vErrors.push(err180);
 }
 errors++;
 }
 }
 }
+const emErrs55 = [];
+for(const err181 of vErrors){
+if(!err181.emUsed){
+emErrs55.push(err181);
+}
+}
+vErrors = emErrs55;
+errors = emErrs55.length;
+}
+}
+if(data44.summarizer !== undefined){
+let data50 = data44.summarizer;
+if(data50 && typeof data50 == "object" && !Array.isArray(data50)){
+if(data50.model !== undefined){
+if(!(validate24(data50.model, {instancePath:instancePath+"/models/summarizer/model",parentData:data50,parentDataProperty:"model",rootData,dynamicAnchors}))){
+vErrors = vErrors === null ? validate24.errors : vErrors.concat(validate24.errors);
+errors = vErrors.length;
+}
+if(errors > 0){
 const emErrs56 = [];
 for(const err182 of vErrors){
 if(!err182.emUsed){
@@ -5914,11 +6036,14 @@ vErrors = emErrs56;
 errors = emErrs56.length;
 }
 }
-if(data.userLimits !== undefined){
-let data50 = data.userLimits;
-if(data50 && typeof data50 == "object" && !Array.isArray(data50)){
-if(data50.dailyTokenLimit === undefined){
-const err183 = {instancePath:instancePath+"/userLimits",schemaPath:"#/properties/userLimits/required",keyword:"required",params:{missingProperty: "dailyTokenLimit"},message:"must have required property '"+"dailyTokenLimit"+"'",schema:schema27.properties.userLimits.required,parentSchema:schema27.properties.userLimits,data:data50};
+if(data50.roles !== undefined){
+let data52 = data50.roles;
+if(Array.isArray(data52)){
+const len2 = data52.length;
+for(let i2=0; i2<len2; i2++){
+let data53 = data52[i2];
+if(typeof data53 !== "string"){
+const err183 = {instancePath:instancePath+"/models/summarizer/roles/" + i2,schemaPath:"#/properties/models/properties/summarizer/properties/roles/items/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.models.properties.summarizer.properties.roles.items.type,parentSchema:schema27.properties.models.properties.summarizer.properties.roles.items,data:data53};
 if(vErrors === null){
 vErrors = [err183];
 }
@@ -5927,20 +6052,20 @@ vErrors.push(err183);
 }
 errors++;
 }
-if(data50.monthlyTokenLimit === undefined){
-const err184 = {instancePath:instancePath+"/userLimits",schemaPath:"#/properties/userLimits/required",keyword:"required",params:{missingProperty: "monthlyTokenLimit"},message:"must have required property '"+"monthlyTokenLimit"+"'",schema:schema27.properties.userLimits.required,parentSchema:schema27.properties.userLimits,data:data50};
-if(vErrors === null){
-vErrors = [err184];
+if(errors > 0){
+const emErrs57 = [];
+for(const err184 of vErrors){
+if(!err184.emUsed){
+emErrs57.push(err184);
+}
+}
+vErrors = emErrs57;
+errors = emErrs57.length;
+}
+}
 }
 else {
-vErrors.push(err184);
-}
-errors++;
-}
-if(data50.dailyTokenLimit !== undefined){
-let data51 = data50.dailyTokenLimit;
-if(!((typeof data51 == "number") && (!(data51 % 1) && !isNaN(data51)))){
-const err185 = {instancePath:instancePath+"/userLimits/dailyTokenLimit",schemaPath:"#/properties/userLimits/properties/dailyTokenLimit/type",keyword:"type",params:{type: "integer"},message:"must be integer",schema:schema27.properties.userLimits.properties.dailyTokenLimit.type,parentSchema:schema27.properties.userLimits.properties.dailyTokenLimit,data:data51};
+const err185 = {instancePath:instancePath+"/models/summarizer/roles",schemaPath:"#/properties/models/properties/summarizer/properties/roles/type",keyword:"type",params:{type: "array"},message:"must be array",schema:schema27.properties.models.properties.summarizer.properties.roles.type,parentSchema:schema27.properties.models.properties.summarizer.properties.roles,data:data52};
 if(vErrors === null){
 vErrors = [err185];
 }
@@ -5949,33 +6074,33 @@ vErrors.push(err185);
 }
 errors++;
 }
-if(typeof data51 == "number"){
-if(data51 < 0 || isNaN(data51)){
-const err186 = {instancePath:instancePath+"/userLimits/dailyTokenLimit",schemaPath:"#/properties/userLimits/properties/dailyTokenLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.userLimits.properties.dailyTokenLimit,data:data51};
+if(errors > 0){
+const emErrs58 = [];
+for(const err186 of vErrors){
+if(!err186.emUsed){
+emErrs58.push(err186);
+}
+}
+vErrors = emErrs58;
+errors = emErrs58.length;
+}
+}
+if(data50.ratio !== undefined){
+let data54 = data50.ratio;
+if(typeof data54 == "number"){
+if(data54 < 0 || isNaN(data54)){
+const err187 = {instancePath:instancePath+"/models/summarizer/ratio",schemaPath:"#/properties/models/properties/summarizer/properties/ratio/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.summarizer.properties.ratio,data:data54};
 if(vErrors === null){
-vErrors = [err186];
+vErrors = [err187];
 }
 else {
-vErrors.push(err186);
+vErrors.push(err187);
 }
 errors++;
 }
 }
-if(errors > 0){
-const emErrs57 = [];
-for(const err187 of vErrors){
-if(!err187.emUsed){
-emErrs57.push(err187);
-}
-}
-vErrors = emErrs57;
-errors = emErrs57.length;
-}
-}
-if(data50.monthlyTokenLimit !== undefined){
-let data52 = data50.monthlyTokenLimit;
-if(!((typeof data52 == "number") && (!(data52 % 1) && !isNaN(data52)))){
-const err188 = {instancePath:instancePath+"/userLimits/monthlyTokenLimit",schemaPath:"#/properties/userLimits/properties/monthlyTokenLimit/type",keyword:"type",params:{type: "integer"},message:"must be integer",schema:schema27.properties.userLimits.properties.monthlyTokenLimit.type,parentSchema:schema27.properties.userLimits.properties.monthlyTokenLimit,data:data52};
+else {
+const err188 = {instancePath:instancePath+"/models/summarizer/ratio",schemaPath:"#/properties/models/properties/summarizer/properties/ratio/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.summarizer.properties.ratio.type,parentSchema:schema27.properties.models.properties.summarizer.properties.ratio,data:data54};
 if(vErrors === null){
 vErrors = [err188];
 }
@@ -5984,75 +6109,11 @@ vErrors.push(err188);
 }
 errors++;
 }
-if(typeof data52 == "number"){
-if(data52 < 0 || isNaN(data52)){
-const err189 = {instancePath:instancePath+"/userLimits/monthlyTokenLimit",schemaPath:"#/properties/userLimits/properties/monthlyTokenLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.userLimits.properties.monthlyTokenLimit,data:data52};
-if(vErrors === null){
-vErrors = [err189];
-}
-else {
-vErrors.push(err189);
-}
-errors++;
-}
-}
 if(errors > 0){
-const emErrs58 = [];
-for(const err190 of vErrors){
-if(!err190.emUsed){
-emErrs58.push(err190);
-}
-}
-vErrors = emErrs58;
-errors = emErrs58.length;
-}
-}
-}
-else {
-const err191 = {instancePath:instancePath+"/userLimits",schemaPath:"#/properties/userLimits/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.userLimits.type,parentSchema:schema27.properties.userLimits,data:data50};
-if(vErrors === null){
-vErrors = [err191];
-}
-else {
-vErrors.push(err191);
-}
-errors++;
-}
-if(errors > 0){
-const emErrors10 = {"required":{"dailyTokenLimit":[],"monthlyTokenLimit":[]}};
-const templates10 = {required:{}};
-let emPropParams9;
-let emParamsErrors9;
-for(const err192 of vErrors){
-if((((((err192.keyword !== "errorMessage") && (!err192.emUsed)) && (err192.instancePath === instancePath+"/userLimits")) && (err192.keyword in emErrors10)) && (err192.schemaPath.indexOf("#/properties/userLimits") === 0)) && (/^\/[^\/]*$/.test(err192.schemaPath.slice(23)))){
-emPropParams9 = obj0[err192.keyword];
-emParamsErrors9 = emErrors10[err192.keyword][err192.params[emPropParams9]];
-if(emParamsErrors9){
-emParamsErrors9.push(err192);
-err192.emUsed = true;
-}
-}
-}
-for(const key13 in emErrors10){
-for(const keyProp9 in emErrors10[key13]){
-emParamsErrors9 = emErrors10[key13][keyProp9];
-if(emParamsErrors9.length){
-const tmpl9 = templates10[key13] && templates10[key13][keyProp9];
-const err193 = {instancePath:instancePath+"/userLimits",schemaPath:"#/properties/userLimits/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors9},message:tmpl9 ? tmpl9() : schema27.properties.userLimits.errorMessage[key13][keyProp9],schema:schema27.properties.userLimits.errorMessage,parentSchema:schema27.properties.userLimits,data:data50};
-if(vErrors === null){
-vErrors = [err193];
-}
-else {
-vErrors.push(err193);
-}
-errors++;
-}
-}
-}
 const emErrs59 = [];
-for(const err194 of vErrors){
-if(!err194.emUsed){
-emErrs59.push(err194);
+for(const err189 of vErrors){
+if(!err189.emUsed){
+emErrs59.push(err189);
 }
 }
 vErrors = emErrs59;
@@ -6061,7 +6122,75 @@ errors = emErrs59.length;
 }
 }
 else {
-const err195 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.type,parentSchema:schema27,data};
+const err190 = {instancePath:instancePath+"/models/summarizer",schemaPath:"#/properties/models/properties/summarizer/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.models.properties.summarizer.type,parentSchema:schema27.properties.models.properties.summarizer,data:data50};
+if(vErrors === null){
+vErrors = [err190];
+}
+else {
+vErrors.push(err190);
+}
+errors++;
+}
+if(errors > 0){
+const emErrs60 = [];
+for(const err191 of vErrors){
+if(!err191.emUsed){
+emErrs60.push(err191);
+}
+}
+vErrors = emErrs60;
+errors = emErrs60.length;
+}
+}
+if(data44.evaluator !== undefined){
+let data55 = data44.evaluator;
+if(data55 && typeof data55 == "object" && !Array.isArray(data55)){
+if(data55.model !== undefined){
+if(!(validate24(data55.model, {instancePath:instancePath+"/models/evaluator/model",parentData:data55,parentDataProperty:"model",rootData,dynamicAnchors}))){
+vErrors = vErrors === null ? validate24.errors : vErrors.concat(validate24.errors);
+errors = vErrors.length;
+}
+if(errors > 0){
+const emErrs61 = [];
+for(const err192 of vErrors){
+if(!err192.emUsed){
+emErrs61.push(err192);
+}
+}
+vErrors = emErrs61;
+errors = emErrs61.length;
+}
+}
+if(data55.roles !== undefined){
+let data57 = data55.roles;
+if(Array.isArray(data57)){
+const len3 = data57.length;
+for(let i3=0; i3<len3; i3++){
+let data58 = data57[i3];
+if(typeof data58 !== "string"){
+const err193 = {instancePath:instancePath+"/models/evaluator/roles/" + i3,schemaPath:"#/properties/models/properties/evaluator/properties/roles/items/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.models.properties.evaluator.properties.roles.items.type,parentSchema:schema27.properties.models.properties.evaluator.properties.roles.items,data:data58};
+if(vErrors === null){
+vErrors = [err193];
+}
+else {
+vErrors.push(err193);
+}
+errors++;
+}
+if(errors > 0){
+const emErrs62 = [];
+for(const err194 of vErrors){
+if(!err194.emUsed){
+emErrs62.push(err194);
+}
+}
+vErrors = emErrs62;
+errors = emErrs62.length;
+}
+}
+}
+else {
+const err195 = {instancePath:instancePath+"/models/evaluator/roles",schemaPath:"#/properties/models/properties/evaluator/properties/roles/type",keyword:"type",params:{type: "array"},message:"must be array",schema:schema27.properties.models.properties.evaluator.properties.roles.type,parentSchema:schema27.properties.models.properties.evaluator.properties.roles,data:data57};
 if(vErrors === null){
 vErrors = [err195];
 }
@@ -6071,26 +6200,21 @@ vErrors.push(err195);
 errors++;
 }
 if(errors > 0){
-const emErrors11 = {"required":{"providers":[],"chatModel":[],"limits":[]}};
-const templates11 = {required:{}};
-let emPropParams10;
-let emParamsErrors10;
+const emErrs63 = [];
 for(const err196 of vErrors){
-if((((((err196.keyword !== "errorMessage") && (!err196.emUsed)) && (err196.instancePath === instancePath)) && (err196.keyword in emErrors11)) && (err196.schemaPath.indexOf("#") === 0)) && (/^\/[^\/]*$/.test(err196.schemaPath.slice(1)))){
-emPropParams10 = obj0[err196.keyword];
-emParamsErrors10 = emErrors11[err196.keyword][err196.params[emPropParams10]];
-if(emParamsErrors10){
-emParamsErrors10.push(err196);
-err196.emUsed = true;
+if(!err196.emUsed){
+emErrs63.push(err196);
 }
 }
+vErrors = emErrs63;
+errors = emErrs63.length;
 }
-for(const key14 in emErrors11){
-for(const keyProp10 in emErrors11[key14]){
-emParamsErrors10 = emErrors11[key14][keyProp10];
-if(emParamsErrors10.length){
-const tmpl10 = templates11[key14] && templates11[key14][keyProp10];
-const err197 = {instancePath,schemaPath:"#/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors10},message:tmpl10 ? tmpl10() : schema27.errorMessage[key14][keyProp10],schema:schema27.errorMessage,parentSchema:schema27,data};
+}
+if(data55.ratio !== undefined){
+let data59 = data55.ratio;
+if(typeof data59 == "number"){
+if(data59 < 0 || isNaN(data59)){
+const err197 = {instancePath:instancePath+"/models/evaluator/ratio",schemaPath:"#/properties/models/properties/evaluator/properties/ratio/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.evaluator.properties.ratio,data:data59};
 if(vErrors === null){
 vErrors = [err197];
 }
@@ -6100,15 +6224,441 @@ vErrors.push(err197);
 errors++;
 }
 }
+else {
+const err198 = {instancePath:instancePath+"/models/evaluator/ratio",schemaPath:"#/properties/models/properties/evaluator/properties/ratio/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.evaluator.properties.ratio.type,parentSchema:schema27.properties.models.properties.evaluator.properties.ratio,data:data59};
+if(vErrors === null){
+vErrors = [err198];
 }
-const emErrs60 = [];
-for(const err198 of vErrors){
-if(!err198.emUsed){
-emErrs60.push(err198);
+else {
+vErrors.push(err198);
+}
+errors++;
+}
+if(errors > 0){
+const emErrs64 = [];
+for(const err199 of vErrors){
+if(!err199.emUsed){
+emErrs64.push(err199);
 }
 }
-vErrors = emErrs60;
-errors = emErrs60.length;
+vErrors = emErrs64;
+errors = emErrs64.length;
+}
+}
+}
+else {
+const err200 = {instancePath:instancePath+"/models/evaluator",schemaPath:"#/properties/models/properties/evaluator/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.models.properties.evaluator.type,parentSchema:schema27.properties.models.properties.evaluator,data:data55};
+if(vErrors === null){
+vErrors = [err200];
+}
+else {
+vErrors.push(err200);
+}
+errors++;
+}
+if(errors > 0){
+const emErrs65 = [];
+for(const err201 of vErrors){
+if(!err201.emUsed){
+emErrs65.push(err201);
+}
+}
+vErrors = emErrs65;
+errors = emErrs65.length;
+}
+}
+}
+else {
+const err202 = {instancePath:instancePath+"/models",schemaPath:"#/properties/models/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.models.type,parentSchema:schema27.properties.models,data:data44};
+if(vErrors === null){
+vErrors = [err202];
+}
+else {
+vErrors.push(err202);
+}
+errors++;
+}
+if(errors > 0){
+const emErrors10 = {"required":{"assistant":[]}};
+const templates10 = {required:{}};
+let emPropParams9;
+let emParamsErrors9;
+for(const err203 of vErrors){
+if((((((err203.keyword !== "errorMessage") && (!err203.emUsed)) && (err203.instancePath === instancePath+"/models")) && (err203.keyword in emErrors10)) && (err203.schemaPath.indexOf("#/properties/models") === 0)) && (/^\/[^\/]*$/.test(err203.schemaPath.slice(19)))){
+emPropParams9 = obj0[err203.keyword];
+emParamsErrors9 = emErrors10[err203.keyword][err203.params[emPropParams9]];
+if(emParamsErrors9){
+emParamsErrors9.push(err203);
+err203.emUsed = true;
+}
+}
+}
+for(const key13 in emErrors10){
+for(const keyProp9 in emErrors10[key13]){
+emParamsErrors9 = emErrors10[key13][keyProp9];
+if(emParamsErrors9.length){
+const tmpl9 = templates10[key13] && templates10[key13][keyProp9];
+const err204 = {instancePath:instancePath+"/models",schemaPath:"#/properties/models/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors9},message:tmpl9 ? tmpl9() : schema27.properties.models.errorMessage[key13][keyProp9],schema:schema27.properties.models.errorMessage,parentSchema:schema27.properties.models,data:data44};
+if(vErrors === null){
+vErrors = [err204];
+}
+else {
+vErrors.push(err204);
+}
+errors++;
+}
+}
+}
+const emErrs66 = [];
+for(const err205 of vErrors){
+if(!err205.emUsed){
+emErrs66.push(err205);
+}
+}
+vErrors = emErrs66;
+errors = emErrs66.length;
+}
+}
+if(data.limits !== undefined){
+let data60 = data.limits;
+if(data60 && typeof data60 == "object" && !Array.isArray(data60)){
+if(data60.dailyTokenLimit === undefined){
+const err206 = {instancePath:instancePath+"/limits",schemaPath:"#/properties/limits/required",keyword:"required",params:{missingProperty: "dailyTokenLimit"},message:"must have required property '"+"dailyTokenLimit"+"'",schema:schema27.properties.limits.required,parentSchema:schema27.properties.limits,data:data60};
+if(vErrors === null){
+vErrors = [err206];
+}
+else {
+vErrors.push(err206);
+}
+errors++;
+}
+if(data60.monthlyTokenLimit === undefined){
+const err207 = {instancePath:instancePath+"/limits",schemaPath:"#/properties/limits/required",keyword:"required",params:{missingProperty: "monthlyTokenLimit"},message:"must have required property '"+"monthlyTokenLimit"+"'",schema:schema27.properties.limits.required,parentSchema:schema27.properties.limits,data:data60};
+if(vErrors === null){
+vErrors = [err207];
+}
+else {
+vErrors.push(err207);
+}
+errors++;
+}
+if(data60.dailyTokenLimit !== undefined){
+let data61 = data60.dailyTokenLimit;
+if(!((typeof data61 == "number") && (!(data61 % 1) && !isNaN(data61)))){
+const err208 = {instancePath:instancePath+"/limits/dailyTokenLimit",schemaPath:"#/properties/limits/properties/dailyTokenLimit/type",keyword:"type",params:{type: "integer"},message:"must be integer",schema:schema27.properties.limits.properties.dailyTokenLimit.type,parentSchema:schema27.properties.limits.properties.dailyTokenLimit,data:data61};
+if(vErrors === null){
+vErrors = [err208];
+}
+else {
+vErrors.push(err208);
+}
+errors++;
+}
+if(typeof data61 == "number"){
+if(data61 < 0 || isNaN(data61)){
+const err209 = {instancePath:instancePath+"/limits/dailyTokenLimit",schemaPath:"#/properties/limits/properties/dailyTokenLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.limits.properties.dailyTokenLimit,data:data61};
+if(vErrors === null){
+vErrors = [err209];
+}
+else {
+vErrors.push(err209);
+}
+errors++;
+}
+}
+if(errors > 0){
+const emErrs67 = [];
+for(const err210 of vErrors){
+if(!err210.emUsed){
+emErrs67.push(err210);
+}
+}
+vErrors = emErrs67;
+errors = emErrs67.length;
+}
+}
+if(data60.monthlyTokenLimit !== undefined){
+let data62 = data60.monthlyTokenLimit;
+if(!((typeof data62 == "number") && (!(data62 % 1) && !isNaN(data62)))){
+const err211 = {instancePath:instancePath+"/limits/monthlyTokenLimit",schemaPath:"#/properties/limits/properties/monthlyTokenLimit/type",keyword:"type",params:{type: "integer"},message:"must be integer",schema:schema27.properties.limits.properties.monthlyTokenLimit.type,parentSchema:schema27.properties.limits.properties.monthlyTokenLimit,data:data62};
+if(vErrors === null){
+vErrors = [err211];
+}
+else {
+vErrors.push(err211);
+}
+errors++;
+}
+if(typeof data62 == "number"){
+if(data62 < 0 || isNaN(data62)){
+const err212 = {instancePath:instancePath+"/limits/monthlyTokenLimit",schemaPath:"#/properties/limits/properties/monthlyTokenLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.limits.properties.monthlyTokenLimit,data:data62};
+if(vErrors === null){
+vErrors = [err212];
+}
+else {
+vErrors.push(err212);
+}
+errors++;
+}
+}
+if(errors > 0){
+const emErrs68 = [];
+for(const err213 of vErrors){
+if(!err213.emUsed){
+emErrs68.push(err213);
+}
+}
+vErrors = emErrs68;
+errors = emErrs68.length;
+}
+}
+}
+else {
+const err214 = {instancePath:instancePath+"/limits",schemaPath:"#/properties/limits/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.limits.type,parentSchema:schema27.properties.limits,data:data60};
+if(vErrors === null){
+vErrors = [err214];
+}
+else {
+vErrors.push(err214);
+}
+errors++;
+}
+if(errors > 0){
+const emErrors11 = {"required":{"dailyTokenLimit":[],"monthlyTokenLimit":[]}};
+const templates11 = {required:{}};
+let emPropParams10;
+let emParamsErrors10;
+for(const err215 of vErrors){
+if((((((err215.keyword !== "errorMessage") && (!err215.emUsed)) && (err215.instancePath === instancePath+"/limits")) && (err215.keyword in emErrors11)) && (err215.schemaPath.indexOf("#/properties/limits") === 0)) && (/^\/[^\/]*$/.test(err215.schemaPath.slice(19)))){
+emPropParams10 = obj0[err215.keyword];
+emParamsErrors10 = emErrors11[err215.keyword][err215.params[emPropParams10]];
+if(emParamsErrors10){
+emParamsErrors10.push(err215);
+err215.emUsed = true;
+}
+}
+}
+for(const key14 in emErrors11){
+for(const keyProp10 in emErrors11[key14]){
+emParamsErrors10 = emErrors11[key14][keyProp10];
+if(emParamsErrors10.length){
+const tmpl10 = templates11[key14] && templates11[key14][keyProp10];
+const err216 = {instancePath:instancePath+"/limits",schemaPath:"#/properties/limits/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors10},message:tmpl10 ? tmpl10() : schema27.properties.limits.errorMessage[key14][keyProp10],schema:schema27.properties.limits.errorMessage,parentSchema:schema27.properties.limits,data:data60};
+if(vErrors === null){
+vErrors = [err216];
+}
+else {
+vErrors.push(err216);
+}
+errors++;
+}
+}
+}
+const emErrs69 = [];
+for(const err217 of vErrors){
+if(!err217.emUsed){
+emErrs69.push(err217);
+}
+}
+vErrors = emErrs69;
+errors = emErrs69.length;
+}
+}
+if(data.userLimits !== undefined){
+let data63 = data.userLimits;
+if(data63 && typeof data63 == "object" && !Array.isArray(data63)){
+if(data63.dailyTokenLimit === undefined){
+const err218 = {instancePath:instancePath+"/userLimits",schemaPath:"#/properties/userLimits/required",keyword:"required",params:{missingProperty: "dailyTokenLimit"},message:"must have required property '"+"dailyTokenLimit"+"'",schema:schema27.properties.userLimits.required,parentSchema:schema27.properties.userLimits,data:data63};
+if(vErrors === null){
+vErrors = [err218];
+}
+else {
+vErrors.push(err218);
+}
+errors++;
+}
+if(data63.monthlyTokenLimit === undefined){
+const err219 = {instancePath:instancePath+"/userLimits",schemaPath:"#/properties/userLimits/required",keyword:"required",params:{missingProperty: "monthlyTokenLimit"},message:"must have required property '"+"monthlyTokenLimit"+"'",schema:schema27.properties.userLimits.required,parentSchema:schema27.properties.userLimits,data:data63};
+if(vErrors === null){
+vErrors = [err219];
+}
+else {
+vErrors.push(err219);
+}
+errors++;
+}
+if(data63.dailyTokenLimit !== undefined){
+let data64 = data63.dailyTokenLimit;
+if(!((typeof data64 == "number") && (!(data64 % 1) && !isNaN(data64)))){
+const err220 = {instancePath:instancePath+"/userLimits/dailyTokenLimit",schemaPath:"#/properties/userLimits/properties/dailyTokenLimit/type",keyword:"type",params:{type: "integer"},message:"must be integer",schema:schema27.properties.userLimits.properties.dailyTokenLimit.type,parentSchema:schema27.properties.userLimits.properties.dailyTokenLimit,data:data64};
+if(vErrors === null){
+vErrors = [err220];
+}
+else {
+vErrors.push(err220);
+}
+errors++;
+}
+if(typeof data64 == "number"){
+if(data64 < 0 || isNaN(data64)){
+const err221 = {instancePath:instancePath+"/userLimits/dailyTokenLimit",schemaPath:"#/properties/userLimits/properties/dailyTokenLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.userLimits.properties.dailyTokenLimit,data:data64};
+if(vErrors === null){
+vErrors = [err221];
+}
+else {
+vErrors.push(err221);
+}
+errors++;
+}
+}
+if(errors > 0){
+const emErrs70 = [];
+for(const err222 of vErrors){
+if(!err222.emUsed){
+emErrs70.push(err222);
+}
+}
+vErrors = emErrs70;
+errors = emErrs70.length;
+}
+}
+if(data63.monthlyTokenLimit !== undefined){
+let data65 = data63.monthlyTokenLimit;
+if(!((typeof data65 == "number") && (!(data65 % 1) && !isNaN(data65)))){
+const err223 = {instancePath:instancePath+"/userLimits/monthlyTokenLimit",schemaPath:"#/properties/userLimits/properties/monthlyTokenLimit/type",keyword:"type",params:{type: "integer"},message:"must be integer",schema:schema27.properties.userLimits.properties.monthlyTokenLimit.type,parentSchema:schema27.properties.userLimits.properties.monthlyTokenLimit,data:data65};
+if(vErrors === null){
+vErrors = [err223];
+}
+else {
+vErrors.push(err223);
+}
+errors++;
+}
+if(typeof data65 == "number"){
+if(data65 < 0 || isNaN(data65)){
+const err224 = {instancePath:instancePath+"/userLimits/monthlyTokenLimit",schemaPath:"#/properties/userLimits/properties/monthlyTokenLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.userLimits.properties.monthlyTokenLimit,data:data65};
+if(vErrors === null){
+vErrors = [err224];
+}
+else {
+vErrors.push(err224);
+}
+errors++;
+}
+}
+if(errors > 0){
+const emErrs71 = [];
+for(const err225 of vErrors){
+if(!err225.emUsed){
+emErrs71.push(err225);
+}
+}
+vErrors = emErrs71;
+errors = emErrs71.length;
+}
+}
+}
+else {
+const err226 = {instancePath:instancePath+"/userLimits",schemaPath:"#/properties/userLimits/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.userLimits.type,parentSchema:schema27.properties.userLimits,data:data63};
+if(vErrors === null){
+vErrors = [err226];
+}
+else {
+vErrors.push(err226);
+}
+errors++;
+}
+if(errors > 0){
+const emErrors12 = {"required":{"dailyTokenLimit":[],"monthlyTokenLimit":[]}};
+const templates12 = {required:{}};
+let emPropParams11;
+let emParamsErrors11;
+for(const err227 of vErrors){
+if((((((err227.keyword !== "errorMessage") && (!err227.emUsed)) && (err227.instancePath === instancePath+"/userLimits")) && (err227.keyword in emErrors12)) && (err227.schemaPath.indexOf("#/properties/userLimits") === 0)) && (/^\/[^\/]*$/.test(err227.schemaPath.slice(23)))){
+emPropParams11 = obj0[err227.keyword];
+emParamsErrors11 = emErrors12[err227.keyword][err227.params[emPropParams11]];
+if(emParamsErrors11){
+emParamsErrors11.push(err227);
+err227.emUsed = true;
+}
+}
+}
+for(const key15 in emErrors12){
+for(const keyProp11 in emErrors12[key15]){
+emParamsErrors11 = emErrors12[key15][keyProp11];
+if(emParamsErrors11.length){
+const tmpl11 = templates12[key15] && templates12[key15][keyProp11];
+const err228 = {instancePath:instancePath+"/userLimits",schemaPath:"#/properties/userLimits/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors11},message:tmpl11 ? tmpl11() : schema27.properties.userLimits.errorMessage[key15][keyProp11],schema:schema27.properties.userLimits.errorMessage,parentSchema:schema27.properties.userLimits,data:data63};
+if(vErrors === null){
+vErrors = [err228];
+}
+else {
+vErrors.push(err228);
+}
+errors++;
+}
+}
+}
+const emErrs72 = [];
+for(const err229 of vErrors){
+if(!err229.emUsed){
+emErrs72.push(err229);
+}
+}
+vErrors = emErrs72;
+errors = emErrs72.length;
+}
+}
+}
+else {
+const err230 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.type,parentSchema:schema27,data};
+if(vErrors === null){
+vErrors = [err230];
+}
+else {
+vErrors.push(err230);
+}
+errors++;
+}
+if(errors > 0){
+const emErrors13 = {"required":{"providers":[],"models":[],"limits":[]}};
+const templates13 = {required:{}};
+let emPropParams12;
+let emParamsErrors12;
+for(const err231 of vErrors){
+if((((((err231.keyword !== "errorMessage") && (!err231.emUsed)) && (err231.instancePath === instancePath)) && (err231.keyword in emErrors13)) && (err231.schemaPath.indexOf("#") === 0)) && (/^\/[^\/]*$/.test(err231.schemaPath.slice(1)))){
+emPropParams12 = obj0[err231.keyword];
+emParamsErrors12 = emErrors13[err231.keyword][err231.params[emPropParams12]];
+if(emParamsErrors12){
+emParamsErrors12.push(err231);
+err231.emUsed = true;
+}
+}
+}
+for(const key16 in emErrors13){
+for(const keyProp12 in emErrors13[key16]){
+emParamsErrors12 = emErrors13[key16][keyProp12];
+if(emParamsErrors12.length){
+const tmpl12 = templates13[key16] && templates13[key16][keyProp12];
+const err232 = {instancePath,schemaPath:"#/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors12},message:tmpl12 ? tmpl12() : schema27.errorMessage[key16][keyProp12],schema:schema27.errorMessage,parentSchema:schema27,data};
+if(vErrors === null){
+vErrors = [err232];
+}
+else {
+vErrors.push(err232);
+}
+errors++;
+}
+}
+}
+const emErrs73 = [];
+for(const err233 of vErrors){
+if(!err233.emUsed){
+emErrs73.push(err233);
+}
+}
+vErrors = emErrs73;
+errors = emErrs73.length;
 }
 validate23.errors = vErrors;
 return errors === 0;
@@ -6116,11 +6666,11 @@ return errors === 0;
 validate23.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
 
-function validate35(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
-/*# sourceURL="export8" */;
+function validate38(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+/*# sourceURL="export11" */;
 let vErrors = null;
 let errors = 0;
-const evaluated0 = validate35.evaluated;
+const evaluated0 = validate38.evaluated;
 if(evaluated0.dynamicProps){
 evaluated0.props = undefined;
 }
@@ -6131,10 +6681,10 @@ if(!(validate23(data, {instancePath,parentData,parentDataProperty,rootData,dynam
 vErrors = vErrors === null ? validate23.errors : vErrors.concat(validate23.errors);
 errors = vErrors.length;
 }
-validate35.errors = vErrors;
+validate38.errors = vErrors;
 return errors === 0;
 }
-validate35.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
+validate38.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 function expression0(data,value,options,context,display,layout,readOnly,summary,validates
 ) {
 return (layout.defaultData)
@@ -6244,6 +6794,27 @@ const compiledLayout = {
       root: "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6",
       refPointer: "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6",
       discriminatorValue: "mock"
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/roles/items": {
+      title: "",
+      root: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/roles/items",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/roles/items",
+      discriminatorValue: undefined
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/roles/items": {
+      title: "",
+      root: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/roles/items",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/roles/items",
+      discriminatorValue: undefined
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/roles/items": {
+      title: "",
+      root: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/roles/items",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/roles/items",
+      discriminatorValue: undefined
     }
   },
 
@@ -6254,11 +6825,11 @@ const compiledLayout = {
       pointer: "https://github.com/data-fair/agents/settings-put#",
       refPointer: "https://github.com/data-fair/agents/settings-put#",
       pure: true,
-      propertyKeys: ["createdAt", "updatedAt", "owner", "providers", "chatModel", "summaryModel", "evaluatorModel", "limits", "userLimits"],
+      propertyKeys: ["createdAt", "updatedAt", "owner", "providers", "models", "limits", "userLimits"],
       roPropertyKeys: ["createdAt", "updatedAt", "owner"],
       nullable: false,
       required: true,
-      children: ["https://github.com/data-fair/agents/settings-put#/properties/createdAt", "https://github.com/data-fair/agents/settings-put#/properties/updatedAt", "https://github.com/data-fair/agents/settings-put#/properties/owner", "https://github.com/data-fair/agents/settings-put#/properties/providers", "https://github.com/data-fair/agents/settings-put#/properties/chatModel", "https://github.com/data-fair/agents/settings-put#/properties/summaryModel", "https://github.com/data-fair/agents/settings-put#/properties/evaluatorModel", "https://github.com/data-fair/agents/settings-put#/properties/limits", "https://github.com/data-fair/agents/settings-put#/properties/userLimits"]
+      children: ["https://github.com/data-fair/agents/settings-put#/properties/createdAt", "https://github.com/data-fair/agents/settings-put#/properties/updatedAt", "https://github.com/data-fair/agents/settings-put#/properties/owner", "https://github.com/data-fair/agents/settings-put#/properties/providers", "https://github.com/data-fair/agents/settings-put#/properties/models", "https://github.com/data-fair/agents/settings-put#/properties/limits", "https://github.com/data-fair/agents/settings-put#/properties/userLimits"]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/createdAt": {
@@ -6887,10 +7458,36 @@ const compiledLayout = {
       roPropertyKeys: ["id"]
     },
 
-    "https://github.com/data-fair/agents/settings-put#/properties/chatModel": {
-      title: "Chat Model",
-      key: "chatModel",
-      pointer: "https://github.com/data-fair/agents/settings-put#/properties/chatModel",
+    "https://github.com/data-fair/agents/settings-put#/properties/models": {
+      title: "Models",
+      key: "models",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/models",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models",
+      pure: true,
+      propertyKeys: ["assistant", "summarizer", "evaluator"],
+      roPropertyKeys: [],
+      nullable: false,
+      required: true,
+      children: ["https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant", "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer", "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator"]
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant": {
+      title: "Assistant",
+      key: "assistant",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant",
+      pure: true,
+      propertyKeys: ["model", "roles", "ratio"],
+      roPropertyKeys: [],
+      nullable: false,
+      required: true,
+      children: ["https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/model", "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/roles", "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/ratio"]
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/model": {
+      title: "Model",
+      key: "model",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/model",
       refPointer: "https://github.com/data-fair/agents/settings-put#/definitions/Model",
       pure: true,
       propertyKeys: [],
@@ -6899,11 +7496,36 @@ const compiledLayout = {
       required: true
     },
 
-    "https://github.com/data-fair/agents/settings-put#/properties/summaryModel": {
-      title: "Summary Model",
-      key: "summaryModel",
-      pointer: "https://github.com/data-fair/agents/settings-put#/properties/summaryModel",
-      refPointer: "https://github.com/data-fair/agents/settings-put#/definitions/Model",
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/roles": {
+      title: "Allowed Roles",
+      key: "roles",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/roles",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/roles",
+      pure: true,
+      propertyKeys: [],
+      roPropertyKeys: [],
+      nullable: false,
+      required: false,
+      childrenTrees: ["https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/roles/items"]
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/roles/items": {
+      title: undefined,
+      key: "",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/roles/items",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/roles/items",
+      pure: true,
+      propertyKeys: [],
+      roPropertyKeys: [],
+      nullable: false,
+      required: true
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/ratio": {
+      title: "Usage Ratio",
+      key: "ratio",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/ratio",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/ratio",
       pure: true,
       propertyKeys: [],
       roPropertyKeys: [],
@@ -6911,16 +7533,128 @@ const compiledLayout = {
       required: false
     },
 
-    "https://github.com/data-fair/agents/settings-put#/properties/evaluatorModel": {
-      title: "Evaluator Model",
-      key: "evaluatorModel",
-      pointer: "https://github.com/data-fair/agents/settings-put#/properties/evaluatorModel",
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer": {
+      title: "Summarizer",
+      key: "summarizer",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer",
+      pure: true,
+      propertyKeys: ["model", "roles", "ratio"],
+      roPropertyKeys: [],
+      nullable: false,
+      required: false,
+      children: ["https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/model", "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/roles", "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/ratio"]
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/model": {
+      title: "Model",
+      key: "model",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/model",
       refPointer: "https://github.com/data-fair/agents/settings-put#/definitions/Model",
       pure: true,
       propertyKeys: [],
       roPropertyKeys: [],
       nullable: false,
-      required: false
+      required: undefined
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/roles": {
+      title: "Allowed Roles",
+      key: "roles",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/roles",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/roles",
+      pure: true,
+      propertyKeys: [],
+      roPropertyKeys: [],
+      nullable: false,
+      required: undefined,
+      childrenTrees: ["https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/roles/items"]
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/roles/items": {
+      title: undefined,
+      key: "",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/roles/items",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/roles/items",
+      pure: true,
+      propertyKeys: [],
+      roPropertyKeys: [],
+      nullable: false,
+      required: true
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/ratio": {
+      title: "Usage Ratio",
+      key: "ratio",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/ratio",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/ratio",
+      pure: true,
+      propertyKeys: [],
+      roPropertyKeys: [],
+      nullable: false,
+      required: undefined
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator": {
+      title: "Evaluator",
+      key: "evaluator",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator",
+      pure: true,
+      propertyKeys: ["model", "roles", "ratio"],
+      roPropertyKeys: [],
+      nullable: false,
+      required: false,
+      children: ["https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/model", "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/roles", "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/ratio"]
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/model": {
+      title: "Model",
+      key: "model",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/model",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/definitions/Model",
+      pure: true,
+      propertyKeys: [],
+      roPropertyKeys: [],
+      nullable: false,
+      required: undefined
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/roles": {
+      title: "Allowed Roles",
+      key: "roles",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/roles",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/roles",
+      pure: true,
+      propertyKeys: [],
+      roPropertyKeys: [],
+      nullable: false,
+      required: undefined,
+      childrenTrees: ["https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/roles/items"]
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/roles/items": {
+      title: undefined,
+      key: "",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/roles/items",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/roles/items",
+      pure: true,
+      propertyKeys: [],
+      roPropertyKeys: [],
+      nullable: false,
+      required: true
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/ratio": {
+      title: "Usage Ratio",
+      key: "ratio",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/ratio",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/ratio",
+      pure: true,
+      propertyKeys: [],
+      roPropertyKeys: [],
+      nullable: false,
+      required: undefined
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/limits": {
@@ -7012,11 +7746,7 @@ const compiledLayout = {
       }, {
         key: "providers"
       }, {
-        key: "chatModel"
-      }, {
-        key: "summaryModel"
-      }, {
-        key: "evaluatorModel"
+        key: "models"
       }, {
         key: "limits"
       }, {
@@ -7874,16 +8604,207 @@ const compiledLayout = {
       }
     },
 
-    "https://github.com/data-fair/agents/settings-put#/properties/chatModel": {
+    "https://github.com/data-fair/agents/settings-put#/properties/models": {
+      comp: "section",
+
+      children: [{
+        key: "assistant"
+      }, {
+        key: "summarizer"
+      }, {
+        key: "evaluator"
+      }],
+
+      title: "Models",
+      defaultData: {},
+
+      getDefaultData: {
+        type: "js-eval",
+        expr: "layout.defaultData",
+        pure: true,
+        dataAlias: "value",
+        ref: 0
+      }
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant": {
+      comp: "section",
+
+      children: [{
+        key: "model"
+      }, {
+        key: "roles"
+      }, {
+        key: "ratio"
+      }],
+
+      title: "Assistant",
+      subtitle: "<p>Main conversational model. Suggested models: claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash, mistral-small-latest, minimax-01.</p>",
+      defaultData: {},
+
+      getDefaultData: {
+        type: "js-eval",
+        expr: "layout.defaultData",
+        pure: true,
+        dataAlias: "value",
+        ref: 0
+      }
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/model": {
       comp: "none"
     },
 
-    "https://github.com/data-fair/agents/settings-put#/properties/summaryModel": {
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/roles": {
+      comp: "combobox",
+      multiple: true,
+      label: "Allowed Roles",
+      help: "<p>Roles allowed to use this model through the gateway (empty = admin only)</p>",
+      defaultData: [],
+
+      getDefaultData: {
+        type: "js-eval",
+        expr: "layout.defaultData",
+        pure: true,
+        dataAlias: "value",
+        ref: 0
+      }
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/roles/items": {
+      comp: "text-field",
+      label: "",
+      nullable: true
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/ratio": {
+      comp: "number-field",
+      min: 0,
+      label: "Usage Ratio",
+      help: "<p>Multiplier applied to token usage for quota accounting (e.g. 1.0 = full cost, 0.5 = half cost)</p>",
+      defaultData: 1,
+
+      getDefaultData: {
+        type: "js-eval",
+        expr: "layout.defaultData",
+        pure: true,
+        dataAlias: "value",
+        ref: 0
+      }
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer": {
+      comp: "section",
+
+      children: [{
+        key: "model"
+      }, {
+        key: "roles"
+      }, {
+        key: "ratio"
+      }],
+
+      title: "Summarizer",
+      subtitle: "<p>Model used for chat history summarization (optional, defaults to assistant). Suggested models: claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash-lite, mistral-small-latest.</p>"
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/model": {
       comp: "none"
     },
 
-    "https://github.com/data-fair/agents/settings-put#/properties/evaluatorModel": {
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/roles": {
+      comp: "combobox",
+      multiple: true,
+      label: "Allowed Roles",
+      help: "<p>Roles allowed to use this model through the gateway (empty = admin only)</p>",
+      defaultData: [],
+
+      getDefaultData: {
+        type: "js-eval",
+        expr: "layout.defaultData",
+        pure: true,
+        dataAlias: "value",
+        ref: 0
+      }
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/roles/items": {
+      comp: "text-field",
+      label: "",
+      nullable: true
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/ratio": {
+      comp: "number-field",
+      min: 0,
+      label: "Usage Ratio",
+      help: "<p>Multiplier applied to token usage for quota accounting (e.g. 0.5 for cheaper summarization)</p>",
+      defaultData: 0.5,
+
+      getDefaultData: {
+        type: "js-eval",
+        expr: "layout.defaultData",
+        pure: true,
+        dataAlias: "value",
+        ref: 0
+      }
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator": {
+      comp: "section",
+
+      children: [{
+        key: "model"
+      }, {
+        key: "roles"
+      }, {
+        key: "ratio"
+      }],
+
+      title: "Evaluator",
+      subtitle: "<p>Model used for evaluation tasks (optional, defaults to assistant). Suggested models: claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash, mistral-small-latest.</p>"
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/model": {
       comp: "none"
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/roles": {
+      comp: "combobox",
+      multiple: true,
+      label: "Allowed Roles",
+      help: "<p>Roles allowed to use this model through the gateway (empty = admin only)</p>",
+      defaultData: [],
+
+      getDefaultData: {
+        type: "js-eval",
+        expr: "layout.defaultData",
+        pure: true,
+        dataAlias: "value",
+        ref: 0
+      }
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/roles/items": {
+      comp: "text-field",
+      label: "",
+      nullable: true
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/ratio": {
+      comp: "number-field",
+      min: 0,
+      label: "Usage Ratio",
+      help: "<p>Multiplier applied to token usage for quota accounting</p>",
+      defaultData: 1,
+
+      getDefaultData: {
+        type: "js-eval",
+        expr: "layout.defaultData",
+        pure: true,
+        dataAlias: "value",
+        ref: 0
+      }
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/limits": {
@@ -8018,7 +8939,10 @@ const compiledLayout = {
     "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5": validate32,
     "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6": validate33,
     "https://github.com/data-fair/agents/settings-put#/properties/providers/items": validate34,
-    "https://github.com/data-fair/agents/settings-put#": validate35
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/roles/items": validate35,
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/roles/items": validate36,
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/roles/items": validate37,
+    "https://github.com/data-fair/agents/settings-put#": validate38
   },
 
   validationErrors: {},
@@ -8486,6 +9410,8 @@ const nodeComponents = {
   "one-of-select": oneofselectNode,
   
   "checkbox": checkboxNode,
+  
+  "combobox": comboboxNode,
   
   "number-field": numberfieldNode,
     
