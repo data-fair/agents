@@ -168,7 +168,7 @@ export type Models = {
  * Main conversational model. Suggested models: claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash, mistral-small-latest, minimax-01.
  */
 export type Assistant = {
-  model: Model;
+  model?: Model;
   roles?: Roles;
   ratio?: UsageRatio;
   [k: string]: unknown;

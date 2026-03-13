@@ -5,8 +5,8 @@ import { fullFormats } from "ajv-formats/dist/formats.js";
 "use strict";
 export const validate = validate14;
 export default validate14;
-const schema16 = {"$id":"https://github.com/data-fair/agents/settings-put","x-exports":["validate","types","vjsf"],"title":"Settings put","x-i18n-title":{"en":"Settings","fr":"Paramètres"},"layout":{"title":null},"definitions":{"Model":{"$ref":"https://github.com/data-fair/agents/model"}},"type":"object","additionalProperties":false,"required":["providers","models","limits"],"properties":{"createdAt":{"type":"string","format":"date-time","readOnly":true},"updatedAt":{"type":"string","format":"date-time","readOnly":true},"owner":{"type":"object","additionalProperties":false,"required":["type","id"],"readOnly":true,"properties":{"type":{"type":"string","enum":["user","organization"]},"id":{"type":"string"},"name":{"type":"string"},"department":{"type":"string"}}},"providers":{"type":"array","title":"AI Providers","x-i18n-title":{"en":"AI Providers","fr":"Fournisseurs IA"},"layout":{"itemTitle":"item ? `${item.name || \"\"} - ${item.id.slice(0, 8)}` : \"\"","listActions":["add","edit","delete"]},"items":{"type":"object","title":"Provider","x-i18n-title":{"en":"Provider","fr":"Fournisseur"},"unevaluatedProperties":false,"oneOfLayout":{"emptyData":true},"discriminator":{"propertyName":"type"},"layout":{"getDefaultData":"{ id: crypto.randomUUID() }","switch":[{"if":"summary","children":[]}]},"oneOf":[{"required":["type","name","id","enabled"],"title":"Open AI","properties":{"type":{"type":"string","title":"Provider Type","const":"openai"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"Open AI\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true},"apiKey":{"type":"string","title":"API Key","x-i18n-title":{"en":"API Key","fr":"Clé API"}}}},{"required":["type","name","id","enabled"],"title":"Anthropic","properties":{"type":{"type":"string","title":"Provider Type","const":"anthropic"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"Anthropic\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true},"apiKey":{"type":"string","title":"API Key","x-i18n-title":{"en":"API Key","fr":"Clé API"}}}},{"required":["type","name","id","enabled"],"title":"Google","properties":{"type":{"type":"string","title":"Provider Type","const":"google"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"Google\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true},"apiKey":{"type":"string","title":"API Key","x-i18n-title":{"en":"API Key","fr":"Clé API"}}}},{"required":["type","name","id","enabled"],"title":"Mistral","properties":{"type":{"type":"string","title":"Provider Type","const":"mistral"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"Mistral\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true},"apiKey":{"type":"string","title":"API Key","x-i18n-title":{"en":"API Key","fr":"Clé API"}}}},{"required":["type","name","id","enabled"],"title":"OpenRouter","properties":{"type":{"type":"string","title":"Provider Type","const":"openrouter"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"OpenRouter\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true},"apiKey":{"type":"string","title":"API Key","x-i18n-title":{"en":"API Key","fr":"Clé API"}}}},{"required":["type","name","id","enabled","baseURL"],"title":"Ollama","properties":{"type":{"type":"string","title":"Provider Type","const":"ollama"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"Ollama\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true},"apiKey":{"type":"string","title":"API Key","x-i18n-title":{"en":"API Key","fr":"Clé API"}},"baseURL":{"type":"string","title":"Base URL","x-i18n-title":{"en":"Base URL","fr":"URL de base"},"default":"http://localhost:11434"}}},{"required":["type","name","id","enabled"],"title":"Mock","description":"To a message \"hello\" respond \"world\", to a message \"call tool ARG1 ARG2\" respond with a tool call, to anything else respond \"what do you mean ?\"","properties":{"type":{"type":"string","title":"Provider Type","const":"mock"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"Mock\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true}}}]}},"models":{"type":"object","title":"Models","x-i18n-title":{"en":"Models","fr":"Modèles"},"required":["assistant"],"properties":{"assistant":{"type":"object","title":"Assistant","description":"Main conversational model. Suggested models: claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash, mistral-small-latest, minimax-01.","x-i18n-title":{"en":"Assistant","fr":"Assistant"},"x-i18n-description":{"en":"Main conversational model. Suggested models: claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash, mistral-small-latest, minimax-01.","fr":"Modèle conversationnel principal. Modèles suggérés : claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash, mistral-small-latest, minimax-01."},"required":["model"],"properties":{"model":{"$ref":"#/definitions/Model","title":"Model","x-i18n-title":{"en":"Model","fr":"Modèle"}},"roles":{"type":"array","title":"Roles","x-i18n-title":{"en":"Allowed Roles","fr":"Rôles autorisés"},"description":"Roles allowed to use this model through the gateway (empty = admin only)","x-i18n-description":{"en":"Roles allowed to use this model through the gateway (empty = admin only)","fr":"Rôles autorisés à utiliser ce modèle via la passerelle (vide = admin uniquement)"},"items":{"type":"string"},"default":[]},"ratio":{"type":"number","title":"Usage Ratio","x-i18n-title":{"en":"Usage Ratio","fr":"Ratio d'utilisation"},"description":"Multiplier applied to token usage for quota accounting (e.g. 1.0 = full cost, 0.5 = half cost)","x-i18n-description":{"en":"Multiplier applied to token usage for quota accounting (e.g. 1.0 = full cost, 0.5 = half cost)","fr":"Multiplicateur appliqué à l'utilisation des tokens pour le calcul des quotas (ex : 1.0 = coût plein, 0.5 = demi-coût)"},"default":1,"minimum":0}}},"summarizer":{"type":"object","title":"Summarizer","description":"Model used for chat history summarization (optional, defaults to assistant). Suggested models: claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash-lite, mistral-small-latest.","x-i18n-title":{"en":"Summarizer","fr":"Résumeur"},"x-i18n-description":{"en":"Model used for chat history summarization (optional, defaults to assistant). Suggested models: claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash-lite, mistral-small-latest.","fr":"Modèle utilisé pour la synthèse de l'historique (optionnel, par défaut l'assistant). Modèles suggérés : claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash-lite, mistral-small-latest."},"properties":{"model":{"$ref":"#/definitions/Model","title":"Model","x-i18n-title":{"en":"Model","fr":"Modèle"}},"roles":{"type":"array","title":"Roles","x-i18n-title":{"en":"Allowed Roles","fr":"Rôles autorisés"},"description":"Roles allowed to use this model through the gateway (empty = admin only)","x-i18n-description":{"en":"Roles allowed to use this model through the gateway (empty = admin only)","fr":"Rôles autorisés à utiliser ce modèle via la passerelle (vide = admin uniquement)"},"items":{"type":"string"},"default":[]},"ratio":{"type":"number","title":"Usage Ratio","x-i18n-title":{"en":"Usage Ratio","fr":"Ratio d'utilisation"},"description":"Multiplier applied to token usage for quota accounting (e.g. 0.5 for cheaper summarization)","x-i18n-description":{"en":"Multiplier applied to token usage for quota accounting (e.g. 0.5 for cheaper summarization)","fr":"Multiplicateur appliqué à l'utilisation des tokens pour le calcul des quotas (ex : 0.5 pour une synthèse moins coûteuse)"},"default":0.5,"minimum":0}}},"evaluator":{"type":"object","title":"Evaluator","description":"Model used for evaluation tasks (optional, defaults to assistant). Suggested models: claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash, mistral-small-latest.","x-i18n-title":{"en":"Evaluator","fr":"Évaluateur"},"x-i18n-description":{"en":"Model used for evaluation tasks (optional, defaults to assistant). Suggested models: claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash, mistral-small-latest.","fr":"Modèle utilisé pour les tâches d'évaluation (optionnel, par défaut l'assistant). Modèles suggérés : claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash, mistral-small-latest."},"properties":{"model":{"$ref":"#/definitions/Model","title":"Model","x-i18n-title":{"en":"Model","fr":"Modèle"}},"roles":{"type":"array","title":"Roles","x-i18n-title":{"en":"Allowed Roles","fr":"Rôles autorisés"},"description":"Roles allowed to use this model through the gateway (empty = admin only)","x-i18n-description":{"en":"Roles allowed to use this model through the gateway (empty = admin only)","fr":"Rôles autorisés à utiliser ce modèle via la passerelle (vide = admin uniquement)"},"items":{"type":"string"},"default":[]},"ratio":{"type":"number","title":"Usage Ratio","x-i18n-title":{"en":"Usage Ratio","fr":"Ratio d'utilisation"},"description":"Multiplier applied to token usage for quota accounting","x-i18n-description":{"en":"Multiplier applied to token usage for quota accounting","fr":"Multiplicateur appliqué à l'utilisation des tokens pour le calcul des quotas"},"default":1,"minimum":0}}}}},"limits":{"type":"object","title":"Usage Limits","x-i18n-title":{"en":"Usage Limits","fr":"Limites d'utilisation"},"required":["dailyTokenLimit","monthlyTokenLimit"],"default":{"dailyTokenLimit":100000,"monthlyTokenLimit":1000000},"properties":{"dailyTokenLimit":{"type":"integer","title":"Daily Token Limit","x-i18n-title":{"en":"Daily Token Limit","fr":"Limite de tokens journalière"},"description":"Maximum number of tokens allowed per day (0 for unlimited)","x-i18n-description":{"en":"Maximum number of tokens allowed per day (0 for unlimited)","fr":"Nombre maximum de tokens autorisés par jour (0 pour illimité)"},"default":100000,"minimum":0},"monthlyTokenLimit":{"type":"integer","title":"Monthly Token Limit","x-i18n-title":{"en":"Monthly Token Limit","fr":"Limite de tokens mensuelle"},"description":"Maximum number of tokens allowed per month (0 for unlimited)","x-i18n-description":{"en":"Maximum number of tokens allowed per month (0 for unlimited)","fr":"Nombre maximum de tokens autorisés par mois (0 pour illimité)"},"default":1000000,"minimum":0}}},"userLimits":{"type":"object","title":"Per-User Usage Limits","x-i18n-title":{"en":"Per-User Usage Limits","fr":"Limites d'utilisation par utilisateur"},"required":["dailyTokenLimit","monthlyTokenLimit"],"default":{"dailyTokenLimit":100000,"monthlyTokenLimit":1000000},"properties":{"dailyTokenLimit":{"type":"integer","title":"Daily Token Limit","x-i18n-title":{"en":"Daily Token Limit","fr":"Limite de tokens journalière"},"description":"Maximum number of tokens allowed per day (0 for unlimited)","x-i18n-description":{"en":"Maximum number of tokens allowed per day (0 for unlimited)","fr":"Nombre maximum de tokens autorisés par jour (0 pour illimité)"},"default":100000,"minimum":0},"monthlyTokenLimit":{"type":"integer","title":"Monthly Token Limit","x-i18n-title":{"en":"Monthly Token Limit","fr":"Limite de tokens mensuelle"},"description":"Maximum number of tokens allowed per month (0 for unlimited)","x-i18n-description":{"en":"Maximum number of tokens allowed per month (0 for unlimited)","fr":"Nombre maximum de tokens autorisés par mois (0 pour illimité)"},"default":1000000,"minimum":0}}}},"x-vjsf":{"xI18n":true,"pluginsImports":["@koumoul/vjsf-markdown"]},"x-vjsf-locales":["en","fr"]};
-const schema17 = {"$id":"https://github.com/data-fair/agents/model","title":"Model","type":"object","required":["id","name","provider"],"properties":{"id":{"type":"string","title":"Model ID"},"name":{"type":"string","title":"Name"},"provider":{"type":"object","required":["type","name","id"],"properties":{"type":{"type":"string","title":"Provider Type"},"name":{"type":"string","title":"Provider Name"},"id":{"type":"string","title":"Provider ID"}}}}};
+const schema16 = {"$id":"https://github.com/data-fair/agents/settings-put","x-exports":["validate","types","vjsf"],"title":"Settings put","x-i18n-title":{"en":"Settings","fr":"Paramètres"},"layout":{"title":null},"definitions":{"Model":{"type":"object","required":["id","name","provider"],"layout":{"comp":"autocomplete","getItems":{"expr":"context.models","itemTitle":"`${item.name} (${item.provider.name} - ${item.provider.id.slice(0, 8)})`"}},"properties":{"id":{"type":"string","title":"Model ID"},"name":{"type":"string","title":"Name"},"provider":{"type":"object","required":["type","name","id"],"properties":{"type":{"type":"string","title":"Provider Type"},"name":{"type":"string","title":"Provider Name"},"id":{"type":"string","title":"Provider ID"}}}}}},"type":"object","additionalProperties":false,"required":["providers","models","limits"],"properties":{"createdAt":{"type":"string","format":"date-time","readOnly":true},"updatedAt":{"type":"string","format":"date-time","readOnly":true},"owner":{"type":"object","additionalProperties":false,"required":["type","id"],"readOnly":true,"properties":{"type":{"type":"string","enum":["user","organization"]},"id":{"type":"string"},"name":{"type":"string"},"department":{"type":"string"}}},"providers":{"type":"array","title":"AI Providers","x-i18n-title":{"en":"AI Providers","fr":"Fournisseurs IA"},"layout":{"itemTitle":"item ? `${item.name || \"\"} - ${item.id.slice(0, 8)}` : \"\"","listActions":["add","edit","delete"]},"items":{"type":"object","title":"Provider","x-i18n-title":{"en":"Provider","fr":"Fournisseur"},"unevaluatedProperties":false,"oneOfLayout":{"emptyData":true},"discriminator":{"propertyName":"type"},"layout":{"getDefaultData":"{ id: crypto.randomUUID() }","switch":[{"if":"summary","children":[]}]},"oneOf":[{"required":["type","name","id","enabled"],"title":"Open AI","properties":{"type":{"type":"string","title":"Provider Type","const":"openai"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"Open AI\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true},"apiKey":{"type":"string","title":"API Key","x-i18n-title":{"en":"API Key","fr":"Clé API"}}}},{"required":["type","name","id","enabled"],"title":"Anthropic","properties":{"type":{"type":"string","title":"Provider Type","const":"anthropic"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"Anthropic\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true},"apiKey":{"type":"string","title":"API Key","x-i18n-title":{"en":"API Key","fr":"Clé API"}}}},{"required":["type","name","id","enabled"],"title":"Google","properties":{"type":{"type":"string","title":"Provider Type","const":"google"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"Google\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true},"apiKey":{"type":"string","title":"API Key","x-i18n-title":{"en":"API Key","fr":"Clé API"}}}},{"required":["type","name","id","enabled"],"title":"Mistral","properties":{"type":{"type":"string","title":"Provider Type","const":"mistral"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"Mistral\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true},"apiKey":{"type":"string","title":"API Key","x-i18n-title":{"en":"API Key","fr":"Clé API"}}}},{"required":["type","name","id","enabled"],"title":"OpenRouter","properties":{"type":{"type":"string","title":"Provider Type","const":"openrouter"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"OpenRouter\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true},"apiKey":{"type":"string","title":"API Key","x-i18n-title":{"en":"API Key","fr":"Clé API"}}}},{"required":["type","name","id","enabled","baseURL"],"title":"Ollama","properties":{"type":{"type":"string","title":"Provider Type","const":"ollama"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"Ollama\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true},"apiKey":{"type":"string","title":"API Key","x-i18n-title":{"en":"API Key","fr":"Clé API"}},"baseURL":{"type":"string","title":"Base URL","x-i18n-title":{"en":"Base URL","fr":"URL de base"},"default":"http://localhost:11434"}}},{"required":["type","name","id","enabled"],"title":"Mock","description":"To a message \"hello\" respond \"world\", to a message \"call tool ARG1 ARG2\" respond with a tool call, to anything else respond \"what do you mean ?\"","properties":{"type":{"type":"string","title":"Provider Type","const":"mock"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"Mock\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true}}}]}},"models":{"type":"object","title":"Models","x-i18n-title":{"en":"Models","fr":"Modèles"},"required":["assistant"],"properties":{"assistant":{"type":"object","title":"Assistant","description":"Main conversational model. Suggested models: claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash, mistral-small-latest, minimax-01.","x-i18n-title":{"en":"Assistant","fr":"Assistant"},"x-i18n-description":{"en":"Main conversational model. Suggested models: claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash, mistral-small-latest, minimax-01.","fr":"Modèle conversationnel principal. Modèles suggérés : claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash, mistral-small-latest, minimax-01."},"required":[],"properties":{"model":{"$ref":"#/definitions/Model","title":"Model","x-i18n-title":{"en":"Model","fr":"Modèle"}},"roles":{"type":"array","title":"Roles","x-i18n-title":{"en":"Allowed Roles","fr":"Rôles autorisés"},"description":"Roles allowed to use this model through the gateway (empty = admin only)","x-i18n-description":{"en":"Roles allowed to use this model through the gateway (empty = admin only)","fr":"Rôles autorisés à utiliser ce modèle via la passerelle (vide = admin uniquement)"},"items":{"type":"string"},"default":[]},"ratio":{"type":"number","title":"Usage Ratio","x-i18n-title":{"en":"Usage Ratio","fr":"Ratio d'utilisation"},"description":"Multiplier applied to token usage for quota accounting (e.g. 1.0 = full cost, 0.5 = half cost)","x-i18n-description":{"en":"Multiplier applied to token usage for quota accounting (e.g. 1.0 = full cost, 0.5 = half cost)","fr":"Multiplicateur appliqué à l'utilisation des tokens pour le calcul des quotas (ex : 1.0 = coût plein, 0.5 = demi-coût)"},"default":1,"minimum":0}}},"summarizer":{"type":"object","title":"Summarizer","description":"Model used for chat history summarization (optional, defaults to assistant). Suggested models: claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash-lite, mistral-small-latest.","x-i18n-title":{"en":"Summarizer","fr":"Résumeur"},"x-i18n-description":{"en":"Model used for chat history summarization (optional, defaults to assistant). Suggested models: claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash-lite, mistral-small-latest.","fr":"Modèle utilisé pour la synthèse de l'historique (optionnel, par défaut l'assistant). Modèles suggérés : claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash-lite, mistral-small-latest."},"properties":{"model":{"$ref":"#/definitions/Model","title":"Model","x-i18n-title":{"en":"Model","fr":"Modèle"}},"roles":{"type":"array","title":"Roles","x-i18n-title":{"en":"Allowed Roles","fr":"Rôles autorisés"},"description":"Roles allowed to use this model through the gateway (empty = admin only)","x-i18n-description":{"en":"Roles allowed to use this model through the gateway (empty = admin only)","fr":"Rôles autorisés à utiliser ce modèle via la passerelle (vide = admin uniquement)"},"items":{"type":"string"},"default":[]},"ratio":{"type":"number","title":"Usage Ratio","x-i18n-title":{"en":"Usage Ratio","fr":"Ratio d'utilisation"},"description":"Multiplier applied to token usage for quota accounting (e.g. 0.5 for cheaper summarization)","x-i18n-description":{"en":"Multiplier applied to token usage for quota accounting (e.g. 0.5 for cheaper summarization)","fr":"Multiplicateur appliqué à l'utilisation des tokens pour le calcul des quotas (ex : 0.5 pour une synthèse moins coûteuse)"},"default":0.5,"minimum":0}}},"evaluator":{"type":"object","title":"Evaluator","description":"Model used for evaluation tasks (optional, defaults to assistant). Suggested models: claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash, mistral-small-latest.","x-i18n-title":{"en":"Evaluator","fr":"Évaluateur"},"x-i18n-description":{"en":"Model used for evaluation tasks (optional, defaults to assistant). Suggested models: claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash, mistral-small-latest.","fr":"Modèle utilisé pour les tâches d'évaluation (optionnel, par défaut l'assistant). Modèles suggérés : claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash, mistral-small-latest."},"properties":{"model":{"$ref":"#/definitions/Model","title":"Model","x-i18n-title":{"en":"Model","fr":"Modèle"}},"roles":{"type":"array","title":"Roles","x-i18n-title":{"en":"Allowed Roles","fr":"Rôles autorisés"},"description":"Roles allowed to use this model through the gateway (empty = admin only)","x-i18n-description":{"en":"Roles allowed to use this model through the gateway (empty = admin only)","fr":"Rôles autorisés à utiliser ce modèle via la passerelle (vide = admin uniquement)"},"items":{"type":"string"},"default":[]},"ratio":{"type":"number","title":"Usage Ratio","x-i18n-title":{"en":"Usage Ratio","fr":"Ratio d'utilisation"},"description":"Multiplier applied to token usage for quota accounting","x-i18n-description":{"en":"Multiplier applied to token usage for quota accounting","fr":"Multiplicateur appliqué à l'utilisation des tokens pour le calcul des quotas"},"default":1,"minimum":0}}}}},"limits":{"type":"object","title":"Usage Limits","x-i18n-title":{"en":"Usage Limits","fr":"Limites d'utilisation"},"required":["dailyTokenLimit","monthlyTokenLimit"],"default":{"dailyTokenLimit":100000,"monthlyTokenLimit":1000000},"properties":{"dailyTokenLimit":{"type":"integer","title":"Daily Token Limit","x-i18n-title":{"en":"Daily Token Limit","fr":"Limite de tokens journalière"},"description":"Maximum number of tokens allowed per day (0 for unlimited)","x-i18n-description":{"en":"Maximum number of tokens allowed per day (0 for unlimited)","fr":"Nombre maximum de tokens autorisés par jour (0 pour illimité)"},"default":100000,"minimum":0},"monthlyTokenLimit":{"type":"integer","title":"Monthly Token Limit","x-i18n-title":{"en":"Monthly Token Limit","fr":"Limite de tokens mensuelle"},"description":"Maximum number of tokens allowed per month (0 for unlimited)","x-i18n-description":{"en":"Maximum number of tokens allowed per month (0 for unlimited)","fr":"Nombre maximum de tokens autorisés par mois (0 pour illimité)"},"default":1000000,"minimum":0}}},"userLimits":{"type":"object","title":"Per-User Usage Limits","x-i18n-title":{"en":"Per-User Usage Limits","fr":"Limites d'utilisation par utilisateur"},"required":["dailyTokenLimit","monthlyTokenLimit"],"default":{"dailyTokenLimit":100000,"monthlyTokenLimit":1000000},"properties":{"dailyTokenLimit":{"type":"integer","title":"Daily Token Limit","x-i18n-title":{"en":"Daily Token Limit","fr":"Limite de tokens journalière"},"description":"Maximum number of tokens allowed per day (0 for unlimited)","x-i18n-description":{"en":"Maximum number of tokens allowed per day (0 for unlimited)","fr":"Nombre maximum de tokens autorisés par jour (0 pour illimité)"},"default":100000,"minimum":0},"monthlyTokenLimit":{"type":"integer","title":"Monthly Token Limit","x-i18n-title":{"en":"Monthly Token Limit","fr":"Limite de tokens mensuelle"},"description":"Maximum number of tokens allowed per month (0 for unlimited)","x-i18n-description":{"en":"Maximum number of tokens allowed per month (0 for unlimited)","fr":"Nombre maximum de tokens autorisés par mois (0 pour illimité)"},"default":1000000,"minimum":0}}}},"x-vjsf":{"xI18n":true,"pluginsImports":["@koumoul/vjsf-markdown"]},"x-vjsf-locales":["en","fr"]};
+const schema17 = {"type":"object","required":["id","name","provider"],"layout":{"comp":"autocomplete","getItems":{"expr":"context.models","itemTitle":"`${item.name} (${item.provider.name} - ${item.provider.id.slice(0, 8)})`"}},"properties":{"id":{"type":"string","title":"Model ID"},"name":{"type":"string","title":"Name"},"provider":{"type":"object","required":["type","name","id"],"properties":{"type":{"type":"string","title":"Provider Type"},"name":{"type":"string","title":"Provider Name"},"id":{"type":"string","title":"Provider ID"}}}}};
 const formats0 = fullFormats["date-time"];
 
 function validate14(data, {instancePath="", parentData, parentDataProperty, rootData=data}={}){
@@ -1160,8 +1160,11 @@ errors++;
 if(data44.assistant !== undefined){
 let data45 = data44.assistant;
 if(data45 && typeof data45 == "object" && !Array.isArray(data45)){
-if(data45.model === undefined){
-const err92 = {instancePath:instancePath+"/models/assistant",schemaPath:"#/properties/models/properties/assistant/required",keyword:"required",params:{missingProperty: "model"},message:"must have required property '"+"model"+"'"};
+if(data45.model !== undefined){
+let data46 = data45.model;
+if(data46 && typeof data46 == "object" && !Array.isArray(data46)){
+if(data46.id === undefined){
+const err92 = {instancePath:instancePath+"/models/assistant/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
 if(vErrors === null){
 vErrors = [err92];
 }
@@ -1170,11 +1173,8 @@ vErrors.push(err92);
 }
 errors++;
 }
-if(data45.model !== undefined){
-let data46 = data45.model;
-if(data46 && typeof data46 == "object" && !Array.isArray(data46)){
-if(data46.id === undefined){
-const err93 = {instancePath:instancePath+"/models/assistant/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+if(data46.name === undefined){
+const err93 = {instancePath:instancePath+"/models/assistant/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
 if(vErrors === null){
 vErrors = [err93];
 }
@@ -1183,8 +1183,8 @@ vErrors.push(err93);
 }
 errors++;
 }
-if(data46.name === undefined){
-const err94 = {instancePath:instancePath+"/models/assistant/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
+if(data46.provider === undefined){
+const err94 = {instancePath:instancePath+"/models/assistant/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'"};
 if(vErrors === null){
 vErrors = [err94];
 }
@@ -1193,8 +1193,9 @@ vErrors.push(err94);
 }
 errors++;
 }
-if(data46.provider === undefined){
-const err95 = {instancePath:instancePath+"/models/assistant/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'"};
+if(data46.id !== undefined){
+if(typeof data46.id !== "string"){
+const err95 = {instancePath:instancePath+"/models/assistant/model/id",schemaPath:"#/definitions/Model/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err95];
 }
@@ -1203,9 +1204,10 @@ vErrors.push(err95);
 }
 errors++;
 }
-if(data46.id !== undefined){
-if(typeof data46.id !== "string"){
-const err96 = {instancePath:instancePath+"/models/assistant/model/id",schemaPath:"#/definitions/Model/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+}
+if(data46.name !== undefined){
+if(typeof data46.name !== "string"){
+const err96 = {instancePath:instancePath+"/models/assistant/model/name",schemaPath:"#/definitions/Model/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err96];
 }
@@ -1215,9 +1217,11 @@ vErrors.push(err96);
 errors++;
 }
 }
-if(data46.name !== undefined){
-if(typeof data46.name !== "string"){
-const err97 = {instancePath:instancePath+"/models/assistant/model/name",schemaPath:"#/definitions/Model/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data46.provider !== undefined){
+let data49 = data46.provider;
+if(data49 && typeof data49 == "object" && !Array.isArray(data49)){
+if(data49.type === undefined){
+const err97 = {instancePath:instancePath+"/models/assistant/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'"};
 if(vErrors === null){
 vErrors = [err97];
 }
@@ -1226,12 +1230,8 @@ vErrors.push(err97);
 }
 errors++;
 }
-}
-if(data46.provider !== undefined){
-let data49 = data46.provider;
-if(data49 && typeof data49 == "object" && !Array.isArray(data49)){
-if(data49.type === undefined){
-const err98 = {instancePath:instancePath+"/models/assistant/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'"};
+if(data49.name === undefined){
+const err98 = {instancePath:instancePath+"/models/assistant/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
 if(vErrors === null){
 vErrors = [err98];
 }
@@ -1240,8 +1240,8 @@ vErrors.push(err98);
 }
 errors++;
 }
-if(data49.name === undefined){
-const err99 = {instancePath:instancePath+"/models/assistant/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
+if(data49.id === undefined){
+const err99 = {instancePath:instancePath+"/models/assistant/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
 if(vErrors === null){
 vErrors = [err99];
 }
@@ -1250,8 +1250,9 @@ vErrors.push(err99);
 }
 errors++;
 }
-if(data49.id === undefined){
-const err100 = {instancePath:instancePath+"/models/assistant/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+if(data49.type !== undefined){
+if(typeof data49.type !== "string"){
+const err100 = {instancePath:instancePath+"/models/assistant/model/provider/type",schemaPath:"#/definitions/Model/properties/provider/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err100];
 }
@@ -1260,9 +1261,10 @@ vErrors.push(err100);
 }
 errors++;
 }
-if(data49.type !== undefined){
-if(typeof data49.type !== "string"){
-const err101 = {instancePath:instancePath+"/models/assistant/model/provider/type",schemaPath:"#/definitions/Model/properties/provider/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string"};
+}
+if(data49.name !== undefined){
+if(typeof data49.name !== "string"){
+const err101 = {instancePath:instancePath+"/models/assistant/model/provider/name",schemaPath:"#/definitions/Model/properties/provider/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err101];
 }
@@ -1272,9 +1274,9 @@ vErrors.push(err101);
 errors++;
 }
 }
-if(data49.name !== undefined){
-if(typeof data49.name !== "string"){
-const err102 = {instancePath:instancePath+"/models/assistant/model/provider/name",schemaPath:"#/definitions/Model/properties/provider/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data49.id !== undefined){
+if(typeof data49.id !== "string"){
+const err102 = {instancePath:instancePath+"/models/assistant/model/provider/id",schemaPath:"#/definitions/Model/properties/provider/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err102];
 }
@@ -1284,9 +1286,9 @@ vErrors.push(err102);
 errors++;
 }
 }
-if(data49.id !== undefined){
-if(typeof data49.id !== "string"){
-const err103 = {instancePath:instancePath+"/models/assistant/model/provider/id",schemaPath:"#/definitions/Model/properties/provider/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+}
+else {
+const err103 = {instancePath:instancePath+"/models/assistant/model/provider",schemaPath:"#/definitions/Model/properties/provider/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err103];
 }
@@ -1298,24 +1300,12 @@ errors++;
 }
 }
 else {
-const err104 = {instancePath:instancePath+"/models/assistant/model/provider",schemaPath:"#/definitions/Model/properties/provider/type",keyword:"type",params:{type: "object"},message:"must be object"};
+const err104 = {instancePath:instancePath+"/models/assistant/model",schemaPath:"#/definitions/Model/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err104];
 }
 else {
 vErrors.push(err104);
-}
-errors++;
-}
-}
-}
-else {
-const err105 = {instancePath:instancePath+"/models/assistant/model",schemaPath:"#/definitions/Model/type",keyword:"type",params:{type: "object"},message:"must be object"};
-if(vErrors === null){
-vErrors = [err105];
-}
-else {
-vErrors.push(err105);
 }
 errors++;
 }
@@ -1326,7 +1316,19 @@ if(Array.isArray(data53)){
 const len1 = data53.length;
 for(let i1=0; i1<len1; i1++){
 if(typeof data53[i1] !== "string"){
-const err106 = {instancePath:instancePath+"/models/assistant/roles/" + i1,schemaPath:"#/properties/models/properties/assistant/properties/roles/items/type",keyword:"type",params:{type: "string"},message:"must be string"};
+const err105 = {instancePath:instancePath+"/models/assistant/roles/" + i1,schemaPath:"#/properties/models/properties/assistant/properties/roles/items/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err105];
+}
+else {
+vErrors.push(err105);
+}
+errors++;
+}
+}
+}
+else {
+const err106 = {instancePath:instancePath+"/models/assistant/roles",schemaPath:"#/properties/models/properties/assistant/properties/roles/type",keyword:"type",params:{type: "array"},message:"must be array"};
 if(vErrors === null){
 vErrors = [err106];
 }
@@ -1336,9 +1338,11 @@ vErrors.push(err106);
 errors++;
 }
 }
-}
-else {
-const err107 = {instancePath:instancePath+"/models/assistant/roles",schemaPath:"#/properties/models/properties/assistant/properties/roles/type",keyword:"type",params:{type: "array"},message:"must be array"};
+if(data45.ratio !== undefined){
+let data55 = data45.ratio;
+if(typeof data55 == "number"){
+if(data55 < 0 || isNaN(data55)){
+const err107 = {instancePath:instancePath+"/models/assistant/ratio",schemaPath:"#/properties/models/properties/assistant/properties/ratio/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
 if(vErrors === null){
 vErrors = [err107];
 }
@@ -1348,11 +1352,8 @@ vErrors.push(err107);
 errors++;
 }
 }
-if(data45.ratio !== undefined){
-let data55 = data45.ratio;
-if(typeof data55 == "number"){
-if(data55 < 0 || isNaN(data55)){
-const err108 = {instancePath:instancePath+"/models/assistant/ratio",schemaPath:"#/properties/models/properties/assistant/properties/ratio/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
+else {
+const err108 = {instancePath:instancePath+"/models/assistant/ratio",schemaPath:"#/properties/models/properties/assistant/properties/ratio/type",keyword:"type",params:{type: "number"},message:"must be number"};
 if(vErrors === null){
 vErrors = [err108];
 }
@@ -1362,25 +1363,14 @@ vErrors.push(err108);
 errors++;
 }
 }
+}
 else {
-const err109 = {instancePath:instancePath+"/models/assistant/ratio",schemaPath:"#/properties/models/properties/assistant/properties/ratio/type",keyword:"type",params:{type: "number"},message:"must be number"};
+const err109 = {instancePath:instancePath+"/models/assistant",schemaPath:"#/properties/models/properties/assistant/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err109];
 }
 else {
 vErrors.push(err109);
-}
-errors++;
-}
-}
-}
-else {
-const err110 = {instancePath:instancePath+"/models/assistant",schemaPath:"#/properties/models/properties/assistant/type",keyword:"type",params:{type: "object"},message:"must be object"};
-if(vErrors === null){
-vErrors = [err110];
-}
-else {
-vErrors.push(err110);
 }
 errors++;
 }
@@ -1392,7 +1382,17 @@ if(data56.model !== undefined){
 let data57 = data56.model;
 if(data57 && typeof data57 == "object" && !Array.isArray(data57)){
 if(data57.id === undefined){
-const err111 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+const err110 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+if(vErrors === null){
+vErrors = [err110];
+}
+else {
+vErrors.push(err110);
+}
+errors++;
+}
+if(data57.name === undefined){
+const err111 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
 if(vErrors === null){
 vErrors = [err111];
 }
@@ -1401,8 +1401,8 @@ vErrors.push(err111);
 }
 errors++;
 }
-if(data57.name === undefined){
-const err112 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
+if(data57.provider === undefined){
+const err112 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'"};
 if(vErrors === null){
 vErrors = [err112];
 }
@@ -1411,8 +1411,9 @@ vErrors.push(err112);
 }
 errors++;
 }
-if(data57.provider === undefined){
-const err113 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'"};
+if(data57.id !== undefined){
+if(typeof data57.id !== "string"){
+const err113 = {instancePath:instancePath+"/models/summarizer/model/id",schemaPath:"#/definitions/Model/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err113];
 }
@@ -1421,9 +1422,10 @@ vErrors.push(err113);
 }
 errors++;
 }
-if(data57.id !== undefined){
-if(typeof data57.id !== "string"){
-const err114 = {instancePath:instancePath+"/models/summarizer/model/id",schemaPath:"#/definitions/Model/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+}
+if(data57.name !== undefined){
+if(typeof data57.name !== "string"){
+const err114 = {instancePath:instancePath+"/models/summarizer/model/name",schemaPath:"#/definitions/Model/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err114];
 }
@@ -1433,9 +1435,11 @@ vErrors.push(err114);
 errors++;
 }
 }
-if(data57.name !== undefined){
-if(typeof data57.name !== "string"){
-const err115 = {instancePath:instancePath+"/models/summarizer/model/name",schemaPath:"#/definitions/Model/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data57.provider !== undefined){
+let data60 = data57.provider;
+if(data60 && typeof data60 == "object" && !Array.isArray(data60)){
+if(data60.type === undefined){
+const err115 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'"};
 if(vErrors === null){
 vErrors = [err115];
 }
@@ -1444,12 +1448,8 @@ vErrors.push(err115);
 }
 errors++;
 }
-}
-if(data57.provider !== undefined){
-let data60 = data57.provider;
-if(data60 && typeof data60 == "object" && !Array.isArray(data60)){
-if(data60.type === undefined){
-const err116 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'"};
+if(data60.name === undefined){
+const err116 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
 if(vErrors === null){
 vErrors = [err116];
 }
@@ -1458,8 +1458,8 @@ vErrors.push(err116);
 }
 errors++;
 }
-if(data60.name === undefined){
-const err117 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
+if(data60.id === undefined){
+const err117 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
 if(vErrors === null){
 vErrors = [err117];
 }
@@ -1468,8 +1468,9 @@ vErrors.push(err117);
 }
 errors++;
 }
-if(data60.id === undefined){
-const err118 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+if(data60.type !== undefined){
+if(typeof data60.type !== "string"){
+const err118 = {instancePath:instancePath+"/models/summarizer/model/provider/type",schemaPath:"#/definitions/Model/properties/provider/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err118];
 }
@@ -1478,9 +1479,10 @@ vErrors.push(err118);
 }
 errors++;
 }
-if(data60.type !== undefined){
-if(typeof data60.type !== "string"){
-const err119 = {instancePath:instancePath+"/models/summarizer/model/provider/type",schemaPath:"#/definitions/Model/properties/provider/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string"};
+}
+if(data60.name !== undefined){
+if(typeof data60.name !== "string"){
+const err119 = {instancePath:instancePath+"/models/summarizer/model/provider/name",schemaPath:"#/definitions/Model/properties/provider/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err119];
 }
@@ -1490,9 +1492,9 @@ vErrors.push(err119);
 errors++;
 }
 }
-if(data60.name !== undefined){
-if(typeof data60.name !== "string"){
-const err120 = {instancePath:instancePath+"/models/summarizer/model/provider/name",schemaPath:"#/definitions/Model/properties/provider/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data60.id !== undefined){
+if(typeof data60.id !== "string"){
+const err120 = {instancePath:instancePath+"/models/summarizer/model/provider/id",schemaPath:"#/definitions/Model/properties/provider/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err120];
 }
@@ -1502,9 +1504,9 @@ vErrors.push(err120);
 errors++;
 }
 }
-if(data60.id !== undefined){
-if(typeof data60.id !== "string"){
-const err121 = {instancePath:instancePath+"/models/summarizer/model/provider/id",schemaPath:"#/definitions/Model/properties/provider/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+}
+else {
+const err121 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err121];
 }
@@ -1516,24 +1518,12 @@ errors++;
 }
 }
 else {
-const err122 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/type",keyword:"type",params:{type: "object"},message:"must be object"};
+const err122 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err122];
 }
 else {
 vErrors.push(err122);
-}
-errors++;
-}
-}
-}
-else {
-const err123 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/type",keyword:"type",params:{type: "object"},message:"must be object"};
-if(vErrors === null){
-vErrors = [err123];
-}
-else {
-vErrors.push(err123);
 }
 errors++;
 }
@@ -1544,7 +1534,19 @@ if(Array.isArray(data64)){
 const len2 = data64.length;
 for(let i2=0; i2<len2; i2++){
 if(typeof data64[i2] !== "string"){
-const err124 = {instancePath:instancePath+"/models/summarizer/roles/" + i2,schemaPath:"#/properties/models/properties/summarizer/properties/roles/items/type",keyword:"type",params:{type: "string"},message:"must be string"};
+const err123 = {instancePath:instancePath+"/models/summarizer/roles/" + i2,schemaPath:"#/properties/models/properties/summarizer/properties/roles/items/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err123];
+}
+else {
+vErrors.push(err123);
+}
+errors++;
+}
+}
+}
+else {
+const err124 = {instancePath:instancePath+"/models/summarizer/roles",schemaPath:"#/properties/models/properties/summarizer/properties/roles/type",keyword:"type",params:{type: "array"},message:"must be array"};
 if(vErrors === null){
 vErrors = [err124];
 }
@@ -1554,9 +1556,11 @@ vErrors.push(err124);
 errors++;
 }
 }
-}
-else {
-const err125 = {instancePath:instancePath+"/models/summarizer/roles",schemaPath:"#/properties/models/properties/summarizer/properties/roles/type",keyword:"type",params:{type: "array"},message:"must be array"};
+if(data56.ratio !== undefined){
+let data66 = data56.ratio;
+if(typeof data66 == "number"){
+if(data66 < 0 || isNaN(data66)){
+const err125 = {instancePath:instancePath+"/models/summarizer/ratio",schemaPath:"#/properties/models/properties/summarizer/properties/ratio/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
 if(vErrors === null){
 vErrors = [err125];
 }
@@ -1566,11 +1570,8 @@ vErrors.push(err125);
 errors++;
 }
 }
-if(data56.ratio !== undefined){
-let data66 = data56.ratio;
-if(typeof data66 == "number"){
-if(data66 < 0 || isNaN(data66)){
-const err126 = {instancePath:instancePath+"/models/summarizer/ratio",schemaPath:"#/properties/models/properties/summarizer/properties/ratio/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
+else {
+const err126 = {instancePath:instancePath+"/models/summarizer/ratio",schemaPath:"#/properties/models/properties/summarizer/properties/ratio/type",keyword:"type",params:{type: "number"},message:"must be number"};
 if(vErrors === null){
 vErrors = [err126];
 }
@@ -1580,25 +1581,14 @@ vErrors.push(err126);
 errors++;
 }
 }
+}
 else {
-const err127 = {instancePath:instancePath+"/models/summarizer/ratio",schemaPath:"#/properties/models/properties/summarizer/properties/ratio/type",keyword:"type",params:{type: "number"},message:"must be number"};
+const err127 = {instancePath:instancePath+"/models/summarizer",schemaPath:"#/properties/models/properties/summarizer/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err127];
 }
 else {
 vErrors.push(err127);
-}
-errors++;
-}
-}
-}
-else {
-const err128 = {instancePath:instancePath+"/models/summarizer",schemaPath:"#/properties/models/properties/summarizer/type",keyword:"type",params:{type: "object"},message:"must be object"};
-if(vErrors === null){
-vErrors = [err128];
-}
-else {
-vErrors.push(err128);
 }
 errors++;
 }
@@ -1610,7 +1600,17 @@ if(data67.model !== undefined){
 let data68 = data67.model;
 if(data68 && typeof data68 == "object" && !Array.isArray(data68)){
 if(data68.id === undefined){
-const err129 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+const err128 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+if(vErrors === null){
+vErrors = [err128];
+}
+else {
+vErrors.push(err128);
+}
+errors++;
+}
+if(data68.name === undefined){
+const err129 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
 if(vErrors === null){
 vErrors = [err129];
 }
@@ -1619,8 +1619,8 @@ vErrors.push(err129);
 }
 errors++;
 }
-if(data68.name === undefined){
-const err130 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
+if(data68.provider === undefined){
+const err130 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'"};
 if(vErrors === null){
 vErrors = [err130];
 }
@@ -1629,8 +1629,9 @@ vErrors.push(err130);
 }
 errors++;
 }
-if(data68.provider === undefined){
-const err131 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'"};
+if(data68.id !== undefined){
+if(typeof data68.id !== "string"){
+const err131 = {instancePath:instancePath+"/models/evaluator/model/id",schemaPath:"#/definitions/Model/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err131];
 }
@@ -1639,9 +1640,10 @@ vErrors.push(err131);
 }
 errors++;
 }
-if(data68.id !== undefined){
-if(typeof data68.id !== "string"){
-const err132 = {instancePath:instancePath+"/models/evaluator/model/id",schemaPath:"#/definitions/Model/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+}
+if(data68.name !== undefined){
+if(typeof data68.name !== "string"){
+const err132 = {instancePath:instancePath+"/models/evaluator/model/name",schemaPath:"#/definitions/Model/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err132];
 }
@@ -1651,9 +1653,11 @@ vErrors.push(err132);
 errors++;
 }
 }
-if(data68.name !== undefined){
-if(typeof data68.name !== "string"){
-const err133 = {instancePath:instancePath+"/models/evaluator/model/name",schemaPath:"#/definitions/Model/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data68.provider !== undefined){
+let data71 = data68.provider;
+if(data71 && typeof data71 == "object" && !Array.isArray(data71)){
+if(data71.type === undefined){
+const err133 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'"};
 if(vErrors === null){
 vErrors = [err133];
 }
@@ -1662,12 +1666,8 @@ vErrors.push(err133);
 }
 errors++;
 }
-}
-if(data68.provider !== undefined){
-let data71 = data68.provider;
-if(data71 && typeof data71 == "object" && !Array.isArray(data71)){
-if(data71.type === undefined){
-const err134 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'"};
+if(data71.name === undefined){
+const err134 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
 if(vErrors === null){
 vErrors = [err134];
 }
@@ -1676,8 +1676,8 @@ vErrors.push(err134);
 }
 errors++;
 }
-if(data71.name === undefined){
-const err135 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
+if(data71.id === undefined){
+const err135 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
 if(vErrors === null){
 vErrors = [err135];
 }
@@ -1686,8 +1686,9 @@ vErrors.push(err135);
 }
 errors++;
 }
-if(data71.id === undefined){
-const err136 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+if(data71.type !== undefined){
+if(typeof data71.type !== "string"){
+const err136 = {instancePath:instancePath+"/models/evaluator/model/provider/type",schemaPath:"#/definitions/Model/properties/provider/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err136];
 }
@@ -1696,9 +1697,10 @@ vErrors.push(err136);
 }
 errors++;
 }
-if(data71.type !== undefined){
-if(typeof data71.type !== "string"){
-const err137 = {instancePath:instancePath+"/models/evaluator/model/provider/type",schemaPath:"#/definitions/Model/properties/provider/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string"};
+}
+if(data71.name !== undefined){
+if(typeof data71.name !== "string"){
+const err137 = {instancePath:instancePath+"/models/evaluator/model/provider/name",schemaPath:"#/definitions/Model/properties/provider/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err137];
 }
@@ -1708,9 +1710,9 @@ vErrors.push(err137);
 errors++;
 }
 }
-if(data71.name !== undefined){
-if(typeof data71.name !== "string"){
-const err138 = {instancePath:instancePath+"/models/evaluator/model/provider/name",schemaPath:"#/definitions/Model/properties/provider/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data71.id !== undefined){
+if(typeof data71.id !== "string"){
+const err138 = {instancePath:instancePath+"/models/evaluator/model/provider/id",schemaPath:"#/definitions/Model/properties/provider/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err138];
 }
@@ -1720,9 +1722,9 @@ vErrors.push(err138);
 errors++;
 }
 }
-if(data71.id !== undefined){
-if(typeof data71.id !== "string"){
-const err139 = {instancePath:instancePath+"/models/evaluator/model/provider/id",schemaPath:"#/definitions/Model/properties/provider/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+}
+else {
+const err139 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err139];
 }
@@ -1734,24 +1736,12 @@ errors++;
 }
 }
 else {
-const err140 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/type",keyword:"type",params:{type: "object"},message:"must be object"};
+const err140 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err140];
 }
 else {
 vErrors.push(err140);
-}
-errors++;
-}
-}
-}
-else {
-const err141 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/type",keyword:"type",params:{type: "object"},message:"must be object"};
-if(vErrors === null){
-vErrors = [err141];
-}
-else {
-vErrors.push(err141);
 }
 errors++;
 }
@@ -1762,7 +1752,19 @@ if(Array.isArray(data75)){
 const len3 = data75.length;
 for(let i3=0; i3<len3; i3++){
 if(typeof data75[i3] !== "string"){
-const err142 = {instancePath:instancePath+"/models/evaluator/roles/" + i3,schemaPath:"#/properties/models/properties/evaluator/properties/roles/items/type",keyword:"type",params:{type: "string"},message:"must be string"};
+const err141 = {instancePath:instancePath+"/models/evaluator/roles/" + i3,schemaPath:"#/properties/models/properties/evaluator/properties/roles/items/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err141];
+}
+else {
+vErrors.push(err141);
+}
+errors++;
+}
+}
+}
+else {
+const err142 = {instancePath:instancePath+"/models/evaluator/roles",schemaPath:"#/properties/models/properties/evaluator/properties/roles/type",keyword:"type",params:{type: "array"},message:"must be array"};
 if(vErrors === null){
 vErrors = [err142];
 }
@@ -1772,9 +1774,11 @@ vErrors.push(err142);
 errors++;
 }
 }
-}
-else {
-const err143 = {instancePath:instancePath+"/models/evaluator/roles",schemaPath:"#/properties/models/properties/evaluator/properties/roles/type",keyword:"type",params:{type: "array"},message:"must be array"};
+if(data67.ratio !== undefined){
+let data77 = data67.ratio;
+if(typeof data77 == "number"){
+if(data77 < 0 || isNaN(data77)){
+const err143 = {instancePath:instancePath+"/models/evaluator/ratio",schemaPath:"#/properties/models/properties/evaluator/properties/ratio/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
 if(vErrors === null){
 vErrors = [err143];
 }
@@ -1784,11 +1788,8 @@ vErrors.push(err143);
 errors++;
 }
 }
-if(data67.ratio !== undefined){
-let data77 = data67.ratio;
-if(typeof data77 == "number"){
-if(data77 < 0 || isNaN(data77)){
-const err144 = {instancePath:instancePath+"/models/evaluator/ratio",schemaPath:"#/properties/models/properties/evaluator/properties/ratio/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
+else {
+const err144 = {instancePath:instancePath+"/models/evaluator/ratio",schemaPath:"#/properties/models/properties/evaluator/properties/ratio/type",keyword:"type",params:{type: "number"},message:"must be number"};
 if(vErrors === null){
 vErrors = [err144];
 }
@@ -1798,8 +1799,9 @@ vErrors.push(err144);
 errors++;
 }
 }
+}
 else {
-const err145 = {instancePath:instancePath+"/models/evaluator/ratio",schemaPath:"#/properties/models/properties/evaluator/properties/ratio/type",keyword:"type",params:{type: "number"},message:"must be number"};
+const err145 = {instancePath:instancePath+"/models/evaluator",schemaPath:"#/properties/models/properties/evaluator/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err145];
 }
@@ -1811,7 +1813,7 @@ errors++;
 }
 }
 else {
-const err146 = {instancePath:instancePath+"/models/evaluator",schemaPath:"#/properties/models/properties/evaluator/type",keyword:"type",params:{type: "object"},message:"must be object"};
+const err146 = {instancePath:instancePath+"/models",schemaPath:"#/properties/models/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err146];
 }
@@ -1821,9 +1823,11 @@ vErrors.push(err146);
 errors++;
 }
 }
-}
-else {
-const err147 = {instancePath:instancePath+"/models",schemaPath:"#/properties/models/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(data.limits !== undefined){
+let data78 = data.limits;
+if(data78 && typeof data78 == "object" && !Array.isArray(data78)){
+if(data78.dailyTokenLimit === undefined){
+const err147 = {instancePath:instancePath+"/limits",schemaPath:"#/properties/limits/required",keyword:"required",params:{missingProperty: "dailyTokenLimit"},message:"must have required property '"+"dailyTokenLimit"+"'"};
 if(vErrors === null){
 vErrors = [err147];
 }
@@ -1832,12 +1836,8 @@ vErrors.push(err147);
 }
 errors++;
 }
-}
-if(data.limits !== undefined){
-let data78 = data.limits;
-if(data78 && typeof data78 == "object" && !Array.isArray(data78)){
-if(data78.dailyTokenLimit === undefined){
-const err148 = {instancePath:instancePath+"/limits",schemaPath:"#/properties/limits/required",keyword:"required",params:{missingProperty: "dailyTokenLimit"},message:"must have required property '"+"dailyTokenLimit"+"'"};
+if(data78.monthlyTokenLimit === undefined){
+const err148 = {instancePath:instancePath+"/limits",schemaPath:"#/properties/limits/required",keyword:"required",params:{missingProperty: "monthlyTokenLimit"},message:"must have required property '"+"monthlyTokenLimit"+"'"};
 if(vErrors === null){
 vErrors = [err148];
 }
@@ -1846,8 +1846,10 @@ vErrors.push(err148);
 }
 errors++;
 }
-if(data78.monthlyTokenLimit === undefined){
-const err149 = {instancePath:instancePath+"/limits",schemaPath:"#/properties/limits/required",keyword:"required",params:{missingProperty: "monthlyTokenLimit"},message:"must have required property '"+"monthlyTokenLimit"+"'"};
+if(data78.dailyTokenLimit !== undefined){
+let data79 = data78.dailyTokenLimit;
+if(!((typeof data79 == "number") && (!(data79 % 1) && !isNaN(data79)))){
+const err149 = {instancePath:instancePath+"/limits/dailyTokenLimit",schemaPath:"#/properties/limits/properties/dailyTokenLimit/type",keyword:"type",params:{type: "integer"},message:"must be integer"};
 if(vErrors === null){
 vErrors = [err149];
 }
@@ -1856,10 +1858,9 @@ vErrors.push(err149);
 }
 errors++;
 }
-if(data78.dailyTokenLimit !== undefined){
-let data79 = data78.dailyTokenLimit;
-if(!((typeof data79 == "number") && (!(data79 % 1) && !isNaN(data79)))){
-const err150 = {instancePath:instancePath+"/limits/dailyTokenLimit",schemaPath:"#/properties/limits/properties/dailyTokenLimit/type",keyword:"type",params:{type: "integer"},message:"must be integer"};
+if(typeof data79 == "number"){
+if(data79 < 0 || isNaN(data79)){
+const err150 = {instancePath:instancePath+"/limits/dailyTokenLimit",schemaPath:"#/properties/limits/properties/dailyTokenLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
 if(vErrors === null){
 vErrors = [err150];
 }
@@ -1868,9 +1869,12 @@ vErrors.push(err150);
 }
 errors++;
 }
-if(typeof data79 == "number"){
-if(data79 < 0 || isNaN(data79)){
-const err151 = {instancePath:instancePath+"/limits/dailyTokenLimit",schemaPath:"#/properties/limits/properties/dailyTokenLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
+}
+}
+if(data78.monthlyTokenLimit !== undefined){
+let data80 = data78.monthlyTokenLimit;
+if(!((typeof data80 == "number") && (!(data80 % 1) && !isNaN(data80)))){
+const err151 = {instancePath:instancePath+"/limits/monthlyTokenLimit",schemaPath:"#/properties/limits/properties/monthlyTokenLimit/type",keyword:"type",params:{type: "integer"},message:"must be integer"};
 if(vErrors === null){
 vErrors = [err151];
 }
@@ -1879,12 +1883,9 @@ vErrors.push(err151);
 }
 errors++;
 }
-}
-}
-if(data78.monthlyTokenLimit !== undefined){
-let data80 = data78.monthlyTokenLimit;
-if(!((typeof data80 == "number") && (!(data80 % 1) && !isNaN(data80)))){
-const err152 = {instancePath:instancePath+"/limits/monthlyTokenLimit",schemaPath:"#/properties/limits/properties/monthlyTokenLimit/type",keyword:"type",params:{type: "integer"},message:"must be integer"};
+if(typeof data80 == "number"){
+if(data80 < 0 || isNaN(data80)){
+const err152 = {instancePath:instancePath+"/limits/monthlyTokenLimit",schemaPath:"#/properties/limits/properties/monthlyTokenLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
 if(vErrors === null){
 vErrors = [err152];
 }
@@ -1893,9 +1894,11 @@ vErrors.push(err152);
 }
 errors++;
 }
-if(typeof data80 == "number"){
-if(data80 < 0 || isNaN(data80)){
-const err153 = {instancePath:instancePath+"/limits/monthlyTokenLimit",schemaPath:"#/properties/limits/properties/monthlyTokenLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
+}
+}
+}
+else {
+const err153 = {instancePath:instancePath+"/limits",schemaPath:"#/properties/limits/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err153];
 }
@@ -1905,10 +1908,11 @@ vErrors.push(err153);
 errors++;
 }
 }
-}
-}
-else {
-const err154 = {instancePath:instancePath+"/limits",schemaPath:"#/properties/limits/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(data.userLimits !== undefined){
+let data81 = data.userLimits;
+if(data81 && typeof data81 == "object" && !Array.isArray(data81)){
+if(data81.dailyTokenLimit === undefined){
+const err154 = {instancePath:instancePath+"/userLimits",schemaPath:"#/properties/userLimits/required",keyword:"required",params:{missingProperty: "dailyTokenLimit"},message:"must have required property '"+"dailyTokenLimit"+"'"};
 if(vErrors === null){
 vErrors = [err154];
 }
@@ -1917,12 +1921,8 @@ vErrors.push(err154);
 }
 errors++;
 }
-}
-if(data.userLimits !== undefined){
-let data81 = data.userLimits;
-if(data81 && typeof data81 == "object" && !Array.isArray(data81)){
-if(data81.dailyTokenLimit === undefined){
-const err155 = {instancePath:instancePath+"/userLimits",schemaPath:"#/properties/userLimits/required",keyword:"required",params:{missingProperty: "dailyTokenLimit"},message:"must have required property '"+"dailyTokenLimit"+"'"};
+if(data81.monthlyTokenLimit === undefined){
+const err155 = {instancePath:instancePath+"/userLimits",schemaPath:"#/properties/userLimits/required",keyword:"required",params:{missingProperty: "monthlyTokenLimit"},message:"must have required property '"+"monthlyTokenLimit"+"'"};
 if(vErrors === null){
 vErrors = [err155];
 }
@@ -1931,8 +1931,10 @@ vErrors.push(err155);
 }
 errors++;
 }
-if(data81.monthlyTokenLimit === undefined){
-const err156 = {instancePath:instancePath+"/userLimits",schemaPath:"#/properties/userLimits/required",keyword:"required",params:{missingProperty: "monthlyTokenLimit"},message:"must have required property '"+"monthlyTokenLimit"+"'"};
+if(data81.dailyTokenLimit !== undefined){
+let data82 = data81.dailyTokenLimit;
+if(!((typeof data82 == "number") && (!(data82 % 1) && !isNaN(data82)))){
+const err156 = {instancePath:instancePath+"/userLimits/dailyTokenLimit",schemaPath:"#/properties/userLimits/properties/dailyTokenLimit/type",keyword:"type",params:{type: "integer"},message:"must be integer"};
 if(vErrors === null){
 vErrors = [err156];
 }
@@ -1941,10 +1943,9 @@ vErrors.push(err156);
 }
 errors++;
 }
-if(data81.dailyTokenLimit !== undefined){
-let data82 = data81.dailyTokenLimit;
-if(!((typeof data82 == "number") && (!(data82 % 1) && !isNaN(data82)))){
-const err157 = {instancePath:instancePath+"/userLimits/dailyTokenLimit",schemaPath:"#/properties/userLimits/properties/dailyTokenLimit/type",keyword:"type",params:{type: "integer"},message:"must be integer"};
+if(typeof data82 == "number"){
+if(data82 < 0 || isNaN(data82)){
+const err157 = {instancePath:instancePath+"/userLimits/dailyTokenLimit",schemaPath:"#/properties/userLimits/properties/dailyTokenLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
 if(vErrors === null){
 vErrors = [err157];
 }
@@ -1953,9 +1954,12 @@ vErrors.push(err157);
 }
 errors++;
 }
-if(typeof data82 == "number"){
-if(data82 < 0 || isNaN(data82)){
-const err158 = {instancePath:instancePath+"/userLimits/dailyTokenLimit",schemaPath:"#/properties/userLimits/properties/dailyTokenLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
+}
+}
+if(data81.monthlyTokenLimit !== undefined){
+let data83 = data81.monthlyTokenLimit;
+if(!((typeof data83 == "number") && (!(data83 % 1) && !isNaN(data83)))){
+const err158 = {instancePath:instancePath+"/userLimits/monthlyTokenLimit",schemaPath:"#/properties/userLimits/properties/monthlyTokenLimit/type",keyword:"type",params:{type: "integer"},message:"must be integer"};
 if(vErrors === null){
 vErrors = [err158];
 }
@@ -1964,12 +1968,9 @@ vErrors.push(err158);
 }
 errors++;
 }
-}
-}
-if(data81.monthlyTokenLimit !== undefined){
-let data83 = data81.monthlyTokenLimit;
-if(!((typeof data83 == "number") && (!(data83 % 1) && !isNaN(data83)))){
-const err159 = {instancePath:instancePath+"/userLimits/monthlyTokenLimit",schemaPath:"#/properties/userLimits/properties/monthlyTokenLimit/type",keyword:"type",params:{type: "integer"},message:"must be integer"};
+if(typeof data83 == "number"){
+if(data83 < 0 || isNaN(data83)){
+const err159 = {instancePath:instancePath+"/userLimits/monthlyTokenLimit",schemaPath:"#/properties/userLimits/properties/monthlyTokenLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
 if(vErrors === null){
 vErrors = [err159];
 }
@@ -1978,9 +1979,11 @@ vErrors.push(err159);
 }
 errors++;
 }
-if(typeof data83 == "number"){
-if(data83 < 0 || isNaN(data83)){
-const err160 = {instancePath:instancePath+"/userLimits/monthlyTokenLimit",schemaPath:"#/properties/userLimits/properties/monthlyTokenLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
+}
+}
+}
+else {
+const err160 = {instancePath:instancePath+"/userLimits",schemaPath:"#/properties/userLimits/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err160];
 }
@@ -1991,26 +1994,13 @@ errors++;
 }
 }
 }
-}
 else {
-const err161 = {instancePath:instancePath+"/userLimits",schemaPath:"#/properties/userLimits/type",keyword:"type",params:{type: "object"},message:"must be object"};
+const err161 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err161];
 }
 else {
 vErrors.push(err161);
-}
-errors++;
-}
-}
-}
-else {
-const err162 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object"};
-if(vErrors === null){
-vErrors = [err162];
-}
-else {
-vErrors.push(err162);
 }
 errors++;
 }

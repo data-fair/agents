@@ -10,7 +10,31 @@ export default {
     title: null
   },
   definitions: {
-    Model: { $ref: 'https://github.com/data-fair/agents/model' }
+    Model: {
+      type: 'object',
+      required: ['id', 'name', 'provider'],
+      layout: {
+        comp: 'autocomplete',
+        getItems: {
+          expr: 'context.models',
+          // eslint-disable-next-line no-template-curly-in-string
+          itemTitle: '`${item.name} (${item.provider.name} - ${item.provider.id.slice(0, 8)})`'
+        },
+      },
+      properties: {
+        id: { type: 'string', title: 'Model ID' },
+        name: { type: 'string', title: 'Name' },
+        provider: {
+          type: 'object',
+          required: ['type', 'name', 'id'],
+          properties: {
+            type: { type: 'string', title: 'Provider Type' },
+            name: { type: 'string', title: 'Provider Name' },
+            id: { type: 'string', title: 'Provider ID' }
+          }
+        }
+      }
+    }
   },
   type: 'object',
   additionalProperties: false,
@@ -428,7 +452,7 @@ export default {
             en: 'Main conversational model. Suggested models: claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash, mistral-small-latest, minimax-01.',
             fr: 'Modèle conversationnel principal. Modèles suggérés : claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash, mistral-small-latest, minimax-01.'
           },
-          required: ['model'],
+          required: [],
           properties: {
             model: {
               $ref: '#/definitions/Model',
