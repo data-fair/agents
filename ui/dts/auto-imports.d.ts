@@ -13,6 +13,7 @@ declare global {
   const $uiConfig: typeof import('~/context')['$uiConfig']
   const EffectScope: typeof import('vue')['EffectScope']
   const agentToolsKey: typeof import('../src/composables/use-agent-tools')['agentToolsKey']
+  const bridgeWebMCPTools: typeof import('../src/composables/use-agent-tools')['bridgeWebMCPTools']
   const computed: typeof import('vue')['computed']
   const computedDeepDiff: typeof import('@data-fair/lib-vue/deep-diff.js')['computedDeepDiff']
   const createAgentTools: typeof import('../src/composables/use-agent-tools')['createAgentTools']
@@ -140,6 +141,7 @@ declare module 'vue' {
     readonly $uiConfig: UnwrapRef<typeof import('~/context')['$uiConfig']>
     readonly EffectScope: UnwrapRef<typeof import('vue')['EffectScope']>
     readonly agentToolsKey: UnwrapRef<typeof import('../src/composables/use-agent-tools')['agentToolsKey']>
+    readonly bridgeWebMCPTools: UnwrapRef<typeof import('../src/composables/use-agent-tools')['bridgeWebMCPTools']>
     readonly computed: UnwrapRef<typeof import('vue')['computed']>
     readonly computedDeepDiff: UnwrapRef<typeof import('@data-fair/lib-vue/deep-diff.js')['computedDeepDiff']>
     readonly createAgentTools: UnwrapRef<typeof import('../src/composables/use-agent-tools')['createAgentTools']>

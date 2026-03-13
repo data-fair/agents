@@ -30,7 +30,7 @@ test.describe('Chat MCP UI', () => {
 
     await goToWithAuth('/agents/_dev/chat-mcp', 'test-standalone1')
 
-    await page.getByLabel('Type your message...').fill('Please set the data to: Hello World')
+    await page.getByLabel('Type your message...').fill('call tool set_data {"data":"Hello World"}')
     await page.getByRole('button', { name: 'Send' }).click()
 
     await expect(page.getByLabel('Data')).toHaveValue('Hello World', { timeout: 10000 })

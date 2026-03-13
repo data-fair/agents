@@ -43,7 +43,7 @@ test.describe('Chat UI', () => {
   test('Can send a message and receive response', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/chat', 'test-standalone1')
 
-    // Wait for WebSocket connection to be ready
+    // Wait for chat to be ready
     const input = page.getByPlaceholder('Type your message...')
     await expect(input).toBeEnabled({ timeout: 10000 })
 

@@ -70,7 +70,7 @@ onMounted(() => {
       },
       required: ['data']
     } as any,
-    execute: ({ args }: { args: { data: string } }) => {
+    execute: (args: { data: string }) => {
       toolData.value = args.data
       return { success: true, message: t('toolResult') }
     }

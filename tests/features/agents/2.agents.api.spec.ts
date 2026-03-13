@@ -1,62 +1,56 @@
 /**
- * stateful API tests, validate API endpoints using axios HTTP clients
+ * stateful API tests, validate chat API via gateway endpoint
  */
 
 import { test } from 'playwright/test'
-import WebSocket from 'ws'
+import assert from 'node:assert/strict'
+import { generateText } from 'ai'
+import { createOpenAI } from '@ai-sdk/openai'
 import { axiosAuth, clean, directoryUrl } from '../../support/axios.ts'
 
 const user = await axiosAuth('test-standalone1')
 
+const settingsData = {
+  providers: [
+    {
+      id: 'mock-provider',
+      type: 'mock',
+      name: 'Mock Provider',
+      enabled: true
+    }
+  ],
+  chatModel: {
+    id: 'mock-model',
+    name: 'Mock Model',
+    provider: {
+      type: 'mock',
+      name: 'Mock Provider',
+      id: 'mock-provider'
+    }
+  }
+}
+
 test.describe('Chat API', () => {
   test.beforeEach(async () => {
     await clean()
+    await user.put('/api/settings/user/test-standalone1', settingsData)
   })
 
-  test('should connect via WebSocket and exchange messages', async () => {
-    const settingsData = {
-      providers: [
-        {
-          id: 'mock-provider',
-          type: 'mock',
-          name: 'Mock Provider',
-          enabled: true
-        }
-      ],
-      chatModel: {
-        id: 'mock-model',
-        name: 'Mock Model',
-        provider: {
-          type: 'mock',
-          name: 'Mock Provider',
-          id: 'mock-provider'
-        }
-      }
-    }
-
-    await user.put('/api/settings/user/test-standalone1', settingsData)
-
-    const wsUrl = `ws://localhost:${process.env.DEV_API_PORT}/api/chat`
-    const ws = new WebSocket(wsUrl, { headers: { cookie: await user.cookieJar.getCookieString(directoryUrl) } })
-
-    await new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error('Timeout waiting for init-state-ok')), 5000)
-      ws.on('message', (data) => {
-        const msg = JSON.parse(data.toString())
-        if (msg.type === 'ready') {
-          ws.send(JSON.stringify({ type: 'init-state', history: [], tools: [] }))
-        }
-        if (msg.type === 'init-state-ok') {
-          clearTimeout(timeout)
-          resolve()
-        }
-      })
-      ws.on('error', (err) => {
-        clearTimeout(timeout)
-        reject(err)
-      })
+  test('should exchange messages through the gateway', async () => {
+    const cookieString = await user.cookieJar.getCookieString(directoryUrl)
+    const provider = createOpenAI({
+      baseURL: `http://localhost:${process.env.DEV_API_PORT}/api/gateway/v1`,
+      apiKey: 'unused',
+      headers: { cookie: cookieString },
+      name: 'data-fair-gateway'
     })
 
-    ws.close()
+    const result = await generateText({
+      model: provider.chat('assistant'),
+      messages: [{ role: 'user', content: 'hello' }]
+    })
+
+    assert.equal(result.text, 'world')
+    assert.equal(result.finishReason, 'stop')
   })
 })

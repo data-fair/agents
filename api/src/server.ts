@@ -9,7 +9,6 @@ import { createHttpTerminator } from 'http-terminator'
 import { app } from './app.ts'
 import config from '#config'
 import mongo from '#mongo'
-import { start as startWs, stop as stopWs } from './chat/ws.ts'
 
 const server = createServer(app)
 const httpTerminator = createHttpTerminator({ server })
@@ -35,13 +34,10 @@ export const start = async () => {
   server.listen(config.port)
   await eventPromise(server, 'listening')
 
-  await startWs(server)
-
   console.log(`API server listening on port ${config.port}`)
 }
 
 export const stop = async () => {
-  await stopWs()
   await httpTerminator.terminate()
   if (config.observer?.active) await stopObserver()
   await locks.stop()

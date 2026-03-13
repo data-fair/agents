@@ -12,7 +12,7 @@
           size="small"
           color="primary"
           :title="t('openDebug')"
-          @click="openDebugDialog"
+          @click="showDebugDialog = true"
         />
       </div>
       <v-card-text class="pa-0">
@@ -73,12 +73,14 @@
                       >
                         <v-chip
                           size="x-small"
-                          color="accent"
+                          :color="tool.state === 'done' ? 'success' : 'accent'"
                           class="mr-2"
                         >
                           {{ tool.toolName }}
                         </v-chip>
-                        <span class="text-caption text-medium-emphasis">{{ t('executing') }}</span>
+                        <span class="text-caption text-medium-emphasis">
+                          {{ tool.state === 'done' ? t('done') : t('executing') }}
+                        </span>
                       </div>
                     </v-expand-transition>
                   </div>
@@ -118,6 +120,33 @@
               </v-card-text>
             </v-card>
           </v-list-item>
+
+          <v-list-item
+            v-if="chatError"
+            class="chat-message assistant"
+          >
+            <template #prepend>
+              <v-avatar
+                color="error"
+                size="32"
+                class="mr-3"
+              >
+                <v-icon
+                  icon="mdi-alert"
+                  size="18"
+                />
+              </v-avatar>
+            </template>
+            <v-card
+              flat
+              color="transparent"
+              max-width="85%"
+            >
+              <v-card-text class="pa-3 text-error">
+                {{ chatError }}
+              </v-card-text>
+            </v-card>
+          </v-list-item>
         </v-list>
       </v-card-text>
     </v-card>
@@ -135,11 +164,12 @@
             <v-col>
               <v-text-field
                 v-model="input"
+                :label="t('placeholder')"
                 :placeholder="t('placeholder')"
                 variant="outlined"
                 density="comfortable"
                 hide-details
-                :disabled="isLoading || !isReady"
+                :disabled="isLoading"
                 @keydown.enter.prevent="handleSend"
               />
             </v-col>
@@ -148,7 +178,7 @@
                 type="submit"
                 color="accent"
                 :loading="isLoading"
-                :disabled="!input.trim() || !isReady"
+                :disabled="!input.trim() || isLoading"
               >
                 {{ t('send') }}
               </v-btn>
@@ -181,9 +211,6 @@
             <v-tab value="tools">
               {{ t('tools') }}
             </v-tab>
-            <v-tab value="trace">
-              {{ t('trace') }}
-            </v-tab>
           </v-tabs>
 
           <v-window v-model="activeDebugTab">
@@ -196,7 +223,7 @@
             <v-window-item value="tools">
               <div class="pa-4">
                 <div
-                  v-if="!agentTools.length"
+                  v-if="!debugTools.length"
                   class="text-center text-medium-emphasis"
                 >
                   {{ t('noTools') }}
@@ -206,54 +233,23 @@
                   variant="accordion"
                 >
                   <v-expansion-panel
-                    v-for="tool in agentTools"
-                    :key="tool.name"
+                    v-for="dtool in debugTools"
+                    :key="dtool.name"
                   >
                     <v-expansion-panel-title>
-                      <span class="font-weight-medium">{{ tool.name }}</span>
+                      <span class="font-weight-medium">{{ dtool.name }}</span>
                     </v-expansion-panel-title>
                     <v-expansion-panel-text>
                       <p class="text-body-2 mb-2">
-                        {{ tool.description }}
+                        {{ dtool.description }}
                       </p>
                       <p class="text-caption text-medium-emphasis mb-1">
                         {{ t('inputSchema') }}:
                       </p>
-                      <pre class="trace-data">{{ JSON.stringify(tool.inputSchema, null, 2) }}</pre>
+                      <pre class="trace-data">{{ JSON.stringify(dtool.inputSchema, null, 2) }}</pre>
                     </v-expansion-panel-text>
                   </v-expansion-panel>
                 </v-expansion-panels>
-              </div>
-            </v-window-item>
-
-            <v-window-item value="trace">
-              <div class="pa-4">
-                <v-timeline
-                  v-if="traceEvents.length"
-                  density="compact"
-                  side="end"
-                >
-                  <v-timeline-item
-                    v-for="event in traceEvents"
-                    :key="event._id"
-                    :dot-color="event.eventType === 'onFinish' ? 'success' : event.eventType === 'onToolCallFinish' ? 'warning' : 'primary'"
-                    size="small"
-                  >
-                    <div class="d-flex justify-space-between align-center">
-                      <span class="text-caption font-weight-medium">{{ event.eventType }}</span>
-                      <span class="text-caption text-medium-emphasis">{{ new Date(event.timestamp).toLocaleTimeString() }}</span>
-                    </div>
-                    <div class="text-body-2 mt-1">
-                      <pre class="trace-data">{{ JSON.stringify(event.data, null, 2) }}</pre>
-                    </div>
-                  </v-timeline-item>
-                </v-timeline>
-                <div
-                  v-else
-                  class="text-center text-medium-emphasis"
-                >
-                  {{ t('noTraceEvents') }}
-                </div>
               </div>
             </v-window-item>
           </v-window>
@@ -278,13 +274,12 @@ fr:
   placeholder: Tapez votre message...
   send: Envoyer
   executing: en cours d'exécution
+  done: terminé
   openDebug: Ouvrir le débogueur
   debugDialog: Débogueur
   systemPrompt: Prompt système
   tools: Outils
-  trace: Traçage
   noTools: Aucun outil enregistré
-  noTraceEvents: Aucun événement de trace
   inputSchema: Schéma d'entrée
   close: Fermer
   systemPromptBase: Tu es un assistant IA utile pour la plateforme Data Fair.
@@ -297,13 +292,12 @@ en:
   placeholder: Type your message...
   send: Send
   executing: executing
+  done: done
   openDebug: Open debugger
   debugDialog: Debugger
   systemPrompt: System Prompt
   tools: Tools
-  trace: Trace
   noTools: No tools registered
-  noTraceEvents: No trace events
   inputSchema: Input Schema
   close: Close
   systemPromptBase: You are a helpful AI assistant for the Data Fair platform.
@@ -319,16 +313,7 @@ import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSession } from '@data-fair/lib-vue/session.js'
 import { useAgentChat } from '~/composables/use-agent-chat'
-import { $apiPath } from '~/context'
-
-interface TraceEvent {
-  _id: string
-  traceId: string
-  userId: string
-  eventType: string
-  timestamp: string
-  data: any
-}
+import { useAgentTools } from '~/composables/use-agent-tools'
 
 const props = defineProps<{
   debug?: boolean
@@ -337,6 +322,7 @@ const props = defineProps<{
 
 const { t } = useI18n()
 const session = useSession()
+const agentTools = useAgentTools()
 
 const finalSystemPrompt = computed(() => {
   if (props.systemPrompt) {
@@ -368,23 +354,20 @@ const finalSystemPrompt = computed(() => {
 const chatResult = useAgentChat(props.debug, finalSystemPrompt.value)
 
 if (!chatResult) {
-  throw new Error('WebSocket not supported')
+  throw new Error('Chat not supported in SSR')
 }
 
 const messages = computed(() => chatResult.messages.value)
 const status = computed(() => chatResult.status.value)
+const chatError = computed(() => chatResult.error.value)
 const sendMessage = chatResult.sendMessage
-const agentTools = computed(() => chatResult.agentTools.value)
-const currentTraceId = chatResult.currentTraceId
 
 const showDebugDialog = ref(false)
 const activeDebugTab = ref('systemPrompt')
-const traceEvents = ref<TraceEvent[]>([])
 
 const input = ref('')
 
-const isLoading = computed(() => status.value === 'waiting')
-const isReady = computed(() => status.value === 'open')
+const isLoading = computed(() => status.value === 'streaming')
 
 const chatMaxHeight = computed(() => {
   if (typeof window !== 'undefined') {
@@ -393,34 +376,16 @@ const chatMaxHeight = computed(() => {
   return 500
 })
 
+const debugTools = computed(() => {
+  return Object.values(agentTools)
+})
+
 const handleSend = () => {
   const userMessage = input.value.trim()
   if (!userMessage || isLoading.value) return
 
   sendMessage(userMessage)
   input.value = ''
-}
-
-const fetchTrace = async () => {
-  if (!currentTraceId.value) return
-  try {
-    const res = await fetch(`${$apiPath}/traces/${currentTraceId.value}`, {
-      credentials: 'include'
-    })
-    const data = await res.json()
-    traceEvents.value = data.results
-  } catch (error) {
-    console.error('Failed to fetch trace:', error)
-  }
-}
-
-const openDebugDialog = async () => {
-  if (currentTraceId.value) {
-    await fetchTrace()
-  } else {
-    traceEvents.value = []
-  }
-  showDebugDialog.value = true
 }
 </script>
 

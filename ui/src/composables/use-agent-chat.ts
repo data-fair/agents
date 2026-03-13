@@ -1,15 +1,10 @@
-import ReconnectingWebSocket from 'reconnecting-websocket'
-import { ref, onScopeDispose, watch } from 'vue'
+import { ref, onScopeDispose } from 'vue'
+import { streamText, stepCountIs } from 'ai'
+import { createOpenAI } from '@ai-sdk/openai'
 import type { ModelMessage } from 'ai'
-import type { ChatWsClientMessage, ChatWsServerMessage } from '#api/types'
-import { useAgentTools } from './use-agent-tools'
+import { bridgeWebMCPTools, useAgentTools } from './use-agent-tools'
+import type { AgentTool } from './use-agent-tools'
 import { $apiPath } from '~/context'
-
-export interface AgentToolInfo {
-  name: string
-  description: string
-  inputSchema: any
-}
 
 export interface ChatMessage {
   role: 'user' | 'assistant'
@@ -17,109 +12,117 @@ export interface ChatMessage {
   toolInvocations?: Array<{
     toolCallId: string
     toolName: string
+    state: 'pending' | 'done'
   }>
 }
 
-export function useAgentChat (traceEnabled = false, systemPrompt?: string) {
-  if (!window.WebSocket) return
+export function useAgentChat (_traceEnabled = false, systemPrompt?: string) {
   // @ts-ignore
   if (import.meta.env?.SSR) return
 
-  const agentTools = ref<AgentToolInfo[]>(
-    Object.values(useAgentTools()).map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema }))
-  )
-  const currentTraceId = ref<string | null>(null)
-
-  const url = (`${window.location.origin}${$apiPath}/chat`).replace('http:', 'ws:').replace('https:', 'wss:')
-  const ws = new ReconnectingWebSocket(url)
-  let history: ModelMessage[] = []
   const messages = ref<ChatMessage[]>([])
-  const status = ref<'closed' | 'handshake' | 'open' | 'waiting'>('closed')
-  let currentAssistantMessage: ChatMessage | null = null
+  const status = ref<'ready' | 'streaming' | 'error'>('ready')
+  const error = ref<string | null>(null)
+  let history: ModelMessage[] = []
+  let abortController: AbortController | null = null
 
-  watch(agentTools, () => {
-    if (status.value === 'open') {
-      ws.send(JSON.stringify({ type: 'update-tools', tools: agentTools.value } as ChatWsClientMessage))
-    }
-  }, { deep: true })
-
-  ws.addEventListener('open', () => {
-    status.value = 'handshake'
-  })
-  ws.addEventListener('close', () => {
-    status.value = 'closed'
-  })
-  ws.onmessage = async (event: MessageEvent) => {
-    const body = event.data as string
-    const msg = JSON.parse(body) as ChatWsServerMessage
-    if (msg.type === 'ready') {
-      ws.send(JSON.stringify({
-        type: 'init-state',
-        history,
-        tools: agentTools.value,
-        trace: traceEnabled,
-        traceId: currentTraceId.value || undefined,
-        systemPrompt
-      } as ChatWsClientMessage))
-    } else if (msg.type === 'init-state-ok') {
-      status.value = 'open'
-      if (msg.traceId) {
-        currentTraceId.value = msg.traceId
-      }
-    } else {
-      if (status.value !== 'waiting') {
-        throw new Error('received websocket message while in status ' + status.value)
-      }
-      if (msg.type === 'reset-history') {
-        history = msg.history
-        status.value = 'open'
-      } else if (msg.type === 'push-history') {
-        history = history.concat(msg.history)
-        status.value = 'open'
-      } else if (msg.type === 'agent-output') {
-        if (currentAssistantMessage) {
-          currentAssistantMessage.content += msg.content
-        } else {
-          currentAssistantMessage = { role: 'assistant', content: msg.content }
-          messages.value.push(currentAssistantMessage)
-        }
-      } else if (msg.type === 'tool-call') {
-        if (!currentAssistantMessage) {
-          currentAssistantMessage = { role: 'assistant', content: '', toolInvocations: [] }
-          messages.value.push(currentAssistantMessage)
-        }
-        if (!currentAssistantMessage.toolInvocations) {
-          currentAssistantMessage.toolInvocations = []
-        }
-        currentAssistantMessage.toolInvocations.push({
-          toolCallId: msg.callId,
-          toolName: msg.name
-        })
-        const tools = useAgentTools()
-        const toolExecutor = (tools[msg.name] as any)?.execute
-        if (!toolExecutor) throw new Error(`Tool ${msg.name} not found`)
-        const result = await toolExecutor({ args: msg.args, context: {} })
-        ws.send(JSON.stringify({ type: 'tool-result', callId: msg.callId, result } as ChatWsClientMessage))
-      }
-    }
+  // Capture agent tools at setup time (inject must be called during setup)
+  let agentToolsRef: Record<string, AgentTool> = {}
+  try {
+    agentToolsRef = useAgentTools()
+  } catch {
+    // No agent tools plugin installed
   }
+
+  const provider = createOpenAI({
+    baseURL: `${window.location.origin}${$apiPath}/gateway/v1`,
+    apiKey: 'unused'
+  })
 
   onScopeDispose(() => {
-    status.value = 'closed'
-    ws.close()
+    if (abortController) {
+      abortController.abort()
+      abortController = null
+    }
   })
 
-  const sendMessage = (msg: string) => {
-    if (status.value !== 'open') {
-      throw new Error('received user message while in status ' + status.value)
-    }
-    status.value = 'waiting'
+  const sendMessage = async (msg: string) => {
+    if (status.value === 'streaming') return
+
+    status.value = 'streaming'
+    error.value = null
     messages.value.push({ role: 'user', content: msg })
-    currentAssistantMessage = null
-    ws.send(JSON.stringify({ type: 'user-input', content: msg } as ChatWsClientMessage))
+
+    // Add user message to history
+    history.push({ role: 'user', content: msg })
+
+    abortController = new AbortController()
+    let currentAssistantMessage: ChatMessage | null = null
+
+    try {
+      const tools = bridgeWebMCPTools(agentToolsRef)
+
+      const result = streamText({
+        model: provider.chat('assistant'),
+        system: systemPrompt,
+        messages: history,
+        tools: Object.keys(tools).length > 0 ? tools : undefined,
+        stopWhen: stepCountIs(10),
+        abortSignal: abortController.signal
+      })
+
+      for await (const part of result.fullStream) {
+        if (part.type === 'text-delta') {
+          if (!currentAssistantMessage) {
+            currentAssistantMessage = { role: 'assistant', content: '' }
+            messages.value.push(currentAssistantMessage)
+          }
+          currentAssistantMessage.content += part.text
+        } else if (part.type === 'tool-call') {
+          if (!currentAssistantMessage) {
+            currentAssistantMessage = { role: 'assistant', content: '', toolInvocations: [] }
+            messages.value.push(currentAssistantMessage)
+          }
+          if (!currentAssistantMessage.toolInvocations) {
+            currentAssistantMessage.toolInvocations = []
+          }
+          currentAssistantMessage.toolInvocations.push({
+            toolCallId: part.toolCallId,
+            toolName: part.toolName,
+            state: 'pending'
+          })
+        } else if (part.type === 'tool-result') {
+          if (currentAssistantMessage?.toolInvocations) {
+            const invocation = currentAssistantMessage.toolInvocations.find(
+              ti => ti.toolCallId === part.toolCallId
+            )
+            if (invocation) invocation.state = 'done'
+          }
+        } else if (part.type === 'finish-step') {
+          // Reset for next step (new assistant message after tool results)
+          currentAssistantMessage = null
+        }
+      }
+
+      // Update history with all response messages
+      const response = await result.response
+      history = history.concat(response.messages)
+
+      status.value = 'ready'
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        status.value = 'ready'
+        return
+      }
+      console.error('Agent chat error:', err)
+      error.value = err.message || 'Unknown error'
+      status.value = 'error'
+    } finally {
+      abortController = null
+    }
   }
 
-  return { messages, status, sendMessage, agentTools, currentTraceId }
+  return { messages, status, error, sendMessage }
 }
 
 export default useAgentChat

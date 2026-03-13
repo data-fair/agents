@@ -13,7 +13,9 @@
   },
   "dependencies": {
     "@agents/shared": "*",
+    "@ai-sdk/openai": "^3.0.41",
     "@ai-sdk/vue": "^3.0.116",
+    "ai": "^6.0.116",
     "@data-fair/frame": "^0.18.0",
     "@data-fair/lib-vue": "1.27.0",
     "@data-fair/lib-vuetify": "2.0.0",
@@ -24,7 +26,6 @@
     "@mdi/font": "^7.4.47",
     "@unhead/vue": "^2.1.10",
     "dayjs": "^1.11.19",
-    "reconnecting-websocket": "^4.4.0",
     "vue": "^3.5.13",
     "vue-router": "^4.5.1",
     "vuetify": "^4.0.1"
