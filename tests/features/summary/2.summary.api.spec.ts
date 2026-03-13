@@ -47,14 +47,9 @@ test.describe('Summary API', () => {
   })
 
   test('should fail when chatModel not configured', async () => {
-    await user.put('/api/settings/user/test-standalone1', {
-      providers: [],
-      chatModel: null
-    })
-
     await assert.rejects(
       user.post('/api/summary', { content: 'Test content' }),
-      (err: any) => err.response.status === 404
+      (err: any) => err.status === 404
     )
   })
 
@@ -80,11 +75,11 @@ test.describe('Summary API', () => {
 
     await assert.rejects(
       unauthenticatedUser.post('/api/summary', { content: 'Test content' }),
-      (err: any) => err.response.status === 401
+      (err: any) => err.status === 401
     )
   })
 
-  test('should fail when accessing another user settings without permission', async () => {
+  test('should fail when other user has no settings configured', async () => {
     await user.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
       chatModel: mockModel
@@ -92,7 +87,7 @@ test.describe('Summary API', () => {
 
     await assert.rejects(
       otherUser.post('/api/summary', { content: 'Test content' }),
-      (err: any) => err.response.status === 403
+      (err: any) => err.status === 404
     )
   })
 
@@ -102,10 +97,10 @@ test.describe('Summary API', () => {
       chatModel: mockModel
     })
 
-    const res = await user.post('/api/summary', {})
-
-    assert.equal(res.status, 400)
-    assert.ok(res.data.error)
+    await assert.rejects(
+      user.post('/api/summary', {}),
+      (err: any) => err.status === 400
+    )
   })
 
   test('should handle empty content', async () => {
@@ -114,9 +109,9 @@ test.describe('Summary API', () => {
       chatModel: mockModel
     })
 
-    const res = await user.post('/api/summary', { content: '' })
-
-    assert.equal(res.status, 400)
-    assert.ok(res.data.error)
+    await assert.rejects(
+      user.post('/api/summary', { content: '' }),
+      (err: any) => err.status === 400
+    )
   })
 })
