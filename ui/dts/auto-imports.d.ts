@@ -81,6 +81,7 @@ declare global {
   const triggerRef: typeof import('vue')['triggerRef']
   const unref: typeof import('vue')['unref']
   const useAgentChat: typeof import('../src/composables/use-agent-chat')['default']
+  const useAgentEvaluator: typeof import('../src/composables/use-agent-evaluator')['default']
   const useAgentTool: typeof import('../src/composables/use-agent-tools')['useAgentTool']
   const useAgentTools: typeof import('../src/composables/use-agent-tools')['useAgentTools']
   const useAsyncAction: typeof import('@data-fair/lib-vue/async-action.js')['useAsyncAction']
@@ -91,6 +92,7 @@ declare global {
   const useCssVars: typeof import('vue')['useCssVars']
   const useEditFetch: typeof import('@data-fair/lib-vue/edit-fetch.js')['useEditFetch']
   const useFetch: typeof import('@data-fair/lib-vue/fetch.js')['useFetch']
+  const useFrameServer: typeof import('../src/composables/use-frame-server')['useFrameServer']
   const useFrameTools: typeof import('../src/composables/use-frame-tools')['useFrameTools']
   const useHead: typeof import('@unhead/vue')['useHead']
   const useHeadSafe: typeof import('@unhead/vue')['useHeadSafe']
@@ -206,6 +208,7 @@ declare module 'vue' {
     readonly triggerRef: UnwrapRef<typeof import('vue')['triggerRef']>
     readonly unref: UnwrapRef<typeof import('vue')['unref']>
     readonly useAgentChat: UnwrapRef<typeof import('../src/composables/use-agent-chat')['default']>
+    readonly useAgentEvaluator: UnwrapRef<typeof import('../src/composables/use-agent-evaluator')['default']>
     readonly useAgentTool: UnwrapRef<typeof import('../src/composables/use-agent-tools')['useAgentTool']>
     readonly useAgentTools: UnwrapRef<typeof import('../src/composables/use-agent-tools')['useAgentTools']>
     readonly useAsyncAction: UnwrapRef<typeof import('@data-fair/lib-vue/async-action.js')['useAsyncAction']>
@@ -216,6 +219,7 @@ declare module 'vue' {
     readonly useCssVars: UnwrapRef<typeof import('vue')['useCssVars']>
     readonly useEditFetch: UnwrapRef<typeof import('@data-fair/lib-vue/edit-fetch.js')['useEditFetch']>
     readonly useFetch: UnwrapRef<typeof import('@data-fair/lib-vue/fetch.js')['useFetch']>
+    readonly useFrameServer: UnwrapRef<typeof import('../src/composables/use-frame-server')['useFrameServer']>
     readonly useFrameTools: UnwrapRef<typeof import('../src/composables/use-frame-tools')['useFrameTools']>
     readonly useHead: UnwrapRef<typeof import('@unhead/vue')['useHead']>
     readonly useHeadSafe: UnwrapRef<typeof import('@unhead/vue')['useHeadSafe']>
