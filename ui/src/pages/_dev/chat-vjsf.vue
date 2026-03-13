@@ -44,7 +44,7 @@ en:
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAgentTool } from '~/composables/use-agent-tools'
+import { useAgentTool } from '@data-fair/lib-vue-agents'
 import AgentChat from '~/components/AgentChat.vue'
 import VjsfWebmcp from '@koumoul/vjsf/components/vjsf-webmcp.vue'
 

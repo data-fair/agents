@@ -13,7 +13,7 @@ import { createSession } from '@data-fair/lib-vue/session.js'
 import { createUiNotif } from '@data-fair/lib-vue/ui-notif.js'
 import { createHead } from '@unhead/vue/client'
 import { createI18n } from 'vue-i18n'
-import { createAgentTools } from './composables/use-agent-tools'
+import { createAgentTools } from '@data-fair/lib-vue-agents'
 import App from './App.vue'
 
 (async function () {

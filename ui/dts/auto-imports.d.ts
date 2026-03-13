@@ -143,11 +143,9 @@ declare module 'vue' {
     readonly $sitePath: UnwrapRef<typeof import('~/context')['$sitePath']>
     readonly $uiConfig: UnwrapRef<typeof import('~/context')['$uiConfig']>
     readonly EffectScope: UnwrapRef<typeof import('vue')['EffectScope']>
-    readonly agentToolsKey: UnwrapRef<typeof import('../src/composables/use-agent-tools')['agentToolsKey']>
     readonly bridgeWebMCPTools: UnwrapRef<typeof import('../src/composables/use-agent-tools')['bridgeWebMCPTools']>
     readonly computed: UnwrapRef<typeof import('vue')['computed']>
     readonly computedDeepDiff: UnwrapRef<typeof import('@data-fair/lib-vue/deep-diff.js')['computedDeepDiff']>
-    readonly createAgentTools: UnwrapRef<typeof import('../src/composables/use-agent-tools')['createAgentTools']>
     readonly createApp: UnwrapRef<typeof import('vue')['createApp']>
     readonly customRef: UnwrapRef<typeof import('vue')['customRef']>
     readonly defineAsyncComponent: UnwrapRef<typeof import('vue')['defineAsyncComponent']>
@@ -209,8 +207,6 @@ declare module 'vue' {
     readonly unref: UnwrapRef<typeof import('vue')['unref']>
     readonly useAgentChat: UnwrapRef<typeof import('../src/composables/use-agent-chat')['default']>
     readonly useAgentEvaluator: UnwrapRef<typeof import('../src/composables/use-agent-evaluator')['default']>
-    readonly useAgentTool: UnwrapRef<typeof import('../src/composables/use-agent-tools')['useAgentTool']>
-    readonly useAgentTools: UnwrapRef<typeof import('../src/composables/use-agent-tools')['useAgentTools']>
     readonly useAsyncAction: UnwrapRef<typeof import('@data-fair/lib-vue/async-action.js')['useAsyncAction']>
     readonly useAttrs: UnwrapRef<typeof import('vue')['useAttrs']>
     readonly useBooleanSearchParam: UnwrapRef<typeof import('@data-fair/lib-vue/reactive-search-params.js')['useBooleanSearchParam']>
@@ -219,7 +215,6 @@ declare module 'vue' {
     readonly useCssVars: UnwrapRef<typeof import('vue')['useCssVars']>
     readonly useEditFetch: UnwrapRef<typeof import('@data-fair/lib-vue/edit-fetch.js')['useEditFetch']>
     readonly useFetch: UnwrapRef<typeof import('@data-fair/lib-vue/fetch.js')['useFetch']>
-    readonly useFrameServer: UnwrapRef<typeof import('../src/composables/use-frame-server')['useFrameServer']>
     readonly useFrameTools: UnwrapRef<typeof import('../src/composables/use-frame-tools')['useFrameTools']>
     readonly useHead: UnwrapRef<typeof import('@unhead/vue')['useHead']>
     readonly useHeadSafe: UnwrapRef<typeof import('@unhead/vue')['useHeadSafe']>

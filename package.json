@@ -24,7 +24,8 @@
   "workspaces": [
     "ui",
     "api",
-    "shared"
+    "shared",
+    "lib-vue"
   ],
   "author": "",
   "license": "AGPL-3.0-only",

@@ -1,0 +1,18 @@
+{
+  "name": "@data-fair/lib-vue-agents",
+  "version": "0.1.0",
+  "description": "Vue composables for exposing MCP tools via in-browser BroadcastChannel.",
+  "main": "index.js",
+  "type": "module",
+  "files": ["**/*.js", "**/*.d.ts"],
+  "scripts": { "build": "tsc" },
+  "license": "MIT",
+  "peerDependencies": {
+    "vue": "^3.5.0"
+  },
+  "dependencies": {
+    "@mcp-b/webmcp-polyfill": "^2.1.0",
+    "@mcp-b/webmcp-ts-sdk": "^2.2.0",
+    "@mcp-b/global": "^2.2.0"
+  }
+}

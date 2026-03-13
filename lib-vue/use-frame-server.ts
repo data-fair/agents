@@ -1,6 +1,6 @@
 import { onScopeDispose } from 'vue'
 import { BrowserMcpServer } from '@mcp-b/webmcp-ts-sdk'
-import { FrameServerTransport } from '~/transports/frame-server-transport'
+import { FrameServerTransport } from './frame-server-transport.js'
 
 /**
  * Replaces navigator.modelContext with a BrowserMcpServer connected to a

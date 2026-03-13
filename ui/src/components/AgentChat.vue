@@ -313,7 +313,7 @@ import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSession } from '@data-fair/lib-vue/session.js'
 import { useAgentChat } from '~/composables/use-agent-chat'
-import { useAgentTools } from '~/composables/use-agent-tools'
+import { useAgentTools } from '@data-fair/lib-vue-agents'
 
 const props = defineProps<{
   debug?: boolean

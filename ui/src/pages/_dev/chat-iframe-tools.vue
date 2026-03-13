@@ -33,7 +33,7 @@ en:
 <script lang="ts" setup>
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useFrameServer } from '~/composables/use-frame-server'
+import { useFrameServer } from '@data-fair/lib-vue-agents'
 
 const { t } = useI18n()
 

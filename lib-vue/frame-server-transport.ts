@@ -7,7 +7,7 @@ import { JSONRPCMessageSchema } from '@mcp-b/webmcp-ts-sdk'
 const DEFAULT_CHANNEL_ID = 'mcp-frame'
 const DEFAULT_READY_RETRY_MS = 250
 
-interface FrameServerTransportOptions {
+export interface FrameServerTransportOptions {
   serverId: string
   channelId?: string
   serverReadyRetryMs?: number

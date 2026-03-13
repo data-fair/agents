@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@agents/shared": "*",
+    "@data-fair/lib-vue-agents": "*",
     "@ai-sdk/openai": "^3.0.41",
     "@ai-sdk/vue": "^3.0.116",
     "ai": "^6.0.116",
