@@ -12,11 +12,8 @@ declare global {
   const $sitePath: typeof import('~/context')['$sitePath']
   const $uiConfig: typeof import('~/context')['$uiConfig']
   const EffectScope: typeof import('vue')['EffectScope']
-  const agentToolsKey: typeof import('../src/composables/use-agent-tools')['agentToolsKey']
-  const bridgeWebMCPTools: typeof import('../src/composables/use-agent-tools')['bridgeWebMCPTools']
   const computed: typeof import('vue')['computed']
   const computedDeepDiff: typeof import('@data-fair/lib-vue/deep-diff.js')['computedDeepDiff']
-  const createAgentTools: typeof import('../src/composables/use-agent-tools')['createAgentTools']
   const createApp: typeof import('vue')['createApp']
   const createReactiveSearchParams: typeof import('../src/composables/use-webmcp')['createReactiveSearchParams']
   const createRouter: typeof import('vue-router').createRouter
@@ -82,8 +79,6 @@ declare global {
   const unref: typeof import('vue')['unref']
   const useAgentChat: typeof import('../src/composables/use-agent-chat')['default']
   const useAgentEvaluator: typeof import('../src/composables/use-agent-evaluator')['default']
-  const useAgentTool: typeof import('../src/composables/use-agent-tools')['useAgentTool']
-  const useAgentTools: typeof import('../src/composables/use-agent-tools')['useAgentTools']
   const useAsyncAction: typeof import('@data-fair/lib-vue/async-action.js')['useAsyncAction']
   const useAttrs: typeof import('vue')['useAttrs']
   const useBooleanSearchParam: typeof import('@data-fair/lib-vue/reactive-search-params.js')['useBooleanSearchParam']
@@ -143,7 +138,6 @@ declare module 'vue' {
     readonly $sitePath: UnwrapRef<typeof import('~/context')['$sitePath']>
     readonly $uiConfig: UnwrapRef<typeof import('~/context')['$uiConfig']>
     readonly EffectScope: UnwrapRef<typeof import('vue')['EffectScope']>
-    readonly bridgeWebMCPTools: UnwrapRef<typeof import('../src/composables/use-agent-tools')['bridgeWebMCPTools']>
     readonly computed: UnwrapRef<typeof import('vue')['computed']>
     readonly computedDeepDiff: UnwrapRef<typeof import('@data-fair/lib-vue/deep-diff.js')['computedDeepDiff']>
     readonly createApp: UnwrapRef<typeof import('vue')['createApp']>

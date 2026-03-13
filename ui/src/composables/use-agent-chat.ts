@@ -2,9 +2,6 @@ import { ref, onScopeDispose } from 'vue'
 import { streamText, stepCountIs } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import type { ModelMessage, Tool } from 'ai'
-import { useAgentTools } from '@data-fair/lib-vue-agents'
-import type { AgentTool } from '@data-fair/lib-vue-agents'
-import { bridgeWebMCPTools } from './use-agent-tools'
 import { BrowserTraceIntegration } from '../traces/browser-trace-integration'
 import type { BrowserTraceEvent } from '../traces/browser-trace-integration'
 import { $apiPath } from '~/context'
@@ -35,14 +32,6 @@ export function useAgentChat (traceEnabled = false, systemPrompt?: string, exter
     traceIntegration = new BrowserTraceIntegration(crypto.randomUUID())
   }
 
-  // Capture agent tools at setup time (inject must be called during setup)
-  let agentToolsRef: Record<string, AgentTool> = {}
-  try {
-    agentToolsRef = useAgentTools()
-  } catch {
-    // No agent tools plugin installed
-  }
-
   const provider = createOpenAI({
     baseURL: `${window.location.origin}${$apiPath}/gateway/v1`,
     apiKey: 'unused'
@@ -69,7 +58,7 @@ export function useAgentChat (traceEnabled = false, systemPrompt?: string, exter
     let currentAssistantMessage: ChatMessage | null = null
 
     try {
-      const tools = { ...bridgeWebMCPTools(agentToolsRef), ...externalTools }
+      const tools = externalTools ?? {}
 
       const result = streamText({
         model: provider.chat('assistant'),

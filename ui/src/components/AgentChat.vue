@@ -313,7 +313,6 @@ import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSession } from '@data-fair/lib-vue/session.js'
 import { useAgentChat } from '~/composables/use-agent-chat'
-import { useAgentTools } from '@data-fair/lib-vue-agents'
 
 const props = defineProps<{
   debug?: boolean
@@ -323,7 +322,6 @@ const props = defineProps<{
 
 const { t } = useI18n()
 const session = useSession()
-const agentTools = useAgentTools()
 
 const finalSystemPrompt = computed(() => {
   if (props.systemPrompt) {
@@ -378,7 +376,12 @@ const chatMaxHeight = computed(() => {
 })
 
 const debugTools = computed(() => {
-  return Object.values(agentTools)
+  if (!props.externalTools) return []
+  return Object.entries(props.externalTools).map(([name, t]) => ({
+    name,
+    description: (t as any).description ?? '',
+    inputSchema: (t as any).parameters ?? {}
+  }))
 })
 
 const handleSend = () => {

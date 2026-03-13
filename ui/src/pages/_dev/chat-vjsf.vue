@@ -24,7 +24,10 @@
         cols="7"
         class="d-flex flex-column"
       >
-        <AgentChat :debug="true" />
+        <AgentChat
+          :debug="true"
+          :external-tools="tools"
+        />
       </v-col>
     </v-row>
   </v-container>
@@ -44,7 +47,8 @@ en:
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAgentTool } from '@data-fair/lib-vue-agents'
+import { useAgentTool, useFrameServer } from '@data-fair/lib-vue-agents'
+import { useFrameTools } from '~/composables/use-frame-tools'
 import AgentChat from '~/components/AgentChat.vue'
 import VjsfWebmcp from '@koumoul/vjsf/components/vjsf-webmcp.vue'
 
@@ -60,6 +64,9 @@ const schema = {
 }
 
 const toolData = ref<Record<string, any>>({})
+
+useFrameServer('self')
+const { tools } = useFrameTools()
 
 onMounted(() => {
   useAgentTool({

@@ -2,9 +2,6 @@ import { ref, computed, onScopeDispose } from 'vue'
 import { streamText, generateText, stepCountIs, tool, jsonSchema } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import type { ModelMessage, Tool } from 'ai'
-import { useAgentTools } from '@data-fair/lib-vue-agents'
-import type { AgentTool } from '@data-fair/lib-vue-agents'
-import { bridgeWebMCPTools } from './use-agent-tools'
 import { BrowserTraceIntegration } from '../traces/browser-trace-integration'
 import type { BrowserTraceEvent } from '../traces/browser-trace-integration'
 import { $apiPath } from '~/context'
@@ -73,14 +70,6 @@ export function useAgentEvaluator (externalTools?: Record<string, Tool>) {
 
   let abortController: AbortController | null = null
 
-  // Capture agent tools at setup time
-  let agentToolsRef: Record<string, AgentTool> = {}
-  try {
-    agentToolsRef = useAgentTools()
-  } catch {
-    // No agent tools plugin installed
-  }
-
   const provider = createOpenAI({
     baseURL: `${window.location.origin}${$apiPath}/gateway/v1`,
     apiKey: 'unused'
@@ -142,7 +131,7 @@ export function useAgentEvaluator (externalTools?: Record<string, Tool>) {
 
   async function runSingleTask (task: EvaluationTask, taskIndex: number, maxTurns: number): Promise<EvaluationResult> {
     const signal = abortController!.signal
-    const tools = { ...bridgeWebMCPTools(agentToolsRef), ...externalTools }
+    const tools = externalTools ?? {}
     const hasTools = Object.keys(tools).length > 0
 
     const traceId = crypto.randomUUID()
