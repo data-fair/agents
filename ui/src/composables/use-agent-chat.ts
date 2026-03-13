@@ -4,6 +4,8 @@ import { createOpenAI } from '@ai-sdk/openai'
 import type { ModelMessage, Tool } from 'ai'
 import { bridgeWebMCPTools, useAgentTools } from './use-agent-tools'
 import type { AgentTool } from './use-agent-tools'
+import { BrowserTraceIntegration } from '../traces/browser-trace-integration'
+import type { BrowserTraceEvent } from '../traces/browser-trace-integration'
 import { $apiPath } from '~/context'
 
 export interface ChatMessage {
@@ -16,15 +18,21 @@ export interface ChatMessage {
   }>
 }
 
-export function useAgentChat (_traceEnabled = false, systemPrompt?: string, externalTools?: Record<string, Tool>) {
+export function useAgentChat (traceEnabled = false, systemPrompt?: string, externalTools?: Record<string, Tool>) {
   // @ts-ignore
   if (import.meta.env?.SSR) return
 
   const messages = ref<ChatMessage[]>([])
   const status = ref<'ready' | 'streaming' | 'error'>('ready')
   const error = ref<string | null>(null)
+  const traceEvents = ref<BrowserTraceEvent[]>([])
   let history: ModelMessage[] = []
   let abortController: AbortController | null = null
+  let traceIntegration: BrowserTraceIntegration | null = null
+
+  if (traceEnabled) {
+    traceIntegration = new BrowserTraceIntegration(crypto.randomUUID())
+  }
 
   // Capture agent tools at setup time (inject must be called during setup)
   let agentToolsRef: Record<string, AgentTool> = {}
@@ -68,7 +76,16 @@ export function useAgentChat (_traceEnabled = false, systemPrompt?: string, exte
         messages: history,
         tools: Object.keys(tools).length > 0 ? tools : undefined,
         stopWhen: stepCountIs(10),
-        abortSignal: abortController.signal
+        abortSignal: abortController.signal,
+        ...(traceIntegration
+          ? {
+              experimental_telemetry: {
+                isEnabled: true,
+                functionId: traceIntegration.getTraceId(),
+                integrations: [traceIntegration]
+              }
+            }
+          : {})
       })
 
       for await (const part of result.fullStream) {
@@ -108,6 +125,10 @@ export function useAgentChat (_traceEnabled = false, systemPrompt?: string, exte
       const response = await result.response
       history = history.concat(response.messages)
 
+      if (traceIntegration) {
+        traceEvents.value = traceIntegration.getEvents()
+      }
+
       status.value = 'ready'
     } catch (err: any) {
       if (err.name === 'AbortError') {
@@ -122,7 +143,7 @@ export function useAgentChat (_traceEnabled = false, systemPrompt?: string, exte
     }
   }
 
-  return { messages, status, error, sendMessage }
+  return { messages, status, error, traceEvents, sendMessage }
 }
 
 export default useAgentChat

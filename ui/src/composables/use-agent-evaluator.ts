@@ -4,7 +4,9 @@ import { createOpenAI } from '@ai-sdk/openai'
 import type { ModelMessage, Tool } from 'ai'
 import { bridgeWebMCPTools, useAgentTools } from './use-agent-tools'
 import type { AgentTool } from './use-agent-tools'
-import { $apiPath, $fetch } from '~/context'
+import { BrowserTraceIntegration } from '../traces/browser-trace-integration'
+import type { BrowserTraceEvent } from '../traces/browser-trace-integration'
+import { $apiPath } from '~/context'
 
 export interface EvaluationTask {
   initialPrompt: string
@@ -15,6 +17,7 @@ export interface EvaluationTask {
 
 export interface EvaluationResult {
   taskIndex: number
+  traceId: string
   initialPrompt: string
   conversation: Array<{ role: 'user' | 'assistant'; content: string }>
   finalResponse: string
@@ -24,6 +27,7 @@ export interface EvaluationResult {
   }
   summary: string
   suggestions: string[]
+  traceEvents: BrowserTraceEvent[]
 }
 
 export type EvaluatorStatus = 'idle' | 'running' | 'scoring' | 'done' | 'error'
@@ -64,6 +68,7 @@ export function useAgentEvaluator (externalTools?: Record<string, Tool>) {
   const conversation = ref<Array<{ role: 'user' | 'assistant'; content: string }>>([])
   const results = ref<EvaluationResult[]>([])
   const error = ref<string | null>(null)
+  const traceEvents = ref<BrowserTraceEvent[]>([])
 
   let abortController: AbortController | null = null
 
@@ -139,6 +144,9 @@ export function useAgentEvaluator (externalTools?: Record<string, Tool>) {
     const tools = { ...bridgeWebMCPTools(agentToolsRef), ...externalTools }
     const hasTools = Object.keys(tools).length > 0
 
+    const traceId = crypto.randomUUID()
+    const traceIntegration = new BrowserTraceIntegration(traceId)
+
     const taskConversation: Array<{ role: 'user' | 'assistant'; content: string }> = []
     let history: ModelMessage[] = []
     let currentPrompt = task.initialPrompt
@@ -159,7 +167,13 @@ export function useAgentEvaluator (externalTools?: Record<string, Tool>) {
         messages: history,
         tools: hasTools ? tools : undefined,
         stopWhen: stepCountIs(10),
-        abortSignal: signal
+        abortSignal: signal,
+        experimental_telemetry: {
+          isEnabled: true,
+          functionId: traceId,
+          metadata: { traceId, turn: turn.toString() },
+          integrations: [traceIntegration]
+        }
       })
 
       let fullResponse = ''
@@ -209,16 +223,22 @@ Use the checkCompletion tool to indicate if the assistant has completed the task
     status.value = 'scoring'
     const finalResponse = taskConversation.filter(m => m.role === 'assistant').pop()?.content || ''
 
+    // Update trace events ref for UI access
+    traceEvents.value = traceIntegration.getEvents()
+
     const scoring = await generateText({
       model: provider.chat('evaluator'),
       system: `You are evaluating the quality and efficiency of an AI assistant conversation.
 Score quality (0-100) based on how well the final result matches the ideal.
-Score efficiency (0-100) based on how directly the assistant reached the result.
+Score efficiency (0-100) based on how directly the assistant reached the result (consider number of steps, tool calls, and token usage from the trace data).
 Use the score tool to provide your evaluation.`,
       prompt: `Ideal result: ${task.idealResult}
 
 Conversation:
-${taskConversation.map(m => `${m.role}: ${m.content}`).join('\n\n')}`,
+${taskConversation.map(m => `${m.role}: ${m.content}`).join('\n\n')}
+
+Trace data:
+${JSON.stringify(traceIntegration.getEvents())}`,
       tools: { score: scoringTool },
       toolChoice: { type: 'tool', toolName: 'score' },
       abortSignal: signal
@@ -230,6 +250,7 @@ ${taskConversation.map(m => `${m.role}: ${m.content}`).join('\n\n')}`,
 
     return {
       taskIndex,
+      traceId,
       initialPrompt: task.initialPrompt,
       conversation: taskConversation,
       finalResponse,
@@ -238,62 +259,8 @@ ${taskConversation.map(m => `${m.role}: ${m.content}`).join('\n\n')}`,
         efficiency: scores?.efficiency ?? 50
       },
       summary: scores?.summary ?? '',
-      suggestions: scores?.suggestions ?? []
-    }
-  }
-
-  async function evaluateTrace (traceId: string, idealResult: string) {
-    if (status.value === 'running' || status.value === 'scoring') return
-
-    status.value = 'scoring'
-    error.value = null
-    abortController = new AbortController()
-
-    try {
-      const traceData = await $fetch(`/evaluator/traces/${traceId}`)
-      const traceEvents = traceData.results || []
-
-      const scoring = await generateText({
-        model: provider.chat('evaluator'),
-        system: `You are evaluating an existing conversation trace.
-Score quality (0-100) based on how well the result matches the ideal.
-Score efficiency (0-100) based on the efficiency of the conversation.
-Use the score tool to provide your evaluation.`,
-        prompt: `Ideal result: ${idealResult}
-
-Trace events: ${JSON.stringify(traceEvents)}`,
-        tools: { score: scoringTool },
-        toolChoice: { type: 'tool', toolName: 'score' },
-        abortSignal: abortController.signal
-      })
-
-      const scores = (scoring.toolCalls[0] as any)?.args as { quality: number; efficiency: number; summary: string; suggestions: string[] } | undefined
-
-      const result: EvaluationResult = {
-        taskIndex: 0,
-        initialPrompt: '',
-        conversation: [],
-        finalResponse: '',
-        rankings: {
-          quality: scores?.quality ?? 50,
-          efficiency: scores?.efficiency ?? 50
-        },
-        summary: scores?.summary ?? '',
-        suggestions: scores?.suggestions ?? []
-      }
-
-      results.value = [result]
-      status.value = 'done'
-    } catch (err: any) {
-      if (err.name === 'AbortError') {
-        status.value = 'idle'
-        return
-      }
-      console.error('Trace evaluation error:', err)
-      error.value = err.message || 'Unknown error'
-      status.value = 'error'
-    } finally {
-      abortController = null
+      suggestions: scores?.suggestions ?? [],
+      traceEvents: traceIntegration.getEvents()
     }
   }
 
@@ -311,11 +278,11 @@ Trace events: ${JSON.stringify(traceEvents)}`,
     currentTurn,
     conversation,
     results,
+    traceEvents,
     overallQuality,
     overallEfficiency,
     error,
     runEvaluation,
-    evaluateTrace,
     abort
   }
 }
