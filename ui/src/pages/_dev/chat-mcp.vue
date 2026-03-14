@@ -64,6 +64,7 @@ useFrameServer('self')
 onMounted(() => {
   useAgentTool({
     name: 'set_data',
+    title: t('toolLabel'),
     description: 'Set the data in the textarea',
     inputSchema: {
       type: 'object',

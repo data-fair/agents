@@ -6,6 +6,7 @@ import { FrameClientAggregator } from '~/transports/frame-client-aggregator'
 import { BrowserTraceIntegration } from '../traces/browser-trace-integration'
 import type { BrowserTraceEvent } from '../traces/browser-trace-integration'
 import { $apiPath } from '~/context'
+import { mockMessages } from '~/dev/mock-messages'
 
 export interface ChatMessage {
   role: 'user' | 'assistant'
@@ -17,15 +18,40 @@ export interface ChatMessage {
   }>
 }
 
+export interface ToolInfo {
+  name: string
+  description: string
+  inputSchema: Record<string, any>
+}
+
+function extractErrorMessage (err: unknown): string {
+  if (!err) return 'Unknown error'
+  if (typeof err === 'string') return err
+  const e = err as any
+  // API errors from the gateway have a JSON body with error.message
+  if (e.data?.error?.message) return e.data.error.message
+  if (e.responseBody) {
+    try {
+      const body = JSON.parse(e.responseBody)
+      if (body.error?.message) return body.error.message
+    } catch {}
+  }
+  if (e.message) return e.message
+  return 'Unknown error'
+}
+
 export function useAgentChat (traceEnabled = false, systemPrompt?: string) {
   // @ts-ignore
   if (import.meta.env?.SSR) return
 
-  const messages = ref<ChatMessage[]>([])
+  // const messages = ref<ChatMessage[]>([])
+  const messages = ref<ChatMessage[]>(mockMessages)
+
   const status = ref<'ready' | 'streaming' | 'error'>('ready')
   const error = ref<string | null>(null)
   const traceEvents = ref<BrowserTraceEvent[]>([])
   const tools = ref<Record<string, Tool>>({})
+  const toolsVersion = ref(0)
   let history: ModelMessage[] = []
   let abortController: AbortController | null = null
   let traceIntegration: BrowserTraceIntegration | null = null
@@ -37,6 +63,7 @@ export function useAgentChat (traceEnabled = false, systemPrompt?: string) {
   const aggregator = new FrameClientAggregator({
     onToolsChanged: (newTools) => {
       tools.value = { ...newTools }
+      toolsVersion.value++
     }
   })
   aggregator.start()
@@ -54,6 +81,13 @@ export function useAgentChat (traceEnabled = false, systemPrompt?: string) {
     }
   })
 
+  const abort = () => {
+    if (abortController) {
+      abortController.abort()
+      abortController = null
+    }
+  }
+
   const sendMessage = async (msg: string) => {
     if (status.value === 'streaming') return
 
@@ -66,6 +100,7 @@ export function useAgentChat (traceEnabled = false, systemPrompt?: string) {
 
     abortController = new AbortController()
     let currentAssistantMessage: ChatMessage | null = null
+    let streamError: unknown = null
 
     try {
       const currentTools = tools.value
@@ -77,6 +112,9 @@ export function useAgentChat (traceEnabled = false, systemPrompt?: string) {
         tools: Object.keys(currentTools).length > 0 ? currentTools : undefined,
         stopWhen: stepCountIs(10),
         abortSignal: abortController.signal,
+        onError: ({ error: err }) => {
+          streamError = err
+        },
         ...(traceIntegration
           ? {
               experimental_telemetry: {
@@ -135,15 +173,19 @@ export function useAgentChat (traceEnabled = false, systemPrompt?: string) {
         status.value = 'ready'
         return
       }
-      console.error('Agent chat error:', err)
-      error.value = err.message || 'Unknown error'
+      // The AI SDK wraps stream failures in a generic NoOutputGeneratedError.
+      // Use the actual error captured via onError when available.
+      const actualError = streamError ?? err
+      const message = extractErrorMessage(actualError)
+      console.error('Agent chat error:', actualError)
+      error.value = message
       status.value = 'error'
     } finally {
       abortController = null
     }
   }
 
-  return { messages, status, error, traceEvents, tools, sendMessage }
+  return { messages, status, error, traceEvents, tools, toolsVersion, sendMessage, abort }
 }
 
 export default useAgentChat

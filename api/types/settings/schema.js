@@ -18,7 +18,8 @@ export default {
         getItems: {
           expr: 'context.models',
           // eslint-disable-next-line no-template-curly-in-string
-          itemTitle: '`${item.name} (${item.provider.name} - ${item.provider.id.slice(0, 8)})`'
+          itemTitle: '`${item.name} (${item.provider.name} - ${item.provider.id.slice(0, 8)})`',
+          itemKey: 'item.id'
         },
       },
       properties: {
