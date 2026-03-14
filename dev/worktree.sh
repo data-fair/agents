@@ -15,6 +15,11 @@ TARGET_DIR="../${REPO_NAME}_${BRANCH_NAME}"
 echo "Creating worktree at $TARGET_DIR from branch $SOURCE_BRANCH"
 git worktree add -b "$BRANCH_NAME" "$TARGET_DIR" $SOURCE_BRANCH
 
+if [ -d ".claude" ]; then
+  echo "Copy .claude/ to worktree"
+  cp -r ".claude" "$TARGET_DIR/.claude"
+fi
+
 cd $TARGET_DIR
 
 echo "Create .env file"
