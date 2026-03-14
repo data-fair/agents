@@ -60,9 +60,9 @@ test.describe('Chat UI', () => {
     await page.getByRole('button', { name: 'Send' }).click()
 
     // Verify user message appears
-    await expect(page.locator('.chat-message.user')).toContainText('hello')
+    await expect(page.getByText('hello', { exact: true })).toBeVisible()
 
     // Wait for loading to complete and assistant response
-    await expect(page.locator('.chat-message.assistant').last()).toContainText('world', { timeout: 10000 })
+    await expect(page.locator('.assistant-content').last()).toContainText('world', { timeout: 10000 })
   })
 })

@@ -175,111 +175,108 @@
     <!-- Info dialog -->
     <v-dialog
       v-model="showInfoDialog"
-      max-width="500"
-      scrollable
+      fullscreen
     >
-      <v-card>
-        <v-card-title class="text-subtitle-1">
-          {{ t('agentInfo') }}
-        </v-card-title>
-        <v-card-text>
-          <div
-            v-if="summaryLoading"
-            class="d-flex justify-center py-4"
-          >
-            <v-progress-circular
-              indeterminate
-              size="24"
-              width="2"
+      <v-card class="d-flex flex-column">
+        <v-btn
+          :icon="mdiClose"
+          variant="text"
+          size="small"
+          :title="t('close')"
+          class="position-absolute"
+          style="top: 8px; right: 8px; z-index: 1"
+          @click="showInfoDialog = false"
+        />
+        <v-card-text class="d-flex align-center justify-center flex-grow-1">
+          <div style="max-width: 500px; width: 100%">
+            <div
+              v-if="summaryLoading"
+              class="d-flex justify-center py-4"
+            >
+              <v-progress-circular
+                indeterminate
+                size="24"
+                width="2"
+              />
+            </div>
+            <!-- eslint-disable-next-line vue/no-v-html -->
+            <div
+              v-else
+              class="text-body-2 markdown-content"
+              v-html="renderMarkdown(agentSummary || t('noSummary'))"
             />
           </div>
-          <!-- eslint-disable-next-line vue/no-v-html -->
-          <div
-            v-else
-            class="text-body-2 markdown-content"
-            v-html="renderMarkdown(agentSummary || t('noSummary'))"
-          />
         </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn
-            variant="text"
-            size="small"
-            @click="showInfoDialog = false"
-          >
-            {{ t('close') }}
-          </v-btn>
-        </v-card-actions>
       </v-card>
     </v-dialog>
 
     <!-- Debug dialog -->
     <v-dialog
       v-model="showDebugDialog"
-      max-width="800"
-      scrollable
+      fullscreen
     >
-      <v-card>
-        <v-card-title class="d-flex align-center text-subtitle-1">
-          {{ t('debugDialog') }}
-          <v-spacer />
-          <v-btn
-            icon="mdi-close"
-            variant="text"
-            size="small"
-            @click="showDebugDialog = false"
-          />
-        </v-card-title>
-        <v-card-text>
-          <v-tabs
-            v-model="activeDebugTab"
-            density="compact"
-          >
-            <v-tab value="systemPrompt">
-              {{ t('systemPrompt') }}
-            </v-tab>
-            <v-tab value="tools">
-              {{ t('tools') }} ({{ debugTools.length }})
-            </v-tab>
-          </v-tabs>
+      <v-card class="d-flex flex-column">
+        <v-btn
+          :icon="mdiClose"
+          variant="text"
+          size="small"
+          :title="t('close')"
+          class="position-absolute"
+          style="top: 8px; right: 8px; z-index: 1"
+          @click="showDebugDialog = false"
+        />
+        <v-card-text class="d-flex align-center justify-center flex-grow-1">
+          <div style="max-width: 800px; width: 100%">
+            <v-tabs
+              v-model="activeDebugTab"
+              density="compact"
+            >
+              <v-tab value="systemPrompt">
+                {{ t('systemPrompt') }}
+              </v-tab>
+              <v-tab value="tools">
+                {{ t('tools') }} ({{ debugTools.length }})
+              </v-tab>
+            </v-tabs>
 
-          <v-window v-model="activeDebugTab">
-            <v-window-item value="systemPrompt">
-              <pre class="agent-chat__pre pa-3 mt-2">{{ finalSystemPrompt }}</pre>
-            </v-window-item>
+            <v-window v-model="activeDebugTab">
+              <v-window-item value="systemPrompt">
+                <pre class="agent-chat__pre pa-3 mt-2">{{ finalSystemPrompt }}</pre>
+              </v-window-item>
 
-            <v-window-item value="tools">
-              <div
-                v-if="!debugTools.length"
-                class="text-center text-medium-emphasis pa-4"
-              >
-                {{ t('noTools') }}
-              </div>
-              <v-expansion-panels
-                v-else
-                variant="accordion"
-                class="mt-2"
-              >
-                <v-expansion-panel
-                  v-for="dtool in debugTools"
-                  :key="dtool.name"
+              <v-window-item value="tools">
+                <div
+                  v-if="!debugTools.length"
+                  class="text-center text-medium-emphasis pa-4"
                 >
-                  <v-expansion-panel-title class="text-body-2">
-                    <span class="font-weight-medium">{{ dtool.name }}</span>
-                  </v-expansion-panel-title>
-                  <v-expansion-panel-text>
-                    <p class="text-body-2 mb-2">
-                      {{ dtool.description }}
-                    </p>
-                    <p class="text-caption text-medium-emphasis mb-1">
-                      {{ t('inputSchema') }}:
-                    </p>
-                    <pre class="agent-chat__pre pa-2">{{ JSON.stringify(dtool.inputSchema, null, 2) }}</pre>
-                  </v-expansion-panel-text>
-                </v-expansion-panel>
-              </v-expansion-panels>
-            </v-window-item>
-          </v-window>
+                  {{ t('noTools') }}
+                </div>
+                <v-expansion-panels
+                  v-else
+                  variant="accordion"
+                  class="mt-2"
+                >
+                  <v-expansion-panel
+                    v-for="dtool in debugTools"
+                    :key="dtool.name"
+                  >
+                    <v-expansion-panel-title class="text-body-2">
+                      <span class="font-weight-medium">{{ dtool.name }}</span>
+                    </v-expansion-panel-title>
+                    <v-expansion-panel-text>
+                      <p class="text-body-2 mb-2">
+                        {{ dtool.description }}
+                      </p>
+                      <p class="text-caption text-medium-emphasis mb-1">
+                        {{ t('inputSchema') }}:
+                      </p>
+                      <pre class="agent-chat__pre pa-2">{{ JSON.stringify(dtool.inputSchema, null, 2) }}</pre>
+                    </v-expansion-panel-text>
+                  </v-expansion-panel>
+                </v-expansion-panels>
+              </v-window-item>
+            </v-window>
+          </div>
         </v-card-text>
       </v-card>
     </v-dialog>
@@ -335,7 +332,7 @@ import { useI18n } from 'vue-i18n'
 import { useSession } from '@data-fair/lib-vue/session.js'
 import { useAgentChat } from '~/composables/use-agent-chat'
 import { $fetch } from '~/context'
-import { mdiInformationSymbol, mdiSend, mdiStop } from '@mdi/js'
+import { mdiClose, mdiInformationSymbol, mdiSend, mdiStop } from '@mdi/js'
 import { renderMarkdown } from '~/utils/markdown'
 
 const props = defineProps<{
