@@ -1,6 +1,18 @@
+<template>
+  <div class="chat-page">
+    <AgentChat
+      :debug="true"
+      title="Chat Dev"
+      :initial-messages="mockMessages"
+    />
+  </div>
+</template>
+
+<script lang="ts" setup>
+import AgentChat from '~/components/AgentChat.vue'
 import type { ChatMessage } from '~/composables/use-agent-chat'
 
-export const mockMessages: ChatMessage[] = [
+const mockMessages: ChatMessage[] = [
   {
     role: 'user',
     content: 'Quels jeux de données sont disponibles sur le portail ?'
@@ -40,3 +52,12 @@ export const mockMessages: ChatMessage[] = [
     content: 'Voici les moyennes de PM2.5 par station :\n\n| Station | Moyenne PM2.5 (µg/m³) |\n|---------|----------------------|\n| ST-001  | 12.3                 |\n| ST-002  | 18.7                 |\n| ST-003  | 9.1                  |\n| ST-004  | 15.4                 |'
   }
 ]
+</script>
+
+<style scoped>
+.chat-page {
+  height: 100vh;
+  padding: 0;
+  margin: 0;
+}
+</style>

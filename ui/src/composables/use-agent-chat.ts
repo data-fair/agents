@@ -6,7 +6,6 @@ import { FrameClientAggregator } from '~/transports/frame-client-aggregator'
 import { BrowserTraceIntegration } from '../traces/browser-trace-integration'
 import type { BrowserTraceEvent } from '../traces/browser-trace-integration'
 import { $apiPath } from '~/context'
-import { mockMessages } from '~/dev/mock-messages'
 
 export interface ChatMessage {
   role: 'user' | 'assistant'
@@ -40,12 +39,11 @@ function extractErrorMessage (err: unknown): string {
   return 'Unknown error'
 }
 
-export function useAgentChat (traceEnabled = false, systemPrompt?: string) {
+export function useAgentChat (traceEnabled = false, systemPrompt?: string, initialMessages?: ChatMessage[]) {
   // @ts-ignore
   if (import.meta.env?.SSR) return
 
-  // const messages = ref<ChatMessage[]>([])
-  const messages = ref<ChatMessage[]>(mockMessages)
+  const messages = ref<ChatMessage[]>(initialMessages ?? [])
 
   const status = ref<'ready' | 'streaming' | 'error'>('ready')
   const error = ref<string | null>(null)

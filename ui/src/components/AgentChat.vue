@@ -330,7 +330,7 @@ en:
 import { ref, computed, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSession } from '@data-fair/lib-vue/session.js'
-import { useAgentChat } from '~/composables/use-agent-chat'
+import { useAgentChat, type ChatMessage } from '~/composables/use-agent-chat'
 import { $fetch } from '~/context'
 import { mdiClose, mdiInformationSymbol, mdiSend, mdiStop } from '@mdi/js'
 import { renderMarkdown } from '~/utils/markdown'
@@ -339,6 +339,7 @@ const props = defineProps<{
   debug?: boolean
   title?: string
   systemPrompt?: string
+  initialMessages?: ChatMessage[]
 }>()
 
 const { t } = useI18n()
@@ -371,7 +372,7 @@ const finalSystemPrompt = computed(() => {
   return parts.join(' ')
 })
 
-const chatResult = useAgentChat(props.debug, finalSystemPrompt.value)
+const chatResult = useAgentChat(props.debug, finalSystemPrompt.value, props.initialMessages)
 
 if (!chatResult) {
   throw new Error('Chat not supported in SSR')
