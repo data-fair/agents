@@ -14,7 +14,6 @@ services:
       - MAILDEV_UI_PORT=${MAILDEV_UI_PORT}
       - EVENTS_PORT=${EVENTS_PORT}
       - SD_PORT=${SD_PORT}
-      - DF_PORT=${DF_PORT}
     volumes:
       - ./dev/resources/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
 
@@ -62,27 +61,6 @@ services:
       - ./dev/resources/users.json:/app/data/users.json
       - ./dev/resources/organizations.json:/app/data/organizations.json
 
-  data-fair:
-    image: ghcr.io/data-fair/data-fair:master
-    restart: on-failure:10
-    network_mode: host
-    depends_on:
-      mongo:
-        condition: service_started
-      elasticsearch:
-        condition: service_healthy
-    environment:
-      - PORT=${DF_PORT}
-      - MONGO_URL=mongodb://localhost:${MONGO_PORT}/data-fair
-      - ES_HOST=localhost:${ES_PORT}
-      - DIRECTORY_URL=http://localhost:${NGINX_PORT}/simple-directory
-      - PRIVATE_EVENTS_URL=http://localhost:${EVENTS_PORT}
-      - PRIVATE_DIRECTORY_URL=http://localhost:${SD_PORT}
-      - PUBLIC_URL=http://localhost:${NGINX_PORT}/data-fair
-      - WS_PUBLIC_URL=ws://localhost:${NGINX_PORT}/data-fair
-      - OBSERVER_ACTIVE=false
-      - SECRET_EVENTS=secret-events
-
   events:
     image: ghcr.io/data-fair/events:main
     network_mode: host
@@ -100,31 +78,12 @@ services:
   #####
 
   mongo:
-    image: mongo:4.2
+    image: mongo:8.0.17
+    command: ["mongod", "--quiet", "--setParameter", "logComponentVerbosity={\"network\": {\"verbosity\": -1}}"]
     ports:
       - ${MONGO_PORT}:27017
     volumes:
       - mongo-data:/data/db
 
-  elasticsearch:
-    image: ghcr.io/data-fair/elasticsearch:7.x
-    ports:
-      - ${ES_PORT}:9200
-    environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
-      - ingest.geoip.downloader.enabled=false
-      - ES_JAVA_OPTS=-Xms128m -Xmx128m -server
-      - ES_HEAP_SIZE=128m
-    volumes:
-      - elasticsearch-data:/usr/share/elasticsearch/data
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9200 || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-
 volumes:
   mongo-data:
-  elasticsearch-data:

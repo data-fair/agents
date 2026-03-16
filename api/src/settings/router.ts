@@ -7,6 +7,7 @@
 import mongo from '#mongo'
 import { Router } from 'express'
 import { type AccountKeys, assertAccountRole, reqSessionAuthenticated } from '@data-fair/lib-express'
+import eventsLog from '@data-fair/lib-express/events-log.js'
 import * as putReqBody from '#doc/settings/put-req/index.ts'
 import { type Settings } from '#types'
 import { encryptProviderApiKeys, obfuscateProviderApiKeys } from './operations.ts'
@@ -50,7 +51,7 @@ router.put('/:type/:id', async (req, res, next) => {
   }
   await mongo.settings.replaceOne({ owner }, settings, { upsert: true })
 
-  console.log(`[audit] settings updated by ${session.account.type}/${session.account.id} (user: ${session.user?.id}) for owner ${owner.type}/${owner.id}`)
+  eventsLog.info('agents.settings.update', `settings updated for owner ${owner.type}/${owner.id}`, { req })
 
   settings.providers = obfuscateProviderApiKeys(settings.providers)
   res.json(settings)

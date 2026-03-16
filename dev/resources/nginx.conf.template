@@ -37,11 +37,6 @@
         proxy_pass http://localhost:${SD_PORT};
       }
 
-      location /data-fair {
-        rewrite  ^/data-fair/(.*) /$1 break;
-        proxy_pass http://localhost:${DF_PORT};
-      }
-
       location /events/ {
         proxy_pass http://localhost:${EVENTS_PORT};
       }
