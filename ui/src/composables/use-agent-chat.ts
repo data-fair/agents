@@ -1,5 +1,5 @@
 import { ref, onScopeDispose } from 'vue'
-import { streamText, stepCountIs } from 'ai'
+import { streamText, stepCountIs, tool, jsonSchema } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import type { ModelMessage, Tool } from 'ai'
 import { FrameClientAggregator } from '~/transports/frame-client-aggregator'
@@ -15,12 +15,18 @@ export interface ChatMessage {
     toolName: string
     state: 'pending' | 'done'
   }>
+  subAgentMessages?: ChatMessage[]
 }
 
 export interface ToolInfo {
   name: string
   description: string
   inputSchema: Record<string, any>
+}
+
+interface SubAgentConfig {
+  prompt: string
+  tools: string[]
 }
 
 function extractErrorMessage (err: unknown): string {
@@ -37,6 +43,43 @@ function extractErrorMessage (err: unknown): string {
   }
   if (e.message) return e.message
   return 'Unknown error'
+}
+
+/**
+ * Partition tools into main-agent tools and sub-agent pseudo-tools.
+ * Sub-agent tools (names listed in a sub-agent's `tools` array) are removed
+ * from the main set so they are only visible to the sub-agent.
+ */
+function partitionTools (allTools: Record<string, Tool>): {
+  mainTools: Record<string, Tool>
+  subAgents: Record<string, { tool: Tool, config: SubAgentConfig }>
+} {
+  const subAgents: Record<string, { tool: Tool, config: SubAgentConfig }> = {}
+  const reservedToolNames = new Set<string>()
+
+  // First pass: identify sub-agents and collect reserved tool names
+  for (const [name, t] of Object.entries(allTools)) {
+    if (!name.startsWith('subagent_')) continue
+
+    // Call execute to get the sub-agent config
+    const executeFn = (t as any).execute
+    if (!executeFn) continue
+
+    // We need the config synchronously for partitioning, but execute is async.
+    // The sub-agent tool's execute returns a static config, so we call it once
+    // and cache the result. We'll resolve it before first use.
+    subAgents[name] = { tool: t, config: null as any }
+  }
+
+  // Build the main tools set (exclude subagent_ pseudo-tools and reserved tools)
+  const mainTools: Record<string, Tool> = {}
+  for (const [name, t] of Object.entries(allTools)) {
+    if (name.startsWith('subagent_')) continue
+    if (reservedToolNames.has(name)) continue
+    mainTools[name] = t
+  }
+
+  return { mainTools, subAgents }
 }
 
 export function useAgentChat (traceEnabled = false, systemPrompt?: string, initialMessages?: ChatMessage[]) {
@@ -86,6 +129,106 @@ export function useAgentChat (traceEnabled = false, systemPrompt?: string, initi
     }
   }
 
+  /**
+   * Resolve sub-agent configs by calling their execute functions.
+   * Also removes reserved tools from mainTools.
+   */
+  async function resolveSubAgents (
+    mainTools: Record<string, Tool>,
+    subAgents: Record<string, { tool: Tool, config: SubAgentConfig }>
+  ) {
+    for (const [, entry] of Object.entries(subAgents)) {
+      const executeFn = (entry.tool as any).execute
+      if (executeFn) {
+        // Pass a dummy task to satisfy the inputSchema requirement
+        const raw = await executeFn({ task: '' })
+        // The MCP tool execute returns a CallToolResult: { content: [{ type: 'text', text: '...' }] }
+        // Extract the JSON string from the content array
+        let configStr: string
+        if (typeof raw === 'string') {
+          configStr = raw
+        } else if (raw?.content?.[0]?.text) {
+          configStr = raw.content[0].text
+        } else {
+          continue
+        }
+        entry.config = JSON.parse(configStr) as SubAgentConfig
+
+        // Remove reserved tools from main set
+        for (const reservedName of entry.config.tools) {
+          delete mainTools[reservedName]
+        }
+      }
+    }
+  }
+
+  /**
+   * Run a sub-agent: execute a nested streamText call with the sub-agent's
+   * prompt and tools, returning the final text response.
+   */
+  async function executeSubAgent (
+    config: SubAgentConfig,
+    task: string,
+    allTools: Record<string, Tool>,
+    signal: AbortSignal,
+    onMessage?: (msg: ChatMessage) => void
+  ): Promise<string> {
+    // Collect the sub-agent's tools from the full tool set
+    const subAgentTools: Record<string, Tool> = {}
+    for (const toolName of config.tools) {
+      if (allTools[toolName]) {
+        subAgentTools[toolName] = allTools[toolName]
+      }
+    }
+
+    const subResult = streamText({
+      model: provider.chat('assistant'),
+      system: config.prompt,
+      messages: [{ role: 'user', content: task }],
+      tools: Object.keys(subAgentTools).length > 0 ? subAgentTools : undefined,
+      stopWhen: stepCountIs(10),
+      abortSignal: signal
+    })
+
+    let fullText = ''
+    let currentSubMessage: ChatMessage | null = null
+
+    for await (const part of subResult.fullStream) {
+      if (part.type === 'text-delta') {
+        fullText += part.text
+        if (!currentSubMessage) {
+          currentSubMessage = { role: 'assistant', content: '' }
+          onMessage?.(currentSubMessage)
+        }
+        currentSubMessage.content += part.text
+      } else if (part.type === 'tool-call') {
+        if (!currentSubMessage) {
+          currentSubMessage = { role: 'assistant', content: '', toolInvocations: [] }
+          onMessage?.(currentSubMessage)
+        }
+        if (!currentSubMessage.toolInvocations) {
+          currentSubMessage.toolInvocations = []
+        }
+        currentSubMessage.toolInvocations.push({
+          toolCallId: part.toolCallId,
+          toolName: part.toolName,
+          state: 'pending'
+        })
+      } else if (part.type === 'tool-result') {
+        if (currentSubMessage?.toolInvocations) {
+          const invocation = currentSubMessage.toolInvocations.find(
+            ti => ti.toolCallId === part.toolCallId
+          )
+          if (invocation) invocation.state = 'done'
+        }
+      } else if (part.type === 'finish-step') {
+        currentSubMessage = null
+      }
+    }
+
+    return fullText || 'No response from sub-agent.'
+  }
+
   const sendMessage = async (msg: string) => {
     if (status.value === 'streaming') return
 
@@ -102,12 +245,61 @@ export function useAgentChat (traceEnabled = false, systemPrompt?: string, initi
 
     try {
       const currentTools = tools.value
+      const { mainTools, subAgents } = partitionTools(currentTools)
+
+      // Resolve sub-agent configs and remove their reserved tools from mainTools
+      await resolveSubAgents(mainTools, subAgents)
+
+      // Build the tool set for the main LLM:
+      // main tools + sub-agent pseudo-tools (with execute that runs nested streamText)
+      const mainLLMTools: Record<string, Tool> = { ...mainTools }
+      for (const [name, entry] of Object.entries(subAgents)) {
+        mainLLMTools[name] = tool({
+          description: (entry.tool as any).description || '',
+          inputSchema: jsonSchema({
+            type: 'object',
+            properties: {
+              task: { type: 'string', description: 'The task to delegate to this sub-agent' }
+            },
+            required: ['task']
+          }),
+          execute: async (args: any) => {
+            const config = subAgents[name].config
+            const subMessages: ChatMessage[] = []
+
+            // Find the current assistant message to attach sub-agent messages
+            if (currentAssistantMessage) {
+              if (!currentAssistantMessage.subAgentMessages) {
+                currentAssistantMessage.subAgentMessages = []
+              }
+            }
+
+            const result = await executeSubAgent(
+              config,
+              args.task,
+              currentTools,
+              abortController!.signal,
+              (subMsg) => {
+                subMessages.push(subMsg)
+                if (currentAssistantMessage) {
+                  if (!currentAssistantMessage.subAgentMessages) {
+                    currentAssistantMessage.subAgentMessages = []
+                  }
+                  currentAssistantMessage.subAgentMessages.push(subMsg)
+                }
+              }
+            )
+
+            return result
+          }
+        })
+      }
 
       const result = streamText({
         model: provider.chat('assistant'),
         system: systemPrompt,
         messages: history,
-        tools: Object.keys(currentTools).length > 0 ? currentTools : undefined,
+        tools: Object.keys(mainLLMTools).length > 0 ? mainLLMTools : undefined,
         stopWhen: stepCountIs(10),
         abortSignal: abortController.signal,
         onError: ({ error: err }) => {

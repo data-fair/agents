@@ -80,16 +80,86 @@
             v-if="message.toolInvocations?.length"
             class="mt-2"
           >
-            <v-chip
+            <template
               v-for="invocation in message.toolInvocations"
               :key="invocation.toolCallId"
-              size="x-small"
-              :color="invocation.state === 'done' ? 'success' : 'warning'"
-              variant="tonal"
-              class="mr-1 mb-1"
             >
-              {{ toolTitle(invocation.toolName) }}
-            </v-chip>
+              <v-chip
+                v-if="!invocation.toolName.startsWith('subagent_')"
+                size="x-small"
+                :color="invocation.state === 'done' ? 'success' : 'warning'"
+                variant="tonal"
+                class="mr-1 mb-1"
+              >
+                {{ toolTitle(invocation.toolName) }}
+              </v-chip>
+            </template>
+          </div>
+          <!-- Sub-agent expandable sections -->
+          <div
+            v-if="message.toolInvocations?.some(ti => ti.toolName.startsWith('subagent_'))"
+            class="mt-2"
+          >
+            <v-expansion-panels
+              variant="accordion"
+              density="compact"
+            >
+              <v-expansion-panel
+                v-for="invocation in message.toolInvocations.filter(ti => ti.toolName.startsWith('subagent_'))"
+                :key="invocation.toolCallId"
+              >
+                <v-expansion-panel-title class="text-body-2 py-1">
+                  <v-icon
+                    size="x-small"
+                    :color="invocation.state === 'done' ? 'success' : 'warning'"
+                    class="mr-2"
+                    :icon="invocation.state === 'done' ? mdiCheck : mdiLoading"
+                    :class="{ 'agent-chat__spin': invocation.state !== 'done' }"
+                  />
+                  <span class="font-weight-medium">{{ subAgentTitle(invocation.toolName) }}</span>
+                </v-expansion-panel-title>
+                <v-expansion-panel-text>
+                  <div
+                    v-if="message.subAgentMessages?.length"
+                    class="pl-2"
+                    style="border-left: 2px solid rgb(var(--v-theme-primary), 0.3)"
+                  >
+                    <div
+                      v-for="(subMsg, subIdx) in message.subAgentMessages"
+                      :key="subIdx"
+                      class="py-1"
+                    >
+                      <!-- eslint-disable-next-line vue/no-v-html -->
+                      <div
+                        class="text-body-2 markdown-content"
+                        v-html="renderMarkdown(subMsg.content)"
+                      />
+                      <div
+                        v-if="subMsg.toolInvocations?.length"
+                        class="mt-1"
+                      >
+                        <v-chip
+                          v-for="subInv in subMsg.toolInvocations"
+                          :key="subInv.toolCallId"
+                          size="x-small"
+                          :color="subInv.state === 'done' ? 'success' : 'warning'"
+                          variant="tonal"
+                          class="mr-1 mb-1"
+                        >
+                          {{ toolTitle(subInv.toolName) }}
+                        </v-chip>
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    v-else
+                    class="text-body-2 text-medium-emphasis"
+                  >
+                    {{ invocation.state === 'done' ? t('subAgentDone') : t('subAgentRunning') }}
+                  </div>
+                </v-expansion-panel-text>
+              </v-expansion-panel>
+            </v-expansion-panels>
           </div>
         </div>
       </div>
@@ -304,6 +374,8 @@ fr:
   systemPromptLang: La langue de l'utilisateur est {lang}.
   systemPromptOrg: ", membre de l'organisation {orgName}"
   systemPromptDep: ", département {depName}"
+  subAgentRunning: Sous-agent en cours d'exécution...
+  subAgentDone: Sous-agent terminé.
 en:
   placeholder: Type your message...
   send: Send
@@ -324,6 +396,8 @@ en:
   systemPromptLang: The user's language is {lang}.
   systemPromptOrg: ", member of the organization {orgName}"
   systemPromptDep: ", department {depName}"
+  subAgentRunning: Sub-agent running...
+  subAgentDone: Sub-agent finished.
 </i18n>
 
 <script lang="ts" setup>
@@ -332,7 +406,7 @@ import { useI18n } from 'vue-i18n'
 import { useSession } from '@data-fair/lib-vue/session.js'
 import { useAgentChat, type ChatMessage } from '~/composables/use-agent-chat'
 import { $fetch } from '~/context'
-import { mdiClose, mdiInformationSymbol, mdiSend, mdiStop } from '@mdi/js'
+import { mdiCheck, mdiClose, mdiInformationSymbol, mdiLoading, mdiSend, mdiStop } from '@mdi/js'
 import { renderMarkdown } from '~/utils/markdown'
 
 const props = defineProps<{
@@ -478,6 +552,12 @@ const toolTitle = (toolName: string) => {
   return t?.title || toolName
 }
 
+const subAgentTitle = (toolName: string) => {
+  // Strip 'subagent_' prefix and format nicely
+  const name = toolName.replace(/^subagent_/, '')
+  return name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+}
+
 const handleSend = () => {
   const userMessage = input.value.trim()
   if (!userMessage || isStreaming.value) return
@@ -544,5 +624,14 @@ const handleAbort = () => {
 @keyframes agent-info-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.3; }
+}
+
+.agent-chat__spin {
+  animation: agent-chat-spin 1s linear infinite;
+}
+
+@keyframes agent-chat-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 </style>
