@@ -47,7 +47,7 @@ RUN_ARGS=(
 
 # Generate merged opencode config with sandbox overrides
 OPENCODE_SANDBOX_CONFIG=$(mktemp "${TMPDIR:-/tmp}/opencode-sandbox-XXXXXX.json")
-jq -s '.[0] * .[1]' "$PROJECT_DIR/opencode.json" "$SCRIPT_DIR/opencode-settings.json" > "$OPENCODE_SANDBOX_CONFIG"
+jq -s '(.[0].permission // {}) as $p1 | (.[1].permission // {}) as $p2 | .[0] * .[1] | .permission = ($p1 * $p2)' "$PROJECT_DIR/opencode.json" "$SCRIPT_DIR/opencode-settings.json" > "$OPENCODE_SANDBOX_CONFIG"
 RUN_ARGS+=(-v "$OPENCODE_SANDBOX_CONFIG:/workspace/opencode.json:ro")
 trap "rm -f '$OPENCODE_SANDBOX_CONFIG'" EXIT
 

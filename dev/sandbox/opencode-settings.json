@@ -1,3 +1,13 @@
 {
-  "permission": "allow"
+  "permission": {
+    "read": "allow",
+    "edit": "allow",
+    "write": "allow",
+    "bash": "allow",
+    "glob": "allow",
+    "grep": "allow",
+    "ls": "allow",
+    "fetch": "allow",
+    "playwright-test*": "allow"
+  }
 }
