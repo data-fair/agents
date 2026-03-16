@@ -4,7 +4,7 @@
   "description": "Agentic capabilities for the data-fair stack. Manage AI providers and configure agents using tools that integrate with other data-fair services.",
   "type": "module",
   "scripts": {
-    "test": "playwright test --max-failures=1",
+    "test": "playwright test --project=unit --max-failures=1 && playwright test --project=api --max-failures=1 && playwright test --project=e2e --max-failures=1",
     "lint": "eslint . && npm -w ui run lint",
     "lint-fix": "eslint --fix . && npm -w ui run lint-fix",
     "dev-api": "npm -w api run dev",
