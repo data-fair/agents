@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:vite.dev)",
+      "WebSearch"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "sandbox": {
+    "enabled": true,
+    "autoAllowBashIfSandboxed": true
+  }
+}
