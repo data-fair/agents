@@ -68,32 +68,6 @@ To build the application for production:
 npm run build
 ```
 
-### Sandbox
-
-The sandbox runs coding agents (Claude Code, OpenCode) inside a Podman container with the project mounted at `/workspace`. This provides an isolated environment with restricted permissions for agent-driven development.
-
-Build or update the sandbox image:
-```bash
-npm run sandbox:build
-```
-
-Run Claude Code in the sandbox:
-```bash
-npm run sandbox:claude
-```
-
-Run OpenCode in the sandbox:
-```bash
-npm run sandbox:opencode
-```
-
-Open a shell in the sandbox:
-```bash
-npm run sandbox:shell
-```
-
-API keys (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, etc.) are forwarded from your host environment automatically.
-
 ### Docker
 
 Build the Docker image:

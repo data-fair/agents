@@ -10,6 +10,8 @@ import Vuetify from 'vite-plugin-vuetify'
 import microTemplate from '@data-fair/lib-utils/micro-template.js'
 import { autoImports, settingsPath } from '@data-fair/lib-vuetify/vite.js'
 import { commonjsDeps } from '@koumoul/vjsf/utils/build.js'
+import dotenv from 'dotenv'
+dotenv.config({ path: import.meta.resolve('../.env').replace('file://', '') })
 
 export default defineConfig({
   base: '/agents',
@@ -55,8 +57,8 @@ export default defineConfig({
     }
   ],
   server: {
-    port: 8082,
-    hmr: { port: 7200 }
+    port: parseInt(process.env.DEV_UI_PORT!),
+    hmr: { port: parseInt(process.env.DEV_UI_HMR_PORT!) }
   },
   build: {
     outDir: 'dist',

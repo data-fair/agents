@@ -14,11 +14,7 @@
     "build-types": "mkdir -p ui/src/components/vjsf && df-build-types . --vjsf-dir ui/src/components/vjsf",
     "prepare": "husky || true",
     "check-types": "tsc && npm -w ui run check-types",
-    "quality": "npm run lint && npm run build-types && npm run check-types && npm run test",
-    "sandbox:build": "dev/sandbox/run.sh build",
-    "sandbox:claude": "dev/sandbox/run.sh claude",
-    "sandbox:opencode": "dev/sandbox/run.sh opencode",
-    "sandbox:shell": "dev/sandbox/run.sh shell"
+    "quality": "npm run lint && npm run build-types && npm run check-types && npm run test"
   },
   "repository": {
     "type": "git",
