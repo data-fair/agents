@@ -3,6 +3,8 @@
     <AgentChat
       :debug="debugEnabled"
       :title="chatTitle"
+      :account-type="accountType"
+      :account-id="accountId"
     />
   </div>
 </template>
@@ -24,6 +26,9 @@ import AgentChat from '~/components/AgentChat.vue'
 const { t } = useI18n()
 const route = useRoute()
 const session = useSession()
+
+const accountType = computed(() => route.params.type as string)
+const accountId = computed(() => route.params.id as string)
 
 const chatTitle = computed(() => {
   return (route.query.title as string) || t('defaultTitle')

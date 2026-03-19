@@ -10,7 +10,10 @@
 
     <v-row>
       <v-col>
-        <usage-card />
+        <usage-card
+          :account-type="accountType"
+          :account-id="accountId"
+        />
       </v-col>
     </v-row>
 
@@ -59,20 +62,25 @@ en:
 </i18n>
 
 <script lang="ts" setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 import { useSessionAuthenticated } from '@data-fair/lib-vue/session.js'
 import { useEditFetch } from '@data-fair/lib-vue/edit-fetch.js'
 import type { Settings, ModelInfo } from '#api/types'
 import DfNavigationRight from '@data-fair/lib-vuetify/navigation-right.vue'
 import type { VjsfOptions } from '@koumoul/vjsf/types.js'
-import UsageCard from '../components/UsageCard.vue'
+import UsageCard from '~/components/UsageCard.vue'
 
 const { t, locale } = useI18n()
-const session = useSessionAuthenticated()
+const route = useRoute()
+useSessionAuthenticated()
+
+const accountType = computed(() => route.params.type as string)
+const accountId = computed(() => route.params.id as string)
 
 const settingsEditFetch = useEditFetch<Settings>(
-  () => `${$apiPath}/settings/${session.account.value.type}/${session.account.value.id}`,
+  () => `${$apiPath}/settings/${accountType.value}/${accountId.value}`,
   {
     saveOptions: {
       success: t('saved')
@@ -80,7 +88,7 @@ const settingsEditFetch = useEditFetch<Settings>(
   }
 )
 
-const modelsFetch = useFetch<{ results: ModelInfo[] }>(() => `${$apiPath}/models/${session.account.value.type}/${session.account.value.id}`)
+const modelsFetch = useFetch<{ results: ModelInfo[] }>(() => `${$apiPath}/models/${accountType.value}/${accountId.value}`)
 
 watchDeepDiff(() => settingsEditFetch.serverData.value?.providers, () => {
   if (!settingsEditFetch.serverData.value?.providers) return
@@ -97,5 +105,4 @@ const vjsfOptions = computed<Partial<VjsfOptions>>(() => ({
   initialValidation: 'always',
   context: { models: modelsFetch.data.value?.results ?? [] }
 }))
-
 </script>
