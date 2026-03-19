@@ -446,7 +446,11 @@ const finalSystemPrompt = computed(() => {
   return parts.join(' ')
 })
 
-const chatResult = useAgentChat(props.debug, finalSystemPrompt.value, props.initialMessages)
+const chatResult = useAgentChat({
+  debug: props.debug,
+  systemPrompt: finalSystemPrompt.value,
+  initialMessages: props.initialMessages
+})
 
 if (!chatResult) {
   throw new Error('Chat not supported in SSR')
