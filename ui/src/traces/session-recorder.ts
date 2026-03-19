@@ -163,8 +163,8 @@ export class SessionRecorder {
       // finishStep was called: set usage and finishReason on the last pushed step
       lastPushedStep.usage = usage
       lastPushedStep.finishReason = finishReason
-      // Also push the current step as a new step with the messages
-      if (this.currentStep) {
+      // Push currentStep as a new step only if it has content
+      if (this.currentStep && messages.length > 0) {
         this.currentStep.messages = messages
         this.currentStep.usage = usage
         this.currentStep.finishReason = finishReason
