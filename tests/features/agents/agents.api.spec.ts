@@ -44,7 +44,7 @@ test.describe('Chat API', () => {
   test('should exchange messages through the gateway', async () => {
     const cookieString = await user.cookieJar.getCookieString(directoryUrl)
     const provider = createOpenAI({
-      baseURL: `http://localhost:${process.env.DEV_API_PORT}/api/gateway/v1`,
+      baseURL: `http://localhost:${process.env.DEV_API_PORT}/api/gateway/user/test-standalone1/v1`,
       apiKey: 'unused',
       headers: { cookie: cookieString },
       name: 'data-fair-gateway'
