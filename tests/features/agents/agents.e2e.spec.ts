@@ -40,13 +40,13 @@ test.describe('Chat UI', () => {
   })
 
   test('Page loads with input field', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/chat', 'test-standalone1')
+    await goToWithAuth('/agents/user/test-standalone1/chat', 'test-standalone1')
     await expect(page.getByPlaceholder('Type your message...')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Send' })).toBeVisible()
   })
 
   test('Can send a message and receive response', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/chat', 'test-standalone1')
+    await goToWithAuth('/agents/user/test-standalone1/chat', 'test-standalone1')
 
     // Wait for chat to be ready
     const input = page.getByPlaceholder('Type your message...')

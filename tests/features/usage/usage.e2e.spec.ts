@@ -21,7 +21,7 @@ test.describe('Usage UI', () => {
       limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
     })
 
-    await goToWithAuth('/agents/settings', 'test-standalone1')
+    await goToWithAuth('/agents/user/test-standalone1/settings', 'test-standalone1')
 
     // Verify usage card title is visible
     await expect(page.getByText('Usage', { exact: true })).toBeVisible()
@@ -37,7 +37,7 @@ test.describe('Usage UI', () => {
       limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
     })
 
-    await goToWithAuth('/agents/settings', 'test-standalone1')
+    await goToWithAuth('/agents/user/test-standalone1/settings', 'test-standalone1')
 
     await expect(page.getByText('No usage recorded')).toBeVisible()
   })

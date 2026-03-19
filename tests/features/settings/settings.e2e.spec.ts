@@ -13,12 +13,12 @@ test.describe('Settings UI', () => {
   })
 
   test('Page loads with Settings title', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/settings', 'test-standalone1')
+    await goToWithAuth('/agents/user/test-standalone1/settings', 'test-standalone1')
     await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible()
   })
 
   test('Can add a new Mock provider', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/settings', 'test-standalone1')
+    await goToWithAuth('/agents/user/test-standalone1/settings', 'test-standalone1')
 
     // Click "Add item" button in AI Providers section
     await page.getByRole('button', { name: 'Add item' }).click()
@@ -38,7 +38,7 @@ test.describe('Settings UI', () => {
   })
 
   test('Save button appears when there are changes', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/settings', 'test-standalone1')
+    await goToWithAuth('/agents/user/test-standalone1/settings', 'test-standalone1')
 
     // Initially Save button should not be visible (no changes)
     await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
@@ -61,7 +61,7 @@ test.describe('Settings UI', () => {
       limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
     })
 
-    await goToWithAuth('/agents/settings', 'test-standalone1')
+    await goToWithAuth('/agents/user/test-standalone1/settings', 'test-standalone1')
 
     // Wait for page to fully load
     await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible()
@@ -93,7 +93,7 @@ test.describe('Settings UI', () => {
       limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
     })
 
-    await goToWithAuth('/agents/settings', 'test-standalone1')
+    await goToWithAuth('/agents/user/test-standalone1/settings', 'test-standalone1')
 
     // Wait for page to load
     await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible()
@@ -108,7 +108,7 @@ test.describe('Settings UI', () => {
   })
 
   test('Can delete a provider', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/settings', 'test-standalone1')
+    await goToWithAuth('/agents/user/test-standalone1/settings', 'test-standalone1')
 
     // Add a Mock provider first
     await page.getByRole('button', { name: 'Add item' }).click()
