@@ -17,6 +17,7 @@ git worktree add -b "$BRANCH_NAME" "$TARGET_DIR" $SOURCE_BRANCH
 
 if [ -d ".claude" ]; then
   echo "Copy .claude/ to worktree"
+  rm -rf "$TARGET_DIR/.claude"
   cp -r ".claude" "$TARGET_DIR/.claude"
 fi
 
