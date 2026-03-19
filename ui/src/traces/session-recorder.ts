@@ -176,15 +176,16 @@ export class SessionRecorder {
     const finishStepWasCalled = lastPushedStep && this.currentStep && !this.currentTurn.steps.includes(this.currentStep)
 
     if (finishStepWasCalled) {
-      // finishStep was called: set usage and finishReason on the last pushed step
-      lastPushedStep.usage = usage
-      lastPushedStep.finishReason = finishReason
-      // Push currentStep as a new step only if it has content
+      // finishStep was called: push currentStep as response step if it has messages,
+      // otherwise set usage/finishReason on the last tool-call step
       if (this.currentStep && messages.length > 0) {
         this.currentStep.messages = messages
         this.currentStep.usage = usage
         this.currentStep.finishReason = finishReason
         this.currentTurn.steps.push(this.currentStep)
+      } else {
+        lastPushedStep.usage = usage
+        lastPushedStep.finishReason = finishReason
       }
     } else if (this.currentStep) {
       // No finishStep call: push the current step with messages

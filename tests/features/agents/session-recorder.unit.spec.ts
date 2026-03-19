@@ -44,12 +44,14 @@ test.describe('SessionRecorder - recording', () => {
     const trace = recorder.getTrace()
     // Tool call step + text response step
     assert.equal(trace.turns[0].steps.length, 2)
-    const step = trace.turns[0].steps[0]
-    assert.equal(step.finishReason, 'stop')
-    assert.deepEqual(step.usage, { inputTokens: 20, outputTokens: 10 })
-    assert.equal(step.toolCalls.length, 1)
-    // Second step has the response messages
-    assert.equal(trace.turns[0].steps[1].messages.length, 1)
+    // First step has tool calls but no usage/finishReason
+    assert.equal(trace.turns[0].steps[0].toolCalls.length, 1)
+    assert.equal(trace.turns[0].steps[0].usage, undefined)
+    // Second step has the response messages with usage/finishReason
+    const responseStep = trace.turns[0].steps[1]
+    assert.equal(responseStep.finishReason, 'stop')
+    assert.deepEqual(responseStep.usage, { inputTokens: 20, outputTokens: 10 })
+    assert.equal(responseStep.messages.length, 1)
   })
 
   test('records multi-step turns', () => {

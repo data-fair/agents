@@ -624,7 +624,7 @@ watch(() => chatResult.toolsVersion.value, () => {
 
 // Auto-scroll to bottom on new messages
 watch(
-  () => chatResult.messages.value.length,
+  () => messages.value.length,
   async () => {
     await nextTick()
     if (messagesContainer.value) {

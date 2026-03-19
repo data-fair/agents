@@ -191,6 +191,7 @@ export function useAgentChat (options: UseAgentChatOptions = {}) {
    */
   async function executeSubAgent (
     parentToolCallId: string,
+    subAgentDisplayName: string,
     config: SubAgentConfig,
     task: string,
     allTools: Record<string, Tool>,
@@ -211,8 +212,7 @@ export function useAgentChat (options: UseAgentChatOptions = {}) {
         description: (t as any).description ?? '',
         inputSchema: (t as any).parameters ?? {}
       }))
-      const subAgentName = parentToolCallId
-      recorder.startSubAgent(parentToolCallId, subAgentName, config.prompt, task, subToolSnapshots)
+      recorder.startSubAgent(parentToolCallId, subAgentDisplayName, config.prompt, task, subToolSnapshots)
     }
 
     const subResult = streamText({
@@ -331,8 +331,10 @@ export function useAgentChat (options: UseAgentChatOptions = {}) {
               }
             }
 
+            const displayName = name.replace(/^subagent_/, '')
             const result = await executeSubAgent(
               parentToolCallId,
+              displayName,
               config,
               args.task,
               currentTools,
