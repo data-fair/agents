@@ -3,8 +3,7 @@ import { streamText, stepCountIs, tool, jsonSchema } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import type { ModelMessage, Tool } from 'ai'
 import { FrameClientAggregator } from '~/transports/frame-client-aggregator'
-import { BrowserTraceIntegration } from '../traces/browser-trace-integration'
-import type { BrowserTraceEvent } from '../traces/browser-trace-integration'
+import type { SessionRecorder, ToolSnapshot } from '~/traces/session-recorder'
 import { $apiPath } from '~/context'
 
 export interface ChatMessage {
@@ -22,6 +21,17 @@ export interface ToolInfo {
   name: string
   description: string
   inputSchema: Record<string, any>
+}
+
+export interface UseAgentChatOptions {
+  accountType: string,
+  accountId: string,
+  debug?: boolean
+  systemPrompt?: string
+  initialMessages?: ChatMessage[]
+  localTools?: Record<string, Tool>
+  modelName?: string
+  recorder?: SessionRecorder
 }
 
 interface SubAgentConfig {
@@ -82,40 +92,55 @@ function partitionTools (allTools: Record<string, Tool>): {
   return { mainTools, subAgents }
 }
 
-export function useAgentChat (accountType: string, accountId: string, traceEnabled = false, systemPrompt?: string, initialMessages?: ChatMessage[]) {
+export function useAgentChat (options: UseAgentChatOptions) {
   // @ts-ignore
   if (import.meta.env?.SSR) return
 
-  const messages = ref<ChatMessage[]>(initialMessages ?? [])
+  const { recorder, localTools, modelName } = options
+  const chatModelName = modelName ?? 'assistant'
+
+  const messages = ref<ChatMessage[]>(options.initialMessages ?? [])
 
   const status = ref<'ready' | 'streaming' | 'error'>('ready')
   const error = ref<string | null>(null)
-  const traceEvents = ref<BrowserTraceEvent[]>([])
   const tools = ref<Record<string, Tool>>({})
   const toolsVersion = ref(0)
   let history: ModelMessage[] = []
   let abortController: AbortController | null = null
-  let traceIntegration: BrowserTraceIntegration | null = null
 
-  if (traceEnabled) {
-    traceIntegration = new BrowserTraceIntegration(crypto.randomUUID())
+  let aggregator: FrameClientAggregator | null = null
+
+  if (localTools) {
+    // When localTools is provided, skip FrameClientAggregator entirely
+    tools.value = { ...localTools }
+    toolsVersion.value++
+  } else {
+    aggregator = new FrameClientAggregator({
+      onToolsChanged: (newTools) => {
+        tools.value = { ...newTools }
+        toolsVersion.value++
+        if (recorder) {
+          const snapshots: ToolSnapshot[] = Object.entries(newTools).map(([name, t]) => ({
+            name,
+            description: (t as any).description ?? '',
+            inputSchema: (t as any).parameters ?? {}
+          }))
+          recorder.snapshotTools(snapshots)
+        }
+      }
+    })
+    aggregator.start()
   }
 
-  const aggregator = new FrameClientAggregator({
-    onToolsChanged: (newTools) => {
-      tools.value = { ...newTools }
-      toolsVersion.value++
-    }
-  })
-  aggregator.start()
-
   const provider = createOpenAI({
-    baseURL: `${window.location.origin}${$apiPath}/gateway/${accountType}/${accountId}/v1`,
+    baseURL: `${window.location.origin}${$apiPath}/gateway/${options.accountType}/${options.accountId}/v1`,
     apiKey: 'unused'
   })
 
   onScopeDispose(() => {
-    aggregator.close()
+    if (aggregator) {
+      aggregator.close()
+    }
     if (abortController) {
       abortController.abort()
       abortController = null
@@ -167,6 +192,8 @@ export function useAgentChat (accountType: string, accountId: string, traceEnabl
    * prompt and tools, returning the final text response.
    */
   async function executeSubAgent (
+    parentToolCallId: string,
+    subAgentDisplayName: string,
     config: SubAgentConfig,
     task: string,
     allTools: Record<string, Tool>,
@@ -181,8 +208,17 @@ export function useAgentChat (accountType: string, accountId: string, traceEnabl
       }
     }
 
+    if (recorder) {
+      const subToolSnapshots: ToolSnapshot[] = Object.entries(subAgentTools).map(([name, t]) => ({
+        name,
+        description: (t as any).description ?? '',
+        inputSchema: (t as any).parameters ?? {}
+      }))
+      recorder.startSubAgent(parentToolCallId, subAgentDisplayName, config.prompt, task, subToolSnapshots)
+    }
+
     const subResult = streamText({
-      model: provider.chat('assistant'),
+      model: provider.chat(chatModelName),
       system: config.prompt,
       messages: [{ role: 'user', content: task }],
       tools: Object.keys(subAgentTools).length > 0 ? subAgentTools : undefined,
@@ -214,6 +250,9 @@ export function useAgentChat (accountType: string, accountId: string, traceEnabl
           toolName: part.toolName,
           state: 'pending'
         })
+        if (recorder) {
+          recorder.startSubAgentToolCall(parentToolCallId, part.toolCallId, part.toolName, (part as any).args)
+        }
       } else if (part.type === 'tool-result') {
         if (currentSubMessage?.toolInvocations) {
           const invocation = currentSubMessage.toolInvocations.find(
@@ -221,9 +260,20 @@ export function useAgentChat (accountType: string, accountId: string, traceEnabl
           )
           if (invocation) invocation.state = 'done'
         }
+        if (recorder) {
+          recorder.finishSubAgentToolCall(parentToolCallId, part.toolCallId, (part as any).result)
+        }
       } else if (part.type === 'finish-step') {
         currentSubMessage = null
+        if (recorder) {
+          recorder.finishSubAgentStep(parentToolCallId)
+        }
       }
+    }
+
+    const subResponse = await subResult.response
+    if (recorder) {
+      recorder.addSubAgentStepMessages(parentToolCallId, subResponse.messages, (subResponse as any).usage)
     }
 
     return fullText || 'No response from sub-agent.'
@@ -235,6 +285,10 @@ export function useAgentChat (accountType: string, accountId: string, traceEnabl
     status.value = 'streaming'
     error.value = null
     messages.value.push({ role: 'user', content: msg })
+
+    if (recorder) {
+      recorder.startTurn(msg)
+    }
 
     // Add user message to history
     history.push({ role: 'user', content: msg })
@@ -267,6 +321,11 @@ export function useAgentChat (accountType: string, accountId: string, traceEnabl
             const config = subAgents[name].config
             const subMessages: ChatMessage[] = []
 
+            // Find the parent tool call ID from currentAssistantMessage
+            const parentToolCallId = currentAssistantMessage?.toolInvocations?.find(
+              ti => ti.toolName === name && ti.state === 'pending'
+            )?.toolCallId ?? name
+
             // Find the current assistant message to attach sub-agent messages
             if (currentAssistantMessage) {
               if (!currentAssistantMessage.subAgentMessages) {
@@ -274,7 +333,10 @@ export function useAgentChat (accountType: string, accountId: string, traceEnabl
               }
             }
 
+            const displayName = name.replace(/^subagent_/, '')
             const result = await executeSubAgent(
+              parentToolCallId,
+              displayName,
               config,
               args.task,
               currentTools,
@@ -296,24 +358,15 @@ export function useAgentChat (accountType: string, accountId: string, traceEnabl
       }
 
       const result = streamText({
-        model: provider.chat('assistant'),
-        system: systemPrompt,
+        model: provider.chat(chatModelName),
+        system: options.systemPrompt,
         messages: history,
         tools: Object.keys(mainLLMTools).length > 0 ? mainLLMTools : undefined,
         stopWhen: stepCountIs(10),
         abortSignal: abortController.signal,
         onError: ({ error: err }) => {
           streamError = err
-        },
-        ...(traceIntegration
-          ? {
-              experimental_telemetry: {
-                isEnabled: true,
-                functionId: traceIntegration.getTraceId(),
-                integrations: [traceIntegration]
-              }
-            }
-          : {})
+        }
       })
 
       for await (const part of result.fullStream) {
@@ -336,6 +389,9 @@ export function useAgentChat (accountType: string, accountId: string, traceEnabl
             toolName: part.toolName,
             state: 'pending'
           })
+          if (recorder) {
+            recorder.startToolCall(part.toolCallId, part.toolName, (part as any).args)
+          }
         } else if (part.type === 'tool-result') {
           if (currentAssistantMessage?.toolInvocations) {
             const invocation = currentAssistantMessage.toolInvocations.find(
@@ -343,9 +399,15 @@ export function useAgentChat (accountType: string, accountId: string, traceEnabl
             )
             if (invocation) invocation.state = 'done'
           }
+          if (recorder) {
+            recorder.finishToolCall(part.toolCallId, (part as any).result)
+          }
         } else if (part.type === 'finish-step') {
           // Reset for next step (new assistant message after tool results)
           currentAssistantMessage = null
+          if (recorder) {
+            recorder.finishStep()
+          }
         }
       }
 
@@ -353,8 +415,8 @@ export function useAgentChat (accountType: string, accountId: string, traceEnabl
       const response = await result.response
       history = history.concat(response.messages)
 
-      if (traceIntegration) {
-        traceEvents.value = traceIntegration.getEvents()
+      if (recorder) {
+        recorder.addStepMessages(response.messages, (response as any).usage, (response as any).finishReason)
       }
 
       status.value = 'ready'
@@ -375,7 +437,7 @@ export function useAgentChat (accountType: string, accountId: string, traceEnabl
     }
   }
 
-  return { messages, status, error, traceEvents, tools, toolsVersion, sendMessage, abort }
+  return { messages, status, error, tools, toolsVersion, sendMessage, abort }
 }
 
 export default useAgentChat
