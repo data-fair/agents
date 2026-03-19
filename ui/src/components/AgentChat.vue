@@ -6,7 +6,24 @@
   >
     <!-- Header -->
     <v-card-title class="d-flex align-center py-2 px-4">
-      <span class="text-subtitle-1 font-weight-medium text-truncate text-secondary">
+      <template v-if="debug">
+        <v-tabs
+          v-model="activeChatTab"
+          density="compact"
+          class="flex-grow-0"
+        >
+          <v-tab value="session">
+            {{ title || t('sessionTab') }}
+          </v-tab>
+          <v-tab value="evaluation">
+            {{ t('evaluationTab') }}
+          </v-tab>
+        </v-tabs>
+      </template>
+      <span
+        v-else
+        class="text-subtitle-1 font-weight-medium text-truncate text-secondary"
+      >
         {{ title }}
       </span>
       <v-spacer />
@@ -307,6 +324,9 @@
               <v-tab value="tools">
                 {{ t('tools') }} ({{ debugTools.length }})
               </v-tab>
+              <v-tab value="trace">
+                {{ t('trace') }}
+              </v-tab>
             </v-tabs>
 
             <v-window v-model="activeDebugTab">
@@ -345,6 +365,58 @@
                   </v-expansion-panel>
                 </v-expansion-panels>
               </v-window-item>
+
+              <v-window-item value="trace">
+                <div
+                  v-if="!traceOverview.length"
+                  class="text-center text-medium-emphasis pa-4"
+                >
+                  {{ t('noTrace') }}
+                </div>
+                <v-expansion-panels
+                  v-else
+                  variant="accordion"
+                  class="mt-2"
+                >
+                  <v-expansion-panel
+                    v-for="entry in traceOverview"
+                    :key="entry.index"
+                  >
+                    <v-expansion-panel-title class="text-body-2 py-1">
+                      <v-chip
+                        size="x-small"
+                        :color="traceEntryColor(entry.type)"
+                        variant="tonal"
+                        class="mr-2"
+                      >
+                        {{ entry.type }}
+                      </v-chip>
+                      <span class="font-weight-medium text-truncate">{{ entry.label }}</span>
+                      <v-spacer />
+                      <span class="text-caption text-medium-emphasis ml-2">
+                        {{ formatTraceTime(entry.timestamp) }}
+                      </span>
+                    </v-expansion-panel-title>
+                    <v-expansion-panel-text>
+                      <div class="text-body-2 text-medium-emphasis mb-1">
+                        {{ entry.preview }}
+                      </div>
+                      <pre
+                        v-if="traceEntryDetails[entry.index]"
+                        class="agent-chat__pre pa-2 mt-1"
+                      >{{ JSON.stringify(traceEntryDetails[entry.index]?.content, null, 2) }}</pre>
+                      <v-btn
+                        v-else
+                        size="x-small"
+                        variant="text"
+                        @click="loadTraceEntry(entry.index)"
+                      >
+                        {{ t('showDetail') }}
+                      </v-btn>
+                    </v-expansion-panel-text>
+                  </v-expansion-panel>
+                </v-expansion-panels>
+              </v-window-item>
             </v-window>
           </div>
         </v-card-text>
@@ -376,6 +448,11 @@ fr:
   systemPromptDep: ", département {depName}"
   subAgentRunning: Sous-agent en cours d'exécution...
   subAgentDone: Sous-agent terminé.
+  trace: Trace
+  noTrace: Aucune trace enregistrée.
+  showDetail: Voir le détail
+  sessionTab: Session
+  evaluationTab: Évaluation
 en:
   placeholder: Type your message...
   send: Send
@@ -398,6 +475,11 @@ en:
   systemPromptDep: ", department {depName}"
   subAgentRunning: Sub-agent running...
   subAgentDone: Sub-agent finished.
+  trace: Trace
+  noTrace: No trace recorded.
+  showDetail: Show detail
+  sessionTab: Session
+  evaluationTab: Evaluation
 </i18n>
 
 <script lang="ts" setup>
@@ -408,6 +490,9 @@ import { useAgentChat, type ChatMessage } from '~/composables/use-agent-chat'
 import { $fetch } from '~/context'
 import { mdiCheck, mdiClose, mdiInformationSymbol, mdiLoading, mdiSend, mdiStop } from '@mdi/js'
 import { renderMarkdown } from '~/utils/markdown'
+import { SessionRecorder } from '~/traces/session-recorder'
+import type { TraceOverviewEntry, TraceEntryDetail } from '~/traces/session-recorder'
+import { buildEvaluatorTools } from '~/traces/evaluator-tools'
 
 const props = defineProps<{
   debug?: boolean
@@ -446,29 +531,84 @@ const finalSystemPrompt = computed(() => {
   return parts.join(' ')
 })
 
+const recorder = props.debug ? new SessionRecorder() : undefined
+if (recorder) {
+  recorder.setSystemPrompt(finalSystemPrompt.value)
+}
+
 const chatResult = useAgentChat({
   debug: props.debug,
   systemPrompt: finalSystemPrompt.value,
-  initialMessages: props.initialMessages
+  initialMessages: props.initialMessages,
+  recorder
 })
 
 if (!chatResult) {
   throw new Error('Chat not supported in SSR')
 }
 
-const messages = computed(() => chatResult.messages.value)
-const status = computed(() => chatResult.status.value)
-const chatError = computed(() => chatResult.error.value)
-const sendMessage = chatResult.sendMessage
-const abort = chatResult.abort
+const EVALUATOR_PROMPT = `You are an AI session evaluator. You analyze conversation traces between a user and an AI assistant to help improve the system.
+
+The user will ask you about what happened during the session — what went well, what went wrong, and how to improve prompts, tools, or model configuration.
+
+Use the provided tools to explore the session trace. Start with getTraceOverview to understand the session flow, then use getTraceEntry or getTraceEntries to examine specific parts in detail. Use getSessionConfig to review the system prompt and available tools.
+
+Be specific in your analysis. Reference concrete trace entries by index. When suggesting improvements, explain what you observed and what change would address it.`
+
+const activeChatTab = ref<'session' | 'evaluation'>('session')
+
+const evaluatorChat = props.debug && recorder
+  ? useAgentChat({
+    localTools: buildEvaluatorTools(recorder),
+    modelName: 'evaluator',
+    systemPrompt: EVALUATOR_PROMPT
+  })
+  : null
+
+const activeMessages = computed(() => {
+  if (activeChatTab.value === 'evaluation' && evaluatorChat) {
+    return evaluatorChat.messages.value
+  }
+  return chatResult.messages.value
+})
+
+const activeStatus = computed(() => {
+  if (activeChatTab.value === 'evaluation' && evaluatorChat) {
+    return evaluatorChat.status.value
+  }
+  return chatResult.status.value
+})
+
+const activeError = computed(() => {
+  if (activeChatTab.value === 'evaluation' && evaluatorChat) {
+    return evaluatorChat.error.value
+  }
+  return chatResult.error.value
+})
+
+const activeSendMessage = computed(() => {
+  if (activeChatTab.value === 'evaluation' && evaluatorChat) {
+    return evaluatorChat.sendMessage
+  }
+  return chatResult.sendMessage
+})
+
+const activeAbort = computed(() => {
+  if (activeChatTab.value === 'evaluation' && evaluatorChat) {
+    return evaluatorChat.abort
+  }
+  return chatResult.abort
+})
+
+const messages = computed(() => activeMessages.value)
+const isStreaming = computed(() => activeStatus.value === 'streaming')
+const chatError = computed(() => activeError.value)
 
 const showInfoDialog = ref(false)
 const showDebugDialog = ref(false)
 const activeDebugTab = ref('systemPrompt')
 const input = ref('')
 const messagesContainer = ref<HTMLElement | null>(null)
-
-const isStreaming = computed(() => status.value === 'streaming')
 
 // Track tools changes for visual activation on "i" button
 const toolsChanged = ref(false)
@@ -566,12 +706,48 @@ const handleSend = () => {
   const userMessage = input.value.trim()
   if (!userMessage || isStreaming.value) return
 
-  sendMessage(userMessage)
+  activeSendMessage.value(userMessage)
   input.value = ''
 }
 
 const handleAbort = () => {
-  abort()
+  activeAbort.value()
+}
+
+// Trace tab support
+const traceOverview = computed<TraceOverviewEntry[]>(() => {
+  if (!recorder) return []
+  // Trigger re-computation when messages change
+  // eslint-disable-next-line no-void
+  void chatResult.messages.value.length
+  return recorder.getTraceOverview()
+})
+
+const traceEntryDetails = ref<Record<number, TraceEntryDetail>>({})
+
+const loadTraceEntry = (index: number) => {
+  if (!recorder) return
+  const detail = recorder.getTraceEntry(index)
+  if (detail) {
+    traceEntryDetails.value = { ...traceEntryDetails.value, [index]: detail }
+  }
+}
+
+const traceEntryColor = (type: string) => {
+  const colors: Record<string, string> = {
+    'user-message': 'primary',
+    'assistant-step': 'success',
+    'tool-call': 'warning',
+    'tool-result': 'info',
+    'sub-agent-start': 'secondary',
+    'sub-agent-step': 'secondary',
+    'sub-agent-end': 'secondary'
+  }
+  return colors[type] || 'default'
+}
+
+const formatTraceTime = (date: Date) => {
+  return date.toLocaleTimeString()
 }
 </script>
 
