@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { generateText, streamText } from 'ai'
-import { reqSessionAuthenticated } from '@data-fair/lib-express'
+import { type AccountKeys, reqSessionAuthenticated } from '@data-fair/lib-express'
+import { assertCanUseModel } from '../auth.ts'
 import { getRawSettings } from '../settings/service.ts'
 import { createModel } from '../models/operations.ts'
 import { getUsage, getOwnerUsage, recordUsage, checkQuota } from '../usage/service.ts'
@@ -37,10 +38,10 @@ async function getModelForGateway (settings: Settings, modelId: ModelId) {
 }
 
 // OpenAI-compatible chat completions endpoint
-router.post('/v1/chat/completions', async (req, res, next) => {
+router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
   try {
     const session = reqSessionAuthenticated(req)
-    const owner = session.account
+    const owner = req.params as unknown as AccountKeys
 
     const {
       model: modelId,
@@ -74,20 +75,26 @@ router.post('/v1/chat/completions', async (req, res, next) => {
     const settings = await getRawSettings(owner)
     if (!settings?.models?.assistant?.model) {
       res.status(404).json({
-        error: { message: 'Assistant model not configured', type: 'invalid_request_error' }
+        error: { message: 'Agent not configured', type: 'invalid_request_error' }
       })
       return
     }
 
-    // Two-level quota enforcement
-    const isOrgContext = session.account.type === 'organization'
-    const accountLimits = settings.limits
-    const userLimits = isOrgContext ? settings.userLimits : undefined
+    // Track per-user when owner is org or user is external
+    const isSameAccount = session.account.type === owner.type && session.account.id === owner.id
+    const trackPerUser = owner.type === 'organization' || !isSameAccount
+
+    // Permission check — use the model entry (which has `roles`), not the nested `model` object
+    const modelEntry = settings.models[modelId] || settings.models.assistant
+    assertCanUseModel(session, owner, modelEntry)
 
     // Check account limits against account usage
+    const accountLimits = settings.limits
+    const userLimits = trackPerUser ? settings.userLimits : undefined
+
     if (accountLimits.dailyTokenLimit || accountLimits.monthlyTokenLimit) {
-      const accountUsage = isOrgContext ? await getOwnerUsage(owner) : await getUsage(owner)
-      const quotaCheck = checkQuota(accountUsage, accountLimits, isOrgContext ? 'organization' : 'user')
+      const accountUsage = trackPerUser ? await getOwnerUsage(owner) : await getUsage(owner)
+      const quotaCheck = checkQuota(accountUsage, accountLimits, trackPerUser ? 'organization' : 'user')
       if (quotaCheck) {
         res.status(429).json({
           error: {
@@ -103,8 +110,8 @@ router.post('/v1/chat/completions', async (req, res, next) => {
       }
     }
 
-    // Check user limits against user's total personal usage
-    if (isOrgContext && (userLimits?.dailyTokenLimit || userLimits?.monthlyTokenLimit)) {
+    // Check user limits
+    if (trackPerUser && (userLimits?.dailyTokenLimit || userLimits?.monthlyTokenLimit)) {
       const userUsage = await getUsage(owner, session.user.id)
       const quotaCheck = checkQuota(userUsage, userLimits, 'user')
       if (quotaCheck) {
@@ -212,7 +219,7 @@ router.post('/v1/chat/completions', async (req, res, next) => {
           const inputTokens = Math.round((part.totalUsage?.inputTokens ?? 0) * ratio)
           const outputTokens = Math.round((part.totalUsage?.outputTokens ?? 0) * ratio)
           if (inputTokens || outputTokens) {
-            await recordUsage(owner, inputTokens, outputTokens, isOrgContext ? session.user.id : undefined)
+            await recordUsage(owner, inputTokens, outputTokens, trackPerUser ? session.user.id : undefined)
           }
 
           res.write(`data: ${JSON.stringify({
@@ -250,7 +257,7 @@ router.post('/v1/chat/completions', async (req, res, next) => {
       const inputTokens = Math.round((result.usage?.inputTokens ?? 0) * ratio)
       const outputTokens = Math.round((result.usage?.outputTokens ?? 0) * ratio)
       if (inputTokens || outputTokens) {
-        await recordUsage(owner, inputTokens, outputTokens, isOrgContext ? session.user.id : undefined)
+        await recordUsage(owner, inputTokens, outputTokens, trackPerUser ? session.user.id : undefined)
       }
 
       // Build response message
