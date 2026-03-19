@@ -23,7 +23,7 @@ test.describe('Summary API', () => {
       limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
     })
 
-    const res = await user.post('/api/summary', {
+    const res = await user.post('/api/summary/user/test-standalone1', {
       content: 'This is a long piece of text that needs to be summarized. It contains multiple sentences and describes various things that happened during the day.'
     })
 
@@ -39,7 +39,7 @@ test.describe('Summary API', () => {
       limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
     })
 
-    const res = await user.post('/api/summary', {
+    const res = await user.post('/api/summary/user/test-standalone1', {
       prompt: 'Create a bullet-point summary:',
       content: 'First point. Second point. Third point.'
     })
@@ -50,7 +50,7 @@ test.describe('Summary API', () => {
 
   test('should fail when assistant model not configured', async () => {
     await assert.rejects(
-      user.post('/api/summary', { content: 'Test content' }),
+      user.post('/api/summary/user/test-standalone1', { content: 'Test content' }),
       (err: any) => err.status === 404
     )
   })
@@ -64,7 +64,7 @@ test.describe('Summary API', () => {
       limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
     })
 
-    const res = await user.post('/api/summary', {
+    const res = await user.post('/api/summary/user/test-standalone1', {
       content: 'Test content to summarize'
     })
 
@@ -76,12 +76,12 @@ test.describe('Summary API', () => {
     const unauthenticatedUser = axios()
 
     await assert.rejects(
-      unauthenticatedUser.post('/api/summary', { content: 'Test content' }),
+      unauthenticatedUser.post('/api/summary/user/test-standalone1', { content: 'Test content' }),
       (err: any) => err.status === 401
     )
   })
 
-  test('should fail when other user has no settings configured', async () => {
+  test('should fail when other user has no permission', async () => {
     await user.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
       models: { assistant: { model: mockModel } },
@@ -89,9 +89,23 @@ test.describe('Summary API', () => {
     })
 
     await assert.rejects(
-      otherUser.post('/api/summary', { content: 'Test content' }),
-      (err: any) => err.status === 404
+      otherUser.post('/api/summary/user/test-standalone1', { content: 'Test content' }),
+      (err: any) => err.status === 403
     )
+  })
+
+  test('external user can summarize when roles includes external', async () => {
+    await user.put('/api/settings/user/test-standalone1', {
+      providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
+      models: { assistant: { model: mockModel, roles: ['external'] } },
+      limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
+    })
+
+    const res = await otherUser.post('/api/summary/user/test-standalone1', {
+      content: 'Content to summarize'
+    })
+    assert.equal(res.status, 200)
+    assert.ok(res.data.summary)
   })
 
   test('should fail when content is missing', async () => {
@@ -102,7 +116,7 @@ test.describe('Summary API', () => {
     })
 
     await assert.rejects(
-      user.post('/api/summary', {}),
+      user.post('/api/summary/user/test-standalone1', {}),
       (err: any) => err.status === 400
     )
   })
@@ -115,7 +129,7 @@ test.describe('Summary API', () => {
     })
 
     await assert.rejects(
-      user.post('/api/summary', { content: '' }),
+      user.post('/api/summary/user/test-standalone1', { content: '' }),
       (err: any) => err.status === 400
     )
   })
