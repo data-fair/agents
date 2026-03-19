@@ -124,3 +124,63 @@ test.describe('SessionRecorder - recording', () => {
     assert.equal(trace.toolSnapshots[1].length, 2)
   })
 })
+
+test.describe('SessionRecorder - overview and entry accessors', () => {
+  function buildRecorderWithTrace () {
+    const recorder = new SessionRecorder()
+    recorder.setSystemPrompt('You are helpful')
+    recorder.snapshotTools([{ name: 'search', description: 'Search', inputSchema: {} }])
+    recorder.startTurn('hello')
+    recorder.startToolCall('tc1', 'search', { query: 'test' })
+    recorder.finishToolCall('tc1', { results: ['a'] }, 50)
+    recorder.finishStep()
+    recorder.addStepMessages(
+      [{ role: 'assistant', content: [{ type: 'text', text: 'Found results' }] }],
+      { inputTokens: 10, outputTokens: 5 },
+      'stop'
+    )
+    return recorder
+  }
+
+  test('getTraceOverview returns flat ordered entries', () => {
+    const recorder = buildRecorderWithTrace()
+    const overview = recorder.getTraceOverview()
+
+    assert.ok(overview.length >= 3)
+    assert.equal(overview[0].type, 'user-message')
+    assert.ok(overview[0].label.includes('user message'))
+    assert.ok(overview[0].preview.includes('hello'))
+
+    const toolCall = overview.find(e => e.type === 'tool-call')
+    assert.ok(toolCall)
+    assert.ok(toolCall.label.includes('search'))
+
+    const toolResult = overview.find(e => e.type === 'tool-result')
+    assert.ok(toolResult)
+  })
+
+  test('getTraceEntry returns full detail for an index', () => {
+    const recorder = buildRecorderWithTrace()
+    const overview = recorder.getTraceOverview()
+    const entry = recorder.getTraceEntry(overview[0].index)
+
+    assert.ok(entry)
+    assert.equal(entry.type, 'user-message')
+    assert.equal(entry.content, 'hello')
+  })
+
+  test('getTraceEntries returns a range', () => {
+    const recorder = buildRecorderWithTrace()
+    const overview = recorder.getTraceOverview()
+    const entries = recorder.getTraceEntries(0, overview.length - 1)
+
+    assert.equal(entries.length, overview.length)
+    assert.equal(entries[0].type, overview[0].type)
+  })
+
+  test('getTraceEntry returns null for invalid index', () => {
+    const recorder = buildRecorderWithTrace()
+    const entry = recorder.getTraceEntry(999)
+    assert.equal(entry, null)
+  })
+})
