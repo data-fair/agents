@@ -51,10 +51,8 @@ if (process.env.NODE_ENV === 'development') {
 
 app.use('/api', (req, res) => res.status(404).send('unknown api endpoint'))
 
-if (process.env.NODE_ENV !== 'development') {
-  app.use(await createSpaMiddleware(resolve(import.meta.dirname, '../../ui/dist'), uiConfig, {
-    csp: { nonce: true, header: true }
-  }))
-}
+app.use(await createSpaMiddleware(resolve(import.meta.dirname, '../../ui/dist'), uiConfig, {
+  csp: { nonce: true, header: true }
+}))
 
 app.use(errorHandler)
