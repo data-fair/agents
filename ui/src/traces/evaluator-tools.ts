@@ -1,6 +1,6 @@
 import { tool, jsonSchema } from 'ai'
 import type { Tool } from 'ai'
-import type { SessionRecorder } from './session-recorder'
+import type { SessionRecorder, TraceOverviewEntry } from './session-recorder.js'
 
 export function buildEvaluatorTools (recorder: SessionRecorder): Record<string, Tool> {
   return {
@@ -13,7 +13,7 @@ export function buildEvaluatorTools (recorder: SessionRecorder): Record<string, 
       }),
       execute: async () => {
         const overview = recorder.getTraceOverview()
-        return overview.map(e =>
+        return overview.map((e: TraceOverviewEntry) =>
           `[${e.index}] ${e.type} | ${e.timestamp.toISOString()} | ${e.label} | ${e.preview}`
         ).join('\n')
       }

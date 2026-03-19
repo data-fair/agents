@@ -249,7 +249,7 @@ export function useAgentChat (options: UseAgentChatOptions = {}) {
           state: 'pending'
         })
         if (recorder) {
-          recorder.startSubAgentToolCall(parentToolCallId, part.toolCallId, part.toolName, part.args)
+          recorder.startSubAgentToolCall(parentToolCallId, part.toolCallId, part.toolName, (part as any).args)
         }
       } else if (part.type === 'tool-result') {
         if (currentSubMessage?.toolInvocations) {
@@ -259,7 +259,7 @@ export function useAgentChat (options: UseAgentChatOptions = {}) {
           if (invocation) invocation.state = 'done'
         }
         if (recorder) {
-          recorder.finishSubAgentToolCall(parentToolCallId, part.toolCallId, part.result)
+          recorder.finishSubAgentToolCall(parentToolCallId, part.toolCallId, (part as any).result)
         }
       } else if (part.type === 'finish-step') {
         currentSubMessage = null
@@ -271,7 +271,7 @@ export function useAgentChat (options: UseAgentChatOptions = {}) {
 
     const subResponse = await subResult.response
     if (recorder) {
-      recorder.addSubAgentStepMessages(parentToolCallId, subResponse.messages, subResponse.usage as any)
+      recorder.addSubAgentStepMessages(parentToolCallId, subResponse.messages, (subResponse as any).usage)
     }
 
     return fullText || 'No response from sub-agent.'
@@ -388,7 +388,7 @@ export function useAgentChat (options: UseAgentChatOptions = {}) {
             state: 'pending'
           })
           if (recorder) {
-            recorder.startToolCall(part.toolCallId, part.toolName, part.args)
+            recorder.startToolCall(part.toolCallId, part.toolName, (part as any).args)
           }
         } else if (part.type === 'tool-result') {
           if (currentAssistantMessage?.toolInvocations) {
@@ -398,7 +398,7 @@ export function useAgentChat (options: UseAgentChatOptions = {}) {
             if (invocation) invocation.state = 'done'
           }
           if (recorder) {
-            recorder.finishToolCall(part.toolCallId, part.result)
+            recorder.finishToolCall(part.toolCallId, (part as any).result)
           }
         } else if (part.type === 'finish-step') {
           // Reset for next step (new assistant message after tool results)
@@ -414,7 +414,7 @@ export function useAgentChat (options: UseAgentChatOptions = {}) {
       history = history.concat(response.messages)
 
       if (recorder) {
-        recorder.addStepMessages(response.messages, response.usage as any, response.finishReason)
+        recorder.addStepMessages(response.messages, (response as any).usage, (response as any).finishReason)
       }
 
       status.value = 'ready'
