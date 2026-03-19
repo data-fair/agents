@@ -6,7 +6,7 @@
   >
     <!-- Header -->
     <v-card-title class="d-flex align-center py-2 px-4">
-      <template v-if="debug">
+      <template v-if="tracingEnabled">
         <v-tabs
           v-model="activeChatTab"
           density="compact"
@@ -367,55 +367,81 @@
               </v-window-item>
 
               <v-window-item value="trace">
-                <div
-                  v-if="!traceOverview.length"
-                  class="text-center text-medium-emphasis pa-4"
-                >
-                  {{ t('noTrace') }}
-                </div>
-                <v-expansion-panels
-                  v-else
-                  variant="accordion"
-                  class="mt-2"
-                >
-                  <v-expansion-panel
-                    v-for="entry in traceOverview"
-                    :key="entry.index"
+                <template v-if="!tracingEnabled">
+                  <div class="text-center pa-4">
+                    <p class="text-body-2 text-medium-emphasis mb-4">
+                      {{ t('tracingDisabled') }}
+                    </p>
+                    <v-btn
+                      color="primary"
+                      variant="tonal"
+                      @click="startTracing"
+                    >
+                      {{ t('startTracing') }}
+                    </v-btn>
+                  </div>
+                </template>
+                <template v-else>
+                  <div class="d-flex justify-end pa-2">
+                    <v-btn
+                      size="small"
+                      color="error"
+                      variant="tonal"
+                      @click="stopTracing"
+                    >
+                      {{ t('stopTracing') }}
+                    </v-btn>
+                  </div>
+                  <div
+                    v-if="!traceOverview.length"
+                    class="text-center text-medium-emphasis pa-4"
                   >
-                    <v-expansion-panel-title class="text-body-2 py-1">
-                      <v-chip
-                        size="x-small"
-                        :color="traceEntryColor(entry.type)"
-                        variant="tonal"
-                        class="mr-2"
-                      >
-                        {{ entry.type }}
-                      </v-chip>
-                      <span class="font-weight-medium text-truncate">{{ entry.label }}</span>
-                      <v-spacer />
-                      <span class="text-caption text-medium-emphasis ml-2">
-                        {{ formatTraceTime(entry.timestamp) }}
-                      </span>
-                    </v-expansion-panel-title>
-                    <v-expansion-panel-text>
-                      <div class="text-body-2 text-medium-emphasis mb-1">
-                        {{ entry.preview }}
-                      </div>
-                      <pre
-                        v-if="traceEntryDetails[entry.index]"
-                        class="agent-chat__pre pa-2 mt-1"
-                      >{{ JSON.stringify(traceEntryDetails[entry.index]?.content, null, 2) }}</pre>
-                      <v-btn
-                        v-else
-                        size="x-small"
-                        variant="text"
-                        @click="loadTraceEntry(entry.index)"
-                      >
-                        {{ t('showDetail') }}
-                      </v-btn>
-                    </v-expansion-panel-text>
-                  </v-expansion-panel>
-                </v-expansion-panels>
+                    {{ t('noTrace') }}
+                  </div>
+                  <v-expansion-panels
+                    v-else
+                    variant="accordion"
+                    class="mt-2"
+                  >
+                    <v-expansion-panel
+                      v-for="entry in traceOverview"
+                      :key="entry.index"
+                    >
+                      <v-expansion-panel-title class="text-body-2 py-1">
+                        <v-chip
+                          size="x-small"
+                          :color="traceEntryColor(entry.type)"
+                          variant="tonal"
+                          class="mr-2"
+                        >
+                          {{ entry.type }}
+                        </v-chip>
+                        <span class="font-weight-medium text-truncate">{{ entry.label }}</span>
+                        <v-spacer />
+                        <span class="text-caption text-medium-emphasis ml-2">
+                          {{ formatTraceTime(entry.timestamp) }}
+                        </span>
+                      </v-expansion-panel-title>
+                      <v-expansion-panel-text>
+                        <div class="text-body-2 text-medium-emphasis mb-1">
+                          {{ entry.preview }}
+                        </div>
+                        <pre
+                          v-if="traceEntryDetails[entry.index]"
+                          class="agent-chat__pre pa-2 mt-1"
+                        >{{ JSON.stringify(traceEntryDetails[entry.index]?.content, null, 2) }}</pre>
+                        <v-btn
+                          v-else
+                          size="x-small"
+                          variant="text"
+                          @click="loadTraceEntry(entry.index)"
+                        >
+                          {{ t('showDetail') }}
+                        </v-btn>
+                      </v-expansion-panel-text>
+                    </v-expansion-panel>
+                  </v-expansion-panels>
+                </template>
               </v-window-item>
             </v-window>
           </div>
@@ -451,6 +477,9 @@ fr:
   trace: Trace
   noTrace: Aucune trace enregistrée.
   showDetail: Voir le détail
+  startTracing: Démarrer le traçage
+  stopTracing: Arrêter le traçage
+  tracingDisabled: Le traçage n'est pas actif. Activez-le pour enregistrer les échanges et pouvoir les analyser.
   sessionTab: Session
   evaluationTab: Évaluation
 en:
@@ -478,6 +507,9 @@ en:
   trace: Trace
   noTrace: No trace recorded.
   showDetail: Show detail
+  startTracing: Start tracing
+  stopTracing: Stop tracing
+  tracingDisabled: Tracing is not active. Enable it to record exchanges and analyze them.
   sessionTab: Session
   evaluationTab: Evaluation
 </i18n>
@@ -531,7 +563,8 @@ const finalSystemPrompt = computed(() => {
   return parts.join(' ')
 })
 
-const recorder = props.debug ? new SessionRecorder() : undefined
+const tracingEnabled = props.debug && sessionStorage.getItem('agent-chat-trace') === '1'
+const recorder = tracingEnabled ? new SessionRecorder() : undefined
 if (recorder) {
   recorder.setSystemPrompt(finalSystemPrompt.value)
 }
@@ -557,7 +590,7 @@ Be specific in your analysis. Reference concrete trace entries by index. When su
 
 const activeChatTab = ref<'session' | 'evaluation'>('session')
 
-const evaluatorChat = props.debug && recorder
+const evaluatorChat = tracingEnabled && recorder
   ? useAgentChat({
     localTools: buildEvaluatorTools(recorder),
     modelName: 'evaluator',
@@ -748,6 +781,16 @@ const traceEntryColor = (type: string) => {
 
 const formatTraceTime = (date: Date) => {
   return date.toLocaleTimeString()
+}
+
+const startTracing = () => {
+  sessionStorage.setItem('agent-chat-trace', '1')
+  window.location.reload()
+}
+
+const stopTracing = () => {
+  sessionStorage.removeItem('agent-chat-trace')
+  window.location.reload()
 }
 </script>
 
