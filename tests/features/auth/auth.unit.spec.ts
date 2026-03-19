@@ -9,7 +9,7 @@ const makeSession = (accountType: string, accountId: string, role = 'admin') => 
   accountRole: role
 })
 
-const makeOwner = (type: string, id: string) => ({ type, id })
+const makeOwner = (type: 'user' | 'organization', id: string) => ({ type, id })
 
 test.describe('assertCanUseModel', () => {
   test('admin of owner account always has access', () => {
