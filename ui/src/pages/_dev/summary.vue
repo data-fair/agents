@@ -94,8 +94,10 @@ en:
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { $apiPath } from '~/context'
+import { useSessionAuthenticated } from '@data-fair/lib-vue/session.js'
 
 const { t } = useI18n()
+const session = useSessionAuthenticated()
 
 const content = ref('')
 const prompt = ref('')
@@ -116,7 +118,7 @@ const summarize = async () => {
       body.prompt = prompt.value
     }
 
-    const res = await fetch(`${$apiPath}/summary`, {
+    const res = await fetch(`${$apiPath}/summary/${session.account.value.type}/${session.account.value.id}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',

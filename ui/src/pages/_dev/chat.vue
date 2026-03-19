@@ -1,6 +1,8 @@
 <template>
   <div class="chat-page">
     <AgentChat
+      :account-type="session.account.value?.type ?? 'user'"
+      :account-id="session.account.value?.id ?? ''"
       :debug="true"
       title="Chat Dev"
       :initial-messages="mockMessages"
@@ -12,6 +14,9 @@
 import AgentChat from '~/components/AgentChat.vue'
 import type { ChatMessage } from '~/composables/use-agent-chat'
 import { useAgentSubAgent, useFrameServer } from '@data-fair/lib-vue-agents'
+import { useSessionAuthenticated } from '@data-fair/lib-vue/session.js'
+
+const session = useSessionAuthenticated()
 
 useFrameServer('self')
 
