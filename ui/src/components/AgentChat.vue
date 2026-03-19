@@ -596,6 +596,8 @@ const activeChatTab = ref<'session' | 'evaluation'>('session')
 
 const evaluatorChat = tracingEnabled && recorder
   ? useAgentChat({
+    accountType: props.accountType,
+    accountId: props.accountId,
     localTools: buildEvaluatorTools(recorder),
     modelName: 'evaluator',
     systemPrompt: EVALUATOR_PROMPT
