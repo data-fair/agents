@@ -5,6 +5,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { SessionRecorder } from '../../../ui/src/traces/session-recorder.ts'
+import { buildEvaluatorTools } from '../../../ui/src/traces/evaluator-tools.ts'
 
 test.describe('SessionRecorder - recording', () => {
   test('records a simple turn with one step', () => {
@@ -182,5 +183,46 @@ test.describe('SessionRecorder - overview and entry accessors', () => {
     const recorder = buildRecorderWithTrace()
     const entry = recorder.getTraceEntry(999)
     assert.equal(entry, null)
+  })
+})
+
+test.describe('Evaluator tools', () => {
+  function buildRecorderWithTrace () {
+    const recorder = new SessionRecorder()
+    recorder.setSystemPrompt('You are helpful')
+    recorder.snapshotTools([{ name: 'search', description: 'Search', inputSchema: { type: 'object' } }])
+    recorder.startTurn('hello')
+    recorder.addStepMessages(
+      [{ role: 'assistant', content: [{ type: 'text', text: 'hi there' }] }],
+      { inputTokens: 10, outputTokens: 5 },
+      'stop'
+    )
+    return recorder
+  }
+
+  test('getTraceOverview tool returns overview text', async () => {
+    const recorder = buildRecorderWithTrace()
+    const tools = buildEvaluatorTools(recorder)
+    assert.ok(tools.getTraceOverview)
+    const result = await (tools.getTraceOverview as any).execute({})
+    assert.ok(typeof result === 'string')
+    assert.ok(result.includes('user message'))
+  })
+
+  test('getTraceEntry tool returns detail for index 0', async () => {
+    const recorder = buildRecorderWithTrace()
+    const tools = buildEvaluatorTools(recorder)
+    const result = await (tools.getTraceEntry as any).execute({ index: 0 })
+    assert.ok(typeof result === 'string')
+    assert.ok(result.includes('hello'))
+  })
+
+  test('getSessionConfig tool returns system prompt and tools', async () => {
+    const recorder = buildRecorderWithTrace()
+    const tools = buildEvaluatorTools(recorder)
+    const result = await (tools.getSessionConfig as any).execute({})
+    assert.ok(typeof result === 'string')
+    assert.ok(result.includes('You are helpful'))
+    assert.ok(result.includes('search'))
   })
 })
