@@ -414,6 +414,8 @@ const props = defineProps<{
   title?: string
   systemPrompt?: string
   initialMessages?: ChatMessage[]
+  accountType: string
+  accountId: string
 }>()
 
 const { t } = useI18n()
@@ -446,7 +448,7 @@ const finalSystemPrompt = computed(() => {
   return parts.join(' ')
 })
 
-const chatResult = useAgentChat(props.debug, finalSystemPrompt.value, props.initialMessages)
+const chatResult = useAgentChat(props.accountType, props.accountId, props.debug, finalSystemPrompt.value, props.initialMessages)
 
 if (!chatResult) {
   throw new Error('Chat not supported in SSR')
@@ -527,7 +529,7 @@ watch(showInfoDialog, async (open) => {
       ? 'Décris brièvement les capacités de cet agent en 2-3 phrases, en mettant en avant les outils récemment ajoutés si pertinent. Tu peux utiliser du markdown pour la mise en forme. Réponds en français.'
       : 'Briefly describe this agent\'s capabilities in 2-3 sentences, highlighting recently added tools if relevant. You can use markdown for formatting.'
 
-    const result = await $fetch('/summary/', {
+    const result = await $fetch(`/summary/${props.accountType}/${props.accountId}`, {
       method: 'POST',
       body: { prompt, content }
     })

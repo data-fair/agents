@@ -82,7 +82,7 @@ function partitionTools (allTools: Record<string, Tool>): {
   return { mainTools, subAgents }
 }
 
-export function useAgentChat (traceEnabled = false, systemPrompt?: string, initialMessages?: ChatMessage[]) {
+export function useAgentChat (accountType: string, accountId: string, traceEnabled = false, systemPrompt?: string, initialMessages?: ChatMessage[]) {
   // @ts-ignore
   if (import.meta.env?.SSR) return
 
@@ -110,7 +110,7 @@ export function useAgentChat (traceEnabled = false, systemPrompt?: string, initi
   aggregator.start()
 
   const provider = createOpenAI({
-    baseURL: `${window.location.origin}${$apiPath}/gateway/v1`,
+    baseURL: `${window.location.origin}${$apiPath}/gateway/${accountType}/${accountId}/v1`,
     apiKey: 'unused'
   })
 

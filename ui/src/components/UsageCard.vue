@@ -79,11 +79,14 @@ en:
 
 <script lang="ts" setup>
 import { useI18n } from 'vue-i18n'
-import { useSessionAuthenticated } from '@data-fair/lib-vue/session.js'
 import { $apiPath } from '../context.ts'
 
+const props = defineProps<{
+  accountType: string
+  accountId: string
+}>()
+
 const { t } = useI18n()
-const session = useSessionAuthenticated()
 
 interface UsagePeriod {
   inputTokens: number
@@ -100,7 +103,7 @@ interface UsageData {
 }
 
 const usageFetch = useFetch<UsageData>(
-  () => `${$apiPath}/usage/${session.account.value.type}/${session.account.value.id}`
+  () => `${$apiPath}/usage/${props.accountType}/${props.accountId}`
 )
 
 const hasUsage = computed(() => {

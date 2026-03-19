@@ -57,7 +57,7 @@ const scoringTool = tool({
   })
 })
 
-export function useAgentEvaluator () {
+export function useAgentEvaluator (accountType: string, accountId: string) {
   // @ts-ignore
   if (import.meta.env?.SSR) return
 
@@ -80,7 +80,7 @@ export function useAgentEvaluator () {
   aggregator.start()
 
   const provider = createOpenAI({
-    baseURL: `${window.location.origin}${$apiPath}/gateway/v1`,
+    baseURL: `${window.location.origin}${$apiPath}/gateway/${accountType}/${accountId}/v1`,
     apiKey: 'unused'
   })
 
