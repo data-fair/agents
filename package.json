@@ -24,7 +24,8 @@
     "ui",
     "api",
     "shared",
-    "lib-vue"
+    "lib-vue",
+    "lib-vuetify"
   ],
   "author": "",
   "license": "AGPL-3.0-only",

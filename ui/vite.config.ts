@@ -28,7 +28,7 @@ export default defineConfig({
     VueRouter({
       dts: './dts/typed-router.d.ts'
     }),
-    Vue(),
+    Vue({ template: { compilerOptions: { isCustomElement: (tag) => ['d-frame'].includes(tag) } } }),
     VueI18nPlugin(),
     Vuetify({ styles: { configFile: settingsPath } }),
     AutoImport({

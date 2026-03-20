@@ -20,6 +20,7 @@ declare module 'vue-router/auto-routes' {
   export interface RouteNamedMap {
     '/': RouteRecordInfo<'/', '/', Record<never, never>, Record<never, never>>,
     '/_dev/chat': RouteRecordInfo<'/_dev/chat', '/_dev/chat', Record<never, never>, Record<never, never>>,
+    '/_dev/chat-drawer': RouteRecordInfo<'/_dev/chat-drawer', '/_dev/chat-drawer', Record<never, never>, Record<never, never>>,
     '/_dev/chat-iframe': RouteRecordInfo<'/_dev/chat-iframe', '/_dev/chat-iframe', Record<never, never>, Record<never, never>>,
     '/_dev/chat-iframe-2': RouteRecordInfo<'/_dev/chat-iframe-2', '/_dev/chat-iframe-2', Record<never, never>, Record<never, never>>,
     '/_dev/chat-iframe-child': RouteRecordInfo<'/_dev/chat-iframe-child', '/_dev/chat-iframe-child', Record<never, never>, Record<never, never>>,

@@ -38,15 +38,21 @@ export interface SubAgentTrace {
   steps: StepTrace[]
 }
 
+export interface ToolChangeEvent {
+  timestamp: Date
+  tools: ToolSnapshot[]
+}
+
 export interface SessionTrace {
   systemPrompt: string
   toolSnapshots: ToolSnapshot[][]
+  toolChanges: ToolChangeEvent[]
   turns: TurnTrace[]
 }
 
 export interface TraceOverviewEntry {
   index: number
-  type: 'user-message' | 'assistant-step' | 'tool-call' | 'tool-result' | 'sub-agent-start' | 'sub-agent-step' | 'sub-agent-end'
+  type: 'user-message' | 'assistant-step' | 'tool-call' | 'tool-result' | 'sub-agent-start' | 'sub-agent-step' | 'sub-agent-end' | 'tools-changed'
   timestamp: Date
   label: string
   preview: string
@@ -64,6 +70,7 @@ export class SessionRecorder {
   private trace: SessionTrace = {
     systemPrompt: '',
     toolSnapshots: [],
+    toolChanges: [],
     turns: []
   }
 
@@ -77,7 +84,9 @@ export class SessionRecorder {
   }
 
   snapshotTools (tools: ToolSnapshot[]): void {
-    this.trace.toolSnapshots.push([...tools])
+    const snapshot = [...tools]
+    this.trace.toolSnapshots.push(snapshot)
+    this.trace.toolChanges.push({ timestamp: new Date(), tools: snapshot })
   }
 
   startTurn (userMessage: string): void {
@@ -203,87 +212,85 @@ export class SessionRecorder {
   }
 
   getTraceOverview (): TraceOverviewEntry[] {
-    const entries: TraceOverviewEntry[] = []
+    this.buildCache()
+    return this.cachedOverview
+  }
+
+  private cachedOverview: TraceOverviewEntry[] = []
+  private cachedDetails: TraceEntryDetail[] = []
+
+  private buildCache (): void {
+    const items: { overview: Omit<TraceOverviewEntry, 'index'>; detail: any }[] = []
+
+    const add = (overview: Omit<TraceOverviewEntry, 'index'>, content: any) => {
+      items.push({ overview, detail: content })
+    }
+
     for (const turn of this.trace.turns) {
-      entries.push({
-        index: entries.length,
-        type: 'user-message',
-        timestamp: turn.timestamp,
-        label: 'user message',
-        preview: turn.userMessage.slice(0, 150)
-      })
+      add(
+        { type: 'user-message', timestamp: turn.timestamp, label: 'user message', preview: turn.userMessage.slice(0, 150) },
+        turn.userMessage
+      )
       for (const step of turn.steps) {
         for (const tc of step.toolCalls) {
-          entries.push({
-            index: entries.length,
-            type: 'tool-call',
-            timestamp: tc.timestamp,
-            label: `tool call: ${tc.toolName}`,
-            preview: JSON.stringify(tc.input).slice(0, 150)
-          })
+          add(
+            { type: 'tool-call', timestamp: tc.timestamp, label: `tool call: ${tc.toolName}`, preview: JSON.stringify(tc.input).slice(0, 150) },
+            { input: tc.input, toolName: tc.toolName }
+          )
           if (tc.subAgent) {
-            entries.push({
-              index: entries.length,
-              type: 'sub-agent-start',
-              timestamp: tc.timestamp,
-              label: `sub-agent: ${tc.subAgent.name}`,
-              preview: tc.subAgent.task.slice(0, 150)
-            })
+            add(
+              { type: 'sub-agent-start', timestamp: tc.timestamp, label: `sub-agent: ${tc.subAgent.name}`, preview: tc.subAgent.task.slice(0, 150) },
+              { name: tc.subAgent.name, systemPrompt: tc.subAgent.systemPrompt, task: tc.subAgent.task, tools: tc.subAgent.tools }
+            )
             for (const subStep of tc.subAgent.steps) {
               for (const subTc of subStep.toolCalls) {
-                entries.push({
-                  index: entries.length,
-                  type: 'tool-call',
-                  timestamp: subTc.timestamp,
-                  label: `tool call: ${subTc.toolName} (sub-agent: ${tc.subAgent!.name})`,
-                  preview: JSON.stringify(subTc.input).slice(0, 150)
-                })
-                entries.push({
-                  index: entries.length,
-                  type: 'tool-result',
-                  timestamp: subTc.timestamp,
-                  label: `tool result: ${subTc.toolName} (sub-agent: ${tc.subAgent!.name})`,
-                  preview: JSON.stringify(subTc.output).slice(0, 150)
-                })
+                add(
+                  { type: 'tool-call', timestamp: subTc.timestamp, label: `tool call: ${subTc.toolName} (sub-agent: ${tc.subAgent!.name})`, preview: JSON.stringify(subTc.input).slice(0, 150) },
+                  { input: subTc.input, toolName: subTc.toolName }
+                )
+                add(
+                  { type: 'tool-result', timestamp: subTc.timestamp, label: `tool result: ${subTc.toolName} (sub-agent: ${tc.subAgent!.name})`, preview: JSON.stringify(subTc.output).slice(0, 150) },
+                  { output: subTc.output, toolName: subTc.toolName, durationMs: subTc.durationMs }
+                )
               }
               if (subStep.messages.length > 0) {
-                entries.push({
-                  index: entries.length,
-                  type: 'sub-agent-step',
-                  timestamp: subStep.timestamp,
-                  label: `sub-agent step: ${tc.subAgent!.name}`,
-                  preview: this.extractTextPreview(subStep.messages)
-                })
+                add(
+                  { type: 'sub-agent-step', timestamp: subStep.timestamp, label: `sub-agent step: ${tc.subAgent!.name}`, preview: this.extractTextPreview(subStep.messages) },
+                  { messages: subStep.messages, usage: subStep.usage }
+                )
               }
             }
-            entries.push({
-              index: entries.length,
-              type: 'sub-agent-end',
-              timestamp: tc.timestamp,
-              label: `sub-agent end: ${tc.subAgent.name}`,
-              preview: ''
-            })
+            add(
+              { type: 'sub-agent-end', timestamp: tc.timestamp, label: `sub-agent end: ${tc.subAgent.name}`, preview: '' },
+              { name: tc.subAgent.name }
+            )
           }
-          entries.push({
-            index: entries.length,
-            type: 'tool-result',
-            timestamp: tc.timestamp,
-            label: `tool result: ${tc.toolName}`,
-            preview: JSON.stringify(tc.output).slice(0, 150)
-          })
+          add(
+            { type: 'tool-result', timestamp: tc.timestamp, label: `tool result: ${tc.toolName}`, preview: JSON.stringify(tc.output).slice(0, 150) },
+            { output: tc.output, toolName: tc.toolName, durationMs: tc.durationMs }
+          )
         }
         if (step.messages.length > 0) {
-          entries.push({
-            index: entries.length,
-            type: 'assistant-step',
-            timestamp: step.timestamp,
-            label: 'assistant step',
-            preview: this.extractTextPreview(step.messages)
-          })
+          add(
+            { type: 'assistant-step', timestamp: step.timestamp, label: 'assistant step', preview: this.extractTextPreview(step.messages) },
+            { messages: step.messages, usage: step.usage, finishReason: step.finishReason }
+          )
         }
       }
     }
-    return entries
+
+    for (const tc of this.trace.toolChanges) {
+      const toolNames = tc.tools.map(t => t.name).join(', ')
+      add(
+        { type: 'tools-changed', timestamp: tc.timestamp, label: `tools changed (${tc.tools.length})`, preview: toolNames.slice(0, 150) },
+        { tools: tc.tools }
+      )
+    }
+
+    items.sort((a, b) => a.overview.timestamp.getTime() - b.overview.timestamp.getTime())
+
+    this.cachedOverview = items.map((item, i) => ({ ...item.overview, index: i }))
+    this.cachedDetails = items.map((item, i) => ({ ...item.overview, index: i, content: item.detail }))
   }
 
   private extractTextPreview (messages: ModelMessage[]): string {
@@ -299,71 +306,12 @@ export class SessionRecorder {
   }
 
   getTraceEntry (index: number): TraceEntryDetail | null {
-    const overview = this.getTraceOverview()
-    const entry = overview[index]
-    if (!entry) return null
-    return this.buildEntryDetail(entry)
+    this.buildCache()
+    return this.cachedDetails[index] ?? null
   }
 
   getTraceEntries (from: number, to: number): TraceEntryDetail[] {
-    const overview = this.getTraceOverview()
-    return overview.slice(from, to + 1).map(e => this.buildEntryDetail(e))
-  }
-
-  private buildEntryDetail (entry: TraceOverviewEntry): TraceEntryDetail {
-    let idx = 0
-    for (const turn of this.trace.turns) {
-      if (idx === entry.index) {
-        return { ...entry, content: turn.userMessage }
-      }
-      idx++
-      for (const step of turn.steps) {
-        for (const tc of step.toolCalls) {
-          if (idx === entry.index) {
-            return { ...entry, content: { input: tc.input, toolName: tc.toolName } }
-          }
-          idx++
-          if (tc.subAgent) {
-            if (idx === entry.index) {
-              return { ...entry, content: { name: tc.subAgent.name, systemPrompt: tc.subAgent.systemPrompt, task: tc.subAgent.task, tools: tc.subAgent.tools } }
-            }
-            idx++
-            for (const subStep of tc.subAgent.steps) {
-              for (const subTc of subStep.toolCalls) {
-                if (idx === entry.index) {
-                  return { ...entry, content: { input: subTc.input, toolName: subTc.toolName } }
-                }
-                idx++
-                if (idx === entry.index) {
-                  return { ...entry, content: { output: subTc.output, toolName: subTc.toolName, durationMs: subTc.durationMs } }
-                }
-                idx++
-              }
-              if (subStep.messages.length > 0) {
-                if (idx === entry.index) {
-                  return { ...entry, content: { messages: subStep.messages, usage: subStep.usage } }
-                }
-                idx++
-              }
-            }
-            if (idx === entry.index) {
-              return { ...entry, content: { name: tc.subAgent.name } }
-            }
-            idx++
-          }
-          if (idx === entry.index) {
-            return { ...entry, content: { output: tc.output, toolName: tc.toolName, durationMs: tc.durationMs } }
-          }
-          idx++
-        }
-        if (step.messages.length > 0) {
-          if (idx === entry.index) {
-            return { ...entry, content: { messages: step.messages, usage: step.usage, finishReason: step.finishReason } }
-          }
-          idx++
-        }
-      }
-    }
-    return { ...entry, content: null }
+    this.buildCache()
+    return this.cachedDetails.slice(from, to + 1)
   }
 }

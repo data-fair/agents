@@ -18,6 +18,7 @@
     "@data-fair/frame": "^0.18.0",
     "@data-fair/lib-vue": "1.27.0",
     "@data-fair/lib-vue-agents": "*",
+    "@data-fair/lib-vuetify-agents": "*",
     "@data-fair/lib-vuetify": "2.0.0",
     "@koumoul/vjsf": "^4.1.0",
     "@koumoul/vjsf-markdown": "^0.5.0",
