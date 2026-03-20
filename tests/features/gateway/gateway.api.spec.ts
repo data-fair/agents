@@ -10,6 +10,7 @@ import { createOpenAI } from '@ai-sdk/openai'
 import { axiosAuth, clean, directoryUrl } from '../../support/axios.ts'
 
 const user = await axiosAuth('test-standalone1')
+const externalUser = await axiosAuth('test1-user1')
 
 const settingsData = {
   providers: [
@@ -36,10 +37,10 @@ const settingsData = {
   limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
 }
 
-async function createGatewayProvider () {
-  const cookieString = await user.cookieJar.getCookieString(directoryUrl)
+async function createGatewayProvider (ax: any, ownerType = 'user', ownerId = 'test-standalone1') {
+  const cookieString = await ax.cookieJar.getCookieString(directoryUrl)
   return createOpenAI({
-    baseURL: `http://localhost:${process.env.DEV_API_PORT}/api/gateway/v1`,
+    baseURL: `http://localhost:${process.env.DEV_API_PORT}/api/gateway/${ownerType}/${ownerId}/v1`,
     apiKey: 'unused',
     headers: { cookie: cookieString },
     name: 'data-fair-gateway'
@@ -53,7 +54,7 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
   })
 
   test('generateText through gateway', async () => {
-    const provider = await createGatewayProvider()
+    const provider = await createGatewayProvider(user)
     const result = await generateText({
       model: provider.chat('assistant'),
       messages: [{ role: 'user', content: 'hello' }]
@@ -64,7 +65,7 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
   })
 
   test('streamText through gateway', async () => {
-    const provider = await createGatewayProvider()
+    const provider = await createGatewayProvider(user)
     const result = await streamText({
       model: provider.chat('assistant'),
       messages: [{ role: 'user', content: 'hello' }]
@@ -79,7 +80,7 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
   })
 
   test('generateText with system message', async () => {
-    const provider = await createGatewayProvider()
+    const provider = await createGatewayProvider(user)
     const result = await generateText({
       model: provider.chat('assistant'),
       system: 'You are a helpful assistant.',
@@ -90,10 +91,38 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
   })
 
   test('rejects invalid model id', async () => {
-    const provider = await createGatewayProvider()
+    const provider = await createGatewayProvider(user)
     await assert.rejects(
       generateText({
         model: provider.chat('invalid-model'),
+        messages: [{ role: 'user', content: 'hello' }]
+      })
+    )
+  })
+
+  test('external user can use gateway when roles includes external', async () => {
+    await user.put('/api/settings/user/test-standalone1', {
+      ...settingsData,
+      models: {
+        assistant: {
+          ...settingsData.models.assistant,
+          roles: ['external']
+        }
+      }
+    })
+    const provider = await createGatewayProvider(externalUser)
+    const result = await generateText({
+      model: provider.chat('assistant'),
+      messages: [{ role: 'user', content: 'hello' }]
+    })
+    assert.equal(result.text, 'world')
+  })
+
+  test('external user denied when roles does not include external', async () => {
+    const provider = await createGatewayProvider(externalUser)
+    await assert.rejects(
+      generateText({
+        model: provider.chat('assistant'),
         messages: [{ role: 'user', content: 'hello' }]
       })
     )

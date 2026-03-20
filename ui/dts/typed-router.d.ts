@@ -28,7 +28,7 @@ declare module 'vue-router/auto-routes' {
     '/_dev/chat-subagent': RouteRecordInfo<'/_dev/chat-subagent', '/_dev/chat-subagent', Record<never, never>, Record<never, never>>,
     '/_dev/chat-vjsf': RouteRecordInfo<'/_dev/chat-vjsf', '/_dev/chat-vjsf', Record<never, never>, Record<never, never>>,
     '/_dev/summary': RouteRecordInfo<'/_dev/summary', '/_dev/summary', Record<never, never>, Record<never, never>>,
-    '/chat': RouteRecordInfo<'/chat', '/chat', Record<never, never>, Record<never, never>>,
-    '/settings': RouteRecordInfo<'/settings', '/settings', Record<never, never>, Record<never, never>>,
+    '/[type]/[id]/chat': RouteRecordInfo<'/[type]/[id]/chat', '/:type/:id/chat', { type: ParamValue<true>, id: ParamValue<true> }, { type: ParamValue<false>, id: ParamValue<false> }>,
+    '/[type]/[id]/settings': RouteRecordInfo<'/[type]/[id]/settings', '/:type/:id/settings', { type: ParamValue<true>, id: ParamValue<true> }, { type: ParamValue<false>, id: ParamValue<false> }>,
   }
 }

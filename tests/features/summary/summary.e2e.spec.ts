@@ -55,7 +55,7 @@ test.describe('Summary UI', () => {
     await page.getByLabel('Content to summarize').fill('Test content')
     await page.getByRole('button', { name: 'Summarize' }).click()
 
-    await expect(page.getByText('Assistant model not configured')).toBeVisible()
+    await expect(page.getByText('Agent not configured')).toBeVisible()
   })
 
   test('Button is disabled when content is empty', async ({ page, goToWithAuth }) => {

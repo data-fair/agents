@@ -39,7 +39,7 @@ const settingsData = {
 async function createGatewayProvider () {
   const cookieString = await user.cookieJar.getCookieString(directoryUrl)
   return createOpenAI({
-    baseURL: `http://localhost:${process.env.DEV_API_PORT}/api/gateway/v1`,
+    baseURL: `http://localhost:${process.env.DEV_API_PORT}/api/gateway/user/test-standalone1/v1`,
     apiKey: 'unused',
     headers: { cookie: cookieString },
     name: 'data-fair-gateway'
@@ -84,7 +84,7 @@ test.describe('Gateway API - Tool forwarding', () => {
     // Use raw HTTP to test the gateway's OpenAI message conversion
     // (AI SDK validates messages client-side, so we bypass it for this test)
     const cookieString = await user.cookieJar.getCookieString(directoryUrl)
-    const response = await fetch(`${baseURL}/api/gateway/v1/chat/completions`, {
+    const response = await fetch(`${baseURL}/api/gateway/user/test-standalone1/v1/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

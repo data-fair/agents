@@ -24,6 +24,8 @@ export interface ToolInfo {
 }
 
 export interface UseAgentChatOptions {
+  accountType: string,
+  accountId: string,
   debug?: boolean
   systemPrompt?: string
   initialMessages?: ChatMessage[]
@@ -90,7 +92,7 @@ function partitionTools (allTools: Record<string, Tool>): {
   return { mainTools, subAgents }
 }
 
-export function useAgentChat (options: UseAgentChatOptions = {}) {
+export function useAgentChat (options: UseAgentChatOptions) {
   // @ts-ignore
   if (import.meta.env?.SSR) return
 
@@ -131,7 +133,7 @@ export function useAgentChat (options: UseAgentChatOptions = {}) {
   }
 
   const provider = createOpenAI({
-    baseURL: `${window.location.origin}${$apiPath}/gateway/v1`,
+    baseURL: `${window.location.origin}${$apiPath}/gateway/${options.accountType}/${options.accountId}/v1`,
     apiKey: 'unused'
   })
 

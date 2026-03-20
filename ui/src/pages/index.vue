@@ -1,7 +1,10 @@
 <template>
   <v-app-bar density="comfortable">
     <v-spacer />
-    <v-btn to="/settings">
+    <v-btn
+      v-if="session.account.value"
+      :to="`/${session.account.value.type}/${session.account.value.id}/settings`"
+    >
       settings
     </v-btn>
     <personal-menu dark-mode-switch />
@@ -36,4 +39,7 @@
 
 <script lang="ts" setup>
 import personalMenu from '@data-fair/lib-vuetify/personal-menu.vue'
+import { useSessionAuthenticated } from '@data-fair/lib-vue/session.js'
+
+const session = useSessionAuthenticated()
 </script>

@@ -81,7 +81,11 @@
         cols="7"
         class="d-flex flex-column"
       >
-        <AgentChat :debug="true" />
+        <AgentChat
+          :account-type="session.account.value?.type ?? 'user'"
+          :account-id="session.account.value?.id ?? ''"
+          :debug="true"
+        />
       </v-col>
     </v-row>
   </v-container>
@@ -117,8 +121,10 @@ import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAgentTool, useAgentSubAgent, useFrameServer } from '@data-fair/lib-vue-agents'
 import AgentChat from '~/components/AgentChat.vue'
+import { useSessionAuthenticated } from '@data-fair/lib-vue/session.js'
 
 const { t } = useI18n()
+const session = useSessionAuthenticated()
 
 const displayOutput = ref('')
 
