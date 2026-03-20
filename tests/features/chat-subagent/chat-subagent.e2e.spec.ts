@@ -34,11 +34,11 @@ const settingsData = {
  * Returns a locator scoped to the debug dialog's expansion panels.
  */
 async function waitForToolsReady (page: import('@playwright/test').Page, toolName: string) {
-  await page.getByRole('button', { name: 'd', exact: true }).click()
+  await page.getByRole('button', { name: /Debug|Débogage/ }).click()
   await page.getByRole('tab', { name: /Outils|Tools/ }).click()
   const debugPanels = page.locator('.v-dialog .v-expansion-panels')
   await expect(debugPanels.getByRole('button', { name: toolName })).toBeVisible({ timeout: 5000 })
-  await page.getByRole('button', { name: 'Close' }).click()
+  await page.getByRole('button', { name: /Close|Fermer/ }).click()
 }
 
 test.describe('Chat Sub-Agent UI', () => {
@@ -57,7 +57,7 @@ test.describe('Chat Sub-Agent UI', () => {
   test('All tools are discovered via MCP', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
 
-    await page.getByRole('button', { name: 'd', exact: true }).click()
+    await page.getByRole('button', { name: /Debug|Débogage/ }).click()
     await page.getByRole('tab', { name: /Outils|Tools/ }).click()
 
     // All four tools + sub-agent should appear in the debug dialog's expansion panels

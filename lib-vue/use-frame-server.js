@@ -1,6 +1,7 @@
 import { onScopeDispose } from 'vue';
 import { BrowserMcpServer } from '@mcp-b/webmcp-ts-sdk';
 import { FrameServerTransport } from './frame-server-transport.js';
+import { getTabChannelId } from './get-tab-channel-id.js';
 /**
  * Replaces navigator.modelContext with a BrowserMcpServer connected to a
  * FrameServerTransport (BroadcastChannel). After calling this composable,
@@ -10,7 +11,7 @@ import { FrameServerTransport } from './frame-server-transport.js';
  * @param serverId — unique identifier for this server (e.g. 'parent', 'tools-iframe')
  */
 export function useFrameServer(serverId) {
-    const transport = new FrameServerTransport({ serverId });
+    const transport = new FrameServerTransport({ serverId, channelId: getTabChannelId() });
     const server = new BrowserMcpServer({ name: `frame-${serverId}`, version: '1.0.0' }, 
     // Wrap the existing polyfill so already-registered tools are preserved
     { native: navigator.modelContext });
