@@ -1,15 +1,38 @@
 {
   "permissions": {
     "allow": [
-      "WebFetch(domain:github.com)",
-      "WebFetch(domain:raw.githubusercontent.com)",
-      "WebFetch(domain:vite.dev)",
-      "WebSearch"
+      "Bash",
+      "Edit",
+      "Write",
+      "NotebookEdit",
+      "WebFetch",
+      "WebSearch",
+      "mcp__*"
+    ],
+    "deny": [
+      "Bash(git push*)",
+      "Bash(git reset --hard*)",
+      "Bash(git clean -f*)",
+      "Bash(git clean -d*)",
+      "Bash(git branch -D*)",
+      "Bash(git rebase -i*)",
+      "Bash(git rebase --onto*)",
+      "Bash(git rebase main*)",
+      "Bash(git rebase master*)"
     ]
   },
   "enableAllProjectMcpServers": true,
-  "sandbox": {
-    "enabled": true,
-    "autoAllowBashIfSandboxed": true
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "test -n \"$OPENSHELL_SANDBOX_ID\" || (echo 'ERROR: Not running inside OpenShell sandbox. Use: source .env && openshell sandbox create -- claude' >&2 && exit 1)"
+          }
+        ]
+      }
+    ]
   }
 }

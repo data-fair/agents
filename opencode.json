@@ -1,5 +1,22 @@
 {
   "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "bash": {
+      "*": "allow",
+      "git push": "deny",
+      "git push *": "deny",
+      "git reset --hard*": "deny",
+      "git clean -f*": "deny",
+      "git clean -d*": "deny",
+      "git branch -D*": "deny",
+      "git rebase -i*": "deny",
+      "git rebase --onto*": "deny",
+      "git rebase main*": "deny",
+      "git rebase master*": "deny"
+    },
+    "edit": "allow",
+    "write": "allow"
+  },
   "mcp": {
     "playwright-test": {
       "type": "local",

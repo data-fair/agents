@@ -14,3 +14,4 @@ coverage/
 .claude/memory/
 .playwright-cli/
 test-results
+dev/openshell/policy.yaml
