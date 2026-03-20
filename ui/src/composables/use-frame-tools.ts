@@ -1,5 +1,6 @@
 import { ref, onScopeDispose } from 'vue'
 import type { Tool } from 'ai'
+import { getTabChannelId } from '@data-fair/lib-vue-agents'
 import { FrameClientAggregator } from '~/transports/frame-client-aggregator'
 
 /**
@@ -12,6 +13,7 @@ export function useFrameTools () {
   const tools = ref<Record<string, Tool>>({})
 
   const aggregator = new FrameClientAggregator({
+    channelId: getTabChannelId(),
     onToolsChanged: (newTools) => {
       tools.value = { ...newTools }
     }

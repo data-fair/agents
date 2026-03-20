@@ -2,6 +2,7 @@ import { ref, onScopeDispose } from 'vue'
 import { streamText, stepCountIs, tool, jsonSchema } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import type { ModelMessage, Tool } from 'ai'
+import { getTabChannelId } from '@data-fair/lib-vue-agents'
 import { FrameClientAggregator } from '~/transports/frame-client-aggregator'
 import type { SessionRecorder, ToolSnapshot } from '~/traces/session-recorder'
 import { $apiPath } from '~/context'
@@ -116,6 +117,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
     toolsVersion.value++
   } else {
     aggregator = new FrameClientAggregator({
+      channelId: getTabChannelId(),
       onToolsChanged: (newTools) => {
         tools.value = { ...newTools }
         toolsVersion.value++
