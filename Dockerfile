@@ -27,6 +27,8 @@ COPY --from=package-strip /app/package-lock.json package-lock.json
 ADD ui/package.json ui/package.json
 ADD api/package.json api/package.json
 ADD shared/package.json shared/package.json
+ADD lib-vue/package.json lib-vue/package.json
+ADD lib-vuetify/package.json lib-vuetify/package.json
 # full deps install used for types and ui building
 # also used to fill the npm cache for faster install of api deps
 RUN npm ci --omit=dev --no-audit --no-fund
@@ -49,6 +51,8 @@ COPY --from=types /app/api/config api/config
 COPY --from=types /app/api/types api/types
 COPY --from=types /app/api/doc api/doc
 ADD /shared shared
+ADD /lib-vue lib-vue
+ADD /lib-vuetify lib-vuetify
 ADD /api/src/config.ts api/src/config.ts
 ADD /api/src/ui-config.ts api/src/ui-config.ts
 ADD /ui ui
