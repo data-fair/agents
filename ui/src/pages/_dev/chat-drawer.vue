@@ -3,7 +3,10 @@
     <v-spacer />
   </v-app-bar>
   <v-container>
-    <df-agent-chat :src="chatSrc" />
+    <df-agent-chat
+      :src="chatSrc"
+      :drawer-props="drawerProps"
+    />
     <h1 class="text-h5 mb-4">
       {{ t('title') }}
     </h1>
@@ -62,5 +65,10 @@ function togglePseudoTool () {
     } as any)
     pseudoToolRegistered.value = true
   }
+}
+
+const drawerProps = {
+  class: 'border-secondary border-md border-e-0 border-b-0 border-opacity-100 rounded-ts-xl',
+  style: 'overflow: hidden'
 }
 </script>

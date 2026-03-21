@@ -1,6 +1,7 @@
 <template>
   <v-card
-    class="agent-chat d-flex flex-column border-secondary border-md border-e-0 border-opacity-100 rounded-ts-xl rounded-bs-xl rounded-te-0 rounded-be-0"
+    class="agent-chat d-flex flex-column"
+    :border="0"
     :class="{ 'agent-chat--debug': debug }"
   >
     <agent-chat-header

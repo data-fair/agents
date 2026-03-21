@@ -6,7 +6,7 @@
     app
     density="comfortable"
     location="top end"
-    class="df-agent-chat-fab mt-1"
+    class="df-agent-chat-fab"
     v-bind="fabProps"
     :title="title"
     @click="toggleDrawer"
@@ -24,9 +24,9 @@
   <v-navigation-drawer
     v-model="drawerOpen"
     location="right"
-    :width="width"
     floating
     color="#FFFFFF00"
+    style="z-index: 2500; /* Higher than v-dialog's 2400 */"
     v-bind="drawerProps"
   >
     <d-frame
@@ -35,7 +35,7 @@
       ref="dFrameEl"
       :src="resolvedSrc"
       resize="no"
-      style="height: 100%; padding: 8px 0"
+      style="height: 100%;"
       @message="onDFrameMessage"
     />
   </v-navigation-drawer>
@@ -59,12 +59,10 @@ const props = withDefaults(defineProps<{
   accountId?: string
   src?: string
   title?: string
-  width?: number | string
   fabProps?: FabProps
   drawerProps?: DrawerProps
 }>(), {
   title: 'Assistant',
-  width: 340,
   fabProps: () => ({}) as FabProps,
   drawerProps: () => ({}) as DrawerProps
 })
