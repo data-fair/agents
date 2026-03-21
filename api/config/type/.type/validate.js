@@ -4,7 +4,7 @@
 "use strict";
 export const validate = validate14;
 export default validate14;
-const schema16 = {"$id":"https://github.com/data-fair/agents/api/config","x-exports":["types","validate"],"x-ajv":{"coerceTypes":"array"},"type":"object","title":"Api config","additionalProperties":false,"required":["privateDirectoryUrl","mongoUrl","port","tmpDir","observer","secretKeys","cipherPassword"],"properties":{"mongoUrl":{"type":"string"},"port":{"type":"number"},"tmpDir":{"type":"string"},"privateDirectoryUrl":{"type":"string","pattern":"^https?://"},"privateEventsUrl":{"type":"string"},"secretKeys":{"type":"object","additionalProperties":false,"required":["admin"],"properties":{"admin":{"type":"string"},"events":{"type":"string"}}},"observer":{"type":"object","properties":{"active":{"type":"boolean"},"port":{"type":"number"}}},"upgradeRoot":{"type":"string"},"cipherPassword":{"type":"string"},"util":{},"get":{},"has":{}}};
+const schema16 = {"$id":"https://github.com/data-fair/agents/api/config","x-exports":["types","validate"],"x-ajv":{"coerceTypes":"array"},"type":"object","title":"Api config","additionalProperties":false,"required":["privateDirectoryUrl","mongoUrl","port","tmpDir","observer","secretKeys","cipherPassword"],"properties":{"mongoUrl":{"type":"string"},"port":{"type":"number"},"tmpDir":{"type":"string"},"privateDirectoryUrl":{"type":"string","pattern":"^https?://"},"privateEventsUrl":{"type":"string"},"secretKeys":{"type":"object","additionalProperties":false,"properties":{"events":{"type":"string"}}},"observer":{"type":"object","properties":{"active":{"type":"boolean"},"port":{"type":"number"}}},"upgradeRoot":{"type":"string"},"cipherPassword":{"type":"string"},"util":{},"get":{},"has":{}}};
 const func2 = Object.prototype.hasOwnProperty;
 const pattern0 = new RegExp("^https?://", "u");
 
@@ -298,8 +298,9 @@ data["privateEventsUrl"] = coerced4;
 if(data.secretKeys !== undefined){
 let data5 = data.secretKeys;
 if(data5 && typeof data5 == "object" && !Array.isArray(data5)){
-if(data5.admin === undefined){
-const err14 = {instancePath:instancePath+"/secretKeys",schemaPath:"#/properties/secretKeys/required",keyword:"required",params:{missingProperty: "admin"},message:"must have required property '"+"admin"+"'"};
+for(const key1 in data5){
+if(!(key1 === "events")){
+const err14 = {instancePath:instancePath+"/secretKeys",schemaPath:"#/properties/secretKeys/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key1},message:"must NOT have additional properties"};
 if(vErrors === null){
 vErrors = [err14];
 }
@@ -308,20 +309,9 @@ vErrors.push(err14);
 }
 errors++;
 }
-for(const key1 in data5){
-if(!((key1 === "admin") || (key1 === "events"))){
-const err15 = {instancePath:instancePath+"/secretKeys",schemaPath:"#/properties/secretKeys/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key1},message:"must NOT have additional properties"};
-if(vErrors === null){
-vErrors = [err15];
 }
-else {
-vErrors.push(err15);
-}
-errors++;
-}
-}
-if(data5.admin !== undefined){
-let data6 = data5.admin;
+if(data5.events !== undefined){
+let data6 = data5.events;
 if(typeof data6 !== "string"){
 let dataType5 = typeof data6;
 let coerced5 = undefined;
@@ -340,7 +330,27 @@ else if(data6 === null){
 coerced5 = "";
 }
 else {
-const err16 = {instancePath:instancePath+"/secretKeys/admin",schemaPath:"#/properties/secretKeys/properties/admin/type",keyword:"type",params:{type: "string"},message:"must be string"};
+const err15 = {instancePath:instancePath+"/secretKeys/events",schemaPath:"#/properties/secretKeys/properties/events/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err15];
+}
+else {
+vErrors.push(err15);
+}
+errors++;
+}
+}
+if(coerced5 !== undefined){
+data6 = coerced5;
+if(data5 !== undefined){
+data5["events"] = coerced5;
+}
+}
+}
+}
+}
+else {
+const err16 = {instancePath:instancePath+"/secretKeys",schemaPath:"#/properties/secretKeys/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err16];
 }
@@ -350,35 +360,30 @@ vErrors.push(err16);
 errors++;
 }
 }
-if(coerced5 !== undefined){
-data6 = coerced5;
-if(data5 !== undefined){
-data5["admin"] = coerced5;
-}
-}
-}
-}
-if(data5.events !== undefined){
-let data7 = data5.events;
-if(typeof data7 !== "string"){
-let dataType6 = typeof data7;
+if(data.observer !== undefined){
+let data7 = data.observer;
+if(data7 && typeof data7 == "object" && !Array.isArray(data7)){
+if(data7.active !== undefined){
+let data8 = data7.active;
+if(typeof data8 !== "boolean"){
+let dataType6 = typeof data8;
 let coerced6 = undefined;
-if(dataType6 == 'object' && Array.isArray(data7) && data7.length == 1){
-data7 = data7[0];
-dataType6 = typeof data7;
-if(typeof data7 === "string"){
-coerced6 = data7;
+if(dataType6 == 'object' && Array.isArray(data8) && data8.length == 1){
+data8 = data8[0];
+dataType6 = typeof data8;
+if(typeof data8 === "boolean"){
+coerced6 = data8;
 }
 }
 if(!(coerced6 !== undefined)){
-if(dataType6 == "number" || dataType6 == "boolean"){
-coerced6 = "" + data7;
+if(data8 === "false" || data8 === 0 || data8 === null){
+coerced6 = false;
 }
-else if(data7 === null){
-coerced6 = "";
+else if(data8 === "true" || data8 === 1){
+coerced6 = true;
 }
 else {
-const err17 = {instancePath:instancePath+"/secretKeys/events",schemaPath:"#/properties/secretKeys/properties/events/type",keyword:"type",params:{type: "string"},message:"must be string"};
+const err17 = {instancePath:instancePath+"/observer/active",schemaPath:"#/properties/observer/properties/active/type",keyword:"type",params:{type: "boolean"},message:"must be boolean"};
 if(vErrors === null){
 vErrors = [err17];
 }
@@ -389,16 +394,32 @@ errors++;
 }
 }
 if(coerced6 !== undefined){
-data7 = coerced6;
-if(data5 !== undefined){
-data5["events"] = coerced6;
+data8 = coerced6;
+if(data7 !== undefined){
+data7["active"] = coerced6;
 }
 }
 }
 }
+if(data7.port !== undefined){
+let data9 = data7.port;
+if(!(typeof data9 == "number")){
+let dataType7 = typeof data9;
+let coerced7 = undefined;
+if(dataType7 == 'object' && Array.isArray(data9) && data9.length == 1){
+data9 = data9[0];
+dataType7 = typeof data9;
+if(typeof data9 == "number"){
+coerced7 = data9;
+}
+}
+if(!(coerced7 !== undefined)){
+if(dataType7 == "boolean" || data9 === null
+              || (dataType7 == "string" && data9 && data9 == +data9)){
+coerced7 = +data9;
 }
 else {
-const err18 = {instancePath:instancePath+"/secretKeys",schemaPath:"#/properties/secretKeys/type",keyword:"type",params:{type: "object"},message:"must be object"};
+const err18 = {instancePath:instancePath+"/observer/port",schemaPath:"#/properties/observer/properties/port/type",keyword:"type",params:{type: "number"},message:"must be number"};
 if(vErrors === null){
 vErrors = [err18];
 }
@@ -408,30 +429,17 @@ vErrors.push(err18);
 errors++;
 }
 }
-if(data.observer !== undefined){
-let data8 = data.observer;
-if(data8 && typeof data8 == "object" && !Array.isArray(data8)){
-if(data8.active !== undefined){
-let data9 = data8.active;
-if(typeof data9 !== "boolean"){
-let dataType7 = typeof data9;
-let coerced7 = undefined;
-if(dataType7 == 'object' && Array.isArray(data9) && data9.length == 1){
-data9 = data9[0];
-dataType7 = typeof data9;
-if(typeof data9 === "boolean"){
-coerced7 = data9;
+if(coerced7 !== undefined){
+data9 = coerced7;
+if(data7 !== undefined){
+data7["port"] = coerced7;
 }
 }
-if(!(coerced7 !== undefined)){
-if(data9 === "false" || data9 === 0 || data9 === null){
-coerced7 = false;
 }
-else if(data9 === "true" || data9 === 1){
-coerced7 = true;
+}
 }
 else {
-const err19 = {instancePath:instancePath+"/observer/active",schemaPath:"#/properties/observer/properties/active/type",keyword:"type",params:{type: "boolean"},message:"must be boolean"};
+const err19 = {instancePath:instancePath+"/observer",schemaPath:"#/properties/observer/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err19];
 }
@@ -441,33 +449,27 @@ vErrors.push(err19);
 errors++;
 }
 }
-if(coerced7 !== undefined){
-data9 = coerced7;
-if(data8 !== undefined){
-data8["active"] = coerced7;
-}
-}
-}
-}
-if(data8.port !== undefined){
-let data10 = data8.port;
-if(!(typeof data10 == "number")){
+if(data.upgradeRoot !== undefined){
+let data10 = data.upgradeRoot;
+if(typeof data10 !== "string"){
 let dataType8 = typeof data10;
 let coerced8 = undefined;
 if(dataType8 == 'object' && Array.isArray(data10) && data10.length == 1){
 data10 = data10[0];
 dataType8 = typeof data10;
-if(typeof data10 == "number"){
+if(typeof data10 === "string"){
 coerced8 = data10;
 }
 }
 if(!(coerced8 !== undefined)){
-if(dataType8 == "boolean" || data10 === null
-              || (dataType8 == "string" && data10 && data10 == +data10)){
-coerced8 = +data10;
+if(dataType8 == "number" || dataType8 == "boolean"){
+coerced8 = "" + data10;
+}
+else if(data10 === null){
+coerced8 = "";
 }
 else {
-const err20 = {instancePath:instancePath+"/observer/port",schemaPath:"#/properties/observer/properties/port/type",keyword:"type",params:{type: "number"},message:"must be number"};
+const err20 = {instancePath:instancePath+"/upgradeRoot",schemaPath:"#/properties/upgradeRoot/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err20];
 }
@@ -479,26 +481,14 @@ errors++;
 }
 if(coerced8 !== undefined){
 data10 = coerced8;
-if(data8 !== undefined){
-data8["port"] = coerced8;
+if(data !== undefined){
+data["upgradeRoot"] = coerced8;
 }
 }
 }
 }
-}
-else {
-const err21 = {instancePath:instancePath+"/observer",schemaPath:"#/properties/observer/type",keyword:"type",params:{type: "object"},message:"must be object"};
-if(vErrors === null){
-vErrors = [err21];
-}
-else {
-vErrors.push(err21);
-}
-errors++;
-}
-}
-if(data.upgradeRoot !== undefined){
-let data11 = data.upgradeRoot;
+if(data.cipherPassword !== undefined){
+let data11 = data.cipherPassword;
 if(typeof data11 !== "string"){
 let dataType9 = typeof data11;
 let coerced9 = undefined;
@@ -517,12 +507,12 @@ else if(data11 === null){
 coerced9 = "";
 }
 else {
-const err22 = {instancePath:instancePath+"/upgradeRoot",schemaPath:"#/properties/upgradeRoot/type",keyword:"type",params:{type: "string"},message:"must be string"};
+const err21 = {instancePath:instancePath+"/cipherPassword",schemaPath:"#/properties/cipherPassword/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
-vErrors = [err22];
+vErrors = [err21];
 }
 else {
-vErrors.push(err22);
+vErrors.push(err21);
 }
 errors++;
 }
@@ -530,57 +520,19 @@ errors++;
 if(coerced9 !== undefined){
 data11 = coerced9;
 if(data !== undefined){
-data["upgradeRoot"] = coerced9;
+data["cipherPassword"] = coerced9;
 }
 }
 }
 }
-if(data.cipherPassword !== undefined){
-let data12 = data.cipherPassword;
-if(typeof data12 !== "string"){
-let dataType10 = typeof data12;
-let coerced10 = undefined;
-if(dataType10 == 'object' && Array.isArray(data12) && data12.length == 1){
-data12 = data12[0];
-dataType10 = typeof data12;
-if(typeof data12 === "string"){
-coerced10 = data12;
-}
-}
-if(!(coerced10 !== undefined)){
-if(dataType10 == "number" || dataType10 == "boolean"){
-coerced10 = "" + data12;
-}
-else if(data12 === null){
-coerced10 = "";
 }
 else {
-const err23 = {instancePath:instancePath+"/cipherPassword",schemaPath:"#/properties/cipherPassword/type",keyword:"type",params:{type: "string"},message:"must be string"};
+const err22 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
-vErrors = [err23];
+vErrors = [err22];
 }
 else {
-vErrors.push(err23);
-}
-errors++;
-}
-}
-if(coerced10 !== undefined){
-data12 = coerced10;
-if(data !== undefined){
-data["cipherPassword"] = coerced10;
-}
-}
-}
-}
-}
-else {
-const err24 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object"};
-if(vErrors === null){
-vErrors = [err24];
-}
-else {
-vErrors.push(err24);
+vErrors.push(err22);
 }
 errors++;
 }

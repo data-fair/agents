@@ -10,6 +10,7 @@ import summaryRouter from './summary/router.ts'
 import gatewayRouter from './gateway/router.ts'
 import usageRouter from './usage/router.ts'
 import mongo from '#mongo'
+import config from '#config'
 
 export const app = express()
 
@@ -52,7 +53,8 @@ if (process.env.NODE_ENV === 'development') {
 app.use('/api', (req, res) => res.status(404).send('unknown api endpoint'))
 
 app.use(await createSpaMiddleware(resolve(import.meta.dirname, '../../ui/dist'), uiConfig, {
-  csp: { nonce: true, header: true }
+  csp: { nonce: true, header: true },
+  privateDirectoryUrl: config.privateDirectoryUrl
 }))
 
 app.use(errorHandler)

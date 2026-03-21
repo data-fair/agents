@@ -9,7 +9,6 @@ export type ApiConfig = {
   privateDirectoryUrl: string;
   privateEventsUrl?: string;
   secretKeys: {
-    admin: string;
     events?: string;
   };
   observer: {

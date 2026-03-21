@@ -60,7 +60,6 @@ const props = withDefaults(defineProps<{
   fabProps?: FabProps
   drawerProps?: DrawerProps
 }>(), {
-  width: 450,
   fabProps: () => ({}) as FabProps,
   drawerProps: () => ({}) as DrawerProps
 })
@@ -73,8 +72,10 @@ const resolvedSrc = computed(() => {
   return ''
 })
 
-const drawerOpen = ref(false)
-const iframeCreated = ref(false)
+const STORAGE_KEY = 'df-agent-chat-open'
+const wasOpen = localStorage.getItem(STORAGE_KEY) === '1'
+const drawerOpen = ref(wasOpen)
+const iframeCreated = ref(wasOpen)
 const agentStatus = ref<AgentStatus>('idle')
 const hasUnread = ref(false)
 const toolsJustChanged = ref(false)
@@ -101,6 +102,7 @@ const fabColor = computed(() => {
 function toggleDrawer () {
   if (!iframeCreated.value) iframeCreated.value = true
   drawerOpen.value = !drawerOpen.value
+  localStorage.setItem(STORAGE_KEY, drawerOpen.value ? '1' : '0')
   hasUnread.value = false
 }
 
