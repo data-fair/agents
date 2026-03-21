@@ -1,5 +1,8 @@
 <template>
-  <v-container v-if="settingsEditFetch.data.value">
+  <v-container
+    v-if="settingsEditFetch.data.value"
+    data-iframe-height
+  >
     <v-row>
       <v-col>
         <h1 class="text-h4 mb-4">
@@ -87,6 +90,7 @@ const settingsEditFetch = useEditFetch<Settings>(
     }
   }
 )
+useLeaveGuard(settingsEditFetch.hasDiff, { locale })
 
 const modelsFetch = useFetch<{ results: ModelInfo[] }>(() => `${$apiPath}/models/${accountType.value}/${accountId.value}`)
 
