@@ -9,7 +9,7 @@ export default {
     port: 9090
   },
   secretKeys: {
-    admin: undefined
+    events: undefined
   },
   cipherPassword: undefined,
   upgradeRoot: '/app/'

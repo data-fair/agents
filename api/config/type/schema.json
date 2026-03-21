@@ -39,13 +39,7 @@
     "secretKeys": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "admin"
-      ],
       "properties": {
-        "admin": {
-          "type": "string"
-        },
         "events": {
           "type": "string"
         }

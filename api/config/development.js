@@ -14,7 +14,7 @@ export default {
     port: process.env.DEV_OBSERVER_PORT
   },
   secretKeys: {
-    admin: 'secret-admin-key'
+    events: 'secret-events'
   },
   cipherPassword: 'test',
   upgradeRoot: '../'
