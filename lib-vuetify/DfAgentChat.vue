@@ -9,6 +9,7 @@
     class="df-agent-chat-fab"
     v-bind="fabProps"
     :title="title"
+    style="z-index: 2600; /* Higher than the navigation drawer */"
     @click="toggleDrawer"
   >
     <v-badge

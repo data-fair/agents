@@ -1,7 +1,7 @@
 <template>
   <div
     ref="messagesContainer"
-    class="flex-grow-1 overflow-y-auto"
+    class="flex-grow-1 overflow-y-auto agent-chat-message"
     style="min-height: 0"
   >
     <!-- Welcome message -->
@@ -18,14 +18,14 @@
     <div
       v-for="(message, index) in messages"
       :key="index"
-      class="px-4 py-2"
+      class="px-2 py-1"
     >
       <div
         v-if="message.role === 'user'"
         class="d-flex justify-end"
       >
         <v-card
-          class="pa-3 text-body-2 rounded-ts-xl rounded-bs-xl rounded-be-xl rounded-te-md bg-surface"
+          class="pa-3 text-body-2 rounded-xl bg-surface"
           color="secondary"
           variant="outlined"
         >
@@ -68,10 +68,14 @@
           <v-expansion-panels
             variant="accordion"
             density="compact"
+            flat
+            tile
+            class="agent-chat__subagent-panels border-secondary border-s-sm border-opacity-100"
           >
             <v-expansion-panel
               v-for="invocation in message.toolInvocations.filter(ti => ti.toolName.startsWith('subagent_'))"
               :key="invocation.toolCallId"
+              density="compact"
             >
               <v-expansion-panel-title class="text-body-2 py-1">
                 <v-icon
@@ -86,8 +90,6 @@
               <v-expansion-panel-text>
                 <div
                   v-if="message.subAgentMessages?.length"
-                  class="pl-2"
-                  style="border-left: 2px solid rgb(var(--v-theme-primary), 0.3)"
                 >
                   <div
                     v-for="(subMsg, subIdx) in message.subAgentMessages"
@@ -197,38 +199,29 @@ defineExpose({ messagesContainer })
 // but we expose the container ref for it
 </script>
 
-<style scoped>
-.assistant-content {
+<style>
+.agent-chat-message .assistant-content {
   word-break: break-word;
 }
 
-.markdown-content :deep(.markdown-paragraph:not(:last-child)) {
-  margin-bottom: 16px;
+.agent-chat-message .markdown-content ul {
+  padding-left: 8px;
+  margin-top: 0;
 }
 
-.markdown-content :deep(pre) {
-  background: rgb(var(--v-theme-surface-variant));
-  border-radius: 4px;
-  padding: 8px 12px;
-  font-size: 0.75rem;
-  overflow-x: auto;
-  margin: 8px 0;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.markdown-content :deep(code) {
-  font-size: 0.85em;
-}
-
-.markdown-content :deep(p code) {
-  background: rgb(var(--v-theme-surface-variant));
-  padding: 2px 4px;
-  border-radius: 3px;
-}
-
-.agent-chat__spin {
+.agent-chat-message .agent-chat__spin {
   animation: agent-chat-spin 1s linear infinite;
+}
+
+.agent-chat-message .agent-chat__subagent-panels .v-expansion-panel-text__wrapper {
+  padding-left: 8px;
+  padding-right: 8px;
+  padding-top: 0px;
+  padding-bottom: 0px;
+}
+
+.agent-chat-message .agent-chat__subagent-panels .v-expansion-panel-title.v-expansion-panel-title--active {
+  min-height: 48px;
 }
 
 @keyframes agent-chat-spin {
