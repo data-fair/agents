@@ -13,20 +13,38 @@
       @show-info="showInfoDialog = true"
     />
 
-    <agent-chat-messages
-      ref="messagesRef"
-      :messages="messages"
-      :is-streaming="isStreaming"
-      :chat-error="chatError"
-      :welcome-text="activeChatTab === 'evaluation' ? t('welcomeEvaluation') : t('welcome')"
-      :tool-title="toolTitle"
-    />
+    <template v-if="messages.length">
+      <agent-chat-messages
+        ref="messagesRef"
+        :messages="messages"
+        :is-streaming="isStreaming"
+        :chat-error="chatError"
+        :welcome-text="activeChatTab === 'evaluation' ? t('welcomeEvaluation') : t('welcome')"
+        :tool-title="toolTitle"
+      />
 
-    <agent-chat-input
-      :is-streaming="isStreaming"
-      @send="handleSend"
-      @abort="handleAbort"
-    />
+      <agent-chat-input
+        :is-streaming="isStreaming"
+        @send="handleSend"
+        @abort="handleAbort"
+      />
+    </template>
+
+    <div
+      v-else
+      class="flex-grow-1 d-flex flex-column align-center justify-center px-4"
+      style="min-height: 0"
+    >
+      <p class="text-body-2 text-medium-emphasis text-center mb-4">
+        {{ activeChatTab === 'evaluation' ? t('welcomeEvaluation') : t('welcome') }}
+      </p>
+      <agent-chat-input
+        :is-streaming="isStreaming"
+        style="width: 100%"
+        @send="handleSend"
+        @abort="handleAbort"
+      />
+    </div>
 
     <agent-chat-info-dialog
       v-model="showInfoDialog"
@@ -47,7 +65,7 @@
 
 <i18n lang="yaml">
 fr:
-  welcome: Posez une question pour commencer.
+  welcome: Comment puis-je vous aider ?
   welcomeEvaluation: "Cet onglet vous permet d'analyser la session en cours avec un évaluateur IA. Posez des questions sur ce qui s'est passé, ce qui a bien fonctionné ou ce qui pourrait être amélioré."
   systemPromptBase: Tu es un assistant IA utile pour la plateforme Data Fair.
   systemPromptUser: L'utilisateur actuel est {userName}{orgPart}.
@@ -56,7 +74,7 @@ fr:
   systemPromptOrg: ", membre de l'organisation {orgName}"
   systemPromptDep: ", département {depName}"
 en:
-  welcome: Ask a question to get started.
+  welcome: How can I help you?
   welcomeEvaluation: "This tab lets you analyze the current session with an AI evaluator. Ask questions about what happened, what worked well, or what could be improved."
   systemPromptBase: You are a helpful AI assistant for the Data Fair platform.
   systemPromptUser: The current user is {userName}{orgPart}.

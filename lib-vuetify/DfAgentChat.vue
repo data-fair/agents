@@ -4,9 +4,11 @@
     :color="fabColor"
     :loading="agentStatus === 'working'"
     app
+    density="comfortable"
     location="top end"
-    class="df-agent-chat-fab"
+    class="df-agent-chat-fab mt-1"
     v-bind="fabProps"
+    :title="title"
     @click="toggleDrawer"
   >
     <v-badge
@@ -56,10 +58,13 @@ const props = withDefaults(defineProps<{
   accountType?: string
   accountId?: string
   src?: string
+  title?: string
   width?: number | string
   fabProps?: FabProps
   drawerProps?: DrawerProps
 }>(), {
+  title: 'Assistant',
+  width: 340,
   fabProps: () => ({}) as FabProps,
   drawerProps: () => ({}) as DrawerProps
 })
@@ -95,7 +100,7 @@ const fabColor = computed(() => {
     case 'working': return 'accent'
     case 'waiting-user': return 'warning'
     case 'error': return 'error'
-    default: return 'primary'
+    default: return 'secondary'
   }
 })
 

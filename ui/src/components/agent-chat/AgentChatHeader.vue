@@ -17,7 +17,7 @@
     </template>
     <span
       v-else
-      class="text-subtitle-1 font-weight-medium text-truncate text-secondary"
+      class="text-title-medium text-truncate text-secondary"
     >
       {{ title }}
     </span>

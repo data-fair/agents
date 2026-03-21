@@ -10,6 +10,7 @@
         rows="1"
         max-rows="5"
         auto-grow
+        autofocus
         :disabled="false"
         @keydown.enter.exact.prevent="handleSend"
       >
