@@ -33,7 +33,7 @@
 
     <div
       v-else
-      class="flex-grow-1 d-flex flex-column align-center justify-center px-4"
+      class="flex-grow-1 d-flex flex-column align-center justify-center"
       style="min-height: 0"
     >
       <p class="text-body-2 text-medium-emphasis text-center mb-4">
