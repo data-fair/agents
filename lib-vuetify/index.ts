@@ -1,2 +1,5 @@
-export { default as DfAgentChat } from './DfAgentChat.vue'
+export { default as DfAgentChatToggle } from './DfAgentChatToggle.vue'
+export { default as DfAgentChatDrawer } from './DfAgentChatDrawer.vue'
+export { useAgentChatDrawer } from './useAgentChatDrawer.js'
+export type { AgentChatDrawerState } from './useAgentChatDrawer.js'
 export type { AgentStatus, AgentStatusMessage, AgentToolsChangedMessage, AgentUnreadMessage, AgentChatMessage } from './types.js'

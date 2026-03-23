@@ -1,18 +1,76 @@
 <template>
-  <v-app-bar>
+  <v-app-bar
+    flat
+    :elevation="scrolled ? 2 : 0"
+    :style="scrolled ? '' : 'background: transparent;'"
+  >
     <v-spacer />
+    <v-btn
+      variant="tonal"
+      color="primary"
+      class="mr-2"
+      @click="dialogOpen = true"
+    >
+      Open dialog
+    </v-btn>
     <personal-menu dark-mode-switch />
-    <df-agent-chat
-      :src="chatSrc"
-      :drawer-props="drawerProps"
-    />
+    <df-agent-chat-toggle />
   </v-app-bar>
+
+  <v-dialog
+    v-model="dialogOpen"
+    max-width="500"
+  >
+    <v-card>
+      <v-card-title>Test dialog</v-card-title>
+      <v-card-text>
+        This dialog tests the integration of dialogs with the chat drawer layout.
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn
+          color="primary"
+          @click="dialogOpen = false"
+        >
+          Close
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+  <df-agent-chat-drawer
+    :src="chatSrc"
+    :drawer-props="drawerProps"
+  />
   <v-container>
     <h1 class="text-h5 mb-4">
       {{ t('title') }}
     </h1>
     <p class="text-body-2 text-medium-emphasis mb-4">
       {{ t('instructions') }}
+    </p>
+    <p class="text-body-1 mb-4">
+      Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+    </p>
+    <p class="text-body-1 mb-4">
+      Curabitur pretium tincidunt lacus. Nulla gravida orci a odio. Nullam varius, turpis et commodo pharetra, est eros bibendum elit, nec luctus magna felis sollicitudin mauris. Integer in mauris eu nibh euismod gravida. Duis ac tellus et risus vulputate vehicula. Donec lobortis risus a elit. Etiam tempor. Ut ullamcorper, ligula ut dictum pharetra, nisi nunc fringilla magna, in commodo elit erat nec turpis. Ut pharetra auctor leo.
+    </p>
+    <p class="text-body-1 mb-4">
+      Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Vestibulum tortor quam, feugiat vitae, ultricies eget, tempor sit amet, ante. Donec eu libero sit amet quam egestas semper. Aenean ultricies mi vitae est. Mauris placerat eleifend leo. Quisque sit amet est et sapien ullamcorper pharetra. Vestibulum erat wisi, condimentum sed, commodo vitae, ornare sit amet, wisi.
+    </p>
+    <p class="text-body-1 mb-4">
+      Aenean fermentum, elit eget tincidunt condimentum, eros ipsum rutrum orci, sagittis tempus lacus enim ac dui. Donec non enim in turpis pulvinar facilisis. Ut felis. Praesent dapibus, neque id cursus faucibus, tortor neque egestas augue, eu vulputate magna eros eu erat. Aliquam erat volutpat. Nam dui mi, tincidunt quis, accumsan porttitor, facilisis luctus, metus.
+    </p>
+    <p class="text-body-1 mb-4">
+      Phasellus ultrices nulla quis nibh. Quisque a lectus. Donec consectetuer ligula vulputate sem tristique cursus. Nam nulla quam, gravida non, commodo a, sodales sit amet, nisi. Pellentesque fermentum dolor. Aliquam quam lectus, facilisis auctor, ultrices ut, elementum vulputate, nunc.
+    </p>
+    <p class="text-body-1 mb-4">
+      Sed adipiscing ornare risus. Morbi est est, blandit sit amet, sagittis vel, euismod vel, velit. Pellentesque egestas sem. Suspendisse commodo ullamcorper magna. Ut nulla. Vivamus bibendum, nulla ut congue fringilla, lorem ipsum ultricies risus, ut rutrum velit tortor vel purus. In hac habitasse platea dictumst. Morbi vestibulum volutpat enim. Vivamus eu sem vitae dui convallis varius.
+    </p>
+    <p class="text-body-1 mb-4">
+      Nunc auctor bibendum eros. Maecenas porta accumsan mauris. Etiam enim enim, elementum sed, bibendum quis, rhoncus non, metus. Fusce neque. Suspendisse faucibus, nunc et pellentesque egestas, lacus ante convallis tellus, vitae iaculis lacus elit id tortor. Vivamus aliquet elit ac nisl. Fusce fermentum odio nec arcu. Vivamus euismod mauris.
+    </p>
+    <p class="text-body-1 mb-4">
+      In ut quam vitae odio lacinia tincidunt. Praesent ut ligula non mi varius sagittis. Cras sagittis. Praesent ac sem eget est egestas volutpat. Vivamus a tellus. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Proin pharetra nonummy pede. Mauris et orci. Aenean nec lorem.
     </p>
     <p class="text-body-1 mb-4">
       Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
@@ -68,14 +126,24 @@ en:
 </i18n>
 
 <script lang="ts" setup>
-import { ref, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { DfAgentChat } from '@data-fair/lib-vuetify-agents'
+import { DfAgentChatToggle, DfAgentChatDrawer } from '@data-fair/lib-vuetify-agents'
 import { useFrameServer } from '@data-fair/lib-vue-agents'
 import personalMenu from '@data-fair/lib-vuetify/personal-menu.vue'
 import DfNavigationRight from '@data-fair/lib-vuetify/navigation-right.vue'
 
 const { t } = useI18n()
+
+const dialogOpen = ref(false)
+const scrolled = ref(false)
+
+function onScroll () {
+  scrolled.value = window.scrollY > 0
+}
+
+onMounted(() => window.addEventListener('scroll', onScroll))
+onUnmounted(() => window.removeEventListener('scroll', onScroll))
 
 const chatSrc = computed(() => {
   return `${window.location.origin}/agents/_dev/chat`

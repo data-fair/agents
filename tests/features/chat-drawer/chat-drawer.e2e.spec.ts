@@ -25,16 +25,17 @@ const settingsData = {
   limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
 }
 
-const fabSelector = '.df-agent-chat-fab'
+const fabSelector = '.df-agent-chat-toggle'
 
 async function clickFab (page: Page) {
-  // The VFab with app=true may be behind layout elements or outside viewport when drawer is open
-  await page.locator(`${fabSelector} .v-btn`).dispatchEvent('click')
+  await page.locator(fabSelector).dispatchEvent('click')
 }
+
+const chatDrawerSelector = '.v-navigation-drawer:has(d-frame)'
 
 async function closeDrawer (page: Page) {
   await clickFab(page)
-  await expect(page.locator('.v-navigation-drawer--active')).not.toBeAttached({ timeout: 5000 })
+  await expect(page.locator(`${chatDrawerSelector}.v-navigation-drawer--active`)).not.toBeAttached({ timeout: 5000 })
 }
 
 async function waitForChatFrame (page: Page) {
@@ -60,7 +61,7 @@ test.describe('Chat Drawer Integration', () => {
 
     await clickFab(page)
 
-    const drawer = page.locator('.v-navigation-drawer')
+    const drawer = page.locator(chatDrawerSelector)
     await expect(drawer).toBeVisible()
 
     const dFrame = drawer.locator('d-frame')
@@ -107,8 +108,8 @@ test.describe('Chat Drawer Integration', () => {
 
     await closeDrawer(page)
 
-    // The FAB's inner v-btn should reflect waiting-user status (warning color)
-    const fabBtn = page.locator(`${fabSelector} .v-btn`)
+    // The FAB button should reflect waiting-user status (warning color)
+    const fabBtn = page.locator(fabSelector)
     await expect(fabBtn).toHaveClass(/bg-warning/, { timeout: 5000 })
   })
 
