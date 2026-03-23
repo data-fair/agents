@@ -4,7 +4,6 @@ import { routes } from 'vue-router/auto-routes'
 import { createVuetify } from 'vuetify'
 import { aliases, mdi } from 'vuetify/iconsets/mdi-svg'
 import { vuetifySessionOptions } from '@data-fair/lib-vuetify'
-import './vuetify-layer-order.css'
 import '@data-fair/lib-vuetify/style/global.scss'
 import 'vuetify/lib/components/VTable/VTable.css' // Ensure VTable styles are included, as the component is used in markdown rendering
 import { createVueRouterDFrameContent } from '@data-fair/frame/lib/vue-router/d-frame-content.js'
