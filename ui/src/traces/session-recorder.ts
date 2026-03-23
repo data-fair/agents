@@ -26,6 +26,7 @@ export interface TurnTrace {
 
 export interface ToolSnapshot {
   name: string
+  title?: string
   description: string
   inputSchema: Record<string, any>
 }

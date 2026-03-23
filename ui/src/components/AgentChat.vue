@@ -125,7 +125,7 @@ const finalSystemPrompt = computed(() => {
   const depName = session.state.account?.departmentName
 
   let orgPart = ''
-  if (orgName) {
+  if (props.accountType === 'organization' && orgName) {
     orgPart = t('systemPromptOrg', { orgName })
     if (depName) {
       orgPart += t('systemPromptDep', { depName })
@@ -337,6 +337,7 @@ watch(showInfoDialog, async (open) => {
 const debugTools = computed(() => {
   return Object.entries(chatResult.tools.value).map(([name, t]) => ({
     name,
+    title: (t as any).title,
     description: (t as any).description ?? '',
     inputSchema: (t as any).parameters ?? {}
   }))

@@ -3,6 +3,7 @@
     <AgentChat
       :debug="debugEnabled"
       :title="chatTitle"
+      :system-prompt="systemPrompt"
       :account-type="accountType"
       :account-id="accountId"
     />
@@ -30,9 +31,8 @@ const session = useSession()
 const accountType = computed(() => route.params.type as string)
 const accountId = computed(() => route.params.id as string)
 
-const chatTitle = computed(() => {
-  return (route.query.title as string) || t('defaultTitle')
-})
+const chatTitle = useStringSearchParam('title', { default: t('defaultTitle') })
+const systemPrompt = useStringSearchParam('systemPrompt')
 
 const debugEnabled = computed(() => {
   return session.state.user?.adminMode === 1

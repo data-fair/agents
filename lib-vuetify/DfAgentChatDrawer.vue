@@ -34,6 +34,8 @@ const props = withDefaults(defineProps<{
   accountType?: string
   accountId?: string
   src?: string
+  chatTitle?: string
+  systemPrompt?: string
   drawerProps?: DrawerProps
 }>(), {
   drawerProps: () => ({}) as DrawerProps
@@ -59,7 +61,12 @@ const drawerWidth = computed(() => {
 const resolvedSrc = computed(() => {
   if (props.src) return props.src
   if (props.accountType && props.accountId) {
-    return `${window.location.origin}/agents/${props.accountType}/${props.accountId}/chat`
+    const base = `${window.location.origin}/agents/${props.accountType}/${props.accountId}/chat`
+    const params = new URLSearchParams()
+    if (props.chatTitle) params.set('title', props.chatTitle)
+    if (props.systemPrompt) params.set('systemPrompt', props.systemPrompt)
+    const qs = params.toString()
+    return qs ? `${base}?${qs}` : base
   }
   return ''
 })

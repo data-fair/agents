@@ -23,6 +23,7 @@ export interface ChatMessage {
 
 export interface ToolInfo {
   name: string
+  title?: string
   description: string
   inputSchema: Record<string, any>
 }
@@ -129,6 +130,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
         if (recorder) {
           const snapshots: ToolSnapshot[] = Object.entries(newTools).map(([name, t]) => ({
             name,
+            title: (t as any).title,
             description: (t as any).description ?? '',
             inputSchema: (t as any).parameters ?? {}
           }))
@@ -218,6 +220,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
     if (recorder) {
       const subToolSnapshots: ToolSnapshot[] = Object.entries(subAgentTools).map(([name, t]) => ({
         name,
+        title: (t as any).title,
         description: (t as any).description ?? '',
         inputSchema: (t as any).parameters ?? {}
       }))

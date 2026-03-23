@@ -109,16 +109,22 @@ export class FrameClientAggregator {
       const tools: Record<string, Tool> = {}
 
       for (const t of result.tools) {
-        tools[t.name] = tool({
+        const aiTool = tool({
           description: t.description || '',
           inputSchema: jsonSchema(t.inputSchema as any || { type: 'object', properties: {} }),
           execute: async (args: any) => {
             debug('execute tool=%s via server=%s args=%o', t.name, serverId, args)
             const callResult = await server.client.callTool({ name: t.name, arguments: args })
             debug('tool result=%s via server=%s result=%o', t.name, serverId, callResult)
-            return callResult
+            const textParts = (callResult.content as Array<{ type: string; text?: string }> | undefined)
+              ?.filter((c) => c.type === 'text')
+              .map((c) => c.text)
+            return textParts?.join('\n') ?? JSON.stringify(callResult)
           }
         })
+        const title = (t as any).annotations?.title
+        if (title) (aiTool as any).title = title
+        tools[t.name] = aiTool
       }
 
       server.tools = tools

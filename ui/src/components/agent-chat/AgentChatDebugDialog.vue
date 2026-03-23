@@ -55,7 +55,11 @@
                 :key="dtool.name"
               >
                 <v-expansion-panel-title class="text-body-2">
-                  <span class="font-weight-medium">{{ dtool.name }}</span>
+                  <span class="font-weight-medium">{{ dtool.title || dtool.name }}</span>
+                  <span
+                    v-if="dtool.title"
+                    class="text-medium-emphasis ml-2"
+                  >{{ dtool.name }}</span>
                 </v-expansion-panel-title>
                 <v-expansion-panel-text>
                   <p class="text-body-2 mb-2">
@@ -189,7 +193,7 @@ import type { TraceOverviewEntry, TraceEntryDetail, SessionRecorder } from '~/tr
 const props = defineProps<{
   modelValue: boolean
   systemPrompt: string
-  debugTools: Array<{ name: string; description: string; inputSchema: Record<string, any> }>
+  debugTools: Array<{ name: string; title?: string; description: string; inputSchema: Record<string, any> }>
   tracingEnabled: boolean
   traceOverview: TraceOverviewEntry[]
   recorder?: SessionRecorder
