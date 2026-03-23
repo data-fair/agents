@@ -1,4 +1,4 @@
-import { Client, ToolListChangedNotificationSchema } from '@mcp-b/webmcp-ts-sdk'
+import { Client, ToolListChangedNotificationSchema, PolyfillJsonSchemaValidator } from '@mcp-b/webmcp-ts-sdk'
 import { tool, jsonSchema } from 'ai'
 import type { Tool } from 'ai'
 import { FrameClientTransport } from './frame-client-transport'
@@ -74,7 +74,7 @@ export class FrameClientAggregator {
 
     const client = new Client(
       { name: `frame-aggregator-${serverId}`, version: '1.0.0' },
-      { capabilities: {} }
+      { capabilities: {}, jsonSchemaValidator: new PolyfillJsonSchemaValidator() }
     )
 
     // Set up tools/list_changed notification handler
