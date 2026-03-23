@@ -20,6 +20,7 @@
     "@data-fair/frame": "^0.18.0"
   },
   "dependencies": {
-    "@mdi/js": "^7.4.47"
+    "@mdi/js": "^7.4.47",
+    "debug": "^4.4.1"
   }
 }

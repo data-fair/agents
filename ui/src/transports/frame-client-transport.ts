@@ -3,6 +3,9 @@
 
 import type { JSONRPCMessage, Transport } from '@mcp-b/webmcp-ts-sdk'
 import { JSONRPCMessageSchema } from '@mcp-b/webmcp-ts-sdk'
+import Debug from 'debug'
+
+const debug = Debug('df-agents:frame-client-transport')
 
 const DEFAULT_CHANNEL_ID = 'mcp-frame'
 const DEFAULT_CHECK_READY_RETRY_MS = 250
@@ -56,6 +59,7 @@ export class FrameClientTransport implements Transport {
     if (this._started) return
     this._started = true
 
+    debug('start client for server=%s channel=%s', this._serverId, this._channelId)
     this._channel = new BroadcastChannel(this._channelId)
     this._channel.onmessage = (event: MessageEvent<FrameMessage>) => {
       const data = event.data
@@ -63,21 +67,25 @@ export class FrameClientTransport implements Transport {
       if (data.serverId !== this._serverId) return
 
       if (data.type === 'mcp-server-ready') {
+        debug('recv server-ready server=%s', this._serverId)
         this.clearCheckReadyRetry()
         this._serverReadyResolve()
         return
       }
 
       if (data.type === 'mcp-server-stopped') {
+        debug('recv server-stopped server=%s', this._serverId)
         this.close()
         return
       }
 
       if (data.type === 'mcp' && data.direction === 'server-to-client' && data.payload) {
+        debug('recv message server=%s method=%s', this._serverId, (data.payload as any).method ?? (data.payload as any).id)
         const parsed = JSONRPCMessageSchema.safeParse(data.payload)
         if (parsed.success) {
           this.onmessage?.(parsed.data as JSONRPCMessage)
         } else {
+          debug('invalid JSON-RPC message server=%s error=%s', this._serverId, parsed.error.message)
           this.onerror?.(new Error(`Invalid JSON-RPC message: ${parsed.error.message}`))
         }
       }
@@ -88,6 +96,7 @@ export class FrameClientTransport implements Transport {
   }
 
   private sendCheckReady (): void {
+    debug('send check-ready server=%s', this._serverId)
     this._channel?.postMessage({
       channel: this._channelId,
       type: 'mcp-check-ready',
@@ -115,6 +124,7 @@ export class FrameClientTransport implements Transport {
     if (!this._started || !this._channel) {
       throw new Error('Transport not started')
     }
+    debug('send server=%s method=%s', this._serverId, (message as any).method ?? (message as any).id)
     this._channel.postMessage({
       channel: this._channelId,
       type: 'mcp',
@@ -125,6 +135,7 @@ export class FrameClientTransport implements Transport {
   }
 
   async close (): Promise<void> {
+    debug('close client for server=%s', this._serverId)
     this.clearCheckReadyRetry()
     if (this._channel) {
       this._channel.close()

@@ -52,6 +52,22 @@ Tests are separated in playwright projects: unit (pure functions), api (stateful
 
 In case of failures you might find error contexts in @test-results.
 
+### Workspace packages must be built before running tests
+
+This project has workspace packages (`lib-vue/`, `lib-vuetify/`) whose compiled `.js` files are gitignored. They must be built before e2e tests can work:
+- `cd lib-vuetify && npm run build`
+- `cd lib-vue && npm run build`
+
+If e2e tests fail with "element(s) not found", check that these packages are built before investigating further.
+
+### Debugging e2e failures
+
+When e2e tests fail, follow this order:
+1. Check workspace package builds (`ls lib-vuetify/*.js`, `ls lib-vue/*.js`)
+2. Use the Playwright MCP tools (`browser_open`, `browser_navigate`, `browser_snapshot`, `browser_console_messages`) to inspect failing pages — do NOT write custom Playwright scripts
+3. Check `test-results/` for traces and screenshots
+4. Only then dig into component code
+
 ## Code patterns
 
 When working on this project, read the following files on a need-to-know basis to understand conventions:

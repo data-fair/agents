@@ -6,6 +6,9 @@ import { getTabChannelId } from '@data-fair/lib-vue-agents'
 import { FrameClientAggregator } from '~/transports/frame-client-aggregator'
 import type { SessionRecorder, ToolSnapshot } from '~/traces/session-recorder'
 import { $apiPath } from '~/context'
+import Debug from 'debug'
+
+const debug = Debug('df-agents:use-agent-chat')
 
 export interface ChatMessage {
   role: 'user' | 'assistant'
@@ -113,12 +116,14 @@ export function useAgentChat (options: UseAgentChatOptions) {
 
   if (localTools) {
     // When localTools is provided, skip FrameClientAggregator entirely
+    debug('using local tools=%o', Object.keys(localTools))
     tools.value = { ...localTools }
     toolsVersion.value++
   } else {
     aggregator = new FrameClientAggregator({
       channelId: getTabChannelId(),
       onToolsChanged: (newTools) => {
+        debug('tools changed version=%d tools=%o', toolsVersion.value + 1, Object.keys(newTools))
         tools.value = { ...newTools }
         toolsVersion.value++
         if (recorder) {
@@ -302,6 +307,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
     try {
       const currentTools = tools.value
       const { mainTools, subAgents } = partitionTools(currentTools)
+      debug('partitioned tools: main=%o subAgents=%o', Object.keys(mainTools), Object.keys(subAgents))
 
       // Resolve sub-agent configs and remove their reserved tools from mainTools
       await resolveSubAgents(mainTools, subAgents)
@@ -359,6 +365,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
         })
       }
 
+      debug('streaming with model=%s tools=%o', chatModelName, Object.keys(mainLLMTools))
       const result = streamText({
         model: provider.chat(chatModelName),
         system: options.systemPrompt,
@@ -379,6 +386,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
           }
           currentAssistantMessage.content += part.text
         } else if (part.type === 'tool-call') {
+          debug('tool-call name=%s id=%s', part.toolName, part.toolCallId)
           if (!currentAssistantMessage) {
             currentAssistantMessage = { role: 'assistant', content: '', toolInvocations: [] }
             messages.value.push(currentAssistantMessage)
@@ -431,6 +439,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
       // Use the actual error captured via onError when available.
       const actualError = streamError ?? err
       const message = extractErrorMessage(actualError)
+      debug('chat error: %s %O', message, actualError)
       console.error('Agent chat error:', actualError)
       error.value = message
       status.value = 'error'

@@ -3,6 +3,9 @@
 
 import type { JSONRPCMessage, Transport } from '@mcp-b/webmcp-ts-sdk'
 import { JSONRPCMessageSchema } from '@mcp-b/webmcp-ts-sdk'
+import Debug from 'debug'
+
+const debug = Debug('df-agents:frame-server-transport')
 
 const DEFAULT_CHANNEL_ID = 'mcp-frame'
 const DEFAULT_READY_RETRY_MS = 250
@@ -49,6 +52,7 @@ export class FrameServerTransport implements Transport {
     if (this._started) return
     this._started = true
 
+    debug('start server=%s channel=%s', this._serverId, this._channelId)
     this._channel = new BroadcastChannel(this._channelId)
     this._channel.onmessage = (event: MessageEvent<FrameMessage>) => {
       const data = event.data
@@ -56,15 +60,18 @@ export class FrameServerTransport implements Transport {
       if (data.serverId !== this._serverId) return
 
       if (data.type === 'mcp-check-ready') {
+        debug('recv check-ready from client, server=%s', this._serverId)
         this.broadcastServerReady()
         return
       }
 
       if (data.type === 'mcp' && data.direction === 'client-to-server' && data.payload) {
+        debug('recv message server=%s method=%s', this._serverId, (data.payload as any).method ?? (data.payload as any).id)
         const parsed = JSONRPCMessageSchema.safeParse(data.payload)
         if (parsed.success) {
           this.onmessage?.(parsed.data as JSONRPCMessage)
         } else {
+          debug('invalid JSON-RPC message server=%s error=%s', this._serverId, parsed.error.message)
           this.onerror?.(new Error(`Invalid JSON-RPC message: ${parsed.error.message}`))
         }
       }
@@ -75,6 +82,7 @@ export class FrameServerTransport implements Transport {
   }
 
   private broadcastServerReady (): void {
+    debug('broadcast server-ready server=%s', this._serverId)
     this._channel?.postMessage({
       channel: this._channelId,
       type: 'mcp-server-ready',
@@ -102,6 +110,7 @@ export class FrameServerTransport implements Transport {
     if (!this._started || !this._channel) {
       throw new Error('Transport not started')
     }
+    debug('send server=%s method=%s', this._serverId, (message as any).method ?? (message as any).id)
     this._channel.postMessage({
       channel: this._channelId,
       type: 'mcp',
@@ -112,6 +121,7 @@ export class FrameServerTransport implements Transport {
   }
 
   async close (): Promise<void> {
+    debug('close server=%s', this._serverId)
     this.clearServerReadyRetry()
     if (this._channel) {
       this._channel.postMessage({

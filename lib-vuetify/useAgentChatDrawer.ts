@@ -1,6 +1,9 @@
 import { ref, computed } from 'vue'
 import { mdiRobotOutline, mdiCommentQuestion, mdiAlertCircle } from '@mdi/js'
 import type { AgentStatus, AgentChatMessage } from './types.js'
+import Debug from 'debug'
+
+const debug = Debug('df-agents:agent-chat-drawer')
 
 const STORAGE_KEY = 'df-agent-chat-open'
 
@@ -42,6 +45,7 @@ function createAgentChatDrawer () {
 
   function onDFrameMessage (event: CustomEvent<AgentChatMessage>) {
     const msg = event.detail
+    debug('frame message type=%s %o', msg.type, msg)
     if (msg.type === 'agent-status') {
       agentStatus.value = msg.status
     } else if (msg.type === 'tools-changed') {
