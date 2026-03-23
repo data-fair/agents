@@ -1,0 +1,4 @@
+/* Establish correct CSS layer ordering for Vuetify 4.
+ * This must be the first stylesheet loaded to ensure layer priority
+ * is correct even when Vite/Rolldown reorders CSS chunks. */
+@layer vuetify-core, vuetify-components, vuetify-overrides, vuetify-utilities, vuetify-final;

@@ -7,10 +7,16 @@
         class="flex-grow-0"
         @update:model-value="$emit('update:activeChatTab', $event)"
       >
-        <v-tab value="session">
+        <v-tab
+          value="session"
+          class="text-title-medium text-secondary"
+        >
           {{ title || t('sessionTab') }}
         </v-tab>
-        <v-tab value="evaluation">
+        <v-tab
+          value="evaluation"
+          class="text-title-medium"
+        >
           {{ t('evaluationTab') }}
         </v-tab>
       </v-tabs>
