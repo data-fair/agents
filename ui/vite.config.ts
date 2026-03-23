@@ -62,6 +62,7 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
+    cssCodeSplit: false,
     rolldownOptions: {
       input: {
         main: path.resolve(__dirname, 'index.html')
