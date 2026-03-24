@@ -110,10 +110,12 @@
                 v-else
                 variant="accordion"
                 class="mt-2"
+                @update:model-value="onTraceExpand"
               >
                 <v-expansion-panel
                   v-for="entry in traceOverview"
                   :key="entry.index"
+                  :value="entry.index"
                 >
                   <v-expansion-panel-title class="text-body-2 py-1">
                     <v-chip
@@ -138,14 +140,6 @@
                       v-if="traceEntryDetails[entry.index]"
                       class="agent-chat__pre pa-2 mt-1"
                     >{{ JSON.stringify(traceEntryDetails[entry.index]?.content, null, 2) }}</pre>
-                    <v-btn
-                      v-else
-                      size="x-small"
-                      variant="text"
-                      @click="loadTraceEntry(entry.index)"
-                    >
-                      {{ t('showDetail') }}
-                    </v-btn>
                   </v-expansion-panel-text>
                 </v-expansion-panel>
               </v-expansion-panels>
@@ -166,7 +160,6 @@ fr:
   inputSchema: Schéma d'entrée
   trace: Trace
   noTrace: Aucune trace enregistrée.
-  showDetail: Voir le détail
   startTracing: Démarrer le traçage
   stopTracing: Arrêter le traçage
   tracingDisabled: Le traçage n'est pas actif. Activez-le pour enregistrer les échanges et pouvoir les analyser.
@@ -178,7 +171,6 @@ en:
   inputSchema: Input Schema
   trace: Trace
   noTrace: No trace recorded.
-  showDetail: Show detail
   startTracing: Start tracing
   stopTracing: Stop tracing
   tracingDisabled: Tracing is not active. Enable it to record exchanges and analyze them.
@@ -210,9 +202,16 @@ const traceEntryDetails = ref<Record<number, TraceEntryDetail>>({})
 
 const loadTraceEntry = (index: number) => {
   if (!props.recorder) return
+  if (traceEntryDetails.value[index]) return
   const detail = props.recorder.getTraceEntry(index)
   if (detail) {
     traceEntryDetails.value = { ...traceEntryDetails.value, [index]: detail }
+  }
+}
+
+const onTraceExpand = (value: unknown) => {
+  if (typeof value === 'number') {
+    loadTraceEntry(value)
   }
 }
 
