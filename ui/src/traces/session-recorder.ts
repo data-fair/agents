@@ -229,8 +229,8 @@ export class SessionRecorder {
 
     for (const turn of this.trace.turns) {
       add(
-        { type: 'user-message', timestamp: turn.timestamp, label: 'user message', preview: turn.userMessage.slice(0, 150) },
-        turn.userMessage
+        { type: 'user-message', timestamp: turn.timestamp, label: 'user message', preview: (turn.userMessage ?? '').slice(0, 150) },
+        turn.userMessage ?? ''
       )
       for (const step of turn.steps) {
         for (const tc of step.toolCalls) {
