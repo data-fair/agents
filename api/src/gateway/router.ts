@@ -1,7 +1,8 @@
 import { Router } from 'express'
 import { generateText, streamText } from 'ai'
-import { type AccountKeys, reqSessionAuthenticated } from '@data-fair/lib-express'
-import { assertCanUseModel } from '../auth.ts'
+import { type AccountKeys, reqSession, isAuthenticated } from '@data-fair/lib-express'
+import { reqIp as _reqIp } from '@data-fair/lib-express/req-origin.js'
+import { assertCanUseModel, assertRoleQuota, getEffectiveRole } from '../auth.ts'
 import { getRawSettings } from '../settings/service.ts'
 import { createModel } from '../models/operations.ts'
 import { getUsage, getOwnerUsage, recordUsage, checkQuota } from '../usage/service.ts'
@@ -10,10 +11,14 @@ import type { Settings } from '#types'
 import type { OpenAIMessage, OpenAIToolDefinition, OpenAIToolChoice, FinishReason } from './operations.ts'
 import crypto from 'node:crypto'
 
+function safeReqIp (req: import('express').Request): string {
+  try { return _reqIp(req) } catch { return req.ip || '127.0.0.1' }
+}
+
 const router = Router()
 export default router
 
-const MODEL_IDS = ['assistant', 'evaluator', 'summarizer'] as const
+const MODEL_IDS = ['assistant', 'evaluator', 'summarizer', 'tools'] as const
 type ModelId = typeof MODEL_IDS[number]
 
 function isValidModelId (id: string): id is ModelId {
@@ -40,7 +45,8 @@ async function getModelForGateway (settings: Settings, modelId: ModelId) {
 // OpenAI-compatible chat completions endpoint
 router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
   try {
-    const session = reqSessionAuthenticated(req)
+    const sessionState = reqSession(req)
+    const authenticated = isAuthenticated(sessionState)
     const owner = req.params as unknown as AccountKeys
 
     const {
@@ -80,19 +86,32 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
       return
     }
 
-    // Track per-user when owner is org or user is external
-    const isSameAccount = session.account.type === owner.type && session.account.id === owner.id
-    const trackPerUser = owner.type === 'organization' || !isSameAccount
+    const quotas = settings.quotas ?? {}
 
-    // Permission check — use the model entry (which has `roles`), not the nested `model` object
-    const modelEntry = settings.models[modelId] || settings.models.assistant
-    assertCanUseModel(session, owner, modelEntry)
+    let trackPerUser: boolean
+    let usageUserId: string | undefined
+
+    if (!authenticated) {
+      // Anonymous path
+      assertRoleQuota('anonymous', quotas)
+      const ipHash = crypto.createHash('sha256').update(safeReqIp(req)).digest('hex').slice(0, 16)
+      usageUserId = `anon:${ipHash}`
+      trackPerUser = true
+    } else {
+      // Authenticated path
+      const session = sessionState
+      const isSameAccount = session.account!.type === owner.type && session.account!.id === owner.id
+      trackPerUser = owner.type === 'organization' || !isSameAccount
+
+      // Permission check via role-based quotas
+      assertCanUseModel(session as any, owner, quotas)
+      usageUserId = trackPerUser ? session.user!.id : undefined
+    }
 
     // Check account limits against account usage
-    const accountLimits = settings.limits
-    const userLimits = trackPerUser ? settings.userLimits : undefined
+    const accountLimits = settings.quotas.global
 
-    if (accountLimits.dailyTokenLimit || accountLimits.monthlyTokenLimit) {
+    if (!accountLimits.unlimited && (accountLimits.dailyTokenLimit || accountLimits.monthlyTokenLimit)) {
       const accountUsage = trackPerUser ? await getOwnerUsage(owner) : await getUsage(owner)
       const quotaCheck = checkQuota(accountUsage, accountLimits, trackPerUser ? 'organization' : 'user')
       if (quotaCheck) {
@@ -110,22 +129,26 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
       }
     }
 
-    // Check user limits
-    if (trackPerUser && (userLimits?.dailyTokenLimit || userLimits?.monthlyTokenLimit)) {
-      const userUsage = await getUsage(owner, session.user.id)
-      const quotaCheck = checkQuota(userUsage, userLimits, 'user')
-      if (quotaCheck) {
-        res.status(429).json({
-          error: {
-            message: quotaCheck.reason,
-            type: 'rate_limit_error',
-            scope: quotaCheck.scope,
-            usage: quotaCheck.usage,
-            limit: quotaCheck.limit,
-            resets_at: quotaCheck.resetsAt
-          }
-        })
-        return
+    // Check role-based user quota
+    if (trackPerUser) {
+      const role = authenticated ? getEffectiveRole(sessionState as any, owner) : 'anonymous'
+      const roleQuota = quotas[role]
+      if (roleQuota && !roleQuota.unlimited && (roleQuota.dailyTokenLimit || roleQuota.monthlyTokenLimit)) {
+        const userUsage = await getUsage(owner, usageUserId)
+        const quotaCheck = checkQuota(userUsage, roleQuota, 'user')
+        if (quotaCheck) {
+          res.status(429).json({
+            error: {
+              message: quotaCheck.reason,
+              type: 'rate_limit_error',
+              scope: quotaCheck.scope,
+              usage: quotaCheck.usage,
+              limit: quotaCheck.limit,
+              resets_at: quotaCheck.resetsAt
+            }
+          })
+          return
+        }
       }
     }
 
@@ -219,7 +242,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
           const inputTokens = Math.round((part.totalUsage?.inputTokens ?? 0) * ratio)
           const outputTokens = Math.round((part.totalUsage?.outputTokens ?? 0) * ratio)
           if (inputTokens || outputTokens) {
-            await recordUsage(owner, inputTokens, outputTokens, trackPerUser ? session.user.id : undefined)
+            await recordUsage(owner, inputTokens, outputTokens, usageUserId)
           }
 
           res.write(`data: ${JSON.stringify({
@@ -257,7 +280,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
       const inputTokens = Math.round((result.usage?.inputTokens ?? 0) * ratio)
       const outputTokens = Math.round((result.usage?.outputTokens ?? 0) * ratio)
       if (inputTokens || outputTokens) {
-        await recordUsage(owner, inputTokens, outputTokens, trackPerUser ? session.user.id : undefined)
+        await recordUsage(owner, inputTokens, outputTokens, usageUserId)
       }
 
       // Build response message

@@ -228,7 +228,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
     }
 
     const subResult = streamText({
-      model: provider.chat(chatModelName),
+      model: provider.chat('tools'),
       system: config.prompt,
       messages: [{ role: 'user', content: task }],
       tools: Object.keys(subAgentTools).length > 0 ? subAgentTools : undefined,

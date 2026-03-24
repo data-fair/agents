@@ -49,45 +49,24 @@ export type ProviderType7 = string;
 export type ProviderName = string;
 export type ProviderID7 = string;
 /**
- * Roles allowed to use this model through the gateway (empty = admin only)
- */
-export type Roles = string[];
-/**
  * Multiplier applied to token usage for quota accounting (e.g. 1.0 = full cost, 0.5 = half cost)
  */
 export type UsageRatio = number;
 /**
- * Roles allowed to use this model through the gateway (empty = admin only)
- */
-export type Roles1 = string[];
-/**
- * Multiplier applied to token usage for quota accounting (e.g. 0.5 for cheaper summarization)
+ * Multiplier applied to token usage for quota accounting
  */
 export type UsageRatio1 = number;
 /**
- * Roles allowed to use this model through the gateway (empty = admin only)
- */
-export type Roles2 = string[];
-/**
- * Multiplier applied to token usage for quota accounting
+ * Multiplier applied to token usage for quota accounting (e.g. 0.5 for cheaper summarization)
  */
 export type UsageRatio2 = number;
 /**
- * Maximum number of tokens allowed per day (0 for unlimited)
+ * Multiplier applied to token usage for quota accounting
  */
+export type UsageRatio3 = number;
+export type Unlimited = boolean;
 export type DailyTokenLimit = number;
-/**
- * Maximum number of tokens allowed per month (0 for unlimited)
- */
 export type MonthlyTokenLimit = number;
-/**
- * Maximum number of tokens allowed per day (0 for unlimited)
- */
-export type DailyTokenLimit1 = number;
-/**
- * Maximum number of tokens allowed per month (0 for unlimited)
- */
-export type MonthlyTokenLimit1 = number;
 
 export type SettingsPut = {
   createdAt?: string;
@@ -100,8 +79,7 @@ export type SettingsPut = {
   };
   providers: AIProviders;
   models: Models;
-  limits: UsageLimits;
-  userLimits?: PerUserUsageLimits;
+  quotas: RoleQuotas;
 }
 export type OpenAI = {
   type: ProviderType;
@@ -163,17 +141,20 @@ export type Mock = {
   [k: string]: unknown;
 }
 export type Models = {
-  assistant: Assistant;
+  assistant?: Assistant;
+  tools?: Tools;
   summarizer?: Summarizer;
   evaluator?: Evaluator;
   [k: string]: unknown;
 }
 /**
- * Main conversational model. Suggested models: claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash, mistral-small-latest, minimax-01.
+ *
+ * The primary conversational interface. Balanced for reasoning, instruction-following, and human-like interaction. This model manages the high-level flow and delegates complex tasks to subagents.
+ *
+ * Recommendations: GPT-5.4, Claude 4.5 Sonnet, Llama 4 Maverick, Mistral Large 3, etc.
  */
 export type Assistant = {
   model?: Model;
-  roles?: Roles;
   ratio?: UsageRatio;
   [k: string]: unknown;
 }
@@ -189,11 +170,13 @@ export type Model = {
   [k: string]: unknown;
 }
 /**
- * Model used for chat history summarization (optional, defaults to assistant). Suggested models: claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash-lite, mistral-small-latest.
+ *
+ * The "technician." Specialized in structured data and API interaction. It excels at chaining multiple tool calls without conversational filler, ensuring high reliability in automated workflows.
+ *
+ * Recommendations: GPT-5.4 Mini, Mistral DevStral, Claude 4.5 Sonnet (Computer Use), MiMo-V2-Flash, etc.
  */
-export type Summarizer = {
+export type Tools = {
   model?: Model1;
-  roles?: Roles1;
   ratio?: UsageRatio1;
   [k: string]: unknown;
 }
@@ -209,11 +192,13 @@ export type Model1 = {
   [k: string]: unknown;
 }
 /**
- * Model used for evaluation tasks (optional, defaults to assistant). Suggested models: claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash, mistral-small-latest.
+ *
+ * A "shorthand" specialist. Optimized for quickly distilling key points from small-to-medium text blocks. It focuses on high information density and brevity to keep context windows lean and costs low.
+ *
+ * Recommendations: GPT-5.4 Mini, Claude 4.5 Haiku, Mistral Small 4, Llama 4 (8B), etc.
  */
-export type Evaluator = {
+export type Summarizer = {
   model?: Model2;
-  roles?: Roles2;
   ratio?: UsageRatio2;
   [k: string]: unknown;
 }
@@ -228,21 +213,88 @@ export type Model2 = {
   };
   [k: string]: unknown;
 }
-export type UsageLimits = {
+/**
+ *
+ * The "quality controller." Analyzes the assistant's logic and tool outputs for accuracy and safety. It requires the highest reasoning capabilities to act as a reliable ground truth for system performance.
+ *
+ * Recommendations: Claude Opus 4.6, GPT-5.4 (Reasoning), DeepSeek-R1, Pharia-1-LLM, etc.
+ */
+export type Evaluator = {
+  model?: Model3;
+  ratio?: UsageRatio3;
+  [k: string]: unknown;
+}
+export type Model3 = {
+  id: ModelID;
+  name: Name;
+  provider: {
+    type: ProviderType7;
+    name: ProviderName;
+    id: ProviderID7;
+    [k: string]: unknown;
+  };
+  [k: string]: unknown;
+}
+export type RoleQuotas = {
+  global: GlobalQuotas;
+  admin: AdminQuotas;
+  contrib: ContributorQuotas;
+  user: SimpleUserQuotas;
+  external: ExternalUserQuotas;
+  anonymous: AnonymousUserQuotas;
+  [k: string]: unknown;
+}
+export type GlobalQuotas = {
+  unlimited: Unlimited;
   dailyTokenLimit: DailyTokenLimit;
   monthlyTokenLimit: MonthlyTokenLimit;
   [k: string]: unknown;
 }
-export type PerUserUsageLimits = {
-  dailyTokenLimit: DailyTokenLimit1;
-  monthlyTokenLimit: MonthlyTokenLimit1;
+export type AdminQuotas = {
+  unlimited: Unlimited;
+  dailyTokenLimit: DailyTokenLimit;
+  monthlyTokenLimit: MonthlyTokenLimit;
+  [k: string]: unknown;
+}
+export type ContributorQuotas = {
+  unlimited: Unlimited;
+  dailyTokenLimit: DailyTokenLimit;
+  monthlyTokenLimit: MonthlyTokenLimit;
+  [k: string]: unknown;
+}
+export type SimpleUserQuotas = {
+  unlimited: Unlimited;
+  dailyTokenLimit: DailyTokenLimit;
+  monthlyTokenLimit: MonthlyTokenLimit;
+  [k: string]: unknown;
+}
+export type ExternalUserQuotas = {
+  unlimited: Unlimited;
+  dailyTokenLimit: DailyTokenLimit;
+  monthlyTokenLimit: MonthlyTokenLimit;
+  [k: string]: unknown;
+}
+export type AnonymousUserQuotas = {
+  unlimited: Unlimited;
+  dailyTokenLimit: DailyTokenLimit;
+  monthlyTokenLimit: MonthlyTokenLimit;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `SettingsPut`'s JSON-Schema
+ * via the `definition` "RoleQuota".
+ */
+export type RoleQuota = {
+  unlimited: Unlimited;
+  dailyTokenLimit: DailyTokenLimit;
+  monthlyTokenLimit: MonthlyTokenLimit;
   [k: string]: unknown;
 }
 /**
  * This interface was referenced by `SettingsPut`'s JSON-Schema
  * via the `definition` "Model".
  */
-export type Model3 = {
+export type Model4 = {
   id: ModelID;
   name: Name;
   provider: {

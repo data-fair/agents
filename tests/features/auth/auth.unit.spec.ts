@@ -1,9 +1,9 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { assertCanUseModel } from '../../../api/src/auth.ts'
+import { assertCanUseModel, assertRoleQuota, getEffectiveRole } from '../../../api/src/auth.ts'
 
 // Minimal session-like objects for testing
-const makeSession = (accountType: string, accountId: string, role = 'admin') => ({
+const makeSession = (accountType: string, accountId: string, role?: string) => ({
   account: { type: accountType, id: accountId },
   user: { id: accountId },
   accountRole: role
@@ -11,40 +11,122 @@ const makeSession = (accountType: string, accountId: string, role = 'admin') => 
 
 const makeOwner = (type: 'user' | 'organization', id: string) => ({ type, id })
 
+const defaultQuotas = {
+  admin: { unlimited: true, dailyTokenLimit: 0, monthlyTokenLimit: 0 },
+  contrib: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 },
+  user: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 },
+  external: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 },
+  anonymous: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 }
+}
+
+test.describe('getEffectiveRole', () => {
+  test('same account admin', () => {
+    const session = makeSession('user', 'user1', 'admin')
+    assert.equal(getEffectiveRole(session as any, makeOwner('user', 'user1')), 'admin')
+  })
+
+  test('same account contrib', () => {
+    const session = makeSession('organization', 'org1', 'contrib')
+    assert.equal(getEffectiveRole(session as any, makeOwner('organization', 'org1')), 'contrib')
+  })
+
+  test('same account with undefined role defaults to user', () => {
+    const session = makeSession('organization', 'org1')
+    assert.equal(getEffectiveRole(session as any, makeOwner('organization', 'org1')), 'user')
+  })
+
+  test('different account returns external', () => {
+    const session = makeSession('user', 'user1', 'admin')
+    assert.equal(getEffectiveRole(session as any, makeOwner('organization', 'org1')), 'external')
+  })
+})
+
 test.describe('assertCanUseModel', () => {
-  test('admin of owner account always has access', () => {
+  test('admin with unlimited quota always has access', () => {
     const session = makeSession('user', 'user1', 'admin')
     const owner = makeOwner('user', 'user1')
-    assert.doesNotThrow(() => assertCanUseModel(session as any, owner, { roles: [] }))
+    assert.doesNotThrow(() => assertCanUseModel(session as any, owner, defaultQuotas))
   })
 
-  test('same-account member with non-empty roles has access', () => {
+  test('contrib with positive daily quota has access', () => {
+    const session = makeSession('organization', 'org1', 'contrib')
+    const owner = makeOwner('organization', 'org1')
+    const quotas = { ...defaultQuotas, contrib: { unlimited: false, dailyTokenLimit: 50000, monthlyTokenLimit: 0 } }
+    assert.doesNotThrow(() => assertCanUseModel(session as any, owner, quotas))
+  })
+
+  test('contrib with positive monthly quota has access', () => {
+    const session = makeSession('organization', 'org1', 'contrib')
+    const owner = makeOwner('organization', 'org1')
+    const quotas = { ...defaultQuotas, contrib: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 500000 } }
+    assert.doesNotThrow(() => assertCanUseModel(session as any, owner, quotas))
+  })
+
+  test('contrib with zero quotas is denied', () => {
+    const session = makeSession('organization', 'org1', 'contrib')
+    const owner = makeOwner('organization', 'org1')
+    assert.throws(() => assertCanUseModel(session as any, owner, defaultQuotas), { status: 403 })
+  })
+
+  test('user with unlimited quota has access', () => {
     const session = makeSession('organization', 'org1', 'user')
     const owner = makeOwner('organization', 'org1')
-    assert.doesNotThrow(() => assertCanUseModel(session as any, owner, { roles: ['user'] }))
+    const quotas = { ...defaultQuotas, user: { unlimited: true, dailyTokenLimit: 0, monthlyTokenLimit: 0 } }
+    assert.doesNotThrow(() => assertCanUseModel(session as any, owner, quotas))
   })
 
-  test('same-account member denied when roles is empty (admin-only)', () => {
-    const session = makeSession('organization', 'org1', 'user')
-    const owner = makeOwner('organization', 'org1')
-    assert.throws(() => assertCanUseModel(session as any, owner, { roles: [] }), { status: 403 })
-  })
-
-  test('external user granted when roles includes external', () => {
+  test('external user with positive quota has access', () => {
     const session = makeSession('user', 'external-user1', 'admin')
     const owner = makeOwner('organization', 'org1')
-    assert.doesNotThrow(() => assertCanUseModel(session as any, owner, { roles: ['external'] }))
+    const quotas = { ...defaultQuotas, external: { unlimited: false, dailyTokenLimit: 10000, monthlyTokenLimit: 100000 } }
+    assert.doesNotThrow(() => assertCanUseModel(session as any, owner, quotas))
   })
 
-  test('external user denied when roles does not include external', () => {
+  test('external user with zero quotas is denied', () => {
     const session = makeSession('user', 'external-user1', 'admin')
     const owner = makeOwner('organization', 'org1')
-    assert.throws(() => assertCanUseModel(session as any, owner, { roles: ['user'] }), { status: 403 })
+    assert.throws(() => assertCanUseModel(session as any, owner, defaultQuotas), { status: 403 })
   })
 
-  test('external user denied when roles is empty', () => {
-    const session = makeSession('user', 'external-user1', 'admin')
+  test('undefined accountRole defaults to user role', () => {
+    const session = makeSession('organization', 'org1')
     const owner = makeOwner('organization', 'org1')
-    assert.throws(() => assertCanUseModel(session as any, owner, { roles: [] }), { status: 403 })
+    // user quota is 0/0 by default → denied
+    assert.throws(() => assertCanUseModel(session as any, owner, defaultQuotas), { status: 403 })
+    // with positive user quota → allowed
+    const quotas = { ...defaultQuotas, user: { unlimited: false, dailyTokenLimit: 1000, monthlyTokenLimit: 0 } }
+    assert.doesNotThrow(() => assertCanUseModel(session as any, owner, quotas))
+  })
+
+  test('missing quota entry for role is denied', () => {
+    const session = makeSession('organization', 'org1', 'contrib')
+    const owner = makeOwner('organization', 'org1')
+    assert.throws(() => assertCanUseModel(session as any, owner, {}), { status: 403 })
+  })
+})
+
+test.describe('assertRoleQuota (anonymous)', () => {
+  test('anonymous with positive daily quota has access', () => {
+    const quotas = { ...defaultQuotas, anonymous: { unlimited: false, dailyTokenLimit: 10000, monthlyTokenLimit: 0 } }
+    assert.doesNotThrow(() => assertRoleQuota('anonymous', quotas))
+  })
+
+  test('anonymous with positive monthly quota has access', () => {
+    const quotas = { ...defaultQuotas, anonymous: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 100000 } }
+    assert.doesNotThrow(() => assertRoleQuota('anonymous', quotas))
+  })
+
+  test('anonymous with unlimited quota has access', () => {
+    const quotas = { ...defaultQuotas, anonymous: { unlimited: true, dailyTokenLimit: 0, monthlyTokenLimit: 0 } }
+    assert.doesNotThrow(() => assertRoleQuota('anonymous', quotas))
+  })
+
+  test('anonymous with zero quotas is denied', () => {
+    assert.throws(() => assertRoleQuota('anonymous', defaultQuotas), { status: 403 })
+  })
+
+  test('anonymous with no quota entry is denied', () => {
+    const quotas = { admin: defaultQuotas.admin }
+    assert.throws(() => assertRoleQuota('anonymous', quotas), { status: 403 })
   })
 })

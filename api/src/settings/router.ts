@@ -16,7 +16,16 @@ import { securityKey } from '../cipher/service.ts'
 const router = Router()
 export default router
 
-const emptySettings = (owner: AccountKeys): Settings => ({ owner, providers: [], models: {} as unknown as Settings['models'], limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }, userLimits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 } })
+const defaultQuotas = {
+  global: { unlimited: false, dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 },
+  admin: { unlimited: true, dailyTokenLimit: 0, monthlyTokenLimit: 0 },
+  contrib: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 },
+  user: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 },
+  external: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 },
+  anonymous: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 }
+}
+
+const emptySettings = (owner: AccountKeys): Settings => ({ owner, providers: [], models: {} as unknown as Settings['models'], quotas: defaultQuotas })
 
 router.get('/:type/:id', async (req, res, next) => {
   const session = reqSessionAuthenticated(req)
@@ -46,8 +55,7 @@ router.put('/:type/:id', async (req, res, next) => {
     owner,
     providers: encryptProviderApiKeys(body.providers || [], existing?.providers || [], securityKey),
     models: body.models,
-    limits: body.limits ?? { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 },
-    userLimits: body.userLimits ?? { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
+    quotas: body.quotas ?? defaultQuotas
   }
   await mongo.settings.replaceOne({ owner }, settings, { upsert: true })
 

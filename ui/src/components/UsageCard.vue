@@ -16,13 +16,13 @@
           <div class="d-flex align-center justify-space-between mb-1">
             <span class="text-body-2 font-weight-medium">{{ t('daily') }}</span>
             <span class="text-body-2 text-medium-emphasis">
-              {{ formatTokens(usageFetch.data.value.daily.totalTokens) }} / {{ formatLimit(usageFetch.data.value.limits.dailyTokenLimit) }}
+              {{ formatTokens(usageFetch.data.value.daily.totalTokens) }} / {{ formatLimit(usageFetch.data.value.quotas.global.dailyTokenLimit) }}
             </span>
           </div>
           <v-progress-linear
-            v-if="usageFetch.data.value.limits.dailyTokenLimit"
-            :model-value="percent(usageFetch.data.value.daily.totalTokens, usageFetch.data.value.limits.dailyTokenLimit)"
-            :color="barColor(usageFetch.data.value.daily.totalTokens, usageFetch.data.value.limits.dailyTokenLimit)"
+            v-if="!usageFetch.data.value.quotas.global.unlimited && usageFetch.data.value.quotas.global.dailyTokenLimit"
+            :model-value="percent(usageFetch.data.value.daily.totalTokens, usageFetch.data.value.quotas.global.dailyTokenLimit)"
+            :color="barColor(usageFetch.data.value.daily.totalTokens, usageFetch.data.value.quotas.global.dailyTokenLimit)"
             height="8"
             rounded
           />
@@ -35,13 +35,13 @@
           <div class="d-flex align-center justify-space-between mb-1">
             <span class="text-body-2 font-weight-medium">{{ t('monthly') }}</span>
             <span class="text-body-2 text-medium-emphasis">
-              {{ formatTokens(usageFetch.data.value.monthly.totalTokens) }} / {{ formatLimit(usageFetch.data.value.limits.monthlyTokenLimit) }}
+              {{ formatTokens(usageFetch.data.value.monthly.totalTokens) }} / {{ formatLimit(usageFetch.data.value.quotas.global.monthlyTokenLimit) }}
             </span>
           </div>
           <v-progress-linear
-            v-if="usageFetch.data.value.limits.monthlyTokenLimit"
-            :model-value="percent(usageFetch.data.value.monthly.totalTokens, usageFetch.data.value.limits.monthlyTokenLimit)"
-            :color="barColor(usageFetch.data.value.monthly.totalTokens, usageFetch.data.value.limits.monthlyTokenLimit)"
+            v-if="!usageFetch.data.value.quotas.global.unlimited && usageFetch.data.value.quotas.global.monthlyTokenLimit"
+            :model-value="percent(usageFetch.data.value.monthly.totalTokens, usageFetch.data.value.quotas.global.monthlyTokenLimit)"
+            :color="barColor(usageFetch.data.value.monthly.totalTokens, usageFetch.data.value.quotas.global.monthlyTokenLimit)"
             height="8"
             rounded
           />
@@ -98,8 +98,10 @@ interface UsagePeriod {
 interface UsageData {
   daily?: UsagePeriod
   monthly?: UsagePeriod
-  limits: { dailyTokenLimit: number, monthlyTokenLimit: number }
-  userLimits?: { dailyTokenLimit: number, monthlyTokenLimit: number }
+  quotas: {
+    global: { unlimited?: boolean, dailyTokenLimit: number, monthlyTokenLimit: number }
+    [role: string]: { unlimited?: boolean, dailyTokenLimit: number, monthlyTokenLimit: number }
+  }
 }
 
 const usageFetch = useFetch<UsageData>(
@@ -117,6 +119,7 @@ function formatTokens (n: number): string {
 }
 
 function formatLimit (limit: number): string {
+  if (usageFetch.data.value?.quotas.global.unlimited) return t('unlimited')
   return limit ? limit.toLocaleString() : t('unlimited')
 }
 

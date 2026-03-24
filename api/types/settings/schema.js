@@ -10,13 +10,54 @@ export default {
     title: null
   },
   definitions: {
+    RoleQuota: {
+      type: 'object',
+      layout: 'card',
+      required: ['unlimited', 'dailyTokenLimit', 'monthlyTokenLimit'],
+      properties: {
+        unlimited: {
+          type: 'boolean',
+          title: 'Unlimited',
+          'x-i18n-title': {
+            en: 'Unlimited',
+            fr: 'Illimité'
+          },
+          default: false
+        },
+        dailyTokenLimit: {
+          layout: { if: '!parent.data.unlimited', cols: 6 },
+          type: 'integer',
+          title: 'Daily Token Limit',
+          'x-i18n-title': {
+            en: 'Daily Token Limit',
+            fr: 'Limite de tokens journalière'
+          },
+          default: 0,
+          minimum: 0
+        },
+        monthlyTokenLimit: {
+          layout: { if: '!parent.data.unlimited', cols: 6 },
+          type: 'integer',
+          title: 'Monthly Token Limit',
+          'x-i18n-title': {
+            en: 'Monthly Token Limit',
+            fr: 'Limite de tokens mensuelle'
+          },
+          default: 0,
+          minimum: 0
+        }
+      }
+    },
     Model: {
       type: 'object',
       required: ['id', 'name', 'provider'],
       layout: {
         comp: 'autocomplete',
         getItems: {
-          expr: 'context.models',
+          // expr: 'context.models',
+          // eslint-disable-next-line no-template-curly-in-string
+          url: '${context.apiPath}/models/${context.accountType}/${context.accountId}?provider=${parent.parent.parent.data.providers.map(p => p.id).join(",")}',
+          itemsResults: 'data.results',
           // eslint-disable-next-line no-template-curly-in-string
           itemTitle: '`${item.name} (${item.provider.name} - ${item.provider.id.slice(0, 8)})`',
           itemKey: 'item.id'
@@ -39,7 +80,7 @@ export default {
   },
   type: 'object',
   additionalProperties: false,
-  required: ['owner', 'providers', 'models', 'limits'],
+  required: ['owner', 'providers', 'models', 'quotas'],
   properties: {
     createdAt: {
       type: 'string',
@@ -439,21 +480,31 @@ export default {
         en: 'Models',
         fr: 'Modèles'
       },
-      required: ['assistant'],
+      layout: {
+        title: null,
+        if: 'parent.data.providers?.length'
+      },
       properties: {
         assistant: {
           type: 'object',
           title: 'Assistant',
-          description: 'Main conversational model. Suggested models: claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash, mistral-small-latest, minimax-01.',
+          description: `
+The primary conversational interface. Balanced for reasoning, instruction-following, and human-like interaction. This model manages the high-level flow and delegates complex tasks to subagents.
+          
+Recommendations: GPT-5.4, Claude 4.5 Sonnet, Llama 4 Maverick, Mistral Large 3, etc.`,
           'x-i18n-title': {
             en: 'Assistant',
             fr: 'Assistant'
           },
           'x-i18n-description': {
-            en: 'Main conversational model. Suggested models: claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash, mistral-small-latest, minimax-01.',
-            fr: 'Modèle conversationnel principal. Modèles suggérés : claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash, mistral-small-latest, minimax-01.'
+            en: 'The primary conversational interface. Balanced for reasoning, instruction-following, and human-like interaction. This model manages the high-level flow and delegates complex tasks to subagents.\n\nRecommendations: GPT-5.4, Claude 4.5 Sonnet, Llama 4 Maverick, Mistral Large 3, etc.',
+            fr: 'L\'interface conversationnelle principale. Équilibré pour le raisonnement, le suivi d\'instructions et l\'interaction naturelle. Ce modèle gère le flux de haut niveau et délègue les tâches complexes aux sous-agents.\n\nRecommandations : GPT-5.4, Claude 4.5 Sonnet, Llama 4 Maverick, Mistral Large 3, etc.'
           },
-          required: [],
+          layout: {
+            comp: 'card',
+            children: [{ key: 'model', cols: 8 }, { key: 'ratio', cols: 4 }],
+            cols: 6
+          },
           properties: {
             model: {
               $ref: '#/definitions/Model',
@@ -461,22 +512,7 @@ export default {
               'x-i18n-title': {
                 en: 'Model',
                 fr: 'Modèle'
-              }
-            },
-            roles: {
-              type: 'array',
-              title: 'Roles',
-              'x-i18n-title': {
-                en: 'Allowed Roles',
-                fr: 'Rôles autorisés'
               },
-              description: 'Roles allowed to use this model through the gateway (empty = admin only)',
-              'x-i18n-description': {
-                en: 'Roles allowed to use this model through the gateway (empty = admin only)',
-                fr: 'Rôles autorisés à utiliser ce modèle via la passerelle (vide = admin uniquement)'
-              },
-              items: { type: 'string' },
-              default: []
             },
             ratio: {
               type: 'number',
@@ -491,21 +527,29 @@ export default {
                 fr: "Multiplicateur appliqué à l'utilisation des tokens pour le calcul des quotas (ex : 1.0 = coût plein, 0.5 = demi-coût)"
               },
               default: 1,
-              minimum: 0
+              minimum: 0,
             }
           }
         },
-        summarizer: {
+        tools: {
           type: 'object',
-          title: 'Summarizer',
-          description: 'Model used for chat history summarization (optional, defaults to assistant). Suggested models: claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash-lite, mistral-small-latest.',
+          title: 'Tools',
+          description: `
+The "technician." Specialized in structured data and API interaction. It excels at chaining multiple tool calls without conversational filler, ensuring high reliability in automated workflows.
+
+Recommendations: GPT-5.4 Mini, Mistral DevStral, Claude 4.5 Sonnet (Computer Use), MiMo-V2-Flash, etc.`,
           'x-i18n-title': {
-            en: 'Summarizer',
-            fr: 'Résumeur'
+            en: 'Tools',
+            fr: 'Outils'
           },
           'x-i18n-description': {
-            en: 'Model used for chat history summarization (optional, defaults to assistant). Suggested models: claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash-lite, mistral-small-latest.',
-            fr: "Modèle utilisé pour la synthèse de l'historique (optionnel, par défaut l'assistant). Modèles suggérés : claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash-lite, mistral-small-latest."
+            en: 'The "technician." Specialized in structured data and API interaction. It excels at chaining multiple tool calls without conversational filler, ensuring high reliability in automated workflows.\n\nRecommendations: GPT-5.4 Mini, Mistral DevStral, Claude 4.5 Sonnet (Computer Use), MiMo-V2-Flash, etc.',
+            fr: "Le « technicien ». Spécialisé dans les données structurées et l'interaction avec les API. Il excelle à enchaîner plusieurs appels d'outils sans remplissage conversationnel, garantissant une haute fiabilité dans les workflows automatisés.\n\nRecommandations : GPT-5.4 Mini, Mistral DevStral, Claude 4.5 Sonnet (Computer Use), MiMo-V2-Flash, etc."
+          },
+          layout: {
+            comp: 'card',
+            children: [{ key: 'model', cols: 8 }, { key: 'ratio', cols: 4 }],
+            cols: 6
           },
           properties: {
             model: {
@@ -516,20 +560,51 @@ export default {
                 fr: 'Modèle'
               }
             },
-            roles: {
-              type: 'array',
-              title: 'Roles',
+            ratio: {
+              type: 'number',
+              title: 'Usage Ratio',
               'x-i18n-title': {
-                en: 'Allowed Roles',
-                fr: 'Rôles autorisés'
+                en: 'Usage Ratio',
+                fr: "Ratio d'utilisation"
               },
-              description: 'Roles allowed to use this model through the gateway (empty = admin only)',
+              description: 'Multiplier applied to token usage for quota accounting',
               'x-i18n-description': {
-                en: 'Roles allowed to use this model through the gateway (empty = admin only)',
-                fr: 'Rôles autorisés à utiliser ce modèle via la passerelle (vide = admin uniquement)'
+                en: 'Multiplier applied to token usage for quota accounting',
+                fr: "Multiplicateur appliqué à l'utilisation des tokens pour le calcul des quotas"
               },
-              items: { type: 'string' },
-              default: []
+              default: 0.5,
+              minimum: 0
+            }
+          }
+        },
+        summarizer: {
+          type: 'object',
+          title: 'Summarizer',
+          description: `
+A "shorthand" specialist. Optimized for quickly distilling key points from small-to-medium text blocks. It focuses on high information density and brevity to keep context windows lean and costs low.
+          
+Recommendations: GPT-5.4 Mini, Claude 4.5 Haiku, Mistral Small 4, Llama 4 (8B), etc.`,
+          'x-i18n-title': {
+            en: 'Summarizer',
+            fr: 'Résumeur'
+          },
+          'x-i18n-description': {
+            en: 'A "shorthand" specialist. Optimized for quickly distilling key points from small-to-medium text blocks. It focuses on high information density and brevity to keep context windows lean and costs low.\n\nRecommendations: GPT-5.4 Mini, Claude 4.5 Haiku, Mistral Small 4, Llama 4 (8B), etc.',
+            fr: "Un spécialiste de la « synthèse ». Optimisé pour extraire rapidement les points clés de blocs de texte petits à moyens. Il privilégie la densité d'information et la concision pour garder les fenêtres de contexte légères et les coûts bas.\n\nRecommandations : GPT-5.4 Mini, Claude 4.5 Haiku, Mistral Small 4, Llama 4 (8B), etc."
+          },
+          layout: {
+            comp: 'card',
+            children: [{ key: 'model', cols: 8 }, { key: 'ratio', cols: 4 }],
+            cols: 6
+          },
+          properties: {
+            model: {
+              $ref: '#/definitions/Model',
+              title: 'Model',
+              'x-i18n-title': {
+                en: 'Model',
+                fr: 'Modèle'
+              }
             },
             ratio: {
               type: 'number',
@@ -551,14 +626,22 @@ export default {
         evaluator: {
           type: 'object',
           title: 'Evaluator',
-          description: 'Model used for evaluation tasks (optional, defaults to assistant). Suggested models: claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash, mistral-small-latest.',
+          description: `
+The "quality controller." Analyzes the assistant's logic and tool outputs for accuracy and safety. It requires the highest reasoning capabilities to act as a reliable ground truth for system performance.
+
+Recommendations: Claude Opus 4.6, GPT-5.4 (Reasoning), DeepSeek-R1, Pharia-1-LLM, etc.`,
           'x-i18n-title': {
             en: 'Evaluator',
             fr: 'Évaluateur'
           },
           'x-i18n-description': {
-            en: 'Model used for evaluation tasks (optional, defaults to assistant). Suggested models: claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash, mistral-small-latest.',
-            fr: "Modèle utilisé pour les tâches d'évaluation (optionnel, par défaut l'assistant). Modèles suggérés : claude-3-5-haiku, gpt-4o-mini, gemini-2.0-flash, mistral-small-latest."
+            en: 'The "quality controller." Analyzes the assistant\'s logic and tool outputs for accuracy and safety. It requires the highest reasoning capabilities to act as a reliable ground truth for system performance.\n\nRecommendations: Claude Opus 4.6, GPT-5.4 (Reasoning), DeepSeek-R1, Pharia-1-LLM, etc.',
+            fr: "Le « contrôleur qualité ». Analyse la logique de l'assistant et les sorties des outils pour vérifier la précision et la sécurité. Il nécessite les capacités de raisonnement les plus élevées pour servir de référence fiable pour les performances du système.\n\nRecommandations : Claude Opus 4.6, GPT-5.4 (Reasoning), DeepSeek-R1, Pharia-1-LLM, etc."
+          },
+          layout: {
+            comp: 'card',
+            children: [{ key: 'model', cols: 8 }, { key: 'ratio', cols: 4 }],
+            cols: 6
           },
           properties: {
             model: {
@@ -568,21 +651,6 @@ export default {
                 en: 'Model',
                 fr: 'Modèle'
               }
-            },
-            roles: {
-              type: 'array',
-              title: 'Roles',
-              'x-i18n-title': {
-                en: 'Allowed Roles',
-                fr: 'Rôles autorisés'
-              },
-              description: 'Roles allowed to use this model through the gateway (empty = admin only)',
-              'x-i18n-description': {
-                en: 'Roles allowed to use this model through the gateway (empty = admin only)',
-                fr: 'Rôles autorisés à utiliser ce modèle via la passerelle (vide = admin uniquement)'
-              },
-              items: { type: 'string' },
-              default: []
             },
             ratio: {
               type: 'number',
@@ -603,93 +671,73 @@ export default {
         }
       }
     },
-    limits: {
+    quotas: {
       type: 'object',
-      title: 'Usage Limits',
+      title: 'Role Quotas',
       'x-i18n-title': {
-        en: 'Usage Limits',
-        fr: "Limites d'utilisation"
+        en: 'Role Quotas',
+        fr: 'Quotas par rôle'
       },
-      required: ['dailyTokenLimit', 'monthlyTokenLimit'],
+      layout: {
+        title: null,
+        if: 'parent.data.providers?.length',
+        children: [
+          { key: 'global', cols: 4 },
+          { key: 'admin', cols: 4, if: 'context.accountType === "organization"' },
+          { key: 'contrib', cols: 4, if: 'context.accountType === "organization"' },
+          { key: 'user', cols: 4, if: 'context.accountType === "organization"' },
+          { key: 'external', cols: 4 },
+          { key: 'anonymous', cols: 4 }
+        ]
+      },
+      required: ['global', 'admin', 'contrib', 'user', 'external', 'anonymous'],
       default: {
-        dailyTokenLimit: 100000,
-        monthlyTokenLimit: 1000000
+        global: { unlimited: false, dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 },
+        admin: { unlimited: true, dailyTokenLimit: 0, monthlyTokenLimit: 0 },
+        contrib: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 },
+        user: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 },
+        external: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 },
+        anonymous: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 }
       },
       properties: {
-        dailyTokenLimit: {
-          type: 'integer',
-          title: 'Daily Token Limit',
+        global: {
+          $ref: '#/definitions/RoleQuota',
+          title: 'Global quotas',
           'x-i18n-title': {
-            en: 'Daily Token Limit',
-            fr: 'Limite de tokens journalière'
+            en: 'Global quotas',
+            fr: 'Quotas globaux'
           },
-          description: 'Maximum number of tokens allowed per day (0 for unlimited)',
-          'x-i18n-description': {
-            en: 'Maximum number of tokens allowed per day (0 for unlimited)',
-            fr: 'Nombre maximum de tokens autorisés par jour (0 pour illimité)'
-          },
-          default: 100000,
-          minimum: 0
+          default: { unlimited: false, dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
         },
-        monthlyTokenLimit: {
-          type: 'integer',
-          title: 'Monthly Token Limit',
-          'x-i18n-title': {
-            en: 'Monthly Token Limit',
-            fr: 'Limite de tokens mensuelle'
-          },
-          description: 'Maximum number of tokens allowed per month (0 for unlimited)',
-          'x-i18n-description': {
-            en: 'Maximum number of tokens allowed per month (0 for unlimited)',
-            fr: 'Nombre maximum de tokens autorisés par mois (0 pour illimité)'
-          },
-          default: 1000000,
-          minimum: 0
-        }
-      }
-    },
-    userLimits: {
-      type: 'object',
-      title: 'Per-User Usage Limits',
-      'x-i18n-title': {
-        en: 'Per-User Usage Limits',
-        fr: "Limites d'utilisation par utilisateur"
-      },
-      required: ['dailyTokenLimit', 'monthlyTokenLimit'],
-      default: {
-        dailyTokenLimit: 100000,
-        monthlyTokenLimit: 1000000
-      },
-      properties: {
-        dailyTokenLimit: {
-          type: 'integer',
-          title: 'Daily Token Limit',
-          'x-i18n-title': {
-            en: 'Daily Token Limit',
-            fr: 'Limite de tokens journalière'
-          },
-          description: 'Maximum number of tokens allowed per day (0 for unlimited)',
-          'x-i18n-description': {
-            en: 'Maximum number of tokens allowed per day (0 for unlimited)',
-            fr: 'Nombre maximum de tokens autorisés par jour (0 pour illimité)'
-          },
-          default: 100000,
-          minimum: 0
+        admin: {
+          $ref: '#/definitions/RoleQuota',
+          title: 'Admin quotas',
+          'x-i18n-title': { en: 'Admin quotas', fr: 'Quotas administrateur' },
+          default: { unlimited: true, dailyTokenLimit: 0, monthlyTokenLimit: 0 }
         },
-        monthlyTokenLimit: {
-          type: 'integer',
-          title: 'Monthly Token Limit',
-          'x-i18n-title': {
-            en: 'Monthly Token Limit',
-            fr: 'Limite de tokens mensuelle'
-          },
-          description: 'Maximum number of tokens allowed per month (0 for unlimited)',
-          'x-i18n-description': {
-            en: 'Maximum number of tokens allowed per month (0 for unlimited)',
-            fr: 'Nombre maximum de tokens autorisés par mois (0 pour illimité)'
-          },
-          default: 1000000,
-          minimum: 0
+        contrib: {
+          $ref: '#/definitions/RoleQuota',
+          title: 'Contributor quotas',
+          'x-i18n-title': { en: 'Contributor quotas', fr: 'Quotas contributeur' },
+          default: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 }
+        },
+        user: {
+          $ref: '#/definitions/RoleQuota',
+          title: 'Simple user Quotas',
+          'x-i18n-title': { en: 'Simple user Quotas', fr: 'Quotas utilisateur simple' },
+          default: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 }
+        },
+        external: {
+          $ref: '#/definitions/RoleQuota',
+          title: 'External user quotas',
+          'x-i18n-title': { en: 'External user quotas', fr: 'Quotas utilisateur externe' },
+          default: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 }
+        },
+        anonymous: {
+          $ref: '#/definitions/RoleQuota',
+          title: 'Anonymous user quotas',
+          'x-i18n-title': { en: 'Anonymous user quotas', fr: 'Quotas utilisateur anonyme' },
+          default: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 }
         }
       }
     }

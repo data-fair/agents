@@ -1,11 +1,17 @@
 import { Router } from 'express'
 import { generateText } from 'ai'
-import { type AccountKeys, reqSessionAuthenticated } from '@data-fair/lib-express'
-import { assertCanUseModel } from '../auth.ts'
+import { type AccountKeys, reqSession, isAuthenticated } from '@data-fair/lib-express'
+import { reqIp as _reqIp } from '@data-fair/lib-express/req-origin.js'
+import { assertCanUseModel, assertRoleQuota, getEffectiveRole } from '../auth.ts'
 import { getRawSettings } from '../settings/service.ts'
 import { createModel } from '../models/operations.ts'
 import { getUsage, getOwnerUsage, recordUsage, checkQuota } from '../usage/service.ts'
 import type { Settings } from '#types'
+import crypto from 'node:crypto'
+
+function safeReqIp (req: import('express').Request): string {
+  try { return _reqIp(req) } catch { return req.ip || '127.0.0.1' }
+}
 
 const router = Router()
 export default router
@@ -28,7 +34,8 @@ async function getSummaryModel (settings: Settings) {
 
 router.post('/:type/:id', async (req, res, next) => {
   try {
-    const session = reqSessionAuthenticated(req)
+    const sessionState = reqSession(req)
+    const authenticated = isAuthenticated(sessionState)
     const owner = req.params as unknown as AccountKeys
 
     const body = req.body as SummaryRequest
@@ -43,17 +50,32 @@ router.post('/:type/:id', async (req, res, next) => {
       return
     }
 
-    // Permission check — use summarizer entry if it exists, fall back to assistant
-    const modelEntry = settings.models.summarizer || settings.models.assistant
-    assertCanUseModel(session, owner, modelEntry)
+    // Permission check via role-based quotas
+    const quotas = settings.quotas ?? {}
+
+    let trackPerUser: boolean
+    let usageUserId: string | undefined
+
+    if (!authenticated) {
+      // Anonymous path
+      assertRoleQuota('anonymous', quotas)
+      const ipHash = crypto.createHash('sha256').update(safeReqIp(req)).digest('hex').slice(0, 16)
+      usageUserId = `anon:${ipHash}`
+      trackPerUser = true
+    } else {
+      // Authenticated path
+      const session = sessionState
+      const isSameAccount = session.account!.type === owner.type && session.account!.id === owner.id
+      trackPerUser = owner.type === 'organization' || !isSameAccount
+
+      assertCanUseModel(session as any, owner, quotas)
+      usageUserId = trackPerUser ? session.user!.id : undefined
+    }
 
     // Quota enforcement (same pattern as gateway)
-    const isSameAccount = session.account.type === owner.type && session.account.id === owner.id
-    const trackPerUser = owner.type === 'organization' || !isSameAccount
-    const accountLimits = settings.limits
-    const userLimits = trackPerUser ? settings.userLimits : undefined
+    const accountLimits = settings.quotas.global
 
-    if (accountLimits.dailyTokenLimit || accountLimits.monthlyTokenLimit) {
+    if (!accountLimits.unlimited && (accountLimits.dailyTokenLimit || accountLimits.monthlyTokenLimit)) {
       const accountUsage = trackPerUser ? await getOwnerUsage(owner) : await getUsage(owner)
       const quotaCheck = checkQuota(accountUsage, accountLimits, trackPerUser ? 'organization' : 'user')
       if (quotaCheck) {
@@ -62,12 +84,17 @@ router.post('/:type/:id', async (req, res, next) => {
       }
     }
 
-    if (trackPerUser && (userLimits?.dailyTokenLimit || userLimits?.monthlyTokenLimit)) {
-      const userUsage = await getUsage(owner, session.user.id)
-      const quotaCheck = checkQuota(userUsage, userLimits, 'user')
-      if (quotaCheck) {
-        res.status(429).json({ error: quotaCheck.reason })
-        return
+    // Check role-based user quota
+    if (trackPerUser) {
+      const role = authenticated ? getEffectiveRole(sessionState as any, owner) : 'anonymous'
+      const roleQuota = quotas[role]
+      if (roleQuota && !roleQuota.unlimited && (roleQuota.dailyTokenLimit || roleQuota.monthlyTokenLimit)) {
+        const userUsage = await getUsage(owner, usageUserId)
+        const quotaCheck = checkQuota(userUsage, roleQuota, 'user')
+        if (quotaCheck) {
+          res.status(429).json({ error: quotaCheck.reason })
+          return
+        }
       }
     }
 
@@ -84,7 +111,7 @@ router.post('/:type/:id', async (req, res, next) => {
     const inputTokens = usage?.inputTokens ?? 0
     const outputTokens = usage?.outputTokens ?? 0
     if (inputTokens || outputTokens) {
-      await recordUsage(owner, inputTokens, outputTokens, trackPerUser ? session.user.id : undefined)
+      await recordUsage(owner, inputTokens, outputTokens, usageUserId)
     }
 
     res.json({ summary: text })

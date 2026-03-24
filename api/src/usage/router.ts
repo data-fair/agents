@@ -19,11 +19,15 @@ router.get('/:type/:id', async (req, res, next) => {
       getRawSettings(owner)
     ])
 
-    const limits = settings?.limits ?? { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
-    const userLimits = settings?.userLimits
+    const quotas = settings?.quotas ?? {
+      global: { unlimited: false, dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 },
+      admin: { unlimited: true, dailyTokenLimit: 0, monthlyTokenLimit: 0 },
+      contrib: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 },
+      user: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 },
+      external: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 }
+    }
 
-    const result: Record<string, unknown> = { limits }
-    if (userLimits) result.userLimits = userLimits
+    const result: Record<string, unknown> = { quotas }
 
     if (!period || period === 'daily') {
       result.daily = usage.daily
