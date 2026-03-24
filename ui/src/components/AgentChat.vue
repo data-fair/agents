@@ -339,7 +339,7 @@ const debugTools = computed(() => {
     name,
     title: (t as any).title,
     description: (t as any).description ?? '',
-    inputSchema: (t as any).parameters ?? {}
+    inputSchema: (t as any).inputSchema?.jsonSchema ?? {}
   }))
 })
 
@@ -360,9 +360,12 @@ const handleAbort = () => {
 // Trace tab support
 const traceOverview = computed<TraceOverviewEntry[]>(() => {
   if (!recorder) return []
-  // Trigger re-computation when messages change
+  // Trigger re-computation when messages change or when a turn completes
+  // (status changes to 'ready' after recorder.addStepMessages is called)
   // eslint-disable-next-line no-void
   void chatResult.messages.value.length
+  // eslint-disable-next-line no-void
+  void chatResult.status.value
   return recorder.getTraceOverview()
 })
 </script>

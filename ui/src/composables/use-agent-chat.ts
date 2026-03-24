@@ -132,7 +132,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
             name,
             title: (t as any).title,
             description: (t as any).description ?? '',
-            inputSchema: (t as any).parameters ?? {}
+            inputSchema: (t as any).inputSchema?.jsonSchema ?? {}
           }))
           recorder.snapshotTools(snapshots)
         }

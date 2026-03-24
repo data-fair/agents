@@ -42,4 +42,22 @@ test.describe('Chat MCP UI', () => {
 
     await expect(page.getByLabel('Data')).toHaveValue('Hello World', { timeout: 10000 })
   })
+
+  test('Debug dialog shows tool inputSchema', async ({ page, goToWithAuth }) => {
+    await goToWithAuth('/agents/_dev/chat-mcp', 'test-standalone1')
+
+    // Open the debug dialog and go to the tools tab
+    await page.getByRole('button', { name: /Debug|Débogage/ }).click()
+    await page.getByRole('tab', { name: /Outils|Tools/ }).click()
+    await expect(page.getByText('set_data')).toBeVisible({ timeout: 5000 })
+
+    // Expand the tool panel to reveal the inputSchema
+    await page.getByText('set_data').click()
+
+    // Verify the inputSchema is not empty - it should contain the "data" property
+    const schemaBlock = page.locator('.agent-chat__pre').last()
+    await expect(schemaBlock).toBeVisible()
+    await expect(schemaBlock).toContainText('"properties"')
+    await expect(schemaBlock).toContainText('"data"')
+  })
 })
