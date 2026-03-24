@@ -271,7 +271,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
           if (invocation) invocation.state = 'done'
         }
         if (recorder) {
-          recorder.finishSubAgentToolCall(parentToolCallId, part.toolCallId, (part as any).result)
+          recorder.finishSubAgentToolCall(parentToolCallId, part.toolCallId, (part as any).output)
         }
       } else if (part.type === 'finish-step') {
         currentSubMessage = null
@@ -413,7 +413,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
             if (invocation) invocation.state = 'done'
           }
           if (recorder) {
-            recorder.finishToolCall(part.toolCallId, (part as any).result)
+            recorder.finishToolCall(part.toolCallId, (part as any).output)
           }
         } else if (part.type === 'finish-step') {
           // Reset for next step (new assistant message after tool results)
