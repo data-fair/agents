@@ -7,7 +7,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { generateText, streamText } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
-import { axiosAuth, clean, directoryUrl } from '../../support/axios.ts'
+import { axiosAuth, clean, directoryUrl, defaultQuotas } from '../../support/axios.ts'
 
 const user = await axiosAuth('test-standalone1')
 const externalUser = await axiosAuth('test1-user1')
@@ -34,7 +34,7 @@ const settingsData = {
       }
     }
   },
-  limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
+  quotas: defaultQuotas
 }
 
 async function createGatewayProvider (ax: any, ownerType = 'user', ownerId = 'test-standalone1') {
@@ -100,14 +100,12 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
     )
   })
 
-  test('external user can use gateway when roles includes external', async () => {
+  test('external user can use gateway when external quota is positive', async () => {
     await user.put('/api/settings/user/test-standalone1', {
       ...settingsData,
-      models: {
-        assistant: {
-          ...settingsData.models.assistant,
-          roles: ['external']
-        }
+      quotas: {
+        ...defaultQuotas,
+        external: { unlimited: false, dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
       }
     })
     const provider = await createGatewayProvider(externalUser)
@@ -118,7 +116,7 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
     assert.equal(result.text, 'world')
   })
 
-  test('external user denied when roles does not include external', async () => {
+  test('external user denied when external quota is zero', async () => {
     const provider = await createGatewayProvider(externalUser)
     await assert.rejects(
       generateText({

@@ -4,7 +4,7 @@
 
 import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
-import { clean, axiosAuth } from '../../support/axios.ts'
+import { clean, axiosAuth, defaultQuotas } from '../../support/axios.ts'
 
 test.describe('Chat MCP UI', () => {
   test.beforeEach(async () => {
@@ -26,7 +26,7 @@ test.describe('Chat MCP UI', () => {
     await user.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
       models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' } } } },
-      limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
+      quotas: defaultQuotas
     })
 
     await goToWithAuth('/agents/_dev/chat-mcp', 'test-standalone1')

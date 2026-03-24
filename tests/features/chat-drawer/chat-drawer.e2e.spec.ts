@@ -5,7 +5,7 @@
 
 import { expect, type Page } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
-import { clean, axiosAuth } from '../../support/axios.ts'
+import { clean, axiosAuth, defaultQuotas } from '../../support/axios.ts'
 
 const user = await axiosAuth('test-standalone1')
 
@@ -22,7 +22,7 @@ const settingsData = {
       }
     }
   },
-  limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
+  quotas: defaultQuotas
 }
 
 const fabSelector = '.df-agent-chat-toggle'

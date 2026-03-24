@@ -4,7 +4,7 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { axiosAuth, axios, clean } from '../../support/axios.ts'
+import { axiosAuth, axios, clean, defaultQuotas } from '../../support/axios.ts'
 
 const user = await axiosAuth('test-standalone1')
 const otherUser = await axiosAuth('test1-user1')
@@ -20,7 +20,7 @@ test.describe('Summary API', () => {
     await user.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
       models: { assistant: { model: mockModel } },
-      limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
+      quotas: defaultQuotas
     })
 
     const res = await user.post('/api/summary/user/test-standalone1', {
@@ -36,7 +36,7 @@ test.describe('Summary API', () => {
     await user.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
       models: { assistant: { model: mockModel } },
-      limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
+      quotas: defaultQuotas
     })
 
     const res = await user.post('/api/summary/user/test-standalone1', {
@@ -61,7 +61,7 @@ test.describe('Summary API', () => {
     await user.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
       models: { assistant: { model: mockModel }, summarizer: { model: summarizerModel } },
-      limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
+      quotas: defaultQuotas
     })
 
     const res = await user.post('/api/summary/user/test-standalone1', {
@@ -73,11 +73,16 @@ test.describe('Summary API', () => {
   })
 
   test('should fail when not authenticated', async () => {
+    await user.put('/api/settings/user/test-standalone1', {
+      providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
+      models: { assistant: { model: mockModel } },
+      quotas: defaultQuotas
+    })
     const unauthenticatedUser = axios()
 
     await assert.rejects(
       unauthenticatedUser.post('/api/summary/user/test-standalone1', { content: 'Test content' }),
-      (err: any) => err.status === 401
+      (err: any) => err.status === 403
     )
   })
 
@@ -85,7 +90,7 @@ test.describe('Summary API', () => {
     await user.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
       models: { assistant: { model: mockModel } },
-      limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
+      quotas: defaultQuotas
     })
 
     await assert.rejects(
@@ -94,11 +99,14 @@ test.describe('Summary API', () => {
     )
   })
 
-  test('external user can summarize when roles includes external', async () => {
+  test('external user can summarize when external quota is positive', async () => {
     await user.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
-      models: { assistant: { model: mockModel, roles: ['external'] } },
-      limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
+      models: { assistant: { model: mockModel } },
+      quotas: {
+        ...defaultQuotas,
+        external: { unlimited: false, dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
+      }
     })
 
     const res = await otherUser.post('/api/summary/user/test-standalone1', {
@@ -112,7 +120,7 @@ test.describe('Summary API', () => {
     await user.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
       models: { assistant: { model: mockModel } },
-      limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
+      quotas: defaultQuotas
     })
 
     await assert.rejects(
@@ -125,7 +133,7 @@ test.describe('Summary API', () => {
     await user.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
       models: { assistant: { model: mockModel } },
-      limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
+      quotas: defaultQuotas
     })
 
     await assert.rejects(

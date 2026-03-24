@@ -4,7 +4,7 @@
 
 import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
-import { axiosAuth, clean } from '../../support/axios.ts'
+import { axiosAuth, clean, defaultQuotas } from '../../support/axios.ts'
 
 test.describe('Usage UI', () => {
   test.beforeEach(async () => {
@@ -18,7 +18,7 @@ test.describe('Usage UI', () => {
     await user.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
       models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } } } },
-      limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
+      quotas: defaultQuotas
     })
 
     await goToWithAuth('/agents/user/test-standalone1/settings', 'test-standalone1')
@@ -34,7 +34,7 @@ test.describe('Usage UI', () => {
     await user.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
       models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } } } },
-      limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
+      quotas: defaultQuotas
     })
 
     await goToWithAuth('/agents/user/test-standalone1/settings', 'test-standalone1')

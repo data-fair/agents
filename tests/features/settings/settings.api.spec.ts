@@ -4,7 +4,7 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { axiosAuth, clean } from '../../support/axios.ts'
+import { axiosAuth, clean, defaultQuotas } from '../../support/axios.ts'
 
 const user = await axiosAuth('test-standalone1')
 const otherUser = await axiosAuth('test1-user1')
@@ -32,7 +32,7 @@ test.describe('Settings API', () => {
         }
       ],
       models: { assistant: { model: mockModel } },
-      limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
+      quotas: defaultQuotas
     }
 
     const createRes = await user.put('/api/settings/user/test-standalone1', settingsData)
@@ -51,7 +51,7 @@ test.describe('Settings API', () => {
     const settingsData = {
       providers: [],
       models: { assistant: { model: mockModel } },
-      limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
+      quotas: defaultQuotas
     }
 
     const updateRes = await user.put('/api/settings/user/test-standalone1', settingsData)
@@ -70,7 +70,7 @@ test.describe('Settings API', () => {
         }
       ],
       models: { assistant: { model: mockModel } },
-      limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
+      quotas: defaultQuotas
     }
 
     await user.put('/api/settings/user/test-standalone1', settingsData)
@@ -105,7 +105,7 @@ test.describe('Settings API', () => {
       const settingsData = {
         providers: [{ id: `provider-${p.type}`, ...p, enabled: true }],
         models: { assistant: { model: mockModel } },
-        limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
+        quotas: defaultQuotas
       }
 
       const res = await user.put('/api/settings/user/test-standalone1', settingsData)
@@ -129,7 +129,7 @@ test.describe('Settings API', () => {
         }
       ],
       models: { assistant: { model: mockModel } },
-      limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
+      quotas: defaultQuotas
     }
 
     await user.put('/api/settings/user/test-standalone1', initialData)
@@ -145,7 +145,7 @@ test.describe('Settings API', () => {
         }
       ],
       models: { assistant: { model: mockModel } },
-      limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
+      quotas: defaultQuotas
     }
 
     const res = await user.put('/api/settings/user/test-standalone1', updateData)
@@ -170,7 +170,7 @@ test.describe('Settings API', () => {
         }
       ],
       models: { assistant: { model: mockModel } },
-      limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
+      quotas: defaultQuotas
     }
 
     const res = await user.put('/api/settings/user/test-standalone1', settingsData)
@@ -183,7 +183,7 @@ test.describe('Settings API', () => {
     const settingsData1 = {
       providers: [{ id: 'p1', type: 'mock', name: 'Mock 1', enabled: true }],
       models: { assistant: { model: mockModel } },
-      limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
+      quotas: defaultQuotas
     }
 
     const res1 = await user.put('/api/settings/user/test-standalone1', settingsData1)
@@ -192,7 +192,7 @@ test.describe('Settings API', () => {
     const settingsData2 = {
       providers: [{ id: 'p2', type: 'mock', name: 'Mock 2', enabled: true }],
       models: { assistant: { model: mockModel } },
-      limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
+      quotas: defaultQuotas
     }
 
     const res2 = await user.put('/api/settings/user/test-standalone1', settingsData2)
@@ -208,7 +208,7 @@ test.describe('Settings API', () => {
     const settingsData = {
       providers: [],
       models: { assistant: { model: mockModel } },
-      limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
+      quotas: defaultQuotas
     }
 
     const res = await user.put('/api/settings/user/test-standalone1', settingsData)
@@ -227,7 +227,7 @@ test.describe('Settings API', () => {
         }
       ],
       models: { assistant: { model: mockModel } },
-      limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
+      quotas: defaultQuotas
     }
 
     await assert.rejects(
@@ -245,7 +245,7 @@ test.describe('Settings API', () => {
         }
       ],
       models: { assistant: { model: mockModel } },
-      limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
+      quotas: defaultQuotas
     }
 
     await assert.rejects(
@@ -255,13 +255,13 @@ test.describe('Settings API', () => {
   })
 
   test('should fail when accessing another user settings', async () => {
-    await user.put('/api/settings/user/test-standalone1', { providers: [], models: { assistant: { model: mockModel } }, limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 } })
+    await user.put('/api/settings/user/test-standalone1', { providers: [], models: { assistant: { model: mockModel } }, quotas: defaultQuotas })
     await assert.rejects(otherUser.get('/api/settings/user/test-standalone1'), { status: 403 })
   })
 
   test('should fail when updating another user settings', async () => {
-    await user.put('/api/settings/user/test-standalone1', { providers: [], models: { assistant: { model: mockModel } }, limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 } })
-    await assert.rejects(otherUser.put('/api/settings/user/test-standalone1', { providers: [], models: { assistant: { model: mockModel } }, limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 } }), { status: 403 })
+    await user.put('/api/settings/user/test-standalone1', { providers: [], models: { assistant: { model: mockModel } }, quotas: defaultQuotas })
+    await assert.rejects(otherUser.put('/api/settings/user/test-standalone1', { providers: [], models: { assistant: { model: mockModel } }, quotas: defaultQuotas }), { status: 403 })
   })
 
   test('should add multiple providers in single request', async () => {
@@ -271,7 +271,7 @@ test.describe('Settings API', () => {
         { id: 'p2', type: 'anthropic', name: 'Anthropic', enabled: true, apiKey: 'sk-test2' }
       ],
       models: { assistant: { model: mockModel } },
-      limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
+      quotas: defaultQuotas
     }
 
     const res = await user.put('/api/settings/user/test-standalone1', settingsData)
@@ -286,7 +286,7 @@ test.describe('Settings API', () => {
         { id: 'p2', type: 'anthropic', name: 'Anthropic', enabled: true }
       ],
       models: { assistant: { model: mockModel } },
-      limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
+      quotas: defaultQuotas
     }
 
     await user.put('/api/settings/user/test-standalone1', initialData)
@@ -296,7 +296,7 @@ test.describe('Settings API', () => {
         { id: 'p1', type: 'openai', name: 'OpenAI', enabled: true }
       ],
       models: { assistant: { model: mockModel } },
-      limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
+      quotas: defaultQuotas
     }
 
     const res = await user.put('/api/settings/user/test-standalone1', updateData)

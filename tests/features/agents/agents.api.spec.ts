@@ -6,7 +6,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { generateText } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
-import { axiosAuth, clean, directoryUrl } from '../../support/axios.ts'
+import { axiosAuth, clean, directoryUrl, defaultQuotas } from '../../support/axios.ts'
 
 const user = await axiosAuth('test-standalone1')
 
@@ -32,7 +32,7 @@ const settingsData = {
       }
     }
   },
-  limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
+  quotas: defaultQuotas
 }
 
 test.describe('Chat API', () => {

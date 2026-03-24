@@ -13,6 +13,15 @@ export const axiosAuth = (user: string) => {
   return _axiosAuth({ email: user + '@test.com', password: 'passwd', axiosOpts, directoryUrl })
 }
 
+export const defaultQuotas = {
+  global: { unlimited: false, dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 },
+  admin: { unlimited: true, dailyTokenLimit: 0, monthlyTokenLimit: 0 },
+  contrib: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 },
+  user: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 },
+  external: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 },
+  anonymous: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 }
+}
+
 export const clean = async () => {
   await anonymousAx.delete(`http://localhost:${process.env.DEV_API_PORT}/api/test-env`)
 }

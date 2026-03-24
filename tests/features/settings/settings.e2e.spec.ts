@@ -4,7 +4,7 @@
 
 import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
-import { clean, axiosAuth } from '../../support/axios.ts'
+import { clean, axiosAuth, defaultQuotas } from '../../support/axios.ts'
 
 // E2E block: use full playwright capabilities to test the UI and indirectly the API
 test.describe('Settings UI', () => {
@@ -12,9 +12,9 @@ test.describe('Settings UI', () => {
     await clean()
   })
 
-  test('Page loads with Settings title', async ({ page, goToWithAuth }) => {
+  test('Page loads with AI Providers section', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/user/test-standalone1/settings', 'test-standalone1')
-    await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible()
+    await expect(page.getByText('AI Providers')).toBeVisible()
   })
 
   test('Can add a new Mock provider', async ({ page, goToWithAuth }) => {
@@ -58,13 +58,13 @@ test.describe('Settings UI', () => {
     await user.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'seed-provider', type: 'mock', name: 'Mock Seed', enabled: true }],
       models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Seed', id: 'seed-provider' } } } },
-      limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
+      quotas: defaultQuotas
     })
 
     await goToWithAuth('/agents/user/test-standalone1/settings', 'test-standalone1')
 
     // Wait for page to fully load
-    await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible()
+    await expect(page.getByText('AI Providers')).toBeVisible()
 
     // Wait for any validation to complete
     await page.waitForTimeout(500)
@@ -90,13 +90,13 @@ test.describe('Settings UI', () => {
     await user.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'seed-provider', type: 'mock', name: 'Mock Seed', enabled: true }],
       models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Seed', id: 'seed-provider' } } } },
-      limits: { dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
+      quotas: defaultQuotas
     })
 
     await goToWithAuth('/agents/user/test-standalone1/settings', 'test-standalone1')
 
     // Wait for page to load
-    await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible()
+    await expect(page.getByText('AI Providers')).toBeVisible()
 
     // Add a provider to create changes
     await page.getByRole('button', { name: 'Add item' }).click()
