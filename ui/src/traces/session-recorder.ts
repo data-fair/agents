@@ -235,22 +235,22 @@ export class SessionRecorder {
       for (const step of turn.steps) {
         for (const tc of step.toolCalls) {
           add(
-            { type: 'tool-call', timestamp: tc.timestamp, label: `tool call: ${tc.toolName}`, preview: JSON.stringify(tc.input).slice(0, 150) },
+            { type: 'tool-call', timestamp: tc.timestamp, label: `tool call: ${tc.toolName}`, preview: (JSON.stringify(tc.input) ?? '').slice(0, 150) },
             { input: tc.input, toolName: tc.toolName }
           )
           if (tc.subAgent) {
             add(
-              { type: 'sub-agent-start', timestamp: tc.timestamp, label: `sub-agent: ${tc.subAgent.name}`, preview: tc.subAgent.task.slice(0, 150) },
+              { type: 'sub-agent-start', timestamp: tc.timestamp, label: `sub-agent: ${tc.subAgent.name}`, preview: (tc.subAgent.task ?? '').slice(0, 150) },
               { name: tc.subAgent.name, systemPrompt: tc.subAgent.systemPrompt, task: tc.subAgent.task, tools: tc.subAgent.tools }
             )
             for (const subStep of tc.subAgent.steps) {
               for (const subTc of subStep.toolCalls) {
                 add(
-                  { type: 'tool-call', timestamp: subTc.timestamp, label: `tool call: ${subTc.toolName} (sub-agent: ${tc.subAgent!.name})`, preview: JSON.stringify(subTc.input).slice(0, 150) },
+                  { type: 'tool-call', timestamp: subTc.timestamp, label: `tool call: ${subTc.toolName} (sub-agent: ${tc.subAgent!.name})`, preview: (JSON.stringify(subTc.input) ?? '').slice(0, 150) },
                   { input: subTc.input, toolName: subTc.toolName }
                 )
                 add(
-                  { type: 'tool-result', timestamp: subTc.timestamp, label: `tool result: ${subTc.toolName} (sub-agent: ${tc.subAgent!.name})`, preview: JSON.stringify(subTc.output).slice(0, 150) },
+                  { type: 'tool-result', timestamp: subTc.timestamp, label: `tool result: ${subTc.toolName} (sub-agent: ${tc.subAgent!.name})`, preview: (JSON.stringify(subTc.output) ?? '').slice(0, 150) },
                   { output: subTc.output, toolName: subTc.toolName, durationMs: subTc.durationMs }
                 )
               }
@@ -267,7 +267,7 @@ export class SessionRecorder {
             )
           }
           add(
-            { type: 'tool-result', timestamp: tc.timestamp, label: `tool result: ${tc.toolName}`, preview: JSON.stringify(tc.output).slice(0, 150) },
+            { type: 'tool-result', timestamp: tc.timestamp, label: `tool result: ${tc.toolName}`, preview: (JSON.stringify(tc.output) ?? '').slice(0, 150) },
             { output: tc.output, toolName: tc.toolName, durationMs: tc.durationMs }
           )
         }
