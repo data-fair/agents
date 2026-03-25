@@ -22,6 +22,8 @@
         :chat-error="chatError"
         :welcome-text="activeChatTab === 'evaluation' ? t('welcomeEvaluation') : t('welcome')"
         :tool-title="toolTitle"
+        :action-visible-prompt="actionVisiblePrompt"
+        :session-cleared-message="sessionClearedMessage"
       />
 
       <agent-chat-input
@@ -36,7 +38,10 @@
       class="flex-grow-1 d-flex flex-column align-center justify-center"
       style="min-height: 0"
     >
-      <p class="text-body-2 text-medium-emphasis text-center mb-4">
+      <p
+        v-if="showWelcome"
+        class="text-body-2 text-medium-emphasis text-center mb-4"
+      >
         {{ activeChatTab === 'evaluation' ? t('welcomeEvaluation') : t('welcome') }}
       </p>
       <agent-chat-input
@@ -86,7 +91,7 @@ en:
 </i18n>
 
 <script lang="ts" setup>
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSession } from '@data-fair/lib-vue/session.js'
 import { useVueRouterDFrameContent } from '@data-fair/frame/lib/vue-router/d-frame-content.js'
@@ -159,6 +164,9 @@ const chatResult = useAgentChat({
 if (!chatResult) {
   throw new Error('Chat not supported in SSR')
 }
+
+const actionVisiblePrompt = ref<string | null>(null)
+const sessionClearedMessage = ref<string | null>(null)
 
 const EVALUATOR_PROMPT = `You are an AI session evaluator. You analyze conversation traces between a user and an AI assistant to help improve the system.
 
@@ -242,6 +250,71 @@ const dFrameContent = useVueRouterDFrameContent()
 function sendDFrameMessage (msg: AgentChatMessage) {
   if (inIframe) dFrameContent.sendMessage(msg)
 }
+
+// Welcome message gating: delay in iframe to allow start-session to suppress it
+const welcomeDelayDone = ref(!inIframe)
+const sessionStarted = ref(false)
+let welcomeTimeout: ReturnType<typeof setTimeout> | null = null
+
+onMounted(() => {
+  sendDFrameMessage({ type: 'chat-ready' } as AgentChatMessage)
+
+  if (inIframe) {
+    welcomeTimeout = setTimeout(() => {
+      welcomeDelayDone.value = true
+    }, 200)
+  }
+})
+
+const showWelcome = computed(() => {
+  if (sessionStarted.value) return false
+  return welcomeDelayDone.value
+})
+
+function handleParentMessage (event: MessageEvent) {
+  const data = event.data
+  if (!data || typeof data !== 'object' || !data.type) return
+
+  if (data.type === 'start-session') {
+    sessionStarted.value = true
+    if (welcomeTimeout) {
+      clearTimeout(welcomeTimeout)
+      welcomeTimeout = null
+    }
+    startActionSession(data.visiblePrompt, data.hiddenContext)
+  } else if (data.type === 'session-cleared') {
+    handleSessionCleared()
+  }
+}
+
+function startActionSession (visiblePrompt: string, hiddenContext: string) {
+  const newSystemPrompt = finalSystemPrompt.value + '\n\n' + hiddenContext
+
+  if (recorder) {
+    recorder.setSystemPrompt(newSystemPrompt)
+  }
+
+  actionVisiblePrompt.value = visiblePrompt
+  sessionClearedMessage.value = null
+
+  // Reset the chat with the new system prompt (clears messages and history)
+  chatResult.reset(newSystemPrompt)
+
+  // Send the visible prompt — this adds it to messages + history and triggers the LLM
+  chatResult.sendMessage(visiblePrompt)
+}
+
+function handleSessionCleared () {
+  sessionClearedMessage.value = 'This assistance session has ended because you navigated away from the action.'
+}
+
+onMounted(() => {
+  window.addEventListener('message', handleParentMessage)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('message', handleParentMessage)
+})
 
 watch(() => chatResult.status.value, (status) => {
   if (status === 'streaming') {

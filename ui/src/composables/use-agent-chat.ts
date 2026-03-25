@@ -163,6 +163,17 @@ export function useAgentChat (options: UseAgentChatOptions) {
     }
   }
 
+  const reset = (newSystemPrompt?: string) => {
+    abort()
+    messages.value = []
+    status.value = 'ready'
+    error.value = null
+    history = []
+    if (newSystemPrompt !== undefined) {
+      options.systemPrompt = newSystemPrompt
+    }
+  }
+
   /**
    * Resolve sub-agent configs by calling their execute functions.
    * Also removes reserved tools from mainTools.
@@ -451,7 +462,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
     }
   }
 
-  return { messages, status, error, tools, toolsVersion, sendMessage, abort }
+  return { messages, status, error, tools, toolsVersion, sendMessage, abort, reset }
 }
 
 export default useAgentChat
