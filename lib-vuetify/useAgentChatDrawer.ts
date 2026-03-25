@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { mdiRobotOutline, mdiCommentQuestion, mdiAlertCircle } from '@mdi/js'
 import type { AgentStatus, AgentChatMessage } from './types.js'
 import Debug from 'debug'
@@ -17,6 +17,17 @@ function createAgentChatDrawer () {
   const hasUnread = ref(false)
   const toolsJustChanged = ref(false)
   let toolsChangedTimeout: ReturnType<typeof setTimeout> | null = null
+  const ready = ref(false)
+  const activeActionId = ref<string | null>(null)
+  let iframeMessenger: ((msg: object) => void) | null = null
+
+  function registerIframeMessenger (fn: (msg: object) => void) {
+    iframeMessenger = fn
+  }
+
+  function postMessageToIframe (msg: object) {
+    if (iframeMessenger) iframeMessenger(msg)
+  }
 
   const fabIcon = computed(() => {
     switch (agentStatus.value) {
@@ -38,6 +49,7 @@ function createAgentChatDrawer () {
 
   function toggleDrawer () {
     if (!iframeCreated.value) iframeCreated.value = true
+    ready.value = false
     drawerOpen.value = !drawerOpen.value
     localStorage.setItem(STORAGE_KEY, drawerOpen.value ? '1' : '0')
     hasUnread.value = false
@@ -52,11 +64,45 @@ function createAgentChatDrawer () {
       toolsJustChanged.value = true
       if (toolsChangedTimeout) clearTimeout(toolsChangedTimeout)
       toolsChangedTimeout = setTimeout(() => { toolsJustChanged.value = false }, 3000)
+    } else if (msg.type === 'chat-ready') {
+      ready.value = true
     } else if (msg.type === 'unread') {
       if (!drawerOpen.value && msg.unread) {
         hasUnread.value = true
       }
     }
+  }
+
+  async function openForAction (actionId: string, visiblePrompt: string, hiddenContext: string) {
+    activeActionId.value = actionId
+
+    if (!iframeCreated.value) {
+      iframeCreated.value = true
+      ready.value = false
+    }
+    drawerOpen.value = true
+    localStorage.setItem(STORAGE_KEY, '1')
+    hasUnread.value = false
+
+    // Wait for the iframe to signal ready
+    if (!ready.value) {
+      await new Promise<void>((resolve) => {
+        const stop = watch(ready, (val) => {
+          if (val) {
+            stop()
+            resolve()
+          }
+        }, { immediate: true })
+      })
+    }
+
+    postMessageToIframe({ type: 'start-session', visiblePrompt, hiddenContext })
+  }
+
+  function clearAction (actionId: string) {
+    if (activeActionId.value !== actionId) return
+    activeActionId.value = null
+    postMessageToIframe({ type: 'session-cleared' })
   }
 
   return {
@@ -67,7 +113,13 @@ function createAgentChatDrawer () {
     fabIcon,
     fabColor,
     toggleDrawer,
-    onDFrameMessage
+    onDFrameMessage,
+    ready,
+    activeActionId,
+    openForAction,
+    clearAction,
+    registerIframeMessenger,
+    postMessageToIframe
   }
 }
 
