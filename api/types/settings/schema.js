@@ -682,12 +682,12 @@ Recommendations: Claude Opus 4.6, GPT-5.4 (Reasoning), DeepSeek-R1, Pharia-1-LLM
         title: null,
         if: 'parent.data.providers?.length',
         children: [
-          { key: 'global', cols: 4 },
-          { key: 'admin', cols: 4, if: 'context.accountType === "organization"' },
-          { key: 'contrib', cols: 4, if: 'context.accountType === "organization"' },
-          { key: 'user', cols: 4, if: 'context.accountType === "organization"' },
-          { key: 'external', cols: 4 },
-          { key: 'anonymous', cols: 4 }
+          { key: 'global', cols: { sm: 6, md: 4 } },
+          { key: 'admin', cols: { sm: 6, md: 4 } },
+          { key: 'contrib', cols: { sm: 6, md: 4 }, if: 'context.accountType === "organization"' },
+          { key: 'user', cols: { sm: 6, md: 4 }, if: 'context.accountType === "organization"' },
+          { key: 'external', cols: { sm: 6, md: 4 } },
+          { key: 'anonymous', cols: { sm: 6, md: 4 } }
         ]
       },
       required: ['global', 'admin', 'contrib', 'user', 'external', 'anonymous'],
