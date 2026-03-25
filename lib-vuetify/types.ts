@@ -31,3 +31,19 @@ export interface SessionClearedMessage {
 export type AgentChatMessage = AgentStatusMessage | AgentToolsChangedMessage | AgentUnreadMessage | ChatReadyMessage
 
 export type ParentToIframeMessage = StartSessionMessage | SessionClearedMessage
+
+/** BroadcastChannel message sent by action buttons */
+export interface AgentActionStartSession {
+  channel: string
+  type: 'agent-start-session'
+  visiblePrompt: string
+  hiddenContext: string
+}
+
+/** BroadcastChannel message sent when action button is disposed */
+export interface AgentActionSessionCleared {
+  channel: string
+  type: 'agent-session-cleared'
+}
+
+export type AgentActionMessage = AgentActionStartSession | AgentActionSessionCleared

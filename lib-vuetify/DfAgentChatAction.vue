@@ -1,8 +1,7 @@
 <template>
   <v-btn
-    :icon="icon"
-    :color="color"
-    :loading="loading"
+    :icon="mdiRobotOutline"
+    color="secondary"
     :data-action-id="actionId"
     class="df-agent-chat-action"
     v-bind="btnProps"
@@ -14,10 +13,11 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onScopeDispose, ref } from 'vue'
+import { onMounted, onScopeDispose } from 'vue'
 import { VBtn } from 'vuetify/components/VBtn'
-import { mdiRobotOutline, mdiCommentQuestion, mdiAlertCircle } from '@mdi/js'
-import { useAgentChatDrawer } from './useAgentChatDrawer.js'
+import { mdiRobotOutline } from '@mdi/js'
+import { getTabChannelId } from '@data-fair/lib-vue-agents'
+import type { AgentActionStartSession, AgentActionSessionCleared } from './types.js'
 
 type BtnProps = Omit<VBtn['$props'], 'icon' | 'color' | 'loading' | 'onClick' | 'size'>
 
@@ -32,51 +32,31 @@ const props = withDefaults(defineProps<{
   btnProps: () => ({}) as BtnProps
 })
 
-const state = useAgentChatDrawer()
-const waitingForReady = ref(false)
+let bc: BroadcastChannel | null = null
+let channelId: string
 
-const isActive = computed(() => state.activeActionId.value === props.actionId)
-
-const icon = computed(() => {
-  if (!isActive.value) return mdiRobotOutline
-  switch (state.agentStatus.value) {
-    case 'waiting-user': return mdiCommentQuestion
-    case 'error': return mdiAlertCircle
-    default: return mdiRobotOutline
-  }
+onMounted(() => {
+  channelId = getTabChannelId()
+  bc = new BroadcastChannel(channelId)
 })
 
-const color = computed(() => {
-  if (!isActive.value) return 'secondary'
-  switch (state.agentStatus.value) {
-    case 'working': return 'accent'
-    case 'waiting-user': return 'warning'
-    case 'error': return 'error'
-    default: return 'secondary'
-  }
-})
-
-const loading = computed(() => {
-  if (waitingForReady.value) return true
-  if (!isActive.value) return false
-  return state.agentStatus.value === 'working'
-})
-
-async function handleClick () {
-  if (isActive.value) {
-    // Already active: just open/focus the drawer
-    state.drawerOpen.value = true
-    return
-  }
-  waitingForReady.value = true
-  try {
-    await state.openForAction(props.actionId, props.visiblePrompt, props.hiddenContext)
-  } finally {
-    waitingForReady.value = false
-  }
+function handleClick () {
+  if (!bc) return
+  bc.postMessage({
+    channel: channelId,
+    type: 'agent-start-session',
+    visiblePrompt: props.visiblePrompt,
+    hiddenContext: props.hiddenContext
+  } satisfies AgentActionStartSession)
 }
 
 onScopeDispose(() => {
-  state.clearAction(props.actionId)
+  if (!bc) return
+  bc.postMessage({
+    channel: channelId,
+    type: 'agent-session-cleared'
+  } satisfies AgentActionSessionCleared)
+  bc.close()
+  bc = null
 })
 </script>
