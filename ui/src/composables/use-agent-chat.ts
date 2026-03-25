@@ -301,7 +301,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
     return fullText || 'No response from sub-agent.'
   }
 
-  const sendMessage = async (msg: string) => {
+  const sendMessage = async (msg: string, sendOptions?: { hiddenContext?: string }) => {
     if (status.value === 'streaming') return
 
     status.value = 'streaming'
@@ -309,7 +309,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
     messages.value.push({ role: 'user', content: msg })
 
     if (recorder) {
-      recorder.startTurn(msg)
+      recorder.startTurn(msg, sendOptions?.hiddenContext)
     }
 
     // Add user message to history

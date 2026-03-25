@@ -20,6 +20,7 @@ export interface StepTrace {
 
 export interface TurnTrace {
   userMessage: string
+  hiddenContext?: string
   timestamp: Date
   steps: StepTrace[]
 }
@@ -53,7 +54,7 @@ export interface SessionTrace {
 
 export interface TraceOverviewEntry {
   index: number
-  type: 'user-message' | 'assistant-step' | 'tool-call' | 'tool-result' | 'sub-agent-start' | 'sub-agent-step' | 'sub-agent-end' | 'tools-changed'
+  type: 'user-message' | 'hidden-context' | 'assistant-step' | 'tool-call' | 'tool-result' | 'sub-agent-start' | 'sub-agent-step' | 'sub-agent-end' | 'tools-changed'
   timestamp: Date
   label: string
   preview: string
@@ -90,9 +91,10 @@ export class SessionRecorder {
     this.trace.toolChanges.push({ timestamp: new Date(), tools: snapshot })
   }
 
-  startTurn (userMessage: string): void {
+  startTurn (userMessage: string, hiddenContext?: string): void {
     this.currentTurn = {
       userMessage,
+      ...(hiddenContext ? { hiddenContext } : {}),
       timestamp: new Date(),
       steps: []
     }
@@ -228,6 +230,12 @@ export class SessionRecorder {
     }
 
     for (const turn of this.trace.turns) {
+      if (turn.hiddenContext) {
+        add(
+          { type: 'hidden-context', timestamp: turn.timestamp, label: 'hidden context', preview: turn.hiddenContext.slice(0, 150) },
+          turn.hiddenContext
+        )
+      }
       add(
         { type: 'user-message', timestamp: turn.timestamp, label: 'user message', preview: (turn.userMessage ?? '').slice(0, 150) },
         turn.userMessage ?? ''

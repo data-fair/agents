@@ -79,6 +79,7 @@ fr:
   systemPromptLang: La langue de l'utilisateur est {lang}.
   systemPromptOrg: ", membre de l'organisation {orgName}"
   systemPromptDep: ", département {depName}"
+  sessionCleared: Cette session d'assistance a pris fin car vous avez quitté l'action.
 en:
   welcome: How can I help you?
   welcomeEvaluation: "This tab lets you analyze the current session with an AI evaluator. Ask questions about what happened, what worked well, or what could be improved."
@@ -88,6 +89,7 @@ en:
   systemPromptLang: The user's language is {lang}.
   systemPromptOrg: ", member of the organization {orgName}"
   systemPromptDep: ", department {depName}"
+  sessionCleared: This assistance session has ended because you navigated away from the action.
 </i18n>
 
 <script lang="ts" setup>
@@ -328,11 +330,11 @@ function startActionSession (visiblePrompt: string, hiddenContext: string) {
   chat.reset(newSystemPrompt)
 
   // Send the visible prompt — this adds it to messages + history and triggers the LLM
-  chat.sendMessage(visiblePrompt)
+  chat.sendMessage(visiblePrompt, { hiddenContext })
 }
 
 function handleSessionCleared () {
-  sessionClearedMessage.value = 'This assistance session has ended because you navigated away from the action.'
+  sessionClearedMessage.value = t('sessionCleared')
 }
 
 watch(() => chat.status.value, (status) => {

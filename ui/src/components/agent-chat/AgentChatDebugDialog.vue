@@ -218,6 +218,7 @@ const onTraceExpand = (value: unknown) => {
 const traceEntryColor = (type: string) => {
   const colors: Record<string, string> = {
     'user-message': 'primary',
+    'hidden-context': 'purple',
     'assistant-step': 'success',
     'tool-call': 'warning',
     'tool-result': 'info',
