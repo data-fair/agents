@@ -14,23 +14,7 @@ export interface AgentUnreadMessage {
   unread: boolean
 }
 
-export interface ChatReadyMessage {
-  type: 'chat-ready'
-}
-
-export interface StartSessionMessage {
-  type: 'start-session'
-  visiblePrompt: string
-  hiddenContext: string
-}
-
-export interface SessionClearedMessage {
-  type: 'session-cleared'
-}
-
-export type AgentChatMessage = AgentStatusMessage | AgentToolsChangedMessage | AgentUnreadMessage | ChatReadyMessage
-
-export type ParentToIframeMessage = StartSessionMessage | SessionClearedMessage
+export type AgentChatMessage = AgentStatusMessage | AgentToolsChangedMessage | AgentUnreadMessage
 
 /** BroadcastChannel message sent by action buttons */
 export interface AgentActionStartSession {

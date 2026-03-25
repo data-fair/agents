@@ -100,6 +100,7 @@ import { $fetch } from '~/context'
 import { SessionRecorder } from '~/traces/session-recorder'
 import type { TraceOverviewEntry } from '~/traces/session-recorder'
 import { buildEvaluatorTools } from '~/traces/evaluator-tools'
+import { getTabChannelId } from '@data-fair/lib-vue-agents'
 import type { AgentChatMessage } from '@data-fair/lib-vuetify-agents/types.js'
 import AgentChatHeader from './agent-chat/AgentChatHeader.vue'
 import AgentChatMessages from './agent-chat/AgentChatMessages.vue'
@@ -257,8 +258,6 @@ const sessionStarted = ref(false)
 let welcomeTimeout: ReturnType<typeof setTimeout> | null = null
 
 onMounted(() => {
-  sendDFrameMessage({ type: 'chat-ready' } as AgentChatMessage)
-
   if (inIframe) {
     welcomeTimeout = setTimeout(() => {
       welcomeDelayDone.value = true
@@ -271,21 +270,28 @@ const showWelcome = computed(() => {
   return welcomeDelayDone.value
 })
 
-function handleParentMessage (event: MessageEvent) {
+// Listen for action messages via BroadcastChannel
+const actionChannelId = getTabChannelId()
+const actionChannel = new BroadcastChannel(actionChannelId)
+actionChannel.onmessage = (event: MessageEvent) => {
   const data = event.data
-  if (!data || typeof data !== 'object' || !data.type) return
+  if (!data || data.channel !== actionChannelId) return
 
-  if (data.type === 'start-session') {
+  if (data.type === 'agent-start-session') {
     sessionStarted.value = true
     if (welcomeTimeout) {
       clearTimeout(welcomeTimeout)
       welcomeTimeout = null
     }
     startActionSession(data.visiblePrompt, data.hiddenContext)
-  } else if (data.type === 'session-cleared') {
+  } else if (data.type === 'agent-session-cleared') {
     handleSessionCleared()
   }
 }
+
+onUnmounted(() => {
+  actionChannel.close()
+})
 
 function startActionSession (visiblePrompt: string, hiddenContext: string) {
   const newSystemPrompt = finalSystemPrompt.value + '\n\n' + hiddenContext
@@ -307,14 +313,6 @@ function startActionSession (visiblePrompt: string, hiddenContext: string) {
 function handleSessionCleared () {
   sessionClearedMessage.value = 'This assistance session has ended because you navigated away from the action.'
 }
-
-onMounted(() => {
-  window.addEventListener('message', handleParentMessage)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('message', handleParentMessage)
-})
 
 watch(() => chatResult.status.value, (status) => {
   if (status === 'streaming') {
