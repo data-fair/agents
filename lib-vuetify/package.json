@@ -1,6 +1,6 @@
 {
   "name": "@data-fair/lib-vuetify-agents",
-  "version": "0.2.0",
+  "version": "0.3.1",
   "description": "Vuetify component for embedding the agents chat as a floating drawer.",
   "main": "index.js",
   "type": "module",
@@ -18,7 +18,7 @@
     "vue": "^3.5.0",
     "vuetify": "^4.0.0",
     "@data-fair/frame": "^0.18.0",
-    "@data-fair/lib-vue-agents": "^0.2.0"
+    "@data-fair/lib-vue-agents": "^0.3.0"
   },
   "dependencies": {
     "@mdi/js": "^7.4.47",
