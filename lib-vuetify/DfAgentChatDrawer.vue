@@ -22,7 +22,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { VNavigationDrawer } from 'vuetify/components/VNavigationDrawer'
 import { useDisplay } from 'vuetify'
 import('@data-fair/frame/lib/d-frame.js')
@@ -42,6 +42,21 @@ const props = withDefaults(defineProps<{
 })
 
 const state = useAgentChatDrawer()
+const dFrameEl = ref<any>(null)
+
+onMounted(() => {
+  state.registerIframeMessenger((msg: object) => {
+    const el = dFrameEl.value
+    // Access the iframe element inside the d-frame shadow DOM.
+    // We post directly to the iframe's contentWindow because d-frame's internal
+    // protocol only handles known message formats (arrays).
+    const iframe = el?.shadowRoot?.querySelector('iframe') ?? el?.querySelector('iframe')
+    if (iframe?.contentWindow) {
+      iframe.contentWindow.postMessage(msg, '*')
+    }
+  })
+})
+
 const { name: breakpoint } = useDisplay()
 
 const drawerWidth = computed(() => {
