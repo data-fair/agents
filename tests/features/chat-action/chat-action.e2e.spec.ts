@@ -45,11 +45,11 @@ test.describe('Agent Chat Action Button', () => {
   test('Clicking action button opens drawer with visible prompt', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/_dev/chat-action', 'test-standalone1')
 
-    // Wait for the chat frame to be ready (iframe is always rendered)
-    const frame = await waitForChatFrame(page)
-
-    // Click the "Create a dataset" action button
+    // Click the "Create a dataset" action button (opens the drawer via BroadcastChannel)
     await page.locator('.df-agent-chat-action').first().click()
+
+    // Wait for the chat frame to be ready inside the now-open drawer
+    const frame = await waitForChatFrame(page)
 
     // Drawer should be visible
     const drawer = page.locator(chatDrawerSelector)
@@ -62,9 +62,9 @@ test.describe('Agent Chat Action Button', () => {
 
   test('Hidden context is not visible in chat messages', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/_dev/chat-action', 'test-standalone1')
-    const frame = await waitForChatFrame(page)
 
     await page.locator('.df-agent-chat-action').first().click()
+    const frame = await waitForChatFrame(page)
 
     // Wait for the visible prompt to appear
     await expect(frame.locator('.v-card').first()).toContainText('Help me create a new dataset', { timeout: 10000 })
@@ -76,10 +76,10 @@ test.describe('Agent Chat Action Button', () => {
 
   test('Clicking a second action button replaces the session', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/_dev/chat-action', 'test-standalone1')
-    const frame = await waitForChatFrame(page)
 
-    // Click first action
+    // Click first action (opens the drawer)
     await page.locator('.df-agent-chat-action').first().click()
+    const frame = await waitForChatFrame(page)
     await expect(frame.locator('.v-card').first()).toContainText('Help me create a new dataset', { timeout: 10000 })
 
     // Click second action
@@ -95,10 +95,10 @@ test.describe('Agent Chat Action Button', () => {
 
   test('Destroying action button shows session-cleared message', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/_dev/chat-action', 'test-standalone1')
-    const frame = await waitForChatFrame(page)
 
-    // Click the destroyable action (third button)
+    // Click the destroyable action (third button, opens the drawer)
     await page.locator('.df-agent-chat-action').nth(2).click()
+    const frame = await waitForChatFrame(page)
     await expect(frame.locator('.v-card').first()).toContainText('Help me with this temporary action', { timeout: 10000 })
 
     // Click "Hide temporary action" to destroy the button

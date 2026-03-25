@@ -292,6 +292,24 @@ actionChannel.onmessage = (event: MessageEvent) => {
   }
 }
 
+// On mount, check for a pending action stored in sessionStorage
+// (handles case where the BroadcastChannel message was sent before this iframe loaded)
+const pendingAction = sessionStorage.getItem('df-agent-pending-action')
+if (pendingAction) {
+  sessionStorage.removeItem('df-agent-pending-action')
+  try {
+    const data = JSON.parse(pendingAction)
+    if (data.type === 'agent-start-session' && data.visiblePrompt) {
+      sessionStarted.value = true
+      if (welcomeTimeout) {
+        clearTimeout(welcomeTimeout)
+        welcomeTimeout = null
+      }
+      startActionSession(data.visiblePrompt, data.hiddenContext)
+    }
+  } catch { /* ignore malformed data */ }
+}
+
 onUnmounted(() => {
   actionChannel.close()
 })

@@ -42,12 +42,15 @@ onMounted(() => {
 
 function handleClick () {
   if (!bc) return
-  bc.postMessage({
+  const msg: AgentActionStartSession = {
     channel: channelId,
     type: 'agent-start-session',
     visiblePrompt: props.visiblePrompt,
     hiddenContext: props.hiddenContext
-  } satisfies AgentActionStartSession)
+  }
+  bc.postMessage(msg)
+  // Also persist so the iframe can pick it up if it hasn't loaded yet
+  sessionStorage.setItem('df-agent-pending-action', JSON.stringify(msg))
 }
 
 onScopeDispose(() => {
