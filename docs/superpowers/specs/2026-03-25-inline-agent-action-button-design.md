@@ -37,47 +37,52 @@ The existing singleton composable gets new state and methods.
 
 **New state:**
 
-- `ready: Ref<boolean>` — set to `true` by the drawer once the iframe signals it's fully loaded. Buttons read this to know when they can send messages.
+- `ready: Ref<boolean>` — set to `true` by the drawer once the iframe signals it's fully loaded. Reset to `false` whenever `iframeCreated` transitions from `false` to `true` (iframe recreation). Buttons read this to know when they can send messages.
 - `activeActionId: Ref<string | null>` — tracks which inline button owns the current session. Only the button whose ID matches gets status updates.
 
 **New methods:**
 
-- `openForAction(actionId: string, visiblePrompt: string, hiddenContext: string)` — called by the inline button. Opens the drawer (creating the iframe if needed), waits for `ready`, then sends a `start-session` d-frame message to the iframe. Sets `activeActionId` to the given ID.
-- `clearAction(actionId: string)` — called on `onScopeDispose` of the inline button. If `activeActionId` matches, resets `activeActionId` to `null` and sends a `session-cleared` message to the iframe.
+- `openForAction(actionId: string, visiblePrompt: string, hiddenContext: string)` — called by the inline button. Opens the drawer (creating the iframe if needed), waits for `ready`, then sends a `start-session` message to the iframe via `postMessageToIframe`. Sets `activeActionId` to the given ID.
+- `clearAction(actionId: string)` — called on `onScopeDispose` of the inline button. If `activeActionId` matches, resets `activeActionId` to `null`. Sends a `session-cleared` message to the iframe only if the iframe is available (guards against the case where the iframe was already destroyed during navigation).
+- `postMessageToIframe(msg: object)` — sends a message to the chat iframe. Internally delegates to a function registered by the drawer component (see below). No-ops if the drawer has not registered yet.
+- `registerIframeMessenger(fn: (msg: object) => void)` — called by `DfAgentChatDrawer` on mount to provide the composable with the ability to post messages to the iframe. The drawer implements this by calling `dFrameEl.value.contentWindow.postMessage(msg, '*')` on the underlying iframe element.
 
-**Ready handshake:** The drawer listens for a new `{ type: 'ready' }` d-frame message from the iframe, then sets `ready = true`.
+**Ready handshake:** The drawer listens for a `{ type: 'chat-ready' }` d-frame custom message from the iframe, then sets `ready = true`.
+
+**Toggle interaction:** When the existing `DfAgentChatToggle` is clicked (calling `toggleDrawer`), `activeActionId` is not cleared. The toggle simply opens/closes the drawer. The action session continues to be reflected on the action button. If the user wants a fresh general session, they type a new message in the chat, which naturally moves the conversation away from the action context.
 
 ### D-frame message protocol extensions
 
-**New messages — parent → iframe:**
+**New messages — parent → iframe (via `window.postMessage`):**
+
+Parent-to-iframe messages bypass d-frame's built-in message format. The drawer calls `iframeElement.contentWindow.postMessage(msg, '*')` directly. The chat page listens with `window.addEventListener('message', ...)` and filters for these custom message types.
 
 - `{ type: 'start-session', visiblePrompt: string, hiddenContext: string }` — tells the chat to reset and start a new session with the given prompts.
 - `{ type: 'session-cleared' }` — tells the chat that the action button was destroyed; the chat should display an informational message.
 
-**New message — iframe → parent:**
+**New message — iframe → parent (via d-frame custom message):**
 
-- `{ type: 'ready' }` — sent by the chat page once it's fully mounted and able to receive messages.
-
-For parent → iframe messaging, the drawer component holds a ref to the d-frame element and calls `postMessage` when needed.
+- `{ type: 'chat-ready' }` — sent by the chat page via `dFrameContent.sendMessage()` once it's fully mounted and able to receive messages. Named `chat-ready` (not `ready`) to avoid confusion with d-frame's internal `ready` handshake.
 
 ### Chat page changes (`AgentChat.vue`)
 
 **On mount:**
 
-- Emits `{ type: 'ready' }` via d-frame to the parent.
-- Delays the default welcome message briefly after emitting `ready`. If a `start-session` arrives during that window, the welcome message is suppressed entirely (prevents flash).
+- Emits `{ type: 'chat-ready' }` via `dFrameContent.sendMessage()` to the parent.
+- Delays the default welcome message by 200ms after emitting `chat-ready`. If a `start-session` message arrives during that window, the welcome message is suppressed entirely (prevents flash). For normal sessions (no `start-session`), the 200ms delay is imperceptible.
 
 **On `start-session`:**
 
-- Clears current messages.
+- Re-creates the `useAgentChat` composable instance to get a fresh chat state with the new system prompt. This ensures `hiddenContext` is cleanly injected as part of the system prompt from the start, rather than mutated mid-session.
 - Displays the `visiblePrompt` as a user message with a distinct "action prompt" style — flat/filled card instead of the normal outlined style, to differentiate from a normal session.
-- Injects `hiddenContext` into the system prompt.
 - Triggers `sendMessage` to start the agent.
 - Logs both `visiblePrompt` and `hiddenContext` to the session recorder (trace).
 
 **On `session-cleared`:**
 
 - Appends an info message in the chat, e.g. "This assistance session has ended because you navigated away from the action."
+
+**Message listener:** Adds `window.addEventListener('message', handler)` on mount (cleaned up on unmount) to receive parent-to-iframe messages. The handler checks `event.data.type` for `'start-session'` and `'session-cleared'`.
 
 ### Visual differentiation
 
@@ -89,14 +94,14 @@ Action-initiated sessions are visually distinct from normal sessions:
 ### Session lifecycle
 
 1. User clicks `DfAgentChatAction` on a page.
-2. Drawer opens (iframe created if needed).
+2. Drawer opens (iframe created if needed). If iframe is being created, `ready` is reset to `false`.
 3. Button waits for `ready` state (shows loading).
-4. `start-session` message sent to iframe.
-5. Chat resets, displays action prompt, starts agent.
-6. Status flows back via existing `agent-status` protocol → reflected on the action button.
+4. `start-session` message sent to iframe via `postMessageToIframe`.
+5. Chat re-creates its `useAgentChat` instance, displays action prompt, starts agent.
+6. Status flows back via existing `agent-status` d-frame protocol → reflected on the action button.
 7. If the user navigates away (button destroyed via `onScopeDispose`):
    - `clearAction` is called.
-   - `session-cleared` sent to iframe → info message displayed.
+   - If iframe is available, `session-cleared` sent → info message displayed.
    - `activeActionId` reset to `null`.
 8. The session in the chat persists (messages remain) but the action button no longer tracks it.
 
@@ -104,22 +109,22 @@ Action-initiated sessions are visually distinct from normal sessions:
 
 Clicking a different action button replaces the current session:
 
-- `openForAction` with a new `actionId` sends a new `start-session`, which clears the previous messages.
+- `openForAction` with a new `actionId` sends a new `start-session`, which triggers a full chat re-creation.
 - `activeActionId` is updated to the new button.
 
 ## File changes
 
 ### Package `lib-vuetify/`
 
-1. **`types.ts`** — New message types: `ReadyMessage`, `StartSessionMessage`, `SessionClearedMessage`. New union type for parent-to-iframe messages.
-2. **`useAgentChatDrawer.ts`** — New state (`ready`, `activeActionId`), new methods (`openForAction`, `clearAction`), handle `ready` message in `onDFrameMessage`.
-3. **`DfAgentChatDrawer.vue`** — Add ref to d-frame element. Expose `postMessage` capability for the composable to send messages to the iframe.
+1. **`types.ts`** — New message types: `ChatReadyMessage`, `StartSessionMessage`, `SessionClearedMessage`. New union type for parent-to-iframe messages.
+2. **`useAgentChatDrawer.ts`** — New state (`ready`, `activeActionId`), new methods (`openForAction`, `clearAction`, `postMessageToIframe`, `registerIframeMessenger`), handle `chat-ready` message in `onDFrameMessage`, reset `ready` on iframe recreation.
+3. **`DfAgentChatDrawer.vue`** — On mount, call `state.registerIframeMessenger()` with a function that posts messages to the iframe's contentWindow. Add handling for the d-frame ref.
 4. **`DfAgentChatAction.vue`** — New component (described above).
 5. **`index.ts`** — Export `DfAgentChatAction` and new types.
 
 ### UI `agents/ui/`
 
-6. **`AgentChat.vue`** — Listen for incoming d-frame messages (`start-session`, `session-cleared`). Emit `ready` on mount. Delay welcome message to prevent flash.
+6. **`AgentChat.vue`** — Add `window.addEventListener('message', ...)` for incoming parent messages (`start-session`, `session-cleared`). Emit `chat-ready` via `dFrameContent.sendMessage()` on mount. Delay welcome message by 200ms. Re-create `useAgentChat` on `start-session`.
 7. **`AgentChatMessages.vue`** — Render action prompts with flat/filled style. Render "session ended" info messages.
 8. **Session recorder** — Log `start-session` content (both visible and hidden) to trace.
 9. **`pages/_dev/chat-action.vue`** — New dev page demonstrating the component.
@@ -133,7 +138,7 @@ Clicking a different action button replaces the current session:
     - Status on the action button reflects agent status.
     - Destroying the action button shows the "session ended" message in the chat.
     - If the iframe wasn't loaded yet, the button shows loading then opens once ready.
-    - The welcome message does not flash when a `start-session` arrives quickly after `ready`.
+    - The welcome message does not flash when a `start-session` arrives quickly after `chat-ready`.
 
 ## Non-goals
 
