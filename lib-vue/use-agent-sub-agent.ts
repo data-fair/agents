@@ -8,6 +8,7 @@ export interface SubAgentOptions {
   description: string
   prompt: string
   tools: string[]
+  model?: string
 }
 
 export function useAgentSubAgent (options: SubAgentOptions) {
@@ -25,7 +26,8 @@ export function useAgentSubAgent (options: SubAgentOptions) {
     execute: async () => {
       return JSON.stringify({
         prompt: options.prompt,
-        tools: options.tools
+        tools: options.tools,
+        model: options.model ?? 'tools'
       })
     }
   } as any)

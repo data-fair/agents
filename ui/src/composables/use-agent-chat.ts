@@ -42,6 +42,7 @@ export interface UseAgentChatOptions {
 interface SubAgentConfig {
   prompt: string
   tools: string[]
+  model?: string
 }
 
 function extractErrorMessage (err: unknown): string {
@@ -239,7 +240,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
     }
 
     const subResult = streamText({
-      model: provider.chat('tools'),
+      model: provider.chat(config.model ?? 'tools'),
       system: config.prompt,
       messages: [{ role: 'user', content: task }],
       tools: Object.keys(subAgentTools).length > 0 ? subAgentTools : undefined,
