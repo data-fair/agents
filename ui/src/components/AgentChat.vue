@@ -165,6 +165,9 @@ const chatResult = useAgentChat({
 if (!chatResult) {
   throw new Error('Chat not supported in SSR')
 }
+// chatResult is guaranteed to be defined after the throw guard above
+// but TypeScript doesn't narrow across script setup scope, so we re-bind
+const chat = chatResult
 
 const actionVisiblePrompt = ref<string | null>(null)
 const sessionClearedMessage = ref<string | null>(null)
@@ -193,35 +196,35 @@ const activeMessages = computed(() => {
   if (activeChatTab.value === 'evaluation' && evaluatorChat) {
     return evaluatorChat.messages.value
   }
-  return chatResult.messages.value
+  return chat.messages.value
 })
 
 const activeStatus = computed(() => {
   if (activeChatTab.value === 'evaluation' && evaluatorChat) {
     return evaluatorChat.status.value
   }
-  return chatResult.status.value
+  return chat.status.value
 })
 
 const activeError = computed(() => {
   if (activeChatTab.value === 'evaluation' && evaluatorChat) {
     return evaluatorChat.error.value
   }
-  return chatResult.error.value
+  return chat.error.value
 })
 
 const activeSendMessage = computed(() => {
   if (activeChatTab.value === 'evaluation' && evaluatorChat) {
     return evaluatorChat.sendMessage
   }
-  return chatResult.sendMessage
+  return chat.sendMessage
 })
 
 const activeAbort = computed(() => {
   if (activeChatTab.value === 'evaluation' && evaluatorChat) {
     return evaluatorChat.abort
   }
-  return chatResult.abort
+  return chat.abort
 })
 
 const messages = computed(() => activeMessages.value)
@@ -236,7 +239,7 @@ const messagesRef = ref<InstanceType<typeof AgentChatMessages> | null>(null)
 const toolsChanged = ref(false)
 let toolsChangedTimeout: ReturnType<typeof setTimeout> | null = null
 
-watch(() => chatResult.toolsVersion.value, () => {
+watch(() => chat.toolsVersion.value, () => {
   toolsChanged.value = true
   if (toolsChangedTimeout) clearTimeout(toolsChangedTimeout)
   toolsChangedTimeout = setTimeout(() => {
@@ -304,23 +307,23 @@ function startActionSession (visiblePrompt: string, hiddenContext: string) {
   sessionClearedMessage.value = null
 
   // Reset the chat with the new system prompt (clears messages and history)
-  chatResult.reset(newSystemPrompt)
+  chat.reset(newSystemPrompt)
 
   // Send the visible prompt — this adds it to messages + history and triggers the LLM
-  chatResult.sendMessage(visiblePrompt)
+  chat.sendMessage(visiblePrompt)
 }
 
 function handleSessionCleared () {
   sessionClearedMessage.value = 'This assistance session has ended because you navigated away from the action.'
 }
 
-watch(() => chatResult.status.value, (status) => {
+watch(() => chat.status.value, (status) => {
   if (status === 'streaming') {
     sendDFrameMessage({ type: 'agent-status', status: 'working' })
   } else if (status === 'error') {
     sendDFrameMessage({ type: 'agent-status', status: 'error' })
   } else if (status === 'ready') {
-    const msgs = chatResult.messages.value
+    const msgs = chat.messages.value
     const lastMsg = msgs[msgs.length - 1]
     if (lastMsg && lastMsg.role === 'assistant') {
       sendDFrameMessage({ type: 'agent-status', status: 'waiting-user' })
@@ -330,12 +333,12 @@ watch(() => chatResult.status.value, (status) => {
   }
 })
 
-watch(() => chatResult.toolsVersion.value, () => {
+watch(() => chat.toolsVersion.value, () => {
   sendDFrameMessage({ type: 'tools-changed' })
 })
 
-watch(() => chatResult.messages.value.length, () => {
-  const msgs = chatResult.messages.value
+watch(() => chat.messages.value.length, () => {
+  const msgs = chat.messages.value
   const lastMsg = msgs[msgs.length - 1]
   if (lastMsg && lastMsg.role === 'assistant') {
     sendDFrameMessage({ type: 'unread', unread: true })
@@ -373,13 +376,13 @@ let lastSummaryToolsVersion = -1
 
 watch(showInfoDialog, async (open) => {
   if (!open) return
-  if (lastSummaryToolsVersion === chatResult.toolsVersion.value && agentSummary.value) return
+  if (lastSummaryToolsVersion === chat.toolsVersion.value && agentSummary.value) return
 
-  lastSummaryToolsVersion = chatResult.toolsVersion.value
+  lastSummaryToolsVersion = chat.toolsVersion.value
   summaryLoading.value = true
 
   try {
-    const toolDescriptions = Object.entries(chatResult.tools.value).map(([name, t]) => {
+    const toolDescriptions = Object.entries(chat.tools.value).map(([name, t]) => {
       return `- ${name}: ${(t as any).description ?? ''}`
     }).join('\n')
 
@@ -406,7 +409,7 @@ watch(showInfoDialog, async (open) => {
 })
 
 const debugTools = computed(() => {
-  return Object.entries(chatResult.tools.value).map(([name, t]) => ({
+  return Object.entries(chat.tools.value).map(([name, t]) => ({
     name,
     title: (t as any).title,
     description: (t as any).description ?? '',
@@ -415,7 +418,7 @@ const debugTools = computed(() => {
 })
 
 const toolTitle = (toolName: string) => {
-  const t = chatResult.tools.value[toolName] as any
+  const t = chat.tools.value[toolName] as any
   return t?.title || toolName
 }
 
@@ -434,9 +437,9 @@ const traceOverview = computed<TraceOverviewEntry[]>(() => {
   // Trigger re-computation when messages change or when a turn completes
   // (status changes to 'ready' after recorder.addStepMessages is called)
   // eslint-disable-next-line no-void
-  void chatResult.messages.value.length
+  void chat.messages.value.length
   // eslint-disable-next-line no-void
-  void chatResult.status.value
+  void chat.status.value
   return recorder.getTraceOverview()
 })
 </script>
