@@ -48,8 +48,10 @@ function createAgentChatDrawer () {
   })
 
   function toggleDrawer () {
-    if (!iframeCreated.value) iframeCreated.value = true
-    ready.value = false
+    if (!iframeCreated.value) {
+      iframeCreated.value = true
+      ready.value = false
+    }
     drawerOpen.value = !drawerOpen.value
     localStorage.setItem(STORAGE_KEY, drawerOpen.value ? '1' : '0')
     hasUnread.value = false
