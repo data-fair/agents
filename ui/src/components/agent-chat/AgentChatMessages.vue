@@ -25,9 +25,10 @@
         class="d-flex justify-end"
       >
         <v-card
-          class="pa-3 text-body-2 rounded-xl bg-surface"
+          class="pa-3 text-body-2 rounded-xl"
+          :class="{ 'bg-surface': !isActionPrompt(message, index) }"
           color="secondary"
-          variant="outlined"
+          :variant="isActionPrompt(message, index) ? 'flat' : 'outlined'"
         >
           {{ message.content }}
         </v-card>
@@ -157,6 +158,20 @@
         {{ chatError }}
       </v-alert>
     </div>
+
+    <!-- Session cleared info -->
+    <div
+      v-if="sessionClearedMessage"
+      class="px-4 py-2"
+    >
+      <v-alert
+        type="info"
+        density="compact"
+        variant="tonal"
+      >
+        {{ sessionClearedMessage }}
+      </v-alert>
+    </div>
   </div>
 </template>
 
@@ -176,13 +191,19 @@ import { mdiCheck, mdiLoading } from '@mdi/js'
 import { renderMarkdown } from '~/utils/markdown'
 import type { ChatMessage } from '~/composables/use-agent-chat'
 
-defineProps<{
+const props = defineProps<{
   messages: ChatMessage[]
   isStreaming: boolean
   chatError: string | null
   welcomeText: string
   toolTitle: (toolName: string) => string
+  actionVisiblePrompt: string | null
+  sessionClearedMessage: string | null
 }>()
+
+const isActionPrompt = (message: ChatMessage, index: number) => {
+  return index === 0 && message.role === 'user' && props.actionVisiblePrompt === message.content
+}
 
 const { t } = useI18n()
 
