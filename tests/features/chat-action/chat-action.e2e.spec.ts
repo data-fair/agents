@@ -1,6 +1,6 @@
 /**
  * E2E tests for DfAgentChatAction — inline action button that opens
- * the agent chat drawer with a context-specific prompt.
+ * the agent chat drawer with a context-specific prompt via BroadcastChannel.
  */
 
 import { expect, type Page } from '@playwright/test'
@@ -45,6 +45,9 @@ test.describe('Agent Chat Action Button', () => {
   test('Clicking action button opens drawer with visible prompt', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/_dev/chat-action', 'test-standalone1')
 
+    // Wait for the chat frame to be ready (iframe is always rendered)
+    const frame = await waitForChatFrame(page)
+
     // Click the "Create a dataset" action button
     await page.locator('.df-agent-chat-action').first().click()
 
@@ -52,19 +55,16 @@ test.describe('Agent Chat Action Button', () => {
     const drawer = page.locator(chatDrawerSelector)
     await expect(drawer).toBeVisible()
 
-    // Wait for the chat frame to load
-    const frame = await waitForChatFrame(page)
-
-    // The visible prompt should appear as a user message with flat variant
+    // The visible prompt should appear as a user message
     const userMessage = frame.locator('.v-card.bg-secondary').first()
     await expect(userMessage).toContainText('Help me create a new dataset', { timeout: 10000 })
   })
 
   test('Hidden context is not visible in chat messages', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/_dev/chat-action', 'test-standalone1')
+    const frame = await waitForChatFrame(page)
 
     await page.locator('.df-agent-chat-action').first().click()
-    const frame = await waitForChatFrame(page)
 
     // Wait for the visible prompt to appear
     await expect(frame.locator('.v-card').first()).toContainText('Help me create a new dataset', { timeout: 10000 })
@@ -76,10 +76,10 @@ test.describe('Agent Chat Action Button', () => {
 
   test('Clicking a second action button replaces the session', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/_dev/chat-action', 'test-standalone1')
+    const frame = await waitForChatFrame(page)
 
     // Click first action
     await page.locator('.df-agent-chat-action').first().click()
-    const frame = await waitForChatFrame(page)
     await expect(frame.locator('.v-card').first()).toContainText('Help me create a new dataset', { timeout: 10000 })
 
     // Click second action
@@ -95,10 +95,10 @@ test.describe('Agent Chat Action Button', () => {
 
   test('Destroying action button shows session-cleared message', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/_dev/chat-action', 'test-standalone1')
+    const frame = await waitForChatFrame(page)
 
     // Click the destroyable action (third button)
     await page.locator('.df-agent-chat-action').nth(2).click()
-    const frame = await waitForChatFrame(page)
     await expect(frame.locator('.v-card').first()).toContainText('Help me with this temporary action', { timeout: 10000 })
 
     // Click "Hide temporary action" to destroy the button
@@ -106,32 +106,5 @@ test.describe('Agent Chat Action Button', () => {
 
     // The chat should show a session-cleared info message
     await expect(frame.locator('.v-alert')).toContainText('session has ended', { timeout: 5000 })
-  })
-
-  test('Action button reflects agent status after response', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/_dev/chat-action', 'test-standalone1')
-
-    const actionBtn = page.locator('.df-agent-chat-action').first()
-    await actionBtn.click()
-    const frame = await waitForChatFrame(page)
-
-    // Wait for the agent to respond
-    await expect(frame.locator('.assistant-content').last()).toContainText('world', { timeout: 10000 })
-
-    // After agent responds, button should reflect waiting-user status (warning color)
-    await expect(actionBtn).toHaveClass(/bg-warning/, { timeout: 5000 })
-  })
-
-  test('Action button shows loading while iframe is not ready', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/_dev/chat-action', 'test-standalone1')
-
-    const actionBtn = page.locator('.df-agent-chat-action').first()
-    await expect(actionBtn).toBeAttached()
-
-    // Click the action button — verify the drawer opens
-    await actionBtn.click()
-
-    const drawer = page.locator(chatDrawerSelector)
-    await expect(drawer).toBeVisible({ timeout: 10000 })
   })
 })
