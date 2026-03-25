@@ -298,7 +298,6 @@ actionChannel.onmessage = (event: MessageEvent) => {
 // (handles case where the BroadcastChannel message was sent before this iframe loaded)
 const pendingAction = sessionStorage.getItem('df-agent-pending-action')
 if (pendingAction) {
-  sessionStorage.removeItem('df-agent-pending-action')
   try {
     const data = JSON.parse(pendingAction)
     if (data.type === 'agent-start-session' && data.visiblePrompt) {
@@ -317,6 +316,7 @@ onUnmounted(() => {
 })
 
 function startActionSession (visiblePrompt: string, hiddenContext: string) {
+  sessionStorage.removeItem('df-agent-pending-action')
   const newSystemPrompt = finalSystemPrompt.value + '\n\n' + hiddenContext
 
   if (recorder) {
