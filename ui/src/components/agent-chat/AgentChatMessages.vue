@@ -210,6 +210,8 @@ const { t } = useI18n()
 const messagesContainer = ref<HTMLElement | null>(null)
 
 const subAgentTitle = (toolName: string) => {
+  const title = props.toolTitle(toolName)
+  if (title !== toolName) return title
   const name = toolName.replace(/^subagent_/, '')
   return name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }

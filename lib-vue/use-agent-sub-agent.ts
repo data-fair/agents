@@ -5,6 +5,7 @@ const debug = Debug('df-agents:use-agent-sub-agent')
 
 export interface SubAgentOptions {
   name: string
+  title?: string
   description: string
   prompt: string
   tools: string[]
@@ -16,6 +17,7 @@ export function useAgentSubAgent (options: SubAgentOptions) {
   useAgentTool({
     name: `subagent_${options.name}`,
     description: options.description,
+    annotations: options.title ? { title: options.title } : undefined,
     inputSchema: {
       type: 'object',
       properties: {

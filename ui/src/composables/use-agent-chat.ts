@@ -189,7 +189,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
           })
         subAgentEntries.push({
           name,
-          displayName: name.replace(/^subagent_/, ''),
+          displayName: (t as any).title || name.replace(/^subagent_/, ''),
           description: (t as any).description ?? '',
           tools: childTools
         })
