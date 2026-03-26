@@ -133,6 +133,7 @@
     </div>
 
     <!-- Loading indicator -->
+    <!--
     <div
       v-if="isStreaming"
       class="px-4 py-2"
@@ -144,6 +145,7 @@
         class="mb-0"
       />
     </div>
+    -->
 
     <!-- Error -->
     <div

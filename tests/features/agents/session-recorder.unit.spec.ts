@@ -149,10 +149,12 @@ test.describe('SessionRecorder - overview and entry accessors', () => {
     const recorder = buildRecorderWithTrace()
     const overview = recorder.getTraceOverview()
 
-    assert.ok(overview.length >= 3)
-    assert.equal(overview[0].type, 'user-message')
-    assert.ok(overview[0].label.includes('user message'))
-    assert.ok(overview[0].preview.includes('hello'))
+    assert.ok(overview.length >= 4)
+    assert.equal(overview[0].type, 'system-prompt')
+    assert.ok(overview[0].label.includes('system prompt'))
+    assert.equal(overview[1].type, 'user-message')
+    assert.ok(overview[1].label.includes('user message'))
+    assert.ok(overview[1].preview.includes('hello'))
 
     const toolCall = overview.find(e => e.type === 'tool-call')
     assert.ok(toolCall)
@@ -165,7 +167,8 @@ test.describe('SessionRecorder - overview and entry accessors', () => {
   test('getTraceEntry returns full detail for an index', () => {
     const recorder = buildRecorderWithTrace()
     const overview = recorder.getTraceOverview()
-    const entry = recorder.getTraceEntry(overview[0].index)
+    const userEntry = overview.find(e => e.type === 'user-message')!
+    const entry = recorder.getTraceEntry(userEntry.index)
 
     assert.ok(entry)
     assert.equal(entry.type, 'user-message')
@@ -216,7 +219,7 @@ test.describe('Evaluator tools', () => {
     const tools = buildEvaluatorTools(recorder)
     const result = await (tools.getTraceEntry as any).execute({ index: 0 })
     assert.ok(typeof result === 'string')
-    assert.ok(result.includes('hello'))
+    assert.ok(result.includes('You are helpful'))
   })
 
   test('getSessionConfig tool returns system prompt and tools', async () => {
