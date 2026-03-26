@@ -49,21 +49,23 @@
               <v-expansion-panels
                 v-if="debugToolsPartition.mainTools.length"
                 variant="accordion"
-                class="mt-2"
+                density="compact"
+                class="mt-1 agent-chat__tools-panels"
               >
                 <v-expansion-panel
                   v-for="dtool in debugToolsPartition.mainTools"
                   :key="dtool.name"
+                  density="compact"
                 >
-                  <v-expansion-panel-title class="text-body-2">
+                  <v-expansion-panel-title class="text-caption py-0">
                     <span class="font-weight-medium">{{ dtool.title || dtool.name }}</span>
                     <span
                       v-if="dtool.title"
-                      class="text-medium-emphasis ml-2"
+                      class="text-medium-emphasis ml-1"
                     >{{ dtool.name }}</span>
                   </v-expansion-panel-title>
                   <v-expansion-panel-text>
-                    <p class="text-body-2 mb-2">
+                    <p class="text-caption mb-1">
                       {{ dtool.description }}
                     </p>
                     <p class="text-caption text-medium-emphasis mb-1">
@@ -78,30 +80,35 @@
                 v-for="sa in debugToolsPartition.subAgents"
                 :key="sa.name"
               >
-                <div class="text-subtitle-2 font-weight-bold mt-4 mb-1 px-2">
+                <div class="text-caption font-weight-bold mt-3 mb-1 px-2">
                   {{ sa.displayName }}
-                  <span class="text-medium-emphasis text-caption ml-1">({{ sa.tools.length }} {{ t('tools').toLowerCase() }})</span>
+                  <span class="text-medium-emphasis ml-1">({{ sa.tools.length }} {{ t('tools').toLowerCase() }})</span>
                 </div>
                 <p
                   v-if="sa.description"
-                  class="text-body-2 text-medium-emphasis px-2 mb-1"
+                  class="text-caption text-medium-emphasis px-2 mb-1"
                 >
                   {{ sa.description }}
                 </p>
-                <v-expansion-panels variant="accordion">
+                <v-expansion-panels
+                  variant="accordion"
+                  density="compact"
+                  class="agent-chat__tools-panels"
+                >
                   <v-expansion-panel
                     v-for="dtool in sa.tools"
                     :key="dtool.name"
+                    density="compact"
                   >
-                    <v-expansion-panel-title class="text-body-2">
+                    <v-expansion-panel-title class="text-caption py-0">
                       <span class="font-weight-medium">{{ dtool.title || dtool.name }}</span>
                       <span
                         v-if="dtool.title"
-                        class="text-medium-emphasis ml-2"
+                        class="text-medium-emphasis ml-1"
                       >{{ dtool.name }}</span>
                     </v-expansion-panel-title>
                     <v-expansion-panel-text>
-                      <p class="text-body-2 mb-2">
+                      <p class="text-caption mb-1">
                         {{ dtool.description }}
                       </p>
                       <p class="text-caption text-medium-emphasis mb-1">
@@ -150,31 +157,35 @@
               <v-expansion-panels
                 v-else
                 variant="accordion"
-                class="mt-2"
+                density="compact"
+                class="mt-1 agent-chat__trace-panels"
                 @update:model-value="onTraceExpand"
               >
                 <v-expansion-panel
                   v-for="entry in traceOverview"
                   :key="entry.index"
                   :value="entry.index"
+                  density="compact"
                 >
-                  <v-expansion-panel-title class="text-body-2 py-1">
+                  <v-expansion-panel-title class="text-caption py-0">
                     <v-chip
                       size="x-small"
                       :color="traceEntryColor(entry.type)"
                       variant="tonal"
-                      class="mr-2"
+                      label
+                      class="mr-1"
+                      style="font-size: 0.65rem;"
                     >
                       {{ entry.type }}
                     </v-chip>
                     <span class="font-weight-medium text-truncate">{{ entry.label }}</span>
                     <v-spacer />
-                    <span class="text-caption text-medium-emphasis ml-2">
+                    <span class="text-caption text-medium-emphasis ml-1" style="white-space: nowrap;">
                       {{ formatTraceTime(entry.timestamp) }}
                     </span>
                   </v-expansion-panel-title>
                   <v-expansion-panel-text>
-                    <div class="text-body-2 text-medium-emphasis mb-1">
+                    <div class="text-caption text-medium-emphasis mb-1">
                       {{ entry.preview }}
                     </div>
                     <pre
@@ -303,5 +314,15 @@ const stopTracing = () => {
   max-height: 300px;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.agent-chat__trace-panels :deep(.v-expansion-panel-title),
+.agent-chat__tools-panels :deep(.v-expansion-panel-title) {
+  min-height: 28px;
+}
+
+.agent-chat__trace-panels :deep(.v-expansion-panel-text__wrapper),
+.agent-chat__tools-panels :deep(.v-expansion-panel-text__wrapper) {
+  padding: 4px 12px 8px;
 }
 </style>
