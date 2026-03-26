@@ -61,7 +61,7 @@
     <agent-chat-debug-dialog
       v-model="showDebugDialog"
       :system-prompt="finalSystemPrompt"
-      :debug-tools="debugTools"
+      :debug-tools-partition="debugToolsPartition"
       :tracing-enabled="tracingEnabled"
       :trace-overview="traceOverview"
       :recorder="recorder"
@@ -428,14 +428,7 @@ watch(showInfoDialog, async (open) => {
   }
 })
 
-const debugTools = computed(() => {
-  return Object.entries(chat.tools.value).map(([name, t]) => ({
-    name,
-    title: (t as any).title,
-    description: (t as any).description ?? '',
-    inputSchema: (t as any).inputSchema?.jsonSchema ?? {}
-  }))
-})
+const debugToolsPartition = computed(() => chat.resolvedPartition.value)
 
 const toolTitle = (toolName: string) => {
   const t = chat.tools.value[toolName] as any

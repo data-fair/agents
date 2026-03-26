@@ -33,11 +33,15 @@ const settingsData = {
  * Open the debug dialog's Tools tab and wait for a specific tool to appear.
  * Returns a locator scoped to the debug dialog's expansion panels.
  */
-async function waitForToolsReady (page: import('@playwright/test').Page, toolName: string) {
+async function waitForToolsReady (page: import('@playwright/test').Page, toolName: string, locateAsText = false) {
   await page.getByRole('button', { name: /Debug|Débogage/ }).click()
   await page.getByRole('tab', { name: /Outils|Tools/ }).click()
-  const debugPanels = page.locator('.v-dialog .v-expansion-panels')
-  await expect(debugPanels.getByRole('button', { name: toolName })).toBeVisible({ timeout: 5000 })
+  const debugContent = page.locator('.v-dialog .v-window-item--active')
+  if (locateAsText) {
+    await expect(debugContent.getByText(toolName)).toBeVisible({ timeout: 5000 })
+  } else {
+    await expect(debugContent.getByRole('button', { name: toolName })).toBeVisible({ timeout: 5000 })
+  }
   await page.getByRole('button', { name: /Close|Fermer/ }).click()
 }
 
@@ -60,12 +64,13 @@ test.describe('Chat Sub-Agent UI', () => {
     await page.getByRole('button', { name: /Debug|Débogage/ }).click()
     await page.getByRole('tab', { name: /Outils|Tools/ }).click()
 
-    // All four tools + sub-agent should appear in the debug dialog's expansion panels
-    const debugPanels = page.locator('.v-dialog .v-expansion-panels')
-    await expect(debugPanels.getByRole('button', { name: 'get_schema' })).toBeVisible({ timeout: 5000 })
-    await expect(debugPanels.getByRole('button', { name: 'query_data' })).toBeVisible()
-    await expect(debugPanels.getByRole('button', { name: 'set_display' })).toBeVisible()
-    await expect(debugPanels.getByRole('button', { name: 'subagent_data_analyst' })).toBeVisible()
+    // All tools + sub-agent should appear in the debug dialog
+    const debugContent = page.locator('.v-dialog .v-window-item--active')
+    await expect(debugContent.getByRole('button', { name: 'set_display' })).toBeVisible({ timeout: 5000 })
+    // Sub-agent is displayed as a labeled group, not a button
+    await expect(debugContent.getByText('data_analyst (2 tools)')).toBeVisible()
+    await expect(debugContent.getByRole('button', { name: 'get_schema' })).toBeVisible()
+    await expect(debugContent.getByRole('button', { name: 'query_data' })).toBeVisible()
   })
 
   test('Main agent can call set_display tool', async ({ page, goToWithAuth }) => {
@@ -82,7 +87,7 @@ test.describe('Chat Sub-Agent UI', () => {
 
   test('Main agent can delegate to sub-agent', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
-    await waitForToolsReady(page, 'subagent_data_analyst')
+    await waitForToolsReady(page, 'data_analyst (2 tools)', true)
 
     // Ask the mock model to call the sub-agent
     // The sub-agent receives "hello" as task → mock responds "world"
@@ -95,7 +100,7 @@ test.describe('Chat Sub-Agent UI', () => {
 
   test('Sub-agent can use reserved tools', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
-    await waitForToolsReady(page, 'subagent_data_analyst')
+    await waitForToolsReady(page, 'data_analyst (2 tools)', true)
 
     // Ask the mock model to call the sub-agent with a task that triggers a tool call
     // The sub-agent mock receives "call tool get_schema {}" → calls get_schema

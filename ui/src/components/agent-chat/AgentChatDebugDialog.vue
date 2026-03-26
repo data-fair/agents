@@ -26,7 +26,7 @@
             {{ t('systemPrompt') }}
           </v-tab>
           <v-tab value="tools">
-            {{ t('tools') }} ({{ debugTools.length }})
+            {{ t('tools') }} ({{ totalToolCount }})
           </v-tab>
           <v-tab value="trace">
             {{ t('trace') }}
@@ -40,38 +40,79 @@
 
           <v-window-item value="tools">
             <div
-              v-if="!debugTools.length"
+              v-if="!totalToolCount"
               class="text-center text-medium-emphasis pa-4"
             >
               {{ t('noTools') }}
             </div>
-            <v-expansion-panels
-              v-else
-              variant="accordion"
-              class="mt-2"
-            >
-              <v-expansion-panel
-                v-for="dtool in debugTools"
-                :key="dtool.name"
+            <template v-else>
+              <v-expansion-panels
+                v-if="debugToolsPartition.mainTools.length"
+                variant="accordion"
+                class="mt-2"
               >
-                <v-expansion-panel-title class="text-body-2">
-                  <span class="font-weight-medium">{{ dtool.title || dtool.name }}</span>
-                  <span
-                    v-if="dtool.title"
-                    class="text-medium-emphasis ml-2"
-                  >{{ dtool.name }}</span>
-                </v-expansion-panel-title>
-                <v-expansion-panel-text>
-                  <p class="text-body-2 mb-2">
-                    {{ dtool.description }}
-                  </p>
-                  <p class="text-caption text-medium-emphasis mb-1">
-                    {{ t('inputSchema') }}:
-                  </p>
-                  <pre class="agent-chat__pre pa-2">{{ JSON.stringify(dtool.inputSchema, null, 2) }}</pre>
-                </v-expansion-panel-text>
-              </v-expansion-panel>
-            </v-expansion-panels>
+                <v-expansion-panel
+                  v-for="dtool in debugToolsPartition.mainTools"
+                  :key="dtool.name"
+                >
+                  <v-expansion-panel-title class="text-body-2">
+                    <span class="font-weight-medium">{{ dtool.title || dtool.name }}</span>
+                    <span
+                      v-if="dtool.title"
+                      class="text-medium-emphasis ml-2"
+                    >{{ dtool.name }}</span>
+                  </v-expansion-panel-title>
+                  <v-expansion-panel-text>
+                    <p class="text-body-2 mb-2">
+                      {{ dtool.description }}
+                    </p>
+                    <p class="text-caption text-medium-emphasis mb-1">
+                      {{ t('inputSchema') }}:
+                    </p>
+                    <pre class="agent-chat__pre pa-2">{{ JSON.stringify(dtool.inputSchema, null, 2) }}</pre>
+                  </v-expansion-panel-text>
+                </v-expansion-panel>
+              </v-expansion-panels>
+
+              <template
+                v-for="sa in debugToolsPartition.subAgents"
+                :key="sa.name"
+              >
+                <div class="text-subtitle-2 font-weight-bold mt-4 mb-1 px-2">
+                  {{ sa.displayName }}
+                  <span class="text-medium-emphasis text-caption ml-1">({{ sa.tools.length }} {{ t('tools').toLowerCase() }})</span>
+                </div>
+                <p
+                  v-if="sa.description"
+                  class="text-body-2 text-medium-emphasis px-2 mb-1"
+                >
+                  {{ sa.description }}
+                </p>
+                <v-expansion-panels variant="accordion">
+                  <v-expansion-panel
+                    v-for="dtool in sa.tools"
+                    :key="dtool.name"
+                  >
+                    <v-expansion-panel-title class="text-body-2">
+                      <span class="font-weight-medium">{{ dtool.title || dtool.name }}</span>
+                      <span
+                        v-if="dtool.title"
+                        class="text-medium-emphasis ml-2"
+                      >{{ dtool.name }}</span>
+                    </v-expansion-panel-title>
+                    <v-expansion-panel-text>
+                      <p class="text-body-2 mb-2">
+                        {{ dtool.description }}
+                      </p>
+                      <p class="text-caption text-medium-emphasis mb-1">
+                        {{ t('inputSchema') }}:
+                      </p>
+                      <pre class="agent-chat__pre pa-2">{{ JSON.stringify(dtool.inputSchema, null, 2) }}</pre>
+                    </v-expansion-panel-text>
+                  </v-expansion-panel>
+                </v-expansion-panels>
+              </template>
+            </template>
           </v-window-item>
 
           <v-window-item value="trace">
@@ -177,15 +218,16 @@ en:
 </i18n>
 
 <script lang="ts" setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { mdiClose } from '@mdi/js'
 import type { TraceOverviewEntry, TraceEntryDetail, SessionRecorder } from '~/traces/session-recorder'
+import type { DebugToolsPartition } from '~/composables/use-agent-chat'
 
 const props = defineProps<{
   modelValue: boolean
   systemPrompt: string
-  debugTools: Array<{ name: string; title?: string; description: string; inputSchema: Record<string, any> }>
+  debugToolsPartition: DebugToolsPartition
   tracingEnabled: boolean
   traceOverview: TraceOverviewEntry[]
   recorder?: SessionRecorder
@@ -198,6 +240,10 @@ defineEmits<{
 const { t } = useI18n()
 
 const activeDebugTab = ref('systemPrompt')
+const totalToolCount = computed(() => {
+  const p = props.debugToolsPartition
+  return p.mainTools.length + p.subAgents.reduce((sum, sa) => sum + sa.tools.length, 0)
+})
 const traceEntryDetails = ref<Record<number, TraceEntryDetail>>({})
 
 const loadTraceEntry = (index: number) => {

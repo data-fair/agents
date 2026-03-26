@@ -1,4 +1,4 @@
-import { ref, onScopeDispose } from 'vue'
+import { ref, watch, onScopeDispose } from 'vue'
 import { streamText, stepCountIs, tool, jsonSchema } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import type { ModelMessage, Tool } from 'ai'
@@ -26,6 +26,18 @@ export interface ToolInfo {
   title?: string
   description: string
   inputSchema: Record<string, any>
+}
+
+export interface SubAgentInfo {
+  name: string
+  displayName: string
+  description: string
+  tools: ToolInfo[]
+}
+
+export interface DebugToolsPartition {
+  mainTools: ToolInfo[]
+  subAgents: SubAgentInfo[]
 }
 
 export interface UseAgentChatOptions {
@@ -141,6 +153,67 @@ export function useAgentChat (options: UseAgentChatOptions) {
     })
     aggregator.start()
   }
+
+  const resolvedPartition = ref<DebugToolsPartition>({ mainTools: [], subAgents: [] })
+  let resolveGeneration = 0
+
+  async function resolveToolsPartition () {
+    const gen = ++resolveGeneration
+    const allTools = tools.value
+    const subAgentEntries: SubAgentInfo[] = []
+    const reservedNames = new Set<string>()
+
+    for (const [name, t] of Object.entries(allTools)) {
+      if (!name.startsWith('subagent_')) continue
+      const executeFn = (t as any).execute
+      if (!executeFn) continue
+      try {
+        const raw = await executeFn({ task: '' })
+        if (gen !== resolveGeneration) return
+        let configStr: string
+        if (typeof raw === 'string') configStr = raw
+        else if (raw?.content?.[0]?.text) configStr = raw.content[0].text
+        else continue
+        const config: SubAgentConfig = JSON.parse(configStr)
+        for (const tn of config.tools) reservedNames.add(tn)
+        const childTools: ToolInfo[] = config.tools
+          .filter(tn => allTools[tn])
+          .map(tn => {
+            const ct = allTools[tn] as any
+            return {
+              name: tn,
+              title: ct.title,
+              description: ct.description ?? '',
+              inputSchema: ct.inputSchema?.jsonSchema ?? {}
+            }
+          })
+        subAgentEntries.push({
+          name,
+          displayName: name.replace(/^subagent_/, ''),
+          description: (t as any).description ?? '',
+          tools: childTools
+        })
+      } catch { /* skip broken subagents */ }
+    }
+
+    if (gen !== resolveGeneration) return
+
+    const main: ToolInfo[] = []
+    for (const [name, t] of Object.entries(allTools)) {
+      if (name.startsWith('subagent_')) continue
+      if (reservedNames.has(name)) continue
+      main.push({
+        name,
+        title: (t as any).title,
+        description: (t as any).description ?? '',
+        inputSchema: (t as any).inputSchema?.jsonSchema ?? {}
+      })
+    }
+
+    resolvedPartition.value = { mainTools: main, subAgents: subAgentEntries }
+  }
+
+  watch(() => toolsVersion.value, () => { resolveToolsPartition() }, { immediate: true })
 
   const provider = createOpenAI({
     baseURL: `${window.location.origin}${$apiPath}/gateway/${options.accountType}/${options.accountId}/v1`,
@@ -463,7 +536,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
     }
   }
 
-  return { messages, status, error, tools, toolsVersion, sendMessage, abort, reset }
+  return { messages, status, error, tools, toolsVersion, resolvedPartition, sendMessage, abort, reset }
 }
 
 export default useAgentChat
