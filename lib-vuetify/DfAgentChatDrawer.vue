@@ -21,7 +21,6 @@
 <script lang="ts" setup>
 import { computed } from 'vue'
 import { VNavigationDrawer } from 'vuetify/components/VNavigationDrawer'
-import { useDisplay } from 'vuetify'
 import('@data-fair/frame/lib/d-frame.js')
 import { useAgentChatDrawer } from './useAgentChatDrawer.js'
 
@@ -39,8 +38,6 @@ const props = withDefaults(defineProps<{
 })
 
 const state = useAgentChatDrawer()
-
-const { name: breakpoint } = useDisplay()
 
 const resolvedSrc = computed(() => {
   if (props.src) return props.src
