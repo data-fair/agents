@@ -1,19 +1,14 @@
 <template>
   <v-btn
-    :icon="mdiRobotOutline"
-    color="secondary"
     :data-action-id="actionId"
     class="df-agent-chat-action"
     v-bind="btnProps"
-    variant="flat"
-    :title="title"
-    size="small"
     @click="handleClick"
   />
 </template>
 
 <script lang="ts" setup>
-import { onMounted, onScopeDispose } from 'vue'
+import { computed, onMounted, onScopeDispose } from 'vue'
 import { VBtn } from 'vuetify/components/VBtn'
 import { mdiRobotOutline } from '@mdi/js'
 import { getTabChannelId } from '@data-fair/lib-vue-agents'
@@ -31,6 +26,16 @@ const props = withDefaults(defineProps<{
   title: 'Ask the assistant',
   btnProps: () => ({}) as BtnProps
 })
+
+const btnProps = computed(() => ({
+  variant: 'flat' as const,
+  color: 'secondary',
+  title: props.title,
+  size: 'small',
+  density: 'comfortable' as const,
+  icon: mdiRobotOutline,
+  ...props.btnProps
+}))
 
 let bc: BroadcastChannel | null = null
 let channelId: string
