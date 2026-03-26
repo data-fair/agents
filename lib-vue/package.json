@@ -1,6 +1,6 @@
 {
   "name": "@data-fair/lib-vue-agents",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Vue composables for exposing MCP tools via in-browser BroadcastChannel.",
   "main": "index.js",
   "type": "module",

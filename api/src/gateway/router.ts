@@ -192,78 +192,87 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
         choices: [{ index: 0, delta: { role: 'assistant', content: '' }, finish_reason: null }]
       })}\n\n`)
 
-      for await (const part of result.fullStream) {
-        if (part.type === 'text-delta') {
-          res.write(`data: ${JSON.stringify({
-            id: completionId,
-            object: 'chat.completion.chunk',
-            created,
-            model: modelId,
-            choices: [{ index: 0, delta: { content: part.text }, finish_reason: null }]
-          })}\n\n`)
-        } else if (part.type === 'tool-input-start') {
-          res.write(`data: ${JSON.stringify({
-            id: completionId,
-            object: 'chat.completion.chunk',
-            created,
-            model: modelId,
-            choices: [{
-              index: 0,
-              delta: {
-                tool_calls: [{
-                  index: 0,
-                  id: part.id,
-                  type: 'function',
-                  function: { name: part.toolName, arguments: '' }
-                }]
-              },
-              finish_reason: null
-            }]
-          })}\n\n`)
-        } else if (part.type === 'tool-input-delta') {
-          res.write(`data: ${JSON.stringify({
-            id: completionId,
-            object: 'chat.completion.chunk',
-            created,
-            model: modelId,
-            choices: [{
-              index: 0,
-              delta: {
-                tool_calls: [{
-                  index: 0,
-                  function: { arguments: part.delta }
-                }]
-              },
-              finish_reason: null
-            }]
-          })}\n\n`)
-        } else if (part.type === 'finish') {
-          // Record usage for streaming responses (apply ratio for quota accounting)
-          const inputTokens = Math.round((part.totalUsage?.inputTokens ?? 0) * ratio)
-          const outputTokens = Math.round((part.totalUsage?.outputTokens ?? 0) * ratio)
-          if (inputTokens || outputTokens) {
-            await recordUsage(owner, inputTokens, outputTokens, usageUserId)
+      try {
+        for await (const part of result.fullStream) {
+          if (part.type === 'text-delta') {
+            res.write(`data: ${JSON.stringify({
+              id: completionId,
+              object: 'chat.completion.chunk',
+              created,
+              model: modelId,
+              choices: [{ index: 0, delta: { content: part.text }, finish_reason: null }]
+            })}\n\n`)
+          } else if (part.type === 'tool-input-start') {
+            res.write(`data: ${JSON.stringify({
+              id: completionId,
+              object: 'chat.completion.chunk',
+              created,
+              model: modelId,
+              choices: [{
+                index: 0,
+                delta: {
+                  tool_calls: [{
+                    index: 0,
+                    id: part.id,
+                    type: 'function',
+                    function: { name: part.toolName, arguments: '' }
+                  }]
+                },
+                finish_reason: null
+              }]
+            })}\n\n`)
+          } else if (part.type === 'tool-input-delta') {
+            res.write(`data: ${JSON.stringify({
+              id: completionId,
+              object: 'chat.completion.chunk',
+              created,
+              model: modelId,
+              choices: [{
+                index: 0,
+                delta: {
+                  tool_calls: [{
+                    index: 0,
+                    function: { arguments: part.delta }
+                  }]
+                },
+                finish_reason: null
+              }]
+            })}\n\n`)
+          } else if (part.type === 'finish') {
+            // Record usage for streaming responses (apply ratio for quota accounting)
+            const inputTokens = Math.round((part.totalUsage?.inputTokens ?? 0) * ratio)
+            const outputTokens = Math.round((part.totalUsage?.outputTokens ?? 0) * ratio)
+            if (inputTokens || outputTokens) {
+              await recordUsage(owner, inputTokens, outputTokens, usageUserId)
+            }
+
+            res.write(`data: ${JSON.stringify({
+              id: completionId,
+              object: 'chat.completion.chunk',
+              created,
+              model: modelId,
+              choices: [{ index: 0, delta: {}, finish_reason: mapFinishReason(part.finishReason as FinishReason) }],
+              usage: part.totalUsage
+                ? {
+                    prompt_tokens: part.totalUsage.inputTokens ?? 0,
+                    completion_tokens: part.totalUsage.outputTokens ?? 0,
+                    total_tokens: (part.totalUsage.inputTokens ?? 0) + (part.totalUsage.outputTokens ?? 0)
+                  }
+                : undefined
+            })}\n\n`)
           }
-
-          res.write(`data: ${JSON.stringify({
-            id: completionId,
-            object: 'chat.completion.chunk',
-            created,
-            model: modelId,
-            choices: [{ index: 0, delta: {}, finish_reason: mapFinishReason(part.finishReason as FinishReason) }],
-            usage: part.totalUsage
-              ? {
-                  prompt_tokens: part.totalUsage.inputTokens ?? 0,
-                  completion_tokens: part.totalUsage.outputTokens ?? 0,
-                  total_tokens: (part.totalUsage.inputTokens ?? 0) + (part.totalUsage.outputTokens ?? 0)
-                }
-              : undefined
-          })}\n\n`)
         }
-      }
 
-      res.write('data: [DONE]\n\n')
-      res.end()
+        res.write('data: [DONE]\n\n')
+        res.end()
+      } catch (streamErr: any) {
+        const message = streamErr?.message || 'Stream error'
+        res.write(`data: ${JSON.stringify({
+          error: { message, type: 'server_error', code: null }
+        })}\n\n`)
+        res.write('data: [DONE]\n\n')
+        res.end()
+      }
     } else {
       const result = await generateText({
         model,
