@@ -5,7 +5,6 @@
     floating
     color="#FFFFFF00"
     app
-    :width="drawerWidth"
     style="z-index: 2500; /* Higher than v-dialog's 2400 */"
     v-bind="drawerProps"
   >
@@ -42,16 +41,6 @@ const props = withDefaults(defineProps<{
 const state = useAgentChatDrawer()
 
 const { name: breakpoint } = useDisplay()
-
-const drawerWidth = computed(() => {
-  switch (breakpoint.value) {
-    case 'xs':
-    case 'sm': return 350
-    case 'md': return undefined
-    case 'lg': return 350
-    default: return 450
-  }
-})
 
 const resolvedSrc = computed(() => {
   if (props.src) return props.src

@@ -263,12 +263,14 @@ const onTraceExpand = (value: unknown) => {
 
 const traceEntryColor = (type: string) => {
   const colors: Record<string, string> = {
+    'system-prompt': 'purple',
     'user-message': 'primary',
     'hidden-context': 'purple',
     'assistant-step': 'success',
     'tool-call': 'warning',
     'tool-result': 'info',
     'sub-agent-start': 'secondary',
+    'sub-agent-system-prompt': 'purple',
     'sub-agent-step': 'secondary',
     'sub-agent-end': 'secondary',
     'tools-changed': 'accent'

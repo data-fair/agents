@@ -54,7 +54,7 @@ export interface SessionTrace {
 
 export interface TraceOverviewEntry {
   index: number
-  type: 'user-message' | 'hidden-context' | 'assistant-step' | 'tool-call' | 'tool-result' | 'sub-agent-start' | 'sub-agent-step' | 'sub-agent-end' | 'tools-changed'
+  type: 'system-prompt' | 'user-message' | 'hidden-context' | 'assistant-step' | 'tool-call' | 'tool-result' | 'sub-agent-start' | 'sub-agent-system-prompt' | 'sub-agent-step' | 'sub-agent-end' | 'tools-changed'
   timestamp: Date
   label: string
   preview: string
@@ -229,6 +229,13 @@ export class SessionRecorder {
       items.push({ overview, detail: content })
     }
 
+    if (this.trace.systemPrompt) {
+      add(
+        { type: 'system-prompt', timestamp: this.trace.turns[0]?.timestamp ?? new Date(), label: 'system prompt', preview: this.trace.systemPrompt.slice(0, 150) },
+        this.trace.systemPrompt
+      )
+    }
+
     for (const turn of this.trace.turns) {
       if (turn.hiddenContext) {
         add(
@@ -249,8 +256,14 @@ export class SessionRecorder {
           if (tc.subAgent) {
             add(
               { type: 'sub-agent-start', timestamp: tc.timestamp, label: `sub-agent: ${tc.subAgent.name}`, preview: (tc.subAgent.task ?? '').slice(0, 150) },
-              { name: tc.subAgent.name, systemPrompt: tc.subAgent.systemPrompt, task: tc.subAgent.task, tools: tc.subAgent.tools }
+              { name: tc.subAgent.name, task: tc.subAgent.task, tools: tc.subAgent.tools }
             )
+            if (tc.subAgent.systemPrompt) {
+              add(
+                { type: 'sub-agent-system-prompt', timestamp: tc.timestamp, label: `system prompt: ${tc.subAgent.name}`, preview: tc.subAgent.systemPrompt.slice(0, 150) },
+                tc.subAgent.systemPrompt
+              )
+            }
             for (const subStep of tc.subAgent.steps) {
               for (const subTc of subStep.toolCalls) {
                 add(
