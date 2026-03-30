@@ -4,9 +4,10 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { axiosAuth, axios, clean, defaultQuotas } from '../../support/axios.ts'
+import { axiosAuth, superAdmin, axios, clean, defaultQuotas } from '../../support/axios.ts'
 
 const user = await axiosAuth('test-standalone1')
+const admin = await superAdmin
 const otherUser = await axiosAuth('test1-user1')
 
 const mockModel = { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' } }
@@ -17,7 +18,7 @@ test.describe('Summary API', () => {
   })
 
   test('should summarize content with default prompt', async () => {
-    await user.put('/api/settings/user/test-standalone1', {
+    await admin.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
       models: { assistant: { model: mockModel } },
       quotas: defaultQuotas
@@ -33,7 +34,7 @@ test.describe('Summary API', () => {
   })
 
   test('should summarize content with custom prompt', async () => {
-    await user.put('/api/settings/user/test-standalone1', {
+    await admin.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
       models: { assistant: { model: mockModel } },
       quotas: defaultQuotas
@@ -58,7 +59,7 @@ test.describe('Summary API', () => {
   test('should use summarizer model when configured', async () => {
     const summarizerModel = { id: 'summary-model', name: 'Summary Model', provider: { type: 'mock', id: 'mock', name: 'Mock' } }
 
-    await user.put('/api/settings/user/test-standalone1', {
+    await admin.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
       models: { assistant: { model: mockModel }, summarizer: { model: summarizerModel } },
       quotas: defaultQuotas
@@ -73,7 +74,7 @@ test.describe('Summary API', () => {
   })
 
   test('should fail when not authenticated', async () => {
-    await user.put('/api/settings/user/test-standalone1', {
+    await admin.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
       models: { assistant: { model: mockModel } },
       quotas: defaultQuotas
@@ -87,7 +88,7 @@ test.describe('Summary API', () => {
   })
 
   test('should fail when other user has no permission', async () => {
-    await user.put('/api/settings/user/test-standalone1', {
+    await admin.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
       models: { assistant: { model: mockModel } },
       quotas: defaultQuotas
@@ -100,7 +101,7 @@ test.describe('Summary API', () => {
   })
 
   test('external user can summarize when external quota is positive', async () => {
-    await user.put('/api/settings/user/test-standalone1', {
+    await admin.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
       models: { assistant: { model: mockModel } },
       quotas: {
@@ -117,7 +118,7 @@ test.describe('Summary API', () => {
   })
 
   test('should fail when content is missing', async () => {
-    await user.put('/api/settings/user/test-standalone1', {
+    await admin.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
       models: { assistant: { model: mockModel } },
       quotas: defaultQuotas
@@ -130,7 +131,7 @@ test.describe('Summary API', () => {
   })
 
   test('should handle empty content', async () => {
-    await user.put('/api/settings/user/test-standalone1', {
+    await admin.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
       models: { assistant: { model: mockModel } },
       quotas: defaultQuotas

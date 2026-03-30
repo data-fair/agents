@@ -484,6 +484,7 @@ export default {
         title: null,
         if: 'parent.data.providers?.length'
       },
+      default: {},
       properties: {
         assistant: {
           type: 'object',

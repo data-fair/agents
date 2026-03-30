@@ -4,7 +4,7 @@
 
 import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
-import { clean, axiosAuth, defaultQuotas } from '../../support/axios.ts'
+import { clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
 
 test.describe('Summary UI', () => {
   test.beforeEach(async () => {
@@ -17,8 +17,8 @@ test.describe('Summary UI', () => {
   })
 
   test('Can submit content and see summary result', async ({ page, goToWithAuth }) => {
-    const user = await axiosAuth('test-standalone1')
-    await user.put('/api/settings/user/test-standalone1', {
+    const admin = await superAdmin
+    await admin.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
       models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' } } } },
       quotas: defaultQuotas
@@ -33,8 +33,8 @@ test.describe('Summary UI', () => {
   })
 
   test('Can use custom prompt', async ({ page, goToWithAuth }) => {
-    const user = await axiosAuth('test-standalone1')
-    await user.put('/api/settings/user/test-standalone1', {
+    const admin = await superAdmin
+    await admin.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
       models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' } } } },
       quotas: defaultQuotas

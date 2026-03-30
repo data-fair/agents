@@ -5,7 +5,7 @@ import { withQuery } from 'ufo'
 const cookieCache = new Map<string, Awaited<ReturnType<import('@playwright/test').BrowserContext['cookies']>>>()
 
 export const test = base.extend<{
-  goToWithAuth: (url: string, user: string) => Promise<void>
+  goToWithAuth: (url: string, user: string, opts?: { adminMode?: boolean }) => Promise<void>
 }>({
       page: async ({ page, context }, use) => {
         await context.addCookies([{
@@ -17,19 +17,22 @@ export const test = base.extend<{
         await use(page)
       },
       goToWithAuth: async ({ page, context }, use) => {
-        await use(async (url: string, user: string) => {
-          const cached = cookieCache.get(user)
+        await use(async (url: string, user: string, opts?: { adminMode?: boolean }) => {
+          const cacheKey = opts?.adminMode ? user + ':adminMode' : user
+          const cached = cookieCache.get(cacheKey)
           if (cached) {
             await context.addCookies(cached)
             await page.goto(url)
           } else {
-            await page.goto(withQuery('/simple-directory/login', { redirect: 'http://localhost:' + process.env.NGINX_PORT + url }))
+            const query: Record<string, string> = { redirect: 'http://localhost:' + process.env.NGINX_PORT + url }
+            if (opts?.adminMode) query.adminMode = 'true'
+            await page.goto(withQuery('/simple-directory/login', query))
             await page.fill('input[name="email"]', user + '@test.com')
             await page.fill('input[name="password"]', 'passwd')
             await page.getByText('login', { exact: true }).click()
             await page.waitForURL(url)
             const cookies = await context.cookies()
-            cookieCache.set(user, cookies)
+            cookieCache.set(cacheKey, cookies)
           }
         })
       },

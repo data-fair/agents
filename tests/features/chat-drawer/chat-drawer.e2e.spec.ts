@@ -5,9 +5,9 @@
 
 import { expect, type Page } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
-import { clean, axiosAuth, defaultQuotas } from '../../support/axios.ts'
+import { clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
 
-const user = await axiosAuth('test-standalone1')
+const admin = await superAdmin
 
 const settingsData = {
   providers: [
@@ -50,7 +50,7 @@ async function waitForChatFrame (page: Page) {
 test.describe('Chat Drawer Integration', () => {
   test.beforeEach(async () => {
     await clean()
-    await user.put('/api/settings/user/test-standalone1', settingsData)
+    await admin.put('/api/settings/user/test-standalone1', settingsData)
   })
 
   test('FAB is visible and opens the drawer', async ({ page, goToWithAuth }) => {

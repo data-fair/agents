@@ -4,7 +4,7 @@
 
 import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
-import { clean, axiosAuth, defaultQuotas } from '../../support/axios.ts'
+import { clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
 
 // E2E block: use full playwright capabilities to test the UI and indirectly the API
 test.describe('Settings UI', () => {
@@ -54,14 +54,14 @@ test.describe('Settings UI', () => {
 
   test('Can save settings with valid form', async ({ page, goToWithAuth }) => {
     // Seed valid settings via API first so form is valid
-    const user = await axiosAuth('test-standalone1')
-    await user.put('/api/settings/user/test-standalone1', {
+    const admin = await superAdmin
+    await admin.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'seed-provider', type: 'mock', name: 'Mock Seed', enabled: true }],
       models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Seed', id: 'seed-provider' } } } },
       quotas: defaultQuotas
     })
 
-    await goToWithAuth('/agents/user/test-standalone1/settings', 'test-standalone1')
+    await goToWithAuth('/agents/user/test-standalone1/settings', 'superadmin', { adminMode: true })
 
     // Wait for page to fully load
     await expect(page.getByText('AI Providers')).toBeVisible()
@@ -86,8 +86,8 @@ test.describe('Settings UI', () => {
 
   test('Can edit chat model with valid initial data', async ({ page, goToWithAuth }) => {
     // Seed valid settings via API
-    const user = await axiosAuth('test-standalone1')
-    await user.put('/api/settings/user/test-standalone1', {
+    const admin = await superAdmin
+    await admin.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'seed-provider', type: 'mock', name: 'Mock Seed', enabled: true }],
       models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Seed', id: 'seed-provider' } } } },
       quotas: defaultQuotas

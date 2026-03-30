@@ -9,9 +9,9 @@
 
 import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
-import { clean, axiosAuth, defaultQuotas } from '../../support/axios.ts'
+import { clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
 
-const user = await axiosAuth('test-standalone1')
+const admin = await superAdmin
 
 const settingsData = {
   providers: [
@@ -48,7 +48,7 @@ async function waitForToolsReady (page: import('@playwright/test').Page, toolNam
 test.describe('Chat Sub-Agent UI', () => {
   test.beforeEach(async () => {
     await clean()
-    await user.put('/api/settings/user/test-standalone1', settingsData)
+    await admin.put('/api/settings/user/test-standalone1', settingsData)
   })
 
   test('Page loads with correct title and UI elements', async ({ page, goToWithAuth }) => {

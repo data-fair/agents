@@ -4,7 +4,7 @@
 
 import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
-import { axiosAuth, clean, defaultQuotas } from '../../support/axios.ts'
+import { superAdmin, clean, defaultQuotas } from '../../support/axios.ts'
 
 test.describe('Usage UI', () => {
   test.beforeEach(async () => {
@@ -12,10 +12,10 @@ test.describe('Usage UI', () => {
   })
 
   test('Shows usage card on settings page', async ({ page, goToWithAuth }) => {
-    const user = await axiosAuth('test-standalone1')
+    const admin = await superAdmin
 
     // Seed settings
-    await user.put('/api/settings/user/test-standalone1', {
+    await admin.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
       models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } } } },
       quotas: defaultQuotas
@@ -30,8 +30,8 @@ test.describe('Usage UI', () => {
   })
 
   test('Shows no usage message when no requests made', async ({ page, goToWithAuth }) => {
-    const user = await axiosAuth('test-standalone1')
-    await user.put('/api/settings/user/test-standalone1', {
+    const admin = await superAdmin
+    await admin.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
       models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } } } },
       quotas: defaultQuotas

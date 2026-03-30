@@ -6,7 +6,7 @@
 
 import mongo from '#mongo'
 import { Router } from 'express'
-import { type AccountKeys, assertAccountRole, reqSessionAuthenticated } from '@data-fair/lib-express'
+import { type AccountKeys, assertAccountRole, reqAdminMode, reqSessionAuthenticated } from '@data-fair/lib-express'
 import eventsLog from '@data-fair/lib-express/events-log.js'
 import * as putReqBody from '#doc/settings/put-req/index.ts'
 import { type Settings } from '#types'
@@ -43,7 +43,7 @@ router.get('/:type/:id', async (req, res, next) => {
 })
 
 router.put('/:type/:id', async (req, res, next) => {
-  const session = reqSessionAuthenticated(req)
+  const session = reqAdminMode(req)
   const owner = req.params as AccountKeys
   assertAccountRole(session, owner, 'admin')
   const body = putReqBody.returnValid(req.body, { name: 'body' })

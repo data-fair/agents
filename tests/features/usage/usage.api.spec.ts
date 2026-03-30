@@ -6,9 +6,10 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { generateText } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
-import { axiosAuth, anonymousAx, clean, directoryUrl } from '../../support/axios.ts'
+import { axiosAuth, superAdmin, anonymousAx, clean, directoryUrl } from '../../support/axios.ts'
 
 const user = await axiosAuth('test-standalone1')
+const admin = await superAdmin
 const otherUser = await axiosAuth('test1-user1')
 
 const settingsData = {
@@ -46,7 +47,7 @@ const settingsData = {
 test.describe('Usage API', () => {
   test.beforeEach(async () => {
     await clean()
-    await user.put('/api/settings/user/test-standalone1', settingsData)
+    await admin.put('/api/settings/user/test-standalone1', settingsData)
   })
 
   test('should return usage with limits after gateway request', async () => {
@@ -121,7 +122,7 @@ test.describe('Anonymous Usage', () => {
         anonymous: { unlimited: false, dailyTokenLimit: 10000, monthlyTokenLimit: 100000 }
       }
     }
-    await user.put('/api/settings/user/test-standalone1', settingsWithAnonymous)
+    await admin.put('/api/settings/user/test-standalone1', settingsWithAnonymous)
 
     const provider = createOpenAI({
       baseURL: `http://localhost:${process.env.DEV_API_PORT}/api/gateway/user/test-standalone1/v1`,
@@ -136,7 +137,7 @@ test.describe('Anonymous Usage', () => {
   })
 
   test('should deny anonymous gateway access with default quotas (0/0)', async () => {
-    await user.put('/api/settings/user/test-standalone1', settingsData)
+    await admin.put('/api/settings/user/test-standalone1', settingsData)
 
     await assert.rejects(
       anonymousAx.post('/api/gateway/user/test-standalone1/v1/chat/completions', {
@@ -148,7 +149,7 @@ test.describe('Anonymous Usage', () => {
   })
 
   test('should deny anonymous summary access with default quotas', async () => {
-    await user.put('/api/settings/user/test-standalone1', settingsData)
+    await admin.put('/api/settings/user/test-standalone1', settingsData)
 
     await assert.rejects(
       anonymousAx.post('/api/summary/user/test-standalone1', {
@@ -166,7 +167,7 @@ test.describe('Anonymous Usage', () => {
         anonymous: { unlimited: false, dailyTokenLimit: 10000, monthlyTokenLimit: 100000 }
       }
     }
-    await user.put('/api/settings/user/test-standalone1', settingsWithAnonymous)
+    await admin.put('/api/settings/user/test-standalone1', settingsWithAnonymous)
 
     const res = await anonymousAx.post('/api/summary/user/test-standalone1', {
       content: 'some text to summarize'

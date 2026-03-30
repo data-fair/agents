@@ -7,9 +7,10 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { generateText } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
-import { axiosAuth, clean, directoryUrl, baseURL, defaultQuotas } from '../../support/axios.ts'
+import { axiosAuth, superAdmin, clean, directoryUrl, baseURL, defaultQuotas } from '../../support/axios.ts'
 
 const user = await axiosAuth('test-standalone1')
+const admin = await superAdmin
 
 const settingsData = {
   providers: [
@@ -49,7 +50,7 @@ async function createGatewayProvider () {
 test.describe('Gateway API - Tool forwarding', () => {
   test.beforeEach(async () => {
     await clean()
-    await user.put('/api/settings/user/test-standalone1', settingsData)
+    await admin.put('/api/settings/user/test-standalone1', settingsData)
   })
 
   test('send tool definitions and receive tool call back', async () => {

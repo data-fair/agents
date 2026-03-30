@@ -4,9 +4,10 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { axiosAuth, clean, defaultQuotas } from '../../support/axios.ts'
+import { axiosAuth, superAdmin, clean, defaultQuotas } from '../../support/axios.ts'
 
 const user = await axiosAuth('test-standalone1')
+const admin = await superAdmin
 const otherUser = await axiosAuth('test1-user1')
 
 const mockModel = { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' } }
@@ -35,7 +36,7 @@ test.describe('Settings API', () => {
       quotas: defaultQuotas
     }
 
-    const createRes = await user.put('/api/settings/user/test-standalone1', settingsData)
+    const createRes = await admin.put('/api/settings/user/test-standalone1', settingsData)
     assert.equal(createRes.status, 200)
     assert.equal(createRes.data.owner.type, 'user')
     assert.equal(createRes.data.owner.id, 'test-standalone1')
@@ -54,7 +55,7 @@ test.describe('Settings API', () => {
       quotas: defaultQuotas
     }
 
-    const updateRes = await user.put('/api/settings/user/test-standalone1', settingsData)
+    const updateRes = await admin.put('/api/settings/user/test-standalone1', settingsData)
     assert.equal(updateRes.status, 200)
     assert.equal(updateRes.data.models.assistant.model.id, 'mock-model')
   })
@@ -73,7 +74,7 @@ test.describe('Settings API', () => {
       quotas: defaultQuotas
     }
 
-    await user.put('/api/settings/user/test-standalone1', settingsData)
+    await admin.put('/api/settings/user/test-standalone1', settingsData)
 
     const res = await user.get('/api/models/user/test-standalone1')
     assert.equal(res.status, 200)
@@ -108,7 +109,7 @@ test.describe('Settings API', () => {
         quotas: defaultQuotas
       }
 
-      const res = await user.put('/api/settings/user/test-standalone1', settingsData)
+      const res = await admin.put('/api/settings/user/test-standalone1', settingsData)
       assert.equal(res.status, 200)
       assert.equal(res.data.providers.length, 1)
       assert.equal(res.data.providers[0].type, p.type)
@@ -132,7 +133,7 @@ test.describe('Settings API', () => {
       quotas: defaultQuotas
     }
 
-    await user.put('/api/settings/user/test-standalone1', initialData)
+    await admin.put('/api/settings/user/test-standalone1', initialData)
 
     const updateData = {
       providers: [
@@ -148,7 +149,7 @@ test.describe('Settings API', () => {
       quotas: defaultQuotas
     }
 
-    const res = await user.put('/api/settings/user/test-standalone1', updateData)
+    const res = await admin.put('/api/settings/user/test-standalone1', updateData)
     assert.equal(res.status, 200)
     assert.equal(res.data.providers[0].name, 'OpenAI Updated')
     assert.equal(res.data.providers[0].enabled, false)
@@ -173,7 +174,7 @@ test.describe('Settings API', () => {
       quotas: defaultQuotas
     }
 
-    const res = await user.put('/api/settings/user/test-standalone1', settingsData)
+    const res = await admin.put('/api/settings/user/test-standalone1', settingsData)
     assert.equal(res.status, 200)
     assert.equal(res.data.providers[0].type, 'ollama')
     assert.equal(res.data.providers[0].baseURL, 'http://localhost:11434')
@@ -186,7 +187,7 @@ test.describe('Settings API', () => {
       quotas: defaultQuotas
     }
 
-    const res1 = await user.put('/api/settings/user/test-standalone1', settingsData1)
+    const res1 = await admin.put('/api/settings/user/test-standalone1', settingsData1)
     assert.equal(res1.status, 200)
 
     const settingsData2 = {
@@ -195,7 +196,7 @@ test.describe('Settings API', () => {
       quotas: defaultQuotas
     }
 
-    const res2 = await user.put('/api/settings/user/test-standalone1', settingsData2)
+    const res2 = await admin.put('/api/settings/user/test-standalone1', settingsData2)
     assert.equal(res2.status, 200)
     assert.equal(res2.data.providers.length, 1)
     assert.equal(res2.data.providers[0].name, 'Mock 2')
@@ -211,7 +212,7 @@ test.describe('Settings API', () => {
       quotas: defaultQuotas
     }
 
-    const res = await user.put('/api/settings/user/test-standalone1', settingsData)
+    const res = await admin.put('/api/settings/user/test-standalone1', settingsData)
     assert.equal(res.status, 200)
     assert.deepEqual(res.data.providers, [])
   })
@@ -231,7 +232,7 @@ test.describe('Settings API', () => {
     }
 
     await assert.rejects(
-      user.put('/api/settings/user/test-standalone1', settingsData),
+      admin.put('/api/settings/user/test-standalone1', settingsData),
       { status: 400 }
     )
   })
@@ -249,18 +250,18 @@ test.describe('Settings API', () => {
     }
 
     await assert.rejects(
-      user.put('/api/settings/user/test-standalone1', settingsData),
+      admin.put('/api/settings/user/test-standalone1', settingsData),
       { status: 400 }
     )
   })
 
   test('should fail when accessing another user settings', async () => {
-    await user.put('/api/settings/user/test-standalone1', { providers: [], models: { assistant: { model: mockModel } }, quotas: defaultQuotas })
+    await admin.put('/api/settings/user/test-standalone1', { providers: [], models: { assistant: { model: mockModel } }, quotas: defaultQuotas })
     await assert.rejects(otherUser.get('/api/settings/user/test-standalone1'), { status: 403 })
   })
 
   test('should fail when updating another user settings', async () => {
-    await user.put('/api/settings/user/test-standalone1', { providers: [], models: { assistant: { model: mockModel } }, quotas: defaultQuotas })
+    await admin.put('/api/settings/user/test-standalone1', { providers: [], models: { assistant: { model: mockModel } }, quotas: defaultQuotas })
     await assert.rejects(otherUser.put('/api/settings/user/test-standalone1', { providers: [], models: { assistant: { model: mockModel } }, quotas: defaultQuotas }), { status: 403 })
   })
 
@@ -274,7 +275,7 @@ test.describe('Settings API', () => {
       quotas: defaultQuotas
     }
 
-    const res = await user.put('/api/settings/user/test-standalone1', settingsData)
+    const res = await admin.put('/api/settings/user/test-standalone1', settingsData)
     assert.equal(res.status, 200)
     assert.equal(res.data.providers.length, 2)
   })
@@ -289,7 +290,7 @@ test.describe('Settings API', () => {
       quotas: defaultQuotas
     }
 
-    await user.put('/api/settings/user/test-standalone1', initialData)
+    await admin.put('/api/settings/user/test-standalone1', initialData)
 
     const updateData = {
       providers: [
@@ -299,7 +300,7 @@ test.describe('Settings API', () => {
       quotas: defaultQuotas
     }
 
-    const res = await user.put('/api/settings/user/test-standalone1', updateData)
+    const res = await admin.put('/api/settings/user/test-standalone1', updateData)
     assert.equal(res.status, 200)
     assert.equal(res.data.providers.length, 1)
     assert.equal(res.data.providers[0].id, 'p1')

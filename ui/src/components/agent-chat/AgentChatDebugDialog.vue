@@ -180,7 +180,10 @@
                     </v-chip>
                     <span class="font-weight-medium text-truncate">{{ entry.label }}</span>
                     <v-spacer />
-                    <span class="text-caption text-medium-emphasis ml-1" style="white-space: nowrap;">
+                    <span
+                      class="text-caption text-medium-emphasis ml-1"
+                      style="white-space: nowrap;"
+                    >
                       {{ formatTraceTime(entry.timestamp) }}
                     </span>
                   </v-expansion-panel-title>

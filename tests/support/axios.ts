@@ -9,9 +9,11 @@ const axiosOpts = { baseURL }
 export const axios = (opts = {}) => axiosBuilder({ ...axiosOpts, ...opts })
 export const anonymousAx = axios()
 
-export const axiosAuth = (user: string) => {
-  return _axiosAuth({ email: user + '@test.com', password: 'passwd', axiosOpts, directoryUrl })
+export const axiosAuth = (user: string, opts?: { adminMode?: boolean }) => {
+  return _axiosAuth({ email: user + '@test.com', password: 'passwd', adminMode: opts?.adminMode, axiosOpts, directoryUrl })
 }
+
+export const superAdmin = axiosAuth('superadmin', { adminMode: true })
 
 export const defaultQuotas = {
   global: { unlimited: false, dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 },
