@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
 import { mdiRobotOutline, mdiCommentQuestion, mdiAlertCircle } from '@mdi/js'
 import { getTabChannelId } from '@data-fair/lib-vue-agents'
-import type { AgentStatus, AgentChatMessage } from './types.js'
+import type { AgentStatus, AgentChatMessage, AgentChatPong } from './types.js'
 import Debug from 'debug'
 
 const debug = Debug('df-agents:agent-chat-drawer')
@@ -29,8 +29,14 @@ function createAgentChatDrawer () {
       drawerOpen.value = true
       localStorage.setItem(STORAGE_KEY, '1')
       hasUnread.value = false
+    } else if (data.type === 'agent-chat-ping') {
+      debug('received agent-chat-ping, sending pong')
+      bc.postMessage({ channel: channelId, type: 'agent-chat-pong' } satisfies AgentChatPong)
     }
   }
+
+  // Announce presence so action buttons already mounted can discover us
+  bc.postMessage({ channel: channelId, type: 'agent-chat-ready' })
 
   const fabIcon = computed(() => {
     switch (agentStatus.value) {

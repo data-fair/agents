@@ -1,5 +1,6 @@
 <template>
   <v-btn
+    v-show="chatAvailable"
     :data-action-id="actionId"
     class="df-agent-chat-action"
     v-bind="btnProps"
@@ -8,11 +9,11 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted, onScopeDispose } from 'vue'
+import { computed, ref, onMounted, onScopeDispose } from 'vue'
 import { VBtn } from 'vuetify/components/VBtn'
 import { mdiRobotOutline } from '@mdi/js'
 import { getTabChannelId } from '@data-fair/lib-vue-agents'
-import type { AgentActionStartSession, AgentActionSessionCleared } from './types.js'
+import type { AgentActionStartSession, AgentActionSessionCleared, AgentChatPing } from './types.js'
 
 type BtnProps = Omit<VBtn['$props'], 'icon' | 'color' | 'loading' | 'onClick' | 'size'>
 
@@ -37,12 +38,26 @@ const btnProps = computed(() => ({
   ...props.btnProps
 }))
 
+const chatAvailable = ref(false)
+
 let bc: BroadcastChannel | null = null
 let channelId: string
 
 onMounted(() => {
   channelId = getTabChannelId()
   bc = new BroadcastChannel(channelId)
+
+  // Listen for drawer presence (pong response or ready announcement)
+  bc.onmessage = (event: MessageEvent) => {
+    const data = event.data
+    if (!data || data.channel !== channelId) return
+    if (data.type === 'agent-chat-pong' || data.type === 'agent-chat-ready') {
+      chatAvailable.value = true
+    }
+  }
+
+  // Ping to discover if a drawer is already present
+  bc.postMessage({ channel: channelId, type: 'agent-chat-ping' } satisfies AgentChatPing)
 })
 
 function handleClick () {

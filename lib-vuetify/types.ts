@@ -30,4 +30,22 @@ export interface AgentActionSessionCleared {
   type: 'agent-session-cleared'
 }
 
-export type AgentActionMessage = AgentActionStartSession | AgentActionSessionCleared
+/** BroadcastChannel message sent by drawer to announce presence */
+export interface AgentChatReady {
+  channel: string
+  type: 'agent-chat-ready'
+}
+
+/** BroadcastChannel message sent by action buttons to discover drawer */
+export interface AgentChatPing {
+  channel: string
+  type: 'agent-chat-ping'
+}
+
+/** BroadcastChannel message sent by drawer in response to ping */
+export interface AgentChatPong {
+  channel: string
+  type: 'agent-chat-pong'
+}
+
+export type AgentActionMessage = AgentActionStartSession | AgentActionSessionCleared | AgentChatReady | AgentChatPing | AgentChatPong
