@@ -10,7 +10,6 @@ declare module 'vue' {
     AgentChat: typeof import('./src/components/AgentChat.vue')['default']
     AgentChatDebugDialog: typeof import('./src/components/agent-chat/AgentChatDebugDialog.vue')['default']
     AgentChatHeader: typeof import('./src/components/agent-chat/AgentChatHeader.vue')['default']
-    AgentChatInfoDialog: typeof import('./src/components/agent-chat/AgentChatInfoDialog.vue')['default']
     AgentChatInput: typeof import('./src/components/agent-chat/AgentChatInput.vue')['default']
     AgentChatMessages: typeof import('./src/components/agent-chat/AgentChatMessages.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']

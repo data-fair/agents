@@ -9,9 +9,7 @@
       :debug="debug"
       :title="title"
       :tracing-enabled="tracingEnabled"
-      :tools-changed="toolsChanged"
       @show-debug="showDebugDialog = true"
-      @show-info="showInfoDialog = true"
     />
 
     <template v-if="messages.length">
@@ -51,12 +49,6 @@
         @abort="handleAbort"
       />
     </div>
-
-    <agent-chat-info-dialog
-      v-model="showInfoDialog"
-      :summary="agentSummary"
-      :loading="summaryLoading"
-    />
 
     <agent-chat-debug-dialog
       v-model="showDebugDialog"
@@ -98,7 +90,6 @@ import { useI18n } from 'vue-i18n'
 import { useSession } from '@data-fair/lib-vue/session.js'
 import { useVueRouterDFrameContent } from '@data-fair/frame/lib/vue-router/d-frame-content.js'
 import { useAgentChat, type ChatMessage } from '~/composables/use-agent-chat'
-import { $fetch } from '~/context'
 import { SessionRecorder } from '~/traces/session-recorder'
 import type { TraceOverviewEntry } from '~/traces/session-recorder'
 import { buildEvaluatorTools } from '~/traces/evaluator-tools'
@@ -107,7 +98,6 @@ import type { AgentChatMessage } from '@data-fair/lib-vuetify-agents/types.js'
 import AgentChatHeader from './agent-chat/AgentChatHeader.vue'
 import AgentChatMessages from './agent-chat/AgentChatMessages.vue'
 import AgentChatInput from './agent-chat/AgentChatInput.vue'
-import AgentChatInfoDialog from './agent-chat/AgentChatInfoDialog.vue'
 import AgentChatDebugDialog from './agent-chat/AgentChatDebugDialog.vue'
 
 const props = defineProps<{
@@ -233,21 +223,8 @@ const messages = computed(() => activeMessages.value)
 const isStreaming = computed(() => activeStatus.value === 'streaming')
 const chatError = computed(() => activeError.value)
 
-const showInfoDialog = ref(false)
 const showDebugDialog = ref(false)
 const messagesRef = ref<InstanceType<typeof AgentChatMessages> | null>(null)
-
-// Track tools changes for visual activation on "i" button
-const toolsChanged = ref(false)
-let toolsChangedTimeout: ReturnType<typeof setTimeout> | null = null
-
-watch(() => chat.toolsVersion.value, () => {
-  toolsChanged.value = true
-  if (toolsChangedTimeout) clearTimeout(toolsChangedTimeout)
-  toolsChangedTimeout = setTimeout(() => {
-    toolsChanged.value = false
-  }, 3000)
-})
 
 // Emit status messages to parent d-frame
 const inIframe = window.parent !== window
@@ -388,45 +365,6 @@ watch(
     }
   }
 )
-
-// Agent summary via summarizer model
-const agentSummary = ref('')
-const summaryLoading = ref(false)
-let lastSummaryToolsVersion = -1
-
-watch(showInfoDialog, async (open) => {
-  if (!open) return
-  if (lastSummaryToolsVersion === chat.toolsVersion.value && agentSummary.value) return
-
-  lastSummaryToolsVersion = chat.toolsVersion.value
-  summaryLoading.value = true
-
-  try {
-    const toolDescriptions = Object.entries(chat.tools.value).map(([name, t]) => {
-      return `- ${name}: ${(t as any).description ?? ''}`
-    }).join('\n')
-
-    const content = [
-      `System prompt: ${finalSystemPrompt.value}`,
-      toolDescriptions ? `\nAvailable tools:\n${toolDescriptions}` : '\nNo tools available.'
-    ].join('\n')
-
-    const lang = session.state.lang || 'fr'
-    const prompt = lang === 'fr'
-      ? 'Décris brièvement les capacités de cet agent en 2-3 phrases, en mettant en avant les outils récemment ajoutés si pertinent. Tu peux utiliser du markdown pour la mise en forme. Réponds en français.'
-      : 'Briefly describe this agent\'s capabilities in 2-3 sentences, highlighting recently added tools if relevant. You can use markdown for formatting.'
-
-    const result = await $fetch(`/summary/${props.accountType}/${props.accountId}`, {
-      method: 'POST',
-      body: { prompt, content }
-    })
-    agentSummary.value = result.summary
-  } catch {
-    agentSummary.value = ''
-  } finally {
-    summaryLoading.value = false
-  }
-})
 
 const debugToolsPartition = computed(() => chat.resolvedPartition.value)
 

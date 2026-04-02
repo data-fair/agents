@@ -37,15 +37,6 @@
       class="ml-2"
       @click="$emit('showDebug')"
     />
-    <v-btn
-      :icon="mdiInformationSymbol"
-      variant="flat"
-      :color="toolsChanged ? 'accent' : 'info'"
-      density="compact"
-      :title="t('agentInfo')"
-      class="ml-1"
-      @click="$emit('showInfo')"
-    />
     <v-spacer />
   </v-card-title>
 </template>
@@ -53,32 +44,28 @@
 <i18n lang="yaml">
 fr:
   debugInfo: Débogage
-  agentInfo: Informations sur l'agent
   sessionTab: Session
   evaluationTab: Évaluation
 en:
   debugInfo: Debug
-  agentInfo: Agent information
   sessionTab: Session
   evaluationTab: Evaluation
 </i18n>
 
 <script lang="ts" setup>
 import { useI18n } from 'vue-i18n'
-import { mdiBugOutline, mdiInformationSymbol } from '@mdi/js'
+import { mdiBugOutline } from '@mdi/js'
 
 defineProps<{
   debug?: boolean
   title?: string
   tracingEnabled?: boolean
   activeChatTab: 'session' | 'evaluation'
-  toolsChanged: boolean
 }>()
 
 defineEmits<{
   'update:activeChatTab': [value: 'session' | 'evaluation']
   showDebug: []
-  showInfo: []
 }>()
 
 const { t } = useI18n()
