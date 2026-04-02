@@ -23,6 +23,7 @@ import { computed } from 'vue'
 import { VNavigationDrawer } from 'vuetify/components/VNavigationDrawer'
 import('@data-fair/frame/lib/d-frame.js')
 import { useAgentChatDrawer } from './useAgentChatDrawer.js'
+import { resolveAgentChatUrl } from './useAgentChatBase.js'
 
 type DrawerProps = Omit<VNavigationDrawer['$props'], 'modelValue' | 'location' | 'width' | 'floating'>
 
@@ -39,16 +40,5 @@ const props = withDefaults(defineProps<{
 
 const state = useAgentChatDrawer()
 
-const resolvedSrc = computed(() => {
-  if (props.src) return props.src
-  if (props.accountType && props.accountId) {
-    const base = `${window.location.origin}/agents/${props.accountType}/${props.accountId}/chat`
-    const params = new URLSearchParams()
-    if (props.chatTitle) params.set('title', props.chatTitle)
-    if (props.systemPrompt) params.set('systemPrompt', props.systemPrompt)
-    const qs = params.toString()
-    return qs ? `${base}?${qs}` : base
-  }
-  return ''
-})
+const resolvedSrc = computed(() => resolveAgentChatUrl(props))
 </script>

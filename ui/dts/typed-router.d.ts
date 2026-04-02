@@ -27,6 +27,7 @@ declare module 'vue-router/auto-routes' {
     '/_dev/chat-iframe-child': RouteRecordInfo<'/_dev/chat-iframe-child', '/_dev/chat-iframe-child', Record<never, never>, Record<never, never>>,
     '/_dev/chat-iframe-tools': RouteRecordInfo<'/_dev/chat-iframe-tools', '/_dev/chat-iframe-tools', Record<never, never>, Record<never, never>>,
     '/_dev/chat-mcp': RouteRecordInfo<'/_dev/chat-mcp', '/_dev/chat-mcp', Record<never, never>, Record<never, never>>,
+    '/_dev/chat-menu': RouteRecordInfo<'/_dev/chat-menu', '/_dev/chat-menu', Record<never, never>, Record<never, never>>,
     '/_dev/chat-subagent': RouteRecordInfo<'/_dev/chat-subagent', '/_dev/chat-subagent', Record<never, never>, Record<never, never>>,
     '/_dev/chat-vjsf': RouteRecordInfo<'/_dev/chat-vjsf', '/_dev/chat-vjsf', Record<never, never>, Record<never, never>>,
     '/_dev/summary': RouteRecordInfo<'/_dev/summary', '/_dev/summary', Record<never, never>, Record<never, never>>,
