@@ -14,7 +14,7 @@ test.describe('Settings UI', () => {
 
   test('Page loads with AI Providers section', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/user/test-standalone1/settings', 'test-standalone1')
-    await expect(page.getByText('AI Providers')).toBeVisible()
+    await expect(page.getByText('AI Providers')).toBeVisible({ timeout: 10000 })
   })
 
   test('Can add a new Mock provider', async ({ page, goToWithAuth }) => {

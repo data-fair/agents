@@ -75,7 +75,7 @@ test.describe('Chat Menu Integration', () => {
     const frame = await waitForChatFrame(page)
 
     await frame.getByPlaceholder('Type your message...').fill('hello')
-    await frame.getByRole('button', { name: 'Send' }).click()
+    await frame.getByPlaceholder('Type your message...').press('Enter')
 
     await expect(frame.locator('.assistant-content').last()).toContainText('world', { timeout: 10000 })
   })
@@ -87,7 +87,7 @@ test.describe('Chat Menu Integration', () => {
     const frame = await waitForChatFrame(page)
 
     await frame.getByPlaceholder('Type your message...').fill('hello')
-    await frame.getByRole('button', { name: 'Send' }).click()
+    await frame.getByPlaceholder('Type your message...').press('Enter')
     await expect(frame.locator('.assistant-content').last()).toContainText('world', { timeout: 10000 })
 
     await closeMenu(page)
@@ -103,7 +103,7 @@ test.describe('Chat Menu Integration', () => {
     const frame = await waitForChatFrame(page)
 
     await frame.getByPlaceholder('Type your message...').fill('hello')
-    await frame.getByRole('button', { name: 'Send' }).click()
+    await frame.getByPlaceholder('Type your message...').press('Enter')
     await expect(frame.locator('.assistant-content').last()).toContainText('world', { timeout: 10000 })
 
     await closeMenu(page)
@@ -129,7 +129,7 @@ test.describe('Chat Menu Integration', () => {
 
     // Re-open, send the message, then close
     await clickFab(page)
-    await frame.getByRole('button', { name: 'Send' }).click()
+    await frame.getByPlaceholder('Type your message...').press('Enter')
     await closeMenu(page)
 
     // Wait for the unread badge dot to appear

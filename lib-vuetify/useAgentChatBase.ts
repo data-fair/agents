@@ -1,4 +1,4 @@
-import { ref, computed, type Ref } from 'vue'
+import { ref, computed, watch, type Ref } from 'vue'
 import { mdiRobotOutline, mdiCommentQuestion, mdiAlertCircle } from '@mdi/js'
 import { getTabChannelId } from '@data-fair/lib-vue-agents'
 import type { AgentStatus, AgentChatMessage, AgentChatPong } from './types.js'
@@ -50,10 +50,17 @@ export function createAgentChatBase (isOpen: Ref<boolean>, storageKey: string) {
     }
   })
 
+  // Clear unread state and persist open state whenever isOpen changes
+  // (whether via toggle(), v-model, or BroadcastChannel)
+  watch(isOpen, (open) => {
+    localStorage.setItem(storageKey, open ? '1' : '0')
+    if (open) {
+      hasUnread.value = false
+    }
+  })
+
   function toggle () {
     isOpen.value = !isOpen.value
-    localStorage.setItem(storageKey, isOpen.value ? '1' : '0')
-    hasUnread.value = false
   }
 
   function onDFrameMessage (event: CustomEvent<AgentChatMessage>) {
