@@ -124,6 +124,9 @@ export function useAgentChat (options: UseAgentChatOptions) {
   const tools = ref<Record<string, Tool>>({})
   const toolsVersion = ref(0)
   let history: ModelMessage[] = []
+  // characters of serialized history before compaction
+  // 24000 is roughly equivalent to a 8k tokens context with 10-15 turns of dialogue an 2-3 tool calls
+  const COMPACTION_THRESHOLD = 24_000
   let abortController: AbortController | null = null
 
   let aggregator: FrameClientAggregator | null = null
@@ -374,6 +377,53 @@ export function useAgentChat (options: UseAgentChatOptions) {
     return fullText || 'No response from sub-agent.'
   }
 
+  async function compactHistory (): Promise<void> {
+    const threshold = Number(sessionStorage.getItem('agent-chat-compaction-threshold')) || COMPACTION_THRESHOLD
+    const serialized = JSON.stringify(history)
+    if (serialized.length < threshold) return
+
+    // Summarize all messages except the latest user message, which we preserve verbatim
+    const lastMessage = history[history.length - 1]
+    const historyToCompact = history.slice(0, -1)
+    if (historyToCompact.length === 0) return
+
+    const prompt = 'You are summarizing a conversation history between a user and an AI assistant that uses tools. Preserve all key facts, decisions, tool results, and context needed to continue the conversation naturally. Be concise but complete.'
+
+    try {
+      const res = await fetch(
+        `${window.location.origin}${$apiPath}/summary/${options.accountType}/${options.accountId}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ content: JSON.stringify(historyToCompact), prompt })
+        }
+      )
+
+      if (!res.ok) {
+        debug('compaction failed (HTTP %d), continuing with full history', res.status)
+        return
+      }
+
+      const { summary } = await res.json()
+      const originalHistory = history
+      const originalLength = serialized.length
+
+      history = [
+        { role: 'user' as const, content: `[Previous conversation summary]\n${summary}` },
+        lastMessage
+      ]
+
+      if (recorder) {
+        recorder.recordCompaction(originalHistory, summary, originalLength, JSON.stringify(history).length)
+      }
+
+      debug('compacted history from %d chars to %d chars', originalLength, JSON.stringify(history).length)
+    } catch (err) {
+      debug('compaction error, continuing with full history: %O', err)
+    }
+  }
+
   const sendMessage = async (msg: string, sendOptions?: { hiddenContext?: string }) => {
     if (status.value === 'streaming') return
 
@@ -387,6 +437,9 @@ export function useAgentChat (options: UseAgentChatOptions) {
 
     // Add user message to history
     history.push({ role: 'user', content: msg })
+
+    // Compact history if it exceeds the threshold
+    await compactHistory()
 
     abortController = new AbortController()
     let currentAssistantMessage: ChatMessage | null = null

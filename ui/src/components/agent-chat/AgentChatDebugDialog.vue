@@ -287,7 +287,8 @@ const traceEntryColor = (type: string) => {
     'sub-agent-system-prompt': 'purple',
     'sub-agent-step': 'secondary',
     'sub-agent-end': 'secondary',
-    'tools-changed': 'accent'
+    'tools-changed': 'accent',
+    compaction: 'orange'
   }
   return colors[type] || 'default'
 }

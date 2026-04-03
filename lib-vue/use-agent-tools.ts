@@ -1,7 +1,7 @@
 import { onScopeDispose } from 'vue'
 import { initializeWebMCPPolyfill } from '@mcp-b/webmcp-polyfill'
 import type { ToolDescriptorFromSchema, JsonSchemaForInference } from '@mcp-b/webmcp-types'
-import Debug from 'debug'
+import Debug from './debug.js'
 
 const debug = Debug('df-agents:use-agent-tool')
 

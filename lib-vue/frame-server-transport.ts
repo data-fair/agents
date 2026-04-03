@@ -3,7 +3,7 @@
 
 import type { JSONRPCMessage, Transport } from '@mcp-b/webmcp-ts-sdk'
 import { JSONRPCMessageSchema } from '@mcp-b/webmcp-ts-sdk'
-import Debug from 'debug'
+import Debug from './debug.js'
 
 const debug = Debug('df-agents:frame-server-transport')
 

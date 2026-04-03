@@ -2,7 +2,7 @@ import { ref, computed, watch, type Ref } from 'vue'
 import { mdiRobotOutline, mdiCommentQuestion, mdiAlertCircle } from '@mdi/js'
 import { getTabChannelId } from '@data-fair/lib-vue-agents'
 import type { AgentStatus, AgentChatMessage, AgentChatPong } from './types.js'
-import Debug from 'debug'
+import Debug from './debug.js'
 
 const debug = Debug('df-agents:agent-chat')
 

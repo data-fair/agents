@@ -1,5 +1,5 @@
 import { useAgentTool } from './use-agent-tools.js'
-import Debug from 'debug'
+import Debug from './debug.js'
 
 const debug = Debug('df-agents:use-agent-sub-agent')
 

@@ -2,7 +2,7 @@ import { onScopeDispose } from 'vue'
 import { BrowserMcpServer } from '@mcp-b/webmcp-ts-sdk'
 import { FrameServerTransport } from './frame-server-transport.js'
 import { getTabChannelId } from './get-tab-channel-id.js'
-import Debug from 'debug'
+import Debug from './debug.js'
 
 const debug = Debug('df-agents:use-frame-server')
 

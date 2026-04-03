@@ -54,7 +54,7 @@ export interface SessionTrace {
 
 export interface TraceOverviewEntry {
   index: number
-  type: 'system-prompt' | 'user-message' | 'hidden-context' | 'assistant-step' | 'tool-call' | 'tool-result' | 'sub-agent-start' | 'sub-agent-system-prompt' | 'sub-agent-step' | 'sub-agent-end' | 'tools-changed'
+  type: 'system-prompt' | 'user-message' | 'hidden-context' | 'assistant-step' | 'tool-call' | 'tool-result' | 'sub-agent-start' | 'sub-agent-system-prompt' | 'sub-agent-step' | 'sub-agent-end' | 'tools-changed' | 'compaction'
   timestamp: Date
   label: string
   preview: string
@@ -174,6 +174,16 @@ export class SessionRecorder {
     this.subAgentPendingToolCalls.delete(toolCallId)
   }
 
+  recordCompaction (originalMessages: ModelMessage[], summary: string, originalCharCount: number, compactedCharCount: number): void {
+    if (!this.currentTurn) return
+    this.currentTurn.steps.push({
+      timestamp: new Date(),
+      messages: [],
+      toolCalls: [],
+      compaction: { originalMessages, summary, originalCharCount, compactedCharCount }
+    } as any)
+  }
+
   finishStep (): void {
     if (this.currentTurn && this.currentStep) {
       this.currentTurn.steps.push(this.currentStep)
@@ -248,6 +258,13 @@ export class SessionRecorder {
         turn.userMessage ?? ''
       )
       for (const step of turn.steps) {
+        if ((step as any).compaction) {
+          const c = (step as any).compaction
+          add(
+            { type: 'compaction', timestamp: step.timestamp, label: 'history compaction', preview: `${c.originalCharCount} \u2192 ${c.compactedCharCount} chars` },
+            { summary: c.summary, originalMessages: c.originalMessages, originalCharCount: c.originalCharCount, compactedCharCount: c.compactedCharCount }
+          )
+        }
         for (const tc of step.toolCalls) {
           add(
             { type: 'tool-call', timestamp: tc.timestamp, label: `tool call: ${tc.toolName}`, preview: (JSON.stringify(tc.input) ?? '').slice(0, 150) },
