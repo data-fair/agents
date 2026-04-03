@@ -1,5 +1,5 @@
 import { ref, watch, onScopeDispose } from 'vue'
-import { streamText, stepCountIs, tool, jsonSchema } from 'ai'
+import { streamText, stepCountIs, tool, jsonSchema, ToolLoopAgent, readUIMessageStream } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import type { ModelMessage, Tool } from 'ai'
 import { getTabChannelId } from '@data-fair/lib-vue-agents'
@@ -19,6 +19,7 @@ export interface ChatMessage {
     state: 'pending' | 'done'
   }>
   subAgentMessages?: ChatMessage[]
+  subAgentTurn?: number
 }
 
 export interface ToolInfo {
@@ -285,96 +286,33 @@ export function useAgentChat (options: UseAgentChatOptions) {
   }
 
   /**
-   * Run a sub-agent: execute a nested streamText call with the sub-agent's
-   * prompt and tools, returning the final text response.
+   * Convert a UIMessage (from readUIMessageStream) into our ChatMessage[] format
+   * for rendering in the existing UI components.
    */
-  async function executeSubAgent (
-    parentToolCallId: string,
-    subAgentDisplayName: string,
-    config: SubAgentConfig,
-    task: string,
-    allTools: Record<string, Tool>,
-    signal: AbortSignal,
-    onMessage?: (msg: ChatMessage) => void
-  ): Promise<string> {
-    // Collect the sub-agent's tools from the full tool set
-    const subAgentTools: Record<string, Tool> = {}
-    for (const toolName of config.tools) {
-      if (allTools[toolName]) {
-        subAgentTools[toolName] = allTools[toolName]
-      }
-    }
+  function uiMessageToChatMessages (uiMessage: any): ChatMessage[] {
+    const chatMessages: ChatMessage[] = []
+    let current: ChatMessage | null = null
 
-    if (recorder) {
-      const subToolSnapshots: ToolSnapshot[] = Object.entries(subAgentTools).map(([name, t]) => ({
-        name,
-        title: (t as any).title,
-        description: (t as any).description ?? '',
-        inputSchema: (t as any).parameters ?? {}
-      }))
-      recorder.startSubAgent(parentToolCallId, subAgentDisplayName, config.prompt, task, subToolSnapshots)
-    }
-
-    const subResult = streamText({
-      model: provider.chat(config.model ?? 'tools'),
-      system: config.prompt,
-      messages: [{ role: 'user', content: task }],
-      tools: Object.keys(subAgentTools).length > 0 ? subAgentTools : undefined,
-      stopWhen: stepCountIs(10),
-      abortSignal: signal
-    })
-
-    let fullText = ''
-    let currentSubMessage: ChatMessage | null = null
-
-    for await (const part of subResult.fullStream) {
-      if (part.type === 'text-delta') {
-        fullText += part.text
-        if (!currentSubMessage) {
-          currentSubMessage = { role: 'assistant', content: '' }
-          onMessage?.(currentSubMessage)
-        }
-        currentSubMessage.content += part.text
-      } else if (part.type === 'tool-call') {
-        if (!currentSubMessage) {
-          currentSubMessage = { role: 'assistant', content: '', toolInvocations: [] }
-          onMessage?.(currentSubMessage)
-        }
-        if (!currentSubMessage.toolInvocations) {
-          currentSubMessage.toolInvocations = []
-        }
-        currentSubMessage.toolInvocations.push({
+    for (const part of uiMessage.parts ?? []) {
+      if (part.type === 'text') {
+        if (!current) { current = { role: 'assistant', content: '' }; chatMessages.push(current) }
+        current.content += part.text
+      } else if (part.type === 'dynamic-tool' || (part.type?.startsWith('tool-') && part.type !== 'tool-invocation')) {
+        // Dynamic tools: type 'dynamic-tool' with toolName/toolCallId/state
+        // Static tools: type 'tool-<name>' with same fields
+        if (!current) { current = { role: 'assistant', content: '', toolInvocations: [] }; chatMessages.push(current) }
+        if (!current.toolInvocations) current.toolInvocations = []
+        const toolName = part.toolName ?? part.type.replace(/^tool-/, '')
+        current.toolInvocations.push({
           toolCallId: part.toolCallId,
-          toolName: part.toolName,
-          state: 'pending'
+          toolName,
+          state: part.state === 'output-available' ? 'done' : 'pending'
         })
-        if (recorder) {
-          recorder.startSubAgentToolCall(parentToolCallId, part.toolCallId, part.toolName, (part as any).args)
-        }
-      } else if (part.type === 'tool-result') {
-        if (currentSubMessage?.toolInvocations) {
-          const invocation = currentSubMessage.toolInvocations.find(
-            ti => ti.toolCallId === part.toolCallId
-          )
-          if (invocation) invocation.state = 'done'
-        }
-        if (recorder) {
-          recorder.finishSubAgentToolCall(parentToolCallId, part.toolCallId, (part as any).output)
-        }
-      } else if (part.type === 'finish-step') {
-        currentSubMessage = null
-        if (recorder) {
-          recorder.finishSubAgentStep(parentToolCallId)
-        }
+      } else if (part.type === 'step-start') {
+        current = null // new step → new message
       }
     }
-
-    const subResponse = await subResult.response
-    if (recorder) {
-      recorder.addSubAgentStepMessages(parentToolCallId, subResponse.messages, (subResponse as any).usage)
-    }
-
-    return fullText || 'No response from sub-agent.'
+    return chatMessages
   }
 
   async function compactHistory (): Promise<void> {
@@ -454,9 +392,28 @@ export function useAgentChat (options: UseAgentChatOptions) {
       await resolveSubAgents(mainTools, subAgents)
 
       // Build the tool set for the main LLM:
-      // main tools + sub-agent pseudo-tools (with execute that runs nested streamText)
+      // main tools + sub-agent pseudo-tools using ToolLoopAgent + async generators
+      const subAgentHistory = new Map<string, ModelMessage[]>()
+      const subAgentCallCount = new Map<string, number>()
       const mainLLMTools: Record<string, Tool> = { ...mainTools }
       for (const [name, entry] of Object.entries(subAgents)) {
+        const config = entry.config
+
+        // Collect the sub-agent's tools from the full tool set
+        const subAgentTools: Record<string, Tool> = {}
+        for (const toolName of config.tools) {
+          if (currentTools[toolName]) subAgentTools[toolName] = currentTools[toolName]
+        }
+
+        const subAgent = new ToolLoopAgent({
+          model: provider.chat(config.model ?? 'tools'),
+          instructions: config.prompt,
+          tools: subAgentTools,
+          stopWhen: stepCountIs(10)
+        })
+
+        const displayName = name.replace(/^subagent_/, '')
+
         mainLLMTools[name] = tool({
           description: (entry.tool as any).description || '',
           inputSchema: jsonSchema({
@@ -466,42 +423,72 @@ export function useAgentChat (options: UseAgentChatOptions) {
             },
             required: ['task']
           }),
-          execute: async (args: any) => {
-            const config = subAgents[name].config
-            const subMessages: ChatMessage[] = []
+          execute: async function * (args: any, { abortSignal }: { abortSignal?: AbortSignal }) {
+            // Track multi-turn state for this subagent
+            const priorMessages = subAgentHistory.get(name) ?? []
+            const callIndex = subAgentCallCount.get(name) ?? 0
+            subAgentCallCount.set(name, callIndex + 1)
 
             // Find the parent tool call ID from currentAssistantMessage
             const parentToolCallId = currentAssistantMessage?.toolInvocations?.find(
               ti => ti.toolName === name && ti.state === 'pending'
             )?.toolCallId ?? name
 
-            // Find the current assistant message to attach sub-agent messages
-            if (currentAssistantMessage) {
-              if (!currentAssistantMessage.subAgentMessages) {
-                currentAssistantMessage.subAgentMessages = []
-              }
+            // Record telemetry
+            if (recorder) {
+              const subToolSnapshots: ToolSnapshot[] = Object.entries(subAgentTools).map(([n, t]) => ({
+                name: n,
+                title: (t as any).title,
+                description: (t as any).description ?? '',
+                inputSchema: (t as any).parameters ?? {}
+              }))
+              recorder.startSubAgent(parentToolCallId, displayName, config.prompt, args.task, subToolSnapshots, callIndex)
             }
 
-            const displayName = name.replace(/^subagent_/, '')
-            const result = await executeSubAgent(
-              parentToolCallId,
-              displayName,
-              config,
-              args.task,
-              currentTools,
-              abortController!.signal,
-              (subMsg) => {
-                subMessages.push(subMsg)
-                if (currentAssistantMessage) {
-                  if (!currentAssistantMessage.subAgentMessages) {
-                    currentAssistantMessage.subAgentMessages = []
-                  }
-                  currentAssistantMessage.subAgentMessages.push(subMsg)
-                }
-              }
-            )
+            // Ensure subAgentMessages array exists on parent message
+            if (currentAssistantMessage && !currentAssistantMessage.subAgentMessages) {
+              currentAssistantMessage.subAgentMessages = []
+            }
+            if (currentAssistantMessage) {
+              currentAssistantMessage.subAgentTurn = callIndex
+            }
 
-            return result
+            // First call: single prompt. Subsequent calls: pass accumulated conversation history.
+            const subResult = priorMessages.length === 0
+              ? await subAgent.stream({ prompt: args.task, abortSignal })
+              : await subAgent.stream({
+                messages: [...priorMessages, { role: 'user' as const, content: args.task }],
+                abortSignal
+              })
+
+            // Yield intermediate UIMessages as preliminary results (streaming progress)
+            for await (const uiMessage of readUIMessageStream({ stream: subResult.toUIMessageStream() })) {
+              const chatMessages = uiMessageToChatMessages(uiMessage)
+              // Replace subAgentMessages on each yield (readUIMessageStream accumulates)
+              if (currentAssistantMessage) {
+                currentAssistantMessage.subAgentMessages = chatMessages
+              }
+              yield chatMessages
+            }
+
+            // Final telemetry + accumulate history for next call to this subagent
+            const subResponse = await subResult.response
+            subAgentHistory.set(name, [
+              ...priorMessages,
+              { role: 'user' as const, content: args.task },
+              ...subResponse.messages
+            ])
+            if (recorder) {
+              recorder.addSubAgentStepMessages(parentToolCallId, subResponse.messages, (subResponse as any).usage)
+            }
+          },
+          toModelOutput: ({ output }: { output: any }) => {
+            // Main agent sees only the final text summary, not full subagent trace
+            const lastMsg = Array.isArray(output) ? output[output.length - 1] : null
+            return {
+              type: 'text' as const,
+              value: (lastMsg as ChatMessage | null)?.content || 'Task completed.'
+            }
           }
         })
       }
@@ -544,13 +531,15 @@ export function useAgentChat (options: UseAgentChatOptions) {
             recorder.startToolCall(part.toolCallId, part.toolName, (part as any).args)
           }
         } else if (part.type === 'tool-result') {
-          if (currentAssistantMessage?.toolInvocations) {
+          // Async generator tools emit preliminary results; only mark done on final
+          const isPreliminary = !!(part as any).preliminary
+          if (currentAssistantMessage?.toolInvocations && !isPreliminary) {
             const invocation = currentAssistantMessage.toolInvocations.find(
               ti => ti.toolCallId === part.toolCallId
             )
             if (invocation) invocation.state = 'done'
           }
-          if (recorder) {
+          if (recorder && !isPreliminary) {
             recorder.finishToolCall(part.toolCallId, (part as any).output)
           }
         } else if (part.type === 'finish-step') {

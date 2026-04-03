@@ -87,6 +87,10 @@
                   :class="{ 'agent-chat__spin': invocation.state !== 'done' }"
                 />
                 <span class="font-weight-medium">{{ subAgentTitle(invocation.toolName) }}</span>
+                <span
+                  v-if="message.subAgentTurn"
+                  class="text-medium-emphasis ml-1"
+                >(tour {{ message.subAgentTurn + 1 }})</span>
               </v-expansion-panel-title>
               <v-expansion-panel-text>
                 <div

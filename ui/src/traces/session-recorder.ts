@@ -38,6 +38,7 @@ export interface SubAgentTrace {
   tools: ToolSnapshot[]
   task: string
   steps: StepTrace[]
+  turnIndex?: number
 }
 
 export interface ToolChangeEvent {
@@ -121,10 +122,10 @@ export class SessionRecorder {
     }
   }
 
-  startSubAgent (toolCallId: string, name: string, systemPrompt: string, task: string, tools: ToolSnapshot[]): void {
+  startSubAgent (toolCallId: string, name: string, systemPrompt: string, task: string, tools: ToolSnapshot[], turnIndex?: number): void {
     const tc = this.pendingToolCalls.get(toolCallId)
     if (tc) {
-      tc.subAgent = { name, systemPrompt, tools, task, steps: [] }
+      tc.subAgent = { name, systemPrompt, tools, task, steps: [], turnIndex }
       this.subAgentPendingToolCalls.set(toolCallId, new Map())
     }
   }
