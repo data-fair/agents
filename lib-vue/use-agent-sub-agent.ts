@@ -21,7 +21,7 @@ export function useAgentSubAgent (options: SubAgentOptions) {
     inputSchema: {
       type: 'object',
       properties: {
-        task: { type: 'string', description: 'The task to delegate to this sub-agent' }
+        task: { type: 'string', description: 'The task to delegate to this sub-agent. Include all relevant context from the conversation that the sub-agent needs to accomplish the task (user preferences, constraints, data references, etc.).' }
       },
       required: ['task']
     },
