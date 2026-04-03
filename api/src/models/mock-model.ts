@@ -34,7 +34,7 @@ function getLastUserMessage (options: { prompt: string | Array<any> }): string {
   return ''
 }
 
-function processMockPrompt (lastMessage: string): MockPromptResult {
+function processMockPrompt (lastMessage: string, prompt: string | Array<any>): MockPromptResult {
   if (!lastMessage) {
     return { type: 'text', text: 'what do you mean ?' }
   }
@@ -45,6 +45,12 @@ function processMockPrompt (lastMessage: string): MockPromptResult {
 
   if (lastMessage.toLowerCase() === 'hello') {
     return { type: 'text', text: 'world' }
+  }
+
+  // If the most recent message in the prompt is a tool result, we already called a tool
+  // in this step — respond with text instead of calling another tool
+  if (Array.isArray(prompt) && prompt.length > 0 && prompt[prompt.length - 1].role === 'tool') {
+    return { type: 'text', text: 'done' }
   }
 
   const callToolMatch = lastMessage.match(/^call tool (\w+)(.*)$/i)
@@ -59,15 +65,93 @@ function processMockPrompt (lastMessage: string): MockPromptResult {
   return { type: 'text', text: 'what do you mean ?' }
 }
 
-export function createMockLanguageModel (): LanguageModel {
+/**
+ * Extract tool names that have already returned results in the conversation.
+ * Scans the V3 prompt array for tool-result parts in both 'tool' and 'assistant' role messages.
+ */
+function getCalledToolNames (prompt: string | Array<any>): Set<string> {
+  const names = new Set<string>()
+  if (!Array.isArray(prompt)) return names
+  for (const msg of prompt) {
+    if (!Array.isArray(msg.content)) continue
+    for (const part of msg.content) {
+      if (part.type === 'tool-result' && part.toolName) {
+        names.add(part.toolName)
+      }
+    }
+  }
+  return names
+}
+
+/**
+ * mock-tools: context-aware tool chaining for subagent testing.
+ * Inspects conversation history to deterministically chain: get_schema → query_data → text summary.
+ * Also supports "call tool" syntax and "hello" → "world" as overrides.
+ */
+function processMockToolsPrompt (lastMessage: string, prompt: string | Array<any>): MockPromptResult {
+  // Support explicit overrides first
+  if (lastMessage.toLowerCase() === 'hello') {
+    return { type: 'text', text: 'world' }
+  }
+
+  const callToolMatch = lastMessage.match(/^call tool (\w+)(.*)$/i)
+  if (callToolMatch) {
+    return {
+      type: 'tool-call',
+      toolName: callToolMatch[1],
+      toolArgs: callToolMatch[2].trim()
+    }
+  }
+
+  // Context-aware tool chaining
+  const calledTools = getCalledToolNames(prompt)
+
+  if (!calledTools.has('get_schema')) {
+    return {
+      type: 'tool-call',
+      toolName: 'get_schema',
+      toolArgs: '{"dataset":"test"}'
+    }
+  }
+
+  if (!calledTools.has('query_data')) {
+    return {
+      type: 'tool-call',
+      toolName: 'query_data',
+      toolArgs: '{"dataset":"test"}'
+    }
+  }
+
+  return { type: 'text', text: 'Analysis complete: found 3 results' }
+}
+
+/**
+ * mock-summarizer: always returns a fixed summary string.
+ */
+function processMockSummarizerPrompt (): MockPromptResult {
+  return { type: 'text', text: 'Summary: conversation covered the main topics discussed.' }
+}
+
+function processForModel (modelId: string, options: { prompt: string | Array<any> }): MockPromptResult {
+  const lastMessage = getLastUserMessage(options)
+  switch (modelId) {
+    case 'mock-tools':
+      return processMockToolsPrompt(lastMessage, options.prompt)
+    case 'mock-summarizer':
+      return processMockSummarizerPrompt()
+    default:
+      return processMockPrompt(lastMessage, options.prompt)
+  }
+}
+
+export function createMockLanguageModel (modelId: string = 'mock-model'): LanguageModel {
   return {
     specificationVersion: 'v3',
     provider: 'mock',
-    modelId: 'mock-model',
+    modelId,
     supportedUrls: {},
     doStream: async (options) => {
-      const lastMessage = getLastUserMessage(options)
-      const result = processMockPrompt(lastMessage)
+      const result = processForModel(modelId, options)
 
       if (result.type === 'tool-call') {
         const toolCallId = 'mock-tool-call-id'
@@ -115,8 +199,7 @@ export function createMockLanguageModel (): LanguageModel {
       return { stream }
     },
     doGenerate: async (options) => {
-      const lastMessage = getLastUserMessage(options)
-      const result = processMockPrompt(lastMessage)
+      const result = processForModel(modelId, options)
 
       if (result.type === 'tool-call') {
         return {

@@ -114,7 +114,12 @@ async function fetchModelsForProvider (
   }
 
   if (provider.type === 'mock') {
-    return [{ id: 'mock-model', name: 'Mock Model' }]
+    return [
+      { id: 'mock-model', name: 'Mock Model' },
+      { id: 'mock-tools', name: 'Mock Tools Model' },
+      { id: 'mock-summarizer', name: 'Mock Summarizer Model' },
+      { id: 'evaluator-mock-model', name: 'Evaluator Mock Model' }
+    ]
   }
 
   if (!provider.apiKey) {

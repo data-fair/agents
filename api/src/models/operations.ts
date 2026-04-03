@@ -31,7 +31,8 @@ export function createModel (provider: Provider, modelId: string): LanguageModel
     case 'ollama':
       return createOllama({ baseURL: provider.baseURL })(modelId)
     case 'mock':
-      return createMockLanguageModel()
+      if (modelId === 'evaluator-mock-model') return createEvaluatorMockLanguageModel()
+      return createMockLanguageModel(modelId)
     default:
       throw new Error(`Unknown provider type: ${(provider as Provider).type}`)
   }

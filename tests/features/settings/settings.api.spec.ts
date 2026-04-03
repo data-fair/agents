@@ -81,8 +81,11 @@ test.describe('Settings API', () => {
     assert.ok(Array.isArray(res.data.results))
 
     const mockModels = res.data.results.filter((m: any) => m.provider.type === 'mock')
-    assert.equal(mockModels.length, 1)
-    assert.equal(mockModels[0].id, 'mock-model')
+    assert.equal(mockModels.length, 4)
+    assert.ok(mockModels.some((m: any) => m.id === 'mock-model'))
+    assert.ok(mockModels.some((m: any) => m.id === 'mock-tools'))
+    assert.ok(mockModels.some((m: any) => m.id === 'mock-summarizer'))
+    assert.ok(mockModels.some((m: any) => m.id === 'evaluator-mock-model'))
   })
 
   test('should return empty defaults when no settings exist', async () => {
