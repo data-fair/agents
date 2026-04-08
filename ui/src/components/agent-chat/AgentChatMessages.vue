@@ -40,7 +40,7 @@
         <!-- eslint-disable-next-line vue/no-v-html -->
         <div
           class="assistant-content markdown-content"
-          v-html="renderMarkdown(message.content)"
+          v-html="renderStreamingMarkdown(message.content, isStreaming && index === messages.length - 1)"
         />
         <div
           v-if="message.toolInvocations?.length"
@@ -104,7 +104,7 @@
                     <!-- eslint-disable-next-line vue/no-v-html -->
                     <div
                       class="text-body-2 markdown-content"
-                      v-html="renderMarkdown(subMsg.content)"
+                      v-html="renderStreamingMarkdown(subMsg.content, isStreaming && index === messages.length - 1 && subIdx === message.subAgentMessages!.length - 1)"
                     />
                     <div
                       v-if="subMsg.toolInvocations?.length"
@@ -136,20 +136,34 @@
       </div>
     </div>
 
-    <!-- Loading indicator -->
-    <!--
+    <!-- Skeleton loader while waiting for first content -->
     <div
-      v-if="isStreaming"
-      class="px-4 py-2"
+      v-if="isStreaming && (!messages.length || messages[messages.length - 1].role === 'user')"
+      class="px-2 py-1"
     >
-      <v-progress-linear
-        indeterminate
-        color="primary"
-        height="2"
-        class="mb-0"
+      <v-skeleton-loader
+        type="text"
+        width="80%"
+        class="bg-transparent"
+      />
+      <v-skeleton-loader
+        type="text"
+        width="60%"
+        class="bg-transparent"
       />
     </div>
-    -->
+
+    <!-- Discreet skeleton while still receiving more content -->
+    <div
+      v-if="isStreaming && messages.length && messages[messages.length - 1].role === 'assistant'"
+      class="px-2 py-1"
+    >
+      <v-skeleton-loader
+        type="text"
+        width="40%"
+        class="bg-transparent"
+      />
+    </div>
 
     <!-- Error -->
     <div
@@ -194,7 +208,7 @@ en:
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { mdiCheck, mdiLoading } from '@mdi/js'
-import { renderMarkdown } from '~/utils/markdown'
+import { renderStreamingMarkdown } from '~/utils/markdown'
 import type { ChatMessage } from '~/composables/use-agent-chat'
 
 const props = defineProps<{

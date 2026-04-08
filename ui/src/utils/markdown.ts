@@ -9,3 +9,12 @@ marked.use(markedVuetify)
 
 export const renderMarkdown = (markdown: string) =>
   sanitizeHtml(marked.parse(markdown) as string, sanitizeOpts)
+
+export const renderStreamingMarkdown = (markdown: string, isStreaming: boolean): string => {
+  if (!isStreaming || !markdown) return renderMarkdown(markdown)
+
+  const lastBlock = markdown.lastIndexOf('\n\n')
+  if (lastBlock === -1) return '' // No complete block yet — show nothing
+
+  return renderMarkdown(markdown.slice(0, lastBlock + 2))
+}
