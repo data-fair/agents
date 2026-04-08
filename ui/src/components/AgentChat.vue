@@ -116,10 +116,6 @@ const { t } = useI18n()
 const session = useSession()
 
 const finalSystemPrompt = computed(() => {
-  if (props.systemPrompt) {
-    return props.systemPrompt
-  }
-
   const lang = session.state.lang || 'fr'
   const userName = session.state.user?.name || t('systemPromptUserDefault', { lang })
   const orgName = session.state.account?.name
@@ -134,7 +130,7 @@ const finalSystemPrompt = computed(() => {
   }
 
   const parts = [
-    t('systemPromptBase'),
+    props.systemPrompt || t('systemPromptBase'),
     t('systemPromptUser', { userName, orgPart }),
     t('systemPromptLang', { lang })
   ]
