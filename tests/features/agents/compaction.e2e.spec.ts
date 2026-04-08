@@ -36,8 +36,9 @@ test.describe('History Compaction', () => {
   })
 
   test('Compaction triggers and appears in trace', async ({ page, goToWithAuth }) => {
-    // Navigate first, then set sessionStorage and reload
-    await goToWithAuth('/agents/user/test-standalone1/chat', 'test-standalone1')
+    // Use an admin user with adminMode so the debug button is visible
+    await admin.put('/api/settings/user/superadmin', settingsData)
+    await goToWithAuth('/agents/user/superadmin/chat', 'superadmin', { adminMode: true })
     await page.evaluate(() => {
       sessionStorage.setItem('agent-chat-trace', '1')
       // Set a very low threshold so compaction triggers after just one round-trip
@@ -106,7 +107,7 @@ test.describe('History Compaction', () => {
     await expect(page.locator('.assistant-content').last()).toContainText('world', { timeout: 10000 })
 
     // Verify all 3 user messages are visible in the UI (compaction is invisible to user)
-    const userMessages = page.locator('.v-card.bg-secondary')
+    const userMessages = page.locator('.d-flex.justify-end .v-card')
     await expect(userMessages).toHaveCount(3)
   })
 })
