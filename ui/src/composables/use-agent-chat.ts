@@ -494,15 +494,15 @@ export function useAgentChat (options: UseAgentChatOptions) {
       for await (const part of result.fullStream) {
         if (part.type === 'text-delta') {
           if (!currentAssistantMessage) {
-            currentAssistantMessage = { role: 'assistant', content: '' }
-            messages.value.push(currentAssistantMessage)
+            messages.value.push({ role: 'assistant', content: '' })
+            currentAssistantMessage = messages.value[messages.value.length - 1]
           }
           currentAssistantMessage.content += part.text
         } else if (part.type === 'tool-call') {
           debug('tool-call name=%s id=%s', part.toolName, part.toolCallId)
           if (!currentAssistantMessage) {
-            currentAssistantMessage = { role: 'assistant', content: '', toolInvocations: [] }
-            messages.value.push(currentAssistantMessage)
+            messages.value.push({ role: 'assistant', content: '', toolInvocations: [] })
+            currentAssistantMessage = messages.value[messages.value.length - 1]
           }
           if (!currentAssistantMessage.toolInvocations) {
             currentAssistantMessage.toolInvocations = []
