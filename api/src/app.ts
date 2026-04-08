@@ -48,6 +48,19 @@ if (process.env.NODE_ENV === 'development') {
     await mongo.db.collection('usage').deleteMany({ 'owner.id': /^test/ })
     res.send()
   })
+  app.post('/api/test-env/usage', async (req, res) => {
+    const { owner, totalTokens, userId } = req.body
+    const now = new Date()
+    const dailyPeriod = `daily:${now.toISOString().slice(0, 10)}`
+    const monthlyPeriod = `monthly:${now.toISOString().slice(0, 7)}`
+    const filter = { 'owner.type': owner.type, 'owner.id': owner.id, ...(userId ? { userId } : {}) }
+    const doc = { owner, ...(userId ? { userId } : {}), inputTokens: totalTokens, outputTokens: 0, totalTokens, updatedAt: now.toISOString() }
+    await Promise.all([
+      mongo.db.collection('usage').updateOne({ ...filter, period: dailyPeriod }, { $set: { ...doc, period: dailyPeriod } }, { upsert: true }),
+      mongo.db.collection('usage').updateOne({ ...filter, period: monthlyPeriod }, { $set: { ...doc, period: monthlyPeriod } }, { upsert: true })
+    ])
+    res.send()
+  })
 }
 
 app.use('/api', (req, res) => res.status(404).send('unknown api endpoint'))

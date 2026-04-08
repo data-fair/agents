@@ -6,7 +6,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { convertOpenAITools, convertOpenAIMessages, convertToolChoice, mapFinishReason } from '../../../api/src/gateway/operations.ts'
 import type { OpenAIMessage, OpenAIToolDefinition } from '../../../api/src/gateway/operations.ts'
-import { extractErrorMessage } from '../../../ui/src/composables/use-agent-chat.ts'
+import { extractErrorMessage } from '../../../ui/src/utils/error.ts'
 
 test.describe('Gateway operations - mapFinishReason', () => {
   test('maps tool-calls to tool_calls', () => {

@@ -6,6 +6,7 @@ import { getTabChannelId } from '@data-fair/lib-vue-agents'
 import { FrameClientAggregator } from '~/transports/frame-client-aggregator'
 import type { SessionRecorder, ToolSnapshot } from '~/traces/session-recorder'
 import { $apiPath } from '~/context'
+import { extractErrorMessage } from '~/utils/error'
 import Debug from 'debug'
 
 const debug = Debug('df-agents:use-agent-chat')
@@ -56,22 +57,6 @@ interface SubAgentConfig {
   prompt: string
   tools: string[]
   model?: string
-}
-
-function extractErrorMessage (err: unknown): string {
-  if (!err) return 'Unknown error'
-  if (typeof err === 'string') return err
-  const e = err as any
-  // API errors from the gateway have a JSON body with error.message
-  if (e.data?.error?.message) return e.data.error.message
-  if (e.responseBody) {
-    try {
-      const body = JSON.parse(e.responseBody)
-      if (body.error?.message) return body.error.message
-    } catch {}
-  }
-  if (e.message) return e.message
-  return 'Unknown error'
 }
 
 /**
@@ -578,7 +563,11 @@ export function useAgentChat (options: UseAgentChatOptions) {
     }
   }
 
-  return { messages, status, error, tools, toolsVersion, resolvedPartition, sendMessage, abort, reset }
+  const setSystemPrompt = (prompt: string) => {
+    options.systemPrompt = prompt
+  }
+
+  return { messages, status, error, tools, toolsVersion, resolvedPartition, sendMessage, abort, reset, setSystemPrompt }
 }
 
 export default useAgentChat
