@@ -6,6 +6,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { convertOpenAITools, convertOpenAIMessages, convertToolChoice, mapFinishReason } from '../../../api/src/gateway/operations.ts'
 import type { OpenAIMessage, OpenAIToolDefinition } from '../../../api/src/gateway/operations.ts'
+import { extractErrorMessage } from '../../../ui/src/composables/use-agent-chat.ts'
 
 test.describe('Gateway operations - mapFinishReason', () => {
   test('maps tool-calls to tool_calls', () => {
@@ -168,5 +169,80 @@ test.describe('Gateway operations - convertToolChoice', () => {
   test('converts function object', () => {
     const result = convertToolChoice({ type: 'function', function: { name: 'my_tool' } })
     assert.deepEqual(result, { type: 'tool', toolName: 'my_tool' })
+  })
+})
+
+test.describe('extractErrorMessage - error chain traversal', () => {
+  test('returns Unknown error for falsy input', () => {
+    assert.equal(extractErrorMessage(null), 'Unknown error')
+    assert.equal(extractErrorMessage(undefined), 'Unknown error')
+  })
+
+  test('returns string errors as-is', () => {
+    assert.equal(extractErrorMessage('something went wrong'), 'something went wrong')
+  })
+
+  test('extracts message from data.error.message (APICallError with parsed data)', () => {
+    const err = {
+      message: 'API call failed',
+      data: { error: { message: 'Daily token quota exceeded', type: 'rate_limit_error' } }
+    }
+    assert.equal(extractErrorMessage(err), 'Daily token quota exceeded')
+  })
+
+  test('extracts message from responseBody JSON', () => {
+    const err = {
+      message: 'API call failed',
+      responseBody: JSON.stringify({ error: { message: 'Monthly token quota exceeded' } })
+    }
+    assert.equal(extractErrorMessage(err), 'Monthly token quota exceeded')
+  })
+
+  test('extracts message from cause chain (wrapped error)', () => {
+    const inner = {
+      message: 'API call failed',
+      data: { error: { message: 'Daily token quota exceeded', type: 'rate_limit_error' } }
+    }
+    const outer = {
+      message: 'No output generated. Check the stream for errors.',
+      cause: inner
+    }
+    assert.equal(extractErrorMessage(outer), 'Daily token quota exceeded')
+  })
+
+  test('extracts message from responseBody in cause chain', () => {
+    const inner = {
+      message: 'API call failed',
+      responseBody: JSON.stringify({ error: { message: 'Daily token quota exceeded' } })
+    }
+    const outer = { message: 'No output generated. Check the stream for errors.', cause: inner }
+    assert.equal(extractErrorMessage(outer), 'Daily token quota exceeded')
+  })
+
+  test('handles plain-text responseBody (Express error handler)', () => {
+    const inner = {
+      message: 'API call failed',
+      responseBody: 'You do not have permission to use this model'
+    }
+    const outer = { message: 'No output generated. Check the stream for errors.', cause: inner }
+    assert.equal(extractErrorMessage(outer), 'You do not have permission to use this model')
+  })
+
+  test('strips dev-mode prefix from plain-text responseBody', () => {
+    const err = {
+      message: 'API call failed',
+      responseBody: '403 - Error: You do not have permission to use this model\n    at assertRoleQuota (/app/auth.ts:58:11)'
+    }
+    assert.equal(extractErrorMessage(err), 'You do not have permission to use this model')
+  })
+
+  test('falls back to error.message when no structured data found', () => {
+    const err = { message: 'Connection refused' }
+    assert.equal(extractErrorMessage(err), 'Connection refused')
+  })
+
+  test('skips generic NoOutputGeneratedError message', () => {
+    const err = { message: 'No output generated. Check the stream for errors.' }
+    assert.equal(extractErrorMessage(err), 'Unknown error')
   })
 })

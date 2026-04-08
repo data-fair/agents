@@ -4,6 +4,7 @@
       :debug="debugEnabled"
       :title="chatTitle"
       :system-prompt="systemPrompt"
+      :narrow-viewport="narrowViewport"
       :account-type="accountType"
       :account-id="accountId"
     />
@@ -18,7 +19,7 @@ en:
 </i18n>
 
 <script lang="ts" setup>
-import { computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { useSession } from '@data-fair/lib-vue/session.js'
@@ -33,6 +34,13 @@ const accountId = computed(() => route.params.id as string)
 
 const chatTitle = useStringSearchParam('title', { default: t('defaultTitle') })
 const systemPrompt = useStringSearchParam('systemPrompt')
+
+const narrowViewport = ref(window.innerWidth < 500)
+onMounted(() => {
+  const onResize = () => { narrowViewport.value = window.innerWidth < 500 }
+  window.addEventListener('resize', onResize)
+  onUnmounted(() => window.removeEventListener('resize', onResize))
+})
 
 const debugEnabled = computed(() => {
   return session.state.user?.adminMode === 1

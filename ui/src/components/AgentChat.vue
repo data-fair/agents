@@ -71,6 +71,7 @@ fr:
   systemPromptLang: La langue de l'utilisateur est {lang}.
   systemPromptOrg: ", membre de l'organisation {orgName}"
   systemPromptDep: ", département {depName}"
+  systemPromptCompact: Tes réponses sont affichées dans un widget de chat étroit. Garde un formatage compact : utilise des paragraphes courts et des listes à puces simples. Évite les tableaux, les blocs de code larges et les sorties verbeuses. Sois concis.
   sessionCleared: Cette session d'assistance a pris fin car vous avez quitté l'action.
 en:
   welcome: How can I help you?
@@ -81,6 +82,7 @@ en:
   systemPromptLang: The user's language is {lang}.
   systemPromptOrg: ", member of the organization {orgName}"
   systemPromptDep: ", department {depName}"
+  systemPromptCompact: Your responses are displayed in a narrow chat widget. Keep formatting compact: use short paragraphs and simple bullet lists. Avoid tables, wide code blocks, and verbose output. Be concise.
   sessionCleared: This assistance session has ended because you navigated away from the action.
 </i18n>
 
@@ -104,6 +106,7 @@ const props = defineProps<{
   debug?: boolean
   title?: string
   systemPrompt?: string
+  narrowViewport?: boolean
   initialMessages?: ChatMessage[]
   accountType: string
   accountId: string
@@ -136,6 +139,10 @@ const finalSystemPrompt = computed(() => {
     t('systemPromptLang', { lang })
   ]
 
+  if (props.narrowViewport) {
+    parts.push(t('systemPromptCompact'))
+  }
+
   return parts.join(' ')
 })
 
@@ -160,6 +167,11 @@ if (!chatResult) {
 // chatResult is guaranteed to be defined after the throw guard above
 // but TypeScript doesn't narrow across script setup scope, so we re-bind
 const chat = chatResult
+
+watch(finalSystemPrompt, (prompt) => {
+  chat.setSystemPrompt(prompt)
+  if (recorder) recorder.setSystemPrompt(prompt)
+})
 
 const actionVisiblePrompt = ref<string | null>(null)
 const sessionClearedMessage = ref<string | null>(null)
