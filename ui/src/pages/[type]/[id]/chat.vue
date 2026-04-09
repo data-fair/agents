@@ -43,7 +43,7 @@ onMounted(() => {
 })
 
 const debugEnabled = computed(() => {
-  return session.state.user?.adminMode === 1
+  return !!session.state.user?.isAdmin
 })
 </script>
 
