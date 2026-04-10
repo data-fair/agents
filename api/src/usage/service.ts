@@ -80,7 +80,7 @@ export async function recordUsage (owner: AccountKeys, inputTokens: number, outp
   const filter = { 'owner.type': owner.type, 'owner.id': owner.id, ...(userId ? { userId } : {}) }
   const setOnInsertBase = { owner: { type: owner.type, id: owner.id }, ...(userId ? { userId } : {}) }
 
-  await Promise.all([
+  const ops = [
     mongo.usage.updateOne(
       { ...filter, period: dailyPeriod },
       {
@@ -99,28 +99,64 @@ export async function recordUsage (owner: AccountKeys, inputTokens: number, outp
       },
       { upsert: true }
     )
-  ])
+  ]
+
+  // for org owners with per-user tracking, also upsert account-level aggregate records
+  // this ensures account-level totals survive per-user cleanup
+  if (userId) {
+    const accountFilter = { 'owner.type': owner.type, 'owner.id': owner.id, userId: { $exists: false } } as any
+    const accountSetOnInsert = { owner: { type: owner.type, id: owner.id } }
+    ops.push(
+      mongo.usage.updateOne(
+        { ...accountFilter, period: dailyPeriod },
+        {
+          $inc: { inputTokens, outputTokens, totalTokens },
+          $set: { updatedAt: now },
+          $setOnInsert: { ...accountSetOnInsert, period: dailyPeriod }
+        },
+        { upsert: true }
+      ),
+      mongo.usage.updateOne(
+        { ...accountFilter, period: monthlyPeriod },
+        {
+          $inc: { inputTokens, outputTokens, totalTokens },
+          $set: { updatedAt: now },
+          $setOnInsert: { ...accountSetOnInsert, period: monthlyPeriod }
+        },
+        { upsert: true }
+      )
+    )
+  }
+
+  await Promise.all(ops)
 }
 
 export async function getOwnerUsage (owner: AccountKeys): Promise<UsageInfo> {
-  if (owner.type === 'user') return getUsage(owner)
-
+  // account-level records (no userId) are maintained by recordUsage for both
+  // personal accounts and organizations, so a simple findOne is sufficient
   const dailyPeriod = getDailyPeriod()
   const monthlyPeriod = getMonthlyPeriod()
 
-  const aggregate = async (period: string) => {
-    const result = await mongo.usage.aggregate<{ inputTokens: number, outputTokens: number, totalTokens: number }>([
-      { $match: { 'owner.type': owner.type, 'owner.id': owner.id, userId: { $ne: null }, period } },
-      { $group: { _id: null, inputTokens: { $sum: '$inputTokens' }, outputTokens: { $sum: '$outputTokens' }, totalTokens: { $sum: '$totalTokens' } } }
-    ]).toArray()
-    return result[0] ?? { inputTokens: 0, outputTokens: 0, totalTokens: 0 }
-  }
+  const filter = { 'owner.type': owner.type, 'owner.id': owner.id, userId: { $exists: false } }
 
-  const [daily, monthly] = await Promise.all([aggregate(dailyPeriod), aggregate(monthlyPeriod)])
+  const [daily, monthly] = await Promise.all([
+    mongo.usage.findOne({ ...filter, period: dailyPeriod }),
+    mongo.usage.findOne({ ...filter, period: monthlyPeriod })
+  ])
 
   return {
-    daily: { ...daily, resetsAt: getDailyResetsAt() },
-    monthly: { ...monthly, resetsAt: getMonthlyResetsAt() }
+    daily: {
+      inputTokens: daily?.inputTokens ?? 0,
+      outputTokens: daily?.outputTokens ?? 0,
+      totalTokens: daily?.totalTokens ?? 0,
+      resetsAt: getDailyResetsAt()
+    },
+    monthly: {
+      inputTokens: monthly?.inputTokens ?? 0,
+      outputTokens: monthly?.outputTokens ?? 0,
+      totalTokens: monthly?.totalTokens ?? 0,
+      resetsAt: getMonthlyResetsAt()
+    }
   }
 }
 
@@ -155,4 +191,130 @@ export function checkQuota (usage: UsageInfo, limits: UsageLimits, scope: string
     }
   }
   return null
+}
+
+export interface UsageEntry {
+  label: string
+  inputTokens: number
+  outputTokens: number
+  totalTokens: number
+}
+
+export interface UserDailyHistory {
+  userId: string
+  entries: UsageEntry[]
+}
+
+function getDailyPeriodForDate (date: Date): string {
+  return `daily:${date.toISOString().slice(0, 10)}`
+}
+
+function dateRange (days: number): { from: string, to: string, dates: string[] } {
+  const now = new Date()
+  const to = getDailyPeriodForDate(now)
+  const fromDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - days + 1))
+  const from = getDailyPeriodForDate(fromDate)
+
+  const dates: string[] = []
+  const cursor = new Date(fromDate)
+  for (let i = 0; i < days; i++) {
+    dates.push(cursor.toISOString().slice(0, 10))
+    cursor.setUTCDate(cursor.getUTCDate() + 1)
+  }
+
+  return { from, to, dates }
+}
+
+function monthRange (months: number): { from: string, to: string, labels: string[] } {
+  const now = new Date()
+  const to = `monthly:${now.toISOString().slice(0, 7)}`
+  const fromDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - months + 1, 1))
+  const from = `monthly:${fromDate.toISOString().slice(0, 7)}`
+
+  const labels: string[] = []
+  const cursor = new Date(fromDate)
+  for (let i = 0; i < months; i++) {
+    labels.push(cursor.toISOString().slice(0, 7))
+    cursor.setUTCMonth(cursor.getUTCMonth() + 1)
+  }
+
+  return { from, to, labels }
+}
+
+export async function getAccountDailyHistory (owner: AccountKeys, days: number = 30): Promise<UsageEntry[]> {
+  const { from, to, dates } = dateRange(days)
+
+  // account-level records have no userId (both personal and org)
+  const records = await mongo.usage.find({
+    'owner.type': owner.type,
+    'owner.id': owner.id,
+    userId: { $exists: false },
+    period: { $gte: from, $lte: to }
+  }).toArray()
+
+  const byDate = new Map(records.map(r => [r.period.slice(6), r]))
+
+  return dates.map(date => {
+    const record = byDate.get(date)
+    return {
+      label: date,
+      inputTokens: record?.inputTokens ?? 0,
+      outputTokens: record?.outputTokens ?? 0,
+      totalTokens: record?.totalTokens ?? 0
+    }
+  })
+}
+
+export async function getAccountMonthlyHistory (owner: AccountKeys, months: number = 12): Promise<UsageEntry[]> {
+  const { from, to, labels } = monthRange(months)
+
+  const records = await mongo.usage.find({
+    'owner.type': owner.type,
+    'owner.id': owner.id,
+    userId: { $exists: false },
+    period: { $gte: from, $lte: to }
+  }).toArray()
+
+  const byMonth = new Map(records.map(r => [r.period.slice(8), r]))
+
+  return labels.map(label => {
+    const record = byMonth.get(label)
+    return {
+      label,
+      inputTokens: record?.inputTokens ?? 0,
+      outputTokens: record?.outputTokens ?? 0,
+      totalTokens: record?.totalTokens ?? 0
+    }
+  })
+}
+
+export async function getUsersDailyHistory (owner: AccountKeys, days: number = 7): Promise<UserDailyHistory[]> {
+  const { from, to, dates } = dateRange(days)
+
+  const records = await mongo.usage.find({
+    'owner.type': owner.type,
+    'owner.id': owner.id,
+    userId: { $exists: true },
+    period: { $gte: from, $lte: to }
+  } as any).toArray()
+
+  const byUser = new Map<string, Map<string, TokenUsage>>()
+  for (const r of records) {
+    if (!r.userId) continue
+    if (!byUser.has(r.userId)) byUser.set(r.userId, new Map())
+    byUser.get(r.userId)!.set(r.period.slice(6), r)
+  }
+
+  return Array.from(byUser.entries()).map(([userId, dateMap]) => ({
+    userId,
+    entries: dates.map(date => {
+      const record = dateMap.get(date)
+      return {
+        label: date,
+        inputTokens: record?.inputTokens ?? 0,
+        outputTokens: record?.outputTokens ?? 0,
+        totalTokens: record?.totalTokens ?? 0
+      }
+    })
+  }))
 }

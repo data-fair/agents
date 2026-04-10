@@ -5,7 +5,7 @@
       v-if="session.account.value"
       :to="`/${session.account.value.type}/${session.account.value.id}/settings`"
     >
-      settings
+      {{ t('settings') }}
     </v-btn>
     <personal-menu dark-mode-switch />
   </v-app-bar>
@@ -37,9 +37,18 @@
   </v-container>
 </template>
 
+<i18n lang="yaml">
+fr:
+  settings: Paramètres
+en:
+  settings: Settings
+</i18n>
+
 <script lang="ts" setup>
+import { useI18n } from 'vue-i18n'
 import personalMenu from '@data-fair/lib-vuetify/personal-menu.vue'
 import { useSessionAuthenticated } from '@data-fair/lib-vue/session.js'
 
+const { t } = useI18n()
 const session = useSessionAuthenticated()
 </script>

@@ -9,9 +9,11 @@ import { createHttpTerminator } from 'http-terminator'
 import { app } from './app.ts'
 import config from '#config'
 import mongo from '#mongo'
+import { cleanupOldUsage } from './usage/cleanup.ts'
 
 const server = createServer(app)
 const httpTerminator = createHttpTerminator({ server })
+let cleanupInterval: ReturnType<typeof setInterval> | undefined
 
 server.keepAliveTimeout = (60 * 1000) + 1000
 server.headersTimeout = (60 * 1000) + 2000
@@ -31,6 +33,11 @@ export const start = async () => {
     }
   }
 
+  cleanupOldUsage().catch(err => console.error('initial usage cleanup failed', err))
+  cleanupInterval = setInterval(() => {
+    cleanupOldUsage().catch(err => console.error('usage cleanup failed', err))
+  }, 24 * 60 * 60 * 1000)
+
   server.listen(config.port)
   await eventPromise(server, 'listening')
 
@@ -38,6 +45,7 @@ export const start = async () => {
 }
 
 export const stop = async () => {
+  if (cleanupInterval) clearInterval(cleanupInterval)
   await httpTerminator.terminate()
   if (config.observer?.active) await stopObserver()
   await locks.stop()

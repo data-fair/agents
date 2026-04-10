@@ -49,16 +49,24 @@ if (process.env.NODE_ENV === 'development') {
     res.send()
   })
   app.post('/api/test-env/usage', async (req, res) => {
-    const { owner, totalTokens, userId } = req.body
+    const { owner, totalTokens, userId, period: explicitPeriod } = req.body
     const now = new Date()
-    const dailyPeriod = `daily:${now.toISOString().slice(0, 10)}`
-    const monthlyPeriod = `monthly:${now.toISOString().slice(0, 7)}`
-    const filter = { 'owner.type': owner.type, 'owner.id': owner.id, ...(userId ? { userId } : {}) }
-    const doc = { owner, ...(userId ? { userId } : {}), inputTokens: totalTokens, outputTokens: 0, totalTokens, updatedAt: now.toISOString() }
-    await Promise.all([
-      mongo.db.collection('usage').updateOne({ ...filter, period: dailyPeriod }, { $set: { ...doc, period: dailyPeriod } }, { upsert: true }),
-      mongo.db.collection('usage').updateOne({ ...filter, period: monthlyPeriod }, { $set: { ...doc, period: monthlyPeriod } }, { upsert: true })
-    ])
+    const userIdField = userId !== undefined ? { userId } : {}
+    const doc = { owner, ...userIdField, inputTokens: totalTokens, outputTokens: 0, totalTokens, updatedAt: now.toISOString() }
+
+    if (explicitPeriod) {
+      // insert a single record at an explicit period (e.g. 'daily:2026-04-05')
+      const filter = { 'owner.type': owner.type, 'owner.id': owner.id, ...userIdField, period: explicitPeriod }
+      await mongo.db.collection('usage').updateOne(filter, { $set: { ...doc, period: explicitPeriod } }, { upsert: true })
+    } else {
+      const dailyPeriod = `daily:${now.toISOString().slice(0, 10)}`
+      const monthlyPeriod = `monthly:${now.toISOString().slice(0, 7)}`
+      const filter = { 'owner.type': owner.type, 'owner.id': owner.id, ...userIdField }
+      await Promise.all([
+        mongo.db.collection('usage').updateOne({ ...filter, period: dailyPeriod }, { $set: { ...doc, period: dailyPeriod } }, { upsert: true }),
+        mongo.db.collection('usage').updateOne({ ...filter, period: monthlyPeriod }, { $set: { ...doc, period: monthlyPeriod } }, { upsert: true })
+      ])
+    }
     res.send()
   })
 }

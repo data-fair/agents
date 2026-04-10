@@ -76,7 +76,7 @@ router.post('/:type/:id', async (req, res, next) => {
     const accountLimits = settings.quotas.global
 
     if (!accountLimits.unlimited && (accountLimits.dailyTokenLimit || accountLimits.monthlyTokenLimit)) {
-      const accountUsage = trackPerUser ? await getOwnerUsage(owner) : await getUsage(owner)
+      const accountUsage = await getOwnerUsage(owner)
       const quotaCheck = checkQuota(accountUsage, accountLimits, trackPerUser ? 'organization' : 'user')
       if (quotaCheck) {
         res.status(429).json({ error: quotaCheck.reason })
