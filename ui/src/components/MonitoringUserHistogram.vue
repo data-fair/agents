@@ -42,6 +42,7 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip)
 
 interface UserEntry {
   userId: string
+  userLabel: string
   totalTokens: number
   inputTokens: number
   outputTokens: number
@@ -54,7 +55,7 @@ const props = defineProps<{
 const { t } = useI18n()
 
 const chartData = computed(() => ({
-  labels: props.users.map(u => u.userId),
+  labels: props.users.map(u => u.userLabel),
   datasets: [{
     label: t('tokens'),
     data: props.users.map(u => u.totalTokens),

@@ -90,6 +90,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
 
     let trackPerUser: boolean
     let usageUserId: string | undefined
+    let usageUserName: string | undefined
 
     if (!authenticated) {
       // Anonymous path
@@ -106,6 +107,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
       // Permission check via role-based quotas
       assertCanUseModel(session as any, owner, quotas)
       usageUserId = trackPerUser ? session.user!.id : undefined
+      usageUserName = trackPerUser ? session.user!.name : undefined
     }
 
     // Check account limits against account usage
@@ -244,7 +246,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
             const inputTokens = Math.round((part.totalUsage?.inputTokens ?? 0) * ratio)
             const outputTokens = Math.round((part.totalUsage?.outputTokens ?? 0) * ratio)
             if (inputTokens || outputTokens) {
-              await recordUsage(owner, inputTokens, outputTokens, usageUserId)
+              await recordUsage(owner, inputTokens, outputTokens, usageUserId, usageUserName)
             }
 
             res.write(`data: ${JSON.stringify({
@@ -290,7 +292,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
       const inputTokens = Math.round((result.usage?.inputTokens ?? 0) * ratio)
       const outputTokens = Math.round((result.usage?.outputTokens ?? 0) * ratio)
       if (inputTokens || outputTokens) {
-        await recordUsage(owner, inputTokens, outputTokens, usageUserId)
+        await recordUsage(owner, inputTokens, outputTokens, usageUserId, usageUserName)
       }
 
       // Build response message

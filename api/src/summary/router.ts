@@ -55,6 +55,7 @@ router.post('/:type/:id', async (req, res, next) => {
 
     let trackPerUser: boolean
     let usageUserId: string | undefined
+    let usageUserName: string | undefined
 
     if (!authenticated) {
       // Anonymous path
@@ -70,6 +71,7 @@ router.post('/:type/:id', async (req, res, next) => {
 
       assertCanUseModel(session as any, owner, quotas)
       usageUserId = trackPerUser ? session.user!.id : undefined
+      usageUserName = trackPerUser ? session.user!.name : undefined
     }
 
     // Quota enforcement (same pattern as gateway)
@@ -111,7 +113,7 @@ router.post('/:type/:id', async (req, res, next) => {
     const inputTokens = usage?.inputTokens ?? 0
     const outputTokens = usage?.outputTokens ?? 0
     if (inputTokens || outputTokens) {
-      await recordUsage(owner, inputTokens, outputTokens, usageUserId)
+      await recordUsage(owner, inputTokens, outputTokens, usageUserId, usageUserName)
     }
 
     res.json({ summary: text })

@@ -4,6 +4,7 @@ import mongo from '#mongo'
 export interface TokenUsage {
   owner: { type: string, id: string }
   userId?: string
+  userName?: string
   period: string // 'daily:2026-03-13' or 'monthly:2026-03'
   inputTokens: number
   outputTokens: number
@@ -70,7 +71,7 @@ export async function getUsage (owner: AccountKeys, userId?: string): Promise<Us
   }
 }
 
-export async function recordUsage (owner: AccountKeys, inputTokens: number, outputTokens: number, userId?: string): Promise<void> {
+export async function recordUsage (owner: AccountKeys, inputTokens: number, outputTokens: number, userId?: string, userName?: string): Promise<void> {
   const totalTokens = inputTokens + outputTokens
   const now = new Date().toISOString()
 
@@ -79,13 +80,15 @@ export async function recordUsage (owner: AccountKeys, inputTokens: number, outp
 
   const filter = { 'owner.type': owner.type, 'owner.id': owner.id, ...(userId ? { userId } : {}) }
   const setOnInsertBase = { owner: { type: owner.type, id: owner.id }, ...(userId ? { userId } : {}) }
+  const setFields: Record<string, string> = { updatedAt: now }
+  if (userName) setFields.userName = userName
 
   const ops = [
     mongo.usage.updateOne(
       { ...filter, period: dailyPeriod },
       {
         $inc: { inputTokens, outputTokens, totalTokens },
-        $set: { updatedAt: now },
+        $set: setFields,
         $setOnInsert: { ...setOnInsertBase, period: dailyPeriod }
       },
       { upsert: true }
@@ -94,7 +97,7 @@ export async function recordUsage (owner: AccountKeys, inputTokens: number, outp
       { ...filter, period: monthlyPeriod },
       {
         $inc: { inputTokens, outputTokens, totalTokens },
-        $set: { updatedAt: now },
+        $set: setFields,
         $setOnInsert: { ...setOnInsertBase, period: monthlyPeriod }
       },
       { upsert: true }
@@ -202,6 +205,7 @@ export interface UsageEntry {
 
 export interface UserDailyHistory {
   userId: string
+  userName?: string
   entries: UsageEntry[]
 }
 
@@ -298,15 +302,18 @@ export async function getUsersDailyHistory (owner: AccountKeys, days: number = 7
     period: { $gte: from, $lte: to }
   } as any).toArray()
 
-  const byUser = new Map<string, Map<string, TokenUsage>>()
+  const byUser = new Map<string, { dateMap: Map<string, TokenUsage>, userName?: string }>()
   for (const r of records) {
     if (!r.userId) continue
-    if (!byUser.has(r.userId)) byUser.set(r.userId, new Map())
-    byUser.get(r.userId)!.set(r.period.slice(6), r)
+    if (!byUser.has(r.userId)) byUser.set(r.userId, { dateMap: new Map(), userName: r.userName })
+    const entry = byUser.get(r.userId)!
+    entry.dateMap.set(r.period.slice(6), r)
+    if (r.userName) entry.userName = r.userName
   }
 
-  return Array.from(byUser.entries()).map(([userId, dateMap]) => ({
+  return Array.from(byUser.entries()).map(([userId, { dateMap, userName }]) => ({
     userId,
+    userName,
     entries: dates.map(date => {
       const record = dateMap.get(date)
       return {

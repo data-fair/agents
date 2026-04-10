@@ -49,10 +49,11 @@ if (process.env.NODE_ENV === 'development') {
     res.send()
   })
   app.post('/api/test-env/usage', async (req, res) => {
-    const { owner, totalTokens, userId, period: explicitPeriod } = req.body
+    const { owner, totalTokens, userId, userName, period: explicitPeriod } = req.body
     const now = new Date()
     const userIdField = userId !== undefined ? { userId } : {}
-    const doc = { owner, ...userIdField, inputTokens: totalTokens, outputTokens: 0, totalTokens, updatedAt: now.toISOString() }
+    const userNameField = userName !== undefined ? { userName } : {}
+    const doc = { owner, ...userIdField, ...userNameField, inputTokens: totalTokens, outputTokens: 0, totalTokens, updatedAt: now.toISOString() }
 
     if (explicitPeriod) {
       // insert a single record at an explicit period (e.g. 'daily:2026-04-05')

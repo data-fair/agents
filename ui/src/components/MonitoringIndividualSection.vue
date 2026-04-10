@@ -54,6 +54,7 @@ interface UsageEntry {
 
 interface UserHistory {
   userId: string
+  userName?: string
   entries: UsageEntry[]
 }
 
@@ -83,6 +84,12 @@ const weekDays = computed(() => {
 
 const selectedDate = ref(weekDays.value[weekDays.value.length - 1]?.date ?? '')
 
+function formatUserLabel (userId: string, userName?: string): string {
+  if (userId.startsWith('anon:')) return `anonymous (${userId.slice(5)})`
+  if (userName) return `${userName} (${userId})`
+  return userId
+}
+
 const filteredUsers = computed(() => {
   if (!usersFetch.data.value) return []
   return usersFetch.data.value.users
@@ -90,6 +97,7 @@ const filteredUsers = computed(() => {
       const entry = user.entries.find(e => e.label === selectedDate.value)
       return {
         userId: user.userId,
+        userLabel: formatUserLabel(user.userId, user.userName),
         totalTokens: entry?.totalTokens ?? 0,
         inputTokens: entry?.inputTokens ?? 0,
         outputTokens: entry?.outputTokens ?? 0
