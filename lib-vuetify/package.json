@@ -16,7 +16,7 @@
   "license": "MIT",
   "peerDependencies": {
     "vue": "^3.5.0",
-    "vue-router": "^4.0.0",
+    "vue-router": "^5.0.0",
     "vuetify": "^4.0.0",
     "@data-fair/frame": "^0.18.0",
     "@data-fair/lib-vue-agents": "^0.3.0"
