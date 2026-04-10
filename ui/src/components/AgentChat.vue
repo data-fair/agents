@@ -57,6 +57,7 @@
       :tracing-enabled="tracingEnabled"
       :trace-overview="traceOverview"
       :recorder="recorder"
+      :session-usage="chat.sessionUsage.value"
     />
   </v-card>
 </template>

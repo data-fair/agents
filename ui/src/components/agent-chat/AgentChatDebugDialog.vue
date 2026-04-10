@@ -33,6 +33,18 @@
           </v-tab>
         </v-tabs>
 
+        <div
+          v-if="sessionUsage && (sessionUsage.inputTokens > 0 || sessionUsage.outputTokens > 0)"
+          class="d-flex align-center ga-2 px-2 py-1 text-caption text-medium-emphasis"
+        >
+          <v-icon
+            :icon="mdiChartBar"
+            size="small"
+          />
+          <span>{{ t('tokens') }}: {{ (sessionUsage.inputTokens + sessionUsage.outputTokens).toLocaleString() }}</span>
+          <span>({{ t('input') }}: {{ sessionUsage.inputTokens.toLocaleString() }} | {{ t('output') }}: {{ sessionUsage.outputTokens.toLocaleString() }})</span>
+        </div>
+
         <v-window v-model="activeDebugTab">
           <v-window-item value="systemPrompt">
             <pre class="agent-chat__pre pa-3 mt-2">{{ systemPrompt }}</pre>
@@ -191,10 +203,44 @@
                     <div class="text-caption text-medium-emphasis mb-1">
                       {{ entry.preview }}
                     </div>
-                    <pre
-                      v-if="traceEntryDetails[entry.index]"
-                      class="agent-chat__pre pa-2 mt-1"
-                    >{{ JSON.stringify(traceEntryDetails[entry.index]?.content, null, 2) }}</pre>
+                    <template v-if="traceEntryDetails[entry.index]">
+                      <template v-if="entry.type === 'assistant-step' || entry.type === 'sub-agent-step'">
+                        <div
+                          v-if="traceEntryDetails[entry.index]?.content?.usage"
+                          class="d-flex ga-2 my-2"
+                        >
+                          <v-chip
+                            size="x-small"
+                            variant="tonal"
+                            color="info"
+                            label
+                          >
+                            {{ t('input') }}: {{ traceEntryDetails[entry.index].content.usage.inputTokens?.toLocaleString() }}
+                          </v-chip>
+                          <v-chip
+                            size="x-small"
+                            variant="tonal"
+                            color="warning"
+                            label
+                          >
+                            {{ t('output') }}: {{ traceEntryDetails[entry.index].content.usage.outputTokens?.toLocaleString() }}
+                          </v-chip>
+                          <v-chip
+                            v-if="traceEntryDetails[entry.index].content.finishReason"
+                            size="x-small"
+                            variant="tonal"
+                            label
+                          >
+                            {{ traceEntryDetails[entry.index].content.finishReason }}
+                          </v-chip>
+                        </div>
+                        <pre class="agent-chat__pre pa-2 mt-1">{{ JSON.stringify(traceEntryDetails[entry.index]?.content?.messages, null, 2) }}</pre>
+                      </template>
+                      <pre
+                        v-else
+                        class="agent-chat__pre pa-2 mt-1"
+                      >{{ JSON.stringify(traceEntryDetails[entry.index]?.content, null, 2) }}</pre>
+                    </template>
                   </v-expansion-panel-text>
                 </v-expansion-panel>
               </v-expansion-panels>
@@ -218,6 +264,9 @@ fr:
   startTracing: Démarrer le traçage
   stopTracing: Arrêter le traçage
   tracingDisabled: Le traçage n'est pas actif. Activez-le pour enregistrer les échanges et pouvoir les analyser.
+  tokens: Tokens
+  input: entrée
+  output: sortie
 en:
   close: Close
   systemPrompt: System Prompt
@@ -229,12 +278,15 @@ en:
   startTracing: Start tracing
   stopTracing: Stop tracing
   tracingDisabled: Tracing is not active. Enable it to record exchanges and analyze them.
+  tokens: Tokens
+  input: input
+  output: output
 </i18n>
 
 <script lang="ts" setup>
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { mdiClose } from '@mdi/js'
+import { mdiClose, mdiChartBar } from '@mdi/js'
 import type { TraceOverviewEntry, TraceEntryDetail, SessionRecorder } from '~/traces/session-recorder'
 import type { DebugToolsPartition } from '~/composables/use-agent-chat'
 
@@ -245,6 +297,7 @@ const props = defineProps<{
   tracingEnabled: boolean
   traceOverview: TraceOverviewEntry[]
   recorder?: SessionRecorder
+  sessionUsage?: { inputTokens: number; outputTokens: number }
 }>()
 
 defineEmits<{

@@ -109,6 +109,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
   const error = ref<string | null>(null)
   const tools = ref<Record<string, Tool>>({})
   const toolsVersion = ref(0)
+  const sessionUsage = ref({ inputTokens: 0, outputTokens: 0 })
   let history: ModelMessage[] = []
   // characters of serialized history before compaction
   // 24000 is roughly equivalent to a 8k tokens context with 10-15 turns of dialogue an 2-3 tool calls
@@ -232,6 +233,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
     status.value = 'ready'
     error.value = null
     history = []
+    sessionUsage.value = { inputTokens: 0, outputTokens: 0 }
     if (newSystemPrompt !== undefined) {
       options.systemPrompt = newSystemPrompt
     }
@@ -466,6 +468,13 @@ export function useAgentChat (options: UseAgentChatOptions) {
             if (recorder) {
               recorder.addSubAgentStepMessages(parentToolCallId, subResponse.messages, (subResponse as any).usage)
             }
+            const subUsage = (subResponse as any).usage
+            if (subUsage) {
+              sessionUsage.value = {
+                inputTokens: sessionUsage.value.inputTokens + (subUsage.inputTokens ?? 0),
+                outputTokens: sessionUsage.value.outputTokens + (subUsage.outputTokens ?? 0)
+              }
+            }
           },
           toModelOutput: ({ output }: { output: any }) => {
             // Main agent sees only the final text summary, not full subagent trace
@@ -543,6 +552,13 @@ export function useAgentChat (options: UseAgentChatOptions) {
       if (recorder) {
         recorder.addStepMessages(response.messages, (response as any).usage, (response as any).finishReason)
       }
+      const usage = (response as any).usage
+      if (usage) {
+        sessionUsage.value = {
+          inputTokens: sessionUsage.value.inputTokens + (usage.inputTokens ?? 0),
+          outputTokens: sessionUsage.value.outputTokens + (usage.outputTokens ?? 0)
+        }
+      }
 
       status.value = 'ready'
     } catch (err: any) {
@@ -567,7 +583,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
     options.systemPrompt = prompt
   }
 
-  return { messages, status, error, tools, toolsVersion, resolvedPartition, sendMessage, abort, reset, setSystemPrompt }
+  return { messages, status, error, tools, toolsVersion, resolvedPartition, sendMessage, abort, reset, setSystemPrompt, sessionUsage }
 }
 
 export default useAgentChat
