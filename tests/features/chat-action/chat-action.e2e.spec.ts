@@ -74,7 +74,7 @@ test.describe('Agent Chat Action Button', () => {
     expect(chatContent).not.toContain('Relevant tools to focus on')
   })
 
-  test('Clicking a second action button replaces the session', async ({ page, goToWithAuth }) => {
+  test('Clicking a second action button appends to the conversation', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/_dev/chat-action', 'test-standalone1')
 
     // Click first action (opens the drawer)
@@ -85,15 +85,15 @@ test.describe('Agent Chat Action Button', () => {
     // Click second action
     await page.locator('.df-agent-chat-action').nth(1).click()
 
-    // Should now show the second action's prompt
-    await expect(frame.locator('.v-card').first()).toContainText('Help me configure a data processing', { timeout: 10000 })
+    // Should show the second action's prompt appended to the conversation
+    await expect(frame.locator('.v-card.bg-secondary').nth(1)).toContainText('Help me configure a data processing', { timeout: 10000 })
 
-    // First prompt should be gone
+    // First prompt should still be present
     const chatContent = await frame.locator('.agent-chat').textContent()
-    expect(chatContent).not.toContain('Help me create a new dataset')
+    expect(chatContent).toContain('Help me create a new dataset')
   })
 
-  test('Destroying action button shows session-cleared message', async ({ page, goToWithAuth }) => {
+  test('Destroying action button preserves the conversation', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/_dev/chat-action', 'test-standalone1')
 
     // Click the destroyable action (third button, opens the drawer)
@@ -104,7 +104,10 @@ test.describe('Agent Chat Action Button', () => {
     // Click "Hide temporary action" to destroy the button
     await page.getByText('Hide temporary action').click()
 
-    // The chat should show a session-cleared info message
-    await expect(frame.locator('.v-alert')).toContainText('session has ended', { timeout: 5000 })
+    // The conversation should still be visible (not cleared)
+    await expect(frame.locator('.v-card').first()).toContainText('Help me with this temporary action', { timeout: 5000 })
+
+    // No session-cleared alert should appear
+    await expect(frame.locator('.v-alert')).not.toBeVisible({ timeout: 2000 })
   })
 })

@@ -21,7 +21,6 @@
         :welcome-text="activeChatTab === 'evaluation' ? t('welcomeEvaluation') : t('welcome')"
         :tool-title="toolTitle"
         :action-visible-prompt="actionVisiblePrompt"
-        :session-cleared-message="sessionClearedMessage"
       />
 
       <agent-chat-input
@@ -73,7 +72,6 @@ fr:
   systemPromptOrg: ", membre de l'organisation {orgName}"
   systemPromptDep: ", département {depName}"
   systemPromptCompact: "Tes réponses sont affichées dans un widget de chat étroit. Garde un formatage compact : utilise des paragraphes courts et des listes à puces simples. Évite les tableaux, les blocs de code larges et les sorties verbeuses. Sois concis."
-  sessionCleared: Cette session d'assistance a pris fin car vous avez quitté l'action.
 en:
   welcome: How can I help you?
   welcomeEvaluation: "This tab lets you analyze the current session with an AI evaluator. Ask questions about what happened, what worked well, or what could be improved."
@@ -84,7 +82,6 @@ en:
   systemPromptOrg: ", member of the organization {orgName}"
   systemPromptDep: ", department {depName}"
   systemPromptCompact: "Your responses are displayed in a narrow chat widget. Keep formatting compact: use short paragraphs and simple bullet lists. Avoid tables, wide code blocks, and verbose output. Be concise."
-  sessionCleared: This assistance session has ended because you navigated away from the action.
 </i18n>
 
 <script lang="ts" setup>
@@ -171,7 +168,6 @@ watch(finalSystemPrompt, (prompt) => {
 })
 
 const actionVisiblePrompt = ref<string | null>(null)
-const sessionClearedMessage = ref<string | null>(null)
 
 const EVALUATOR_PROMPT = `You are an AI session evaluator. You analyze conversation traces between a user and an AI assistant to help improve the system.
 
@@ -305,22 +301,28 @@ function startActionSession (visiblePrompt: string, hiddenContext: string) {
   sessionStorage.removeItem('df-agent-pending-action')
   const newSystemPrompt = finalSystemPrompt.value + '\n\n' + hiddenContext
 
+  // Update the system prompt without clearing the conversation
+  chat.setSystemPrompt(newSystemPrompt)
   if (recorder) {
     recorder.setSystemPrompt(newSystemPrompt)
   }
 
   actionVisiblePrompt.value = visiblePrompt
-  sessionClearedMessage.value = null
-
-  // Reset the chat with the new system prompt (clears messages and history)
-  chat.reset(newSystemPrompt)
 
   // Send the visible prompt — this adds it to messages + history and triggers the LLM
   chat.sendMessage(visiblePrompt, { hiddenContext })
 }
 
 function handleSessionCleared () {
-  sessionClearedMessage.value = t('sessionCleared')
+  // The action that started this context is gone, but the conversation continues.
+  // Just clear the action-specific state without disrupting the chat.
+  actionVisiblePrompt.value = null
+
+  // Restore the base system prompt (remove action-specific hidden context)
+  chat.setSystemPrompt(finalSystemPrompt.value)
+  if (recorder) {
+    recorder.setSystemPrompt(finalSystemPrompt.value)
+  }
 }
 
 watch(() => chat.status.value, (status) => {
