@@ -301,6 +301,9 @@ function startActionSession (visiblePrompt: string, hiddenContext: string) {
   sessionStorage.removeItem('df-agent-pending-action')
   const newSystemPrompt = finalSystemPrompt.value + '\n\n' + hiddenContext
 
+  // Abort any in-flight response so sendMessage won't be silently dropped
+  chat.abort()
+
   // Update the system prompt without clearing the conversation
   chat.setSystemPrompt(newSystemPrompt)
   if (recorder) {

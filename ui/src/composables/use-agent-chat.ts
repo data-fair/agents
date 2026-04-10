@@ -224,6 +224,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
     if (abortController) {
       abortController.abort()
       abortController = null
+      status.value = 'ready'
     }
   }
 

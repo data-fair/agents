@@ -85,12 +85,10 @@ test.describe('Agent Chat Action Button', () => {
     // Click second action
     await page.locator('.df-agent-chat-action').nth(1).click()
 
-    // Should show the second action's prompt appended to the conversation
-    await expect(frame.locator('.v-card.bg-secondary').nth(1)).toContainText('Help me configure a data processing', { timeout: 10000 })
-
-    // First prompt should still be present
-    const chatContent = await frame.locator('.agent-chat').textContent()
-    expect(chatContent).toContain('Help me create a new dataset')
+    // Both prompts should be present in the conversation
+    const chatContent = frame.locator('.agent-chat')
+    await expect(chatContent).toContainText('Help me configure a data processing', { timeout: 10000 })
+    await expect(chatContent).toContainText('Help me create a new dataset')
   })
 
   test('Destroying action button preserves the conversation', async ({ page, goToWithAuth }) => {
