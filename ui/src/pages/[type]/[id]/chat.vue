@@ -22,7 +22,7 @@ en:
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
-import { useSession } from '@data-fair/lib-vue/session.js'
+import { getAccountRole, useSession } from '@data-fair/lib-vue/session.js'
 import AgentChat from '~/components/AgentChat.vue'
 
 const { t } = useI18n()
@@ -43,7 +43,7 @@ onMounted(() => {
 })
 
 const debugEnabled = computed(() => {
-  return !!session.state.user?.isAdmin
+  return !!session.state.user?.isAdmin || (getAccountRole(session.state, { type: accountType.value as 'user' | 'organization', id: accountId.value }) === 'admin')
 })
 </script>
 
