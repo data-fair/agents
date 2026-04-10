@@ -33,13 +33,20 @@
       style="height: 100%; width: 100%; position: relative;"
       v-bind="cardProps"
     >
-      <v-btn
-        icon="$close"
-        size="small"
-        variant="flat"
-        style="position: absolute; top: 4px; right: 4px; z-index: 1;"
-        @click="state.toggleMenu"
-      />
+      <div style="position: absolute; top: 4px; right: 4px; z-index: 1; display: flex; gap: 2px;">
+        <v-btn
+          :icon="state.expanded.value ? mdiArrowCollapse : mdiArrowExpand"
+          size="small"
+          variant="flat"
+          @click="state.toggleExpanded"
+        />
+        <v-btn
+          icon="$close"
+          size="small"
+          variant="flat"
+          @click="state.toggleMenu"
+        />
+      </div>
       <d-frame
         ref="dFrameRef"
         v-show="state.menuOpen.value"
@@ -53,7 +60,8 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, ref, watch, nextTick } from 'vue'
+import { computed, ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { mdiArrowExpand, mdiArrowCollapse } from '@mdi/js'
 import { VMenu } from 'vuetify/components/VMenu'
 import { VCard } from 'vuetify/components/VCard'
 import { VBtn } from 'vuetify/components/VBtn'
@@ -97,11 +105,39 @@ watch(() => state.menuOpen.value, async (open) => {
 
 const resolvedSrc = computed(() => resolveAgentChatUrl(props))
 
-const resolvedMenuProps = computed(() => ({
-  location: 'bottom end' as const,
-  width: 400,
-  height: 500,
-  scrollStrategy: 'none' as const,
-  ...props.menuProps
-}))
+const windowWidth = ref(window.innerWidth)
+const windowHeight = ref(window.innerHeight)
+function onResize () {
+  windowWidth.value = window.innerWidth
+  windowHeight.value = window.innerHeight
+}
+onMounted(() => window.addEventListener('resize', onResize))
+onUnmounted(() => window.removeEventListener('resize', onResize))
+
+const resolvedMenuProps = computed(() => {
+  const base = {
+    location: 'bottom end' as const,
+    width: 400,
+    height: 500,
+    scrollStrategy: 'none' as const,
+    ...props.menuProps
+  }
+  if (!state.expanded.value) return base
+
+  const isSmallScreen = windowWidth.value < 800
+  if (isSmallScreen) {
+    return {
+      ...base,
+      width: windowWidth.value,
+      height: windowHeight.value,
+      location: 'top start' as const,
+      offset: 0
+    }
+  }
+  return {
+    ...base,
+    width: Math.min(800, windowWidth.value - 32),
+    height: Math.min(700, windowHeight.value - 32)
+  }
+})
 </script>
