@@ -14,7 +14,12 @@ export interface AgentUnreadMessage {
   unread: boolean
 }
 
-export type AgentChatMessage = AgentStatusMessage | AgentToolsChangedMessage | AgentUnreadMessage
+export interface AgentNavigateMessage {
+  type: 'navigate'
+  url: string
+}
+
+export type AgentChatMessage = AgentStatusMessage | AgentToolsChangedMessage | AgentUnreadMessage | AgentNavigateMessage
 
 /** BroadcastChannel message sent by action buttons */
 export interface AgentActionStartSession {

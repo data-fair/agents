@@ -21,6 +21,7 @@
         :welcome-text="activeChatTab === 'evaluation' ? t('welcomeEvaluation') : t('welcome')"
         :tool-title="toolTitle"
         :action-visible-prompt="actionVisiblePrompt"
+        @navigate="url => sendDFrameMessage({ type: 'navigate', url })"
       />
 
       <agent-chat-input

@@ -5,7 +5,16 @@ import { createMarkedVuetify } from '@data-fair/lib-utils/marked-vuetify.js'
 
 const markedVuetify = createMarkedVuetify({ density: 'compact' })
 const sanitizeOpts = getSanitizeOpts(sanitizeHtml.defaults)
+sanitizeOpts.allowedAttributes = { ...sanitizeOpts.allowedAttributes, a: ['href', 'target'] }
 marked.use(markedVuetify)
+
+const renderer = new marked.Renderer()
+const originalLink = renderer.link.bind(renderer)
+renderer.link = function (token) {
+  const html = originalLink(token)
+  return html.replace('<a ', '<a target="_top" ')
+}
+marked.use({ renderer })
 
 export const renderMarkdown = (markdown: string) =>
   sanitizeHtml(marked.parse(markdown) as string, sanitizeOpts)

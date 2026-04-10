@@ -1,4 +1,5 @@
 import { ref, computed, watch, type Ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { mdiRobotOutline, mdiCommentQuestion, mdiAlertCircle } from '@mdi/js'
 import { getTabChannelId } from '@data-fair/lib-vue-agents'
 import type { AgentStatus, AgentChatMessage, AgentChatPong } from './types.js'
@@ -7,6 +8,7 @@ import Debug from './debug.js'
 const debug = Debug('df-agents:agent-chat')
 
 export function createAgentChatBase (isOpen: Ref<boolean>, storageKey: string) {
+  const router = useRouter()
   const agentStatus = ref<AgentStatus>('idle')
   const hasUnread = ref(false)
   const toolsJustChanged = ref(false)
@@ -72,6 +74,14 @@ export function createAgentChatBase (isOpen: Ref<boolean>, storageKey: string) {
       toolsJustChanged.value = true
       if (toolsChangedTimeout) clearTimeout(toolsChangedTimeout)
       toolsChangedTimeout = setTimeout(() => { toolsJustChanged.value = false }, 3000)
+    } else if (msg.type === 'navigate') {
+      const parsed = new URL(msg.url, window.location.origin)
+      const base = router.options.history.base
+      if (parsed.origin === window.location.origin && parsed.pathname.startsWith(base)) {
+        router.push(parsed.pathname.slice(base.length - (base.endsWith('/') ? 1 : 0)) + parsed.search + parsed.hash)
+      } else {
+        window.location.href = msg.url
+      }
     } else if (msg.type === 'unread') {
       if (!isOpen.value && msg.unread) {
         hasUnread.value = true

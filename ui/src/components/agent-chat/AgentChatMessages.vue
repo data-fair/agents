@@ -3,6 +3,7 @@
     ref="messagesContainer"
     class="flex-grow-1 overflow-y-auto agent-chat-message"
     style="min-height: 0"
+    @click="onLinkClick"
   >
     <!-- Welcome message -->
     <div
@@ -197,6 +198,10 @@ import { mdiCheck, mdiLoading } from '@mdi/js'
 import { renderStreamingMarkdown } from '~/utils/markdown'
 import type { ChatMessage } from '~/composables/use-agent-chat'
 
+const emit = defineEmits<{
+  navigate: [url: string]
+}>()
+
 const props = defineProps<{
   messages: ChatMessage[]
   isStreaming: boolean
@@ -219,6 +224,16 @@ const subAgentTitle = (toolName: string) => {
   if (title !== toolName) return title
   const name = toolName.replace(/^subagent_/, '')
   return name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+}
+
+const inIframe = window.parent !== window
+
+function onLinkClick (e: MouseEvent) {
+  const anchor = (e.target as HTMLElement).closest('a[href]')
+  if (!anchor) return
+  if (!inIframe) return
+  e.preventDefault()
+  emit('navigate', (anchor as HTMLAnchorElement).href)
 }
 
 defineExpose({ messagesContainer })
