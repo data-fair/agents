@@ -43,6 +43,26 @@ test.describe('Chat MCP UI', () => {
     await expect(page.getByLabel('Data')).toHaveValue('Hello World', { timeout: 10000 })
   })
 
+  test('Reset button clears the conversation', async ({ page, goToWithAuth }) => {
+    const admin = await superAdmin
+    await admin.put('/api/settings/user/test-standalone1', {
+      providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
+      models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' } } } },
+      quotas: defaultQuotas
+    })
+
+    await goToWithAuth('/agents/_dev/chat-mcp', 'test-standalone1')
+
+    await page.getByPlaceholder('Type your message...').fill('hello')
+    await page.getByRole('button', { name: 'Send' }).click()
+    await expect(page.locator('.assistant-content').last()).toContainText('world', { timeout: 10000 })
+
+    await page.getByRole('button', { name: /Reset conversation|Réinitialiser la conversation/ }).click()
+
+    await expect(page.locator('.assistant-content')).toHaveCount(0)
+    await expect(page.getByPlaceholder('Type your message...')).toBeVisible()
+  })
+
   test('Debug dialog shows tool inputSchema', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/_dev/chat-mcp', 'test-standalone1')
 
