@@ -28,6 +28,14 @@
       {{ title }}
     </span>
     <v-btn
+      :icon="mdiRefresh"
+      variant="flat"
+      density="compact"
+      :title="t('reset')"
+      class="ml-2"
+      @click="$emit('reset')"
+    />
+    <v-btn
       v-if="debug"
       :icon="mdiBugOutline"
       variant="flat"
@@ -44,17 +52,19 @@
 <i18n lang="yaml">
 fr:
   debugInfo: Débogage
+  reset: Réinitialiser la conversation
   sessionTab: Session
   evaluationTab: Évaluation
 en:
   debugInfo: Debug
+  reset: Reset conversation
   sessionTab: Session
   evaluationTab: Evaluation
 </i18n>
 
 <script lang="ts" setup>
 import { useI18n } from 'vue-i18n'
-import { mdiBugOutline } from '@mdi/js'
+import { mdiBugOutline, mdiRefresh } from '@mdi/js'
 
 defineProps<{
   debug?: boolean
@@ -66,6 +76,7 @@ defineProps<{
 defineEmits<{
   'update:activeChatTab': [value: 'session' | 'evaluation']
   showDebug: []
+  reset: []
 }>()
 
 const { t } = useI18n()

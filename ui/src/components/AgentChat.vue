@@ -10,6 +10,7 @@
       :title="title"
       :tracing-enabled="tracingEnabled"
       @show-debug="showDebugDialog = true"
+      @reset="handleReset"
     />
 
     <template v-if="messages.length">
@@ -315,6 +316,14 @@ function startActionSession (visiblePrompt: string, hiddenContext: string) {
 
   // Send the visible prompt — this adds it to messages + history and triggers the LLM
   chat.sendMessage(visiblePrompt, { hiddenContext })
+}
+
+function handleReset () {
+  chat.abort()
+  chat.reset(finalSystemPrompt.value)
+  if (recorder) recorder.setSystemPrompt(finalSystemPrompt.value)
+  actionVisiblePrompt.value = null
+  sessionStarted.value = false
 }
 
 function handleSessionCleared () {
