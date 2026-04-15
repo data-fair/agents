@@ -25,6 +25,7 @@
           <monitoring-user-histogram
             v-if="usersFetch.data.value"
             :users="filteredUsers"
+            :currency="currency"
           />
         </v-card-text>
       </v-card>
@@ -47,9 +48,7 @@ import MonitoringUserHistogram from '~/components/MonitoringUserHistogram.vue'
 
 interface UsageEntry {
   label: string
-  inputTokens: number
-  outputTokens: number
-  totalTokens: number
+  cost: number
 }
 
 interface UserHistory {
@@ -68,6 +67,11 @@ const { t } = useI18n()
 const usersFetch = useFetch<{ users: UserHistory[] }>(
   () => `${$apiPath}/usage/${props.accountType}/${props.accountId}/history?scope=users&days=7`
 )
+
+const currencyFetch = useFetch<{ currency: string }>(
+  () => `${$apiPath}/usage/${props.accountType}/${props.accountId}`
+)
+const currency = computed(() => currencyFetch.data.value?.currency || 'EUR')
 
 const weekDays = computed(() => {
   const days: { date: string, label: string }[] = []
@@ -98,12 +102,10 @@ const filteredUsers = computed(() => {
       return {
         userId: user.userId,
         userLabel: formatUserLabel(user.userId, user.userName),
-        totalTokens: entry?.totalTokens ?? 0,
-        inputTokens: entry?.inputTokens ?? 0,
-        outputTokens: entry?.outputTokens ?? 0
+        cost: entry?.cost ?? 0
       }
     })
-    .filter(u => u.totalTokens > 0)
-    .sort((a, b) => b.totalTokens - a.totalTokens)
+    .filter(u => u.cost > 0)
+    .sort((a, b) => b.cost - a.cost)
 })
 </script>

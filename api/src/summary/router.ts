@@ -5,7 +5,8 @@ import { reqIp as _reqIp } from '@data-fair/lib-express/req-origin.js'
 import { assertCanUseModel, assertRoleQuota, getEffectiveRole } from '../auth.ts'
 import { getRawSettings } from '../settings/service.ts'
 import { createModel } from '../models/operations.ts'
-import { getUsage, getOwnerUsage, recordUsage, checkQuota } from '../usage/service.ts'
+import { getUsage, getOwnerUsage, recordUsage } from '../usage/service.ts'
+import { checkQuota, computeCost } from '../usage/operations.ts'
 import type { Settings } from '#types'
 import crypto from 'node:crypto'
 
@@ -21,8 +22,17 @@ interface SummaryRequest {
   content: string
 }
 
+function getSummaryPricing (settings: Settings) {
+  const source = settings.models.summarizer?.model ? settings.models.summarizer : settings.models.assistant
+  return {
+    modelConfig: source?.model,
+    inputPricePerMillion: source?.inputPricePerMillion ?? 0,
+    outputPricePerMillion: source?.outputPricePerMillion ?? 0
+  }
+}
+
 async function getSummaryModel (settings: Settings) {
-  const modelConfig = settings.models.summarizer?.model || settings.models.assistant?.model
+  const { modelConfig } = getSummaryPricing(settings)
   if (!modelConfig) throw new Error('No model configured')
 
   const provider = settings.providers.find(p => p.id === modelConfig.provider.id)
@@ -77,7 +87,7 @@ router.post('/:type/:id', async (req, res, next) => {
     // Quota enforcement (same pattern as gateway)
     const accountLimits = settings.quotas.global
 
-    if (!accountLimits.unlimited && (accountLimits.dailyTokenLimit || accountLimits.monthlyTokenLimit)) {
+    if (!accountLimits.unlimited && accountLimits.monthlyLimit) {
       const accountUsage = await getOwnerUsage(owner)
       const quotaCheck = checkQuota(accountUsage, accountLimits, trackPerUser ? 'organization' : 'user')
       if (quotaCheck) {
@@ -90,7 +100,7 @@ router.post('/:type/:id', async (req, res, next) => {
     if (trackPerUser) {
       const role = authenticated ? getEffectiveRole(sessionState as any, owner) : 'anonymous'
       const roleQuota = quotas[role]
-      if (roleQuota && !roleQuota.unlimited && (roleQuota.dailyTokenLimit || roleQuota.monthlyTokenLimit)) {
+      if (roleQuota && !roleQuota.unlimited && roleQuota.monthlyLimit) {
         const userUsage = await getUsage(owner, usageUserId)
         const quotaCheck = checkQuota(userUsage, roleQuota, 'user')
         if (quotaCheck) {
@@ -101,6 +111,7 @@ router.post('/:type/:id', async (req, res, next) => {
     }
 
     const model = await getSummaryModel(settings)
+    const { inputPricePerMillion, outputPricePerMillion } = getSummaryPricing(settings)
     const system = body.prompt || 'Summarize the following content concisely:'
 
     const { text, usage } = await generateText({
@@ -109,11 +120,12 @@ router.post('/:type/:id', async (req, res, next) => {
       messages: [{ role: 'user' as const, content: body.content }]
     })
 
-    // Record usage after completion
+    // Record usage after completion (money cost)
     const inputTokens = usage?.inputTokens ?? 0
     const outputTokens = usage?.outputTokens ?? 0
-    if (inputTokens || outputTokens) {
-      await recordUsage(owner, inputTokens, outputTokens, usageUserId, usageUserName)
+    const cost = computeCost(inputTokens, outputTokens, inputPricePerMillion, outputPricePerMillion)
+    if (cost > 0) {
+      await recordUsage(owner, cost, usageUserId, usageUserName)
     }
 
     res.json({ summary: text })

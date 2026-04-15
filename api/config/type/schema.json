@@ -17,7 +17,8 @@
     "tmpDir",
     "observer",
     "secretKeys",
-    "cipherPassword"
+    "cipherPassword",
+    "currency"
   ],
   "properties": {
     "mongoUrl": {
@@ -61,6 +62,10 @@
     },
     "cipherPassword": {
       "type": "string"
+    },
+    "currency": {
+      "type": "string",
+      "default": "EUR"
     },
     "util": {},
     "get": {},

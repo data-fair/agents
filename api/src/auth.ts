@@ -10,8 +10,7 @@ export type EffectiveRole = 'admin' | 'contrib' | 'user' | 'external' | 'anonymo
 
 interface RoleQuota {
   unlimited?: boolean
-  dailyTokenLimit?: number
-  monthlyTokenLimit?: number
+  monthlyLimit?: number
 }
 
 interface QuotasConfig {
@@ -62,8 +61,8 @@ export function assertRoleQuota (role: EffectiveRole, quotas: QuotasConfig): voi
   if (quota.unlimited) return
 
   // Any positive limit → granted (enforcement happens in router)
-  if ((quota.dailyTokenLimit && quota.dailyTokenLimit > 0) || (quota.monthlyTokenLimit && quota.monthlyTokenLimit > 0)) return
+  if (quota.monthlyLimit && quota.monthlyLimit > 0) return
 
-  // Both limits are 0 or missing → no access
+  // Limit is 0 or missing → no access
   throw httpError(403, 'You do not have permission to use this model')
 }

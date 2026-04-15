@@ -11,5 +11,6 @@ export default {
     port: 'OBSERVER_PORT'
   },
   upgradeRoot: 'UPGRADE_ROOT',
-  cipherPassword: 'CIPHER_PASSWORD'
+  cipherPassword: 'CIPHER_PASSWORD',
+  currency: 'CURRENCY'
 }

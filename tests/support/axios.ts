@@ -16,12 +16,12 @@ export const axiosAuth = (user: string, opts?: { adminMode?: boolean }) => {
 export const superAdmin = axiosAuth('superadmin', { adminMode: true })
 
 export const defaultQuotas = {
-  global: { unlimited: false, dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 },
-  admin: { unlimited: true, dailyTokenLimit: 0, monthlyTokenLimit: 0 },
-  contrib: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 },
-  user: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 },
-  external: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 },
-  anonymous: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 }
+  global: { unlimited: false, monthlyLimit: 10 },
+  admin: { unlimited: true, monthlyLimit: 0 },
+  contrib: { unlimited: false, monthlyLimit: 0 },
+  user: { unlimited: false, monthlyLimit: 0 },
+  external: { unlimited: false, monthlyLimit: 0 },
+  anonymous: { unlimited: false, monthlyLimit: 0 }
 }
 
 export const clean = async () => {

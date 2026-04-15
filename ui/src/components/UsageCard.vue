@@ -16,13 +16,13 @@
           <div class="d-flex align-center justify-space-between mb-1">
             <span class="text-body-2 font-weight-medium">{{ t('daily') }}</span>
             <span class="text-body-2 text-medium-emphasis">
-              {{ formatTokens(usageFetch.data.value.daily.totalTokens) }} / {{ formatLimit(usageFetch.data.value.quotas.global.dailyTokenLimit) }}
+              {{ formatCost(usageFetch.data.value.daily.cost) }} / {{ formatLimit(dailyLimit) }}
             </span>
           </div>
           <v-progress-linear
-            v-if="!usageFetch.data.value.quotas.global.unlimited && usageFetch.data.value.quotas.global.dailyTokenLimit"
-            :model-value="percent(usageFetch.data.value.daily.totalTokens, usageFetch.data.value.quotas.global.dailyTokenLimit)"
-            :color="barColor(usageFetch.data.value.daily.totalTokens, usageFetch.data.value.quotas.global.dailyTokenLimit)"
+            v-if="!quotasGlobal?.unlimited && dailyLimit"
+            :model-value="percent(usageFetch.data.value.daily.cost, dailyLimit)"
+            :color="barColor(usageFetch.data.value.daily.cost, dailyLimit)"
             height="8"
             rounded
           />
@@ -31,17 +31,39 @@
           </div>
         </div>
 
+        <div
+          v-if="usageFetch.data.value.weekly"
+          class="mb-3"
+        >
+          <div class="d-flex align-center justify-space-between mb-1">
+            <span class="text-body-2 font-weight-medium">{{ t('weekly') }}</span>
+            <span class="text-body-2 text-medium-emphasis">
+              {{ formatCost(usageFetch.data.value.weekly.cost) }} / {{ formatLimit(weeklyLimit) }}
+            </span>
+          </div>
+          <v-progress-linear
+            v-if="!quotasGlobal?.unlimited && weeklyLimit"
+            :model-value="percent(usageFetch.data.value.weekly.cost, weeklyLimit)"
+            :color="barColor(usageFetch.data.value.weekly.cost, weeklyLimit)"
+            height="8"
+            rounded
+          />
+          <div class="text-caption text-medium-emphasis mt-1">
+            {{ t('resets') }} {{ formatDate(usageFetch.data.value.weekly.resetsAt) }}
+          </div>
+        </div>
+
         <div v-if="usageFetch.data.value.monthly">
           <div class="d-flex align-center justify-space-between mb-1">
             <span class="text-body-2 font-weight-medium">{{ t('monthly') }}</span>
             <span class="text-body-2 text-medium-emphasis">
-              {{ formatTokens(usageFetch.data.value.monthly.totalTokens) }} / {{ formatLimit(usageFetch.data.value.quotas.global.monthlyTokenLimit) }}
+              {{ formatCost(usageFetch.data.value.monthly.cost) }} / {{ formatLimit(monthlyLimit) }}
             </span>
           </div>
           <v-progress-linear
-            v-if="!usageFetch.data.value.quotas.global.unlimited && usageFetch.data.value.quotas.global.monthlyTokenLimit"
-            :model-value="percent(usageFetch.data.value.monthly.totalTokens, usageFetch.data.value.quotas.global.monthlyTokenLimit)"
-            :color="barColor(usageFetch.data.value.monthly.totalTokens, usageFetch.data.value.quotas.global.monthlyTokenLimit)"
+            v-if="!quotasGlobal?.unlimited && monthlyLimit"
+            :model-value="percent(usageFetch.data.value.monthly.cost, monthlyLimit)"
+            :color="barColor(usageFetch.data.value.monthly.cost, monthlyLimit)"
             height="8"
             rounded
           />
@@ -64,6 +86,7 @@
 fr:
   title: Utilisation
   daily: Journalier
+  weekly: Hebdomadaire
   monthly: Mensuel
   resets: "Réinitialisation :"
   noUsage: Aucune utilisation enregistrée
@@ -71,6 +94,7 @@ fr:
 en:
   title: Usage
   daily: Daily
+  weekly: Weekly
   monthly: Monthly
   resets: "Resets:"
   noUsage: No usage recorded
@@ -78,6 +102,7 @@ en:
 </i18n>
 
 <script lang="ts" setup>
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { $apiPath } from '../context.ts'
 
@@ -86,21 +111,26 @@ const props = defineProps<{
   accountId: string
 }>()
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 interface UsagePeriod {
-  inputTokens: number
-  outputTokens: number
-  totalTokens: number
+  cost: number
   resetsAt: string
+}
+
+interface RoleQuota {
+  unlimited?: boolean
+  monthlyLimit?: number
 }
 
 interface UsageData {
   daily?: UsagePeriod
+  weekly?: UsagePeriod
   monthly?: UsagePeriod
+  currency: string
   quotas: {
-    global: { unlimited?: boolean, dailyTokenLimit: number, monthlyTokenLimit: number }
-    [role: string]: { unlimited?: boolean, dailyTokenLimit: number, monthlyTokenLimit: number }
+    global: RoleQuota
+    [role: string]: RoleQuota
   }
 }
 
@@ -108,19 +138,26 @@ const usageFetch = useFetch<UsageData>(
   () => `${$apiPath}/usage/${props.accountType}/${props.accountId}`
 )
 
+const quotasGlobal = computed(() => usageFetch.data.value?.quotas.global)
+const monthlyLimit = computed(() => quotasGlobal.value?.monthlyLimit || 0)
+const weeklyLimit = computed(() => monthlyLimit.value / 2)
+const dailyLimit = computed(() => monthlyLimit.value / 4)
+
+const currency = computed(() => usageFetch.data.value?.currency || 'EUR')
+
 const hasUsage = computed(() => {
   const d = usageFetch.data.value
   if (!d) return false
-  return (d.daily && d.daily.totalTokens > 0) || (d.monthly && d.monthly.totalTokens > 0)
+  return (d.daily && d.daily.cost > 0) || (d.weekly && d.weekly.cost > 0) || (d.monthly && d.monthly.cost > 0)
 })
 
-function formatTokens (n: number): string {
-  return n.toLocaleString()
+function formatCost (amount: number): string {
+  return new Intl.NumberFormat(locale.value, { style: 'currency', currency: currency.value }).format(amount)
 }
 
 function formatLimit (limit: number): string {
-  if (usageFetch.data.value?.quotas.global.unlimited) return t('unlimited')
-  return limit ? limit.toLocaleString() : t('unlimited')
+  if (quotasGlobal.value?.unlimited) return t('unlimited')
+  return limit ? formatCost(limit) : t('unlimited')
 }
 
 function percent (usage: number, limit: number): number {

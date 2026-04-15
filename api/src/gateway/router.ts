@@ -5,7 +5,8 @@ import { reqIp as _reqIp } from '@data-fair/lib-express/req-origin.js'
 import { assertCanUseModel, assertRoleQuota, getEffectiveRole } from '../auth.ts'
 import { getRawSettings } from '../settings/service.ts'
 import { createModel } from '../models/operations.ts'
-import { getUsage, getOwnerUsage, recordUsage, checkQuota } from '../usage/service.ts'
+import { getUsage, getOwnerUsage, recordUsage } from '../usage/service.ts'
+import { checkQuota, computeCost } from '../usage/operations.ts'
 import { convertOpenAITools, convertOpenAIMessages, convertToolChoice, mapFinishReason } from './operations.ts'
 import type { Settings } from '#types'
 import type { OpenAIMessage, OpenAIToolDefinition, OpenAIToolChoice, FinishReason } from './operations.ts'
@@ -27,9 +28,13 @@ function isValidModelId (id: string): id is ModelId {
 
 function getModelConfig (settings: Settings, modelId: ModelId) {
   const modelEntry = settings.models[modelId]
-  const modelConfig = modelEntry?.model || settings.models.assistant?.model
+  const fallback = settings.models.assistant
+  const modelConfig = modelEntry?.model || fallback?.model
   if (!modelConfig) throw new Error(`No model configured for ${modelId}`)
-  return { modelConfig, ratio: modelEntry?.ratio ?? settings.models.assistant?.ratio ?? 1 }
+  const source = modelEntry?.model ? modelEntry : fallback
+  const inputPricePerMillion = source?.inputPricePerMillion ?? 0
+  const outputPricePerMillion = source?.outputPricePerMillion ?? 0
+  return { modelConfig, inputPricePerMillion, outputPricePerMillion }
 }
 
 async function getModelForGateway (settings: Settings, modelId: ModelId) {
@@ -113,7 +118,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
     // Check account limits against account usage
     const accountLimits = settings.quotas.global
 
-    if (!accountLimits.unlimited && (accountLimits.dailyTokenLimit || accountLimits.monthlyTokenLimit)) {
+    if (!accountLimits.unlimited && accountLimits.monthlyLimit) {
       const accountUsage = await getOwnerUsage(owner)
       const quotaCheck = checkQuota(accountUsage, accountLimits, trackPerUser ? 'organization' : 'user')
       if (quotaCheck) {
@@ -135,7 +140,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
     if (trackPerUser) {
       const role = authenticated ? getEffectiveRole(sessionState as any, owner) : 'anonymous'
       const roleQuota = quotas[role]
-      if (roleQuota && !roleQuota.unlimited && (roleQuota.dailyTokenLimit || roleQuota.monthlyTokenLimit)) {
+      if (roleQuota && !roleQuota.unlimited && roleQuota.monthlyLimit) {
         const userUsage = await getUsage(owner, usageUserId)
         const quotaCheck = checkQuota(userUsage, roleQuota, 'user')
         if (quotaCheck) {
@@ -154,7 +159,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
       }
     }
 
-    const { ratio } = getModelConfig(settings, modelId)
+    const { inputPricePerMillion, outputPricePerMillion } = getModelConfig(settings, modelId)
     const model = await getModelForGateway(settings, modelId)
 
     // Extract system message from OpenAI messages array
@@ -242,11 +247,12 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
               }]
             })}\n\n`)
           } else if (part.type === 'finish') {
-            // Record usage for streaming responses (apply ratio for quota accounting)
-            const inputTokens = Math.round((part.totalUsage?.inputTokens ?? 0) * ratio)
-            const outputTokens = Math.round((part.totalUsage?.outputTokens ?? 0) * ratio)
-            if (inputTokens || outputTokens) {
-              await recordUsage(owner, inputTokens, outputTokens, usageUserId, usageUserName)
+            // Record usage for streaming responses (money cost)
+            const inputTokens = part.totalUsage?.inputTokens ?? 0
+            const outputTokens = part.totalUsage?.outputTokens ?? 0
+            const cost = computeCost(inputTokens, outputTokens, inputPricePerMillion, outputPricePerMillion)
+            if (cost > 0) {
+              await recordUsage(owner, cost, usageUserId, usageUserName)
             }
 
             res.write(`data: ${JSON.stringify({
@@ -288,11 +294,12 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
         ...(hasTools ? { tools, toolChoice: convertToolChoice(toolChoice) } : {})
       })
 
-      // Record usage (apply ratio for quota accounting)
-      const inputTokens = Math.round((result.usage?.inputTokens ?? 0) * ratio)
-      const outputTokens = Math.round((result.usage?.outputTokens ?? 0) * ratio)
-      if (inputTokens || outputTokens) {
-        await recordUsage(owner, inputTokens, outputTokens, usageUserId, usageUserName)
+      // Record usage (money cost)
+      const inputTokens = result.usage?.inputTokens ?? 0
+      const outputTokens = result.usage?.outputTokens ?? 0
+      const cost = computeCost(inputTokens, outputTokens, inputPricePerMillion, outputPricePerMillion)
+      if (cost > 0) {
+        await recordUsage(owner, cost, usageUserId, usageUserName)
       }
 
       // Build response message

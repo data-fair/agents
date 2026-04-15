@@ -2,9 +2,19 @@ import { Router } from 'express'
 import { type AccountKeys, assertAccountRole, reqSessionAuthenticated } from '@data-fair/lib-express'
 import { getOwnerUsage, getAccountDailyHistory, getAccountMonthlyHistory, getUsersDailyHistory } from './service.ts'
 import { getRawSettings } from '../settings/service.ts'
+import config from '#config'
 
 const router = Router()
 export default router
+
+const defaultQuotas = {
+  global: { unlimited: false, monthlyLimit: 10 },
+  admin: { unlimited: true, monthlyLimit: 0 },
+  contrib: { unlimited: false, monthlyLimit: 0 },
+  user: { unlimited: false, monthlyLimit: 0 },
+  external: { unlimited: false, monthlyLimit: 0 },
+  anonymous: { unlimited: false, monthlyLimit: 0 }
+}
 
 router.get('/:type/:id', async (req, res, next) => {
   try {
@@ -19,22 +29,13 @@ router.get('/:type/:id', async (req, res, next) => {
       getRawSettings(owner)
     ])
 
-    const quotas = settings?.quotas ?? {
-      global: { unlimited: false, dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 },
-      admin: { unlimited: true, dailyTokenLimit: 0, monthlyTokenLimit: 0 },
-      contrib: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 },
-      user: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 },
-      external: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 }
-    }
+    const quotas = settings?.quotas ?? defaultQuotas
 
-    const result: Record<string, unknown> = { quotas }
+    const result: Record<string, unknown> = { quotas, currency: config.currency }
 
-    if (!period || period === 'daily') {
-      result.daily = usage.daily
-    }
-    if (!period || period === 'monthly') {
-      result.monthly = usage.monthly
-    }
+    if (!period || period === 'daily') result.daily = usage.daily
+    if (!period || period === 'weekly') result.weekly = usage.weekly
+    if (!period || period === 'monthly') result.monthly = usage.monthly
 
     res.json(result)
   } catch (err) {

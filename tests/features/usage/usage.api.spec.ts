@@ -31,16 +31,18 @@ const settingsData = {
           name: 'Mock Provider',
           id: 'mock-provider'
         }
-      }
+      },
+      inputPricePerMillion: 1,
+      outputPricePerMillion: 2
     }
   },
   quotas: {
-    global: { unlimited: false, dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 },
-    admin: { unlimited: true, dailyTokenLimit: 0, monthlyTokenLimit: 0 },
-    contrib: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 },
-    user: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 },
-    external: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 },
-    anonymous: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 }
+    global: { unlimited: false, monthlyLimit: 100 },
+    admin: { unlimited: true, monthlyLimit: 0 },
+    contrib: { unlimited: false, monthlyLimit: 0 },
+    user: { unlimited: false, monthlyLimit: 0 },
+    external: { unlimited: false, monthlyLimit: 0 },
+    anonymous: { unlimited: false, monthlyLimit: 0 }
   }
 }
 
@@ -67,22 +69,25 @@ test.describe('Usage API', () => {
     const res = await user.get('/api/usage/user/test-standalone1')
     assert.equal(res.status, 200)
     assert.ok(res.data.daily)
+    assert.ok(res.data.weekly)
     assert.ok(res.data.monthly)
     assert.ok(res.data.quotas)
-    assert.equal(res.data.quotas.global.dailyTokenLimit, 100000)
-    assert.equal(res.data.quotas.global.monthlyTokenLimit, 1000000)
-    // mock provider returns 0 tokens, so usage stays at 0
-    assert.equal(typeof res.data.daily.totalTokens, 'number')
-    assert.equal(typeof res.data.monthly.totalTokens, 'number')
+    assert.equal(res.data.quotas.global.monthlyLimit, 100)
+    assert.equal(res.data.currency, 'EUR')
+    // mock provider returns 0 tokens, so cost stays at 0
+    assert.equal(typeof res.data.daily.cost, 'number')
+    assert.equal(typeof res.data.monthly.cost, 'number')
     assert.ok(res.data.daily.resetsAt)
+    assert.ok(res.data.weekly.resetsAt)
     assert.ok(res.data.monthly.resetsAt)
   })
 
   test('should return zero usage when no requests made', async () => {
     const res = await user.get('/api/usage/user/test-standalone1')
     assert.equal(res.status, 200)
-    assert.equal(res.data.daily.totalTokens, 0)
-    assert.equal(res.data.monthly.totalTokens, 0)
+    assert.equal(res.data.daily.cost, 0)
+    assert.equal(res.data.weekly.cost, 0)
+    assert.equal(res.data.monthly.cost, 0)
   })
 
   test('should filter by period=daily', async () => {
@@ -119,7 +124,7 @@ test.describe('Anonymous Usage', () => {
       ...settingsData,
       quotas: {
         ...settingsData.quotas,
-        anonymous: { unlimited: false, dailyTokenLimit: 10000, monthlyTokenLimit: 100000 }
+        anonymous: { unlimited: false, monthlyLimit: 10 }
       }
     }
     await admin.put('/api/settings/user/test-standalone1', settingsWithAnonymous)
@@ -164,7 +169,7 @@ test.describe('Anonymous Usage', () => {
       ...settingsData,
       quotas: {
         ...settingsData.quotas,
-        anonymous: { unlimited: false, dailyTokenLimit: 10000, monthlyTokenLimit: 100000 }
+        anonymous: { unlimited: false, monthlyLimit: 10 }
       }
     }
     await admin.put('/api/settings/user/test-standalone1', settingsWithAnonymous)

@@ -44,26 +44,28 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
 interface Entry {
   label: string
-  inputTokens: number
-  outputTokens: number
-  totalTokens: number
+  cost: number
 }
 
 const props = defineProps<{
   entries: Entry[]
   dailyLimit?: number
   monthlyLimit?: number
+  currency?: string
 }>()
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
-const hasData = computed(() => props.entries.some(e => e.totalTokens > 0))
+const hasData = computed(() => props.entries.some(e => e.cost > 0))
 
 const limit = computed(() => props.dailyLimit ?? props.monthlyLimit ?? 0)
 
+const currencyCode = computed(() => props.currency || 'EUR')
+const costFormatter = computed(() => new Intl.NumberFormat(locale.value, { style: 'currency', currency: currencyCode.value }))
+
 const chartData = computed(() => {
   const labels = props.entries.map(e => e.label)
-  const data = props.entries.map(e => e.totalTokens)
+  const data = props.entries.map(e => e.cost)
 
   const datasets: any[] = [{
     label: t('consumption'),
@@ -100,7 +102,7 @@ const chartOptions = computed(() => ({
         label: (ctx: any) => {
           const val = ctx.raw as number
           if (val == null) return ''
-          return `${ctx.dataset.label}: ${val.toLocaleString()}`
+          return `${ctx.dataset.label}: ${costFormatter.value.format(val)}`
         }
       }
     }
@@ -113,12 +115,7 @@ const chartOptions = computed(() => ({
     y: {
       beginAtZero: true,
       ticks: {
-        callback: (val: string | number) => {
-          const n = Number(val)
-          if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-          if (n >= 1_000) return `${(n / 1_000).toFixed(0)}k`
-          return n
-        }
+        callback: (val: string | number) => costFormatter.value.format(Number(val))
       }
     }
   }

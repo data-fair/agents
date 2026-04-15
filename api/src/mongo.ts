@@ -1,5 +1,5 @@
 import type { Settings } from '#types/settings/index.ts'
-import type { TokenUsage } from './usage/service.ts'
+import type { Usage } from './usage/service.ts'
 
 import mongoLib from '@data-fair/lib-node/mongo.js'
 import config from '#config'
@@ -18,7 +18,7 @@ export class AgentsMongo {
   }
 
   get usage () {
-    return mongoLib.db.collection<TokenUsage>('usage')
+    return mongoLib.db.collection<Usage>('usage')
   }
 
   async connect () {

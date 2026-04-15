@@ -48,25 +48,19 @@ export type Name = string;
 export type ProviderType7 = string;
 export type ProviderName = string;
 export type ProviderID7 = string;
-/**
- * Multiplier applied to token usage for quota accounting (e.g. 1.0 = full cost, 0.5 = half cost)
- */
-export type UsageRatio = number;
-/**
- * Multiplier applied to token usage for quota accounting
- */
-export type UsageRatio1 = number;
-/**
- * Multiplier applied to token usage for quota accounting (e.g. 0.5 for cheaper summarization)
- */
-export type UsageRatio2 = number;
-/**
- * Multiplier applied to token usage for quota accounting
- */
-export type UsageRatio3 = number;
+export type InputPricePer1MTokens = number;
+export type OutputPricePer1MTokens = number;
+export type InputPricePer1MTokens1 = number;
+export type OutputPricePer1MTokens1 = number;
+export type InputPricePer1MTokens2 = number;
+export type OutputPricePer1MTokens2 = number;
+export type InputPricePer1MTokens3 = number;
+export type OutputPricePer1MTokens3 = number;
 export type Unlimited = boolean;
-export type DailyTokenLimit = number;
-export type MonthlyTokenLimit = number;
+/**
+ * Weekly limit = monthly / 2, daily limit = monthly / 4
+ */
+export type MonthlyLimit = number;
 
 export type SettingsPut = {
   createdAt?: string;
@@ -155,7 +149,8 @@ export type Models = {
  */
 export type Assistant = {
   model?: Model;
-  ratio?: UsageRatio;
+  inputPricePerMillion?: InputPricePer1MTokens;
+  outputPricePerMillion?: OutputPricePer1MTokens;
   [k: string]: unknown;
 }
 export type Model = {
@@ -177,7 +172,8 @@ export type Model = {
  */
 export type Tools = {
   model?: Model1;
-  ratio?: UsageRatio1;
+  inputPricePerMillion?: InputPricePer1MTokens1;
+  outputPricePerMillion?: OutputPricePer1MTokens1;
   [k: string]: unknown;
 }
 export type Model1 = {
@@ -199,7 +195,8 @@ export type Model1 = {
  */
 export type Summarizer = {
   model?: Model2;
-  ratio?: UsageRatio2;
+  inputPricePerMillion?: InputPricePer1MTokens2;
+  outputPricePerMillion?: OutputPricePer1MTokens2;
   [k: string]: unknown;
 }
 export type Model2 = {
@@ -221,7 +218,8 @@ export type Model2 = {
  */
 export type Evaluator = {
   model?: Model3;
-  ratio?: UsageRatio3;
+  inputPricePerMillion?: InputPricePer1MTokens3;
+  outputPricePerMillion?: OutputPricePer1MTokens3;
   [k: string]: unknown;
 }
 export type Model3 = {
@@ -246,38 +244,32 @@ export type RoleQuotas = {
 }
 export type GlobalQuotas = {
   unlimited: Unlimited;
-  dailyTokenLimit: DailyTokenLimit;
-  monthlyTokenLimit: MonthlyTokenLimit;
+  monthlyLimit: MonthlyLimit;
   [k: string]: unknown;
 }
 export type AdminQuotas = {
   unlimited: Unlimited;
-  dailyTokenLimit: DailyTokenLimit;
-  monthlyTokenLimit: MonthlyTokenLimit;
+  monthlyLimit: MonthlyLimit;
   [k: string]: unknown;
 }
 export type ContributorQuotas = {
   unlimited: Unlimited;
-  dailyTokenLimit: DailyTokenLimit;
-  monthlyTokenLimit: MonthlyTokenLimit;
+  monthlyLimit: MonthlyLimit;
   [k: string]: unknown;
 }
 export type SimpleUserQuotas = {
   unlimited: Unlimited;
-  dailyTokenLimit: DailyTokenLimit;
-  monthlyTokenLimit: MonthlyTokenLimit;
+  monthlyLimit: MonthlyLimit;
   [k: string]: unknown;
 }
 export type ExternalUserQuotas = {
   unlimited: Unlimited;
-  dailyTokenLimit: DailyTokenLimit;
-  monthlyTokenLimit: MonthlyTokenLimit;
+  monthlyLimit: MonthlyLimit;
   [k: string]: unknown;
 }
 export type AnonymousUserQuotas = {
   unlimited: Unlimited;
-  dailyTokenLimit: DailyTokenLimit;
-  monthlyTokenLimit: MonthlyTokenLimit;
+  monthlyLimit: MonthlyLimit;
   [k: string]: unknown;
 }
 /**
@@ -286,8 +278,7 @@ export type AnonymousUserQuotas = {
  */
 export type RoleQuota = {
   unlimited: Unlimited;
-  dailyTokenLimit: DailyTokenLimit;
-  monthlyTokenLimit: MonthlyTokenLimit;
+  monthlyLimit: MonthlyLimit;
   [k: string]: unknown;
 }
 /**

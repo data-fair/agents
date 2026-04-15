@@ -3458,9 +3458,9 @@ return errors === 0;
 validate30.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
 const schema53 = {"$id":"export8","$ref":"https://github.com/data-fair/agents/settings-put#"};
-const schema27 = {"$id":"https://github.com/data-fair/agents/settings-put","x-exports":["validate","types","vjsf"],"title":"Paramètres","layout":{"title":null},"definitions":{"RoleQuota":{"type":"object","layout":"card","required":["unlimited","dailyTokenLimit","monthlyTokenLimit"],"properties":{"unlimited":{"type":"boolean","title":"Illimité","default":false,"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/unlimited","errorMessage":{}},"dailyTokenLimit":{"layout":{"if":"!parent.data.unlimited","cols":6},"type":"integer","title":"Limite de tokens journalière","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/dailyTokenLimit","errorMessage":{}},"monthlyTokenLimit":{"layout":{"if":"!parent.data.unlimited","cols":6},"type":"integer","title":"Limite de tokens mensuelle","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyTokenLimit","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota","errorMessage":{"required":{"unlimited":"information obligatoire","dailyTokenLimit":"information obligatoire","monthlyTokenLimit":"information obligatoire"}}},"Model":{"type":"object","required":["id","name","provider"],"layout":{"comp":"autocomplete","getItems":{"url":{"pure":false,"type":"js-tpl","dataAlias":"value","expr":"${context.apiPath}/models/${context.accountType}/${context.accountId}?provider=${parent.parent.parent.data.providers.map(p => p.id).join(\",\")}","ref":15},"itemsResults":{"pure":true,"type":"js-eval","dataAlias":"body","expr":"data.results","ref":18},"itemTitle":{"pure":true,"type":"js-eval","dataAlias":"item","expr":"`${item.name} (${item.provider.name} - ${item.provider.id.slice(0, 8)})`","ref":16},"itemKey":{"pure":true,"type":"js-eval","dataAlias":"item","expr":"item.id","ref":17},"returnObjects":true}},"properties":{"id":{"type":"string","title":"Model ID","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/id","errorMessage":{}},"name":{"type":"string","title":"Name","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/name","errorMessage":{}},"provider":{"type":"object","required":["type","name","id"],"properties":{"type":{"type":"string","title":"Provider Type","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider/properties/type","errorMessage":{}},"name":{"type":"string","title":"Provider Name","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider/properties/name","errorMessage":{}},"id":{"type":"string","title":"Provider ID","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider/properties/id","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider","errorMessage":{"required":{"type":"information obligatoire","name":"information obligatoire","id":"information obligatoire"}}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model","errorMessage":{"required":{"id":"information obligatoire","name":"information obligatoire","provider":"information obligatoire"}}}},"type":"object","additionalProperties":false,"required":["providers","models","quotas"],"properties":{"createdAt":{"type":"string","format":"date-time","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/createdAt","errorMessage":{}},"updatedAt":{"type":"string","format":"date-time","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/updatedAt","errorMessage":{}},"owner":{"type":"object","additionalProperties":false,"required":["type","id"],"readOnly":true,"properties":{"type":{"type":"string","enum":["user","organization"],"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/type","errorMessage":{}},"id":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/id","errorMessage":{}},"name":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/name","errorMessage":{}},"department":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/department","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire"}}},"providers":{"type":"array","title":"Fournisseurs IA","layout":{"itemTitle":"item ? `${item.name || \"\"} - ${item.id.slice(0, 8)}` : \"\"","listActions":["add","edit","delete"]},"items":{"type":"object","title":"Fournisseur","unevaluatedProperties":false,"oneOfLayout":{"emptyData":true},"discriminator":{"propertyName":"type"},"layout":{"getDefaultData":"{ id: crypto.randomUUID() }","switch":[{"if":"summary","children":[]}]},"oneOf":[{"required":["type","name","id","enabled"],"title":"Open AI","properties":{"type":{"type":"string","title":"Provider Type","const":"openai","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Open AI\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}},{"required":["type","name","id","enabled"],"title":"Anthropic","properties":{"type":{"type":"string","title":"Provider Type","const":"anthropic","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Anthropic\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}},{"required":["type","name","id","enabled"],"title":"Google","properties":{"type":{"type":"string","title":"Provider Type","const":"google","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Google\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}},{"required":["type","name","id","enabled"],"title":"Mistral","properties":{"type":{"type":"string","title":"Provider Type","const":"mistral","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Mistral\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}},{"required":["type","name","id","enabled"],"title":"OpenRouter","properties":{"type":{"type":"string","title":"Provider Type","const":"openrouter","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"OpenRouter\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}},{"required":["type","name","id","enabled","baseURL"],"title":"Ollama","properties":{"type":{"type":"string","title":"Provider Type","const":"ollama","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Ollama\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/apiKey","errorMessage":{}},"baseURL":{"type":"string","title":"URL de base","default":"http://localhost:11434","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/baseURL","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire","baseURL":"information obligatoire"}}},{"required":["type","name","id","enabled"],"title":"Mock","description":"To a message \"hello\" respond \"world\", to a message \"call tool ARG1 ARG2\" respond with a tool call, to anything else respond \"what do you mean ?\"","properties":{"type":{"type":"string","title":"Provider Type","const":"mock","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Mock\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/enabled","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}}],"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items","errorMessage":{"oneOf":"choisissez une valeur"}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers","errorMessage":{}},"models":{"type":"object","title":"Modèles","layout":{"title":null,"if":"parent.data.providers?.length"},"default":{},"properties":{"assistant":{"type":"object","title":"Assistant","description":"L'interface conversationnelle principale. Équilibré pour le raisonnement, le suivi d'instructions et l'interaction naturelle. Ce modèle gère le flux de haut niveau et délègue les tâches complexes aux sous-agents.\n\nRecommandations : GPT-5.4, Claude 4.5 Sonnet, Llama 4 Maverick, Mistral Large 3, etc.","layout":{"comp":"card","children":[{"key":"model","cols":8},{"key":"ratio","cols":4}],"cols":6},"properties":{"model":{"$ref":"#/definitions/Model","title":"Modèle","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/model","errorMessage":{"required":{"id":"information obligatoire","name":"information obligatoire","provider":"information obligatoire"}}},"ratio":{"type":"number","title":"Ratio d'utilisation","description":"Multiplicateur appliqué à l'utilisation des tokens pour le calcul des quotas (ex : 1.0 = coût plein, 0.5 = demi-coût)","default":1,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/ratio","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant","errorMessage":{}},"tools":{"type":"object","title":"Outils","description":"Le « technicien ». Spécialisé dans les données structurées et l'interaction avec les API. Il excelle à enchaîner plusieurs appels d'outils sans remplissage conversationnel, garantissant une haute fiabilité dans les workflows automatisés.\n\nRecommandations : GPT-5.4 Mini, Mistral DevStral, Claude 4.5 Sonnet (Computer Use), MiMo-V2-Flash, etc.","layout":{"comp":"card","children":[{"key":"model","cols":8},{"key":"ratio","cols":4}],"cols":6},"properties":{"model":{"$ref":"#/definitions/Model","title":"Modèle","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/model","errorMessage":{"required":{"id":"information obligatoire","name":"information obligatoire","provider":"information obligatoire"}}},"ratio":{"type":"number","title":"Ratio d'utilisation","description":"Multiplicateur appliqué à l'utilisation des tokens pour le calcul des quotas","default":0.5,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/ratio","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools","errorMessage":{}},"summarizer":{"type":"object","title":"Résumeur","description":"Un spécialiste de la « synthèse ». Optimisé pour extraire rapidement les points clés de blocs de texte petits à moyens. Il privilégie la densité d'information et la concision pour garder les fenêtres de contexte légères et les coûts bas.\n\nRecommandations : GPT-5.4 Mini, Claude 4.5 Haiku, Mistral Small 4, Llama 4 (8B), etc.","layout":{"comp":"card","children":[{"key":"model","cols":8},{"key":"ratio","cols":4}],"cols":6},"properties":{"model":{"$ref":"#/definitions/Model","title":"Modèle","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/model","errorMessage":{"required":{"id":"information obligatoire","name":"information obligatoire","provider":"information obligatoire"}}},"ratio":{"type":"number","title":"Ratio d'utilisation","description":"Multiplicateur appliqué à l'utilisation des tokens pour le calcul des quotas (ex : 0.5 pour une synthèse moins coûteuse)","default":0.5,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/ratio","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer","errorMessage":{}},"evaluator":{"type":"object","title":"Évaluateur","description":"Le « contrôleur qualité ». Analyse la logique de l'assistant et les sorties des outils pour vérifier la précision et la sécurité. Il nécessite les capacités de raisonnement les plus élevées pour servir de référence fiable pour les performances du système.\n\nRecommandations : Claude Opus 4.6, GPT-5.4 (Reasoning), DeepSeek-R1, Pharia-1-LLM, etc.","layout":{"comp":"card","children":[{"key":"model","cols":8},{"key":"ratio","cols":4}],"cols":6},"properties":{"model":{"$ref":"#/definitions/Model","title":"Modèle","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/model","errorMessage":{"required":{"id":"information obligatoire","name":"information obligatoire","provider":"information obligatoire"}}},"ratio":{"type":"number","title":"Ratio d'utilisation","description":"Multiplicateur appliqué à l'utilisation des tokens pour le calcul des quotas","default":1,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/ratio","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models","errorMessage":{}},"quotas":{"type":"object","title":"Quotas par rôle","layout":{"title":null,"if":"parent.data.providers?.length","children":[{"key":"global","cols":{"sm":6,"md":4}},{"key":"admin","cols":{"sm":6,"md":4}},{"key":"contrib","cols":{"sm":6,"md":4},"if":"context.accountType === \"organization\""},{"key":"user","cols":{"sm":6,"md":4},"if":"context.accountType === \"organization\""},{"key":"external","cols":{"sm":6,"md":4}},{"key":"anonymous","cols":{"sm":6,"md":4}}]},"required":["global","admin","contrib","user","external","anonymous"],"default":{"global":{"unlimited":false,"dailyTokenLimit":100000,"monthlyTokenLimit":1000000},"admin":{"unlimited":true,"dailyTokenLimit":0,"monthlyTokenLimit":0},"contrib":{"unlimited":false,"dailyTokenLimit":0,"monthlyTokenLimit":0},"user":{"unlimited":false,"dailyTokenLimit":0,"monthlyTokenLimit":0},"external":{"unlimited":false,"dailyTokenLimit":0,"monthlyTokenLimit":0},"anonymous":{"unlimited":false,"dailyTokenLimit":0,"monthlyTokenLimit":0}},"properties":{"global":{"$ref":"#/definitions/RoleQuota","title":"Quotas globaux","default":{"unlimited":false,"dailyTokenLimit":100000,"monthlyTokenLimit":1000000},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/global","errorMessage":{"required":{"unlimited":"information obligatoire","dailyTokenLimit":"information obligatoire","monthlyTokenLimit":"information obligatoire"}}},"admin":{"$ref":"#/definitions/RoleQuota","title":"Quotas administrateur","default":{"unlimited":true,"dailyTokenLimit":0,"monthlyTokenLimit":0},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/admin","errorMessage":{"required":{"unlimited":"information obligatoire","dailyTokenLimit":"information obligatoire","monthlyTokenLimit":"information obligatoire"}}},"contrib":{"$ref":"#/definitions/RoleQuota","title":"Quotas contributeur","default":{"unlimited":false,"dailyTokenLimit":0,"monthlyTokenLimit":0},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/contrib","errorMessage":{"required":{"unlimited":"information obligatoire","dailyTokenLimit":"information obligatoire","monthlyTokenLimit":"information obligatoire"}}},"user":{"$ref":"#/definitions/RoleQuota","title":"Quotas utilisateur simple","default":{"unlimited":false,"dailyTokenLimit":0,"monthlyTokenLimit":0},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/user","errorMessage":{"required":{"unlimited":"information obligatoire","dailyTokenLimit":"information obligatoire","monthlyTokenLimit":"information obligatoire"}}},"external":{"$ref":"#/definitions/RoleQuota","title":"Quotas utilisateur externe","default":{"unlimited":false,"dailyTokenLimit":0,"monthlyTokenLimit":0},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/external","errorMessage":{"required":{"unlimited":"information obligatoire","dailyTokenLimit":"information obligatoire","monthlyTokenLimit":"information obligatoire"}}},"anonymous":{"$ref":"#/definitions/RoleQuota","title":"Quotas utilisateur anonyme","default":{"unlimited":false,"dailyTokenLimit":0,"monthlyTokenLimit":0},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/anonymous","errorMessage":{"required":{"unlimited":"information obligatoire","dailyTokenLimit":"information obligatoire","monthlyTokenLimit":"information obligatoire"}}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas","errorMessage":{"required":{"global":"information obligatoire","admin":"information obligatoire","contrib":"information obligatoire","user":"information obligatoire","external":"information obligatoire","anonymous":"information obligatoire"}}}},"x-vjsf":{"xI18n":true,"pluginsImports":["@koumoul/vjsf-markdown"]},"x-vjsf-locales":["en","fr"],"__pointer":"https://github.com/data-fair/agents/settings-put#","errorMessage":{"required":{"providers":"information obligatoire","models":"information obligatoire","quotas":"information obligatoire"}}};
+const schema27 = {"$id":"https://github.com/data-fair/agents/settings-put","x-exports":["validate","types","vjsf"],"title":"Paramètres","layout":{"title":null},"definitions":{"RoleQuota":{"type":"object","layout":"card","required":["unlimited","monthlyLimit"],"properties":{"unlimited":{"type":"boolean","title":"Illimité","default":false,"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/unlimited","errorMessage":{}},"monthlyLimit":{"layout":{"if":"!parent.data.unlimited"},"type":"number","title":"Limite mensuelle","description":"Limite hebdomadaire = mensuelle / 2, limite journalière = mensuelle / 4","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyLimit","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota","errorMessage":{"required":{"unlimited":"information obligatoire","monthlyLimit":"information obligatoire"}}},"Model":{"type":"object","required":["id","name","provider"],"layout":{"comp":"autocomplete","getItems":{"url":{"pure":false,"type":"js-tpl","dataAlias":"value","expr":"${context.apiPath}/models/${context.accountType}/${context.accountId}?provider=${parent.parent.parent.data.providers.map(p => p.id).join(\",\")}","ref":15},"itemsResults":{"pure":true,"type":"js-eval","dataAlias":"body","expr":"data.results","ref":18},"itemTitle":{"pure":true,"type":"js-eval","dataAlias":"item","expr":"`${item.name} (${item.provider.name} - ${item.provider.id.slice(0, 8)})`","ref":16},"itemKey":{"pure":true,"type":"js-eval","dataAlias":"item","expr":"item.id","ref":17},"returnObjects":true}},"properties":{"id":{"type":"string","title":"Model ID","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/id","errorMessage":{}},"name":{"type":"string","title":"Name","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/name","errorMessage":{}},"provider":{"type":"object","required":["type","name","id"],"properties":{"type":{"type":"string","title":"Provider Type","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider/properties/type","errorMessage":{}},"name":{"type":"string","title":"Provider Name","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider/properties/name","errorMessage":{}},"id":{"type":"string","title":"Provider ID","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider/properties/id","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider","errorMessage":{"required":{"type":"information obligatoire","name":"information obligatoire","id":"information obligatoire"}}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model","errorMessage":{"required":{"id":"information obligatoire","name":"information obligatoire","provider":"information obligatoire"}}}},"type":"object","additionalProperties":false,"required":["providers","models","quotas"],"properties":{"createdAt":{"type":"string","format":"date-time","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/createdAt","errorMessage":{}},"updatedAt":{"type":"string","format":"date-time","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/updatedAt","errorMessage":{}},"owner":{"type":"object","additionalProperties":false,"required":["type","id"],"readOnly":true,"properties":{"type":{"type":"string","enum":["user","organization"],"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/type","errorMessage":{}},"id":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/id","errorMessage":{}},"name":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/name","errorMessage":{}},"department":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/department","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire"}}},"providers":{"type":"array","title":"Fournisseurs IA","layout":{"itemTitle":"item ? `${item.name || \"\"} - ${item.id.slice(0, 8)}` : \"\"","listActions":["add","edit","delete"]},"items":{"type":"object","title":"Fournisseur","unevaluatedProperties":false,"oneOfLayout":{"emptyData":true},"discriminator":{"propertyName":"type"},"layout":{"getDefaultData":"{ id: crypto.randomUUID() }","switch":[{"if":"summary","children":[]}]},"oneOf":[{"required":["type","name","id","enabled"],"title":"Open AI","properties":{"type":{"type":"string","title":"Provider Type","const":"openai","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Open AI\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}},{"required":["type","name","id","enabled"],"title":"Anthropic","properties":{"type":{"type":"string","title":"Provider Type","const":"anthropic","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Anthropic\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}},{"required":["type","name","id","enabled"],"title":"Google","properties":{"type":{"type":"string","title":"Provider Type","const":"google","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Google\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}},{"required":["type","name","id","enabled"],"title":"Mistral","properties":{"type":{"type":"string","title":"Provider Type","const":"mistral","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Mistral\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}},{"required":["type","name","id","enabled"],"title":"OpenRouter","properties":{"type":{"type":"string","title":"Provider Type","const":"openrouter","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"OpenRouter\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}},{"required":["type","name","id","enabled","baseURL"],"title":"Ollama","properties":{"type":{"type":"string","title":"Provider Type","const":"ollama","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Ollama\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/apiKey","errorMessage":{}},"baseURL":{"type":"string","title":"URL de base","default":"http://localhost:11434","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/baseURL","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire","baseURL":"information obligatoire"}}},{"required":["type","name","id","enabled"],"title":"Mock","description":"To a message \"hello\" respond \"world\", to a message \"call tool ARG1 ARG2\" respond with a tool call, to anything else respond \"what do you mean ?\"","properties":{"type":{"type":"string","title":"Provider Type","const":"mock","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Mock\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/enabled","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}}],"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items","errorMessage":{"oneOf":"choisissez une valeur"}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers","errorMessage":{}},"models":{"type":"object","title":"Modèles","layout":{"title":null,"if":"parent.data.providers?.length"},"default":{},"properties":{"assistant":{"type":"object","title":"Assistant","description":"L'interface conversationnelle principale. Équilibré pour le raisonnement, le suivi d'instructions et l'interaction naturelle. Ce modèle gère le flux de haut niveau et délègue les tâches complexes aux sous-agents.\n\nRecommandations : GPT-5.4, Claude 4.5 Sonnet, Llama 4 Maverick, Mistral Large 3, etc.","layout":{"comp":"card","children":[{"key":"model"},{"key":"inputPricePerMillion","cols":6},{"key":"outputPricePerMillion","cols":6}],"cols":6},"properties":{"model":{"$ref":"#/definitions/Model","title":"Modèle","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/model","errorMessage":{"required":{"id":"information obligatoire","name":"information obligatoire","provider":"information obligatoire"}}},"inputPricePerMillion":{"type":"number","title":"Prix d'entrée (par million de tokens)","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/inputPricePerMillion","errorMessage":{}},"outputPricePerMillion":{"type":"number","title":"Prix de sortie (par million de tokens)","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/outputPricePerMillion","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant","errorMessage":{}},"tools":{"type":"object","title":"Outils","description":"Le « technicien ». Spécialisé dans les données structurées et l'interaction avec les API. Il excelle à enchaîner plusieurs appels d'outils sans remplissage conversationnel, garantissant une haute fiabilité dans les workflows automatisés.\n\nRecommandations : GPT-5.4 Mini, Mistral DevStral, Claude 4.5 Sonnet (Computer Use), MiMo-V2-Flash, etc.","layout":{"comp":"card","children":[{"key":"model"},{"key":"inputPricePerMillion","cols":6},{"key":"outputPricePerMillion","cols":6}],"cols":6},"properties":{"model":{"$ref":"#/definitions/Model","title":"Modèle","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/model","errorMessage":{"required":{"id":"information obligatoire","name":"information obligatoire","provider":"information obligatoire"}}},"inputPricePerMillion":{"type":"number","title":"Prix d'entrée (par million de tokens)","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/inputPricePerMillion","errorMessage":{}},"outputPricePerMillion":{"type":"number","title":"Prix de sortie (par million de tokens)","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/outputPricePerMillion","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools","errorMessage":{}},"summarizer":{"type":"object","title":"Résumeur","description":"Un spécialiste de la « synthèse ». Optimisé pour extraire rapidement les points clés de blocs de texte petits à moyens. Il privilégie la densité d'information et la concision pour garder les fenêtres de contexte légères et les coûts bas.\n\nRecommandations : GPT-5.4 Mini, Claude 4.5 Haiku, Mistral Small 4, Llama 4 (8B), etc.","layout":{"comp":"card","children":[{"key":"model"},{"key":"inputPricePerMillion","cols":6},{"key":"outputPricePerMillion","cols":6}],"cols":6},"properties":{"model":{"$ref":"#/definitions/Model","title":"Modèle","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/model","errorMessage":{"required":{"id":"information obligatoire","name":"information obligatoire","provider":"information obligatoire"}}},"inputPricePerMillion":{"type":"number","title":"Prix d'entrée (par million de tokens)","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/inputPricePerMillion","errorMessage":{}},"outputPricePerMillion":{"type":"number","title":"Prix de sortie (par million de tokens)","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/outputPricePerMillion","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer","errorMessage":{}},"evaluator":{"type":"object","title":"Évaluateur","description":"Le « contrôleur qualité ». Analyse la logique de l'assistant et les sorties des outils pour vérifier la précision et la sécurité. Il nécessite les capacités de raisonnement les plus élevées pour servir de référence fiable pour les performances du système.\n\nRecommandations : Claude Opus 4.6, GPT-5.4 (Reasoning), DeepSeek-R1, Pharia-1-LLM, etc.","layout":{"comp":"card","children":[{"key":"model"},{"key":"inputPricePerMillion","cols":6},{"key":"outputPricePerMillion","cols":6}],"cols":6},"properties":{"model":{"$ref":"#/definitions/Model","title":"Modèle","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/model","errorMessage":{"required":{"id":"information obligatoire","name":"information obligatoire","provider":"information obligatoire"}}},"inputPricePerMillion":{"type":"number","title":"Prix d'entrée (par million de tokens)","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/inputPricePerMillion","errorMessage":{}},"outputPricePerMillion":{"type":"number","title":"Prix de sortie (par million de tokens)","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/outputPricePerMillion","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models","errorMessage":{}},"quotas":{"type":"object","title":"Quotas par rôle","layout":{"title":null,"if":"parent.data.providers?.length","children":[{"key":"global","cols":{"sm":6,"md":4}},{"key":"admin","cols":{"sm":6,"md":4}},{"key":"contrib","cols":{"sm":6,"md":4},"if":"context.accountType === \"organization\""},{"key":"user","cols":{"sm":6,"md":4},"if":"context.accountType === \"organization\""},{"key":"external","cols":{"sm":6,"md":4}},{"key":"anonymous","cols":{"sm":6,"md":4}}]},"required":["global","admin","contrib","user","external","anonymous"],"default":{"global":{"unlimited":false,"monthlyLimit":10},"admin":{"unlimited":true,"monthlyLimit":0},"contrib":{"unlimited":false,"monthlyLimit":0},"user":{"unlimited":false,"monthlyLimit":0},"external":{"unlimited":false,"monthlyLimit":0},"anonymous":{"unlimited":false,"monthlyLimit":0}},"properties":{"global":{"$ref":"#/definitions/RoleQuota","title":"Quotas globaux","default":{"unlimited":false,"monthlyLimit":10},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/global","errorMessage":{"required":{"unlimited":"information obligatoire","monthlyLimit":"information obligatoire"}}},"admin":{"$ref":"#/definitions/RoleQuota","title":"Quotas administrateur","default":{"unlimited":true,"monthlyLimit":0},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/admin","errorMessage":{"required":{"unlimited":"information obligatoire","monthlyLimit":"information obligatoire"}}},"contrib":{"$ref":"#/definitions/RoleQuota","title":"Quotas contributeur","default":{"unlimited":false,"monthlyLimit":0},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/contrib","errorMessage":{"required":{"unlimited":"information obligatoire","monthlyLimit":"information obligatoire"}}},"user":{"$ref":"#/definitions/RoleQuota","title":"Quotas utilisateur simple","default":{"unlimited":false,"monthlyLimit":0},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/user","errorMessage":{"required":{"unlimited":"information obligatoire","monthlyLimit":"information obligatoire"}}},"external":{"$ref":"#/definitions/RoleQuota","title":"Quotas utilisateur externe","default":{"unlimited":false,"monthlyLimit":0},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/external","errorMessage":{"required":{"unlimited":"information obligatoire","monthlyLimit":"information obligatoire"}}},"anonymous":{"$ref":"#/definitions/RoleQuota","title":"Quotas utilisateur anonyme","default":{"unlimited":false,"monthlyLimit":0},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/anonymous","errorMessage":{"required":{"unlimited":"information obligatoire","monthlyLimit":"information obligatoire"}}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas","errorMessage":{"required":{"global":"information obligatoire","admin":"information obligatoire","contrib":"information obligatoire","user":"information obligatoire","external":"information obligatoire","anonymous":"information obligatoire"}}}},"x-vjsf":{"xI18n":true,"pluginsImports":["@koumoul/vjsf-markdown"]},"x-vjsf-locales":["en","fr"],"__pointer":"https://github.com/data-fair/agents/settings-put#","errorMessage":{"required":{"providers":"information obligatoire","models":"information obligatoire","quotas":"information obligatoire"}}};
 const schema28 = {"type":"object","required":["id","name","provider"],"layout":{"comp":"autocomplete","getItems":{"url":{"pure":false,"type":"js-tpl","dataAlias":"value","expr":"${context.apiPath}/models/${context.accountType}/${context.accountId}?provider=${parent.parent.parent.data.providers.map(p => p.id).join(\",\")}","ref":15},"itemsResults":{"pure":true,"type":"js-eval","dataAlias":"body","expr":"data.results","ref":18},"itemTitle":{"pure":true,"type":"js-eval","dataAlias":"item","expr":"`${item.name} (${item.provider.name} - ${item.provider.id.slice(0, 8)})`","ref":16},"itemKey":{"pure":true,"type":"js-eval","dataAlias":"item","expr":"item.id","ref":17},"returnObjects":true}},"properties":{"id":{"type":"string","title":"Model ID","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/id","errorMessage":{}},"name":{"type":"string","title":"Name","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/name","errorMessage":{}},"provider":{"type":"object","required":["type","name","id"],"properties":{"type":{"type":"string","title":"Provider Type","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider/properties/type","errorMessage":{}},"name":{"type":"string","title":"Provider Name","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider/properties/name","errorMessage":{}},"id":{"type":"string","title":"Provider ID","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider/properties/id","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider","errorMessage":{"required":{"type":"information obligatoire","name":"information obligatoire","id":"information obligatoire"}}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model","errorMessage":{"required":{"id":"information obligatoire","name":"information obligatoire","provider":"information obligatoire"}}};
-const schema32 = {"type":"object","layout":"card","required":["unlimited","dailyTokenLimit","monthlyTokenLimit"],"properties":{"unlimited":{"type":"boolean","title":"Illimité","default":false,"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/unlimited","errorMessage":{}},"dailyTokenLimit":{"layout":{"if":"!parent.data.unlimited","cols":6},"type":"integer","title":"Limite de tokens journalière","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/dailyTokenLimit","errorMessage":{}},"monthlyTokenLimit":{"layout":{"if":"!parent.data.unlimited","cols":6},"type":"integer","title":"Limite de tokens mensuelle","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyTokenLimit","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota","errorMessage":{"required":{"unlimited":"information obligatoire","dailyTokenLimit":"information obligatoire","monthlyTokenLimit":"information obligatoire"}}};
+const schema32 = {"type":"object","layout":"card","required":["unlimited","monthlyLimit"],"properties":{"unlimited":{"type":"boolean","title":"Illimité","default":false,"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/unlimited","errorMessage":{}},"monthlyLimit":{"layout":{"if":"!parent.data.unlimited"},"type":"number","title":"Limite mensuelle","description":"Limite hebdomadaire = mensuelle / 2, limite journalière = mensuelle / 4","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyLimit","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota","errorMessage":{"required":{"unlimited":"information obligatoire","monthlyLimit":"information obligatoire"}}};
 const formats0 = fullFormats["date-time"];
 
 function validate23(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
@@ -5877,11 +5877,11 @@ vErrors = emErrs58;
 errors = emErrs58.length;
 }
 }
-if(data45.ratio !== undefined){
-let data53 = data45.ratio;
+if(data45.inputPricePerMillion !== undefined){
+let data53 = data45.inputPricePerMillion;
 if(typeof data53 == "number"){
 if(data53 < 0 || isNaN(data53)){
-const err195 = {instancePath:instancePath+"/models/assistant/ratio",schemaPath:"#/properties/models/properties/assistant/properties/ratio/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.assistant.properties.ratio,data:data53};
+const err195 = {instancePath:instancePath+"/models/assistant/inputPricePerMillion",schemaPath:"#/properties/models/properties/assistant/properties/inputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.assistant.properties.inputPricePerMillion,data:data53};
 if(vErrors === null){
 vErrors = [err195];
 }
@@ -5892,7 +5892,7 @@ errors++;
 }
 }
 else {
-const err196 = {instancePath:instancePath+"/models/assistant/ratio",schemaPath:"#/properties/models/properties/assistant/properties/ratio/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.assistant.properties.ratio.type,parentSchema:schema27.properties.models.properties.assistant.properties.ratio,data:data53};
+const err196 = {instancePath:instancePath+"/models/assistant/inputPricePerMillion",schemaPath:"#/properties/models/properties/assistant/properties/inputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.assistant.properties.inputPricePerMillion.type,parentSchema:schema27.properties.models.properties.assistant.properties.inputPricePerMillion,data:data53};
 if(vErrors === null){
 vErrors = [err196];
 }
@@ -5912,9 +5912,11 @@ vErrors = emErrs59;
 errors = emErrs59.length;
 }
 }
-}
-else {
-const err198 = {instancePath:instancePath+"/models/assistant",schemaPath:"#/properties/models/properties/assistant/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.models.properties.assistant.type,parentSchema:schema27.properties.models.properties.assistant,data:data45};
+if(data45.outputPricePerMillion !== undefined){
+let data54 = data45.outputPricePerMillion;
+if(typeof data54 == "number"){
+if(data54 < 0 || isNaN(data54)){
+const err198 = {instancePath:instancePath+"/models/assistant/outputPricePerMillion",schemaPath:"#/properties/models/properties/assistant/properties/outputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.assistant.properties.outputPricePerMillion,data:data54};
 if(vErrors === null){
 vErrors = [err198];
 }
@@ -5923,35 +5925,31 @@ vErrors.push(err198);
 }
 errors++;
 }
+}
+else {
+const err199 = {instancePath:instancePath+"/models/assistant/outputPricePerMillion",schemaPath:"#/properties/models/properties/assistant/properties/outputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.assistant.properties.outputPricePerMillion.type,parentSchema:schema27.properties.models.properties.assistant.properties.outputPricePerMillion,data:data54};
+if(vErrors === null){
+vErrors = [err199];
+}
+else {
+vErrors.push(err199);
+}
+errors++;
+}
 if(errors > 0){
 const emErrs60 = [];
-for(const err199 of vErrors){
-if(!err199.emUsed){
-emErrs60.push(err199);
+for(const err200 of vErrors){
+if(!err200.emUsed){
+emErrs60.push(err200);
 }
 }
 vErrors = emErrs60;
 errors = emErrs60.length;
 }
 }
-if(data44.tools !== undefined){
-let data54 = data44.tools;
-if(data54 && typeof data54 == "object" && !Array.isArray(data54)){
-if(data54.model !== undefined){
-let data55 = data54.model;
-if(data55 && typeof data55 == "object" && !Array.isArray(data55)){
-if(data55.id === undefined){
-const err200 = {instancePath:instancePath+"/models/tools/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.required,parentSchema:schema28,data:data55};
-if(vErrors === null){
-vErrors = [err200];
 }
 else {
-vErrors.push(err200);
-}
-errors++;
-}
-if(data55.name === undefined){
-const err201 = {instancePath:instancePath+"/models/tools/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.required,parentSchema:schema28,data:data55};
+const err201 = {instancePath:instancePath+"/models/assistant",schemaPath:"#/properties/models/properties/assistant/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.models.properties.assistant.type,parentSchema:schema27.properties.models.properties.assistant,data:data45};
 if(vErrors === null){
 vErrors = [err201];
 }
@@ -5960,20 +5958,25 @@ vErrors.push(err201);
 }
 errors++;
 }
-if(data55.provider === undefined){
-const err202 = {instancePath:instancePath+"/models/tools/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'",schema:schema28.required,parentSchema:schema28,data:data55};
-if(vErrors === null){
-vErrors = [err202];
+if(errors > 0){
+const emErrs61 = [];
+for(const err202 of vErrors){
+if(!err202.emUsed){
+emErrs61.push(err202);
 }
-else {
-vErrors.push(err202);
 }
-errors++;
+vErrors = emErrs61;
+errors = emErrs61.length;
 }
-if(data55.id !== undefined){
-let data56 = data55.id;
-if(typeof data56 !== "string"){
-const err203 = {instancePath:instancePath+"/models/tools/model/id",schemaPath:"#/definitions/Model/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.id.type,parentSchema:schema28.properties.id,data:data56};
+}
+if(data44.tools !== undefined){
+let data55 = data44.tools;
+if(data55 && typeof data55 == "object" && !Array.isArray(data55)){
+if(data55.model !== undefined){
+let data56 = data55.model;
+if(data56 && typeof data56 == "object" && !Array.isArray(data56)){
+if(data56.id === undefined){
+const err203 = {instancePath:instancePath+"/models/tools/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.required,parentSchema:schema28,data:data56};
 if(vErrors === null){
 vErrors = [err203];
 }
@@ -5982,21 +5985,18 @@ vErrors.push(err203);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs61 = [];
-for(const err204 of vErrors){
-if(!err204.emUsed){
-emErrs61.push(err204);
+if(data56.name === undefined){
+const err204 = {instancePath:instancePath+"/models/tools/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.required,parentSchema:schema28,data:data56};
+if(vErrors === null){
+vErrors = [err204];
 }
+else {
+vErrors.push(err204);
 }
-vErrors = emErrs61;
-errors = emErrs61.length;
+errors++;
 }
-}
-if(data55.name !== undefined){
-let data57 = data55.name;
-if(typeof data57 !== "string"){
-const err205 = {instancePath:instancePath+"/models/tools/model/name",schemaPath:"#/definitions/Model/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.name.type,parentSchema:schema28.properties.name,data:data57};
+if(data56.provider === undefined){
+const err205 = {instancePath:instancePath+"/models/tools/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'",schema:schema28.required,parentSchema:schema28,data:data56};
 if(vErrors === null){
 vErrors = [err205];
 }
@@ -6005,32 +6005,33 @@ vErrors.push(err205);
 }
 errors++;
 }
+if(data56.id !== undefined){
+let data57 = data56.id;
+if(typeof data57 !== "string"){
+const err206 = {instancePath:instancePath+"/models/tools/model/id",schemaPath:"#/definitions/Model/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.id.type,parentSchema:schema28.properties.id,data:data57};
+if(vErrors === null){
+vErrors = [err206];
+}
+else {
+vErrors.push(err206);
+}
+errors++;
+}
 if(errors > 0){
 const emErrs62 = [];
-for(const err206 of vErrors){
-if(!err206.emUsed){
-emErrs62.push(err206);
+for(const err207 of vErrors){
+if(!err207.emUsed){
+emErrs62.push(err207);
 }
 }
 vErrors = emErrs62;
 errors = emErrs62.length;
 }
 }
-if(data55.provider !== undefined){
-let data58 = data55.provider;
-if(data58 && typeof data58 == "object" && !Array.isArray(data58)){
-if(data58.type === undefined){
-const err207 = {instancePath:instancePath+"/models/tools/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data58};
-if(vErrors === null){
-vErrors = [err207];
-}
-else {
-vErrors.push(err207);
-}
-errors++;
-}
-if(data58.name === undefined){
-const err208 = {instancePath:instancePath+"/models/tools/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data58};
+if(data56.name !== undefined){
+let data58 = data56.name;
+if(typeof data58 !== "string"){
+const err208 = {instancePath:instancePath+"/models/tools/model/name",schemaPath:"#/definitions/Model/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.name.type,parentSchema:schema28.properties.name,data:data58};
 if(vErrors === null){
 vErrors = [err208];
 }
@@ -6039,20 +6040,22 @@ vErrors.push(err208);
 }
 errors++;
 }
-if(data58.id === undefined){
-const err209 = {instancePath:instancePath+"/models/tools/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data58};
-if(vErrors === null){
-vErrors = [err209];
+if(errors > 0){
+const emErrs63 = [];
+for(const err209 of vErrors){
+if(!err209.emUsed){
+emErrs63.push(err209);
 }
-else {
-vErrors.push(err209);
 }
-errors++;
+vErrors = emErrs63;
+errors = emErrs63.length;
 }
-if(data58.type !== undefined){
-let data59 = data58.type;
-if(typeof data59 !== "string"){
-const err210 = {instancePath:instancePath+"/models/tools/model/provider/type",schemaPath:"#/definitions/Model/properties/provider/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.type.type,parentSchema:schema28.properties.provider.properties.type,data:data59};
+}
+if(data56.provider !== undefined){
+let data59 = data56.provider;
+if(data59 && typeof data59 == "object" && !Array.isArray(data59)){
+if(data59.type === undefined){
+const err210 = {instancePath:instancePath+"/models/tools/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data59};
 if(vErrors === null){
 vErrors = [err210];
 }
@@ -6061,21 +6064,18 @@ vErrors.push(err210);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs63 = [];
-for(const err211 of vErrors){
-if(!err211.emUsed){
-emErrs63.push(err211);
+if(data59.name === undefined){
+const err211 = {instancePath:instancePath+"/models/tools/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data59};
+if(vErrors === null){
+vErrors = [err211];
 }
+else {
+vErrors.push(err211);
 }
-vErrors = emErrs63;
-errors = emErrs63.length;
+errors++;
 }
-}
-if(data58.name !== undefined){
-let data60 = data58.name;
-if(typeof data60 !== "string"){
-const err212 = {instancePath:instancePath+"/models/tools/model/provider/name",schemaPath:"#/definitions/Model/properties/provider/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.name.type,parentSchema:schema28.properties.provider.properties.name,data:data60};
+if(data59.id === undefined){
+const err212 = {instancePath:instancePath+"/models/tools/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data59};
 if(vErrors === null){
 vErrors = [err212];
 }
@@ -6084,86 +6084,69 @@ vErrors.push(err212);
 }
 errors++;
 }
+if(data59.type !== undefined){
+let data60 = data59.type;
+if(typeof data60 !== "string"){
+const err213 = {instancePath:instancePath+"/models/tools/model/provider/type",schemaPath:"#/definitions/Model/properties/provider/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.type.type,parentSchema:schema28.properties.provider.properties.type,data:data60};
+if(vErrors === null){
+vErrors = [err213];
+}
+else {
+vErrors.push(err213);
+}
+errors++;
+}
 if(errors > 0){
 const emErrs64 = [];
-for(const err213 of vErrors){
-if(!err213.emUsed){
-emErrs64.push(err213);
+for(const err214 of vErrors){
+if(!err214.emUsed){
+emErrs64.push(err214);
 }
 }
 vErrors = emErrs64;
 errors = emErrs64.length;
 }
 }
-if(data58.id !== undefined){
-let data61 = data58.id;
+if(data59.name !== undefined){
+let data61 = data59.name;
 if(typeof data61 !== "string"){
-const err214 = {instancePath:instancePath+"/models/tools/model/provider/id",schemaPath:"#/definitions/Model/properties/provider/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.id.type,parentSchema:schema28.properties.provider.properties.id,data:data61};
+const err215 = {instancePath:instancePath+"/models/tools/model/provider/name",schemaPath:"#/definitions/Model/properties/provider/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.name.type,parentSchema:schema28.properties.provider.properties.name,data:data61};
 if(vErrors === null){
-vErrors = [err214];
+vErrors = [err215];
 }
 else {
-vErrors.push(err214);
+vErrors.push(err215);
 }
 errors++;
 }
 if(errors > 0){
 const emErrs65 = [];
-for(const err215 of vErrors){
-if(!err215.emUsed){
-emErrs65.push(err215);
+for(const err216 of vErrors){
+if(!err216.emUsed){
+emErrs65.push(err216);
 }
 }
 vErrors = emErrs65;
 errors = emErrs65.length;
 }
 }
-}
-else {
-const err216 = {instancePath:instancePath+"/models/tools/model/provider",schemaPath:"#/definitions/Model/properties/provider/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.properties.provider.type,parentSchema:schema28.properties.provider,data:data58};
+if(data59.id !== undefined){
+let data62 = data59.id;
+if(typeof data62 !== "string"){
+const err217 = {instancePath:instancePath+"/models/tools/model/provider/id",schemaPath:"#/definitions/Model/properties/provider/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.id.type,parentSchema:schema28.properties.provider.properties.id,data:data62};
 if(vErrors === null){
-vErrors = [err216];
+vErrors = [err217];
 }
 else {
-vErrors.push(err216);
+vErrors.push(err217);
 }
 errors++;
 }
 if(errors > 0){
-const emErrors12 = {"required":{"type":[],"name":[],"id":[]}};
-const templates12 = {required:{}};
-let emPropParams11;
-let emParamsErrors11;
-for(const err217 of vErrors){
-if((((((err217.keyword !== "errorMessage") && (!err217.emUsed)) && (err217.instancePath === instancePath+"/models/tools/model/provider")) && (err217.keyword in emErrors12)) && (err217.schemaPath.indexOf("#/definitions/Model/properties/provider") === 0)) && (/^\/[^\/]*$/.test(err217.schemaPath.slice(39)))){
-emPropParams11 = obj0[err217.keyword];
-emParamsErrors11 = emErrors12[err217.keyword][err217.params[emPropParams11]];
-if(emParamsErrors11){
-emParamsErrors11.push(err217);
-err217.emUsed = true;
-}
-}
-}
-for(const key15 in emErrors12){
-for(const keyProp11 in emErrors12[key15]){
-emParamsErrors11 = emErrors12[key15][keyProp11];
-if(emParamsErrors11.length){
-const tmpl11 = templates12[key15] && templates12[key15][keyProp11];
-const err218 = {instancePath:instancePath+"/models/tools/model/provider",schemaPath:"#/definitions/Model/properties/provider/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors11},message:tmpl11 ? tmpl11() : schema28.properties.provider.errorMessage[key15][keyProp11],schema:schema28.properties.provider.errorMessage,parentSchema:schema28.properties.provider,data:data58};
-if(vErrors === null){
-vErrors = [err218];
-}
-else {
-vErrors.push(err218);
-}
-errors++;
-}
-}
-}
 const emErrs66 = [];
-for(const err219 of vErrors){
-if(!err219.emUsed){
-emErrs66.push(err219);
+for(const err218 of vErrors){
+if(!err218.emUsed){
+emErrs66.push(err218);
 }
 }
 vErrors = emErrs66;
@@ -6172,12 +6155,64 @@ errors = emErrs66.length;
 }
 }
 else {
-const err220 = {instancePath:instancePath+"/models/tools/model",schemaPath:"#/definitions/Model/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.type,parentSchema:schema28,data:data55};
+const err219 = {instancePath:instancePath+"/models/tools/model/provider",schemaPath:"#/definitions/Model/properties/provider/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.properties.provider.type,parentSchema:schema28.properties.provider,data:data59};
 if(vErrors === null){
-vErrors = [err220];
+vErrors = [err219];
 }
 else {
-vErrors.push(err220);
+vErrors.push(err219);
+}
+errors++;
+}
+if(errors > 0){
+const emErrors12 = {"required":{"type":[],"name":[],"id":[]}};
+const templates12 = {required:{}};
+let emPropParams11;
+let emParamsErrors11;
+for(const err220 of vErrors){
+if((((((err220.keyword !== "errorMessage") && (!err220.emUsed)) && (err220.instancePath === instancePath+"/models/tools/model/provider")) && (err220.keyword in emErrors12)) && (err220.schemaPath.indexOf("#/definitions/Model/properties/provider") === 0)) && (/^\/[^\/]*$/.test(err220.schemaPath.slice(39)))){
+emPropParams11 = obj0[err220.keyword];
+emParamsErrors11 = emErrors12[err220.keyword][err220.params[emPropParams11]];
+if(emParamsErrors11){
+emParamsErrors11.push(err220);
+err220.emUsed = true;
+}
+}
+}
+for(const key15 in emErrors12){
+for(const keyProp11 in emErrors12[key15]){
+emParamsErrors11 = emErrors12[key15][keyProp11];
+if(emParamsErrors11.length){
+const tmpl11 = templates12[key15] && templates12[key15][keyProp11];
+const err221 = {instancePath:instancePath+"/models/tools/model/provider",schemaPath:"#/definitions/Model/properties/provider/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors11},message:tmpl11 ? tmpl11() : schema28.properties.provider.errorMessage[key15][keyProp11],schema:schema28.properties.provider.errorMessage,parentSchema:schema28.properties.provider,data:data59};
+if(vErrors === null){
+vErrors = [err221];
+}
+else {
+vErrors.push(err221);
+}
+errors++;
+}
+}
+}
+const emErrs67 = [];
+for(const err222 of vErrors){
+if(!err222.emUsed){
+emErrs67.push(err222);
+}
+}
+vErrors = emErrs67;
+errors = emErrs67.length;
+}
+}
+}
+else {
+const err223 = {instancePath:instancePath+"/models/tools/model",schemaPath:"#/definitions/Model/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.type,parentSchema:schema28,data:data56};
+if(vErrors === null){
+vErrors = [err223];
+}
+else {
+vErrors.push(err223);
 }
 errors++;
 }
@@ -6186,13 +6221,13 @@ const emErrors13 = {"required":{"id":[],"name":[],"provider":[]}};
 const templates13 = {required:{}};
 let emPropParams12;
 let emParamsErrors12;
-for(const err221 of vErrors){
-if((((((err221.keyword !== "errorMessage") && (!err221.emUsed)) && (err221.instancePath === instancePath+"/models/tools/model")) && (err221.keyword in emErrors13)) && (err221.schemaPath.indexOf("#/definitions/Model") === 0)) && (/^\/[^\/]*$/.test(err221.schemaPath.slice(19)))){
-emPropParams12 = obj0[err221.keyword];
-emParamsErrors12 = emErrors13[err221.keyword][err221.params[emPropParams12]];
+for(const err224 of vErrors){
+if((((((err224.keyword !== "errorMessage") && (!err224.emUsed)) && (err224.instancePath === instancePath+"/models/tools/model")) && (err224.keyword in emErrors13)) && (err224.schemaPath.indexOf("#/definitions/Model") === 0)) && (/^\/[^\/]*$/.test(err224.schemaPath.slice(19)))){
+emPropParams12 = obj0[err224.keyword];
+emParamsErrors12 = emErrors13[err224.keyword][err224.params[emPropParams12]];
 if(emParamsErrors12){
-emParamsErrors12.push(err221);
-err221.emUsed = true;
+emParamsErrors12.push(err224);
+err224.emUsed = true;
 }
 }
 }
@@ -6201,47 +6236,7 @@ for(const keyProp12 in emErrors13[key16]){
 emParamsErrors12 = emErrors13[key16][keyProp12];
 if(emParamsErrors12.length){
 const tmpl12 = templates13[key16] && templates13[key16][keyProp12];
-const err222 = {instancePath:instancePath+"/models/tools/model",schemaPath:"#/definitions/Model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors12},message:tmpl12 ? tmpl12() : schema28.errorMessage[key16][keyProp12],schema:schema28.errorMessage,parentSchema:schema28,data:data55};
-if(vErrors === null){
-vErrors = [err222];
-}
-else {
-vErrors.push(err222);
-}
-errors++;
-}
-}
-}
-const emErrs67 = [];
-for(const err223 of vErrors){
-if(!err223.emUsed){
-emErrs67.push(err223);
-}
-}
-vErrors = emErrs67;
-errors = emErrs67.length;
-}
-if(errors > 0){
-const emErrors14 = {"required":{"id":[],"name":[],"provider":[]}};
-const templates14 = {required:{}};
-let emPropParams13;
-let emParamsErrors13;
-for(const err224 of vErrors){
-if((((((err224.keyword !== "errorMessage") && (!err224.emUsed)) && (err224.instancePath === instancePath+"/models/tools/model")) && (err224.keyword in emErrors14)) && (err224.schemaPath.indexOf("#/properties/models/properties/tools/properties/model") === 0)) && (/^\/[^\/]*$/.test(err224.schemaPath.slice(53)))){
-emPropParams13 = obj0[err224.keyword];
-emParamsErrors13 = emErrors14[err224.keyword][err224.params[emPropParams13]];
-if(emParamsErrors13){
-emParamsErrors13.push(err224);
-err224.emUsed = true;
-}
-}
-}
-for(const key17 in emErrors14){
-for(const keyProp13 in emErrors14[key17]){
-emParamsErrors13 = emErrors14[key17][keyProp13];
-if(emParamsErrors13.length){
-const tmpl13 = templates14[key17] && templates14[key17][keyProp13];
-const err225 = {instancePath:instancePath+"/models/tools/model",schemaPath:"#/properties/models/properties/tools/properties/model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors13},message:tmpl13 ? tmpl13() : schema27.properties.models.properties.tools.properties.model.errorMessage[key17][keyProp13],schema:schema27.properties.models.properties.tools.properties.model.errorMessage,parentSchema:schema27.properties.models.properties.tools.properties.model,data:data55};
+const err225 = {instancePath:instancePath+"/models/tools/model",schemaPath:"#/definitions/Model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors12},message:tmpl12 ? tmpl12() : schema28.errorMessage[key16][keyProp12],schema:schema28.errorMessage,parentSchema:schema28,data:data56};
 if(vErrors === null){
 vErrors = [err225];
 }
@@ -6261,23 +6256,27 @@ emErrs68.push(err226);
 vErrors = emErrs68;
 errors = emErrs68.length;
 }
+if(errors > 0){
+const emErrors14 = {"required":{"id":[],"name":[],"provider":[]}};
+const templates14 = {required:{}};
+let emPropParams13;
+let emParamsErrors13;
+for(const err227 of vErrors){
+if((((((err227.keyword !== "errorMessage") && (!err227.emUsed)) && (err227.instancePath === instancePath+"/models/tools/model")) && (err227.keyword in emErrors14)) && (err227.schemaPath.indexOf("#/properties/models/properties/tools/properties/model") === 0)) && (/^\/[^\/]*$/.test(err227.schemaPath.slice(53)))){
+emPropParams13 = obj0[err227.keyword];
+emParamsErrors13 = emErrors14[err227.keyword][err227.params[emPropParams13]];
+if(emParamsErrors13){
+emParamsErrors13.push(err227);
+err227.emUsed = true;
 }
-if(data54.ratio !== undefined){
-let data62 = data54.ratio;
-if(typeof data62 == "number"){
-if(data62 < 0 || isNaN(data62)){
-const err227 = {instancePath:instancePath+"/models/tools/ratio",schemaPath:"#/properties/models/properties/tools/properties/ratio/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.tools.properties.ratio,data:data62};
-if(vErrors === null){
-vErrors = [err227];
-}
-else {
-vErrors.push(err227);
-}
-errors++;
 }
 }
-else {
-const err228 = {instancePath:instancePath+"/models/tools/ratio",schemaPath:"#/properties/models/properties/tools/properties/ratio/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.tools.properties.ratio.type,parentSchema:schema27.properties.models.properties.tools.properties.ratio,data:data62};
+for(const key17 in emErrors14){
+for(const keyProp13 in emErrors14[key17]){
+emParamsErrors13 = emErrors14[key17][keyProp13];
+if(emParamsErrors13.length){
+const tmpl13 = templates14[key17] && templates14[key17][keyProp13];
+const err228 = {instancePath:instancePath+"/models/tools/model",schemaPath:"#/properties/models/properties/tools/properties/model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors13},message:tmpl13 ? tmpl13() : schema27.properties.models.properties.tools.properties.model.errorMessage[key17][keyProp13],schema:schema27.properties.models.properties.tools.properties.model.errorMessage,parentSchema:schema27.properties.models.properties.tools.properties.model,data:data56};
 if(vErrors === null){
 vErrors = [err228];
 }
@@ -6286,7 +6285,8 @@ vErrors.push(err228);
 }
 errors++;
 }
-if(errors > 0){
+}
+}
 const emErrs69 = [];
 for(const err229 of vErrors){
 if(!err229.emUsed){
@@ -6297,9 +6297,11 @@ vErrors = emErrs69;
 errors = emErrs69.length;
 }
 }
-}
-else {
-const err230 = {instancePath:instancePath+"/models/tools",schemaPath:"#/properties/models/properties/tools/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.models.properties.tools.type,parentSchema:schema27.properties.models.properties.tools,data:data54};
+if(data55.inputPricePerMillion !== undefined){
+let data63 = data55.inputPricePerMillion;
+if(typeof data63 == "number"){
+if(data63 < 0 || isNaN(data63)){
+const err230 = {instancePath:instancePath+"/models/tools/inputPricePerMillion",schemaPath:"#/properties/models/properties/tools/properties/inputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.tools.properties.inputPricePerMillion,data:data63};
 if(vErrors === null){
 vErrors = [err230];
 }
@@ -6308,35 +6310,33 @@ vErrors.push(err230);
 }
 errors++;
 }
+}
+else {
+const err231 = {instancePath:instancePath+"/models/tools/inputPricePerMillion",schemaPath:"#/properties/models/properties/tools/properties/inputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.tools.properties.inputPricePerMillion.type,parentSchema:schema27.properties.models.properties.tools.properties.inputPricePerMillion,data:data63};
+if(vErrors === null){
+vErrors = [err231];
+}
+else {
+vErrors.push(err231);
+}
+errors++;
+}
 if(errors > 0){
 const emErrs70 = [];
-for(const err231 of vErrors){
-if(!err231.emUsed){
-emErrs70.push(err231);
+for(const err232 of vErrors){
+if(!err232.emUsed){
+emErrs70.push(err232);
 }
 }
 vErrors = emErrs70;
 errors = emErrs70.length;
 }
 }
-if(data44.summarizer !== undefined){
-let data63 = data44.summarizer;
-if(data63 && typeof data63 == "object" && !Array.isArray(data63)){
-if(data63.model !== undefined){
-let data64 = data63.model;
-if(data64 && typeof data64 == "object" && !Array.isArray(data64)){
-if(data64.id === undefined){
-const err232 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.required,parentSchema:schema28,data:data64};
-if(vErrors === null){
-vErrors = [err232];
-}
-else {
-vErrors.push(err232);
-}
-errors++;
-}
-if(data64.name === undefined){
-const err233 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.required,parentSchema:schema28,data:data64};
+if(data55.outputPricePerMillion !== undefined){
+let data64 = data55.outputPricePerMillion;
+if(typeof data64 == "number"){
+if(data64 < 0 || isNaN(data64)){
+const err233 = {instancePath:instancePath+"/models/tools/outputPricePerMillion",schemaPath:"#/properties/models/properties/tools/properties/outputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.tools.properties.outputPricePerMillion,data:data64};
 if(vErrors === null){
 vErrors = [err233];
 }
@@ -6345,8 +6345,9 @@ vErrors.push(err233);
 }
 errors++;
 }
-if(data64.provider === undefined){
-const err234 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'",schema:schema28.required,parentSchema:schema28,data:data64};
+}
+else {
+const err234 = {instancePath:instancePath+"/models/tools/outputPricePerMillion",schemaPath:"#/properties/models/properties/tools/properties/outputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.tools.properties.outputPricePerMillion.type,parentSchema:schema27.properties.models.properties.tools.properties.outputPricePerMillion,data:data64};
 if(vErrors === null){
 vErrors = [err234];
 }
@@ -6355,57 +6356,57 @@ vErrors.push(err234);
 }
 errors++;
 }
-if(data64.id !== undefined){
-let data65 = data64.id;
-if(typeof data65 !== "string"){
-const err235 = {instancePath:instancePath+"/models/summarizer/model/id",schemaPath:"#/definitions/Model/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.id.type,parentSchema:schema28.properties.id,data:data65};
-if(vErrors === null){
-vErrors = [err235];
-}
-else {
-vErrors.push(err235);
-}
-errors++;
-}
 if(errors > 0){
 const emErrs71 = [];
-for(const err236 of vErrors){
-if(!err236.emUsed){
-emErrs71.push(err236);
+for(const err235 of vErrors){
+if(!err235.emUsed){
+emErrs71.push(err235);
 }
 }
 vErrors = emErrs71;
 errors = emErrs71.length;
 }
 }
-if(data64.name !== undefined){
-let data66 = data64.name;
-if(typeof data66 !== "string"){
-const err237 = {instancePath:instancePath+"/models/summarizer/model/name",schemaPath:"#/definitions/Model/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.name.type,parentSchema:schema28.properties.name,data:data66};
-if(vErrors === null){
-vErrors = [err237];
 }
 else {
-vErrors.push(err237);
+const err236 = {instancePath:instancePath+"/models/tools",schemaPath:"#/properties/models/properties/tools/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.models.properties.tools.type,parentSchema:schema27.properties.models.properties.tools,data:data55};
+if(vErrors === null){
+vErrors = [err236];
+}
+else {
+vErrors.push(err236);
 }
 errors++;
 }
 if(errors > 0){
 const emErrs72 = [];
-for(const err238 of vErrors){
-if(!err238.emUsed){
-emErrs72.push(err238);
+for(const err237 of vErrors){
+if(!err237.emUsed){
+emErrs72.push(err237);
 }
 }
 vErrors = emErrs72;
 errors = emErrs72.length;
 }
 }
-if(data64.provider !== undefined){
-let data67 = data64.provider;
-if(data67 && typeof data67 == "object" && !Array.isArray(data67)){
-if(data67.type === undefined){
-const err239 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data67};
+if(data44.summarizer !== undefined){
+let data65 = data44.summarizer;
+if(data65 && typeof data65 == "object" && !Array.isArray(data65)){
+if(data65.model !== undefined){
+let data66 = data65.model;
+if(data66 && typeof data66 == "object" && !Array.isArray(data66)){
+if(data66.id === undefined){
+const err238 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.required,parentSchema:schema28,data:data66};
+if(vErrors === null){
+vErrors = [err238];
+}
+else {
+vErrors.push(err238);
+}
+errors++;
+}
+if(data66.name === undefined){
+const err239 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.required,parentSchema:schema28,data:data66};
 if(vErrors === null){
 vErrors = [err239];
 }
@@ -6414,8 +6415,8 @@ vErrors.push(err239);
 }
 errors++;
 }
-if(data67.name === undefined){
-const err240 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data67};
+if(data66.provider === undefined){
+const err240 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'",schema:schema28.required,parentSchema:schema28,data:data66};
 if(vErrors === null){
 vErrors = [err240];
 }
@@ -6424,8 +6425,10 @@ vErrors.push(err240);
 }
 errors++;
 }
-if(data67.id === undefined){
-const err241 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data67};
+if(data66.id !== undefined){
+let data67 = data66.id;
+if(typeof data67 !== "string"){
+const err241 = {instancePath:instancePath+"/models/summarizer/model/id",schemaPath:"#/definitions/Model/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.id.type,parentSchema:schema28.properties.id,data:data67};
 if(vErrors === null){
 vErrors = [err241];
 }
@@ -6434,56 +6437,55 @@ vErrors.push(err241);
 }
 errors++;
 }
-if(data67.type !== undefined){
-let data68 = data67.type;
-if(typeof data68 !== "string"){
-const err242 = {instancePath:instancePath+"/models/summarizer/model/provider/type",schemaPath:"#/definitions/Model/properties/provider/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.type.type,parentSchema:schema28.properties.provider.properties.type,data:data68};
-if(vErrors === null){
-vErrors = [err242];
-}
-else {
-vErrors.push(err242);
-}
-errors++;
-}
 if(errors > 0){
 const emErrs73 = [];
-for(const err243 of vErrors){
-if(!err243.emUsed){
-emErrs73.push(err243);
+for(const err242 of vErrors){
+if(!err242.emUsed){
+emErrs73.push(err242);
 }
 }
 vErrors = emErrs73;
 errors = emErrs73.length;
 }
 }
-if(data67.name !== undefined){
-let data69 = data67.name;
-if(typeof data69 !== "string"){
-const err244 = {instancePath:instancePath+"/models/summarizer/model/provider/name",schemaPath:"#/definitions/Model/properties/provider/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.name.type,parentSchema:schema28.properties.provider.properties.name,data:data69};
+if(data66.name !== undefined){
+let data68 = data66.name;
+if(typeof data68 !== "string"){
+const err243 = {instancePath:instancePath+"/models/summarizer/model/name",schemaPath:"#/definitions/Model/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.name.type,parentSchema:schema28.properties.name,data:data68};
 if(vErrors === null){
-vErrors = [err244];
+vErrors = [err243];
 }
 else {
-vErrors.push(err244);
+vErrors.push(err243);
 }
 errors++;
 }
 if(errors > 0){
 const emErrs74 = [];
-for(const err245 of vErrors){
-if(!err245.emUsed){
-emErrs74.push(err245);
+for(const err244 of vErrors){
+if(!err244.emUsed){
+emErrs74.push(err244);
 }
 }
 vErrors = emErrs74;
 errors = emErrs74.length;
 }
 }
-if(data67.id !== undefined){
-let data70 = data67.id;
-if(typeof data70 !== "string"){
-const err246 = {instancePath:instancePath+"/models/summarizer/model/provider/id",schemaPath:"#/definitions/Model/properties/provider/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.id.type,parentSchema:schema28.properties.provider.properties.id,data:data70};
+if(data66.provider !== undefined){
+let data69 = data66.provider;
+if(data69 && typeof data69 == "object" && !Array.isArray(data69)){
+if(data69.type === undefined){
+const err245 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data69};
+if(vErrors === null){
+vErrors = [err245];
+}
+else {
+vErrors.push(err245);
+}
+errors++;
+}
+if(data69.name === undefined){
+const err246 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data69};
 if(vErrors === null){
 vErrors = [err246];
 }
@@ -6492,20 +6494,20 @@ vErrors.push(err246);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs75 = [];
-for(const err247 of vErrors){
-if(!err247.emUsed){
-emErrs75.push(err247);
-}
-}
-vErrors = emErrs75;
-errors = emErrs75.length;
-}
-}
+if(data69.id === undefined){
+const err247 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data69};
+if(vErrors === null){
+vErrors = [err247];
 }
 else {
-const err248 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.properties.provider.type,parentSchema:schema28.properties.provider,data:data67};
+vErrors.push(err247);
+}
+errors++;
+}
+if(data69.type !== undefined){
+let data70 = data69.type;
+if(typeof data70 !== "string"){
+const err248 = {instancePath:instancePath+"/models/summarizer/model/provider/type",schemaPath:"#/definitions/Model/properties/provider/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.type.type,parentSchema:schema28.properties.provider.properties.type,data:data70};
 if(vErrors === null){
 vErrors = [err248];
 }
@@ -6515,26 +6517,20 @@ vErrors.push(err248);
 errors++;
 }
 if(errors > 0){
-const emErrors15 = {"required":{"type":[],"name":[],"id":[]}};
-const templates15 = {required:{}};
-let emPropParams14;
-let emParamsErrors14;
+const emErrs75 = [];
 for(const err249 of vErrors){
-if((((((err249.keyword !== "errorMessage") && (!err249.emUsed)) && (err249.instancePath === instancePath+"/models/summarizer/model/provider")) && (err249.keyword in emErrors15)) && (err249.schemaPath.indexOf("#/definitions/Model/properties/provider") === 0)) && (/^\/[^\/]*$/.test(err249.schemaPath.slice(39)))){
-emPropParams14 = obj0[err249.keyword];
-emParamsErrors14 = emErrors15[err249.keyword][err249.params[emPropParams14]];
-if(emParamsErrors14){
-emParamsErrors14.push(err249);
-err249.emUsed = true;
+if(!err249.emUsed){
+emErrs75.push(err249);
 }
 }
+vErrors = emErrs75;
+errors = emErrs75.length;
 }
-for(const key18 in emErrors15){
-for(const keyProp14 in emErrors15[key18]){
-emParamsErrors14 = emErrors15[key18][keyProp14];
-if(emParamsErrors14.length){
-const tmpl14 = templates15[key18] && templates15[key18][keyProp14];
-const err250 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors14},message:tmpl14 ? tmpl14() : schema28.properties.provider.errorMessage[key18][keyProp14],schema:schema28.properties.provider.errorMessage,parentSchema:schema28.properties.provider,data:data67};
+}
+if(data69.name !== undefined){
+let data71 = data69.name;
+if(typeof data71 !== "string"){
+const err250 = {instancePath:instancePath+"/models/summarizer/model/provider/name",schemaPath:"#/definitions/Model/properties/provider/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.name.type,parentSchema:schema28.properties.provider.properties.name,data:data71};
 if(vErrors === null){
 vErrors = [err250];
 }
@@ -6543,8 +6539,7 @@ vErrors.push(err250);
 }
 errors++;
 }
-}
-}
+if(errors > 0){
 const emErrs76 = [];
 for(const err251 of vErrors){
 if(!err251.emUsed){
@@ -6555,9 +6550,10 @@ vErrors = emErrs76;
 errors = emErrs76.length;
 }
 }
-}
-else {
-const err252 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.type,parentSchema:schema28,data:data64};
+if(data69.id !== undefined){
+let data72 = data69.id;
+if(typeof data72 !== "string"){
+const err252 = {instancePath:instancePath+"/models/summarizer/model/provider/id",schemaPath:"#/definitions/Model/properties/provider/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.id.type,parentSchema:schema28.properties.provider.properties.id,data:data72};
 if(vErrors === null){
 vErrors = [err252];
 }
@@ -6567,26 +6563,19 @@ vErrors.push(err252);
 errors++;
 }
 if(errors > 0){
-const emErrors16 = {"required":{"id":[],"name":[],"provider":[]}};
-const templates16 = {required:{}};
-let emPropParams15;
-let emParamsErrors15;
+const emErrs77 = [];
 for(const err253 of vErrors){
-if((((((err253.keyword !== "errorMessage") && (!err253.emUsed)) && (err253.instancePath === instancePath+"/models/summarizer/model")) && (err253.keyword in emErrors16)) && (err253.schemaPath.indexOf("#/definitions/Model") === 0)) && (/^\/[^\/]*$/.test(err253.schemaPath.slice(19)))){
-emPropParams15 = obj0[err253.keyword];
-emParamsErrors15 = emErrors16[err253.keyword][err253.params[emPropParams15]];
-if(emParamsErrors15){
-emParamsErrors15.push(err253);
-err253.emUsed = true;
+if(!err253.emUsed){
+emErrs77.push(err253);
+}
+}
+vErrors = emErrs77;
+errors = emErrs77.length;
 }
 }
 }
-for(const key19 in emErrors16){
-for(const keyProp15 in emErrors16[key19]){
-emParamsErrors15 = emErrors16[key19][keyProp15];
-if(emParamsErrors15.length){
-const tmpl15 = templates16[key19] && templates16[key19][keyProp15];
-const err254 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors15},message:tmpl15 ? tmpl15() : schema28.errorMessage[key19][keyProp15],schema:schema28.errorMessage,parentSchema:schema28,data:data64};
+else {
+const err254 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.properties.provider.type,parentSchema:schema28.properties.provider,data:data69};
 if(vErrors === null){
 vErrors = [err254];
 }
@@ -6595,74 +6584,79 @@ vErrors.push(err254);
 }
 errors++;
 }
-}
-}
-const emErrs77 = [];
-for(const err255 of vErrors){
-if(!err255.emUsed){
-emErrs77.push(err255);
-}
-}
-vErrors = emErrs77;
-errors = emErrs77.length;
-}
 if(errors > 0){
-const emErrors17 = {"required":{"id":[],"name":[],"provider":[]}};
-const templates17 = {required:{}};
-let emPropParams16;
-let emParamsErrors16;
-for(const err256 of vErrors){
-if((((((err256.keyword !== "errorMessage") && (!err256.emUsed)) && (err256.instancePath === instancePath+"/models/summarizer/model")) && (err256.keyword in emErrors17)) && (err256.schemaPath.indexOf("#/properties/models/properties/summarizer/properties/model") === 0)) && (/^\/[^\/]*$/.test(err256.schemaPath.slice(58)))){
-emPropParams16 = obj0[err256.keyword];
-emParamsErrors16 = emErrors17[err256.keyword][err256.params[emPropParams16]];
-if(emParamsErrors16){
-emParamsErrors16.push(err256);
-err256.emUsed = true;
+const emErrors15 = {"required":{"type":[],"name":[],"id":[]}};
+const templates15 = {required:{}};
+let emPropParams14;
+let emParamsErrors14;
+for(const err255 of vErrors){
+if((((((err255.keyword !== "errorMessage") && (!err255.emUsed)) && (err255.instancePath === instancePath+"/models/summarizer/model/provider")) && (err255.keyword in emErrors15)) && (err255.schemaPath.indexOf("#/definitions/Model/properties/provider") === 0)) && (/^\/[^\/]*$/.test(err255.schemaPath.slice(39)))){
+emPropParams14 = obj0[err255.keyword];
+emParamsErrors14 = emErrors15[err255.keyword][err255.params[emPropParams14]];
+if(emParamsErrors14){
+emParamsErrors14.push(err255);
+err255.emUsed = true;
 }
 }
 }
-for(const key20 in emErrors17){
-for(const keyProp16 in emErrors17[key20]){
-emParamsErrors16 = emErrors17[key20][keyProp16];
-if(emParamsErrors16.length){
-const tmpl16 = templates17[key20] && templates17[key20][keyProp16];
-const err257 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/properties/models/properties/summarizer/properties/model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors16},message:tmpl16 ? tmpl16() : schema27.properties.models.properties.summarizer.properties.model.errorMessage[key20][keyProp16],schema:schema27.properties.models.properties.summarizer.properties.model.errorMessage,parentSchema:schema27.properties.models.properties.summarizer.properties.model,data:data64};
+for(const key18 in emErrors15){
+for(const keyProp14 in emErrors15[key18]){
+emParamsErrors14 = emErrors15[key18][keyProp14];
+if(emParamsErrors14.length){
+const tmpl14 = templates15[key18] && templates15[key18][keyProp14];
+const err256 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors14},message:tmpl14 ? tmpl14() : schema28.properties.provider.errorMessage[key18][keyProp14],schema:schema28.properties.provider.errorMessage,parentSchema:schema28.properties.provider,data:data69};
 if(vErrors === null){
-vErrors = [err257];
+vErrors = [err256];
 }
 else {
-vErrors.push(err257);
+vErrors.push(err256);
 }
 errors++;
 }
 }
 }
 const emErrs78 = [];
-for(const err258 of vErrors){
-if(!err258.emUsed){
-emErrs78.push(err258);
+for(const err257 of vErrors){
+if(!err257.emUsed){
+emErrs78.push(err257);
 }
 }
 vErrors = emErrs78;
 errors = emErrs78.length;
 }
 }
-if(data63.ratio !== undefined){
-let data71 = data63.ratio;
-if(typeof data71 == "number"){
-if(data71 < 0 || isNaN(data71)){
-const err259 = {instancePath:instancePath+"/models/summarizer/ratio",schemaPath:"#/properties/models/properties/summarizer/properties/ratio/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.summarizer.properties.ratio,data:data71};
-if(vErrors === null){
-vErrors = [err259];
 }
 else {
-vErrors.push(err259);
+const err258 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.type,parentSchema:schema28,data:data66};
+if(vErrors === null){
+vErrors = [err258];
+}
+else {
+vErrors.push(err258);
 }
 errors++;
 }
+if(errors > 0){
+const emErrors16 = {"required":{"id":[],"name":[],"provider":[]}};
+const templates16 = {required:{}};
+let emPropParams15;
+let emParamsErrors15;
+for(const err259 of vErrors){
+if((((((err259.keyword !== "errorMessage") && (!err259.emUsed)) && (err259.instancePath === instancePath+"/models/summarizer/model")) && (err259.keyword in emErrors16)) && (err259.schemaPath.indexOf("#/definitions/Model") === 0)) && (/^\/[^\/]*$/.test(err259.schemaPath.slice(19)))){
+emPropParams15 = obj0[err259.keyword];
+emParamsErrors15 = emErrors16[err259.keyword][err259.params[emPropParams15]];
+if(emParamsErrors15){
+emParamsErrors15.push(err259);
+err259.emUsed = true;
 }
-else {
-const err260 = {instancePath:instancePath+"/models/summarizer/ratio",schemaPath:"#/properties/models/properties/summarizer/properties/ratio/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.summarizer.properties.ratio.type,parentSchema:schema27.properties.models.properties.summarizer.properties.ratio,data:data71};
+}
+}
+for(const key19 in emErrors16){
+for(const keyProp15 in emErrors16[key19]){
+emParamsErrors15 = emErrors16[key19][keyProp15];
+if(emParamsErrors15.length){
+const tmpl15 = templates16[key19] && templates16[key19][keyProp15];
+const err260 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors15},message:tmpl15 ? tmpl15() : schema28.errorMessage[key19][keyProp15],schema:schema28.errorMessage,parentSchema:schema28,data:data66};
 if(vErrors === null){
 vErrors = [err260];
 }
@@ -6671,7 +6665,8 @@ vErrors.push(err260);
 }
 errors++;
 }
-if(errors > 0){
+}
+}
 const emErrs79 = [];
 for(const err261 of vErrors){
 if(!err261.emUsed){
@@ -6681,47 +6676,52 @@ emErrs79.push(err261);
 vErrors = emErrs79;
 errors = emErrs79.length;
 }
+if(errors > 0){
+const emErrors17 = {"required":{"id":[],"name":[],"provider":[]}};
+const templates17 = {required:{}};
+let emPropParams16;
+let emParamsErrors16;
+for(const err262 of vErrors){
+if((((((err262.keyword !== "errorMessage") && (!err262.emUsed)) && (err262.instancePath === instancePath+"/models/summarizer/model")) && (err262.keyword in emErrors17)) && (err262.schemaPath.indexOf("#/properties/models/properties/summarizer/properties/model") === 0)) && (/^\/[^\/]*$/.test(err262.schemaPath.slice(58)))){
+emPropParams16 = obj0[err262.keyword];
+emParamsErrors16 = emErrors17[err262.keyword][err262.params[emPropParams16]];
+if(emParamsErrors16){
+emParamsErrors16.push(err262);
+err262.emUsed = true;
 }
 }
-else {
-const err262 = {instancePath:instancePath+"/models/summarizer",schemaPath:"#/properties/models/properties/summarizer/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.models.properties.summarizer.type,parentSchema:schema27.properties.models.properties.summarizer,data:data63};
+}
+for(const key20 in emErrors17){
+for(const keyProp16 in emErrors17[key20]){
+emParamsErrors16 = emErrors17[key20][keyProp16];
+if(emParamsErrors16.length){
+const tmpl16 = templates17[key20] && templates17[key20][keyProp16];
+const err263 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/properties/models/properties/summarizer/properties/model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors16},message:tmpl16 ? tmpl16() : schema27.properties.models.properties.summarizer.properties.model.errorMessage[key20][keyProp16],schema:schema27.properties.models.properties.summarizer.properties.model.errorMessage,parentSchema:schema27.properties.models.properties.summarizer.properties.model,data:data66};
 if(vErrors === null){
-vErrors = [err262];
+vErrors = [err263];
 }
 else {
-vErrors.push(err262);
+vErrors.push(err263);
 }
 errors++;
 }
-if(errors > 0){
+}
+}
 const emErrs80 = [];
-for(const err263 of vErrors){
-if(!err263.emUsed){
-emErrs80.push(err263);
+for(const err264 of vErrors){
+if(!err264.emUsed){
+emErrs80.push(err264);
 }
 }
 vErrors = emErrs80;
 errors = emErrs80.length;
 }
 }
-if(data44.evaluator !== undefined){
-let data72 = data44.evaluator;
-if(data72 && typeof data72 == "object" && !Array.isArray(data72)){
-if(data72.model !== undefined){
-let data73 = data72.model;
-if(data73 && typeof data73 == "object" && !Array.isArray(data73)){
-if(data73.id === undefined){
-const err264 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.required,parentSchema:schema28,data:data73};
-if(vErrors === null){
-vErrors = [err264];
-}
-else {
-vErrors.push(err264);
-}
-errors++;
-}
-if(data73.name === undefined){
-const err265 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.required,parentSchema:schema28,data:data73};
+if(data65.inputPricePerMillion !== undefined){
+let data73 = data65.inputPricePerMillion;
+if(typeof data73 == "number"){
+if(data73 < 0 || isNaN(data73)){
+const err265 = {instancePath:instancePath+"/models/summarizer/inputPricePerMillion",schemaPath:"#/properties/models/properties/summarizer/properties/inputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.summarizer.properties.inputPricePerMillion,data:data73};
 if(vErrors === null){
 vErrors = [err265];
 }
@@ -6730,8 +6730,9 @@ vErrors.push(err265);
 }
 errors++;
 }
-if(data73.provider === undefined){
-const err266 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'",schema:schema28.required,parentSchema:schema28,data:data73};
+}
+else {
+const err266 = {instancePath:instancePath+"/models/summarizer/inputPricePerMillion",schemaPath:"#/properties/models/properties/summarizer/properties/inputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.summarizer.properties.inputPricePerMillion.type,parentSchema:schema27.properties.models.properties.summarizer.properties.inputPricePerMillion,data:data73};
 if(vErrors === null){
 vErrors = [err266];
 }
@@ -6740,33 +6741,33 @@ vErrors.push(err266);
 }
 errors++;
 }
-if(data73.id !== undefined){
-let data74 = data73.id;
-if(typeof data74 !== "string"){
-const err267 = {instancePath:instancePath+"/models/evaluator/model/id",schemaPath:"#/definitions/Model/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.id.type,parentSchema:schema28.properties.id,data:data74};
-if(vErrors === null){
-vErrors = [err267];
-}
-else {
-vErrors.push(err267);
-}
-errors++;
-}
 if(errors > 0){
 const emErrs81 = [];
-for(const err268 of vErrors){
-if(!err268.emUsed){
-emErrs81.push(err268);
+for(const err267 of vErrors){
+if(!err267.emUsed){
+emErrs81.push(err267);
 }
 }
 vErrors = emErrs81;
 errors = emErrs81.length;
 }
 }
-if(data73.name !== undefined){
-let data75 = data73.name;
-if(typeof data75 !== "string"){
-const err269 = {instancePath:instancePath+"/models/evaluator/model/name",schemaPath:"#/definitions/Model/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.name.type,parentSchema:schema28.properties.name,data:data75};
+if(data65.outputPricePerMillion !== undefined){
+let data74 = data65.outputPricePerMillion;
+if(typeof data74 == "number"){
+if(data74 < 0 || isNaN(data74)){
+const err268 = {instancePath:instancePath+"/models/summarizer/outputPricePerMillion",schemaPath:"#/properties/models/properties/summarizer/properties/outputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.summarizer.properties.outputPricePerMillion,data:data74};
+if(vErrors === null){
+vErrors = [err268];
+}
+else {
+vErrors.push(err268);
+}
+errors++;
+}
+}
+else {
+const err269 = {instancePath:instancePath+"/models/summarizer/outputPricePerMillion",schemaPath:"#/properties/models/properties/summarizer/properties/outputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.summarizer.properties.outputPricePerMillion.type,parentSchema:schema27.properties.models.properties.summarizer.properties.outputPricePerMillion,data:data74};
 if(vErrors === null){
 vErrors = [err269];
 }
@@ -6786,11 +6787,9 @@ vErrors = emErrs82;
 errors = emErrs82.length;
 }
 }
-if(data73.provider !== undefined){
-let data76 = data73.provider;
-if(data76 && typeof data76 == "object" && !Array.isArray(data76)){
-if(data76.type === undefined){
-const err271 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data76};
+}
+else {
+const err271 = {instancePath:instancePath+"/models/summarizer",schemaPath:"#/properties/models/properties/summarizer/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.models.properties.summarizer.type,parentSchema:schema27.properties.models.properties.summarizer,data:data65};
 if(vErrors === null){
 vErrors = [err271];
 }
@@ -6799,18 +6798,25 @@ vErrors.push(err271);
 }
 errors++;
 }
-if(data76.name === undefined){
-const err272 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data76};
-if(vErrors === null){
-vErrors = [err272];
+if(errors > 0){
+const emErrs83 = [];
+for(const err272 of vErrors){
+if(!err272.emUsed){
+emErrs83.push(err272);
 }
-else {
-vErrors.push(err272);
 }
-errors++;
+vErrors = emErrs83;
+errors = emErrs83.length;
 }
+}
+if(data44.evaluator !== undefined){
+let data75 = data44.evaluator;
+if(data75 && typeof data75 == "object" && !Array.isArray(data75)){
+if(data75.model !== undefined){
+let data76 = data75.model;
+if(data76 && typeof data76 == "object" && !Array.isArray(data76)){
 if(data76.id === undefined){
-const err273 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data76};
+const err273 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.required,parentSchema:schema28,data:data76};
 if(vErrors === null){
 vErrors = [err273];
 }
@@ -6819,10 +6825,8 @@ vErrors.push(err273);
 }
 errors++;
 }
-if(data76.type !== undefined){
-let data77 = data76.type;
-if(typeof data77 !== "string"){
-const err274 = {instancePath:instancePath+"/models/evaluator/model/provider/type",schemaPath:"#/definitions/Model/properties/provider/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.type.type,parentSchema:schema28.properties.provider.properties.type,data:data77};
+if(data76.name === undefined){
+const err274 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.required,parentSchema:schema28,data:data76};
 if(vErrors === null){
 vErrors = [err274];
 }
@@ -6831,21 +6835,20 @@ vErrors.push(err274);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs83 = [];
-for(const err275 of vErrors){
-if(!err275.emUsed){
-emErrs83.push(err275);
+if(data76.provider === undefined){
+const err275 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'",schema:schema28.required,parentSchema:schema28,data:data76};
+if(vErrors === null){
+vErrors = [err275];
 }
+else {
+vErrors.push(err275);
 }
-vErrors = emErrs83;
-errors = emErrs83.length;
+errors++;
 }
-}
-if(data76.name !== undefined){
-let data78 = data76.name;
-if(typeof data78 !== "string"){
-const err276 = {instancePath:instancePath+"/models/evaluator/model/provider/name",schemaPath:"#/definitions/Model/properties/provider/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.name.type,parentSchema:schema28.properties.provider.properties.name,data:data78};
+if(data76.id !== undefined){
+let data77 = data76.id;
+if(typeof data77 !== "string"){
+const err276 = {instancePath:instancePath+"/models/evaluator/model/id",schemaPath:"#/definitions/Model/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.id.type,parentSchema:schema28.properties.id,data:data77};
 if(vErrors === null){
 vErrors = [err276];
 }
@@ -6865,10 +6868,10 @@ vErrors = emErrs84;
 errors = emErrs84.length;
 }
 }
-if(data76.id !== undefined){
-let data79 = data76.id;
-if(typeof data79 !== "string"){
-const err278 = {instancePath:instancePath+"/models/evaluator/model/provider/id",schemaPath:"#/definitions/Model/properties/provider/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.id.type,parentSchema:schema28.properties.provider.properties.id,data:data79};
+if(data76.name !== undefined){
+let data78 = data76.name;
+if(typeof data78 !== "string"){
+const err278 = {instancePath:instancePath+"/models/evaluator/model/name",schemaPath:"#/definitions/Model/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.name.type,parentSchema:schema28.properties.name,data:data78};
 if(vErrors === null){
 vErrors = [err278];
 }
@@ -6888,9 +6891,11 @@ vErrors = emErrs85;
 errors = emErrs85.length;
 }
 }
-}
-else {
-const err280 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.properties.provider.type,parentSchema:schema28.properties.provider,data:data76};
+if(data76.provider !== undefined){
+let data79 = data76.provider;
+if(data79 && typeof data79 == "object" && !Array.isArray(data79)){
+if(data79.type === undefined){
+const err280 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data79};
 if(vErrors === null){
 vErrors = [err280];
 }
@@ -6899,27 +6904,18 @@ vErrors.push(err280);
 }
 errors++;
 }
-if(errors > 0){
-const emErrors18 = {"required":{"type":[],"name":[],"id":[]}};
-const templates18 = {required:{}};
-let emPropParams17;
-let emParamsErrors17;
-for(const err281 of vErrors){
-if((((((err281.keyword !== "errorMessage") && (!err281.emUsed)) && (err281.instancePath === instancePath+"/models/evaluator/model/provider")) && (err281.keyword in emErrors18)) && (err281.schemaPath.indexOf("#/definitions/Model/properties/provider") === 0)) && (/^\/[^\/]*$/.test(err281.schemaPath.slice(39)))){
-emPropParams17 = obj0[err281.keyword];
-emParamsErrors17 = emErrors18[err281.keyword][err281.params[emPropParams17]];
-if(emParamsErrors17){
-emParamsErrors17.push(err281);
-err281.emUsed = true;
+if(data79.name === undefined){
+const err281 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data79};
+if(vErrors === null){
+vErrors = [err281];
 }
+else {
+vErrors.push(err281);
 }
+errors++;
 }
-for(const key21 in emErrors18){
-for(const keyProp17 in emErrors18[key21]){
-emParamsErrors17 = emErrors18[key21][keyProp17];
-if(emParamsErrors17.length){
-const tmpl17 = templates18[key21] && templates18[key21][keyProp17];
-const err282 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors17},message:tmpl17 ? tmpl17() : schema28.properties.provider.errorMessage[key21][keyProp17],schema:schema28.properties.provider.errorMessage,parentSchema:schema28.properties.provider,data:data76};
+if(data79.id === undefined){
+const err282 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data79};
 if(vErrors === null){
 vErrors = [err282];
 }
@@ -6928,90 +6924,78 @@ vErrors.push(err282);
 }
 errors++;
 }
+if(data79.type !== undefined){
+let data80 = data79.type;
+if(typeof data80 !== "string"){
+const err283 = {instancePath:instancePath+"/models/evaluator/model/provider/type",schemaPath:"#/definitions/Model/properties/provider/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.type.type,parentSchema:schema28.properties.provider.properties.type,data:data80};
+if(vErrors === null){
+vErrors = [err283];
 }
+else {
+vErrors.push(err283);
 }
+errors++;
+}
+if(errors > 0){
 const emErrs86 = [];
-for(const err283 of vErrors){
-if(!err283.emUsed){
-emErrs86.push(err283);
+for(const err284 of vErrors){
+if(!err284.emUsed){
+emErrs86.push(err284);
 }
 }
 vErrors = emErrs86;
 errors = emErrs86.length;
 }
 }
-}
-else {
-const err284 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.type,parentSchema:schema28,data:data73};
+if(data79.name !== undefined){
+let data81 = data79.name;
+if(typeof data81 !== "string"){
+const err285 = {instancePath:instancePath+"/models/evaluator/model/provider/name",schemaPath:"#/definitions/Model/properties/provider/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.name.type,parentSchema:schema28.properties.provider.properties.name,data:data81};
 if(vErrors === null){
-vErrors = [err284];
+vErrors = [err285];
 }
 else {
-vErrors.push(err284);
+vErrors.push(err285);
 }
 errors++;
 }
 if(errors > 0){
-const emErrors19 = {"required":{"id":[],"name":[],"provider":[]}};
-const templates19 = {required:{}};
-let emPropParams18;
-let emParamsErrors18;
-for(const err285 of vErrors){
-if((((((err285.keyword !== "errorMessage") && (!err285.emUsed)) && (err285.instancePath === instancePath+"/models/evaluator/model")) && (err285.keyword in emErrors19)) && (err285.schemaPath.indexOf("#/definitions/Model") === 0)) && (/^\/[^\/]*$/.test(err285.schemaPath.slice(19)))){
-emPropParams18 = obj0[err285.keyword];
-emParamsErrors18 = emErrors19[err285.keyword][err285.params[emPropParams18]];
-if(emParamsErrors18){
-emParamsErrors18.push(err285);
-err285.emUsed = true;
-}
-}
-}
-for(const key22 in emErrors19){
-for(const keyProp18 in emErrors19[key22]){
-emParamsErrors18 = emErrors19[key22][keyProp18];
-if(emParamsErrors18.length){
-const tmpl18 = templates19[key22] && templates19[key22][keyProp18];
-const err286 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors18},message:tmpl18 ? tmpl18() : schema28.errorMessage[key22][keyProp18],schema:schema28.errorMessage,parentSchema:schema28,data:data73};
-if(vErrors === null){
-vErrors = [err286];
-}
-else {
-vErrors.push(err286);
-}
-errors++;
-}
-}
-}
 const emErrs87 = [];
-for(const err287 of vErrors){
-if(!err287.emUsed){
-emErrs87.push(err287);
+for(const err286 of vErrors){
+if(!err286.emUsed){
+emErrs87.push(err286);
 }
 }
 vErrors = emErrs87;
 errors = emErrs87.length;
 }
+}
+if(data79.id !== undefined){
+let data82 = data79.id;
+if(typeof data82 !== "string"){
+const err287 = {instancePath:instancePath+"/models/evaluator/model/provider/id",schemaPath:"#/definitions/Model/properties/provider/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.id.type,parentSchema:schema28.properties.provider.properties.id,data:data82};
+if(vErrors === null){
+vErrors = [err287];
+}
+else {
+vErrors.push(err287);
+}
+errors++;
+}
 if(errors > 0){
-const emErrors20 = {"required":{"id":[],"name":[],"provider":[]}};
-const templates20 = {required:{}};
-let emPropParams19;
-let emParamsErrors19;
+const emErrs88 = [];
 for(const err288 of vErrors){
-if((((((err288.keyword !== "errorMessage") && (!err288.emUsed)) && (err288.instancePath === instancePath+"/models/evaluator/model")) && (err288.keyword in emErrors20)) && (err288.schemaPath.indexOf("#/properties/models/properties/evaluator/properties/model") === 0)) && (/^\/[^\/]*$/.test(err288.schemaPath.slice(57)))){
-emPropParams19 = obj0[err288.keyword];
-emParamsErrors19 = emErrors20[err288.keyword][err288.params[emPropParams19]];
-if(emParamsErrors19){
-emParamsErrors19.push(err288);
-err288.emUsed = true;
+if(!err288.emUsed){
+emErrs88.push(err288);
+}
+}
+vErrors = emErrs88;
+errors = emErrs88.length;
 }
 }
 }
-for(const key23 in emErrors20){
-for(const keyProp19 in emErrors20[key23]){
-emParamsErrors19 = emErrors20[key23][keyProp19];
-if(emParamsErrors19.length){
-const tmpl19 = templates20[key23] && templates20[key23][keyProp19];
-const err289 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/properties/models/properties/evaluator/properties/model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors19},message:tmpl19 ? tmpl19() : schema27.properties.models.properties.evaluator.properties.model.errorMessage[key23][keyProp19],schema:schema27.properties.models.properties.evaluator.properties.model.errorMessage,parentSchema:schema27.properties.models.properties.evaluator.properties.model,data:data73};
+else {
+const err289 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.properties.provider.type,parentSchema:schema28.properties.provider,data:data79};
 if(vErrors === null){
 vErrors = [err289];
 }
@@ -7020,23 +7004,27 @@ vErrors.push(err289);
 }
 errors++;
 }
-}
-}
-const emErrs88 = [];
+if(errors > 0){
+const emErrors18 = {"required":{"type":[],"name":[],"id":[]}};
+const templates18 = {required:{}};
+let emPropParams17;
+let emParamsErrors17;
 for(const err290 of vErrors){
-if(!err290.emUsed){
-emErrs88.push(err290);
+if((((((err290.keyword !== "errorMessage") && (!err290.emUsed)) && (err290.instancePath === instancePath+"/models/evaluator/model/provider")) && (err290.keyword in emErrors18)) && (err290.schemaPath.indexOf("#/definitions/Model/properties/provider") === 0)) && (/^\/[^\/]*$/.test(err290.schemaPath.slice(39)))){
+emPropParams17 = obj0[err290.keyword];
+emParamsErrors17 = emErrors18[err290.keyword][err290.params[emPropParams17]];
+if(emParamsErrors17){
+emParamsErrors17.push(err290);
+err290.emUsed = true;
 }
 }
-vErrors = emErrs88;
-errors = emErrs88.length;
 }
-}
-if(data72.ratio !== undefined){
-let data80 = data72.ratio;
-if(typeof data80 == "number"){
-if(data80 < 0 || isNaN(data80)){
-const err291 = {instancePath:instancePath+"/models/evaluator/ratio",schemaPath:"#/properties/models/properties/evaluator/properties/ratio/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.evaluator.properties.ratio,data:data80};
+for(const key21 in emErrors18){
+for(const keyProp17 in emErrors18[key21]){
+emParamsErrors17 = emErrors18[key21][keyProp17];
+if(emParamsErrors17.length){
+const tmpl17 = templates18[key21] && templates18[key21][keyProp17];
+const err291 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors17},message:tmpl17 ? tmpl17() : schema28.properties.provider.errorMessage[key21][keyProp17],schema:schema28.properties.provider.errorMessage,parentSchema:schema28.properties.provider,data:data79};
 if(vErrors === null){
 vErrors = [err291];
 }
@@ -7046,21 +7034,11 @@ vErrors.push(err291);
 errors++;
 }
 }
-else {
-const err292 = {instancePath:instancePath+"/models/evaluator/ratio",schemaPath:"#/properties/models/properties/evaluator/properties/ratio/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.evaluator.properties.ratio.type,parentSchema:schema27.properties.models.properties.evaluator.properties.ratio,data:data80};
-if(vErrors === null){
-vErrors = [err292];
 }
-else {
-vErrors.push(err292);
-}
-errors++;
-}
-if(errors > 0){
 const emErrs89 = [];
-for(const err293 of vErrors){
-if(!err293.emUsed){
-emErrs89.push(err293);
+for(const err292 of vErrors){
+if(!err292.emUsed){
+emErrs89.push(err292);
 }
 }
 vErrors = emErrs89;
@@ -7069,53 +7047,76 @@ errors = emErrs89.length;
 }
 }
 else {
-const err294 = {instancePath:instancePath+"/models/evaluator",schemaPath:"#/properties/models/properties/evaluator/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.models.properties.evaluator.type,parentSchema:schema27.properties.models.properties.evaluator,data:data72};
+const err293 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.type,parentSchema:schema28,data:data76};
 if(vErrors === null){
-vErrors = [err294];
+vErrors = [err293];
 }
 else {
-vErrors.push(err294);
+vErrors.push(err293);
 }
 errors++;
 }
 if(errors > 0){
+const emErrors19 = {"required":{"id":[],"name":[],"provider":[]}};
+const templates19 = {required:{}};
+let emPropParams18;
+let emParamsErrors18;
+for(const err294 of vErrors){
+if((((((err294.keyword !== "errorMessage") && (!err294.emUsed)) && (err294.instancePath === instancePath+"/models/evaluator/model")) && (err294.keyword in emErrors19)) && (err294.schemaPath.indexOf("#/definitions/Model") === 0)) && (/^\/[^\/]*$/.test(err294.schemaPath.slice(19)))){
+emPropParams18 = obj0[err294.keyword];
+emParamsErrors18 = emErrors19[err294.keyword][err294.params[emPropParams18]];
+if(emParamsErrors18){
+emParamsErrors18.push(err294);
+err294.emUsed = true;
+}
+}
+}
+for(const key22 in emErrors19){
+for(const keyProp18 in emErrors19[key22]){
+emParamsErrors18 = emErrors19[key22][keyProp18];
+if(emParamsErrors18.length){
+const tmpl18 = templates19[key22] && templates19[key22][keyProp18];
+const err295 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors18},message:tmpl18 ? tmpl18() : schema28.errorMessage[key22][keyProp18],schema:schema28.errorMessage,parentSchema:schema28,data:data76};
+if(vErrors === null){
+vErrors = [err295];
+}
+else {
+vErrors.push(err295);
+}
+errors++;
+}
+}
+}
 const emErrs90 = [];
-for(const err295 of vErrors){
-if(!err295.emUsed){
-emErrs90.push(err295);
+for(const err296 of vErrors){
+if(!err296.emUsed){
+emErrs90.push(err296);
 }
 }
 vErrors = emErrs90;
 errors = emErrs90.length;
 }
-}
-}
-else {
-const err296 = {instancePath:instancePath+"/models",schemaPath:"#/properties/models/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.models.type,parentSchema:schema27.properties.models,data:data44};
-if(vErrors === null){
-vErrors = [err296];
-}
-else {
-vErrors.push(err296);
-}
-errors++;
-}
 if(errors > 0){
-const emErrs91 = [];
+const emErrors20 = {"required":{"id":[],"name":[],"provider":[]}};
+const templates20 = {required:{}};
+let emPropParams19;
+let emParamsErrors19;
 for(const err297 of vErrors){
-if(!err297.emUsed){
-emErrs91.push(err297);
+if((((((err297.keyword !== "errorMessage") && (!err297.emUsed)) && (err297.instancePath === instancePath+"/models/evaluator/model")) && (err297.keyword in emErrors20)) && (err297.schemaPath.indexOf("#/properties/models/properties/evaluator/properties/model") === 0)) && (/^\/[^\/]*$/.test(err297.schemaPath.slice(57)))){
+emPropParams19 = obj0[err297.keyword];
+emParamsErrors19 = emErrors20[err297.keyword][err297.params[emPropParams19]];
+if(emParamsErrors19){
+emParamsErrors19.push(err297);
+err297.emUsed = true;
 }
 }
-vErrors = emErrs91;
-errors = emErrs91.length;
 }
-}
-if(data.quotas !== undefined){
-let data81 = data.quotas;
-if(data81 && typeof data81 == "object" && !Array.isArray(data81)){
-if(data81.global === undefined){
-const err298 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "global"},message:"must have required property '"+"global"+"'",schema:schema27.properties.quotas.required,parentSchema:schema27.properties.quotas,data:data81};
+for(const key23 in emErrors20){
+for(const keyProp19 in emErrors20[key23]){
+emParamsErrors19 = emErrors20[key23][keyProp19];
+if(emParamsErrors19.length){
+const tmpl19 = templates20[key23] && templates20[key23][keyProp19];
+const err298 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/properties/models/properties/evaluator/properties/model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors19},message:tmpl19 ? tmpl19() : schema27.properties.models.properties.evaluator.properties.model.errorMessage[key23][keyProp19],schema:schema27.properties.models.properties.evaluator.properties.model.errorMessage,parentSchema:schema27.properties.models.properties.evaluator.properties.model,data:data76};
 if(vErrors === null){
 vErrors = [err298];
 }
@@ -7124,18 +7125,23 @@ vErrors.push(err298);
 }
 errors++;
 }
-if(data81.admin === undefined){
-const err299 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "admin"},message:"must have required property '"+"admin"+"'",schema:schema27.properties.quotas.required,parentSchema:schema27.properties.quotas,data:data81};
-if(vErrors === null){
-vErrors = [err299];
 }
-else {
-vErrors.push(err299);
 }
-errors++;
+const emErrs91 = [];
+for(const err299 of vErrors){
+if(!err299.emUsed){
+emErrs91.push(err299);
 }
-if(data81.contrib === undefined){
-const err300 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "contrib"},message:"must have required property '"+"contrib"+"'",schema:schema27.properties.quotas.required,parentSchema:schema27.properties.quotas,data:data81};
+}
+vErrors = emErrs91;
+errors = emErrs91.length;
+}
+}
+if(data75.inputPricePerMillion !== undefined){
+let data83 = data75.inputPricePerMillion;
+if(typeof data83 == "number"){
+if(data83 < 0 || isNaN(data83)){
+const err300 = {instancePath:instancePath+"/models/evaluator/inputPricePerMillion",schemaPath:"#/properties/models/properties/evaluator/properties/inputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.evaluator.properties.inputPricePerMillion,data:data83};
 if(vErrors === null){
 vErrors = [err300];
 }
@@ -7144,8 +7150,9 @@ vErrors.push(err300);
 }
 errors++;
 }
-if(data81.user === undefined){
-const err301 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "user"},message:"must have required property '"+"user"+"'",schema:schema27.properties.quotas.required,parentSchema:schema27.properties.quotas,data:data81};
+}
+else {
+const err301 = {instancePath:instancePath+"/models/evaluator/inputPricePerMillion",schemaPath:"#/properties/models/properties/evaluator/properties/inputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.evaluator.properties.inputPricePerMillion.type,parentSchema:schema27.properties.models.properties.evaluator.properties.inputPricePerMillion,data:data83};
 if(vErrors === null){
 vErrors = [err301];
 }
@@ -7154,18 +7161,22 @@ vErrors.push(err301);
 }
 errors++;
 }
-if(data81.external === undefined){
-const err302 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "external"},message:"must have required property '"+"external"+"'",schema:schema27.properties.quotas.required,parentSchema:schema27.properties.quotas,data:data81};
-if(vErrors === null){
-vErrors = [err302];
+if(errors > 0){
+const emErrs92 = [];
+for(const err302 of vErrors){
+if(!err302.emUsed){
+emErrs92.push(err302);
 }
-else {
-vErrors.push(err302);
 }
-errors++;
+vErrors = emErrs92;
+errors = emErrs92.length;
 }
-if(data81.anonymous === undefined){
-const err303 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "anonymous"},message:"must have required property '"+"anonymous"+"'",schema:schema27.properties.quotas.required,parentSchema:schema27.properties.quotas,data:data81};
+}
+if(data75.outputPricePerMillion !== undefined){
+let data84 = data75.outputPricePerMillion;
+if(typeof data84 == "number"){
+if(data84 < 0 || isNaN(data84)){
+const err303 = {instancePath:instancePath+"/models/evaluator/outputPricePerMillion",schemaPath:"#/properties/models/properties/evaluator/properties/outputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.evaluator.properties.outputPricePerMillion,data:data84};
 if(vErrors === null){
 vErrors = [err303];
 }
@@ -7174,11 +7185,9 @@ vErrors.push(err303);
 }
 errors++;
 }
-if(data81.global !== undefined){
-let data82 = data81.global;
-if(data82 && typeof data82 == "object" && !Array.isArray(data82)){
-if(data82.unlimited === undefined){
-const err304 = {instancePath:instancePath+"/quotas/global",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'",schema:schema32.required,parentSchema:schema32,data:data82};
+}
+else {
+const err304 = {instancePath:instancePath+"/models/evaluator/outputPricePerMillion",schemaPath:"#/properties/models/properties/evaluator/properties/outputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.evaluator.properties.outputPricePerMillion.type,parentSchema:schema27.properties.models.properties.evaluator.properties.outputPricePerMillion,data:data84};
 if(vErrors === null){
 vErrors = [err304];
 }
@@ -7187,18 +7196,20 @@ vErrors.push(err304);
 }
 errors++;
 }
-if(data82.dailyTokenLimit === undefined){
-const err305 = {instancePath:instancePath+"/quotas/global",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "dailyTokenLimit"},message:"must have required property '"+"dailyTokenLimit"+"'",schema:schema32.required,parentSchema:schema32,data:data82};
-if(vErrors === null){
-vErrors = [err305];
+if(errors > 0){
+const emErrs93 = [];
+for(const err305 of vErrors){
+if(!err305.emUsed){
+emErrs93.push(err305);
+}
+}
+vErrors = emErrs93;
+errors = emErrs93.length;
+}
+}
 }
 else {
-vErrors.push(err305);
-}
-errors++;
-}
-if(data82.monthlyTokenLimit === undefined){
-const err306 = {instancePath:instancePath+"/quotas/global",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyTokenLimit"},message:"must have required property '"+"monthlyTokenLimit"+"'",schema:schema32.required,parentSchema:schema32,data:data82};
+const err306 = {instancePath:instancePath+"/models/evaluator",schemaPath:"#/properties/models/properties/evaluator/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.models.properties.evaluator.type,parentSchema:schema27.properties.models.properties.evaluator,data:data75};
 if(vErrors === null){
 vErrors = [err306];
 }
@@ -7207,93 +7218,11 @@ vErrors.push(err306);
 }
 errors++;
 }
-if(data82.unlimited !== undefined){
-let data83 = data82.unlimited;
-if(typeof data83 !== "boolean"){
-const err307 = {instancePath:instancePath+"/quotas/global/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema32.properties.unlimited.type,parentSchema:schema32.properties.unlimited,data:data83};
-if(vErrors === null){
-vErrors = [err307];
-}
-else {
-vErrors.push(err307);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs92 = [];
-for(const err308 of vErrors){
-if(!err308.emUsed){
-emErrs92.push(err308);
-}
-}
-vErrors = emErrs92;
-errors = emErrs92.length;
-}
-}
-if(data82.dailyTokenLimit !== undefined){
-let data84 = data82.dailyTokenLimit;
-if(!((typeof data84 == "number") && (!(data84 % 1) && !isNaN(data84)))){
-const err309 = {instancePath:instancePath+"/quotas/global/dailyTokenLimit",schemaPath:"#/definitions/RoleQuota/properties/dailyTokenLimit/type",keyword:"type",params:{type: "integer"},message:"must be integer",schema:schema32.properties.dailyTokenLimit.type,parentSchema:schema32.properties.dailyTokenLimit,data:data84};
-if(vErrors === null){
-vErrors = [err309];
-}
-else {
-vErrors.push(err309);
-}
-errors++;
-}
-if(typeof data84 == "number"){
-if(data84 < 0 || isNaN(data84)){
-const err310 = {instancePath:instancePath+"/quotas/global/dailyTokenLimit",schemaPath:"#/definitions/RoleQuota/properties/dailyTokenLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema32.properties.dailyTokenLimit,data:data84};
-if(vErrors === null){
-vErrors = [err310];
-}
-else {
-vErrors.push(err310);
-}
-errors++;
-}
-}
-if(errors > 0){
-const emErrs93 = [];
-for(const err311 of vErrors){
-if(!err311.emUsed){
-emErrs93.push(err311);
-}
-}
-vErrors = emErrs93;
-errors = emErrs93.length;
-}
-}
-if(data82.monthlyTokenLimit !== undefined){
-let data85 = data82.monthlyTokenLimit;
-if(!((typeof data85 == "number") && (!(data85 % 1) && !isNaN(data85)))){
-const err312 = {instancePath:instancePath+"/quotas/global/monthlyTokenLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyTokenLimit/type",keyword:"type",params:{type: "integer"},message:"must be integer",schema:schema32.properties.monthlyTokenLimit.type,parentSchema:schema32.properties.monthlyTokenLimit,data:data85};
-if(vErrors === null){
-vErrors = [err312];
-}
-else {
-vErrors.push(err312);
-}
-errors++;
-}
-if(typeof data85 == "number"){
-if(data85 < 0 || isNaN(data85)){
-const err313 = {instancePath:instancePath+"/quotas/global/monthlyTokenLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyTokenLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema32.properties.monthlyTokenLimit,data:data85};
-if(vErrors === null){
-vErrors = [err313];
-}
-else {
-vErrors.push(err313);
-}
-errors++;
-}
-}
 if(errors > 0){
 const emErrs94 = [];
-for(const err314 of vErrors){
-if(!err314.emUsed){
-emErrs94.push(err314);
+for(const err307 of vErrors){
+if(!err307.emUsed){
+emErrs94.push(err307);
 }
 }
 vErrors = emErrs94;
@@ -7302,7 +7231,81 @@ errors = emErrs94.length;
 }
 }
 else {
-const err315 = {instancePath:instancePath+"/quotas/global",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema32.type,parentSchema:schema32,data:data82};
+const err308 = {instancePath:instancePath+"/models",schemaPath:"#/properties/models/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.models.type,parentSchema:schema27.properties.models,data:data44};
+if(vErrors === null){
+vErrors = [err308];
+}
+else {
+vErrors.push(err308);
+}
+errors++;
+}
+if(errors > 0){
+const emErrs95 = [];
+for(const err309 of vErrors){
+if(!err309.emUsed){
+emErrs95.push(err309);
+}
+}
+vErrors = emErrs95;
+errors = emErrs95.length;
+}
+}
+if(data.quotas !== undefined){
+let data85 = data.quotas;
+if(data85 && typeof data85 == "object" && !Array.isArray(data85)){
+if(data85.global === undefined){
+const err310 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "global"},message:"must have required property '"+"global"+"'",schema:schema27.properties.quotas.required,parentSchema:schema27.properties.quotas,data:data85};
+if(vErrors === null){
+vErrors = [err310];
+}
+else {
+vErrors.push(err310);
+}
+errors++;
+}
+if(data85.admin === undefined){
+const err311 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "admin"},message:"must have required property '"+"admin"+"'",schema:schema27.properties.quotas.required,parentSchema:schema27.properties.quotas,data:data85};
+if(vErrors === null){
+vErrors = [err311];
+}
+else {
+vErrors.push(err311);
+}
+errors++;
+}
+if(data85.contrib === undefined){
+const err312 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "contrib"},message:"must have required property '"+"contrib"+"'",schema:schema27.properties.quotas.required,parentSchema:schema27.properties.quotas,data:data85};
+if(vErrors === null){
+vErrors = [err312];
+}
+else {
+vErrors.push(err312);
+}
+errors++;
+}
+if(data85.user === undefined){
+const err313 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "user"},message:"must have required property '"+"user"+"'",schema:schema27.properties.quotas.required,parentSchema:schema27.properties.quotas,data:data85};
+if(vErrors === null){
+vErrors = [err313];
+}
+else {
+vErrors.push(err313);
+}
+errors++;
+}
+if(data85.external === undefined){
+const err314 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "external"},message:"must have required property '"+"external"+"'",schema:schema27.properties.quotas.required,parentSchema:schema27.properties.quotas,data:data85};
+if(vErrors === null){
+vErrors = [err314];
+}
+else {
+vErrors.push(err314);
+}
+errors++;
+}
+if(data85.anonymous === undefined){
+const err315 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "anonymous"},message:"must have required property '"+"anonymous"+"'",schema:schema27.properties.quotas.required,parentSchema:schema27.properties.quotas,data:data85};
 if(vErrors === null){
 vErrors = [err315];
 }
@@ -7311,27 +7314,21 @@ vErrors.push(err315);
 }
 errors++;
 }
-if(errors > 0){
-const emErrors21 = {"required":{"unlimited":[],"dailyTokenLimit":[],"monthlyTokenLimit":[]}};
-const templates21 = {required:{}};
-let emPropParams20;
-let emParamsErrors20;
-for(const err316 of vErrors){
-if((((((err316.keyword !== "errorMessage") && (!err316.emUsed)) && (err316.instancePath === instancePath+"/quotas/global")) && (err316.keyword in emErrors21)) && (err316.schemaPath.indexOf("#/definitions/RoleQuota") === 0)) && (/^\/[^\/]*$/.test(err316.schemaPath.slice(23)))){
-emPropParams20 = obj0[err316.keyword];
-emParamsErrors20 = emErrors21[err316.keyword][err316.params[emPropParams20]];
-if(emParamsErrors20){
-emParamsErrors20.push(err316);
-err316.emUsed = true;
+if(data85.global !== undefined){
+let data86 = data85.global;
+if(data86 && typeof data86 == "object" && !Array.isArray(data86)){
+if(data86.unlimited === undefined){
+const err316 = {instancePath:instancePath+"/quotas/global",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'",schema:schema32.required,parentSchema:schema32,data:data86};
+if(vErrors === null){
+vErrors = [err316];
 }
+else {
+vErrors.push(err316);
 }
+errors++;
 }
-for(const key24 in emErrors21){
-for(const keyProp20 in emErrors21[key24]){
-emParamsErrors20 = emErrors21[key24][keyProp20];
-if(emParamsErrors20.length){
-const tmpl20 = templates21[key24] && templates21[key24][keyProp20];
-const err317 = {instancePath:instancePath+"/quotas/global",schemaPath:"#/definitions/RoleQuota/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors20},message:tmpl20 ? tmpl20() : schema32.errorMessage[key24][keyProp20],schema:schema32.errorMessage,parentSchema:schema32,data:data82};
+if(data86.monthlyLimit === undefined){
+const err317 = {instancePath:instancePath+"/quotas/global",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'",schema:schema32.required,parentSchema:schema32,data:data86};
 if(vErrors === null){
 vErrors = [err317];
 }
@@ -7340,38 +7337,34 @@ vErrors.push(err317);
 }
 errors++;
 }
+if(data86.unlimited !== undefined){
+let data87 = data86.unlimited;
+if(typeof data87 !== "boolean"){
+const err318 = {instancePath:instancePath+"/quotas/global/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema32.properties.unlimited.type,parentSchema:schema32.properties.unlimited,data:data87};
+if(vErrors === null){
+vErrors = [err318];
 }
+else {
+vErrors.push(err318);
 }
-const emErrs95 = [];
-for(const err318 of vErrors){
-if(!err318.emUsed){
-emErrs95.push(err318);
-}
-}
-vErrors = emErrs95;
-errors = emErrs95.length;
+errors++;
 }
 if(errors > 0){
-const emErrors22 = {"required":{"unlimited":[],"dailyTokenLimit":[],"monthlyTokenLimit":[]}};
-const templates22 = {required:{}};
-let emPropParams21;
-let emParamsErrors21;
+const emErrs96 = [];
 for(const err319 of vErrors){
-if((((((err319.keyword !== "errorMessage") && (!err319.emUsed)) && (err319.instancePath === instancePath+"/quotas/global")) && (err319.keyword in emErrors22)) && (err319.schemaPath.indexOf("#/properties/quotas/properties/global") === 0)) && (/^\/[^\/]*$/.test(err319.schemaPath.slice(37)))){
-emPropParams21 = obj0[err319.keyword];
-emParamsErrors21 = emErrors22[err319.keyword][err319.params[emPropParams21]];
-if(emParamsErrors21){
-emParamsErrors21.push(err319);
-err319.emUsed = true;
+if(!err319.emUsed){
+emErrs96.push(err319);
 }
 }
+vErrors = emErrs96;
+errors = emErrs96.length;
 }
-for(const key25 in emErrors22){
-for(const keyProp21 in emErrors22[key25]){
-emParamsErrors21 = emErrors22[key25][keyProp21];
-if(emParamsErrors21.length){
-const tmpl21 = templates22[key25] && templates22[key25][keyProp21];
-const err320 = {instancePath:instancePath+"/quotas/global",schemaPath:"#/properties/quotas/properties/global/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors21},message:tmpl21 ? tmpl21() : schema27.properties.quotas.properties.global.errorMessage[key25][keyProp21],schema:schema27.properties.quotas.properties.global.errorMessage,parentSchema:schema27.properties.quotas.properties.global,data:data82};
+}
+if(data86.monthlyLimit !== undefined){
+let data88 = data86.monthlyLimit;
+if(typeof data88 == "number"){
+if(data88 < 0 || isNaN(data88)){
+const err320 = {instancePath:instancePath+"/quotas/global/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema32.properties.monthlyLimit,data:data88};
 if(vErrors === null){
 vErrors = [err320];
 }
@@ -7381,32 +7374,30 @@ vErrors.push(err320);
 errors++;
 }
 }
-}
-const emErrs96 = [];
-for(const err321 of vErrors){
-if(!err321.emUsed){
-emErrs96.push(err321);
-}
-}
-vErrors = emErrs96;
-errors = emErrs96.length;
-}
-}
-if(data81.admin !== undefined){
-let data86 = data81.admin;
-if(data86 && typeof data86 == "object" && !Array.isArray(data86)){
-if(data86.unlimited === undefined){
-const err322 = {instancePath:instancePath+"/quotas/admin",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'",schema:schema32.required,parentSchema:schema32,data:data86};
+else {
+const err321 = {instancePath:instancePath+"/quotas/global/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema32.properties.monthlyLimit.type,parentSchema:schema32.properties.monthlyLimit,data:data88};
 if(vErrors === null){
-vErrors = [err322];
+vErrors = [err321];
 }
 else {
-vErrors.push(err322);
+vErrors.push(err321);
 }
 errors++;
 }
-if(data86.dailyTokenLimit === undefined){
-const err323 = {instancePath:instancePath+"/quotas/admin",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "dailyTokenLimit"},message:"must have required property '"+"dailyTokenLimit"+"'",schema:schema32.required,parentSchema:schema32,data:data86};
+if(errors > 0){
+const emErrs97 = [];
+for(const err322 of vErrors){
+if(!err322.emUsed){
+emErrs97.push(err322);
+}
+}
+vErrors = emErrs97;
+errors = emErrs97.length;
+}
+}
+}
+else {
+const err323 = {instancePath:instancePath+"/quotas/global",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema32.type,parentSchema:schema32,data:data86};
 if(vErrors === null){
 vErrors = [err323];
 }
@@ -7415,20 +7406,27 @@ vErrors.push(err323);
 }
 errors++;
 }
-if(data86.monthlyTokenLimit === undefined){
-const err324 = {instancePath:instancePath+"/quotas/admin",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyTokenLimit"},message:"must have required property '"+"monthlyTokenLimit"+"'",schema:schema32.required,parentSchema:schema32,data:data86};
-if(vErrors === null){
-vErrors = [err324];
+if(errors > 0){
+const emErrors21 = {"required":{"unlimited":[],"monthlyLimit":[]}};
+const templates21 = {required:{}};
+let emPropParams20;
+let emParamsErrors20;
+for(const err324 of vErrors){
+if((((((err324.keyword !== "errorMessage") && (!err324.emUsed)) && (err324.instancePath === instancePath+"/quotas/global")) && (err324.keyword in emErrors21)) && (err324.schemaPath.indexOf("#/definitions/RoleQuota") === 0)) && (/^\/[^\/]*$/.test(err324.schemaPath.slice(23)))){
+emPropParams20 = obj0[err324.keyword];
+emParamsErrors20 = emErrors21[err324.keyword][err324.params[emPropParams20]];
+if(emParamsErrors20){
+emParamsErrors20.push(err324);
+err324.emUsed = true;
 }
-else {
-vErrors.push(err324);
 }
-errors++;
 }
-if(data86.unlimited !== undefined){
-let data87 = data86.unlimited;
-if(typeof data87 !== "boolean"){
-const err325 = {instancePath:instancePath+"/quotas/admin/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema32.properties.unlimited.type,parentSchema:schema32.properties.unlimited,data:data87};
+for(const key24 in emErrors21){
+for(const keyProp20 in emErrors21[key24]){
+emParamsErrors20 = emErrors21[key24][keyProp20];
+if(emParamsErrors20.length){
+const tmpl20 = templates21[key24] && templates21[key24][keyProp20];
+const err325 = {instancePath:instancePath+"/quotas/global",schemaPath:"#/definitions/RoleQuota/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors20},message:tmpl20 ? tmpl20() : schema32.errorMessage[key24][keyProp20],schema:schema32.errorMessage,parentSchema:schema32,data:data86};
 if(vErrors === null){
 vErrors = [err325];
 }
@@ -7437,32 +7435,38 @@ vErrors.push(err325);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs97 = [];
+}
+}
+const emErrs98 = [];
 for(const err326 of vErrors){
 if(!err326.emUsed){
-emErrs97.push(err326);
+emErrs98.push(err326);
 }
 }
-vErrors = emErrs97;
-errors = emErrs97.length;
+vErrors = emErrs98;
+errors = emErrs98.length;
+}
+if(errors > 0){
+const emErrors22 = {"required":{"unlimited":[],"monthlyLimit":[]}};
+const templates22 = {required:{}};
+let emPropParams21;
+let emParamsErrors21;
+for(const err327 of vErrors){
+if((((((err327.keyword !== "errorMessage") && (!err327.emUsed)) && (err327.instancePath === instancePath+"/quotas/global")) && (err327.keyword in emErrors22)) && (err327.schemaPath.indexOf("#/properties/quotas/properties/global") === 0)) && (/^\/[^\/]*$/.test(err327.schemaPath.slice(37)))){
+emPropParams21 = obj0[err327.keyword];
+emParamsErrors21 = emErrors22[err327.keyword][err327.params[emPropParams21]];
+if(emParamsErrors21){
+emParamsErrors21.push(err327);
+err327.emUsed = true;
 }
 }
-if(data86.dailyTokenLimit !== undefined){
-let data88 = data86.dailyTokenLimit;
-if(!((typeof data88 == "number") && (!(data88 % 1) && !isNaN(data88)))){
-const err327 = {instancePath:instancePath+"/quotas/admin/dailyTokenLimit",schemaPath:"#/definitions/RoleQuota/properties/dailyTokenLimit/type",keyword:"type",params:{type: "integer"},message:"must be integer",schema:schema32.properties.dailyTokenLimit.type,parentSchema:schema32.properties.dailyTokenLimit,data:data88};
-if(vErrors === null){
-vErrors = [err327];
 }
-else {
-vErrors.push(err327);
-}
-errors++;
-}
-if(typeof data88 == "number"){
-if(data88 < 0 || isNaN(data88)){
-const err328 = {instancePath:instancePath+"/quotas/admin/dailyTokenLimit",schemaPath:"#/definitions/RoleQuota/properties/dailyTokenLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema32.properties.dailyTokenLimit,data:data88};
+for(const key25 in emErrors22){
+for(const keyProp21 in emErrors22[key25]){
+emParamsErrors21 = emErrors22[key25][keyProp21];
+if(emParamsErrors21.length){
+const tmpl21 = templates22[key25] && templates22[key25][keyProp21];
+const err328 = {instancePath:instancePath+"/quotas/global",schemaPath:"#/properties/quotas/properties/global/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors21},message:tmpl21 ? tmpl21() : schema27.properties.quotas.properties.global.errorMessage[key25][keyProp21],schema:schema27.properties.quotas.properties.global.errorMessage,parentSchema:schema27.properties.quotas.properties.global,data:data86};
 if(vErrors === null){
 vErrors = [err328];
 }
@@ -7472,21 +7476,22 @@ vErrors.push(err328);
 errors++;
 }
 }
-if(errors > 0){
-const emErrs98 = [];
+}
+const emErrs99 = [];
 for(const err329 of vErrors){
 if(!err329.emUsed){
-emErrs98.push(err329);
+emErrs99.push(err329);
 }
 }
-vErrors = emErrs98;
-errors = emErrs98.length;
+vErrors = emErrs99;
+errors = emErrs99.length;
 }
 }
-if(data86.monthlyTokenLimit !== undefined){
-let data89 = data86.monthlyTokenLimit;
-if(!((typeof data89 == "number") && (!(data89 % 1) && !isNaN(data89)))){
-const err330 = {instancePath:instancePath+"/quotas/admin/monthlyTokenLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyTokenLimit/type",keyword:"type",params:{type: "integer"},message:"must be integer",schema:schema32.properties.monthlyTokenLimit.type,parentSchema:schema32.properties.monthlyTokenLimit,data:data89};
+if(data85.admin !== undefined){
+let data89 = data85.admin;
+if(data89 && typeof data89 == "object" && !Array.isArray(data89)){
+if(data89.unlimited === undefined){
+const err330 = {instancePath:instancePath+"/quotas/admin",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'",schema:schema32.required,parentSchema:schema32,data:data89};
 if(vErrors === null){
 vErrors = [err330];
 }
@@ -7495,9 +7500,8 @@ vErrors.push(err330);
 }
 errors++;
 }
-if(typeof data89 == "number"){
-if(data89 < 0 || isNaN(data89)){
-const err331 = {instancePath:instancePath+"/quotas/admin/monthlyTokenLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyTokenLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema32.properties.monthlyTokenLimit,data:data89};
+if(data89.monthlyLimit === undefined){
+const err331 = {instancePath:instancePath+"/quotas/admin",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'",schema:schema32.required,parentSchema:schema32,data:data89};
 if(vErrors === null){
 vErrors = [err331];
 }
@@ -7506,50 +7510,45 @@ vErrors.push(err331);
 }
 errors++;
 }
-}
-if(errors > 0){
-const emErrs99 = [];
-for(const err332 of vErrors){
-if(!err332.emUsed){
-emErrs99.push(err332);
-}
-}
-vErrors = emErrs99;
-errors = emErrs99.length;
-}
-}
-}
-else {
-const err333 = {instancePath:instancePath+"/quotas/admin",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema32.type,parentSchema:schema32,data:data86};
+if(data89.unlimited !== undefined){
+let data90 = data89.unlimited;
+if(typeof data90 !== "boolean"){
+const err332 = {instancePath:instancePath+"/quotas/admin/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema32.properties.unlimited.type,parentSchema:schema32.properties.unlimited,data:data90};
 if(vErrors === null){
-vErrors = [err333];
+vErrors = [err332];
 }
 else {
-vErrors.push(err333);
+vErrors.push(err332);
 }
 errors++;
 }
 if(errors > 0){
-const emErrors23 = {"required":{"unlimited":[],"dailyTokenLimit":[],"monthlyTokenLimit":[]}};
-const templates23 = {required:{}};
-let emPropParams22;
-let emParamsErrors22;
-for(const err334 of vErrors){
-if((((((err334.keyword !== "errorMessage") && (!err334.emUsed)) && (err334.instancePath === instancePath+"/quotas/admin")) && (err334.keyword in emErrors23)) && (err334.schemaPath.indexOf("#/definitions/RoleQuota") === 0)) && (/^\/[^\/]*$/.test(err334.schemaPath.slice(23)))){
-emPropParams22 = obj0[err334.keyword];
-emParamsErrors22 = emErrors23[err334.keyword][err334.params[emPropParams22]];
-if(emParamsErrors22){
-emParamsErrors22.push(err334);
-err334.emUsed = true;
+const emErrs100 = [];
+for(const err333 of vErrors){
+if(!err333.emUsed){
+emErrs100.push(err333);
 }
 }
+vErrors = emErrs100;
+errors = emErrs100.length;
 }
-for(const key26 in emErrors23){
-for(const keyProp22 in emErrors23[key26]){
-emParamsErrors22 = emErrors23[key26][keyProp22];
-if(emParamsErrors22.length){
-const tmpl22 = templates23[key26] && templates23[key26][keyProp22];
-const err335 = {instancePath:instancePath+"/quotas/admin",schemaPath:"#/definitions/RoleQuota/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors22},message:tmpl22 ? tmpl22() : schema32.errorMessage[key26][keyProp22],schema:schema32.errorMessage,parentSchema:schema32,data:data86};
+}
+if(data89.monthlyLimit !== undefined){
+let data91 = data89.monthlyLimit;
+if(typeof data91 == "number"){
+if(data91 < 0 || isNaN(data91)){
+const err334 = {instancePath:instancePath+"/quotas/admin/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema32.properties.monthlyLimit,data:data91};
+if(vErrors === null){
+vErrors = [err334];
+}
+else {
+vErrors.push(err334);
+}
+errors++;
+}
+}
+else {
+const err335 = {instancePath:instancePath+"/quotas/admin/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema32.properties.monthlyLimit.type,parentSchema:schema32.properties.monthlyLimit,data:data91};
 if(vErrors === null){
 vErrors = [err335];
 }
@@ -7558,29 +7557,80 @@ vErrors.push(err335);
 }
 errors++;
 }
-}
-}
-const emErrs100 = [];
+if(errors > 0){
+const emErrs101 = [];
 for(const err336 of vErrors){
 if(!err336.emUsed){
-emErrs100.push(err336);
+emErrs101.push(err336);
 }
 }
-vErrors = emErrs100;
-errors = emErrs100.length;
+vErrors = emErrs101;
+errors = emErrs101.length;
+}
+}
+}
+else {
+const err337 = {instancePath:instancePath+"/quotas/admin",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema32.type,parentSchema:schema32,data:data89};
+if(vErrors === null){
+vErrors = [err337];
+}
+else {
+vErrors.push(err337);
+}
+errors++;
 }
 if(errors > 0){
-const emErrors24 = {"required":{"unlimited":[],"dailyTokenLimit":[],"monthlyTokenLimit":[]}};
+const emErrors23 = {"required":{"unlimited":[],"monthlyLimit":[]}};
+const templates23 = {required:{}};
+let emPropParams22;
+let emParamsErrors22;
+for(const err338 of vErrors){
+if((((((err338.keyword !== "errorMessage") && (!err338.emUsed)) && (err338.instancePath === instancePath+"/quotas/admin")) && (err338.keyword in emErrors23)) && (err338.schemaPath.indexOf("#/definitions/RoleQuota") === 0)) && (/^\/[^\/]*$/.test(err338.schemaPath.slice(23)))){
+emPropParams22 = obj0[err338.keyword];
+emParamsErrors22 = emErrors23[err338.keyword][err338.params[emPropParams22]];
+if(emParamsErrors22){
+emParamsErrors22.push(err338);
+err338.emUsed = true;
+}
+}
+}
+for(const key26 in emErrors23){
+for(const keyProp22 in emErrors23[key26]){
+emParamsErrors22 = emErrors23[key26][keyProp22];
+if(emParamsErrors22.length){
+const tmpl22 = templates23[key26] && templates23[key26][keyProp22];
+const err339 = {instancePath:instancePath+"/quotas/admin",schemaPath:"#/definitions/RoleQuota/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors22},message:tmpl22 ? tmpl22() : schema32.errorMessage[key26][keyProp22],schema:schema32.errorMessage,parentSchema:schema32,data:data89};
+if(vErrors === null){
+vErrors = [err339];
+}
+else {
+vErrors.push(err339);
+}
+errors++;
+}
+}
+}
+const emErrs102 = [];
+for(const err340 of vErrors){
+if(!err340.emUsed){
+emErrs102.push(err340);
+}
+}
+vErrors = emErrs102;
+errors = emErrs102.length;
+}
+if(errors > 0){
+const emErrors24 = {"required":{"unlimited":[],"monthlyLimit":[]}};
 const templates24 = {required:{}};
 let emPropParams23;
 let emParamsErrors23;
-for(const err337 of vErrors){
-if((((((err337.keyword !== "errorMessage") && (!err337.emUsed)) && (err337.instancePath === instancePath+"/quotas/admin")) && (err337.keyword in emErrors24)) && (err337.schemaPath.indexOf("#/properties/quotas/properties/admin") === 0)) && (/^\/[^\/]*$/.test(err337.schemaPath.slice(36)))){
-emPropParams23 = obj0[err337.keyword];
-emParamsErrors23 = emErrors24[err337.keyword][err337.params[emPropParams23]];
+for(const err341 of vErrors){
+if((((((err341.keyword !== "errorMessage") && (!err341.emUsed)) && (err341.instancePath === instancePath+"/quotas/admin")) && (err341.keyword in emErrors24)) && (err341.schemaPath.indexOf("#/properties/quotas/properties/admin") === 0)) && (/^\/[^\/]*$/.test(err341.schemaPath.slice(36)))){
+emPropParams23 = obj0[err341.keyword];
+emParamsErrors23 = emErrors24[err341.keyword][err341.params[emPropParams23]];
 if(emParamsErrors23){
-emParamsErrors23.push(err337);
-err337.emUsed = true;
+emParamsErrors23.push(err341);
+err341.emUsed = true;
 }
 }
 }
@@ -7589,52 +7639,7 @@ for(const keyProp23 in emErrors24[key27]){
 emParamsErrors23 = emErrors24[key27][keyProp23];
 if(emParamsErrors23.length){
 const tmpl23 = templates24[key27] && templates24[key27][keyProp23];
-const err338 = {instancePath:instancePath+"/quotas/admin",schemaPath:"#/properties/quotas/properties/admin/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors23},message:tmpl23 ? tmpl23() : schema27.properties.quotas.properties.admin.errorMessage[key27][keyProp23],schema:schema27.properties.quotas.properties.admin.errorMessage,parentSchema:schema27.properties.quotas.properties.admin,data:data86};
-if(vErrors === null){
-vErrors = [err338];
-}
-else {
-vErrors.push(err338);
-}
-errors++;
-}
-}
-}
-const emErrs101 = [];
-for(const err339 of vErrors){
-if(!err339.emUsed){
-emErrs101.push(err339);
-}
-}
-vErrors = emErrs101;
-errors = emErrs101.length;
-}
-}
-if(data81.contrib !== undefined){
-let data90 = data81.contrib;
-if(data90 && typeof data90 == "object" && !Array.isArray(data90)){
-if(data90.unlimited === undefined){
-const err340 = {instancePath:instancePath+"/quotas/contrib",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'",schema:schema32.required,parentSchema:schema32,data:data90};
-if(vErrors === null){
-vErrors = [err340];
-}
-else {
-vErrors.push(err340);
-}
-errors++;
-}
-if(data90.dailyTokenLimit === undefined){
-const err341 = {instancePath:instancePath+"/quotas/contrib",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "dailyTokenLimit"},message:"must have required property '"+"dailyTokenLimit"+"'",schema:schema32.required,parentSchema:schema32,data:data90};
-if(vErrors === null){
-vErrors = [err341];
-}
-else {
-vErrors.push(err341);
-}
-errors++;
-}
-if(data90.monthlyTokenLimit === undefined){
-const err342 = {instancePath:instancePath+"/quotas/contrib",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyTokenLimit"},message:"must have required property '"+"monthlyTokenLimit"+"'",schema:schema32.required,parentSchema:schema32,data:data90};
+const err342 = {instancePath:instancePath+"/quotas/admin",schemaPath:"#/properties/quotas/properties/admin/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors23},message:tmpl23 ? tmpl23() : schema27.properties.quotas.properties.admin.errorMessage[key27][keyProp23],schema:schema27.properties.quotas.properties.admin.errorMessage,parentSchema:schema27.properties.quotas.properties.admin,data:data89};
 if(vErrors === null){
 vErrors = [err342];
 }
@@ -7643,33 +7648,33 @@ vErrors.push(err342);
 }
 errors++;
 }
-if(data90.unlimited !== undefined){
-let data91 = data90.unlimited;
-if(typeof data91 !== "boolean"){
-const err343 = {instancePath:instancePath+"/quotas/contrib/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema32.properties.unlimited.type,parentSchema:schema32.properties.unlimited,data:data91};
+}
+}
+const emErrs103 = [];
+for(const err343 of vErrors){
+if(!err343.emUsed){
+emErrs103.push(err343);
+}
+}
+vErrors = emErrs103;
+errors = emErrs103.length;
+}
+}
+if(data85.contrib !== undefined){
+let data92 = data85.contrib;
+if(data92 && typeof data92 == "object" && !Array.isArray(data92)){
+if(data92.unlimited === undefined){
+const err344 = {instancePath:instancePath+"/quotas/contrib",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'",schema:schema32.required,parentSchema:schema32,data:data92};
 if(vErrors === null){
-vErrors = [err343];
+vErrors = [err344];
 }
 else {
-vErrors.push(err343);
+vErrors.push(err344);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs102 = [];
-for(const err344 of vErrors){
-if(!err344.emUsed){
-emErrs102.push(err344);
-}
-}
-vErrors = emErrs102;
-errors = emErrs102.length;
-}
-}
-if(data90.dailyTokenLimit !== undefined){
-let data92 = data90.dailyTokenLimit;
-if(!((typeof data92 == "number") && (!(data92 % 1) && !isNaN(data92)))){
-const err345 = {instancePath:instancePath+"/quotas/contrib/dailyTokenLimit",schemaPath:"#/definitions/RoleQuota/properties/dailyTokenLimit/type",keyword:"type",params:{type: "integer"},message:"must be integer",schema:schema32.properties.dailyTokenLimit.type,parentSchema:schema32.properties.dailyTokenLimit,data:data92};
+if(data92.monthlyLimit === undefined){
+const err345 = {instancePath:instancePath+"/quotas/contrib",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'",schema:schema32.required,parentSchema:schema32,data:data92};
 if(vErrors === null){
 vErrors = [err345];
 }
@@ -7678,9 +7683,10 @@ vErrors.push(err345);
 }
 errors++;
 }
-if(typeof data92 == "number"){
-if(data92 < 0 || isNaN(data92)){
-const err346 = {instancePath:instancePath+"/quotas/contrib/dailyTokenLimit",schemaPath:"#/definitions/RoleQuota/properties/dailyTokenLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema32.properties.dailyTokenLimit,data:data92};
+if(data92.unlimited !== undefined){
+let data93 = data92.unlimited;
+if(typeof data93 !== "boolean"){
+const err346 = {instancePath:instancePath+"/quotas/contrib/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema32.properties.unlimited.type,parentSchema:schema32.properties.unlimited,data:data93};
 if(vErrors === null){
 vErrors = [err346];
 }
@@ -7689,22 +7695,22 @@ vErrors.push(err346);
 }
 errors++;
 }
-}
 if(errors > 0){
-const emErrs103 = [];
+const emErrs104 = [];
 for(const err347 of vErrors){
 if(!err347.emUsed){
-emErrs103.push(err347);
+emErrs104.push(err347);
 }
 }
-vErrors = emErrs103;
-errors = emErrs103.length;
+vErrors = emErrs104;
+errors = emErrs104.length;
 }
 }
-if(data90.monthlyTokenLimit !== undefined){
-let data93 = data90.monthlyTokenLimit;
-if(!((typeof data93 == "number") && (!(data93 % 1) && !isNaN(data93)))){
-const err348 = {instancePath:instancePath+"/quotas/contrib/monthlyTokenLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyTokenLimit/type",keyword:"type",params:{type: "integer"},message:"must be integer",schema:schema32.properties.monthlyTokenLimit.type,parentSchema:schema32.properties.monthlyTokenLimit,data:data93};
+if(data92.monthlyLimit !== undefined){
+let data94 = data92.monthlyLimit;
+if(typeof data94 == "number"){
+if(data94 < 0 || isNaN(data94)){
+const err348 = {instancePath:instancePath+"/quotas/contrib/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema32.properties.monthlyLimit,data:data94};
 if(vErrors === null){
 vErrors = [err348];
 }
@@ -7713,9 +7719,9 @@ vErrors.push(err348);
 }
 errors++;
 }
-if(typeof data93 == "number"){
-if(data93 < 0 || isNaN(data93)){
-const err349 = {instancePath:instancePath+"/quotas/contrib/monthlyTokenLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyTokenLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema32.properties.monthlyTokenLimit,data:data93};
+}
+else {
+const err349 = {instancePath:instancePath+"/quotas/contrib/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema32.properties.monthlyLimit.type,parentSchema:schema32.properties.monthlyLimit,data:data94};
 if(vErrors === null){
 vErrors = [err349];
 }
@@ -7724,21 +7730,20 @@ vErrors.push(err349);
 }
 errors++;
 }
-}
 if(errors > 0){
-const emErrs104 = [];
+const emErrs105 = [];
 for(const err350 of vErrors){
 if(!err350.emUsed){
-emErrs104.push(err350);
+emErrs105.push(err350);
 }
 }
-vErrors = emErrs104;
-errors = emErrs104.length;
+vErrors = emErrs105;
+errors = emErrs105.length;
 }
 }
 }
 else {
-const err351 = {instancePath:instancePath+"/quotas/contrib",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema32.type,parentSchema:schema32,data:data90};
+const err351 = {instancePath:instancePath+"/quotas/contrib",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema32.type,parentSchema:schema32,data:data92};
 if(vErrors === null){
 vErrors = [err351];
 }
@@ -7748,7 +7753,7 @@ vErrors.push(err351);
 errors++;
 }
 if(errors > 0){
-const emErrors25 = {"required":{"unlimited":[],"dailyTokenLimit":[],"monthlyTokenLimit":[]}};
+const emErrors25 = {"required":{"unlimited":[],"monthlyLimit":[]}};
 const templates25 = {required:{}};
 let emPropParams24;
 let emParamsErrors24;
@@ -7767,7 +7772,7 @@ for(const keyProp24 in emErrors25[key28]){
 emParamsErrors24 = emErrors25[key28][keyProp24];
 if(emParamsErrors24.length){
 const tmpl24 = templates25[key28] && templates25[key28][keyProp24];
-const err353 = {instancePath:instancePath+"/quotas/contrib",schemaPath:"#/definitions/RoleQuota/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors24},message:tmpl24 ? tmpl24() : schema32.errorMessage[key28][keyProp24],schema:schema32.errorMessage,parentSchema:schema32,data:data90};
+const err353 = {instancePath:instancePath+"/quotas/contrib",schemaPath:"#/definitions/RoleQuota/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors24},message:tmpl24 ? tmpl24() : schema32.errorMessage[key28][keyProp24],schema:schema32.errorMessage,parentSchema:schema32,data:data92};
 if(vErrors === null){
 vErrors = [err353];
 }
@@ -7778,17 +7783,17 @@ errors++;
 }
 }
 }
-const emErrs105 = [];
+const emErrs106 = [];
 for(const err354 of vErrors){
 if(!err354.emUsed){
-emErrs105.push(err354);
+emErrs106.push(err354);
 }
 }
-vErrors = emErrs105;
-errors = emErrs105.length;
+vErrors = emErrs106;
+errors = emErrs106.length;
 }
 if(errors > 0){
-const emErrors26 = {"required":{"unlimited":[],"dailyTokenLimit":[],"monthlyTokenLimit":[]}};
+const emErrors26 = {"required":{"unlimited":[],"monthlyLimit":[]}};
 const templates26 = {required:{}};
 let emPropParams25;
 let emParamsErrors25;
@@ -7807,7 +7812,7 @@ for(const keyProp25 in emErrors26[key29]){
 emParamsErrors25 = emErrors26[key29][keyProp25];
 if(emParamsErrors25.length){
 const tmpl25 = templates26[key29] && templates26[key29][keyProp25];
-const err356 = {instancePath:instancePath+"/quotas/contrib",schemaPath:"#/properties/quotas/properties/contrib/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors25},message:tmpl25 ? tmpl25() : schema27.properties.quotas.properties.contrib.errorMessage[key29][keyProp25],schema:schema27.properties.quotas.properties.contrib.errorMessage,parentSchema:schema27.properties.quotas.properties.contrib,data:data90};
+const err356 = {instancePath:instancePath+"/quotas/contrib",schemaPath:"#/properties/quotas/properties/contrib/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors25},message:tmpl25 ? tmpl25() : schema27.properties.quotas.properties.contrib.errorMessage[key29][keyProp25],schema:schema27.properties.quotas.properties.contrib.errorMessage,parentSchema:schema27.properties.quotas.properties.contrib,data:data92};
 if(vErrors === null){
 vErrors = [err356];
 }
@@ -7818,21 +7823,21 @@ errors++;
 }
 }
 }
-const emErrs106 = [];
+const emErrs107 = [];
 for(const err357 of vErrors){
 if(!err357.emUsed){
-emErrs106.push(err357);
+emErrs107.push(err357);
 }
 }
-vErrors = emErrs106;
-errors = emErrs106.length;
+vErrors = emErrs107;
+errors = emErrs107.length;
 }
 }
-if(data81.user !== undefined){
-let data94 = data81.user;
-if(data94 && typeof data94 == "object" && !Array.isArray(data94)){
-if(data94.unlimited === undefined){
-const err358 = {instancePath:instancePath+"/quotas/user",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'",schema:schema32.required,parentSchema:schema32,data:data94};
+if(data85.user !== undefined){
+let data95 = data85.user;
+if(data95 && typeof data95 == "object" && !Array.isArray(data95)){
+if(data95.unlimited === undefined){
+const err358 = {instancePath:instancePath+"/quotas/user",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'",schema:schema32.required,parentSchema:schema32,data:data95};
 if(vErrors === null){
 vErrors = [err358];
 }
@@ -7841,8 +7846,8 @@ vErrors.push(err358);
 }
 errors++;
 }
-if(data94.dailyTokenLimit === undefined){
-const err359 = {instancePath:instancePath+"/quotas/user",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "dailyTokenLimit"},message:"must have required property '"+"dailyTokenLimit"+"'",schema:schema32.required,parentSchema:schema32,data:data94};
+if(data95.monthlyLimit === undefined){
+const err359 = {instancePath:instancePath+"/quotas/user",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'",schema:schema32.required,parentSchema:schema32,data:data95};
 if(vErrors === null){
 vErrors = [err359];
 }
@@ -7851,8 +7856,10 @@ vErrors.push(err359);
 }
 errors++;
 }
-if(data94.monthlyTokenLimit === undefined){
-const err360 = {instancePath:instancePath+"/quotas/user",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyTokenLimit"},message:"must have required property '"+"monthlyTokenLimit"+"'",schema:schema32.required,parentSchema:schema32,data:data94};
+if(data95.unlimited !== undefined){
+let data96 = data95.unlimited;
+if(typeof data96 !== "boolean"){
+const err360 = {instancePath:instancePath+"/quotas/user/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema32.properties.unlimited.type,parentSchema:schema32.properties.unlimited,data:data96};
 if(vErrors === null){
 vErrors = [err360];
 }
@@ -7861,33 +7868,33 @@ vErrors.push(err360);
 }
 errors++;
 }
-if(data94.unlimited !== undefined){
-let data95 = data94.unlimited;
-if(typeof data95 !== "boolean"){
-const err361 = {instancePath:instancePath+"/quotas/user/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema32.properties.unlimited.type,parentSchema:schema32.properties.unlimited,data:data95};
+if(errors > 0){
+const emErrs108 = [];
+for(const err361 of vErrors){
+if(!err361.emUsed){
+emErrs108.push(err361);
+}
+}
+vErrors = emErrs108;
+errors = emErrs108.length;
+}
+}
+if(data95.monthlyLimit !== undefined){
+let data97 = data95.monthlyLimit;
+if(typeof data97 == "number"){
+if(data97 < 0 || isNaN(data97)){
+const err362 = {instancePath:instancePath+"/quotas/user/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema32.properties.monthlyLimit,data:data97};
 if(vErrors === null){
-vErrors = [err361];
+vErrors = [err362];
 }
 else {
-vErrors.push(err361);
+vErrors.push(err362);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs107 = [];
-for(const err362 of vErrors){
-if(!err362.emUsed){
-emErrs107.push(err362);
 }
-}
-vErrors = emErrs107;
-errors = emErrs107.length;
-}
-}
-if(data94.dailyTokenLimit !== undefined){
-let data96 = data94.dailyTokenLimit;
-if(!((typeof data96 == "number") && (!(data96 % 1) && !isNaN(data96)))){
-const err363 = {instancePath:instancePath+"/quotas/user/dailyTokenLimit",schemaPath:"#/definitions/RoleQuota/properties/dailyTokenLimit/type",keyword:"type",params:{type: "integer"},message:"must be integer",schema:schema32.properties.dailyTokenLimit.type,parentSchema:schema32.properties.dailyTokenLimit,data:data96};
+else {
+const err363 = {instancePath:instancePath+"/quotas/user/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema32.properties.monthlyLimit.type,parentSchema:schema32.properties.monthlyLimit,data:data97};
 if(vErrors === null){
 vErrors = [err363];
 }
@@ -7896,44 +7903,49 @@ vErrors.push(err363);
 }
 errors++;
 }
-if(typeof data96 == "number"){
-if(data96 < 0 || isNaN(data96)){
-const err364 = {instancePath:instancePath+"/quotas/user/dailyTokenLimit",schemaPath:"#/definitions/RoleQuota/properties/dailyTokenLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema32.properties.dailyTokenLimit,data:data96};
-if(vErrors === null){
-vErrors = [err364];
+if(errors > 0){
+const emErrs109 = [];
+for(const err364 of vErrors){
+if(!err364.emUsed){
+emErrs109.push(err364);
+}
+}
+vErrors = emErrs109;
+errors = emErrs109.length;
+}
+}
 }
 else {
-vErrors.push(err364);
+const err365 = {instancePath:instancePath+"/quotas/user",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema32.type,parentSchema:schema32,data:data95};
+if(vErrors === null){
+vErrors = [err365];
+}
+else {
+vErrors.push(err365);
 }
 errors++;
-}
 }
 if(errors > 0){
-const emErrs108 = [];
-for(const err365 of vErrors){
-if(!err365.emUsed){
-emErrs108.push(err365);
+const emErrors27 = {"required":{"unlimited":[],"monthlyLimit":[]}};
+const templates27 = {required:{}};
+let emPropParams26;
+let emParamsErrors26;
+for(const err366 of vErrors){
+if((((((err366.keyword !== "errorMessage") && (!err366.emUsed)) && (err366.instancePath === instancePath+"/quotas/user")) && (err366.keyword in emErrors27)) && (err366.schemaPath.indexOf("#/definitions/RoleQuota") === 0)) && (/^\/[^\/]*$/.test(err366.schemaPath.slice(23)))){
+emPropParams26 = obj0[err366.keyword];
+emParamsErrors26 = emErrors27[err366.keyword][err366.params[emPropParams26]];
+if(emParamsErrors26){
+emParamsErrors26.push(err366);
+err366.emUsed = true;
 }
 }
-vErrors = emErrs108;
-errors = emErrs108.length;
 }
-}
-if(data94.monthlyTokenLimit !== undefined){
-let data97 = data94.monthlyTokenLimit;
-if(!((typeof data97 == "number") && (!(data97 % 1) && !isNaN(data97)))){
-const err366 = {instancePath:instancePath+"/quotas/user/monthlyTokenLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyTokenLimit/type",keyword:"type",params:{type: "integer"},message:"must be integer",schema:schema32.properties.monthlyTokenLimit.type,parentSchema:schema32.properties.monthlyTokenLimit,data:data97};
-if(vErrors === null){
-vErrors = [err366];
-}
-else {
-vErrors.push(err366);
-}
-errors++;
-}
-if(typeof data97 == "number"){
-if(data97 < 0 || isNaN(data97)){
-const err367 = {instancePath:instancePath+"/quotas/user/monthlyTokenLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyTokenLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema32.properties.monthlyTokenLimit,data:data97};
+for(const key30 in emErrors27){
+for(const keyProp26 in emErrors27[key30]){
+emParamsErrors26 = emErrors27[key30][keyProp26];
+if(emParamsErrors26.length){
+const tmpl26 = templates27[key30] && templates27[key30][keyProp26];
+const err367 = {instancePath:instancePath+"/quotas/user",schemaPath:"#/definitions/RoleQuota/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors26},message:tmpl26 ? tmpl26() : schema32.errorMessage[key30][keyProp26],schema:schema32.errorMessage,parentSchema:schema32,data:data95};
 if(vErrors === null){
 vErrors = [err367];
 }
@@ -7943,80 +7955,28 @@ vErrors.push(err367);
 errors++;
 }
 }
-if(errors > 0){
-const emErrs109 = [];
-for(const err368 of vErrors){
-if(!err368.emUsed){
-emErrs109.push(err368);
-}
-}
-vErrors = emErrs109;
-errors = emErrs109.length;
-}
-}
-}
-else {
-const err369 = {instancePath:instancePath+"/quotas/user",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema32.type,parentSchema:schema32,data:data94};
-if(vErrors === null){
-vErrors = [err369];
-}
-else {
-vErrors.push(err369);
-}
-errors++;
-}
-if(errors > 0){
-const emErrors27 = {"required":{"unlimited":[],"dailyTokenLimit":[],"monthlyTokenLimit":[]}};
-const templates27 = {required:{}};
-let emPropParams26;
-let emParamsErrors26;
-for(const err370 of vErrors){
-if((((((err370.keyword !== "errorMessage") && (!err370.emUsed)) && (err370.instancePath === instancePath+"/quotas/user")) && (err370.keyword in emErrors27)) && (err370.schemaPath.indexOf("#/definitions/RoleQuota") === 0)) && (/^\/[^\/]*$/.test(err370.schemaPath.slice(23)))){
-emPropParams26 = obj0[err370.keyword];
-emParamsErrors26 = emErrors27[err370.keyword][err370.params[emPropParams26]];
-if(emParamsErrors26){
-emParamsErrors26.push(err370);
-err370.emUsed = true;
-}
-}
-}
-for(const key30 in emErrors27){
-for(const keyProp26 in emErrors27[key30]){
-emParamsErrors26 = emErrors27[key30][keyProp26];
-if(emParamsErrors26.length){
-const tmpl26 = templates27[key30] && templates27[key30][keyProp26];
-const err371 = {instancePath:instancePath+"/quotas/user",schemaPath:"#/definitions/RoleQuota/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors26},message:tmpl26 ? tmpl26() : schema32.errorMessage[key30][keyProp26],schema:schema32.errorMessage,parentSchema:schema32,data:data94};
-if(vErrors === null){
-vErrors = [err371];
-}
-else {
-vErrors.push(err371);
-}
-errors++;
-}
-}
 }
 const emErrs110 = [];
-for(const err372 of vErrors){
-if(!err372.emUsed){
-emErrs110.push(err372);
+for(const err368 of vErrors){
+if(!err368.emUsed){
+emErrs110.push(err368);
 }
 }
 vErrors = emErrs110;
 errors = emErrs110.length;
 }
 if(errors > 0){
-const emErrors28 = {"required":{"unlimited":[],"dailyTokenLimit":[],"monthlyTokenLimit":[]}};
+const emErrors28 = {"required":{"unlimited":[],"monthlyLimit":[]}};
 const templates28 = {required:{}};
 let emPropParams27;
 let emParamsErrors27;
-for(const err373 of vErrors){
-if((((((err373.keyword !== "errorMessage") && (!err373.emUsed)) && (err373.instancePath === instancePath+"/quotas/user")) && (err373.keyword in emErrors28)) && (err373.schemaPath.indexOf("#/properties/quotas/properties/user") === 0)) && (/^\/[^\/]*$/.test(err373.schemaPath.slice(35)))){
-emPropParams27 = obj0[err373.keyword];
-emParamsErrors27 = emErrors28[err373.keyword][err373.params[emPropParams27]];
+for(const err369 of vErrors){
+if((((((err369.keyword !== "errorMessage") && (!err369.emUsed)) && (err369.instancePath === instancePath+"/quotas/user")) && (err369.keyword in emErrors28)) && (err369.schemaPath.indexOf("#/properties/quotas/properties/user") === 0)) && (/^\/[^\/]*$/.test(err369.schemaPath.slice(35)))){
+emPropParams27 = obj0[err369.keyword];
+emParamsErrors27 = emErrors28[err369.keyword][err369.params[emPropParams27]];
 if(emParamsErrors27){
-emParamsErrors27.push(err373);
-err373.emUsed = true;
+emParamsErrors27.push(err369);
+err369.emUsed = true;
 }
 }
 }
@@ -8025,7 +7985,54 @@ for(const keyProp27 in emErrors28[key31]){
 emParamsErrors27 = emErrors28[key31][keyProp27];
 if(emParamsErrors27.length){
 const tmpl27 = templates28[key31] && templates28[key31][keyProp27];
-const err374 = {instancePath:instancePath+"/quotas/user",schemaPath:"#/properties/quotas/properties/user/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors27},message:tmpl27 ? tmpl27() : schema27.properties.quotas.properties.user.errorMessage[key31][keyProp27],schema:schema27.properties.quotas.properties.user.errorMessage,parentSchema:schema27.properties.quotas.properties.user,data:data94};
+const err370 = {instancePath:instancePath+"/quotas/user",schemaPath:"#/properties/quotas/properties/user/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors27},message:tmpl27 ? tmpl27() : schema27.properties.quotas.properties.user.errorMessage[key31][keyProp27],schema:schema27.properties.quotas.properties.user.errorMessage,parentSchema:schema27.properties.quotas.properties.user,data:data95};
+if(vErrors === null){
+vErrors = [err370];
+}
+else {
+vErrors.push(err370);
+}
+errors++;
+}
+}
+}
+const emErrs111 = [];
+for(const err371 of vErrors){
+if(!err371.emUsed){
+emErrs111.push(err371);
+}
+}
+vErrors = emErrs111;
+errors = emErrs111.length;
+}
+}
+if(data85.external !== undefined){
+let data98 = data85.external;
+if(data98 && typeof data98 == "object" && !Array.isArray(data98)){
+if(data98.unlimited === undefined){
+const err372 = {instancePath:instancePath+"/quotas/external",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'",schema:schema32.required,parentSchema:schema32,data:data98};
+if(vErrors === null){
+vErrors = [err372];
+}
+else {
+vErrors.push(err372);
+}
+errors++;
+}
+if(data98.monthlyLimit === undefined){
+const err373 = {instancePath:instancePath+"/quotas/external",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'",schema:schema32.required,parentSchema:schema32,data:data98};
+if(vErrors === null){
+vErrors = [err373];
+}
+else {
+vErrors.push(err373);
+}
+errors++;
+}
+if(data98.unlimited !== undefined){
+let data99 = data98.unlimited;
+if(typeof data99 !== "boolean"){
+const err374 = {instancePath:instancePath+"/quotas/external/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema32.properties.unlimited.type,parentSchema:schema32.properties.unlimited,data:data99};
 if(vErrors === null){
 vErrors = [err374];
 }
@@ -8034,23 +8041,22 @@ vErrors.push(err374);
 }
 errors++;
 }
-}
-}
-const emErrs111 = [];
+if(errors > 0){
+const emErrs112 = [];
 for(const err375 of vErrors){
 if(!err375.emUsed){
-emErrs111.push(err375);
+emErrs112.push(err375);
 }
 }
-vErrors = emErrs111;
-errors = emErrs111.length;
+vErrors = emErrs112;
+errors = emErrs112.length;
 }
 }
-if(data81.external !== undefined){
-let data98 = data81.external;
-if(data98 && typeof data98 == "object" && !Array.isArray(data98)){
-if(data98.unlimited === undefined){
-const err376 = {instancePath:instancePath+"/quotas/external",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'",schema:schema32.required,parentSchema:schema32,data:data98};
+if(data98.monthlyLimit !== undefined){
+let data100 = data98.monthlyLimit;
+if(typeof data100 == "number"){
+if(data100 < 0 || isNaN(data100)){
+const err376 = {instancePath:instancePath+"/quotas/external/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema32.properties.monthlyLimit,data:data100};
 if(vErrors === null){
 vErrors = [err376];
 }
@@ -8059,8 +8065,9 @@ vErrors.push(err376);
 }
 errors++;
 }
-if(data98.dailyTokenLimit === undefined){
-const err377 = {instancePath:instancePath+"/quotas/external",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "dailyTokenLimit"},message:"must have required property '"+"dailyTokenLimit"+"'",schema:schema32.required,parentSchema:schema32,data:data98};
+}
+else {
+const err377 = {instancePath:instancePath+"/quotas/external/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema32.properties.monthlyLimit.type,parentSchema:schema32.properties.monthlyLimit,data:data100};
 if(vErrors === null){
 vErrors = [err377];
 }
@@ -8069,20 +8076,20 @@ vErrors.push(err377);
 }
 errors++;
 }
-if(data98.monthlyTokenLimit === undefined){
-const err378 = {instancePath:instancePath+"/quotas/external",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyTokenLimit"},message:"must have required property '"+"monthlyTokenLimit"+"'",schema:schema32.required,parentSchema:schema32,data:data98};
-if(vErrors === null){
-vErrors = [err378];
+if(errors > 0){
+const emErrs113 = [];
+for(const err378 of vErrors){
+if(!err378.emUsed){
+emErrs113.push(err378);
+}
+}
+vErrors = emErrs113;
+errors = emErrs113.length;
+}
+}
 }
 else {
-vErrors.push(err378);
-}
-errors++;
-}
-if(data98.unlimited !== undefined){
-let data99 = data98.unlimited;
-if(typeof data99 !== "boolean"){
-const err379 = {instancePath:instancePath+"/quotas/external/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema32.properties.unlimited.type,parentSchema:schema32.properties.unlimited,data:data99};
+const err379 = {instancePath:instancePath+"/quotas/external",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema32.type,parentSchema:schema32,data:data98};
 if(vErrors === null){
 vErrors = [err379];
 }
@@ -8092,109 +8099,17 @@ vErrors.push(err379);
 errors++;
 }
 if(errors > 0){
-const emErrs112 = [];
-for(const err380 of vErrors){
-if(!err380.emUsed){
-emErrs112.push(err380);
-}
-}
-vErrors = emErrs112;
-errors = emErrs112.length;
-}
-}
-if(data98.dailyTokenLimit !== undefined){
-let data100 = data98.dailyTokenLimit;
-if(!((typeof data100 == "number") && (!(data100 % 1) && !isNaN(data100)))){
-const err381 = {instancePath:instancePath+"/quotas/external/dailyTokenLimit",schemaPath:"#/definitions/RoleQuota/properties/dailyTokenLimit/type",keyword:"type",params:{type: "integer"},message:"must be integer",schema:schema32.properties.dailyTokenLimit.type,parentSchema:schema32.properties.dailyTokenLimit,data:data100};
-if(vErrors === null){
-vErrors = [err381];
-}
-else {
-vErrors.push(err381);
-}
-errors++;
-}
-if(typeof data100 == "number"){
-if(data100 < 0 || isNaN(data100)){
-const err382 = {instancePath:instancePath+"/quotas/external/dailyTokenLimit",schemaPath:"#/definitions/RoleQuota/properties/dailyTokenLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema32.properties.dailyTokenLimit,data:data100};
-if(vErrors === null){
-vErrors = [err382];
-}
-else {
-vErrors.push(err382);
-}
-errors++;
-}
-}
-if(errors > 0){
-const emErrs113 = [];
-for(const err383 of vErrors){
-if(!err383.emUsed){
-emErrs113.push(err383);
-}
-}
-vErrors = emErrs113;
-errors = emErrs113.length;
-}
-}
-if(data98.monthlyTokenLimit !== undefined){
-let data101 = data98.monthlyTokenLimit;
-if(!((typeof data101 == "number") && (!(data101 % 1) && !isNaN(data101)))){
-const err384 = {instancePath:instancePath+"/quotas/external/monthlyTokenLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyTokenLimit/type",keyword:"type",params:{type: "integer"},message:"must be integer",schema:schema32.properties.monthlyTokenLimit.type,parentSchema:schema32.properties.monthlyTokenLimit,data:data101};
-if(vErrors === null){
-vErrors = [err384];
-}
-else {
-vErrors.push(err384);
-}
-errors++;
-}
-if(typeof data101 == "number"){
-if(data101 < 0 || isNaN(data101)){
-const err385 = {instancePath:instancePath+"/quotas/external/monthlyTokenLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyTokenLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema32.properties.monthlyTokenLimit,data:data101};
-if(vErrors === null){
-vErrors = [err385];
-}
-else {
-vErrors.push(err385);
-}
-errors++;
-}
-}
-if(errors > 0){
-const emErrs114 = [];
-for(const err386 of vErrors){
-if(!err386.emUsed){
-emErrs114.push(err386);
-}
-}
-vErrors = emErrs114;
-errors = emErrs114.length;
-}
-}
-}
-else {
-const err387 = {instancePath:instancePath+"/quotas/external",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema32.type,parentSchema:schema32,data:data98};
-if(vErrors === null){
-vErrors = [err387];
-}
-else {
-vErrors.push(err387);
-}
-errors++;
-}
-if(errors > 0){
-const emErrors29 = {"required":{"unlimited":[],"dailyTokenLimit":[],"monthlyTokenLimit":[]}};
+const emErrors29 = {"required":{"unlimited":[],"monthlyLimit":[]}};
 const templates29 = {required:{}};
 let emPropParams28;
 let emParamsErrors28;
-for(const err388 of vErrors){
-if((((((err388.keyword !== "errorMessage") && (!err388.emUsed)) && (err388.instancePath === instancePath+"/quotas/external")) && (err388.keyword in emErrors29)) && (err388.schemaPath.indexOf("#/definitions/RoleQuota") === 0)) && (/^\/[^\/]*$/.test(err388.schemaPath.slice(23)))){
-emPropParams28 = obj0[err388.keyword];
-emParamsErrors28 = emErrors29[err388.keyword][err388.params[emPropParams28]];
+for(const err380 of vErrors){
+if((((((err380.keyword !== "errorMessage") && (!err380.emUsed)) && (err380.instancePath === instancePath+"/quotas/external")) && (err380.keyword in emErrors29)) && (err380.schemaPath.indexOf("#/definitions/RoleQuota") === 0)) && (/^\/[^\/]*$/.test(err380.schemaPath.slice(23)))){
+emPropParams28 = obj0[err380.keyword];
+emParamsErrors28 = emErrors29[err380.keyword][err380.params[emPropParams28]];
 if(emParamsErrors28){
-emParamsErrors28.push(err388);
-err388.emUsed = true;
+emParamsErrors28.push(err380);
+err380.emUsed = true;
 }
 }
 }
@@ -8203,38 +8118,38 @@ for(const keyProp28 in emErrors29[key32]){
 emParamsErrors28 = emErrors29[key32][keyProp28];
 if(emParamsErrors28.length){
 const tmpl28 = templates29[key32] && templates29[key32][keyProp28];
-const err389 = {instancePath:instancePath+"/quotas/external",schemaPath:"#/definitions/RoleQuota/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors28},message:tmpl28 ? tmpl28() : schema32.errorMessage[key32][keyProp28],schema:schema32.errorMessage,parentSchema:schema32,data:data98};
+const err381 = {instancePath:instancePath+"/quotas/external",schemaPath:"#/definitions/RoleQuota/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors28},message:tmpl28 ? tmpl28() : schema32.errorMessage[key32][keyProp28],schema:schema32.errorMessage,parentSchema:schema32,data:data98};
 if(vErrors === null){
-vErrors = [err389];
+vErrors = [err381];
 }
 else {
-vErrors.push(err389);
+vErrors.push(err381);
 }
 errors++;
 }
 }
 }
-const emErrs115 = [];
-for(const err390 of vErrors){
-if(!err390.emUsed){
-emErrs115.push(err390);
+const emErrs114 = [];
+for(const err382 of vErrors){
+if(!err382.emUsed){
+emErrs114.push(err382);
 }
 }
-vErrors = emErrs115;
-errors = emErrs115.length;
+vErrors = emErrs114;
+errors = emErrs114.length;
 }
 if(errors > 0){
-const emErrors30 = {"required":{"unlimited":[],"dailyTokenLimit":[],"monthlyTokenLimit":[]}};
+const emErrors30 = {"required":{"unlimited":[],"monthlyLimit":[]}};
 const templates30 = {required:{}};
 let emPropParams29;
 let emParamsErrors29;
-for(const err391 of vErrors){
-if((((((err391.keyword !== "errorMessage") && (!err391.emUsed)) && (err391.instancePath === instancePath+"/quotas/external")) && (err391.keyword in emErrors30)) && (err391.schemaPath.indexOf("#/properties/quotas/properties/external") === 0)) && (/^\/[^\/]*$/.test(err391.schemaPath.slice(39)))){
-emPropParams29 = obj0[err391.keyword];
-emParamsErrors29 = emErrors30[err391.keyword][err391.params[emPropParams29]];
+for(const err383 of vErrors){
+if((((((err383.keyword !== "errorMessage") && (!err383.emUsed)) && (err383.instancePath === instancePath+"/quotas/external")) && (err383.keyword in emErrors30)) && (err383.schemaPath.indexOf("#/properties/quotas/properties/external") === 0)) && (/^\/[^\/]*$/.test(err383.schemaPath.slice(39)))){
+emPropParams29 = obj0[err383.keyword];
+emParamsErrors29 = emErrors30[err383.keyword][err383.params[emPropParams29]];
 if(emParamsErrors29){
-emParamsErrors29.push(err391);
-err391.emUsed = true;
+emParamsErrors29.push(err383);
+err383.emUsed = true;
 }
 }
 }
@@ -8243,176 +8158,131 @@ for(const keyProp29 in emErrors30[key33]){
 emParamsErrors29 = emErrors30[key33][keyProp29];
 if(emParamsErrors29.length){
 const tmpl29 = templates30[key33] && templates30[key33][keyProp29];
-const err392 = {instancePath:instancePath+"/quotas/external",schemaPath:"#/properties/quotas/properties/external/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors29},message:tmpl29 ? tmpl29() : schema27.properties.quotas.properties.external.errorMessage[key33][keyProp29],schema:schema27.properties.quotas.properties.external.errorMessage,parentSchema:schema27.properties.quotas.properties.external,data:data98};
+const err384 = {instancePath:instancePath+"/quotas/external",schemaPath:"#/properties/quotas/properties/external/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors29},message:tmpl29 ? tmpl29() : schema27.properties.quotas.properties.external.errorMessage[key33][keyProp29],schema:schema27.properties.quotas.properties.external.errorMessage,parentSchema:schema27.properties.quotas.properties.external,data:data98};
 if(vErrors === null){
-vErrors = [err392];
+vErrors = [err384];
 }
 else {
-vErrors.push(err392);
+vErrors.push(err384);
 }
 errors++;
 }
 }
 }
+const emErrs115 = [];
+for(const err385 of vErrors){
+if(!err385.emUsed){
+emErrs115.push(err385);
+}
+}
+vErrors = emErrs115;
+errors = emErrs115.length;
+}
+}
+if(data85.anonymous !== undefined){
+let data101 = data85.anonymous;
+if(data101 && typeof data101 == "object" && !Array.isArray(data101)){
+if(data101.unlimited === undefined){
+const err386 = {instancePath:instancePath+"/quotas/anonymous",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'",schema:schema32.required,parentSchema:schema32,data:data101};
+if(vErrors === null){
+vErrors = [err386];
+}
+else {
+vErrors.push(err386);
+}
+errors++;
+}
+if(data101.monthlyLimit === undefined){
+const err387 = {instancePath:instancePath+"/quotas/anonymous",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'",schema:schema32.required,parentSchema:schema32,data:data101};
+if(vErrors === null){
+vErrors = [err387];
+}
+else {
+vErrors.push(err387);
+}
+errors++;
+}
+if(data101.unlimited !== undefined){
+let data102 = data101.unlimited;
+if(typeof data102 !== "boolean"){
+const err388 = {instancePath:instancePath+"/quotas/anonymous/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema32.properties.unlimited.type,parentSchema:schema32.properties.unlimited,data:data102};
+if(vErrors === null){
+vErrors = [err388];
+}
+else {
+vErrors.push(err388);
+}
+errors++;
+}
+if(errors > 0){
 const emErrs116 = [];
-for(const err393 of vErrors){
-if(!err393.emUsed){
-emErrs116.push(err393);
+for(const err389 of vErrors){
+if(!err389.emUsed){
+emErrs116.push(err389);
 }
 }
 vErrors = emErrs116;
 errors = emErrs116.length;
 }
 }
-if(data81.anonymous !== undefined){
-let data102 = data81.anonymous;
-if(data102 && typeof data102 == "object" && !Array.isArray(data102)){
-if(data102.unlimited === undefined){
-const err394 = {instancePath:instancePath+"/quotas/anonymous",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'",schema:schema32.required,parentSchema:schema32,data:data102};
+if(data101.monthlyLimit !== undefined){
+let data103 = data101.monthlyLimit;
+if(typeof data103 == "number"){
+if(data103 < 0 || isNaN(data103)){
+const err390 = {instancePath:instancePath+"/quotas/anonymous/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema32.properties.monthlyLimit,data:data103};
 if(vErrors === null){
-vErrors = [err394];
+vErrors = [err390];
 }
 else {
-vErrors.push(err394);
+vErrors.push(err390);
 }
 errors++;
 }
-if(data102.dailyTokenLimit === undefined){
-const err395 = {instancePath:instancePath+"/quotas/anonymous",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "dailyTokenLimit"},message:"must have required property '"+"dailyTokenLimit"+"'",schema:schema32.required,parentSchema:schema32,data:data102};
-if(vErrors === null){
-vErrors = [err395];
 }
 else {
-vErrors.push(err395);
-}
-errors++;
-}
-if(data102.monthlyTokenLimit === undefined){
-const err396 = {instancePath:instancePath+"/quotas/anonymous",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyTokenLimit"},message:"must have required property '"+"monthlyTokenLimit"+"'",schema:schema32.required,parentSchema:schema32,data:data102};
+const err391 = {instancePath:instancePath+"/quotas/anonymous/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema32.properties.monthlyLimit.type,parentSchema:schema32.properties.monthlyLimit,data:data103};
 if(vErrors === null){
-vErrors = [err396];
+vErrors = [err391];
 }
 else {
-vErrors.push(err396);
-}
-errors++;
-}
-if(data102.unlimited !== undefined){
-let data103 = data102.unlimited;
-if(typeof data103 !== "boolean"){
-const err397 = {instancePath:instancePath+"/quotas/anonymous/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema32.properties.unlimited.type,parentSchema:schema32.properties.unlimited,data:data103};
-if(vErrors === null){
-vErrors = [err397];
-}
-else {
-vErrors.push(err397);
+vErrors.push(err391);
 }
 errors++;
 }
 if(errors > 0){
 const emErrs117 = [];
-for(const err398 of vErrors){
-if(!err398.emUsed){
-emErrs117.push(err398);
+for(const err392 of vErrors){
+if(!err392.emUsed){
+emErrs117.push(err392);
 }
 }
 vErrors = emErrs117;
 errors = emErrs117.length;
 }
 }
-if(data102.dailyTokenLimit !== undefined){
-let data104 = data102.dailyTokenLimit;
-if(!((typeof data104 == "number") && (!(data104 % 1) && !isNaN(data104)))){
-const err399 = {instancePath:instancePath+"/quotas/anonymous/dailyTokenLimit",schemaPath:"#/definitions/RoleQuota/properties/dailyTokenLimit/type",keyword:"type",params:{type: "integer"},message:"must be integer",schema:schema32.properties.dailyTokenLimit.type,parentSchema:schema32.properties.dailyTokenLimit,data:data104};
+}
+else {
+const err393 = {instancePath:instancePath+"/quotas/anonymous",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema32.type,parentSchema:schema32,data:data101};
 if(vErrors === null){
-vErrors = [err399];
+vErrors = [err393];
 }
 else {
-vErrors.push(err399);
-}
-errors++;
-}
-if(typeof data104 == "number"){
-if(data104 < 0 || isNaN(data104)){
-const err400 = {instancePath:instancePath+"/quotas/anonymous/dailyTokenLimit",schemaPath:"#/definitions/RoleQuota/properties/dailyTokenLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema32.properties.dailyTokenLimit,data:data104};
-if(vErrors === null){
-vErrors = [err400];
-}
-else {
-vErrors.push(err400);
-}
-errors++;
-}
-}
-if(errors > 0){
-const emErrs118 = [];
-for(const err401 of vErrors){
-if(!err401.emUsed){
-emErrs118.push(err401);
-}
-}
-vErrors = emErrs118;
-errors = emErrs118.length;
-}
-}
-if(data102.monthlyTokenLimit !== undefined){
-let data105 = data102.monthlyTokenLimit;
-if(!((typeof data105 == "number") && (!(data105 % 1) && !isNaN(data105)))){
-const err402 = {instancePath:instancePath+"/quotas/anonymous/monthlyTokenLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyTokenLimit/type",keyword:"type",params:{type: "integer"},message:"must be integer",schema:schema32.properties.monthlyTokenLimit.type,parentSchema:schema32.properties.monthlyTokenLimit,data:data105};
-if(vErrors === null){
-vErrors = [err402];
-}
-else {
-vErrors.push(err402);
-}
-errors++;
-}
-if(typeof data105 == "number"){
-if(data105 < 0 || isNaN(data105)){
-const err403 = {instancePath:instancePath+"/quotas/anonymous/monthlyTokenLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyTokenLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema32.properties.monthlyTokenLimit,data:data105};
-if(vErrors === null){
-vErrors = [err403];
-}
-else {
-vErrors.push(err403);
-}
-errors++;
-}
-}
-if(errors > 0){
-const emErrs119 = [];
-for(const err404 of vErrors){
-if(!err404.emUsed){
-emErrs119.push(err404);
-}
-}
-vErrors = emErrs119;
-errors = emErrs119.length;
-}
-}
-}
-else {
-const err405 = {instancePath:instancePath+"/quotas/anonymous",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema32.type,parentSchema:schema32,data:data102};
-if(vErrors === null){
-vErrors = [err405];
-}
-else {
-vErrors.push(err405);
+vErrors.push(err393);
 }
 errors++;
 }
 if(errors > 0){
-const emErrors31 = {"required":{"unlimited":[],"dailyTokenLimit":[],"monthlyTokenLimit":[]}};
+const emErrors31 = {"required":{"unlimited":[],"monthlyLimit":[]}};
 const templates31 = {required:{}};
 let emPropParams30;
 let emParamsErrors30;
-for(const err406 of vErrors){
-if((((((err406.keyword !== "errorMessage") && (!err406.emUsed)) && (err406.instancePath === instancePath+"/quotas/anonymous")) && (err406.keyword in emErrors31)) && (err406.schemaPath.indexOf("#/definitions/RoleQuota") === 0)) && (/^\/[^\/]*$/.test(err406.schemaPath.slice(23)))){
-emPropParams30 = obj0[err406.keyword];
-emParamsErrors30 = emErrors31[err406.keyword][err406.params[emPropParams30]];
+for(const err394 of vErrors){
+if((((((err394.keyword !== "errorMessage") && (!err394.emUsed)) && (err394.instancePath === instancePath+"/quotas/anonymous")) && (err394.keyword in emErrors31)) && (err394.schemaPath.indexOf("#/definitions/RoleQuota") === 0)) && (/^\/[^\/]*$/.test(err394.schemaPath.slice(23)))){
+emPropParams30 = obj0[err394.keyword];
+emParamsErrors30 = emErrors31[err394.keyword][err394.params[emPropParams30]];
 if(emParamsErrors30){
-emParamsErrors30.push(err406);
-err406.emUsed = true;
+emParamsErrors30.push(err394);
+err394.emUsed = true;
 }
 }
 }
@@ -8421,38 +8291,38 @@ for(const keyProp30 in emErrors31[key34]){
 emParamsErrors30 = emErrors31[key34][keyProp30];
 if(emParamsErrors30.length){
 const tmpl30 = templates31[key34] && templates31[key34][keyProp30];
-const err407 = {instancePath:instancePath+"/quotas/anonymous",schemaPath:"#/definitions/RoleQuota/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors30},message:tmpl30 ? tmpl30() : schema32.errorMessage[key34][keyProp30],schema:schema32.errorMessage,parentSchema:schema32,data:data102};
+const err395 = {instancePath:instancePath+"/quotas/anonymous",schemaPath:"#/definitions/RoleQuota/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors30},message:tmpl30 ? tmpl30() : schema32.errorMessage[key34][keyProp30],schema:schema32.errorMessage,parentSchema:schema32,data:data101};
 if(vErrors === null){
-vErrors = [err407];
+vErrors = [err395];
 }
 else {
-vErrors.push(err407);
+vErrors.push(err395);
 }
 errors++;
 }
 }
 }
-const emErrs120 = [];
-for(const err408 of vErrors){
-if(!err408.emUsed){
-emErrs120.push(err408);
+const emErrs118 = [];
+for(const err396 of vErrors){
+if(!err396.emUsed){
+emErrs118.push(err396);
 }
 }
-vErrors = emErrs120;
-errors = emErrs120.length;
+vErrors = emErrs118;
+errors = emErrs118.length;
 }
 if(errors > 0){
-const emErrors32 = {"required":{"unlimited":[],"dailyTokenLimit":[],"monthlyTokenLimit":[]}};
+const emErrors32 = {"required":{"unlimited":[],"monthlyLimit":[]}};
 const templates32 = {required:{}};
 let emPropParams31;
 let emParamsErrors31;
-for(const err409 of vErrors){
-if((((((err409.keyword !== "errorMessage") && (!err409.emUsed)) && (err409.instancePath === instancePath+"/quotas/anonymous")) && (err409.keyword in emErrors32)) && (err409.schemaPath.indexOf("#/properties/quotas/properties/anonymous") === 0)) && (/^\/[^\/]*$/.test(err409.schemaPath.slice(40)))){
-emPropParams31 = obj0[err409.keyword];
-emParamsErrors31 = emErrors32[err409.keyword][err409.params[emPropParams31]];
+for(const err397 of vErrors){
+if((((((err397.keyword !== "errorMessage") && (!err397.emUsed)) && (err397.instancePath === instancePath+"/quotas/anonymous")) && (err397.keyword in emErrors32)) && (err397.schemaPath.indexOf("#/properties/quotas/properties/anonymous") === 0)) && (/^\/[^\/]*$/.test(err397.schemaPath.slice(40)))){
+emPropParams31 = obj0[err397.keyword];
+emParamsErrors31 = emErrors32[err397.keyword][err397.params[emPropParams31]];
 if(emParamsErrors31){
-emParamsErrors31.push(err409);
-err409.emUsed = true;
+emParamsErrors31.push(err397);
+err397.emUsed = true;
 }
 }
 }
@@ -8461,35 +8331,35 @@ for(const keyProp31 in emErrors32[key35]){
 emParamsErrors31 = emErrors32[key35][keyProp31];
 if(emParamsErrors31.length){
 const tmpl31 = templates32[key35] && templates32[key35][keyProp31];
-const err410 = {instancePath:instancePath+"/quotas/anonymous",schemaPath:"#/properties/quotas/properties/anonymous/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors31},message:tmpl31 ? tmpl31() : schema27.properties.quotas.properties.anonymous.errorMessage[key35][keyProp31],schema:schema27.properties.quotas.properties.anonymous.errorMessage,parentSchema:schema27.properties.quotas.properties.anonymous,data:data102};
+const err398 = {instancePath:instancePath+"/quotas/anonymous",schemaPath:"#/properties/quotas/properties/anonymous/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors31},message:tmpl31 ? tmpl31() : schema27.properties.quotas.properties.anonymous.errorMessage[key35][keyProp31],schema:schema27.properties.quotas.properties.anonymous.errorMessage,parentSchema:schema27.properties.quotas.properties.anonymous,data:data101};
 if(vErrors === null){
-vErrors = [err410];
+vErrors = [err398];
 }
 else {
-vErrors.push(err410);
+vErrors.push(err398);
 }
 errors++;
 }
 }
 }
-const emErrs121 = [];
-for(const err411 of vErrors){
-if(!err411.emUsed){
-emErrs121.push(err411);
+const emErrs119 = [];
+for(const err399 of vErrors){
+if(!err399.emUsed){
+emErrs119.push(err399);
 }
 }
-vErrors = emErrs121;
-errors = emErrs121.length;
+vErrors = emErrs119;
+errors = emErrs119.length;
 }
 }
 }
 else {
-const err412 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.quotas.type,parentSchema:schema27.properties.quotas,data:data81};
+const err400 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.quotas.type,parentSchema:schema27.properties.quotas,data:data85};
 if(vErrors === null){
-vErrors = [err412];
+vErrors = [err400];
 }
 else {
-vErrors.push(err412);
+vErrors.push(err400);
 }
 errors++;
 }
@@ -8498,13 +8368,13 @@ const emErrors33 = {"required":{"global":[],"admin":[],"contrib":[],"user":[],"e
 const templates33 = {required:{}};
 let emPropParams32;
 let emParamsErrors32;
-for(const err413 of vErrors){
-if((((((err413.keyword !== "errorMessage") && (!err413.emUsed)) && (err413.instancePath === instancePath+"/quotas")) && (err413.keyword in emErrors33)) && (err413.schemaPath.indexOf("#/properties/quotas") === 0)) && (/^\/[^\/]*$/.test(err413.schemaPath.slice(19)))){
-emPropParams32 = obj0[err413.keyword];
-emParamsErrors32 = emErrors33[err413.keyword][err413.params[emPropParams32]];
+for(const err401 of vErrors){
+if((((((err401.keyword !== "errorMessage") && (!err401.emUsed)) && (err401.instancePath === instancePath+"/quotas")) && (err401.keyword in emErrors33)) && (err401.schemaPath.indexOf("#/properties/quotas") === 0)) && (/^\/[^\/]*$/.test(err401.schemaPath.slice(19)))){
+emPropParams32 = obj0[err401.keyword];
+emParamsErrors32 = emErrors33[err401.keyword][err401.params[emPropParams32]];
 if(emParamsErrors32){
-emParamsErrors32.push(err413);
-err413.emUsed = true;
+emParamsErrors32.push(err401);
+err401.emUsed = true;
 }
 }
 }
@@ -8513,35 +8383,35 @@ for(const keyProp32 in emErrors33[key36]){
 emParamsErrors32 = emErrors33[key36][keyProp32];
 if(emParamsErrors32.length){
 const tmpl32 = templates33[key36] && templates33[key36][keyProp32];
-const err414 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors32},message:tmpl32 ? tmpl32() : schema27.properties.quotas.errorMessage[key36][keyProp32],schema:schema27.properties.quotas.errorMessage,parentSchema:schema27.properties.quotas,data:data81};
+const err402 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors32},message:tmpl32 ? tmpl32() : schema27.properties.quotas.errorMessage[key36][keyProp32],schema:schema27.properties.quotas.errorMessage,parentSchema:schema27.properties.quotas,data:data85};
 if(vErrors === null){
-vErrors = [err414];
+vErrors = [err402];
 }
 else {
-vErrors.push(err414);
+vErrors.push(err402);
 }
 errors++;
 }
 }
 }
-const emErrs122 = [];
-for(const err415 of vErrors){
-if(!err415.emUsed){
-emErrs122.push(err415);
+const emErrs120 = [];
+for(const err403 of vErrors){
+if(!err403.emUsed){
+emErrs120.push(err403);
 }
 }
-vErrors = emErrs122;
-errors = emErrs122.length;
+vErrors = emErrs120;
+errors = emErrs120.length;
 }
 }
 }
 else {
-const err416 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.type,parentSchema:schema27,data};
+const err404 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.type,parentSchema:schema27,data};
 if(vErrors === null){
-vErrors = [err416];
+vErrors = [err404];
 }
 else {
-vErrors.push(err416);
+vErrors.push(err404);
 }
 errors++;
 }
@@ -8550,13 +8420,13 @@ const emErrors34 = {"required":{"providers":[],"models":[],"quotas":[]}};
 const templates34 = {required:{}};
 let emPropParams33;
 let emParamsErrors33;
-for(const err417 of vErrors){
-if((((((err417.keyword !== "errorMessage") && (!err417.emUsed)) && (err417.instancePath === instancePath)) && (err417.keyword in emErrors34)) && (err417.schemaPath.indexOf("#") === 0)) && (/^\/[^\/]*$/.test(err417.schemaPath.slice(1)))){
-emPropParams33 = obj0[err417.keyword];
-emParamsErrors33 = emErrors34[err417.keyword][err417.params[emPropParams33]];
+for(const err405 of vErrors){
+if((((((err405.keyword !== "errorMessage") && (!err405.emUsed)) && (err405.instancePath === instancePath)) && (err405.keyword in emErrors34)) && (err405.schemaPath.indexOf("#") === 0)) && (/^\/[^\/]*$/.test(err405.schemaPath.slice(1)))){
+emPropParams33 = obj0[err405.keyword];
+emParamsErrors33 = emErrors34[err405.keyword][err405.params[emPropParams33]];
 if(emParamsErrors33){
-emParamsErrors33.push(err417);
-err417.emUsed = true;
+emParamsErrors33.push(err405);
+err405.emUsed = true;
 }
 }
 }
@@ -8565,25 +8435,25 @@ for(const keyProp33 in emErrors34[key37]){
 emParamsErrors33 = emErrors34[key37][keyProp33];
 if(emParamsErrors33.length){
 const tmpl33 = templates34[key37] && templates34[key37][keyProp33];
-const err418 = {instancePath,schemaPath:"#/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors33},message:tmpl33 ? tmpl33() : schema27.errorMessage[key37][keyProp33],schema:schema27.errorMessage,parentSchema:schema27,data};
+const err406 = {instancePath,schemaPath:"#/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors33},message:tmpl33 ? tmpl33() : schema27.errorMessage[key37][keyProp33],schema:schema27.errorMessage,parentSchema:schema27,data};
 if(vErrors === null){
-vErrors = [err418];
+vErrors = [err406];
 }
 else {
-vErrors.push(err418);
+vErrors.push(err406);
 }
 errors++;
 }
 }
 }
-const emErrs123 = [];
-for(const err419 of vErrors){
-if(!err419.emUsed){
-emErrs123.push(err419);
+const emErrs121 = [];
+for(const err407 of vErrors){
+if(!err407.emUsed){
+emErrs121.push(err407);
 }
 }
-vErrors = emErrs123;
-errors = emErrs123.length;
+vErrors = emErrs121;
+errors = emErrs121.length;
 }
 validate23.errors = vErrors;
 return errors === 0;
@@ -9402,11 +9272,11 @@ const compiledLayout = {
       pointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant",
       refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant",
       pure: false,
-      propertyKeys: ["model", "ratio"],
+      propertyKeys: ["model", "inputPricePerMillion", "outputPricePerMillion"],
       roPropertyKeys: [],
       nullable: false,
       required: undefined,
-      children: ["https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/model", "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/ratio"]
+      children: ["https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/model", "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/inputPricePerMillion", "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/outputPricePerMillion"]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/model": {
@@ -9495,11 +9365,23 @@ const compiledLayout = {
       required: true
     },
 
-    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/ratio": {
-      title: "Ratio d'utilisation",
-      key: "ratio",
-      pointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/ratio",
-      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/ratio",
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/inputPricePerMillion": {
+      title: "Prix d'entrée (par million de tokens)",
+      key: "inputPricePerMillion",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/inputPricePerMillion",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/inputPricePerMillion",
+      pure: true,
+      propertyKeys: [],
+      roPropertyKeys: [],
+      nullable: false,
+      required: undefined
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/outputPricePerMillion": {
+      title: "Prix de sortie (par million de tokens)",
+      key: "outputPricePerMillion",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/outputPricePerMillion",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/outputPricePerMillion",
       pure: true,
       propertyKeys: [],
       roPropertyKeys: [],
@@ -9513,11 +9395,11 @@ const compiledLayout = {
       pointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools",
       refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools",
       pure: false,
-      propertyKeys: ["model", "ratio"],
+      propertyKeys: ["model", "inputPricePerMillion", "outputPricePerMillion"],
       roPropertyKeys: [],
       nullable: false,
       required: undefined,
-      children: ["https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/model", "https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/ratio"]
+      children: ["https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/model", "https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/inputPricePerMillion", "https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/outputPricePerMillion"]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/model": {
@@ -9533,11 +9415,23 @@ const compiledLayout = {
       children: ["https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/id", "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/name", "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider"]
     },
 
-    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/ratio": {
-      title: "Ratio d'utilisation",
-      key: "ratio",
-      pointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/ratio",
-      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/ratio",
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/inputPricePerMillion": {
+      title: "Prix d'entrée (par million de tokens)",
+      key: "inputPricePerMillion",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/inputPricePerMillion",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/inputPricePerMillion",
+      pure: true,
+      propertyKeys: [],
+      roPropertyKeys: [],
+      nullable: false,
+      required: undefined
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/outputPricePerMillion": {
+      title: "Prix de sortie (par million de tokens)",
+      key: "outputPricePerMillion",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/outputPricePerMillion",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/outputPricePerMillion",
       pure: true,
       propertyKeys: [],
       roPropertyKeys: [],
@@ -9551,11 +9445,11 @@ const compiledLayout = {
       pointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer",
       refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer",
       pure: false,
-      propertyKeys: ["model", "ratio"],
+      propertyKeys: ["model", "inputPricePerMillion", "outputPricePerMillion"],
       roPropertyKeys: [],
       nullable: false,
       required: undefined,
-      children: ["https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/model", "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/ratio"]
+      children: ["https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/model", "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/inputPricePerMillion", "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/outputPricePerMillion"]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/model": {
@@ -9571,11 +9465,23 @@ const compiledLayout = {
       children: ["https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/id", "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/name", "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider"]
     },
 
-    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/ratio": {
-      title: "Ratio d'utilisation",
-      key: "ratio",
-      pointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/ratio",
-      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/ratio",
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/inputPricePerMillion": {
+      title: "Prix d'entrée (par million de tokens)",
+      key: "inputPricePerMillion",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/inputPricePerMillion",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/inputPricePerMillion",
+      pure: true,
+      propertyKeys: [],
+      roPropertyKeys: [],
+      nullable: false,
+      required: undefined
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/outputPricePerMillion": {
+      title: "Prix de sortie (par million de tokens)",
+      key: "outputPricePerMillion",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/outputPricePerMillion",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/outputPricePerMillion",
       pure: true,
       propertyKeys: [],
       roPropertyKeys: [],
@@ -9589,11 +9495,11 @@ const compiledLayout = {
       pointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator",
       refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator",
       pure: false,
-      propertyKeys: ["model", "ratio"],
+      propertyKeys: ["model", "inputPricePerMillion", "outputPricePerMillion"],
       roPropertyKeys: [],
       nullable: false,
       required: undefined,
-      children: ["https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/model", "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/ratio"]
+      children: ["https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/model", "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/inputPricePerMillion", "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/outputPricePerMillion"]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/model": {
@@ -9609,11 +9515,23 @@ const compiledLayout = {
       children: ["https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/id", "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/name", "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider"]
     },
 
-    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/ratio": {
-      title: "Ratio d'utilisation",
-      key: "ratio",
-      pointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/ratio",
-      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/ratio",
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/inputPricePerMillion": {
+      title: "Prix d'entrée (par million de tokens)",
+      key: "inputPricePerMillion",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/inputPricePerMillion",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/inputPricePerMillion",
+      pure: true,
+      propertyKeys: [],
+      roPropertyKeys: [],
+      nullable: false,
+      required: undefined
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/outputPricePerMillion": {
+      title: "Prix de sortie (par million de tokens)",
+      key: "outputPricePerMillion",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/outputPricePerMillion",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/outputPricePerMillion",
       pure: true,
       propertyKeys: [],
       roPropertyKeys: [],
@@ -9640,11 +9558,11 @@ const compiledLayout = {
       pointer: "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/global",
       refPointer: "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota",
       pure: false,
-      propertyKeys: ["unlimited", "dailyTokenLimit", "monthlyTokenLimit"],
+      propertyKeys: ["unlimited", "monthlyLimit"],
       roPropertyKeys: [],
       nullable: false,
       required: true,
-      children: ["https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/unlimited", "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/dailyTokenLimit", "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyTokenLimit"]
+      children: ["https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/unlimited", "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyLimit"]
     },
 
     "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/unlimited": {
@@ -9659,23 +9577,11 @@ const compiledLayout = {
       required: true
     },
 
-    "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/dailyTokenLimit": {
-      title: "Limite de tokens journalière",
-      key: "dailyTokenLimit",
-      pointer: "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/dailyTokenLimit",
-      refPointer: "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/dailyTokenLimit",
-      pure: false,
-      propertyKeys: [],
-      roPropertyKeys: [],
-      nullable: false,
-      required: true
-    },
-
-    "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyTokenLimit": {
-      title: "Limite de tokens mensuelle",
-      key: "monthlyTokenLimit",
-      pointer: "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyTokenLimit",
-      refPointer: "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyTokenLimit",
+    "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyLimit": {
+      title: "Limite mensuelle",
+      key: "monthlyLimit",
+      pointer: "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyLimit",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyLimit",
       pure: false,
       propertyKeys: [],
       roPropertyKeys: [],
@@ -9689,11 +9595,11 @@ const compiledLayout = {
       pointer: "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/admin",
       refPointer: "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota",
       pure: false,
-      propertyKeys: ["unlimited", "dailyTokenLimit", "monthlyTokenLimit"],
+      propertyKeys: ["unlimited", "monthlyLimit"],
       roPropertyKeys: [],
       nullable: false,
       required: true,
-      children: ["https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/unlimited", "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/dailyTokenLimit", "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyTokenLimit"]
+      children: ["https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/unlimited", "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyLimit"]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/contrib": {
@@ -9702,11 +9608,11 @@ const compiledLayout = {
       pointer: "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/contrib",
       refPointer: "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota",
       pure: false,
-      propertyKeys: ["unlimited", "dailyTokenLimit", "monthlyTokenLimit"],
+      propertyKeys: ["unlimited", "monthlyLimit"],
       roPropertyKeys: [],
       nullable: false,
       required: true,
-      children: ["https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/unlimited", "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/dailyTokenLimit", "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyTokenLimit"]
+      children: ["https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/unlimited", "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyLimit"]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/user": {
@@ -9715,11 +9621,11 @@ const compiledLayout = {
       pointer: "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/user",
       refPointer: "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota",
       pure: false,
-      propertyKeys: ["unlimited", "dailyTokenLimit", "monthlyTokenLimit"],
+      propertyKeys: ["unlimited", "monthlyLimit"],
       roPropertyKeys: [],
       nullable: false,
       required: true,
-      children: ["https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/unlimited", "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/dailyTokenLimit", "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyTokenLimit"]
+      children: ["https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/unlimited", "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyLimit"]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/external": {
@@ -9728,11 +9634,11 @@ const compiledLayout = {
       pointer: "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/external",
       refPointer: "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota",
       pure: false,
-      propertyKeys: ["unlimited", "dailyTokenLimit", "monthlyTokenLimit"],
+      propertyKeys: ["unlimited", "monthlyLimit"],
       roPropertyKeys: [],
       nullable: false,
       required: true,
-      children: ["https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/unlimited", "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/dailyTokenLimit", "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyTokenLimit"]
+      children: ["https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/unlimited", "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyLimit"]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/anonymous": {
@@ -9741,11 +9647,11 @@ const compiledLayout = {
       pointer: "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/anonymous",
       refPointer: "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota",
       pure: false,
-      propertyKeys: ["unlimited", "dailyTokenLimit", "monthlyTokenLimit"],
+      propertyKeys: ["unlimited", "monthlyLimit"],
       roPropertyKeys: [],
       nullable: false,
       required: true,
-      children: ["https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/unlimited", "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/dailyTokenLimit", "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyTokenLimit"]
+      children: ["https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/unlimited", "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyLimit"]
     }
   },
 
@@ -10657,18 +10563,20 @@ const compiledLayout = {
       comp: "card",
 
       children: [{
-        key: "model",
+        key: "model"
+      }, {
+        key: "inputPricePerMillion",
 
         cols: {
           xs: 12,
-          sm: 8
+          sm: 6
         }
       }, {
-        key: "ratio",
+        key: "outputPricePerMillion",
 
         cols: {
           xs: 12,
-          sm: 4
+          sm: 6
         }
       }],
 
@@ -10771,12 +10679,26 @@ const compiledLayout = {
       label: "Provider ID"
     },
 
-    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/ratio": {
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/inputPricePerMillion": {
       comp: "number-field",
       min: 0,
-      label: "Ratio d'utilisation",
-      help: "<p>Multiplicateur appliqué à l&#39;utilisation des tokens pour le calcul des quotas (ex : 1.0 = coût plein, 0.5 = demi-coût)</p>",
-      defaultData: 1,
+      label: "Prix d'entrée (par million de tokens)",
+      defaultData: 0,
+
+      getDefaultData: {
+        type: "js-eval",
+        expr: "layout.defaultData",
+        pure: true,
+        dataAlias: "value",
+        ref: 0
+      }
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/outputPricePerMillion": {
+      comp: "number-field",
+      min: 0,
+      label: "Prix de sortie (par million de tokens)",
+      defaultData: 0,
 
       getDefaultData: {
         type: "js-eval",
@@ -10791,18 +10713,20 @@ const compiledLayout = {
       comp: "card",
 
       children: [{
-        key: "model",
+        key: "model"
+      }, {
+        key: "inputPricePerMillion",
 
         cols: {
           xs: 12,
-          sm: 8
+          sm: 6
         }
       }, {
-        key: "ratio",
+        key: "outputPricePerMillion",
 
         cols: {
           xs: 12,
-          sm: 4
+          sm: 6
         }
       }],
 
@@ -10857,12 +10781,26 @@ const compiledLayout = {
       label: "Modèle"
     },
 
-    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/ratio": {
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/inputPricePerMillion": {
       comp: "number-field",
       min: 0,
-      label: "Ratio d'utilisation",
-      help: "<p>Multiplicateur appliqué à l&#39;utilisation des tokens pour le calcul des quotas</p>",
-      defaultData: 0.5,
+      label: "Prix d'entrée (par million de tokens)",
+      defaultData: 0,
+
+      getDefaultData: {
+        type: "js-eval",
+        expr: "layout.defaultData",
+        pure: true,
+        dataAlias: "value",
+        ref: 0
+      }
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/outputPricePerMillion": {
+      comp: "number-field",
+      min: 0,
+      label: "Prix de sortie (par million de tokens)",
+      defaultData: 0,
 
       getDefaultData: {
         type: "js-eval",
@@ -10877,18 +10815,20 @@ const compiledLayout = {
       comp: "card",
 
       children: [{
-        key: "model",
+        key: "model"
+      }, {
+        key: "inputPricePerMillion",
 
         cols: {
           xs: 12,
-          sm: 8
+          sm: 6
         }
       }, {
-        key: "ratio",
+        key: "outputPricePerMillion",
 
         cols: {
           xs: 12,
-          sm: 4
+          sm: 6
         }
       }],
 
@@ -10943,12 +10883,26 @@ const compiledLayout = {
       label: "Modèle"
     },
 
-    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/ratio": {
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/inputPricePerMillion": {
       comp: "number-field",
       min: 0,
-      label: "Ratio d'utilisation",
-      help: "<p>Multiplicateur appliqué à l&#39;utilisation des tokens pour le calcul des quotas (ex : 0.5 pour une synthèse moins coûteuse)</p>",
-      defaultData: 0.5,
+      label: "Prix d'entrée (par million de tokens)",
+      defaultData: 0,
+
+      getDefaultData: {
+        type: "js-eval",
+        expr: "layout.defaultData",
+        pure: true,
+        dataAlias: "value",
+        ref: 0
+      }
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/outputPricePerMillion": {
+      comp: "number-field",
+      min: 0,
+      label: "Prix de sortie (par million de tokens)",
+      defaultData: 0,
 
       getDefaultData: {
         type: "js-eval",
@@ -10963,18 +10917,20 @@ const compiledLayout = {
       comp: "card",
 
       children: [{
-        key: "model",
+        key: "model"
+      }, {
+        key: "inputPricePerMillion",
 
         cols: {
           xs: 12,
-          sm: 8
+          sm: 6
         }
       }, {
-        key: "ratio",
+        key: "outputPricePerMillion",
 
         cols: {
           xs: 12,
-          sm: 4
+          sm: 6
         }
       }],
 
@@ -11029,12 +10985,26 @@ const compiledLayout = {
       label: "Modèle"
     },
 
-    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/ratio": {
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/inputPricePerMillion": {
       comp: "number-field",
       min: 0,
-      label: "Ratio d'utilisation",
-      help: "<p>Multiplicateur appliqué à l&#39;utilisation des tokens pour le calcul des quotas</p>",
-      defaultData: 1,
+      label: "Prix d'entrée (par million de tokens)",
+      defaultData: 0,
+
+      getDefaultData: {
+        type: "js-eval",
+        expr: "layout.defaultData",
+        pure: true,
+        dataAlias: "value",
+        ref: 0
+      }
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/outputPricePerMillion": {
+      comp: "number-field",
+      min: 0,
+      label: "Prix de sortie (par million de tokens)",
+      defaultData: 0,
 
       getDefaultData: {
         type: "js-eval",
@@ -11127,38 +11097,32 @@ const compiledLayout = {
       defaultData: {
         global: {
           unlimited: false,
-          dailyTokenLimit: 100000,
-          monthlyTokenLimit: 1000000
+          monthlyLimit: 10
         },
 
         admin: {
           unlimited: true,
-          dailyTokenLimit: 0,
-          monthlyTokenLimit: 0
+          monthlyLimit: 0
         },
 
         contrib: {
           unlimited: false,
-          dailyTokenLimit: 0,
-          monthlyTokenLimit: 0
+          monthlyLimit: 0
         },
 
         user: {
           unlimited: false,
-          dailyTokenLimit: 0,
-          monthlyTokenLimit: 0
+          monthlyLimit: 0
         },
 
         external: {
           unlimited: false,
-          dailyTokenLimit: 0,
-          monthlyTokenLimit: 0
+          monthlyLimit: 0
         },
 
         anonymous: {
           unlimited: false,
-          dailyTokenLimit: 0,
-          monthlyTokenLimit: 0
+          monthlyLimit: 0
         }
       },
 
@@ -11177,17 +11141,14 @@ const compiledLayout = {
       children: [{
         key: "unlimited"
       }, {
-        key: "dailyTokenLimit"
-      }, {
-        key: "monthlyTokenLimit"
+        key: "monthlyLimit"
       }],
 
       title: "Quotas globaux",
 
       defaultData: {
         unlimited: false,
-        dailyTokenLimit: 100000,
-        monthlyTokenLimit: 1000000
+        monthlyLimit: 10
       },
 
       getDefaultData: {
@@ -11213,7 +11174,7 @@ const compiledLayout = {
       }
     },
 
-    "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/dailyTokenLimit": {
+    "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyLimit": {
       if: {
         type: "js-eval",
         expr: "!parent.data.unlimited",
@@ -11222,46 +11183,10 @@ const compiledLayout = {
         ref: 20
       },
 
-      cols: {
-        xs: 12,
-        sm: 6
-      },
-
       comp: "number-field",
-      step: 1,
       min: 0,
-      precision: 0,
-      label: "Limite de tokens journalière",
-      defaultData: 0,
-
-      getDefaultData: {
-        type: "js-eval",
-        expr: "layout.defaultData",
-        pure: true,
-        dataAlias: "value",
-        ref: 0
-      }
-    },
-
-    "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyTokenLimit": {
-      if: {
-        type: "js-eval",
-        expr: "!parent.data.unlimited",
-        pure: false,
-        dataAlias: "value",
-        ref: 20
-      },
-
-      cols: {
-        xs: 12,
-        sm: 6
-      },
-
-      comp: "number-field",
-      step: 1,
-      min: 0,
-      precision: 0,
-      label: "Limite de tokens mensuelle",
+      label: "Limite mensuelle",
+      help: "<p>Limite hebdomadaire = mensuelle / 2, limite journalière = mensuelle / 4</p>",
       defaultData: 0,
 
       getDefaultData: {
@@ -11279,17 +11204,14 @@ const compiledLayout = {
       children: [{
         key: "unlimited"
       }, {
-        key: "dailyTokenLimit"
-      }, {
-        key: "monthlyTokenLimit"
+        key: "monthlyLimit"
       }],
 
       title: "Quotas administrateur",
 
       defaultData: {
         unlimited: true,
-        dailyTokenLimit: 0,
-        monthlyTokenLimit: 0
+        monthlyLimit: 0
       },
 
       getDefaultData: {
@@ -11307,17 +11229,14 @@ const compiledLayout = {
       children: [{
         key: "unlimited"
       }, {
-        key: "dailyTokenLimit"
-      }, {
-        key: "monthlyTokenLimit"
+        key: "monthlyLimit"
       }],
 
       title: "Quotas contributeur",
 
       defaultData: {
         unlimited: false,
-        dailyTokenLimit: 0,
-        monthlyTokenLimit: 0
+        monthlyLimit: 0
       },
 
       getDefaultData: {
@@ -11335,17 +11254,14 @@ const compiledLayout = {
       children: [{
         key: "unlimited"
       }, {
-        key: "dailyTokenLimit"
-      }, {
-        key: "monthlyTokenLimit"
+        key: "monthlyLimit"
       }],
 
       title: "Quotas utilisateur simple",
 
       defaultData: {
         unlimited: false,
-        dailyTokenLimit: 0,
-        monthlyTokenLimit: 0
+        monthlyLimit: 0
       },
 
       getDefaultData: {
@@ -11363,17 +11279,14 @@ const compiledLayout = {
       children: [{
         key: "unlimited"
       }, {
-        key: "dailyTokenLimit"
-      }, {
-        key: "monthlyTokenLimit"
+        key: "monthlyLimit"
       }],
 
       title: "Quotas utilisateur externe",
 
       defaultData: {
         unlimited: false,
-        dailyTokenLimit: 0,
-        monthlyTokenLimit: 0
+        monthlyLimit: 0
       },
 
       getDefaultData: {
@@ -11391,17 +11304,14 @@ const compiledLayout = {
       children: [{
         key: "unlimited"
       }, {
-        key: "dailyTokenLimit"
-      }, {
-        key: "monthlyTokenLimit"
+        key: "monthlyLimit"
       }],
 
       title: "Quotas utilisateur anonyme",
 
       defaultData: {
         unlimited: false,
-        dailyTokenLimit: 0,
-        monthlyTokenLimit: 0
+        monthlyLimit: 0
       },
 
       getDefaultData: {

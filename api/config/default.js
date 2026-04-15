@@ -12,5 +12,6 @@ export default {
     events: undefined
   },
   cipherPassword: undefined,
-  upgradeRoot: '/app/'
+  upgradeRoot: '/app/',
+  currency: 'EUR'
 }

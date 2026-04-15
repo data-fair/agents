@@ -18,6 +18,7 @@ export type ApiConfig = {
   };
   upgradeRoot?: string;
   cipherPassword: string;
+  currency: string;
   util?: unknown;
   get?: unknown;
   has?: unknown;

@@ -32,7 +32,9 @@ const settingsData = {
           name: 'Mock Provider',
           id: 'mock-provider'
         }
-      }
+      },
+      inputPricePerMillion: 1,
+      outputPricePerMillion: 2
     }
   },
   quotas: defaultQuotas
@@ -106,7 +108,7 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
       ...settingsData,
       quotas: {
         ...defaultQuotas,
-        external: { unlimited: false, dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
+        external: { unlimited: false, monthlyLimit: 100 }
       }
     })
     const provider = await createGatewayProvider(externalUser)
@@ -128,18 +130,18 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
   })
 
   test('returns 429 with quota exceeded message when daily global quota is exceeded', async () => {
+    // monthly=4 → daily=1 → seed daily usage >= 1
     await admin.put('/api/settings/user/test-standalone1', {
       ...settingsData,
       quotas: {
         ...defaultQuotas,
-        global: { unlimited: false, dailyTokenLimit: 100, monthlyTokenLimit: 1000000 }
+        global: { unlimited: false, monthlyLimit: 4 }
       }
     })
-    // Seed usage exceeding the daily limit
     const anonymousAx = (await import('../../support/axios.ts')).anonymousAx
     await anonymousAx.post('http://localhost:' + process.env.DEV_API_PORT + '/api/test-env/usage', {
       owner: { type: 'user', id: 'test-standalone1' },
-      totalTokens: 200
+      cost: 2
     })
 
     const res = await user.post('/api/gateway/user/test-standalone1/v1/chat/completions', {
@@ -148,10 +150,10 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
     }).catch((err: any) => err.response ?? err)
 
     assert.equal(res.status, 429)
-    assert.equal(res.data.error.message, 'Daily token quota exceeded')
+    assert.equal(res.data.error.message, 'Daily cost quota exceeded')
     assert.equal(res.data.error.type, 'rate_limit_error')
     assert.equal(res.data.error.scope, 'user')
-    assert.equal(res.data.error.limit, 100)
+    assert.equal(res.data.error.limit, 1)
     assert.ok(res.data.error.resets_at)
   })
 
@@ -160,13 +162,13 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
       ...settingsData,
       quotas: {
         ...defaultQuotas,
-        global: { unlimited: false, dailyTokenLimit: 100, monthlyTokenLimit: 1000000 }
+        global: { unlimited: false, monthlyLimit: 4 }
       }
     })
     const anonymousAx = (await import('../../support/axios.ts')).anonymousAx
     await anonymousAx.post('http://localhost:' + process.env.DEV_API_PORT + '/api/test-env/usage', {
       owner: { type: 'user', id: 'test-standalone1' },
-      totalTokens: 200
+      cost: 2
     })
 
     const provider = await createGatewayProvider(user)
@@ -178,20 +180,19 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
       })
       assert.fail('should have thrown')
     } catch (err: any) {
-      // Walk the cause chain like extractErrorMessage does
       let found = false
       let current = err
       while (current) {
-        if (current.data?.error?.message === 'Daily token quota exceeded') { found = true; break }
+        if (current.data?.error?.message === 'Daily cost quota exceeded') { found = true; break }
         if (current.responseBody) {
           try {
             const body = JSON.parse(current.responseBody)
-            if (body.error?.message === 'Daily token quota exceeded') { found = true; break }
+            if (body.error?.message === 'Daily cost quota exceeded') { found = true; break }
           } catch {}
         }
         current = current.cause
       }
-      assert.ok(found, `Expected to find 'Daily token quota exceeded' in error chain, got: ${err.message}`)
+      assert.ok(found, `Expected to find 'Daily cost quota exceeded' in error chain, got: ${err.message}`)
     }
   })
 })

@@ -17,7 +17,7 @@ test.describe('Usage UI', () => {
     // Seed settings
     await admin.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
-      models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } } } },
+      models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } }, inputPricePerMillion: 1, outputPricePerMillion: 2 } },
       quotas: defaultQuotas
     })
 
@@ -33,7 +33,7 @@ test.describe('Usage UI', () => {
     const admin = await superAdmin
     await admin.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
-      models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } } } },
+      models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } }, inputPricePerMillion: 1, outputPricePerMillion: 2 } },
       quotas: defaultQuotas
     })
 

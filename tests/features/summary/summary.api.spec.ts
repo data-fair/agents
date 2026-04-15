@@ -106,7 +106,7 @@ test.describe('Summary API', () => {
       models: { assistant: { model: mockModel } },
       quotas: {
         ...defaultQuotas,
-        external: { unlimited: false, dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
+        external: { unlimited: false, monthlyLimit: 100 }
       }
     })
 

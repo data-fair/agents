@@ -19,10 +19,10 @@
 
 <i18n lang="yaml">
 fr:
-  tokens: Tokens
+  cost: Coût
   noData: Aucune donnée pour ce jour
 en:
-  tokens: Tokens
+  cost: Cost
   noData: No data for this day
 </i18n>
 
@@ -43,22 +43,24 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip)
 interface UserEntry {
   userId: string
   userLabel: string
-  totalTokens: number
-  inputTokens: number
-  outputTokens: number
+  cost: number
 }
 
 const props = defineProps<{
   users: UserEntry[]
+  currency?: string
 }>()
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
+
+const currencyCode = computed(() => props.currency || 'EUR')
+const costFormatter = computed(() => new Intl.NumberFormat(locale.value, { style: 'currency', currency: currencyCode.value }))
 
 const chartData = computed(() => ({
   labels: props.users.map(u => u.userLabel),
   datasets: [{
-    label: t('tokens'),
-    data: props.users.map(u => u.totalTokens),
+    label: t('cost'),
+    data: props.users.map(u => u.cost),
     backgroundColor: 'rgba(25, 118, 210, 0.7)',
     borderRadius: 2
   }]
@@ -72,7 +74,7 @@ const chartOptions = computed(() => ({
     legend: { display: false },
     tooltip: {
       callbacks: {
-        label: (ctx: any) => `${(ctx.raw as number).toLocaleString()} tokens`
+        label: (ctx: any) => costFormatter.value.format(ctx.raw as number)
       }
     }
   },
@@ -80,12 +82,7 @@ const chartOptions = computed(() => ({
     x: {
       beginAtZero: true,
       ticks: {
-        callback: (val: string | number) => {
-          const n = Number(val)
-          if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-          if (n >= 1_000) return `${(n / 1_000).toFixed(0)}k`
-          return n
-        }
+        callback: (val: string | number) => costFormatter.value.format(Number(val))
       }
     },
     y: {

@@ -22,7 +22,7 @@ function monthlyPeriod (monthsAgo: number): string {
 
 const settingsData = {
   providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
-  models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } } } },
+  models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } }, inputPricePerMillion: 1, outputPricePerMillion: 2 } },
   quotas: defaultQuotas
 }
 
@@ -36,8 +36,8 @@ test.describe('Monitoring UI', () => {
     await admin.put('/api/settings/user/test-standalone1', settingsData)
 
     // Seed some data
-    await admin.post('/api/test-env/usage', { owner, totalTokens: 500, period: dailyPeriod(0) })
-    await admin.post('/api/test-env/usage', { owner, totalTokens: 3000, period: monthlyPeriod(0) })
+    await admin.post('/api/test-env/usage', { owner, cost: 5, period: dailyPeriod(0) })
+    await admin.post('/api/test-env/usage', { owner, cost: 30, period: monthlyPeriod(0) })
 
     await goToWithAuth('/agents/user/test-standalone1/settings', 'test-standalone1')
 
@@ -50,7 +50,7 @@ test.describe('Monitoring UI', () => {
     const admin = await superAdmin
     await admin.put('/api/settings/user/test-standalone1', settingsData)
 
-    await admin.post('/api/test-env/usage', { owner, userId: 'user-a', totalTokens: 1000, period: dailyPeriod(0) })
+    await admin.post('/api/test-env/usage', { owner, userId: 'user-a', cost: 10, period: dailyPeriod(0) })
 
     await goToWithAuth('/agents/user/test-standalone1/settings', 'test-standalone1')
 

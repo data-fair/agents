@@ -10,6 +10,7 @@
             v-if="monthlyFetch.data.value"
             :entries="monthlyFetch.data.value.entries"
             :monthly-limit="monthlyLimit"
+            :currency="currency"
           />
         </v-card-text>
       </v-card>
@@ -27,6 +28,7 @@
             v-if="dailyFetch.data.value"
             :entries="dailyFetch.data.value.entries"
             :daily-limit="dailyLimit"
+            :currency="currency"
           />
         </v-card-text>
       </v-card>
@@ -51,14 +53,13 @@ import MonitoringAccountHistogram from '~/components/MonitoringAccountHistogram.
 
 interface UsageEntry {
   label: string
-  inputTokens: number
-  outputTokens: number
-  totalTokens: number
+  cost: number
 }
 
 interface UsageData {
+  currency: string
   quotas: {
-    global: { unlimited?: boolean, dailyTokenLimit: number, monthlyTokenLimit: number }
+    global: { unlimited?: boolean, monthlyLimit: number }
   }
 }
 
@@ -81,15 +82,16 @@ const dailyFetch = useFetch<{ entries: UsageEntry[] }>(
   () => `${$apiPath}/usage/${props.accountType}/${props.accountId}/history?scope=account-daily&days=30`
 )
 
+const currency = computed(() => usageFetch.data.value?.currency || 'EUR')
+
 const monthlyLimit = computed(() => {
   const q = usageFetch.data.value?.quotas?.global
   if (!q || q.unlimited) return undefined
-  return q.monthlyTokenLimit || undefined
+  return q.monthlyLimit || undefined
 })
 
 const dailyLimit = computed(() => {
-  const q = usageFetch.data.value?.quotas?.global
-  if (!q || q.unlimited) return undefined
-  return q.dailyTokenLimit || undefined
+  const m = monthlyLimit.value
+  return m ? m / 4 : undefined
 })
 </script>

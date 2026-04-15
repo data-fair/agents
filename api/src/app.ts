@@ -49,22 +49,32 @@ if (process.env.NODE_ENV === 'development') {
     res.send()
   })
   app.post('/api/test-env/usage', async (req, res) => {
-    const { owner, totalTokens, userId, userName, period: explicitPeriod } = req.body
+    const { owner, cost, userId, userName, period: explicitPeriod } = req.body
     const now = new Date()
     const userIdField = userId !== undefined ? { userId } : {}
     const userNameField = userName !== undefined ? { userName } : {}
-    const doc = { owner, ...userIdField, ...userNameField, inputTokens: totalTokens, outputTokens: 0, totalTokens, updatedAt: now.toISOString() }
+    const doc = { owner, ...userIdField, ...userNameField, cost, updatedAt: now.toISOString() }
+
+    const isoWeek = (d: Date) => {
+      const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
+      const dayNum = t.getUTCDay() || 7
+      t.setUTCDate(t.getUTCDate() + 4 - dayNum)
+      const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1))
+      const week = Math.ceil((((t.getTime() - yearStart.getTime()) / 86400000) + 1) / 7)
+      return `weekly:${t.getUTCFullYear()}-W${String(week).padStart(2, '0')}`
+    }
 
     if (explicitPeriod) {
-      // insert a single record at an explicit period (e.g. 'daily:2026-04-05')
       const filter = { 'owner.type': owner.type, 'owner.id': owner.id, ...userIdField, period: explicitPeriod }
       await mongo.db.collection('usage').updateOne(filter, { $set: { ...doc, period: explicitPeriod } }, { upsert: true })
     } else {
       const dailyPeriod = `daily:${now.toISOString().slice(0, 10)}`
+      const weeklyPeriod = isoWeek(now)
       const monthlyPeriod = `monthly:${now.toISOString().slice(0, 7)}`
       const filter = { 'owner.type': owner.type, 'owner.id': owner.id, ...userIdField }
       await Promise.all([
         mongo.db.collection('usage').updateOne({ ...filter, period: dailyPeriod }, { $set: { ...doc, period: dailyPeriod } }, { upsert: true }),
+        mongo.db.collection('usage').updateOne({ ...filter, period: weeklyPeriod }, { $set: { ...doc, period: weeklyPeriod } }, { upsert: true }),
         mongo.db.collection('usage').updateOne({ ...filter, period: monthlyPeriod }, { $set: { ...doc, period: monthlyPeriod } }, { upsert: true })
       ])
     }

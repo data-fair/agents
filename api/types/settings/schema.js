@@ -13,7 +13,7 @@ export default {
     RoleQuota: {
       type: 'object',
       layout: 'card',
-      required: ['unlimited', 'dailyTokenLimit', 'monthlyTokenLimit'],
+      required: ['unlimited', 'monthlyLimit'],
       properties: {
         unlimited: {
           type: 'boolean',
@@ -24,24 +24,18 @@ export default {
           },
           default: false
         },
-        dailyTokenLimit: {
-          layout: { if: '!parent.data.unlimited', cols: 6 },
-          type: 'integer',
-          title: 'Daily Token Limit',
+        monthlyLimit: {
+          layout: { if: '!parent.data.unlimited' },
+          type: 'number',
+          title: 'Monthly Limit',
           'x-i18n-title': {
-            en: 'Daily Token Limit',
-            fr: 'Limite de tokens journalière'
+            en: 'Monthly Limit',
+            fr: 'Limite mensuelle'
           },
-          default: 0,
-          minimum: 0
-        },
-        monthlyTokenLimit: {
-          layout: { if: '!parent.data.unlimited', cols: 6 },
-          type: 'integer',
-          title: 'Monthly Token Limit',
-          'x-i18n-title': {
-            en: 'Monthly Token Limit',
-            fr: 'Limite de tokens mensuelle'
+          description: 'Weekly limit = monthly / 2, daily limit = monthly / 4',
+          'x-i18n-description': {
+            en: 'Weekly limit = monthly / 2, daily limit = monthly / 4',
+            fr: 'Limite hebdomadaire = mensuelle / 2, limite journalière = mensuelle / 4'
           },
           default: 0,
           minimum: 0
@@ -503,7 +497,7 @@ Recommendations: GPT-5.4, Claude 4.5 Sonnet, Llama 4 Maverick, Mistral Large 3, 
           },
           layout: {
             comp: 'card',
-            children: [{ key: 'model', cols: 8 }, { key: 'ratio', cols: 4 }],
+            children: [{ key: 'model' }, { key: 'inputPricePerMillion', cols: 6 }, { key: 'outputPricePerMillion', cols: 6 }],
             cols: 6
           },
           properties: {
@@ -515,20 +509,25 @@ Recommendations: GPT-5.4, Claude 4.5 Sonnet, Llama 4 Maverick, Mistral Large 3, 
                 fr: 'Modèle'
               },
             },
-            ratio: {
+            inputPricePerMillion: {
               type: 'number',
-              title: 'Usage Ratio',
+              title: 'Input price (per 1M tokens)',
               'x-i18n-title': {
-                en: 'Usage Ratio',
-                fr: "Ratio d'utilisation"
+                en: 'Input price (per 1M tokens)',
+                fr: "Prix d'entrée (par million de tokens)"
               },
-              description: 'Multiplier applied to token usage for quota accounting (e.g. 1.0 = full cost, 0.5 = half cost)',
-              'x-i18n-description': {
-                en: 'Multiplier applied to token usage for quota accounting (e.g. 1.0 = full cost, 0.5 = half cost)',
-                fr: "Multiplicateur appliqué à l'utilisation des tokens pour le calcul des quotas (ex : 1.0 = coût plein, 0.5 = demi-coût)"
+              default: 0,
+              minimum: 0
+            },
+            outputPricePerMillion: {
+              type: 'number',
+              title: 'Output price (per 1M tokens)',
+              'x-i18n-title': {
+                en: 'Output price (per 1M tokens)',
+                fr: 'Prix de sortie (par million de tokens)'
               },
-              default: 1,
-              minimum: 0,
+              default: 0,
+              minimum: 0
             }
           }
         },
@@ -549,7 +548,7 @@ Recommendations: GPT-5.4 Mini, Mistral DevStral, Claude 4.5 Sonnet (Computer Use
           },
           layout: {
             comp: 'card',
-            children: [{ key: 'model', cols: 8 }, { key: 'ratio', cols: 4 }],
+            children: [{ key: 'model' }, { key: 'inputPricePerMillion', cols: 6 }, { key: 'outputPricePerMillion', cols: 6 }],
             cols: 6
           },
           properties: {
@@ -561,19 +560,24 @@ Recommendations: GPT-5.4 Mini, Mistral DevStral, Claude 4.5 Sonnet (Computer Use
                 fr: 'Modèle'
               }
             },
-            ratio: {
+            inputPricePerMillion: {
               type: 'number',
-              title: 'Usage Ratio',
+              title: 'Input price (per 1M tokens)',
               'x-i18n-title': {
-                en: 'Usage Ratio',
-                fr: "Ratio d'utilisation"
+                en: 'Input price (per 1M tokens)',
+                fr: "Prix d'entrée (par million de tokens)"
               },
-              description: 'Multiplier applied to token usage for quota accounting',
-              'x-i18n-description': {
-                en: 'Multiplier applied to token usage for quota accounting',
-                fr: "Multiplicateur appliqué à l'utilisation des tokens pour le calcul des quotas"
+              default: 0,
+              minimum: 0
+            },
+            outputPricePerMillion: {
+              type: 'number',
+              title: 'Output price (per 1M tokens)',
+              'x-i18n-title': {
+                en: 'Output price (per 1M tokens)',
+                fr: 'Prix de sortie (par million de tokens)'
               },
-              default: 0.5,
+              default: 0,
               minimum: 0
             }
           }
@@ -595,7 +599,7 @@ Recommendations: GPT-5.4 Mini, Claude 4.5 Haiku, Mistral Small 4, Llama 4 (8B), 
           },
           layout: {
             comp: 'card',
-            children: [{ key: 'model', cols: 8 }, { key: 'ratio', cols: 4 }],
+            children: [{ key: 'model' }, { key: 'inputPricePerMillion', cols: 6 }, { key: 'outputPricePerMillion', cols: 6 }],
             cols: 6
           },
           properties: {
@@ -607,19 +611,24 @@ Recommendations: GPT-5.4 Mini, Claude 4.5 Haiku, Mistral Small 4, Llama 4 (8B), 
                 fr: 'Modèle'
               }
             },
-            ratio: {
+            inputPricePerMillion: {
               type: 'number',
-              title: 'Usage Ratio',
+              title: 'Input price (per 1M tokens)',
               'x-i18n-title': {
-                en: 'Usage Ratio',
-                fr: "Ratio d'utilisation"
+                en: 'Input price (per 1M tokens)',
+                fr: "Prix d'entrée (par million de tokens)"
               },
-              description: 'Multiplier applied to token usage for quota accounting (e.g. 0.5 for cheaper summarization)',
-              'x-i18n-description': {
-                en: 'Multiplier applied to token usage for quota accounting (e.g. 0.5 for cheaper summarization)',
-                fr: "Multiplicateur appliqué à l'utilisation des tokens pour le calcul des quotas (ex : 0.5 pour une synthèse moins coûteuse)"
+              default: 0,
+              minimum: 0
+            },
+            outputPricePerMillion: {
+              type: 'number',
+              title: 'Output price (per 1M tokens)',
+              'x-i18n-title': {
+                en: 'Output price (per 1M tokens)',
+                fr: 'Prix de sortie (par million de tokens)'
               },
-              default: 0.5,
+              default: 0,
               minimum: 0
             }
           }
@@ -641,7 +650,7 @@ Recommendations: Claude Opus 4.6, GPT-5.4 (Reasoning), DeepSeek-R1, Pharia-1-LLM
           },
           layout: {
             comp: 'card',
-            children: [{ key: 'model', cols: 8 }, { key: 'ratio', cols: 4 }],
+            children: [{ key: 'model' }, { key: 'inputPricePerMillion', cols: 6 }, { key: 'outputPricePerMillion', cols: 6 }],
             cols: 6
           },
           properties: {
@@ -653,19 +662,24 @@ Recommendations: Claude Opus 4.6, GPT-5.4 (Reasoning), DeepSeek-R1, Pharia-1-LLM
                 fr: 'Modèle'
               }
             },
-            ratio: {
+            inputPricePerMillion: {
               type: 'number',
-              title: 'Usage Ratio',
+              title: 'Input price (per 1M tokens)',
               'x-i18n-title': {
-                en: 'Usage Ratio',
-                fr: "Ratio d'utilisation"
+                en: 'Input price (per 1M tokens)',
+                fr: "Prix d'entrée (par million de tokens)"
               },
-              description: 'Multiplier applied to token usage for quota accounting',
-              'x-i18n-description': {
-                en: 'Multiplier applied to token usage for quota accounting',
-                fr: "Multiplicateur appliqué à l'utilisation des tokens pour le calcul des quotas"
+              default: 0,
+              minimum: 0
+            },
+            outputPricePerMillion: {
+              type: 'number',
+              title: 'Output price (per 1M tokens)',
+              'x-i18n-title': {
+                en: 'Output price (per 1M tokens)',
+                fr: 'Prix de sortie (par million de tokens)'
               },
-              default: 1,
+              default: 0,
               minimum: 0
             }
           }
@@ -693,12 +707,12 @@ Recommendations: Claude Opus 4.6, GPT-5.4 (Reasoning), DeepSeek-R1, Pharia-1-LLM
       },
       required: ['global', 'admin', 'contrib', 'user', 'external', 'anonymous'],
       default: {
-        global: { unlimited: false, dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 },
-        admin: { unlimited: true, dailyTokenLimit: 0, monthlyTokenLimit: 0 },
-        contrib: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 },
-        user: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 },
-        external: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 },
-        anonymous: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 }
+        global: { unlimited: false, monthlyLimit: 10 },
+        admin: { unlimited: true, monthlyLimit: 0 },
+        contrib: { unlimited: false, monthlyLimit: 0 },
+        user: { unlimited: false, monthlyLimit: 0 },
+        external: { unlimited: false, monthlyLimit: 0 },
+        anonymous: { unlimited: false, monthlyLimit: 0 }
       },
       properties: {
         global: {
@@ -708,37 +722,37 @@ Recommendations: Claude Opus 4.6, GPT-5.4 (Reasoning), DeepSeek-R1, Pharia-1-LLM
             en: 'Global quotas',
             fr: 'Quotas globaux'
           },
-          default: { unlimited: false, dailyTokenLimit: 100000, monthlyTokenLimit: 1000000 }
+          default: { unlimited: false, monthlyLimit: 10 }
         },
         admin: {
           $ref: '#/definitions/RoleQuota',
           title: 'Admin quotas',
           'x-i18n-title': { en: 'Admin quotas', fr: 'Quotas administrateur' },
-          default: { unlimited: true, dailyTokenLimit: 0, monthlyTokenLimit: 0 }
+          default: { unlimited: true, monthlyLimit: 0 }
         },
         contrib: {
           $ref: '#/definitions/RoleQuota',
           title: 'Contributor quotas',
           'x-i18n-title': { en: 'Contributor quotas', fr: 'Quotas contributeur' },
-          default: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 }
+          default: { unlimited: false, monthlyLimit: 0 }
         },
         user: {
           $ref: '#/definitions/RoleQuota',
           title: 'Simple user Quotas',
           'x-i18n-title': { en: 'Simple user Quotas', fr: 'Quotas utilisateur simple' },
-          default: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 }
+          default: { unlimited: false, monthlyLimit: 0 }
         },
         external: {
           $ref: '#/definitions/RoleQuota',
           title: 'External user quotas',
           'x-i18n-title': { en: 'External user quotas', fr: 'Quotas utilisateur externe' },
-          default: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 }
+          default: { unlimited: false, monthlyLimit: 0 }
         },
         anonymous: {
           $ref: '#/definitions/RoleQuota',
           title: 'Anonymous user quotas',
           'x-i18n-title': { en: 'Anonymous user quotas', fr: 'Quotas utilisateur anonyme' },
-          default: { unlimited: false, dailyTokenLimit: 0, monthlyTokenLimit: 0 }
+          default: { unlimited: false, monthlyLimit: 0 }
         }
       }
     }
