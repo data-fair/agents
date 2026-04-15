@@ -47,6 +47,10 @@ function processMockPrompt (lastMessage: string, prompt: string | Array<any>): M
     return { type: 'text', text: 'world' }
   }
 
+  if (lastMessage.toLowerCase() === 'markdown') {
+    return { type: 'text', text: 'See [the docs](https://example.com/docs) for details.\n\n' }
+  }
+
   // If the most recent message in the prompt is a tool result, we already called a tool
   // in this step — respond with text instead of calling another tool
   if (Array.isArray(prompt) && prompt.length > 0 && prompt[prompt.length - 1].role === 'tool') {

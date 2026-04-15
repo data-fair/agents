@@ -8,13 +8,14 @@ const sanitizeOpts = getSanitizeOpts(sanitizeHtml.defaults)
 sanitizeOpts.allowedAttributes = { ...sanitizeOpts.allowedAttributes, a: ['href', 'target'] }
 marked.use(markedVuetify)
 
-const renderer = new marked.Renderer()
-const originalLink = renderer.link.bind(renderer)
-renderer.link = function (token) {
-  const html = originalLink(token)
-  return html.replace('<a ', '<a target="_top" ')
-}
-marked.use({ renderer })
+marked.use({
+  renderer: {
+    link (token) {
+      const html = marked.Renderer.prototype.link.call(this, token)
+      return html.replace('<a ', '<a target="_top" ')
+    }
+  }
+})
 
 export const renderMarkdown = (markdown: string) =>
   sanitizeHtml(marked.parse(markdown) as string, sanitizeOpts)
