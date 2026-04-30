@@ -5,6 +5,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
+import dayjs from 'dayjs'
 
 const user = await axiosAuth('test-standalone1')
 const admin = await superAdmin
@@ -33,28 +34,22 @@ const settingsData = {
 
 const owner = { type: 'user', id: 'test-standalone1' }
 
-function dailyPeriod (daysAgo: number): string {
-  const d = new Date()
-  d.setUTCDate(d.getUTCDate() - daysAgo)
-  return `daily:${d.toISOString().slice(0, 10)}`
-}
-
 function dateFromDaysAgo (daysAgo: number): string {
-  const d = new Date()
-  d.setUTCDate(d.getUTCDate() - daysAgo)
+  const d = dayjs().subtract(daysAgo, 'day')
   return d.toISOString().slice(0, 10)
 }
 
-function monthlyPeriod (monthsAgo: number): string {
-  const d = new Date()
-  d.setUTCMonth(d.getUTCMonth() - monthsAgo)
-  return `monthly:${d.toISOString().slice(0, 7)}`
+function dailyPeriod (daysAgo: number): string {
+  return `daily:${dateFromDaysAgo(daysAgo)}`
 }
 
 function monthFromMonthsAgo (monthsAgo: number): string {
-  const d = new Date()
-  d.setUTCMonth(d.getUTCMonth() - monthsAgo)
+  const d = dayjs().subtract(monthsAgo, 'month')
   return d.toISOString().slice(0, 7)
+}
+
+function monthlyPeriod (monthsAgo: number): string {
+  return `monthly:${monthFromMonthsAgo(monthsAgo)}`
 }
 
 test.describe('Monitoring History API', () => {
