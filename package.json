@@ -1,6 +1,6 @@
 {
   "name": "agents",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Agentic capabilities for the data-fair stack. Manage AI providers and configure agents using tools that integrate with other data-fair services.",
   "type": "module",
   "scripts": {
