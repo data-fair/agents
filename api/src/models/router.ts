@@ -28,6 +28,21 @@ async function fetchOpenAIModels (apiKey: string): Promise<CoreModelInfo[]> {
   }
 }
 
+async function fetchOpenAICompatibleModels (baseURL: string, apiKey?: string): Promise<CoreModelInfo[]> {
+  try {
+    const headers: Record<string, string> = {}
+    if (apiKey) headers.Authorization = `Bearer ${apiKey}`
+    const response = await axios.get(`${baseURL.replace(/\/$/, '')}/models`, { headers })
+    return response.data.data.map((model: any) => ({
+      id: model.id,
+      name: model.name || model.id
+    }))
+  } catch (err) {
+    console.error(`Failed to fetch OpenAI-compatible models from ${baseURL}:`, err)
+    return []
+  }
+}
+
 async function fetchAnthropicModels (apiKey: string): Promise<CoreModelInfo[]> {
   try {
     const response = await axios.get('https://api.anthropic.com/v1/models', {
@@ -122,6 +137,10 @@ async function fetchModelsForProvider (
     ]
   }
 
+  if (provider.type === 'openai-compatible') {
+    return fetchOpenAICompatibleModels(provider.baseURL, provider.apiKey)
+  }
+
   if (!provider.apiKey) {
     return []
   }
@@ -137,6 +156,8 @@ async function fetchModelsForProvider (
       return fetchMistralModels(provider.apiKey)
     case 'openrouter':
       return fetchOpenRouterModels(provider.apiKey)
+    case 'scaleway':
+      return fetchOpenAICompatibleModels('https://api.scaleway.ai/v1', provider.apiKey)
     default:
       return []
   }

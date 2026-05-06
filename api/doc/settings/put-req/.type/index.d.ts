@@ -6,7 +6,7 @@ export declare function assertValid(data: any, options?: import('@data-fair/lib-
 export declare function returnValid(data: any, options?: import('@data-fair/lib-validation').AssertValidOptions): SettingsPut
       
 // see https://github.com/bcherny/json-schema-to-typescript/issues/439 if some types are not exported
-export type Provider = OpenAI | Anthropic | Google | Mistral | OpenRouter | Ollama | Mock;
+export type Provider = OpenAI | Anthropic | Google | Mistral | OpenRouter | Ollama | Scaleway | OpenAICompatible | Mock;
 export type ProviderType = "openai";
 export type ProviderID = string;
 export type DisplayName = string;
@@ -38,16 +38,27 @@ export type DisplayName5 = string;
 export type Enabled5 = boolean;
 export type APIKey5 = string;
 export type BaseURL = string;
-export type ProviderType6 = "mock";
+export type ProviderType6 = "scaleway";
 export type ProviderID6 = string;
 export type DisplayName6 = string;
 export type Enabled6 = boolean;
+export type APIKey6 = string;
+export type ProviderType7 = "openai-compatible";
+export type ProviderID7 = string;
+export type DisplayName7 = string;
+export type Enabled7 = boolean;
+export type BaseURL1 = string;
+export type APIKey7 = string;
+export type ProviderType8 = "mock";
+export type ProviderID8 = string;
+export type DisplayName8 = string;
+export type Enabled8 = boolean;
 export type AIProviders = Provider[];
 export type ModelID = string;
 export type Name = string;
-export type ProviderType7 = string;
+export type ProviderType9 = string;
 export type ProviderName = string;
-export type ProviderID7 = string;
+export type ProviderID9 = string;
 export type InputPricePer1MTokens = number;
 export type OutputPricePer1MTokens = number;
 export type InputPricePer1MTokens1 = number;
@@ -124,14 +135,34 @@ export type Ollama = {
   baseURL: BaseURL;
   [k: string]: unknown;
 }
-/**
- * To a message "hello" respond "world", to a message "call tool ARG1 ARG2" respond with a tool call, to anything else respond "what do you mean ?"
- */
-export type Mock = {
+export type Scaleway = {
   type: ProviderType6;
   id: ProviderID6;
   name: DisplayName6;
   enabled: Enabled6;
+  apiKey: APIKey6;
+  [k: string]: unknown;
+}
+/**
+ * Generic provider for any OpenAI-compatible endpoint (Together, Fireworks, Groq, DeepInfra, vLLM, LM Studio, etc.). API Key is optional for unauthenticated local servers.
+ */
+export type OpenAICompatible = {
+  type: ProviderType7;
+  id: ProviderID7;
+  name: DisplayName7;
+  enabled: Enabled7;
+  baseURL: BaseURL1;
+  apiKey?: APIKey7;
+  [k: string]: unknown;
+}
+/**
+ * To a message "hello" respond "world", to a message "call tool ARG1 ARG2" respond with a tool call, to anything else respond "what do you mean ?"
+ */
+export type Mock = {
+  type: ProviderType8;
+  id: ProviderID8;
+  name: DisplayName8;
+  enabled: Enabled8;
   [k: string]: unknown;
 }
 export type Models = {
@@ -157,9 +188,9 @@ export type Model = {
   id: ModelID;
   name: Name;
   provider: {
-    type: ProviderType7;
+    type: ProviderType9;
     name: ProviderName;
-    id: ProviderID7;
+    id: ProviderID9;
     [k: string]: unknown;
   };
   [k: string]: unknown;
@@ -180,9 +211,9 @@ export type Model1 = {
   id: ModelID;
   name: Name;
   provider: {
-    type: ProviderType7;
+    type: ProviderType9;
     name: ProviderName;
-    id: ProviderID7;
+    id: ProviderID9;
     [k: string]: unknown;
   };
   [k: string]: unknown;
@@ -203,9 +234,9 @@ export type Model2 = {
   id: ModelID;
   name: Name;
   provider: {
-    type: ProviderType7;
+    type: ProviderType9;
     name: ProviderName;
-    id: ProviderID7;
+    id: ProviderID9;
     [k: string]: unknown;
   };
   [k: string]: unknown;
@@ -226,9 +257,9 @@ export type Model3 = {
   id: ModelID;
   name: Name;
   provider: {
-    type: ProviderType7;
+    type: ProviderType9;
     name: ProviderName;
-    id: ProviderID7;
+    id: ProviderID9;
     [k: string]: unknown;
   };
   [k: string]: unknown;
@@ -289,9 +320,9 @@ export type Model4 = {
   id: ModelID;
   name: Name;
   provider: {
-    type: ProviderType7;
+    type: ProviderType9;
     name: ProviderName;
-    id: ProviderID7;
+    id: ProviderID9;
     [k: string]: unknown;
   };
   [k: string]: unknown;

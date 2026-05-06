@@ -425,6 +425,117 @@ export default {
             }
           }
         }, {
+          required: ['type', 'name', 'id', 'enabled', 'apiKey'],
+          title: 'Scaleway',
+          properties: {
+            type: {
+              type: 'string',
+              title: 'Provider Type',
+              const: 'scaleway'
+            },
+            id: {
+              type: 'string',
+              title: 'Provider ID',
+              'x-i18n-title': {
+                en: 'Provider ID',
+                fr: 'ID du fournisseur'
+              },
+              readOnly: true
+            },
+            name: {
+              type: 'string',
+              title: 'Display Name',
+              'x-i18n-title': {
+                en: 'Display Name',
+                fr: "Nom d'affichage"
+              },
+              layout: {
+                getDefaultData: '"Scaleway"',
+              },
+            },
+            enabled: {
+              type: 'boolean',
+              title: 'Enabled',
+              'x-i18n-title': {
+                en: 'Enabled',
+                fr: 'Activé'
+              },
+              default: true
+            },
+            apiKey: {
+              type: 'string',
+              title: 'API Key',
+              'x-i18n-title': {
+                en: 'API Key',
+                fr: 'Clé API'
+              }
+            }
+          }
+        }, {
+          required: ['type', 'name', 'id', 'enabled', 'baseURL'],
+          title: 'OpenAI Compatible',
+          'x-i18n-title': {
+            en: 'OpenAI Compatible',
+            fr: 'Compatible OpenAI'
+          },
+          description: 'Generic provider for any OpenAI-compatible endpoint (Together, Fireworks, Groq, DeepInfra, vLLM, LM Studio, etc.). API Key is optional for unauthenticated local servers.',
+          'x-i18n-description': {
+            en: 'Generic provider for any OpenAI-compatible endpoint (Together, Fireworks, Groq, DeepInfra, vLLM, LM Studio, etc.). API Key is optional for unauthenticated local servers.',
+            fr: 'Fournisseur générique pour tout endpoint compatible OpenAI (Together, Fireworks, Groq, DeepInfra, vLLM, LM Studio, etc.). La clé API est optionnelle pour les serveurs locaux sans authentification.'
+          },
+          properties: {
+            type: {
+              type: 'string',
+              title: 'Provider Type',
+              const: 'openai-compatible'
+            },
+            id: {
+              type: 'string',
+              title: 'Provider ID',
+              'x-i18n-title': {
+                en: 'Provider ID',
+                fr: 'ID du fournisseur'
+              },
+              readOnly: true
+            },
+            name: {
+              type: 'string',
+              title: 'Display Name',
+              'x-i18n-title': {
+                en: 'Display Name',
+                fr: "Nom d'affichage"
+              },
+              layout: {
+                getDefaultData: '"OpenAI Compatible"',
+              },
+            },
+            enabled: {
+              type: 'boolean',
+              title: 'Enabled',
+              'x-i18n-title': {
+                en: 'Enabled',
+                fr: 'Activé'
+              },
+              default: true
+            },
+            baseURL: {
+              type: 'string',
+              title: 'Base URL',
+              'x-i18n-title': {
+                en: 'Base URL',
+                fr: 'URL de base'
+              }
+            },
+            apiKey: {
+              type: 'string',
+              title: 'API Key',
+              'x-i18n-title': {
+                en: 'API Key',
+                fr: 'Clé API'
+              }
+            }
+          }
+        }, {
           required: ['type', 'name', 'id', 'enabled'],
           title: 'Mock',
           description: 'To a message "hello" respond "world", to a message "call tool ARG1 ARG2" respond with a tool call, to anything else respond "what do you mean ?"',
