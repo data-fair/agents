@@ -17,8 +17,45 @@ marked.use({
   }
 })
 
+// Models sometimes emit LaTeX-style inline math (e.g. `$\rightarrow$`) that marked
+// does not render. Substitute the common commands with their Unicode equivalent.
+const latexToUnicode: Record<string, string> = {
+  rightarrow: '→',
+  leftarrow: '←',
+  Rightarrow: '⇒',
+  Leftarrow: '⇐',
+  leftrightarrow: '↔',
+  Leftrightarrow: '⇔',
+  uparrow: '↑',
+  downarrow: '↓',
+  to: '→',
+  gets: '←',
+  mapsto: '↦',
+  times: '×',
+  div: '÷',
+  cdot: '·',
+  pm: '±',
+  mp: '∓',
+  le: '≤',
+  leq: '≤',
+  ge: '≥',
+  geq: '≥',
+  ne: '≠',
+  neq: '≠',
+  approx: '≈',
+  equiv: '≡',
+  infty: '∞',
+  ldots: '…',
+  cdots: '⋯'
+}
+
+const replaceLatexCommands = (markdown: string): string =>
+  markdown.replace(/\$\s*\\([a-zA-Z]+)\s*\$/g, (match, cmd) =>
+    latexToUnicode[cmd] ?? match
+  )
+
 export const renderMarkdown = (markdown: string) =>
-  sanitizeHtml(marked.parse(markdown) as string, sanitizeOpts)
+  sanitizeHtml(marked.parse(replaceLatexCommands(markdown)) as string, sanitizeOpts)
 
 export const renderStreamingMarkdown = (markdown: string, isStreaming: boolean): string => {
   if (!isStreaming || !markdown) return renderMarkdown(markdown)
