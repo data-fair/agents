@@ -30,6 +30,10 @@ export function createModel (provider: Provider, modelId: string): LanguageModel
       return createOpenRouter({ apiKey: provider.apiKey })(modelId) as unknown as LanguageModel
     case 'ollama':
       return createOllama({ baseURL: provider.baseURL })(modelId)
+    case 'scaleway':
+      return createOpenAI({ apiKey: provider.apiKey, baseURL: 'https://api.scaleway.ai/v1' })(modelId)
+    case 'openai-compatible':
+      return createOpenAI({ apiKey: provider.apiKey, baseURL: provider.baseURL })(modelId)
     case 'mock':
       if (modelId === 'evaluator-mock-model') return createEvaluatorMockLanguageModel()
       return createMockLanguageModel(modelId)

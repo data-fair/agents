@@ -102,7 +102,9 @@ test.describe('Settings API', () => {
       { type: 'google', name: 'Google', apiKey: 'sk-google-test-123' },
       { type: 'mistral', name: 'Mistral', apiKey: 'sk-mistral-test-123' },
       { type: 'openrouter', name: 'OpenRouter', apiKey: 'sk-or-test-123' },
-      { type: 'ollama', name: 'Ollama', apiKey: 'sk-ollama-test-123', baseURL: 'http://localhost:11434' }
+      { type: 'ollama', name: 'Ollama', apiKey: 'sk-ollama-test-123', baseURL: 'http://localhost:11434' },
+      { type: 'scaleway', name: 'Scaleway', apiKey: 'scw-test-123' },
+      { type: 'openai-compatible', name: 'My Endpoint', apiKey: 'sk-compat-test-123', baseURL: 'http://localhost:8080/v1' }
     ]
 
     for (const p of providerTypes) {
@@ -160,6 +162,28 @@ test.describe('Settings API', () => {
 
     const getRes = await user.get('/api/settings/user/test-standalone1')
     assert.equal(getRes.data.providers[0].apiKey, '********')
+  })
+
+  test('should handle openai-compatible provider without apiKey', async () => {
+    const settingsData = {
+      providers: [
+        {
+          id: 'provider-compat',
+          type: 'openai-compatible',
+          name: 'Local LM Studio',
+          enabled: true,
+          baseURL: 'http://localhost:1234/v1'
+        }
+      ],
+      models: { assistant: { model: mockModel } },
+      quotas: defaultQuotas
+    }
+
+    const res = await admin.put('/api/settings/user/test-standalone1', settingsData)
+    assert.equal(res.status, 200)
+    assert.equal(res.data.providers[0].type, 'openai-compatible')
+    assert.equal(res.data.providers[0].baseURL, 'http://localhost:1234/v1')
+    assert.equal(res.data.providers[0].apiKey, undefined)
   })
 
   test('should handle ollama provider with baseURL', async () => {
