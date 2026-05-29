@@ -27,11 +27,21 @@ const settingsData = {
 
 const chatDrawerSelector = '.v-navigation-drawer:has(d-frame)'
 
+// The iframe URL carries an `?initConfig=<key>` param, so match on the pathname
+// (which also avoids matching the parent `/_dev/chat-action` frame).
+function isChatFrameUrl (url: string): boolean {
+  try {
+    return new URL(url).pathname.endsWith('/_dev/chat')
+  } catch {
+    return false
+  }
+}
+
 async function waitForChatFrame (page: Page) {
   await expect(async () => {
-    expect(page.frames().find(f => f.url().endsWith('/_dev/chat'))).toBeTruthy()
+    expect(page.frames().find(f => isChatFrameUrl(f.url()))).toBeTruthy()
   }).toPass({ timeout: 10000 })
-  const frame = page.frames().find(f => f.url().endsWith('/_dev/chat'))!
+  const frame = page.frames().find(f => isChatFrameUrl(f.url()))!
   await expect(frame.getByPlaceholder('Type your message...')).toBeVisible({ timeout: 15000 })
   return frame
 }
