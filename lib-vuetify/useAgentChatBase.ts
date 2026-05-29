@@ -104,7 +104,6 @@ export function resolveAgentChatUrl (props: {
   accountType?: string
   accountId?: string
   chatTitle?: string
-  systemPrompt?: string
 }): string {
   if (props.src) return props.src
   if (props.accountType && props.accountId) {
@@ -135,5 +134,8 @@ export function useSystemPromptChannel (getSystemPrompt: () => string | undefine
       sessionStorage.removeItem(SYSTEM_PROMPT_STORAGE_KEY)
     }
   }, { immediate: true })
-  onScopeDispose(() => { bc.close() })
+  onScopeDispose(() => {
+    bc.close()
+    sessionStorage.removeItem(SYSTEM_PROMPT_STORAGE_KEY)
+  })
 }
