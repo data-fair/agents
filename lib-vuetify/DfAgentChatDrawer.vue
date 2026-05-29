@@ -23,7 +23,7 @@ import { computed } from 'vue'
 import { VNavigationDrawer } from 'vuetify/components/VNavigationDrawer'
 import('@data-fair/frame/lib/d-frame.js')
 import { useAgentChatDrawer } from './useAgentChatDrawer.js'
-import { resolveAgentChatUrl } from './useAgentChatBase.js'
+import { resolveAgentChatUrl, useSystemPromptChannel } from './useAgentChatBase.js'
 
 type DrawerProps = Omit<VNavigationDrawer['$props'], 'modelValue' | 'location' | 'width' | 'floating'>
 
@@ -41,4 +41,5 @@ const props = withDefaults(defineProps<{
 const state = useAgentChatDrawer()
 
 const resolvedSrc = computed(() => resolveAgentChatUrl(props))
+useSystemPromptChannel(() => props.systemPrompt)
 </script>

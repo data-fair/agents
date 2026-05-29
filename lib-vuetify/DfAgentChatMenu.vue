@@ -69,7 +69,7 @@ import { VBadge } from 'vuetify/components/VBadge'
 import { VIcon } from 'vuetify/components/VIcon'
 import('@data-fair/frame/lib/d-frame.js')
 import { useAgentChatMenu } from './useAgentChatMenu.js'
-import { resolveAgentChatUrl } from './useAgentChatBase.js'
+import { resolveAgentChatUrl, useSystemPromptChannel } from './useAgentChatBase.js'
 
 type MenuProps = Omit<VMenu['$props'], 'modelValue' | 'closeOnContentClick'>
 
@@ -104,6 +104,7 @@ watch(() => state.menuOpen.value, async (open) => {
 })
 
 const resolvedSrc = computed(() => resolveAgentChatUrl(props))
+useSystemPromptChannel(() => props.systemPrompt)
 
 const windowWidth = ref(window.innerWidth)
 const windowHeight = ref(window.innerHeight)
