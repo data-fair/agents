@@ -20,12 +20,15 @@ const props = defineProps<{
   src?: string
   chatTitle?: string
   systemPrompt?: string
+  initConfigKey?: string
 }>()
 
 const state = useAgentChatBlock()
 
-// Per-instance key so multiple chats in the same tab keep distinct initial configs.
-const initConfigKey = crypto.randomUUID()
+// Stable per-variant key (overridable via prop) so a page can host one of each
+// variant without clobbering, while keeping sessionStorage bounded — only pass a
+// custom key when mounting several blocks in the same tab.
+const initConfigKey = props.initConfigKey ?? 'block'
 setAgentInitConfig(initConfigKey, { prompt: props.systemPrompt, title: props.chatTitle })
 
 const resolvedSrc = computed(() => resolveAgentChatUrl(props, initConfigKey))

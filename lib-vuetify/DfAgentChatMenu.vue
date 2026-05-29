@@ -83,6 +83,7 @@ const props = withDefaults(defineProps<{
   chatTitle?: string
   systemPrompt?: string
   title?: string
+  initConfigKey?: string
   btnProps?: BtnProps
   menuProps?: MenuProps
   cardProps?: VCard['$props']
@@ -104,8 +105,10 @@ watch(() => state.menuOpen.value, async (open) => {
   }
 })
 
-// Per-instance key so multiple chats in the same tab keep distinct initial configs.
-const initConfigKey = crypto.randomUUID()
+// Stable per-variant key (overridable via prop) so a page can host one of each
+// variant without clobbering, while keeping sessionStorage bounded — only pass a
+// custom key when mounting several menus in the same tab.
+const initConfigKey = props.initConfigKey ?? 'menu'
 setAgentInitConfig(initConfigKey, { prompt: props.systemPrompt, title: props.chatTitle })
 
 const resolvedSrc = computed(() => resolveAgentChatUrl(props, initConfigKey))

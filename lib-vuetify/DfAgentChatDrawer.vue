@@ -34,6 +34,7 @@ const props = withDefaults(defineProps<{
   src?: string
   chatTitle?: string
   systemPrompt?: string
+  initConfigKey?: string
   drawerProps?: DrawerProps
 }>(), {
   drawerProps: () => ({}) as DrawerProps
@@ -41,8 +42,10 @@ const props = withDefaults(defineProps<{
 
 const state = useAgentChatDrawer()
 
-// Per-instance key so multiple chats in the same tab keep distinct initial configs.
-const initConfigKey = crypto.randomUUID()
+// Stable per-variant key (overridable via prop) so a page can host one of each
+// variant without clobbering, while keeping sessionStorage bounded — only pass a
+// custom key when mounting several drawers in the same tab.
+const initConfigKey = props.initConfigKey ?? 'drawer'
 setAgentInitConfig(initConfigKey, { prompt: props.systemPrompt, title: props.chatTitle })
 
 const resolvedSrc = computed(() => resolveAgentChatUrl(props, initConfigKey))
