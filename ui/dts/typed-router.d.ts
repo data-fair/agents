@@ -48,6 +48,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/_dev/chat-block': RouteRecordInfo<
+      '/_dev/chat-block',
+      '/_dev/chat-block',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/_dev/chat-drawer': RouteRecordInfo<
       '/_dev/chat-drawer',
       '/_dev/chat-drawer',
@@ -160,6 +167,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/_dev/chat-action.vue': {
       routes:
         | '/_dev/chat-action'
+      views:
+        | never
+    }
+    'src/pages/_dev/chat-block.vue': {
+      routes:
+        | '/_dev/chat-block'
       views:
         | never
     }

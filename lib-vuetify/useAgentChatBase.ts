@@ -7,7 +7,7 @@ import Debug from './debug.js'
 
 const debug = Debug('df-agents:agent-chat')
 
-export function createAgentChatBase (isOpen: Ref<boolean>, storageKey: string) {
+export function createAgentChatBase (isOpen: Ref<boolean>, storageKey?: string) {
   const router = useRouter()
   const agentStatus = ref<AgentStatus>('idle')
   const hasUnread = ref(false)
@@ -23,7 +23,7 @@ export function createAgentChatBase (isOpen: Ref<boolean>, storageKey: string) {
     if (data.type === 'agent-start-session') {
       debug('received agent-start-session, opening')
       isOpen.value = true
-      localStorage.setItem(storageKey, '1')
+      if (storageKey) localStorage.setItem(storageKey, '1')
       hasUnread.value = false
     } else if (data.type === 'agent-chat-ping') {
       debug('received agent-chat-ping, sending pong')
@@ -55,7 +55,7 @@ export function createAgentChatBase (isOpen: Ref<boolean>, storageKey: string) {
   // Clear unread state and persist open state whenever isOpen changes
   // (whether via toggle(), v-model, or BroadcastChannel)
   watch(isOpen, (open) => {
-    localStorage.setItem(storageKey, open ? '1' : '0')
+    if (storageKey) localStorage.setItem(storageKey, open ? '1' : '0')
     if (open) {
       hasUnread.value = false
     }
