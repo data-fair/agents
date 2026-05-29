@@ -68,6 +68,7 @@ import { VBtn } from 'vuetify/components/VBtn'
 import { VBadge } from 'vuetify/components/VBadge'
 import { VIcon } from 'vuetify/components/VIcon'
 import('@data-fair/frame/lib/d-frame.js')
+import { setAgentInitConfig } from '@data-fair/lib-vue-agents'
 import { useAgentChatMenu } from './useAgentChatMenu.js'
 import { resolveAgentChatUrl } from './useAgentChatBase.js'
 
@@ -82,6 +83,7 @@ const props = withDefaults(defineProps<{
   chatTitle?: string
   systemPrompt?: string
   title?: string
+  initConfigKey?: string
   btnProps?: BtnProps
   menuProps?: MenuProps
   cardProps?: VCard['$props']
@@ -103,7 +105,13 @@ watch(() => state.menuOpen.value, async (open) => {
   }
 })
 
-const resolvedSrc = computed(() => resolveAgentChatUrl(props))
+// Stable per-variant key (overridable via prop) so a page can host one of each
+// variant without clobbering, while keeping sessionStorage bounded — only pass a
+// custom key when mounting several menus in the same tab.
+const initConfigKey = props.initConfigKey ?? 'menu'
+setAgentInitConfig(initConfigKey, { prompt: props.systemPrompt, title: props.chatTitle })
+
+const resolvedSrc = computed(() => resolveAgentChatUrl(props, initConfigKey))
 
 const windowWidth = ref(window.innerWidth)
 const windowHeight = ref(window.innerHeight)

@@ -22,6 +22,7 @@
 import { computed } from 'vue'
 import { VNavigationDrawer } from 'vuetify/components/VNavigationDrawer'
 import('@data-fair/frame/lib/d-frame.js')
+import { setAgentInitConfig } from '@data-fair/lib-vue-agents'
 import { useAgentChatDrawer } from './useAgentChatDrawer.js'
 import { resolveAgentChatUrl } from './useAgentChatBase.js'
 
@@ -33,6 +34,7 @@ const props = withDefaults(defineProps<{
   src?: string
   chatTitle?: string
   systemPrompt?: string
+  initConfigKey?: string
   drawerProps?: DrawerProps
 }>(), {
   drawerProps: () => ({}) as DrawerProps
@@ -40,5 +42,11 @@ const props = withDefaults(defineProps<{
 
 const state = useAgentChatDrawer()
 
-const resolvedSrc = computed(() => resolveAgentChatUrl(props))
+// Stable per-variant key (overridable via prop) so a page can host one of each
+// variant without clobbering, while keeping sessionStorage bounded — only pass a
+// custom key when mounting several drawers in the same tab.
+const initConfigKey = props.initConfigKey ?? 'drawer'
+setAgentInitConfig(initConfigKey, { prompt: props.systemPrompt, title: props.chatTitle })
+
+const resolvedSrc = computed(() => resolveAgentChatUrl(props, initConfigKey))
 </script>

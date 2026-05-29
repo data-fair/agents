@@ -253,7 +253,7 @@ The threshold is overridable via `sessionStorage.setItem('agent-chat-compaction-
 
 ## 7. Embeddable Chat Widget Architecture
 
-The chat UI is designed to be **embedded as an iframe** in any data-fair application. `lib-vuetify` provides ready-made container components.
+The chat UI is designed to be **embedded as an iframe** in any data-fair application. `lib-vuetify` provides ready-made container components: a floating `DfAgentChatDrawer`, a popover `DfAgentChatMenu`, and a flat in-page `DfAgentChatBlock` (always visible, for embedding a custom chat directly in a portal page).
 
 ```mermaid
 graph TB
@@ -286,13 +286,16 @@ graph TB
 **Communication channels:**
 - **BroadcastChannel** — Tool discovery (MCP), session lifecycle (`agent-start-session`, `agent-chat-ready`, ping/pong)
 - **postMessage (d-frame)** — Status updates (`agent-status`), unread indicators, tools-changed notifications
+- **sessionStorage init-config** — One-shot host→iframe handoff of `systemPrompt` and `title` (keyed by a `?initConfig=<key>` URL param). Replaces URL query params so prompts can be arbitrarily long and stay out of logs/history. See [Embedding Guide §9](./embedding-guide.md#9-initial-configuration-systemprompt--title).
 
-**Singleton composables** (`useAgentChatDrawer`, `useAgentChatMenu`) ensure a single instance across the host app. Drawer state persists to `localStorage`.
+**Singleton composables** (`useAgentChatDrawer`, `useAgentChatMenu`, `useAgentChatBlock`) ensure a single instance across the host app. Drawer/menu open state persists to `localStorage`; the block is always open and persists nothing.
 
 **Key files:**
 - `lib-vuetify/DfAgentChatDrawer.vue` — Floating drawer with iframe
+- `lib-vuetify/DfAgentChatBlock.vue` — Flat in-page chat (always visible)
 - `lib-vuetify/DfAgentChatToggle.vue` — FAB with status indicator
-- `lib-vuetify/useAgentChatBase.ts` — Shared BroadcastChannel listener, status tracking
+- `lib-vuetify/useAgentChatBase.ts` — Shared BroadcastChannel listener, status tracking, iframe URL resolution
+- `lib-vue/agent-init-config.ts` — sessionStorage handoff for systemPrompt/title
 
 ---
 

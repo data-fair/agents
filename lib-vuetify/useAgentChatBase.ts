@@ -7,7 +7,7 @@ import Debug from './debug.js'
 
 const debug = Debug('df-agents:agent-chat')
 
-export function createAgentChatBase (isOpen: Ref<boolean>, storageKey: string) {
+export function createAgentChatBase (isOpen: Ref<boolean>, storageKey?: string) {
   const router = useRouter()
   const agentStatus = ref<AgentStatus>('idle')
   const hasUnread = ref(false)
@@ -23,7 +23,7 @@ export function createAgentChatBase (isOpen: Ref<boolean>, storageKey: string) {
     if (data.type === 'agent-start-session') {
       debug('received agent-start-session, opening')
       isOpen.value = true
-      localStorage.setItem(storageKey, '1')
+      if (storageKey) localStorage.setItem(storageKey, '1')
       hasUnread.value = false
     } else if (data.type === 'agent-chat-ping') {
       debug('received agent-chat-ping, sending pong')
@@ -55,7 +55,7 @@ export function createAgentChatBase (isOpen: Ref<boolean>, storageKey: string) {
   // Clear unread state and persist open state whenever isOpen changes
   // (whether via toggle(), v-model, or BroadcastChannel)
   watch(isOpen, (open) => {
-    localStorage.setItem(storageKey, open ? '1' : '0')
+    if (storageKey) localStorage.setItem(storageKey, open ? '1' : '0')
     if (open) {
       hasUnread.value = false
     }
@@ -99,21 +99,25 @@ export function createAgentChatBase (isOpen: Ref<boolean>, storageKey: string) {
   }
 }
 
+/**
+ * Build the chat iframe URL. When an init-config key is provided it is appended as
+ * the `initConfig` query param so the iframe knows which stored config to read —
+ * this is what lets several chats coexist in one tab without clobbering each other.
+ */
 export function resolveAgentChatUrl (props: {
   src?: string
   accountType?: string
   accountId?: string
-  chatTitle?: string
-  systemPrompt?: string
-}): string {
-  if (props.src) return props.src
-  if (props.accountType && props.accountId) {
-    const base = `${window.location.origin}/agents/${props.accountType}/${props.accountId}/chat`
-    const params = new URLSearchParams()
-    if (props.chatTitle) params.set('title', props.chatTitle)
-    if (props.systemPrompt) params.set('systemPrompt', props.systemPrompt)
-    const qs = params.toString()
-    return qs ? `${base}?${qs}` : base
+}, initConfigKey?: string): string {
+  let url: string
+  if (props.src) url = props.src
+  else if (props.accountType && props.accountId) url = `${window.location.origin}/agents/${props.accountType}/${props.accountId}/chat`
+  else return ''
+
+  if (initConfigKey) {
+    const parsed = new URL(url, window.location.origin)
+    parsed.searchParams.set('initConfig', initConfigKey)
+    url = parsed.toString()
   }
-  return ''
+  return url
 }

@@ -7,7 +7,7 @@
     <agent-chat-header
       v-model:active-chat-tab="activeChatTab"
       :debug="debug"
-      :title="title"
+      :title="chatTitle"
       :tracing-enabled="tracingEnabled"
       @show-debug="showDebugDialog = true"
       @reset="handleReset"
@@ -95,7 +95,7 @@ import { useAgentChat, type ChatMessage } from '~/composables/use-agent-chat'
 import { SessionRecorder } from '~/traces/session-recorder'
 import type { TraceOverviewEntry } from '~/traces/session-recorder'
 import { buildEvaluatorTools } from '~/traces/evaluator-tools'
-import { getTabChannelId } from '@data-fair/lib-vue-agents'
+import { getTabChannelId, getAgentInitConfig } from '@data-fair/lib-vue-agents'
 import type { AgentChatMessage } from '@data-fair/lib-vuetify-agents/types.js'
 import AgentChatHeader from './agent-chat/AgentChatHeader.vue'
 import AgentChatMessages from './agent-chat/AgentChatMessages.vue'
@@ -111,6 +111,14 @@ const props = defineProps<{
   accountType: string
   accountId: string
 }>()
+
+// Initial configuration written by the host page (drawer/menu) before this iframe
+// loaded; read once on mount via the per-chat `initConfig` key in our own URL, so
+// several chats in one tab don't clobber each other. Takes precedence over props.
+const initConfigKey = new URLSearchParams(window.location.search).get('initConfig')
+const initConfig = initConfigKey ? getAgentInitConfig(initConfigKey) : undefined
+const initSystemPrompt = initConfig?.prompt
+const chatTitle = computed(() => initConfig?.title ?? props.title)
 
 const { t } = useI18n()
 const session = useSession()
@@ -130,7 +138,7 @@ const finalSystemPrompt = computed(() => {
   }
 
   const parts = [
-    props.systemPrompt || t('systemPromptBase'),
+    (initSystemPrompt ?? props.systemPrompt) || t('systemPromptBase'),
     t('systemPromptUser', { userName, orgPart }),
     t('systemPromptLang', { lang })
   ]

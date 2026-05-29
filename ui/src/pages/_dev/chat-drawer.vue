@@ -39,6 +39,7 @@
   </v-dialog>
   <df-agent-chat-drawer
     :src="chatSrc"
+    :system-prompt="devSystemPrompt"
     :drawer-props="drawerProps"
   />
   <v-container>
@@ -127,6 +128,7 @@ en:
 
 <script lang="ts" setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { DfAgentChatToggle, DfAgentChatDrawer } from '@data-fair/lib-vuetify-agents'
 import { useFrameServer } from '@data-fair/lib-vue-agents'
@@ -134,6 +136,9 @@ import personalMenu from '@data-fair/lib-vuetify/personal-menu.vue'
 import DfNavigationRight from '@data-fair/lib-vuetify/navigation-right.vue'
 
 const { t } = useI18n()
+
+const route = useRoute()
+const devSystemPrompt = computed(() => route.query.systemPrompt as string | undefined)
 
 const dialogOpen = ref(false)
 const scrolled = ref(false)

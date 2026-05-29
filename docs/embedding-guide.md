@@ -41,9 +41,28 @@ An alternative that renders the chat as a popover menu (400x500px default):
 
 The menu includes a built-in activator button (FAB with status indicator) and a close button. It auto-focuses the iframe on open.
 
+### Block — `DfAgentChatBlock`
+
+Renders the chat iframe **flat inside the page** (no drawer, no popover, no FAB) — it fills its container and is always visible. This is the variant to use for embedding a custom chat directly in a portal page rather than as a floating overlay:
+
+```vue
+<template>
+  <v-card style="height: 600px;">
+    <DfAgentChatBlock
+      account-type="organization"
+      account-id="my-org"
+      chat-title="Data Assistant"
+      system-prompt="You help users explore datasets."
+    />
+  </v-card>
+</template>
+```
+
+Because a block is always open there is no open/close state, no `localStorage` persistence, and no toggle/unread badge — give the parent element an explicit height since the iframe stretches to fill it.
+
 ### Props
 
-Both components accept:
+All three components (drawer, menu, block) accept:
 
 | Prop | Type | Description |
 |------|------|-------------|
@@ -51,18 +70,19 @@ Both components accept:
 | `accountId` | `string` | Account ID for the chat session |
 | `src` | `string` | Custom iframe URL (overrides account-based URL resolution) |
 | `chatTitle` | `string` | Title displayed in the chat header |
-| `systemPrompt` | `string` | System prompt passed to the LLM |
+| `systemPrompt` | `string` | System prompt passed to the LLM (no length limit — see [Initial Configuration](#9-initial-configuration-systemprompt--title)) |
+| `initConfigKey` | `string` | Override the per-variant init-config key. Only needed when mounting several instances of the same variant in one tab (defaults to `'drawer'` / `'menu'` / `'block'`) |
 
 Drawer-specific: `drawerProps` (pass-through to `VNavigationDrawer`).
 Menu-specific: `btnProps`, `menuProps`, `cardProps` (pass-through to Vuetify components).
 
-**Key files:** `lib-vuetify/DfAgentChatDrawer.vue`, `lib-vuetify/DfAgentChatMenu.vue`, `lib-vuetify/DfAgentChatToggle.vue`
+**Key files:** `lib-vuetify/DfAgentChatDrawer.vue`, `lib-vuetify/DfAgentChatMenu.vue`, `lib-vuetify/DfAgentChatBlock.vue`, `lib-vuetify/DfAgentChatToggle.vue`
 
 ---
 
 ## 2. Singleton State
 
-Both drawer and menu use **singleton composables** — calling them from multiple components returns the same shared state:
+Drawer, menu and block each use a **singleton composable** — calling one from multiple components returns the same shared state:
 
 ```typescript
 import { useAgentChatDrawer } from '@data-fair/lib-vuetify-agents'
@@ -71,7 +91,7 @@ const state = useAgentChatDrawer()
 // state.drawerOpen, state.agentStatus, state.hasUnread, state.fabIcon, state.fabColor
 ```
 
-Open/close state is persisted to `localStorage` (`df-agent-chat-open` / `df-agent-menu-open`), so the drawer remembers its position across page navigations.
+Open/close state is persisted to `localStorage` (`df-agent-chat-open` / `df-agent-menu-open`), so the drawer remembers its position across page navigations. The block has no open/close state (it is always visible) and so persists nothing.
 
 ---
 
@@ -223,9 +243,37 @@ bc.postMessage({ channel: channelId, type: 'agent-chat-ping' })
 
 The iframe URL is resolved as follows:
 1. If `src` prop is provided → use it directly
-2. Otherwise → `{origin}/agents/{accountType}/{accountId}/chat?title=...&systemPrompt=...`
+2. Otherwise → `{origin}/agents/{accountType}/{accountId}/chat`
 
-Query parameters are URL-encoded. The URL can be customized for different deployments.
+The drawer/menu/block components then append a single `?initConfig=<key>` query parameter (see next section). The `chatTitle` and `systemPrompt` are **no longer encoded in the URL** — they are passed through same-origin sessionStorage instead.
+
+> **Legacy / direct-URL embeds:** the chat page still reads `?title=` and `?systemPrompt=` query params directly. This path is kept for backward compatibility (e.g. linking straight to the chat URL), but it is subject to URL length limits — prefer the init-config mechanism for anything but a short prompt.
+
+---
+
+## 9. Initial Configuration (systemPrompt & title)
+
+The `systemPrompt` and `chatTitle` props are handed to the iframe through **same-origin sessionStorage**, not the URL. This is a one-shot "set then get" handoff: the host writes the config before the iframe loads, and the iframe reads it once on mount. It is **not** a reactive channel — changing the prop after the iframe is running does not update the live agent.
+
+**Why not the URL?** The iframe URL passes through nginx, whose default request-line buffer (~8 KB) returns HTTP 414 above it. After percent-encoding (accented text expands ~3×), the safe ceiling for a URL-borne system prompt is only ~2 KB — too small for real custom-agent prompts. URL params also leak into nginx logs, browser history, and `Referer` headers. sessionStorage has no practical size limit and no such exposure, so **custom local chats (e.g. embedded in a portal) can carry an arbitrarily long system prompt.**
+
+How it works:
+1. Each component writes `{ prompt, title }` to sessionStorage under a per-variant key via `setAgentInitConfig(key, config)`.
+2. The component appends `?initConfig=<key>` to the iframe URL.
+3. The chat iframe (`AgentChat.vue`) reads its key from the URL and loads the config via `getAgentInitConfig(key)`, which takes precedence over its props.
+
+The key defaults to the variant name (`'drawer'` / `'menu'` / `'block'`), so one of each can coexist in a tab without clobbering. Mounting several of the **same** variant in one tab requires distinct `initConfigKey` props.
+
+You can also use the helpers directly when building a custom embed:
+
+```typescript
+import { setAgentInitConfig } from '@data-fair/lib-vue-agents'
+
+setAgentInitConfig('my-chat', { prompt: 'You are a portal assistant…', title: 'Portal Help' })
+// then load the iframe with `…/chat?initConfig=my-chat`
+```
+
+**Key file:** `lib-vue/agent-init-config.ts`
 
 ---
 
@@ -235,11 +283,14 @@ Query parameters are URL-encoded. The URL can be customized for different deploy
 |------|------|
 | `lib-vuetify/DfAgentChatDrawer.vue` | Floating drawer with iframe |
 | `lib-vuetify/DfAgentChatMenu.vue` | Popover menu with iframe |
+| `lib-vuetify/DfAgentChatBlock.vue` | Flat in-page chat (always visible) |
 | `lib-vuetify/DfAgentChatToggle.vue` | FAB button with status indicator |
-| `lib-vuetify/useAgentChatBase.ts` | Shared state factory: status, unread, BroadcastChannel |
+| `lib-vuetify/useAgentChatBase.ts` | Shared state factory: status, unread, BroadcastChannel, URL resolution |
 | `lib-vuetify/useAgentChatDrawer.ts` | Drawer singleton composable |
 | `lib-vuetify/useAgentChatMenu.ts` | Menu singleton composable |
+| `lib-vuetify/useAgentChatBlock.ts` | Block singleton composable |
 | `lib-vuetify/types.ts` | Message type definitions |
+| `lib-vue/agent-init-config.ts` | sessionStorage handoff for systemPrompt/title |
 | `lib-vue/use-frame-server.ts` | Expose tools via MCP over BroadcastChannel |
 | `lib-vue/use-agent-tools.ts` | Register tools via WebMCP polyfill |
 | `lib-vue/use-agent-sub-agent.ts` | Declare sub-agents |
