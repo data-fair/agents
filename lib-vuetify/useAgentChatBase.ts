@@ -1,8 +1,8 @@
-import { ref, computed, watch, type Ref } from 'vue'
+import { ref, computed, watch, onScopeDispose, type Ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { mdiRobotOutline, mdiCommentQuestion, mdiAlertCircle } from '@mdi/js'
 import { getTabChannelId } from '@data-fair/lib-vue-agents'
-import type { AgentStatus, AgentChatMessage, AgentChatPong } from './types.js'
+import type { AgentStatus, AgentChatMessage, AgentChatPong, AgentSetSystemPrompt } from './types.js'
 import Debug from './debug.js'
 
 const debug = Debug('df-agents:agent-chat')
@@ -111,9 +111,29 @@ export function resolveAgentChatUrl (props: {
     const base = `${window.location.origin}/agents/${props.accountType}/${props.accountId}/chat`
     const params = new URLSearchParams()
     if (props.chatTitle) params.set('title', props.chatTitle)
-    if (props.systemPrompt) params.set('systemPrompt', props.systemPrompt)
     const qs = params.toString()
     return qs ? `${base}?${qs}` : base
   }
   return ''
+}
+
+const SYSTEM_PROMPT_STORAGE_KEY = 'df-agent-system-prompt'
+
+/**
+ * Transmit a system prompt to the chat iframe over the same-origin tab channel,
+ * mirroring the action-button flow. Writes a sessionStorage fallback so an iframe
+ * that has not loaded yet picks it up on mount. Call from a component setup.
+ */
+export function useSystemPromptChannel (getSystemPrompt: () => string | undefined): void {
+  const channelId = getTabChannelId()
+  const bc = new BroadcastChannel(channelId)
+  watch(getSystemPrompt, (systemPrompt) => {
+    if (systemPrompt) {
+      sessionStorage.setItem(SYSTEM_PROMPT_STORAGE_KEY, systemPrompt)
+      bc.postMessage({ channel: channelId, type: 'agent-set-system-prompt', systemPrompt } satisfies AgentSetSystemPrompt)
+    } else {
+      sessionStorage.removeItem(SYSTEM_PROMPT_STORAGE_KEY)
+    }
+  }, { immediate: true })
+  onScopeDispose(() => { bc.close() })
 }
