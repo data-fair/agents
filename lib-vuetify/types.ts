@@ -35,13 +35,6 @@ export interface AgentActionSessionCleared {
   type: 'agent-session-cleared'
 }
 
-/** BroadcastChannel message sent by drawer/menu to set the iframe's system prompt */
-export interface AgentSetSystemPrompt {
-  channel: string
-  type: 'agent-set-system-prompt'
-  systemPrompt: string
-}
-
 /** BroadcastChannel message sent by drawer to announce presence */
 export interface AgentChatReady {
   channel: string
@@ -60,4 +53,4 @@ export interface AgentChatPong {
   type: 'agent-chat-pong'
 }
 
-export type AgentActionMessage = AgentActionStartSession | AgentActionSessionCleared | AgentChatReady | AgentChatPing | AgentChatPong | AgentSetSystemPrompt
+export type AgentActionMessage = AgentActionStartSession | AgentActionSessionCleared | AgentChatReady | AgentChatPing | AgentChatPong

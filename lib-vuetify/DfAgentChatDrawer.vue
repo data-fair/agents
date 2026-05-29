@@ -22,8 +22,9 @@
 import { computed } from 'vue'
 import { VNavigationDrawer } from 'vuetify/components/VNavigationDrawer'
 import('@data-fair/frame/lib/d-frame.js')
+import { setAgentInitConfig } from '@data-fair/lib-vue-agents'
 import { useAgentChatDrawer } from './useAgentChatDrawer.js'
-import { resolveAgentChatUrl, useSystemPromptChannel } from './useAgentChatBase.js'
+import { resolveAgentChatUrl } from './useAgentChatBase.js'
 
 type DrawerProps = Omit<VNavigationDrawer['$props'], 'modelValue' | 'location' | 'width' | 'floating'>
 
@@ -40,6 +41,9 @@ const props = withDefaults(defineProps<{
 
 const state = useAgentChatDrawer()
 
-const resolvedSrc = computed(() => resolveAgentChatUrl(props))
-useSystemPromptChannel(() => props.systemPrompt)
+// Per-instance key so multiple chats in the same tab keep distinct initial configs.
+const initConfigKey = crypto.randomUUID()
+setAgentInitConfig(initConfigKey, { prompt: props.systemPrompt, title: props.chatTitle })
+
+const resolvedSrc = computed(() => resolveAgentChatUrl(props, initConfigKey))
 </script>

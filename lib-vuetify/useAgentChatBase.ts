@@ -1,8 +1,8 @@
-import { ref, computed, watch, onScopeDispose, type Ref } from 'vue'
+import { ref, computed, watch, type Ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { mdiRobotOutline, mdiCommentQuestion, mdiAlertCircle } from '@mdi/js'
 import { getTabChannelId } from '@data-fair/lib-vue-agents'
-import type { AgentStatus, AgentChatMessage, AgentChatPong, AgentSetSystemPrompt } from './types.js'
+import type { AgentStatus, AgentChatMessage, AgentChatPong } from './types.js'
 import Debug from './debug.js'
 
 const debug = Debug('df-agents:agent-chat')
@@ -99,43 +99,25 @@ export function createAgentChatBase (isOpen: Ref<boolean>, storageKey: string) {
   }
 }
 
+/**
+ * Build the chat iframe URL. When an init-config key is provided it is appended as
+ * the `initConfig` query param so the iframe knows which stored config to read —
+ * this is what lets several chats coexist in one tab without clobbering each other.
+ */
 export function resolveAgentChatUrl (props: {
   src?: string
   accountType?: string
   accountId?: string
-  chatTitle?: string
-}): string {
-  if (props.src) return props.src
-  if (props.accountType && props.accountId) {
-    const base = `${window.location.origin}/agents/${props.accountType}/${props.accountId}/chat`
-    const params = new URLSearchParams()
-    if (props.chatTitle) params.set('title', props.chatTitle)
-    const qs = params.toString()
-    return qs ? `${base}?${qs}` : base
+}, initConfigKey?: string): string {
+  let url: string
+  if (props.src) url = props.src
+  else if (props.accountType && props.accountId) url = `${window.location.origin}/agents/${props.accountType}/${props.accountId}/chat`
+  else return ''
+
+  if (initConfigKey) {
+    const parsed = new URL(url, window.location.origin)
+    parsed.searchParams.set('initConfig', initConfigKey)
+    url = parsed.toString()
   }
-  return ''
-}
-
-const SYSTEM_PROMPT_STORAGE_KEY = 'df-agent-system-prompt'
-
-/**
- * Transmit a system prompt to the chat iframe over the same-origin tab channel,
- * mirroring the action-button flow. Writes a sessionStorage fallback so an iframe
- * that has not loaded yet picks it up on mount. Call from a component setup.
- */
-export function useSystemPromptChannel (getSystemPrompt: () => string | undefined): void {
-  const channelId = getTabChannelId()
-  const bc = new BroadcastChannel(channelId)
-  watch(getSystemPrompt, (systemPrompt) => {
-    if (systemPrompt) {
-      sessionStorage.setItem(SYSTEM_PROMPT_STORAGE_KEY, systemPrompt)
-      bc.postMessage({ channel: channelId, type: 'agent-set-system-prompt', systemPrompt } satisfies AgentSetSystemPrompt)
-    } else {
-      sessionStorage.removeItem(SYSTEM_PROMPT_STORAGE_KEY)
-    }
-  }, { immediate: true })
-  onScopeDispose(() => {
-    bc.close()
-    sessionStorage.removeItem(SYSTEM_PROMPT_STORAGE_KEY)
-  })
+  return url
 }

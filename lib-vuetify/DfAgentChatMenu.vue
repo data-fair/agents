@@ -68,8 +68,9 @@ import { VBtn } from 'vuetify/components/VBtn'
 import { VBadge } from 'vuetify/components/VBadge'
 import { VIcon } from 'vuetify/components/VIcon'
 import('@data-fair/frame/lib/d-frame.js')
+import { setAgentInitConfig } from '@data-fair/lib-vue-agents'
 import { useAgentChatMenu } from './useAgentChatMenu.js'
-import { resolveAgentChatUrl, useSystemPromptChannel } from './useAgentChatBase.js'
+import { resolveAgentChatUrl } from './useAgentChatBase.js'
 
 type MenuProps = Omit<VMenu['$props'], 'modelValue' | 'closeOnContentClick'>
 
@@ -103,8 +104,11 @@ watch(() => state.menuOpen.value, async (open) => {
   }
 })
 
-const resolvedSrc = computed(() => resolveAgentChatUrl(props))
-useSystemPromptChannel(() => props.systemPrompt)
+// Per-instance key so multiple chats in the same tab keep distinct initial configs.
+const initConfigKey = crypto.randomUUID()
+setAgentInitConfig(initConfigKey, { prompt: props.systemPrompt, title: props.chatTitle })
+
+const resolvedSrc = computed(() => resolveAgentChatUrl(props, initConfigKey))
 
 const windowWidth = ref(window.innerWidth)
 const windowHeight = ref(window.innerHeight)

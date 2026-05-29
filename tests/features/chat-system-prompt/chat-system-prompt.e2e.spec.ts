@@ -1,9 +1,10 @@
 /**
- * E2E tests for transmitting the chat system prompt to the iframe.
+ * E2E tests for handing the chat system prompt to the iframe.
  *
  * Validates that:
- *   - The drawer sends the systemPrompt over the tab channel (NOT in the iframe URL),
- *     and the iframe applies it (visible in the debug System Prompt tab).
+ *   - The drawer stores the systemPrompt as initial config (keyed by an `initConfig`
+ *     URL param, NOT the prompt itself in the iframe URL), and the iframe applies it
+ *     (visible in the debug System Prompt tab).
  *   - The legacy ?systemPrompt= query-param path still applies the prompt.
  */
 
@@ -32,11 +33,21 @@ const settingsData = {
 const MARKER = 'SYSPROMPT_E2E_MARKER you must always answer in pirate speak'
 const fabSelector = '.df-agent-chat-toggle'
 
+// The iframe URL now carries an `?initConfig=<key>` param, so match on the pathname
+// (which also avoids matching the parent `/_dev/chat-drawer` frame).
+function isChatFrameUrl (url: string): boolean {
+  try {
+    return new URL(url).pathname.endsWith('/_dev/chat')
+  } catch {
+    return false
+  }
+}
+
 async function waitForChatFrame (page: Page) {
   await expect(async () => {
-    expect(page.frames().find(f => f.url().endsWith('/_dev/chat'))).toBeTruthy()
+    expect(page.frames().find(f => isChatFrameUrl(f.url()))).toBeTruthy()
   }).toPass({ timeout: 10000 })
-  const frame = page.frames().find(f => f.url().endsWith('/_dev/chat'))!
+  const frame = page.frames().find(f => isChatFrameUrl(f.url()))!
   await expect(frame.getByPlaceholder('Type your message...')).toBeVisible({ timeout: 15000 })
   return frame
 }
@@ -47,7 +58,7 @@ test.describe('Chat system prompt transmission', () => {
     await admin.put('/api/settings/user/test-standalone1', settingsData)
   })
 
-  test('drawer sends systemPrompt over the channel, not in the iframe URL', async ({ page, goToWithAuth }) => {
+  test('drawer hands systemPrompt as init config, not in the iframe URL', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/_dev/chat-drawer?systemPrompt=' + encodeURIComponent(MARKER), 'test-standalone1')
 
     await expect(page.locator(fabSelector)).toBeVisible()
