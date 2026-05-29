@@ -50,6 +50,7 @@ test.describe('Chat system prompt transmission', () => {
   test('drawer sends systemPrompt over the channel, not in the iframe URL', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/_dev/chat-drawer?systemPrompt=' + encodeURIComponent(MARKER), 'test-standalone1')
 
+    await expect(page.locator(fabSelector)).toBeVisible()
     await page.locator(fabSelector).dispatchEvent('click')
     const frame = await waitForChatFrame(page)
 
