@@ -112,6 +112,11 @@ const props = defineProps<{
   accountId: string
 }>()
 
+// System prompt received from the host over the tab channel (see DfAgentChatDrawer).
+// Seeded from sessionStorage so a prompt set before this iframe loaded is applied on mount.
+// Overrides the query-param-sourced props.systemPrompt when present.
+const channelSystemPrompt = ref<string | undefined>(sessionStorage.getItem('df-agent-system-prompt') || undefined)
+
 const { t } = useI18n()
 const session = useSession()
 
@@ -130,7 +135,7 @@ const finalSystemPrompt = computed(() => {
   }
 
   const parts = [
-    props.systemPrompt || t('systemPromptBase'),
+    (channelSystemPrompt.value ?? props.systemPrompt) || t('systemPromptBase'),
     t('systemPromptUser', { userName, orgPart }),
     t('systemPromptLang', { lang })
   ]
@@ -275,6 +280,8 @@ actionChannel.onmessage = (event: MessageEvent) => {
     startActionSession(data.visiblePrompt, data.hiddenContext)
   } else if (data.type === 'agent-session-cleared') {
     handleSessionCleared()
+  } else if (data.type === 'agent-set-system-prompt') {
+    channelSystemPrompt.value = data.systemPrompt
   }
 }
 
