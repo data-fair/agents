@@ -178,6 +178,10 @@ test.describe('SessionRecorder - recording', () => {
     // The fix: sub-agent-end and the parent tool-result must come AFTER the sub-agent's steps.
     assert.ok(subAgentEndIdx > lastSubStepIdx, 'sub-agent-end comes after the sub-agent steps')
     assert.ok(parentToolResultIdx > subAgentEndIdx, 'parent tool-result comes after sub-agent-end')
+
+    // The sub-agent step detail exposes finishReason (so the dialog can render its chip)
+    const lastSubStepEntry = overview.filter(e => e.type === 'sub-agent-step').pop()!
+    assert.equal(recorder.getTraceEntry(lastSubStepEntry.index)!.content.finishReason, 'stop')
   })
 
   test('records multiple tool snapshots', () => {

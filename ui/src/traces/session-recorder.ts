@@ -284,7 +284,7 @@ export class SessionRecorder {
               if (subStep.messages.length > 0) {
                 add(
                   { type: 'sub-agent-step', timestamp: subStep.timestamp, label: `sub-agent step: ${tc.subAgent!.name}`, preview: this.extractTextPreview(subStep.messages) },
-                  { messages: subStep.messages, usage: subStep.usage }
+                  { messages: subStep.messages, usage: subStep.usage, finishReason: subStep.finishReason }
                 )
               }
             }
