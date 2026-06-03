@@ -288,8 +288,11 @@ export class SessionRecorder {
                 )
               }
             }
+            // endTimestamp (set when the tool call finishes, after all sub-agent steps) ensures the
+            // sub-agent-end and parent tool-result entries sort AFTER the sub-agent's step entries,
+            // whose timestamps fall between the call's start and end.
             add(
-              { type: 'sub-agent-end', timestamp: tc.timestamp, label: `sub-agent end: ${tc.subAgent.name}`, preview: '' },
+              { type: 'sub-agent-end', timestamp: tc.endTimestamp ?? tc.timestamp, label: `sub-agent end: ${tc.subAgent.name}`, preview: '' },
               { name: tc.subAgent.name }
             )
           }

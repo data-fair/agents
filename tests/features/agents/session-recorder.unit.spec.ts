@@ -128,7 +128,6 @@ test.describe('SessionRecorder - recording', () => {
     recorder.startTurn('analyze')
     recorder.startToolCall('tc1', 'subagent_analyst', { task: 'analyze data' })
     recorder.startSubAgent('tc1', 'analyst', 'You are an analyst', 'analyze data', [])
-    // Step 1: a tool call inside the sub-agent
     recorder.recordSubAgentStep('tc1', {
       messages: [{ role: 'assistant', content: [{ type: 'text', text: 'querying' }] }],
       usage: { inputTokens: 5, outputTokens: 2 },
@@ -136,7 +135,6 @@ test.describe('SessionRecorder - recording', () => {
       toolCalls: [{ toolCallId: 'stc1', toolName: 'queryData', input: { sql: 'SELECT 1' } }],
       toolResults: [{ toolCallId: 'stc1', output: { rows: [1] } }]
     })
-    // Step 2: final text answer
     recorder.recordSubAgentStep('tc1', {
       messages: [{ role: 'assistant', content: [{ type: 'text', text: 'the answer is 1' }] }],
       usage: { inputTokens: 8, outputTokens: 4 },
@@ -153,20 +151,32 @@ test.describe('SessionRecorder - recording', () => {
     assert.deepEqual(subAgent.steps[0].usage, { inputTokens: 5, outputTokens: 2 })
     assert.deepEqual(subAgent.steps[1].usage, { inputTokens: 8, outputTokens: 4 })
 
-    // Overview: sub-agent tool-call/result entries appear, and the PARENT
-    // tool-result appears AFTER the sub-agent-end (ordering fix).
-    const overview = recorder.getTraceOverview()
-    const subToolCall = overview.find(e => e.type === 'tool-call' && e.label.includes('queryData'))
-    const subToolResult = overview.find(e => e.type === 'tool-result' && e.label.includes('queryData'))
-    assert.ok(subToolCall, 'sub-agent tool-call entry exists')
-    assert.ok(subToolResult, 'sub-agent tool-result entry exists')
+    // Inject divergent timestamps mirroring the real async flow: the tool call
+    // starts at T0, the sub-agent steps happen at T1/T2, and the call finishes
+    // (endTimestamp) at T3. Without the endTimestamp ordering fix the sub-agent-end
+    // and parent tool-result entries (stuck at T0) would sort BEFORE the steps.
+    const parentTc = recorder.getTrace().turns[0].steps[0].toolCalls[0]
+    parentTc.timestamp = new Date('2020-01-01T00:00:00Z')
+    parentTc.subAgent!.steps[0].timestamp = new Date('2020-01-01T00:00:01Z')
+    parentTc.subAgent!.steps[0].toolCalls[0].timestamp = new Date('2020-01-01T00:00:01Z')
+    parentTc.subAgent!.steps[1].timestamp = new Date('2020-01-01T00:00:02Z')
+    parentTc.endTimestamp = new Date('2020-01-01T00:00:03Z')
 
-    const subAgentEndIdx = overview.findIndex(e => e.type === 'sub-agent-end')
-    const parentToolResultIdx = overview.findIndex(
-      e => e.type === 'tool-result' && e.label.includes('subagent_analyst')
-    )
+    const overview = recorder.getTraceOverview()
+    const idx = (pred: (e: typeof overview[number]) => boolean) => overview.findIndex(pred)
+
+    const subToolCallIdx = idx(e => e.type === 'tool-call' && e.label.includes('queryData'))
+    const subToolResultIdx = idx(e => e.type === 'tool-result' && e.label.includes('queryData'))
+    const lastSubStepIdx = overview.map((e, i) => ({ e, i })).filter(({ e }) => e.type === 'sub-agent-step').pop()!.i
+    const subAgentEndIdx = idx(e => e.type === 'sub-agent-end')
+    const parentToolResultIdx = idx(e => e.type === 'tool-result' && e.label.includes('subagent_analyst'))
+
+    assert.ok(subToolCallIdx >= 0, 'sub-agent tool-call entry exists')
+    assert.ok(subToolResultIdx >= 0, 'sub-agent tool-result entry exists')
     assert.ok(subAgentEndIdx >= 0, 'sub-agent-end entry exists')
     assert.ok(parentToolResultIdx >= 0, 'parent tool-result entry exists')
+    // The fix: sub-agent-end and the parent tool-result must come AFTER the sub-agent's steps.
+    assert.ok(subAgentEndIdx > lastSubStepIdx, 'sub-agent-end comes after the sub-agent steps')
     assert.ok(parentToolResultIdx > subAgentEndIdx, 'parent tool-result comes after sub-agent-end')
   })
 
