@@ -67,7 +67,7 @@ middleware on the recording provider. This keeps the whole feature inside the
 existing in-memory / client-only / ephemeral tracing model — no server
 persistence, no new Mongo collection, no retention/PII surface.
 
-Three decisions follow from the wiring:
+Four decisions follow from the wiring:
 
 1. **Capture is gated on `options.recorder`.** The wrapped `fetch` is installed
    only when a recorder is present. The subject instance has one → its provider
@@ -87,7 +87,7 @@ Three decisions follow from the wiring:
 
 3. **Response kept as reassembled result + timing**, not raw SSE. We parse the
    cloned stream into the final message + `usage` + lightweight streaming
-   metrics (time-to-first-chunk, chunk count, stream duration). Raw SSE is
+   metrics (time-to-first-chunk, stream duration). Raw SSE is
    bulky for little analytical gain. The wrapper also handles **non-streaming
    JSON** responses (see compaction below): when the response is a single
    OpenAI completion rather than SSE, `usage` and content are read directly, no
@@ -125,23 +125,43 @@ Rejected alternatives:
 
 `PhysicalRequestTrace`:
 
-- `contextId` (turn id or subagent-call id), `stepOrder`, `timestamp`,
-  `modelRole` (`assistant` / `tools` / `summarizer` / …, from the body `model`)
+- `contextId` (turn id or subagent-call id), `stepOrder` (assigned at send
+  time), `timestamp` (send time), `modelRole` (`assistant` / `tools` /
+  `summarizer` / …, from the body `model`)
 - `requestBody` — the raw serialised payload (system + messages + tools)
 - `result` — reassembled final message (text + tool calls), `finishReason`
 - **metrics**:
   - `inputTokens` — from the response `usage`; the *authoritative* context size
     (exact, free), preferred over char estimates
   - `outputTokens`
-  - `messageCount`, `toolCount`, `systemChars`, `bodyChars`
-  - `durationMs`, `timeToFirstChunkMs`, `chunkCount`
+  - `messageCount`, `toolCount`, `bodyChars`
+  - `durationMs`, `timeToFirstChunkMs`
 
-Request-derivable fields (`requestBody`, `messageCount`, `toolCount`,
-`systemChars`, `bodyChars`, `timestamp`, `modelRole`, `contextId`) are recorded
-**at send time** so the entry's timestamp slots correctly *before* the
-`assistant-step` it produces. Response-derived fields (`result`, `inputTokens`,
-`outputTokens`, `finishReason`, `durationMs`, timing) are patched onto the same
-entry when the cloned stream finishes.
+The wrapper holds the request fields plus the send-time `timestamp`/`stepOrder`
+in its closure, reads the cloned response to completion, then makes a **single**
+`recordPhysicalRequest(entry)` call with everything filled in. The overview
+orders by the send-time `timestamp`, so the entry still slots correctly before
+the `assistant-step` it produced — an in-flight request simply doesn't appear
+until it completes.
+
+## Simplifications this enables
+
+Physical requests carry the authoritative token usage (from the response
+`usage`), so per-step usage in the semantic trace becomes redundant:
+
+- **Remove `StepTrace.usage`** and the usage chips on `assistant-step` /
+  `sub-agent-step` entries. Each step has a 1:1 physical request (one
+  `doStream`) sitting right before it carrying the exact numbers, so usage now
+  lives in **one** place. The evaluator reads usage from physical-request
+  entries (inline in the overview) instead of step entries.
+- **Keep** the `sessionUsage` running total in the composable — it's shown in
+  the debug header even when tracing is off (so it can't be derived from
+  physical requests, which only exist when tracing is on) and is two cheap
+  scalar adds, independent of the recorder.
+- **Not** simplified: `StepTrace.messages` overlaps a physical request's
+  `result`, but the semantic trace's readable structure is built from it;
+  deriving that from physical payloads would couple the two traces and lose the
+  readable model. Kept self-contained.
 
 ## Changes
 
@@ -152,13 +172,14 @@ entry when the cloned stream finishes.
 - The wrapper:
   - parse `init.body` (JSON string) → request payload;
   - read `x-trace-ctx` from `init.headers`;
-  - call `recorder.recordPhysicalRequestStart(ctx, payload)` → returns an entry
-    handle (records request-side fields + timestamp + step order);
-  - start a timer; `const res = await fetch(...)`;
-  - `res.clone()` and read the clone in a background async task, accumulating
-    chunks to compute timing and reassemble the final message + `usage`, then
-    call `recorder.recordPhysicalRequestFinish(handle, { result, usage, ... })`;
-  - return the original `res` untouched to the SDK.
+  - capture the send-time `timestamp` and obtain `stepOrder` from the recorder
+    (per-context counter) at send time;
+  - start a timer; `const res = await fetch(...)`; return the original `res`
+    untouched to the SDK immediately;
+  - `res.clone()` and read the clone in a background async task, computing timing
+    and reassembling the final message + `usage`, then make a **single**
+    `recorder.recordPhysicalRequest(entry)` call with the captured
+    timestamp/stepOrder + request fields + response fields.
 - The wrapper branches on response type: **SSE** (streamed agent calls) →
   reassemble; **non-streaming JSON** (compaction `generateText`) → read content
   + `usage` directly.
@@ -183,9 +204,11 @@ entry when the cloned stream finishes.
 
 - Add `PhysicalRequestTrace` and `physicalRequests: PhysicalRequestTrace[]` on
   `SessionTrace`.
-- Add `recordPhysicalRequestStart(ctx, payload)` and
-  `recordPhysicalRequestFinish(handle, response)`; maintain a per-`contextId`
-  step counter.
+- Add `recordPhysicalRequest(entry)` (single call, made on completion); a
+  per-`contextId` counter assigns `stepOrder` at send time.
+- **Remove `StepTrace.usage`** and its plumbing in `addStepMessages` /
+  `recordSubAgentStep`; the overview stops emitting usage on `assistant-step` /
+  `sub-agent-step` entries (now carried by physical-request entries).
 - Add `'physical-request'` to the trace-entry type union (near line 59).
 - In the overview/cache builder, merge `physicalRequests` into the flat
   sequence by timestamp/correlation, emitting a `'physical-request'` entry whose
@@ -200,7 +223,9 @@ entry when the cloned stream finishes.
 - Add a colour and a render branch for `'physical-request'` entries: collapsed
   by default, metrics line in the header/preview, detail showing the metrics
   block + raw payload (lazy via the existing `loadTraceEntry` path).
-- No change to how other entry types render.
+- **Remove the per-step usage chips** from `assistant-step` / `sub-agent-step`
+  details (usage now shown on physical-request entries). No other entry-type
+  rendering changes.
 
 ### 4. `ui/src/traces/evaluator-tools.ts` (+ `AgentChat.vue` call site)
 
@@ -224,12 +249,12 @@ entry when the cloned stream finishes.
 ### 5. Tests — `tests/features/agents/`
 
 - **Reassembly helper** unit test: feed representative SSE chunks, assert the
-  reassembled final message, `usage`, and timing/chunk metrics.
-- **Recorder** unit test: drive `recordPhysicalRequestStart`/`Finish` across a
-  main turn plus a subagent context; assert the overview interleaves
-  `physical-request` entries at the right positions (before their
-  `assistant-step` / `sub-agent-step`), with correct inline metrics, and that
-  `getTraceEntry` returns the raw payload.
+  reassembled final message and `usage`.
+- **Recorder** unit test: drive `recordPhysicalRequest` across a main turn plus
+  a subagent context; assert the overview interleaves `physical-request` entries
+  at the right positions (before their `assistant-step` / `sub-agent-step`) with
+  correct inline metrics including token usage, that `getTraceEntry` returns the
+  raw payload, and that step entries no longer carry usage.
 
 ## Out of scope
 
