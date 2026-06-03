@@ -14,7 +14,6 @@ export interface ToolCallTrace {
 export interface StepTrace {
   timestamp: Date
   messages: ModelMessage[]
-  usage?: { inputTokens: number; outputTokens: number }
   finishReason?: string
   toolCalls: ToolCallTrace[]
 }
@@ -149,7 +148,6 @@ export class SessionRecorder {
 
   recordSubAgentStep (toolCallId: string, step: {
     messages: ModelMessage[]
-    usage?: { inputTokens?: number; outputTokens?: number }
     finishReason?: string
     toolCalls?: readonly { toolCallId: string; toolName: string; input: any }[]
     toolResults?: readonly { toolCallId: string; output: any }[]
@@ -172,9 +170,6 @@ export class SessionRecorder {
     tc.subAgent.steps.push({
       timestamp: now,
       messages: step.messages,
-      usage: step.usage
-        ? { inputTokens: step.usage.inputTokens ?? 0, outputTokens: step.usage.outputTokens ?? 0 }
-        : undefined,
       finishReason: step.finishReason,
       toolCalls
     })
@@ -201,28 +196,22 @@ export class SessionRecorder {
     this.currentStep = { timestamp: new Date(), messages: [], toolCalls: [] }
   }
 
-  addStepMessages (messages: ModelMessage[], usage?: { inputTokens: number; outputTokens: number }, finishReason?: string): void {
+  addStepMessages (messages: ModelMessage[], finishReason?: string): void {
     if (!this.currentTurn) return
 
     const lastPushedStep = this.currentTurn.steps[this.currentTurn.steps.length - 1]
     const finishStepWasCalled = lastPushedStep && this.currentStep && !this.currentTurn.steps.includes(this.currentStep)
 
     if (finishStepWasCalled) {
-      // finishStep was called: push currentStep as response step if it has messages,
-      // otherwise set usage/finishReason on the last tool-call step
       if (this.currentStep && messages.length > 0) {
         this.currentStep.messages = messages
-        this.currentStep.usage = usage
         this.currentStep.finishReason = finishReason
         this.currentTurn.steps.push(this.currentStep)
       } else {
-        lastPushedStep.usage = usage
         lastPushedStep.finishReason = finishReason
       }
     } else if (this.currentStep) {
-      // No finishStep call: push the current step with messages
       this.currentStep.messages = messages
-      this.currentStep.usage = usage
       this.currentStep.finishReason = finishReason
       this.currentTurn.steps.push(this.currentStep)
     }
@@ -305,7 +294,7 @@ export class SessionRecorder {
               if (subStep.messages.length > 0) {
                 add(
                   { type: 'sub-agent-step', timestamp: subStep.timestamp, label: `sub-agent step: ${tc.subAgent!.name}`, preview: this.extractTextPreview(subStep.messages) },
-                  { messages: subStep.messages, usage: subStep.usage, finishReason: subStep.finishReason }
+                  { messages: subStep.messages, finishReason: subStep.finishReason }
                 )
               }
             }
@@ -325,7 +314,7 @@ export class SessionRecorder {
         if (step.messages.length > 0) {
           add(
             { type: 'assistant-step', timestamp: step.timestamp, label: 'assistant step', preview: this.extractTextPreview(step.messages) },
-            { messages: step.messages, usage: step.usage, finishReason: step.finishReason }
+            { messages: step.messages, finishReason: step.finishReason }
           )
         }
       }

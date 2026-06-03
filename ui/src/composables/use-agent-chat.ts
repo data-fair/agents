@@ -441,12 +441,11 @@ export function useAgentChat (options: UseAgentChatOptions) {
               currentAssistantMessage.subAgentTurn = callIndex
             }
 
-            // Record each sub-agent step as it completes (tool calls, usage, messages)
+            // Record each sub-agent step as it completes (tool calls, messages)
             const onStepFinish = (step: any) => {
               if (!recorder) return
               recorder.recordSubAgentStep(parentToolCallId, {
                 messages: step.response.messages,
-                usage: step.usage,
                 finishReason: step.finishReason,
                 toolCalls: step.toolCalls,
                 toolResults: step.toolResults
@@ -561,7 +560,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
       history = history.concat(response.messages)
 
       if (recorder) {
-        recorder.addStepMessages(response.messages, (response as any).usage, (response as any).finishReason)
+        recorder.addStepMessages(response.messages, (response as any).finishReason)
       }
       const usage = (response as any).usage
       if (usage) {
