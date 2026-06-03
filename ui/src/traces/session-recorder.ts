@@ -19,6 +19,21 @@ export interface StepTrace {
   toolCalls: ToolCallTrace[]
 }
 
+export interface PhysicalRequestTrace {
+  contextId: string
+  timestamp: Date
+  modelRole: string
+  requestBody: any
+  result: { content: string; toolCalls: { id: string; name: string; arguments: string }[]; finishReason?: string }
+  inputTokens: number
+  outputTokens: number
+  messageCount: number
+  toolCount: number
+  bodyChars: number
+  durationMs: number
+  timeToFirstChunkMs?: number
+}
+
 export interface TurnTrace {
   userMessage: string
   hiddenContext?: string
@@ -52,11 +67,12 @@ export interface SessionTrace {
   toolSnapshots: ToolSnapshot[][]
   toolChanges: ToolChangeEvent[]
   turns: TurnTrace[]
+  physicalRequests: PhysicalRequestTrace[]
 }
 
 export interface TraceOverviewEntry {
   index: number
-  type: 'system-prompt' | 'user-message' | 'hidden-context' | 'assistant-step' | 'tool-call' | 'tool-result' | 'sub-agent-start' | 'sub-agent-system-prompt' | 'sub-agent-step' | 'sub-agent-end' | 'tools-changed' | 'compaction'
+  type: 'system-prompt' | 'user-message' | 'hidden-context' | 'assistant-step' | 'tool-call' | 'tool-result' | 'sub-agent-start' | 'sub-agent-system-prompt' | 'sub-agent-step' | 'sub-agent-end' | 'physical-request' | 'tools-changed' | 'compaction'
   timestamp: Date
   label: string
   preview: string
@@ -75,7 +91,8 @@ export class SessionRecorder {
     systemPrompt: '',
     toolSnapshots: [],
     toolChanges: [],
-    turns: []
+    turns: [],
+    physicalRequests: []
   }
 
   private currentTurn: TurnTrace | null = null
@@ -171,6 +188,10 @@ export class SessionRecorder {
       toolCalls: [],
       compaction: { originalMessages, summary, originalCharCount, compactedCharCount }
     } as any)
+  }
+
+  recordPhysicalRequest (entry: PhysicalRequestTrace): void {
+    this.trace.physicalRequests.push(entry)
   }
 
   finishStep (): void {
@@ -315,6 +336,30 @@ export class SessionRecorder {
       add(
         { type: 'tools-changed', timestamp: tc.timestamp, label: `tools changed (${tc.tools.length})`, preview: toolNames.slice(0, 150) },
         { tools: tc.tools }
+      )
+    }
+
+    for (const pr of this.trace.physicalRequests) {
+      add(
+        {
+          type: 'physical-request',
+          timestamp: pr.timestamp,
+          label: `physical request: ${pr.modelRole}`,
+          preview: `${pr.inputTokens} in · ${pr.outputTokens} out · ${pr.messageCount} msgs · ${pr.toolCount} tools · ${Math.round(pr.durationMs)}ms`
+        },
+        {
+          modelRole: pr.modelRole,
+          inputTokens: pr.inputTokens,
+          outputTokens: pr.outputTokens,
+          messageCount: pr.messageCount,
+          toolCount: pr.toolCount,
+          bodyChars: pr.bodyChars,
+          durationMs: pr.durationMs,
+          timeToFirstChunkMs: pr.timeToFirstChunkMs,
+          finishReason: pr.result.finishReason,
+          requestBody: pr.requestBody,
+          result: pr.result
+        }
       )
     }
 

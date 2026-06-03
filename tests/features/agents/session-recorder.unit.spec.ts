@@ -298,3 +298,66 @@ test.describe('Evaluator tools', () => {
     assert.ok(result.includes('search'))
   })
 })
+
+test.describe('SessionRecorder - physical requests', () => {
+  test('records a physical request and surfaces it with inline metrics', () => {
+    const recorder = new SessionRecorder()
+    recorder.startTurn('hi')
+    recorder.recordPhysicalRequest({
+      contextId: 'main:0',
+      timestamp: new Date('2020-01-01T00:00:00.500Z'),
+      modelRole: 'assistant',
+      requestBody: { model: 'assistant', messages: [{ role: 'user', content: 'hi' }], tools: [] },
+      result: { content: 'hello', toolCalls: [], finishReason: 'stop' },
+      inputTokens: 100,
+      outputTokens: 20,
+      messageCount: 1,
+      toolCount: 0,
+      bodyChars: 42,
+      durationMs: 1200,
+      timeToFirstChunkMs: 300
+    })
+
+    const overview = recorder.getTraceOverview()
+    const pr = overview.find(e => e.type === 'physical-request')
+    assert.ok(pr, 'physical-request entry exists')
+    assert.ok(pr.label.includes('assistant'))
+    assert.ok(pr.preview.includes('100 in'))
+    assert.ok(pr.preview.includes('20 out'))
+
+    const detail = recorder.getTraceEntry(pr.index)!
+    assert.equal(detail.content.inputTokens, 100)
+    assert.equal(detail.content.outputTokens, 20)
+    assert.equal(detail.content.requestBody.messages.length, 1)
+    assert.equal(detail.content.result.content, 'hello')
+  })
+
+  test('orders a physical request before the step it produced', () => {
+    const recorder = new SessionRecorder()
+    recorder.startTurn('hi')
+    recorder.recordPhysicalRequest({
+      contextId: 'main:0',
+      timestamp: new Date('2020-01-01T00:00:00Z'),
+      modelRole: 'assistant',
+      requestBody: { model: 'assistant', messages: [], tools: [] },
+      result: { content: 'hello', toolCalls: [], finishReason: 'stop' },
+      inputTokens: 1,
+      outputTokens: 1,
+      messageCount: 0,
+      toolCount: 0,
+      bodyChars: 2,
+      durationMs: 1
+    })
+    recorder.addStepMessages([{ role: 'assistant', content: [{ type: 'text', text: 'hello' }] }], undefined, 'stop')
+
+    // Force the assistant step to a later timestamp than the physical request.
+    recorder.getTrace().turns[0].steps[recorder.getTrace().turns[0].steps.length - 1].timestamp =
+      new Date('2020-01-01T00:00:01Z')
+
+    const overview = recorder.getTraceOverview()
+    const prIdx = overview.findIndex(e => e.type === 'physical-request')
+    const stepIdx = overview.findIndex(e => e.type === 'assistant-step')
+    assert.ok(prIdx >= 0 && stepIdx >= 0)
+    assert.ok(prIdx < stepIdx, 'physical-request sorts before its assistant-step')
+  })
+})
