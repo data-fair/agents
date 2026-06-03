@@ -688,7 +688,13 @@ git commit -m "feat(trace): capture physical requests via provider fetch middlew
 
 - [ ] **Step 1: Replace the `/summary` fetch with a provider call**
 
-Rewrite `compactHistory` (lines 306-351) to take the compaction context id and use `generateText` through the provider:
+First add `generateText` to the `ai` import at the top of the file (it was intentionally deferred from Task 4 to avoid an unused-import error):
+
+```ts
+import { streamText, generateText, stepCountIs, tool, jsonSchema, ToolLoopAgent, readUIMessageStream } from 'ai'
+```
+
+Then rewrite `compactHistory` (lines 306-351) to take the compaction context id and use `generateText` through the provider:
 
 ```ts
   async function compactHistory (compactionCtxId: string): Promise<void> {
