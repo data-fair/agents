@@ -6,6 +6,7 @@ export interface ToolCallTrace {
   input: any
   output: any
   timestamp: Date
+  endTimestamp?: Date
   durationMs?: number
   subAgent?: SubAgentTrace
 }
@@ -80,7 +81,6 @@ export class SessionRecorder {
   private currentTurn: TurnTrace | null = null
   private currentStep: StepTrace | null = null
   private pendingToolCalls = new Map<string, ToolCallTrace>()
-  private subAgentPendingToolCalls = new Map<string, Map<string, ToolCallTrace>>()
 
   setSystemPrompt (prompt: string): void {
     this.trace.systemPrompt = prompt
@@ -116,6 +116,7 @@ export class SessionRecorder {
     const tc = this.pendingToolCalls.get(id)
     if (tc) {
       tc.output = output
+      tc.endTimestamp = new Date()
       // Auto-compute durationMs from timestamp if not provided
       tc.durationMs = durationMs ?? (Date.now() - tc.timestamp.getTime())
       this.pendingToolCalls.delete(id)
@@ -126,53 +127,40 @@ export class SessionRecorder {
     const tc = this.pendingToolCalls.get(toolCallId)
     if (tc) {
       tc.subAgent = { name, systemPrompt, tools, task, steps: [], turnIndex }
-      this.subAgentPendingToolCalls.set(toolCallId, new Map())
     }
   }
 
-  startSubAgentToolCall (toolCallId: string, id: string, toolName: string, input: any): void {
+  recordSubAgentStep (toolCallId: string, step: {
+    messages: ModelMessage[]
+    usage?: { inputTokens?: number; outputTokens?: number }
+    finishReason?: string
+    toolCalls?: readonly { toolCallId: string; toolName: string; input: any }[]
+    toolResults?: readonly { toolCallId: string; output: any }[]
+  }): void {
     const tc = this.pendingToolCalls.get(toolCallId)
     if (!tc?.subAgent) return
-    const subTc: ToolCallTrace = { id, toolName, input, output: null, timestamp: new Date() }
-    const pendingMap = this.subAgentPendingToolCalls.get(toolCallId)
-    pendingMap?.set(id, subTc)
-    const steps = tc.subAgent.steps
-    if (steps.length === 0) {
-      steps.push({ timestamp: new Date(), messages: [], toolCalls: [] })
-    }
-    steps[steps.length - 1].toolCalls.push(subTc)
-  }
 
-  finishSubAgentToolCall (toolCallId: string, id: string, output: any): void {
-    const pendingMap = this.subAgentPendingToolCalls.get(toolCallId)
-    const subTc = pendingMap?.get(id)
-    if (subTc) {
-      subTc.output = output
-      pendingMap?.delete(id)
-    }
-  }
+    const resultByCallId = new Map<string, any>()
+    for (const r of step.toolResults ?? []) resultByCallId.set(r.toolCallId, r.output)
 
-  finishSubAgentStep (toolCallId: string): void {
-    const tc = this.pendingToolCalls.get(toolCallId)
-    if (!tc?.subAgent) return
-    tc.subAgent.steps.push({ timestamp: new Date(), messages: [], toolCalls: [] })
-  }
+    const now = new Date()
+    const toolCalls: ToolCallTrace[] = (step.toolCalls ?? []).map(call => ({
+      id: call.toolCallId,
+      toolName: call.toolName,
+      input: call.input,
+      output: resultByCallId.get(call.toolCallId) ?? null,
+      timestamp: now
+    }))
 
-  addSubAgentStepMessages (toolCallId: string, messages: ModelMessage[], usage?: { inputTokens: number; outputTokens: number }): void {
-    const tc = this.pendingToolCalls.get(toolCallId)
-    if (!tc?.subAgent) return
-    const steps = tc.subAgent.steps
-    // Remove empty trailing steps created by finishSubAgentStep
-    while (steps.length > 0 && steps[steps.length - 1].toolCalls.length === 0 && steps[steps.length - 1].messages.length === 0) {
-      steps.pop()
-    }
-    // Set messages/usage on the last step with content
-    const targetStep = steps.length > 0 ? steps[steps.length - 1] : null
-    if (targetStep) {
-      targetStep.messages = messages
-      targetStep.usage = usage
-    }
-    this.subAgentPendingToolCalls.delete(toolCallId)
+    tc.subAgent.steps.push({
+      timestamp: now,
+      messages: step.messages,
+      usage: step.usage
+        ? { inputTokens: step.usage.inputTokens ?? 0, outputTokens: step.usage.outputTokens ?? 0 }
+        : undefined,
+      finishReason: step.finishReason,
+      toolCalls
+    })
   }
 
   recordCompaction (originalMessages: ModelMessage[], summary: string, originalCharCount: number, compactedCharCount: number): void {
@@ -306,7 +294,7 @@ export class SessionRecorder {
             )
           }
           add(
-            { type: 'tool-result', timestamp: tc.timestamp, label: `tool result: ${tc.toolName}`, preview: (JSON.stringify(tc.output) ?? '').slice(0, 150) },
+            { type: 'tool-result', timestamp: tc.endTimestamp ?? tc.timestamp, label: `tool result: ${tc.toolName}`, preview: (JSON.stringify(tc.output) ?? '').slice(0, 150) },
             { output: tc.output, toolName: tc.toolName, durationMs: tc.durationMs }
           )
         }

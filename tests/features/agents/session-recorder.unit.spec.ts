@@ -100,10 +100,13 @@ test.describe('SessionRecorder - recording', () => {
     recorder.startTurn('analyze')
     recorder.startToolCall('tc1', 'subagent_analyst', { task: 'analyze data' })
     recorder.startSubAgent('tc1', 'analyst', 'You are an analyst', 'analyze data', [])
-    recorder.startSubAgentToolCall('tc1', 'stc1', 'queryData', { sql: 'SELECT *' })
-    recorder.finishSubAgentToolCall('tc1', 'stc1', { rows: [] })
-    recorder.finishSubAgentStep('tc1')
-    recorder.addSubAgentStepMessages('tc1', [{ role: 'assistant', content: [{ type: 'text', text: 'done' }] }], { inputTokens: 5, outputTokens: 3 })
+    recorder.recordSubAgentStep('tc1', {
+      messages: [{ role: 'assistant', content: [{ type: 'text', text: 'done' }] }],
+      usage: { inputTokens: 5, outputTokens: 3 },
+      finishReason: 'stop',
+      toolCalls: [{ toolCallId: 'stc1', toolName: 'queryData', input: { sql: 'SELECT *' } }],
+      toolResults: [{ toolCallId: 'stc1', output: { rows: [] } }]
+    })
     recorder.finishToolCall('tc1', 'analysis complete', 500)
     recorder.finishStep()
     recorder.addStepMessages([], undefined, 'stop')
@@ -115,6 +118,56 @@ test.describe('SessionRecorder - recording', () => {
     assert.equal(subAgent.steps.length, 1)
     assert.equal(subAgent.steps[0].toolCalls.length, 1)
     assert.equal(subAgent.steps[0].toolCalls[0].toolName, 'queryData')
+    assert.deepEqual(subAgent.steps[0].toolCalls[0].input, { sql: 'SELECT *' })
+    assert.deepEqual(subAgent.steps[0].toolCalls[0].output, { rows: [] })
+    assert.deepEqual(subAgent.steps[0].usage, { inputTokens: 5, outputTokens: 3 })
+  })
+
+  test('records a multi-step sub-agent with per-step usage and correct ordering', () => {
+    const recorder = new SessionRecorder()
+    recorder.startTurn('analyze')
+    recorder.startToolCall('tc1', 'subagent_analyst', { task: 'analyze data' })
+    recorder.startSubAgent('tc1', 'analyst', 'You are an analyst', 'analyze data', [])
+    // Step 1: a tool call inside the sub-agent
+    recorder.recordSubAgentStep('tc1', {
+      messages: [{ role: 'assistant', content: [{ type: 'text', text: 'querying' }] }],
+      usage: { inputTokens: 5, outputTokens: 2 },
+      finishReason: 'tool-calls',
+      toolCalls: [{ toolCallId: 'stc1', toolName: 'queryData', input: { sql: 'SELECT 1' } }],
+      toolResults: [{ toolCallId: 'stc1', output: { rows: [1] } }]
+    })
+    // Step 2: final text answer
+    recorder.recordSubAgentStep('tc1', {
+      messages: [{ role: 'assistant', content: [{ type: 'text', text: 'the answer is 1' }] }],
+      usage: { inputTokens: 8, outputTokens: 4 },
+      finishReason: 'stop',
+      toolCalls: [],
+      toolResults: []
+    })
+    recorder.finishToolCall('tc1', 'analysis complete', 500)
+    recorder.finishStep()
+    recorder.addStepMessages([], undefined, 'stop')
+
+    const subAgent = recorder.getTrace().turns[0].steps[0].toolCalls[0].subAgent!
+    assert.equal(subAgent.steps.length, 2)
+    assert.deepEqual(subAgent.steps[0].usage, { inputTokens: 5, outputTokens: 2 })
+    assert.deepEqual(subAgent.steps[1].usage, { inputTokens: 8, outputTokens: 4 })
+
+    // Overview: sub-agent tool-call/result entries appear, and the PARENT
+    // tool-result appears AFTER the sub-agent-end (ordering fix).
+    const overview = recorder.getTraceOverview()
+    const subToolCall = overview.find(e => e.type === 'tool-call' && e.label.includes('queryData'))
+    const subToolResult = overview.find(e => e.type === 'tool-result' && e.label.includes('queryData'))
+    assert.ok(subToolCall, 'sub-agent tool-call entry exists')
+    assert.ok(subToolResult, 'sub-agent tool-result entry exists')
+
+    const subAgentEndIdx = overview.findIndex(e => e.type === 'sub-agent-end')
+    const parentToolResultIdx = overview.findIndex(
+      e => e.type === 'tool-result' && e.label.includes('subagent_analyst')
+    )
+    assert.ok(subAgentEndIdx >= 0, 'sub-agent-end entry exists')
+    assert.ok(parentToolResultIdx >= 0, 'parent tool-result entry exists')
+    assert.ok(parentToolResultIdx > subAgentEndIdx, 'parent tool-result comes after sub-agent-end')
   })
 
   test('records multiple tool snapshots', () => {
