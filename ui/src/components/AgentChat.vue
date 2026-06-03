@@ -95,6 +95,7 @@ import { useAgentChat, type ChatMessage } from '~/composables/use-agent-chat'
 import { SessionRecorder } from '~/traces/session-recorder'
 import type { TraceOverviewEntry } from '~/traces/session-recorder'
 import { buildEvaluatorTools } from '~/traces/evaluator-tools'
+import { $apiPath } from '~/context'
 import { getTabChannelId, getAgentInitConfig } from '@data-fair/lib-vue-agents'
 import type { AgentChatMessage } from '@data-fair/lib-vuetify-agents/types.js'
 import AgentChatHeader from './agent-chat/AgentChatHeader.vue'
@@ -185,6 +186,8 @@ The user will ask you about what happened during the session — what went well,
 
 Use the provided tools to explore the session trace. Start with getTraceOverview to understand the session flow, then use getTraceEntry or getTraceEntries to examine specific parts in detail. Use getSessionConfig to review the system prompt and available tools.
 
+For physical-request entries, prefer summarizePhysicalRequest over getTraceEntry when the payload is large — it returns a focused analysis instead of the raw context.
+
 Be specific in your analysis. Reference concrete trace entries by index. When suggesting improvements, explain what you observed and what change would address it.`
 
 const activeChatTab = ref<'session' | 'evaluation'>('session')
@@ -193,7 +196,7 @@ const evaluatorChat = tracingEnabled && recorder
   ? useAgentChat({
     accountType: props.accountType,
     accountId: props.accountId,
-    localTools: buildEvaluatorTools(recorder),
+    localTools: buildEvaluatorTools(recorder, { accountType: props.accountType, accountId: props.accountId, apiPath: $apiPath }),
     modelName: 'evaluator',
     systemPrompt: EVALUATOR_PROMPT
   })

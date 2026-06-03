@@ -262,7 +262,7 @@ test.describe('Evaluator tools', () => {
 
   test('getTraceOverview tool returns overview text', async () => {
     const recorder = buildRecorderWithTrace()
-    const tools = buildEvaluatorTools(recorder)
+    const tools = buildEvaluatorTools(recorder, { accountType: 'user', accountId: 'alice', apiPath: '/agents/api' })
     assert.ok(tools.getTraceOverview)
     const result = await (tools.getTraceOverview as any).execute({})
     assert.ok(typeof result === 'string')
@@ -271,7 +271,7 @@ test.describe('Evaluator tools', () => {
 
   test('getTraceEntry tool returns detail for index 0', async () => {
     const recorder = buildRecorderWithTrace()
-    const tools = buildEvaluatorTools(recorder)
+    const tools = buildEvaluatorTools(recorder, { accountType: 'user', accountId: 'alice', apiPath: '/agents/api' })
     const result = await (tools.getTraceEntry as any).execute({ index: 0 })
     assert.ok(typeof result === 'string')
     assert.ok(result.includes('You are helpful'))
@@ -279,11 +279,21 @@ test.describe('Evaluator tools', () => {
 
   test('getSessionConfig tool returns system prompt and tools', async () => {
     const recorder = buildRecorderWithTrace()
-    const tools = buildEvaluatorTools(recorder)
+    const tools = buildEvaluatorTools(recorder, { accountType: 'user', accountId: 'alice', apiPath: '/agents/api' })
     const result = await (tools.getSessionConfig as any).execute({})
     assert.ok(typeof result === 'string')
     assert.ok(result.includes('You are helpful'))
     assert.ok(result.includes('search'))
+  })
+
+  test('summarizePhysicalRequest rejects a non-physical entry without calling the model', async () => {
+    const recorder = buildRecorderWithTrace()
+    const tools = buildEvaluatorTools(recorder, { accountType: 'user', accountId: 'alice', apiPath: '/agents/api' })
+    assert.ok(tools.summarizePhysicalRequest)
+    // index 0 is the system-prompt entry, not a physical request
+    const result = await (tools.summarizePhysicalRequest as any).execute({ index: 0 })
+    assert.ok(typeof result === 'string')
+    assert.ok(result.toLowerCase().includes('not a physical-request'))
   })
 })
 
