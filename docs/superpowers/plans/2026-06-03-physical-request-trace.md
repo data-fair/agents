@@ -625,8 +625,9 @@ Then inside `sendMessage`, right after `status.value = 'streaming'` (line 356), 
 ```ts
     const turnId = turnSeq++
     const turnCtxId = `main:${turnId}`
-    const compactionCtxId = `compaction:${turnId}`
 ```
+
+(`compactionCtxId` is intentionally NOT declared here — it is added in Task 5 where compaction is rerouted and actually uses it, to avoid an unused-variable error between tasks.)
 
 Pass the header to the main `streamText` call (line 502-512) by adding a `headers` property:
 
@@ -731,10 +732,11 @@ Rewrite `compactHistory` (lines 306-351) to take the compaction context id and u
 
 - [ ] **Step 2: Update the caller**
 
-At line 368, pass the compaction context id:
+Declare the compaction context id (using the `turnId` introduced in Task 4) and pass it. Replace the existing call at line 368:
 
 ```ts
     // Compact history if it exceeds the threshold
+    const compactionCtxId = `compaction:${turnId}`
     await compactHistory(compactionCtxId)
 ```
 
