@@ -8,10 +8,10 @@
         cols="5"
         class="d-flex flex-column"
       >
-        <h1 class="text-h5 mb-2">
+        <h1 class="text-headline-small mb-2">
           {{ t('title') }}
         </h1>
-        <p class="text-body-2 text-medium-emphasis mb-4">
+        <p class="text-body-medium text-medium-emphasis mb-4">
           {{ t('instructions') }}
         </p>
         <vjsf-webmcp

@@ -8,10 +8,10 @@
         cols="5"
         class="d-flex flex-column"
       >
-        <h1 class="text-h5 mb-2">
+        <h1 class="text-headline-small mb-2">
           {{ t('title') }}
         </h1>
-        <p class="text-body-2 text-medium-emphasis mb-4">
+        <p class="text-body-medium text-medium-emphasis mb-4">
           {{ t('instructions') }}
         </p>
 
@@ -19,7 +19,7 @@
           variant="outlined"
           class="mb-4"
         >
-          <v-card-title class="text-subtitle-1">
+          <v-card-title class="text-title-medium">
             {{ t('registeredTools') }}
           </v-card-title>
           <v-card-text>
@@ -50,7 +50,7 @@
           variant="outlined"
           class="mb-4"
         >
-          <v-card-title class="text-subtitle-1">
+          <v-card-title class="text-title-medium">
             {{ t('subAgentSection') }}
           </v-card-title>
           <v-card-text>
@@ -61,7 +61,7 @@
             >
               subagent_data_analyst
             </v-chip>
-            <p class="text-body-2 mt-2 text-medium-emphasis">
+            <p class="text-body-medium mt-2 text-medium-emphasis">
               {{ t('subAgentInfo') }}
             </p>
           </v-card-text>

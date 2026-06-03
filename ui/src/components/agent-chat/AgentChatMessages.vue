@@ -10,7 +10,7 @@
       v-if="!messages.length"
       class="d-flex align-center justify-center fill-height"
     >
-      <p class="text-body-2 text-medium-emphasis px-4 text-center">
+      <p class="text-body-medium text-medium-emphasis px-4 text-center">
         {{ welcomeText }}
       </p>
     </div>
@@ -26,7 +26,7 @@
         class="d-flex justify-end"
       >
         <v-card
-          class="pa-3 text-body-2 rounded-xl"
+          class="pa-3 text-body-medium rounded-xl"
           :class="{ 'bg-surface': !isActionPrompt(message) }"
           color="secondary"
           :variant="isActionPrompt(message) ? 'flat' : 'outlined'"
@@ -36,7 +36,7 @@
       </div>
       <div
         v-else
-        class="text-body-2"
+        class="text-body-medium"
       >
         <!-- eslint-disable-next-line vue/no-v-html -->
         <div
@@ -79,7 +79,7 @@
               :key="invocation.toolCallId"
               density="compact"
             >
-              <v-expansion-panel-title class="text-body-2 py-1">
+              <v-expansion-panel-title class="text-body-medium py-1">
                 <v-icon
                   size="x-small"
                   :color="invocation.state === 'done' ? 'success' : 'warning'"
@@ -104,7 +104,7 @@
                   >
                     <!-- eslint-disable-next-line vue/no-v-html -->
                     <div
-                      class="text-body-2 markdown-content"
+                      class="text-body-medium markdown-content"
                       v-html="renderStreamingMarkdown(subMsg.content, isStreaming && index === messages.length - 1 && subIdx === message.subAgentMessages!.length - 1)"
                     />
                     <div
@@ -126,7 +126,7 @@
                 </div>
                 <div
                   v-else
-                  class="text-body-2 text-medium-emphasis"
+                  class="text-body-medium text-medium-emphasis"
                 >
                   {{ invocation.state === 'done' ? t('subAgentDone') : t('subAgentRunning') }}
                 </div>

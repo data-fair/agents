@@ -11,7 +11,7 @@
   </div>
   <div
     v-else
-    class="text-body-2 text-medium-emphasis pa-2"
+    class="text-body-medium text-medium-emphasis pa-2"
   >
     {{ t('noData') }}
   </div>

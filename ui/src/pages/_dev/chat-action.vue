@@ -14,10 +14,10 @@
   />
 
   <v-container>
-    <h1 class="text-h5 mb-4">
+    <h1 class="text-headline-small mb-4">
       {{ t('title') }}
     </h1>
-    <p class="text-body-2 text-medium-emphasis mb-4">
+    <p class="text-body-medium text-medium-emphasis mb-4">
       {{ t('instructions') }}
     </p>
 
@@ -25,7 +25,7 @@
       <v-list-item>
         <template #default>
           <div class="d-flex align-center">
-            <span class="text-body-1">{{ t('createDataset') }}</span>
+            <span class="text-body-large">{{ t('createDataset') }}</span>
             <v-spacer />
             <df-agent-chat-action
               action-id="create-dataset"
@@ -40,7 +40,7 @@
       <v-list-item>
         <template #default>
           <div class="d-flex align-center">
-            <span class="text-body-1">{{ t('configureProcessing') }}</span>
+            <span class="text-body-large">{{ t('configureProcessing') }}</span>
             <v-spacer />
             <df-agent-chat-action
               action-id="configure-processing"
@@ -55,7 +55,7 @@
       <v-list-item v-if="showDestroyable">
         <template #default>
           <div class="d-flex align-center">
-            <span class="text-body-1">{{ t('destroyableAction') }}</span>
+            <span class="text-body-large">{{ t('destroyableAction') }}</span>
             <v-spacer />
             <df-agent-chat-action
               action-id="destroyable"

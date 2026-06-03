@@ -39,7 +39,7 @@
     >
       <p
         v-if="showWelcome"
-        class="text-body-2 text-medium-emphasis text-center mb-4"
+        class="text-body-medium text-medium-emphasis text-center mb-4"
       >
         {{ activeChatTab === 'evaluation' ? t('welcomeEvaluation') : t('welcome') }}
       </p>
