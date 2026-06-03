@@ -1,5 +1,5 @@
 import { ref, watch, onScopeDispose } from 'vue'
-import { streamText, stepCountIs, tool, jsonSchema, ToolLoopAgent, readUIMessageStream } from 'ai'
+import { streamText, generateText, stepCountIs, tool, jsonSchema, ToolLoopAgent, readUIMessageStream } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import type { ModelMessage, Tool } from 'ai'
 import { getTabChannelId } from '@data-fair/lib-vue-agents'
@@ -367,7 +367,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
     return chatMessages
   }
 
-  async function compactHistory (): Promise<void> {
+  async function compactHistory (compactionCtxId: string): Promise<void> {
     const threshold = Number(sessionStorage.getItem('agent-chat-compaction-threshold')) || COMPACTION_THRESHOLD
     const serialized = JSON.stringify(history)
     if (serialized.length < threshold) return
@@ -380,22 +380,13 @@ export function useAgentChat (options: UseAgentChatOptions) {
     const prompt = 'You are summarizing a conversation history between a user and an AI assistant that uses tools. Preserve all key facts, decisions, tool results, and context needed to continue the conversation naturally. Be concise but complete.'
 
     try {
-      const res = await fetch(
-        `${window.location.origin}${$apiPath}/summary/${options.accountType}/${options.accountId}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ content: JSON.stringify(historyToCompact), prompt })
-        }
-      )
+      const { text: summary } = await generateText({
+        model: provider.chat('summarizer'),
+        system: prompt,
+        messages: [{ role: 'user' as const, content: JSON.stringify(historyToCompact) }],
+        ...(recorder ? { headers: { 'x-trace-ctx': compactionCtxId } } : {})
+      })
 
-      if (!res.ok) {
-        debug('compaction failed (HTTP %d), continuing with full history', res.status)
-        return
-      }
-
-      const { summary } = await res.json()
       const originalHistory = history
       const originalLength = serialized.length
 
@@ -431,7 +422,8 @@ export function useAgentChat (options: UseAgentChatOptions) {
     history.push({ role: 'user', content: msg })
 
     // Compact history if it exceeds the threshold
-    await compactHistory()
+    const compactionCtxId = `compaction:${turnId}`
+    await compactHistory(compactionCtxId)
 
     abortController = new AbortController()
     let currentAssistantMessage: ChatMessage | null = null
