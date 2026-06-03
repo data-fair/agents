@@ -47,6 +47,18 @@ physical trace is high-verbosity and read on demand.
   `useAgentChat` instance created **without** the `recorder` option
   (`AgentChat.vue:192-200`); it only reads the subject recorder through
   `buildEvaluatorTools(recorder)`.
+- **Not every subject model call goes through the provider today.** History
+  compaction (`use-agent-chat.ts:306-351`, `compactHistory`) summarizes the
+  conversation via a **direct `fetch` to `/summary/{type}/{id}`** (line 319),
+  bypassing the provider entirely. So a naive provider-only wrapper would miss
+  it — a real model request, with the whole pre-compaction history as its
+  context and its own token cost, would be invisible. This is exactly a call we
+  want visible, since compaction is a primary optimisation target.
+- The gateway accepts `model: 'summarizer'` and `getModelConfig`
+  (`gateway/router.ts:29-38`) **falls back to `assistant`** when no summarizer
+  is configured — the same fallback `/summary` had (`getSummaryPricing`) — and
+  enforces the same quota path. So compaction can be rerouted through the
+  provider with no model-resolution or quota regression.
 
 ## Approach
 
@@ -76,7 +88,20 @@ Three decisions follow from the wiring:
 3. **Response kept as reassembled result + timing**, not raw SSE. We parse the
    cloned stream into the final message + `usage` + lightweight streaming
    metrics (time-to-first-chunk, chunk count, stream duration). Raw SSE is
-   bulky for little analytical gain.
+   bulky for little analytical gain. The wrapper also handles **non-streaming
+   JSON** responses (see compaction below): when the response is a single
+   OpenAI completion rather than SSE, `usage` and content are read directly, no
+   reassembly.
+
+4. **Compaction is rerouted through the provider** so the single wrapper
+   captures it. `compactHistory` switches from the direct `/summary` `fetch` to
+   `generateText({ model: provider.chat('summarizer'), ... })` through the
+   gateway. This yields one capture point, free `usage`/timing from the SDK, and
+   — per the architecture notes — no model-fallback or quota regression. This
+   produces a clean symmetry that reinforces decision 1: **subject-session model
+   calls go through the (captured) provider; the evaluator's model calls go
+   through the uncaptured `/summary` REST endpoint.** Transport and recorder
+   presence agree on what is and isn't recorded.
 
 Rejected alternatives:
 
@@ -91,6 +116,10 @@ Rejected alternatives:
   construction, so no call-type ever needs special handling.
 - **Raw SSE retention.** Reassembled result + timing answers the perf and
   composition questions without the memory cost.
+- **Capture compaction by recording around the existing `/summary` `fetch`.**
+  Keeps the transport but needs a second capture path and a `usage`-returning
+  change to `/summary`. Rerouting through the provider is one capture point with
+  metrics for free, so it wins.
 
 ## Data captured per physical request
 
@@ -130,6 +159,9 @@ entry when the cloned stream finishes.
     chunks to compute timing and reassemble the final message + `usage`, then
     call `recorder.recordPhysicalRequestFinish(handle, { result, usage, ... })`;
   - return the original `res` untouched to the SDK.
+- The wrapper branches on response type: **SSE** (streamed agent calls) →
+  reassemble; **non-streaming JSON** (compaction `generateText`) → read content
+  + `usage` directly.
 - Extract the SSE reassembly into a **pure helper** (e.g.
   `reassembleChatCompletionStream(chunks)`) so it is unit-testable in isolation.
 - Inject `headers: { 'x-trace-ctx': <id> }`:
@@ -138,6 +170,14 @@ entry when the cloned stream finishes.
     context id derived from the turn + `parentToolCallId`.
 - Add a small context-id scheme; the per-context step counter lives in the
   recorder.
+- **Reroute `compactHistory`**: replace the direct `/summary` `fetch` with
+  `generateText({ model: provider.chat('summarizer'), system: prompt, messages:
+  [{ role: 'user', content: ... }], headers: { 'x-trace-ctx': <compaction id> } })`.
+  The existing `recorder.recordCompaction(...)` semantic entry stays; the
+  physical request is now captured by the wrapper too, tagged `modelRole:
+  'summarizer'`. Preserve current behaviour: only compact past the threshold,
+  keep the last user message verbatim, fail soft (fall back to full history) on
+  error.
 
 ### 2. `ui/src/traces/session-recorder.ts`
 
@@ -211,3 +251,7 @@ entry when the cloned stream finishes.
   - the evaluator sees physical-request entries in `getTraceOverview`, can
     `getTraceEntry` a small one and `summarizePhysicalRequest` a large one;
   - **none of the evaluator's own requests appear in the trace.**
+- Compaction: lower `agent-chat-compaction-threshold`, run a long enough chat to
+  trigger compaction, and confirm the compaction summarization shows up as a
+  `modelRole: 'summarizer'` physical-request entry with token metrics — and that
+  it still works when no summarizer model is configured (assistant fallback).
