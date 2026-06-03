@@ -236,6 +236,16 @@
                         </div>
                         <pre class="agent-chat__pre pa-2 mt-1">{{ JSON.stringify(traceEntryDetails[entry.index]?.content?.messages, null, 2) }}</pre>
                       </template>
+                      <template v-else-if="entry.type === 'sub-agent-start'">
+                        <div class="text-caption text-medium-emphasis mb-1">
+                          {{ t('task') }}
+                        </div>
+                        <pre class="agent-chat__pre pa-2 mt-1">{{ traceEntryDetails[entry.index]?.content?.task }}</pre>
+                        <div class="text-caption text-medium-emphasis mb-1 mt-2">
+                          {{ t('tools') }}
+                        </div>
+                        <pre class="agent-chat__pre pa-2 mt-1">{{ JSON.stringify(traceEntryDetails[entry.index]?.content?.tools, null, 2) }}</pre>
+                      </template>
                       <pre
                         v-else
                         class="agent-chat__pre pa-2 mt-1"
@@ -257,6 +267,7 @@ fr:
   close: Fermer
   systemPrompt: Prompt système
   tools: Outils
+  task: Tâche
   noTools: Aucun outil enregistré
   inputSchema: Schéma d'entrée
   trace: Trace
@@ -271,6 +282,7 @@ en:
   close: Close
   systemPrompt: System Prompt
   tools: Tools
+  task: Task
   noTools: No tools registered
   inputSchema: Input Schema
   trace: Trace
