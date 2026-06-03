@@ -19,7 +19,7 @@
     <div
       v-for="(message, index) in messages"
       :key="index"
-      class="px-2 py-1"
+      class="px-2 py-1 px-sm-4 py-sm-2"
     >
       <div
         v-if="message.role === 'user'"
@@ -140,7 +140,7 @@
     <!-- Skeleton loader while waiting for first content -->
     <div
       v-if="isStreaming && (!messages.length || messages[messages.length - 1].role === 'user')"
-      class="px-2 py-1"
+      class="px-2 py-1 px-sm-4 py-sm-2"
     >
       <v-skeleton-loader
         type="text"
@@ -157,7 +157,7 @@
     <!-- Discreet skeleton while still receiving more content -->
     <div
       v-if="isStreaming && messages.length && messages[messages.length - 1].role === 'assistant'"
-      class="px-2 py-1"
+      class="px-2 py-1 px-sm-4 py-sm-2"
     >
       <v-skeleton-loader
         type="text"
