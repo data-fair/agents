@@ -441,12 +441,25 @@ export function useAgentChat (options: UseAgentChatOptions) {
               currentAssistantMessage.subAgentTurn = callIndex
             }
 
+            // Record each sub-agent step as it completes (tool calls, usage, messages)
+            const onStepFinish = (step: any) => {
+              if (!recorder) return
+              recorder.recordSubAgentStep(parentToolCallId, {
+                messages: step.response.messages,
+                usage: step.usage,
+                finishReason: step.finishReason,
+                toolCalls: step.toolCalls,
+                toolResults: step.toolResults
+              })
+            }
+
             // First call: single prompt. Subsequent calls: pass accumulated conversation history.
             const subResult = priorMessages.length === 0
-              ? await subAgent.stream({ prompt: args.task, abortSignal })
+              ? await subAgent.stream({ prompt: args.task, abortSignal, onStepFinish })
               : await subAgent.stream({
                 messages: [...priorMessages, { role: 'user' as const, content: args.task }],
-                abortSignal
+                abortSignal,
+                onStepFinish
               })
 
             // Yield intermediate UIMessages as preliminary results (streaming progress)
@@ -459,16 +472,13 @@ export function useAgentChat (options: UseAgentChatOptions) {
               yield chatMessages
             }
 
-            // Final telemetry + accumulate history for next call to this subagent
+            // Accumulate history for the next call to this subagent
             const subResponse = await subResult.response
             subAgentHistory.set(name, [
               ...priorMessages,
               { role: 'user' as const, content: args.task },
               ...subResponse.messages
             ])
-            if (recorder) {
-              recorder.addSubAgentStepMessages(parentToolCallId, subResponse.messages, (subResponse as any).usage)
-            }
             const subUsage = (subResponse as any).usage
             if (subUsage) {
               sessionUsage.value = {
