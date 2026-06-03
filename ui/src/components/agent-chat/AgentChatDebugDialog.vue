@@ -217,53 +217,15 @@
                         <pre class="agent-chat__pre pa-2 mt-1">{{ JSON.stringify(traceEntryDetails[entry.index]?.content?.messages, null, 2) }}</pre>
                       </template>
                       <template v-else-if="entry.type === 'physical-request'">
-                        <div class="d-flex flex-wrap ga-2 my-2">
-                          <v-chip
-                            size="x-small"
-                            variant="tonal"
-                            color="info"
-                            label
-                          >
-                            {{ t('input') }}: {{ traceEntryDetails[entry.index].content.inputTokens?.toLocaleString() }}
-                          </v-chip>
-                          <v-chip
-                            size="x-small"
-                            variant="tonal"
-                            color="warning"
-                            label
-                          >
-                            {{ t('output') }}: {{ traceEntryDetails[entry.index].content.outputTokens?.toLocaleString() }}
-                          </v-chip>
-                          <v-chip
-                            size="x-small"
-                            variant="tonal"
-                            label
-                          >
-                            {{ traceEntryDetails[entry.index].content.messageCount }} {{ t('messages') }}
-                          </v-chip>
-                          <v-chip
-                            size="x-small"
-                            variant="tonal"
-                            label
-                          >
-                            {{ traceEntryDetails[entry.index].content.toolCount }} {{ t('tools').toLowerCase() }}
-                          </v-chip>
-                          <v-chip
-                            size="x-small"
-                            variant="tonal"
-                            label
-                          >
-                            {{ round(traceEntryDetails[entry.index].content.durationMs) }} ms
-                          </v-chip>
-                          <v-chip
-                            v-if="traceEntryDetails[entry.index].content.finishReason"
-                            size="x-small"
-                            variant="tonal"
-                            label
-                          >
-                            {{ traceEntryDetails[entry.index].content.finishReason }}
-                          </v-chip>
-                        </div>
+                        <v-chip
+                          v-if="traceEntryDetails[entry.index].content.finishReason"
+                          size="x-small"
+                          variant="tonal"
+                          label
+                          class="my-2"
+                        >
+                          {{ traceEntryDetails[entry.index].content.finishReason }}
+                        </v-chip>
                         <div class="text-caption text-medium-emphasis mb-1 mt-2">
                           {{ t('request') }}
                         </div>
@@ -315,7 +277,6 @@ fr:
   tokens: Tokens
   input: entrée
   output: sortie
-  messages: messages
   request: Requête
   response: Réponse
 en:
@@ -333,7 +294,6 @@ en:
   tokens: Tokens
   input: input
   output: output
-  messages: messages
   request: Request
   response: Response
 </i18n>
@@ -405,8 +365,6 @@ const traceEntryColor = (type: string) => {
 const formatTraceTime = (date: Date) => {
   return date.toLocaleTimeString()
 }
-
-const round = (n: number) => Math.round(n)
 
 const startTracing = () => {
   sessionStorage.setItem('agent-chat-trace', '1')
