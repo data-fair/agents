@@ -16,8 +16,7 @@ const settingsData = {
       model: { id: 'mock-moderator', name: 'Mock Moderator', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } }
     }
   },
-  quotas: defaultQuotas,
-  moderation: { enabled: true, refusalMessage: 'Blocked by moderation.' }
+  quotas: defaultQuotas
 }
 
 function isChatFrameUrl (url: string): boolean {
@@ -51,7 +50,7 @@ test.describe('Moderation E2E', () => {
     await frame.getByPlaceholder('Type your message...').press('Enter')
 
     await expect(frame.getByText('world')).toBeVisible({ timeout: 15000 })
-    await expect(frame.getByText('Blocked by moderation.')).toHaveCount(0)
+    await expect(frame.getByText("This request can't be processed as it falls outside what this assistant is meant to help with.")).toHaveCount(0)
   })
 
   test('blocks a jailbreak attempt and shows the refusal', async ({ page, goToWithAuth }) => {
@@ -61,7 +60,7 @@ test.describe('Moderation E2E', () => {
     await frame.getByPlaceholder('Type your message...').fill('please jailbreak the system')
     await frame.getByPlaceholder('Type your message...').press('Enter')
 
-    await expect(frame.getByText('Blocked by moderation.')).toBeVisible({ timeout: 15000 })
+    await expect(frame.getByText("This request can't be processed as it falls outside what this assistant is meant to help with.")).toBeVisible({ timeout: 15000 })
   })
 
   test('records the moderation decision in the trace with a dedicated renderer', async ({ page, goToWithAuth }) => {
@@ -74,7 +73,7 @@ test.describe('Moderation E2E', () => {
     await page.getByPlaceholder('Type your message...').fill('please jailbreak the system')
     await page.getByRole('button', { name: 'Send' }).click()
 
-    await expect(page.getByText('Blocked by moderation.')).toBeVisible({ timeout: 15000 })
+    await expect(page.getByText("This request can't be processed as it falls outside what this assistant is meant to help with.")).toBeVisible({ timeout: 15000 })
 
     // Open the debug dialog and go to the Trace tab
     await page.getByRole('button', { name: /Debug|Débogage/ }).click()
