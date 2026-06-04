@@ -201,8 +201,7 @@ const evaluatorChat = tracingEnabled && recorder
     accountId: props.accountId,
     localTools: buildEvaluatorTools(recorder, { accountType: props.accountType, accountId: props.accountId, apiPath: $apiPath }),
     modelName: 'evaluator',
-    systemPrompt: EVALUATOR_PROMPT,
-    refusalMessage: t('moderationRefusal')
+    systemPrompt: EVALUATOR_PROMPT
   })
   : null
 

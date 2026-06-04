@@ -335,7 +335,7 @@ sequenceDiagram
 
 **Hardcoded refusal.** Blocked messages show a fixed, localized refusal (en/fr) supplied by the chat component; it is not configurable. The model's `category`/`reason` are recorded in the trace but never shown to the user.
 
-**Input only (v1).** The moderator sees the new user message plus the agent mission (system prompt) — not the full history. No output moderation, no tool-result / indirect-injection coverage, no multi-turn jailbreak detection.
+**Input only (v1).** The moderator sees the new user message plus the agent mission (system prompt) — not the full history. No output moderation, no tool-result / indirect-injection coverage, no multi-turn jailbreak detection. A block is enforced before any assistant text is shown, but if a turn's first action is a tool call, the tool may already have executed by the time the verdict arrives — moderation does not roll back tool side effects.
 
 **Observable, client-side only.** Every decision — `allow`, `skip` (fail-open), and `block` — is recorded in the session trace (`SessionRecorder.recordModerationDecision`) with the model's `category` and `reason`, viewable in the debug dialog. Tracing is ephemeral and client-only.
 

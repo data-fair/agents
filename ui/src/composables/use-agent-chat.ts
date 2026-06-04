@@ -447,7 +447,8 @@ export function useAgentChat (options: UseAgentChatOptions) {
     history.push({ role: 'user', content: msg })
 
     // Kick off moderation concurrently with the rest of the turn (does not delay request start).
-    const moderationPromise = moderate(msg)
+    // Only the user-facing assistant is moderated; internal chats (e.g. the evaluator) are not.
+    const moderationPromise = chatModelName === 'assistant' ? moderate(msg) : null
     let moderationChecked = false
 
     // Compact history if it exceeds the threshold
@@ -602,13 +603,16 @@ export function useAgentChat (options: UseAgentChatOptions) {
       })
 
       for await (const part of result.fullStream) {
-        if (!moderationChecked && (part.type === 'text-delta' || part.type === 'tool-call')) {
+        if (moderationPromise && !moderationChecked && (part.type === 'text-delta' || part.type === 'tool-call')) {
           const verdict = await moderationPromise
           moderationChecked = true
           if (recorder) recorder.recordModerationDecision(verdict)
           if (verdict.action === 'block') {
             abortController?.abort()
-            history.pop() // drop the blocked user message from model context
+            // Drop the blocked user message from model context. Safe to pop the tail:
+            // the user message was just pushed, and compaction preserves the latest
+            // message as the tail.
+            history.pop()
             messages.value.push({ role: 'assistant', content: options.refusalMessage || DEFAULT_REFUSAL })
             status.value = 'ready'
             return
@@ -658,9 +662,11 @@ export function useAgentChat (options: UseAgentChatOptions) {
         }
       }
 
-      // If the stream produced no visible part, the gate above never ran —
-      // still record the moderation decision for trace completeness (allow/skip/block).
-      if (!moderationChecked) {
+      // If the stream produced no visible part, the in-stream gate never ran — still
+      // record the moderation decision for trace completeness (allow/skip/block).
+      // A block here is intentionally record-only: nothing was emitted, so there is
+      // no assistant output to suppress.
+      if (moderationPromise && !moderationChecked) {
         const verdict = await moderationPromise
         moderationChecked = true
         if (recorder) recorder.recordModerationDecision(verdict)
