@@ -23,6 +23,12 @@ test('parseModerationVerdict tolerates surrounding prose', () => {
   assert.equal(parseModerationVerdict('Sure: {"action":"block"} done').action, 'block')
 })
 
+test('parseModerationVerdict reads the first object when a stray second one follows', () => {
+  const v = parseModerationVerdict('{"action":"block","category":"x"} {"action":"allow"}')
+  assert.equal(v.action, 'block')
+  assert.equal(v.category, 'x')
+})
+
 test('parseModerationVerdict fails open on garbage', () => {
   assert.equal(parseModerationVerdict('not json at all').action, 'allow')
   assert.equal(parseModerationVerdict('').action, 'allow')

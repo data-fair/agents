@@ -38,7 +38,9 @@ Respond with ONLY a compact JSON object, no prose, of the form:
 
 export function parseModerationVerdict (text: string): ModerationVerdict {
   try {
-    const match = text.match(/\{[\s\S]*\}/)
+    // non-greedy: the verdict is a flat JSON object, so stop at the first closing
+    // brace — this also tolerates a stray second JSON object or prose after it
+    const match = text.match(/\{[\s\S]*?\}/)
     if (!match) return { action: 'allow' }
     const parsed = JSON.parse(match[0])
     if (parsed && parsed.action === 'block') {
