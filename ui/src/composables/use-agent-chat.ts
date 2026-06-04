@@ -4,6 +4,7 @@ import { createOpenAI } from '@ai-sdk/openai'
 import type { ModelMessage, Tool } from 'ai'
 import { getTabChannelId } from '@data-fair/lib-vue-agents'
 import { FrameClientAggregator } from '~/transports/frame-client-aggregator'
+import { createExploreTool, buildToolCatalog, buildExplorationSystem, EXPLORE_TOOL_NAME } from '~/composables/tool-exploration'
 import type { SessionRecorder, ToolSnapshot } from '~/traces/session-recorder'
 import { $apiPath } from '~/context'
 import { extractErrorMessage } from '~/utils/error'
@@ -52,6 +53,7 @@ export interface UseAgentChatOptions {
   localTools?: Record<string, Tool>
   modelName?: string
   recorder?: SessionRecorder
+  toolExploration?: boolean
 }
 
 interface SubAgentConfig {
@@ -115,6 +117,10 @@ export function useAgentChat (options: UseAgentChatOptions) {
   // characters of serialized history before compaction
   // 24000 is roughly equivalent to a 8k tokens context with 10-15 turns of dialogue an 2-3 tool calls
   const COMPACTION_THRESHOLD = 24_000
+  const explorationEnabled = !!options.toolExploration
+  // Tools promoted to the callable set via explore_tools; persists across turns,
+  // cleared on compaction and reset. Read live by prepareStep.
+  let promotedTools = new Set<string>()
   let abortController: AbortController | null = null
   let turnSeq = 0
 
@@ -298,6 +304,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
     status.value = 'ready'
     error.value = null
     history = []
+    promotedTools = new Set<string>()
     sessionUsage.value = { inputTokens: 0, outputTokens: 0 }
     if (newSystemPrompt !== undefined) {
       options.systemPrompt = newSystemPrompt
@@ -394,6 +401,8 @@ export function useAgentChat (options: UseAgentChatOptions) {
         { role: 'user' as const, content: `[Previous conversation summary]\n${summary}` },
         lastMessage
       ]
+
+      promotedTools.clear()
 
       if (recorder) {
         recorder.recordCompaction(originalHistory, summary, originalLength, JSON.stringify(history).length)
@@ -558,14 +567,35 @@ export function useAgentChat (options: UseAgentChatOptions) {
         })
       }
 
-      debug('streaming with model=%s tools=%o', chatModelName, Object.keys(mainLLMTools))
+      // Exploration mode: hide plain tools behind explore_tools, expose only
+      // explore_tools + sub-agent pseudo-tools + already-promoted tools per step.
+      const subAgentNames = Object.keys(subAgents)
+      let streamSystem = options.systemPrompt
+      let prepareStep: undefined | (() => { activeTools: string[] })
+      if (explorationEnabled) {
+        const plainTools = { ...mainTools }
+        mainLLMTools[EXPLORE_TOOL_NAME] = createExploreTool({
+          plainTools,
+          promote: (names) => names.forEach(n => promotedTools.add(n)),
+          summarizer: provider.chat('summarizer'),
+          ...(recorder ? { headers: { 'x-trace-ctx': turnCtxId } } : {})
+        })
+        streamSystem = buildExplorationSystem(options.systemPrompt, buildToolCatalog(plainTools))
+        prepareStep = () => ({
+          activeTools: [EXPLORE_TOOL_NAME, ...subAgentNames, ...[...promotedTools]]
+            .filter(n => n in mainLLMTools)
+        })
+      }
+
+      debug('streaming with model=%s tools=%o exploration=%s', chatModelName, Object.keys(mainLLMTools), explorationEnabled)
       const result = streamText({
         model: provider.chat(chatModelName),
-        system: options.systemPrompt,
+        system: streamSystem,
         messages: history,
         tools: Object.keys(mainLLMTools).length > 0 ? mainLLMTools : undefined,
         stopWhen: stepCountIs(10),
         abortSignal: abortController.signal,
+        ...(prepareStep ? { prepareStep } : {}),
         ...(recorder ? { headers: { 'x-trace-ctx': turnCtxId } } : {}),
         onError: ({ error: err }) => {
           streamError = err
