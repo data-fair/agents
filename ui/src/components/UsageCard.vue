@@ -4,7 +4,7 @@
     variant="outlined"
     class="mb-4"
   >
-    <v-card-title class="text-subtitle-1">
+    <v-card-title class="text-title-medium">
       {{ t('title') }}
     </v-card-title>
     <v-card-text>
@@ -14,8 +14,8 @@
           class="mb-3"
         >
           <div class="d-flex align-center justify-space-between mb-1">
-            <span class="text-body-2 font-weight-medium">{{ t('daily') }}</span>
-            <span class="text-body-2 text-medium-emphasis">
+            <span class="text-body-medium font-weight-medium">{{ t('daily') }}</span>
+            <span class="text-body-medium text-medium-emphasis">
               {{ formatCost(usageFetch.data.value.daily.cost) }} / {{ formatLimit(dailyLimit) }}
             </span>
           </div>
@@ -36,8 +36,8 @@
           class="mb-3"
         >
           <div class="d-flex align-center justify-space-between mb-1">
-            <span class="text-body-2 font-weight-medium">{{ t('weekly') }}</span>
-            <span class="text-body-2 text-medium-emphasis">
+            <span class="text-body-medium font-weight-medium">{{ t('weekly') }}</span>
+            <span class="text-body-medium text-medium-emphasis">
               {{ formatCost(usageFetch.data.value.weekly.cost) }} / {{ formatLimit(weeklyLimit) }}
             </span>
           </div>
@@ -55,8 +55,8 @@
 
         <div v-if="usageFetch.data.value.monthly">
           <div class="d-flex align-center justify-space-between mb-1">
-            <span class="text-body-2 font-weight-medium">{{ t('monthly') }}</span>
-            <span class="text-body-2 text-medium-emphasis">
+            <span class="text-body-medium font-weight-medium">{{ t('monthly') }}</span>
+            <span class="text-body-medium text-medium-emphasis">
               {{ formatCost(usageFetch.data.value.monthly.cost) }} / {{ formatLimit(monthlyLimit) }}
             </span>
           </div>
@@ -74,7 +74,7 @@
       </template>
       <div
         v-else
-        class="text-body-2 text-medium-emphasis"
+        class="text-body-medium text-medium-emphasis"
       >
         {{ t('noUsage') }}
       </div>

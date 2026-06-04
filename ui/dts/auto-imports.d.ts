@@ -11,10 +11,15 @@ declare global {
   const $fetch: typeof import('~/context')['$fetch']
   const $sitePath: typeof import('~/context')['$sitePath']
   const $uiConfig: typeof import('~/context')['$uiConfig']
+  const EXPLORE_TOOL_NAME: typeof import('../src/composables/tool-exploration')['EXPLORE_TOOL_NAME']
   const EffectScope: typeof import('vue')['EffectScope']
+  const SELECT_TOOL_NAME: typeof import('../src/composables/tool-exploration')['SELECT_TOOL_NAME']
+  const buildExplorationSystem: typeof import('../src/composables/tool-exploration')['buildExplorationSystem']
+  const buildToolCatalog: typeof import('../src/composables/tool-exploration')['buildToolCatalog']
   const computed: typeof import('vue')['computed']
   const computedDeepDiff: typeof import('@data-fair/lib-vue/deep-diff.js')['computedDeepDiff']
   const createApp: typeof import('vue')['createApp']
+  const createExploreTool: typeof import('../src/composables/tool-exploration')['createExploreTool']
   const createReactiveSearchParams: typeof import('../src/composables/use-webmcp')['createReactiveSearchParams']
   const createRouter: typeof import('vue-router').createRouter
   const createWebHistory: typeof import('vue-router').createWebHistory
@@ -73,6 +78,7 @@ declare global {
   const renderStreamingMarkdown: typeof import('../src/utils/markdown')['renderStreamingMarkdown']
   const resetAnonymousToken: typeof import('../src/composables/use-anonymous-token')['resetAnonymousToken']
   const resolveComponent: typeof import('vue')['resolveComponent']
+  const selectPromotions: typeof import('../src/composables/tool-exploration')['selectPromotions']
   const shallowReactive: typeof import('vue')['shallowReactive']
   const shallowReadonly: typeof import('vue')['shallowReadonly']
   const shallowRef: typeof import('vue')['shallowRef']
@@ -142,10 +148,15 @@ declare module 'vue' {
     readonly $fetch: UnwrapRef<typeof import('~/context')['$fetch']>
     readonly $sitePath: UnwrapRef<typeof import('~/context')['$sitePath']>
     readonly $uiConfig: UnwrapRef<typeof import('~/context')['$uiConfig']>
+    readonly EXPLORE_TOOL_NAME: UnwrapRef<typeof import('../src/composables/tool-exploration')['EXPLORE_TOOL_NAME']>
     readonly EffectScope: UnwrapRef<typeof import('vue')['EffectScope']>
+    readonly SELECT_TOOL_NAME: UnwrapRef<typeof import('../src/composables/tool-exploration')['SELECT_TOOL_NAME']>
+    readonly buildExplorationSystem: UnwrapRef<typeof import('../src/composables/tool-exploration')['buildExplorationSystem']>
+    readonly buildToolCatalog: UnwrapRef<typeof import('../src/composables/tool-exploration')['buildToolCatalog']>
     readonly computed: UnwrapRef<typeof import('vue')['computed']>
     readonly computedDeepDiff: UnwrapRef<typeof import('@data-fair/lib-vue/deep-diff.js')['computedDeepDiff']>
     readonly createApp: UnwrapRef<typeof import('vue')['createApp']>
+    readonly createExploreTool: UnwrapRef<typeof import('../src/composables/tool-exploration')['createExploreTool']>
     readonly customRef: UnwrapRef<typeof import('vue')['customRef']>
     readonly defineAsyncComponent: UnwrapRef<typeof import('vue')['defineAsyncComponent']>
     readonly defineComponent: UnwrapRef<typeof import('vue')['defineComponent']>
@@ -188,6 +199,7 @@ declare module 'vue' {
     readonly renderStreamingMarkdown: UnwrapRef<typeof import('../src/utils/markdown')['renderStreamingMarkdown']>
     readonly resetAnonymousToken: UnwrapRef<typeof import('../src/composables/use-anonymous-token')['resetAnonymousToken']>
     readonly resolveComponent: UnwrapRef<typeof import('vue')['resolveComponent']>
+    readonly selectPromotions: UnwrapRef<typeof import('../src/composables/tool-exploration')['selectPromotions']>
     readonly shallowReactive: UnwrapRef<typeof import('vue')['shallowReactive']>
     readonly shallowReadonly: UnwrapRef<typeof import('vue')['shallowReadonly']>
     readonly shallowRef: UnwrapRef<typeof import('vue')['shallowRef']>

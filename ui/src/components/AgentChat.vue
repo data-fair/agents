@@ -39,7 +39,7 @@
     >
       <p
         v-if="showWelcome"
-        class="text-body-2 text-medium-emphasis text-center mb-4"
+        class="text-body-medium text-medium-emphasis text-center mb-4"
       >
         {{ activeChatTab === 'evaluation' ? t('welcomeEvaluation') : t('welcome') }}
       </p>
@@ -68,20 +68,16 @@ fr:
   welcome: Comment puis-je vous aider ?
   welcomeEvaluation: "Cet onglet vous permet d'analyser la session en cours avec un évaluateur IA. Posez des questions sur ce qui s'est passé, ce qui a bien fonctionné ou ce qui pourrait être amélioré."
   systemPromptBase: Tu es un assistant IA utile pour la plateforme Data Fair.
-  systemPromptUser: L'utilisateur actuel est {userName}{orgPart}.
-  systemPromptUserDefault: Utilisateur
   systemPromptLang: La langue de l'utilisateur est {lang}.
-  systemPromptOrg: ", membre de l'organisation {orgName}"
+  systemPromptOrg: "L'utilisateur actuel est membre de l'organisation {orgName}{depPart}."
   systemPromptDep: ", département {depName}"
   systemPromptCompact: "Tes réponses sont affichées dans un widget de chat étroit. Garde un formatage compact : utilise des paragraphes courts et des listes à puces simples. Évite les tableaux, les blocs de code larges et les sorties verbeuses. Sois concis."
 en:
   welcome: How can I help you?
   welcomeEvaluation: "This tab lets you analyze the current session with an AI evaluator. Ask questions about what happened, what worked well, or what could be improved."
   systemPromptBase: You are a helpful AI assistant for the Data Fair platform.
-  systemPromptUser: The current user is {userName}{orgPart}.
-  systemPromptUserDefault: User
   systemPromptLang: The user's language is {lang}.
-  systemPromptOrg: ", member of the organization {orgName}"
+  systemPromptOrg: "The current user is a member of the organization {orgName}{depPart}."
   systemPromptDep: ", department {depName}"
   systemPromptCompact: "Your responses are displayed in a narrow chat widget. Keep formatting compact: use short paragraphs and simple bullet lists. Avoid tables, wide code blocks, and verbose output. Be concise."
 </i18n>
@@ -126,23 +122,22 @@ const session = useSession()
 
 const finalSystemPrompt = computed(() => {
   const lang = session.state.lang || 'fr'
-  const userName = session.state.user?.name || t('systemPromptUserDefault', { lang })
   const orgName = session.state.account?.name
   const depName = session.state.account?.departmentName
 
-  let orgPart = ''
+  // The user's name is deliberately omitted: it has no bearing on the assistant's
+  // behaviour, it is a privacy concern to send to providers, and keeping it out
+  // makes the system prompt prefix homogeneous across users (better prompt caching).
+  const parts = [
+    (initSystemPrompt ?? props.systemPrompt) || t('systemPromptBase')
+  ]
+
   if (props.accountType === 'organization' && orgName) {
-    orgPart = t('systemPromptOrg', { orgName })
-    if (depName) {
-      orgPart += t('systemPromptDep', { depName })
-    }
+    const depPart = depName ? t('systemPromptDep', { depName }) : ''
+    parts.push(t('systemPromptOrg', { orgName, depPart }))
   }
 
-  const parts = [
-    (initSystemPrompt ?? props.systemPrompt) || t('systemPromptBase'),
-    t('systemPromptUser', { userName, orgPart }),
-    t('systemPromptLang', { lang })
-  ]
+  parts.push(t('systemPromptLang', { lang }))
 
   if (props.narrowViewport) {
     parts.push(t('systemPromptCompact'))
@@ -152,6 +147,7 @@ const finalSystemPrompt = computed(() => {
 })
 
 const tracingEnabled = props.debug && sessionStorage.getItem('agent-chat-trace') === '1'
+const explorationEnabled = props.debug && sessionStorage.getItem('agent-chat-explore') === '1'
 const recorder = tracingEnabled ? new SessionRecorder() : undefined
 if (recorder) {
   recorder.setSystemPrompt(finalSystemPrompt.value)
@@ -163,7 +159,8 @@ const chatResult = useAgentChat({
   debug: props.debug,
   systemPrompt: finalSystemPrompt.value,
   initialMessages: props.initialMessages,
-  recorder
+  recorder,
+  toolExploration: explorationEnabled
 })
 
 if (!chatResult) {

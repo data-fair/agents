@@ -2,7 +2,7 @@
   <v-container class="summary-dev-container">
     <v-row>
       <v-col cols="12">
-        <h1 class="text-h4 mb-4">
+        <h1 class="text-headline-large mb-4">
           {{ t('title') }}
         </h1>
       </v-col>
@@ -57,7 +57,7 @@
 
     <v-row v-if="result">
       <v-col cols="12">
-        <h2 class="text-h6 mb-2">
+        <h2 class="text-title-large mb-2">
           {{ t('result') }}
         </h2>
         <v-sheet

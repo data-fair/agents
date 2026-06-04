@@ -1,9 +1,9 @@
 <template>
   <v-container class="pa-4">
-    <h2 class="text-h6 mb-2">
+    <h2 class="text-title-large mb-2">
       {{ t('title') }}
     </h2>
-    <p class="text-body-2 text-medium-emphasis mb-4">
+    <p class="text-body-medium text-medium-emphasis mb-4">
       {{ t('description') }}
     </p>
     <v-textarea

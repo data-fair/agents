@@ -2,7 +2,7 @@
   <v-row>
     <v-col>
       <v-card variant="outlined">
-        <v-card-title class="text-subtitle-1">
+        <v-card-title class="text-title-medium">
           {{ t('userUsage') }}
         </v-card-title>
         <v-card-text>
