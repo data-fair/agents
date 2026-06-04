@@ -137,7 +137,7 @@
           <v-window-item value="trace">
             <template v-if="!tracingEnabled">
               <div class="text-center pa-4">
-                <p class="text-body-2 text-medium-emphasis mb-4">
+                <p class="text-body-medium text-medium-emphasis mb-4">
                   {{ t('tracingDisabled') }}
                 </p>
                 <v-btn

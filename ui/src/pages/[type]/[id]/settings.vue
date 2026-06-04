@@ -4,7 +4,7 @@
     data-iframe-height
   >
     <div id="section-configuration">
-      <h3 class="text-h6 mb-4">
+      <h3 class="text-title-large mb-4">
         {{ t('configuration') }}
       </h3>
       <v-row>
@@ -30,7 +30,7 @@
     </div>
 
     <div id="section-global">
-      <h3 class="text-h6 mt-6 mb-4">
+      <h3 class="text-title-large mt-6 mb-4">
         {{ t('globalUsage') }}
       </h3>
       <monitoring-global-section
@@ -40,7 +40,7 @@
     </div>
 
     <div id="section-individual">
-      <h3 class="text-h6 mt-6 mb-4">
+      <h3 class="text-title-large mt-6 mb-4">
         {{ t('individualUsage') }}
       </h3>
       <monitoring-individual-section

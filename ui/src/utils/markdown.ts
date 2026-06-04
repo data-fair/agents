@@ -3,7 +3,20 @@ import { marked } from 'marked'
 import { getSanitizeOpts } from '@data-fair/lib-utils/sanitize-html.js'
 import { createMarkedVuetify } from '@data-fair/lib-utils/marked-vuetify.js'
 
-const markedVuetify = createMarkedVuetify({ density: 'compact' })
+// The chat is dense and we never want large headings, so we override the
+// heading classes to be smaller than even the `compact` preset. The biggest
+// reductions are on the first levels (compact h1 is 2rem, h2 1.75rem, h3 1.5rem).
+const markedVuetify = createMarkedVuetify({
+  density: 'compact',
+  headingClasses: {
+    1: 'text-title-large font-weight-bold text-primary mt-4 mb-2',
+    2: 'text-title-medium font-weight-bold mt-3 mb-1',
+    3: 'text-title-small font-weight-bold mt-2 mb-1',
+    4: 'text-body-medium font-weight-bold mt-2 mb-1',
+    5: 'text-body-medium font-weight-bold text-medium-emphasis mt-2 mb-1',
+    6: 'text-body-medium font-weight-bold text-medium-emphasis mt-2 mb-1'
+  }
+})
 const sanitizeOpts = getSanitizeOpts(sanitizeHtml.defaults)
 sanitizeOpts.allowedAttributes = { ...sanitizeOpts.allowedAttributes, a: ['href', 'target'] }
 marked.use(markedVuetify)
