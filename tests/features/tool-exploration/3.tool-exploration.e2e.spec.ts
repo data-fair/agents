@@ -75,4 +75,25 @@ test.describe('Tool exploration E2E', () => {
     // The set_display tool writes to the output textarea
     await expect(page.getByLabel('Output')).toHaveValue('hello-from-explore', { timeout: 20000 })
   })
+
+  test('without exploration mode, set_display is called directly and updates the output area', async ({ page, goToWithAuth }) => {
+    await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
+
+    // Exploration mode is NOT enabled (no sessionStorage['agent-chat-explore'])
+
+    // Wait for tools to be registered via MCP before sending – mirrors the waitForToolsReady
+    // pattern from chat-subagent.e2e.spec.ts (avoids the race between MCP setup and sendMessage)
+    await page.getByRole('button', { name: /Debug/ }).click()
+    await page.getByRole('tab', { name: /Tools/ }).click()
+    await expect(
+      page.locator('.v-dialog .v-window-item--active').getByRole('button', { name: 'set_display' })
+    ).toBeVisible({ timeout: 10000 })
+    await page.getByRole('button', { name: /Close/ }).click()
+
+    // Call set_display directly – no explore_tools involved
+    await sendMessage(page, 'call tool set_display {"text":"direct-no-explore"}')
+
+    // The set_display tool writes to the output textarea
+    await expect(page.getByLabel('Output')).toHaveValue('direct-no-explore', { timeout: 20000 })
+  })
 })
