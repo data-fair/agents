@@ -9,3 +9,18 @@ export function buildToolCatalog (plainTools: Record<string, Tool>): string {
     })
     .join('\n')
 }
+
+/** Filter requested tool names to those that actually exist, de-duplicated, order-preserving. */
+export function selectPromotions (requestedNames: string[], availableNames: string[]): string[] {
+  if (!Array.isArray(requestedNames)) return []
+  const available = new Set(availableNames)
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const name of requestedNames) {
+    if (available.has(name) && !seen.has(name)) {
+      seen.add(name)
+      out.push(name)
+    }
+  }
+  return out
+}

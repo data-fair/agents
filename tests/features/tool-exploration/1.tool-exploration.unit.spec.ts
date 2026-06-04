@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { buildToolCatalog } from '../../../ui/src/composables/tool-exploration.ts'
+import { buildToolCatalog, selectPromotions } from '../../../ui/src/composables/tool-exploration.ts'
 
 test.describe('buildToolCatalog', () => {
   test('lists each tool as "- name: first description line"', () => {
@@ -20,5 +20,23 @@ test.describe('buildToolCatalog', () => {
 
   test('returns empty string for no tools', () => {
     expect(buildToolCatalog({} as any)).toBe('')
+  })
+})
+
+test.describe('selectPromotions', () => {
+  test('keeps only requested names that exist in the available set', () => {
+    expect(selectPromotions(['set_data', 'ghost'], ['set_data', 'foo'])).toEqual(['set_data'])
+  })
+
+  test('dedupes requested names', () => {
+    expect(selectPromotions(['foo', 'foo'], ['foo'])).toEqual(['foo'])
+  })
+
+  test('returns [] when nothing matches', () => {
+    expect(selectPromotions(['x'], ['a', 'b'])).toEqual([])
+  })
+
+  test('tolerates a non-array input', () => {
+    expect(selectPromotions(undefined as any, ['a'])).toEqual([])
   })
 })
