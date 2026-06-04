@@ -62,8 +62,12 @@ test.describe('Tool exploration E2E', () => {
       page.locator('.agent-chat .v-chip', { hasText: 'explore_tools' }).first()
     ).toBeVisible({ timeout: 20000 })
 
-    // Wait for the input to be ready again before next turn
-    await expect(page.getByPlaceholder('Type your message...')).toBeEnabled({ timeout: 20000 })
+    // Wait for the full turn 1 response (the assistant text after the tool result).
+    // 'done' appears only after explore_tools.execute has finished running
+    // (including the summarizer select_tools call that promotes the tools).
+    await expect(
+      page.locator('.agent-chat .assistant-content').last()
+    ).toContainText('done', { timeout: 20000 })
 
     // Turn 2: call set_display – should now be callable (promoted by explore_tools)
     await sendMessage(page, 'call tool set_display {"text":"hello-from-explore"}')
