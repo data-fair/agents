@@ -152,6 +152,7 @@ const finalSystemPrompt = computed(() => {
 })
 
 const tracingEnabled = props.debug && sessionStorage.getItem('agent-chat-trace') === '1'
+const explorationEnabled = props.debug && sessionStorage.getItem('agent-chat-explore') === '1'
 const recorder = tracingEnabled ? new SessionRecorder() : undefined
 if (recorder) {
   recorder.setSystemPrompt(finalSystemPrompt.value)
@@ -163,7 +164,8 @@ const chatResult = useAgentChat({
   debug: props.debug,
   systemPrompt: finalSystemPrompt.value,
   initialMessages: props.initialMessages,
-  recorder
+  recorder,
+  toolExploration: explorationEnabled
 })
 
 if (!chatResult) {
