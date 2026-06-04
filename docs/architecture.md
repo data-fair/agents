@@ -61,7 +61,7 @@ sequenceDiagram
 - `api/src/gateway/operations.ts` — OpenAI ↔ AI SDK message/tool format conversion
 - `ui/src/composables/use-agent-chat.ts` — client-side history management
 
-**Model IDs are roles, not model names.** The client requests `assistant`, `tools`, `summarizer`, or `evaluator` — the server resolves which provider/model to use from settings.
+**Model IDs are roles, not model names.** The client requests `assistant`, `tools`, `summarizer`, `evaluator`, or `moderator` — the server resolves which provider/model to use from settings.
 
 ---
 
@@ -168,6 +168,7 @@ graph LR
 | `tools` | Structured data / tool-calling specialist | 0.5 |
 | `summarizer` | Context compaction | 0.5 |
 | `evaluator` | Quality control / reasoning | 1.0 |
+| `moderator` | Input moderation guard (fast/cheap) | 0.5 |
 
 Each owner (user or organization) configures their own providers and model assignments. API keys are **encrypted at rest** (AES-256-CBC) and obfuscated in API responses. Model lists are fetched from provider APIs with **5-minute memoized caching**.
 
@@ -296,6 +297,48 @@ graph TB
 - `lib-vuetify/DfAgentChatToggle.vue` — FAB with status indicator
 - `lib-vuetify/useAgentChatBase.ts` — Shared BroadcastChannel listener, status tracking, iframe URL resolution
 - `lib-vue/agent-init-config.ts` — sessionStorage handoff for systemPrompt/title
+
+---
+
+## 8. Input Moderation Guard
+
+A per-message guard protects the **UI-integrated assistant** from abuse — profanity, prompt-injection attempts, persona/identity override, and out-of-scope requests that deviate from the agent's mission. It runs **concurrently** with the assistant turn and only withholds the first visible output byte; the request itself is never delayed.
+
+```mermaid
+sequenceDiagram
+  participant Chat as use-agent-chat
+  participant Mod as /moderation/:type/:id
+  participant GW as Gateway (assistant)
+  participant LLM as Moderator model
+
+  Note over Chat: on user submit, both start in parallel
+  Chat->>Mod: POST {message, system: mission}
+  Chat->>GW: streamText(assistant)
+  Mod->>Mod: resolve moderator→summarizer→skip
+  Mod->>LLM: generateText (1.5s fail-open timeout)
+  LLM-->>Mod: verdict text
+  Mod-->>Chat: {action, refusalMessage?}
+  GW-->>Chat: SSE chunks (buffered until verdict)
+  alt allow
+    Chat->>Chat: flush + stream normally
+  else block
+    Chat->>Chat: abort stream, drop user msg from history, show refusal
+  end
+```
+
+**Advisory, not a security boundary.** The gate lives in the client orchestration loop; the verdict/policy runs server-side (where settings live, so secrets stay there), but a direct or anonymous call to the gateway API bypasses moderation entirely. This is by design — gateway use outside our own UI is treated as abuse governed by auth/quotas. Enablement is read once per chat mount (`GET /moderation/:type/:id`), so toggling moderation takes effect after a reload.
+
+**Fail-open everywhere.** Disabled, no moderator/summarizer model configured, provider disabled, the 1.5s timeout, and any LLM/fetch error all resolve to `allow`. Moderation never blocks the user on an internal failure.
+
+**Model fallback:** configured `moderator` → `summarizer` → skip. It never escalates to the `assistant` model, which is the slowest and sits on the first-token critical path.
+
+**Input only (v1).** The moderator sees the new user message plus the agent mission (system prompt) — not the full history. No output moderation, no tool-result / indirect-injection coverage, no multi-turn jailbreak detection.
+
+**Key files:**
+- `api/src/moderation/router.ts` — `GET` enabled flag, `POST` verdict
+- `api/src/moderation/service.ts` — settings load, model resolution, fail-open timeout
+- `api/src/moderation/operations.ts` — moderation prompt, tolerant verdict parsing, model resolution
+- `ui/src/composables/use-agent-chat.ts` — parallel gate, withholding the first byte, block → refusal
 
 ---
 
