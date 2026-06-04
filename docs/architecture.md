@@ -334,6 +334,8 @@ sequenceDiagram
 
 **Input only (v1).** The moderator sees the new user message plus the agent mission (system prompt) — not the full history. No output moderation, no tool-result / indirect-injection coverage, no multi-turn jailbreak detection.
 
+**Observable, client-side only.** Every decision — `allow`, `skip` (fail-open), and `block` — is recorded in the session trace (`SessionRecorder.recordModerationDecision`) with the model's `category` and `reason`, so a wrong rejection can be inspected in the debug dialog and the prompt tuned. The model justifies blocks via the `reason` field; the user only ever sees the generic `refusalMessage`, never the reason. Tracing is ephemeral and client-only — there is no durable server-side audit log.
+
 **Key files:**
 - `api/src/moderation/router.ts` — `GET` enabled flag, `POST` verdict
 - `api/src/moderation/service.ts` — settings load, model resolution, fail-open timeout

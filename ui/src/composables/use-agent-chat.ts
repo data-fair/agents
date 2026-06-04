@@ -610,11 +610,11 @@ export function useAgentChat (options: UseAgentChatOptions) {
         if (moderationPromise && !moderationChecked && (part.type === 'text-delta' || part.type === 'tool-call')) {
           const verdict = await moderationPromise
           moderationChecked = true
+          if (recorder) recorder.recordModerationDecision(verdict)
           if (verdict.action === 'block') {
             abortController?.abort()
             history.pop() // drop the blocked user message from model context
             messages.value.push({ role: 'assistant', content: verdict.refusalMessage || 'This request can\'t be processed.' })
-            if (recorder) recorder.recordModerationBlock(verdict.category, verdict.reason)
             status.value = 'ready'
             return
           }
@@ -661,6 +661,14 @@ export function useAgentChat (options: UseAgentChatOptions) {
             recorder.finishStep()
           }
         }
+      }
+
+      // If the stream produced no visible part, the gate above never ran —
+      // still record the moderation decision for trace completeness (allow/skip/block).
+      if (moderationPromise && !moderationChecked) {
+        const verdict = await moderationPromise
+        moderationChecked = true
+        if (recorder) recorder.recordModerationDecision(verdict)
       }
 
       // Update history with all response messages
