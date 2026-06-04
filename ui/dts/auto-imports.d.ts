@@ -19,6 +19,7 @@ declare global {
   const computed: typeof import('vue')['computed']
   const computedDeepDiff: typeof import('@data-fair/lib-vue/deep-diff.js')['computedDeepDiff']
   const createApp: typeof import('vue')['createApp']
+  const createExploreTool: typeof import('../src/composables/tool-exploration')['createExploreTool']
   const createReactiveSearchParams: typeof import('../src/composables/use-webmcp')['createReactiveSearchParams']
   const createRouter: typeof import('vue-router').createRouter
   const createWebHistory: typeof import('vue-router').createWebHistory
@@ -153,6 +154,7 @@ declare module 'vue' {
     readonly computed: UnwrapRef<typeof import('vue')['computed']>
     readonly computedDeepDiff: UnwrapRef<typeof import('@data-fair/lib-vue/deep-diff.js')['computedDeepDiff']>
     readonly createApp: UnwrapRef<typeof import('vue')['createApp']>
+    readonly createExploreTool: UnwrapRef<typeof import('../src/composables/tool-exploration')['createExploreTool']>
     readonly customRef: UnwrapRef<typeof import('vue')['customRef']>
     readonly defineAsyncComponent: UnwrapRef<typeof import('vue')['defineAsyncComponent']>
     readonly defineComponent: UnwrapRef<typeof import('vue')['defineComponent']>
