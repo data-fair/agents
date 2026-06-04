@@ -6,6 +6,8 @@ import { getTabChannelId } from '@data-fair/lib-vue-agents'
 import { FrameClientAggregator } from '~/transports/frame-client-aggregator'
 import type { SessionRecorder, ToolSnapshot } from '~/traces/session-recorder'
 import { $apiPath } from '~/context'
+import { useSession } from '@data-fair/lib-vue/session.js'
+import { getAnonymousToken, resetAnonymousToken } from '~/composables/use-anonymous-token'
 import { extractErrorMessage } from '~/utils/error'
 import { parseGatewayCompletion } from '~/traces/gateway-response'
 import Debug from 'debug'
@@ -100,6 +102,14 @@ function partitionTools (allTools: Record<string, Tool>): {
 export function useAgentChat (options: UseAgentChatOptions) {
   // @ts-ignore
   if (import.meta.env?.SSR) return
+
+  const session = useSession()
+  const isAnonymous = () => !session.user.value
+  if (isAnonymous()) {
+    // prefetch so SD's notBefore window elapses while the user types
+    // eslint-disable-next-line no-void
+    void getAnonymousToken().catch(err => debug('anonymous token prefetch failed: %O', err))
+  }
 
   const { recorder, localTools, modelName } = options
   const chatModelName = modelName ?? 'assistant'
@@ -268,10 +278,25 @@ export function useAgentChat (options: UseAgentChatOptions) {
     return res
   }
 
+  const gatewayFetch: typeof fetch = async (input, init) => {
+    if (!isAnonymous()) return tracingFetch(input, init)
+    const withToken = async (token: string) => {
+      const headers = new Headers(init?.headers as HeadersInit | undefined)
+      headers.set('x-anonymous-token', token)
+      return tracingFetch(input, { ...(init as RequestInit), headers })
+    }
+    let res = await withToken(await getAnonymousToken())
+    if (res.status === 401) {
+      resetAnonymousToken()
+      res = await withToken(await getAnonymousToken())
+    }
+    return res
+  }
+
   const provider = createOpenAI({
     baseURL: `${window.location.origin}${$apiPath}/gateway/${options.accountType}/${options.accountId}/v1`,
     apiKey: 'unused',
-    ...(recorder ? { fetch: tracingFetch } : {})
+    fetch: gatewayFetch
   })
 
   onScopeDispose(() => {
