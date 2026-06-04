@@ -304,6 +304,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
     status.value = 'ready'
     error.value = null
     history = []
+    // abort() above guarantees no in-flight prepareStep will read the old Set
     promotedTools = new Set<string>()
     sessionUsage.value = { inputTokens: 0, outputTokens: 0 }
     if (newSystemPrompt !== undefined) {
@@ -569,10 +570,10 @@ export function useAgentChat (options: UseAgentChatOptions) {
 
       // Exploration mode: hide plain tools behind explore_tools, expose only
       // explore_tools + sub-agent pseudo-tools + already-promoted tools per step.
-      const subAgentNames = Object.keys(subAgents)
       let streamSystem = options.systemPrompt
       let prepareStep: undefined | (() => { activeTools: string[] })
       if (explorationEnabled) {
+        const subAgentNames = Object.keys(subAgents)
         const plainTools = { ...mainTools }
         mainLLMTools[EXPLORE_TOOL_NAME] = createExploreTool({
           plainTools,
@@ -582,7 +583,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
         })
         streamSystem = buildExplorationSystem(options.systemPrompt, buildToolCatalog(plainTools))
         prepareStep = () => ({
-          activeTools: [EXPLORE_TOOL_NAME, ...subAgentNames, ...[...promotedTools]]
+          activeTools: [EXPLORE_TOOL_NAME, ...subAgentNames, ...promotedTools]
             .filter(n => n in mainLLMTools)
         })
       }
