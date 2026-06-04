@@ -136,8 +136,30 @@ function processMockSummarizerPrompt (): MockPromptResult {
   return { type: 'text', text: 'Summary: conversation covered the main topics discussed.' }
 }
 
-function processForModel (modelId: string, options: { prompt: string | Array<any> }): MockPromptResult {
+/**
+ * Exploration test seam: when the request advertises a `select_tools` tool, emit a
+ * deterministic select_tools call choosing every tool named inside the prompt's
+ * <candidate-tools> block. Lets the explore_tools flow be tested with the mock.
+ */
+function processSelectToolsSeam (lastMessage: string, tools: Array<any> | undefined): MockPromptResult | null {
+  const offersSelectTools = Array.isArray(tools) &&
+    tools.some((t: any) => (t?.name ?? t?.function?.name) === 'select_tools')
+  if (!offersSelectTools) return null
+  const block = lastMessage.match(/<candidate-tools>([\s\S]*?)<\/candidate-tools>/)
+  const names = block
+    ? block[1].split('\n').map((l: string) => l.trim()).filter(Boolean).map((l: string) => l.split(':')[0].trim())
+    : []
+  return {
+    type: 'tool-call',
+    toolName: 'select_tools',
+    toolArgs: JSON.stringify({ summary: 'mock selection', toolNames: names })
+  }
+}
+
+function processForModel (modelId: string, options: { prompt: string | Array<any>, tools?: Array<any> }): MockPromptResult {
   const lastMessage = getLastUserMessage(options)
+  const seam = processSelectToolsSeam(lastMessage, options.tools)
+  if (seam) return seam
   switch (modelId) {
     case 'mock-tools':
       return processMockToolsPrompt(lastMessage, options.prompt)
