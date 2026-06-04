@@ -67,11 +67,15 @@ export type InputPricePer1MTokens2 = number;
 export type OutputPricePer1MTokens2 = number;
 export type InputPricePer1MTokens3 = number;
 export type OutputPricePer1MTokens3 = number;
+export type InputPricePer1MTokens4 = number;
+export type OutputPricePer1MTokens4 = number;
 export type Unlimited = boolean;
 /**
  * Weekly limit = monthly / 2, daily limit = monthly / 4
  */
 export type MonthlyLimit = number;
+export type EnableModeration = boolean;
+export type RefusalMessage = string;
 
 export type SettingsPut = {
   createdAt?: string;
@@ -85,6 +89,7 @@ export type SettingsPut = {
   providers: AIProviders;
   models: Models;
   quotas: RoleQuotas;
+  moderation?: Moderation;
 }
 export type OpenAI = {
   type: ProviderType;
@@ -170,6 +175,7 @@ export type Models = {
   tools?: Tools;
   summarizer?: Summarizer;
   evaluator?: Evaluator;
+  moderator?: Moderator;
   [k: string]: unknown;
 }
 /**
@@ -264,6 +270,29 @@ export type Model3 = {
   };
   [k: string]: unknown;
 }
+/**
+ *
+ * The "gatekeeper." Classifies each new user message for profanity, prompt-injection, persona override, and out-of-scope requests. Should be fast and cheap — it sits on the critical path to the first response token.
+ *
+ * Recommendations: a small/fast model, e.g. Claude 4.5 Haiku, GPT-5.4 Mini, Mistral Small 4, or a dedicated moderation classifier.
+ */
+export type Moderator = {
+  model?: Model4;
+  inputPricePerMillion?: InputPricePer1MTokens4;
+  outputPricePerMillion?: OutputPricePer1MTokens4;
+  [k: string]: unknown;
+}
+export type Model4 = {
+  id: ModelID;
+  name: Name;
+  provider: {
+    type: ProviderType9;
+    name: ProviderName;
+    id: ProviderID9;
+    [k: string]: unknown;
+  };
+  [k: string]: unknown;
+}
 export type RoleQuotas = {
   global: GlobalQuotas;
   admin: AdminQuotas;
@@ -303,6 +332,11 @@ export type AnonymousUserQuotas = {
   monthlyLimit: MonthlyLimit;
   [k: string]: unknown;
 }
+export type Moderation = {
+  enabled?: EnableModeration;
+  refusalMessage?: RefusalMessage;
+  [k: string]: unknown;
+}
 /**
  * This interface was referenced by `SettingsPut`'s JSON-Schema
  * via the `definition` "RoleQuota".
@@ -316,7 +350,7 @@ export type RoleQuota = {
  * This interface was referenced by `SettingsPut`'s JSON-Schema
  * via the `definition` "Model".
  */
-export type Model4 = {
+export type Model5 = {
   id: ModelID;
   name: Name;
   provider: {

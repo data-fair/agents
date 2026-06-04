@@ -25,7 +25,9 @@ const defaultQuotas = {
   anonymous: { unlimited: false, monthlyLimit: 0 }
 }
 
-const emptySettings = (owner: AccountKeys): Settings => ({ owner, providers: [], models: {} as unknown as Settings['models'], quotas: defaultQuotas })
+const defaultModeration = { enabled: false }
+
+const emptySettings = (owner: AccountKeys): Settings => ({ owner, providers: [], models: {} as unknown as Settings['models'], quotas: defaultQuotas, moderation: defaultModeration })
 
 router.get('/:type/:id', async (req, res, next) => {
   const session = reqSessionAuthenticated(req)
@@ -55,7 +57,8 @@ router.put('/:type/:id', async (req, res, next) => {
     owner,
     providers: encryptProviderApiKeys(body.providers || [], existing?.providers || [], securityKey),
     models: body.models,
-    quotas: body.quotas ?? defaultQuotas
+    quotas: body.quotas ?? defaultQuotas,
+    moderation: body.moderation ?? defaultModeration
   }
   await mongo.settings.replaceOne({ owner }, settings, { upsert: true })
 
