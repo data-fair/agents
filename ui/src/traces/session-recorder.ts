@@ -6,6 +6,7 @@ export interface ToolCallTrace {
   input: any
   output: any
   timestamp: Date
+  endTimestamp?: Date
   durationMs?: number
   subAgent?: SubAgentTrace
 }
@@ -13,9 +14,23 @@ export interface ToolCallTrace {
 export interface StepTrace {
   timestamp: Date
   messages: ModelMessage[]
-  usage?: { inputTokens: number; outputTokens: number }
   finishReason?: string
   toolCalls: ToolCallTrace[]
+}
+
+export interface PhysicalRequestTrace {
+  contextId: string
+  timestamp: Date
+  modelRole: string
+  requestBody: any
+  result: { content: string; toolCalls: { id: string; name: string; arguments: string }[]; finishReason?: string }
+  inputTokens: number
+  outputTokens: number
+  messageCount: number
+  toolCount: number
+  bodyChars: number
+  durationMs: number
+  timeToFirstChunkMs?: number
 }
 
 export interface TurnTrace {
@@ -51,11 +66,12 @@ export interface SessionTrace {
   toolSnapshots: ToolSnapshot[][]
   toolChanges: ToolChangeEvent[]
   turns: TurnTrace[]
+  physicalRequests: PhysicalRequestTrace[]
 }
 
 export interface TraceOverviewEntry {
   index: number
-  type: 'system-prompt' | 'user-message' | 'hidden-context' | 'assistant-step' | 'tool-call' | 'tool-result' | 'sub-agent-start' | 'sub-agent-system-prompt' | 'sub-agent-step' | 'sub-agent-end' | 'tools-changed' | 'compaction'
+  type: 'system-prompt' | 'user-message' | 'hidden-context' | 'assistant-step' | 'tool-call' | 'tool-result' | 'sub-agent-start' | 'sub-agent-system-prompt' | 'sub-agent-step' | 'sub-agent-end' | 'physical-request' | 'tools-changed' | 'compaction'
   timestamp: Date
   label: string
   preview: string
@@ -74,13 +90,13 @@ export class SessionRecorder {
     systemPrompt: '',
     toolSnapshots: [],
     toolChanges: [],
-    turns: []
+    turns: [],
+    physicalRequests: []
   }
 
   private currentTurn: TurnTrace | null = null
   private currentStep: StepTrace | null = null
   private pendingToolCalls = new Map<string, ToolCallTrace>()
-  private subAgentPendingToolCalls = new Map<string, Map<string, ToolCallTrace>>()
 
   setSystemPrompt (prompt: string): void {
     this.trace.systemPrompt = prompt
@@ -116,6 +132,7 @@ export class SessionRecorder {
     const tc = this.pendingToolCalls.get(id)
     if (tc) {
       tc.output = output
+      tc.endTimestamp = new Date()
       // Auto-compute durationMs from timestamp if not provided
       tc.durationMs = durationMs ?? (Date.now() - tc.timestamp.getTime())
       this.pendingToolCalls.delete(id)
@@ -126,53 +143,36 @@ export class SessionRecorder {
     const tc = this.pendingToolCalls.get(toolCallId)
     if (tc) {
       tc.subAgent = { name, systemPrompt, tools, task, steps: [], turnIndex }
-      this.subAgentPendingToolCalls.set(toolCallId, new Map())
     }
   }
 
-  startSubAgentToolCall (toolCallId: string, id: string, toolName: string, input: any): void {
+  recordSubAgentStep (toolCallId: string, step: {
+    messages: ModelMessage[]
+    finishReason?: string
+    toolCalls?: readonly { toolCallId: string; toolName: string; input: any }[]
+    toolResults?: readonly { toolCallId: string; output: any }[]
+  }): void {
     const tc = this.pendingToolCalls.get(toolCallId)
     if (!tc?.subAgent) return
-    const subTc: ToolCallTrace = { id, toolName, input, output: null, timestamp: new Date() }
-    const pendingMap = this.subAgentPendingToolCalls.get(toolCallId)
-    pendingMap?.set(id, subTc)
-    const steps = tc.subAgent.steps
-    if (steps.length === 0) {
-      steps.push({ timestamp: new Date(), messages: [], toolCalls: [] })
-    }
-    steps[steps.length - 1].toolCalls.push(subTc)
-  }
 
-  finishSubAgentToolCall (toolCallId: string, id: string, output: any): void {
-    const pendingMap = this.subAgentPendingToolCalls.get(toolCallId)
-    const subTc = pendingMap?.get(id)
-    if (subTc) {
-      subTc.output = output
-      pendingMap?.delete(id)
-    }
-  }
+    const resultByCallId = new Map<string, any>()
+    for (const r of step.toolResults ?? []) resultByCallId.set(r.toolCallId, r.output)
 
-  finishSubAgentStep (toolCallId: string): void {
-    const tc = this.pendingToolCalls.get(toolCallId)
-    if (!tc?.subAgent) return
-    tc.subAgent.steps.push({ timestamp: new Date(), messages: [], toolCalls: [] })
-  }
+    const now = new Date()
+    const toolCalls: ToolCallTrace[] = (step.toolCalls ?? []).map(call => ({
+      id: call.toolCallId,
+      toolName: call.toolName,
+      input: call.input,
+      output: resultByCallId.get(call.toolCallId) ?? null,
+      timestamp: now
+    }))
 
-  addSubAgentStepMessages (toolCallId: string, messages: ModelMessage[], usage?: { inputTokens: number; outputTokens: number }): void {
-    const tc = this.pendingToolCalls.get(toolCallId)
-    if (!tc?.subAgent) return
-    const steps = tc.subAgent.steps
-    // Remove empty trailing steps created by finishSubAgentStep
-    while (steps.length > 0 && steps[steps.length - 1].toolCalls.length === 0 && steps[steps.length - 1].messages.length === 0) {
-      steps.pop()
-    }
-    // Set messages/usage on the last step with content
-    const targetStep = steps.length > 0 ? steps[steps.length - 1] : null
-    if (targetStep) {
-      targetStep.messages = messages
-      targetStep.usage = usage
-    }
-    this.subAgentPendingToolCalls.delete(toolCallId)
+    tc.subAgent.steps.push({
+      timestamp: now,
+      messages: step.messages,
+      finishReason: step.finishReason,
+      toolCalls
+    })
   }
 
   recordCompaction (originalMessages: ModelMessage[], summary: string, originalCharCount: number, compactedCharCount: number): void {
@@ -185,6 +185,10 @@ export class SessionRecorder {
     } as any)
   }
 
+  recordPhysicalRequest (entry: PhysicalRequestTrace): void {
+    this.trace.physicalRequests.push(entry)
+  }
+
   finishStep (): void {
     if (this.currentTurn && this.currentStep) {
       this.currentTurn.steps.push(this.currentStep)
@@ -192,28 +196,22 @@ export class SessionRecorder {
     this.currentStep = { timestamp: new Date(), messages: [], toolCalls: [] }
   }
 
-  addStepMessages (messages: ModelMessage[], usage?: { inputTokens: number; outputTokens: number }, finishReason?: string): void {
+  addStepMessages (messages: ModelMessage[], finishReason?: string): void {
     if (!this.currentTurn) return
 
     const lastPushedStep = this.currentTurn.steps[this.currentTurn.steps.length - 1]
     const finishStepWasCalled = lastPushedStep && this.currentStep && !this.currentTurn.steps.includes(this.currentStep)
 
     if (finishStepWasCalled) {
-      // finishStep was called: push currentStep as response step if it has messages,
-      // otherwise set usage/finishReason on the last tool-call step
       if (this.currentStep && messages.length > 0) {
         this.currentStep.messages = messages
-        this.currentStep.usage = usage
         this.currentStep.finishReason = finishReason
         this.currentTurn.steps.push(this.currentStep)
       } else {
-        lastPushedStep.usage = usage
         lastPushedStep.finishReason = finishReason
       }
     } else if (this.currentStep) {
-      // No finishStep call: push the current step with messages
       this.currentStep.messages = messages
-      this.currentStep.usage = usage
       this.currentStep.finishReason = finishReason
       this.currentTurn.steps.push(this.currentStep)
     }
@@ -296,24 +294,27 @@ export class SessionRecorder {
               if (subStep.messages.length > 0) {
                 add(
                   { type: 'sub-agent-step', timestamp: subStep.timestamp, label: `sub-agent step: ${tc.subAgent!.name}`, preview: this.extractTextPreview(subStep.messages) },
-                  { messages: subStep.messages, usage: subStep.usage }
+                  { messages: subStep.messages, finishReason: subStep.finishReason }
                 )
               }
             }
+            // endTimestamp (set when the tool call finishes, after all sub-agent steps) ensures the
+            // sub-agent-end and parent tool-result entries sort AFTER the sub-agent's step entries,
+            // whose timestamps fall between the call's start and end.
             add(
-              { type: 'sub-agent-end', timestamp: tc.timestamp, label: `sub-agent end: ${tc.subAgent.name}`, preview: '' },
+              { type: 'sub-agent-end', timestamp: tc.endTimestamp ?? tc.timestamp, label: `sub-agent end: ${tc.subAgent.name}`, preview: '' },
               { name: tc.subAgent.name }
             )
           }
           add(
-            { type: 'tool-result', timestamp: tc.timestamp, label: `tool result: ${tc.toolName}`, preview: (JSON.stringify(tc.output) ?? '').slice(0, 150) },
+            { type: 'tool-result', timestamp: tc.endTimestamp ?? tc.timestamp, label: `tool result: ${tc.toolName}`, preview: (JSON.stringify(tc.output) ?? '').slice(0, 150) },
             { output: tc.output, toolName: tc.toolName, durationMs: tc.durationMs }
           )
         }
         if (step.messages.length > 0) {
           add(
             { type: 'assistant-step', timestamp: step.timestamp, label: 'assistant step', preview: this.extractTextPreview(step.messages) },
-            { messages: step.messages, usage: step.usage, finishReason: step.finishReason }
+            { messages: step.messages, finishReason: step.finishReason }
           )
         }
       }
@@ -324,6 +325,30 @@ export class SessionRecorder {
       add(
         { type: 'tools-changed', timestamp: tc.timestamp, label: `tools changed (${tc.tools.length})`, preview: toolNames.slice(0, 150) },
         { tools: tc.tools }
+      )
+    }
+
+    for (const pr of this.trace.physicalRequests) {
+      add(
+        {
+          type: 'physical-request',
+          timestamp: pr.timestamp,
+          label: `physical request: ${pr.modelRole}`,
+          preview: `${pr.inputTokens} in · ${pr.outputTokens} out · ${pr.messageCount} msgs · ${pr.toolCount} tools · ${Math.round(pr.durationMs)}ms`
+        },
+        {
+          modelRole: pr.modelRole,
+          inputTokens: pr.inputTokens,
+          outputTokens: pr.outputTokens,
+          messageCount: pr.messageCount,
+          toolCount: pr.toolCount,
+          bodyChars: pr.bodyChars,
+          durationMs: pr.durationMs,
+          timeToFirstChunkMs: pr.timeToFirstChunkMs,
+          finishReason: pr.result.finishReason,
+          requestBody: pr.requestBody,
+          result: pr.result
+        }
       )
     }
 

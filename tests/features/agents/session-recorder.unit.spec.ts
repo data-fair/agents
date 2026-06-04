@@ -12,7 +12,7 @@ test.describe('SessionRecorder - recording', () => {
     const recorder = new SessionRecorder()
     recorder.snapshotTools([{ name: 'search', description: 'Search datasets', inputSchema: { type: 'object' } }])
     recorder.startTurn('hello')
-    recorder.addStepMessages([{ role: 'assistant', content: [{ type: 'text', text: 'hi' }] }], { inputTokens: 10, outputTokens: 5 }, 'stop')
+    recorder.addStepMessages([{ role: 'assistant', content: [{ type: 'text', text: 'hi' }] }], 'stop')
 
     const trace = recorder.getTrace()
     assert.equal(trace.turns.length, 1)
@@ -29,7 +29,7 @@ test.describe('SessionRecorder - recording', () => {
     assert.equal(recorder.getTrace().systemPrompt, 'You are helpful')
   })
 
-  test('finishStep + addStepMessages sets usage and finishReason on the step', () => {
+  test('finishStep + addStepMessages sets finishReason on the step', () => {
     const recorder = new SessionRecorder()
     recorder.startTurn('hello')
     recorder.startToolCall('tc1', 'search', { q: 'x' })
@@ -37,20 +37,17 @@ test.describe('SessionRecorder - recording', () => {
     recorder.finishStep()
     recorder.addStepMessages(
       [{ role: 'assistant', content: [{ type: 'text', text: 'done' }] }],
-      { inputTokens: 20, outputTokens: 10 },
       'stop'
     )
 
     const trace = recorder.getTrace()
     // Tool call step + text response step
     assert.equal(trace.turns[0].steps.length, 2)
-    // First step has tool calls but no usage/finishReason
+    // First step has tool calls but no finishReason
     assert.equal(trace.turns[0].steps[0].toolCalls.length, 1)
-    assert.equal(trace.turns[0].steps[0].usage, undefined)
-    // Second step has the response messages with usage/finishReason
+    // Second step has the response messages with finishReason
     const responseStep = trace.turns[0].steps[1]
     assert.equal(responseStep.finishReason, 'stop')
-    assert.deepEqual(responseStep.usage, { inputTokens: 20, outputTokens: 10 })
     assert.equal(responseStep.messages.length, 1)
   })
 
@@ -68,7 +65,6 @@ test.describe('SessionRecorder - recording', () => {
     // Final step: text response
     recorder.addStepMessages(
       [{ role: 'assistant', content: [{ type: 'text', text: 'all done' }] }],
-      { inputTokens: 30, outputTokens: 15 },
       'stop'
     )
 
@@ -85,7 +81,7 @@ test.describe('SessionRecorder - recording', () => {
     recorder.startToolCall('tc1', 'search', { query: 'test' })
     recorder.finishToolCall('tc1', { results: [] }, 120)
     recorder.finishStep()
-    recorder.addStepMessages([], { inputTokens: 20, outputTokens: 10 }, 'stop')
+    recorder.addStepMessages([], 'stop')
 
     const trace = recorder.getTrace()
     // finishStep pushed 1 step, addStepMessages with empty messages doesn't push another
@@ -100,13 +96,15 @@ test.describe('SessionRecorder - recording', () => {
     recorder.startTurn('analyze')
     recorder.startToolCall('tc1', 'subagent_analyst', { task: 'analyze data' })
     recorder.startSubAgent('tc1', 'analyst', 'You are an analyst', 'analyze data', [])
-    recorder.startSubAgentToolCall('tc1', 'stc1', 'queryData', { sql: 'SELECT *' })
-    recorder.finishSubAgentToolCall('tc1', 'stc1', { rows: [] })
-    recorder.finishSubAgentStep('tc1')
-    recorder.addSubAgentStepMessages('tc1', [{ role: 'assistant', content: [{ type: 'text', text: 'done' }] }], { inputTokens: 5, outputTokens: 3 })
+    recorder.recordSubAgentStep('tc1', {
+      messages: [{ role: 'assistant', content: [{ type: 'text', text: 'done' }] }],
+      finishReason: 'stop',
+      toolCalls: [{ toolCallId: 'stc1', toolName: 'queryData', input: { sql: 'SELECT *' } }],
+      toolResults: [{ toolCallId: 'stc1', output: { rows: [] } }]
+    })
     recorder.finishToolCall('tc1', 'analysis complete', 500)
     recorder.finishStep()
-    recorder.addStepMessages([], undefined, 'stop')
+    recorder.addStepMessages([], 'stop')
 
     const trace = recorder.getTrace()
     const subAgent = trace.turns[0].steps[0].toolCalls[0].subAgent
@@ -115,6 +113,65 @@ test.describe('SessionRecorder - recording', () => {
     assert.equal(subAgent.steps.length, 1)
     assert.equal(subAgent.steps[0].toolCalls.length, 1)
     assert.equal(subAgent.steps[0].toolCalls[0].toolName, 'queryData')
+    assert.deepEqual(subAgent.steps[0].toolCalls[0].input, { sql: 'SELECT *' })
+    assert.deepEqual(subAgent.steps[0].toolCalls[0].output, { rows: [] })
+  })
+
+  test('records a multi-step sub-agent with correct ordering', () => {
+    const recorder = new SessionRecorder()
+    recorder.startTurn('analyze')
+    recorder.startToolCall('tc1', 'subagent_analyst', { task: 'analyze data' })
+    recorder.startSubAgent('tc1', 'analyst', 'You are an analyst', 'analyze data', [])
+    recorder.recordSubAgentStep('tc1', {
+      messages: [{ role: 'assistant', content: [{ type: 'text', text: 'querying' }] }],
+      finishReason: 'tool-calls',
+      toolCalls: [{ toolCallId: 'stc1', toolName: 'queryData', input: { sql: 'SELECT 1' } }],
+      toolResults: [{ toolCallId: 'stc1', output: { rows: [1] } }]
+    })
+    recorder.recordSubAgentStep('tc1', {
+      messages: [{ role: 'assistant', content: [{ type: 'text', text: 'the answer is 1' }] }],
+      finishReason: 'stop',
+      toolCalls: [],
+      toolResults: []
+    })
+    recorder.finishToolCall('tc1', 'analysis complete', 500)
+    recorder.finishStep()
+    recorder.addStepMessages([], 'stop')
+
+    const subAgent = recorder.getTrace().turns[0].steps[0].toolCalls[0].subAgent!
+    assert.equal(subAgent.steps.length, 2)
+
+    // Inject divergent timestamps mirroring the real async flow: the tool call
+    // starts at T0, the sub-agent steps happen at T1/T2, and the call finishes
+    // (endTimestamp) at T3. Without the endTimestamp ordering fix the sub-agent-end
+    // and parent tool-result entries (stuck at T0) would sort BEFORE the steps.
+    const parentTc = recorder.getTrace().turns[0].steps[0].toolCalls[0]
+    parentTc.timestamp = new Date('2020-01-01T00:00:00Z')
+    parentTc.subAgent!.steps[0].timestamp = new Date('2020-01-01T00:00:01Z')
+    parentTc.subAgent!.steps[0].toolCalls[0].timestamp = new Date('2020-01-01T00:00:01Z')
+    parentTc.subAgent!.steps[1].timestamp = new Date('2020-01-01T00:00:02Z')
+    parentTc.endTimestamp = new Date('2020-01-01T00:00:03Z')
+
+    const overview = recorder.getTraceOverview()
+    const idx = (pred: (e: typeof overview[number]) => boolean) => overview.findIndex(pred)
+
+    const subToolCallIdx = idx(e => e.type === 'tool-call' && e.label.includes('queryData'))
+    const subToolResultIdx = idx(e => e.type === 'tool-result' && e.label.includes('queryData'))
+    const lastSubStepIdx = overview.map((e, i) => ({ e, i })).filter(({ e }) => e.type === 'sub-agent-step').pop()!.i
+    const subAgentEndIdx = idx(e => e.type === 'sub-agent-end')
+    const parentToolResultIdx = idx(e => e.type === 'tool-result' && e.label.includes('subagent_analyst'))
+
+    assert.ok(subToolCallIdx >= 0, 'sub-agent tool-call entry exists')
+    assert.ok(subToolResultIdx >= 0, 'sub-agent tool-result entry exists')
+    assert.ok(subAgentEndIdx >= 0, 'sub-agent-end entry exists')
+    assert.ok(parentToolResultIdx >= 0, 'parent tool-result entry exists')
+    // The fix: sub-agent-end and the parent tool-result must come AFTER the sub-agent's steps.
+    assert.ok(subAgentEndIdx > lastSubStepIdx, 'sub-agent-end comes after the sub-agent steps')
+    assert.ok(parentToolResultIdx > subAgentEndIdx, 'parent tool-result comes after sub-agent-end')
+
+    // The sub-agent step detail exposes finishReason (so the dialog can render its chip)
+    const lastSubStepEntry = overview.filter(e => e.type === 'sub-agent-step').pop()!
+    assert.equal(recorder.getTraceEntry(lastSubStepEntry.index)!.content.finishReason, 'stop')
   })
 
   test('records multiple tool snapshots', () => {
@@ -139,7 +196,6 @@ test.describe('SessionRecorder - overview and entry accessors', () => {
     recorder.finishStep()
     recorder.addStepMessages(
       [{ role: 'assistant', content: [{ type: 'text', text: 'Found results' }] }],
-      { inputTokens: 10, outputTokens: 5 },
       'stop'
     )
     return recorder
@@ -199,7 +255,6 @@ test.describe('Evaluator tools', () => {
     recorder.startTurn('hello')
     recorder.addStepMessages(
       [{ role: 'assistant', content: [{ type: 'text', text: 'hi there' }] }],
-      { inputTokens: 10, outputTokens: 5 },
       'stop'
     )
     return recorder
@@ -207,7 +262,7 @@ test.describe('Evaluator tools', () => {
 
   test('getTraceOverview tool returns overview text', async () => {
     const recorder = buildRecorderWithTrace()
-    const tools = buildEvaluatorTools(recorder)
+    const tools = buildEvaluatorTools(recorder, { accountType: 'user', accountId: 'alice', apiPath: '/agents/api' })
     assert.ok(tools.getTraceOverview)
     const result = await (tools.getTraceOverview as any).execute({})
     assert.ok(typeof result === 'string')
@@ -216,7 +271,7 @@ test.describe('Evaluator tools', () => {
 
   test('getTraceEntry tool returns detail for index 0', async () => {
     const recorder = buildRecorderWithTrace()
-    const tools = buildEvaluatorTools(recorder)
+    const tools = buildEvaluatorTools(recorder, { accountType: 'user', accountId: 'alice', apiPath: '/agents/api' })
     const result = await (tools.getTraceEntry as any).execute({ index: 0 })
     assert.ok(typeof result === 'string')
     assert.ok(result.includes('You are helpful'))
@@ -224,10 +279,83 @@ test.describe('Evaluator tools', () => {
 
   test('getSessionConfig tool returns system prompt and tools', async () => {
     const recorder = buildRecorderWithTrace()
-    const tools = buildEvaluatorTools(recorder)
+    const tools = buildEvaluatorTools(recorder, { accountType: 'user', accountId: 'alice', apiPath: '/agents/api' })
     const result = await (tools.getSessionConfig as any).execute({})
     assert.ok(typeof result === 'string')
     assert.ok(result.includes('You are helpful'))
     assert.ok(result.includes('search'))
+  })
+
+  test('summarizePhysicalRequest rejects a non-physical entry without calling the model', async () => {
+    const recorder = buildRecorderWithTrace()
+    const tools = buildEvaluatorTools(recorder, { accountType: 'user', accountId: 'alice', apiPath: '/agents/api' })
+    assert.ok(tools.summarizePhysicalRequest)
+    // index 0 is the system-prompt entry, not a physical request
+    const result = await (tools.summarizePhysicalRequest as any).execute({ index: 0 })
+    assert.ok(typeof result === 'string')
+    assert.ok(result.toLowerCase().includes('not a physical-request'))
+  })
+})
+
+test.describe('SessionRecorder - physical requests', () => {
+  test('records a physical request and surfaces it with inline metrics', () => {
+    const recorder = new SessionRecorder()
+    recorder.startTurn('hi')
+    recorder.recordPhysicalRequest({
+      contextId: 'main:0',
+      timestamp: new Date('2020-01-01T00:00:00.500Z'),
+      modelRole: 'assistant',
+      requestBody: { model: 'assistant', messages: [{ role: 'user', content: 'hi' }], tools: [] },
+      result: { content: 'hello', toolCalls: [], finishReason: 'stop' },
+      inputTokens: 100,
+      outputTokens: 20,
+      messageCount: 1,
+      toolCount: 0,
+      bodyChars: 42,
+      durationMs: 1200,
+      timeToFirstChunkMs: 300
+    })
+
+    const overview = recorder.getTraceOverview()
+    const pr = overview.find(e => e.type === 'physical-request')
+    assert.ok(pr, 'physical-request entry exists')
+    assert.ok(pr.label.includes('assistant'))
+    assert.ok(pr.preview.includes('100 in'))
+    assert.ok(pr.preview.includes('20 out'))
+
+    const detail = recorder.getTraceEntry(pr.index)!
+    assert.equal(detail.content.inputTokens, 100)
+    assert.equal(detail.content.outputTokens, 20)
+    assert.equal(detail.content.requestBody.messages.length, 1)
+    assert.equal(detail.content.result.content, 'hello')
+  })
+
+  test('orders a physical request before the step it produced', () => {
+    const recorder = new SessionRecorder()
+    recorder.startTurn('hi')
+    recorder.recordPhysicalRequest({
+      contextId: 'main:0',
+      timestamp: new Date('2020-01-01T00:00:00Z'),
+      modelRole: 'assistant',
+      requestBody: { model: 'assistant', messages: [], tools: [] },
+      result: { content: 'hello', toolCalls: [], finishReason: 'stop' },
+      inputTokens: 1,
+      outputTokens: 1,
+      messageCount: 0,
+      toolCount: 0,
+      bodyChars: 2,
+      durationMs: 1
+    })
+    recorder.addStepMessages([{ role: 'assistant', content: [{ type: 'text', text: 'hello' }] }], 'stop')
+
+    // Force the assistant step to a later timestamp than the physical request.
+    recorder.getTrace().turns[0].steps[recorder.getTrace().turns[0].steps.length - 1].timestamp =
+      new Date('2020-01-01T00:00:01Z')
+
+    const overview = recorder.getTraceOverview()
+    const prIdx = overview.findIndex(e => e.type === 'physical-request')
+    const stepIdx = overview.findIndex(e => e.type === 'assistant-step')
+    assert.ok(prIdx >= 0 && stepIdx >= 0)
+    assert.ok(prIdx < stepIdx, 'physical-request sorts before its assistant-step')
   })
 })

@@ -1,5 +1,5 @@
 import { ref, watch, onScopeDispose } from 'vue'
-import { streamText, stepCountIs, tool, jsonSchema, ToolLoopAgent, readUIMessageStream } from 'ai'
+import { streamText, generateText, stepCountIs, tool, jsonSchema, ToolLoopAgent, readUIMessageStream } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import type { ModelMessage, Tool } from 'ai'
 import { getTabChannelId } from '@data-fair/lib-vue-agents'
@@ -7,6 +7,7 @@ import { FrameClientAggregator } from '~/transports/frame-client-aggregator'
 import type { SessionRecorder, ToolSnapshot } from '~/traces/session-recorder'
 import { $apiPath } from '~/context'
 import { extractErrorMessage } from '~/utils/error'
+import { parseGatewayCompletion } from '~/traces/gateway-response'
 import Debug from 'debug'
 
 const debug = Debug('df-agents:use-agent-chat')
@@ -115,6 +116,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
   // 24000 is roughly equivalent to a 8k tokens context with 10-15 turns of dialogue an 2-3 tool calls
   const COMPACTION_THRESHOLD = 24_000
   let abortController: AbortController | null = null
+  let turnSeq = 0
 
   let aggregator: FrameClientAggregator | null = null
 
@@ -205,9 +207,71 @@ export function useAgentChat (options: UseAgentChatOptions) {
 
   watch(() => toolsVersion.value, () => { resolveToolsPartition() }, { immediate: true })
 
+  function traceCtxOf (headers: HeadersInit | undefined): string {
+    if (!headers) return 'unknown'
+    try { return new Headers(headers).get('x-trace-ctx') ?? 'unknown' } catch { return 'unknown' }
+  }
+
+  async function capturePhysicalResponse (
+    response: Response,
+    ctx: { requestBody: any; bodyChars: number; contextId: string; timestamp: Date; startMs: number }
+  ): Promise<void> {
+    if (!recorder) return
+    try {
+      const reader = response.body?.getReader()
+      if (!reader) return
+      const decoder = new TextDecoder()
+      let raw = ''
+      let timeToFirstChunkMs: number | undefined
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        if (value && timeToFirstChunkMs === undefined) timeToFirstChunkMs = performance.now() - ctx.startMs
+        raw += decoder.decode(value, { stream: true })
+      }
+      raw += decoder.decode()
+      const durationMs = performance.now() - ctx.startMs
+      const { result, usage } = parseGatewayCompletion(raw)
+      const messages = Array.isArray(ctx.requestBody?.messages) ? ctx.requestBody.messages : []
+      const tools = Array.isArray(ctx.requestBody?.tools) ? ctx.requestBody.tools : []
+      recorder.recordPhysicalRequest({
+        contextId: ctx.contextId,
+        timestamp: ctx.timestamp,
+        modelRole: typeof ctx.requestBody?.model === 'string' ? ctx.requestBody.model : 'unknown',
+        requestBody: ctx.requestBody,
+        result,
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+        messageCount: messages.length,
+        toolCount: tools.length,
+        bodyChars: ctx.bodyChars,
+        durationMs,
+        timeToFirstChunkMs
+      })
+    } catch (err) {
+      debug('physical-request capture failed: %O', err)
+    }
+  }
+
+  const tracingFetch: typeof fetch = async (input, init) => {
+    if (!recorder || !init || typeof init.body !== 'string') {
+      return fetch(input as any, init)
+    }
+    let requestBody: any
+    try { requestBody = JSON.parse(init.body) } catch { return fetch(input as any, init) }
+    const contextId = traceCtxOf(init.headers)
+    const timestamp = new Date()
+    const startMs = performance.now()
+    const res = await fetch(input as any, init)
+    // eslint-disable-next-line no-void
+    void capturePhysicalResponse(res.clone(), { requestBody, bodyChars: init.body.length, contextId, timestamp, startMs })
+    return res
+  }
+
   const provider = createOpenAI({
     baseURL: `${window.location.origin}${$apiPath}/gateway/${options.accountType}/${options.accountId}/v1`,
-    apiKey: 'unused'
+    apiKey: 'unused',
+    ...(recorder ? { fetch: tracingFetch } : {})
   })
 
   onScopeDispose(() => {
@@ -303,7 +367,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
     return chatMessages
   }
 
-  async function compactHistory (): Promise<void> {
+  async function compactHistory (compactionCtxId: string): Promise<void> {
     const threshold = Number(sessionStorage.getItem('agent-chat-compaction-threshold')) || COMPACTION_THRESHOLD
     const serialized = JSON.stringify(history)
     if (serialized.length < threshold) return
@@ -316,22 +380,13 @@ export function useAgentChat (options: UseAgentChatOptions) {
     const prompt = 'You are summarizing a conversation history between a user and an AI assistant that uses tools. Preserve all key facts, decisions, tool results, and context needed to continue the conversation naturally. Be concise but complete.'
 
     try {
-      const res = await fetch(
-        `${window.location.origin}${$apiPath}/summary/${options.accountType}/${options.accountId}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ content: JSON.stringify(historyToCompact), prompt })
-        }
-      )
+      const { text: summary } = await generateText({
+        model: provider.chat('summarizer'),
+        system: prompt,
+        messages: [{ role: 'user' as const, content: JSON.stringify(historyToCompact) }],
+        ...(recorder ? { headers: { 'x-trace-ctx': compactionCtxId } } : {})
+      })
 
-      if (!res.ok) {
-        debug('compaction failed (HTTP %d), continuing with full history', res.status)
-        return
-      }
-
-      const { summary } = await res.json()
       const originalHistory = history
       const originalLength = serialized.length
 
@@ -354,6 +409,8 @@ export function useAgentChat (options: UseAgentChatOptions) {
     if (status.value === 'streaming') return
 
     status.value = 'streaming'
+    const turnId = turnSeq++
+    const turnCtxId = `main:${turnId}`
     error.value = null
     messages.value.push({ role: 'user', content: msg })
 
@@ -365,7 +422,8 @@ export function useAgentChat (options: UseAgentChatOptions) {
     history.push({ role: 'user', content: msg })
 
     // Compact history if it exceeds the threshold
-    await compactHistory()
+    const compactionCtxId = `compaction:${turnId}`
+    await compactHistory(compactionCtxId)
 
     abortController = new AbortController()
     let currentAssistantMessage: ChatMessage | null = null
@@ -422,6 +480,8 @@ export function useAgentChat (options: UseAgentChatOptions) {
               ti => ti.toolName === name && ti.state === 'pending'
             )?.toolCallId ?? name
 
+            const subCtxId = `sub:${parentToolCallId}`
+
             // Record telemetry
             if (recorder) {
               const subToolSnapshots: ToolSnapshot[] = Object.entries(subAgentTools).map(([n, t]) => ({
@@ -441,12 +501,25 @@ export function useAgentChat (options: UseAgentChatOptions) {
               currentAssistantMessage.subAgentTurn = callIndex
             }
 
+            // Record each sub-agent step as it completes (tool calls, messages)
+            const onStepFinish = (step: any) => {
+              if (!recorder) return
+              recorder.recordSubAgentStep(parentToolCallId, {
+                messages: step.response.messages,
+                finishReason: step.finishReason,
+                toolCalls: step.toolCalls,
+                toolResults: step.toolResults
+              })
+            }
+
             // First call: single prompt. Subsequent calls: pass accumulated conversation history.
             const subResult = priorMessages.length === 0
-              ? await subAgent.stream({ prompt: args.task, abortSignal })
+              ? await subAgent.stream({ prompt: args.task, abortSignal, onStepFinish, ...(recorder ? { headers: { 'x-trace-ctx': subCtxId } } : {}) })
               : await subAgent.stream({
                 messages: [...priorMessages, { role: 'user' as const, content: args.task }],
-                abortSignal
+                abortSignal,
+                onStepFinish,
+                ...(recorder ? { headers: { 'x-trace-ctx': subCtxId } } : {})
               })
 
             // Yield intermediate UIMessages as preliminary results (streaming progress)
@@ -459,16 +532,13 @@ export function useAgentChat (options: UseAgentChatOptions) {
               yield chatMessages
             }
 
-            // Final telemetry + accumulate history for next call to this subagent
+            // Accumulate history for the next call to this subagent
             const subResponse = await subResult.response
             subAgentHistory.set(name, [
               ...priorMessages,
               { role: 'user' as const, content: args.task },
               ...subResponse.messages
             ])
-            if (recorder) {
-              recorder.addSubAgentStepMessages(parentToolCallId, subResponse.messages, (subResponse as any).usage)
-            }
             const subUsage = (subResponse as any).usage
             if (subUsage) {
               sessionUsage.value = {
@@ -496,6 +566,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
         tools: Object.keys(mainLLMTools).length > 0 ? mainLLMTools : undefined,
         stopWhen: stepCountIs(10),
         abortSignal: abortController.signal,
+        ...(recorder ? { headers: { 'x-trace-ctx': turnCtxId } } : {}),
         onError: ({ error: err }) => {
           streamError = err
         }
@@ -551,7 +622,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
       history = history.concat(response.messages)
 
       if (recorder) {
-        recorder.addStepMessages(response.messages, (response as any).usage, (response as any).finishReason)
+        recorder.addStepMessages(response.messages, (response as any).finishReason)
       }
       const usage = (response as any).usage
       if (usage) {
