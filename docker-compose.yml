@@ -57,6 +57,7 @@ services:
       MAILS_TRANSPORT: |
         {"port": "MAILDEV_SMTP_PORT","ignoreTLS": true,"host": "localhost"}
       ANONYMOUS_CONTACT_FORM: true
+      ANONYMOUS_ACTION_NOT_BEFORE: 0s
     volumes:
       - ./dev/resources/users.json:/app/data/users.json
       - ./dev/resources/organizations.json:/app/data/organizations.json
