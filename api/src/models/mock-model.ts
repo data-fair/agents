@@ -136,6 +136,18 @@ function processMockSummarizerPrompt (): MockPromptResult {
   return { type: 'text', text: 'Summary: conversation covered the main topics discussed.' }
 }
 
+/**
+ * mock-moderator: returns a deterministic moderation verdict as JSON text.
+ * Messages containing "jailbreak" or "ignore (all|previous) instructions" are
+ * blocked; everything else is allowed. Used by moderation tests.
+ */
+function processMockModeratorPrompt (lastMessage: string): MockPromptResult {
+  if (/jailbreak|ignore (all|previous) instructions/i.test(lastMessage)) {
+    return { type: 'text', text: '{"action":"block","category":"prompt-injection","reason":"mock block"}' }
+  }
+  return { type: 'text', text: '{"action":"allow"}' }
+}
+
 function processForModel (modelId: string, options: { prompt: string | Array<any> }): MockPromptResult {
   const lastMessage = getLastUserMessage(options)
   switch (modelId) {
@@ -143,6 +155,8 @@ function processForModel (modelId: string, options: { prompt: string | Array<any
       return processMockToolsPrompt(lastMessage, options.prompt)
     case 'mock-summarizer':
       return processMockSummarizerPrompt()
+    case 'mock-moderator':
+      return processMockModeratorPrompt(lastMessage)
     default:
       return processMockPrompt(lastMessage, options.prompt)
   }
