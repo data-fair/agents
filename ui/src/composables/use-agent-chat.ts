@@ -117,6 +117,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
   // characters of serialized history before compaction
   // 24000 is roughly equivalent to a 8k tokens context with 10-15 turns of dialogue an 2-3 tool calls
   const COMPACTION_THRESHOLD = 24_000
+  const MODERATION_TIMEOUT_MS = 1500
   let abortController: AbortController | null = null
   let turnSeq = 0
 
@@ -276,7 +277,6 @@ export function useAgentChat (options: UseAgentChatOptions) {
     ...(recorder ? { fetch: tracingFetch } : {})
   })
 
-  const MODERATION_TIMEOUT_MS = 1500
   // Always-on input moderation. Runs through the gateway as the 'moderator' role
   // (which falls back moderator -> summarizer -> assistant server-side), so it is
   // metered and authorised like any other model call. Fails open on timeout,
@@ -286,7 +286,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
     const timer = setTimeout(() => ac.abort(), MODERATION_TIMEOUT_MS)
     try {
       const { text } = await generateText({
-        model: provider('moderator'),
+        model: provider.chat('moderator'),
         system: buildModerationSystemPrompt(options.systemPrompt),
         messages: [{ role: 'user', content: message }],
         abortSignal: ac.signal
@@ -602,7 +602,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
       })
 
       for await (const part of result.fullStream) {
-        if (moderationPromise && !moderationChecked && (part.type === 'text-delta' || part.type === 'tool-call')) {
+        if (!moderationChecked && (part.type === 'text-delta' || part.type === 'tool-call')) {
           const verdict = await moderationPromise
           moderationChecked = true
           if (recorder) recorder.recordModerationDecision(verdict)
@@ -660,7 +660,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
 
       // If the stream produced no visible part, the gate above never ran —
       // still record the moderation decision for trace completeness (allow/skip/block).
-      if (moderationPromise && !moderationChecked) {
+      if (!moderationChecked) {
         const verdict = await moderationPromise
         moderationChecked = true
         if (recorder) recorder.recordModerationDecision(verdict)
