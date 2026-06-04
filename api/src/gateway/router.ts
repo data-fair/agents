@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { generateText, streamText } from 'ai'
+import { generateText, streamText, type LanguageModelUsage } from 'ai'
 import { type AccountKeys, reqSession, isAuthenticated } from '@data-fair/lib-express'
 import { reqIp as _reqIp } from '@data-fair/lib-express/req-origin.js'
 import { assertCanUseModel, assertRoleQuota, getEffectiveRole } from '../auth.ts'
@@ -14,6 +14,32 @@ import crypto from 'node:crypto'
 
 function safeReqIp (req: import('express').Request): string {
   try { return _reqIp(req) } catch { return req.ip || '127.0.0.1' }
+}
+
+// Build an OpenAI-compatible usage object, surfacing cache token details when the
+// provider reports them (Anthropic cache read/write, OpenAI cached_tokens, etc.).
+// The AI SDK normalizes these into usage.inputTokenDetails regardless of provider,
+// so the gateway can forward them uniformly for the debug trace.
+function buildUsage (usage: LanguageModelUsage | undefined) {
+  if (!usage) return undefined
+  const promptTokens = usage.inputTokens ?? 0
+  const completionTokens = usage.outputTokens ?? 0
+  const cacheRead = usage.inputTokenDetails?.cacheReadTokens
+  const cacheWrite = usage.inputTokenDetails?.cacheWriteTokens
+  const result: {
+    prompt_tokens: number
+    completion_tokens: number
+    total_tokens: number
+    prompt_tokens_details?: { cached_tokens: number, cache_creation_tokens: number }
+  } = {
+    prompt_tokens: promptTokens,
+    completion_tokens: completionTokens,
+    total_tokens: promptTokens + completionTokens
+  }
+  if (cacheRead != null || cacheWrite != null) {
+    result.prompt_tokens_details = { cached_tokens: cacheRead ?? 0, cache_creation_tokens: cacheWrite ?? 0 }
+  }
+  return result
 }
 
 const router = Router()
@@ -261,13 +287,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
               created,
               model: modelId,
               choices: [{ index: 0, delta: {}, finish_reason: mapFinishReason(part.finishReason as FinishReason) }],
-              usage: part.totalUsage
-                ? {
-                    prompt_tokens: part.totalUsage.inputTokens ?? 0,
-                    completion_tokens: part.totalUsage.outputTokens ?? 0,
-                    total_tokens: (part.totalUsage.inputTokens ?? 0) + (part.totalUsage.outputTokens ?? 0)
-                  }
-                : undefined
+              usage: buildUsage(part.totalUsage)
             })}\n\n`)
           }
         }
@@ -330,11 +350,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
           message: responseMessage,
           finish_reason: mapFinishReason(result.finishReason as FinishReason)
         }],
-        usage: {
-          prompt_tokens: result.usage?.inputTokens ?? 0,
-          completion_tokens: result.usage?.outputTokens ?? 0,
-          total_tokens: (result.usage?.inputTokens ?? 0) + (result.usage?.outputTokens ?? 0)
-        }
+        usage: buildUsage(result.usage)
       })
     }
   } catch (err) {

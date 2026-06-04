@@ -45,16 +45,16 @@
   </div>
 
   <v-container>
-    <h1 class="text-h5 mb-4">
+    <h1 class="text-headline-small mb-4">
       {{ t('title') }}
     </h1>
-    <p class="text-body-2 text-medium-emphasis mb-4">
+    <p class="text-body-medium text-medium-emphasis mb-4">
       {{ t('instructions') }}
     </p>
-    <p class="text-body-1 mb-4">
+    <p class="text-body-large mb-4">
       Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
     </p>
-    <p class="text-body-1 mb-4">
+    <p class="text-body-large mb-4">
       Curabitur pretium tincidunt lacus. Nulla gravida orci a odio. Nullam varius, turpis et commodo pharetra, est eros bibendum elit, nec luctus magna felis sollicitudin mauris.
     </p>
   </v-container>

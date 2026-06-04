@@ -137,10 +137,26 @@ test.describe('Chat Drawer Integration', () => {
     // No badge dot yet
     await expect(fab.locator('.v-badge__badge')).not.toBeVisible()
 
-    // Re-open, send the message, then close
+    // Hold the assistant reply at the network layer so it provably arrives only
+    // *after* the drawer is closed. The unread signal is emitted on the first
+    // streamed token; if that token lands while the drawer is still closing, the
+    // parent treats the message as "seen" and never raises the badge. Gating the
+    // reply removes that race.
+    let releaseReply: () => void = () => {}
+    const replyGate = new Promise<void>(resolve => { releaseReply = resolve })
+    const completionsUrl = '**/v1/chat/completions'
+    await page.route(completionsUrl, async (route) => {
+      await replyGate
+      await route.continue()
+    })
+
+    // Re-open, send the message, then close — all before the reply is released.
     await clickFab(page)
     await frame.getByRole('button', { name: 'Send' }).click()
     await closeDrawer(page)
+
+    // Now let the reply stream back, while the drawer is closed.
+    releaseReply()
 
     // Wait for the unread badge dot to appear
     await expect(fab.locator('.v-badge__badge')).toBeVisible({ timeout: 10000 })
@@ -148,5 +164,7 @@ test.describe('Chat Drawer Integration', () => {
     // Opening the drawer should clear the unread badge
     await clickFab(page)
     await expect(fab.locator('.v-badge__badge')).not.toBeVisible()
+
+    await page.unroute(completionsUrl)
   })
 })

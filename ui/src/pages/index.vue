@@ -20,10 +20,10 @@
         md="6"
       >
         <v-card class="pt-8 pb-4 px-8">
-          <v-card-title class="text-h4 text-center mb-4">
+          <v-card-title class="text-headline-large text-center mb-4">
             Welcome to @data-fair/agents
           </v-card-title>
-          <v-card-text class="text-center text-body-1">
+          <v-card-text class="text-center text-body-large">
             <p class="mb-4">
               This service provides agentic capabilities for the data-fair stack.
             </p>
@@ -46,9 +46,15 @@ en:
 
 <script lang="ts" setup>
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import personalMenu from '@data-fair/lib-vuetify/personal-menu.vue'
 import { useSessionAuthenticated } from '@data-fair/lib-vue/session.js'
 
 const { t } = useI18n()
 const session = useSessionAuthenticated()
+
+// in dev mode, the home page redirects to the list of development pages
+if (import.meta.env.DEV) {
+  useRouter().replace('/_dev')
+}
 </script>
