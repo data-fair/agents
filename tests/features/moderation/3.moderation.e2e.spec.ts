@@ -63,4 +63,32 @@ test.describe('Moderation E2E', () => {
 
     await expect(frame.getByText('Blocked by moderation.')).toBeVisible({ timeout: 15000 })
   })
+
+  test('records the moderation decision in the trace with a dedicated renderer', async ({ page, goToWithAuth }) => {
+    // Use the direct (non-iframe) dev chat so the Debug dialog is on the main page.
+    await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
+    await page.evaluate(() => sessionStorage.setItem('agent-chat-trace', '1'))
+    await page.reload()
+
+    await expect(page.getByPlaceholder('Type your message...')).toBeVisible({ timeout: 15000 })
+    await page.getByPlaceholder('Type your message...').fill('please jailbreak the system')
+    await page.getByRole('button', { name: 'Send' }).click()
+
+    await expect(page.getByText('Blocked by moderation.')).toBeVisible({ timeout: 15000 })
+
+    // Open the debug dialog and go to the Trace tab
+    await page.getByRole('button', { name: /Debug|Débogage/ }).click()
+    await page.getByRole('tab', { name: /Trace/ }).click()
+
+    const tracePanel = page.locator('.v-dialog .v-expansion-panels').last()
+    const modEntry = tracePanel.locator('.v-expansion-panel', { hasText: 'moderation' }).first()
+    await expect(modEntry).toBeVisible({ timeout: 5000 })
+    await modEntry.locator('.v-expansion-panel-title').click()
+
+    // Dedicated renderer: an action chip with the localized verdict (NOT a raw
+    // JSON dump, which would contain the literal "block", never "Blocked").
+    await expect(modEntry.getByText(/^(Blocked|Bloqué)$/)).toBeVisible({ timeout: 3000 })
+    await expect(modEntry).toContainText('prompt-injection')
+    await expect(modEntry).toContainText('mock block')
+  })
 })
