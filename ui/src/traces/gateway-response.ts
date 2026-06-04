@@ -13,6 +13,8 @@ export interface GatewayResult {
 export interface GatewayUsage {
   inputTokens: number
   outputTokens: number
+  cacheReadTokens: number
+  cacheWriteTokens: number
 }
 
 export function parseGatewayCompletion (raw: string): { result: GatewayResult; usage: GatewayUsage } {
@@ -25,6 +27,8 @@ function parseSSE (raw: string): { result: GatewayResult; usage: GatewayUsage } 
   let finishReason: string | undefined
   let inputTokens = 0
   let outputTokens = 0
+  let cacheReadTokens = 0
+  let cacheWriteTokens = 0
 
   for (const line of raw.split('\n')) {
     const trimmed = line.trim()
@@ -50,16 +54,18 @@ function parseSSE (raw: string): { result: GatewayResult; usage: GatewayUsage } 
     if (chunk.usage) {
       inputTokens = chunk.usage.prompt_tokens ?? 0
       outputTokens = chunk.usage.completion_tokens ?? 0
+      cacheReadTokens = chunk.usage.prompt_tokens_details?.cached_tokens ?? 0
+      cacheWriteTokens = chunk.usage.prompt_tokens_details?.cache_creation_tokens ?? 0
     }
   }
 
-  return { result: { content, toolCalls: toolCalls.filter(Boolean), finishReason }, usage: { inputTokens, outputTokens } }
+  return { result: { content, toolCalls: toolCalls.filter(Boolean), finishReason }, usage: { inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens } }
 }
 
 function parseJson (raw: string): { result: GatewayResult; usage: GatewayUsage } {
   let obj: any
   try { obj = JSON.parse(raw) } catch {
-    return { result: { content: '', toolCalls: [], finishReason: undefined }, usage: { inputTokens: 0, outputTokens: 0 } }
+    return { result: { content: '', toolCalls: [], finishReason: undefined }, usage: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 } }
   }
   const choice = obj.choices?.[0]
   const msg = choice?.message ?? {}
@@ -68,6 +74,11 @@ function parseJson (raw: string): { result: GatewayResult; usage: GatewayUsage }
     : []
   return {
     result: { content: msg.content ?? '', toolCalls, finishReason: choice?.finish_reason },
-    usage: { inputTokens: obj.usage?.prompt_tokens ?? 0, outputTokens: obj.usage?.completion_tokens ?? 0 }
+    usage: {
+      inputTokens: obj.usage?.prompt_tokens ?? 0,
+      outputTokens: obj.usage?.completion_tokens ?? 0,
+      cacheReadTokens: obj.usage?.prompt_tokens_details?.cached_tokens ?? 0,
+      cacheWriteTokens: obj.usage?.prompt_tokens_details?.cache_creation_tokens ?? 0
+    }
   }
 }

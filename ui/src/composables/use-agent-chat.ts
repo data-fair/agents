@@ -110,7 +110,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
   const error = ref<string | null>(null)
   const tools = ref<Record<string, Tool>>({})
   const toolsVersion = ref(0)
-  const sessionUsage = ref({ inputTokens: 0, outputTokens: 0 })
+  const sessionUsage = ref({ inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 })
   let history: ModelMessage[] = []
   // characters of serialized history before compaction
   // 24000 is roughly equivalent to a 8k tokens context with 10-15 turns of dialogue an 2-3 tool calls
@@ -242,6 +242,8 @@ export function useAgentChat (options: UseAgentChatOptions) {
         result,
         inputTokens: usage.inputTokens,
         outputTokens: usage.outputTokens,
+        cacheReadTokens: usage.cacheReadTokens,
+        cacheWriteTokens: usage.cacheWriteTokens,
         messageCount: messages.length,
         toolCount: tools.length,
         bodyChars: ctx.bodyChars,
@@ -298,7 +300,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
     status.value = 'ready'
     error.value = null
     history = []
-    sessionUsage.value = { inputTokens: 0, outputTokens: 0 }
+    sessionUsage.value = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 }
     if (newSystemPrompt !== undefined) {
       options.systemPrompt = newSystemPrompt
     }
@@ -543,7 +545,9 @@ export function useAgentChat (options: UseAgentChatOptions) {
             if (subUsage) {
               sessionUsage.value = {
                 inputTokens: sessionUsage.value.inputTokens + (subUsage.inputTokens ?? 0),
-                outputTokens: sessionUsage.value.outputTokens + (subUsage.outputTokens ?? 0)
+                outputTokens: sessionUsage.value.outputTokens + (subUsage.outputTokens ?? 0),
+                cacheReadTokens: sessionUsage.value.cacheReadTokens + (subUsage.inputTokenDetails?.cacheReadTokens ?? subUsage.cachedInputTokens ?? 0),
+                cacheWriteTokens: sessionUsage.value.cacheWriteTokens + (subUsage.inputTokenDetails?.cacheWriteTokens ?? 0)
               }
             }
           },
@@ -628,7 +632,9 @@ export function useAgentChat (options: UseAgentChatOptions) {
       if (usage) {
         sessionUsage.value = {
           inputTokens: sessionUsage.value.inputTokens + (usage.inputTokens ?? 0),
-          outputTokens: sessionUsage.value.outputTokens + (usage.outputTokens ?? 0)
+          outputTokens: sessionUsage.value.outputTokens + (usage.outputTokens ?? 0),
+          cacheReadTokens: sessionUsage.value.cacheReadTokens + (usage.inputTokenDetails?.cacheReadTokens ?? usage.cachedInputTokens ?? 0),
+          cacheWriteTokens: sessionUsage.value.cacheWriteTokens + (usage.inputTokenDetails?.cacheWriteTokens ?? 0)
         }
       }
 
