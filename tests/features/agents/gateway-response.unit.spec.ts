@@ -18,7 +18,17 @@ test.describe('parseGatewayCompletion', () => {
     assert.equal(result.content, 'Hello')
     assert.equal(result.finishReason, 'stop')
     assert.equal(result.toolCalls.length, 0)
-    assert.deepEqual(usage, { inputTokens: 100, outputTokens: 5 })
+    assert.deepEqual(usage, { inputTokens: 100, outputTokens: 5, cacheReadTokens: 0, cacheWriteTokens: 0 })
+  })
+
+  test('extracts cache token details from streaming usage', () => {
+    const sse = [
+      'data: {"choices":[{"index":0,"delta":{"content":"hi"},"finish_reason":null}]}', '',
+      'data: {"choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":100,"completion_tokens":5,"total_tokens":105,"prompt_tokens_details":{"cached_tokens":80,"cache_creation_tokens":20}}}', '',
+      'data: [DONE]', ''
+    ].join('\n')
+    const { usage } = parseGatewayCompletion(sse)
+    assert.deepEqual(usage, { inputTokens: 100, outputTokens: 5, cacheReadTokens: 80, cacheWriteTokens: 20 })
   })
 
   test('reassembles streaming tool calls', () => {
@@ -35,7 +45,7 @@ test.describe('parseGatewayCompletion', () => {
     assert.equal(result.toolCalls[0].name, 'search')
     assert.equal(result.toolCalls[0].arguments, '{"q":"x"}')
     assert.equal(result.finishReason, 'tool_calls')
-    assert.deepEqual(usage, { inputTokens: 30, outputTokens: 10 })
+    assert.deepEqual(usage, { inputTokens: 30, outputTokens: 10, cacheReadTokens: 0, cacheWriteTokens: 0 })
   })
 
   test('parses a non-streaming JSON completion (compaction path)', () => {
@@ -45,17 +55,17 @@ test.describe('parseGatewayCompletion', () => {
       created: 1,
       model: 'summarizer',
       choices: [{ index: 0, message: { role: 'assistant', content: 'summary text' }, finish_reason: 'stop' }],
-      usage: { prompt_tokens: 50, completion_tokens: 8, total_tokens: 58 }
+      usage: { prompt_tokens: 50, completion_tokens: 8, total_tokens: 58, prompt_tokens_details: { cached_tokens: 40, cache_creation_tokens: 0 } }
     })
     const { result, usage } = parseGatewayCompletion(json)
     assert.equal(result.content, 'summary text')
     assert.equal(result.finishReason, 'stop')
-    assert.deepEqual(usage, { inputTokens: 50, outputTokens: 8 })
+    assert.deepEqual(usage, { inputTokens: 50, outputTokens: 8, cacheReadTokens: 40, cacheWriteTokens: 0 })
   })
 
   test('returns zeros on unparseable input rather than throwing', () => {
     const { result, usage } = parseGatewayCompletion('not json, not sse')
     assert.equal(result.content, '')
-    assert.deepEqual(usage, { inputTokens: 0, outputTokens: 0 })
+    assert.deepEqual(usage, { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 })
   })
 })
