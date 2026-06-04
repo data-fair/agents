@@ -8,6 +8,7 @@ import type { SessionRecorder, ToolSnapshot } from '~/traces/session-recorder'
 import { $apiPath } from '~/context'
 import { extractErrorMessage } from '~/utils/error'
 import { parseGatewayCompletion } from '~/traces/gateway-response'
+import { buildModerationSystemPrompt, parseModerationVerdict, DEFAULT_REFUSAL, type ModerationVerdict } from '~/composables/moderation'
 import Debug from 'debug'
 
 const debug = Debug('df-agents:use-agent-chat')
@@ -52,6 +53,7 @@ export interface UseAgentChatOptions {
   localTools?: Record<string, Tool>
   modelName?: string
   recorder?: SessionRecorder
+  refusalMessage?: string
 }
 
 interface SubAgentConfig {
@@ -274,32 +276,26 @@ export function useAgentChat (options: UseAgentChatOptions) {
     ...(recorder ? { fetch: tracingFetch } : {})
   })
 
-  const moderationBase = `${window.location.origin}${$apiPath}/moderation/${options.accountType}/${options.accountId}`
-  let moderationConfigPromise: Promise<{ enabled: boolean }> | null = null
-  const loadModerationConfig = (): Promise<{ enabled: boolean }> => {
-    if (!moderationConfigPromise) {
-      moderationConfigPromise = fetch(moderationBase, { credentials: 'include' })
-        .then(r => r.ok ? r.json() : { enabled: false })
-        .catch(() => ({ enabled: false }))
-    }
-    return moderationConfigPromise
-  }
-  // Pre-warm on setup so the verdict round-trip overlaps the user typing.
-  loadModerationConfig()
-
-  interface ModerationResult { action: 'allow' | 'block', refusalMessage?: string, category?: string, reason?: string, skipped?: boolean }
-  const moderate = async (message: string): Promise<ModerationResult> => {
+  const MODERATION_TIMEOUT_MS = 1500
+  // Always-on input moderation. Runs through the gateway as the 'moderator' role
+  // (which falls back moderator -> summarizer -> assistant server-side), so it is
+  // metered and authorised like any other model call. Fails open on timeout,
+  // transport error, or unparseable output.
+  const moderate = async (message: string): Promise<ModerationVerdict> => {
+    const ac = new AbortController()
+    const timer = setTimeout(() => ac.abort(), MODERATION_TIMEOUT_MS)
     try {
-      const res = await fetch(moderationBase, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message, system: options.systemPrompt })
+      const { text } = await generateText({
+        model: provider('moderator'),
+        system: buildModerationSystemPrompt(options.systemPrompt),
+        messages: [{ role: 'user', content: message }],
+        abortSignal: ac.signal
       })
-      if (!res.ok) return { action: 'allow', skipped: true }
-      return await res.json()
+      return parseModerationVerdict(text)
     } catch {
       return { action: 'allow', skipped: true }
+    } finally {
+      clearTimeout(timer)
     }
   }
 
@@ -451,8 +447,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
     history.push({ role: 'user', content: msg })
 
     // Kick off moderation concurrently with the rest of the turn (does not delay request start).
-    const moderationEnabled = (await loadModerationConfig()).enabled
-    const moderationPromise = moderationEnabled ? moderate(msg) : null
+    const moderationPromise = moderate(msg)
     let moderationChecked = false
 
     // Compact history if it exceeds the threshold
@@ -614,7 +609,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
           if (verdict.action === 'block') {
             abortController?.abort()
             history.pop() // drop the blocked user message from model context
-            messages.value.push({ role: 'assistant', content: verdict.refusalMessage || 'This request can\'t be processed.' })
+            messages.value.push({ role: 'assistant', content: options.refusalMessage || DEFAULT_REFUSAL })
             status.value = 'ready'
             return
           }

@@ -74,6 +74,7 @@ fr:
   systemPromptOrg: ", membre de l'organisation {orgName}"
   systemPromptDep: ", département {depName}"
   systemPromptCompact: "Tes réponses sont affichées dans un widget de chat étroit. Garde un formatage compact : utilise des paragraphes courts et des listes à puces simples. Évite les tableaux, les blocs de code larges et les sorties verbeuses. Sois concis."
+  moderationRefusal: "Cette demande ne peut pas être traitée car elle sort du cadre de ce que cet assistant peut faire."
 en:
   welcome: How can I help you?
   welcomeEvaluation: "This tab lets you analyze the current session with an AI evaluator. Ask questions about what happened, what worked well, or what could be improved."
@@ -84,6 +85,7 @@ en:
   systemPromptOrg: ", member of the organization {orgName}"
   systemPromptDep: ", department {depName}"
   systemPromptCompact: "Your responses are displayed in a narrow chat widget. Keep formatting compact: use short paragraphs and simple bullet lists. Avoid tables, wide code blocks, and verbose output. Be concise."
+  moderationRefusal: "This request can't be processed as it falls outside what this assistant is meant to help with."
 </i18n>
 
 <script lang="ts" setup>
@@ -163,7 +165,8 @@ const chatResult = useAgentChat({
   debug: props.debug,
   systemPrompt: finalSystemPrompt.value,
   initialMessages: props.initialMessages,
-  recorder
+  recorder,
+  refusalMessage: t('moderationRefusal')
 })
 
 if (!chatResult) {
@@ -198,7 +201,8 @@ const evaluatorChat = tracingEnabled && recorder
     accountId: props.accountId,
     localTools: buildEvaluatorTools(recorder, { accountType: props.accountType, accountId: props.accountId, apiPath: $apiPath }),
     modelName: 'evaluator',
-    systemPrompt: EVALUATOR_PROMPT
+    systemPrompt: EVALUATOR_PROMPT,
+    refusalMessage: t('moderationRefusal')
   })
   : null
 
