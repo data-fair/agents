@@ -1,6 +1,6 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { buildModerationSystemPrompt, parseModerationVerdict, resolveModerationModelId } from '../../../api/src/moderation/operations.ts'
+import { buildModerationSystemPrompt, parseModerationVerdict, DEFAULT_REFUSAL } from '../../../ui/src/composables/moderation.ts'
 
 test('buildModerationSystemPrompt embeds the mission and the task marker', () => {
   const prompt = buildModerationSystemPrompt('Help users query the sales dataset.')
@@ -34,16 +34,6 @@ test('parseModerationVerdict fails open on garbage', () => {
   assert.equal(parseModerationVerdict('').action, 'allow')
 })
 
-test('resolveModerationModelId prefers moderator', () => {
-  const models = { moderator: { model: { id: 'm' } }, summarizer: { model: { id: 's' } } } as any
-  assert.equal(resolveModerationModelId({ models }), 'moderator')
-})
-
-test('resolveModerationModelId falls back to summarizer', () => {
-  const models = { summarizer: { model: { id: 's' } } } as any
-  assert.equal(resolveModerationModelId({ models }), 'summarizer')
-})
-
-test('resolveModerationModelId returns null when neither configured', () => {
-  assert.equal(resolveModerationModelId({ models: {} as any }), null)
+test('DEFAULT_REFUSAL is a non-empty string', () => {
+  assert.ok(DEFAULT_REFUSAL.length > 0)
 })
