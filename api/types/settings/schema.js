@@ -908,30 +908,6 @@ Recommendations: a small/fast model, e.g. Claude 4.5 Haiku, GPT-5.4 Mini, Mistra
           default: { unlimited: false, monthlyLimit: 0 }
         }
       }
-    },
-    moderation: {
-      type: 'object',
-      title: 'Moderation',
-      'x-i18n-title': { en: 'Moderation', fr: 'Modération' },
-      layout: {
-        if: 'parent.data.providers?.length'
-      },
-      default: { enabled: false },
-      properties: {
-        enabled: {
-          type: 'boolean',
-          title: 'Enable moderation',
-          'x-i18n-title': { en: 'Enable moderation', fr: 'Activer la modération' },
-          default: false
-        },
-        refusalMessage: {
-          type: 'string',
-          title: 'Refusal message',
-          'x-i18n-title': { en: 'Refusal message', fr: 'Message de refus' },
-          layout: { if: 'parent.data.enabled' },
-          default: "This request can't be processed as it falls outside what this assistant is meant to help with."
-        }
-      }
     }
   }
 }

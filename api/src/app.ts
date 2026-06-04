@@ -8,7 +8,6 @@ import adminRouter from './admin/router.ts'
 import modelsRouter, { getModelsForOwner } from './models/router.ts'
 import summaryRouter from './summary/router.ts'
 import gatewayRouter from './gateway/router.ts'
-import moderationRouter from './moderation/router.ts'
 import usageRouter from './usage/router.ts'
 import mongo from '#mongo'
 import config from '#config'
@@ -38,7 +37,6 @@ app.use('/api/admin', adminRouter)
 app.use('/api/settings', settingsRouter)
 app.use('/api/models', modelsRouter)
 app.use('/api/gateway', gatewayRouter)
-app.use('/api/moderation', moderationRouter)
 app.use('/api/summary', summaryRouter)
 app.use('/api/usage', usageRouter)
 app.use('/api/ping', (req, res) => res.send('ok'))

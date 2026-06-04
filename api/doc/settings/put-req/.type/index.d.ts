@@ -74,8 +74,6 @@ export type Unlimited = boolean;
  * Weekly limit = monthly / 2, daily limit = monthly / 4
  */
 export type MonthlyLimit = number;
-export type EnableModeration = boolean;
-export type RefusalMessage = string;
 
 export type SettingsPut = {
   createdAt?: string;
@@ -89,7 +87,6 @@ export type SettingsPut = {
   providers: AIProviders;
   models: Models;
   quotas: RoleQuotas;
-  moderation?: Moderation;
 }
 export type OpenAI = {
   type: ProviderType;
@@ -330,11 +327,6 @@ export type ExternalUserQuotas = {
 export type AnonymousUserQuotas = {
   unlimited: Unlimited;
   monthlyLimit: MonthlyLimit;
-  [k: string]: unknown;
-}
-export type Moderation = {
-  enabled?: EnableModeration;
-  refusalMessage?: RefusalMessage;
   [k: string]: unknown;
 }
 /**
