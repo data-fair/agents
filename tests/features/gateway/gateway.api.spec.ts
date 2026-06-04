@@ -7,7 +7,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { generateText, streamText } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
-import { axiosAuth, superAdmin, clean, directoryUrl, defaultQuotas } from '../../support/axios.ts'
+import { axiosAuth, superAdmin, clean, directoryUrl, defaultQuotas, anonymousAx, getAnonymousActionToken } from '../../support/axios.ts'
 
 const user = await axiosAuth('test-standalone1')
 const admin = await superAdmin
@@ -194,5 +194,30 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
       }
       assert.ok(found, `Expected to find 'Daily cost quota exceeded' in error chain, got: ${err.message}`)
     }
+  })
+
+  const anonGatewayUrl = `http://localhost:${process.env.DEV_API_PORT}/api/gateway/user/test-standalone1/v1/chat/completions`
+  const anonQuotas = { ...defaultQuotas, anonymous: { unlimited: false, monthlyLimit: 100 } }
+  const anonBody = { model: 'assistant', messages: [{ role: 'user', content: 'hello' }] }
+
+  test('anonymous request without token is rejected', async () => {
+    await admin.put('/api/settings/user/test-standalone1', { ...settingsData, quotas: anonQuotas })
+    const res = await anonymousAx.post(anonGatewayUrl, anonBody).catch((err: any) => err.response ?? err)
+    assert.equal(res.status, 401)
+  })
+
+  test('anonymous request with invalid token is rejected', async () => {
+    await admin.put('/api/settings/user/test-standalone1', { ...settingsData, quotas: anonQuotas })
+    const res = await anonymousAx.post(anonGatewayUrl, anonBody, { headers: { 'x-anonymous-token': 'not-a-real-token' } })
+      .catch((err: any) => err.response ?? err)
+    assert.equal(res.status, 401)
+  })
+
+  test('anonymous request with valid token succeeds', async () => {
+    await admin.put('/api/settings/user/test-standalone1', { ...settingsData, quotas: anonQuotas })
+    const token = await getAnonymousActionToken()
+    const res = await anonymousAx.post(anonGatewayUrl, anonBody, { headers: { 'x-anonymous-token': token } })
+    assert.equal(res.status, 200)
+    assert.equal(res.data.choices[0].message.content, 'world')
   })
 })

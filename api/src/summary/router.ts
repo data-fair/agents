@@ -3,6 +3,7 @@ import { generateText } from 'ai'
 import { type AccountKeys, reqSession, isAuthenticated } from '@data-fair/lib-express'
 import { reqIp as _reqIp } from '@data-fair/lib-express/req-origin.js'
 import { assertCanUseModel, assertRoleQuota, getEffectiveRole } from '../auth.ts'
+import { assertAnonymousActionToken } from '../anonymous-token/service.ts'
 import { getRawSettings } from '../settings/service.ts'
 import { createModel } from '../models/operations.ts'
 import { getUsage, getOwnerUsage, recordUsage } from '../usage/service.ts'
@@ -70,6 +71,7 @@ router.post('/:type/:id', async (req, res, next) => {
     if (!authenticated) {
       // Anonymous path
       assertRoleQuota('anonymous', quotas)
+      await assertAnonymousActionToken(req)
       const ipHash = crypto.createHash('sha256').update(safeReqIp(req)).digest('hex').slice(0, 16)
       usageUserId = `anon:${ipHash}`
       trackPerUser = true

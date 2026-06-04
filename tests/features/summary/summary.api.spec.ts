@@ -4,7 +4,7 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { axiosAuth, superAdmin, axios, clean, defaultQuotas } from '../../support/axios.ts'
+import { axiosAuth, superAdmin, axios, clean, defaultQuotas, getAnonymousActionToken } from '../../support/axios.ts'
 
 const user = await axiosAuth('test-standalone1')
 const admin = await superAdmin
@@ -141,5 +141,39 @@ test.describe('Summary API', () => {
       user.post('/api/summary/user/test-standalone1', { content: '' }),
       (err: any) => err.status === 400
     )
+  })
+
+  const anonSettings = (quotas: any) => ({
+    providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
+    models: { assistant: { model: mockModel } },
+    quotas
+  })
+  const anonQuotas = { ...defaultQuotas, anonymous: { unlimited: false, monthlyLimit: 100 } }
+
+  test('anonymous summary without token is rejected', async () => {
+    await admin.put('/api/settings/user/test-standalone1', anonSettings(anonQuotas))
+    const anon = axios()
+    await assert.rejects(
+      anon.post('/api/summary/user/test-standalone1', { content: 'Test content' }),
+      (err: any) => err.status === 401
+    )
+  })
+
+  test('anonymous summary with invalid token is rejected', async () => {
+    await admin.put('/api/settings/user/test-standalone1', anonSettings(anonQuotas))
+    const anon = axios()
+    await assert.rejects(
+      anon.post('/api/summary/user/test-standalone1', { content: 'Test content' }, { headers: { 'x-anonymous-token': 'not-a-real-token' } }),
+      (err: any) => err.status === 401
+    )
+  })
+
+  test('anonymous summary with valid token succeeds', async () => {
+    await admin.put('/api/settings/user/test-standalone1', anonSettings(anonQuotas))
+    const token = await getAnonymousActionToken()
+    const anon = axios()
+    const res = await anon.post('/api/summary/user/test-standalone1', { content: 'Some content to summarize' }, { headers: { 'x-anonymous-token': token } })
+    assert.equal(res.status, 200)
+    assert.ok(res.data.summary)
   })
 })

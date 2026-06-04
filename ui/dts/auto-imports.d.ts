@@ -41,6 +41,7 @@ declare global {
   const effectScope: typeof import('vue')['effectScope']
   const extractErrorMessage: typeof import('../src/utils/error')['extractErrorMessage']
   const formatBytes: typeof import('@data-fair/lib-vue/format/bytes.js')['formatBytes']
+  const getAnonymousToken: typeof import('../src/composables/use-anonymous-token')['getAnonymousToken']
   const getCurrentInstance: typeof import('vue')['getCurrentInstance']
   const getCurrentScope: typeof import('vue')['getCurrentScope']
   const h: typeof import('vue')['h']
@@ -75,6 +76,7 @@ declare global {
   const ref: typeof import('vue')['ref']
   const renderMarkdown: typeof import('../src/utils/markdown')['renderMarkdown']
   const renderStreamingMarkdown: typeof import('../src/utils/markdown')['renderStreamingMarkdown']
+  const resetAnonymousToken: typeof import('../src/composables/use-anonymous-token')['resetAnonymousToken']
   const resolveComponent: typeof import('vue')['resolveComponent']
   const selectPromotions: typeof import('../src/composables/tool-exploration')['selectPromotions']
   const shallowReactive: typeof import('vue')['shallowReactive']
@@ -161,6 +163,7 @@ declare module 'vue' {
     readonly effectScope: UnwrapRef<typeof import('vue')['effectScope']>
     readonly extractErrorMessage: UnwrapRef<typeof import('../src/utils/error')['extractErrorMessage']>
     readonly formatBytes: UnwrapRef<typeof import('@data-fair/lib-vue/format/bytes.js')['formatBytes']>
+    readonly getAnonymousToken: UnwrapRef<typeof import('../src/composables/use-anonymous-token')['getAnonymousToken']>
     readonly getCurrentInstance: UnwrapRef<typeof import('vue')['getCurrentInstance']>
     readonly getCurrentScope: UnwrapRef<typeof import('vue')['getCurrentScope']>
     readonly h: UnwrapRef<typeof import('vue')['h']>
@@ -194,6 +197,7 @@ declare module 'vue' {
     readonly ref: UnwrapRef<typeof import('vue')['ref']>
     readonly renderMarkdown: UnwrapRef<typeof import('../src/utils/markdown')['renderMarkdown']>
     readonly renderStreamingMarkdown: UnwrapRef<typeof import('../src/utils/markdown')['renderStreamingMarkdown']>
+    readonly resetAnonymousToken: UnwrapRef<typeof import('../src/composables/use-anonymous-token')['resetAnonymousToken']>
     readonly resolveComponent: UnwrapRef<typeof import('vue')['resolveComponent']>
     readonly selectPromotions: UnwrapRef<typeof import('../src/composables/tool-exploration')['selectPromotions']>
     readonly shallowReactive: UnwrapRef<typeof import('vue')['shallowReactive']>
