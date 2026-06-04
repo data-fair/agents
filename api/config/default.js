@@ -13,5 +13,6 @@ export default {
   },
   cipherPassword: undefined,
   upgradeRoot: '/app/',
-  currency: 'EUR'
+  currency: 'EUR',
+  requireAnonymousActionToken: true
 }
