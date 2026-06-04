@@ -1,13 +1,17 @@
+import Debug from 'debug'
 import { generateText, tool, jsonSchema } from 'ai'
 import type { Tool, LanguageModel } from 'ai'
+
+const debug = Debug('df-agents:tool-exploration')
+
+function firstDescLine (t: Tool): string {
+  return ((t as any).description ?? '').split('\n')[0].trim()
+}
 
 /** Build a compact "name: one-line description" catalog of the given tools. */
 export function buildToolCatalog (plainTools: Record<string, Tool>): string {
   return Object.entries(plainTools)
-    .map(([name, t]) => {
-      const desc = ((t as any).description ?? '').split('\n')[0].trim()
-      return `- ${name}: ${desc}`
-    })
+    .map(([name, t]) => `- ${name}: ${firstDescLine(t)}`)
     .join('\n')
 }
 
@@ -62,7 +66,7 @@ export function createExploreTool (opts: {
     execute: async (args: any) => {
       const intent = String(args?.intent ?? '')
       const candidates = Object.entries(plainTools)
-        .map(([name, t]) => `${name}: ${((t as any).description ?? '').split('\n')[0].trim()}`)
+        .map(([name, t]) => `${name}: ${firstDescLine(t)}`)
         .join('\n')
 
       let chosen: string[] = []
@@ -95,7 +99,8 @@ export function createExploreTool (opts: {
         const input = (result.toolCalls?.[0]?.input ?? {}) as { summary?: string, toolNames?: string[] }
         chosen = selectPromotions(input.toolNames ?? [], Object.keys(plainTools))
         summary = input.summary ?? ''
-      } catch {
+      } catch (err) {
+        debug('explore_tools selection failed: %O', err)
         chosen = []
       }
 

@@ -15,7 +15,7 @@ test.describe('buildToolCatalog', () => {
 
   test('handles a tool with no description', () => {
     const catalog = buildToolCatalog({ foo: {} } as any)
-    expect(catalog).toContain('- foo:')
+    expect(catalog).toBe('- foo: ')
   })
 
   test('returns empty string for no tools', () => {
