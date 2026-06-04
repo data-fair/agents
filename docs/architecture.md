@@ -302,44 +302,46 @@ graph TB
 
 ## 8. Input Moderation Guard
 
-A per-message guard protects the **UI-integrated assistant** from abuse — profanity, prompt-injection attempts, persona/identity override, and out-of-scope requests that deviate from the agent's mission. It runs **concurrently** with the assistant turn and only withholds the first visible output byte; the request itself is never delayed.
+A per-message guard protects the **UI-integrated assistant** from abuse — profanity, prompt-injection attempts, persona/identity override, and out-of-scope requests that deviate from the agent's mission. It is **always on** and runs **concurrently** with the assistant turn, only withholding the first visible output byte; the request itself is never delayed.
 
 ```mermaid
 sequenceDiagram
   participant Chat as use-agent-chat
-  participant Mod as /moderation/:type/:id
-  participant GW as Gateway (assistant)
-  participant LLM as Moderator model
+  participant GW as Gateway (/v1/chat/completions)
+  participant LLM as Resolved model
 
   Note over Chat: on user submit, both start in parallel
-  Chat->>Mod: POST {message, system: mission}
-  Chat->>GW: streamText(assistant)
-  Mod->>Mod: resolve moderator→summarizer→skip
-  Mod->>LLM: generateText (1.5s fail-open timeout)
-  LLM-->>Mod: verdict text
-  Mod-->>Chat: {action, refusalMessage?}
+  Chat->>GW: POST model=assistant, stream=true
+  Chat->>GW: POST model=moderator, stream=false
+  GW->>GW: role + quota check (both calls)
+  GW->>LLM: generateText (moderator→summarizer→assistant)
+  LLM-->>GW: verdict text
+  GW->>GW: recordUsage (metered)
+  GW-->>Chat: completion JSON
+  Chat->>Chat: parseModerationVerdict (client-side, 1.5s fail-open)
   GW-->>Chat: SSE chunks (buffered until verdict)
   alt allow
     Chat->>Chat: flush + stream normally
   else block
-    Chat->>Chat: abort stream, drop user msg from history, show refusal
+    Chat->>Chat: abort stream, drop user msg, show hardcoded refusal
   end
 ```
 
-**Advisory, not a security boundary.** The gate lives in the client orchestration loop; the verdict/policy runs server-side (where settings live, so secrets stay there), but a direct or anonymous call to the gateway API bypasses moderation entirely. This is by design — gateway use outside our own UI is treated as abuse governed by auth/quotas. Enablement is read once per chat mount (`GET /moderation/:type/:id`), so toggling moderation takes effect after a reload.
+**Reuses the gateway.** There is no dedicated moderation endpoint. The client issues a second, non-streaming gateway call with `model: 'moderator'`, which resolves **moderator → summarizer → assistant** server-side (`getModelConfig`). Because it goes through the gateway, moderation inherits the same role checks, quota checks, and usage recording as any other model call — every user message therefore costs two metered calls (moderation + assistant).
 
-**Fail-open everywhere.** Disabled, no moderator/summarizer model configured, provider disabled, the 1.5s timeout, and any LLM/fetch error all resolve to `allow`. Moderation never blocks the user on an internal failure.
+**Advisory, not a security boundary.** The gate lives in the client orchestration loop. A direct or anonymous call straight to the gateway's `assistant` model bypasses moderation entirely; that is by design and governed by auth/quotas. The moderation prompt and verdict parser live in the browser (`ui/src/composables/moderation.ts`).
 
-**Model fallback:** configured `moderator` → `summarizer` → skip. It never escalates to the `assistant` model, which is the slowest and sits on the first-token critical path.
+**Fail-open everywhere.** A client-side 1.5s timeout, any transport/HTTP error (including a quota 429 on the moderation call), and any unparseable model output all resolve to `allow`. Moderation never blocks the user on an internal failure.
+
+**Hardcoded refusal.** Blocked messages show a fixed, localized refusal (en/fr) supplied by the chat component; it is not configurable. The model's `category`/`reason` are recorded in the trace but never shown to the user.
 
 **Input only (v1).** The moderator sees the new user message plus the agent mission (system prompt) — not the full history. No output moderation, no tool-result / indirect-injection coverage, no multi-turn jailbreak detection.
 
-**Observable, client-side only.** Every decision — `allow`, `skip` (fail-open), and `block` — is recorded in the session trace (`SessionRecorder.recordModerationDecision`) with the model's `category` and `reason`, so a wrong rejection can be inspected in the debug dialog and the prompt tuned. The model justifies blocks via the `reason` field; the user only ever sees the generic `refusalMessage`, never the reason. Tracing is ephemeral and client-only — there is no durable server-side audit log.
+**Observable, client-side only.** Every decision — `allow`, `skip` (fail-open), and `block` — is recorded in the session trace (`SessionRecorder.recordModerationDecision`) with the model's `category` and `reason`, viewable in the debug dialog. Tracing is ephemeral and client-only.
 
 **Key files:**
-- `api/src/moderation/router.ts` — `GET` enabled flag, `POST` verdict
-- `api/src/moderation/service.ts` — settings load, model resolution, fail-open timeout
-- `api/src/moderation/operations.ts` — moderation prompt, tolerant verdict parsing, model resolution
+- `api/src/gateway/router.ts` — resolves the `moderator` role and meters the call
+- `ui/src/composables/moderation.ts` — moderation prompt + tolerant verdict parser
 - `ui/src/composables/use-agent-chat.ts` — parallel gate, withholding the first byte, block → refusal
 
 ---
