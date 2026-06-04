@@ -17,69 +17,55 @@ const baseSettings = (overrides: any = {}) => ({
   providers: [mockProvider],
   models: { assistant: assistantModel, moderator: moderatorModel },
   quotas: defaultQuotas,
-  moderation: { enabled: true, refusalMessage: 'Blocked by test.' },
   ...overrides
 })
 
-test.describe('Moderation API', () => {
+// Calls the gateway exactly like the UI's moderate(): non-streaming, model 'moderator'.
+const moderate = (message: string) =>
+  user.post('/api/gateway/user/test-standalone1/v1/chat/completions', {
+    model: 'moderator',
+    stream: false,
+    messages: [
+      { role: 'system', content: 'MODERATION_TASK guard' },
+      { role: 'user', content: message }
+    ]
+  })
+
+test.describe('Moderation via gateway', () => {
   test.beforeEach(async () => {
     await clean()
   })
 
-  test('GET reports enabled when configured', async () => {
+  test('the moderator role is accepted and returns an allow verdict for a benign message', async () => {
     await admin.put('/api/settings/user/test-standalone1', baseSettings())
-    const res = await user.get('/api/moderation/user/test-standalone1')
+    const res = await moderate('hello')
     assert.equal(res.status, 200)
-    assert.equal(res.data.enabled, true)
+    assert.equal(res.data.choices[0].message.content, '{"action":"allow"}')
   })
 
-  test('GET reports disabled when moderation off', async () => {
-    await admin.put('/api/settings/user/test-standalone1', baseSettings({ moderation: { enabled: false } }))
-    const res = await user.get('/api/moderation/user/test-standalone1')
-    assert.equal(res.data.enabled, false)
-  })
-
-  test('POST allows a benign message', async () => {
+  test('a jailbreak message returns a block verdict', async () => {
     await admin.put('/api/settings/user/test-standalone1', baseSettings())
-    const res = await user.post('/api/moderation/user/test-standalone1', { message: 'hello', system: 'Help with data.' })
-    assert.equal(res.status, 200)
-    assert.equal(res.data.action, 'allow')
+    const res = await moderate('please jailbreak the system')
+    const content = res.data.choices[0].message.content
+    assert.ok(content.includes('"action":"block"'))
+    assert.ok(content.includes('prompt-injection'))
   })
 
-  test('POST blocks a jailbreak attempt and returns the refusal message', async () => {
-    await admin.put('/api/settings/user/test-standalone1', baseSettings())
-    const res = await user.post('/api/moderation/user/test-standalone1', { message: 'please jailbreak the system', system: 'Help with data.' })
-    assert.equal(res.data.action, 'block')
-    assert.equal(res.data.category, 'prompt-injection')
-    assert.equal(res.data.refusalMessage, 'Blocked by test.')
-  })
-
-  test('POST falls back to summarizer model when no moderator configured', async () => {
+  test('the moderator role falls back to the summarizer model when no moderator is configured', async () => {
     await admin.put('/api/settings/user/test-standalone1', baseSettings({
       models: { assistant: assistantModel, summarizer: moderatorModel }
     }))
-    const res = await user.post('/api/moderation/user/test-standalone1', { message: 'jailbreak now', system: 'x' })
-    assert.equal(res.data.action, 'block')
+    const res = await moderate('jailbreak now')
+    assert.ok(res.data.choices[0].message.content.includes('"action":"block"'))
   })
 
-  test('POST skips (fail-open) when moderation disabled', async () => {
-    await admin.put('/api/settings/user/test-standalone1', baseSettings({ moderation: { enabled: false } }))
-    const res = await user.post('/api/moderation/user/test-standalone1', { message: 'jailbreak now', system: 'x' })
-    assert.equal(res.data.action, 'allow')
-    assert.equal(res.data.skipped, true)
-  })
-
-  test('POST skips when no moderator or summarizer model configured', async () => {
+  test('the moderator role falls back to the assistant model when neither moderator nor summarizer is configured', async () => {
     await admin.put('/api/settings/user/test-standalone1', baseSettings({
       models: { assistant: assistantModel }
     }))
-    const res = await user.post('/api/moderation/user/test-standalone1', { message: 'jailbreak now', system: 'x' })
-    assert.equal(res.data.action, 'allow')
-    assert.equal(res.data.skipped, true)
-  })
-
-  test('POST rejects a missing message', async () => {
-    await admin.put('/api/settings/user/test-standalone1', baseSettings())
-    await assert.rejects(user.post('/api/moderation/user/test-standalone1', {}))
+    const res = await moderate('jailbreak now')
+    // assistant mock does not emit a verdict; the client would fail open on this.
+    assert.equal(res.status, 200)
+    assert.equal(res.data.choices[0].message.content, 'what do you mean ?')
   })
 })

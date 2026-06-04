@@ -19,7 +19,7 @@ function safeReqIp (req: import('express').Request): string {
 const router = Router()
 export default router
 
-const MODEL_IDS = ['assistant', 'evaluator', 'summarizer', 'tools'] as const
+const MODEL_IDS = ['assistant', 'evaluator', 'summarizer', 'tools', 'moderator'] as const
 type ModelId = typeof MODEL_IDS[number]
 
 function isValidModelId (id: string): id is ModelId {
@@ -27,14 +27,19 @@ function isValidModelId (id: string): id is ModelId {
 }
 
 function getModelConfig (settings: Settings, modelId: ModelId) {
-  const modelEntry = settings.models[modelId]
-  const fallback = settings.models.assistant
-  const modelConfig = modelEntry?.model || fallback?.model
-  if (!modelConfig) throw new Error(`No model configured for ${modelId}`)
-  const source = modelEntry?.model ? modelEntry : fallback
-  const inputPricePerMillion = source?.inputPricePerMillion ?? 0
-  const outputPricePerMillion = source?.outputPricePerMillion ?? 0
-  return { modelConfig, inputPricePerMillion, outputPricePerMillion }
+  // moderator prefers a cheap dedicated model, then the summarizer, then the
+  // assistant as a guaranteed last resort; every other role falls back straight
+  // to the assistant.
+  const chain = modelId === 'moderator'
+    ? [settings.models.moderator, settings.models.summarizer, settings.models.assistant]
+    : [settings.models[modelId], settings.models.assistant]
+  const source = chain.find(entry => entry?.model)
+  if (!source?.model) throw new Error(`No model configured for ${modelId}`)
+  return {
+    modelConfig: source.model,
+    inputPricePerMillion: source.inputPricePerMillion ?? 0,
+    outputPricePerMillion: source.outputPricePerMillion ?? 0
+  }
 }
 
 async function getModelForGateway (settings: Settings, modelId: ModelId) {
