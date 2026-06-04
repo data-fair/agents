@@ -71,7 +71,7 @@ export interface SessionTrace {
 
 export interface TraceOverviewEntry {
   index: number
-  type: 'system-prompt' | 'user-message' | 'hidden-context' | 'assistant-step' | 'tool-call' | 'tool-result' | 'sub-agent-start' | 'sub-agent-system-prompt' | 'sub-agent-step' | 'sub-agent-end' | 'physical-request' | 'tools-changed' | 'compaction'
+  type: 'system-prompt' | 'user-message' | 'hidden-context' | 'assistant-step' | 'tool-call' | 'tool-result' | 'sub-agent-start' | 'sub-agent-system-prompt' | 'sub-agent-step' | 'sub-agent-end' | 'physical-request' | 'tools-changed' | 'compaction' | 'moderation-block'
   timestamp: Date
   label: string
   preview: string
@@ -185,6 +185,16 @@ export class SessionRecorder {
     } as any)
   }
 
+  recordModerationBlock (category?: string, reason?: string): void {
+    if (!this.currentTurn) return
+    this.currentTurn.steps.push({
+      timestamp: new Date(),
+      messages: [],
+      toolCalls: [],
+      moderationBlock: { category, reason }
+    } as any)
+  }
+
   recordPhysicalRequest (entry: PhysicalRequestTrace): void {
     this.trace.physicalRequests.push(entry)
   }
@@ -262,6 +272,13 @@ export class SessionRecorder {
           add(
             { type: 'compaction', timestamp: step.timestamp, label: 'history compaction', preview: `${c.originalCharCount} \u2192 ${c.compactedCharCount} chars` },
             { summary: c.summary, originalMessages: c.originalMessages, originalCharCount: c.originalCharCount, compactedCharCount: c.compactedCharCount }
+          )
+        }
+        if ((step as any).moderationBlock) {
+          const m = (step as any).moderationBlock
+          add(
+            { type: 'moderation-block', timestamp: step.timestamp, label: 'moderation block', preview: [m.category, m.reason].filter(Boolean).join(': ').slice(0, 150) },
+            { category: m.category, reason: m.reason }
           )
         }
         for (const tc of step.toolCalls) {

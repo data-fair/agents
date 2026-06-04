@@ -274,6 +274,35 @@ export function useAgentChat (options: UseAgentChatOptions) {
     ...(recorder ? { fetch: tracingFetch } : {})
   })
 
+  const moderationBase = `${window.location.origin}${$apiPath}/moderation/${options.accountType}/${options.accountId}`
+  let moderationConfigPromise: Promise<{ enabled: boolean }> | null = null
+  const loadModerationConfig = (): Promise<{ enabled: boolean }> => {
+    if (!moderationConfigPromise) {
+      moderationConfigPromise = fetch(moderationBase, { credentials: 'include' })
+        .then(r => r.ok ? r.json() : { enabled: false })
+        .catch(() => ({ enabled: false }))
+    }
+    return moderationConfigPromise
+  }
+  // Pre-warm on setup so the verdict round-trip overlaps the user typing.
+  loadModerationConfig()
+
+  interface ModerationResult { action: 'allow' | 'block', refusalMessage?: string, category?: string, reason?: string, skipped?: boolean }
+  const moderate = async (message: string): Promise<ModerationResult> => {
+    try {
+      const res = await fetch(moderationBase, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, system: options.systemPrompt })
+      })
+      if (!res.ok) return { action: 'allow', skipped: true }
+      return await res.json()
+    } catch {
+      return { action: 'allow', skipped: true }
+    }
+  }
+
   onScopeDispose(() => {
     if (aggregator) {
       aggregator.close()
@@ -420,6 +449,11 @@ export function useAgentChat (options: UseAgentChatOptions) {
 
     // Add user message to history
     history.push({ role: 'user', content: msg })
+
+    // Kick off moderation concurrently with the rest of the turn (does not delay request start).
+    const moderationEnabled = (await loadModerationConfig()).enabled
+    const moderationPromise = moderationEnabled ? moderate(msg) : null
+    let moderationChecked = false
 
     // Compact history if it exceeds the threshold
     const compactionCtxId = `compaction:${turnId}`
@@ -573,6 +607,18 @@ export function useAgentChat (options: UseAgentChatOptions) {
       })
 
       for await (const part of result.fullStream) {
+        if (moderationPromise && !moderationChecked && (part.type === 'text-delta' || part.type === 'tool-call')) {
+          const verdict = await moderationPromise
+          moderationChecked = true
+          if (verdict.action === 'block') {
+            abortController?.abort()
+            history.pop() // drop the blocked user message from model context
+            messages.value.push({ role: 'assistant', content: verdict.refusalMessage || 'This request can\'t be processed.' })
+            if (recorder) recorder.recordModerationBlock(verdict.category, verdict.reason)
+            status.value = 'ready'
+            return
+          }
+        }
         if (part.type === 'text-delta') {
           if (!currentAssistantMessage) {
             messages.value.push({ role: 'assistant', content: '' })
