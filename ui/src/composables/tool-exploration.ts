@@ -10,6 +10,17 @@ export function buildToolCatalog (plainTools: Record<string, Tool>): string {
     .join('\n')
 }
 
+export const EXPLORE_TOOL_NAME = 'explore_tools'
+export const SELECT_TOOL_NAME = 'select_tools'
+
+/** Fold the tool-name catalog and the explore instruction into the system text. */
+export function buildExplorationSystem (baseSystem: string | undefined, catalog: string): string {
+  const instruction = 'The tools listed below are available on this page but are NOT directly callable yet. ' +
+    `To use one, first call \`${EXPLORE_TOOL_NAME}\` with your intent; it will make the relevant tools callable.\n\n` +
+    `Available tools:\n${catalog}`
+  return baseSystem ? `${baseSystem}\n\n${instruction}` : instruction
+}
+
 /** Filter requested tool names to those that actually exist, de-duplicated, order-preserving. */
 export function selectPromotions (requestedNames: string[], availableNames: string[]): string[] {
   if (!Array.isArray(requestedNames)) return []

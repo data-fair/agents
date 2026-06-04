@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { buildToolCatalog, selectPromotions } from '../../../ui/src/composables/tool-exploration.ts'
+import { buildToolCatalog, selectPromotions, buildExplorationSystem, EXPLORE_TOOL_NAME } from '../../../ui/src/composables/tool-exploration.ts'
 
 test.describe('buildToolCatalog', () => {
   test('lists each tool as "- name: first description line"', () => {
@@ -38,5 +38,20 @@ test.describe('selectPromotions', () => {
 
   test('tolerates a non-array input', () => {
     expect(selectPromotions(undefined as any, ['a'])).toEqual([])
+  })
+})
+
+test.describe('buildExplorationSystem', () => {
+  test('appends the catalog and an explore instruction to the base system text', () => {
+    const out = buildExplorationSystem('BASE PROMPT', '- set_data: Set the data')
+    expect(out).toContain('BASE PROMPT')
+    expect(out).toContain('- set_data: Set the data')
+    expect(out).toContain(EXPLORE_TOOL_NAME)
+  })
+
+  test('works when base system text is undefined', () => {
+    const out = buildExplorationSystem(undefined, '- foo: bar')
+    expect(out).toContain('- foo: bar')
+    expect(out).toContain(EXPLORE_TOOL_NAME)
   })
 })
