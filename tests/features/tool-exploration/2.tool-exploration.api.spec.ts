@@ -1,20 +1,15 @@
 /**
  * API test: mock select_tools seam for tool exploration.
  *
- * Tests the seam at the model layer (via generateText with the mock model directly)
- * and via the gateway HTTP API (round-trip, verifying the tool call name is forwarded).
- *
- * Note: the gateway's streaming path correctly propagates tool call *names* but
- * serialises args as `{}` (pre-existing AI SDK v6 field-name mismatch in the router).
- * We therefore verify the full args at the model layer and the gateway round-trip
- * only for the tool call name.
+ * Both tests go through the real gateway HTTP endpoint via createGatewayProvider() → generateText.
+ * The gateway's non-streaming path (generateText in router.ts) returns full tool-call args as JSON,
+ * so the toolNames payload is fully asserted here.
  */
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { generateText, tool, jsonSchema } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
-import { createMockLanguageModel } from '../../../api/src/models/mock-model.ts'
 import { axiosAuth, superAdmin, clean, directoryUrl, defaultQuotas } from '../../support/axios.ts'
 
 const user = await axiosAuth('test-standalone1')
@@ -40,71 +35,13 @@ async function createGatewayProvider () {
   })
 }
 
-const selectToolsDef = {
-  select_tools: tool({
-    description: 'Report relevant tools.',
-    inputSchema: jsonSchema({
-      type: 'object',
-      properties: {
-        summary: { type: 'string' },
-        toolNames: { type: 'array', items: { type: 'string' } }
-      },
-      required: ['summary', 'toolNames']
-    })
-  })
-}
-
-test.describe('Tool exploration - mock select_tools seam', () => {
+test.describe('Tool exploration - mock select_tools seam (through gateway)', () => {
   test.beforeEach(async () => {
     await clean()
     await admin.put('/api/settings/user/test-standalone1', settingsData)
   })
 
-  // ── Model-layer tests (direct, no HTTP gateway) ─────────────────────────────
-
-  test('model layer: summarizer selects every candidate tool when select_tools is forced', async () => {
-    const model = createMockLanguageModel('mock-summarizer')
-    const result = await generateText({
-      model,
-      system: 'Select relevant tools.',
-      messages: [{
-        role: 'user',
-        content: 'Intent: set the data\n\n<candidate-tools>\nset_data: Set the data in the textarea\nfilter_map: Filter markers\n</candidate-tools>'
-      }],
-      tools: selectToolsDef,
-      toolChoice: { type: 'tool', toolName: 'select_tools' }
-    })
-
-    assert.equal(result.toolCalls.length, 1)
-    assert.equal(result.toolCalls[0].toolName, 'select_tools')
-    const input = result.toolCalls[0].input as { summary: string, toolNames: string[] }
-    assert.deepEqual([...input.toolNames].sort(), ['filter_map', 'set_data'])
-    assert.equal(input.summary, 'mock selection')
-  })
-
-  test('model layer: no select_tools call when it is not offered (regression)', async () => {
-    const model = createMockLanguageModel('mock-summarizer')
-    const result = await generateText({
-      model,
-      messages: [{ role: 'user', content: 'Intent: x\n\n<candidate-tools>\nset_data: foo\n</candidate-tools>' }]
-    })
-    assert.equal(result.toolCalls.length, 0)
-    assert.match(result.text, /Summary:/)
-  })
-
-  test('model layer: mock-model regression - select_tools seam does not fire without the tool', async () => {
-    const model = createMockLanguageModel('mock-model')
-    const result = await generateText({
-      model,
-      messages: [{ role: 'user', content: 'hello' }]
-    })
-    assert.equal(result.toolCalls.length, 0)
-    assert.equal(result.text, 'world')
-  })
-
-  // ── Gateway round-trip (HTTP) ────────────────────────────────────────────────
-
-  test('gateway: summarizer forwards select_tools call name', async () => {
+  test('summarizer selects every candidate tool when select_tools is forced', async () => {
     const provider = await createGatewayProvider()
     const result = await generateText({
       model: provider.chat('summarizer'),
@@ -113,12 +50,32 @@ test.describe('Tool exploration - mock select_tools seam', () => {
         role: 'user',
         content: 'Intent: set the data\n\n<candidate-tools>\nset_data: Set the data in the textarea\nfilter_map: Filter markers\n</candidate-tools>'
       }],
-      tools: selectToolsDef,
+      tools: {
+        select_tools: tool({
+          description: 'Report relevant tools.',
+          inputSchema: jsonSchema({
+            type: 'object',
+            properties: { summary: { type: 'string' }, toolNames: { type: 'array', items: { type: 'string' } } },
+            required: ['summary', 'toolNames']
+          })
+        })
+      },
       toolChoice: { type: 'tool', toolName: 'select_tools' }
     })
 
-    // The gateway correctly forwards the tool call name through streaming.
     assert.equal(result.toolCalls.length, 1)
     assert.equal(result.toolCalls[0].toolName, 'select_tools')
+    const input = result.toolCalls[0].input as { summary: string, toolNames: string[] }
+    assert.deepEqual([...input.toolNames].sort(), ['filter_map', 'set_data'])
+  })
+
+  test('no select_tools call when it is not offered (regression)', async () => {
+    const provider = await createGatewayProvider()
+    const result = await generateText({
+      model: provider.chat('summarizer'),
+      messages: [{ role: 'user', content: 'Intent: x\n\n<candidate-tools>\nset_data: foo\n</candidate-tools>' }]
+    })
+    assert.equal(result.toolCalls.length, 0)
+    assert.match(result.text, /Summary:/)
   })
 })

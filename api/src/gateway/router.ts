@@ -310,12 +310,12 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
 
       // Include tool calls if present
       if (result.toolCalls && result.toolCalls.length > 0) {
-        responseMessage.tool_calls = result.toolCalls.map((tc: { toolCallId: string, toolName: string, args?: unknown }) => ({
+        responseMessage.tool_calls = result.toolCalls.map((tc: { toolCallId: string, toolName: string, input?: unknown }) => ({
           id: tc.toolCallId,
           type: 'function',
           function: {
             name: tc.toolName,
-            arguments: JSON.stringify(tc.args ?? {})
+            arguments: JSON.stringify(tc.input ?? {})
           }
         }))
       }
