@@ -1,184 +1,206 @@
 <template>
   <div
-    ref="messagesContainer"
-    class="flex-grow-1 overflow-y-auto agent-chat-message"
-    style="min-height: 0"
-    @click="onLinkClick"
+    class="agent-chat-messages-wrapper flex-grow-1 d-flex flex-column"
+    style="position: relative; min-height: 0"
   >
-    <!-- Welcome message -->
     <div
-      v-if="!messages.length"
-      class="d-flex align-center justify-center fill-height"
+      ref="messagesContainer"
+      class="flex-grow-1 overflow-y-auto agent-chat-message"
+      style="min-height: 0"
+      @click="onLinkClick"
+      @scroll="updateAtBottom"
     >
-      <p class="text-body-medium text-medium-emphasis px-4 text-center">
-        {{ welcomeText }}
-      </p>
-    </div>
-
-    <!-- Chat messages -->
-    <div
-      v-for="(message, index) in messages"
-      :key="index"
-      class="px-2 py-1 px-sm-4 py-sm-2"
-    >
+      <!-- Welcome message -->
       <div
-        v-if="message.role === 'user'"
-        class="d-flex justify-end"
+        v-if="!messages.length"
+        class="d-flex align-center justify-center fill-height"
       >
-        <v-card
-          class="pa-3 text-body-medium rounded-xl"
-          :class="{ 'bg-surface': !isActionPrompt(message) }"
-          color="secondary"
-          :variant="isActionPrompt(message) ? 'flat' : 'outlined'"
-        >
-          {{ message.content }}
-        </v-card>
+        <p class="text-body-medium text-medium-emphasis px-4 text-center">
+          {{ welcomeText }}
+        </p>
       </div>
-      <div
-        v-else
-        class="text-body-medium"
-      >
-        <!-- eslint-disable-next-line vue/no-v-html -->
+
+      <div ref="messagesContent">
+        <!-- Chat messages -->
         <div
-          class="assistant-content markdown-content"
-          v-html="renderStreamingMarkdown(message.content, isStreaming && index === messages.length - 1)"
-        />
-        <div
-          v-if="message.toolInvocations?.length"
-          class="mt-2"
+          v-for="(message, index) in messages"
+          :key="index"
+          class="px-2 py-1 px-sm-4 py-sm-2"
         >
-          <template
-            v-for="invocation in message.toolInvocations"
-            :key="invocation.toolCallId"
+          <div
+            v-if="message.role === 'user'"
+            class="d-flex justify-end"
           >
-            <v-chip
-              v-if="!invocation.toolName.startsWith('subagent_')"
-              size="x-small"
-              :color="invocation.state === 'done' ? 'success' : 'warning'"
-              variant="tonal"
-              class="mr-1 mb-1"
+            <v-card
+              class="pa-3 text-body-medium rounded-xl"
+              :class="{ 'bg-surface': !isActionPrompt(message) }"
+              color="secondary"
+              :variant="isActionPrompt(message) ? 'flat' : 'outlined'"
             >
-              {{ toolTitle(invocation.toolName) }}
-            </v-chip>
-          </template>
-        </div>
-        <!-- Sub-agent expandable sections -->
-        <div
-          v-if="message.toolInvocations?.some(ti => ti.toolName.startsWith('subagent_'))"
-          class="mt-2"
-        >
-          <v-expansion-panels
-            variant="accordion"
-            density="compact"
-            flat
-            tile
-            class="agent-chat__subagent-panels border-secondary border-s-sm border-opacity-100"
+              {{ message.content }}
+            </v-card>
+          </div>
+          <div
+            v-else
+            class="text-body-medium"
           >
-            <v-expansion-panel
-              v-for="invocation in message.toolInvocations.filter(ti => ti.toolName.startsWith('subagent_'))"
-              :key="invocation.toolCallId"
-              density="compact"
+            <!-- eslint-disable-next-line vue/no-v-html -->
+            <div
+              class="assistant-content markdown-content"
+              v-html="renderStreamingMarkdown(message.content, isStreaming && index === messages.length - 1)"
+            />
+            <div
+              v-if="message.toolInvocations?.length"
+              class="mt-2"
             >
-              <v-expansion-panel-title class="text-body-medium py-1">
-                <v-icon
+              <template
+                v-for="invocation in message.toolInvocations"
+                :key="invocation.toolCallId"
+              >
+                <v-chip
+                  v-if="!invocation.toolName.startsWith('subagent_')"
                   size="x-small"
                   :color="invocation.state === 'done' ? 'success' : 'warning'"
-                  class="mr-2"
-                  :icon="invocation.state === 'done' ? mdiCheck : mdiLoading"
-                  :class="{ 'agent-chat__spin': invocation.state !== 'done' }"
-                />
-                <span class="font-weight-medium">{{ subAgentTitle(invocation.toolName) }}</span>
-                <span
-                  v-if="message.subAgentTurn"
-                  class="text-medium-emphasis ml-1"
-                >(tour {{ message.subAgentTurn + 1 }})</span>
-              </v-expansion-panel-title>
-              <v-expansion-panel-text>
-                <div
-                  v-if="message.subAgentMessages?.length"
+                  variant="tonal"
+                  class="mr-1 mb-1"
                 >
-                  <div
-                    v-for="(subMsg, subIdx) in message.subAgentMessages"
-                    :key="subIdx"
-                    class="py-1"
-                  >
-                    <!-- eslint-disable-next-line vue/no-v-html -->
-                    <div
-                      class="text-body-medium markdown-content"
-                      v-html="renderStreamingMarkdown(subMsg.content, isStreaming && index === messages.length - 1 && subIdx === message.subAgentMessages!.length - 1)"
+                  {{ toolTitle(invocation.toolName) }}
+                </v-chip>
+              </template>
+            </div>
+            <!-- Sub-agent expandable sections -->
+            <div
+              v-if="message.toolInvocations?.some(ti => ti.toolName.startsWith('subagent_'))"
+              class="mt-2"
+            >
+              <v-expansion-panels
+                :model-value="openPanelFor(index)"
+                variant="accordion"
+                density="compact"
+                flat
+                tile
+                class="agent-chat__subagent-panels border-secondary border-s-sm border-opacity-100"
+                @update:model-value="(v: unknown) => setOpenPanel(index, v as number | undefined)"
+              >
+                <v-expansion-panel
+                  v-for="invocation in message.toolInvocations.filter(ti => ti.toolName.startsWith('subagent_'))"
+                  :key="invocation.toolCallId"
+                  density="compact"
+                >
+                  <v-expansion-panel-title class="text-body-medium py-1">
+                    <v-icon
+                      size="x-small"
+                      :color="invocation.state === 'done' ? 'success' : 'warning'"
+                      class="mr-2"
+                      :icon="invocation.state === 'done' ? mdiCheck : mdiLoading"
+                      :class="{ 'agent-chat__spin': invocation.state !== 'done' }"
                     />
+                    <span class="font-weight-medium">{{ subAgentTitle(invocation.toolName) }}</span>
+                    <span
+                      v-if="message.subAgentTurn"
+                      class="text-medium-emphasis ml-1"
+                    >(tour {{ message.subAgentTurn + 1 }})</span>
+                  </v-expansion-panel-title>
+                  <v-expansion-panel-text>
                     <div
-                      v-if="subMsg.toolInvocations?.length"
-                      class="mt-1"
+                      v-if="message.subAgentMessages?.length"
                     >
-                      <v-chip
-                        v-for="subInv in subMsg.toolInvocations"
-                        :key="subInv.toolCallId"
-                        size="x-small"
-                        :color="subInv.state === 'done' ? 'success' : 'warning'"
-                        variant="tonal"
-                        class="mr-1 mb-1"
+                      <div
+                        v-for="(subMsg, subIdx) in message.subAgentMessages"
+                        :key="subIdx"
+                        class="py-1"
                       >
-                        {{ toolTitle(subInv.toolName) }}
-                      </v-chip>
+                        <!-- eslint-disable-next-line vue/no-v-html -->
+                        <div
+                          class="text-body-medium markdown-content"
+                          v-html="renderStreamingMarkdown(subMsg.content, isStreaming && index === messages.length - 1 && subIdx === message.subAgentMessages!.length - 1)"
+                        />
+                        <div
+                          v-if="subMsg.toolInvocations?.length"
+                          class="mt-1"
+                        >
+                          <v-chip
+                            v-for="subInv in subMsg.toolInvocations"
+                            :key="subInv.toolCallId"
+                            size="x-small"
+                            :color="subInv.state === 'done' ? 'success' : 'warning'"
+                            variant="tonal"
+                            class="mr-1 mb-1"
+                          >
+                            {{ toolTitle(subInv.toolName) }}
+                          </v-chip>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-                <div
-                  v-else
-                  class="text-body-medium text-medium-emphasis"
-                >
-                  {{ invocation.state === 'done' ? t('subAgentDone') : t('subAgentRunning') }}
-                </div>
-              </v-expansion-panel-text>
-            </v-expansion-panel>
-          </v-expansion-panels>
+                    <div
+                      v-else
+                      class="text-body-medium text-medium-emphasis"
+                    >
+                      {{ invocation.state === 'done' ? t('subAgentDone') : t('subAgentRunning') }}
+                    </div>
+                  </v-expansion-panel-text>
+                </v-expansion-panel>
+              </v-expansion-panels>
+            </div>
+          </div>
+        </div>
+
+        <!-- Skeleton loader while waiting for first content -->
+        <div
+          v-if="isStreaming && (!messages.length || messages[messages.length - 1].role === 'user')"
+          class="px-2 py-1 px-sm-4 py-sm-2"
+        >
+          <v-skeleton-loader
+            type="text"
+            width="80%"
+            class="bg-transparent"
+          />
+          <v-skeleton-loader
+            type="text"
+            width="60%"
+            class="bg-transparent"
+          />
+        </div>
+
+        <!-- Discreet skeleton while still receiving more content -->
+        <div
+          v-if="isStreaming && messages.length && messages[messages.length - 1].role === 'assistant'"
+          class="px-2 py-1 px-sm-4 py-sm-2"
+        >
+          <v-skeleton-loader
+            type="text"
+            width="40%"
+            class="bg-transparent"
+          />
+        </div>
+
+        <!-- Error -->
+        <div
+          v-if="chatError"
+          class="px-4 py-2"
+        >
+          <v-alert
+            type="error"
+            density="compact"
+            variant="tonal"
+          >
+            {{ chatError }}
+          </v-alert>
         </div>
       </div>
     </div>
 
-    <!-- Skeleton loader while waiting for first content -->
-    <div
-      v-if="isStreaming && (!messages.length || messages[messages.length - 1].role === 'user')"
-      class="px-2 py-1 px-sm-4 py-sm-2"
+    <v-btn
+      v-if="!atBottom"
+      class="agent-chat__jump-to-bottom"
+      size="small"
+      color="secondary"
+      variant="outlined"
+      :append-icon="mdiArrowDown"
+      @click="jumpToBottom"
     >
-      <v-skeleton-loader
-        type="text"
-        width="80%"
-        class="bg-transparent"
-      />
-      <v-skeleton-loader
-        type="text"
-        width="60%"
-        class="bg-transparent"
-      />
-    </div>
-
-    <!-- Discreet skeleton while still receiving more content -->
-    <div
-      v-if="isStreaming && messages.length && messages[messages.length - 1].role === 'assistant'"
-      class="px-2 py-1 px-sm-4 py-sm-2"
-    >
-      <v-skeleton-loader
-        type="text"
-        width="40%"
-        class="bg-transparent"
-      />
-    </div>
-
-    <!-- Error -->
-    <div
-      v-if="chatError"
-      class="px-4 py-2"
-    >
-      <v-alert
-        type="error"
-        density="compact"
-        variant="tonal"
-      >
-        {{ chatError }}
-      </v-alert>
-    </div>
+      {{ t('jumpToBottom') }}
+    </v-btn>
   </div>
 </template>
 
@@ -186,16 +208,20 @@
 fr:
   subAgentRunning: Sous-agent en cours d'exécution...
   subAgentDone: Sous-agent terminé.
+  jumpToBottom: Aller en bas
 en:
   subAgentRunning: Sub-agent running...
   subAgentDone: Sub-agent finished.
+  jumpToBottom: Jump to bottom
 </i18n>
 
 <script lang="ts" setup>
-import { ref } from 'vue'
+import { ref, reactive, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { mdiCheck, mdiLoading } from '@mdi/js'
+import { useAutoScrollBottom } from '@data-fair/lib-vue/auto-scroll-bottom.js'
+import { mdiCheck, mdiLoading, mdiArrowDown } from '@mdi/js'
 import { renderStreamingMarkdown } from '~/utils/markdown'
+import { streamedLength, latestSubAgentPanel } from './auto-scroll'
 import type { ChatMessage } from '~/composables/use-agent-chat'
 
 const emit = defineEmits<{
@@ -218,6 +244,104 @@ const isActionPrompt = (message: ChatMessage) => {
 const { t } = useI18n()
 
 const messagesContainer = ref<HTMLElement | null>(null)
+const messagesContent = ref<HTMLElement | null>(null)
+
+// px from the bottom still counted as "at the bottom" — shared by the autoscroll
+// re-arm margin and the jump-to-bottom button visibility so they agree.
+const BOTTOM_THRESHOLD = 24
+
+// Stick-to-bottom autoscroll on the inner scroll container: follows the
+// streaming tail but lets the user scroll up to read history. Shared with
+// processings' run log via @data-fair/lib-vue. The growth signal must cover
+// sub-agent and tool-chip growth too, otherwise it freezes (and autoscroll
+// stops following) whenever a sub-agent — not the parent message — is streaming.
+const { following } = useAutoScrollBottom(
+  () => messagesContainer.value,
+  () => streamedLength(props.messages),
+  () => props.isStreaming,
+  BOTTOM_THRESHOLD
+)
+
+// Whether the scroll container is actually at its bottom. This — not `following`
+// — drives the jump-to-bottom button: `following` is a "should auto-pin" intent
+// that a wheel-up flips off even when there's nothing below, which would show the
+// button wrongly. Recomputed on scroll, on content growth, and — crucially — via
+// a ResizeObserver on the content, so it stays correct when the rendered height
+// SHRINKS without a scroll (a sub-agent panel collapsing, a turn ending): in that
+// case neither a scroll event nor the growth signal fires, so without the
+// observer `atBottom` would stay stale-false and show the button with nothing to
+// scroll.
+const atBottom = ref(true)
+const updateAtBottom = () => {
+  const el = messagesContainer.value
+  atBottom.value = !el || el.scrollHeight - el.scrollTop - el.clientHeight <= BOTTOM_THRESHOLD
+}
+watch(() => streamedLength(props.messages), updateAtBottom, { flush: 'post' })
+
+let resizeObserver: ResizeObserver | null = null
+onMounted(() => {
+  updateAtBottom()
+  resizeObserver = new ResizeObserver(() => updateAtBottom())
+  // content height changes (messages/panels growing or collapsing) and viewport
+  // height changes (resize) both move the "am I at the bottom" answer
+  if (messagesContent.value) resizeObserver.observe(messagesContent.value)
+  if (messagesContainer.value) resizeObserver.observe(messagesContainer.value)
+})
+onBeforeUnmount(() => {
+  resizeObserver?.disconnect()
+  resizeObserver = null
+})
+
+// Pin at turn boundaries.
+// - Turn START: if we're at the bottom, (re-)arm `following`. The composable can
+//   drop following when content shrinks (panels collapsing at a turn's end), and
+//   it only re-arms on a user scroll — so a passive viewer sitting at the bottom
+//   would otherwise stop being auto-followed on the next answer.
+// - Turn END: `renderStreamingMarkdown` only reveals complete (`\n\n`-terminated)
+//   blocks while streaming and renders the last, incomplete block once streaming
+//   stops; the composable's pin is gated on isActive, so that final block would
+//   land below the fold. Re-pin here (flush:post, after it's in the DOM) when we
+//   were following, so the tail of the answer stays in view.
+watch(() => props.isStreaming, (streaming) => {
+  if (streaming) {
+    if (atBottom.value) following.value = true
+    return
+  }
+  if (!following.value) return
+  const el = messagesContainer.value
+  if (el) el.scrollTop = el.scrollHeight
+  updateAtBottom()
+}, { flush: 'post' })
+
+// Jump back to the live tail; the smooth scroll fires scroll events that re-arm
+// the composable's `following` and flip `atBottom` true (hiding the button).
+const jumpToBottom = () => {
+  const el = messagesContainer.value
+  if (!el) return
+  el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+}
+
+// Open sub-agent panel per message index. In autoscroll (following) mode only
+// the LAST message may keep a panel open, and only when it ends on a sub-agent:
+// as soon as a newer message arrives behind it (another sub-agent or a plain
+// text turn) the previous message's panel is closed. So a conversation that ends
+// on a sub-agent leaves it open; one that ends on text leaves everything closed.
+// Within a message the accordion still holds a single open index, so a newer
+// sub-agent in the same message collapses the previous one. Gated on `following`:
+// once the user scrolls up to read history we stop touching panels entirely
+// (their manual open/close holds) until they jump back to the bottom.
+const openPanels = reactive<Record<number, number | undefined>>({})
+const openPanelFor = (index: number) => openPanels[index]
+const setOpenPanel = (index: number, v: number | undefined) => { openPanels[index] = v }
+watch(
+  () => [props.messages.length, latestSubAgentPanel(props.messages[props.messages.length - 1])] as const,
+  ([length, panel]) => {
+    if (!following.value) return
+    for (const key in openPanels) delete openPanels[key]
+    if (panel !== undefined) openPanels[length - 1] = panel
+  },
+  { immediate: true }
+)
 
 const subAgentTitle = (toolName: string) => {
   const title = props.toolTitle(toolName)
@@ -236,13 +360,20 @@ function onLinkClick (e: MouseEvent) {
   emit('navigate', (anchor as HTMLAnchorElement).href)
 }
 
-defineExpose({ messagesContainer })
-
-// Auto-scroll is handled by the parent watching messages changes
-// but we expose the container ref for it
 </script>
 
 <style>
+.agent-chat__jump-to-bottom {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  /* opaque background so the transcript text doesn't bleed through the
+     transparent outlined button */
+  background-color: rgb(var(--v-theme-surface));
+}
+
 .agent-chat-message .assistant-content {
   word-break: break-word;
 }

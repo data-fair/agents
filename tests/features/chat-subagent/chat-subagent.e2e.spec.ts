@@ -110,8 +110,10 @@ test.describe('Chat Sub-Agent UI', () => {
     // The sub-agent expansion panel should appear
     await expect(page.locator('.agent-chat').getByText('Data Analyst').first()).toBeVisible({ timeout: 15000 })
 
-    // Expand the sub-agent panel to see inner tool calls
-    await page.locator('.agent-chat').getByText('Data Analyst').first().click()
+    // The latest (and only) sub-agent panel must auto-expand deterministically,
+    // with no manual click — this is the behaviour that used to be flaky.
+    const dataAnalystTitle = page.locator('.agent-chat .v-expansion-panel-title', { hasText: 'Data Analyst' }).first()
+    await expect(dataAnalystTitle).toHaveClass(/v-expansion-panel-title--active/, { timeout: 15000 })
 
     // At least one get_schema tool chip should appear inside the sub-agent expansion panel
     const chatArea = page.locator('.agent-chat')

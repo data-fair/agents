@@ -74,8 +74,9 @@ test.describe('Advanced Sub-Agent Scenarios', () => {
     // Wait for the full response to complete
     await expect(page.getByPlaceholder('Type your message...')).toBeEnabled({ timeout: 15000 })
 
-    // Expand the panel to see inner content
-    await page.locator('.agent-chat').getByText('Data Analyst').first().click()
+    // The latest sub-agent panel must auto-expand on its own (no manual click).
+    const dataAnalystTitle = page.locator('.agent-chat .v-expansion-panel-title', { hasText: 'Data Analyst' }).first()
+    await expect(dataAnalystTitle).toHaveClass(/v-expansion-panel-title--active/, { timeout: 15000 })
 
     const subAgentPanel = page.locator('.agent-chat__subagent-panels').first()
 
@@ -108,9 +109,20 @@ test.describe('Advanced Sub-Agent Scenarios', () => {
     // Second call — subagent should work again in a subsequent message
     await sendMessage(page, 'call tool subagent_data_analyst {"task":"hello"}')
 
-    // Should now have two sub-agent panels (one per user message)
+    // Two sub-agent panels now exist (one per user message): the sub-agent works
+    // across multiple messages.
     const subAgentPanels = page.locator('.agent-chat__subagent-panels')
     await expect(subAgentPanels).toHaveCount(2, { timeout: 15000 })
+
+    // Wait for the second response to fully complete.
+    await expect(page.getByPlaceholder('Type your message...')).toBeEnabled({ timeout: 15000 })
+
+    // In autoscroll mode a sub-agent panel is auto-closed as soon as a newer
+    // message lands behind it. Each turn here ends with a trailing assistant
+    // reply, so once both turns are done neither sub-agent panel stays open.
+    // (A conversation that *ends* on a sub-agent keeps its panel open — covered
+    // by the single-turn tests.)
+    await expect(page.locator('.agent-chat .v-expansion-panel-title--active')).toHaveCount(0)
   })
 
   test('Mixed main agent tools and subagent delegation', async ({ page, goToWithAuth }) => {
