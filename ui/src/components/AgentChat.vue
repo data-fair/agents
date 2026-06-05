@@ -70,6 +70,7 @@ fr:
   systemPromptOrg: "L'utilisateur actuel est membre de l'organisation {orgName}{depPart}."
   systemPromptDep: ", département {depName}"
   systemPromptCompact: "Tes réponses sont affichées dans un widget de chat étroit. Garde un formatage compact : utilise des paragraphes courts et des listes à puces simples. Évite les tableaux, les blocs de code larges et les sorties verbeuses. Sois concis."
+  moderationRefusal: "Cette demande ne peut pas être traitée car elle sort du cadre de ce que cet assistant peut faire."
 en:
   welcome: How can I help you?
   systemPromptBase: You are a helpful AI assistant for the Data Fair platform.
@@ -77,6 +78,7 @@ en:
   systemPromptOrg: "The current user is a member of the organization {orgName}{depPart}."
   systemPromptDep: ", department {depName}"
   systemPromptCompact: "Your responses are displayed in a narrow chat widget. Keep formatting compact: use short paragraphs and simple bullet lists. Avoid tables, wide code blocks, and verbose output. Be concise."
+  moderationRefusal: "This request can't be processed as it falls outside what this assistant is meant to help with."
 </i18n>
 
 <script lang="ts" setup>
@@ -151,6 +153,7 @@ const chatResult = useAgentChat({
   systemPrompt: finalSystemPrompt.value,
   initialMessages: props.initialMessages,
   recorder,
+  refusalMessage: t('moderationRefusal'),
   toolExploration: explorationEnabled
 })
 

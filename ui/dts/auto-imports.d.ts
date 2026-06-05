@@ -11,10 +11,13 @@ declare global {
   const $fetch: typeof import('~/context')['$fetch']
   const $sitePath: typeof import('~/context')['$sitePath']
   const $uiConfig: typeof import('~/context')['$uiConfig']
+  const DEFAULT_REFUSAL: typeof import('../src/composables/moderation')['DEFAULT_REFUSAL']
   const EXPLORE_TOOL_NAME: typeof import('../src/composables/tool-exploration')['EXPLORE_TOOL_NAME']
   const EffectScope: typeof import('vue')['EffectScope']
+  const MODERATION_TASK_MARKER: typeof import('../src/composables/moderation')['MODERATION_TASK_MARKER']
   const SELECT_TOOL_NAME: typeof import('../src/composables/tool-exploration')['SELECT_TOOL_NAME']
   const buildExplorationSystem: typeof import('../src/composables/tool-exploration')['buildExplorationSystem']
+  const buildModerationSystemPrompt: typeof import('../src/composables/moderation')['buildModerationSystemPrompt']
   const buildToolCatalog: typeof import('../src/composables/tool-exploration')['buildToolCatalog']
   const computed: typeof import('vue')['computed']
   const computedDeepDiff: typeof import('@data-fair/lib-vue/deep-diff.js')['computedDeepDiff']
@@ -69,6 +72,7 @@ declare global {
   const onUnmounted: typeof import('vue')['onUnmounted']
   const onUpdated: typeof import('vue')['onUpdated']
   const onWatcherCleanup: typeof import('vue')['onWatcherCleanup']
+  const parseModerationVerdict: typeof import('../src/composables/moderation')['parseModerationVerdict']
   const provide: typeof import('vue')['provide']
   const reactive: typeof import('vue')['reactive']
   const reactiveSearchParamsKey: typeof import('../src/composables/use-webmcp')['reactiveSearchParamsKey']
@@ -148,10 +152,13 @@ declare module 'vue' {
     readonly $fetch: UnwrapRef<typeof import('~/context')['$fetch']>
     readonly $sitePath: UnwrapRef<typeof import('~/context')['$sitePath']>
     readonly $uiConfig: UnwrapRef<typeof import('~/context')['$uiConfig']>
+    readonly DEFAULT_REFUSAL: UnwrapRef<typeof import('../src/composables/moderation')['DEFAULT_REFUSAL']>
     readonly EXPLORE_TOOL_NAME: UnwrapRef<typeof import('../src/composables/tool-exploration')['EXPLORE_TOOL_NAME']>
     readonly EffectScope: UnwrapRef<typeof import('vue')['EffectScope']>
+    readonly MODERATION_TASK_MARKER: UnwrapRef<typeof import('../src/composables/moderation')['MODERATION_TASK_MARKER']>
     readonly SELECT_TOOL_NAME: UnwrapRef<typeof import('../src/composables/tool-exploration')['SELECT_TOOL_NAME']>
     readonly buildExplorationSystem: UnwrapRef<typeof import('../src/composables/tool-exploration')['buildExplorationSystem']>
+    readonly buildModerationSystemPrompt: UnwrapRef<typeof import('../src/composables/moderation')['buildModerationSystemPrompt']>
     readonly buildToolCatalog: UnwrapRef<typeof import('../src/composables/tool-exploration')['buildToolCatalog']>
     readonly computed: UnwrapRef<typeof import('vue')['computed']>
     readonly computedDeepDiff: UnwrapRef<typeof import('@data-fair/lib-vue/deep-diff.js')['computedDeepDiff']>
@@ -191,6 +198,7 @@ declare module 'vue' {
     readonly onUnmounted: UnwrapRef<typeof import('vue')['onUnmounted']>
     readonly onUpdated: UnwrapRef<typeof import('vue')['onUpdated']>
     readonly onWatcherCleanup: UnwrapRef<typeof import('vue')['onWatcherCleanup']>
+    readonly parseModerationVerdict: UnwrapRef<typeof import('../src/composables/moderation')['parseModerationVerdict']>
     readonly provide: UnwrapRef<typeof import('vue')['provide']>
     readonly reactive: UnwrapRef<typeof import('vue')['reactive']>
     readonly readonly: UnwrapRef<typeof import('vue')['readonly']>
