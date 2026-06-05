@@ -1,7 +1,7 @@
 <template>
   <div class="chat-page">
     <AgentChat
-      :debug="debugEnabled"
+      :is-admin="debugEnabled"
       :title="chatTitle"
       :system-prompt="systemPrompt"
       :narrow-viewport="narrowViewport"
