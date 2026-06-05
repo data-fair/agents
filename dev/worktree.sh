@@ -32,6 +32,11 @@ npm ci
 echo "npm run build-types"
 npm run build-types
 
+# dev-api boots the SPA middleware against ui/dist (see api/src/app.ts), so the
+# UI must be built once before the API can start, even in dev (vite handles HMR after).
+echo "npm -w ui run build"
+npm -w ui run build
+
 echo "-----------------------------------------------"
 echo "✅ Setup Complete!"
 echo "Location: $TARGET_DIR"
