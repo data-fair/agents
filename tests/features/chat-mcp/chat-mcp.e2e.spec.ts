@@ -32,7 +32,7 @@ test.describe('Chat MCP UI', () => {
     await goToWithAuth('/agents/_dev/chat-mcp', 'test-standalone1')
 
     // Wait for tools to be discovered via BroadcastChannel before sending a message
-    await page.getByRole('button', { name: /Info|Informations/ }).click()
+    await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
     await page.getByRole('tab', { name: /Outils|Tools/ }).click()
     await expect(page.getByText('set_data')).toBeVisible({ timeout: 5000 })
     await page.getByRole('button', { name: /Close|Fermer/ }).click()
@@ -67,7 +67,7 @@ test.describe('Chat MCP UI', () => {
     await goToWithAuth('/agents/_dev/chat-mcp', 'test-standalone1')
 
     // Open the debug dialog and go to the tools tab
-    await page.getByRole('button', { name: /Info|Informations/ }).click()
+    await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
     await page.getByRole('tab', { name: /Outils|Tools/ }).click()
     await expect(page.getByText('set_data')).toBeVisible({ timeout: 5000 })
 

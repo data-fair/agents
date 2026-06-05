@@ -13,11 +13,10 @@
     />
     <v-btn
       v-if="isAdmin"
-      :icon="mdiInformationOutline"
+      :icon="mdiCog"
       variant="flat"
-      color="success"
       density="compact"
-      :title="t('info')"
+      :title="t('settings')"
       class="ml-2"
       @click="$emit('showDebug')"
     />
@@ -27,16 +26,16 @@
 
 <i18n lang="yaml">
 fr:
-  info: Informations
+  settings: Paramètres
   reset: Réinitialiser la conversation
 en:
-  info: Info
+  settings: Settings
   reset: Reset conversation
 </i18n>
 
 <script lang="ts" setup>
 import { useI18n } from 'vue-i18n'
-import { mdiInformationOutline, mdiRefresh } from '@mdi/js'
+import { mdiCog, mdiRefresh } from '@mdi/js'
 
 defineProps<{
   isAdmin?: boolean

@@ -70,7 +70,7 @@ test.describe('Chat system prompt transmission', () => {
     expect(frame.url()).not.toContain('SYSPROMPT_E2E_MARKER')
 
     // Open the debug dialog (default tab is "System Prompt") and verify the prompt was applied
-    await frame.getByRole('button', { name: /Info|Informations/ }).click()
+    await frame.getByRole('button', { name: /Settings|Paramètres/ }).click()
     await expect(frame.locator('.v-dialog')).toContainText('SYSPROMPT_E2E_MARKER', { timeout: 5000 })
   })
 
@@ -79,7 +79,7 @@ test.describe('Chat system prompt transmission', () => {
 
     await expect(page.getByPlaceholder('Type your message...')).toBeVisible({ timeout: 15000 })
 
-    await page.getByRole('button', { name: /Info|Informations/ }).click()
+    await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
     await expect(page.locator('.v-dialog')).toContainText('SYSPROMPT_E2E_MARKER', { timeout: 5000 })
   })
 })

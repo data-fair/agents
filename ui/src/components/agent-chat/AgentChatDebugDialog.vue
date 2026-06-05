@@ -31,6 +31,9 @@
           <v-tab value="trace">
             {{ t('trace') }}
           </v-tab>
+          <v-tab value="settings">
+            {{ t('settings') }}
+          </v-tab>
         </v-tabs>
 
         <div
@@ -162,6 +165,22 @@
               :recorder="recorder"
             />
           </v-window-item>
+
+          <v-window-item value="settings">
+            <div class="pa-3">
+              <v-switch
+                :model-value="toolExploration"
+                color="primary"
+                density="compact"
+                hide-details
+                :label="t('toolExploration')"
+                @update:model-value="$emit('update:toolExploration', $event ?? false)"
+              />
+              <p class="text-caption text-medium-emphasis mt-1">
+                {{ t('toolExplorationHint') }}
+              </p>
+            </div>
+          </v-window-item>
         </v-window>
       </v-card-text>
     </v-card>
@@ -183,6 +202,9 @@ fr:
   cacheWritten: cache écrit
   download: Télécharger
   openReview: Ouvrir l'analyse
+  settings: Paramètres
+  toolExploration: Exploration des outils (expérimental)
+  toolExplorationHint: "Masque les outils derrière un outil « explore_tools » que l'assistant appelle pour découvrir et activer les outils pertinents à la demande. Changer ce réglage réinitialise la conversation."
 en:
   close: Close
   systemPrompt: System Prompt
@@ -197,6 +219,9 @@ en:
   cacheWritten: cache write
   download: Download
   openReview: Open review
+  settings: Settings
+  toolExploration: Tool exploration (experimental)
+  toolExplorationHint: "Hides tools behind an 'explore_tools' tool the assistant calls to discover and enable relevant tools on demand. Changing this setting resets the conversation."
 </i18n>
 
 <script lang="ts" setup>
@@ -219,10 +244,12 @@ const props = defineProps<{
   isAdmin?: boolean
   accountType: string
   accountId: string
+  toolExploration?: boolean
 }>()
 
 defineEmits<{
   'update:modelValue': [value: boolean]
+  'update:toolExploration': [value: boolean]
 }>()
 
 const { t } = useI18n()

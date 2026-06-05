@@ -57,6 +57,8 @@
       :is-admin="isAdmin"
       :account-type="accountType"
       :account-id="accountId"
+      :tool-exploration="explorationEnabled"
+      @update:tool-exploration="handleToolExploration"
     />
   </v-card>
 </template>
@@ -142,7 +144,9 @@ const finalSystemPrompt = computed(() => {
   return parts.join(' ')
 })
 
-const explorationEnabled = props.isAdmin && sessionStorage.getItem('agent-chat-explore') === '1'
+// Experimental tool-exploration mode: admin-only opt-in, persisted in localStorage
+// and toggled from the debug dialog's Settings tab.
+const explorationEnabled = ref(!!props.isAdmin && localStorage.getItem('agent-chat-explore') === '1')
 const recorder = new SessionRecorder()
 recorder.setSystemPrompt(finalSystemPrompt.value)
 
@@ -153,7 +157,7 @@ const chatResult = useAgentChat({
   initialMessages: props.initialMessages,
   recorder,
   refusalMessage: t('moderationRefusal'),
-  toolExploration: explorationEnabled
+  toolExploration: explorationEnabled.value
 })
 
 if (!chatResult) {
@@ -259,6 +263,15 @@ function startActionSession (visiblePrompt: string, hiddenContext: string) {
 
   // Send the visible prompt — this adds it to messages + history and triggers the LLM
   chat.sendMessage(visiblePrompt, { hiddenContext })
+}
+
+function handleToolExploration (enabled: boolean) {
+  explorationEnabled.value = enabled
+  if (enabled) localStorage.setItem('agent-chat-explore', '1')
+  else localStorage.removeItem('agent-chat-explore')
+  chat.setToolExploration(enabled)
+  // Reset the conversation so the new tool set applies from a clean state.
+  handleReset()
 }
 
 function handleReset () {
