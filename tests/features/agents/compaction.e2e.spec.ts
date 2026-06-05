@@ -61,7 +61,7 @@ test.describe('History Compaction', () => {
     await expect(page.locator('.assistant-content').last()).toContainText('world', { timeout: 10000 })
 
     // Open debug dialog and go to Trace tab
-    await page.getByRole('button', { name: /Debug|Débogage/ }).click()
+    await page.getByRole('button', { name: /Info|Informations/ }).click()
     await page.getByRole('tab', { name: /Trace/ }).click()
 
     // Verify a compaction trace entry exists

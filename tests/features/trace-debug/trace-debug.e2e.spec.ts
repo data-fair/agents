@@ -41,7 +41,7 @@ test.describe('Trace Debug Dialog', () => {
     await page.reload()
 
     // Wait for tools to be ready
-    await page.getByRole('button', { name: /Debug|Débogage/ }).click()
+    await page.getByRole('button', { name: /Info|Informations/ }).click()
     await page.getByRole('tab', { name: /Outils|Tools/ }).click()
     const debugPanels = page.locator('.v-dialog .v-expansion-panels')
     await expect(debugPanels.getByRole('button', { name: 'set_display' })).toBeVisible({ timeout: 5000 })
@@ -55,7 +55,7 @@ test.describe('Trace Debug Dialog', () => {
     await expect(page.getByLabel('Output')).toHaveValue('trace test', { timeout: 15000 })
 
     // Open debug dialog and go to Trace tab
-    await page.getByRole('button', { name: /Debug|Débogage/ }).click()
+    await page.getByRole('button', { name: /Info|Informations/ }).click()
     await page.getByRole('tab', { name: /Trace/ }).click()
 
     // Verify trace entries exist

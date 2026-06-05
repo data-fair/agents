@@ -83,7 +83,7 @@ test.describe('Tool exploration E2E', () => {
 
     // Wait for tools to be registered via MCP before sending – mirrors the waitForToolsReady
     // pattern from chat-subagent.e2e.spec.ts (avoids the race between MCP setup and sendMessage)
-    await page.getByRole('button', { name: /Debug/ }).click()
+    await page.getByRole('button', { name: /Info/ }).click()
     await page.getByRole('tab', { name: /Tools/ }).click()
     await expect(
       page.locator('.v-dialog .v-window-item--active').getByRole('button', { name: 'set_display' })

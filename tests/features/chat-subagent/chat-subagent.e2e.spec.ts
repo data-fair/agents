@@ -34,7 +34,7 @@ const settingsData = {
  * Returns a locator scoped to the debug dialog's expansion panels.
  */
 async function waitForToolsReady (page: import('@playwright/test').Page, toolName: string, locateAsText = false) {
-  await page.getByRole('button', { name: /Debug|Débogage/ }).click()
+  await page.getByRole('button', { name: /Info|Informations/ }).click()
   await page.getByRole('tab', { name: /Outils|Tools/ }).click()
   const debugContent = page.locator('.v-dialog .v-window-item--active')
   if (locateAsText) {
@@ -61,7 +61,7 @@ test.describe('Chat Sub-Agent UI', () => {
   test('All tools are discovered via MCP', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
 
-    await page.getByRole('button', { name: /Debug|Débogage/ }).click()
+    await page.getByRole('button', { name: /Info|Informations/ }).click()
     await page.getByRole('tab', { name: /Outils|Tools/ }).click()
 
     // All tools + sub-agent should appear in the debug dialog
