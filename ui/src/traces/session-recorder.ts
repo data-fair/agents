@@ -87,6 +87,32 @@ export interface TraceEntryDetail {
   content: any
 }
 
+export function serializeTrace (trace: SessionTrace): string {
+  return JSON.stringify(trace)
+}
+
+const toDate = (v: any): Date => (v instanceof Date ? v : new Date(v))
+
+function reviveStepDates (step: any): void {
+  step.timestamp = toDate(step.timestamp)
+  for (const tc of step.toolCalls ?? []) {
+    tc.timestamp = toDate(tc.timestamp)
+    if (tc.endTimestamp) tc.endTimestamp = toDate(tc.endTimestamp)
+    for (const subStep of tc.subAgent?.steps ?? []) reviveStepDates(subStep)
+  }
+}
+
+// Mutates `trace` in place, turning ISO strings back into Date objects, and returns it.
+export function reviveTraceDates (trace: SessionTrace): SessionTrace {
+  for (const turn of trace.turns ?? []) {
+    turn.timestamp = toDate(turn.timestamp)
+    for (const step of turn.steps ?? []) reviveStepDates(step)
+  }
+  for (const change of trace.toolChanges ?? []) change.timestamp = toDate(change.timestamp)
+  for (const pr of trace.physicalRequests ?? []) pr.timestamp = toDate(pr.timestamp)
+  return trace
+}
+
 export class SessionRecorder {
   private trace: SessionTrace = {
     systemPrompt: '',
@@ -223,6 +249,12 @@ export class SessionRecorder {
 
   getTrace (): SessionTrace {
     return this.trace
+  }
+
+  static fromTrace (raw: SessionTrace): SessionRecorder {
+    const recorder = new SessionRecorder()
+    recorder.trace = reviveTraceDates(raw)
+    return recorder
   }
 
   getTraceOverview (): TraceOverviewEntry[] {

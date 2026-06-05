@@ -4,7 +4,7 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { SessionRecorder } from '../../../ui/src/traces/session-recorder.ts'
+import { SessionRecorder, serializeTrace } from '../../../ui/src/traces/session-recorder.ts'
 import { buildEvaluatorTools } from '../../../ui/src/traces/evaluator-tools.ts'
 
 test.describe('SessionRecorder - recording', () => {
@@ -357,5 +357,48 @@ test.describe('SessionRecorder - physical requests', () => {
     const stepIdx = overview.findIndex(e => e.type === 'assistant-step')
     assert.ok(prIdx >= 0 && stepIdx >= 0)
     assert.ok(prIdx < stepIdx, 'physical-request sorts before its assistant-step')
+  })
+})
+
+test.describe('SessionRecorder - serialization', () => {
+  test('serializeTrace + fromTrace round-trips and revives Date fields', () => {
+    const recorder = new SessionRecorder()
+    recorder.setSystemPrompt('sys')
+    recorder.snapshotTools([{ name: 'search', description: 'd', inputSchema: { type: 'object' } }])
+    recorder.startTurn('hello')
+    recorder.startToolCall('tc1', 'search', { q: 'x' })
+    recorder.finishToolCall('tc1', { ok: true })
+    recorder.finishStep()
+    recorder.addStepMessages([{ role: 'assistant', content: [{ type: 'text', text: 'hi' }] }], 'stop')
+    recorder.recordPhysicalRequest({
+      contextId: 'c',
+      timestamp: new Date(),
+      modelRole: 'assistant',
+      requestBody: { a: 1 },
+      result: { content: 'hi', toolCalls: [] },
+      inputTokens: 1,
+      outputTokens: 2,
+      messageCount: 1,
+      toolCount: 1,
+      bodyChars: 10,
+      durationMs: 5
+    })
+
+    const json = serializeTrace(recorder.getTrace())
+    const restored = SessionRecorder.fromTrace(JSON.parse(json))
+
+    const overview = restored.getTraceOverview()
+    assert.equal(overview.length, recorder.getTraceOverview().length)
+    for (const e of overview) assert.ok(e.timestamp instanceof Date, `entry ${e.index} timestamp not a Date`)
+    assert.ok(restored.getTrace().turns[0].timestamp instanceof Date)
+    assert.ok(restored.getTrace().turns[0].steps[0].toolCalls[0].timestamp instanceof Date)
+    assert.ok(restored.getTrace().turns[0].steps[0].toolCalls[0].endTimestamp instanceof Date)
+    assert.ok(restored.getTrace().toolChanges[0].timestamp instanceof Date)
+    assert.ok(restored.getTrace().physicalRequests[0].timestamp instanceof Date)
+  })
+
+  test('fromTrace tolerates an empty trace', () => {
+    const restored = SessionRecorder.fromTrace({ systemPrompt: '', toolSnapshots: [], toolChanges: [], turns: [], physicalRequests: [] })
+    assert.deepEqual(restored.getTraceOverview(), [])
   })
 })
