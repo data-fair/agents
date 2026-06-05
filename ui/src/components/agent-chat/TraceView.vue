@@ -24,24 +24,24 @@
           :color="traceEntryColor(entry.type)"
           variant="tonal"
           label
-          class="mr-1"
+          class="mr-2 flex-shrink-0"
           style="font-size: 0.65rem;"
         >
           {{ entry.type }}
         </v-chip>
-        <span class="font-weight-medium text-truncate">{{ entry.label }}</span>
-        <v-spacer />
         <span
-          class="text-caption text-medium-emphasis ml-1"
+          v-if="entry.label"
+          class="font-weight-medium mr-2 flex-shrink-0"
+        >{{ entry.label }}</span>
+        <span class="text-label-small text-medium-emphasis text-truncate agent-chat__trace-preview">{{ entry.preview }}</span>
+        <span
+          class="text-medium-emphasis ml-2 flex-shrink-0"
           style="white-space: nowrap;"
         >
           {{ formatTraceTime(entry.timestamp) }}
         </span>
       </v-expansion-panel-title>
       <v-expansion-panel-text>
-        <div class="text-caption text-medium-emphasis mb-1">
-          {{ entry.preview }}
-        </div>
         <template v-if="traceEntryDetails[entry.index]">
           <template v-if="entry.type === 'assistant-step' || entry.type === 'sub-agent-step'">
             <v-chip
@@ -87,7 +87,7 @@
           <pre
             v-else
             class="agent-chat__pre pa-2 mt-1"
-          >{{ JSON.stringify(traceEntryDetails[entry.index]?.content, null, 2) }}</pre>
+          >{{ formatContent(traceEntryDetails[entry.index]?.content) }}</pre>
         </template>
       </v-expansion-panel-text>
     </v-expansion-panel>
@@ -155,6 +155,11 @@ const traceEntryColor = (type: string) => {
 }
 
 const formatTraceTime = (date: Date) => date.toLocaleTimeString()
+
+// String content (system prompt, user message, etc.) is shown as-is to keep newlines
+// readable; structured content is pretty-printed as JSON.
+const formatContent = (content: unknown) =>
+  typeof content === 'string' ? content : JSON.stringify(content, null, 2)
 </script>
 
 <style scoped>
@@ -171,6 +176,12 @@ const formatTraceTime = (date: Date) => date.toLocaleTimeString()
 
 .agent-chat__trace-panels :deep(.v-expansion-panel-title) {
   min-height: 28px;
+}
+
+/* allow the preview to take remaining width and truncate with an ellipsis */
+.agent-chat__trace-preview {
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 .agent-chat__trace-panels :deep(.v-expansion-panel-text__wrapper) {

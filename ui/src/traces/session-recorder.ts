@@ -274,7 +274,7 @@ export class SessionRecorder {
 
     if (this.trace.systemPrompt) {
       add(
-        { type: 'system-prompt', timestamp: this.trace.turns[0]?.timestamp ?? new Date(), label: 'system prompt', preview: this.trace.systemPrompt.slice(0, 150) },
+        { type: 'system-prompt', timestamp: this.trace.turns[0]?.timestamp ?? new Date(), label: '', preview: this.trace.systemPrompt.slice(0, 150) },
         this.trace.systemPrompt
       )
     }
@@ -282,52 +282,52 @@ export class SessionRecorder {
     for (const turn of this.trace.turns) {
       if (turn.hiddenContext) {
         add(
-          { type: 'hidden-context', timestamp: turn.timestamp, label: 'hidden context', preview: turn.hiddenContext.slice(0, 150) },
+          { type: 'hidden-context', timestamp: turn.timestamp, label: '', preview: turn.hiddenContext.slice(0, 150) },
           turn.hiddenContext
         )
       }
       add(
-        { type: 'user-message', timestamp: turn.timestamp, label: 'user message', preview: (turn.userMessage ?? '').slice(0, 150) },
+        { type: 'user-message', timestamp: turn.timestamp, label: '', preview: (turn.userMessage ?? '').slice(0, 150) },
         turn.userMessage ?? ''
       )
       for (const step of turn.steps) {
         if ((step as any).compaction) {
           const c = (step as any).compaction
           add(
-            { type: 'compaction', timestamp: step.timestamp, label: 'history compaction', preview: `${c.originalCharCount} \u2192 ${c.compactedCharCount} chars` },
+            { type: 'compaction', timestamp: step.timestamp, label: '', preview: `${c.originalCharCount} \u2192 ${c.compactedCharCount} chars` },
             { summary: c.summary, originalMessages: c.originalMessages, originalCharCount: c.originalCharCount, compactedCharCount: c.compactedCharCount }
           )
         }
         for (const tc of step.toolCalls) {
           add(
-            { type: 'tool-call', timestamp: tc.timestamp, label: `tool call: ${tc.toolName}`, preview: (JSON.stringify(tc.input) ?? '').slice(0, 150) },
+            { type: 'tool-call', timestamp: tc.timestamp, label: tc.toolName, preview: (JSON.stringify(tc.input) ?? '').slice(0, 150) },
             { input: tc.input, toolName: tc.toolName }
           )
           if (tc.subAgent) {
             add(
-              { type: 'sub-agent-start', timestamp: tc.timestamp, label: `sub-agent: ${tc.subAgent.name}`, preview: (tc.subAgent.task ?? '').slice(0, 150) },
+              { type: 'sub-agent-start', timestamp: tc.timestamp, label: tc.subAgent.name, preview: (tc.subAgent.task ?? '').slice(0, 150) },
               { name: tc.subAgent.name, task: tc.subAgent.task, tools: tc.subAgent.tools }
             )
             if (tc.subAgent.systemPrompt) {
               add(
-                { type: 'sub-agent-system-prompt', timestamp: tc.timestamp, label: `system prompt: ${tc.subAgent.name}`, preview: tc.subAgent.systemPrompt.slice(0, 150) },
+                { type: 'sub-agent-system-prompt', timestamp: tc.timestamp, label: tc.subAgent.name, preview: tc.subAgent.systemPrompt.slice(0, 150) },
                 tc.subAgent.systemPrompt
               )
             }
             for (const subStep of tc.subAgent.steps) {
               for (const subTc of subStep.toolCalls) {
                 add(
-                  { type: 'tool-call', timestamp: subTc.timestamp, label: `tool call: ${subTc.toolName} (sub-agent: ${tc.subAgent!.name})`, preview: (JSON.stringify(subTc.input) ?? '').slice(0, 150) },
+                  { type: 'tool-call', timestamp: subTc.timestamp, label: `${subTc.toolName} (${tc.subAgent!.name})`, preview: (JSON.stringify(subTc.input) ?? '').slice(0, 150) },
                   { input: subTc.input, toolName: subTc.toolName }
                 )
                 add(
-                  { type: 'tool-result', timestamp: subTc.timestamp, label: `tool result: ${subTc.toolName} (sub-agent: ${tc.subAgent!.name})`, preview: (JSON.stringify(subTc.output) ?? '').slice(0, 150) },
+                  { type: 'tool-result', timestamp: subTc.timestamp, label: `${subTc.toolName} (${tc.subAgent!.name})`, preview: (JSON.stringify(subTc.output) ?? '').slice(0, 150) },
                   { output: subTc.output, toolName: subTc.toolName, durationMs: subTc.durationMs }
                 )
               }
               if (subStep.messages.length > 0) {
                 add(
-                  { type: 'sub-agent-step', timestamp: subStep.timestamp, label: `sub-agent step: ${tc.subAgent!.name}`, preview: this.extractTextPreview(subStep.messages) },
+                  { type: 'sub-agent-step', timestamp: subStep.timestamp, label: tc.subAgent!.name, preview: this.extractTextPreview(subStep.messages) },
                   { messages: subStep.messages, finishReason: subStep.finishReason }
                 )
               }
@@ -336,18 +336,18 @@ export class SessionRecorder {
             // sub-agent-end and parent tool-result entries sort AFTER the sub-agent's step entries,
             // whose timestamps fall between the call's start and end.
             add(
-              { type: 'sub-agent-end', timestamp: tc.endTimestamp ?? tc.timestamp, label: `sub-agent end: ${tc.subAgent.name}`, preview: '' },
+              { type: 'sub-agent-end', timestamp: tc.endTimestamp ?? tc.timestamp, label: tc.subAgent.name, preview: '' },
               { name: tc.subAgent.name }
             )
           }
           add(
-            { type: 'tool-result', timestamp: tc.endTimestamp ?? tc.timestamp, label: `tool result: ${tc.toolName}`, preview: (JSON.stringify(tc.output) ?? '').slice(0, 150) },
+            { type: 'tool-result', timestamp: tc.endTimestamp ?? tc.timestamp, label: tc.toolName, preview: (JSON.stringify(tc.output) ?? '').slice(0, 150) },
             { output: tc.output, toolName: tc.toolName, durationMs: tc.durationMs }
           )
         }
         if (step.messages.length > 0) {
           add(
-            { type: 'assistant-step', timestamp: step.timestamp, label: 'assistant step', preview: this.extractTextPreview(step.messages) },
+            { type: 'assistant-step', timestamp: step.timestamp, label: '', preview: this.extractTextPreview(step.messages) },
             { messages: step.messages, finishReason: step.finishReason }
           )
         }
@@ -357,7 +357,7 @@ export class SessionRecorder {
     for (const tc of this.trace.toolChanges) {
       const toolNames = tc.tools.map(t => t.name).join(', ')
       add(
-        { type: 'tools-changed', timestamp: tc.timestamp, label: `tools changed (${tc.tools.length})`, preview: toolNames.slice(0, 150) },
+        { type: 'tools-changed', timestamp: tc.timestamp, label: `${tc.tools.length}`, preview: toolNames.slice(0, 150) },
         { tools: tc.tools }
       )
     }
@@ -367,7 +367,7 @@ export class SessionRecorder {
         {
           type: 'physical-request',
           timestamp: pr.timestamp,
-          label: `physical request: ${pr.modelRole}`,
+          label: pr.modelRole,
           preview: `${pr.inputTokens} in${pr.cacheReadTokens ? ` (${pr.cacheReadTokens} cached)` : ''} · ${pr.outputTokens} out · ${pr.messageCount} msgs · ${pr.toolCount} tools · ${Math.round(pr.durationMs)}ms`
         },
         {

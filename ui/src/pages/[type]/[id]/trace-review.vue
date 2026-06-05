@@ -170,4 +170,7 @@ const onFile = async (e: Event) => {
 .trace-review__chat {
   border-left: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
+.trace-review__pane :deep(.v-expansion-panel__shadow) {
+  display: none;
+}
 </style>

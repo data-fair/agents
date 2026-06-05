@@ -207,13 +207,13 @@ test.describe('SessionRecorder - overview and entry accessors', () => {
 
     assert.ok(overview.length >= 4)
     assert.equal(overview[0].type, 'system-prompt')
-    assert.ok(overview[0].label.includes('system prompt'))
+    assert.ok(overview[0].preview.includes('You are helpful'))
     assert.equal(overview[1].type, 'user-message')
-    assert.ok(overview[1].label.includes('user message'))
     assert.ok(overview[1].preview.includes('hello'))
 
     const toolCall = overview.find(e => e.type === 'tool-call')
     assert.ok(toolCall)
+    // label now carries only the distinguishing detail (the tool name), not a type prefix
     assert.ok(toolCall.label.includes('search'))
 
     const toolResult = overview.find(e => e.type === 'tool-result')
@@ -266,7 +266,7 @@ test.describe('Evaluator tools', () => {
     assert.ok(tools.getTraceOverview)
     const result = await (tools.getTraceOverview as any).execute({})
     assert.ok(typeof result === 'string')
-    assert.ok(result.includes('user message'))
+    assert.ok(result.includes('user-message'))
   })
 
   test('getTraceEntry tool returns detail for index 0', async () => {

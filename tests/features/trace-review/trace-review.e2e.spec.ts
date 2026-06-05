@@ -83,8 +83,8 @@ test.describe('Trace review flow', () => {
     // Step 7: Upload the downloaded trace file
     await page.locator('input[type=file]').setInputFiles(filePath!)
 
-    // Step 8: Verify the TraceView populated — expect a "user-message" chip or "user message" label
-    await expect(page.getByText('user message').first()).toBeVisible({ timeout: 10000 })
+    // Step 8: Verify the TraceView populated — expect a "user-message" type chip
+    await expect(page.getByText('user-message').first()).toBeVisible({ timeout: 10000 })
 
     // Step 9: Use the evaluator — send a message that triggers the getTraceOverview tool call
     // The mock model parses "call tool <name>" and passes remaining text as JSON args.
