@@ -34,7 +34,7 @@ const settingsData = {
 }
 
 async function waitForToolsReady (page: import('@playwright/test').Page, toolName: string, locateAsText = false) {
-  await page.getByRole('button', { name: /Debug|Débogage/ }).click()
+  await page.getByRole('button', { name: /Info|Informations/ }).click()
   await page.getByRole('tab', { name: /Outils|Tools/ }).click()
   const debugContent = page.locator('.v-dialog .v-window-item--active')
   if (locateAsText) {
@@ -87,7 +87,7 @@ test.describe('Advanced Sub-Agent Scenarios', () => {
     await expect(subAgentPanel.getByText('Analysis complete')).toBeVisible({ timeout: 10000 })
 
     // Verify via trace that both tools were actually called
-    await page.getByRole('button', { name: /Debug|Débogage/ }).click()
+    await page.getByRole('button', { name: /Info|Informations/ }).click()
     await page.getByRole('tab', { name: /Trace/ }).click()
     const tracePanel = page.locator('.v-dialog .v-expansion-panels').last()
     const subAgentEntry = tracePanel.locator('.v-expansion-panel', { hasText: /data_analyst/i })
@@ -149,7 +149,7 @@ test.describe('Advanced Sub-Agent Scenarios', () => {
     await expect(page.getByPlaceholder('Type your message...')).toBeEnabled({ timeout: 15000 })
 
     // Open debug dialog → Trace tab
-    await page.getByRole('button', { name: /Debug|Débogage/ }).click()
+    await page.getByRole('button', { name: /Info|Informations/ }).click()
     await page.getByRole('tab', { name: /Trace/ }).click()
 
     // A sub-agent trace entry should exist

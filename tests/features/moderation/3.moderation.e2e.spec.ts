@@ -75,8 +75,8 @@ test.describe('Moderation E2E', () => {
 
     await expect(page.getByText("This request can't be processed as it falls outside what this assistant is meant to help with.")).toBeVisible({ timeout: 15000 })
 
-    // Open the debug dialog and go to the Trace tab
-    await page.getByRole('button', { name: /Debug|Débogage/ }).click()
+    // Open the info dialog and go to the Trace tab
+    await page.getByRole('button', { name: /Info|Informations/ }).click()
     await page.getByRole('tab', { name: /Trace/ }).click()
 
     const tracePanel = page.locator('.v-dialog .v-expansion-panels').last()

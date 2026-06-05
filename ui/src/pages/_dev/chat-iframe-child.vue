@@ -2,7 +2,7 @@
   <AgentChat
     :account-type="session.account.value?.type ?? 'user'"
     :account-id="session.account.value?.id ?? ''"
-    :debug="true"
+    :is-admin="true"
   />
 </template>
 

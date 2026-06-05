@@ -41,7 +41,7 @@ test.describe('Trace Debug Dialog', () => {
     await page.reload()
 
     // Wait for tools to be ready
-    await page.getByRole('button', { name: /Debug|Débogage/ }).click()
+    await page.getByRole('button', { name: /Info|Informations/ }).click()
     await page.getByRole('tab', { name: /Outils|Tools/ }).click()
     const debugPanels = page.locator('.v-dialog .v-expansion-panels')
     await expect(debugPanels.getByRole('button', { name: 'set_display' })).toBeVisible({ timeout: 5000 })
@@ -55,15 +55,15 @@ test.describe('Trace Debug Dialog', () => {
     await expect(page.getByLabel('Output')).toHaveValue('trace test', { timeout: 15000 })
 
     // Open debug dialog and go to Trace tab
-    await page.getByRole('button', { name: /Debug|Débogage/ }).click()
+    await page.getByRole('button', { name: /Info|Informations/ }).click()
     await page.getByRole('tab', { name: /Trace/ }).click()
 
     // Verify trace entries exist
     const tracePanel = page.locator('.v-dialog .v-expansion-panels').last()
     await expect(tracePanel.locator('.v-expansion-panel')).not.toHaveCount(0, { timeout: 5000 })
 
-    // Find and expand a tool-call entry
-    const toolCallEntry = tracePanel.locator('.v-expansion-panel', { hasText: 'tool call' }).first()
+    // Find and expand a tool-call entry (the type chip reads "tool-call")
+    const toolCallEntry = tracePanel.locator('.v-expansion-panel', { hasText: 'tool-call' }).first()
     await expect(toolCallEntry).toBeVisible()
     await toolCallEntry.locator('.v-expansion-panel-title').click()
 
@@ -74,8 +74,8 @@ test.describe('Trace Debug Dialog', () => {
     // Verify there is no "Show detail" button anywhere in the trace
     await expect(tracePanel.getByRole('button', { name: /Show detail|Voir le détail/ })).not.toBeVisible()
 
-    // Find and expand a tool-result entry
-    const toolResultEntry = tracePanel.locator('.v-expansion-panel', { hasText: 'tool result' }).first()
+    // Find and expand a tool-result entry (the type chip reads "tool-result")
+    const toolResultEntry = tracePanel.locator('.v-expansion-panel', { hasText: 'tool-result' }).first()
     await expect(toolResultEntry).toBeVisible()
     await toolResultEntry.locator('.v-expansion-panel-title').click()
 

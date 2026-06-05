@@ -4,7 +4,7 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { SessionRecorder } from '../../../ui/src/traces/session-recorder.ts'
+import { SessionRecorder, serializeTrace } from '../../../ui/src/traces/session-recorder.ts'
 import { buildEvaluatorTools } from '../../../ui/src/traces/evaluator-tools.ts'
 
 test.describe('SessionRecorder - recording', () => {
@@ -207,13 +207,13 @@ test.describe('SessionRecorder - overview and entry accessors', () => {
 
     assert.ok(overview.length >= 4)
     assert.equal(overview[0].type, 'system-prompt')
-    assert.ok(overview[0].label.includes('system prompt'))
+    assert.ok(overview[0].preview.includes('You are helpful'))
     assert.equal(overview[1].type, 'user-message')
-    assert.ok(overview[1].label.includes('user message'))
     assert.ok(overview[1].preview.includes('hello'))
 
     const toolCall = overview.find(e => e.type === 'tool-call')
     assert.ok(toolCall)
+    // label now carries only the distinguishing detail (the tool name), not a type prefix
     assert.ok(toolCall.label.includes('search'))
 
     const toolResult = overview.find(e => e.type === 'tool-result')
@@ -266,7 +266,7 @@ test.describe('Evaluator tools', () => {
     assert.ok(tools.getTraceOverview)
     const result = await (tools.getTraceOverview as any).execute({})
     assert.ok(typeof result === 'string')
-    assert.ok(result.includes('user message'))
+    assert.ok(result.includes('user-message'))
   })
 
   test('getTraceEntry tool returns detail for index 0', async () => {
@@ -357,5 +357,48 @@ test.describe('SessionRecorder - physical requests', () => {
     const stepIdx = overview.findIndex(e => e.type === 'assistant-step')
     assert.ok(prIdx >= 0 && stepIdx >= 0)
     assert.ok(prIdx < stepIdx, 'physical-request sorts before its assistant-step')
+  })
+})
+
+test.describe('SessionRecorder - serialization', () => {
+  test('serializeTrace + fromTrace round-trips and revives Date fields', () => {
+    const recorder = new SessionRecorder()
+    recorder.setSystemPrompt('sys')
+    recorder.snapshotTools([{ name: 'search', description: 'd', inputSchema: { type: 'object' } }])
+    recorder.startTurn('hello')
+    recorder.startToolCall('tc1', 'search', { q: 'x' })
+    recorder.finishToolCall('tc1', { ok: true })
+    recorder.finishStep()
+    recorder.addStepMessages([{ role: 'assistant', content: [{ type: 'text', text: 'hi' }] }], 'stop')
+    recorder.recordPhysicalRequest({
+      contextId: 'c',
+      timestamp: new Date(),
+      modelRole: 'assistant',
+      requestBody: { a: 1 },
+      result: { content: 'hi', toolCalls: [] },
+      inputTokens: 1,
+      outputTokens: 2,
+      messageCount: 1,
+      toolCount: 1,
+      bodyChars: 10,
+      durationMs: 5
+    })
+
+    const json = serializeTrace(recorder.getTrace())
+    const restored = SessionRecorder.fromTrace(JSON.parse(json))
+
+    const overview = restored.getTraceOverview()
+    assert.equal(overview.length, recorder.getTraceOverview().length)
+    for (const e of overview) assert.ok(e.timestamp instanceof Date, `entry ${e.index} timestamp not a Date`)
+    assert.ok(restored.getTrace().turns[0].timestamp instanceof Date)
+    assert.ok(restored.getTrace().turns[0].steps[0].toolCalls[0].timestamp instanceof Date)
+    assert.ok(restored.getTrace().turns[0].steps[0].toolCalls[0].endTimestamp instanceof Date)
+    assert.ok(restored.getTrace().toolChanges[0].timestamp instanceof Date)
+    assert.ok(restored.getTrace().physicalRequests[0].timestamp instanceof Date)
+  })
+
+  test('fromTrace tolerates an empty trace', () => {
+    const restored = SessionRecorder.fromTrace({ systemPrompt: '', toolSnapshots: [], toolChanges: [], turns: [], physicalRequests: [] })
+    assert.deepEqual(restored.getTraceOverview(), [])
   })
 })

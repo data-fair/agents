@@ -2,13 +2,10 @@
   <v-card
     class="agent-chat d-flex flex-column"
     :border="0"
-    :class="{ 'agent-chat--debug': debug }"
   >
     <agent-chat-header
-      v-model:active-chat-tab="activeChatTab"
-      :debug="debug"
+      :is-admin="isAdmin"
       :title="chatTitle"
-      :tracing-enabled="tracingEnabled"
       @show-debug="showDebugDialog = true"
       @reset="handleReset"
     />
@@ -19,7 +16,7 @@
         :messages="messages"
         :is-streaming="isStreaming"
         :chat-error="chatError"
-        :welcome-text="activeChatTab === 'evaluation' ? t('welcomeEvaluation') : t('welcome')"
+        :welcome-text="t('welcome')"
         :tool-title="toolTitle"
         :action-visible-prompt="actionVisiblePrompt"
         @navigate="url => sendDFrameMessage({ type: 'navigate', url })"
@@ -41,7 +38,7 @@
         v-if="showWelcome"
         class="text-body-medium text-medium-emphasis text-center mb-4"
       >
-        {{ activeChatTab === 'evaluation' ? t('welcomeEvaluation') : t('welcome') }}
+        {{ t('welcome') }}
       </p>
       <agent-chat-input
         :is-streaming="isStreaming"
@@ -55,10 +52,12 @@
       v-model="showDebugDialog"
       :system-prompt="finalSystemPrompt"
       :debug-tools-partition="debugToolsPartition"
-      :tracing-enabled="tracingEnabled"
       :trace-overview="traceOverview"
       :recorder="recorder"
       :session-usage="chat.sessionUsage.value"
+      :is-admin="isAdmin"
+      :account-type="accountType"
+      :account-id="accountId"
     />
   </v-card>
 </template>
@@ -66,7 +65,6 @@
 <i18n lang="yaml">
 fr:
   welcome: Comment puis-je vous aider ?
-  welcomeEvaluation: "Cet onglet vous permet d'analyser la session en cours avec un évaluateur IA. Posez des questions sur ce qui s'est passé, ce qui a bien fonctionné ou ce qui pourrait être amélioré."
   systemPromptBase: Tu es un assistant IA utile pour la plateforme Data Fair.
   systemPromptLang: La langue de l'utilisateur est {lang}.
   systemPromptOrg: "L'utilisateur actuel est membre de l'organisation {orgName}{depPart}."
@@ -75,7 +73,6 @@ fr:
   moderationRefusal: "Cette demande ne peut pas être traitée car elle sort du cadre de ce que cet assistant peut faire."
 en:
   welcome: How can I help you?
-  welcomeEvaluation: "This tab lets you analyze the current session with an AI evaluator. Ask questions about what happened, what worked well, or what could be improved."
   systemPromptBase: You are a helpful AI assistant for the Data Fair platform.
   systemPromptLang: The user's language is {lang}.
   systemPromptOrg: "The current user is a member of the organization {orgName}{depPart}."
@@ -92,8 +89,6 @@ import { useVueRouterDFrameContent } from '@data-fair/frame/lib/vue-router/d-fra
 import { useAgentChat, type ChatMessage } from '~/composables/use-agent-chat'
 import { SessionRecorder } from '~/traces/session-recorder'
 import type { TraceOverviewEntry } from '~/traces/session-recorder'
-import { buildEvaluatorTools } from '~/traces/evaluator-tools'
-import { $apiPath } from '~/context'
 import { getTabChannelId, getAgentInitConfig } from '@data-fair/lib-vue-agents'
 import type { AgentChatMessage } from '@data-fair/lib-vuetify-agents/types.js'
 import AgentChatHeader from './agent-chat/AgentChatHeader.vue'
@@ -102,7 +97,7 @@ import AgentChatInput from './agent-chat/AgentChatInput.vue'
 import AgentChatDebugDialog from './agent-chat/AgentChatDebugDialog.vue'
 
 const props = defineProps<{
-  debug?: boolean
+  isAdmin?: boolean
   title?: string
   systemPrompt?: string
   narrowViewport?: boolean
@@ -148,17 +143,13 @@ const finalSystemPrompt = computed(() => {
   return parts.join(' ')
 })
 
-const tracingEnabled = props.debug && sessionStorage.getItem('agent-chat-trace') === '1'
-const explorationEnabled = props.debug && sessionStorage.getItem('agent-chat-explore') === '1'
-const recorder = tracingEnabled ? new SessionRecorder() : undefined
-if (recorder) {
-  recorder.setSystemPrompt(finalSystemPrompt.value)
-}
+const explorationEnabled = props.isAdmin && sessionStorage.getItem('agent-chat-explore') === '1'
+const recorder = new SessionRecorder()
+recorder.setSystemPrompt(finalSystemPrompt.value)
 
 const chatResult = useAgentChat({
   accountType: props.accountType,
   accountId: props.accountId,
-  debug: props.debug,
   systemPrompt: finalSystemPrompt.value,
   initialMessages: props.initialMessages,
   recorder,
@@ -180,66 +171,9 @@ watch(finalSystemPrompt, (prompt) => {
 
 const actionVisiblePrompt = ref<string | null>(null)
 
-const EVALUATOR_PROMPT = `You are an AI session evaluator. You analyze conversation traces between a user and an AI assistant to help improve the system.
-
-The user will ask you about what happened during the session — what went well, what went wrong, and how to improve prompts, tools, or model configuration.
-
-Use the provided tools to explore the session trace. Start with getTraceOverview to understand the session flow, then use getTraceEntry or getTraceEntries to examine specific parts in detail. Use getSessionConfig to review the system prompt and available tools.
-
-For physical-request entries, prefer summarizePhysicalRequest over getTraceEntry when the payload is large — it returns a focused analysis instead of the raw context.
-
-Be specific in your analysis. Reference concrete trace entries by index. When suggesting improvements, explain what you observed and what change would address it.`
-
-const activeChatTab = ref<'session' | 'evaluation'>('session')
-
-const evaluatorChat = tracingEnabled && recorder
-  ? useAgentChat({
-    accountType: props.accountType,
-    accountId: props.accountId,
-    localTools: buildEvaluatorTools(recorder, { accountType: props.accountType, accountId: props.accountId, apiPath: $apiPath }),
-    modelName: 'evaluator',
-    systemPrompt: EVALUATOR_PROMPT
-  })
-  : null
-
-const activeMessages = computed(() => {
-  if (activeChatTab.value === 'evaluation' && evaluatorChat) {
-    return evaluatorChat.messages.value
-  }
-  return chat.messages.value
-})
-
-const activeStatus = computed(() => {
-  if (activeChatTab.value === 'evaluation' && evaluatorChat) {
-    return evaluatorChat.status.value
-  }
-  return chat.status.value
-})
-
-const activeError = computed(() => {
-  if (activeChatTab.value === 'evaluation' && evaluatorChat) {
-    return evaluatorChat.error.value
-  }
-  return chat.error.value
-})
-
-const activeSendMessage = computed(() => {
-  if (activeChatTab.value === 'evaluation' && evaluatorChat) {
-    return evaluatorChat.sendMessage
-  }
-  return chat.sendMessage
-})
-
-const activeAbort = computed(() => {
-  if (activeChatTab.value === 'evaluation' && evaluatorChat) {
-    return evaluatorChat.abort
-  }
-  return chat.abort
-})
-
-const messages = computed(() => activeMessages.value)
-const isStreaming = computed(() => activeStatus.value === 'streaming')
-const chatError = computed(() => activeError.value)
+const messages = computed(() => chat.messages.value)
+const isStreaming = computed(() => chat.status.value === 'streaming')
+const chatError = computed(() => chat.error.value)
 
 const showDebugDialog = ref(false)
 const messagesRef = ref<InstanceType<typeof AgentChatMessages> | null>(null)
@@ -410,16 +344,15 @@ const toolTitle = (toolName: string) => {
 
 const handleSend = (userMessage: string) => {
   if (isStreaming.value) return
-  activeSendMessage.value(userMessage)
+  chat.sendMessage(userMessage)
 }
 
 const handleAbort = () => {
-  activeAbort.value()
+  chat.abort()
 }
 
 // Trace tab support
 const traceOverview = computed<TraceOverviewEntry[]>(() => {
-  if (!recorder) return []
   // Trigger re-computation when messages change or when a turn completes
   // (status changes to 'ready' after recorder.addStepMessages is called)
   // eslint-disable-next-line no-void
