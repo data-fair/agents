@@ -12,7 +12,6 @@
 
     <template v-if="messages.length">
       <agent-chat-messages
-        ref="messagesRef"
         :messages="messages"
         :is-streaming="isStreaming"
         :chat-error="chatError"
@@ -82,7 +81,7 @@ en:
 </i18n>
 
 <script lang="ts" setup>
-import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSession } from '@data-fair/lib-vue/session.js'
 import { useVueRouterDFrameContent } from '@data-fair/frame/lib/vue-router/d-frame-content.js'
@@ -176,7 +175,6 @@ const isStreaming = computed(() => chat.status.value === 'streaming')
 const chatError = computed(() => chat.error.value)
 
 const showDebugDialog = ref(false)
-const messagesRef = ref<InstanceType<typeof AgentChatMessages> | null>(null)
 
 // Emit status messages to parent d-frame
 const inIframe = window.parent !== window
@@ -313,30 +311,6 @@ watch(() => chat.messages.value.length, () => {
     sendDFrameMessage({ type: 'unread', unread: true })
   }
 })
-
-// Auto-scroll to bottom on new messages
-watch(
-  () => messages.value.length,
-  async () => {
-    await nextTick()
-    const container = messagesRef.value?.messagesContainer
-    if (container) {
-      container.scrollTop = container.scrollHeight
-    }
-  }
-)
-
-// Also scroll during streaming (content updates)
-watch(
-  () => messages.value[messages.value.length - 1]?.content,
-  async () => {
-    await nextTick()
-    const container = messagesRef.value?.messagesContainer
-    if (container) {
-      container.scrollTop = container.scrollHeight
-    }
-  }
-)
 
 const debugToolsPartition = computed(() => chat.resolvedPartition.value)
 
