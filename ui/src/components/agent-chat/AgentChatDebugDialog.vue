@@ -136,125 +136,31 @@
           </v-window-item>
 
           <v-window-item value="trace">
-            <template v-if="!tracingEnabled">
-              <div class="text-center pa-4">
-                <p class="text-body-medium text-medium-emphasis mb-4">
-                  {{ t('tracingDisabled') }}
-                </p>
-                <v-btn
-                  color="primary"
-                  variant="tonal"
-                  @click="startTracing"
-                >
-                  {{ t('startTracing') }}
-                </v-btn>
-              </div>
-            </template>
-            <template v-else>
-              <div class="d-flex justify-end pa-2">
-                <v-btn
-                  size="small"
-                  color="error"
-                  variant="tonal"
-                  @click="stopTracing"
-                >
-                  {{ t('stopTracing') }}
-                </v-btn>
-              </div>
-              <div
-                v-if="!traceOverview.length"
-                class="text-center text-medium-emphasis pa-4"
+            <div class="d-flex justify-end ga-2 pa-2">
+              <v-btn
+                size="small"
+                variant="tonal"
+                :prepend-icon="mdiDownload"
+                @click="onDownload"
               >
-                {{ t('noTrace') }}
-              </div>
-              <v-expansion-panels
-                v-else
-                variant="accordion"
-                density="compact"
-                class="mt-1 agent-chat__trace-panels"
-                @update:model-value="onTraceExpand"
+                {{ t('download') }}
+              </v-btn>
+              <v-btn
+                v-if="isAdmin"
+                size="small"
+                color="primary"
+                variant="tonal"
+                :prepend-icon="mdiOpenInNew"
+                @click="onOpenReview"
               >
-                <v-expansion-panel
-                  v-for="entry in traceOverview"
-                  :key="entry.index"
-                  :value="entry.index"
-                  density="compact"
-                >
-                  <v-expansion-panel-title class="text-caption py-0">
-                    <v-chip
-                      size="x-small"
-                      :color="traceEntryColor(entry.type)"
-                      variant="tonal"
-                      label
-                      class="mr-1"
-                      style="font-size: 0.65rem;"
-                    >
-                      {{ entry.type }}
-                    </v-chip>
-                    <span class="font-weight-medium text-truncate">{{ entry.label }}</span>
-                    <v-spacer />
-                    <span
-                      class="text-caption text-medium-emphasis ml-1"
-                      style="white-space: nowrap;"
-                    >
-                      {{ formatTraceTime(entry.timestamp) }}
-                    </span>
-                  </v-expansion-panel-title>
-                  <v-expansion-panel-text>
-                    <div class="text-caption text-medium-emphasis mb-1">
-                      {{ entry.preview }}
-                    </div>
-                    <template v-if="traceEntryDetails[entry.index]">
-                      <template v-if="entry.type === 'assistant-step' || entry.type === 'sub-agent-step'">
-                        <v-chip
-                          v-if="traceEntryDetails[entry.index]?.content?.finishReason"
-                          size="x-small"
-                          variant="tonal"
-                          label
-                          class="my-2"
-                        >
-                          {{ traceEntryDetails[entry.index].content.finishReason }}
-                        </v-chip>
-                        <pre class="agent-chat__pre pa-2 mt-1">{{ JSON.stringify(traceEntryDetails[entry.index]?.content?.messages, null, 2) }}</pre>
-                      </template>
-                      <template v-else-if="entry.type === 'physical-request'">
-                        <v-chip
-                          v-if="traceEntryDetails[entry.index].content.finishReason"
-                          size="x-small"
-                          variant="tonal"
-                          label
-                          class="my-2"
-                        >
-                          {{ traceEntryDetails[entry.index].content.finishReason }}
-                        </v-chip>
-                        <div class="text-caption text-medium-emphasis mb-1 mt-2">
-                          {{ t('request') }}
-                        </div>
-                        <pre class="agent-chat__pre pa-2 mt-1">{{ JSON.stringify(traceEntryDetails[entry.index]?.content?.requestBody, null, 2) }}</pre>
-                        <div class="text-caption text-medium-emphasis mb-1 mt-2">
-                          {{ t('response') }}
-                        </div>
-                        <pre class="agent-chat__pre pa-2 mt-1">{{ JSON.stringify(traceEntryDetails[entry.index]?.content?.result, null, 2) }}</pre>
-                      </template>
-                      <template v-else-if="entry.type === 'sub-agent-start'">
-                        <div class="text-caption text-medium-emphasis mb-1">
-                          {{ t('task') }}
-                        </div>
-                        <pre class="agent-chat__pre pa-2 mt-1">{{ traceEntryDetails[entry.index]?.content?.task }}</pre>
-                        <div class="text-caption text-medium-emphasis mb-1 mt-2">
-                          {{ t('tools') }}
-                        </div>
-                        <pre class="agent-chat__pre pa-2 mt-1">{{ JSON.stringify(traceEntryDetails[entry.index]?.content?.tools, null, 2) }}</pre>
-                      </template>
-                      <pre
-                        v-else
-                        class="agent-chat__pre pa-2 mt-1"
-                      >{{ JSON.stringify(traceEntryDetails[entry.index]?.content, null, 2) }}</pre>
-                    </template>
-                  </v-expansion-panel-text>
-                </v-expansion-panel>
-              </v-expansion-panels>
-            </template>
+                {{ t('openReview') }}
+              </v-btn>
+            </div>
+            <trace-view
+              v-if="recorder"
+              :trace-overview="traceOverview"
+              :recorder="recorder"
+            />
           </v-window-item>
         </v-window>
       </v-card-text>
@@ -267,57 +173,52 @@ fr:
   close: Fermer
   systemPrompt: Prompt système
   tools: Outils
-  task: Tâche
   noTools: Aucun outil enregistré
   inputSchema: Schéma d'entrée
   trace: Trace
-  noTrace: Aucune trace enregistrée.
-  startTracing: Démarrer le traçage
-  stopTracing: Arrêter le traçage
-  tracingDisabled: Le traçage n'est pas actif. Activez-le pour enregistrer les échanges et pouvoir les analyser.
   tokens: Tokens
   input: entrée
   output: sortie
   cached: cache lu
   cacheWritten: cache écrit
-  request: Requête
-  response: Réponse
+  download: Télécharger
+  openReview: Ouvrir l'analyse
 en:
   close: Close
   systemPrompt: System Prompt
   tools: Tools
-  task: Task
   noTools: No tools registered
   inputSchema: Input Schema
   trace: Trace
-  noTrace: No trace recorded.
-  startTracing: Start tracing
-  stopTracing: Stop tracing
-  tracingDisabled: Tracing is not active. Enable it to record exchanges and analyze them.
   tokens: Tokens
   input: input
   output: output
   cached: cache read
   cacheWritten: cache write
-  request: Request
-  response: Response
+  download: Download
+  openReview: Open review
 </i18n>
 
 <script lang="ts" setup>
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { mdiClose, mdiChartBar } from '@mdi/js'
-import type { TraceOverviewEntry, TraceEntryDetail, SessionRecorder } from '~/traces/session-recorder'
+import { useRouter } from 'vue-router'
+import { mdiClose, mdiChartBar, mdiDownload, mdiOpenInNew } from '@mdi/js'
+import type { TraceOverviewEntry, SessionRecorder } from '~/traces/session-recorder'
 import type { DebugToolsPartition } from '~/composables/use-agent-chat'
+import { writeHandoff, downloadTrace } from '~/traces/trace-handoff'
+import TraceView from './TraceView.vue'
 
 const props = defineProps<{
   modelValue: boolean
   systemPrompt: string
   debugToolsPartition: DebugToolsPartition
-  tracingEnabled: boolean
   traceOverview: TraceOverviewEntry[]
   recorder?: SessionRecorder
   sessionUsage?: { inputTokens: number; outputTokens: number; cacheReadTokens?: number; cacheWriteTokens?: number }
+  isAdmin?: boolean
+  accountType: string
+  accountId: string
 }>()
 
 defineEmits<{
@@ -326,59 +227,24 @@ defineEmits<{
 
 const { t } = useI18n()
 
+const router = useRouter()
+
 const activeDebugTab = ref('systemPrompt')
 const totalToolCount = computed(() => {
   const p = props.debugToolsPartition
   return p.mainTools.length + p.subAgents.reduce((sum, sa) => sum + sa.tools.length, 0)
 })
-const traceEntryDetails = ref<Record<number, TraceEntryDetail>>({})
 
-const loadTraceEntry = (index: number) => {
+const onDownload = () => {
+  if (props.recorder) downloadTrace(props.recorder.getTrace())
+}
+
+const onOpenReview = () => {
   if (!props.recorder) return
-  if (traceEntryDetails.value[index]) return
-  const detail = props.recorder.getTraceEntry(index)
-  if (detail) {
-    traceEntryDetails.value = { ...traceEntryDetails.value, [index]: detail }
-  }
-}
-
-const onTraceExpand = (value: unknown) => {
-  if (typeof value === 'number') {
-    loadTraceEntry(value)
-  }
-}
-
-const traceEntryColor = (type: string) => {
-  const colors: Record<string, string> = {
-    'system-prompt': 'purple',
-    'user-message': 'primary',
-    'hidden-context': 'purple',
-    'assistant-step': 'success',
-    'tool-call': 'warning',
-    'tool-result': 'info',
-    'sub-agent-start': 'secondary',
-    'sub-agent-system-prompt': 'purple',
-    'sub-agent-step': 'secondary',
-    'sub-agent-end': 'secondary',
-    'physical-request': 'teal',
-    'tools-changed': 'accent',
-    compaction: 'orange'
-  }
-  return colors[type] || 'default'
-}
-
-const formatTraceTime = (date: Date) => {
-  return date.toLocaleTimeString()
-}
-
-const startTracing = () => {
-  sessionStorage.setItem('agent-chat-trace', '1')
-  window.location.reload()
-}
-
-const stopTracing = () => {
-  sessionStorage.removeItem('agent-chat-trace')
-  window.location.reload()
+  const trace = props.recorder.getTrace()
+  if (!writeHandoff(trace)) downloadTrace(trace) // quota fallback: hand off via manual upload
+  const href = router.resolve({ path: `/${props.accountType}/${props.accountId}/trace-review` }).href
+  window.open(href, '_blank')
 }
 </script>
 
@@ -394,12 +260,10 @@ const stopTracing = () => {
   word-break: break-word;
 }
 
-.agent-chat__trace-panels :deep(.v-expansion-panel-title),
 .agent-chat__tools-panels :deep(.v-expansion-panel-title) {
   min-height: 28px;
 }
 
-.agent-chat__trace-panels :deep(.v-expansion-panel-text__wrapper),
 .agent-chat__tools-panels :deep(.v-expansion-panel-text__wrapper) {
   padding: 4px 12px 8px;
 }
