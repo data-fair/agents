@@ -9,6 +9,11 @@ const axiosOpts = { baseURL }
 export const axios = (opts = {}) => axiosBuilder({ ...axiosOpts, ...opts })
 export const anonymousAx = axios()
 
+export const getAnonymousActionToken = async (): Promise<string> => {
+  const res = await anonymousAx.get(directoryUrl + '/api/auth/anonymous-action')
+  return typeof res.data === 'string' ? res.data : String(res.data)
+}
+
 export const axiosAuth = (user: string, opts?: { adminMode?: boolean }) => {
   return _axiosAuth({ email: user + '@test.com', password: 'passwd', adminMode: opts?.adminMode, axiosOpts, directoryUrl })
 }

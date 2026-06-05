@@ -200,6 +200,8 @@ When the LLM requests a tool call:
 
 **Key file:** `ui/src/composables/use-agent-chat.ts:114-582`
 
+> By default the full aggregated tool map is sent to the LLM on every request. An opt-in **exploration mode** instead discloses tools on demand — see [§8](#8-progressive-tool-disclosure-exploration-mode).
+
 ---
 
 ## 6. Gateway Tool Conversion
@@ -230,6 +232,55 @@ Errors are handled at four layers:
 | **Aggregator** | Connection failures are logged and the server is removed. Tool listing failures are logged but the server is retained (retried on next `tools/list_changed`). |
 | **Chat composable** | Stream errors captured via `onError` callback. `AbortError` (user cancel) silently handled. Multi-format error extraction: `e.data.error.message`, `e.responseBody`, `e.message`. |
 | **Gateway** | Model not configured → 404. Stream errors → SSE error frame + `[DONE]`. Usage tracking failures don't block the response. |
+
+---
+
+## 8. Progressive Tool Disclosure (Exploration Mode)
+
+By default every aggregated tool — full description and input schema — is sent on every request. With ~20+ tools that can churn as the user navigates, this inflates context and busts any prompt cache on each tool-set mutation. **Exploration mode** is an opt-in alternative: the assistant sees only a single constant `explore_tools` tool plus a catalog of tool *names*, and promotes the real tools it needs on demand.
+
+It is gated by `debug` + `sessionStorage.getItem('agent-chat-explore') === '1'` (mirroring the tracing toggle in `AgentChat.vue`). When off, the flow in §5 is unchanged.
+
+### Mechanism
+
+The full registry is still handed to `streamText`, but the AI SDK's `activeTools` controls which entries are actually advertised to the model, and `prepareStep` recomputes `activeTools` before every step:
+
+```mermaid
+flowchart TB
+  subgraph sendMessage (exploration on)
+    Reg[mainTools snapshot → plainTools]
+    Reg --> Cat[buildToolCatalog → folded into system text]
+    Reg --> EX["mainLLMTools[explore_tools] = createExploreTool(...)"]
+    EX --> PS["prepareStep ⇒ activeTools =\n[explore_tools, …subAgents, …promotedTools]"]
+  end
+  PS --> ST[streamText]
+  ST -->|step calls explore_tools| Exec[explore_tools.execute]
+  Exec -->|generateText + forced select_tools| Sum[Summarizer model]
+  Sum -->|{ summary, toolNames }| Promote[selectPromotions → promotedTools.add]
+  Promote -.->|read live next step| PS
+```
+
+1. **Snapshot & catalog** — after sub-agent partitioning, `plainTools` (the non-sub-agent main tools) is snapshotted. `buildToolCatalog(plainTools)` renders `- name: <one-line desc>` lines that `buildExplorationSystem` folds into the system text. `explore_tools` is added to `mainLLMTools`.
+2. **Gating** — `prepareStep` returns `activeTools = [explore_tools, …subAgentNames, …promotedTools].filter(n => n in mainLLMTools)`. Initially `promotedTools` is empty, so only `explore_tools` and sub-agent pseudo-tools are exposed.
+3. **Exploration** — `explore_tools.execute(intent)` builds a `<candidate-tools>` block from `plainTools` and calls `generateText` on the **summarizer** with a single `select_tools` tool and `toolChoice: { type: 'tool', toolName: 'select_tools' }`. The structured result `{ summary, toolNames }` is read from `result.toolCalls[0].input`.
+4. **Promotion** — `selectPromotions(toolNames, Object.keys(plainTools))` drops unknown/duplicate names; the survivors are added to `promotedTools`. Because `prepareStep` reads the live set, the promoted tools are advertised on the **next** step of the same turn — the assistant then calls them directly.
+5. **Reset** — `promotedTools` is cleared on history compaction (and on `reset()`). The name catalog is always present, so the assistant can re-explore cheaply after compaction.
+
+### Why the catalog lives in the system text
+
+The user-facing intent was "tool names ride as a conversation message." In practice the gateway hoists **all** `system`-role messages into the top-level system block (`api/src/gateway/router.ts`), Anthropic rejects consecutive same-role messages, and no provider prompt cache is active yet — so a literal tail message is both fragile and pointless today. The catalog is therefore folded into the system text at stream time. If prompt caching is introduced later, revisit moving it to the cache-friendly tail.
+
+### Scope & limitations
+
+- **Sub-agents are unaffected** — `subagent_*` pseudo-tools (and their reserved tools) are excluded from `plainTools` and always kept in `activeTools`.
+- **Advertisement, not enforcement** — `activeTools` limits what the model *sees*; it is not a hard execution barrier. A tool present in the map can still execute if a call for it arrives (relevant only to the mock test model, which ignores `activeTools`).
+- **Structured output through the gateway** — `explore_tools` relies on a forced tool call rather than `generateObject`, because the gateway forwards `tool_choice` but not `response_format`. The `mock` model has a small seam (`processSelectToolsSeam`) that returns a deterministic `select_tools` call when offered, enabling end-to-end tests.
+
+**Key files:**
+- `ui/src/composables/tool-exploration.ts` — `createExploreTool()`, `buildToolCatalog()`, `buildExplorationSystem()`, `selectPromotions()`
+- `ui/src/composables/use-agent-chat.ts` — `promotedTools`, `prepareStep`/`activeTools`, compaction/reset clearing
+- `ui/src/components/AgentChat.vue` — `agent-chat-explore` toggle
+- `api/src/models/mock-model.ts` — `processSelectToolsSeam()` test seam
 
 ---
 

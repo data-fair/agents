@@ -43,6 +43,7 @@
           />
           <span>{{ t('tokens') }}: {{ (sessionUsage.inputTokens + sessionUsage.outputTokens).toLocaleString() }}</span>
           <span>({{ t('input') }}: {{ sessionUsage.inputTokens.toLocaleString() }} | {{ t('output') }}: {{ sessionUsage.outputTokens.toLocaleString() }})</span>
+          <span v-if="sessionUsage.cacheReadTokens">{{ t('cached') }}: {{ sessionUsage.cacheReadTokens.toLocaleString() }}{{ sessionUsage.cacheWriteTokens ? ` | ${t('cacheWritten')}: ${sessionUsage.cacheWriteTokens.toLocaleString()}` : '' }}</span>
         </div>
 
         <v-window v-model="activeDebugTab">
@@ -137,7 +138,7 @@
           <v-window-item value="trace">
             <template v-if="!tracingEnabled">
               <div class="text-center pa-4">
-                <p class="text-body-2 text-medium-emphasis mb-4">
+                <p class="text-body-medium text-medium-emphasis mb-4">
                   {{ t('tracingDisabled') }}
                 </p>
                 <v-btn
@@ -304,6 +305,8 @@ fr:
   tokens: Tokens
   input: entrée
   output: sortie
+  cached: cache lu
+  cacheWritten: cache écrit
   request: Requête
   response: Réponse
   category: Catégorie
@@ -326,6 +329,8 @@ en:
   tokens: Tokens
   input: input
   output: output
+  cached: cache read
+  cacheWritten: cache write
   request: Request
   response: Response
   category: Category
@@ -349,7 +354,7 @@ const props = defineProps<{
   tracingEnabled: boolean
   traceOverview: TraceOverviewEntry[]
   recorder?: SessionRecorder
-  sessionUsage?: { inputTokens: number; outputTokens: number }
+  sessionUsage?: { inputTokens: number; outputTokens: number; cacheReadTokens?: number; cacheWriteTokens?: number }
 }>()
 
 defineEmits<{

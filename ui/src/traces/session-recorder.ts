@@ -26,6 +26,8 @@ export interface PhysicalRequestTrace {
   result: { content: string; toolCalls: { id: string; name: string; arguments: string }[]; finishReason?: string }
   inputTokens: number
   outputTokens: number
+  cacheReadTokens?: number
+  cacheWriteTokens?: number
   messageCount: number
   toolCount: number
   bodyChars: number
@@ -352,12 +354,14 @@ export class SessionRecorder {
           type: 'physical-request',
           timestamp: pr.timestamp,
           label: `physical request: ${pr.modelRole}`,
-          preview: `${pr.inputTokens} in · ${pr.outputTokens} out · ${pr.messageCount} msgs · ${pr.toolCount} tools · ${Math.round(pr.durationMs)}ms`
+          preview: `${pr.inputTokens} in${pr.cacheReadTokens ? ` (${pr.cacheReadTokens} cached)` : ''} · ${pr.outputTokens} out · ${pr.messageCount} msgs · ${pr.toolCount} tools · ${Math.round(pr.durationMs)}ms`
         },
         {
           modelRole: pr.modelRole,
           inputTokens: pr.inputTokens,
           outputTokens: pr.outputTokens,
+          cacheReadTokens: pr.cacheReadTokens,
+          cacheWriteTokens: pr.cacheWriteTokens,
           messageCount: pr.messageCount,
           toolCount: pr.toolCount,
           bodyChars: pr.bodyChars,

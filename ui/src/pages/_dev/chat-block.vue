@@ -9,10 +9,10 @@
   </v-app-bar>
 
   <v-container>
-    <h1 class="text-h5 mb-4">
+    <h1 class="text-headline-small mb-4">
       {{ t('title') }}
     </h1>
-    <p class="text-body-2 text-medium-emphasis mb-4">
+    <p class="text-body-medium text-medium-emphasis mb-4">
       {{ t('instructions') }}
     </p>
 

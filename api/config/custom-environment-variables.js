@@ -12,5 +12,6 @@ export default {
   },
   upgradeRoot: 'UPGRADE_ROOT',
   cipherPassword: 'CIPHER_PASSWORD',
-  currency: 'CURRENCY'
+  currency: 'CURRENCY',
+  requireAnonymousActionToken: 'REQUIRE_ANONYMOUS_ACTION_TOKEN'
 }

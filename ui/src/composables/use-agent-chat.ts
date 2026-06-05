@@ -4,8 +4,11 @@ import { createOpenAI } from '@ai-sdk/openai'
 import type { ModelMessage, Tool } from 'ai'
 import { getTabChannelId } from '@data-fair/lib-vue-agents'
 import { FrameClientAggregator } from '~/transports/frame-client-aggregator'
+import { createExploreTool, buildToolCatalog, buildExplorationSystem, EXPLORE_TOOL_NAME } from '~/composables/tool-exploration'
 import type { SessionRecorder, ToolSnapshot } from '~/traces/session-recorder'
 import { $apiPath } from '~/context'
+import { useSession } from '@data-fair/lib-vue/session.js'
+import { getAnonymousToken, resetAnonymousToken } from '~/composables/use-anonymous-token'
 import { extractErrorMessage } from '~/utils/error'
 import { parseGatewayCompletion } from '~/traces/gateway-response'
 import { buildModerationSystemPrompt, parseModerationVerdict, DEFAULT_REFUSAL, type ModerationVerdict } from '~/composables/moderation'
@@ -54,6 +57,7 @@ export interface UseAgentChatOptions {
   modelName?: string
   recorder?: SessionRecorder
   refusalMessage?: string
+  toolExploration?: boolean
 }
 
 interface SubAgentConfig {
@@ -103,6 +107,14 @@ export function useAgentChat (options: UseAgentChatOptions) {
   // @ts-ignore
   if (import.meta.env?.SSR) return
 
+  const session = useSession()
+  const isAnonymous = () => !session.user.value
+  if (isAnonymous()) {
+    // prefetch so SD's notBefore window elapses while the user types
+    // eslint-disable-next-line no-void
+    void getAnonymousToken().catch(err => debug('anonymous token prefetch failed: %O', err))
+  }
+
   const { recorder, localTools, modelName } = options
   const chatModelName = modelName ?? 'assistant'
 
@@ -112,12 +124,16 @@ export function useAgentChat (options: UseAgentChatOptions) {
   const error = ref<string | null>(null)
   const tools = ref<Record<string, Tool>>({})
   const toolsVersion = ref(0)
-  const sessionUsage = ref({ inputTokens: 0, outputTokens: 0 })
+  const sessionUsage = ref({ inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 })
   let history: ModelMessage[] = []
   // characters of serialized history before compaction
   // 24000 is roughly equivalent to a 8k tokens context with 10-15 turns of dialogue an 2-3 tool calls
   const COMPACTION_THRESHOLD = 24_000
   const MODERATION_TIMEOUT_MS = 1500
+  const explorationEnabled = !!options.toolExploration
+  // Tools promoted to the callable set via explore_tools; persists across turns,
+  // cleared on compaction and reset. Read live by prepareStep.
+  let promotedTools = new Set<string>()
   let abortController: AbortController | null = null
   let turnSeq = 0
 
@@ -245,6 +261,8 @@ export function useAgentChat (options: UseAgentChatOptions) {
         result,
         inputTokens: usage.inputTokens,
         outputTokens: usage.outputTokens,
+        cacheReadTokens: usage.cacheReadTokens,
+        cacheWriteTokens: usage.cacheWriteTokens,
         messageCount: messages.length,
         toolCount: tools.length,
         bodyChars: ctx.bodyChars,
@@ -271,10 +289,25 @@ export function useAgentChat (options: UseAgentChatOptions) {
     return res
   }
 
+  const gatewayFetch: typeof fetch = async (input, init) => {
+    if (!isAnonymous()) return tracingFetch(input, init)
+    const withToken = async (token: string) => {
+      const headers = new Headers(init?.headers as HeadersInit | undefined)
+      headers.set('x-anonymous-token', token)
+      return tracingFetch(input, { ...(init as RequestInit), headers })
+    }
+    let res = await withToken(await getAnonymousToken())
+    if (res.status === 401) {
+      resetAnonymousToken()
+      res = await withToken(await getAnonymousToken())
+    }
+    return res
+  }
+
   const provider = createOpenAI({
     baseURL: `${window.location.origin}${$apiPath}/gateway/${options.accountType}/${options.accountId}/v1`,
     apiKey: 'unused',
-    ...(recorder ? { fetch: tracingFetch } : {})
+    fetch: gatewayFetch
   })
 
   // Always-on input moderation. Runs through the gateway as the 'moderator' role
@@ -323,7 +356,9 @@ export function useAgentChat (options: UseAgentChatOptions) {
     status.value = 'ready'
     error.value = null
     history = []
-    sessionUsage.value = { inputTokens: 0, outputTokens: 0 }
+    // abort() above guarantees no in-flight prepareStep will read the old Set
+    promotedTools = new Set<string>()
+    sessionUsage.value = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 }
     if (newSystemPrompt !== undefined) {
       options.systemPrompt = newSystemPrompt
     }
@@ -419,6 +454,8 @@ export function useAgentChat (options: UseAgentChatOptions) {
         { role: 'user' as const, content: `[Previous conversation summary]\n${summary}` },
         lastMessage
       ]
+
+      promotedTools.clear()
 
       if (recorder) {
         recorder.recordCompaction(originalHistory, summary, originalLength, JSON.stringify(history).length)
@@ -573,7 +610,9 @@ export function useAgentChat (options: UseAgentChatOptions) {
             if (subUsage) {
               sessionUsage.value = {
                 inputTokens: sessionUsage.value.inputTokens + (subUsage.inputTokens ?? 0),
-                outputTokens: sessionUsage.value.outputTokens + (subUsage.outputTokens ?? 0)
+                outputTokens: sessionUsage.value.outputTokens + (subUsage.outputTokens ?? 0),
+                cacheReadTokens: sessionUsage.value.cacheReadTokens + (subUsage.inputTokenDetails?.cacheReadTokens ?? subUsage.cachedInputTokens ?? 0),
+                cacheWriteTokens: sessionUsage.value.cacheWriteTokens + (subUsage.inputTokenDetails?.cacheWriteTokens ?? 0)
               }
             }
           },
@@ -588,14 +627,35 @@ export function useAgentChat (options: UseAgentChatOptions) {
         })
       }
 
-      debug('streaming with model=%s tools=%o', chatModelName, Object.keys(mainLLMTools))
+      // Exploration mode: hide plain tools behind explore_tools, expose only
+      // explore_tools + sub-agent pseudo-tools + already-promoted tools per step.
+      let streamSystem = options.systemPrompt
+      let prepareStep: undefined | (() => { activeTools: string[] })
+      if (explorationEnabled) {
+        const subAgentNames = Object.keys(subAgents)
+        const plainTools = { ...mainTools }
+        mainLLMTools[EXPLORE_TOOL_NAME] = createExploreTool({
+          plainTools,
+          promote: (names) => names.forEach(n => promotedTools.add(n)),
+          summarizer: provider.chat('summarizer'),
+          ...(recorder ? { headers: { 'x-trace-ctx': turnCtxId } } : {})
+        })
+        streamSystem = buildExplorationSystem(options.systemPrompt, buildToolCatalog(plainTools))
+        prepareStep = () => ({
+          activeTools: [EXPLORE_TOOL_NAME, ...subAgentNames, ...promotedTools]
+            .filter(n => n in mainLLMTools)
+        })
+      }
+
+      debug('streaming with model=%s tools=%o exploration=%s', chatModelName, Object.keys(mainLLMTools), explorationEnabled)
       const result = streamText({
         model: provider.chat(chatModelName),
-        system: options.systemPrompt,
+        system: streamSystem,
         messages: history,
         tools: Object.keys(mainLLMTools).length > 0 ? mainLLMTools : undefined,
         stopWhen: stepCountIs(10),
         abortSignal: abortController.signal,
+        ...(prepareStep ? { prepareStep } : {}),
         ...(recorder ? { headers: { 'x-trace-ctx': turnCtxId } } : {}),
         onError: ({ error: err }) => {
           streamError = err
@@ -683,7 +743,9 @@ export function useAgentChat (options: UseAgentChatOptions) {
       if (usage) {
         sessionUsage.value = {
           inputTokens: sessionUsage.value.inputTokens + (usage.inputTokens ?? 0),
-          outputTokens: sessionUsage.value.outputTokens + (usage.outputTokens ?? 0)
+          outputTokens: sessionUsage.value.outputTokens + (usage.outputTokens ?? 0),
+          cacheReadTokens: sessionUsage.value.cacheReadTokens + (usage.inputTokenDetails?.cacheReadTokens ?? usage.cachedInputTokens ?? 0),
+          cacheWriteTokens: sessionUsage.value.cacheWriteTokens + (usage.inputTokenDetails?.cacheWriteTokens ?? 0)
         }
       }
 

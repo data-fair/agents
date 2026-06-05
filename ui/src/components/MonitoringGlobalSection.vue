@@ -2,7 +2,7 @@
   <v-row>
     <v-col>
       <v-card variant="outlined">
-        <v-card-title class="text-subtitle-1">
+        <v-card-title class="text-title-medium">
           {{ t('monthlyUsage') }}
         </v-card-title>
         <v-card-text>
@@ -20,7 +20,7 @@
   <v-row>
     <v-col>
       <v-card variant="outlined">
-        <v-card-title class="text-subtitle-1">
+        <v-card-title class="text-title-medium">
           {{ t('dailyUsage') }}
         </v-card-title>
         <v-card-text>
