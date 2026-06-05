@@ -266,7 +266,10 @@ function startActionSession (visiblePrompt: string, hiddenContext: string) {
 function handleReset () {
   chat.abort()
   chat.reset(finalSystemPrompt.value)
-  if (recorder) recorder.setSystemPrompt(finalSystemPrompt.value)
+  if (recorder) {
+    recorder.reset()
+    recorder.setSystemPrompt(finalSystemPrompt.value)
+  }
   actionVisiblePrompt.value = null
   sessionStarted.value = false
 }

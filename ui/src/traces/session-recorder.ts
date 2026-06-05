@@ -126,6 +126,21 @@ export class SessionRecorder {
   private currentStep: StepTrace | null = null
   private pendingToolCalls = new Map<string, ToolCallTrace>()
 
+  reset (): void {
+    this.trace = {
+      systemPrompt: '',
+      toolSnapshots: [],
+      toolChanges: [],
+      turns: [],
+      physicalRequests: []
+    }
+    this.currentTurn = null
+    this.currentStep = null
+    this.pendingToolCalls.clear()
+    this.cachedOverview = []
+    this.cachedDetails = []
+  }
+
   setSystemPrompt (prompt: string): void {
     this.trace.systemPrompt = prompt
   }
