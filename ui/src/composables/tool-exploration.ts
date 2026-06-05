@@ -8,22 +8,29 @@ function firstDescLine (t: Tool): string {
   return ((t as any).description ?? '').split('\n')[0].trim()
 }
 
-/** Build a compact "name: one-line description" catalog of the given tools. */
-export function buildToolCatalog (plainTools: Record<string, Tool>): string {
-  return Object.entries(plainTools)
-    .map(([name, t]) => `- ${name}: ${firstDescLine(t)}`)
-    .join('\n')
-}
-
 export const EXPLORE_TOOL_NAME = 'explore_tools'
 export const SELECT_TOOL_NAME = 'select_tools'
 
-/** Fold the tool-name catalog and the explore instruction into the system text. */
-export function buildExplorationSystem (baseSystem: string | undefined, catalog: string): string {
-  const instruction = 'The tools listed below are available on this page but are NOT directly callable yet. ' +
-    `To use one, first call \`${EXPLORE_TOOL_NAME}\` with your intent; it will make the relevant tools callable.\n\n` +
-    `Available tools:\n${catalog}`
-  return baseSystem ? `${baseSystem}\n\n${instruction}` : instruction
+/** Format a `<tools-available>` reminder listing tool names only (no descriptions). */
+export function formatToolsAvailableMessage (names: string[]): string {
+  if (names.length === 0) return ''
+  return '<tools-available>\n' +
+    `Not yet callable — pass your intent to ${EXPLORE_TOOL_NAME} to activate the ones you need:\n` +
+    `${names.join(', ')}\n` +
+    '</tools-available>'
+}
+
+/** Names present in `currentNames` but not in `announced`, de-duplicated, order-preserving. */
+export function newlyAvailableTools (currentNames: string[], announced: Set<string>): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const name of currentNames) {
+    if (!announced.has(name) && !seen.has(name)) {
+      seen.add(name)
+      out.push(name)
+    }
+  }
+  return out
 }
 
 /** Filter requested tool names to those that actually exist, de-duplicated, order-preserving. */

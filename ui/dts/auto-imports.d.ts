@@ -16,9 +16,7 @@ declare global {
   const EffectScope: typeof import('vue')['EffectScope']
   const MODERATION_TASK_MARKER: typeof import('../src/composables/moderation')['MODERATION_TASK_MARKER']
   const SELECT_TOOL_NAME: typeof import('../src/composables/tool-exploration')['SELECT_TOOL_NAME']
-  const buildExplorationSystem: typeof import('../src/composables/tool-exploration')['buildExplorationSystem']
   const buildModerationSystemPrompt: typeof import('../src/composables/moderation')['buildModerationSystemPrompt']
-  const buildToolCatalog: typeof import('../src/composables/tool-exploration')['buildToolCatalog']
   const computed: typeof import('vue')['computed']
   const computedDeepDiff: typeof import('@data-fair/lib-vue/deep-diff.js')['computedDeepDiff']
   const createApp: typeof import('vue')['createApp']
@@ -44,6 +42,7 @@ declare global {
   const effectScope: typeof import('vue')['effectScope']
   const extractErrorMessage: typeof import('../src/utils/error')['extractErrorMessage']
   const formatBytes: typeof import('@data-fair/lib-vue/format/bytes.js')['formatBytes']
+  const formatToolsAvailableMessage: typeof import('../src/composables/tool-exploration')['formatToolsAvailableMessage']
   const getAnonymousToken: typeof import('../src/composables/use-anonymous-token')['getAnonymousToken']
   const getCurrentInstance: typeof import('vue')['getCurrentInstance']
   const getCurrentScope: typeof import('vue')['getCurrentScope']
@@ -55,6 +54,7 @@ declare global {
   const isReadonly: typeof import('vue')['isReadonly']
   const isRef: typeof import('vue')['isRef']
   const markRaw: typeof import('vue')['markRaw']
+  const newlyAvailableTools: typeof import('../src/composables/tool-exploration')['newlyAvailableTools']
   const nextTick: typeof import('vue')['nextTick']
   const onActivated: typeof import('vue')['onActivated']
   const onBeforeMount: typeof import('vue')['onBeforeMount']
@@ -157,9 +157,7 @@ declare module 'vue' {
     readonly EffectScope: UnwrapRef<typeof import('vue')['EffectScope']>
     readonly MODERATION_TASK_MARKER: UnwrapRef<typeof import('../src/composables/moderation')['MODERATION_TASK_MARKER']>
     readonly SELECT_TOOL_NAME: UnwrapRef<typeof import('../src/composables/tool-exploration')['SELECT_TOOL_NAME']>
-    readonly buildExplorationSystem: UnwrapRef<typeof import('../src/composables/tool-exploration')['buildExplorationSystem']>
     readonly buildModerationSystemPrompt: UnwrapRef<typeof import('../src/composables/moderation')['buildModerationSystemPrompt']>
-    readonly buildToolCatalog: UnwrapRef<typeof import('../src/composables/tool-exploration')['buildToolCatalog']>
     readonly computed: UnwrapRef<typeof import('vue')['computed']>
     readonly computedDeepDiff: UnwrapRef<typeof import('@data-fair/lib-vue/deep-diff.js')['computedDeepDiff']>
     readonly createApp: UnwrapRef<typeof import('vue')['createApp']>
@@ -170,6 +168,7 @@ declare module 'vue' {
     readonly effectScope: UnwrapRef<typeof import('vue')['effectScope']>
     readonly extractErrorMessage: UnwrapRef<typeof import('../src/utils/error')['extractErrorMessage']>
     readonly formatBytes: UnwrapRef<typeof import('@data-fair/lib-vue/format/bytes.js')['formatBytes']>
+    readonly formatToolsAvailableMessage: UnwrapRef<typeof import('../src/composables/tool-exploration')['formatToolsAvailableMessage']>
     readonly getAnonymousToken: UnwrapRef<typeof import('../src/composables/use-anonymous-token')['getAnonymousToken']>
     readonly getCurrentInstance: UnwrapRef<typeof import('vue')['getCurrentInstance']>
     readonly getCurrentScope: UnwrapRef<typeof import('vue')['getCurrentScope']>
@@ -181,6 +180,7 @@ declare module 'vue' {
     readonly isReadonly: UnwrapRef<typeof import('vue')['isReadonly']>
     readonly isRef: UnwrapRef<typeof import('vue')['isRef']>
     readonly markRaw: UnwrapRef<typeof import('vue')['markRaw']>
+    readonly newlyAvailableTools: UnwrapRef<typeof import('../src/composables/tool-exploration')['newlyAvailableTools']>
     readonly nextTick: UnwrapRef<typeof import('vue')['nextTick']>
     readonly onActivated: UnwrapRef<typeof import('vue')['onActivated']>
     readonly onBeforeMount: UnwrapRef<typeof import('vue')['onBeforeMount']>

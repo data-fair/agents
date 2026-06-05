@@ -4,7 +4,7 @@ import { createOpenAI } from '@ai-sdk/openai'
 import type { ModelMessage, Tool } from 'ai'
 import { getTabChannelId } from '@data-fair/lib-vue-agents'
 import { FrameClientAggregator } from '~/transports/frame-client-aggregator'
-import { createExploreTool, buildToolCatalog, buildExplorationSystem, EXPLORE_TOOL_NAME } from '~/composables/tool-exploration'
+import { createExploreTool, formatToolsAvailableMessage, newlyAvailableTools, EXPLORE_TOOL_NAME } from '~/composables/tool-exploration'
 import type { SessionRecorder, ToolSnapshot } from '~/traces/session-recorder'
 import { $apiPath } from '~/context'
 import { useSession } from '@data-fair/lib-vue/session.js'
@@ -135,6 +135,9 @@ export function useAgentChat (options: UseAgentChatOptions) {
   // Tools promoted to the callable set via explore_tools; persists across turns,
   // cleared on compaction and reset. Read live by prepareStep.
   let promotedTools = new Set<string>()
+  // Tool names already surfaced to the model via <tools-available> messages.
+  // Persists across turns; pruned to live tools each turn; cleared on compaction and reset.
+  const announcedTools = new Set<string>()
   let abortController: AbortController | null = null
   let turnSeq = 0
 
@@ -359,6 +362,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
     history = []
     // abort() above guarantees no in-flight prepareStep will read the old Set
     promotedTools = new Set<string>()
+    announcedTools.clear()
     sessionUsage.value = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 }
     if (newSystemPrompt !== undefined) {
       options.systemPrompt = newSystemPrompt
@@ -457,6 +461,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
       ]
 
       promotedTools.clear()
+      announcedTools.clear()
 
       if (recorder) {
         recorder.recordCompaction(originalHistory, summary, originalLength, JSON.stringify(history).length)
@@ -630,7 +635,11 @@ export function useAgentChat (options: UseAgentChatOptions) {
 
       // Exploration mode: hide plain tools behind explore_tools, expose only
       // explore_tools + sub-agent pseudo-tools + already-promoted tools per step.
-      let streamSystem = options.systemPrompt
+      // The plain tool names are surfaced to the model as <tools-available> messages
+      // (names only); the system prompt is left untouched.
+      // Names announced via a <tools-available> message this turn; used to roll back
+      // the push (and the announcement) if the turn is blocked by moderation.
+      let announcedThisTurn: string[] = []
       let prepareStep: undefined | (() => { activeTools: string[] })
       if (explorationEnabled()) {
         const subAgentNames = Object.keys(subAgents)
@@ -641,7 +650,26 @@ export function useAgentChat (options: UseAgentChatOptions) {
           summarizer: provider.chat('summarizer'),
           ...(recorder ? { headers: { 'x-trace-ctx': turnCtxId } } : {})
         })
-        streamSystem = buildExplorationSystem(options.systemPrompt, buildToolCatalog(plainTools))
+
+        // Prune announced/promoted sets in place to the tools still live, so a tool
+        // that disappears (server disconnect) un-announces and un-promotes; if it
+        // returns later it re-announces. Mutate in place — the promote and prepareStep
+        // closures capture these set objects.
+        const liveNames = new Set(Object.keys(plainTools))
+        for (const n of [...announcedTools]) if (!liveNames.has(n)) announcedTools.delete(n)
+        for (const n of [...promotedTools]) if (!liveNames.has(n)) promotedTools.delete(n)
+
+        // Announce newly-available tool names (delta) as one <tools-available> message.
+        const delta = newlyAvailableTools(Object.keys(plainTools), announcedTools)
+        if (delta.length) {
+          // Insert the availability notice just before this turn's user message (the
+          // history tail) so the user message stays last — models (and the mock) act on
+          // the final user message.
+          history.splice(history.length - 1, 0, { role: 'user' as const, content: formatToolsAvailableMessage(delta) })
+          for (const n of delta) announcedTools.add(n)
+          announcedThisTurn = delta
+        }
+
         prepareStep = () => ({
           activeTools: [EXPLORE_TOOL_NAME, ...subAgentNames, ...promotedTools]
             .filter(n => n in mainLLMTools)
@@ -651,7 +679,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
       debug('streaming with model=%s tools=%o exploration=%s', chatModelName, Object.keys(mainLLMTools), explorationEnabled())
       const result = streamText({
         model: provider.chat(chatModelName),
-        system: streamSystem,
+        system: options.systemPrompt,
         messages: history,
         tools: Object.keys(mainLLMTools).length > 0 ? mainLLMTools : undefined,
         stopWhen: stepCountIs(10),
@@ -670,10 +698,15 @@ export function useAgentChat (options: UseAgentChatOptions) {
           if (recorder) recorder.recordModerationDecision(verdict)
           if (verdict.action === 'block') {
             abortController?.abort()
-            // Drop the blocked user message from model context. Safe to pop the tail:
-            // the user message was just pushed, and compaction preserves the latest
-            // message as the tail.
+            // Drop this turn's messages from model context. The blocked user message is
+            // the tail; if exploration announced tools this turn, a <tools-available>
+            // notice sits just before it — pop the user message, then that notice (and
+            // un-announce it, so it re-announces on the retry).
             history.pop()
+            if (announcedThisTurn.length) {
+              history.pop()
+              for (const n of announcedThisTurn) announcedTools.delete(n)
+            }
             messages.value.push({ role: 'assistant', content: options.refusalMessage || DEFAULT_REFUSAL })
             status.value = 'ready'
             return
