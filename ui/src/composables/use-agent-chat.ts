@@ -129,7 +129,9 @@ export function useAgentChat (options: UseAgentChatOptions) {
   // 24000 is roughly equivalent to a 8k tokens context with 10-15 turns of dialogue an 2-3 tool calls
   const COMPACTION_THRESHOLD = 24_000
   const MODERATION_TIMEOUT_MS = 1500
-  const explorationEnabled = !!options.toolExploration
+  // Read live from `options` (like systemPrompt) so toggling exploration takes
+  // effect on the next turn; callers flip it via setToolExploration + reset.
+  const explorationEnabled = () => !!options.toolExploration
   // Tools promoted to the callable set via explore_tools; persists across turns,
   // cleared on compaction and reset. Read live by prepareStep.
   let promotedTools = new Set<string>()
@@ -630,7 +632,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
       // explore_tools + sub-agent pseudo-tools + already-promoted tools per step.
       let streamSystem = options.systemPrompt
       let prepareStep: undefined | (() => { activeTools: string[] })
-      if (explorationEnabled) {
+      if (explorationEnabled()) {
         const subAgentNames = Object.keys(subAgents)
         const plainTools = { ...mainTools }
         mainLLMTools[EXPLORE_TOOL_NAME] = createExploreTool({
@@ -646,7 +648,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
         })
       }
 
-      debug('streaming with model=%s tools=%o exploration=%s', chatModelName, Object.keys(mainLLMTools), explorationEnabled)
+      debug('streaming with model=%s tools=%o exploration=%s', chatModelName, Object.keys(mainLLMTools), explorationEnabled())
       const result = streamText({
         model: provider.chat(chatModelName),
         system: streamSystem,
@@ -771,7 +773,11 @@ export function useAgentChat (options: UseAgentChatOptions) {
     options.systemPrompt = prompt
   }
 
-  return { messages, status, error, tools, toolsVersion, resolvedPartition, sendMessage, abort, reset, setSystemPrompt, sessionUsage }
+  const setToolExploration = (enabled: boolean) => {
+    options.toolExploration = enabled
+  }
+
+  return { messages, status, error, tools, toolsVersion, resolvedPartition, sendMessage, abort, reset, setSystemPrompt, setToolExploration, sessionUsage }
 }
 
 export default useAgentChat

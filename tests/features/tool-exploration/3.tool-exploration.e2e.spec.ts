@@ -48,7 +48,7 @@ test.describe('Tool exploration E2E', () => {
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
 
     // Enable exploration mode (requires debug=true which is set on the page)
-    await page.evaluate(() => sessionStorage.setItem('agent-chat-explore', '1'))
+    await page.evaluate(() => localStorage.setItem('agent-chat-explore', '1'))
     await page.reload()
 
     // Wait for the input to be ready
@@ -79,11 +79,11 @@ test.describe('Tool exploration E2E', () => {
   test('without exploration mode, set_display is called directly and updates the output area', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
 
-    // Exploration mode is NOT enabled (no sessionStorage['agent-chat-explore'])
+    // Exploration mode is NOT enabled (no localStorage['agent-chat-explore'])
 
     // Wait for tools to be registered via MCP before sending – mirrors the waitForToolsReady
     // pattern from chat-subagent.e2e.spec.ts (avoids the race between MCP setup and sendMessage)
-    await page.getByRole('button', { name: /Info/ }).click()
+    await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
     await page.getByRole('tab', { name: /Tools/ }).click()
     await expect(
       page.locator('.v-dialog .v-window-item--active').getByRole('button', { name: 'set_display' })

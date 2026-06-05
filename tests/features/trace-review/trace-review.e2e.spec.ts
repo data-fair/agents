@@ -3,7 +3,7 @@
  *
  * Scenario:
  *   1. Send a chat message (always-on tracing records it).
- *   2. Download the trace JSON from the Info dialog's Trace tab.
+ *   2. Download the trace JSON from the Settings dialog's Trace tab.
  *   3. Navigate to the admin trace-review page.
  *   4. Upload the downloaded trace file.
  *   5. Verify the TraceView populated.
@@ -58,8 +58,8 @@ test.describe('Trace review flow', () => {
     await page.getByRole('button', { name: 'Send' }).click()
     await expect(page.locator('.assistant-content').last()).toContainText('world', { timeout: 15000 })
 
-    // Step 3: Open the Info dialog (admin-only button)
-    await page.getByRole('button', { name: 'Info' }).click()
+    // Step 3: Open the Settings dialog (admin-only button)
+    await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
 
     // Step 4: Navigate to the Trace tab in the dialog
     await page.getByRole('tab', { name: /Trace/ }).click()
