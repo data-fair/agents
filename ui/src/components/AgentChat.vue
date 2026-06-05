@@ -2,7 +2,6 @@
   <v-card
     class="agent-chat d-flex flex-column"
     :border="0"
-    :class="{ 'agent-chat--debug': isAdmin }"
   >
     <agent-chat-header
       :is-admin="isAdmin"
@@ -149,7 +148,6 @@ recorder.setSystemPrompt(finalSystemPrompt.value)
 const chatResult = useAgentChat({
   accountType: props.accountType,
   accountId: props.accountId,
-  debug: props.isAdmin,
   systemPrompt: finalSystemPrompt.value,
   initialMessages: props.initialMessages,
   recorder,

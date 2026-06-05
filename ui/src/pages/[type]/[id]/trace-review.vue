@@ -126,7 +126,8 @@ const traceOverview = computed<TraceOverviewEntry[]>(() =>
 )
 
 const isSessionTrace = (v: any): v is SessionTrace =>
-  v && Array.isArray(v.turns) && Array.isArray(v.physicalRequests)
+  v && Array.isArray(v.turns) && Array.isArray(v.physicalRequests) &&
+  Array.isArray(v.toolChanges) && Array.isArray(v.toolSnapshots)
 
 const loadTrace = (raw: SessionTrace) => {
   recorder.value = SessionRecorder.fromTrace(raw)

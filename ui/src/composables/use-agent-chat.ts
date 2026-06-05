@@ -49,7 +49,6 @@ export interface DebugToolsPartition {
 export interface UseAgentChatOptions {
   accountType: string,
   accountId: string,
-  debug?: boolean
   systemPrompt?: string
   initialMessages?: ChatMessage[]
   localTools?: Record<string, Tool>
