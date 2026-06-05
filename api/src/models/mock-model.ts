@@ -137,6 +137,18 @@ function processMockSummarizerPrompt (): MockPromptResult {
 }
 
 /**
+ * mock-moderator: returns a deterministic moderation verdict as JSON text.
+ * Messages containing "jailbreak" or "ignore (all|previous) instructions" are
+ * blocked; everything else is allowed. Used by moderation tests.
+ */
+function processMockModeratorPrompt (lastMessage: string): MockPromptResult {
+  if (/jailbreak|ignore (all|previous) instructions/i.test(lastMessage)) {
+    return { type: 'text', text: '{"action":"block","category":"prompt-injection","reason":"mock block"}' }
+  }
+  return { type: 'text', text: '{"action":"allow"}' }
+}
+
+/**
  * Exploration test seam: when the request advertises a `select_tools` tool, emit a
  * deterministic select_tools call choosing every tool named inside the prompt's
  * <candidate-tools> block. Lets the explore_tools flow be tested with the mock.
@@ -165,6 +177,8 @@ function processForModel (modelId: string, options: { prompt: string | Array<any
       return processMockToolsPrompt(lastMessage, options.prompt)
     case 'mock-summarizer':
       return processMockSummarizerPrompt()
+    case 'mock-moderator':
+      return processMockModeratorPrompt(lastMessage)
     default:
       return processMockPrompt(lastMessage, options.prompt)
   }

@@ -73,7 +73,7 @@ export interface SessionTrace {
 
 export interface TraceOverviewEntry {
   index: number
-  type: 'system-prompt' | 'user-message' | 'hidden-context' | 'assistant-step' | 'tool-call' | 'tool-result' | 'sub-agent-start' | 'sub-agent-system-prompt' | 'sub-agent-step' | 'sub-agent-end' | 'physical-request' | 'tools-changed' | 'compaction'
+  type: 'system-prompt' | 'user-message' | 'hidden-context' | 'assistant-step' | 'tool-call' | 'tool-result' | 'sub-agent-start' | 'sub-agent-system-prompt' | 'sub-agent-step' | 'sub-agent-end' | 'physical-request' | 'tools-changed' | 'compaction' | 'moderation'
   timestamp: Date
   label: string
   preview: string
@@ -187,6 +187,16 @@ export class SessionRecorder {
     } as any)
   }
 
+  recordModerationDecision (decision: { action: 'allow' | 'block', category?: string, reason?: string, skipped?: boolean }): void {
+    if (!this.currentTurn) return
+    this.currentTurn.steps.push({
+      timestamp: new Date(),
+      messages: [],
+      toolCalls: [],
+      moderation: { action: decision.action, category: decision.category, reason: decision.reason, skipped: decision.skipped }
+    } as any)
+  }
+
   recordPhysicalRequest (entry: PhysicalRequestTrace): void {
     this.trace.physicalRequests.push(entry)
   }
@@ -264,6 +274,14 @@ export class SessionRecorder {
           add(
             { type: 'compaction', timestamp: step.timestamp, label: 'history compaction', preview: `${c.originalCharCount} \u2192 ${c.compactedCharCount} chars` },
             { summary: c.summary, originalMessages: c.originalMessages, originalCharCount: c.originalCharCount, compactedCharCount: c.compactedCharCount }
+          )
+        }
+        if ((step as any).moderation) {
+          const m = (step as any).moderation
+          const verdict = m.skipped ? 'skipped' : m.action
+          add(
+            { type: 'moderation', timestamp: step.timestamp, label: `moderation: ${verdict}`, preview: [m.category, m.reason].filter(Boolean).join(': ').slice(0, 150) },
+            { action: m.action, category: m.category, reason: m.reason, skipped: m.skipped }
           )
         }
         for (const tc of step.toolCalls) {

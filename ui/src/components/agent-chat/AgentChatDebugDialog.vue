@@ -246,6 +246,33 @@
                         </div>
                         <pre class="agent-chat__pre pa-2 mt-1">{{ JSON.stringify(traceEntryDetails[entry.index]?.content?.tools, null, 2) }}</pre>
                       </template>
+                      <template v-else-if="entry.type === 'moderation'">
+                        <v-chip
+                          size="x-small"
+                          :color="moderationActionColor(traceEntryDetails[entry.index]?.content)"
+                          variant="tonal"
+                          label
+                          class="my-2"
+                        >
+                          {{ moderationActionLabel(traceEntryDetails[entry.index]?.content) }}
+                        </v-chip>
+                        <template v-if="traceEntryDetails[entry.index]?.content?.category">
+                          <div class="text-caption text-medium-emphasis mb-1 mt-2">
+                            {{ t('category') }}
+                          </div>
+                          <div class="text-caption">
+                            {{ traceEntryDetails[entry.index].content.category }}
+                          </div>
+                        </template>
+                        <template v-if="traceEntryDetails[entry.index]?.content?.reason">
+                          <div class="text-caption text-medium-emphasis mb-1 mt-2">
+                            {{ t('reason') }}
+                          </div>
+                          <div class="text-caption">
+                            {{ traceEntryDetails[entry.index].content.reason }}
+                          </div>
+                        </template>
+                      </template>
                       <pre
                         v-else
                         class="agent-chat__pre pa-2 mt-1"
@@ -282,6 +309,11 @@ fr:
   cacheWritten: cache écrit
   request: Requête
   response: Réponse
+  category: Catégorie
+  reason: Raison
+  moderationAllowed: Autorisé
+  moderationBlocked: Bloqué
+  moderationSkipped: Ignoré (fail-open)
 en:
   close: Close
   systemPrompt: System Prompt
@@ -301,6 +333,11 @@ en:
   cacheWritten: cache write
   request: Request
   response: Response
+  category: Category
+  reason: Reason
+  moderationAllowed: Allowed
+  moderationBlocked: Blocked
+  moderationSkipped: Skipped (fail-open)
 </i18n>
 
 <script lang="ts" setup>
@@ -362,9 +399,22 @@ const traceEntryColor = (type: string) => {
     'sub-agent-end': 'secondary',
     'physical-request': 'teal',
     'tools-changed': 'accent',
-    compaction: 'orange'
+    compaction: 'orange',
+    moderation: 'pink'
   }
   return colors[type] || 'default'
+}
+
+const moderationActionColor = (content?: { action?: string; skipped?: boolean }) => {
+  if (!content) return 'default'
+  if (content.skipped) return 'grey'
+  return content.action === 'block' ? 'error' : 'success'
+}
+
+const moderationActionLabel = (content?: { action?: string; skipped?: boolean }) => {
+  if (!content) return ''
+  if (content.skipped) return t('moderationSkipped')
+  return content.action === 'block' ? t('moderationBlocked') : t('moderationAllowed')
 }
 
 const formatTraceTime = (date: Date) => {

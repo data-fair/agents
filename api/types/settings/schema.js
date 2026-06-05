@@ -794,6 +794,48 @@ Recommendations: Claude Opus 4.6, GPT-5.4 (Reasoning), DeepSeek-R1, Pharia-1-LLM
               minimum: 0
             }
           }
+        },
+        moderator: {
+          type: 'object',
+          title: 'Moderator',
+          description: `
+The "gatekeeper." Classifies each new user message for profanity, prompt-injection, persona override, and out-of-scope requests. Should be fast and cheap — it sits on the critical path to the first response token.
+
+Recommendations: a small/fast model, e.g. Claude 4.5 Haiku, GPT-5.4 Mini, Mistral Small 4, or a dedicated moderation classifier.`,
+          'x-i18n-title': {
+            en: 'Moderator',
+            fr: 'Modérateur'
+          },
+          'x-i18n-description': {
+            en: 'The "gatekeeper." Classifies each new user message for profanity, prompt-injection, persona override, and out-of-scope requests. Should be fast and cheap — it sits on the critical path to the first response token.\n\nRecommendations: a small/fast model, e.g. Claude 4.5 Haiku, GPT-5.4 Mini, Mistral Small 4, or a dedicated moderation classifier.',
+            fr: 'Le « gardien ». Classe chaque nouveau message utilisateur (grossièretés, injection de prompt, usurpation de persona, demandes hors périmètre). Doit être rapide et peu coûteux — il se trouve sur le chemin critique vers le premier token de réponse.\n\nRecommandations : un modèle petit et rapide, par ex. Claude 4.5 Haiku, GPT-5.4 Mini, Mistral Small 4, ou un classifieur de modération dédié.'
+          },
+          layout: {
+            comp: 'card',
+            children: [{ key: 'model' }, { key: 'inputPricePerMillion', cols: 6 }, { key: 'outputPricePerMillion', cols: 6 }],
+            cols: 6
+          },
+          properties: {
+            model: {
+              $ref: '#/definitions/Model',
+              title: 'Model',
+              'x-i18n-title': { en: 'Model', fr: 'Modèle' }
+            },
+            inputPricePerMillion: {
+              type: 'number',
+              title: 'Input price (per 1M tokens)',
+              'x-i18n-title': { en: 'Input price (per 1M tokens)', fr: "Prix d'entrée (par million de tokens)" },
+              default: 0,
+              minimum: 0
+            },
+            outputPricePerMillion: {
+              type: 'number',
+              title: 'Output price (per 1M tokens)',
+              'x-i18n-title': { en: 'Output price (per 1M tokens)', fr: 'Prix de sortie (par million de tokens)' },
+              default: 0,
+              minimum: 0
+            }
+          }
         }
       }
     },

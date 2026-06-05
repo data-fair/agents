@@ -11,6 +11,7 @@ import { useSession } from '@data-fair/lib-vue/session.js'
 import { getAnonymousToken, resetAnonymousToken } from '~/composables/use-anonymous-token'
 import { extractErrorMessage } from '~/utils/error'
 import { parseGatewayCompletion } from '~/traces/gateway-response'
+import { buildModerationSystemPrompt, parseModerationVerdict, DEFAULT_REFUSAL, type ModerationVerdict } from '~/composables/moderation'
 import Debug from 'debug'
 
 const debug = Debug('df-agents:use-agent-chat')
@@ -55,6 +56,7 @@ export interface UseAgentChatOptions {
   localTools?: Record<string, Tool>
   modelName?: string
   recorder?: SessionRecorder
+  refusalMessage?: string
   toolExploration?: boolean
 }
 
@@ -127,6 +129,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
   // characters of serialized history before compaction
   // 24000 is roughly equivalent to a 8k tokens context with 10-15 turns of dialogue an 2-3 tool calls
   const COMPACTION_THRESHOLD = 24_000
+  const MODERATION_TIMEOUT_MS = 1500
   const explorationEnabled = !!options.toolExploration
   // Tools promoted to the callable set via explore_tools; persists across turns,
   // cleared on compaction and reset. Read live by prepareStep.
@@ -307,6 +310,28 @@ export function useAgentChat (options: UseAgentChatOptions) {
     fetch: gatewayFetch
   })
 
+  // Always-on input moderation. Runs through the gateway as the 'moderator' role
+  // (which falls back moderator -> summarizer -> assistant server-side), so it is
+  // metered and authorised like any other model call. Fails open on timeout,
+  // transport error, or unparseable output.
+  const moderate = async (message: string): Promise<ModerationVerdict> => {
+    const ac = new AbortController()
+    const timer = setTimeout(() => ac.abort(), MODERATION_TIMEOUT_MS)
+    try {
+      const { text } = await generateText({
+        model: provider.chat('moderator'),
+        system: buildModerationSystemPrompt(options.systemPrompt),
+        messages: [{ role: 'user', content: message }],
+        abortSignal: ac.signal
+      })
+      return parseModerationVerdict(text)
+    } catch {
+      return { action: 'allow', skipped: true }
+    } finally {
+      clearTimeout(timer)
+    }
+  }
+
   onScopeDispose(() => {
     if (aggregator) {
       aggregator.close()
@@ -457,6 +482,11 @@ export function useAgentChat (options: UseAgentChatOptions) {
 
     // Add user message to history
     history.push({ role: 'user', content: msg })
+
+    // Kick off moderation concurrently with the rest of the turn (does not delay request start).
+    // Only the user-facing assistant is moderated; internal chats (e.g. the evaluator) are not.
+    const moderationPromise = chatModelName === 'assistant' ? moderate(msg) : null
+    let moderationChecked = false
 
     // Compact history if it exceeds the threshold
     const compactionCtxId = `compaction:${turnId}`
@@ -633,6 +663,21 @@ export function useAgentChat (options: UseAgentChatOptions) {
       })
 
       for await (const part of result.fullStream) {
+        if (moderationPromise && !moderationChecked && (part.type === 'text-delta' || part.type === 'tool-call')) {
+          const verdict = await moderationPromise
+          moderationChecked = true
+          if (recorder) recorder.recordModerationDecision(verdict)
+          if (verdict.action === 'block') {
+            abortController?.abort()
+            // Drop the blocked user message from model context. Safe to pop the tail:
+            // the user message was just pushed, and compaction preserves the latest
+            // message as the tail.
+            history.pop()
+            messages.value.push({ role: 'assistant', content: options.refusalMessage || DEFAULT_REFUSAL })
+            status.value = 'ready'
+            return
+          }
+        }
         if (part.type === 'text-delta') {
           if (!currentAssistantMessage) {
             messages.value.push({ role: 'assistant', content: '' })
@@ -675,6 +720,16 @@ export function useAgentChat (options: UseAgentChatOptions) {
             recorder.finishStep()
           }
         }
+      }
+
+      // If the stream produced no visible part, the in-stream gate never ran — still
+      // record the moderation decision for trace completeness (allow/skip/block).
+      // A block here is intentionally record-only: nothing was emitted, so there is
+      // no assistant output to suppress.
+      if (moderationPromise && !moderationChecked) {
+        const verdict = await moderationPromise
+        moderationChecked = true
+        if (recorder) recorder.recordModerationDecision(verdict)
       }
 
       // Update history with all response messages
