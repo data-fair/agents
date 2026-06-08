@@ -10,6 +10,11 @@ test.describe('traces operations (unit)', () => {
     assert.deepEqual(parseContextId('weird'), { kind: 'unknown', uid: 'weird' })
   })
 
+  test('parseContextId tolerates malformed sub contexts', () => {
+    assert.deepEqual(parseContextId('sub:OnlyName'), { kind: 'sub', uid: '', agent: { name: 'OnlyName' } })
+    assert.deepEqual(parseContextId('sub:Name:notanumber:uid'), { kind: 'sub', uid: 'uid', agent: { name: 'Name' } })
+  })
+
   test('buildTraceRequestDoc sets TTL, agent and ordering fields', () => {
     const now = new Date('2026-06-08T00:00:00.000Z')
     const doc = buildTraceRequestDoc({

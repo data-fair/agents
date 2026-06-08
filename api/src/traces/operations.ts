@@ -15,7 +15,12 @@ export interface ParsedContext {
 export function parseContextId (contextId: string): ParsedContext {
   const parts = (contextId ?? '').split(':')
   if (parts[0] === 'sub') {
-    return { kind: 'sub', uid: parts.slice(3).join(':') || parts[parts.length - 1], agent: { name: parts[1] ?? '', index: Number(parts[2]) } }
+    const idx = Number(parts[2])
+    return {
+      kind: 'sub',
+      uid: parts.slice(3).join(':'),
+      agent: { name: parts[1] ?? '', ...(Number.isFinite(idx) ? { index: idx } : {}) }
+    }
   }
   if (parts[0] === 'compaction') return { kind: 'compaction', uid: parts.slice(1).join(':') }
   if (parts[0] === 'turn') return { kind: 'turn', uid: parts.slice(1).join(':') }
