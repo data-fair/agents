@@ -6,6 +6,10 @@ export declare function assertValid(data: any, options?: import('@data-fair/lib-
 export declare function returnValid(data: any, options?: import('@data-fair/lib-validation').AssertValidOptions): SettingsPut
       
 // see https://github.com/bcherny/json-schema-to-typescript/issues/439 if some types are not exported
+/**
+ * When enabled, conversations of consenting users are stored on the server for 30 days for admin review. Each user must explicitly accept.
+ */
+export type StoreConversationTraces = boolean;
 export type Provider = OpenAI | Anthropic | Google | Mistral | OpenRouter | Ollama | Scaleway | OpenAICompatible | Mock;
 export type ProviderType = "openai";
 export type ProviderID = string;
@@ -78,6 +82,7 @@ export type MonthlyLimit = number;
 export type SettingsPut = {
   createdAt?: string;
   updatedAt?: string;
+  storeTraces?: StoreConversationTraces;
   owner?: {
     type: "user" | "organization";
     id: string;

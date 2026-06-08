@@ -86,6 +86,20 @@ export default {
       format: 'date-time',
       readOnly: true,
     },
+    storeTraces: {
+      type: 'boolean',
+      title: 'Store conversation traces',
+      'x-i18n-title': {
+        en: 'Store conversation traces',
+        fr: 'Enregistrer les traces de conversation'
+      },
+      description: 'When enabled, conversations of consenting users are stored on the server for 30 days for admin review. Each user must explicitly accept.',
+      'x-i18n-description': {
+        en: 'When enabled, conversations of consenting users are stored on the server for 30 days for admin review. Each user must explicitly accept.',
+        fr: 'Si activé, les conversations des utilisateurs consentants sont enregistrées sur le serveur pendant 30 jours pour relecture par un administrateur. Chaque utilisateur doit explicitement accepter.'
+      },
+      default: false
+    },
     owner: {
       type: 'object',
       additionalProperties: false,
