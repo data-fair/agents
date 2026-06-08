@@ -86,6 +86,59 @@ test.describe('reconstructTrace (unit)', () => {
     assert.equal(hits, 3)
   })
 
+  test('name-based matching: two distinct sub-agents in same step are matched by name, not arrival order', () => {
+    // Main turn: one request whose response fires two tool calls (subagent_Alpha, subagent_Beta)
+    const mainReq = req({
+      createdAt: '2026-06-08T00:00:00.000Z',
+      contextKind: 'turn',
+      response: {
+        content: '',
+        toolCalls: [
+          { id: 'tc-alpha', name: 'subagent_Alpha', arguments: '{}' },
+          { id: 'tc-beta', name: 'subagent_Beta', arguments: '{}' }
+        ],
+        finishReason: 'tool-calls'
+      }
+    })
+
+    // Deliberately store Beta BEFORE Alpha by createdAt to prove matching is by name, not order
+    const betaSub = req({
+      createdAt: '2026-06-08T00:00:01.000Z',
+      contextId: 'sub:Beta:0:s1',
+      contextKind: 'sub',
+      agent: { name: 'Beta', index: 0 },
+      request: { model: 'm', body: { model: 'tools', messages: [{ role: 'user', content: 'do beta work' }], tools: [] }, messageCount: 1, toolCount: 0, bodyChars: 30 },
+      response: { content: 'beta result', toolCalls: [], finishReason: 'stop' }
+    })
+    const alphaSub = req({
+      createdAt: '2026-06-08T00:00:02.000Z',
+      contextId: 'sub:Alpha:0:s1',
+      contextKind: 'sub',
+      agent: { name: 'Alpha', index: 0 },
+      request: { model: 'm', body: { model: 'tools', messages: [{ role: 'user', content: 'do alpha work' }], tools: [] }, messageCount: 1, toolCount: 0, bodyChars: 30 },
+      response: { content: 'alpha result', toolCalls: [], finishReason: 'stop' }
+    })
+
+    const trace = reconstructTrace([mainReq, betaSub, alphaSub] as any)
+    const calls = trace.turns[0].steps.flatMap(s => s.toolCalls)
+
+    const alphaCall = calls.find(c => c.id === 'tc-alpha')
+    const betaCall = calls.find(c => c.id === 'tc-beta')
+
+    assert.ok(alphaCall?.subAgent, 'Alpha tool call has a sub-agent block')
+    assert.ok(betaCall?.subAgent, 'Beta tool call has a sub-agent block')
+
+    // Name-based matching: subagent_Alpha → Alpha, subagent_Beta → Beta
+    assert.equal(alphaCall!.subAgent!.name, 'Alpha', 'subagent_Alpha maps to Alpha sub-agent')
+    assert.equal(betaCall!.subAgent!.name, 'Beta', 'subagent_Beta maps to Beta sub-agent')
+
+    // Verify distinct content so we're not accidentally reading the same block
+    const alphaContent = alphaCall!.subAgent!.steps[0].messages[0].content
+    const betaContent = betaCall!.subAgent!.steps[0].messages[0].content
+    assert.equal(alphaContent, 'alpha result')
+    assert.equal(betaContent, 'beta result')
+  })
+
   test('groups sub-agent requests under their agent name', () => {
     const reqs = [
       req({ createdAt: '2026-06-08T00:00:00.000Z', response: { content: '', toolCalls: [{ id: 'd1', name: 'delegate', arguments: '{}' }], finishReason: 'tool-calls' } }),

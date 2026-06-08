@@ -97,7 +97,8 @@ test.describe('Trace-review stored conversations', () => {
     await expect(page.getByText('user-message').first()).toBeVisible({ timeout: 10000 })
 
     // Click the delete button on the row (stop propagation — should not re-load)
-    const deleteBtn = convRow.getByRole('button')
+    // Use .first() because rows with a userId also have an erase-user button
+    const deleteBtn = convRow.getByRole('button').first()
     await deleteBtn.click()
 
     // Row should disappear after deletion + re-fetch

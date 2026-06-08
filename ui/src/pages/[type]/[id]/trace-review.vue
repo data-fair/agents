@@ -76,6 +76,17 @@
                 >
                   <v-icon :icon="mdiDelete" />
                 </v-btn>
+                <v-btn
+                  v-if="row.userId"
+                  icon
+                  size="x-small"
+                  variant="text"
+                  color="warning"
+                  :title="t('eraseUser')"
+                  @click.stop="eraseUser(row.userId)"
+                >
+                  <v-icon :icon="mdiAccountRemove" />
+                </v-btn>
               </template>
             </v-list-item>
           </v-list>
@@ -128,6 +139,8 @@ fr:
   requests: "{n} requête | {n} requêtes"
   delete: Supprimer
   storedError: Impossible de charger les traces enregistrées.
+  eraseUser: Effacer toutes les traces de cet utilisateur
+  confirmEraseUser: Êtes-vous sûr de vouloir effacer toutes les traces de cet utilisateur ? Cette action est irréversible.
 en:
   trace: Trace
   upload: Upload file
@@ -138,13 +151,15 @@ en:
   requests: "{n} request | {n} requests"
   delete: Delete
   storedError: Could not load stored traces.
+  eraseUser: Erase all from this user
+  confirmEraseUser: Are you sure you want to erase all traces from this user? This action cannot be undone.
 </i18n>
 
 <script lang="ts" setup>
 import { ref, shallowRef, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import { mdiUpload, mdiDelete } from '@mdi/js'
+import { mdiUpload, mdiDelete, mdiAccountRemove } from '@mdi/js'
 import { getAccountRole, useSession } from '@data-fair/lib-vue/session.js'
 import { SessionRecorder } from '~/traces/session-recorder'
 import type { TraceOverviewEntry, SessionTrace } from '~/traces/session-recorder'
@@ -228,6 +243,17 @@ const deleteStored = async (conversationId: string) => {
   // so the admin can still read what they were looking at.
   try {
     const res = await fetch(`${$apiPath}/traces/${accountType}/${accountId}/${conversationId}`, { method: 'DELETE', credentials: 'include' })
+    if (!res.ok) { loadError.value = t('storedError'); return }
+    await fetchStored()
+  } catch {
+    loadError.value = t('storedError')
+  }
+}
+
+const eraseUser = async (userId: string) => {
+  if (!window.confirm(t('confirmEraseUser'))) return
+  try {
+    const res = await fetch(`${$apiPath}/traces/${accountType}/${accountId}?userId=${encodeURIComponent(userId)}`, { method: 'DELETE', credentials: 'include' })
     if (!res.ok) { loadError.value = t('storedError'); return }
     await fetchStored()
   } catch {

@@ -108,8 +108,10 @@ export function reconstructTrace (requests: StoredTraceRequest[]): SessionTrace 
   const usedSubKeys = new Set<string>()
 
   const nextSubForName = (toolName: string): SubAgentTrace | undefined => {
+    // Strip leading "subagent_" prefix so e.g. "subagent_Researcher" matches key "Researcher:0"
+    const stripped = toolName.replace(/^subagent_/, '')
     // Try to find a sub-agent whose name matches the tool name first, then fall back to any unused
-    const chosen = [...subByKey.entries()].find(([k]) => k.startsWith(`${toolName}:`) && !usedSubKeys.has(k)) ??
+    const chosen = [...subByKey.entries()].find(([k]) => k.startsWith(`${stripped}:`) && !usedSubKeys.has(k)) ??
                    [...subByKey.entries()].find(([k]) => !usedSubKeys.has(k))
     if (!chosen) return undefined
     usedSubKeys.add(chosen[0])
