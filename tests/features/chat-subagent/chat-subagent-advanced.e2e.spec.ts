@@ -71,12 +71,17 @@ test.describe('Advanced Sub-Agent Scenarios', () => {
     // Sub-agent expansion panel should appear
     await expect(page.locator('.agent-chat').getByText('Data Analyst').first()).toBeVisible({ timeout: 15000 })
 
-    // Wait for the full response to complete
-    await expect(page.getByPlaceholder('Type your message...')).toBeEnabled({ timeout: 15000 })
+    // The mock main-agent appends a trailing "done" reply after the sub-agent's
+    // tool result, so this turn "ends on text". Wait for it: once it lands the turn
+    // is fully settled and — by design (see AgentChatMessages auto-open logic) — the
+    // sub-agent panel has auto-collapsed. Asserting on the auto-expanded panel here
+    // would race that collapse against the sub-agent's final text rendering.
+    await expect(page.locator('.agent-chat-message .assistant-content').last()).toHaveText('done', { timeout: 15000 })
 
-    // The latest sub-agent panel must auto-expand on its own (no manual click).
+    // Expand the now-collapsed panel explicitly to inspect the chain it ran.
     const dataAnalystTitle = page.locator('.agent-chat .v-expansion-panel-title', { hasText: 'Data Analyst' }).first()
-    await expect(dataAnalystTitle).toHaveClass(/v-expansion-panel-title--active/, { timeout: 15000 })
+    await dataAnalystTitle.click()
+    await expect(dataAnalystTitle).toHaveClass(/v-expansion-panel-title--active/, { timeout: 5000 })
 
     const subAgentPanel = page.locator('.agent-chat__subagent-panels').first()
 

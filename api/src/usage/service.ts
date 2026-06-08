@@ -78,7 +78,7 @@ export async function getUsage (owner: AccountKeys, userId?: string): Promise<Us
   }
 }
 
-export async function recordUsage (owner: AccountKeys, cost: number, userId?: string, userName?: string): Promise<void> {
+export async function recordUsage (owner: AccountKeys, cost: number, userId?: string, userName?: string, poolId?: string): Promise<void> {
   if (!cost) return
   const now = new Date().toISOString()
 
@@ -117,6 +117,22 @@ export async function recordUsage (owner: AccountKeys, cost: number, userId?: st
       { upsert: true }
     )
     ops.push(accountUpsertFor(dailyPeriod), accountUpsertFor(weeklyPeriod), accountUpsertFor(monthlyPeriod))
+  }
+
+  // also upsert the shared pool aggregate (e.g. combined anonymous + external usage)
+  if (poolId) {
+    const poolFilter = { 'owner.type': owner.type, 'owner.id': owner.id, userId: poolId }
+    const poolSetOnInsert = { owner: { type: owner.type, id: owner.id }, userId: poolId }
+    const poolUpsertFor = (period: string) => mongo.usage.updateOne(
+      { ...poolFilter, period },
+      {
+        $inc: { cost },
+        $set: { updatedAt: now },
+        $setOnInsert: { ...poolSetOnInsert, period }
+      },
+      { upsert: true }
+    )
+    ops.push(poolUpsertFor(dailyPeriod), poolUpsertFor(weeklyPeriod), poolUpsertFor(monthlyPeriod))
   }
 
   await Promise.all(ops)
@@ -237,7 +253,8 @@ export async function getUsersDailyHistory (owner: AccountKeys, days: number = 7
 
   const byUser = new Map<string, { dateMap: Map<string, Usage>, userName?: string }>()
   for (const r of records) {
-    if (!r.userId) continue
+    // skip shared pool aggregates (e.g. pool:untrusted) — they are not real users
+    if (!r.userId || r.userId.startsWith('pool:')) continue
     if (!byUser.has(r.userId)) byUser.set(r.userId, { dateMap: new Map(), userName: r.userName })
     const entry = byUser.get(r.userId)!
     entry.dateMap.set(r.period.slice(6), r)
