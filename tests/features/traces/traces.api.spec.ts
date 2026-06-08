@@ -7,11 +7,13 @@ import { axiosAuth, superAdmin, clean, directoryUrl } from '../../support/axios.
 
 const user = await axiosAuth('test-standalone1')
 const admin = await superAdmin
+// test1-user1 is a member of organization/test1 → trackPerUser=true → userId stored in trace
+const orgMemberUser = await axiosAuth('test1-user1')
 
 const settingsData = (storeTraces: boolean) => ({
   providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
   models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } }, inputPricePerMillion: 0, outputPricePerMillion: 0 } },
-  quotas: { global: { unlimited: true, monthlyLimit: 0 }, admin: { unlimited: true, monthlyLimit: 0 }, contrib: { unlimited: false, monthlyLimit: 0 }, user: { unlimited: false, monthlyLimit: 0 }, external: { unlimited: false, monthlyLimit: 0 }, anonymous: { unlimited: false, monthlyLimit: 0 } },
+  quotas: { global: { unlimited: true, monthlyLimit: 0 }, admin: { unlimited: true, monthlyLimit: 0 }, contrib: { unlimited: false, monthlyLimit: 0 }, user: { unlimited: false, monthlyLimit: 0 }, external: { unlimited: true, monthlyLimit: 0 }, anonymous: { unlimited: false, monthlyLimit: 0 } },
   storeTraces
 })
 
@@ -27,13 +29,13 @@ async function chat (storeTraces: boolean, headers: Record<string, string>) {
   await generateText({ model: provider.chat('assistant'), messages: [{ role: 'user', content: 'hello' }] })
 }
 
-async function waitForConversations () {
+async function waitForConversations (ownerType = 'user', ownerId = 'test-standalone1') {
   for (let i = 0; i < 30; i++) {
-    const res = await admin.get('/api/traces/user/test-standalone1')
+    const res = await admin.get(`/api/traces/${ownerType}/${ownerId}`)
     if (res.data.results.length > 0) return res.data
     await new Promise(resolve => setTimeout(resolve, 100))
   }
-  return (await admin.get('/api/traces/user/test-standalone1')).data
+  throw new Error('timed out waiting for stored conversations')
 }
 
 test.describe('Trace storage API', () => {
@@ -77,6 +79,37 @@ test.describe('Trace storage API', () => {
     assert.equal(conv.data.results[0].request.body.model, 'assistant')
     await admin.delete('/api/traces/user/test-standalone1/conv-D')
     const after = await admin.get('/api/traces/user/test-standalone1')
+    assert.equal(after.data.results.length, 0)
+  })
+
+  test('GDPR per-user erasure rejects with 400 when userId query param is missing', async () => {
+    // For a user-type owner with a same-account user, trackPerUser=false so userId is not stored.
+    // The DELETE /:type/:id endpoint requires ?userId= and rejects without it.
+    const res = await admin.delete('/api/traces/user/test-standalone1').catch((err: any) => err.response ?? err)
+    assert.equal(res.status, 400)
+  })
+
+  test('GDPR per-user erasure deletes all traces for a specific user (org owner)', async () => {
+    // Use organization/test1 as owner: test1-user1 is a member (not the owner), so
+    // trackPerUser=true and their userId ('test1-user1') is stored in the trace document.
+    // This exercises the real per-user deletion path.
+    await admin.put('/api/settings/organization/test1', settingsData(true))
+    const cookieString = await orgMemberUser.cookieJar.getCookieString(directoryUrl)
+    const provider = createOpenAI({
+      baseURL: `http://localhost:${process.env.DEV_API_PORT}/api/gateway/organization/test1/v1`,
+      apiKey: 'unused',
+      headers: { cookie: cookieString, 'x-trace-consent': 'yes', 'x-trace-conversation': 'conv-gdpr', 'x-trace-ctx': 'turn:t1' },
+      name: 'data-fair-gateway'
+    })
+    await generateText({ model: provider.chat('assistant'), messages: [{ role: 'user', content: 'hello' }] })
+
+    const list = await waitForConversations('organization', 'test1')
+    assert.equal(list.results.length, 1)
+    const storedUserId = list.results[0].userId
+    assert.equal(typeof storedUserId, 'string', 'expected userId to be stored for org member user')
+
+    await admin.delete(`/api/traces/organization/test1?userId=${encodeURIComponent(storedUserId)}`)
+    const after = await admin.get('/api/traces/organization/test1')
     assert.equal(after.data.results.length, 0)
   })
 })

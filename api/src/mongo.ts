@@ -43,7 +43,8 @@ export class AgentsMongo {
       'trace-requests': {
         'list-keys': [{ 'owner.type': 1, 'owner.id': 1, 'conversation.id': 1, createdAt: 1 }, {}],
         'recent-keys': [{ 'owner.type': 1, 'owner.id': 1, createdAt: -1 }, {}],
-        'ttl-keys': [{ expiresAt: 1 }, { expireAfterSeconds: 0 }]
+        'ttl-keys': [{ expiresAt: 1 }, { expireAfterSeconds: 0 }],
+        'user-keys': [{ 'owner.type': 1, 'owner.id': 1, userId: 1 }, {}]
       }
     })
   }
