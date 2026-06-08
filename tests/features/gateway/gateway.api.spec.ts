@@ -119,6 +119,30 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
     assert.equal(result.text, 'world')
   })
 
+  test('untrusted pool cap blocks an external user even when their external quota is not reached', async () => {
+    // generous external per-user quota, but the shared untrusted pool is tight: monthly=4 → daily=1
+    await admin.put('/api/settings/user/test-standalone1', {
+      ...settingsData,
+      quotas: {
+        ...defaultQuotas,
+        external: { unlimited: false, monthlyLimit: 1000 },
+        untrusted: { unlimited: false, monthlyLimit: 4 }
+      }
+    })
+    await anonymousAx.post('http://localhost:' + process.env.DEV_API_PORT + '/api/test-env/usage', {
+      owner: { type: 'user', id: 'test-standalone1' },
+      userId: 'pool:untrusted',
+      cost: 2
+    })
+
+    const res = await externalUser.post('/api/gateway/user/test-standalone1/v1/chat/completions', {
+      model: 'assistant',
+      messages: [{ role: 'user', content: 'hello' }]
+    }).catch((err: any) => err.response ?? err)
+    assert.equal(res.status, 429)
+    assert.equal(res.data.error.scope, 'untrusted')
+  })
+
   test('external user denied when external quota is zero', async () => {
     const provider = await createGatewayProvider(externalUser)
     await assert.rejects(
@@ -199,6 +223,32 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
   const anonGatewayUrl = `http://localhost:${process.env.DEV_API_PORT}/api/gateway/user/test-standalone1/v1/chat/completions`
   const anonQuotas = { ...defaultQuotas, anonymous: { unlimited: false, monthlyLimit: 100 } }
   const anonBody = { model: 'assistant', messages: [{ role: 'user', content: 'hello' }] }
+
+  test('untrusted pool cap blocks an anonymous request even when its per-IP quota is not reached', async () => {
+    // generous per-IP anonymous quota, but a tight shared pool: monthly=4 → daily=1
+    await admin.put('/api/settings/user/test-standalone1', {
+      ...settingsData,
+      quotas: {
+        ...defaultQuotas,
+        anonymous: { unlimited: false, monthlyLimit: 1000 },
+        untrusted: { unlimited: false, monthlyLimit: 4 }
+      }
+    })
+    // seed the shared untrusted pool above its daily limit, with no per-IP usage
+    await anonymousAx.post('http://localhost:' + process.env.DEV_API_PORT + '/api/test-env/usage', {
+      owner: { type: 'user', id: 'test-standalone1' },
+      userId: 'pool:untrusted',
+      cost: 2
+    })
+
+    const token = await getAnonymousActionToken()
+    const res = await anonymousAx.post(anonGatewayUrl, anonBody, { headers: { 'x-anonymous-token': token } })
+      .catch((err: any) => err.response ?? err)
+    assert.equal(res.status, 429)
+    assert.equal(res.data.error.message, 'Daily cost quota exceeded')
+    assert.equal(res.data.error.scope, 'untrusted')
+    assert.equal(res.data.error.limit, 1)
+  })
 
   test('anonymous request without token is rejected', async () => {
     await admin.put('/api/settings/user/test-standalone1', { ...settingsData, quotas: anonQuotas })

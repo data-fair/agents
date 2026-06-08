@@ -1,19 +1,12 @@
 import { Router } from 'express'
 import { generateText } from 'ai'
 import { type AccountKeys, reqSession, isAuthenticated } from '@data-fair/lib-express'
-import { reqIp as _reqIp } from '@data-fair/lib-express/req-origin.js'
-import { assertCanUseModel, assertRoleQuota, getEffectiveRole } from '../auth.ts'
-import { assertAnonymousActionToken } from '../anonymous-token/service.ts'
 import { getRawSettings } from '../settings/service.ts'
 import { createModel } from '../models/operations.ts'
-import { getUsage, getOwnerUsage, recordUsage } from '../usage/service.ts'
-import { checkQuota, computeCost } from '../usage/operations.ts'
+import { recordUsage } from '../usage/service.ts'
+import { computeCost } from '../usage/operations.ts'
+import { resolveUsageIdentity, enforceQuotas } from '../usage/enforce.ts'
 import type { Settings } from '#types'
-import crypto from 'node:crypto'
-
-function safeReqIp (req: import('express').Request): string {
-  try { return _reqIp(req) } catch { return req.ip || '127.0.0.1' }
-}
 
 const router = Router()
 export default router
@@ -61,55 +54,16 @@ router.post('/:type/:id', async (req, res, next) => {
       return
     }
 
-    // Permission check via role-based quotas
+    // Permission check + quota enforcement (shared with the gateway)
     const quotas = settings.quotas ?? {}
 
-    let trackPerUser: boolean
-    let usageUserId: string | undefined
-    let usageUserName: string | undefined
+    const identity = await resolveUsageIdentity(req, owner, quotas, sessionState, authenticated)
+    const { usageUserId, usageUserName, poolId } = identity
 
-    if (!authenticated) {
-      // Anonymous path
-      assertRoleQuota('anonymous', quotas)
-      await assertAnonymousActionToken(req)
-      const ipHash = crypto.createHash('sha256').update(safeReqIp(req)).digest('hex').slice(0, 16)
-      usageUserId = `anon:${ipHash}`
-      trackPerUser = true
-    } else {
-      // Authenticated path
-      const session = sessionState
-      const isSameAccount = session.account!.type === owner.type && session.account!.id === owner.id
-      trackPerUser = owner.type === 'organization' || !isSameAccount
-
-      assertCanUseModel(session as any, owner, quotas)
-      usageUserId = trackPerUser ? session.user!.id : undefined
-      usageUserName = trackPerUser ? session.user!.name : undefined
-    }
-
-    // Quota enforcement (same pattern as gateway)
-    const accountLimits = settings.quotas.global
-
-    if (!accountLimits.unlimited && accountLimits.monthlyLimit) {
-      const accountUsage = await getOwnerUsage(owner)
-      const quotaCheck = checkQuota(accountUsage, accountLimits, trackPerUser ? 'organization' : 'user')
-      if (quotaCheck) {
-        res.status(429).json({ error: quotaCheck.reason })
-        return
-      }
-    }
-
-    // Check role-based user quota
-    if (trackPerUser) {
-      const role = authenticated ? getEffectiveRole(sessionState as any, owner) : 'anonymous'
-      const roleQuota = quotas[role]
-      if (roleQuota && !roleQuota.unlimited && roleQuota.monthlyLimit) {
-        const userUsage = await getUsage(owner, usageUserId)
-        const quotaCheck = checkQuota(userUsage, roleQuota, 'user')
-        if (quotaCheck) {
-          res.status(429).json({ error: quotaCheck.reason })
-          return
-        }
-      }
+    const quotaCheck = await enforceQuotas(owner, quotas, identity)
+    if (quotaCheck) {
+      res.status(429).json({ error: quotaCheck.reason })
+      return
     }
 
     const model = await getSummaryModel(settings)
@@ -127,7 +81,7 @@ router.post('/:type/:id', async (req, res, next) => {
     const outputTokens = usage?.outputTokens ?? 0
     const cost = computeCost(inputTokens, outputTokens, inputPricePerMillion, outputPricePerMillion)
     if (cost > 0) {
-      await recordUsage(owner, cost, usageUserId, usageUserName)
+      await recordUsage(owner, cost, usageUserId, usageUserName, poolId)
     }
 
     res.json({ summary: text })

@@ -297,6 +297,7 @@ export type RoleQuotas = {
   user: SimpleUserQuotas;
   external: ExternalUserQuotas;
   anonymous: AnonymousUserQuotas;
+  untrusted?: AnonymousExternalPool;
   [k: string]: unknown;
 }
 export type GlobalQuotas = {
@@ -325,6 +326,14 @@ export type ExternalUserQuotas = {
   [k: string]: unknown;
 }
 export type AnonymousUserQuotas = {
+  unlimited: Unlimited;
+  monthlyLimit: MonthlyLimit;
+  [k: string]: unknown;
+}
+/**
+ * Aggregate cap shared by all anonymous and external usage combined, so untrusted traffic cannot consume the whole account budget. 0 = no pool cap.
+ */
+export type AnonymousExternalPool = {
   unlimited: Unlimited;
   monthlyLimit: MonthlyLimit;
   [k: string]: unknown;

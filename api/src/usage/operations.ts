@@ -76,3 +76,31 @@ export function checkQuota (usage: UsageInfo, limits: UsageLimits, scope: string
 export function computeCost (inputTokens: number, outputTokens: number, inputPricePerMillion: number, outputPricePerMillion: number): number {
   return (inputTokens * inputPricePerMillion + outputTokens * outputPricePerMillion) / 1_000_000
 }
+
+export interface QuotaCheckInput {
+  usage: UsageInfo
+  limits: UsageLimits
+  scope: string
+}
+
+/**
+ * Run several quota checks in order and return the first violation, if any.
+ * Used to enforce the global → untrusted-pool → per-user precedence in one place.
+ * Null/undefined entries are skipped so callers can build the list conditionally.
+ */
+export function firstQuotaViolation (checks: (QuotaCheckInput | null | undefined)[]): QuotaExceeded | null {
+  for (const check of checks) {
+    if (!check) continue
+    const violation = checkQuota(check.usage, check.limits, check.scope)
+    if (violation) return violation
+  }
+  return null
+}
+
+/**
+ * Untrusted roles are those that share the aggregate "untrusted pool" budget:
+ * anonymous (public, per-IP) and external (authenticated but on a different account).
+ */
+export function isUntrustedRole (role: string): boolean {
+  return role === 'anonymous' || role === 'external'
+}
