@@ -11,6 +11,7 @@ import { checkQuota, computeCost } from '../usage/operations.ts'
 import { convertOpenAITools, convertOpenAIMessages, convertToolChoice, mapFinishReason } from './operations.ts'
 import type { Settings } from '#types'
 import type { OpenAIMessage, OpenAIToolDefinition, OpenAIToolChoice, FinishReason } from './operations.ts'
+import { recordTraceRequest } from '../traces/service.ts'
 import crypto from 'node:crypto'
 
 function safeReqIp (req: import('express').Request): string {
@@ -192,8 +193,34 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
       }
     }
 
-    const { inputPricePerMillion, outputPricePerMillion } = getModelConfig(settings, modelId)
+    const { modelConfig, inputPricePerMillion, outputPricePerMillion } = getModelConfig(settings, modelId)
     const model = await getModelForGateway(settings, modelId)
+
+    const storeTraces = settings.storeTraces === true
+    if (storeTraces) res.setHeader('x-trace-storage', 'available')
+    const consented = req.get('x-trace-consent') === 'yes'
+    const shouldStoreTrace = storeTraces && consented
+    const traceConversationId = req.get('x-trace-conversation') || undefined
+    const traceContextId = req.get('x-trace-ctx') || 'unknown'
+    const traceStart = Date.now()
+    const recordTrace = (response: { content: string, toolCalls: { id: string, name: string, arguments: string }[], finishReason?: string }, usage: { inputTokens: number, outputTokens: number, cacheReadTokens?: number, cacheWriteTokens?: number }, timeToFirstChunkMs?: number) => {
+      if (!shouldStoreTrace || !traceConversationId) return
+      recordTraceRequest({
+        owner,
+        userId: usageUserId,
+        userName: usageUserName,
+        conversationId: traceConversationId,
+        contextId: traceContextId,
+        modelRole: modelId,
+        providerName: modelConfig.provider.name,
+        providerType: modelConfig.provider.type,
+        resolvedModel: modelConfig.id,
+        body: req.body,
+        response,
+        usage,
+        timing: { durationMs: Date.now() - traceStart, ...(timeToFirstChunkMs != null ? { timeToFirstChunkMs } : {}) }
+      })
+    }
 
     // Extract system message from OpenAI messages array
     const systemMessages = messages.filter(m => m.role === 'system')
@@ -234,8 +261,12 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
       })}\n\n`)
 
       try {
+        let streamedText = ''
+        let ttfc: number | undefined
         for await (const part of result.fullStream) {
           if (part.type === 'text-delta') {
+            streamedText += part.text
+            if (ttfc === undefined) ttfc = Date.now() - traceStart
             res.write(`data: ${JSON.stringify({
               id: completionId,
               object: 'chat.completion.chunk',
@@ -296,6 +327,13 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
               choices: [{ index: 0, delta: {}, finish_reason: mapFinishReason(part.finishReason as FinishReason) }],
               usage: buildUsage(part.totalUsage)
             })}\n\n`)
+
+            const finalToolCalls = (await result.toolCalls).map((tc: { toolCallId: string, toolName: string, input?: unknown }) => ({ id: tc.toolCallId, name: tc.toolName, arguments: JSON.stringify(tc.input ?? {}) }))
+            recordTrace(
+              { content: streamedText, toolCalls: finalToolCalls, finishReason: mapFinishReason(part.finishReason as FinishReason) },
+              { inputTokens, outputTokens, cacheReadTokens: part.totalUsage?.inputTokenDetails?.cacheReadTokens, cacheWriteTokens: part.totalUsage?.inputTokenDetails?.cacheWriteTokens },
+              ttfc
+            )
           }
         }
 
@@ -359,6 +397,15 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
         }],
         usage: buildUsage(result.usage)
       })
+
+      recordTrace(
+        {
+          content: result.text || '',
+          toolCalls: (result.toolCalls ?? []).map((tc: { toolCallId: string, toolName: string, input?: unknown }) => ({ id: tc.toolCallId, name: tc.toolName, arguments: JSON.stringify(tc.input ?? {}) })),
+          finishReason: mapFinishReason(result.finishReason as FinishReason)
+        },
+        { inputTokens, outputTokens, cacheReadTokens: result.usage?.inputTokenDetails?.cacheReadTokens, cacheWriteTokens: result.usage?.inputTokenDetails?.cacheWriteTokens }
+      )
     }
   } catch (err) {
     next(err)
