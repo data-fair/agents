@@ -60,6 +60,8 @@
       :tool-exploration="explorationEnabled"
       @update:tool-exploration="handleToolExploration"
     />
+
+    <trace-consent-sheet />
   </v-card>
 </template>
 
@@ -96,6 +98,7 @@ import AgentChatHeader from './agent-chat/AgentChatHeader.vue'
 import AgentChatMessages from './agent-chat/AgentChatMessages.vue'
 import AgentChatInput from './agent-chat/AgentChatInput.vue'
 import AgentChatDebugDialog from './agent-chat/AgentChatDebugDialog.vue'
+import TraceConsentSheet from './agent-chat/TraceConsentSheet.vue'
 
 const props = defineProps<{
   isAdmin?: boolean

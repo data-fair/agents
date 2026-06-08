@@ -19,6 +19,7 @@ declare module 'vue' {
     MonitoringUserHistogram: typeof import('./src/components/MonitoringUserHistogram.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    TraceConsentSheet: typeof import('./src/components/agent-chat/TraceConsentSheet.vue')['default']
     TraceView: typeof import('./src/components/agent-chat/TraceView.vue')['default']
     UsageCard: typeof import('./src/components/UsageCard.vue')['default']
     VjsfPutReq: typeof import('./src/components/vjsf/vjsf-put-req.vue')['default']

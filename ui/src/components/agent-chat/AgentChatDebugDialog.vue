@@ -169,11 +169,21 @@
           <v-window-item value="settings">
             <div class="pa-3">
               <v-switch
+                v-if="traceStorageAvailable"
+                :model-value="consent === 'yes'"
+                :label="t('storeTraces')"
+                color="primary"
+                density="compact"
+                hide-details
+                @update:model-value="(v: boolean | null) => { const val = v ? 'yes' : 'no'; writeConsent(val); consent = val }"
+              />
+              <v-switch
                 :model-value="toolExploration"
                 color="primary"
                 density="compact"
                 hide-details
                 :label="t('toolExploration')"
+                class="mt-2"
                 @update:model-value="$emit('update:toolExploration', $event ?? false)"
               />
               <p class="text-caption text-medium-emphasis mt-1">
@@ -203,6 +213,7 @@ fr:
   download: Télécharger
   openReview: Ouvrir l'analyse
   settings: Paramètres
+  storeTraces: Enregistrer mes conversations pour relecture
   toolExploration: Exploration des outils (expérimental)
   toolExplorationHint: "Masque les outils derrière un outil « explore_tools » que l'assistant appelle pour découvrir et activer les outils pertinents à la demande. Changer ce réglage réinitialise la conversation."
 en:
@@ -220,6 +231,7 @@ en:
   download: Download
   openReview: Open review
   settings: Settings
+  storeTraces: Store my conversations for review
   toolExploration: Tool exploration (experimental)
   toolExplorationHint: "Hides tools behind an 'explore_tools' tool the assistant calls to discover and enable relevant tools on demand. Changing this setting resets the conversation."
 </i18n>
@@ -232,6 +244,7 @@ import { mdiClose, mdiChartBar, mdiDownload, mdiOpenInNew } from '@mdi/js'
 import type { TraceOverviewEntry, SessionRecorder } from '~/traces/session-recorder'
 import type { DebugToolsPartition } from '~/composables/use-agent-chat'
 import { writeHandoff, downloadTrace } from '~/traces/trace-handoff'
+import { traceStorageAvailable, readConsent, writeConsent } from '~/traces/trace-consent'
 import TraceView from './TraceView.vue'
 
 const props = defineProps<{
@@ -257,6 +270,7 @@ const { t } = useI18n()
 const router = useRouter()
 
 const activeDebugTab = ref('systemPrompt')
+const consent = ref(readConsent())
 const totalToolCount = computed(() => {
   const p = props.debugToolsPartition
   return p.mainTools.length + p.subAgents.reduce((sum, sa) => sum + sa.tools.length, 0)
