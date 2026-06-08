@@ -4,7 +4,7 @@ import { type AccountKeys, reqSession, isAuthenticated } from '@data-fair/lib-ex
 import { reqIp as _reqIp } from '@data-fair/lib-express/req-origin.js'
 import { assertCanUseModel, assertRoleQuota, getEffectiveRole } from '../auth.ts'
 import { assertAnonymousActionToken } from '../anonymous-token/service.ts'
-import { getRawSettings } from '../settings/service.ts'
+import { getRawSettings, defaultQuotas } from '../settings/service.ts'
 import { createModel } from '../models/operations.ts'
 import { getUsage, getOwnerUsage, recordUsage } from '../usage/service.ts'
 import { checkQuota, computeCost } from '../usage/operations.ts'
@@ -59,8 +59,8 @@ function getModelConfig (settings: Settings, modelId: ModelId) {
   // assistant as a guaranteed last resort; every other role falls back straight
   // to the assistant.
   const chain = modelId === 'moderator'
-    ? [settings.models.moderator, settings.models.summarizer, settings.models.assistant]
-    : [settings.models[modelId], settings.models.assistant]
+    ? [settings.models?.moderator, settings.models?.summarizer, settings.models?.assistant]
+    : [settings.models?.[modelId], settings.models?.assistant]
   const source = chain.find(entry => entry?.model)
   if (!source?.model) throw new Error(`No model configured for ${modelId}`)
   return {
@@ -124,7 +124,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
       return
     }
 
-    const quotas = settings.quotas ?? {}
+    const quotas = settings.quotas ?? defaultQuotas
 
     let trackPerUser: boolean
     let usageUserId: string | undefined
@@ -150,7 +150,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
     }
 
     // Check account limits against account usage
-    const accountLimits = settings.quotas.global
+    const accountLimits = quotas.global
 
     if (!accountLimits.unlimited && accountLimits.monthlyLimit) {
       const accountUsage = await getOwnerUsage(owner)

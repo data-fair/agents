@@ -144,4 +144,70 @@ test.describe('Settings UI', () => {
     // Provider should be removed
     await expect(page.getByText('Mock - ')).not.toBeVisible()
   })
+
+  // Regression: models/quotas are required but their form sections are hidden until
+  // a provider exists. Toggling the always-visible "Store conversation traces" switch
+  // on an empty config used to prune those hidden required props and raise a global
+  // "required" error. The empty config must stay valid (models/quotas are not required).
+  test('Toggling store-traces on an empty config does not raise a required error', async ({ page, goToWithAuth }) => {
+    await goToWithAuth('/agents/user/test-standalone1/settings', 'superadmin', { adminMode: true })
+    await expect(page.getByText('AI Providers')).toBeVisible({ timeout: 10000 })
+    await page.waitForTimeout(500)
+
+    await page.getByText('Store conversation traces').click()
+    await page.waitForTimeout(500)
+
+    // No validation error must appear and the form must remain valid (Save enabled)
+    await expect(page.getByText('required information')).not.toBeVisible()
+    await expect(page.getByRole('button', { name: 'Save' })).toBeEnabled()
+  })
+
+  // Regression: vjsf writes schema defaults (0 prices) into the model on load, so
+  // a config whose stored shape predates them shows a diff once. Because the
+  // server persists exactly what the form submits, saving normalises the document
+  // and a subsequent reload must converge to a clean, diff-free state.
+  test('A saved config converges after one save: no diff on reload', async ({ page, goToWithAuth }) => {
+    const admin = await superAdmin
+    await admin.put('/api/settings/organization/test1', {
+      providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
+      models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } } } },
+      quotas: defaultQuotas
+    })
+
+    await goToWithAuth('/agents/organization/test1/settings', 'superadmin', { adminMode: true })
+    await expect(page.getByText('AI Providers')).toBeVisible({ timeout: 10000 })
+    await page.waitForTimeout(800)
+
+    // Persist the form-normalised shape, then reload: the form must be clean.
+    await page.getByRole('button', { name: 'Save' }).click()
+    await expect(page.getByText('Changes have been saved')).toBeVisible()
+
+    await page.reload()
+    await expect(page.getByText('AI Providers')).toBeVisible({ timeout: 10000 })
+    await page.waitForTimeout(800)
+    await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
+  })
+
+  // Regression: the Save button used to reappear on every reload because the
+  // server re-injected an empty `models` object that vjsf strips from the hidden
+  // model-role sections (no providers). After saving, a reload must converge to a
+  // clean state with no spurious diff.
+  test('Saving an empty config converges: Save button stays hidden after reload', async ({ page, goToWithAuth }) => {
+    await goToWithAuth('/agents/organization/test1/settings', 'superadmin', { adminMode: true })
+    await expect(page.getByText('AI Providers')).toBeVisible({ timeout: 10000 })
+    await page.waitForTimeout(500)
+
+    // Make a real change (toggle store-traces) so Save becomes available, then save.
+    await page.getByText('Store conversation traces').click()
+    await page.getByRole('button', { name: 'Save' }).click()
+    await expect(page.getByText('Changes have been saved')).toBeVisible()
+
+    // Reload twice: the form must not report any unsaved change.
+    for (let i = 0; i < 2; i++) {
+      await page.reload()
+      await expect(page.getByText('AI Providers')).toBeVisible({ timeout: 10000 })
+      await page.waitForTimeout(800)
+      await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
+    }
+  })
 })

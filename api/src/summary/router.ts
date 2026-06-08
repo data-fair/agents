@@ -4,7 +4,7 @@ import { type AccountKeys, reqSession, isAuthenticated } from '@data-fair/lib-ex
 import { reqIp as _reqIp } from '@data-fair/lib-express/req-origin.js'
 import { assertCanUseModel, assertRoleQuota, getEffectiveRole } from '../auth.ts'
 import { assertAnonymousActionToken } from '../anonymous-token/service.ts'
-import { getRawSettings } from '../settings/service.ts'
+import { getRawSettings, defaultQuotas } from '../settings/service.ts'
 import { createModel } from '../models/operations.ts'
 import { getUsage, getOwnerUsage, recordUsage } from '../usage/service.ts'
 import { checkQuota, computeCost } from '../usage/operations.ts'
@@ -24,7 +24,7 @@ interface SummaryRequest {
 }
 
 function getSummaryPricing (settings: Settings) {
-  const source = settings.models.summarizer?.model ? settings.models.summarizer : settings.models.assistant
+  const source = settings.models?.summarizer?.model ? settings.models.summarizer : settings.models?.assistant
   return {
     modelConfig: source?.model,
     inputPricePerMillion: source?.inputPricePerMillion ?? 0,
@@ -62,7 +62,7 @@ router.post('/:type/:id', async (req, res, next) => {
     }
 
     // Permission check via role-based quotas
-    const quotas = settings.quotas ?? {}
+    const quotas = settings.quotas ?? defaultQuotas
 
     let trackPerUser: boolean
     let usageUserId: string | undefined
@@ -87,7 +87,7 @@ router.post('/:type/:id', async (req, res, next) => {
     }
 
     // Quota enforcement (same pattern as gateway)
-    const accountLimits = settings.quotas.global
+    const accountLimits = quotas.global
 
     if (!accountLimits.unlimited && accountLimits.monthlyLimit) {
       const accountUsage = await getOwnerUsage(owner)

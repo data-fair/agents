@@ -90,8 +90,8 @@ export type SettingsPut = {
     department?: string;
   };
   providers: AIProviders;
-  models: Models;
-  quotas: RoleQuotas;
+  models?: Models;
+  quotas?: RoleQuotas;
 }
 export type OpenAI = {
   type: ProviderType;

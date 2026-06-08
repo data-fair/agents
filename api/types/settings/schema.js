@@ -74,7 +74,7 @@ export default {
   },
   type: 'object',
   additionalProperties: false,
-  required: ['owner', 'providers', 'models', 'quotas'],
+  required: ['owner', 'providers'],
   properties: {
     createdAt: {
       type: 'string',
