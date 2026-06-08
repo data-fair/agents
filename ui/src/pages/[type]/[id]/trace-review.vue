@@ -127,6 +127,7 @@ fr:
   storedConversations: Conversations stockées
   requests: "{n} requête | {n} requêtes"
   delete: Supprimer
+  storedError: Impossible de charger les traces enregistrées.
 en:
   trace: Trace
   upload: Upload file
@@ -136,6 +137,7 @@ en:
   storedConversations: Stored conversations
   requests: "{n} request | {n} requests"
   delete: Delete
+  storedError: Could not load stored traces.
 </i18n>
 
 <script lang="ts" setup>
@@ -198,22 +200,39 @@ const loadTrace = (raw: SessionTrace) => {
 const formatDate = (iso: string) => new Date(iso).toLocaleString()
 
 const fetchStored = async () => {
-  const res = await fetch(`${$apiPath}/traces/${accountType}/${accountId}`, { credentials: 'include' })
-  if (res.ok) stored.value = (await res.json()).results
+  try {
+    const res = await fetch(`${$apiPath}/traces/${accountType}/${accountId}`, { credentials: 'include' })
+    if (!res.ok) { loadError.value = t('storedError'); return }
+    stored.value = (await res.json()).results
+    loadError.value = ''
+  } catch {
+    loadError.value = t('storedError')
+  }
 }
 
 const loadStored = async (conversationId: string) => {
-  const res = await fetch(`${$apiPath}/traces/${accountType}/${accountId}/${conversationId}`, { credentials: 'include' })
-  if (!res.ok) return
-  const requests = (await res.json()).results
-  recorder.value = SessionRecorder.fromTrace(reconstructTrace(requests))
-  loadCount.value++
-  loadError.value = ''
+  try {
+    const res = await fetch(`${$apiPath}/traces/${accountType}/${accountId}/${conversationId}`, { credentials: 'include' })
+    if (!res.ok) { loadError.value = t('storedError'); return }
+    const requests = (await res.json()).results
+    recorder.value = SessionRecorder.fromTrace(reconstructTrace(requests))
+    loadCount.value++
+    loadError.value = ''
+  } catch {
+    loadError.value = t('storedError')
+  }
 }
 
 const deleteStored = async (conversationId: string) => {
-  await fetch(`${$apiPath}/traces/${accountType}/${accountId}/${conversationId}`, { method: 'DELETE', credentials: 'include' })
-  await fetchStored()
+  // A trace currently viewed in `recorder` stays loaded after its conversation is deleted — intentional,
+  // so the admin can still read what they were looking at.
+  try {
+    const res = await fetch(`${$apiPath}/traces/${accountType}/${accountId}/${conversationId}`, { method: 'DELETE', credentials: 'include' })
+    if (!res.ok) { loadError.value = t('storedError'); return }
+    await fetchStored()
+  } catch {
+    loadError.value = t('storedError')
+  }
 }
 
 onMounted(() => {
