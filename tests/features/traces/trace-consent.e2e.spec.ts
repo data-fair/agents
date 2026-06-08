@@ -64,8 +64,8 @@ test.describe('Trace consent sheet', () => {
     // Click Accept
     await page.getByRole('button', { name: 'Accept' }).click()
 
-    // Sheet should disappear
-    await expect(page.getByText('This assistant can store your conversation on the server so an administrator can review it.')).not.toBeVisible()
+    // Sheet must disappear immediately (proves the reactive consent write hides the sheet)
+    await expect(page.getByText('This assistant can store your conversation on the server so an administrator can review it.')).toBeHidden()
 
     // Reload the page — cookie should be set, sheet should NOT reappear
     await page.reload()

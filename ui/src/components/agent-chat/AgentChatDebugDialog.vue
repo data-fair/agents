@@ -170,12 +170,12 @@
             <div class="pa-3">
               <v-switch
                 v-if="traceStorageAvailable"
-                :model-value="consent === 'yes'"
+                :model-value="consentRef === 'yes'"
                 :label="t('storeTraces')"
                 color="primary"
                 density="compact"
                 hide-details
-                @update:model-value="(v: boolean | null) => { const val = v ? 'yes' : 'no'; writeConsent(val); consent = val }"
+                @update:model-value="(v: boolean | null) => writeConsent(v ? 'yes' : 'no')"
               />
               <v-switch
                 :model-value="toolExploration"
@@ -244,7 +244,7 @@ import { mdiClose, mdiChartBar, mdiDownload, mdiOpenInNew } from '@mdi/js'
 import type { TraceOverviewEntry, SessionRecorder } from '~/traces/session-recorder'
 import type { DebugToolsPartition } from '~/composables/use-agent-chat'
 import { writeHandoff, downloadTrace } from '~/traces/trace-handoff'
-import { traceStorageAvailable, readConsent, writeConsent } from '~/traces/trace-consent'
+import { traceStorageAvailable, consentRef, writeConsent } from '~/traces/trace-consent'
 import TraceView from './TraceView.vue'
 
 const props = defineProps<{
@@ -270,7 +270,6 @@ const { t } = useI18n()
 const router = useRouter()
 
 const activeDebugTab = ref('systemPrompt')
-const consent = ref(readConsent())
 const totalToolCount = computed(() => {
   const p = props.debugToolsPartition
   return p.mainTools.length + p.subAgents.reduce((sum, sa) => sum + sa.tools.length, 0)

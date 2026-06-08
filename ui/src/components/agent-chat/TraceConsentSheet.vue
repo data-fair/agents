@@ -1,6 +1,6 @@
 <template>
   <v-bottom-sheet
-    v-model="show"
+    :model-value="show"
     :max-width="600"
     persistent
     inset
@@ -45,18 +45,14 @@ fr:
 </i18n>
 
 <script lang="ts" setup>
-import { ref, computed } from 'vue'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { traceStorageAvailable, readConsent, writeConsent, type Consent } from '~/traces/trace-consent'
+import { traceStorageAvailable, consentRef, writeConsent, type Consent } from '~/traces/trace-consent'
 
 const { t } = useI18n()
-const dismissed = ref(false)
-const choice = ref(readConsent())
-const show = computed(() => traceStorageAvailable.value && choice.value === undefined && !dismissed.value)
+const show = computed(() => traceStorageAvailable.value && consentRef.value === undefined)
 
 const choose = (value: Consent) => {
   writeConsent(value)
-  choice.value = value
-  dismissed.value = true
 }
 </script>
