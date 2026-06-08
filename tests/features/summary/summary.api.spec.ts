@@ -172,7 +172,7 @@ test.describe('Summary API', () => {
     await admin.put('/api/settings/user/test-standalone1', anonSettings(anonQuotas))
     const token = await getAnonymousActionToken()
     const anon = axios()
-    const res = await anon.post('/api/summary/user/test-standalone1', { content: 'Some content to summarize' }, { headers: { 'x-anonymous-token': token } })
+    const res = await anon.post('/api/summary/user/test-standalone1', { content: 'Some content to summarize' }, { headers: { 'x-anonymous-token': token, 'x-forwarded-for': '203.0.113.7' } })
     assert.equal(res.status, 200)
     assert.ok(res.data.summary)
   })

@@ -223,6 +223,8 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
   const anonGatewayUrl = `http://localhost:${process.env.DEV_API_PORT}/api/gateway/user/test-standalone1/v1/chat/completions`
   const anonQuotas = { ...defaultQuotas, anonymous: { unlimited: false, monthlyLimit: 100 } }
   const anonBody = { model: 'assistant', messages: [{ role: 'user', content: 'hello' }] }
+  // reqIp requires the reverse-proxy's X-Forwarded-For header; the tests bypass nginx so we set it ourselves
+  const anonForwardedFor = { 'x-forwarded-for': '203.0.113.7' }
 
   test('untrusted pool cap blocks an anonymous request even when its per-IP quota is not reached', async () => {
     // generous per-IP anonymous quota, but a tight shared pool: monthly=4 → daily=1
@@ -242,7 +244,7 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
     })
 
     const token = await getAnonymousActionToken()
-    const res = await anonymousAx.post(anonGatewayUrl, anonBody, { headers: { 'x-anonymous-token': token } })
+    const res = await anonymousAx.post(anonGatewayUrl, anonBody, { headers: { 'x-anonymous-token': token, ...anonForwardedFor } })
       .catch((err: any) => err.response ?? err)
     assert.equal(res.status, 429)
     assert.equal(res.data.error.message, 'Daily cost quota exceeded')
@@ -252,13 +254,13 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
 
   test('anonymous request without token is rejected', async () => {
     await admin.put('/api/settings/user/test-standalone1', { ...settingsData, quotas: anonQuotas })
-    const res = await anonymousAx.post(anonGatewayUrl, anonBody).catch((err: any) => err.response ?? err)
+    const res = await anonymousAx.post(anonGatewayUrl, anonBody, { headers: { ...anonForwardedFor } }).catch((err: any) => err.response ?? err)
     assert.equal(res.status, 401)
   })
 
   test('anonymous request with invalid token is rejected', async () => {
     await admin.put('/api/settings/user/test-standalone1', { ...settingsData, quotas: anonQuotas })
-    const res = await anonymousAx.post(anonGatewayUrl, anonBody, { headers: { 'x-anonymous-token': 'not-a-real-token' } })
+    const res = await anonymousAx.post(anonGatewayUrl, anonBody, { headers: { 'x-anonymous-token': 'not-a-real-token', ...anonForwardedFor } })
       .catch((err: any) => err.response ?? err)
     assert.equal(res.status, 401)
   })
@@ -266,7 +268,7 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
   test('anonymous request with valid token succeeds', async () => {
     await admin.put('/api/settings/user/test-standalone1', { ...settingsData, quotas: anonQuotas })
     const token = await getAnonymousActionToken()
-    const res = await anonymousAx.post(anonGatewayUrl, anonBody, { headers: { 'x-anonymous-token': token } })
+    const res = await anonymousAx.post(anonGatewayUrl, anonBody, { headers: { 'x-anonymous-token': token, ...anonForwardedFor } })
     assert.equal(res.status, 200)
     assert.equal(res.data.choices[0].message.content, 'world')
   })

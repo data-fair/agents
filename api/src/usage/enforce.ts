@@ -12,7 +12,7 @@
 import crypto from 'node:crypto'
 import type { Request } from 'express'
 import type { AccountKeys } from '@data-fair/lib-express'
-import { reqIp as _reqIp } from '@data-fair/lib-express/req-origin.js'
+import { reqIp } from '@data-fair/lib-express/req-origin.js'
 import type { Settings } from '#types'
 import { assertCanUseModel, assertRoleQuota, getEffectiveRole, type EffectiveRole } from '../auth.ts'
 import { assertAnonymousActionToken } from '../anonymous-token/service.ts'
@@ -23,10 +23,6 @@ type Quotas = Settings['quotas']
 
 // sentinel userId for the aggregate anonymous + external usage record
 export const UNTRUSTED_POOL_ID = 'pool:untrusted'
-
-export function safeReqIp (req: Request): string {
-  try { return _reqIp(req) } catch { return req.ip || '127.0.0.1' }
-}
 
 export interface UsageIdentity {
   trackPerUser: boolean
@@ -47,7 +43,7 @@ export async function resolveUsageIdentity (req: Request, owner: AccountKeys, qu
     // Anonymous path: per-IP tracking, requires a signed anonymous-action token
     assertRoleQuota('anonymous', quotas)
     await assertAnonymousActionToken(req)
-    const ipHash = crypto.createHash('sha256').update(safeReqIp(req)).digest('hex').slice(0, 16)
+    const ipHash = crypto.createHash('sha256').update(reqIp(req)).digest('hex').slice(0, 16)
     return { trackPerUser: true, usageUserId: `anon:${ipHash}`, role: 'anonymous', isUntrusted: true, poolId: UNTRUSTED_POOL_ID }
   }
 
