@@ -543,6 +543,10 @@ export function useAgentChat (options: UseAgentChatOptions) {
         })
 
         const displayName = name.replace(/^subagent_/, '')
+        // Colons are the field separator in the sub-agent trace ctx
+        // (sub:<name>:<index>:<uid>); sanitize so a colon in the name can't
+        // misalign the server-side parseContextId fields.
+        const ctxName = displayName.replace(/:/g, '_')
 
         mainLLMTools[name] = tool({
           description: (entry.tool as any).description || '',
@@ -596,12 +600,12 @@ export function useAgentChat (options: UseAgentChatOptions) {
 
             // First call: single prompt. Subsequent calls: pass accumulated conversation history.
             const subResult = priorMessages.length === 0
-              ? await subAgent.stream({ prompt: args.task, abortSignal, onStepFinish, ...(recorder ? { headers: traceHeaders(`sub:${displayName}:${callIndex}:${parentToolCallId}`) } : {}) })
+              ? await subAgent.stream({ prompt: args.task, abortSignal, onStepFinish, ...(recorder ? { headers: traceHeaders(`sub:${ctxName}:${callIndex}:${parentToolCallId}`) } : {}) })
               : await subAgent.stream({
                 messages: [...priorMessages, { role: 'user' as const, content: args.task }],
                 abortSignal,
                 onStepFinish,
-                ...(recorder ? { headers: traceHeaders(`sub:${displayName}:${callIndex}:${parentToolCallId}`) } : {})
+                ...(recorder ? { headers: traceHeaders(`sub:${ctxName}:${callIndex}:${parentToolCallId}`) } : {})
               })
 
             // Yield intermediate UIMessages as preliminary results (streaming progress)
