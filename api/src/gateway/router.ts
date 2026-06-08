@@ -263,6 +263,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
       try {
         let streamedText = ''
         let ttfc: number | undefined
+        const streamedToolCalls = new Map<string, { id: string, name: string, arguments: string }>()
         for await (const part of result.fullStream) {
           if (part.type === 'text-delta') {
             streamedText += part.text
@@ -275,6 +276,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
               choices: [{ index: 0, delta: { content: part.text }, finish_reason: null }]
             })}\n\n`)
           } else if (part.type === 'tool-input-start') {
+            streamedToolCalls.set(part.id, { id: part.id, name: part.toolName, arguments: '' })
             res.write(`data: ${JSON.stringify({
               id: completionId,
               object: 'chat.completion.chunk',
@@ -294,6 +296,8 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
               }]
             })}\n\n`)
           } else if (part.type === 'tool-input-delta') {
+            const entry = streamedToolCalls.get(part.id)
+            if (entry) entry.arguments += part.delta
             res.write(`data: ${JSON.stringify({
               id: completionId,
               object: 'chat.completion.chunk',
@@ -328,9 +332,8 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
               usage: buildUsage(part.totalUsage)
             })}\n\n`)
 
-            const finalToolCalls = (await result.toolCalls).map((tc: { toolCallId: string, toolName: string, input?: unknown }) => ({ id: tc.toolCallId, name: tc.toolName, arguments: JSON.stringify(tc.input ?? {}) }))
             recordTrace(
-              { content: streamedText, toolCalls: finalToolCalls, finishReason: mapFinishReason(part.finishReason as FinishReason) },
+              { content: streamedText, toolCalls: [...streamedToolCalls.values()], finishReason: mapFinishReason(part.finishReason as FinishReason) },
               { inputTokens, outputTokens, cacheReadTokens: part.totalUsage?.inputTokenDetails?.cacheReadTokens, cacheWriteTokens: part.totalUsage?.inputTokenDetails?.cacheWriteTokens },
               ttfc
             )
