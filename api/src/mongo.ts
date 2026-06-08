@@ -1,5 +1,6 @@
 import type { Settings } from '#types/settings/index.ts'
 import type { Usage } from './usage/service.ts'
+import type { TraceRequest } from './traces/types.ts'
 
 import mongoLib from '@data-fair/lib-node/mongo.js'
 import config from '#config'
@@ -21,6 +22,10 @@ export class AgentsMongo {
     return mongoLib.db.collection<Usage>('usage')
   }
 
+  get traceRequests () {
+    return mongoLib.db.collection<TraceRequest>('trace-requests')
+  }
+
   async connect () {
     await mongoLib.connect(config.mongoUrl)
   }
@@ -34,6 +39,11 @@ export class AgentsMongo {
       },
       usage: {
         'main-keys': [{ 'owner.type': 1, 'owner.id': 1, userId: 1, period: 1 }, { unique: true }]
+      },
+      'trace-requests': {
+        'list-keys': [{ 'owner.type': 1, 'owner.id': 1, 'conversation.id': 1, createdAt: 1 }, {}],
+        'recent-keys': [{ 'owner.type': 1, 'owner.id': 1, createdAt: -1 }, {}],
+        'ttl-keys': [{ expiresAt: 1 }, { expireAfterSeconds: 0 }]
       }
     })
   }
