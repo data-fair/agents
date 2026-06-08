@@ -79,7 +79,11 @@ test.describe('reconstructTrace (unit)', () => {
     const calls = trace.turns[0].steps.flatMap(s => s.toolCalls)
     const tc = calls.find(c => c.id === 'tc1')
     assert.ok(tc, 'tool call reconstructed')
-    assert.equal(JSON.parse(tc!.output as string).hits ?? (tc!.output as any).hits, 3)
+    // output is paired from the tool-role message; reconstruction parses JSON
+    // string content into an object, but accept either form for robustness.
+    const out: any = tc!.output
+    const hits = typeof out === 'string' ? JSON.parse(out).hits : out.hits
+    assert.equal(hits, 3)
   })
 
   test('groups sub-agent requests under their agent name', () => {

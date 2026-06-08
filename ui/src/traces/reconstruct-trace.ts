@@ -46,7 +46,10 @@ function buildToolResultIndex (requests: StoredTraceRequest[]): Map<string, any>
     const messages = Array.isArray(r.request.body?.messages) ? r.request.body.messages : []
     for (const m of messages) {
       if (m.role === 'tool' && m.tool_call_id) {
-        if (!map.has(m.tool_call_id)) map.set(m.tool_call_id, m.content)
+        // Parse JSON string content back into an object so the viewer's
+        // JSON.stringify(output) preview is not double-quoted; safeJson keeps
+        // genuinely non-JSON string outputs as-is (matches live-recorder output).
+        if (!map.has(m.tool_call_id)) map.set(m.tool_call_id, safeJson(m.content))
       }
     }
   }
