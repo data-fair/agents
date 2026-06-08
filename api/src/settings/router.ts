@@ -25,7 +25,7 @@ const defaultQuotas = {
   anonymous: { unlimited: false, monthlyLimit: 0 }
 }
 
-const emptySettings = (owner: AccountKeys): Settings => ({ owner, providers: [], models: {} as unknown as Settings['models'], quotas: defaultQuotas })
+const emptySettings = (owner: AccountKeys): Settings => ({ owner, providers: [], models: {} as unknown as Settings['models'], quotas: defaultQuotas, storeTraces: false })
 
 router.get('/:type/:id', async (req, res, next) => {
   const session = reqSessionAuthenticated(req)

@@ -336,12 +336,22 @@ test.describe('Settings API', () => {
   test('persists the storeTraces flag', async () => {
     const base = {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock', enabled: true }],
-      models: { assistant: { model: { id: 'mock-model', name: 'Mock', provider: { type: 'mock', name: 'Mock', id: 'mock-provider' } }, inputPricePerMillion: 0, outputPricePerMillion: 0 } },
-      quotas: { global: { unlimited: true, monthlyLimit: 0 }, admin: { unlimited: true, monthlyLimit: 0 }, contrib: { unlimited: false, monthlyLimit: 0 }, user: { unlimited: false, monthlyLimit: 0 }, external: { unlimited: false, monthlyLimit: 0 }, anonymous: { unlimited: false, monthlyLimit: 0 } },
+      models: { assistant: { model: mockModel } },
+      quotas: defaultQuotas,
       storeTraces: true
     }
     await admin.put('/api/settings/user/test-standalone1', base)
     const res = await admin.get('/api/settings/user/test-standalone1')
     assert.equal(res.data.storeTraces, true)
+
+    // verify the default: omitting storeTraces should persist false
+    const withoutFlag = {
+      providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock', enabled: true }],
+      models: { assistant: { model: mockModel } },
+      quotas: defaultQuotas
+    }
+    await admin.put('/api/settings/user/test-standalone1', withoutFlag)
+    const res2 = await admin.get('/api/settings/user/test-standalone1')
+    assert.equal(res2.data.storeTraces, false)
   })
 })
