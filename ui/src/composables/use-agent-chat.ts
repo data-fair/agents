@@ -11,6 +11,7 @@ import { useSession } from '@data-fair/lib-vue/session.js'
 import { getAnonymousToken, resetAnonymousToken } from '~/composables/use-anonymous-token'
 import { extractErrorMessage } from '~/utils/error'
 import { parseGatewayCompletion } from '~/traces/gateway-response'
+import { readConsent, traceStorageAvailable } from '~/traces/trace-consent'
 import { buildModerationSystemPrompt, parseModerationVerdict, DEFAULT_REFUSAL, type ModerationVerdict } from '~/composables/moderation'
 import Debug from 'debug'
 
@@ -116,6 +117,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
 
   const { recorder, localTools, modelName } = options
   const chatModelName = modelName ?? 'assistant'
+  const conversationId = crypto.randomUUID()
 
   const messages = ref<ChatMessage[]>(options.initialMessages ?? [])
 
@@ -235,6 +237,15 @@ export function useAgentChat (options: UseAgentChatOptions) {
     try { return new Headers(headers).get('x-trace-ctx') ?? 'unknown' } catch { return 'unknown' }
   }
 
+  function traceHeaders (ctx: string): Record<string, string> {
+    const consent = readConsent()
+    return {
+      'x-trace-ctx': ctx,
+      'x-trace-conversation': conversationId,
+      ...(consent ? { 'x-trace-consent': consent } : {})
+    }
+  }
+
   async function capturePhysicalResponse (
     response: Response,
     ctx: { requestBody: any; bodyChars: number; contextId: string; timestamp: Date; startMs: number }
@@ -288,6 +299,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
     const timestamp = new Date()
     const startMs = performance.now()
     const res = await fetch(input as any, init)
+    if (res.headers.get('x-trace-storage') === 'available') traceStorageAvailable.value = true
     // eslint-disable-next-line no-void
     void capturePhysicalResponse(res.clone(), { requestBody, bodyChars: init.body.length, contextId, timestamp, startMs })
     return res
@@ -449,7 +461,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
         model: provider.chat('summarizer'),
         system: prompt,
         messages: [{ role: 'user' as const, content: JSON.stringify(historyToCompact) }],
-        ...(recorder ? { headers: { 'x-trace-ctx': compactionCtxId } } : {})
+        ...(recorder ? { headers: traceHeaders(compactionCtxId) } : {})
       })
 
       const originalHistory = history
@@ -478,7 +490,6 @@ export function useAgentChat (options: UseAgentChatOptions) {
 
     status.value = 'streaming'
     const turnId = turnSeq++
-    const turnCtxId = `main:${turnId}`
     error.value = null
     messages.value.push({ role: 'user', content: msg })
 
@@ -553,8 +564,6 @@ export function useAgentChat (options: UseAgentChatOptions) {
               ti => ti.toolName === name && ti.state === 'pending'
             )?.toolCallId ?? name
 
-            const subCtxId = `sub:${parentToolCallId}`
-
             // Record telemetry
             if (recorder) {
               const subToolSnapshots: ToolSnapshot[] = Object.entries(subAgentTools).map(([n, t]) => ({
@@ -587,12 +596,12 @@ export function useAgentChat (options: UseAgentChatOptions) {
 
             // First call: single prompt. Subsequent calls: pass accumulated conversation history.
             const subResult = priorMessages.length === 0
-              ? await subAgent.stream({ prompt: args.task, abortSignal, onStepFinish, ...(recorder ? { headers: { 'x-trace-ctx': subCtxId } } : {}) })
+              ? await subAgent.stream({ prompt: args.task, abortSignal, onStepFinish, ...(recorder ? { headers: traceHeaders(`sub:${displayName}:${callIndex}:${parentToolCallId}`) } : {}) })
               : await subAgent.stream({
                 messages: [...priorMessages, { role: 'user' as const, content: args.task }],
                 abortSignal,
                 onStepFinish,
-                ...(recorder ? { headers: { 'x-trace-ctx': subCtxId } } : {})
+                ...(recorder ? { headers: traceHeaders(`sub:${displayName}:${callIndex}:${parentToolCallId}`) } : {})
               })
 
             // Yield intermediate UIMessages as preliminary results (streaming progress)
@@ -648,7 +657,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
           plainTools,
           promote: (names) => names.forEach(n => promotedTools.add(n)),
           summarizer: provider.chat('summarizer'),
-          ...(recorder ? { headers: { 'x-trace-ctx': turnCtxId } } : {})
+          ...(recorder ? { headers: traceHeaders(`turn:${turnId}`) } : {})
         })
 
         // Prune announced/promoted sets in place to the tools still live, so a tool
@@ -685,7 +694,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
         stopWhen: stepCountIs(10),
         abortSignal: abortController.signal,
         ...(prepareStep ? { prepareStep } : {}),
-        ...(recorder ? { headers: { 'x-trace-ctx': turnCtxId } } : {}),
+        ...(recorder ? { headers: traceHeaders(`turn:${turnId}`) } : {}),
         onError: ({ error: err }) => {
           streamError = err
         }
