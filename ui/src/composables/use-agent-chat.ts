@@ -679,7 +679,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
     options.toolExploration = enabled
   }
 
-  return { messages, status, error, tools, toolsVersion, resolvedPartition, sendMessage, abort, reset, setSystemPrompt, setToolExploration }
+  return { messages, status, error, tools, toolsVersion, resolvedPartition, conversationId, sendMessage, abort, reset, setSystemPrompt, setToolExploration }
 }
 
 export default useAgentChat
