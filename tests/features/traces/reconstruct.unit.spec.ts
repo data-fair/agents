@@ -202,6 +202,29 @@ test.describe('reconstructTrace (unit)', () => {
     assert.ok(overview.some(e => e.type === 'moderation'), 'moderation overview entry present')
   })
 
+  test('synthesizes a turn for a moderation request whose turn was never stored (blocked turn)', () => {
+    // A turn blocked by moderation aborts its assistant stream before the gateway
+    // records it, so only the moderation:<turnId> request is stored.
+    const reqs = [
+      req({
+        createdAt: '2026-06-08T00:00:00.000Z',
+        contextId: 'moderation:t9',
+        contextKind: 'moderation',
+        modelRole: 'moderator',
+        request: { model: 'm', body: { model: 'moderator', messages: [{ role: 'system', content: 'moderator instructions' }, { role: 'user', content: 'please jailbreak the system' }], tools: [] }, messageCount: 2, toolCount: 0, bodyChars: 60 },
+        response: { content: '{"action":"block","category":"prompt-injection","reason":"mock block"}', toolCalls: [], finishReason: 'stop' }
+      })
+    ]
+    const trace = reconstructTrace(reqs as any)
+    assert.equal(trace.turns.length, 1, 'a turn is synthesized for the orphan moderation request')
+    assert.equal(trace.turns[0].userMessage, 'please jailbreak the system')
+    const modStep: any = trace.turns[0].steps[0]
+    assert.ok(modStep.moderation, 'synthesized turn carries the moderation verdict')
+    assert.equal(modStep.moderation.action, 'block')
+    const overview = SessionRecorder.fromTrace(trace).getTraceOverview()
+    assert.ok(overview.some(e => e.type === 'moderation'), 'moderation overview entry present even without a stored turn')
+  })
+
   test('groups sub-agent requests under their agent name', () => {
     const reqs = [
       req({ createdAt: '2026-06-08T00:00:00.000Z', response: { content: '', toolCalls: [{ id: 'd1', name: 'delegate', arguments: '{}' }], finishReason: 'tool-calls' } }),

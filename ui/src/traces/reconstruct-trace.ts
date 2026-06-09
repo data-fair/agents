@@ -59,6 +59,29 @@ function buildToolResultIndex (requests: StoredTraceRequest[]): Map<string, any>
 
 function safeJson (s: string): any { try { return JSON.parse(s) } catch { return s } }
 
+// A compaction request (ctx `compaction:<turnId>`) → a step carrying the compaction
+// summary. compactedCharCount: the post-compaction history size isn't stored, so we use
+// the summary length as a close proxy (the summary replaced the history).
+function compactionStepOf (comp: StoredTraceRequest): StepTrace {
+  const step: StepTrace = { timestamp: ts(comp.createdAt), messages: [], toolCalls: [] }
+  ;(step as any).compaction = {
+    originalMessages: Array.isArray(comp.request.body?.messages) ? comp.request.body.messages : [],
+    summary: comp.response.content,
+    originalCharCount: comp.request.bodyChars,
+    compactedCharCount: comp.response.content.length
+  }
+  return step
+}
+
+// A moderation request (ctx `moderation:<turnId>`) → a step carrying the verdict,
+// re-parsed from the stored moderator response.
+function moderationStepOf (mod: StoredTraceRequest): StepTrace {
+  const verdict = parseModerationVerdict(mod.response.content)
+  const step: StepTrace = { timestamp: ts(mod.createdAt), messages: [], toolCalls: [] }
+  ;(step as any).moderation = { action: verdict.action, category: verdict.category, reason: verdict.reason, skipped: verdict.skipped }
+  return step
+}
+
 export function reconstructTrace (requests: StoredTraceRequest[]): SessionTrace {
   const sorted = [...requests].sort((a, b) => ts(a.createdAt).getTime() - ts(b.createdAt).getTime())
 
@@ -198,32 +221,30 @@ export function reconstructTrace (requests: StoredTraceRequest[]): SessionTrace 
     const turnId = uid.replace(/^turn:/, '')
     const prefix: StepTrace[] = []
     const comp = compactionByTurn.get(turnId)
-    if (comp) {
-      const compactionStep: StepTrace = { timestamp: ts(comp.createdAt), messages: [], toolCalls: [] }
-      // compactedCharCount: the post-compaction history size isn't stored, so we use the
-      // summary length as a close proxy (the summary is what replaced the history).
-      ;(compactionStep as any).compaction = {
-        originalMessages: Array.isArray(comp.request.body?.messages) ? comp.request.body.messages : [],
-        summary: comp.response.content,
-        originalCharCount: comp.request.bodyChars,
-        compactedCharCount: comp.response.content.length
-      }
-      prefix.push(compactionStep)
-    }
+    if (comp) prefix.push(compactionStepOf(comp))
     const mod = moderationByTurn.get(turnId)
-    if (mod) {
-      const verdict = parseModerationVerdict(mod.response.content)
-      const moderationStep: StepTrace = { timestamp: ts(mod.createdAt), messages: [], toolCalls: [] }
-      ;(moderationStep as any).moderation = {
-        action: verdict.action,
-        category: verdict.category,
-        reason: verdict.reason,
-        skipped: verdict.skipped
-      }
-      prefix.push(moderationStep)
-    }
+    if (mod) prefix.push(moderationStepOf(mod))
     return { userMessage: lastUserMessage(reqs[0].request.body), timestamp: ts(reqs[0].createdAt), steps: [...prefix, ...steps] }
   })
+
+  // Synthesize turns for compaction/moderation whose main turn request was never stored.
+  // A turn blocked by moderation aborts its assistant stream before the gateway records
+  // it, so only the moderation request survives — still surface it as its own turn.
+  const builtTurnIds = new Set(uidOrder.map(uid => uid.replace(/^turn:/, '')))
+  const orphanIds = new Set<string>()
+  for (const k of compactionByTurn.keys()) if (!builtTurnIds.has(k)) orphanIds.add(k)
+  for (const k of moderationByTurn.keys()) if (!builtTurnIds.has(k)) orphanIds.add(k)
+  for (const turnId of orphanIds) {
+    const comp = compactionByTurn.get(turnId)
+    const mod = moderationByTurn.get(turnId)
+    const steps: StepTrace[] = []
+    if (comp) steps.push(compactionStepOf(comp))
+    if (mod) steps.push(moderationStepOf(mod))
+    const src = (mod ?? comp)!
+    turns.push({ userMessage: lastUserMessage(src.request.body), timestamp: ts(src.createdAt), steps })
+  }
+  // Keep turns chronological after appending any synthesized ones.
+  turns.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
 
   return { systemPrompt, toolSnapshots, toolChanges, turns, physicalRequests }
 }
