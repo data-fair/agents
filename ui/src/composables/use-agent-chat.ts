@@ -461,7 +461,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
         model: provider.chat('summarizer'),
         system: prompt,
         messages: [{ role: 'user' as const, content: JSON.stringify(historyToCompact) }],
-        ...(recorder ? { headers: traceHeaders(compactionCtxId) } : {})
+        headers: traceHeaders(compactionCtxId)
       })
 
       const originalHistory = history
@@ -600,13 +600,15 @@ export function useAgentChat (options: UseAgentChatOptions) {
 
             // First call: single prompt. Subsequent calls: pass accumulated conversation history.
             const subResult = priorMessages.length === 0
-              ? await subAgent.stream({ prompt: args.task, abortSignal, onStepFinish, ...(recorder ? { headers: traceHeaders(`sub:${ctxName}:${callIndex}:${parentToolCallId}`) } : {}) })
+              // `headers` is a construction-time setting in the AI SDK's agent types, not a
+              // call-time param, so we widen only for it while keeping the rest type-checked.
+              ? await subAgent.stream({ prompt: args.task, abortSignal, onStepFinish, headers: traceHeaders(`sub:${ctxName}:${callIndex}:${parentToolCallId}`) } as Parameters<typeof subAgent.stream>[0] & { headers: Record<string, string> })
               : await subAgent.stream({
                 messages: [...priorMessages, { role: 'user' as const, content: args.task }],
                 abortSignal,
                 onStepFinish,
-                ...(recorder ? { headers: traceHeaders(`sub:${ctxName}:${callIndex}:${parentToolCallId}`) } : {})
-              })
+                headers: traceHeaders(`sub:${ctxName}:${callIndex}:${parentToolCallId}`)
+              } as Parameters<typeof subAgent.stream>[0] & { headers: Record<string, string> })
 
             // Yield intermediate UIMessages as preliminary results (streaming progress)
             for await (const uiMessage of readUIMessageStream({ stream: subResult.toUIMessageStream() })) {
@@ -661,7 +663,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
           plainTools,
           promote: (names) => names.forEach(n => promotedTools.add(n)),
           summarizer: provider.chat('summarizer'),
-          ...(recorder ? { headers: traceHeaders(`turn:${turnId}`) } : {})
+          headers: traceHeaders(`turn:${turnId}`)
         })
 
         // Prune announced/promoted sets in place to the tools still live, so a tool
@@ -698,7 +700,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
         stopWhen: stepCountIs(10),
         abortSignal: abortController.signal,
         ...(prepareStep ? { prepareStep } : {}),
-        ...(recorder ? { headers: traceHeaders(`turn:${turnId}`) } : {}),
+        headers: traceHeaders(`turn:${turnId}`),
         onError: ({ error: err }) => {
           streamError = err
         }
