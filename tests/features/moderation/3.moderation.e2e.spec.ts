@@ -63,7 +63,11 @@ test.describe('Moderation E2E', () => {
     await expect(frame.getByText("This request can't be processed as it falls outside what this assistant is meant to help with.")).toBeVisible({ timeout: 15000 })
   })
 
-  test('records the moderation decision in the trace with a dedicated renderer', async ({ page, goToWithAuth }) => {
+  // SKIPPED: moderation verdicts were only captured by the in-browser recorder, which was
+  // removed. They are not stored server-side, so they can't appear in the /traces/:id/review
+  // page. Re-enable if moderation decisions are persisted server-side and reconstructed.
+  // (Tracked decision: keep moderation-in-trace out of scope for now.)
+  test.skip('records the moderation decision in the trace with a dedicated renderer', async ({ page, goToWithAuth }) => {
     // Use the direct (non-iframe) dev chat so the Debug dialog is on the main page.
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
     await page.evaluate(() => sessionStorage.setItem('agent-chat-trace', '1'))
