@@ -89,23 +89,22 @@ test.describe('History Compaction', () => {
     // Open the per-trace review page.
     await goToWithAuth(`/agents/traces/${conversationId}/review`, 'test-standalone1')
 
-    // The compaction round-trip is recorded against the summarizer role. In the
-    // reconstructed trace it surfaces as a "physical-request" entry whose label is
-    // the model role "summarizer". The summarizer is invoked ONLY by compaction in
-    // this scenario, so the presence of a summarizer physical-request entry proves
-    // compaction triggered and was stored. (reconstruct-trace.ts drops the raw
-    // compaction-kind request from the turn structure and only re-exposes it via
-    // physicalRequests, so there is no dedicated "compaction" chip / summary detail
-    // to assert on — those existed only in the removed in-browser recorder.)
+    // reconstruct-trace rebuilds a dedicated "compaction" trace entry from the stored
+    // summarizer round-trip, so the review page shows a compaction chip with the
+    // summary + char-count details (same as the old in-browser recorder).
     const tracePanels = page.locator('.agent-chat__trace-panels')
     await expect(tracePanels).toBeVisible({ timeout: 10000 })
 
-    const compactionEntry = tracePanels.locator('.v-expansion-panel', { hasText: 'summarizer' }).first()
+    const compactionEntry = tracePanels.locator('.v-expansion-panel', { hasText: 'compaction' }).first()
     await expect(compactionEntry).toBeVisible({ timeout: 10000 })
 
-    // Expand the entry — detail auto-loads (request + response panes).
+    // Expand the entry — detail auto-loads and contains the compaction fields.
     await compactionEntry.locator('.v-expansion-panel-title').click()
     await expect(compactionEntry.locator('.agent-chat__pre').first()).toBeVisible({ timeout: 3000 })
+    const detail = await compactionEntry.locator('.agent-chat__pre').first().textContent()
+    expect(detail).toContain('summary')
+    expect(detail).toContain('originalCharCount')
+    expect(detail).toContain('compactedCharCount')
   })
 
   test('Conversation remains functional after compaction', async ({ page, goToWithAuth }) => {

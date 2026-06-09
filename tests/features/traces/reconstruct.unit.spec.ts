@@ -1,6 +1,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { reconstructTrace } from '../../../ui/src/traces/reconstruct-trace.ts'
+import { SessionRecorder } from '../../../ui/src/traces/session-recorder.ts'
 
 // minimal stored-request fixture
 const req = (over: any) => ({
@@ -137,6 +138,37 @@ test.describe('reconstructTrace (unit)', () => {
     const betaContent = betaCall!.subAgent!.steps[0].messages[0].content
     assert.equal(alphaContent, 'alpha result')
     assert.equal(betaContent, 'beta result')
+  })
+
+  test('reconstructs a compaction entry from a compaction-ctx request', () => {
+    const reqs = [
+      req({
+        createdAt: '2026-06-08T00:00:00.000Z',
+        contextId: 'compaction:t1',
+        contextKind: 'compaction',
+        modelRole: 'summarizer',
+        request: { model: 'm', body: { model: 'summarizer', messages: [{ role: 'user', content: 'a long history to summarize' }], tools: [] }, messageCount: 1, toolCount: 0, bodyChars: 500 },
+        response: { content: 'a concise summary', toolCalls: [], finishReason: 'stop' }
+      }),
+      req({
+        createdAt: '2026-06-08T00:00:01.000Z',
+        contextId: 'turn:t1',
+        contextKind: 'turn',
+        request: { model: 'm', body: { model: 'assistant', messages: [{ role: 'user', content: 'next question' }], tools: [] }, messageCount: 1, toolCount: 0, bodyChars: 40 },
+        response: { content: 'an answer', toolCalls: [], finishReason: 'stop' }
+      })
+    ]
+    const trace = reconstructTrace(reqs as any)
+    const turn = trace.turns.find(t => t.userMessage === 'next question')
+    assert.ok(turn, 'turn reconstructed')
+    const compStep: any = turn!.steps[0]
+    assert.ok(compStep.compaction, 'first step of the turn carries compaction data')
+    assert.equal(compStep.compaction.summary, 'a concise summary')
+    assert.equal(compStep.compaction.originalCharCount, 500)
+    assert.equal(compStep.compaction.compactedCharCount, 'a concise summary'.length)
+    // and it surfaces as a 'compaction' overview entry in the viewer
+    const overview = SessionRecorder.fromTrace(trace).getTraceOverview()
+    assert.ok(overview.some(e => e.type === 'compaction'), 'compaction overview entry present')
   })
 
   test('groups sub-agent requests under their agent name', () => {

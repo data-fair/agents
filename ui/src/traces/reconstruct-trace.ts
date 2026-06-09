@@ -80,6 +80,17 @@ export function reconstructTrace (requests: StoredTraceRequest[]): SessionTrace 
 
   const toolResults = buildToolResultIndex(sorted)
 
+  // Compaction requests use ctx `compaction:<turnId>` and carry the history that was
+  // summarized (request body) plus the produced summary (response). Map them by turnId
+  // so we can surface a dedicated compaction entry inside the matching `turn:<turnId>`.
+  const compactionByTurn = new Map<string, StoredTraceRequest>()
+  for (const r of sorted) {
+    if (r.contextKind === 'compaction') {
+      const turnId = r.contextId.replace(/^compaction:/, '')
+      if (!compactionByTurn.has(turnId)) compactionByTurn.set(turnId, r)
+    }
+  }
+
   const toolSnapshots: ToolSnapshot[][] = []
   const toolChanges: { timestamp: Date, tools: ToolSnapshot[] }[] = []
   let lastToolNames = ''
@@ -169,6 +180,21 @@ export function reconstructTrace (requests: StoredTraceRequest[]): SessionTrace 
         toolCalls
       }
     })
+    // If this turn was preceded by a compaction, prepend a compaction step so the
+    // overview shows it (matches the old in-browser recorder's recordCompaction).
+    const comp = compactionByTurn.get(uid.replace(/^turn:/, ''))
+    if (comp) {
+      const compactionStep: StepTrace = { timestamp: ts(comp.createdAt), messages: [], toolCalls: [] }
+      // compactedCharCount: the post-compaction history size isn't stored, so we use the
+      // summary length as a close proxy (the summary is what replaced the history).
+      ;(compactionStep as any).compaction = {
+        originalMessages: Array.isArray(comp.request.body?.messages) ? comp.request.body.messages : [],
+        summary: comp.response.content,
+        originalCharCount: comp.request.bodyChars,
+        compactedCharCount: comp.response.content.length
+      }
+      steps.unshift(compactionStep)
+    }
     return { userMessage: lastUserMessage(reqs[0].request.body), timestamp: ts(reqs[0].createdAt), steps }
   })
 
