@@ -24,7 +24,7 @@ Ses limites sont structurelles et doivent être comprises avant tout déploiemen
 
 ### Isolation et confidentialité des données
 
-L'iframe de chat est isolée du DOM de l'hôte par le mécanisme natif du navigateur ; toute coordination passe par des canaux explicites (`postMessage`, BroadcastChannel). Le canal de découverte d'outils est restreint à la même origine : un contexte d'une autre origine ne peut ni enregistrer d'outils ni recevoir les messages de découverte — la frontière de confiance est la *Same-Origin Policy*. Le prompt système transite par le `sessionStorage` et non par l'URL, ce qui le tient hors des journaux HTTP, de l'historique de navigation et des en-têtes `Referer`.
+L'iframe de chat est isolée du DOM de l'hôte par le mécanisme natif du navigateur, et le canal de découverte d'outils est restreint à la même origine : un contexte d'une autre origine ne peut ni enregistrer d'outils ni recevoir les messages de découverte — la frontière de confiance est la *Same-Origin Policy*. Les prompts système, qui peuvent contenir des consignes sensibles, sont transmis hors de l'URL : ils n'apparaissent donc ni dans les journaux HTTP, ni dans l'historique de navigation, ni dans les en-têtes `Referer`.
 
 ```mermaid
 flowchart LR

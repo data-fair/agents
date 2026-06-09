@@ -49,9 +49,3 @@ sequenceDiagram
     F-->>G: SSE — réponse finale
     G-->>IF: SSE — réponse relayée
 ```
-
-### Coordination de l'interface et cycle de session
-
-L'iframe et l'application hôte échangent des messages de service par `window.postMessage`, restreint à l'origine déclarée. Ces messages ne portent aucune donnée de conversation : ils signalent le statut de l'assistant (génération en cours ou inactif), un compteur de messages non lus quand l'iframe n'est pas visible, et les changements de liste d'outils.
-
-Au démarrage d'une session, l'hôte peut fournir un prompt système et un titre propres au contexte de la page. Ces paramètres ne transitent pas par l'URL : ils sont écrits dans le `sessionStorage` (partagé entre contextes de même origine), lus puis consommés par l'iframe. Les instructions sensibles restent ainsi hors des journaux HTTP, hors de l'historique de navigation et des en-têtes `Referer`, et limitées à l'onglet courant. Réinitialiser une conversation revient à effacer ce stockage et recharger l'iframe ; il n'y a aucun état serveur à purger.
