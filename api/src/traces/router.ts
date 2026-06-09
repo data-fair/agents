@@ -9,6 +9,21 @@ import { type AccountKeys, assertAccountRole, reqSessionAuthenticated } from '@d
 const router = Router()
 export default router
 
+// Fetch a stored conversation by its (globally unique) id, resolving the owning
+// account from the stored documents and authorizing against it. Registered before
+// the `/:type/:id` param route so the literal `conversation` segment wins.
+router.get('/conversation/:conversationId', async (req, res) => {
+  const session = reqSessionAuthenticated(req)
+  const results = await mongo.traceRequests
+    .find({ 'conversation.id': req.params.conversationId }, { projection: { _id: 0 } })
+    .sort({ createdAt: 1 })
+    .toArray()
+  if (!results.length) { res.status(404).send(); return }
+  const owner = results[0].owner as AccountKeys
+  assertAccountRole(session, owner, 'admin')
+  res.json({ owner: { type: owner.type, id: owner.id }, results })
+})
+
 router.get('/:type/:id', async (req, res) => {
   const session = reqSessionAuthenticated(req)
   const owner = req.params as unknown as AccountKeys

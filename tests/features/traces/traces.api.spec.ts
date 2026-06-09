@@ -118,6 +118,27 @@ test.describe('Trace storage API', () => {
     assert.equal(res.data.results[0].conversationId, 'conv-page-b', 'first result should be the newest conversation')
   })
 
+  test('fetches a trace by conversation id and returns its owner', async () => {
+    await chat(true, { 'x-trace-consent': 'yes', 'x-trace-conversation': 'conv-byid', 'x-trace-ctx': 'turn:t1' })
+    await waitForConversations()
+    const res = await admin.get('/api/traces/conversation/conv-byid')
+    assert.deepEqual(res.data.owner, { type: 'user', id: 'test-standalone1' })
+    assert.ok(res.data.results.length >= 1)
+  })
+
+  test('by-conversation is 404 for unknown id', async () => {
+    const res = await admin.get('/api/traces/conversation/does-not-exist').catch((err: any) => err.response ?? err)
+    assert.equal(res.status, 404)
+  })
+
+  test('by-conversation rejects a non-admin of the owner', async () => {
+    await chat(true, { 'x-trace-consent': 'yes', 'x-trace-conversation': 'conv-byid-2', 'x-trace-ctx': 'turn:t1' })
+    await waitForConversations()
+    const stranger = await axiosAuth('test1-user1')
+    const res = await stranger.get('/api/traces/conversation/conv-byid-2').catch((err: any) => err.response ?? err)
+    assert.equal(res.status, 403)
+  })
+
   test('GDPR per-user erasure deletes all traces for a specific user (org owner)', async () => {
     // Use organization/test1 as owner: test1-user1 is a member (not the owner), so
     // trackPerUser=true and their userId ('test1-user1') is stored in the trace document.
