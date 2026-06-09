@@ -1,6 +1,14 @@
 <template>
   <v-container
-    v-if="settings"
+    v-if="!settings && loadError"
+    data-iframe-height
+  >
+    <p class="text-error">
+      {{ loadError }}
+    </p>
+  </v-container>
+  <v-container
+    v-else-if="settings"
     data-iframe-height
   >
     <h3 class="text-title-large mb-4">
@@ -124,14 +132,20 @@ const fetchTraces = async () => {
 }
 
 const deleteTrace = async (conversationId: string) => {
-  await fetch(`${$apiPath}/traces/${accountType}/${accountId}/${conversationId}`, { method: 'DELETE', credentials: 'include' })
+  try {
+    const res = await fetch(`${$apiPath}/traces/${accountType}/${accountId}/${conversationId}`, { method: 'DELETE', credentials: 'include' })
+    if (!res.ok) { loadError.value = t('loadError'); return }
+  } catch { loadError.value = t('loadError'); return }
   await fetchTraces()
 }
 
 onMounted(async () => {
   if (!isAdmin.value) { router.replace(`/${accountType}/${accountId}/chat`); return }
-  const sRes = await fetch(`${$apiPath}/settings/${accountType}/${accountId}`, { credentials: 'include' })
-  settings.value = await sRes.json()
+  try {
+    const sRes = await fetch(`${$apiPath}/settings/${accountType}/${accountId}`, { credentials: 'include' })
+    if (!sRes.ok) { loadError.value = t('loadError'); return }
+    settings.value = await sRes.json()
+  } catch { loadError.value = t('loadError'); return }
   await fetchTraces()
 })
 </script>
