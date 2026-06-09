@@ -70,6 +70,8 @@ When e2e tests fail, follow this order:
 
 ## Code patterns
 
+Topical architecture docs (for understanding the service) live in `docs/architecture/` — one file per concern (gateway, sub-agents, mcp-tools, providers, quotas-usage, compaction, embedding, moderation, tool-exploration, tracing) plus `overview.md`. Read on a need-to-know basis.
+
 When working on this project, read the following files on a need-to-know basis to understand conventions:
 
 - API route pattern: @api/src/settings/router.ts
