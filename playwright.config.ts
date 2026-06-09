@@ -6,10 +6,7 @@ export default defineConfig({
   workers: 1, // Force Playwright to run everything one-by-one
   fullyParallel: false, // Also disable parallel test execution inside files
   forbidOnly: !!process.env.CI,
-  // Retry once even locally: the whole suite runs single-process/sequential, so the
-  // in-process dev API can occasionally stall a mock chat past a test's timeout under
-  // sustained load. These flakes pass on retry; CI already retried.
-  retries: 1,
+  retries: process.env.CI ? 1 : 0,
   reporter: 'list', // Best for agents: easy to parse in stdout
 
   use: {
