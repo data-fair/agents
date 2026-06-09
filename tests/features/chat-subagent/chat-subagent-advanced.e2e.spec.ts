@@ -74,11 +74,9 @@ test.describe('Advanced Sub-Agent Scenarios', () => {
     await admin.put('/api/settings/user/test-standalone1', settingsData)
   })
 
-  test('Subagent multi-step tool chain (get_schema → query_data → summary)', async ({ page, context, goToWithAuth }) => {
-    // Enable trace storage for this review-page test + pre-set consent so the
-    // conversation is stored server-side and the consent sheet stays hidden.
-    await admin.put('/api/settings/user/test-standalone1', { ...settingsData, storeTraces: true })
-    await context.addCookies([{ name: 'agent-chat-trace-consent', value: 'yes', domain: 'localhost', path: '/' }])
+  test('Subagent multi-step tool chain (get_schema → query_data → summary)', async ({ page, goToWithAuth }) => {
+    // Live-UI test only: the reconstructed-trace view of sub-agents is covered by
+    // "Subagent trace appears on the review page", so this one needs no trace storage.
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
     await waitForToolsReady(page, 'data_analyst (2 tools)', true)
 
@@ -103,29 +101,6 @@ test.describe('Advanced Sub-Agent Scenarios', () => {
     // The final summary text proves the full chain completed (get_schema → query_data → summary)
     // because mock-tools only returns this text after both tool results are in context
     await expect(subAgentPanel.getByText('Analysis complete')).toBeVisible({ timeout: 10000 })
-
-    // Wait for the turn to fully finish so all sub-agent requests are stored.
-    await expect(page.getByPlaceholder('Type your message...')).toBeEnabled({ timeout: 15000 })
-
-    // Verify via the stored-trace review page that the sub-agent ran and chained
-    // both tools. reconstruct-trace links the main-thread subagent_data_analyst
-    // call to the sub-agent's stored requests (key "data_analyst:0"), producing a
-    // "sub-agent-start" entry (label "data_analyst") plus per-tool "tool-call"
-    // entries whose label is "<toolName> (data_analyst)".
-    const conversationId = await pollConversationId()
-    expect(conversationId).toBeTruthy()
-
-    await goToWithAuth(`/agents/traces/${conversationId}/review`, 'test-standalone1')
-
-    const tracePanel = page.locator('.agent-chat__trace-panels')
-    await expect(tracePanel).toBeVisible({ timeout: 10000 })
-
-    // The sub-agent itself appears as a sub-agent-start entry.
-    await expect(tracePanel.locator('.v-expansion-panel', { hasText: 'sub-agent-start' }).first()).toBeVisible({ timeout: 10000 })
-
-    // Both chained tools appear as tool-call entries scoped to the sub-agent.
-    await expect(tracePanel.locator('.v-expansion-panel', { hasText: 'get_schema (data_analyst)' }).first()).toBeVisible({ timeout: 10000 })
-    await expect(tracePanel.locator('.v-expansion-panel', { hasText: 'query_data (data_analyst)' }).first()).toBeVisible({ timeout: 10000 })
   })
 
   test('Subagent works across multiple user messages', async ({ page, goToWithAuth }) => {
