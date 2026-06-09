@@ -85,6 +85,6 @@ onMounted(async () => {
 
 <style scoped>
 .trace-review { height: 100%; }
-.trace-review__pane { height: 100%; overflow-y: auto; border-right: 1px solid rgba(0,0,0,0.08); }
+.trace-review__pane { height: 100%; overflow-y: auto; border-right: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)); }
 .trace-review__chat { border-right: none; }
 </style>
