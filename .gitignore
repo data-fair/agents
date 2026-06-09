@@ -15,3 +15,4 @@ coverage/
 .playwright-cli/
 test-results
 docs/superpowers/
+docs/presentation-fr/*.pdf
