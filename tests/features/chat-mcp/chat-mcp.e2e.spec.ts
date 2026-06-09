@@ -33,7 +33,7 @@ test.describe('Chat MCP UI', () => {
 
     // Wait for tools to be discovered via BroadcastChannel before sending a message
     await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
-    await page.getByRole('tab', { name: /Outils|Tools/ }).click()
+    await page.getByRole('tab', { name: 'Info' }).click()
     await expect(page.getByText('set_data')).toBeVisible({ timeout: 5000 })
     await page.getByRole('button', { name: /Close|Fermer/ }).click()
 
@@ -68,7 +68,7 @@ test.describe('Chat MCP UI', () => {
 
     // Open the debug dialog and go to the tools tab
     await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
-    await page.getByRole('tab', { name: /Outils|Tools/ }).click()
+    await page.getByRole('tab', { name: 'Info' }).click()
     await expect(page.getByText('set_data')).toBeVisible({ timeout: 5000 })
 
     // Expand the tool panel to reveal the inputSchema

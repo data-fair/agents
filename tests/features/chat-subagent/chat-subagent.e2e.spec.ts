@@ -35,7 +35,7 @@ const settingsData = {
  */
 async function waitForToolsReady (page: import('@playwright/test').Page, toolName: string, locateAsText = false) {
   await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
-  await page.getByRole('tab', { name: /Outils|Tools/ }).click()
+  await page.getByRole('tab', { name: 'Info' }).click()
   const debugContent = page.locator('.v-dialog .v-window-item--active')
   if (locateAsText) {
     await expect(debugContent.getByText(toolName)).toBeVisible({ timeout: 5000 })
@@ -62,7 +62,7 @@ test.describe('Chat Sub-Agent UI', () => {
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
 
     await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
-    await page.getByRole('tab', { name: /Outils|Tools/ }).click()
+    await page.getByRole('tab', { name: 'Info' }).click()
 
     // All tools + sub-agent should appear in the debug dialog
     const debugContent = page.locator('.v-dialog .v-window-item--active')
