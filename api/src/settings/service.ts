@@ -16,7 +16,8 @@ export const defaultQuotas: NonNullable<Settings['quotas']> = {
   contrib: { unlimited: false, monthlyLimit: 0 },
   user: { unlimited: false, monthlyLimit: 0 },
   external: { unlimited: false, monthlyLimit: 0 },
-  anonymous: { unlimited: false, monthlyLimit: 0 }
+  anonymous: { unlimited: false, monthlyLimit: 0 },
+  untrusted: { unlimited: false, monthlyLimit: 0 }
 }
 
 export const getRawSettings = async (owner: AccountKeys): Promise<Settings | null> => {

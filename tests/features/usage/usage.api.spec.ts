@@ -133,7 +133,7 @@ test.describe('Anonymous Usage', () => {
     const provider = createOpenAI({
       baseURL: `http://localhost:${process.env.DEV_API_PORT}/api/gateway/user/test-standalone1/v1`,
       apiKey: 'unused',
-      headers: { 'x-anonymous-token': token },
+      headers: { 'x-anonymous-token': token, 'x-forwarded-for': '203.0.113.7' },
       name: 'data-fair-gateway'
     })
     const result = await generateText({
@@ -179,7 +179,7 @@ test.describe('Anonymous Usage', () => {
     const token = await getAnonymousActionToken()
     const res = await anonymousAx.post('/api/summary/user/test-standalone1', {
       content: 'some text to summarize'
-    }, { headers: { 'x-anonymous-token': token } })
+    }, { headers: { 'x-anonymous-token': token, 'x-forwarded-for': '203.0.113.7' } })
     assert.equal(res.status, 200)
     assert.ok(res.data.summary)
   })

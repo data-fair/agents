@@ -6,6 +6,8 @@ interface MockPromptResult {
   text?: string
   toolName?: string
   toolArgs?: string
+  /** When set, emit several parallel tool calls in a single step (takes precedence over toolName/toolArgs) */
+  toolCalls?: Array<{ toolName: string, toolArgs: string }>
 }
 
 const defaultUsage: LanguageModelV3Usage = {
@@ -55,6 +57,15 @@ function processMockPrompt (lastMessage: string, prompt: string | Array<any>): M
   // in this step — respond with text instead of calling another tool
   if (Array.isArray(prompt) && prompt.length > 0 && prompt[prompt.length - 1].role === 'tool') {
     return { type: 'text', text: 'done' }
+  }
+
+  // "call tools <name> <name> ..." → several parallel tool calls in one step
+  const callToolsMatch = lastMessage.match(/^call tools (.+)$/i)
+  if (callToolsMatch) {
+    return {
+      type: 'tool-call',
+      toolCalls: callToolsMatch[1].trim().split(/\s+/).map(toolName => ({ toolName, toolArgs: '{}' }))
+    }
   }
 
   const callToolMatch = lastMessage.match(/^call tool (\w+)(.*)$/i)
@@ -194,18 +205,21 @@ export function createMockLanguageModel (modelId: string = 'mock-model'): Langua
       const result = processForModel(modelId, options)
 
       if (result.type === 'tool-call') {
-        const toolCallId = 'mock-tool-call-id'
+        const calls = result.toolCalls ?? [{ toolName: result.toolName!, toolArgs: result.toolArgs || '{}' }]
         const stream = new ReadableStream<LanguageModelV3StreamPart>({
           start (controller) {
-            controller.enqueue({ type: 'tool-input-start', id: toolCallId, toolName: result.toolName! })
-            controller.enqueue({ type: 'tool-input-delta', id: toolCallId, delta: result.toolArgs || '{}' })
-            controller.enqueue({ type: 'tool-input-end', id: toolCallId })
-            controller.enqueue({
-              type: 'tool-call',
-              toolCallId,
-              toolName: result.toolName!,
-              input: result.toolArgs ? JSON.parse(result.toolArgs) : {}
-            } as any)
+            calls.forEach((call, idx) => {
+              const toolCallId = `mock-tool-call-id-${idx}`
+              controller.enqueue({ type: 'tool-input-start', id: toolCallId, toolName: call.toolName })
+              controller.enqueue({ type: 'tool-input-delta', id: toolCallId, delta: call.toolArgs || '{}' })
+              controller.enqueue({ type: 'tool-input-end', id: toolCallId })
+              controller.enqueue({
+                type: 'tool-call',
+                toolCallId,
+                toolName: call.toolName,
+                input: call.toolArgs ? JSON.parse(call.toolArgs) : {}
+              } as any)
+            })
             controller.enqueue({
               type: 'finish',
               usage: defaultUsage,
@@ -242,13 +256,14 @@ export function createMockLanguageModel (modelId: string = 'mock-model'): Langua
       const result = processForModel(modelId, options)
 
       if (result.type === 'tool-call') {
+        const calls = result.toolCalls ?? [{ toolName: result.toolName!, toolArgs: result.toolArgs || '{}' }]
         return {
-          content: [{
+          content: calls.map((call, idx) => ({
             type: 'tool-call' as const,
-            toolCallId: 'mock-tool-call-id',
-            toolName: result.toolName!,
-            input: result.toolArgs ? JSON.parse(result.toolArgs) : {}
-          }],
+            toolCallId: `mock-tool-call-id-${idx}`,
+            toolName: call.toolName,
+            input: call.toolArgs ? JSON.parse(call.toolArgs) : {}
+          })),
           finishReason: { unified: 'tool-calls' as const, raw: undefined },
           usage: defaultUsage,
           warnings: []

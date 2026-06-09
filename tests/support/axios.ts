@@ -26,7 +26,8 @@ export const defaultQuotas = {
   contrib: { unlimited: false, monthlyLimit: 0 },
   user: { unlimited: false, monthlyLimit: 0 },
   external: { unlimited: false, monthlyLimit: 0 },
-  anonymous: { unlimited: false, monthlyLimit: 0 }
+  anonymous: { unlimited: false, monthlyLimit: 0 },
+  untrusted: { unlimited: false, monthlyLimit: 0 }
 }
 
 export const clean = async () => {

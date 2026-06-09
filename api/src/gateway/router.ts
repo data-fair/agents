@@ -1,22 +1,16 @@
 import { Router } from 'express'
 import { generateText, streamText, type LanguageModelUsage } from 'ai'
 import { type AccountKeys, reqSession, isAuthenticated } from '@data-fair/lib-express'
-import { reqIp as _reqIp } from '@data-fair/lib-express/req-origin.js'
-import { assertCanUseModel, assertRoleQuota, getEffectiveRole } from '../auth.ts'
-import { assertAnonymousActionToken } from '../anonymous-token/service.ts'
 import { getRawSettings, defaultQuotas } from '../settings/service.ts'
 import { createModel } from '../models/operations.ts'
-import { getUsage, getOwnerUsage, recordUsage } from '../usage/service.ts'
-import { checkQuota, computeCost } from '../usage/operations.ts'
+import { recordUsage } from '../usage/service.ts'
+import { computeCost } from '../usage/operations.ts'
+import { resolveUsageIdentity, enforceQuotas } from '../usage/enforce.ts'
 import { convertOpenAITools, convertOpenAIMessages, convertToolChoice, mapFinishReason } from './operations.ts'
 import type { Settings } from '#types'
 import type { OpenAIMessage, OpenAIToolDefinition, OpenAIToolChoice, FinishReason } from './operations.ts'
 import { recordTraceRequest } from '../traces/service.ts'
 import crypto from 'node:crypto'
-
-function safeReqIp (req: import('express').Request): string {
-  try { return _reqIp(req) } catch { return req.ip || '127.0.0.1' }
-}
 
 // Build an OpenAI-compatible usage object, surfacing cache token details when the
 // provider reports them (Anthropic cache read/write, OpenAI cached_tokens, etc.).
@@ -126,71 +120,22 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
 
     const quotas = settings.quotas ?? defaultQuotas
 
-    let trackPerUser: boolean
-    let usageUserId: string | undefined
-    let usageUserName: string | undefined
+    const identity = await resolveUsageIdentity(req, owner, quotas, sessionState, authenticated)
+    const { usageUserId, usageUserName, poolId } = identity
 
-    if (!authenticated) {
-      // Anonymous path
-      assertRoleQuota('anonymous', quotas)
-      await assertAnonymousActionToken(req)
-      const ipHash = crypto.createHash('sha256').update(safeReqIp(req)).digest('hex').slice(0, 16)
-      usageUserId = `anon:${ipHash}`
-      trackPerUser = true
-    } else {
-      // Authenticated path
-      const session = sessionState
-      const isSameAccount = session.account!.type === owner.type && session.account!.id === owner.id
-      trackPerUser = owner.type === 'organization' || !isSameAccount
-
-      // Permission check via role-based quotas
-      assertCanUseModel(session as any, owner, quotas)
-      usageUserId = trackPerUser ? session.user!.id : undefined
-      usageUserName = trackPerUser ? session.user!.name : undefined
-    }
-
-    // Check account limits against account usage
-    const accountLimits = quotas.global
-
-    if (!accountLimits.unlimited && accountLimits.monthlyLimit) {
-      const accountUsage = await getOwnerUsage(owner)
-      const quotaCheck = checkQuota(accountUsage, accountLimits, trackPerUser ? 'organization' : 'user')
-      if (quotaCheck) {
-        res.status(429).json({
-          error: {
-            message: quotaCheck.reason,
-            type: 'rate_limit_error',
-            scope: quotaCheck.scope,
-            usage: quotaCheck.usage,
-            limit: quotaCheck.limit,
-            resets_at: quotaCheck.resetsAt
-          }
-        })
-        return
-      }
-    }
-
-    // Check role-based user quota
-    if (trackPerUser) {
-      const role = authenticated ? getEffectiveRole(sessionState as any, owner) : 'anonymous'
-      const roleQuota = quotas[role]
-      if (roleQuota && !roleQuota.unlimited && roleQuota.monthlyLimit) {
-        const userUsage = await getUsage(owner, usageUserId)
-        const quotaCheck = checkQuota(userUsage, roleQuota, 'user')
-        if (quotaCheck) {
-          res.status(429).json({
-            error: {
-              message: quotaCheck.reason,
-              type: 'rate_limit_error',
-              scope: quotaCheck.scope,
-              usage: quotaCheck.usage,
-              limit: quotaCheck.limit,
-              resets_at: quotaCheck.resetsAt
-            }
-          })
-          return
+    const quotaCheck = await enforceQuotas(owner, quotas, identity)
+    if (quotaCheck) {
+      res.status(429).json({
+        error: {
+          message: quotaCheck.reason,
+          type: 'rate_limit_error',
+          scope: quotaCheck.scope,
+          usage: quotaCheck.usage,
+          limit: quotaCheck.limit,
+          resets_at: quotaCheck.resetsAt
         }
-      }
+      })
+      return
     }
 
     const { modelConfig, inputPricePerMillion, outputPricePerMillion } = getModelConfig(settings, modelId)
@@ -260,6 +205,11 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
         choices: [{ index: 0, delta: { role: 'assistant', content: '' }, finish_reason: null }]
       })}\n\n`)
 
+      // Parallel tool calls are distinguished in the OpenAI streaming wire format only by
+      // their `index`. Assign a stable incrementing index per tool call id so the client
+      // does not collapse several calls into a single index-0 slot.
+      const toolCallIndexes = new Map<string, number>()
+
       try {
         let streamedText = ''
         let ttfc: number | undefined
@@ -276,6 +226,8 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
               choices: [{ index: 0, delta: { content: part.text }, finish_reason: null }]
             })}\n\n`)
           } else if (part.type === 'tool-input-start') {
+            const toolCallIndex = toolCallIndexes.size
+            toolCallIndexes.set(part.id, toolCallIndex)
             streamedToolCalls.set(part.id, { id: part.id, name: part.toolName, arguments: '' })
             res.write(`data: ${JSON.stringify({
               id: completionId,
@@ -286,7 +238,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
                 index: 0,
                 delta: {
                   tool_calls: [{
-                    index: 0,
+                    index: toolCallIndex,
                     id: part.id,
                     type: 'function',
                     function: { name: part.toolName, arguments: '' }
@@ -296,6 +248,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
               }]
             })}\n\n`)
           } else if (part.type === 'tool-input-delta') {
+            const toolCallIndex = toolCallIndexes.get(part.id) ?? 0
             const entry = streamedToolCalls.get(part.id)
             if (entry) entry.arguments += part.delta
             res.write(`data: ${JSON.stringify({
@@ -307,7 +260,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
                 index: 0,
                 delta: {
                   tool_calls: [{
-                    index: 0,
+                    index: toolCallIndex,
                     function: { arguments: part.delta }
                   }]
                 },
@@ -320,7 +273,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
             const outputTokens = part.totalUsage?.outputTokens ?? 0
             const cost = computeCost(inputTokens, outputTokens, inputPricePerMillion, outputPricePerMillion)
             if (cost > 0) {
-              await recordUsage(owner, cost, usageUserId, usageUserName)
+              await recordUsage(owner, cost, usageUserId, usageUserName, poolId)
             }
 
             res.write(`data: ${JSON.stringify({
@@ -367,7 +320,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
       const outputTokens = result.usage?.outputTokens ?? 0
       const cost = computeCost(inputTokens, outputTokens, inputPricePerMillion, outputPricePerMillion)
       if (cost > 0) {
-        await recordUsage(owner, cost, usageUserId, usageUserName)
+        await recordUsage(owner, cost, usageUserId, usageUserName, poolId)
       }
 
       // Build response message

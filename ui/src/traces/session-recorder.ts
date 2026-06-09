@@ -147,6 +147,15 @@ export class SessionRecorder {
       items.push({ overview, detail: content })
     }
 
+    // Session-setup entries (system prompt, the initial tool snapshot) are recorded
+    // before the first turn starts, so their raw timestamps predate turns[0]. Sorting
+    // by raw timestamp would float them above the system prompt non-deterministically
+    // (whichever happened to win the sub-millisecond race). Anchor anything that
+    // predates the first turn to the first turn's timestamp so the preamble keeps a
+    // stable document order: system prompt first, then the conversation.
+    const firstTurnTs = this.trace.turns[0]?.timestamp
+    const anchorTs = (ts: Date): Date => (firstTurnTs && ts < firstTurnTs ? firstTurnTs : ts)
+
     if (this.trace.systemPrompt) {
       add(
         { type: 'system-prompt', timestamp: this.trace.turns[0]?.timestamp ?? new Date(), label: '', preview: this.trace.systemPrompt.slice(0, 150) },
@@ -240,7 +249,7 @@ export class SessionRecorder {
     for (const tc of this.trace.toolChanges) {
       const toolNames = tc.tools.map(t => t.name).join(', ')
       add(
-        { type: 'tools-changed', timestamp: tc.timestamp, label: `${tc.tools.length}`, preview: toolNames.slice(0, 150) },
+        { type: 'tools-changed', timestamp: anchorTs(tc.timestamp), label: `${tc.tools.length}`, preview: toolNames.slice(0, 150) },
         { tools: tc.tools }
       )
     }

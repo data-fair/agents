@@ -4,7 +4,7 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { checkQuota, computeCost, type UsageInfo, type UsageLimits } from '../../../api/src/usage/operations.ts'
+import { checkQuota, computeCost, firstQuotaViolation, isUntrustedRole, type UsageInfo, type UsageLimits } from '../../../api/src/usage/operations.ts'
 
 function mkUsage (daily: number, weekly: number, monthly: number): UsageInfo {
   return {
@@ -52,6 +52,37 @@ test.describe('checkQuota (money-based, derived periods)', () => {
   test('below all limits → no violation', () => {
     const limits: UsageLimits = { unlimited: false, monthlyLimit: 4 }
     assert.equal(checkQuota(mkUsage(0.5, 1.5, 3.5), limits, 'user'), null)
+  })
+})
+
+test.describe('firstQuotaViolation (ordered checks)', () => {
+  test('returns the first violation, skipping null/undefined checks', () => {
+    const ok = { usage: mkUsage(0, 0, 0), limits: { unlimited: false, monthlyLimit: 100 } as UsageLimits, scope: 'user' }
+    // monthly=40 → monthly cost 50 breaches
+    const poolBreached = { usage: mkUsage(0, 0, 50), limits: { unlimited: false, monthlyLimit: 40 } as UsageLimits, scope: 'untrusted' }
+    const v = firstQuotaViolation([null, ok, poolBreached, ok])
+    assert.ok(v)
+    assert.equal(v!.scope, 'untrusted')
+    assert.equal(v!.period, 'monthly')
+    assert.equal(v!.limit, 40)
+  })
+
+  test('returns null when all checks pass or are absent', () => {
+    const ok = { usage: mkUsage(0, 0, 0), limits: { unlimited: false, monthlyLimit: 100 } as UsageLimits, scope: 'user' }
+    assert.equal(firstQuotaViolation([null, ok, undefined]), null)
+  })
+})
+
+test.describe('isUntrustedRole', () => {
+  test('anonymous and external are untrusted', () => {
+    assert.equal(isUntrustedRole('anonymous'), true)
+    assert.equal(isUntrustedRole('external'), true)
+  })
+
+  test('member roles are trusted', () => {
+    assert.equal(isUntrustedRole('admin'), false)
+    assert.equal(isUntrustedRole('contrib'), false)
+    assert.equal(isUntrustedRole('user'), false)
   })
 })
 
