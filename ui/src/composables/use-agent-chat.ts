@@ -5,12 +5,10 @@ import type { ModelMessage, Tool } from 'ai'
 import { getTabChannelId } from '@data-fair/lib-vue-agents'
 import { FrameClientAggregator } from '~/transports/frame-client-aggregator'
 import { createExploreTool, formatToolsAvailableMessage, newlyAvailableTools, EXPLORE_TOOL_NAME } from '~/composables/tool-exploration'
-import type { SessionRecorder, ToolSnapshot } from '~/traces/session-recorder'
 import { $apiPath } from '~/context'
 import { useSession } from '@data-fair/lib-vue/session.js'
 import { getAnonymousToken, resetAnonymousToken } from '~/composables/use-anonymous-token'
 import { extractErrorMessage } from '~/utils/error'
-import { parseGatewayCompletion } from '~/traces/gateway-response'
 import { readConsent, traceStorageAvailable } from '~/traces/trace-consent'
 import { buildModerationSystemPrompt, parseModerationVerdict, DEFAULT_REFUSAL, type ModerationVerdict } from '~/composables/moderation'
 import Debug from 'debug'
@@ -55,7 +53,6 @@ export interface UseAgentChatOptions {
   initialMessages?: ChatMessage[]
   localTools?: Record<string, Tool>
   modelName?: string
-  recorder?: SessionRecorder
   refusalMessage?: string
   toolExploration?: boolean
 }
@@ -115,7 +112,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
     void getAnonymousToken().catch(err => debug('anonymous token prefetch failed: %O', err))
   }
 
-  const { recorder, localTools, modelName } = options
+  const { localTools, modelName } = options
   const chatModelName = modelName ?? 'assistant'
   const conversationId = crypto.randomUUID()
 
@@ -125,7 +122,6 @@ export function useAgentChat (options: UseAgentChatOptions) {
   const error = ref<string | null>(null)
   const tools = ref<Record<string, Tool>>({})
   const toolsVersion = ref(0)
-  const sessionUsage = ref({ inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 })
   let history: ModelMessage[] = []
   // characters of serialized history before compaction
   // 24000 is roughly equivalent to a 8k tokens context with 10-15 turns of dialogue an 2-3 tool calls
@@ -157,15 +153,6 @@ export function useAgentChat (options: UseAgentChatOptions) {
         debug('tools changed version=%d tools=%o', toolsVersion.value + 1, Object.keys(newTools))
         tools.value = { ...newTools }
         toolsVersion.value++
-        if (recorder) {
-          const snapshots: ToolSnapshot[] = Object.entries(newTools).map(([name, t]) => ({
-            name,
-            title: (t as any).title,
-            description: (t as any).description ?? '',
-            inputSchema: (t as any).inputSchema?.jsonSchema ?? {}
-          }))
-          recorder.snapshotTools(snapshots)
-        }
       }
     })
     aggregator.start()
@@ -232,11 +219,6 @@ export function useAgentChat (options: UseAgentChatOptions) {
 
   watch(() => toolsVersion.value, () => { resolveToolsPartition() }, { immediate: true })
 
-  function traceCtxOf (headers: HeadersInit | undefined): string {
-    if (!headers) return 'unknown'
-    try { return new Headers(headers).get('x-trace-ctx') ?? 'unknown' } catch { return 'unknown' }
-  }
-
   function traceHeaders (ctx: string): Record<string, string> {
     const consent = readConsent()
     return {
@@ -246,78 +228,25 @@ export function useAgentChat (options: UseAgentChatOptions) {
     }
   }
 
-  async function capturePhysicalResponse (
-    response: Response,
-    ctx: { requestBody: any; bodyChars: number; contextId: string; timestamp: Date; startMs: number }
-  ): Promise<void> {
-    if (!recorder) return
-    try {
-      const reader = response.body?.getReader()
-      if (!reader) return
-      const decoder = new TextDecoder()
-      let raw = ''
-      let timeToFirstChunkMs: number | undefined
-      for (;;) {
-        const { done, value } = await reader.read()
-        if (done) break
-        if (value && timeToFirstChunkMs === undefined) timeToFirstChunkMs = performance.now() - ctx.startMs
-        raw += decoder.decode(value, { stream: true })
-      }
-      raw += decoder.decode()
-      const durationMs = performance.now() - ctx.startMs
-      const { result, usage } = parseGatewayCompletion(raw)
-      const messages = Array.isArray(ctx.requestBody?.messages) ? ctx.requestBody.messages : []
-      const tools = Array.isArray(ctx.requestBody?.tools) ? ctx.requestBody.tools : []
-      recorder.recordPhysicalRequest({
-        contextId: ctx.contextId,
-        timestamp: ctx.timestamp,
-        modelRole: typeof ctx.requestBody?.model === 'string' ? ctx.requestBody.model : 'unknown',
-        requestBody: ctx.requestBody,
-        result,
-        inputTokens: usage.inputTokens,
-        outputTokens: usage.outputTokens,
-        cacheReadTokens: usage.cacheReadTokens,
-        cacheWriteTokens: usage.cacheWriteTokens,
-        messageCount: messages.length,
-        toolCount: tools.length,
-        bodyChars: ctx.bodyChars,
-        durationMs,
-        timeToFirstChunkMs
-      })
-    } catch (err) {
-      debug('physical-request capture failed: %O', err)
-    }
-  }
-
-  const tracingFetch: typeof fetch = async (input, init) => {
-    if (!recorder || !init || typeof init.body !== 'string') {
-      return fetch(input as any, init)
-    }
-    let requestBody: any
-    try { requestBody = JSON.parse(init.body) } catch { return fetch(input as any, init) }
-    const contextId = traceCtxOf(init.headers)
-    const timestamp = new Date()
-    const startMs = performance.now()
-    const res = await fetch(input as any, init)
+  // Surface server-advertised trace storage availability (drives the consent sheet).
+  const noteStorageHeader = (res: Response): Response => {
     if (res.headers.get('x-trace-storage') === 'available') traceStorageAvailable.value = true
-    // eslint-disable-next-line no-void
-    void capturePhysicalResponse(res.clone(), { requestBody, bodyChars: init.body.length, contextId, timestamp, startMs })
     return res
   }
 
   const gatewayFetch: typeof fetch = async (input, init) => {
-    if (!isAnonymous()) return tracingFetch(input, init)
+    if (!isAnonymous()) return noteStorageHeader(await fetch(input, init))
     const withToken = async (token: string) => {
       const headers = new Headers(init?.headers as HeadersInit | undefined)
       headers.set('x-anonymous-token', token)
-      return tracingFetch(input, { ...(init as RequestInit), headers })
+      return fetch(input, { ...(init as RequestInit), headers })
     }
     let res = await withToken(await getAnonymousToken())
     if (res.status === 401) {
       resetAnonymousToken()
       res = await withToken(await getAnonymousToken())
     }
-    return res
+    return noteStorageHeader(res)
   }
 
   const provider = createOpenAI({
@@ -375,7 +304,6 @@ export function useAgentChat (options: UseAgentChatOptions) {
     // abort() above guarantees no in-flight prepareStep will read the old Set
     promotedTools = new Set<string>()
     announcedTools.clear()
-    sessionUsage.value = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 }
     if (newSystemPrompt !== undefined) {
       options.systemPrompt = newSystemPrompt
     }
@@ -464,7 +392,6 @@ export function useAgentChat (options: UseAgentChatOptions) {
         headers: traceHeaders(compactionCtxId)
       })
 
-      const originalHistory = history
       const originalLength = serialized.length
 
       history = [
@@ -475,27 +402,19 @@ export function useAgentChat (options: UseAgentChatOptions) {
       promotedTools.clear()
       announcedTools.clear()
 
-      if (recorder) {
-        recorder.recordCompaction(originalHistory, summary, originalLength, JSON.stringify(history).length)
-      }
-
       debug('compacted history from %d chars to %d chars', originalLength, JSON.stringify(history).length)
     } catch (err) {
       debug('compaction error, continuing with full history: %O', err)
     }
   }
 
-  const sendMessage = async (msg: string, sendOptions?: { hiddenContext?: string }) => {
+  const sendMessage = async (msg: string, _sendOptions?: { hiddenContext?: string }) => {
     if (status.value === 'streaming') return
 
     status.value = 'streaming'
     const turnId = turnSeq++
     error.value = null
     messages.value.push({ role: 'user', content: msg })
-
-    if (recorder) {
-      recorder.startTurn(msg, sendOptions?.hiddenContext)
-    }
 
     // Add user message to history
     history.push({ role: 'user', content: msg })
@@ -568,17 +487,6 @@ export function useAgentChat (options: UseAgentChatOptions) {
               ti => ti.toolName === name && ti.state === 'pending'
             )?.toolCallId ?? name
 
-            // Record telemetry
-            if (recorder) {
-              const subToolSnapshots: ToolSnapshot[] = Object.entries(subAgentTools).map(([n, t]) => ({
-                name: n,
-                title: (t as any).title,
-                description: (t as any).description ?? '',
-                inputSchema: (t as any).parameters ?? {}
-              }))
-              recorder.startSubAgent(parentToolCallId, displayName, config.prompt, args.task, subToolSnapshots, callIndex)
-            }
-
             // Ensure subAgentMessages array exists on parent message
             if (currentAssistantMessage && !currentAssistantMessage.subAgentMessages) {
               currentAssistantMessage.subAgentMessages = []
@@ -587,26 +495,14 @@ export function useAgentChat (options: UseAgentChatOptions) {
               currentAssistantMessage.subAgentTurn = callIndex
             }
 
-            // Record each sub-agent step as it completes (tool calls, messages)
-            const onStepFinish = (step: any) => {
-              if (!recorder) return
-              recorder.recordSubAgentStep(parentToolCallId, {
-                messages: step.response.messages,
-                finishReason: step.finishReason,
-                toolCalls: step.toolCalls,
-                toolResults: step.toolResults
-              })
-            }
-
             // First call: single prompt. Subsequent calls: pass accumulated conversation history.
             const subResult = priorMessages.length === 0
               // `headers` is a construction-time setting in the AI SDK's agent types, not a
               // call-time param, so we widen only for it while keeping the rest type-checked.
-              ? await subAgent.stream({ prompt: args.task, abortSignal, onStepFinish, headers: traceHeaders(`sub:${ctxName}:${callIndex}:${parentToolCallId}`) } as Parameters<typeof subAgent.stream>[0] & { headers: Record<string, string> })
+              ? await subAgent.stream({ prompt: args.task, abortSignal, headers: traceHeaders(`sub:${ctxName}:${callIndex}:${parentToolCallId}`) } as Parameters<typeof subAgent.stream>[0] & { headers: Record<string, string> })
               : await subAgent.stream({
                 messages: [...priorMessages, { role: 'user' as const, content: args.task }],
                 abortSignal,
-                onStepFinish,
                 headers: traceHeaders(`sub:${ctxName}:${callIndex}:${parentToolCallId}`)
               } as Parameters<typeof subAgent.stream>[0] & { headers: Record<string, string> })
 
@@ -627,15 +523,6 @@ export function useAgentChat (options: UseAgentChatOptions) {
               { role: 'user' as const, content: args.task },
               ...subResponse.messages
             ])
-            const subUsage = (subResponse as any).usage
-            if (subUsage) {
-              sessionUsage.value = {
-                inputTokens: sessionUsage.value.inputTokens + (subUsage.inputTokens ?? 0),
-                outputTokens: sessionUsage.value.outputTokens + (subUsage.outputTokens ?? 0),
-                cacheReadTokens: sessionUsage.value.cacheReadTokens + (subUsage.inputTokenDetails?.cacheReadTokens ?? subUsage.cachedInputTokens ?? 0),
-                cacheWriteTokens: sessionUsage.value.cacheWriteTokens + (subUsage.inputTokenDetails?.cacheWriteTokens ?? 0)
-              }
-            }
           },
           toModelOutput: ({ output }: { output: any }) => {
             // Main agent sees only the final text summary, not full subagent trace
@@ -710,7 +597,6 @@ export function useAgentChat (options: UseAgentChatOptions) {
         if (moderationPromise && !moderationChecked && (part.type === 'text-delta' || part.type === 'tool-call')) {
           const verdict = await moderationPromise
           moderationChecked = true
-          if (recorder) recorder.recordModerationDecision(verdict)
           if (verdict.action === 'block') {
             abortController?.abort()
             // Drop this turn's messages from model context. The blocked user message is
@@ -747,9 +633,6 @@ export function useAgentChat (options: UseAgentChatOptions) {
             toolName: part.toolName,
             state: 'pending'
           })
-          if (recorder) {
-            recorder.startToolCall(part.toolCallId, part.toolName, (part as any).args)
-          }
         } else if (part.type === 'tool-result') {
           // Async generator tools emit preliminary results; only mark done on final
           const isPreliminary = !!(part as any).preliminary
@@ -759,44 +642,15 @@ export function useAgentChat (options: UseAgentChatOptions) {
             )
             if (invocation) invocation.state = 'done'
           }
-          if (recorder && !isPreliminary) {
-            recorder.finishToolCall(part.toolCallId, (part as any).output)
-          }
         } else if (part.type === 'finish-step') {
           // Reset for next step (new assistant message after tool results)
           currentAssistantMessage = null
-          if (recorder) {
-            recorder.finishStep()
-          }
         }
-      }
-
-      // If the stream produced no visible part, the in-stream gate never ran — still
-      // record the moderation decision for trace completeness (allow/skip/block).
-      // A block here is intentionally record-only: nothing was emitted, so there is
-      // no assistant output to suppress.
-      if (moderationPromise && !moderationChecked) {
-        const verdict = await moderationPromise
-        moderationChecked = true
-        if (recorder) recorder.recordModerationDecision(verdict)
       }
 
       // Update history with all response messages
       const response = await result.response
       history = history.concat(response.messages)
-
-      if (recorder) {
-        recorder.addStepMessages(response.messages, (response as any).finishReason)
-      }
-      const usage = (response as any).usage
-      if (usage) {
-        sessionUsage.value = {
-          inputTokens: sessionUsage.value.inputTokens + (usage.inputTokens ?? 0),
-          outputTokens: sessionUsage.value.outputTokens + (usage.outputTokens ?? 0),
-          cacheReadTokens: sessionUsage.value.cacheReadTokens + (usage.inputTokenDetails?.cacheReadTokens ?? usage.cachedInputTokens ?? 0),
-          cacheWriteTokens: sessionUsage.value.cacheWriteTokens + (usage.inputTokenDetails?.cacheWriteTokens ?? 0)
-        }
-      }
 
       status.value = 'ready'
     } catch (err: any) {
@@ -825,7 +679,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
     options.toolExploration = enabled
   }
 
-  return { messages, status, error, tools, toolsVersion, resolvedPartition, sendMessage, abort, reset, setSystemPrompt, setToolExploration, sessionUsage }
+  return { messages, status, error, tools, toolsVersion, resolvedPartition, sendMessage, abort, reset, setSystemPrompt, setToolExploration }
 }
 
 export default useAgentChat

@@ -161,7 +161,7 @@
             </div>
             <trace-view
               v-if="recorder"
-              :trace-overview="traceOverview"
+              :trace-overview="traceOverview ?? []"
               :recorder="recorder"
             />
           </v-window-item>
@@ -251,7 +251,7 @@ const props = defineProps<{
   modelValue: boolean
   systemPrompt: string
   debugToolsPartition: DebugToolsPartition
-  traceOverview: TraceOverviewEntry[]
+  traceOverview?: TraceOverviewEntry[]
   recorder?: SessionRecorder
   sessionUsage?: { inputTokens: number; outputTokens: number; cacheReadTokens?: number; cacheWriteTokens?: number }
   isAdmin?: boolean

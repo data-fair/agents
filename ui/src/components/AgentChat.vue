@@ -51,9 +51,6 @@
       v-model="showDebugDialog"
       :system-prompt="finalSystemPrompt"
       :debug-tools-partition="debugToolsPartition"
-      :trace-overview="traceOverview"
-      :recorder="recorder"
-      :session-usage="chat.sessionUsage.value"
       :is-admin="isAdmin"
       :account-type="accountType"
       :account-id="accountId"
@@ -90,8 +87,6 @@ import { useI18n } from 'vue-i18n'
 import { useSession } from '@data-fair/lib-vue/session.js'
 import { useVueRouterDFrameContent } from '@data-fair/frame/lib/vue-router/d-frame-content.js'
 import { useAgentChat, type ChatMessage } from '~/composables/use-agent-chat'
-import { SessionRecorder } from '~/traces/session-recorder'
-import type { TraceOverviewEntry } from '~/traces/session-recorder'
 import { getTabChannelId, getAgentInitConfig } from '@data-fair/lib-vue-agents'
 import type { AgentChatMessage } from '@data-fair/lib-vuetify-agents/types.js'
 import AgentChatHeader from './agent-chat/AgentChatHeader.vue'
@@ -150,15 +145,12 @@ const finalSystemPrompt = computed(() => {
 // Experimental tool-exploration mode: admin-only opt-in, persisted in localStorage
 // and toggled from the debug dialog's Settings tab.
 const explorationEnabled = ref(!!props.isAdmin && localStorage.getItem('agent-chat-explore') === '1')
-const recorder = new SessionRecorder()
-recorder.setSystemPrompt(finalSystemPrompt.value)
 
 const chatResult = useAgentChat({
   accountType: props.accountType,
   accountId: props.accountId,
   systemPrompt: finalSystemPrompt.value,
   initialMessages: props.initialMessages,
-  recorder,
   refusalMessage: t('moderationRefusal'),
   toolExploration: explorationEnabled.value
 })
@@ -172,7 +164,6 @@ const chat = chatResult
 
 watch(finalSystemPrompt, (prompt) => {
   chat.setSystemPrompt(prompt)
-  if (recorder) recorder.setSystemPrompt(prompt)
 })
 
 const actionVisiblePrompt = ref<string | null>(null)
@@ -258,9 +249,6 @@ function startActionSession (visiblePrompt: string, hiddenContext: string) {
 
   // Update the system prompt without clearing the conversation
   chat.setSystemPrompt(newSystemPrompt)
-  if (recorder) {
-    recorder.setSystemPrompt(newSystemPrompt)
-  }
 
   actionVisiblePrompt.value = visiblePrompt
 
@@ -280,10 +268,6 @@ function handleToolExploration (enabled: boolean) {
 function handleReset () {
   chat.abort()
   chat.reset(finalSystemPrompt.value)
-  if (recorder) {
-    recorder.reset()
-    recorder.setSystemPrompt(finalSystemPrompt.value)
-  }
   actionVisiblePrompt.value = null
   sessionStarted.value = false
 }
@@ -295,9 +279,6 @@ function handleSessionCleared () {
 
   // Restore the base system prompt (remove action-specific hidden context)
   chat.setSystemPrompt(finalSystemPrompt.value)
-  if (recorder) {
-    recorder.setSystemPrompt(finalSystemPrompt.value)
-  }
 }
 
 watch(() => chat.status.value, (status) => {
@@ -343,17 +324,6 @@ const handleSend = (userMessage: string) => {
 const handleAbort = () => {
   chat.abort()
 }
-
-// Trace tab support
-const traceOverview = computed<TraceOverviewEntry[]>(() => {
-  // Trigger re-computation when messages change or when a turn completes
-  // (status changes to 'ready' after recorder.addStepMessages is called)
-  // eslint-disable-next-line no-void
-  void chat.messages.value.length
-  // eslint-disable-next-line no-void
-  void chat.status.value
-  return recorder.getTraceOverview()
-})
 </script>
 
 <style scoped>
