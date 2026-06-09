@@ -122,156 +122,6 @@ export class SessionRecorder {
     physicalRequests: []
   }
 
-  private currentTurn: TurnTrace | null = null
-  private currentStep: StepTrace | null = null
-  private pendingToolCalls = new Map<string, ToolCallTrace>()
-
-  reset (): void {
-    this.trace = {
-      systemPrompt: '',
-      toolSnapshots: [],
-      toolChanges: [],
-      turns: [],
-      physicalRequests: []
-    }
-    this.currentTurn = null
-    this.currentStep = null
-    this.pendingToolCalls.clear()
-    this.cachedOverview = []
-    this.cachedDetails = []
-  }
-
-  setSystemPrompt (prompt: string): void {
-    this.trace.systemPrompt = prompt
-  }
-
-  snapshotTools (tools: ToolSnapshot[]): void {
-    const snapshot = [...tools]
-    this.trace.toolSnapshots.push(snapshot)
-    this.trace.toolChanges.push({ timestamp: new Date(), tools: snapshot })
-  }
-
-  startTurn (userMessage: string, hiddenContext?: string): void {
-    this.currentTurn = {
-      userMessage,
-      ...(hiddenContext ? { hiddenContext } : {}),
-      timestamp: new Date(),
-      steps: []
-    }
-    this.trace.turns.push(this.currentTurn)
-    // Start an implicit first step
-    this.currentStep = { timestamp: new Date(), messages: [], toolCalls: [] }
-  }
-
-  startToolCall (id: string, toolName: string, input: any): void {
-    const tc: ToolCallTrace = { id, toolName, input, output: null, timestamp: new Date() }
-    this.pendingToolCalls.set(id, tc)
-    if (this.currentStep) {
-      this.currentStep.toolCalls.push(tc)
-    }
-  }
-
-  finishToolCall (id: string, output: any, durationMs?: number): void {
-    const tc = this.pendingToolCalls.get(id)
-    if (tc) {
-      tc.output = output
-      tc.endTimestamp = new Date()
-      // Auto-compute durationMs from timestamp if not provided
-      tc.durationMs = durationMs ?? (Date.now() - tc.timestamp.getTime())
-      this.pendingToolCalls.delete(id)
-    }
-  }
-
-  startSubAgent (toolCallId: string, name: string, systemPrompt: string, task: string, tools: ToolSnapshot[], turnIndex?: number): void {
-    const tc = this.pendingToolCalls.get(toolCallId)
-    if (tc) {
-      tc.subAgent = { name, systemPrompt, tools, task, steps: [], turnIndex }
-    }
-  }
-
-  recordSubAgentStep (toolCallId: string, step: {
-    messages: ModelMessage[]
-    finishReason?: string
-    toolCalls?: readonly { toolCallId: string; toolName: string; input: any }[]
-    toolResults?: readonly { toolCallId: string; output: any }[]
-  }): void {
-    const tc = this.pendingToolCalls.get(toolCallId)
-    if (!tc?.subAgent) return
-
-    const resultByCallId = new Map<string, any>()
-    for (const r of step.toolResults ?? []) resultByCallId.set(r.toolCallId, r.output)
-
-    const now = new Date()
-    const toolCalls: ToolCallTrace[] = (step.toolCalls ?? []).map(call => ({
-      id: call.toolCallId,
-      toolName: call.toolName,
-      input: call.input,
-      output: resultByCallId.get(call.toolCallId) ?? null,
-      timestamp: now
-    }))
-
-    tc.subAgent.steps.push({
-      timestamp: now,
-      messages: step.messages,
-      finishReason: step.finishReason,
-      toolCalls
-    })
-  }
-
-  recordCompaction (originalMessages: ModelMessage[], summary: string, originalCharCount: number, compactedCharCount: number): void {
-    if (!this.currentTurn) return
-    this.currentTurn.steps.push({
-      timestamp: new Date(),
-      messages: [],
-      toolCalls: [],
-      compaction: { originalMessages, summary, originalCharCount, compactedCharCount }
-    } as any)
-  }
-
-  recordModerationDecision (decision: { action: 'allow' | 'block', category?: string, reason?: string, skipped?: boolean }): void {
-    if (!this.currentTurn) return
-    this.currentTurn.steps.push({
-      timestamp: new Date(),
-      messages: [],
-      toolCalls: [],
-      moderation: { action: decision.action, category: decision.category, reason: decision.reason, skipped: decision.skipped }
-    } as any)
-  }
-
-  recordPhysicalRequest (entry: PhysicalRequestTrace): void {
-    this.trace.physicalRequests.push(entry)
-  }
-
-  finishStep (): void {
-    if (this.currentTurn && this.currentStep) {
-      this.currentTurn.steps.push(this.currentStep)
-    }
-    this.currentStep = { timestamp: new Date(), messages: [], toolCalls: [] }
-  }
-
-  addStepMessages (messages: ModelMessage[], finishReason?: string): void {
-    if (!this.currentTurn) return
-
-    const lastPushedStep = this.currentTurn.steps[this.currentTurn.steps.length - 1]
-    const finishStepWasCalled = lastPushedStep && this.currentStep && !this.currentTurn.steps.includes(this.currentStep)
-
-    if (finishStepWasCalled) {
-      if (this.currentStep && messages.length > 0) {
-        this.currentStep.messages = messages
-        this.currentStep.finishReason = finishReason
-        this.currentTurn.steps.push(this.currentStep)
-      } else {
-        lastPushedStep.finishReason = finishReason
-      }
-    } else if (this.currentStep) {
-      this.currentStep.messages = messages
-      this.currentStep.finishReason = finishReason
-      this.currentTurn.steps.push(this.currentStep)
-    }
-
-    this.currentStep = null
-  }
-
   getTrace (): SessionTrace {
     return this.trace
   }
@@ -430,7 +280,28 @@ export class SessionRecorder {
       )
     }
 
-    items.sort((a, b) => a.overview.timestamp.getTime() - b.overview.timestamp.getTime())
+    // A physical request and the semantic entries reconstructed from its response share the
+    // same timestamp. Within one instant, show the turn's inputs first, then the physical
+    // request that was sent, then the info extracted from its response.
+    const sortRank: Record<TraceOverviewEntry['type'], number> = {
+      'system-prompt': 0,
+      'user-message': 0,
+      'hidden-context': 0,
+      'physical-request': 1,
+      'assistant-step': 2,
+      'tool-call': 2,
+      'tool-result': 2,
+      'sub-agent-start': 2,
+      'sub-agent-system-prompt': 2,
+      'sub-agent-step': 2,
+      'sub-agent-end': 2,
+      'tools-changed': 2,
+      compaction: 2,
+      moderation: 2
+    }
+    items.sort((a, b) =>
+      (a.overview.timestamp.getTime() - b.overview.timestamp.getTime()) ||
+      (sortRank[a.overview.type] - sortRank[b.overview.type]))
 
     this.cachedOverview = items.map((item, i) => ({ ...item.overview, index: i }))
     this.cachedDetails = items.map((item, i) => ({ ...item.overview, index: i, content: item.detail }))

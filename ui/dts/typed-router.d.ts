@@ -132,6 +132,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/[type]/[id]/activity': RouteRecordInfo<
+      '/[type]/[id]/activity',
+      '/:type/:id/activity',
+      { type: ParamValue<true>, id: ParamValue<true> },
+      { type: ParamValue<false>, id: ParamValue<false> },
+      | never
+    >,
     '/[type]/[id]/chat': RouteRecordInfo<
       '/[type]/[id]/chat',
       '/:type/:id/chat',
@@ -146,11 +153,11 @@ declare module 'vue-router/auto-routes' {
       { type: ParamValue<false>, id: ParamValue<false> },
       | never
     >,
-    '/[type]/[id]/trace-review': RouteRecordInfo<
-      '/[type]/[id]/trace-review',
-      '/:type/:id/trace-review',
-      { type: ParamValue<true>, id: ParamValue<true> },
-      { type: ParamValue<false>, id: ParamValue<false> },
+    '/traces/[id]/review': RouteRecordInfo<
+      '/traces/[id]/review',
+      '/traces/:id/review',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
       | never
     >,
   }
@@ -256,6 +263,12 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
+    'src/pages/[type]/[id]/activity.vue': {
+      routes:
+        | '/[type]/[id]/activity'
+      views:
+        | never
+    }
     'src/pages/[type]/[id]/chat.vue': {
       routes:
         | '/[type]/[id]/chat'
@@ -268,9 +281,9 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
-    'src/pages/[type]/[id]/trace-review.vue': {
+    'src/pages/traces/[id]/review.vue': {
       routes:
-        | '/[type]/[id]/trace-review'
+        | '/traces/[id]/review'
       views:
         | never
     }

@@ -9,6 +9,7 @@ import modelsRouter, { getModelsForOwner } from './models/router.ts'
 import summaryRouter from './summary/router.ts'
 import gatewayRouter from './gateway/router.ts'
 import usageRouter from './usage/router.ts'
+import tracesRouter from './traces/router.ts'
 import mongo from '#mongo'
 import config from '#config'
 
@@ -39,6 +40,7 @@ app.use('/api/models', modelsRouter)
 app.use('/api/gateway', gatewayRouter)
 app.use('/api/summary', summaryRouter)
 app.use('/api/usage', usageRouter)
+app.use('/api/traces', tracesRouter)
 app.use('/api/ping', (req, res) => res.send('ok'))
 
 if (process.env.NODE_ENV === 'development') {
@@ -46,6 +48,7 @@ if (process.env.NODE_ENV === 'development') {
     getModelsForOwner.clear()
     await mongo.db.collection('settings').deleteMany({ 'owner.id': /^test/ })
     await mongo.db.collection('usage').deleteMany({ 'owner.id': /^test/ })
+    await mongo.db.collection('trace-requests').deleteMany({ 'owner.id': /^test/ })
     res.send()
   })
   app.post('/api/test-env/usage', async (req, res) => {

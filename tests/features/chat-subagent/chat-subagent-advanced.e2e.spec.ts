@@ -31,11 +31,27 @@ const settingsData = {
     }
   },
   quotas: defaultQuotas
+  // storeTraces is OFF by default so the consent bottom-sheet doesn't overlay the chat
+  // in the functionality tests. The review-page tests enable it + grant consent locally.
+}
+
+// Poll the stored-trace list API until the conversation for the logged-in user's
+// account appears, then return its conversationId. The _dev/chat-subagent page
+// drives its gateway as session.account, i.e. user/test-standalone1.
+async function pollConversationId (): Promise<string> {
+  let conversationId = ''
+  for (let i = 0; i < 40; i++) {
+    const res = await admin.get('/api/traces/user/test-standalone1?page=1&size=20').catch(() => null)
+    if (res && res.data.results.length) { conversationId = res.data.results[0].conversationId; break }
+    await new Promise(resolve => setTimeout(resolve, 200))
+  }
+  return conversationId
 }
 
 async function waitForToolsReady (page: import('@playwright/test').Page, toolName: string, locateAsText = false) {
+  // The debug dialog has two tabs (Info / Settings); registered tools and
+  // sub-agents are listed under the default "Info" tab.
   await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
-  await page.getByRole('tab', { name: /Outils|Tools/ }).click()
   const debugContent = page.locator('.v-dialog .v-window-item--active')
   if (locateAsText) {
     await expect(debugContent.getByText(toolName)).toBeVisible({ timeout: 5000 })
@@ -59,10 +75,9 @@ test.describe('Advanced Sub-Agent Scenarios', () => {
   })
 
   test('Subagent multi-step tool chain (get_schema → query_data → summary)', async ({ page, goToWithAuth }) => {
+    // Live-UI test only: the reconstructed-trace view of sub-agents is covered by
+    // "Subagent trace appears on the review page", so this one needs no trace storage.
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
-    // Enable trace to verify tool calls
-    await page.evaluate(() => { sessionStorage.setItem('agent-chat-trace', '1') })
-    await page.reload()
     await waitForToolsReady(page, 'data_analyst (2 tools)', true)
 
     // Trigger the sub-agent with a generic task — mock-tools will autonomously chain tools
@@ -91,13 +106,6 @@ test.describe('Advanced Sub-Agent Scenarios', () => {
     // The final summary text proves the full chain completed (get_schema → query_data → summary)
     // because mock-tools only returns this text after both tool results are in context
     await expect(subAgentPanel.getByText('Analysis complete')).toBeVisible({ timeout: 10000 })
-
-    // Verify via trace that both tools were actually called
-    await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
-    await page.getByRole('tab', { name: /Trace/ }).click()
-    const tracePanel = page.locator('.v-dialog .v-expansion-panels').last()
-    const subAgentEntry = tracePanel.locator('.v-expansion-panel', { hasText: /data_analyst/i })
-    await expect(subAgentEntry.first()).toBeVisible({ timeout: 5000 })
   })
 
   test('Subagent works across multiple user messages', async ({ page, goToWithAuth }) => {
@@ -149,13 +157,12 @@ test.describe('Advanced Sub-Agent Scenarios', () => {
     await expect(page.getByLabel('Output')).toHaveValue('step1')
   })
 
-  test('Subagent trace appears in debug dialog', async ({ page, goToWithAuth }) => {
+  test('Subagent trace appears on the review page', async ({ page, context, goToWithAuth }) => {
+    // Enable trace storage for this review-page test + pre-set consent so the
+    // conversation is stored server-side and the consent sheet stays hidden.
+    await admin.put('/api/settings/user/test-standalone1', { ...settingsData, storeTraces: true })
+    await context.addCookies([{ name: 'agent-chat-trace-consent', value: 'yes', domain: 'localhost', path: '/' }])
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
-    // Enable trace recording
-    await page.evaluate(() => {
-      sessionStorage.setItem('agent-chat-trace', '1')
-    })
-    await page.reload()
     await waitForToolsReady(page, 'data_analyst (2 tools)', true)
 
     // Trigger a sub-agent call
@@ -165,14 +172,19 @@ test.describe('Advanced Sub-Agent Scenarios', () => {
     // Wait for response to complete
     await expect(page.getByPlaceholder('Type your message...')).toBeEnabled({ timeout: 15000 })
 
-    // Open debug dialog → Trace tab
-    await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
-    await page.getByRole('tab', { name: /Trace/ }).click()
+    // Open the stored-trace review page and assert the sub-agent appears. The
+    // main-thread subagent_data_analyst call is linked to the sub-agent's stored
+    // "sub" requests, producing a "sub-agent-start" entry labelled "data_analyst".
+    const conversationId = await pollConversationId()
+    expect(conversationId).toBeTruthy()
 
-    // A sub-agent trace entry should exist
-    const tracePanel = page.locator('.v-dialog .v-expansion-panels').last()
-    const subAgentEntry = tracePanel.locator('.v-expansion-panel', { hasText: /sub-?agent|data_analyst/i })
-    await expect(subAgentEntry.first()).toBeVisible({ timeout: 5000 })
+    await goToWithAuth(`/agents/traces/${conversationId}/review`, 'test-standalone1')
+
+    const tracePanel = page.locator('.agent-chat__trace-panels')
+    await expect(tracePanel).toBeVisible({ timeout: 10000 })
+    const subAgentEntry = tracePanel.locator('.v-expansion-panel', { hasText: 'sub-agent-start' })
+    await expect(subAgentEntry.first()).toBeVisible({ timeout: 10000 })
+    await expect(tracePanel.locator('.v-expansion-panel', { hasText: 'data_analyst' }).first()).toBeVisible({ timeout: 10000 })
   })
 
   test('Compaction works during subagent conversation', async ({ page, goToWithAuth }) => {

@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { generateText } from 'ai'
 import { type AccountKeys, reqSession, isAuthenticated } from '@data-fair/lib-express'
-import { getRawSettings } from '../settings/service.ts'
+import { getRawSettings, defaultQuotas } from '../settings/service.ts'
 import { createModel } from '../models/operations.ts'
 import { recordUsage } from '../usage/service.ts'
 import { computeCost } from '../usage/operations.ts'
@@ -17,7 +17,7 @@ interface SummaryRequest {
 }
 
 function getSummaryPricing (settings: Settings) {
-  const source = settings.models.summarizer?.model ? settings.models.summarizer : settings.models.assistant
+  const source = settings.models?.summarizer?.model ? settings.models.summarizer : settings.models?.assistant
   return {
     modelConfig: source?.model,
     inputPricePerMillion: source?.inputPricePerMillion ?? 0,
@@ -55,7 +55,7 @@ router.post('/:type/:id', async (req, res, next) => {
     }
 
     // Permission check + quota enforcement (shared with the gateway)
-    const quotas = settings.quotas ?? {}
+    const quotas = settings.quotas ?? defaultQuotas
 
     const identity = await resolveUsageIdentity(req, owner, quotas, sessionState, authenticated)
     const { usageUserId, usageUserName, poolId } = identity

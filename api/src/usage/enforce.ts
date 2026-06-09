@@ -19,7 +19,7 @@ import { assertAnonymousActionToken } from '../anonymous-token/service.ts'
 import { getUsage, getOwnerUsage } from './service.ts'
 import { firstQuotaViolation, isUntrustedRole, type QuotaCheckInput, type QuotaExceeded } from './operations.ts'
 
-type Quotas = Settings['quotas']
+type Quotas = NonNullable<Settings['quotas']>
 
 // sentinel userId for the aggregate anonymous + external usage record
 export const UNTRUSTED_POOL_ID = 'pool:untrusted'
