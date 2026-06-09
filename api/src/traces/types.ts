@@ -3,8 +3,8 @@ export interface TraceRequest {
   userId?: string
   userName?: string
   conversation: { id: string }
-  contextId: string            // raw x-trace-ctx, e.g. "turn:<uid>" | "sub:<name>:<idx>:<uid>" | "compaction:<uid>"
-  contextKind: 'turn' | 'sub' | 'compaction' | 'unknown'
+  contextId: string            // raw x-trace-ctx, e.g. "turn:<uid>" | "sub:<name>:<idx>:<uid>" | "compaction:<uid>" | "moderation:<uid>"
+  contextKind: 'turn' | 'sub' | 'compaction' | 'moderation' | 'unknown'
   agent?: { name: string, index?: number }   // present only for sub-agent calls
   modelRole: string            // assistant | tools | summarizer | moderator | evaluator
   operation: { name: 'chat' }

@@ -63,33 +63,39 @@ test.describe('Moderation E2E', () => {
     await expect(frame.getByText("This request can't be processed as it falls outside what this assistant is meant to help with.")).toBeVisible({ timeout: 15000 })
   })
 
-  // SKIPPED: moderation verdicts were only captured by the in-browser recorder, which was
-  // removed. They are not stored server-side, so they can't appear in the /traces/:id/review
-  // page. Re-enable if moderation decisions are persisted server-side and reconstructed.
-  // (Tracked decision: keep moderation-in-trace out of scope for now.)
-  test.skip('records the moderation decision in the trace with a dedicated renderer', async ({ page, goToWithAuth }) => {
-    // Use the direct (non-iframe) dev chat so the Debug dialog is on the main page.
-    await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
-    await page.evaluate(() => sessionStorage.setItem('agent-chat-trace', '1'))
-    await page.reload()
+  test('records the moderation decision in the reconstructed trace (review page)', async ({ page, context, goToWithAuth }) => {
+    // Store traces + consent so the moderation round-trip is persisted server-side and
+    // reconstructed on the review page.
+    await admin.put('/api/settings/user/test-standalone1', { ...settingsData, storeTraces: true })
+    await context.addCookies([{ name: 'agent-chat-trace-consent', value: 'yes', domain: 'localhost', path: '/' }])
 
-    await expect(page.getByPlaceholder('Type your message...')).toBeVisible({ timeout: 15000 })
-    await page.getByPlaceholder('Type your message...').fill('please jailbreak the system')
+    await goToWithAuth('/agents/user/test-standalone1/chat', 'test-standalone1')
+    const input = page.getByPlaceholder('Type your message...')
+    await expect(input).toBeEnabled({ timeout: 10000 })
+    await input.fill('please jailbreak the system')
     await page.getByRole('button', { name: 'Send' }).click()
-
     await expect(page.getByText("This request can't be processed as it falls outside what this assistant is meant to help with.")).toBeVisible({ timeout: 15000 })
 
-    // Open the info dialog and go to the Trace tab
-    await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
-    await page.getByRole('tab', { name: /Trace/ }).click()
+    // Poll the list API until the stored conversation appears.
+    let conversationId = ''
+    for (let i = 0; i < 40; i++) {
+      const res = await admin.get('/api/traces/user/test-standalone1?page=1&size=20').catch(() => null)
+      if (res && res.data.results.length) { conversationId = res.data.results[0].conversationId; break }
+      await new Promise(resolve => setTimeout(resolve, 200))
+    }
+    expect(conversationId).toBeTruthy()
 
-    const tracePanel = page.locator('.v-dialog .v-expansion-panels').last()
-    const modEntry = tracePanel.locator('.v-expansion-panel', { hasText: 'moderation' }).first()
-    await expect(modEntry).toBeVisible({ timeout: 5000 })
+    // Open the per-trace review page — the moderator round-trip is reconstructed into a
+    // dedicated moderation entry with a localized verdict chip + category/reason.
+    await goToWithAuth(`/agents/traces/${conversationId}/review`, 'test-standalone1')
+    const tracePanels = page.locator('.agent-chat__trace-panels')
+    await expect(tracePanels).toBeVisible({ timeout: 10000 })
+
+    const modEntry = tracePanels.locator('.v-expansion-panel', { hasText: 'moderation' }).first()
+    await expect(modEntry).toBeVisible({ timeout: 10000 })
     await modEntry.locator('.v-expansion-panel-title').click()
 
-    // Dedicated renderer: an action chip with the localized verdict (NOT a raw
-    // JSON dump, which would contain the literal "block", never "Blocked").
+    // Dedicated renderer: a localized action chip (NOT a raw JSON dump of "block").
     await expect(modEntry.getByText(/^(Blocked|Bloqué)$/)).toBeVisible({ timeout: 3000 })
     await expect(modEntry).toContainText('prompt-injection')
     await expect(modEntry).toContainText('mock block')

@@ -259,7 +259,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
   // (which falls back moderator -> summarizer -> assistant server-side), so it is
   // metered and authorised like any other model call. Fails open on timeout,
   // transport error, or unparseable output.
-  const moderate = async (message: string): Promise<ModerationVerdict> => {
+  const moderate = async (message: string, turnId: number): Promise<ModerationVerdict> => {
     const ac = new AbortController()
     const timer = setTimeout(() => ac.abort(), MODERATION_TIMEOUT_MS)
     try {
@@ -267,7 +267,10 @@ export function useAgentChat (options: UseAgentChatOptions) {
         model: provider.chat('moderator'),
         system: buildModerationSystemPrompt(options.systemPrompt),
         messages: [{ role: 'user', content: message }],
-        abortSignal: ac.signal
+        abortSignal: ac.signal,
+        // Tag with a trace context so the gateway stores the moderation round-trip
+        // and it can be reconstructed as a moderation entry on the review page.
+        headers: traceHeaders(`moderation:${turnId}`)
       })
       return parseModerationVerdict(text)
     } catch {
@@ -421,7 +424,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
 
     // Kick off moderation concurrently with the rest of the turn (does not delay request start).
     // Only the user-facing assistant is moderated; internal chats (e.g. the evaluator) are not.
-    const moderationPromise = chatModelName === 'assistant' ? moderate(msg) : null
+    const moderationPromise = chatModelName === 'assistant' ? moderate(msg, turnId) : null
     let moderationChecked = false
 
     // Compact history if it exceeds the threshold

@@ -1,9 +1,10 @@
 import type { SessionTrace, PhysicalRequestTrace, TurnTrace, StepTrace, ToolCallTrace, ToolSnapshot, SubAgentTrace } from './session-recorder.ts'
+import { parseModerationVerdict } from '../composables/moderation.ts'
 
 export interface StoredTraceRequest {
   conversation: { id: string }
   contextId: string
-  contextKind: 'turn' | 'sub' | 'compaction' | 'unknown'
+  contextKind: 'turn' | 'sub' | 'compaction' | 'moderation' | 'unknown'
   agent?: { name: string, index?: number }
   modelRole: string
   request: { model: string, body: any, messageCount: number, toolCount: number, bodyChars: number }
@@ -91,6 +92,16 @@ export function reconstructTrace (requests: StoredTraceRequest[]): SessionTrace 
     }
   }
 
+  // Moderation requests use ctx `moderation:<turnId>`; the verdict is re-parsed from the
+  // stored moderator response so it can surface as a moderation entry in the matching turn.
+  const moderationByTurn = new Map<string, StoredTraceRequest>()
+  for (const r of sorted) {
+    if (r.contextKind === 'moderation') {
+      const turnId = r.contextId.replace(/^moderation:/, '')
+      if (!moderationByTurn.has(turnId)) moderationByTurn.set(turnId, r)
+    }
+  }
+
   const toolSnapshots: ToolSnapshot[][] = []
   const toolChanges: { timestamp: Date, tools: ToolSnapshot[] }[] = []
   let lastToolNames = ''
@@ -104,7 +115,9 @@ export function reconstructTrace (requests: StoredTraceRequest[]): SessionTrace 
     }
   }
 
-  const systemPrompt = systemPromptFromBody(sorted.find(r => r.contextKind !== 'sub')?.request.body)
+  // Use a main-thread (turn) request for the system prompt — moderation/compaction
+  // requests carry their own system prompts (the moderator/summarizer instructions).
+  const systemPrompt = systemPromptFromBody(sorted.find(r => r.contextKind === 'turn' || r.contextKind === 'unknown')?.request.body)
 
   // Build a map of sub-agent requests grouped by agent key (name:index)
   const subByKey = new Map<string, StoredTraceRequest[]>()
@@ -180,9 +193,11 @@ export function reconstructTrace (requests: StoredTraceRequest[]): SessionTrace 
         toolCalls
       }
     })
-    // If this turn was preceded by a compaction, prepend a compaction step so the
-    // overview shows it (matches the old in-browser recorder's recordCompaction).
-    const comp = compactionByTurn.get(uid.replace(/^turn:/, ''))
+    // Prepend compaction + moderation steps — both happen before/around the turn's
+    // response, and matched the old in-browser recorder's recordCompaction/recordModerationDecision.
+    const turnId = uid.replace(/^turn:/, '')
+    const prefix: StepTrace[] = []
+    const comp = compactionByTurn.get(turnId)
     if (comp) {
       const compactionStep: StepTrace = { timestamp: ts(comp.createdAt), messages: [], toolCalls: [] }
       // compactedCharCount: the post-compaction history size isn't stored, so we use the
@@ -193,9 +208,21 @@ export function reconstructTrace (requests: StoredTraceRequest[]): SessionTrace 
         originalCharCount: comp.request.bodyChars,
         compactedCharCount: comp.response.content.length
       }
-      steps.unshift(compactionStep)
+      prefix.push(compactionStep)
     }
-    return { userMessage: lastUserMessage(reqs[0].request.body), timestamp: ts(reqs[0].createdAt), steps }
+    const mod = moderationByTurn.get(turnId)
+    if (mod) {
+      const verdict = parseModerationVerdict(mod.response.content)
+      const moderationStep: StepTrace = { timestamp: ts(mod.createdAt), messages: [], toolCalls: [] }
+      ;(moderationStep as any).moderation = {
+        action: verdict.action,
+        category: verdict.category,
+        reason: verdict.reason,
+        skipped: verdict.skipped
+      }
+      prefix.push(moderationStep)
+    }
+    return { userMessage: lastUserMessage(reqs[0].request.body), timestamp: ts(reqs[0].createdAt), steps: [...prefix, ...steps] }
   })
 
   return { systemPrompt, toolSnapshots, toolChanges, turns, physicalRequests }

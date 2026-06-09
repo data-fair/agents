@@ -7,7 +7,7 @@ import type { TraceRequest } from './types.ts'
 const RETENTION_MS = 30 * 24 * 60 * 60 * 1000
 
 export interface ParsedContext {
-  kind: 'turn' | 'sub' | 'compaction' | 'unknown'
+  kind: 'turn' | 'sub' | 'compaction' | 'moderation' | 'unknown'
   uid: string
   agent?: { name: string, index?: number }
 }
@@ -23,6 +23,7 @@ export function parseContextId (contextId: string): ParsedContext {
     }
   }
   if (parts[0] === 'compaction') return { kind: 'compaction', uid: parts.slice(1).join(':') }
+  if (parts[0] === 'moderation') return { kind: 'moderation', uid: parts.slice(1).join(':') }
   if (parts[0] === 'turn') return { kind: 'turn', uid: parts.slice(1).join(':') }
   return { kind: 'unknown', uid: contextId ?? '' }
 }

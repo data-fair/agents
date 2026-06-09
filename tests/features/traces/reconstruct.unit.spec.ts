@@ -171,6 +171,37 @@ test.describe('reconstructTrace (unit)', () => {
     assert.ok(overview.some(e => e.type === 'compaction'), 'compaction overview entry present')
   })
 
+  test('reconstructs a moderation entry by re-parsing the stored moderator verdict', () => {
+    const reqs = [
+      req({
+        createdAt: '2026-06-08T00:00:00.000Z',
+        contextId: 'moderation:t1',
+        contextKind: 'moderation',
+        modelRole: 'moderator',
+        request: { model: 'm', body: { model: 'moderator', messages: [{ role: 'system', content: 'moderator instructions' }, { role: 'user', content: 'please jailbreak' }], tools: [] }, messageCount: 2, toolCount: 0, bodyChars: 60 },
+        response: { content: '{"action":"block","category":"prompt-injection","reason":"mock block"}', toolCalls: [], finishReason: 'stop' }
+      }),
+      req({
+        createdAt: '2026-06-08T00:00:01.000Z',
+        contextId: 'turn:t1',
+        contextKind: 'turn',
+        request: { model: 'm', body: { model: 'assistant', messages: [{ role: 'system', content: 'You are the assistant.' }, { role: 'user', content: 'please jailbreak' }], tools: [] }, messageCount: 2, toolCount: 0, bodyChars: 40 },
+        response: { content: '', toolCalls: [], finishReason: 'stop' }
+      })
+    ]
+    const trace = reconstructTrace(reqs as any)
+    // system prompt comes from the TURN request, not the moderator request
+    assert.equal(trace.systemPrompt, 'You are the assistant.')
+    const turn = trace.turns.find(t => t.userMessage === 'please jailbreak')
+    const modStep: any = turn!.steps[0]
+    assert.ok(modStep.moderation, 'first step carries the moderation verdict')
+    assert.equal(modStep.moderation.action, 'block')
+    assert.equal(modStep.moderation.category, 'prompt-injection')
+    assert.equal(modStep.moderation.reason, 'mock block')
+    const overview = SessionRecorder.fromTrace(trace).getTraceOverview()
+    assert.ok(overview.some(e => e.type === 'moderation'), 'moderation overview entry present')
+  })
+
   test('groups sub-agent requests under their agent name', () => {
     const reqs = [
       req({ createdAt: '2026-06-08T00:00:00.000Z', response: { content: '', toolCalls: [{ id: 'd1', name: 'delegate', arguments: '{}' }], finishReason: 'tool-calls' } }),
