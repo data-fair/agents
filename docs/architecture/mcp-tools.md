@@ -1,10 +1,10 @@
 # MCP tool integration
 
-Tools are **decoupled from the chat UI**. MCP servers run in sibling frames and are discovered dynamically through BroadcastChannel. This document covers the full lifecycle from tool registration to LLM invocation.
+Tools are **decoupled from the chat UI**. Each frame declares its tools through the **WebMCP** standard (`navigator.modelContext`, via the `@mcp-b/webmcp-*` packages); the project adds a **BroadcastChannel transport** on top so those WebMCP servers can be discovered and shared across sibling frames of the same origin — which WebMCP, scoped to a single page, does not cover on its own. This document covers the full lifecycle from tool registration to LLM invocation.
 
 ## Overview
 
-MCP servers run in sibling frames and are discovered dynamically through BroadcastChannel.
+Each frame runs a WebMCP server (`navigator.modelContext`); these servers are discovered dynamically through the BroadcastChannel transport.
 
 ```mermaid
 sequenceDiagram

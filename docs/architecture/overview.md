@@ -26,7 +26,7 @@ graph TB
 |-----------|------|
 | `api/` | Stateless Express server: LLM gateway, settings, usage tracking, summarization |
 | `ui/` | Vue 3 + Vuetify 4 SPA: chat interface, tool orchestration, sub-agent rendering |
-| `lib-vue/` | Vue composables: MCP tool registration, sub-agent declaration, BroadcastChannel transport |
+| `lib-vue/` | Vue composables: WebMCP tool registration, sub-agent declaration, BroadcastChannel transport |
 | `lib-vuetify/` | Embeddable Vuetify components: chat drawer, menu, action button, toggle FAB |
 
 The API server is a stateless LLM proxy with no server-side conversation state; all conversation history lives in the browser and is sent with each request.

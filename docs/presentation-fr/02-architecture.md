@@ -42,7 +42,7 @@ Un sous-agent peut enchaîner plusieurs appels d'outils, puis ne restitue à l'a
 
 ### Embarquement et découverte d'outils
 
-L'interface est rendue dans une iframe isolée que l'application hôte intègre dans ses pages. Les outils disponibles ne sont pas figés dans le service : ils sont fournis à l'exécution par les **éléments de page** de l'hôte — un tableau, un formulaire, un graphique — qui s'enregistrent auprès de l'assistant en décrivant leurs outils (nom, paramètres, description). L'assistant agrège ces descripteurs et peut invoquer les outils correspondants.
+L'interface est rendue dans une iframe isolée que l'application hôte intègre dans ses pages. Les outils disponibles ne sont pas figés dans le service : ils sont fournis à l'exécution par les **éléments de page** de l'hôte — un tableau, un formulaire, un graphique — qui déclarent leurs outils selon le standard **WebMCP** (l'API navigateur `navigator.modelContext`) — nom, paramètres, description. Ces définitions sont partagées entre frames par une couche de transport BroadcastChannel ; l'assistant les agrège et peut invoquer les outils correspondants.
 
 L'assistant n'a donc aucune connaissance codée en dur des applications : il découvre les capacités selon le contexte de la page. Toute nouvelle application peut exposer ses outils sans toucher au service, et l'isolation de l'iframe interdit tout accès direct au DOM de l'hôte — les échanges passent uniquement par un protocole de messages défini.
 
