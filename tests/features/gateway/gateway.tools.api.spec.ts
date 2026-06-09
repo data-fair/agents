@@ -5,7 +5,7 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { generateText } from 'ai'
+import { generateText, streamText } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { axiosAuth, superAdmin, clean, directoryUrl, baseURL, defaultQuotas } from '../../support/axios.ts'
 
@@ -118,6 +118,43 @@ test.describe('Gateway API - Tool forwarding', () => {
     const data = await response.json() as any
     assert.equal(data.choices[0].message.content, 'world')
     assert.equal(data.choices[0].finish_reason, 'stop')
+  })
+
+  test('parallel tool calls survive the streaming path', async () => {
+    const provider = await createGatewayProvider()
+
+    // The mock model responds to "call tools <name> <name>" with two parallel tool calls.
+    // In the OpenAI streaming wire format parallel calls are distinguished only by their
+    // `index`; if the gateway hardcodes index 0 the client collapses them into a single call.
+    const result = streamText({
+      model: provider.chat('assistant'),
+      messages: [{ role: 'user', content: 'call tools list_datasets get_current_location' }],
+      tools: {
+        list_datasets: {
+          type: 'function' as const,
+          function: {
+            name: 'list_datasets',
+            description: 'List datasets',
+            parameters: { type: 'object', properties: {} }
+          }
+        },
+        get_current_location: {
+          type: 'function' as const,
+          function: {
+            name: 'get_current_location',
+            description: 'Get the current location',
+            parameters: { type: 'object', properties: {} }
+          }
+        }
+      } as any
+    })
+
+    // drain the stream so the final tool-call list is resolved
+    await result.consumeStream()
+
+    const toolCalls = await result.toolCalls
+    const names = toolCalls.map(tc => tc.toolName).sort()
+    assert.deepEqual(names, ['get_current_location', 'list_datasets'])
   })
 
   test('generateText without tools still works', async () => {

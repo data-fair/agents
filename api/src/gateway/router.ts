@@ -178,6 +178,11 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
         choices: [{ index: 0, delta: { role: 'assistant', content: '' }, finish_reason: null }]
       })}\n\n`)
 
+      // Parallel tool calls are distinguished in the OpenAI streaming wire format only by
+      // their `index`. Assign a stable incrementing index per tool call id so the client
+      // does not collapse several calls into a single index-0 slot.
+      const toolCallIndexes = new Map<string, number>()
+
       try {
         for await (const part of result.fullStream) {
           if (part.type === 'text-delta') {
@@ -189,6 +194,8 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
               choices: [{ index: 0, delta: { content: part.text }, finish_reason: null }]
             })}\n\n`)
           } else if (part.type === 'tool-input-start') {
+            const toolCallIndex = toolCallIndexes.size
+            toolCallIndexes.set(part.id, toolCallIndex)
             res.write(`data: ${JSON.stringify({
               id: completionId,
               object: 'chat.completion.chunk',
@@ -198,7 +205,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
                 index: 0,
                 delta: {
                   tool_calls: [{
-                    index: 0,
+                    index: toolCallIndex,
                     id: part.id,
                     type: 'function',
                     function: { name: part.toolName, arguments: '' }
@@ -208,6 +215,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
               }]
             })}\n\n`)
           } else if (part.type === 'tool-input-delta') {
+            const toolCallIndex = toolCallIndexes.get(part.id) ?? 0
             res.write(`data: ${JSON.stringify({
               id: completionId,
               object: 'chat.completion.chunk',
@@ -217,7 +225,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
                 index: 0,
                 delta: {
                   tool_calls: [{
-                    index: 0,
+                    index: toolCallIndex,
                     function: { arguments: part.delta }
                   }]
                 },
