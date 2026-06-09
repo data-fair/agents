@@ -64,7 +64,8 @@ test.describe('SessionRecorder - overview and entry accessors', () => {
     const recorder = SessionRecorder.fromTrace(buildSampleTrace())
     const overview = recorder.getTraceOverview()
 
-    assert.ok(overview.length >= 4)
+    // system-prompt + user-message + tool-call + tool-result + assistant-step + tools-changed + physical-request = 7
+    assert.equal(overview.length, 7)
     assert.equal(overview[0].type, 'system-prompt')
     assert.ok(overview[0].preview.includes('You are helpful'))
     assert.equal(overview[1].type, 'user-message')
@@ -117,6 +118,184 @@ test.describe('SessionRecorder - overview and entry accessors', () => {
     assert.equal(detail.content.inputTokens, 100)
     assert.equal(detail.content.outputTokens, 20)
     assert.equal(detail.content.result.content, 'Found results')
+  })
+})
+
+test.describe('SessionRecorder - buildCache coverage for compaction / moderation / hidden-context / tools-changed', () => {
+  test('hidden-context: turn.hiddenContext produces a hidden-context entry', () => {
+    const now = new Date('2020-01-01T00:00:00Z')
+    const trace: SessionTrace = {
+      systemPrompt: '',
+      toolSnapshots: [],
+      toolChanges: [],
+      turns: [{
+        userMessage: 'hello',
+        hiddenContext: 'this is injected context',
+        timestamp: now,
+        steps: []
+      }],
+      physicalRequests: []
+    }
+    const recorder = SessionRecorder.fromTrace(trace)
+    const overview = recorder.getTraceOverview()
+
+    const hcEntry = overview.find(e => e.type === 'hidden-context')
+    assert.ok(hcEntry, 'hidden-context entry must exist when turn.hiddenContext is set')
+    assert.ok(hcEntry!.preview.includes('injected context'))
+
+    // hidden-context must appear before the user-message for the same turn
+    const hcIdx = overview.findIndex(e => e.type === 'hidden-context')
+    const umIdx = overview.findIndex(e => e.type === 'user-message')
+    assert.ok(hcIdx < umIdx, 'hidden-context entry should precede the user-message entry (same timestamp, same insertion order)')
+
+    const detail = recorder.getTraceEntry(hcEntry!.index)!
+    assert.equal(detail.type, 'hidden-context')
+    assert.ok(typeof detail.content === 'string' && detail.content.includes('injected context'))
+  })
+
+  test('tools-changed: toolChanges entries produce tools-changed overview entries', () => {
+    const t0 = new Date('2020-01-01T00:00:00Z')
+    const t1 = new Date('2020-01-01T00:01:00Z')
+    const trace: SessionTrace = {
+      systemPrompt: '',
+      toolSnapshots: [],
+      toolChanges: [
+        { timestamp: t0, tools: [{ name: 'search', description: 'Search', inputSchema: { type: 'object' } }] },
+        { timestamp: t1, tools: [{ name: 'search', description: 'Search', inputSchema: { type: 'object' } }, { name: 'write', description: 'Write', inputSchema: { type: 'object' } }] }
+      ],
+      turns: [],
+      physicalRequests: []
+    }
+    const recorder = SessionRecorder.fromTrace(trace)
+    const overview = recorder.getTraceOverview()
+
+    const tcEntries = overview.filter(e => e.type === 'tools-changed')
+    assert.equal(tcEntries.length, 2, 'one tools-changed entry per toolChanges event')
+
+    // First event: 1 tool
+    assert.equal(tcEntries[0].label, '1')
+    assert.ok(tcEntries[0].preview.includes('search'))
+
+    // Second event: 2 tools
+    assert.equal(tcEntries[1].label, '2')
+    assert.ok(tcEntries[1].preview.includes('write'))
+
+    const detail = recorder.getTraceEntry(tcEntries[1].index)!
+    assert.equal(detail.type, 'tools-changed')
+    assert.equal(detail.content.tools.length, 2)
+  })
+
+  test('compaction: step.compaction produces a compaction entry', () => {
+    const now = new Date('2020-01-01T00:00:00Z')
+    const compactionStep: any = {
+      timestamp: now,
+      messages: [],
+      toolCalls: [],
+      compaction: {
+        summary: 'Compacted history summary',
+        originalMessages: [{ role: 'user', content: 'old message' }],
+        originalCharCount: 500,
+        compactedCharCount: 80
+      }
+    }
+    const trace: SessionTrace = {
+      systemPrompt: '',
+      toolSnapshots: [],
+      toolChanges: [],
+      turns: [{
+        userMessage: 'continue',
+        timestamp: now,
+        steps: [compactionStep]
+      }],
+      physicalRequests: []
+    }
+    const recorder = SessionRecorder.fromTrace(trace)
+    const overview = recorder.getTraceOverview()
+
+    const cEntry = overview.find(e => e.type === 'compaction')
+    assert.ok(cEntry, 'compaction entry must exist when step.compaction is set')
+    assert.ok(cEntry!.preview.includes('500'), 'preview shows originalCharCount')
+    assert.ok(cEntry!.preview.includes('80'), 'preview shows compactedCharCount')
+
+    const detail = recorder.getTraceEntry(cEntry!.index)!
+    assert.equal(detail.type, 'compaction')
+    assert.equal(detail.content.summary, 'Compacted history summary')
+    assert.equal(detail.content.originalCharCount, 500)
+    assert.equal(detail.content.compactedCharCount, 80)
+    assert.equal(detail.content.originalMessages.length, 1)
+  })
+
+  test('moderation: step.moderation produces a moderation entry (action case)', () => {
+    const now = new Date('2020-01-01T00:00:00Z')
+    const moderationStep: any = {
+      timestamp: now,
+      messages: [],
+      toolCalls: [],
+      moderation: {
+        action: 'block',
+        category: 'profanity',
+        reason: 'offensive language',
+        skipped: false
+      }
+    }
+    const trace: SessionTrace = {
+      systemPrompt: '',
+      toolSnapshots: [],
+      toolChanges: [],
+      turns: [{
+        userMessage: 'bad input',
+        timestamp: now,
+        steps: [moderationStep]
+      }],
+      physicalRequests: []
+    }
+    const recorder = SessionRecorder.fromTrace(trace)
+    const overview = recorder.getTraceOverview()
+
+    const mEntry = overview.find(e => e.type === 'moderation')
+    assert.ok(mEntry, 'moderation entry must exist when step.moderation is set')
+    assert.equal(mEntry!.label, 'block', 'label should be the action when not skipped')
+    assert.ok(mEntry!.preview.includes('profanity'))
+    assert.ok(mEntry!.preview.includes('offensive language'))
+
+    const detail = recorder.getTraceEntry(mEntry!.index)!
+    assert.equal(detail.type, 'moderation')
+    assert.equal(detail.content.action, 'block')
+    assert.equal(detail.content.category, 'profanity')
+    assert.equal(detail.content.reason, 'offensive language')
+    assert.equal(detail.content.skipped, false)
+  })
+
+  test('moderation: step.moderation with skipped=true uses "skipped" as label', () => {
+    const now = new Date('2020-01-01T00:00:00Z')
+    const moderationStep: any = {
+      timestamp: now,
+      messages: [],
+      toolCalls: [],
+      moderation: {
+        action: undefined,
+        category: undefined,
+        reason: undefined,
+        skipped: true
+      }
+    }
+    const trace: SessionTrace = {
+      systemPrompt: '',
+      toolSnapshots: [],
+      toolChanges: [],
+      turns: [{
+        userMessage: 'neutral input',
+        timestamp: now,
+        steps: [moderationStep]
+      }],
+      physicalRequests: []
+    }
+    const recorder = SessionRecorder.fromTrace(trace)
+    const overview = recorder.getTraceOverview()
+
+    const mEntry = overview.find(e => e.type === 'moderation')
+    assert.ok(mEntry, 'moderation entry must exist')
+    assert.equal(mEntry!.label, 'skipped', 'label should be "skipped" when moderation.skipped is true')
   })
 })
 
