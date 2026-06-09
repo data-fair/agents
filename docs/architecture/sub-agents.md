@@ -214,14 +214,7 @@ This also reduces pressure on the 24,000-character compaction threshold (see [Co
 
 ## 7. Telemetry
 
-When a `SessionRecorder` is provided, the orchestrator records:
-
-| Event | Data |
-|-------|------|
-| `startSubAgent` | parent tool call ID, display name, system prompt, task, tool snapshots, call index |
-| `addSubAgentStepMessages` | response messages, token usage |
-
-This enables full trace reconstruction in the debug dialog, showing each sub-agent's reasoning and tool calls alongside the main agent's flow.
+There is no live in-browser recorder. Instead, each sub-agent's physical LLM requests are tagged with a trace context id via an `x-trace-ctx: sub:<name>:<index>:<parentToolCallId>` header (`use-agent-chat.ts:505`). When [trace storage](./tracing.md) is enabled (org `storeTraces`) and consented (`x-trace-consent`), the gateway stores those requests; at view time `reconstructTrace()` groups them by `contextId` into a sub-agent block (`ui/src/traces/reconstruct-trace.ts:146`), shown alongside the main agent's flow on the review page.
 
 ---
 

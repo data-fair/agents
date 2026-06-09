@@ -35,7 +35,7 @@ sequenceDiagram
 
 **Input only (v1).** The moderator sees the new user message plus the agent mission (system prompt) — not the full history. No output moderation, no tool-result / indirect-injection coverage, no multi-turn jailbreak detection. A block is enforced before any assistant text is shown, but if a turn's first action is a tool call, the tool may already have executed by the time the verdict arrives — moderation does not roll back tool side effects.
 
-**Observable, client-side only.** Every decision — `allow`, `skip` (fail-open), and `block` — is recorded in the session trace (`SessionRecorder.recordModerationDecision`) with the model's `category` and `reason`, viewable in the debug dialog. Tracing is ephemeral and client-only.
+**Observable when trace storage is on.** Moderation runs as a `moderator`-role gateway call tagged with an `x-trace-ctx: moderation:<turnId>` header. When [trace storage](./tracing.md) is enabled (org `storeTraces`) and consented (`x-trace-consent`), that physical request is stored server-side and later surfaces as a moderation entry (`action`, `category`, `reason`) in the **reconstructed** trace on the review page. Fidelity gap: a **skipped** (fail-open) decision makes no model call, so it produces no physical request and does not appear in a stored/reconstructed trace.
 
 **Key files:**
 - `api/src/gateway/router.ts` — resolves the `moderator` role and meters the call
