@@ -132,6 +132,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/[type]/[id]/activity': RouteRecordInfo<
+      '/[type]/[id]/activity',
+      '/:type/:id/activity',
+      { type: ParamValue<true>, id: ParamValue<true> },
+      { type: ParamValue<false>, id: ParamValue<false> },
+      | never
+    >,
     '/[type]/[id]/chat': RouteRecordInfo<
       '/[type]/[id]/chat',
       '/:type/:id/chat',
@@ -260,6 +267,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/_dev/summary.vue': {
       routes:
         | '/_dev/summary'
+      views:
+        | never
+    }
+    'src/pages/[type]/[id]/activity.vue': {
+      routes:
+        | '/[type]/[id]/activity'
       views:
         | never
     }
