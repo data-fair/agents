@@ -195,8 +195,8 @@ en:
 <script lang="ts" setup>
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import { mdiClose, mdiOpenInNew } from '@mdi/js'
-import { useVueRouterDFrameContent } from '@data-fair/frame/lib/vue-router/d-frame-content.js'
 import type { DebugToolsPartition } from '~/composables/use-agent-chat'
 import { traceStorageAvailable, consentRef, writeConsent } from '~/traces/trace-consent'
 
@@ -217,8 +217,7 @@ defineEmits<{
 }>()
 
 const { t } = useI18n()
-
-const dFrameContent = useVueRouterDFrameContent()
+const router = useRouter()
 
 const activeDebugTab = ref('info')
 const totalToolCount = computed(() => {
@@ -228,10 +227,12 @@ const totalToolCount = computed(() => {
 
 const showReview = computed(() => !!props.isAdmin && traceStorageAvailable.value && consentRef.value === 'yes')
 
+// Open the review in a new tab. `router.resolve(...).href` includes the app's
+// base ('/agents'), so this works whether the chat is standalone or embedded in
+// data-fair — and avoids relying on host navigation for a route the host doesn't have.
 const openReview = () => {
-  const url = `/traces/${props.conversationId}/review`
-  if (window.parent !== window) dFrameContent.sendMessage({ type: 'navigate', url } as any)
-  else window.open(url, '_blank')
+  const href = router.resolve({ path: `/traces/${props.conversationId}/review` }).href
+  window.open(href, '_blank')
 }
 </script>
 
