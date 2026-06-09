@@ -271,7 +271,28 @@ export class SessionRecorder {
       )
     }
 
-    items.sort((a, b) => a.overview.timestamp.getTime() - b.overview.timestamp.getTime())
+    // A physical request and the semantic entries reconstructed from its response share the
+    // same timestamp. Within one instant, show the turn's inputs first, then the physical
+    // request that was sent, then the info extracted from its response.
+    const sortRank: Record<TraceOverviewEntry['type'], number> = {
+      'system-prompt': 0,
+      'user-message': 0,
+      'hidden-context': 0,
+      'physical-request': 1,
+      'assistant-step': 2,
+      'tool-call': 2,
+      'tool-result': 2,
+      'sub-agent-start': 2,
+      'sub-agent-system-prompt': 2,
+      'sub-agent-step': 2,
+      'sub-agent-end': 2,
+      'tools-changed': 2,
+      compaction: 2,
+      moderation: 2
+    }
+    items.sort((a, b) =>
+      (a.overview.timestamp.getTime() - b.overview.timestamp.getTime()) ||
+      (sortRank[a.overview.type] - sortRank[b.overview.type]))
 
     this.cachedOverview = items.map((item, i) => ({ ...item.overview, index: i }))
     this.cachedDetails = items.map((item, i) => ({ ...item.overview, index: i, content: item.detail }))
