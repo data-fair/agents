@@ -272,6 +272,14 @@ By default every aggregated tool is sent on every request. An opt-in **explorati
 
 ---
 
+## Execution context & safety
+
+Tool `execute()` runs **client-side only**, inside the user's own browser session and with exactly the user's permissions — the gateway never runs tools (it forwards schema-only definitions and sees only tool-calls/results in the message history). A tool therefore can do nothing the user could not already do: a prompt injection or a compromised tool descriptor cannot escalate privileges or reach resources the session isn't entitled to. The blast radius of any injection is bounded to the same restricted tool surface already available to the user.
+
+That surface is deliberately narrow and **assistive / non-destructive** by design: no generic HTTP client, no arbitrary-code/JS executor — only well-defined actions over page content or read-only API endpoints. Tools never commit writes themselves; at most a tool *prepares* an action (e.g. pre-fills a form), and the actual write is performed by the user, with the UI responsible for surfacing the pending changes before they are committed. This is why moderation's inability to roll back a tool call that ran before its verdict ([moderation](./moderation.md)) is acceptable — such side effects are reads or staged actions, never validated writes.
+
+---
+
 ## End-to-End Data Flow
 
 ```
