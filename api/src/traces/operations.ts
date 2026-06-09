@@ -4,7 +4,8 @@
  */
 import type { TraceRequest } from './types.ts'
 
-const RETENTION_MS = 30 * 24 * 60 * 60 * 1000
+// Stored traces are kept for 30 days, enforced by a TTL index on `createdAt`.
+export const RETENTION_SECONDS = 30 * 24 * 60 * 60
 
 export interface ParsedContext {
   kind: 'turn' | 'sub' | 'compaction' | 'moderation' | 'unknown'
@@ -69,7 +70,7 @@ export function buildTraceRequestDoc (input: BuildTraceInput, now: Date): TraceR
     response: input.response,
     usage: input.usage,
     timing: input.timing,
-    createdAt: now.toISOString(),
-    expiresAt: new Date(now.getTime() + RETENTION_MS)
+    // A BSON Date so the TTL index on `createdAt` can expire the document.
+    createdAt: now
   }
 }

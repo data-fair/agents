@@ -23,6 +23,5 @@ export interface TraceRequest {
   }
   usage: { inputTokens: number, outputTokens: number, cacheReadTokens?: number, cacheWriteTokens?: number }
   timing: { durationMs: number, timeToFirstChunkMs?: number }
-  createdAt: string            // ISO; ordering key
-  expiresAt: Date              // TTL target = createdAt + 30 days
+  createdAt: Date              // ordering key + TTL target (30-day index on this field)
 }
