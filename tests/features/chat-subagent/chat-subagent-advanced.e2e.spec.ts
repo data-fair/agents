@@ -30,8 +30,9 @@ const settingsData = {
       model: { id: 'mock-summarizer', name: 'Mock Summarizer', provider: mockProvider }
     }
   },
-  quotas: defaultQuotas,
-  storeTraces: true
+  quotas: defaultQuotas
+  // storeTraces is OFF by default so the consent bottom-sheet doesn't overlay the chat
+  // in the functionality tests. The review-page tests enable it + grant consent locally.
 }
 
 // Poll the stored-trace list API until the conversation for the logged-in user's
@@ -74,7 +75,9 @@ test.describe('Advanced Sub-Agent Scenarios', () => {
   })
 
   test('Subagent multi-step tool chain (get_schema → query_data → summary)', async ({ page, context, goToWithAuth }) => {
-    // Pre-set the consent cookie so the conversation is stored server-side.
+    // Enable trace storage for this review-page test + pre-set consent so the
+    // conversation is stored server-side and the consent sheet stays hidden.
+    await admin.put('/api/settings/user/test-standalone1', { ...settingsData, storeTraces: true })
     await context.addCookies([{ name: 'agent-chat-trace-consent', value: 'yes', domain: 'localhost', path: '/' }])
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
     await waitForToolsReady(page, 'data_analyst (2 tools)', true)
@@ -175,7 +178,9 @@ test.describe('Advanced Sub-Agent Scenarios', () => {
   })
 
   test('Subagent trace appears on the review page', async ({ page, context, goToWithAuth }) => {
-    // Pre-set the consent cookie so the conversation is stored server-side.
+    // Enable trace storage for this review-page test + pre-set consent so the
+    // conversation is stored server-side and the consent sheet stays hidden.
+    await admin.put('/api/settings/user/test-standalone1', { ...settingsData, storeTraces: true })
     await context.addCookies([{ name: 'agent-chat-trace-consent', value: 'yes', domain: 'localhost', path: '/' }])
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
     await waitForToolsReady(page, 'data_analyst (2 tools)', true)

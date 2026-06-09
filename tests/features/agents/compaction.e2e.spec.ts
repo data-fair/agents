@@ -36,8 +36,10 @@ const settingsData = {
       }
     }
   },
-  quotas: defaultQuotas,
-  storeTraces: true
+  quotas: defaultQuotas
+  // NOTE: storeTraces is intentionally OFF here. Only the review-page test enables it
+  // (and grants consent); leaving it off keeps the consent bottom-sheet from overlaying
+  // the chat in the functionality test, which would block its message sends.
 }
 
 test.describe('History Compaction', () => {
@@ -47,8 +49,10 @@ test.describe('History Compaction', () => {
   })
 
   test('Compaction triggers and appears in trace', async ({ page, context, goToWithAuth }) => {
-    // Pre-set the consent cookie so the chat sends x-trace-consent: yes and the
-    // conversation (including the compaction round-trip) is stored server-side.
+    // Enable trace storage (only this test needs it) + pre-set consent so the chat
+    // sends x-trace-consent: yes, the compaction round-trip is stored, and the consent
+    // sheet stays hidden (consent already given).
+    await admin.put('/api/settings/user/test-standalone1', { ...settingsData, storeTraces: true })
     await context.addCookies([{
       name: 'agent-chat-trace-consent',
       value: 'yes',
