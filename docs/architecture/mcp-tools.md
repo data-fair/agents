@@ -307,5 +307,3 @@ Execution:
 | `ui/src/transports/frame-client-aggregator.ts` | `FrameClientAggregator` — discovers servers, merges tools |
 | `ui/src/composables/use-agent-chat.ts` | Passes tools to LLM, handles tool results |
 | `api/src/gateway/operations.ts` | `convertOpenAITools()` — OpenAI ↔ AI SDK conversion |
-</content>
-</invoke>

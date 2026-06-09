@@ -4,7 +4,7 @@
 
 La modération opère uniquement sur les messages entrants de l'utilisateur. Elle ne couvre pas les sorties générées par le modèle ni l'injection indirecte via des données tierces (contenu de jeux de données réintégré dans le contexte). Les équipes sécurité doivent prendre en compte ces vecteurs dans leur évaluation de risque.
 
-Le traçage est, par défaut, éphémère et entièrement côté client : aucune trace n'est persistée sur les serveurs en dehors d'une activation explicite par l'administrateur. Cette conception préserve la confidentialité des échanges, mais limite la capacité d'audit post-incident dans la configuration par défaut.
+Le traçage est éphémère et entièrement côté client : aucune trace n'est persistée sur les serveurs. Cette conception préserve la confidentialité des échanges, mais limite la capacité d'audit post-incident.
 
 La **passerelle** applique une politique d'échec rapide (*fail-fast*) : en cas d'indisponibilité du **fournisseur LLM** sélectionné, la requête échoue immédiatement. Il n'existe pas à ce stade de mécanisme de reprise automatique ni de bascule transparente vers un fournisseur de secours. La continuité de service repose donc sur la disponibilité du fournisseur configuré.
 
