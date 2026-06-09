@@ -89,6 +89,35 @@ test.describe('Trace storage API', () => {
     assert.equal(res.status, 400)
   })
 
+  test('paginates the conversation list newest-first', async () => {
+    await admin.put('/api/settings/organization/test1', settingsData(true))
+
+    // Seed two conversations via the gateway with trace headers
+    async function seedTrace (conversationId: string) {
+      await admin.post('/api/gateway/organization/test1/v1/chat/completions', {
+        model: 'assistant',
+        messages: [{ role: 'user', content: 'hello' }]
+      }, { headers: { 'x-trace-conversation': conversationId, 'x-trace-consent': 'yes', 'x-trace-ctx': `turn:${conversationId}` } })
+    }
+    await seedTrace('conv-page-a')
+    await seedTrace('conv-page-b')
+
+    // Poll until both conversations are visible, failing loudly if they never land
+    let res: any
+    for (let i = 0; i < 30; i++) {
+      res = await admin.get('/api/traces/organization/test1?page=1&size=1')
+      if ((res.data.count ?? 0) >= 2) break
+      await new Promise(resolve => setTimeout(resolve, 200))
+    }
+    if ((res?.data?.count ?? 0) < 2) assert.fail(`timed out waiting for 2 conversations, last count: ${res?.data?.count}`)
+
+    assert.equal(res.data.results.length, 1, 'size=1 should return only 1 result')
+    assert.equal(typeof res.data.count, 'number', 'count should be a number')
+    assert.ok(res.data.count >= 2, `count should be >= 2, got ${res.data.count}`)
+    // newest-first: conv-page-b was seeded last, so it is the most recent
+    assert.equal(res.data.results[0].conversationId, 'conv-page-b', 'first result should be the newest conversation')
+  })
+
   test('GDPR per-user erasure deletes all traces for a specific user (org owner)', async () => {
     // Use organization/test1 as owner: test1-user1 is a member (not the owner), so
     // trackPerUser=true and their userId ('test1-user1') is stored in the trace document.

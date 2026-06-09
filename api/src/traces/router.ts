@@ -15,7 +15,10 @@ router.get('/:type/:id', async (req, res) => {
   assertAccountRole(session, owner, 'admin')
 
   const ownerFilter = { 'owner.type': owner.type, 'owner.id': owner.id }
-  const results = await mongo.traceRequests.aggregate([
+  const size = Math.min(Math.max(parseInt(String(req.query.size ?? '20'), 10) || 20, 1), 200)
+  const page = Math.max(parseInt(String(req.query.page ?? '1'), 10) || 1, 1)
+
+  const grouped = await mongo.traceRequests.aggregate([
     { $match: ownerFilter },
     { $sort: { createdAt: 1 } },
     {
@@ -28,12 +31,15 @@ router.get('/:type/:id', async (req, res) => {
         requestCount: { $sum: 1 }
       }
     },
-    { $sort: { startedAt: -1 } },
-    { $limit: 200 }
+    // $facet sub-pipelines don't inherit a guaranteed order from the parent pipeline,
+    // so the results branch sorts newest-first itself.
+    { $facet: { results: [{ $sort: { startedAt: -1 } }, { $skip: (page - 1) * size }, { $limit: size }], total: [{ $count: 'count' }] } }
   ]).toArray()
 
+  const facet = grouped[0] ?? { results: [], total: [] }
   res.json({
-    results: results.map((r: any) => ({
+    count: facet.total[0]?.count ?? 0,
+    results: facet.results.map((r: any) => ({
       conversationId: r._id,
       startedAt: r.startedAt,
       userName: r.userName,
