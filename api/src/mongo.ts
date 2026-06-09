@@ -44,6 +44,9 @@ export class AgentsMongo {
       'trace-requests': {
         'list-keys': [{ 'owner.type': 1, 'owner.id': 1, 'conversation.id': 1, createdAt: 1 }, {}],
         'recent-keys': [{ 'owner.type': 1, 'owner.id': 1, createdAt: -1 }, {}],
+        // GET /traces/conversation/:id looks up by conversation id alone (owner is
+        // resolved from the result), so it needs conversation.id as the prefix.
+        'conversation-keys': [{ 'conversation.id': 1, createdAt: 1 }, {}],
         'ttl-keys': [{ createdAt: 1 }, { expireAfterSeconds: RETENTION_SECONDS }],
         'user-keys': [{ 'owner.type': 1, 'owner.id': 1, userId: 1 }, {}]
       }
