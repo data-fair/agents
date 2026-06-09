@@ -39,6 +39,8 @@ Les quotas de jetons sont appliqués à deux niveaux complémentaires :
 1. **Quota global du compte** : plafond mensuel agrégé toutes requêtes confondues pour le compte. Il protège contre une consommation excessive quelle qu'en soit la source.
 2. **Quota par rôle** : chaque rôle (anonyme, externe, utilisateur, contributeur, administrateur) dispose de ses propres limites mensuelles, hebdomadaires et journalières, calculées par ratio à partir du plafond mensuel.
 
+En complément, les appelants **« non fiables »** — utilisateurs anonymes **et** externes — partagent un **pool de quota commun**. Cette mutualisation vise à empêcher que le trafic non authentifié ou externe, pris collectivement, n'épuise la capacité du compte, même lorsque chaque appelant pris isolément reste sous sa propre limite.
+
 La tarification interne tient compte du ratio de coût par rôle de modèle, permettant une allocation économique différenciée selon la criticité de la tâche.
 
 ## Chiffrement des clés d'API au repos
@@ -136,19 +138,28 @@ Les données transmises à la **passerelle** sont relayées au **fournisseur LLM
 
 ## Traçabilité
 
-### Architecture actuelle : traçage côté client, éphémère
+### Architecture actuelle : traçage côté serveur, désactivé par défaut
 
-Dans la version actuelle du service, la traçabilité repose entièrement sur un mécanisme **côté client**. La trace d'une session — séquence des tours de conversation, appels de modèles, appels d'outils et leurs durées — est constituée et conservée **en mémoire dans le navigateur**, pas sur un serveur.
+La traçabilité repose désormais sur un enregistrement **côté serveur**. Il n'existe plus d'enregistreur de trace « live » côté navigateur : c'est la **passerelle** qui consigne, pour chaque requête physique adressée au **fournisseur LLM**, une entrée correspondante. Ces requêtes physiques stockées constituent la **source unique de vérité**.
 
-Cette trace est consultable via une boîte de dialogue de débogage accessible à l'utilisateur. Elle est **réinitialisée à chaque remise à zéro de la conversation** : lorsque l'utilisateur ou l'application hôte efface la session, la trace est irrémédiablement perdue.
+Cet enregistrement est **désactivé par défaut**. Il n'a lieu que si **deux conditions** sont réunies simultanément :
 
-Une page d'analyse de trace réservée aux administrateurs permet d'inspecter une trace transmise localement — elle opère sur des données fournies par le navigateur client, non sur un stockage serveur centralisé.
+1. un administrateur a explicitement activé le réglage « enregistrement des traces » au niveau du compte ou de l'organisation ;
+2. l'utilisateur concerné a donné un **consentement explicite**, via un mécanisme de consentement par utilisateur.
 
-### Ce qui n'existe pas dans la version actuelle
+Tant que ces deux conditions ne sont pas remplies, **rien n'est stocké côté serveur**. Cette conception traduit une posture de confidentialité raisonnable : aucune conservation serveur par défaut, activation explicite et consentement requis, et rétention bornée.
 
-**Il n'existe pas, dans la version actuelle, de stockage serveur des traces.** Aucune rétention côté serveur, aucune durée de conservation (TTL), aucun journal centralisé des conversations n'est implémenté. Les données de traçage ne survivent pas à la fermeture de l'onglet ou à la réinitialisation de la conversation.
+### Rétention, accès et effacement
 
-Pour les déploiements soumis à des exigences d'audit ou de traçabilité réglementaire, cette absence constitue une limitation à prendre en compte. Un éventuel stockage serveur des traces — consenti par l'utilisateur, à durée de rétention limitée et clairement documenté — constituerait une évolution future, mais n'est pas disponible aujourd'hui.
+Les traces stockées sont soumises à une **rétention bornée** : elles sont automatiquement supprimées au bout de **30 jours** (mécanisme de TTL). L'accès en lecture est **réservé aux administrateurs**, et chaque utilisateur peut demander l'**effacement** de ses propres traces. L'ensemble suit une conception orientée RGPD : consentement explicite, finalité circonscrite (relecture d'administration), rétention limitée et droit à l'effacement.
+
+La trace complète d'une conversation n'est pas stockée telle quelle : elle est **reconstruite au moment de la consultation** à partir des requêtes physiques enregistrées. Il n'y a donc pas de double envoi ni de journal de conversation distinct des appels réellement émis.
+
+### Nuance de fidélité
+
+Une décision de modération **« ignorée »** (comportement *fail-open*, sans appel de modèle effectif) ne génère **aucune requête physique** vers le **fournisseur LLM**. Un tel événement n'apparaît donc pas dans une trace stockée. Les opérateurs doivent garder à l'esprit que la trace serveur reflète les requêtes physiques émises, et non l'intégralité des décisions internes prises en amont.
+
+Pour les déploiements soumis à des exigences d'audit ou de traçabilité réglementaire, la capacité d'audit dépend de l'activation explicite de cet enregistrement et reste bornée à la fenêtre de rétention de 30 jours.
 
 ## Injection de prompt — limites récapitulatives
 

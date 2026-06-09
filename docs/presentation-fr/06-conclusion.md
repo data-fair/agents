@@ -4,7 +4,7 @@
 
 La modération opère uniquement sur les messages entrants de l'utilisateur. Elle ne couvre pas les sorties générées par le modèle ni l'injection indirecte via des données tierces (contenu de jeux de données réintégré dans le contexte). Les équipes sécurité doivent prendre en compte ces vecteurs dans leur évaluation de risque.
 
-Le traçage est éphémère et entièrement côté client : aucune trace n'est persistée sur les serveurs. Cette conception préserve la confidentialité des échanges, mais limite la capacité d'audit post-incident.
+Un stockage serveur des traces existe, mais il est désactivé par défaut : il requiert à la fois l'activation explicite par un administrateur et le consentement de l'utilisateur concerné, et les traces conservées sont automatiquement supprimées au bout de 30 jours. La capacité d'audit post-incident dépend donc de l'activation de cet enregistrement et reste bornée à cette fenêtre de rétention.
 
 La **passerelle** applique une politique d'échec rapide (*fail-fast*) : en cas d'indisponibilité du **fournisseur LLM** sélectionné, la requête échoue immédiatement. Il n'existe pas à ce stade de mécanisme de reprise automatique ni de bascule transparente vers un fournisseur de secours. La continuité de service repose donc sur la disponibilité du fournisseur configuré.
 
@@ -12,7 +12,7 @@ La **passerelle** applique une politique d'échec rapide (*fail-fast*) : en cas 
 
 Ces éléments représentent des directions de travail possibles, et non des fonctionnalités planifiées ou livrées.
 
-L'extension de la modération aux réponses du modèle et à l'injection indirecte via des données constitue une amélioration naturelle. La mise en place d'un stockage de traces côté serveur, consenti par l'administrateur, avec une rétention limitée dans le temps, pourrait répondre aux besoins d'audit des organisations soumises à des contraintes réglementaires. Des optimisations de mise en cache de prompt permettraient par ailleurs de réduire la latence et les coûts sur les conversations récurrentes.
+L'extension de la modération aux réponses du modèle et à l'injection indirecte via des données constitue une amélioration naturelle. Des optimisations de mise en cache de prompt permettraient par ailleurs de réduire la latence et les coûts sur les conversations récurrentes.
 
 ## Note de lecture
 
