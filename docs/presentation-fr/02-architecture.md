@@ -30,7 +30,7 @@ graph TD
 
 ### Passerelle sans état
 
-La **passerelle** est le seul composant serveur. Elle expose une interface compatible OpenAI et se limite à recevoir une requête, vérifier l'identité et les droits de l'appelant, appliquer les quotas, puis router la requête vers le fournisseur configuré pour le compte. Aucun historique de conversation n'est conservé côté serveur : chaque requête porte l'intégralité du contexte, que le navigateur reconstruit à chaque tour.
+La **passerelle** est le seul composant serveur. Elle expose une interface compatible OpenAI et se limite à recevoir une requête, vérifier l'identité et les droits de l'appelant, appliquer les quotas, puis router la requête vers le fournisseur configuré pour le compte. Son fonctionnement ne dépend d'aucun état de conversation côté serveur : chaque requête porte l'intégralité du contexte, que le navigateur reconstruit à chaque tour. (Un enregistrement de traces côté serveur existe, mais c'est une fonction distincte, optionnelle et soumise à consentement — voir la section Sécurité.)
 
 Ce choix rend le service horizontalement extensible — n'importe quelle instance traite n'importe quelle requête, sans session collante ni affinité — au prix d'un report de la complexité vers le client, qui assume l'orchestration et la construction du contexte.
 
