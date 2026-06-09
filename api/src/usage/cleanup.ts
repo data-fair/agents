@@ -19,14 +19,14 @@ export async function cleanupOldUsage (): Promise<void> {
   const accountMonthlyCutoffPeriod = `monthly:${accountMonthlyCutoff.toISOString().slice(0, 7)}`
 
   await Promise.all([
-    // per-user daily: older than 7 days
+    // per-user daily: older than 7 days (pool aggregates excluded, kept like account-level)
     mongo.usage.deleteMany({
-      userId: { $exists: true },
+      userId: { $exists: true, $not: /^pool:/ },
       period: { $lt: userDailyCutoffPeriod, $regex: /^daily:/ }
     } as any),
-    // per-user monthly: older than current month
+    // per-user monthly: older than current month (pool aggregates excluded)
     mongo.usage.deleteMany({
-      userId: { $exists: true },
+      userId: { $exists: true, $not: /^pool:/ },
       period: { $lt: userMonthlyCutoff, $regex: /^monthly:/ }
     } as any),
     // account-level daily: older than 30 days
@@ -37,6 +37,16 @@ export async function cleanupOldUsage (): Promise<void> {
     // account-level monthly: older than 12 months
     mongo.usage.deleteMany({
       userId: { $exists: false },
+      period: { $lt: accountMonthlyCutoffPeriod, $regex: /^monthly:/ }
+    } as any),
+    // pool aggregates daily: older than 30 days (account-level retention)
+    mongo.usage.deleteMany({
+      userId: { $regex: /^pool:/ },
+      period: { $lt: accountDailyCutoffPeriod, $regex: /^daily:/ }
+    } as any),
+    // pool aggregates monthly: older than 12 months (account-level retention)
+    mongo.usage.deleteMany({
+      userId: { $regex: /^pool:/ },
       period: { $lt: accountMonthlyCutoffPeriod, $regex: /^monthly:/ }
     } as any)
   ])

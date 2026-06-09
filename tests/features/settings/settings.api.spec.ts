@@ -332,4 +332,26 @@ test.describe('Settings API', () => {
     assert.equal(res.data.providers.length, 1)
     assert.equal(res.data.providers[0].id, 'p1')
   })
+
+  test('persists the storeTraces flag', async () => {
+    const base = {
+      providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock', enabled: true }],
+      models: { assistant: { model: mockModel } },
+      quotas: defaultQuotas,
+      storeTraces: true
+    }
+    await admin.put('/api/settings/user/test-standalone1', base)
+    const res = await admin.get('/api/settings/user/test-standalone1')
+    assert.equal(res.data.storeTraces, true)
+
+    // verify the default: omitting storeTraces should persist false
+    const withoutFlag = {
+      providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock', enabled: true }],
+      models: { assistant: { model: mockModel } },
+      quotas: defaultQuotas
+    }
+    await admin.put('/api/settings/user/test-standalone1', withoutFlag)
+    const res2 = await admin.get('/api/settings/user/test-standalone1')
+    assert.equal(res2.data.storeTraces, false)
+  })
 })

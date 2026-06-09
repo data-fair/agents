@@ -3,7 +3,8 @@
  *
  * Validates that:
  *   - When history exceeds the compaction threshold, compaction is triggered
- *   - The compaction is visible in the debug trace as a distinct entry
+ *   - The compaction round-trip is stored server-side and visible on the
+ *     /traces/:id/review page
  *   - The conversation continues working after compaction
  */
 
@@ -24,9 +25,21 @@ const settingsData = {
         name: 'Mock Model',
         provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' }
       }
+    },
+    // The compaction round-trip goes through the summarizer role, so this model
+    // must be configured for the compaction call (and its stored trace) to exist.
+    summarizer: {
+      model: {
+        id: 'mock-summarizer',
+        name: 'Mock Summarizer',
+        provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' }
+      }
     }
   },
   quotas: defaultQuotas
+  // NOTE: storeTraces is intentionally OFF here. Only the review-page test enables it
+  // (and grants consent); leaving it off keeps the consent bottom-sheet from overlaying
+  // the chat in the functionality test, which would block its message sends.
 }
 
 test.describe('History Compaction', () => {
@@ -35,12 +48,20 @@ test.describe('History Compaction', () => {
     await admin.put('/api/settings/user/test-standalone1', settingsData)
   })
 
-  test('Compaction triggers and appears in trace', async ({ page, goToWithAuth }) => {
-    // Use an admin user with adminMode so the debug button is visible
-    await admin.put('/api/settings/user/superadmin', settingsData)
-    await goToWithAuth('/agents/user/superadmin/chat', 'superadmin', { adminMode: true })
+  test('Compaction triggers and appears in trace', async ({ page, context, goToWithAuth }) => {
+    // Enable trace storage (only this test needs it) + pre-set consent so the chat
+    // sends x-trace-consent: yes, the compaction round-trip is stored, and the consent
+    // sheet stays hidden (consent already given).
+    await admin.put('/api/settings/user/test-standalone1', { ...settingsData, storeTraces: true })
+    await context.addCookies([{
+      name: 'agent-chat-trace-consent',
+      value: 'yes',
+      domain: 'localhost',
+      path: '/'
+    }])
+
+    await goToWithAuth('/agents/user/test-standalone1/chat', 'test-standalone1')
     await page.evaluate(() => {
-      sessionStorage.setItem('agent-chat-trace', '1')
       // Set a very low threshold so compaction triggers after just one round-trip
       sessionStorage.setItem('agent-chat-compaction-threshold', '100')
     })
@@ -54,30 +75,40 @@ test.describe('History Compaction', () => {
     await page.getByRole('button', { name: 'Send' }).click()
     await expect(page.locator('.assistant-content').last()).toContainText('world', { timeout: 10000 })
 
-    // Send second message — history should now exceed 100 chars and trigger compaction
+    // Send second message — history should now exceed 100 chars and trigger compaction.
     // After compaction, the latest "hello" message is preserved verbatim so mock responds "world"
     await input.fill('hello')
     await page.getByRole('button', { name: 'Send' }).click()
     await expect(page.locator('.assistant-content').last()).toContainText('world', { timeout: 10000 })
 
-    // Open debug dialog and go to Trace tab
-    await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
-    await page.getByRole('tab', { name: /Trace/ }).click()
+    // Poll the list API until the stored conversation appears.
+    let conversationId = ''
+    for (let i = 0; i < 40; i++) {
+      const res = await admin.get('/api/traces/user/test-standalone1?page=1&size=20').catch(() => null)
+      if (res && res.data.results.length) { conversationId = res.data.results[0].conversationId; break }
+      await new Promise(resolve => setTimeout(resolve, 200))
+    }
+    expect(conversationId).toBeTruthy()
 
-    // Verify a compaction trace entry exists
-    const tracePanel = page.locator('.v-dialog .v-expansion-panels').last()
-    const compactionEntry = tracePanel.locator('.v-expansion-panel', { hasText: 'compaction' })
-    await expect(compactionEntry.first()).toBeVisible({ timeout: 5000 })
+    // Open the per-trace review page.
+    await goToWithAuth(`/agents/traces/${conversationId}/review`, 'test-standalone1')
 
-    // Expand the compaction entry to verify details load
-    await compactionEntry.first().locator('.v-expansion-panel-title').click()
-    await expect(compactionEntry.first().locator('.agent-chat__pre')).toBeVisible({ timeout: 3000 })
+    // reconstruct-trace rebuilds a dedicated "compaction" trace entry from the stored
+    // summarizer round-trip, so the review page shows a compaction chip with the
+    // summary + char-count details (same as the old in-browser recorder).
+    const tracePanels = page.locator('.agent-chat__trace-panels')
+    await expect(tracePanels).toBeVisible({ timeout: 10000 })
 
-    // Verify the detail content contains the expected compaction fields
-    const detailContent = await compactionEntry.first().locator('.agent-chat__pre').textContent()
-    expect(detailContent).toContain('summary')
-    expect(detailContent).toContain('originalMessages')
-    expect(detailContent).toContain('originalCharCount')
+    const compactionEntry = tracePanels.locator('.v-expansion-panel', { hasText: 'compaction' }).first()
+    await expect(compactionEntry).toBeVisible({ timeout: 10000 })
+
+    // Expand the entry — detail auto-loads and contains the compaction fields.
+    await compactionEntry.locator('.v-expansion-panel-title').click()
+    await expect(compactionEntry.locator('.agent-chat__pre').first()).toBeVisible({ timeout: 3000 })
+    const detail = await compactionEntry.locator('.agent-chat__pre').first().textContent()
+    expect(detail).toContain('summary')
+    expect(detail).toContain('originalCharCount')
+    expect(detail).toContain('compactedCharCount')
   })
 
   test('Conversation remains functional after compaction', async ({ page, goToWithAuth }) => {

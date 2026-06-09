@@ -1,20 +1,11 @@
 import { Router } from 'express'
 import { type AccountKeys, assertAccountRole, reqSessionAuthenticated } from '@data-fair/lib-express'
 import { getOwnerUsage, getAccountDailyHistory, getAccountMonthlyHistory, getUsersDailyHistory } from './service.ts'
-import { getRawSettings } from '../settings/service.ts'
+import { getRawSettings, defaultQuotas } from '../settings/service.ts'
 import config from '#config'
 
 const router = Router()
 export default router
-
-const defaultQuotas = {
-  global: { unlimited: false, monthlyLimit: 10 },
-  admin: { unlimited: true, monthlyLimit: 0 },
-  contrib: { unlimited: false, monthlyLimit: 0 },
-  user: { unlimited: false, monthlyLimit: 0 },
-  external: { unlimited: false, monthlyLimit: 0 },
-  anonymous: { unlimited: false, monthlyLimit: 0 }
-}
 
 router.get('/:type/:id', async (req, res, next) => {
   try {

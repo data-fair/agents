@@ -74,7 +74,7 @@ export default {
   },
   type: 'object',
   additionalProperties: false,
-  required: ['owner', 'providers', 'models', 'quotas'],
+  required: ['owner', 'providers'],
   properties: {
     createdAt: {
       type: 'string',
@@ -85,6 +85,20 @@ export default {
       type: 'string',
       format: 'date-time',
       readOnly: true,
+    },
+    storeTraces: {
+      type: 'boolean',
+      title: 'Store conversation traces',
+      'x-i18n-title': {
+        en: 'Store conversation traces',
+        fr: 'Enregistrer les traces de conversation'
+      },
+      description: 'When enabled, conversations of consenting users are stored on the server for 30 days for admin review. Each user must explicitly accept.',
+      'x-i18n-description': {
+        en: 'When enabled, conversations of consenting users are stored on the server for 30 days for admin review. Each user must explicitly accept.',
+        fr: 'Si activé, les conversations des utilisateurs consentants sont enregistrées sur le serveur pendant 30 jours pour relecture par un administrateur. Chaque utilisateur doit explicitement accepter.'
+      },
+      default: false
     },
     owner: {
       type: 'object',
@@ -855,7 +869,8 @@ Recommendations: a small/fast model, e.g. Claude 4.5 Haiku, GPT-5.4 Mini, Mistra
           { key: 'contrib', cols: { sm: 6, md: 4 }, if: 'context.accountType === "organization"' },
           { key: 'user', cols: { sm: 6, md: 4 }, if: 'context.accountType === "organization"' },
           { key: 'external', cols: { sm: 6, md: 4 } },
-          { key: 'anonymous', cols: { sm: 6, md: 4 } }
+          { key: 'anonymous', cols: { sm: 6, md: 4 } },
+          { key: 'untrusted', cols: { sm: 6, md: 4 } }
         ]
       },
       required: ['global', 'admin', 'contrib', 'user', 'external', 'anonymous'],
@@ -865,7 +880,8 @@ Recommendations: a small/fast model, e.g. Claude 4.5 Haiku, GPT-5.4 Mini, Mistra
         contrib: { unlimited: false, monthlyLimit: 0 },
         user: { unlimited: false, monthlyLimit: 0 },
         external: { unlimited: false, monthlyLimit: 0 },
-        anonymous: { unlimited: false, monthlyLimit: 0 }
+        anonymous: { unlimited: false, monthlyLimit: 0 },
+        untrusted: { unlimited: false, monthlyLimit: 0 }
       },
       properties: {
         global: {
@@ -905,6 +921,17 @@ Recommendations: a small/fast model, e.g. Claude 4.5 Haiku, GPT-5.4 Mini, Mistra
           $ref: '#/definitions/RoleQuota',
           title: 'Anonymous user quotas',
           'x-i18n-title': { en: 'Anonymous user quotas', fr: 'Quotas utilisateur anonyme' },
+          default: { unlimited: false, monthlyLimit: 0 }
+        },
+        untrusted: {
+          $ref: '#/definitions/RoleQuota',
+          title: 'Anonymous + external pool',
+          'x-i18n-title': { en: 'Anonymous + external pool', fr: 'Réserve anonyme + externe' },
+          description: 'Aggregate cap shared by all anonymous and external usage combined, so untrusted traffic cannot consume the whole account budget. 0 = no pool cap.',
+          'x-i18n-description': {
+            en: 'Aggregate cap shared by all anonymous and external usage combined, so untrusted traffic cannot consume the whole account budget. 0 = no pool cap.',
+            fr: "Plafond agrégé partagé par l'ensemble des usages anonymes et externes, afin que le trafic non fiable ne puisse pas consommer tout le budget du compte. 0 = pas de plafond de réserve."
+          },
           default: { unlimited: false, monthlyLimit: 0 }
         }
       }

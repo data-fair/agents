@@ -22,39 +22,24 @@
           v-model="activeDebugTab"
           density="compact"
         >
-          <v-tab value="systemPrompt">
-            {{ t('systemPrompt') }}
-          </v-tab>
-          <v-tab value="tools">
-            {{ t('tools') }} ({{ totalToolCount }})
-          </v-tab>
-          <v-tab value="trace">
-            {{ t('trace') }}
+          <v-tab value="info">
+            {{ t('info') }}
           </v-tab>
           <v-tab value="settings">
             {{ t('settings') }}
           </v-tab>
         </v-tabs>
 
-        <div
-          v-if="sessionUsage && (sessionUsage.inputTokens > 0 || sessionUsage.outputTokens > 0)"
-          class="d-flex align-center ga-2 px-2 py-1 text-caption text-medium-emphasis"
-        >
-          <v-icon
-            :icon="mdiChartBar"
-            size="small"
-          />
-          <span>{{ t('tokens') }}: {{ (sessionUsage.inputTokens + sessionUsage.outputTokens).toLocaleString() }}</span>
-          <span>({{ t('input') }}: {{ sessionUsage.inputTokens.toLocaleString() }} | {{ t('output') }}: {{ sessionUsage.outputTokens.toLocaleString() }})</span>
-          <span v-if="sessionUsage.cacheReadTokens">{{ t('cached') }}: {{ sessionUsage.cacheReadTokens.toLocaleString() }}{{ sessionUsage.cacheWriteTokens ? ` | ${t('cacheWritten')}: ${sessionUsage.cacheWriteTokens.toLocaleString()}` : '' }}</span>
-        </div>
-
         <v-window v-model="activeDebugTab">
-          <v-window-item value="systemPrompt">
-            <pre class="agent-chat__pre pa-3 mt-2">{{ systemPrompt }}</pre>
-          </v-window-item>
+          <v-window-item value="info">
+            <div class="text-caption font-weight-bold mt-3 mb-1 px-2">
+              {{ t('systemPrompt') }}
+            </div>
+            <pre class="agent-chat__pre pa-3">{{ systemPrompt }}</pre>
 
-          <v-window-item value="tools">
+            <div class="text-caption font-weight-bold mt-3 mb-1 px-2">
+              {{ t('tools') }} ({{ totalToolCount }})
+            </div>
             <div
               v-if="!totalToolCount"
               class="text-center text-medium-emphasis pa-4"
@@ -136,44 +121,37 @@
                 </v-expansion-panels>
               </template>
             </template>
-          </v-window-item>
 
-          <v-window-item value="trace">
-            <div class="d-flex justify-end ga-2 pa-2">
-              <v-btn
-                size="small"
-                variant="tonal"
-                :prepend-icon="mdiDownload"
-                @click="onDownload"
-              >
-                {{ t('download') }}
-              </v-btn>
-              <v-btn
-                v-if="isAdmin"
-                size="small"
-                color="primary"
-                variant="tonal"
-                :prepend-icon="mdiOpenInNew"
-                @click="onOpenReview"
-              >
-                {{ t('openReview') }}
-              </v-btn>
-            </div>
-            <trace-view
-              v-if="recorder"
-              :trace-overview="traceOverview"
-              :recorder="recorder"
-            />
+            <v-btn
+              v-if="showReview"
+              variant="tonal"
+              size="small"
+              :prepend-icon="mdiOpenInNew"
+              class="mt-2"
+              @click="openReview"
+            >
+              {{ t('openReview') }}
+            </v-btn>
           </v-window-item>
 
           <v-window-item value="settings">
             <div class="pa-3">
+              <v-switch
+                v-if="traceStorageAvailable"
+                :model-value="consentRef === 'yes'"
+                :label="t('storeTraces')"
+                color="primary"
+                density="compact"
+                hide-details
+                @update:model-value="(v: boolean | null) => writeConsent(v ? 'yes' : 'no')"
+              />
               <v-switch
                 :model-value="toolExploration"
                 color="primary"
                 density="compact"
                 hide-details
                 :label="t('toolExploration')"
+                class="mt-2"
                 @update:model-value="$emit('update:toolExploration', $event ?? false)"
               />
               <p class="text-caption text-medium-emphasis mt-1">
@@ -190,36 +168,26 @@
 <i18n lang="yaml">
 fr:
   close: Fermer
+  info: Info
   systemPrompt: Prompt système
   tools: Outils
   noTools: Aucun outil enregistré
   inputSchema: Schéma d'entrée
-  trace: Trace
-  tokens: Tokens
-  input: entrée
-  output: sortie
-  cached: cache lu
-  cacheWritten: cache écrit
-  download: Télécharger
   openReview: Ouvrir l'analyse
   settings: Paramètres
+  storeTraces: Enregistrer mes conversations pour relecture
   toolExploration: Exploration des outils (expérimental)
   toolExplorationHint: "Masque les outils derrière un outil « explore_tools » que l'assistant appelle pour découvrir et activer les outils pertinents à la demande. Changer ce réglage réinitialise la conversation."
 en:
   close: Close
+  info: Info
   systemPrompt: System Prompt
   tools: Tools
   noTools: No tools registered
   inputSchema: Input Schema
-  trace: Trace
-  tokens: Tokens
-  input: input
-  output: output
-  cached: cache read
-  cacheWritten: cache write
-  download: Download
   openReview: Open review
   settings: Settings
+  storeTraces: Store my conversations for review
   toolExploration: Tool exploration (experimental)
   toolExplorationHint: "Hides tools behind an 'explore_tools' tool the assistant calls to discover and enable relevant tools on demand. Changing this setting resets the conversation."
 </i18n>
@@ -228,19 +196,15 @@ en:
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
-import { mdiClose, mdiChartBar, mdiDownload, mdiOpenInNew } from '@mdi/js'
-import type { TraceOverviewEntry, SessionRecorder } from '~/traces/session-recorder'
+import { mdiClose, mdiOpenInNew } from '@mdi/js'
 import type { DebugToolsPartition } from '~/composables/use-agent-chat'
-import { writeHandoff, downloadTrace } from '~/traces/trace-handoff'
-import TraceView from './TraceView.vue'
+import { traceStorageAvailable, consentRef, writeConsent } from '~/traces/trace-consent'
 
 const props = defineProps<{
   modelValue: boolean
   systemPrompt: string
   debugToolsPartition: DebugToolsPartition
-  traceOverview: TraceOverviewEntry[]
-  recorder?: SessionRecorder
-  sessionUsage?: { inputTokens: number; outputTokens: number; cacheReadTokens?: number; cacheWriteTokens?: number }
+  conversationId: string
   isAdmin?: boolean
   accountType: string
   accountId: string
@@ -253,24 +217,21 @@ defineEmits<{
 }>()
 
 const { t } = useI18n()
-
 const router = useRouter()
 
-const activeDebugTab = ref('systemPrompt')
+const activeDebugTab = ref('info')
 const totalToolCount = computed(() => {
   const p = props.debugToolsPartition
   return p.mainTools.length + p.subAgents.reduce((sum, sa) => sum + sa.tools.length, 0)
 })
 
-const onDownload = () => {
-  if (props.recorder) downloadTrace(props.recorder.getTrace())
-}
+const showReview = computed(() => !!props.isAdmin && traceStorageAvailable.value && consentRef.value === 'yes')
 
-const onOpenReview = () => {
-  if (!props.recorder) return
-  const trace = props.recorder.getTrace()
-  if (!writeHandoff(trace)) downloadTrace(trace) // quota fallback: hand off via manual upload
-  const href = router.resolve({ path: `/${props.accountType}/${props.accountId}/trace-review` }).href
+// Open the review in a new tab. `router.resolve(...).href` includes the app's
+// base ('/agents'), so this works whether the chat is standalone or embedded in
+// data-fair — and avoids relying on host navigation for a route the host doesn't have.
+const openReview = () => {
+  const href = router.resolve({ path: `/traces/${props.conversationId}/review` }).href
   window.open(href, '_blank')
 }
 </script>

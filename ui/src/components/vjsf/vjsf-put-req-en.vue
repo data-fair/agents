@@ -14,6 +14,8 @@ import sectionNode from '@koumoul/vjsf/components/nodes/section.vue'
 
 import datetimepickerNode from '@koumoul/vjsf/components/nodes/date-time-picker.vue'
 
+import checkboxNode from '@koumoul/vjsf/components/nodes/checkbox.vue'
+
 import selectNode from '@koumoul/vjsf/components/nodes/select.vue'
 
 import textfieldNode from '@koumoul/vjsf/components/nodes/text-field.vue'
@@ -21,8 +23,6 @@ import textfieldNode from '@koumoul/vjsf/components/nodes/text-field.vue'
 import listNode from '@koumoul/vjsf/components/nodes/list.vue'
 
 import oneofselectNode from '@koumoul/vjsf/components/nodes/one-of-select.vue'
-
-import checkboxNode from '@koumoul/vjsf/components/nodes/checkbox.vue'
 
 import cardNode from '@koumoul/vjsf/components/nodes/card.vue'
 
@@ -35,7 +35,7 @@ import localizeErrors from "ajv-i18n/localize/en/index.js";
 import { fullFormats } from "ajv-formats/dist/formats.js";
 
 const schema26 = {"$id":"export0","$ref":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0"};
-const schema39 = {"required":["type","name","id","enabled"],"title":"Open AI","properties":{"type":{"type":"string","title":"Provider Type","const":"openai","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Open AI\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}};
+const schema40 = {"required":["type","name","id","enabled"],"title":"Open AI","properties":{"type":{"type":"string","title":"Provider Type","const":"openai","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Open AI\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}};
 const obj0 = {"required":"missingProperty","dependencies":"property","dependentRequired":"property"};
 
 function validate22(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
@@ -51,7 +51,7 @@ evaluated0.items = undefined;
 }
 if(data && typeof data == "object" && !Array.isArray(data)){
 if(data.type === undefined){
-const err0 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema39.required,parentSchema:schema39,data};
+const err0 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema40.required,parentSchema:schema40,data};
 if(vErrors === null){
 vErrors = [err0];
 }
@@ -61,7 +61,7 @@ vErrors.push(err0);
 errors++;
 }
 if(data.name === undefined){
-const err1 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema39.required,parentSchema:schema39,data};
+const err1 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema40.required,parentSchema:schema40,data};
 if(vErrors === null){
 vErrors = [err1];
 }
@@ -71,7 +71,7 @@ vErrors.push(err1);
 errors++;
 }
 if(data.id === undefined){
-const err2 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema39.required,parentSchema:schema39,data};
+const err2 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema40.required,parentSchema:schema40,data};
 if(vErrors === null){
 vErrors = [err2];
 }
@@ -81,7 +81,7 @@ vErrors.push(err2);
 errors++;
 }
 if(data.enabled === undefined){
-const err3 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema39.required,parentSchema:schema39,data};
+const err3 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema40.required,parentSchema:schema40,data};
 if(vErrors === null){
 vErrors = [err3];
 }
@@ -93,7 +93,7 @@ errors++;
 if(data.type !== undefined){
 let data0 = data.type;
 if(typeof data0 !== "string"){
-const err4 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema39.properties.type.type,parentSchema:schema39.properties.type,data:data0};
+const err4 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema40.properties.type.type,parentSchema:schema40.properties.type,data:data0};
 if(vErrors === null){
 vErrors = [err4];
 }
@@ -103,7 +103,7 @@ vErrors.push(err4);
 errors++;
 }
 if("openai" !== data0){
-const err5 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type/const",keyword:"const",params:{allowedValue: "openai"},message:"must be equal to constant",schema:"openai",parentSchema:schema39.properties.type,data:data0};
+const err5 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type/const",keyword:"const",params:{allowedValue: "openai"},message:"must be equal to constant",schema:"openai",parentSchema:schema40.properties.type,data:data0};
 if(vErrors === null){
 vErrors = [err5];
 }
@@ -126,7 +126,7 @@ errors = emErrs0.length;
 if(data.id !== undefined){
 let data1 = data.id;
 if(typeof data1 !== "string"){
-const err7 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema39.properties.id.type,parentSchema:schema39.properties.id,data:data1};
+const err7 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema40.properties.id.type,parentSchema:schema40.properties.id,data:data1};
 if(vErrors === null){
 vErrors = [err7];
 }
@@ -149,7 +149,7 @@ errors = emErrs1.length;
 if(data.name !== undefined){
 let data2 = data.name;
 if(typeof data2 !== "string"){
-const err9 = {instancePath:instancePath+"/name",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema39.properties.name.type,parentSchema:schema39.properties.name,data:data2};
+const err9 = {instancePath:instancePath+"/name",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema40.properties.name.type,parentSchema:schema40.properties.name,data:data2};
 if(vErrors === null){
 vErrors = [err9];
 }
@@ -172,7 +172,7 @@ errors = emErrs2.length;
 if(data.enabled !== undefined){
 let data3 = data.enabled;
 if(typeof data3 !== "boolean"){
-const err11 = {instancePath:instancePath+"/enabled",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema39.properties.enabled.type,parentSchema:schema39.properties.enabled,data:data3};
+const err11 = {instancePath:instancePath+"/enabled",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema40.properties.enabled.type,parentSchema:schema40.properties.enabled,data:data3};
 if(vErrors === null){
 vErrors = [err11];
 }
@@ -195,7 +195,7 @@ errors = emErrs3.length;
 if(data.apiKey !== undefined){
 let data4 = data.apiKey;
 if(typeof data4 !== "string"){
-const err13 = {instancePath:instancePath+"/apiKey",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema39.properties.apiKey.type,parentSchema:schema39.properties.apiKey,data:data4};
+const err13 = {instancePath:instancePath+"/apiKey",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema40.properties.apiKey.type,parentSchema:schema40.properties.apiKey,data:data4};
 if(vErrors === null){
 vErrors = [err13];
 }
@@ -217,7 +217,7 @@ errors = emErrs4.length;
 }
 }
 else {
-const err15 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema39.type,parentSchema:schema39,data};
+const err15 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema40.type,parentSchema:schema40,data};
 if(vErrors === null){
 vErrors = [err15];
 }
@@ -246,7 +246,7 @@ for(const keyProp0 in emErrors0[key0]){
 emParamsErrors0 = emErrors0[key0][keyProp0];
 if(emParamsErrors0.length){
 const tmpl0 = templates0[key0] && templates0[key0][keyProp0];
-const err17 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema39.errorMessage[key0][keyProp0],schema:schema39.errorMessage,parentSchema:schema39,data};
+const err17 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema40.errorMessage[key0][keyProp0],schema:schema40.errorMessage,parentSchema:schema40,data};
 if(vErrors === null){
 vErrors = [err17];
 }
@@ -271,8 +271,8 @@ return errors === 0;
 }
 validate22.evaluated = {"props":{"type":true,"id":true,"name":true,"enabled":true,"apiKey":true},"dynamicProps":false,"dynamicItems":false};
 
-const schema40 = {"$id":"export1","$ref":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1"};
-const schema41 = {"required":["type","name","id","enabled"],"title":"Anthropic","properties":{"type":{"type":"string","title":"Provider Type","const":"anthropic","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Anthropic\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}};
+const schema41 = {"$id":"export1","$ref":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1"};
+const schema42 = {"required":["type","name","id","enabled"],"title":"Anthropic","properties":{"type":{"type":"string","title":"Provider Type","const":"anthropic","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Anthropic\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}};
 
 function validate24(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 /*# sourceURL="export1" */;
@@ -287,7 +287,7 @@ evaluated0.items = undefined;
 }
 if(data && typeof data == "object" && !Array.isArray(data)){
 if(data.type === undefined){
-const err0 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema41.required,parentSchema:schema41,data};
+const err0 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema42.required,parentSchema:schema42,data};
 if(vErrors === null){
 vErrors = [err0];
 }
@@ -297,7 +297,7 @@ vErrors.push(err0);
 errors++;
 }
 if(data.name === undefined){
-const err1 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema41.required,parentSchema:schema41,data};
+const err1 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema42.required,parentSchema:schema42,data};
 if(vErrors === null){
 vErrors = [err1];
 }
@@ -307,7 +307,7 @@ vErrors.push(err1);
 errors++;
 }
 if(data.id === undefined){
-const err2 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema41.required,parentSchema:schema41,data};
+const err2 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema42.required,parentSchema:schema42,data};
 if(vErrors === null){
 vErrors = [err2];
 }
@@ -317,7 +317,7 @@ vErrors.push(err2);
 errors++;
 }
 if(data.enabled === undefined){
-const err3 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema41.required,parentSchema:schema41,data};
+const err3 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema42.required,parentSchema:schema42,data};
 if(vErrors === null){
 vErrors = [err3];
 }
@@ -329,7 +329,7 @@ errors++;
 if(data.type !== undefined){
 let data0 = data.type;
 if(typeof data0 !== "string"){
-const err4 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema41.properties.type.type,parentSchema:schema41.properties.type,data:data0};
+const err4 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema42.properties.type.type,parentSchema:schema42.properties.type,data:data0};
 if(vErrors === null){
 vErrors = [err4];
 }
@@ -339,7 +339,7 @@ vErrors.push(err4);
 errors++;
 }
 if("anthropic" !== data0){
-const err5 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/type/const",keyword:"const",params:{allowedValue: "anthropic"},message:"must be equal to constant",schema:"anthropic",parentSchema:schema41.properties.type,data:data0};
+const err5 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/type/const",keyword:"const",params:{allowedValue: "anthropic"},message:"must be equal to constant",schema:"anthropic",parentSchema:schema42.properties.type,data:data0};
 if(vErrors === null){
 vErrors = [err5];
 }
@@ -362,7 +362,7 @@ errors = emErrs0.length;
 if(data.id !== undefined){
 let data1 = data.id;
 if(typeof data1 !== "string"){
-const err7 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema41.properties.id.type,parentSchema:schema41.properties.id,data:data1};
+const err7 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema42.properties.id.type,parentSchema:schema42.properties.id,data:data1};
 if(vErrors === null){
 vErrors = [err7];
 }
@@ -385,7 +385,7 @@ errors = emErrs1.length;
 if(data.name !== undefined){
 let data2 = data.name;
 if(typeof data2 !== "string"){
-const err9 = {instancePath:instancePath+"/name",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema41.properties.name.type,parentSchema:schema41.properties.name,data:data2};
+const err9 = {instancePath:instancePath+"/name",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema42.properties.name.type,parentSchema:schema42.properties.name,data:data2};
 if(vErrors === null){
 vErrors = [err9];
 }
@@ -408,7 +408,7 @@ errors = emErrs2.length;
 if(data.enabled !== undefined){
 let data3 = data.enabled;
 if(typeof data3 !== "boolean"){
-const err11 = {instancePath:instancePath+"/enabled",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema41.properties.enabled.type,parentSchema:schema41.properties.enabled,data:data3};
+const err11 = {instancePath:instancePath+"/enabled",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema42.properties.enabled.type,parentSchema:schema42.properties.enabled,data:data3};
 if(vErrors === null){
 vErrors = [err11];
 }
@@ -431,7 +431,7 @@ errors = emErrs3.length;
 if(data.apiKey !== undefined){
 let data4 = data.apiKey;
 if(typeof data4 !== "string"){
-const err13 = {instancePath:instancePath+"/apiKey",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema41.properties.apiKey.type,parentSchema:schema41.properties.apiKey,data:data4};
+const err13 = {instancePath:instancePath+"/apiKey",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema42.properties.apiKey.type,parentSchema:schema42.properties.apiKey,data:data4};
 if(vErrors === null){
 vErrors = [err13];
 }
@@ -453,7 +453,7 @@ errors = emErrs4.length;
 }
 }
 else {
-const err15 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema41.type,parentSchema:schema41,data};
+const err15 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema42.type,parentSchema:schema42,data};
 if(vErrors === null){
 vErrors = [err15];
 }
@@ -482,7 +482,7 @@ for(const keyProp0 in emErrors0[key0]){
 emParamsErrors0 = emErrors0[key0][keyProp0];
 if(emParamsErrors0.length){
 const tmpl0 = templates0[key0] && templates0[key0][keyProp0];
-const err17 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema41.errorMessage[key0][keyProp0],schema:schema41.errorMessage,parentSchema:schema41,data};
+const err17 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema42.errorMessage[key0][keyProp0],schema:schema42.errorMessage,parentSchema:schema42,data};
 if(vErrors === null){
 vErrors = [err17];
 }
@@ -507,8 +507,8 @@ return errors === 0;
 }
 validate24.evaluated = {"props":{"type":true,"id":true,"name":true,"enabled":true,"apiKey":true},"dynamicProps":false,"dynamicItems":false};
 
-const schema42 = {"$id":"export2","$ref":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2"};
-const schema43 = {"required":["type","name","id","enabled"],"title":"Google","properties":{"type":{"type":"string","title":"Provider Type","const":"google","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Google\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}};
+const schema43 = {"$id":"export2","$ref":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2"};
+const schema44 = {"required":["type","name","id","enabled"],"title":"Google","properties":{"type":{"type":"string","title":"Provider Type","const":"google","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Google\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}};
 
 function validate25(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 /*# sourceURL="export2" */;
@@ -523,7 +523,7 @@ evaluated0.items = undefined;
 }
 if(data && typeof data == "object" && !Array.isArray(data)){
 if(data.type === undefined){
-const err0 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema43.required,parentSchema:schema43,data};
+const err0 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema44.required,parentSchema:schema44,data};
 if(vErrors === null){
 vErrors = [err0];
 }
@@ -533,7 +533,7 @@ vErrors.push(err0);
 errors++;
 }
 if(data.name === undefined){
-const err1 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema43.required,parentSchema:schema43,data};
+const err1 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema44.required,parentSchema:schema44,data};
 if(vErrors === null){
 vErrors = [err1];
 }
@@ -543,7 +543,7 @@ vErrors.push(err1);
 errors++;
 }
 if(data.id === undefined){
-const err2 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema43.required,parentSchema:schema43,data};
+const err2 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema44.required,parentSchema:schema44,data};
 if(vErrors === null){
 vErrors = [err2];
 }
@@ -553,7 +553,7 @@ vErrors.push(err2);
 errors++;
 }
 if(data.enabled === undefined){
-const err3 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema43.required,parentSchema:schema43,data};
+const err3 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema44.required,parentSchema:schema44,data};
 if(vErrors === null){
 vErrors = [err3];
 }
@@ -565,7 +565,7 @@ errors++;
 if(data.type !== undefined){
 let data0 = data.type;
 if(typeof data0 !== "string"){
-const err4 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema43.properties.type.type,parentSchema:schema43.properties.type,data:data0};
+const err4 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema44.properties.type.type,parentSchema:schema44.properties.type,data:data0};
 if(vErrors === null){
 vErrors = [err4];
 }
@@ -575,7 +575,7 @@ vErrors.push(err4);
 errors++;
 }
 if("google" !== data0){
-const err5 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/type/const",keyword:"const",params:{allowedValue: "google"},message:"must be equal to constant",schema:"google",parentSchema:schema43.properties.type,data:data0};
+const err5 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/type/const",keyword:"const",params:{allowedValue: "google"},message:"must be equal to constant",schema:"google",parentSchema:schema44.properties.type,data:data0};
 if(vErrors === null){
 vErrors = [err5];
 }
@@ -598,7 +598,7 @@ errors = emErrs0.length;
 if(data.id !== undefined){
 let data1 = data.id;
 if(typeof data1 !== "string"){
-const err7 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema43.properties.id.type,parentSchema:schema43.properties.id,data:data1};
+const err7 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema44.properties.id.type,parentSchema:schema44.properties.id,data:data1};
 if(vErrors === null){
 vErrors = [err7];
 }
@@ -621,7 +621,7 @@ errors = emErrs1.length;
 if(data.name !== undefined){
 let data2 = data.name;
 if(typeof data2 !== "string"){
-const err9 = {instancePath:instancePath+"/name",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema43.properties.name.type,parentSchema:schema43.properties.name,data:data2};
+const err9 = {instancePath:instancePath+"/name",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema44.properties.name.type,parentSchema:schema44.properties.name,data:data2};
 if(vErrors === null){
 vErrors = [err9];
 }
@@ -644,7 +644,7 @@ errors = emErrs2.length;
 if(data.enabled !== undefined){
 let data3 = data.enabled;
 if(typeof data3 !== "boolean"){
-const err11 = {instancePath:instancePath+"/enabled",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema43.properties.enabled.type,parentSchema:schema43.properties.enabled,data:data3};
+const err11 = {instancePath:instancePath+"/enabled",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema44.properties.enabled.type,parentSchema:schema44.properties.enabled,data:data3};
 if(vErrors === null){
 vErrors = [err11];
 }
@@ -667,7 +667,7 @@ errors = emErrs3.length;
 if(data.apiKey !== undefined){
 let data4 = data.apiKey;
 if(typeof data4 !== "string"){
-const err13 = {instancePath:instancePath+"/apiKey",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema43.properties.apiKey.type,parentSchema:schema43.properties.apiKey,data:data4};
+const err13 = {instancePath:instancePath+"/apiKey",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema44.properties.apiKey.type,parentSchema:schema44.properties.apiKey,data:data4};
 if(vErrors === null){
 vErrors = [err13];
 }
@@ -689,7 +689,7 @@ errors = emErrs4.length;
 }
 }
 else {
-const err15 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema43.type,parentSchema:schema43,data};
+const err15 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema44.type,parentSchema:schema44,data};
 if(vErrors === null){
 vErrors = [err15];
 }
@@ -718,7 +718,7 @@ for(const keyProp0 in emErrors0[key0]){
 emParamsErrors0 = emErrors0[key0][keyProp0];
 if(emParamsErrors0.length){
 const tmpl0 = templates0[key0] && templates0[key0][keyProp0];
-const err17 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema43.errorMessage[key0][keyProp0],schema:schema43.errorMessage,parentSchema:schema43,data};
+const err17 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema44.errorMessage[key0][keyProp0],schema:schema44.errorMessage,parentSchema:schema44,data};
 if(vErrors === null){
 vErrors = [err17];
 }
@@ -743,8 +743,8 @@ return errors === 0;
 }
 validate25.evaluated = {"props":{"type":true,"id":true,"name":true,"enabled":true,"apiKey":true},"dynamicProps":false,"dynamicItems":false};
 
-const schema44 = {"$id":"export3","$ref":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3"};
-const schema45 = {"required":["type","name","id","enabled"],"title":"Mistral","properties":{"type":{"type":"string","title":"Provider Type","const":"mistral","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Mistral\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}};
+const schema45 = {"$id":"export3","$ref":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3"};
+const schema46 = {"required":["type","name","id","enabled"],"title":"Mistral","properties":{"type":{"type":"string","title":"Provider Type","const":"mistral","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Mistral\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}};
 
 function validate26(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 /*# sourceURL="export3" */;
@@ -759,7 +759,7 @@ evaluated0.items = undefined;
 }
 if(data && typeof data == "object" && !Array.isArray(data)){
 if(data.type === undefined){
-const err0 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema45.required,parentSchema:schema45,data};
+const err0 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema46.required,parentSchema:schema46,data};
 if(vErrors === null){
 vErrors = [err0];
 }
@@ -769,7 +769,7 @@ vErrors.push(err0);
 errors++;
 }
 if(data.name === undefined){
-const err1 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema45.required,parentSchema:schema45,data};
+const err1 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema46.required,parentSchema:schema46,data};
 if(vErrors === null){
 vErrors = [err1];
 }
@@ -779,7 +779,7 @@ vErrors.push(err1);
 errors++;
 }
 if(data.id === undefined){
-const err2 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema45.required,parentSchema:schema45,data};
+const err2 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema46.required,parentSchema:schema46,data};
 if(vErrors === null){
 vErrors = [err2];
 }
@@ -789,7 +789,7 @@ vErrors.push(err2);
 errors++;
 }
 if(data.enabled === undefined){
-const err3 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema45.required,parentSchema:schema45,data};
+const err3 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema46.required,parentSchema:schema46,data};
 if(vErrors === null){
 vErrors = [err3];
 }
@@ -801,7 +801,7 @@ errors++;
 if(data.type !== undefined){
 let data0 = data.type;
 if(typeof data0 !== "string"){
-const err4 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema45.properties.type.type,parentSchema:schema45.properties.type,data:data0};
+const err4 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema46.properties.type.type,parentSchema:schema46.properties.type,data:data0};
 if(vErrors === null){
 vErrors = [err4];
 }
@@ -811,7 +811,7 @@ vErrors.push(err4);
 errors++;
 }
 if("mistral" !== data0){
-const err5 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/type/const",keyword:"const",params:{allowedValue: "mistral"},message:"must be equal to constant",schema:"mistral",parentSchema:schema45.properties.type,data:data0};
+const err5 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/type/const",keyword:"const",params:{allowedValue: "mistral"},message:"must be equal to constant",schema:"mistral",parentSchema:schema46.properties.type,data:data0};
 if(vErrors === null){
 vErrors = [err5];
 }
@@ -834,7 +834,7 @@ errors = emErrs0.length;
 if(data.id !== undefined){
 let data1 = data.id;
 if(typeof data1 !== "string"){
-const err7 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema45.properties.id.type,parentSchema:schema45.properties.id,data:data1};
+const err7 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema46.properties.id.type,parentSchema:schema46.properties.id,data:data1};
 if(vErrors === null){
 vErrors = [err7];
 }
@@ -857,7 +857,7 @@ errors = emErrs1.length;
 if(data.name !== undefined){
 let data2 = data.name;
 if(typeof data2 !== "string"){
-const err9 = {instancePath:instancePath+"/name",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema45.properties.name.type,parentSchema:schema45.properties.name,data:data2};
+const err9 = {instancePath:instancePath+"/name",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema46.properties.name.type,parentSchema:schema46.properties.name,data:data2};
 if(vErrors === null){
 vErrors = [err9];
 }
@@ -880,7 +880,7 @@ errors = emErrs2.length;
 if(data.enabled !== undefined){
 let data3 = data.enabled;
 if(typeof data3 !== "boolean"){
-const err11 = {instancePath:instancePath+"/enabled",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema45.properties.enabled.type,parentSchema:schema45.properties.enabled,data:data3};
+const err11 = {instancePath:instancePath+"/enabled",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema46.properties.enabled.type,parentSchema:schema46.properties.enabled,data:data3};
 if(vErrors === null){
 vErrors = [err11];
 }
@@ -903,7 +903,7 @@ errors = emErrs3.length;
 if(data.apiKey !== undefined){
 let data4 = data.apiKey;
 if(typeof data4 !== "string"){
-const err13 = {instancePath:instancePath+"/apiKey",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema45.properties.apiKey.type,parentSchema:schema45.properties.apiKey,data:data4};
+const err13 = {instancePath:instancePath+"/apiKey",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema46.properties.apiKey.type,parentSchema:schema46.properties.apiKey,data:data4};
 if(vErrors === null){
 vErrors = [err13];
 }
@@ -925,7 +925,7 @@ errors = emErrs4.length;
 }
 }
 else {
-const err15 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema45.type,parentSchema:schema45,data};
+const err15 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema46.type,parentSchema:schema46,data};
 if(vErrors === null){
 vErrors = [err15];
 }
@@ -954,7 +954,7 @@ for(const keyProp0 in emErrors0[key0]){
 emParamsErrors0 = emErrors0[key0][keyProp0];
 if(emParamsErrors0.length){
 const tmpl0 = templates0[key0] && templates0[key0][keyProp0];
-const err17 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema45.errorMessage[key0][keyProp0],schema:schema45.errorMessage,parentSchema:schema45,data};
+const err17 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema46.errorMessage[key0][keyProp0],schema:schema46.errorMessage,parentSchema:schema46,data};
 if(vErrors === null){
 vErrors = [err17];
 }
@@ -979,8 +979,8 @@ return errors === 0;
 }
 validate26.evaluated = {"props":{"type":true,"id":true,"name":true,"enabled":true,"apiKey":true},"dynamicProps":false,"dynamicItems":false};
 
-const schema46 = {"$id":"export4","$ref":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4"};
-const schema47 = {"required":["type","name","id","enabled"],"title":"OpenRouter","properties":{"type":{"type":"string","title":"Provider Type","const":"openrouter","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"OpenRouter\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}};
+const schema47 = {"$id":"export4","$ref":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4"};
+const schema48 = {"required":["type","name","id","enabled"],"title":"OpenRouter","properties":{"type":{"type":"string","title":"Provider Type","const":"openrouter","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"OpenRouter\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}};
 
 function validate27(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 /*# sourceURL="export4" */;
@@ -995,7 +995,7 @@ evaluated0.items = undefined;
 }
 if(data && typeof data == "object" && !Array.isArray(data)){
 if(data.type === undefined){
-const err0 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema47.required,parentSchema:schema47,data};
+const err0 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema48.required,parentSchema:schema48,data};
 if(vErrors === null){
 vErrors = [err0];
 }
@@ -1005,7 +1005,7 @@ vErrors.push(err0);
 errors++;
 }
 if(data.name === undefined){
-const err1 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema47.required,parentSchema:schema47,data};
+const err1 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema48.required,parentSchema:schema48,data};
 if(vErrors === null){
 vErrors = [err1];
 }
@@ -1015,7 +1015,7 @@ vErrors.push(err1);
 errors++;
 }
 if(data.id === undefined){
-const err2 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema47.required,parentSchema:schema47,data};
+const err2 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema48.required,parentSchema:schema48,data};
 if(vErrors === null){
 vErrors = [err2];
 }
@@ -1025,7 +1025,7 @@ vErrors.push(err2);
 errors++;
 }
 if(data.enabled === undefined){
-const err3 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema47.required,parentSchema:schema47,data};
+const err3 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema48.required,parentSchema:schema48,data};
 if(vErrors === null){
 vErrors = [err3];
 }
@@ -1037,7 +1037,7 @@ errors++;
 if(data.type !== undefined){
 let data0 = data.type;
 if(typeof data0 !== "string"){
-const err4 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema47.properties.type.type,parentSchema:schema47.properties.type,data:data0};
+const err4 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema48.properties.type.type,parentSchema:schema48.properties.type,data:data0};
 if(vErrors === null){
 vErrors = [err4];
 }
@@ -1047,7 +1047,7 @@ vErrors.push(err4);
 errors++;
 }
 if("openrouter" !== data0){
-const err5 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/type/const",keyword:"const",params:{allowedValue: "openrouter"},message:"must be equal to constant",schema:"openrouter",parentSchema:schema47.properties.type,data:data0};
+const err5 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/type/const",keyword:"const",params:{allowedValue: "openrouter"},message:"must be equal to constant",schema:"openrouter",parentSchema:schema48.properties.type,data:data0};
 if(vErrors === null){
 vErrors = [err5];
 }
@@ -1070,7 +1070,7 @@ errors = emErrs0.length;
 if(data.id !== undefined){
 let data1 = data.id;
 if(typeof data1 !== "string"){
-const err7 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema47.properties.id.type,parentSchema:schema47.properties.id,data:data1};
+const err7 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema48.properties.id.type,parentSchema:schema48.properties.id,data:data1};
 if(vErrors === null){
 vErrors = [err7];
 }
@@ -1093,7 +1093,7 @@ errors = emErrs1.length;
 if(data.name !== undefined){
 let data2 = data.name;
 if(typeof data2 !== "string"){
-const err9 = {instancePath:instancePath+"/name",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema47.properties.name.type,parentSchema:schema47.properties.name,data:data2};
+const err9 = {instancePath:instancePath+"/name",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema48.properties.name.type,parentSchema:schema48.properties.name,data:data2};
 if(vErrors === null){
 vErrors = [err9];
 }
@@ -1116,7 +1116,7 @@ errors = emErrs2.length;
 if(data.enabled !== undefined){
 let data3 = data.enabled;
 if(typeof data3 !== "boolean"){
-const err11 = {instancePath:instancePath+"/enabled",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema47.properties.enabled.type,parentSchema:schema47.properties.enabled,data:data3};
+const err11 = {instancePath:instancePath+"/enabled",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema48.properties.enabled.type,parentSchema:schema48.properties.enabled,data:data3};
 if(vErrors === null){
 vErrors = [err11];
 }
@@ -1139,7 +1139,7 @@ errors = emErrs3.length;
 if(data.apiKey !== undefined){
 let data4 = data.apiKey;
 if(typeof data4 !== "string"){
-const err13 = {instancePath:instancePath+"/apiKey",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema47.properties.apiKey.type,parentSchema:schema47.properties.apiKey,data:data4};
+const err13 = {instancePath:instancePath+"/apiKey",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema48.properties.apiKey.type,parentSchema:schema48.properties.apiKey,data:data4};
 if(vErrors === null){
 vErrors = [err13];
 }
@@ -1161,7 +1161,7 @@ errors = emErrs4.length;
 }
 }
 else {
-const err15 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema47.type,parentSchema:schema47,data};
+const err15 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema48.type,parentSchema:schema48,data};
 if(vErrors === null){
 vErrors = [err15];
 }
@@ -1190,7 +1190,7 @@ for(const keyProp0 in emErrors0[key0]){
 emParamsErrors0 = emErrors0[key0][keyProp0];
 if(emParamsErrors0.length){
 const tmpl0 = templates0[key0] && templates0[key0][keyProp0];
-const err17 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema47.errorMessage[key0][keyProp0],schema:schema47.errorMessage,parentSchema:schema47,data};
+const err17 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema48.errorMessage[key0][keyProp0],schema:schema48.errorMessage,parentSchema:schema48,data};
 if(vErrors === null){
 vErrors = [err17];
 }
@@ -1215,8 +1215,8 @@ return errors === 0;
 }
 validate27.evaluated = {"props":{"type":true,"id":true,"name":true,"enabled":true,"apiKey":true},"dynamicProps":false,"dynamicItems":false};
 
-const schema48 = {"$id":"export5","$ref":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5"};
-const schema49 = {"required":["type","name","id","enabled","baseURL"],"title":"Ollama","properties":{"type":{"type":"string","title":"Provider Type","const":"ollama","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Ollama\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/apiKey","errorMessage":{}},"baseURL":{"type":"string","title":"Base URL","default":"http://localhost:11434","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/baseURL","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information","baseURL":"required information"}}};
+const schema49 = {"$id":"export5","$ref":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5"};
+const schema50 = {"required":["type","name","id","enabled","baseURL"],"title":"Ollama","properties":{"type":{"type":"string","title":"Provider Type","const":"ollama","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Ollama\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/apiKey","errorMessage":{}},"baseURL":{"type":"string","title":"Base URL","default":"http://localhost:11434","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/baseURL","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information","baseURL":"required information"}}};
 
 function validate28(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 /*# sourceURL="export5" */;
@@ -1231,7 +1231,7 @@ evaluated0.items = undefined;
 }
 if(data && typeof data == "object" && !Array.isArray(data)){
 if(data.type === undefined){
-const err0 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema49.required,parentSchema:schema49,data};
+const err0 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema50.required,parentSchema:schema50,data};
 if(vErrors === null){
 vErrors = [err0];
 }
@@ -1241,7 +1241,7 @@ vErrors.push(err0);
 errors++;
 }
 if(data.name === undefined){
-const err1 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema49.required,parentSchema:schema49,data};
+const err1 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema50.required,parentSchema:schema50,data};
 if(vErrors === null){
 vErrors = [err1];
 }
@@ -1251,7 +1251,7 @@ vErrors.push(err1);
 errors++;
 }
 if(data.id === undefined){
-const err2 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema49.required,parentSchema:schema49,data};
+const err2 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema50.required,parentSchema:schema50,data};
 if(vErrors === null){
 vErrors = [err2];
 }
@@ -1261,7 +1261,7 @@ vErrors.push(err2);
 errors++;
 }
 if(data.enabled === undefined){
-const err3 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema49.required,parentSchema:schema49,data};
+const err3 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema50.required,parentSchema:schema50,data};
 if(vErrors === null){
 vErrors = [err3];
 }
@@ -1271,7 +1271,7 @@ vErrors.push(err3);
 errors++;
 }
 if(data.baseURL === undefined){
-const err4 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/required",keyword:"required",params:{missingProperty: "baseURL"},message:"must have required property '"+"baseURL"+"'",schema:schema49.required,parentSchema:schema49,data};
+const err4 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/required",keyword:"required",params:{missingProperty: "baseURL"},message:"must have required property '"+"baseURL"+"'",schema:schema50.required,parentSchema:schema50,data};
 if(vErrors === null){
 vErrors = [err4];
 }
@@ -1283,7 +1283,7 @@ errors++;
 if(data.type !== undefined){
 let data0 = data.type;
 if(typeof data0 !== "string"){
-const err5 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema49.properties.type.type,parentSchema:schema49.properties.type,data:data0};
+const err5 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema50.properties.type.type,parentSchema:schema50.properties.type,data:data0};
 if(vErrors === null){
 vErrors = [err5];
 }
@@ -1293,7 +1293,7 @@ vErrors.push(err5);
 errors++;
 }
 if("ollama" !== data0){
-const err6 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/type/const",keyword:"const",params:{allowedValue: "ollama"},message:"must be equal to constant",schema:"ollama",parentSchema:schema49.properties.type,data:data0};
+const err6 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/type/const",keyword:"const",params:{allowedValue: "ollama"},message:"must be equal to constant",schema:"ollama",parentSchema:schema50.properties.type,data:data0};
 if(vErrors === null){
 vErrors = [err6];
 }
@@ -1316,7 +1316,7 @@ errors = emErrs0.length;
 if(data.id !== undefined){
 let data1 = data.id;
 if(typeof data1 !== "string"){
-const err8 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema49.properties.id.type,parentSchema:schema49.properties.id,data:data1};
+const err8 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema50.properties.id.type,parentSchema:schema50.properties.id,data:data1};
 if(vErrors === null){
 vErrors = [err8];
 }
@@ -1339,7 +1339,7 @@ errors = emErrs1.length;
 if(data.name !== undefined){
 let data2 = data.name;
 if(typeof data2 !== "string"){
-const err10 = {instancePath:instancePath+"/name",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema49.properties.name.type,parentSchema:schema49.properties.name,data:data2};
+const err10 = {instancePath:instancePath+"/name",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema50.properties.name.type,parentSchema:schema50.properties.name,data:data2};
 if(vErrors === null){
 vErrors = [err10];
 }
@@ -1362,7 +1362,7 @@ errors = emErrs2.length;
 if(data.enabled !== undefined){
 let data3 = data.enabled;
 if(typeof data3 !== "boolean"){
-const err12 = {instancePath:instancePath+"/enabled",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema49.properties.enabled.type,parentSchema:schema49.properties.enabled,data:data3};
+const err12 = {instancePath:instancePath+"/enabled",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema50.properties.enabled.type,parentSchema:schema50.properties.enabled,data:data3};
 if(vErrors === null){
 vErrors = [err12];
 }
@@ -1385,7 +1385,7 @@ errors = emErrs3.length;
 if(data.apiKey !== undefined){
 let data4 = data.apiKey;
 if(typeof data4 !== "string"){
-const err14 = {instancePath:instancePath+"/apiKey",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema49.properties.apiKey.type,parentSchema:schema49.properties.apiKey,data:data4};
+const err14 = {instancePath:instancePath+"/apiKey",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema50.properties.apiKey.type,parentSchema:schema50.properties.apiKey,data:data4};
 if(vErrors === null){
 vErrors = [err14];
 }
@@ -1408,7 +1408,7 @@ errors = emErrs4.length;
 if(data.baseURL !== undefined){
 let data5 = data.baseURL;
 if(typeof data5 !== "string"){
-const err16 = {instancePath:instancePath+"/baseURL",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/baseURL/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema49.properties.baseURL.type,parentSchema:schema49.properties.baseURL,data:data5};
+const err16 = {instancePath:instancePath+"/baseURL",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/baseURL/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema50.properties.baseURL.type,parentSchema:schema50.properties.baseURL,data:data5};
 if(vErrors === null){
 vErrors = [err16];
 }
@@ -1430,7 +1430,7 @@ errors = emErrs5.length;
 }
 }
 else {
-const err18 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema49.type,parentSchema:schema49,data};
+const err18 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema50.type,parentSchema:schema50,data};
 if(vErrors === null){
 vErrors = [err18];
 }
@@ -1459,7 +1459,7 @@ for(const keyProp0 in emErrors0[key0]){
 emParamsErrors0 = emErrors0[key0][keyProp0];
 if(emParamsErrors0.length){
 const tmpl0 = templates0[key0] && templates0[key0][keyProp0];
-const err20 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema49.errorMessage[key0][keyProp0],schema:schema49.errorMessage,parentSchema:schema49,data};
+const err20 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema50.errorMessage[key0][keyProp0],schema:schema50.errorMessage,parentSchema:schema50,data};
 if(vErrors === null){
 vErrors = [err20];
 }
@@ -1484,8 +1484,8 @@ return errors === 0;
 }
 validate28.evaluated = {"props":{"type":true,"id":true,"name":true,"enabled":true,"apiKey":true,"baseURL":true},"dynamicProps":false,"dynamicItems":false};
 
-const schema50 = {"$id":"export6","$ref":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6"};
-const schema51 = {"required":["type","name","id","enabled","apiKey"],"title":"Scaleway","properties":{"type":{"type":"string","title":"Provider Type","const":"scaleway","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Scaleway\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information","apiKey":"required information"}}};
+const schema51 = {"$id":"export6","$ref":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6"};
+const schema52 = {"required":["type","name","id","enabled","apiKey"],"title":"Scaleway","properties":{"type":{"type":"string","title":"Provider Type","const":"scaleway","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Scaleway\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information","apiKey":"required information"}}};
 
 function validate29(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 /*# sourceURL="export6" */;
@@ -1500,7 +1500,7 @@ evaluated0.items = undefined;
 }
 if(data && typeof data == "object" && !Array.isArray(data)){
 if(data.type === undefined){
-const err0 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema51.required,parentSchema:schema51,data};
+const err0 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema52.required,parentSchema:schema52,data};
 if(vErrors === null){
 vErrors = [err0];
 }
@@ -1510,7 +1510,7 @@ vErrors.push(err0);
 errors++;
 }
 if(data.name === undefined){
-const err1 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema51.required,parentSchema:schema51,data};
+const err1 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema52.required,parentSchema:schema52,data};
 if(vErrors === null){
 vErrors = [err1];
 }
@@ -1520,7 +1520,7 @@ vErrors.push(err1);
 errors++;
 }
 if(data.id === undefined){
-const err2 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema51.required,parentSchema:schema51,data};
+const err2 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema52.required,parentSchema:schema52,data};
 if(vErrors === null){
 vErrors = [err2];
 }
@@ -1530,7 +1530,7 @@ vErrors.push(err2);
 errors++;
 }
 if(data.enabled === undefined){
-const err3 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema51.required,parentSchema:schema51,data};
+const err3 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema52.required,parentSchema:schema52,data};
 if(vErrors === null){
 vErrors = [err3];
 }
@@ -1540,7 +1540,7 @@ vErrors.push(err3);
 errors++;
 }
 if(data.apiKey === undefined){
-const err4 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/required",keyword:"required",params:{missingProperty: "apiKey"},message:"must have required property '"+"apiKey"+"'",schema:schema51.required,parentSchema:schema51,data};
+const err4 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/required",keyword:"required",params:{missingProperty: "apiKey"},message:"must have required property '"+"apiKey"+"'",schema:schema52.required,parentSchema:schema52,data};
 if(vErrors === null){
 vErrors = [err4];
 }
@@ -1552,7 +1552,7 @@ errors++;
 if(data.type !== undefined){
 let data0 = data.type;
 if(typeof data0 !== "string"){
-const err5 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema51.properties.type.type,parentSchema:schema51.properties.type,data:data0};
+const err5 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema52.properties.type.type,parentSchema:schema52.properties.type,data:data0};
 if(vErrors === null){
 vErrors = [err5];
 }
@@ -1562,7 +1562,7 @@ vErrors.push(err5);
 errors++;
 }
 if("scaleway" !== data0){
-const err6 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/type/const",keyword:"const",params:{allowedValue: "scaleway"},message:"must be equal to constant",schema:"scaleway",parentSchema:schema51.properties.type,data:data0};
+const err6 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/type/const",keyword:"const",params:{allowedValue: "scaleway"},message:"must be equal to constant",schema:"scaleway",parentSchema:schema52.properties.type,data:data0};
 if(vErrors === null){
 vErrors = [err6];
 }
@@ -1585,7 +1585,7 @@ errors = emErrs0.length;
 if(data.id !== undefined){
 let data1 = data.id;
 if(typeof data1 !== "string"){
-const err8 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema51.properties.id.type,parentSchema:schema51.properties.id,data:data1};
+const err8 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema52.properties.id.type,parentSchema:schema52.properties.id,data:data1};
 if(vErrors === null){
 vErrors = [err8];
 }
@@ -1608,7 +1608,7 @@ errors = emErrs1.length;
 if(data.name !== undefined){
 let data2 = data.name;
 if(typeof data2 !== "string"){
-const err10 = {instancePath:instancePath+"/name",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema51.properties.name.type,parentSchema:schema51.properties.name,data:data2};
+const err10 = {instancePath:instancePath+"/name",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema52.properties.name.type,parentSchema:schema52.properties.name,data:data2};
 if(vErrors === null){
 vErrors = [err10];
 }
@@ -1631,7 +1631,7 @@ errors = emErrs2.length;
 if(data.enabled !== undefined){
 let data3 = data.enabled;
 if(typeof data3 !== "boolean"){
-const err12 = {instancePath:instancePath+"/enabled",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema51.properties.enabled.type,parentSchema:schema51.properties.enabled,data:data3};
+const err12 = {instancePath:instancePath+"/enabled",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema52.properties.enabled.type,parentSchema:schema52.properties.enabled,data:data3};
 if(vErrors === null){
 vErrors = [err12];
 }
@@ -1654,7 +1654,7 @@ errors = emErrs3.length;
 if(data.apiKey !== undefined){
 let data4 = data.apiKey;
 if(typeof data4 !== "string"){
-const err14 = {instancePath:instancePath+"/apiKey",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema51.properties.apiKey.type,parentSchema:schema51.properties.apiKey,data:data4};
+const err14 = {instancePath:instancePath+"/apiKey",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema52.properties.apiKey.type,parentSchema:schema52.properties.apiKey,data:data4};
 if(vErrors === null){
 vErrors = [err14];
 }
@@ -1676,7 +1676,7 @@ errors = emErrs4.length;
 }
 }
 else {
-const err16 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema51.type,parentSchema:schema51,data};
+const err16 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema52.type,parentSchema:schema52,data};
 if(vErrors === null){
 vErrors = [err16];
 }
@@ -1705,7 +1705,7 @@ for(const keyProp0 in emErrors0[key0]){
 emParamsErrors0 = emErrors0[key0][keyProp0];
 if(emParamsErrors0.length){
 const tmpl0 = templates0[key0] && templates0[key0][keyProp0];
-const err18 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema51.errorMessage[key0][keyProp0],schema:schema51.errorMessage,parentSchema:schema51,data};
+const err18 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema52.errorMessage[key0][keyProp0],schema:schema52.errorMessage,parentSchema:schema52,data};
 if(vErrors === null){
 vErrors = [err18];
 }
@@ -1730,8 +1730,8 @@ return errors === 0;
 }
 validate29.evaluated = {"props":{"type":true,"id":true,"name":true,"enabled":true,"apiKey":true},"dynamicProps":false,"dynamicItems":false};
 
-const schema52 = {"$id":"export7","$ref":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7"};
-const schema53 = {"required":["type","name","id","enabled","baseURL"],"title":"OpenAI Compatible","description":"Generic provider for any OpenAI-compatible endpoint (Together, Fireworks, Groq, DeepInfra, vLLM, LM Studio, etc.). API Key is optional for unauthenticated local servers.","properties":{"type":{"type":"string","title":"Provider Type","const":"openai-compatible","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"OpenAI Compatible\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/enabled","errorMessage":{}},"baseURL":{"type":"string","title":"Base URL","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/baseURL","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information","baseURL":"required information"}}};
+const schema53 = {"$id":"export7","$ref":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7"};
+const schema54 = {"required":["type","name","id","enabled","baseURL"],"title":"OpenAI Compatible","description":"Generic provider for any OpenAI-compatible endpoint (Together, Fireworks, Groq, DeepInfra, vLLM, LM Studio, etc.). API Key is optional for unauthenticated local servers.","properties":{"type":{"type":"string","title":"Provider Type","const":"openai-compatible","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"OpenAI Compatible\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/enabled","errorMessage":{}},"baseURL":{"type":"string","title":"Base URL","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/baseURL","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information","baseURL":"required information"}}};
 
 function validate30(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 /*# sourceURL="export7" */;
@@ -1746,7 +1746,7 @@ evaluated0.items = undefined;
 }
 if(data && typeof data == "object" && !Array.isArray(data)){
 if(data.type === undefined){
-const err0 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema53.required,parentSchema:schema53,data};
+const err0 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema54.required,parentSchema:schema54,data};
 if(vErrors === null){
 vErrors = [err0];
 }
@@ -1756,7 +1756,7 @@ vErrors.push(err0);
 errors++;
 }
 if(data.name === undefined){
-const err1 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema53.required,parentSchema:schema53,data};
+const err1 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema54.required,parentSchema:schema54,data};
 if(vErrors === null){
 vErrors = [err1];
 }
@@ -1766,7 +1766,7 @@ vErrors.push(err1);
 errors++;
 }
 if(data.id === undefined){
-const err2 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema53.required,parentSchema:schema53,data};
+const err2 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema54.required,parentSchema:schema54,data};
 if(vErrors === null){
 vErrors = [err2];
 }
@@ -1776,7 +1776,7 @@ vErrors.push(err2);
 errors++;
 }
 if(data.enabled === undefined){
-const err3 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema53.required,parentSchema:schema53,data};
+const err3 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema54.required,parentSchema:schema54,data};
 if(vErrors === null){
 vErrors = [err3];
 }
@@ -1786,7 +1786,7 @@ vErrors.push(err3);
 errors++;
 }
 if(data.baseURL === undefined){
-const err4 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/required",keyword:"required",params:{missingProperty: "baseURL"},message:"must have required property '"+"baseURL"+"'",schema:schema53.required,parentSchema:schema53,data};
+const err4 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/required",keyword:"required",params:{missingProperty: "baseURL"},message:"must have required property '"+"baseURL"+"'",schema:schema54.required,parentSchema:schema54,data};
 if(vErrors === null){
 vErrors = [err4];
 }
@@ -1798,7 +1798,7 @@ errors++;
 if(data.type !== undefined){
 let data0 = data.type;
 if(typeof data0 !== "string"){
-const err5 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema53.properties.type.type,parentSchema:schema53.properties.type,data:data0};
+const err5 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema54.properties.type.type,parentSchema:schema54.properties.type,data:data0};
 if(vErrors === null){
 vErrors = [err5];
 }
@@ -1808,7 +1808,7 @@ vErrors.push(err5);
 errors++;
 }
 if("openai-compatible" !== data0){
-const err6 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/type/const",keyword:"const",params:{allowedValue: "openai-compatible"},message:"must be equal to constant",schema:"openai-compatible",parentSchema:schema53.properties.type,data:data0};
+const err6 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/type/const",keyword:"const",params:{allowedValue: "openai-compatible"},message:"must be equal to constant",schema:"openai-compatible",parentSchema:schema54.properties.type,data:data0};
 if(vErrors === null){
 vErrors = [err6];
 }
@@ -1831,7 +1831,7 @@ errors = emErrs0.length;
 if(data.id !== undefined){
 let data1 = data.id;
 if(typeof data1 !== "string"){
-const err8 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema53.properties.id.type,parentSchema:schema53.properties.id,data:data1};
+const err8 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema54.properties.id.type,parentSchema:schema54.properties.id,data:data1};
 if(vErrors === null){
 vErrors = [err8];
 }
@@ -1854,7 +1854,7 @@ errors = emErrs1.length;
 if(data.name !== undefined){
 let data2 = data.name;
 if(typeof data2 !== "string"){
-const err10 = {instancePath:instancePath+"/name",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema53.properties.name.type,parentSchema:schema53.properties.name,data:data2};
+const err10 = {instancePath:instancePath+"/name",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema54.properties.name.type,parentSchema:schema54.properties.name,data:data2};
 if(vErrors === null){
 vErrors = [err10];
 }
@@ -1877,7 +1877,7 @@ errors = emErrs2.length;
 if(data.enabled !== undefined){
 let data3 = data.enabled;
 if(typeof data3 !== "boolean"){
-const err12 = {instancePath:instancePath+"/enabled",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema53.properties.enabled.type,parentSchema:schema53.properties.enabled,data:data3};
+const err12 = {instancePath:instancePath+"/enabled",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema54.properties.enabled.type,parentSchema:schema54.properties.enabled,data:data3};
 if(vErrors === null){
 vErrors = [err12];
 }
@@ -1900,7 +1900,7 @@ errors = emErrs3.length;
 if(data.baseURL !== undefined){
 let data4 = data.baseURL;
 if(typeof data4 !== "string"){
-const err14 = {instancePath:instancePath+"/baseURL",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/baseURL/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema53.properties.baseURL.type,parentSchema:schema53.properties.baseURL,data:data4};
+const err14 = {instancePath:instancePath+"/baseURL",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/baseURL/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema54.properties.baseURL.type,parentSchema:schema54.properties.baseURL,data:data4};
 if(vErrors === null){
 vErrors = [err14];
 }
@@ -1923,7 +1923,7 @@ errors = emErrs4.length;
 if(data.apiKey !== undefined){
 let data5 = data.apiKey;
 if(typeof data5 !== "string"){
-const err16 = {instancePath:instancePath+"/apiKey",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema53.properties.apiKey.type,parentSchema:schema53.properties.apiKey,data:data5};
+const err16 = {instancePath:instancePath+"/apiKey",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema54.properties.apiKey.type,parentSchema:schema54.properties.apiKey,data:data5};
 if(vErrors === null){
 vErrors = [err16];
 }
@@ -1945,7 +1945,7 @@ errors = emErrs5.length;
 }
 }
 else {
-const err18 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema53.type,parentSchema:schema53,data};
+const err18 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema54.type,parentSchema:schema54,data};
 if(vErrors === null){
 vErrors = [err18];
 }
@@ -1974,7 +1974,7 @@ for(const keyProp0 in emErrors0[key0]){
 emParamsErrors0 = emErrors0[key0][keyProp0];
 if(emParamsErrors0.length){
 const tmpl0 = templates0[key0] && templates0[key0][keyProp0];
-const err20 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema53.errorMessage[key0][keyProp0],schema:schema53.errorMessage,parentSchema:schema53,data};
+const err20 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema54.errorMessage[key0][keyProp0],schema:schema54.errorMessage,parentSchema:schema54,data};
 if(vErrors === null){
 vErrors = [err20];
 }
@@ -1999,8 +1999,8 @@ return errors === 0;
 }
 validate30.evaluated = {"props":{"type":true,"id":true,"name":true,"enabled":true,"baseURL":true,"apiKey":true},"dynamicProps":false,"dynamicItems":false};
 
-const schema54 = {"$id":"export8","$ref":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8"};
-const schema55 = {"required":["type","name","id","enabled"],"title":"Mock","description":"To a message \"hello\" respond \"world\", to a message \"call tool ARG1 ARG2\" respond with a tool call, to anything else respond \"what do you mean ?\"","properties":{"type":{"type":"string","title":"Provider Type","const":"mock","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Mock\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/enabled","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}};
+const schema55 = {"$id":"export8","$ref":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8"};
+const schema56 = {"required":["type","name","id","enabled"],"title":"Mock","description":"To a message \"hello\" respond \"world\", to a message \"call tool ARG1 ARG2\" respond with a tool call, to anything else respond \"what do you mean ?\"","properties":{"type":{"type":"string","title":"Provider Type","const":"mock","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Mock\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/enabled","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}};
 
 function validate31(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 /*# sourceURL="export8" */;
@@ -2015,7 +2015,7 @@ evaluated0.items = undefined;
 }
 if(data && typeof data == "object" && !Array.isArray(data)){
 if(data.type === undefined){
-const err0 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema55.required,parentSchema:schema55,data};
+const err0 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema56.required,parentSchema:schema56,data};
 if(vErrors === null){
 vErrors = [err0];
 }
@@ -2025,7 +2025,7 @@ vErrors.push(err0);
 errors++;
 }
 if(data.name === undefined){
-const err1 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema55.required,parentSchema:schema55,data};
+const err1 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema56.required,parentSchema:schema56,data};
 if(vErrors === null){
 vErrors = [err1];
 }
@@ -2035,7 +2035,7 @@ vErrors.push(err1);
 errors++;
 }
 if(data.id === undefined){
-const err2 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema55.required,parentSchema:schema55,data};
+const err2 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema56.required,parentSchema:schema56,data};
 if(vErrors === null){
 vErrors = [err2];
 }
@@ -2045,7 +2045,7 @@ vErrors.push(err2);
 errors++;
 }
 if(data.enabled === undefined){
-const err3 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema55.required,parentSchema:schema55,data};
+const err3 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema56.required,parentSchema:schema56,data};
 if(vErrors === null){
 vErrors = [err3];
 }
@@ -2057,7 +2057,7 @@ errors++;
 if(data.type !== undefined){
 let data0 = data.type;
 if(typeof data0 !== "string"){
-const err4 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema55.properties.type.type,parentSchema:schema55.properties.type,data:data0};
+const err4 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema56.properties.type.type,parentSchema:schema56.properties.type,data:data0};
 if(vErrors === null){
 vErrors = [err4];
 }
@@ -2067,7 +2067,7 @@ vErrors.push(err4);
 errors++;
 }
 if("mock" !== data0){
-const err5 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/type/const",keyword:"const",params:{allowedValue: "mock"},message:"must be equal to constant",schema:"mock",parentSchema:schema55.properties.type,data:data0};
+const err5 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/type/const",keyword:"const",params:{allowedValue: "mock"},message:"must be equal to constant",schema:"mock",parentSchema:schema56.properties.type,data:data0};
 if(vErrors === null){
 vErrors = [err5];
 }
@@ -2090,7 +2090,7 @@ errors = emErrs0.length;
 if(data.id !== undefined){
 let data1 = data.id;
 if(typeof data1 !== "string"){
-const err7 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema55.properties.id.type,parentSchema:schema55.properties.id,data:data1};
+const err7 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema56.properties.id.type,parentSchema:schema56.properties.id,data:data1};
 if(vErrors === null){
 vErrors = [err7];
 }
@@ -2113,7 +2113,7 @@ errors = emErrs1.length;
 if(data.name !== undefined){
 let data2 = data.name;
 if(typeof data2 !== "string"){
-const err9 = {instancePath:instancePath+"/name",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema55.properties.name.type,parentSchema:schema55.properties.name,data:data2};
+const err9 = {instancePath:instancePath+"/name",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema56.properties.name.type,parentSchema:schema56.properties.name,data:data2};
 if(vErrors === null){
 vErrors = [err9];
 }
@@ -2136,7 +2136,7 @@ errors = emErrs2.length;
 if(data.enabled !== undefined){
 let data3 = data.enabled;
 if(typeof data3 !== "boolean"){
-const err11 = {instancePath:instancePath+"/enabled",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema55.properties.enabled.type,parentSchema:schema55.properties.enabled,data:data3};
+const err11 = {instancePath:instancePath+"/enabled",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema56.properties.enabled.type,parentSchema:schema56.properties.enabled,data:data3};
 if(vErrors === null){
 vErrors = [err11];
 }
@@ -2158,7 +2158,7 @@ errors = emErrs3.length;
 }
 }
 else {
-const err13 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema55.type,parentSchema:schema55,data};
+const err13 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema56.type,parentSchema:schema56,data};
 if(vErrors === null){
 vErrors = [err13];
 }
@@ -2187,7 +2187,7 @@ for(const keyProp0 in emErrors0[key0]){
 emParamsErrors0 = emErrors0[key0][keyProp0];
 if(emParamsErrors0.length){
 const tmpl0 = templates0[key0] && templates0[key0][keyProp0];
-const err15 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema55.errorMessage[key0][keyProp0],schema:schema55.errorMessage,parentSchema:schema55,data};
+const err15 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema56.errorMessage[key0][keyProp0],schema:schema56.errorMessage,parentSchema:schema56,data};
 if(vErrors === null){
 vErrors = [err15];
 }
@@ -2212,8 +2212,8 @@ return errors === 0;
 }
 validate31.evaluated = {"props":{"type":true,"id":true,"name":true,"enabled":true},"dynamicProps":false,"dynamicItems":false};
 
-const schema56 = {"$id":"export9","$ref":"https://github.com/data-fair/agents/settings-put#/properties/providers/items"};
-const schema57 = {"type":"object","title":"Provider","unevaluatedProperties":false,"oneOfLayout":{"emptyData":true},"discriminator":{"propertyName":"type"},"layout":{"getDefaultData":"{ id: crypto.randomUUID() }","switch":[{"if":"summary","children":[]}]},"oneOf":[{"required":["type","name","id","enabled"],"title":"Open AI","properties":{"type":{"type":"string","title":"Provider Type","const":"openai","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Open AI\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}},{"required":["type","name","id","enabled"],"title":"Anthropic","properties":{"type":{"type":"string","title":"Provider Type","const":"anthropic","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Anthropic\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}},{"required":["type","name","id","enabled"],"title":"Google","properties":{"type":{"type":"string","title":"Provider Type","const":"google","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Google\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}},{"required":["type","name","id","enabled"],"title":"Mistral","properties":{"type":{"type":"string","title":"Provider Type","const":"mistral","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Mistral\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}},{"required":["type","name","id","enabled"],"title":"OpenRouter","properties":{"type":{"type":"string","title":"Provider Type","const":"openrouter","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"OpenRouter\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}},{"required":["type","name","id","enabled","baseURL"],"title":"Ollama","properties":{"type":{"type":"string","title":"Provider Type","const":"ollama","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Ollama\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/apiKey","errorMessage":{}},"baseURL":{"type":"string","title":"Base URL","default":"http://localhost:11434","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/baseURL","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information","baseURL":"required information"}}},{"required":["type","name","id","enabled","apiKey"],"title":"Scaleway","properties":{"type":{"type":"string","title":"Provider Type","const":"scaleway","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Scaleway\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information","apiKey":"required information"}}},{"required":["type","name","id","enabled","baseURL"],"title":"OpenAI Compatible","description":"Generic provider for any OpenAI-compatible endpoint (Together, Fireworks, Groq, DeepInfra, vLLM, LM Studio, etc.). API Key is optional for unauthenticated local servers.","properties":{"type":{"type":"string","title":"Provider Type","const":"openai-compatible","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"OpenAI Compatible\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/enabled","errorMessage":{}},"baseURL":{"type":"string","title":"Base URL","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/baseURL","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information","baseURL":"required information"}}},{"required":["type","name","id","enabled"],"title":"Mock","description":"To a message \"hello\" respond \"world\", to a message \"call tool ARG1 ARG2\" respond with a tool call, to anything else respond \"what do you mean ?\"","properties":{"type":{"type":"string","title":"Provider Type","const":"mock","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Mock\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/enabled","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}}],"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items","errorMessage":{"oneOf":"chose one"}};
+const schema57 = {"$id":"export9","$ref":"https://github.com/data-fair/agents/settings-put#/properties/providers/items"};
+const schema58 = {"type":"object","title":"Provider","unevaluatedProperties":false,"oneOfLayout":{"emptyData":true},"discriminator":{"propertyName":"type"},"layout":{"getDefaultData":"{ id: crypto.randomUUID() }","switch":[{"if":"summary","children":[]}]},"oneOf":[{"required":["type","name","id","enabled"],"title":"Open AI","properties":{"type":{"type":"string","title":"Provider Type","const":"openai","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Open AI\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}},{"required":["type","name","id","enabled"],"title":"Anthropic","properties":{"type":{"type":"string","title":"Provider Type","const":"anthropic","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Anthropic\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}},{"required":["type","name","id","enabled"],"title":"Google","properties":{"type":{"type":"string","title":"Provider Type","const":"google","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Google\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}},{"required":["type","name","id","enabled"],"title":"Mistral","properties":{"type":{"type":"string","title":"Provider Type","const":"mistral","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Mistral\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}},{"required":["type","name","id","enabled"],"title":"OpenRouter","properties":{"type":{"type":"string","title":"Provider Type","const":"openrouter","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"OpenRouter\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}},{"required":["type","name","id","enabled","baseURL"],"title":"Ollama","properties":{"type":{"type":"string","title":"Provider Type","const":"ollama","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Ollama\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/apiKey","errorMessage":{}},"baseURL":{"type":"string","title":"Base URL","default":"http://localhost:11434","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/baseURL","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information","baseURL":"required information"}}},{"required":["type","name","id","enabled","apiKey"],"title":"Scaleway","properties":{"type":{"type":"string","title":"Provider Type","const":"scaleway","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Scaleway\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information","apiKey":"required information"}}},{"required":["type","name","id","enabled","baseURL"],"title":"OpenAI Compatible","description":"Generic provider for any OpenAI-compatible endpoint (Together, Fireworks, Groq, DeepInfra, vLLM, LM Studio, etc.). API Key is optional for unauthenticated local servers.","properties":{"type":{"type":"string","title":"Provider Type","const":"openai-compatible","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"OpenAI Compatible\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/enabled","errorMessage":{}},"baseURL":{"type":"string","title":"Base URL","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/baseURL","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information","baseURL":"required information"}}},{"required":["type","name","id","enabled"],"title":"Mock","description":"To a message \"hello\" respond \"world\", to a message \"call tool ARG1 ARG2\" respond with a tool call, to anything else respond \"what do you mean ?\"","properties":{"type":{"type":"string","title":"Provider Type","const":"mock","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Mock\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/enabled","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}}],"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items","errorMessage":{"oneOf":"chose one"}};
 
 function validate32(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 /*# sourceURL="export9" */;
@@ -2232,7 +2232,7 @@ let passing0 = null;
 const _errs3 = errors;
 if(data && typeof data == "object" && !Array.isArray(data)){
 if(data.type === undefined){
-const err0 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema57.oneOf[0].required,parentSchema:schema57.oneOf[0],data};
+const err0 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema58.oneOf[0].required,parentSchema:schema58.oneOf[0],data};
 if(vErrors === null){
 vErrors = [err0];
 }
@@ -2242,7 +2242,7 @@ vErrors.push(err0);
 errors++;
 }
 if(data.name === undefined){
-const err1 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema57.oneOf[0].required,parentSchema:schema57.oneOf[0],data};
+const err1 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema58.oneOf[0].required,parentSchema:schema58.oneOf[0],data};
 if(vErrors === null){
 vErrors = [err1];
 }
@@ -2252,7 +2252,7 @@ vErrors.push(err1);
 errors++;
 }
 if(data.id === undefined){
-const err2 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema57.oneOf[0].required,parentSchema:schema57.oneOf[0],data};
+const err2 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema58.oneOf[0].required,parentSchema:schema58.oneOf[0],data};
 if(vErrors === null){
 vErrors = [err2];
 }
@@ -2262,7 +2262,7 @@ vErrors.push(err2);
 errors++;
 }
 if(data.enabled === undefined){
-const err3 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema57.oneOf[0].required,parentSchema:schema57.oneOf[0],data};
+const err3 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema58.oneOf[0].required,parentSchema:schema58.oneOf[0],data};
 if(vErrors === null){
 vErrors = [err3];
 }
@@ -2274,7 +2274,7 @@ errors++;
 if(data.type !== undefined){
 let data0 = data.type;
 if(typeof data0 !== "string"){
-const err4 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema57.oneOf[0].properties.type.type,parentSchema:schema57.oneOf[0].properties.type,data:data0};
+const err4 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema58.oneOf[0].properties.type.type,parentSchema:schema58.oneOf[0].properties.type,data:data0};
 if(vErrors === null){
 vErrors = [err4];
 }
@@ -2284,7 +2284,7 @@ vErrors.push(err4);
 errors++;
 }
 if("openai" !== data0){
-const err5 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type/const",keyword:"const",params:{allowedValue: "openai"},message:"must be equal to constant",schema:"openai",parentSchema:schema57.oneOf[0].properties.type,data:data0};
+const err5 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type/const",keyword:"const",params:{allowedValue: "openai"},message:"must be equal to constant",schema:"openai",parentSchema:schema58.oneOf[0].properties.type,data:data0};
 if(vErrors === null){
 vErrors = [err5];
 }
@@ -2307,7 +2307,7 @@ errors = emErrs0.length;
 if(data.id !== undefined){
 let data1 = data.id;
 if(typeof data1 !== "string"){
-const err7 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema57.oneOf[0].properties.id.type,parentSchema:schema57.oneOf[0].properties.id,data:data1};
+const err7 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema58.oneOf[0].properties.id.type,parentSchema:schema58.oneOf[0].properties.id,data:data1};
 if(vErrors === null){
 vErrors = [err7];
 }
@@ -2330,7 +2330,7 @@ errors = emErrs1.length;
 if(data.name !== undefined){
 let data2 = data.name;
 if(typeof data2 !== "string"){
-const err9 = {instancePath:instancePath+"/name",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema57.oneOf[0].properties.name.type,parentSchema:schema57.oneOf[0].properties.name,data:data2};
+const err9 = {instancePath:instancePath+"/name",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema58.oneOf[0].properties.name.type,parentSchema:schema58.oneOf[0].properties.name,data:data2};
 if(vErrors === null){
 vErrors = [err9];
 }
@@ -2353,7 +2353,7 @@ errors = emErrs2.length;
 if(data.enabled !== undefined){
 let data3 = data.enabled;
 if(typeof data3 !== "boolean"){
-const err11 = {instancePath:instancePath+"/enabled",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema57.oneOf[0].properties.enabled.type,parentSchema:schema57.oneOf[0].properties.enabled,data:data3};
+const err11 = {instancePath:instancePath+"/enabled",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema58.oneOf[0].properties.enabled.type,parentSchema:schema58.oneOf[0].properties.enabled,data:data3};
 if(vErrors === null){
 vErrors = [err11];
 }
@@ -2376,7 +2376,7 @@ errors = emErrs3.length;
 if(data.apiKey !== undefined){
 let data4 = data.apiKey;
 if(typeof data4 !== "string"){
-const err13 = {instancePath:instancePath+"/apiKey",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema57.oneOf[0].properties.apiKey.type,parentSchema:schema57.oneOf[0].properties.apiKey,data:data4};
+const err13 = {instancePath:instancePath+"/apiKey",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema58.oneOf[0].properties.apiKey.type,parentSchema:schema58.oneOf[0].properties.apiKey,data:data4};
 if(vErrors === null){
 vErrors = [err13];
 }
@@ -2398,7 +2398,7 @@ errors = emErrs4.length;
 }
 }
 else {
-const err15 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema57.oneOf[0].type,parentSchema:schema57.oneOf[0],data};
+const err15 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema58.oneOf[0].type,parentSchema:schema58.oneOf[0],data};
 if(vErrors === null){
 vErrors = [err15];
 }
@@ -2427,7 +2427,7 @@ for(const keyProp0 in emErrors0[key0]){
 emParamsErrors0 = emErrors0[key0][keyProp0];
 if(emParamsErrors0.length){
 const tmpl0 = templates0[key0] && templates0[key0][keyProp0];
-const err17 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema57.oneOf[0].errorMessage[key0][keyProp0],schema:schema57.oneOf[0].errorMessage,parentSchema:schema57.oneOf[0],data};
+const err17 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema58.oneOf[0].errorMessage[key0][keyProp0],schema:schema58.oneOf[0].errorMessage,parentSchema:schema58.oneOf[0],data};
 if(vErrors === null){
 vErrors = [err17];
 }
@@ -2461,7 +2461,7 @@ props0.apiKey = true;
 const _errs15 = errors;
 if(data && typeof data == "object" && !Array.isArray(data)){
 if(data.type === undefined){
-const err19 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema57.oneOf[1].required,parentSchema:schema57.oneOf[1],data};
+const err19 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema58.oneOf[1].required,parentSchema:schema58.oneOf[1],data};
 if(vErrors === null){
 vErrors = [err19];
 }
@@ -2471,7 +2471,7 @@ vErrors.push(err19);
 errors++;
 }
 if(data.name === undefined){
-const err20 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema57.oneOf[1].required,parentSchema:schema57.oneOf[1],data};
+const err20 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema58.oneOf[1].required,parentSchema:schema58.oneOf[1],data};
 if(vErrors === null){
 vErrors = [err20];
 }
@@ -2481,7 +2481,7 @@ vErrors.push(err20);
 errors++;
 }
 if(data.id === undefined){
-const err21 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema57.oneOf[1].required,parentSchema:schema57.oneOf[1],data};
+const err21 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema58.oneOf[1].required,parentSchema:schema58.oneOf[1],data};
 if(vErrors === null){
 vErrors = [err21];
 }
@@ -2491,7 +2491,7 @@ vErrors.push(err21);
 errors++;
 }
 if(data.enabled === undefined){
-const err22 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema57.oneOf[1].required,parentSchema:schema57.oneOf[1],data};
+const err22 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema58.oneOf[1].required,parentSchema:schema58.oneOf[1],data};
 if(vErrors === null){
 vErrors = [err22];
 }
@@ -2503,7 +2503,7 @@ errors++;
 if(data.type !== undefined){
 let data5 = data.type;
 if(typeof data5 !== "string"){
-const err23 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema57.oneOf[1].properties.type.type,parentSchema:schema57.oneOf[1].properties.type,data:data5};
+const err23 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema58.oneOf[1].properties.type.type,parentSchema:schema58.oneOf[1].properties.type,data:data5};
 if(vErrors === null){
 vErrors = [err23];
 }
@@ -2513,7 +2513,7 @@ vErrors.push(err23);
 errors++;
 }
 if("anthropic" !== data5){
-const err24 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/type/const",keyword:"const",params:{allowedValue: "anthropic"},message:"must be equal to constant",schema:"anthropic",parentSchema:schema57.oneOf[1].properties.type,data:data5};
+const err24 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/type/const",keyword:"const",params:{allowedValue: "anthropic"},message:"must be equal to constant",schema:"anthropic",parentSchema:schema58.oneOf[1].properties.type,data:data5};
 if(vErrors === null){
 vErrors = [err24];
 }
@@ -2536,7 +2536,7 @@ errors = emErrs6.length;
 if(data.id !== undefined){
 let data6 = data.id;
 if(typeof data6 !== "string"){
-const err26 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema57.oneOf[1].properties.id.type,parentSchema:schema57.oneOf[1].properties.id,data:data6};
+const err26 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema58.oneOf[1].properties.id.type,parentSchema:schema58.oneOf[1].properties.id,data:data6};
 if(vErrors === null){
 vErrors = [err26];
 }
@@ -2559,7 +2559,7 @@ errors = emErrs7.length;
 if(data.name !== undefined){
 let data7 = data.name;
 if(typeof data7 !== "string"){
-const err28 = {instancePath:instancePath+"/name",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema57.oneOf[1].properties.name.type,parentSchema:schema57.oneOf[1].properties.name,data:data7};
+const err28 = {instancePath:instancePath+"/name",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema58.oneOf[1].properties.name.type,parentSchema:schema58.oneOf[1].properties.name,data:data7};
 if(vErrors === null){
 vErrors = [err28];
 }
@@ -2582,7 +2582,7 @@ errors = emErrs8.length;
 if(data.enabled !== undefined){
 let data8 = data.enabled;
 if(typeof data8 !== "boolean"){
-const err30 = {instancePath:instancePath+"/enabled",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema57.oneOf[1].properties.enabled.type,parentSchema:schema57.oneOf[1].properties.enabled,data:data8};
+const err30 = {instancePath:instancePath+"/enabled",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema58.oneOf[1].properties.enabled.type,parentSchema:schema58.oneOf[1].properties.enabled,data:data8};
 if(vErrors === null){
 vErrors = [err30];
 }
@@ -2605,7 +2605,7 @@ errors = emErrs9.length;
 if(data.apiKey !== undefined){
 let data9 = data.apiKey;
 if(typeof data9 !== "string"){
-const err32 = {instancePath:instancePath+"/apiKey",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema57.oneOf[1].properties.apiKey.type,parentSchema:schema57.oneOf[1].properties.apiKey,data:data9};
+const err32 = {instancePath:instancePath+"/apiKey",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema58.oneOf[1].properties.apiKey.type,parentSchema:schema58.oneOf[1].properties.apiKey,data:data9};
 if(vErrors === null){
 vErrors = [err32];
 }
@@ -2627,7 +2627,7 @@ errors = emErrs10.length;
 }
 }
 else {
-const err34 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema57.oneOf[1].type,parentSchema:schema57.oneOf[1],data};
+const err34 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema58.oneOf[1].type,parentSchema:schema58.oneOf[1],data};
 if(vErrors === null){
 vErrors = [err34];
 }
@@ -2656,7 +2656,7 @@ for(const keyProp1 in emErrors1[key1]){
 emParamsErrors1 = emErrors1[key1][keyProp1];
 if(emParamsErrors1.length){
 const tmpl1 = templates1[key1] && templates1[key1][keyProp1];
-const err36 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors1},message:tmpl1 ? tmpl1() : schema57.oneOf[1].errorMessage[key1][keyProp1],schema:schema57.oneOf[1].errorMessage,parentSchema:schema57.oneOf[1],data};
+const err36 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors1},message:tmpl1 ? tmpl1() : schema58.oneOf[1].errorMessage[key1][keyProp1],schema:schema58.oneOf[1].errorMessage,parentSchema:schema58.oneOf[1],data};
 if(vErrors === null){
 vErrors = [err36];
 }
@@ -2697,7 +2697,7 @@ props0.apiKey = true;
 const _errs27 = errors;
 if(data && typeof data == "object" && !Array.isArray(data)){
 if(data.type === undefined){
-const err38 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema57.oneOf[2].required,parentSchema:schema57.oneOf[2],data};
+const err38 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema58.oneOf[2].required,parentSchema:schema58.oneOf[2],data};
 if(vErrors === null){
 vErrors = [err38];
 }
@@ -2707,7 +2707,7 @@ vErrors.push(err38);
 errors++;
 }
 if(data.name === undefined){
-const err39 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema57.oneOf[2].required,parentSchema:schema57.oneOf[2],data};
+const err39 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema58.oneOf[2].required,parentSchema:schema58.oneOf[2],data};
 if(vErrors === null){
 vErrors = [err39];
 }
@@ -2717,7 +2717,7 @@ vErrors.push(err39);
 errors++;
 }
 if(data.id === undefined){
-const err40 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema57.oneOf[2].required,parentSchema:schema57.oneOf[2],data};
+const err40 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema58.oneOf[2].required,parentSchema:schema58.oneOf[2],data};
 if(vErrors === null){
 vErrors = [err40];
 }
@@ -2727,7 +2727,7 @@ vErrors.push(err40);
 errors++;
 }
 if(data.enabled === undefined){
-const err41 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema57.oneOf[2].required,parentSchema:schema57.oneOf[2],data};
+const err41 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema58.oneOf[2].required,parentSchema:schema58.oneOf[2],data};
 if(vErrors === null){
 vErrors = [err41];
 }
@@ -2739,7 +2739,7 @@ errors++;
 if(data.type !== undefined){
 let data10 = data.type;
 if(typeof data10 !== "string"){
-const err42 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema57.oneOf[2].properties.type.type,parentSchema:schema57.oneOf[2].properties.type,data:data10};
+const err42 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema58.oneOf[2].properties.type.type,parentSchema:schema58.oneOf[2].properties.type,data:data10};
 if(vErrors === null){
 vErrors = [err42];
 }
@@ -2749,7 +2749,7 @@ vErrors.push(err42);
 errors++;
 }
 if("google" !== data10){
-const err43 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/type/const",keyword:"const",params:{allowedValue: "google"},message:"must be equal to constant",schema:"google",parentSchema:schema57.oneOf[2].properties.type,data:data10};
+const err43 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/type/const",keyword:"const",params:{allowedValue: "google"},message:"must be equal to constant",schema:"google",parentSchema:schema58.oneOf[2].properties.type,data:data10};
 if(vErrors === null){
 vErrors = [err43];
 }
@@ -2772,7 +2772,7 @@ errors = emErrs12.length;
 if(data.id !== undefined){
 let data11 = data.id;
 if(typeof data11 !== "string"){
-const err45 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema57.oneOf[2].properties.id.type,parentSchema:schema57.oneOf[2].properties.id,data:data11};
+const err45 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema58.oneOf[2].properties.id.type,parentSchema:schema58.oneOf[2].properties.id,data:data11};
 if(vErrors === null){
 vErrors = [err45];
 }
@@ -2795,7 +2795,7 @@ errors = emErrs13.length;
 if(data.name !== undefined){
 let data12 = data.name;
 if(typeof data12 !== "string"){
-const err47 = {instancePath:instancePath+"/name",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema57.oneOf[2].properties.name.type,parentSchema:schema57.oneOf[2].properties.name,data:data12};
+const err47 = {instancePath:instancePath+"/name",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema58.oneOf[2].properties.name.type,parentSchema:schema58.oneOf[2].properties.name,data:data12};
 if(vErrors === null){
 vErrors = [err47];
 }
@@ -2818,7 +2818,7 @@ errors = emErrs14.length;
 if(data.enabled !== undefined){
 let data13 = data.enabled;
 if(typeof data13 !== "boolean"){
-const err49 = {instancePath:instancePath+"/enabled",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema57.oneOf[2].properties.enabled.type,parentSchema:schema57.oneOf[2].properties.enabled,data:data13};
+const err49 = {instancePath:instancePath+"/enabled",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema58.oneOf[2].properties.enabled.type,parentSchema:schema58.oneOf[2].properties.enabled,data:data13};
 if(vErrors === null){
 vErrors = [err49];
 }
@@ -2841,7 +2841,7 @@ errors = emErrs15.length;
 if(data.apiKey !== undefined){
 let data14 = data.apiKey;
 if(typeof data14 !== "string"){
-const err51 = {instancePath:instancePath+"/apiKey",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema57.oneOf[2].properties.apiKey.type,parentSchema:schema57.oneOf[2].properties.apiKey,data:data14};
+const err51 = {instancePath:instancePath+"/apiKey",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema58.oneOf[2].properties.apiKey.type,parentSchema:schema58.oneOf[2].properties.apiKey,data:data14};
 if(vErrors === null){
 vErrors = [err51];
 }
@@ -2863,7 +2863,7 @@ errors = emErrs16.length;
 }
 }
 else {
-const err53 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema57.oneOf[2].type,parentSchema:schema57.oneOf[2],data};
+const err53 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema58.oneOf[2].type,parentSchema:schema58.oneOf[2],data};
 if(vErrors === null){
 vErrors = [err53];
 }
@@ -2892,7 +2892,7 @@ for(const keyProp2 in emErrors2[key2]){
 emParamsErrors2 = emErrors2[key2][keyProp2];
 if(emParamsErrors2.length){
 const tmpl2 = templates2[key2] && templates2[key2][keyProp2];
-const err55 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors2},message:tmpl2 ? tmpl2() : schema57.oneOf[2].errorMessage[key2][keyProp2],schema:schema57.oneOf[2].errorMessage,parentSchema:schema57.oneOf[2],data};
+const err55 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors2},message:tmpl2 ? tmpl2() : schema58.oneOf[2].errorMessage[key2][keyProp2],schema:schema58.oneOf[2].errorMessage,parentSchema:schema58.oneOf[2],data};
 if(vErrors === null){
 vErrors = [err55];
 }
@@ -2933,7 +2933,7 @@ props0.apiKey = true;
 const _errs39 = errors;
 if(data && typeof data == "object" && !Array.isArray(data)){
 if(data.type === undefined){
-const err57 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema57.oneOf[3].required,parentSchema:schema57.oneOf[3],data};
+const err57 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema58.oneOf[3].required,parentSchema:schema58.oneOf[3],data};
 if(vErrors === null){
 vErrors = [err57];
 }
@@ -2943,7 +2943,7 @@ vErrors.push(err57);
 errors++;
 }
 if(data.name === undefined){
-const err58 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema57.oneOf[3].required,parentSchema:schema57.oneOf[3],data};
+const err58 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema58.oneOf[3].required,parentSchema:schema58.oneOf[3],data};
 if(vErrors === null){
 vErrors = [err58];
 }
@@ -2953,7 +2953,7 @@ vErrors.push(err58);
 errors++;
 }
 if(data.id === undefined){
-const err59 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema57.oneOf[3].required,parentSchema:schema57.oneOf[3],data};
+const err59 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema58.oneOf[3].required,parentSchema:schema58.oneOf[3],data};
 if(vErrors === null){
 vErrors = [err59];
 }
@@ -2963,7 +2963,7 @@ vErrors.push(err59);
 errors++;
 }
 if(data.enabled === undefined){
-const err60 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema57.oneOf[3].required,parentSchema:schema57.oneOf[3],data};
+const err60 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema58.oneOf[3].required,parentSchema:schema58.oneOf[3],data};
 if(vErrors === null){
 vErrors = [err60];
 }
@@ -2975,7 +2975,7 @@ errors++;
 if(data.type !== undefined){
 let data15 = data.type;
 if(typeof data15 !== "string"){
-const err61 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema57.oneOf[3].properties.type.type,parentSchema:schema57.oneOf[3].properties.type,data:data15};
+const err61 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema58.oneOf[3].properties.type.type,parentSchema:schema58.oneOf[3].properties.type,data:data15};
 if(vErrors === null){
 vErrors = [err61];
 }
@@ -2985,7 +2985,7 @@ vErrors.push(err61);
 errors++;
 }
 if("mistral" !== data15){
-const err62 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/type/const",keyword:"const",params:{allowedValue: "mistral"},message:"must be equal to constant",schema:"mistral",parentSchema:schema57.oneOf[3].properties.type,data:data15};
+const err62 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/type/const",keyword:"const",params:{allowedValue: "mistral"},message:"must be equal to constant",schema:"mistral",parentSchema:schema58.oneOf[3].properties.type,data:data15};
 if(vErrors === null){
 vErrors = [err62];
 }
@@ -3008,7 +3008,7 @@ errors = emErrs18.length;
 if(data.id !== undefined){
 let data16 = data.id;
 if(typeof data16 !== "string"){
-const err64 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema57.oneOf[3].properties.id.type,parentSchema:schema57.oneOf[3].properties.id,data:data16};
+const err64 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema58.oneOf[3].properties.id.type,parentSchema:schema58.oneOf[3].properties.id,data:data16};
 if(vErrors === null){
 vErrors = [err64];
 }
@@ -3031,7 +3031,7 @@ errors = emErrs19.length;
 if(data.name !== undefined){
 let data17 = data.name;
 if(typeof data17 !== "string"){
-const err66 = {instancePath:instancePath+"/name",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema57.oneOf[3].properties.name.type,parentSchema:schema57.oneOf[3].properties.name,data:data17};
+const err66 = {instancePath:instancePath+"/name",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema58.oneOf[3].properties.name.type,parentSchema:schema58.oneOf[3].properties.name,data:data17};
 if(vErrors === null){
 vErrors = [err66];
 }
@@ -3054,7 +3054,7 @@ errors = emErrs20.length;
 if(data.enabled !== undefined){
 let data18 = data.enabled;
 if(typeof data18 !== "boolean"){
-const err68 = {instancePath:instancePath+"/enabled",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema57.oneOf[3].properties.enabled.type,parentSchema:schema57.oneOf[3].properties.enabled,data:data18};
+const err68 = {instancePath:instancePath+"/enabled",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema58.oneOf[3].properties.enabled.type,parentSchema:schema58.oneOf[3].properties.enabled,data:data18};
 if(vErrors === null){
 vErrors = [err68];
 }
@@ -3077,7 +3077,7 @@ errors = emErrs21.length;
 if(data.apiKey !== undefined){
 let data19 = data.apiKey;
 if(typeof data19 !== "string"){
-const err70 = {instancePath:instancePath+"/apiKey",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema57.oneOf[3].properties.apiKey.type,parentSchema:schema57.oneOf[3].properties.apiKey,data:data19};
+const err70 = {instancePath:instancePath+"/apiKey",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema58.oneOf[3].properties.apiKey.type,parentSchema:schema58.oneOf[3].properties.apiKey,data:data19};
 if(vErrors === null){
 vErrors = [err70];
 }
@@ -3099,7 +3099,7 @@ errors = emErrs22.length;
 }
 }
 else {
-const err72 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema57.oneOf[3].type,parentSchema:schema57.oneOf[3],data};
+const err72 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema58.oneOf[3].type,parentSchema:schema58.oneOf[3],data};
 if(vErrors === null){
 vErrors = [err72];
 }
@@ -3128,7 +3128,7 @@ for(const keyProp3 in emErrors3[key3]){
 emParamsErrors3 = emErrors3[key3][keyProp3];
 if(emParamsErrors3.length){
 const tmpl3 = templates3[key3] && templates3[key3][keyProp3];
-const err74 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors3},message:tmpl3 ? tmpl3() : schema57.oneOf[3].errorMessage[key3][keyProp3],schema:schema57.oneOf[3].errorMessage,parentSchema:schema57.oneOf[3],data};
+const err74 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors3},message:tmpl3 ? tmpl3() : schema58.oneOf[3].errorMessage[key3][keyProp3],schema:schema58.oneOf[3].errorMessage,parentSchema:schema58.oneOf[3],data};
 if(vErrors === null){
 vErrors = [err74];
 }
@@ -3169,7 +3169,7 @@ props0.apiKey = true;
 const _errs51 = errors;
 if(data && typeof data == "object" && !Array.isArray(data)){
 if(data.type === undefined){
-const err76 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema57.oneOf[4].required,parentSchema:schema57.oneOf[4],data};
+const err76 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema58.oneOf[4].required,parentSchema:schema58.oneOf[4],data};
 if(vErrors === null){
 vErrors = [err76];
 }
@@ -3179,7 +3179,7 @@ vErrors.push(err76);
 errors++;
 }
 if(data.name === undefined){
-const err77 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema57.oneOf[4].required,parentSchema:schema57.oneOf[4],data};
+const err77 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema58.oneOf[4].required,parentSchema:schema58.oneOf[4],data};
 if(vErrors === null){
 vErrors = [err77];
 }
@@ -3189,7 +3189,7 @@ vErrors.push(err77);
 errors++;
 }
 if(data.id === undefined){
-const err78 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema57.oneOf[4].required,parentSchema:schema57.oneOf[4],data};
+const err78 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema58.oneOf[4].required,parentSchema:schema58.oneOf[4],data};
 if(vErrors === null){
 vErrors = [err78];
 }
@@ -3199,7 +3199,7 @@ vErrors.push(err78);
 errors++;
 }
 if(data.enabled === undefined){
-const err79 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema57.oneOf[4].required,parentSchema:schema57.oneOf[4],data};
+const err79 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema58.oneOf[4].required,parentSchema:schema58.oneOf[4],data};
 if(vErrors === null){
 vErrors = [err79];
 }
@@ -3211,7 +3211,7 @@ errors++;
 if(data.type !== undefined){
 let data20 = data.type;
 if(typeof data20 !== "string"){
-const err80 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema57.oneOf[4].properties.type.type,parentSchema:schema57.oneOf[4].properties.type,data:data20};
+const err80 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema58.oneOf[4].properties.type.type,parentSchema:schema58.oneOf[4].properties.type,data:data20};
 if(vErrors === null){
 vErrors = [err80];
 }
@@ -3221,7 +3221,7 @@ vErrors.push(err80);
 errors++;
 }
 if("openrouter" !== data20){
-const err81 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/type/const",keyword:"const",params:{allowedValue: "openrouter"},message:"must be equal to constant",schema:"openrouter",parentSchema:schema57.oneOf[4].properties.type,data:data20};
+const err81 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/type/const",keyword:"const",params:{allowedValue: "openrouter"},message:"must be equal to constant",schema:"openrouter",parentSchema:schema58.oneOf[4].properties.type,data:data20};
 if(vErrors === null){
 vErrors = [err81];
 }
@@ -3244,7 +3244,7 @@ errors = emErrs24.length;
 if(data.id !== undefined){
 let data21 = data.id;
 if(typeof data21 !== "string"){
-const err83 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema57.oneOf[4].properties.id.type,parentSchema:schema57.oneOf[4].properties.id,data:data21};
+const err83 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema58.oneOf[4].properties.id.type,parentSchema:schema58.oneOf[4].properties.id,data:data21};
 if(vErrors === null){
 vErrors = [err83];
 }
@@ -3267,7 +3267,7 @@ errors = emErrs25.length;
 if(data.name !== undefined){
 let data22 = data.name;
 if(typeof data22 !== "string"){
-const err85 = {instancePath:instancePath+"/name",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema57.oneOf[4].properties.name.type,parentSchema:schema57.oneOf[4].properties.name,data:data22};
+const err85 = {instancePath:instancePath+"/name",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema58.oneOf[4].properties.name.type,parentSchema:schema58.oneOf[4].properties.name,data:data22};
 if(vErrors === null){
 vErrors = [err85];
 }
@@ -3290,7 +3290,7 @@ errors = emErrs26.length;
 if(data.enabled !== undefined){
 let data23 = data.enabled;
 if(typeof data23 !== "boolean"){
-const err87 = {instancePath:instancePath+"/enabled",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema57.oneOf[4].properties.enabled.type,parentSchema:schema57.oneOf[4].properties.enabled,data:data23};
+const err87 = {instancePath:instancePath+"/enabled",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema58.oneOf[4].properties.enabled.type,parentSchema:schema58.oneOf[4].properties.enabled,data:data23};
 if(vErrors === null){
 vErrors = [err87];
 }
@@ -3313,7 +3313,7 @@ errors = emErrs27.length;
 if(data.apiKey !== undefined){
 let data24 = data.apiKey;
 if(typeof data24 !== "string"){
-const err89 = {instancePath:instancePath+"/apiKey",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema57.oneOf[4].properties.apiKey.type,parentSchema:schema57.oneOf[4].properties.apiKey,data:data24};
+const err89 = {instancePath:instancePath+"/apiKey",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema58.oneOf[4].properties.apiKey.type,parentSchema:schema58.oneOf[4].properties.apiKey,data:data24};
 if(vErrors === null){
 vErrors = [err89];
 }
@@ -3335,7 +3335,7 @@ errors = emErrs28.length;
 }
 }
 else {
-const err91 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema57.oneOf[4].type,parentSchema:schema57.oneOf[4],data};
+const err91 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema58.oneOf[4].type,parentSchema:schema58.oneOf[4],data};
 if(vErrors === null){
 vErrors = [err91];
 }
@@ -3364,7 +3364,7 @@ for(const keyProp4 in emErrors4[key4]){
 emParamsErrors4 = emErrors4[key4][keyProp4];
 if(emParamsErrors4.length){
 const tmpl4 = templates4[key4] && templates4[key4][keyProp4];
-const err93 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors4},message:tmpl4 ? tmpl4() : schema57.oneOf[4].errorMessage[key4][keyProp4],schema:schema57.oneOf[4].errorMessage,parentSchema:schema57.oneOf[4],data};
+const err93 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors4},message:tmpl4 ? tmpl4() : schema58.oneOf[4].errorMessage[key4][keyProp4],schema:schema58.oneOf[4].errorMessage,parentSchema:schema58.oneOf[4],data};
 if(vErrors === null){
 vErrors = [err93];
 }
@@ -3405,7 +3405,7 @@ props0.apiKey = true;
 const _errs63 = errors;
 if(data && typeof data == "object" && !Array.isArray(data)){
 if(data.type === undefined){
-const err95 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema57.oneOf[5].required,parentSchema:schema57.oneOf[5],data};
+const err95 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema58.oneOf[5].required,parentSchema:schema58.oneOf[5],data};
 if(vErrors === null){
 vErrors = [err95];
 }
@@ -3415,7 +3415,7 @@ vErrors.push(err95);
 errors++;
 }
 if(data.name === undefined){
-const err96 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema57.oneOf[5].required,parentSchema:schema57.oneOf[5],data};
+const err96 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema58.oneOf[5].required,parentSchema:schema58.oneOf[5],data};
 if(vErrors === null){
 vErrors = [err96];
 }
@@ -3425,7 +3425,7 @@ vErrors.push(err96);
 errors++;
 }
 if(data.id === undefined){
-const err97 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema57.oneOf[5].required,parentSchema:schema57.oneOf[5],data};
+const err97 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema58.oneOf[5].required,parentSchema:schema58.oneOf[5],data};
 if(vErrors === null){
 vErrors = [err97];
 }
@@ -3435,7 +3435,7 @@ vErrors.push(err97);
 errors++;
 }
 if(data.enabled === undefined){
-const err98 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema57.oneOf[5].required,parentSchema:schema57.oneOf[5],data};
+const err98 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema58.oneOf[5].required,parentSchema:schema58.oneOf[5],data};
 if(vErrors === null){
 vErrors = [err98];
 }
@@ -3445,7 +3445,7 @@ vErrors.push(err98);
 errors++;
 }
 if(data.baseURL === undefined){
-const err99 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/required",keyword:"required",params:{missingProperty: "baseURL"},message:"must have required property '"+"baseURL"+"'",schema:schema57.oneOf[5].required,parentSchema:schema57.oneOf[5],data};
+const err99 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/required",keyword:"required",params:{missingProperty: "baseURL"},message:"must have required property '"+"baseURL"+"'",schema:schema58.oneOf[5].required,parentSchema:schema58.oneOf[5],data};
 if(vErrors === null){
 vErrors = [err99];
 }
@@ -3457,7 +3457,7 @@ errors++;
 if(data.type !== undefined){
 let data25 = data.type;
 if(typeof data25 !== "string"){
-const err100 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema57.oneOf[5].properties.type.type,parentSchema:schema57.oneOf[5].properties.type,data:data25};
+const err100 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema58.oneOf[5].properties.type.type,parentSchema:schema58.oneOf[5].properties.type,data:data25};
 if(vErrors === null){
 vErrors = [err100];
 }
@@ -3467,7 +3467,7 @@ vErrors.push(err100);
 errors++;
 }
 if("ollama" !== data25){
-const err101 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/type/const",keyword:"const",params:{allowedValue: "ollama"},message:"must be equal to constant",schema:"ollama",parentSchema:schema57.oneOf[5].properties.type,data:data25};
+const err101 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/type/const",keyword:"const",params:{allowedValue: "ollama"},message:"must be equal to constant",schema:"ollama",parentSchema:schema58.oneOf[5].properties.type,data:data25};
 if(vErrors === null){
 vErrors = [err101];
 }
@@ -3490,7 +3490,7 @@ errors = emErrs30.length;
 if(data.id !== undefined){
 let data26 = data.id;
 if(typeof data26 !== "string"){
-const err103 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema57.oneOf[5].properties.id.type,parentSchema:schema57.oneOf[5].properties.id,data:data26};
+const err103 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema58.oneOf[5].properties.id.type,parentSchema:schema58.oneOf[5].properties.id,data:data26};
 if(vErrors === null){
 vErrors = [err103];
 }
@@ -3513,7 +3513,7 @@ errors = emErrs31.length;
 if(data.name !== undefined){
 let data27 = data.name;
 if(typeof data27 !== "string"){
-const err105 = {instancePath:instancePath+"/name",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema57.oneOf[5].properties.name.type,parentSchema:schema57.oneOf[5].properties.name,data:data27};
+const err105 = {instancePath:instancePath+"/name",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema58.oneOf[5].properties.name.type,parentSchema:schema58.oneOf[5].properties.name,data:data27};
 if(vErrors === null){
 vErrors = [err105];
 }
@@ -3536,7 +3536,7 @@ errors = emErrs32.length;
 if(data.enabled !== undefined){
 let data28 = data.enabled;
 if(typeof data28 !== "boolean"){
-const err107 = {instancePath:instancePath+"/enabled",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema57.oneOf[5].properties.enabled.type,parentSchema:schema57.oneOf[5].properties.enabled,data:data28};
+const err107 = {instancePath:instancePath+"/enabled",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema58.oneOf[5].properties.enabled.type,parentSchema:schema58.oneOf[5].properties.enabled,data:data28};
 if(vErrors === null){
 vErrors = [err107];
 }
@@ -3559,7 +3559,7 @@ errors = emErrs33.length;
 if(data.apiKey !== undefined){
 let data29 = data.apiKey;
 if(typeof data29 !== "string"){
-const err109 = {instancePath:instancePath+"/apiKey",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema57.oneOf[5].properties.apiKey.type,parentSchema:schema57.oneOf[5].properties.apiKey,data:data29};
+const err109 = {instancePath:instancePath+"/apiKey",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema58.oneOf[5].properties.apiKey.type,parentSchema:schema58.oneOf[5].properties.apiKey,data:data29};
 if(vErrors === null){
 vErrors = [err109];
 }
@@ -3582,7 +3582,7 @@ errors = emErrs34.length;
 if(data.baseURL !== undefined){
 let data30 = data.baseURL;
 if(typeof data30 !== "string"){
-const err111 = {instancePath:instancePath+"/baseURL",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/baseURL/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema57.oneOf[5].properties.baseURL.type,parentSchema:schema57.oneOf[5].properties.baseURL,data:data30};
+const err111 = {instancePath:instancePath+"/baseURL",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/baseURL/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema58.oneOf[5].properties.baseURL.type,parentSchema:schema58.oneOf[5].properties.baseURL,data:data30};
 if(vErrors === null){
 vErrors = [err111];
 }
@@ -3604,7 +3604,7 @@ errors = emErrs35.length;
 }
 }
 else {
-const err113 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema57.oneOf[5].type,parentSchema:schema57.oneOf[5],data};
+const err113 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema58.oneOf[5].type,parentSchema:schema58.oneOf[5],data};
 if(vErrors === null){
 vErrors = [err113];
 }
@@ -3633,7 +3633,7 @@ for(const keyProp5 in emErrors5[key5]){
 emParamsErrors5 = emErrors5[key5][keyProp5];
 if(emParamsErrors5.length){
 const tmpl5 = templates5[key5] && templates5[key5][keyProp5];
-const err115 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors5},message:tmpl5 ? tmpl5() : schema57.oneOf[5].errorMessage[key5][keyProp5],schema:schema57.oneOf[5].errorMessage,parentSchema:schema57.oneOf[5],data};
+const err115 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors5},message:tmpl5 ? tmpl5() : schema58.oneOf[5].errorMessage[key5][keyProp5],schema:schema58.oneOf[5].errorMessage,parentSchema:schema58.oneOf[5],data};
 if(vErrors === null){
 vErrors = [err115];
 }
@@ -3675,7 +3675,7 @@ props0.baseURL = true;
 const _errs77 = errors;
 if(data && typeof data == "object" && !Array.isArray(data)){
 if(data.type === undefined){
-const err117 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema57.oneOf[6].required,parentSchema:schema57.oneOf[6],data};
+const err117 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema58.oneOf[6].required,parentSchema:schema58.oneOf[6],data};
 if(vErrors === null){
 vErrors = [err117];
 }
@@ -3685,7 +3685,7 @@ vErrors.push(err117);
 errors++;
 }
 if(data.name === undefined){
-const err118 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema57.oneOf[6].required,parentSchema:schema57.oneOf[6],data};
+const err118 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema58.oneOf[6].required,parentSchema:schema58.oneOf[6],data};
 if(vErrors === null){
 vErrors = [err118];
 }
@@ -3695,7 +3695,7 @@ vErrors.push(err118);
 errors++;
 }
 if(data.id === undefined){
-const err119 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema57.oneOf[6].required,parentSchema:schema57.oneOf[6],data};
+const err119 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema58.oneOf[6].required,parentSchema:schema58.oneOf[6],data};
 if(vErrors === null){
 vErrors = [err119];
 }
@@ -3705,7 +3705,7 @@ vErrors.push(err119);
 errors++;
 }
 if(data.enabled === undefined){
-const err120 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema57.oneOf[6].required,parentSchema:schema57.oneOf[6],data};
+const err120 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema58.oneOf[6].required,parentSchema:schema58.oneOf[6],data};
 if(vErrors === null){
 vErrors = [err120];
 }
@@ -3715,7 +3715,7 @@ vErrors.push(err120);
 errors++;
 }
 if(data.apiKey === undefined){
-const err121 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/required",keyword:"required",params:{missingProperty: "apiKey"},message:"must have required property '"+"apiKey"+"'",schema:schema57.oneOf[6].required,parentSchema:schema57.oneOf[6],data};
+const err121 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/required",keyword:"required",params:{missingProperty: "apiKey"},message:"must have required property '"+"apiKey"+"'",schema:schema58.oneOf[6].required,parentSchema:schema58.oneOf[6],data};
 if(vErrors === null){
 vErrors = [err121];
 }
@@ -3727,7 +3727,7 @@ errors++;
 if(data.type !== undefined){
 let data31 = data.type;
 if(typeof data31 !== "string"){
-const err122 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema57.oneOf[6].properties.type.type,parentSchema:schema57.oneOf[6].properties.type,data:data31};
+const err122 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema58.oneOf[6].properties.type.type,parentSchema:schema58.oneOf[6].properties.type,data:data31};
 if(vErrors === null){
 vErrors = [err122];
 }
@@ -3737,7 +3737,7 @@ vErrors.push(err122);
 errors++;
 }
 if("scaleway" !== data31){
-const err123 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/type/const",keyword:"const",params:{allowedValue: "scaleway"},message:"must be equal to constant",schema:"scaleway",parentSchema:schema57.oneOf[6].properties.type,data:data31};
+const err123 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/type/const",keyword:"const",params:{allowedValue: "scaleway"},message:"must be equal to constant",schema:"scaleway",parentSchema:schema58.oneOf[6].properties.type,data:data31};
 if(vErrors === null){
 vErrors = [err123];
 }
@@ -3760,7 +3760,7 @@ errors = emErrs37.length;
 if(data.id !== undefined){
 let data32 = data.id;
 if(typeof data32 !== "string"){
-const err125 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema57.oneOf[6].properties.id.type,parentSchema:schema57.oneOf[6].properties.id,data:data32};
+const err125 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema58.oneOf[6].properties.id.type,parentSchema:schema58.oneOf[6].properties.id,data:data32};
 if(vErrors === null){
 vErrors = [err125];
 }
@@ -3783,7 +3783,7 @@ errors = emErrs38.length;
 if(data.name !== undefined){
 let data33 = data.name;
 if(typeof data33 !== "string"){
-const err127 = {instancePath:instancePath+"/name",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema57.oneOf[6].properties.name.type,parentSchema:schema57.oneOf[6].properties.name,data:data33};
+const err127 = {instancePath:instancePath+"/name",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema58.oneOf[6].properties.name.type,parentSchema:schema58.oneOf[6].properties.name,data:data33};
 if(vErrors === null){
 vErrors = [err127];
 }
@@ -3806,7 +3806,7 @@ errors = emErrs39.length;
 if(data.enabled !== undefined){
 let data34 = data.enabled;
 if(typeof data34 !== "boolean"){
-const err129 = {instancePath:instancePath+"/enabled",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema57.oneOf[6].properties.enabled.type,parentSchema:schema57.oneOf[6].properties.enabled,data:data34};
+const err129 = {instancePath:instancePath+"/enabled",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema58.oneOf[6].properties.enabled.type,parentSchema:schema58.oneOf[6].properties.enabled,data:data34};
 if(vErrors === null){
 vErrors = [err129];
 }
@@ -3829,7 +3829,7 @@ errors = emErrs40.length;
 if(data.apiKey !== undefined){
 let data35 = data.apiKey;
 if(typeof data35 !== "string"){
-const err131 = {instancePath:instancePath+"/apiKey",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema57.oneOf[6].properties.apiKey.type,parentSchema:schema57.oneOf[6].properties.apiKey,data:data35};
+const err131 = {instancePath:instancePath+"/apiKey",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema58.oneOf[6].properties.apiKey.type,parentSchema:schema58.oneOf[6].properties.apiKey,data:data35};
 if(vErrors === null){
 vErrors = [err131];
 }
@@ -3851,7 +3851,7 @@ errors = emErrs41.length;
 }
 }
 else {
-const err133 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema57.oneOf[6].type,parentSchema:schema57.oneOf[6],data};
+const err133 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema58.oneOf[6].type,parentSchema:schema58.oneOf[6],data};
 if(vErrors === null){
 vErrors = [err133];
 }
@@ -3880,7 +3880,7 @@ for(const keyProp6 in emErrors6[key6]){
 emParamsErrors6 = emErrors6[key6][keyProp6];
 if(emParamsErrors6.length){
 const tmpl6 = templates6[key6] && templates6[key6][keyProp6];
-const err135 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors6},message:tmpl6 ? tmpl6() : schema57.oneOf[6].errorMessage[key6][keyProp6],schema:schema57.oneOf[6].errorMessage,parentSchema:schema57.oneOf[6],data};
+const err135 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors6},message:tmpl6 ? tmpl6() : schema58.oneOf[6].errorMessage[key6][keyProp6],schema:schema58.oneOf[6].errorMessage,parentSchema:schema58.oneOf[6],data};
 if(vErrors === null){
 vErrors = [err135];
 }
@@ -3921,7 +3921,7 @@ props0.apiKey = true;
 const _errs89 = errors;
 if(data && typeof data == "object" && !Array.isArray(data)){
 if(data.type === undefined){
-const err137 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema57.oneOf[7].required,parentSchema:schema57.oneOf[7],data};
+const err137 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema58.oneOf[7].required,parentSchema:schema58.oneOf[7],data};
 if(vErrors === null){
 vErrors = [err137];
 }
@@ -3931,7 +3931,7 @@ vErrors.push(err137);
 errors++;
 }
 if(data.name === undefined){
-const err138 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema57.oneOf[7].required,parentSchema:schema57.oneOf[7],data};
+const err138 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema58.oneOf[7].required,parentSchema:schema58.oneOf[7],data};
 if(vErrors === null){
 vErrors = [err138];
 }
@@ -3941,7 +3941,7 @@ vErrors.push(err138);
 errors++;
 }
 if(data.id === undefined){
-const err139 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema57.oneOf[7].required,parentSchema:schema57.oneOf[7],data};
+const err139 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema58.oneOf[7].required,parentSchema:schema58.oneOf[7],data};
 if(vErrors === null){
 vErrors = [err139];
 }
@@ -3951,7 +3951,7 @@ vErrors.push(err139);
 errors++;
 }
 if(data.enabled === undefined){
-const err140 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema57.oneOf[7].required,parentSchema:schema57.oneOf[7],data};
+const err140 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema58.oneOf[7].required,parentSchema:schema58.oneOf[7],data};
 if(vErrors === null){
 vErrors = [err140];
 }
@@ -3961,7 +3961,7 @@ vErrors.push(err140);
 errors++;
 }
 if(data.baseURL === undefined){
-const err141 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/required",keyword:"required",params:{missingProperty: "baseURL"},message:"must have required property '"+"baseURL"+"'",schema:schema57.oneOf[7].required,parentSchema:schema57.oneOf[7],data};
+const err141 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/required",keyword:"required",params:{missingProperty: "baseURL"},message:"must have required property '"+"baseURL"+"'",schema:schema58.oneOf[7].required,parentSchema:schema58.oneOf[7],data};
 if(vErrors === null){
 vErrors = [err141];
 }
@@ -3973,7 +3973,7 @@ errors++;
 if(data.type !== undefined){
 let data36 = data.type;
 if(typeof data36 !== "string"){
-const err142 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema57.oneOf[7].properties.type.type,parentSchema:schema57.oneOf[7].properties.type,data:data36};
+const err142 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema58.oneOf[7].properties.type.type,parentSchema:schema58.oneOf[7].properties.type,data:data36};
 if(vErrors === null){
 vErrors = [err142];
 }
@@ -3983,7 +3983,7 @@ vErrors.push(err142);
 errors++;
 }
 if("openai-compatible" !== data36){
-const err143 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/type/const",keyword:"const",params:{allowedValue: "openai-compatible"},message:"must be equal to constant",schema:"openai-compatible",parentSchema:schema57.oneOf[7].properties.type,data:data36};
+const err143 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/type/const",keyword:"const",params:{allowedValue: "openai-compatible"},message:"must be equal to constant",schema:"openai-compatible",parentSchema:schema58.oneOf[7].properties.type,data:data36};
 if(vErrors === null){
 vErrors = [err143];
 }
@@ -4006,7 +4006,7 @@ errors = emErrs43.length;
 if(data.id !== undefined){
 let data37 = data.id;
 if(typeof data37 !== "string"){
-const err145 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema57.oneOf[7].properties.id.type,parentSchema:schema57.oneOf[7].properties.id,data:data37};
+const err145 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema58.oneOf[7].properties.id.type,parentSchema:schema58.oneOf[7].properties.id,data:data37};
 if(vErrors === null){
 vErrors = [err145];
 }
@@ -4029,7 +4029,7 @@ errors = emErrs44.length;
 if(data.name !== undefined){
 let data38 = data.name;
 if(typeof data38 !== "string"){
-const err147 = {instancePath:instancePath+"/name",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema57.oneOf[7].properties.name.type,parentSchema:schema57.oneOf[7].properties.name,data:data38};
+const err147 = {instancePath:instancePath+"/name",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema58.oneOf[7].properties.name.type,parentSchema:schema58.oneOf[7].properties.name,data:data38};
 if(vErrors === null){
 vErrors = [err147];
 }
@@ -4052,7 +4052,7 @@ errors = emErrs45.length;
 if(data.enabled !== undefined){
 let data39 = data.enabled;
 if(typeof data39 !== "boolean"){
-const err149 = {instancePath:instancePath+"/enabled",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema57.oneOf[7].properties.enabled.type,parentSchema:schema57.oneOf[7].properties.enabled,data:data39};
+const err149 = {instancePath:instancePath+"/enabled",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema58.oneOf[7].properties.enabled.type,parentSchema:schema58.oneOf[7].properties.enabled,data:data39};
 if(vErrors === null){
 vErrors = [err149];
 }
@@ -4075,7 +4075,7 @@ errors = emErrs46.length;
 if(data.baseURL !== undefined){
 let data40 = data.baseURL;
 if(typeof data40 !== "string"){
-const err151 = {instancePath:instancePath+"/baseURL",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/baseURL/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema57.oneOf[7].properties.baseURL.type,parentSchema:schema57.oneOf[7].properties.baseURL,data:data40};
+const err151 = {instancePath:instancePath+"/baseURL",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/baseURL/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema58.oneOf[7].properties.baseURL.type,parentSchema:schema58.oneOf[7].properties.baseURL,data:data40};
 if(vErrors === null){
 vErrors = [err151];
 }
@@ -4098,7 +4098,7 @@ errors = emErrs47.length;
 if(data.apiKey !== undefined){
 let data41 = data.apiKey;
 if(typeof data41 !== "string"){
-const err153 = {instancePath:instancePath+"/apiKey",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema57.oneOf[7].properties.apiKey.type,parentSchema:schema57.oneOf[7].properties.apiKey,data:data41};
+const err153 = {instancePath:instancePath+"/apiKey",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema58.oneOf[7].properties.apiKey.type,parentSchema:schema58.oneOf[7].properties.apiKey,data:data41};
 if(vErrors === null){
 vErrors = [err153];
 }
@@ -4120,7 +4120,7 @@ errors = emErrs48.length;
 }
 }
 else {
-const err155 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema57.oneOf[7].type,parentSchema:schema57.oneOf[7],data};
+const err155 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema58.oneOf[7].type,parentSchema:schema58.oneOf[7],data};
 if(vErrors === null){
 vErrors = [err155];
 }
@@ -4149,7 +4149,7 @@ for(const keyProp7 in emErrors7[key7]){
 emParamsErrors7 = emErrors7[key7][keyProp7];
 if(emParamsErrors7.length){
 const tmpl7 = templates7[key7] && templates7[key7][keyProp7];
-const err157 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors7},message:tmpl7 ? tmpl7() : schema57.oneOf[7].errorMessage[key7][keyProp7],schema:schema57.oneOf[7].errorMessage,parentSchema:schema57.oneOf[7],data};
+const err157 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors7},message:tmpl7 ? tmpl7() : schema58.oneOf[7].errorMessage[key7][keyProp7],schema:schema58.oneOf[7].errorMessage,parentSchema:schema58.oneOf[7],data};
 if(vErrors === null){
 vErrors = [err157];
 }
@@ -4191,7 +4191,7 @@ props0.apiKey = true;
 const _errs103 = errors;
 if(data && typeof data == "object" && !Array.isArray(data)){
 if(data.type === undefined){
-const err159 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema57.oneOf[8].required,parentSchema:schema57.oneOf[8],data};
+const err159 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema58.oneOf[8].required,parentSchema:schema58.oneOf[8],data};
 if(vErrors === null){
 vErrors = [err159];
 }
@@ -4201,7 +4201,7 @@ vErrors.push(err159);
 errors++;
 }
 if(data.name === undefined){
-const err160 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema57.oneOf[8].required,parentSchema:schema57.oneOf[8],data};
+const err160 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema58.oneOf[8].required,parentSchema:schema58.oneOf[8],data};
 if(vErrors === null){
 vErrors = [err160];
 }
@@ -4211,7 +4211,7 @@ vErrors.push(err160);
 errors++;
 }
 if(data.id === undefined){
-const err161 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema57.oneOf[8].required,parentSchema:schema57.oneOf[8],data};
+const err161 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema58.oneOf[8].required,parentSchema:schema58.oneOf[8],data};
 if(vErrors === null){
 vErrors = [err161];
 }
@@ -4221,7 +4221,7 @@ vErrors.push(err161);
 errors++;
 }
 if(data.enabled === undefined){
-const err162 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema57.oneOf[8].required,parentSchema:schema57.oneOf[8],data};
+const err162 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema58.oneOf[8].required,parentSchema:schema58.oneOf[8],data};
 if(vErrors === null){
 vErrors = [err162];
 }
@@ -4233,7 +4233,7 @@ errors++;
 if(data.type !== undefined){
 let data42 = data.type;
 if(typeof data42 !== "string"){
-const err163 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema57.oneOf[8].properties.type.type,parentSchema:schema57.oneOf[8].properties.type,data:data42};
+const err163 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema58.oneOf[8].properties.type.type,parentSchema:schema58.oneOf[8].properties.type,data:data42};
 if(vErrors === null){
 vErrors = [err163];
 }
@@ -4243,7 +4243,7 @@ vErrors.push(err163);
 errors++;
 }
 if("mock" !== data42){
-const err164 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/type/const",keyword:"const",params:{allowedValue: "mock"},message:"must be equal to constant",schema:"mock",parentSchema:schema57.oneOf[8].properties.type,data:data42};
+const err164 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/type/const",keyword:"const",params:{allowedValue: "mock"},message:"must be equal to constant",schema:"mock",parentSchema:schema58.oneOf[8].properties.type,data:data42};
 if(vErrors === null){
 vErrors = [err164];
 }
@@ -4266,7 +4266,7 @@ errors = emErrs50.length;
 if(data.id !== undefined){
 let data43 = data.id;
 if(typeof data43 !== "string"){
-const err166 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema57.oneOf[8].properties.id.type,parentSchema:schema57.oneOf[8].properties.id,data:data43};
+const err166 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema58.oneOf[8].properties.id.type,parentSchema:schema58.oneOf[8].properties.id,data:data43};
 if(vErrors === null){
 vErrors = [err166];
 }
@@ -4289,7 +4289,7 @@ errors = emErrs51.length;
 if(data.name !== undefined){
 let data44 = data.name;
 if(typeof data44 !== "string"){
-const err168 = {instancePath:instancePath+"/name",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema57.oneOf[8].properties.name.type,parentSchema:schema57.oneOf[8].properties.name,data:data44};
+const err168 = {instancePath:instancePath+"/name",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema58.oneOf[8].properties.name.type,parentSchema:schema58.oneOf[8].properties.name,data:data44};
 if(vErrors === null){
 vErrors = [err168];
 }
@@ -4312,7 +4312,7 @@ errors = emErrs52.length;
 if(data.enabled !== undefined){
 let data45 = data.enabled;
 if(typeof data45 !== "boolean"){
-const err170 = {instancePath:instancePath+"/enabled",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema57.oneOf[8].properties.enabled.type,parentSchema:schema57.oneOf[8].properties.enabled,data:data45};
+const err170 = {instancePath:instancePath+"/enabled",schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema58.oneOf[8].properties.enabled.type,parentSchema:schema58.oneOf[8].properties.enabled,data:data45};
 if(vErrors === null){
 vErrors = [err170];
 }
@@ -4334,7 +4334,7 @@ errors = emErrs53.length;
 }
 }
 else {
-const err172 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema57.oneOf[8].type,parentSchema:schema57.oneOf[8],data};
+const err172 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema58.oneOf[8].type,parentSchema:schema58.oneOf[8],data};
 if(vErrors === null){
 vErrors = [err172];
 }
@@ -4363,7 +4363,7 @@ for(const keyProp8 in emErrors8[key8]){
 emParamsErrors8 = emErrors8[key8][keyProp8];
 if(emParamsErrors8.length){
 const tmpl8 = templates8[key8] && templates8[key8][keyProp8];
-const err174 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors8},message:tmpl8 ? tmpl8() : schema57.oneOf[8].errorMessage[key8][keyProp8],schema:schema57.oneOf[8].errorMessage,parentSchema:schema57.oneOf[8],data};
+const err174 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors8},message:tmpl8 ? tmpl8() : schema58.oneOf[8].errorMessage[key8][keyProp8],schema:schema58.oneOf[8].errorMessage,parentSchema:schema58.oneOf[8],data};
 if(vErrors === null){
 vErrors = [err174];
 }
@@ -4409,7 +4409,7 @@ props0.enabled = true;
 }
 }
 if(!valid1){
-const err176 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf",keyword:"oneOf",params:{passingSchemas: passing0},message:"must match exactly one schema in oneOf",schema:schema57.oneOf,parentSchema:schema57,data};
+const err176 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf",keyword:"oneOf",params:{passingSchemas: passing0},message:"must match exactly one schema in oneOf",schema:schema58.oneOf,parentSchema:schema58,data};
 if(vErrors === null){
 vErrors = [err176];
 }
@@ -4433,7 +4433,7 @@ if(data && typeof data == "object" && !Array.isArray(data)){
 if(props0 !== true){
 for(const key9 in data){
 if(!props0 || !props0[key9]){
-const err177 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/unevaluatedProperties",keyword:"unevaluatedProperties",params:{unevaluatedProperty: key9},message:"must NOT have unevaluated properties",schema:false,parentSchema:schema57,data};
+const err177 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/unevaluatedProperties",keyword:"unevaluatedProperties",params:{unevaluatedProperty: key9},message:"must NOT have unevaluated properties",schema:false,parentSchema:schema58,data};
 if(vErrors === null){
 vErrors = [err177];
 }
@@ -4446,7 +4446,7 @@ errors++;
 }
 }
 else {
-const err178 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema57.type,parentSchema:schema57,data};
+const err178 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema58.type,parentSchema:schema58,data};
 if(vErrors === null){
 vErrors = [err178];
 }
@@ -4466,7 +4466,7 @@ err179.emUsed = true;
 }
 for(const key10 in emErrors9){
 if(emErrors9[key10].length){
-const err180 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/errorMessage",keyword:"errorMessage",params:{errors: emErrors9[key10]},message:key10 in templates9 ? templates9[key10]() : schema57.errorMessage[key10],schema:schema57.errorMessage,parentSchema:schema57,data};
+const err180 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings-put#/properties/providers/items/errorMessage",keyword:"errorMessage",params:{errors: emErrors9[key10]},message:key10 in templates9 ? templates9[key10]() : schema58.errorMessage[key10],schema:schema58.errorMessage,parentSchema:schema58,data};
 if(vErrors === null){
 vErrors = [err180];
 }
@@ -4490,8 +4490,8 @@ return errors === 0;
 }
 validate32.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
-const schema58 = {"$id":"export10","$ref":"https://github.com/data-fair/agents/settings-put#"};
-const schema27 = {"$id":"https://github.com/data-fair/agents/settings-put","x-exports":["validate","types","vjsf"],"title":"Settings","layout":{"title":null},"definitions":{"RoleQuota":{"type":"object","layout":"card","required":["unlimited","monthlyLimit"],"properties":{"unlimited":{"type":"boolean","title":"Unlimited","default":false,"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/unlimited","errorMessage":{}},"monthlyLimit":{"layout":{"if":"!parent.data.unlimited"},"type":"number","title":"Monthly Limit","description":"Weekly limit = monthly / 2, daily limit = monthly / 4","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyLimit","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota","errorMessage":{"required":{"unlimited":"required information","monthlyLimit":"required information"}}},"Model":{"type":"object","required":["id","name","provider"],"layout":{"comp":"autocomplete","getItems":{"url":{"pure":false,"type":"js-tpl","dataAlias":"value","expr":"${context.apiPath}/models/${context.accountType}/${context.accountId}?provider=${parent.parent.parent.data.providers.map(p => p.id).join(\",\")}","ref":17},"itemsResults":{"pure":true,"type":"js-eval","dataAlias":"body","expr":"data.results","ref":20},"itemTitle":{"pure":true,"type":"js-eval","dataAlias":"item","expr":"`${item.name} (${item.provider.name} - ${item.provider.id.slice(0, 8)})`","ref":18},"itemKey":{"pure":true,"type":"js-eval","dataAlias":"item","expr":"item.id","ref":19},"returnObjects":true}},"properties":{"id":{"type":"string","title":"Model ID","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/id","errorMessage":{}},"name":{"type":"string","title":"Name","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/name","errorMessage":{}},"provider":{"type":"object","required":["type","name","id"],"properties":{"type":{"type":"string","title":"Provider Type","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider/properties/type","errorMessage":{}},"name":{"type":"string","title":"Provider Name","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider/properties/name","errorMessage":{}},"id":{"type":"string","title":"Provider ID","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider/properties/id","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider","errorMessage":{"required":{"type":"required information","name":"required information","id":"required information"}}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model","errorMessage":{"required":{"id":"required information","name":"required information","provider":"required information"}}}},"type":"object","additionalProperties":false,"required":["providers","models","quotas"],"properties":{"createdAt":{"type":"string","format":"date-time","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/createdAt","errorMessage":{}},"updatedAt":{"type":"string","format":"date-time","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/updatedAt","errorMessage":{}},"owner":{"type":"object","additionalProperties":false,"required":["type","id"],"readOnly":true,"properties":{"type":{"type":"string","enum":["user","organization"],"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/type","errorMessage":{}},"id":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/id","errorMessage":{}},"name":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/name","errorMessage":{}},"department":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/department","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner","errorMessage":{"required":{"type":"required information","id":"required information"}}},"providers":{"type":"array","title":"AI Providers","layout":{"itemTitle":"item ? `${item.name || \"\"} - ${item.id.slice(0, 8)}` : \"\"","listActions":["add","edit","delete"]},"items":{"type":"object","title":"Provider","unevaluatedProperties":false,"oneOfLayout":{"emptyData":true},"discriminator":{"propertyName":"type"},"layout":{"getDefaultData":"{ id: crypto.randomUUID() }","switch":[{"if":"summary","children":[]}]},"oneOf":[{"required":["type","name","id","enabled"],"title":"Open AI","properties":{"type":{"type":"string","title":"Provider Type","const":"openai","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Open AI\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}},{"required":["type","name","id","enabled"],"title":"Anthropic","properties":{"type":{"type":"string","title":"Provider Type","const":"anthropic","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Anthropic\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}},{"required":["type","name","id","enabled"],"title":"Google","properties":{"type":{"type":"string","title":"Provider Type","const":"google","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Google\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}},{"required":["type","name","id","enabled"],"title":"Mistral","properties":{"type":{"type":"string","title":"Provider Type","const":"mistral","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Mistral\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}},{"required":["type","name","id","enabled"],"title":"OpenRouter","properties":{"type":{"type":"string","title":"Provider Type","const":"openrouter","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"OpenRouter\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}},{"required":["type","name","id","enabled","baseURL"],"title":"Ollama","properties":{"type":{"type":"string","title":"Provider Type","const":"ollama","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Ollama\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/apiKey","errorMessage":{}},"baseURL":{"type":"string","title":"Base URL","default":"http://localhost:11434","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/baseURL","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information","baseURL":"required information"}}},{"required":["type","name","id","enabled","apiKey"],"title":"Scaleway","properties":{"type":{"type":"string","title":"Provider Type","const":"scaleway","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Scaleway\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information","apiKey":"required information"}}},{"required":["type","name","id","enabled","baseURL"],"title":"OpenAI Compatible","description":"Generic provider for any OpenAI-compatible endpoint (Together, Fireworks, Groq, DeepInfra, vLLM, LM Studio, etc.). API Key is optional for unauthenticated local servers.","properties":{"type":{"type":"string","title":"Provider Type","const":"openai-compatible","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"OpenAI Compatible\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/enabled","errorMessage":{}},"baseURL":{"type":"string","title":"Base URL","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/baseURL","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information","baseURL":"required information"}}},{"required":["type","name","id","enabled"],"title":"Mock","description":"To a message \"hello\" respond \"world\", to a message \"call tool ARG1 ARG2\" respond with a tool call, to anything else respond \"what do you mean ?\"","properties":{"type":{"type":"string","title":"Provider Type","const":"mock","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Mock\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/enabled","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}}],"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items","errorMessage":{"oneOf":"chose one"}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers","errorMessage":{}},"models":{"type":"object","title":"Models","layout":{"title":null,"if":"parent.data.providers?.length"},"default":{},"properties":{"assistant":{"type":"object","title":"Assistant","description":"The primary conversational interface. Balanced for reasoning, instruction-following, and human-like interaction. This model manages the high-level flow and delegates complex tasks to subagents.\n\nRecommendations: GPT-5.4, Claude 4.5 Sonnet, Llama 4 Maverick, Mistral Large 3, etc.","layout":{"comp":"card","children":[{"key":"model"},{"key":"inputPricePerMillion","cols":6},{"key":"outputPricePerMillion","cols":6}],"cols":6},"properties":{"model":{"$ref":"#/definitions/Model","title":"Model","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/model","errorMessage":{"required":{"id":"required information","name":"required information","provider":"required information"}}},"inputPricePerMillion":{"type":"number","title":"Input price (per 1M tokens)","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/inputPricePerMillion","errorMessage":{}},"outputPricePerMillion":{"type":"number","title":"Output price (per 1M tokens)","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/outputPricePerMillion","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant","errorMessage":{}},"tools":{"type":"object","title":"Tools","description":"The \"technician.\" Specialized in structured data and API interaction. It excels at chaining multiple tool calls without conversational filler, ensuring high reliability in automated workflows.\n\nRecommendations: GPT-5.4 Mini, Mistral DevStral, Claude 4.5 Sonnet (Computer Use), MiMo-V2-Flash, etc.","layout":{"comp":"card","children":[{"key":"model"},{"key":"inputPricePerMillion","cols":6},{"key":"outputPricePerMillion","cols":6}],"cols":6},"properties":{"model":{"$ref":"#/definitions/Model","title":"Model","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/model","errorMessage":{"required":{"id":"required information","name":"required information","provider":"required information"}}},"inputPricePerMillion":{"type":"number","title":"Input price (per 1M tokens)","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/inputPricePerMillion","errorMessage":{}},"outputPricePerMillion":{"type":"number","title":"Output price (per 1M tokens)","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/outputPricePerMillion","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools","errorMessage":{}},"summarizer":{"type":"object","title":"Summarizer","description":"A \"shorthand\" specialist. Optimized for quickly distilling key points from small-to-medium text blocks. It focuses on high information density and brevity to keep context windows lean and costs low.\n\nRecommendations: GPT-5.4 Mini, Claude 4.5 Haiku, Mistral Small 4, Llama 4 (8B), etc.","layout":{"comp":"card","children":[{"key":"model"},{"key":"inputPricePerMillion","cols":6},{"key":"outputPricePerMillion","cols":6}],"cols":6},"properties":{"model":{"$ref":"#/definitions/Model","title":"Model","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/model","errorMessage":{"required":{"id":"required information","name":"required information","provider":"required information"}}},"inputPricePerMillion":{"type":"number","title":"Input price (per 1M tokens)","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/inputPricePerMillion","errorMessage":{}},"outputPricePerMillion":{"type":"number","title":"Output price (per 1M tokens)","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/outputPricePerMillion","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer","errorMessage":{}},"evaluator":{"type":"object","title":"Evaluator","description":"The \"quality controller.\" Analyzes the assistant's logic and tool outputs for accuracy and safety. It requires the highest reasoning capabilities to act as a reliable ground truth for system performance.\n\nRecommendations: Claude Opus 4.6, GPT-5.4 (Reasoning), DeepSeek-R1, Pharia-1-LLM, etc.","layout":{"comp":"card","children":[{"key":"model"},{"key":"inputPricePerMillion","cols":6},{"key":"outputPricePerMillion","cols":6}],"cols":6},"properties":{"model":{"$ref":"#/definitions/Model","title":"Model","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/model","errorMessage":{"required":{"id":"required information","name":"required information","provider":"required information"}}},"inputPricePerMillion":{"type":"number","title":"Input price (per 1M tokens)","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/inputPricePerMillion","errorMessage":{}},"outputPricePerMillion":{"type":"number","title":"Output price (per 1M tokens)","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/outputPricePerMillion","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator","errorMessage":{}},"moderator":{"type":"object","title":"Moderator","description":"The \"gatekeeper.\" Classifies each new user message for profanity, prompt-injection, persona override, and out-of-scope requests. Should be fast and cheap — it sits on the critical path to the first response token.\n\nRecommendations: a small/fast model, e.g. Claude 4.5 Haiku, GPT-5.4 Mini, Mistral Small 4, or a dedicated moderation classifier.","layout":{"comp":"card","children":[{"key":"model"},{"key":"inputPricePerMillion","cols":6},{"key":"outputPricePerMillion","cols":6}],"cols":6},"properties":{"model":{"$ref":"#/definitions/Model","title":"Model","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator/properties/model","errorMessage":{"required":{"id":"required information","name":"required information","provider":"required information"}}},"inputPricePerMillion":{"type":"number","title":"Input price (per 1M tokens)","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator/properties/inputPricePerMillion","errorMessage":{}},"outputPricePerMillion":{"type":"number","title":"Output price (per 1M tokens)","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator/properties/outputPricePerMillion","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models","errorMessage":{}},"quotas":{"type":"object","title":"Role Quotas","layout":{"title":null,"if":"parent.data.providers?.length","children":[{"key":"global","cols":{"sm":6,"md":4}},{"key":"admin","cols":{"sm":6,"md":4}},{"key":"contrib","cols":{"sm":6,"md":4},"if":"context.accountType === \"organization\""},{"key":"user","cols":{"sm":6,"md":4},"if":"context.accountType === \"organization\""},{"key":"external","cols":{"sm":6,"md":4}},{"key":"anonymous","cols":{"sm":6,"md":4}}]},"required":["global","admin","contrib","user","external","anonymous"],"default":{"global":{"unlimited":false,"monthlyLimit":10},"admin":{"unlimited":true,"monthlyLimit":0},"contrib":{"unlimited":false,"monthlyLimit":0},"user":{"unlimited":false,"monthlyLimit":0},"external":{"unlimited":false,"monthlyLimit":0},"anonymous":{"unlimited":false,"monthlyLimit":0}},"properties":{"global":{"$ref":"#/definitions/RoleQuota","title":"Global quotas","default":{"unlimited":false,"monthlyLimit":10},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/global","errorMessage":{"required":{"unlimited":"required information","monthlyLimit":"required information"}}},"admin":{"$ref":"#/definitions/RoleQuota","title":"Admin quotas","default":{"unlimited":true,"monthlyLimit":0},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/admin","errorMessage":{"required":{"unlimited":"required information","monthlyLimit":"required information"}}},"contrib":{"$ref":"#/definitions/RoleQuota","title":"Contributor quotas","default":{"unlimited":false,"monthlyLimit":0},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/contrib","errorMessage":{"required":{"unlimited":"required information","monthlyLimit":"required information"}}},"user":{"$ref":"#/definitions/RoleQuota","title":"Simple user Quotas","default":{"unlimited":false,"monthlyLimit":0},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/user","errorMessage":{"required":{"unlimited":"required information","monthlyLimit":"required information"}}},"external":{"$ref":"#/definitions/RoleQuota","title":"External user quotas","default":{"unlimited":false,"monthlyLimit":0},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/external","errorMessage":{"required":{"unlimited":"required information","monthlyLimit":"required information"}}},"anonymous":{"$ref":"#/definitions/RoleQuota","title":"Anonymous user quotas","default":{"unlimited":false,"monthlyLimit":0},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/anonymous","errorMessage":{"required":{"unlimited":"required information","monthlyLimit":"required information"}}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas","errorMessage":{"required":{"global":"required information","admin":"required information","contrib":"required information","user":"required information","external":"required information","anonymous":"required information"}}}},"x-vjsf":{"xI18n":true,"pluginsImports":["@koumoul/vjsf-markdown"]},"x-vjsf-locales":["en","fr"],"__pointer":"https://github.com/data-fair/agents/settings-put#","errorMessage":{"required":{"providers":"required information","models":"required information","quotas":"required information"}}};
+const schema59 = {"$id":"export10","$ref":"https://github.com/data-fair/agents/settings-put#"};
+const schema27 = {"$id":"https://github.com/data-fair/agents/settings-put","x-exports":["validate","types","vjsf"],"title":"Settings","layout":{"title":null},"definitions":{"RoleQuota":{"type":"object","layout":"card","required":["unlimited","monthlyLimit"],"properties":{"unlimited":{"type":"boolean","title":"Unlimited","default":false,"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/unlimited","errorMessage":{}},"monthlyLimit":{"layout":{"if":"!parent.data.unlimited"},"type":"number","title":"Monthly Limit","description":"Weekly limit = monthly / 2, daily limit = monthly / 4","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyLimit","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota","errorMessage":{"required":{"unlimited":"required information","monthlyLimit":"required information"}}},"Model":{"type":"object","required":["id","name","provider"],"layout":{"comp":"autocomplete","getItems":{"url":{"pure":false,"type":"js-tpl","dataAlias":"value","expr":"${context.apiPath}/models/${context.accountType}/${context.accountId}?provider=${parent.parent.parent.data.providers.map(p => p.id).join(\",\")}","ref":17},"itemsResults":{"pure":true,"type":"js-eval","dataAlias":"body","expr":"data.results","ref":20},"itemTitle":{"pure":true,"type":"js-eval","dataAlias":"item","expr":"`${item.name} (${item.provider.name} - ${item.provider.id.slice(0, 8)})`","ref":18},"itemKey":{"pure":true,"type":"js-eval","dataAlias":"item","expr":"item.id","ref":19},"returnObjects":true}},"properties":{"id":{"type":"string","title":"Model ID","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/id","errorMessage":{}},"name":{"type":"string","title":"Name","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/name","errorMessage":{}},"provider":{"type":"object","required":["type","name","id"],"properties":{"type":{"type":"string","title":"Provider Type","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider/properties/type","errorMessage":{}},"name":{"type":"string","title":"Provider Name","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider/properties/name","errorMessage":{}},"id":{"type":"string","title":"Provider ID","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider/properties/id","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider","errorMessage":{"required":{"type":"required information","name":"required information","id":"required information"}}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model","errorMessage":{"required":{"id":"required information","name":"required information","provider":"required information"}}}},"type":"object","additionalProperties":false,"required":["providers"],"properties":{"createdAt":{"type":"string","format":"date-time","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/createdAt","errorMessage":{}},"updatedAt":{"type":"string","format":"date-time","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/updatedAt","errorMessage":{}},"storeTraces":{"type":"boolean","title":"Store conversation traces","description":"When enabled, conversations of consenting users are stored on the server for 30 days for admin review. Each user must explicitly accept.","default":false,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/storeTraces","errorMessage":{}},"owner":{"type":"object","additionalProperties":false,"required":["type","id"],"readOnly":true,"properties":{"type":{"type":"string","enum":["user","organization"],"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/type","errorMessage":{}},"id":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/id","errorMessage":{}},"name":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/name","errorMessage":{}},"department":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/department","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner","errorMessage":{"required":{"type":"required information","id":"required information"}}},"providers":{"type":"array","title":"AI Providers","layout":{"itemTitle":"item ? `${item.name || \"\"} - ${item.id.slice(0, 8)}` : \"\"","listActions":["add","edit","delete"]},"items":{"type":"object","title":"Provider","unevaluatedProperties":false,"oneOfLayout":{"emptyData":true},"discriminator":{"propertyName":"type"},"layout":{"getDefaultData":"{ id: crypto.randomUUID() }","switch":[{"if":"summary","children":[]}]},"oneOf":[{"required":["type","name","id","enabled"],"title":"Open AI","properties":{"type":{"type":"string","title":"Provider Type","const":"openai","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Open AI\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}},{"required":["type","name","id","enabled"],"title":"Anthropic","properties":{"type":{"type":"string","title":"Provider Type","const":"anthropic","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Anthropic\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}},{"required":["type","name","id","enabled"],"title":"Google","properties":{"type":{"type":"string","title":"Provider Type","const":"google","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Google\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}},{"required":["type","name","id","enabled"],"title":"Mistral","properties":{"type":{"type":"string","title":"Provider Type","const":"mistral","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Mistral\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}},{"required":["type","name","id","enabled"],"title":"OpenRouter","properties":{"type":{"type":"string","title":"Provider Type","const":"openrouter","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"OpenRouter\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}},{"required":["type","name","id","enabled","baseURL"],"title":"Ollama","properties":{"type":{"type":"string","title":"Provider Type","const":"ollama","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Ollama\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/apiKey","errorMessage":{}},"baseURL":{"type":"string","title":"Base URL","default":"http://localhost:11434","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/baseURL","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information","baseURL":"required information"}}},{"required":["type","name","id","enabled","apiKey"],"title":"Scaleway","properties":{"type":{"type":"string","title":"Provider Type","const":"scaleway","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Scaleway\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information","apiKey":"required information"}}},{"required":["type","name","id","enabled","baseURL"],"title":"OpenAI Compatible","description":"Generic provider for any OpenAI-compatible endpoint (Together, Fireworks, Groq, DeepInfra, vLLM, LM Studio, etc.). API Key is optional for unauthenticated local servers.","properties":{"type":{"type":"string","title":"Provider Type","const":"openai-compatible","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"OpenAI Compatible\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/enabled","errorMessage":{}},"baseURL":{"type":"string","title":"Base URL","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/baseURL","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information","baseURL":"required information"}}},{"required":["type","name","id","enabled"],"title":"Mock","description":"To a message \"hello\" respond \"world\", to a message \"call tool ARG1 ARG2\" respond with a tool call, to anything else respond \"what do you mean ?\"","properties":{"type":{"type":"string","title":"Provider Type","const":"mock","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Mock\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/enabled","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}}],"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items","errorMessage":{"oneOf":"chose one"}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers","errorMessage":{}},"models":{"type":"object","title":"Models","layout":{"title":null,"if":"parent.data.providers?.length"},"default":{},"properties":{"assistant":{"type":"object","title":"Assistant","description":"The primary conversational interface. Balanced for reasoning, instruction-following, and human-like interaction. This model manages the high-level flow and delegates complex tasks to subagents.\n\nRecommendations: GPT-5.4, Claude 4.5 Sonnet, Llama 4 Maverick, Mistral Large 3, etc.","layout":{"comp":"card","children":[{"key":"model"},{"key":"inputPricePerMillion","cols":6},{"key":"outputPricePerMillion","cols":6}],"cols":6},"properties":{"model":{"$ref":"#/definitions/Model","title":"Model","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/model","errorMessage":{"required":{"id":"required information","name":"required information","provider":"required information"}}},"inputPricePerMillion":{"type":"number","title":"Input price (per 1M tokens)","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/inputPricePerMillion","errorMessage":{}},"outputPricePerMillion":{"type":"number","title":"Output price (per 1M tokens)","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/outputPricePerMillion","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant","errorMessage":{}},"tools":{"type":"object","title":"Tools","description":"The \"technician.\" Specialized in structured data and API interaction. It excels at chaining multiple tool calls without conversational filler, ensuring high reliability in automated workflows.\n\nRecommendations: GPT-5.4 Mini, Mistral DevStral, Claude 4.5 Sonnet (Computer Use), MiMo-V2-Flash, etc.","layout":{"comp":"card","children":[{"key":"model"},{"key":"inputPricePerMillion","cols":6},{"key":"outputPricePerMillion","cols":6}],"cols":6},"properties":{"model":{"$ref":"#/definitions/Model","title":"Model","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/model","errorMessage":{"required":{"id":"required information","name":"required information","provider":"required information"}}},"inputPricePerMillion":{"type":"number","title":"Input price (per 1M tokens)","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/inputPricePerMillion","errorMessage":{}},"outputPricePerMillion":{"type":"number","title":"Output price (per 1M tokens)","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/outputPricePerMillion","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools","errorMessage":{}},"summarizer":{"type":"object","title":"Summarizer","description":"A \"shorthand\" specialist. Optimized for quickly distilling key points from small-to-medium text blocks. It focuses on high information density and brevity to keep context windows lean and costs low.\n\nRecommendations: GPT-5.4 Mini, Claude 4.5 Haiku, Mistral Small 4, Llama 4 (8B), etc.","layout":{"comp":"card","children":[{"key":"model"},{"key":"inputPricePerMillion","cols":6},{"key":"outputPricePerMillion","cols":6}],"cols":6},"properties":{"model":{"$ref":"#/definitions/Model","title":"Model","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/model","errorMessage":{"required":{"id":"required information","name":"required information","provider":"required information"}}},"inputPricePerMillion":{"type":"number","title":"Input price (per 1M tokens)","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/inputPricePerMillion","errorMessage":{}},"outputPricePerMillion":{"type":"number","title":"Output price (per 1M tokens)","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/outputPricePerMillion","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer","errorMessage":{}},"evaluator":{"type":"object","title":"Evaluator","description":"The \"quality controller.\" Analyzes the assistant's logic and tool outputs for accuracy and safety. It requires the highest reasoning capabilities to act as a reliable ground truth for system performance.\n\nRecommendations: Claude Opus 4.6, GPT-5.4 (Reasoning), DeepSeek-R1, Pharia-1-LLM, etc.","layout":{"comp":"card","children":[{"key":"model"},{"key":"inputPricePerMillion","cols":6},{"key":"outputPricePerMillion","cols":6}],"cols":6},"properties":{"model":{"$ref":"#/definitions/Model","title":"Model","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/model","errorMessage":{"required":{"id":"required information","name":"required information","provider":"required information"}}},"inputPricePerMillion":{"type":"number","title":"Input price (per 1M tokens)","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/inputPricePerMillion","errorMessage":{}},"outputPricePerMillion":{"type":"number","title":"Output price (per 1M tokens)","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/outputPricePerMillion","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator","errorMessage":{}},"moderator":{"type":"object","title":"Moderator","description":"The \"gatekeeper.\" Classifies each new user message for profanity, prompt-injection, persona override, and out-of-scope requests. Should be fast and cheap — it sits on the critical path to the first response token.\n\nRecommendations: a small/fast model, e.g. Claude 4.5 Haiku, GPT-5.4 Mini, Mistral Small 4, or a dedicated moderation classifier.","layout":{"comp":"card","children":[{"key":"model"},{"key":"inputPricePerMillion","cols":6},{"key":"outputPricePerMillion","cols":6}],"cols":6},"properties":{"model":{"$ref":"#/definitions/Model","title":"Model","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator/properties/model","errorMessage":{"required":{"id":"required information","name":"required information","provider":"required information"}}},"inputPricePerMillion":{"type":"number","title":"Input price (per 1M tokens)","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator/properties/inputPricePerMillion","errorMessage":{}},"outputPricePerMillion":{"type":"number","title":"Output price (per 1M tokens)","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator/properties/outputPricePerMillion","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models","errorMessage":{}},"quotas":{"type":"object","title":"Role Quotas","layout":{"title":null,"if":"parent.data.providers?.length","children":[{"key":"global","cols":{"sm":6,"md":4}},{"key":"admin","cols":{"sm":6,"md":4}},{"key":"contrib","cols":{"sm":6,"md":4},"if":"context.accountType === \"organization\""},{"key":"user","cols":{"sm":6,"md":4},"if":"context.accountType === \"organization\""},{"key":"external","cols":{"sm":6,"md":4}},{"key":"anonymous","cols":{"sm":6,"md":4}},{"key":"untrusted","cols":{"sm":6,"md":4}}]},"required":["global","admin","contrib","user","external","anonymous"],"default":{"global":{"unlimited":false,"monthlyLimit":10},"admin":{"unlimited":true,"monthlyLimit":0},"contrib":{"unlimited":false,"monthlyLimit":0},"user":{"unlimited":false,"monthlyLimit":0},"external":{"unlimited":false,"monthlyLimit":0},"anonymous":{"unlimited":false,"monthlyLimit":0},"untrusted":{"unlimited":false,"monthlyLimit":0}},"properties":{"global":{"$ref":"#/definitions/RoleQuota","title":"Global quotas","default":{"unlimited":false,"monthlyLimit":10},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/global","errorMessage":{"required":{"unlimited":"required information","monthlyLimit":"required information"}}},"admin":{"$ref":"#/definitions/RoleQuota","title":"Admin quotas","default":{"unlimited":true,"monthlyLimit":0},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/admin","errorMessage":{"required":{"unlimited":"required information","monthlyLimit":"required information"}}},"contrib":{"$ref":"#/definitions/RoleQuota","title":"Contributor quotas","default":{"unlimited":false,"monthlyLimit":0},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/contrib","errorMessage":{"required":{"unlimited":"required information","monthlyLimit":"required information"}}},"user":{"$ref":"#/definitions/RoleQuota","title":"Simple user Quotas","default":{"unlimited":false,"monthlyLimit":0},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/user","errorMessage":{"required":{"unlimited":"required information","monthlyLimit":"required information"}}},"external":{"$ref":"#/definitions/RoleQuota","title":"External user quotas","default":{"unlimited":false,"monthlyLimit":0},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/external","errorMessage":{"required":{"unlimited":"required information","monthlyLimit":"required information"}}},"anonymous":{"$ref":"#/definitions/RoleQuota","title":"Anonymous user quotas","default":{"unlimited":false,"monthlyLimit":0},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/anonymous","errorMessage":{"required":{"unlimited":"required information","monthlyLimit":"required information"}}},"untrusted":{"$ref":"#/definitions/RoleQuota","title":"Anonymous + external pool","description":"Aggregate cap shared by all anonymous and external usage combined, so untrusted traffic cannot consume the whole account budget. 0 = no pool cap.","default":{"unlimited":false,"monthlyLimit":0},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/untrusted","errorMessage":{"required":{"unlimited":"required information","monthlyLimit":"required information"}}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas","errorMessage":{"required":{"global":"required information","admin":"required information","contrib":"required information","user":"required information","external":"required information","anonymous":"required information"}}}},"x-vjsf":{"xI18n":true,"pluginsImports":["@koumoul/vjsf-markdown"]},"x-vjsf-locales":["en","fr"],"__pointer":"https://github.com/data-fair/agents/settings-put#","errorMessage":{"required":{"providers":"required information"}}};
 const schema28 = {"type":"object","required":["id","name","provider"],"layout":{"comp":"autocomplete","getItems":{"url":{"pure":false,"type":"js-tpl","dataAlias":"value","expr":"${context.apiPath}/models/${context.accountType}/${context.accountId}?provider=${parent.parent.parent.data.providers.map(p => p.id).join(\",\")}","ref":17},"itemsResults":{"pure":true,"type":"js-eval","dataAlias":"body","expr":"data.results","ref":20},"itemTitle":{"pure":true,"type":"js-eval","dataAlias":"item","expr":"`${item.name} (${item.provider.name} - ${item.provider.id.slice(0, 8)})`","ref":18},"itemKey":{"pure":true,"type":"js-eval","dataAlias":"item","expr":"item.id","ref":19},"returnObjects":true}},"properties":{"id":{"type":"string","title":"Model ID","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/id","errorMessage":{}},"name":{"type":"string","title":"Name","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/name","errorMessage":{}},"provider":{"type":"object","required":["type","name","id"],"properties":{"type":{"type":"string","title":"Provider Type","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider/properties/type","errorMessage":{}},"name":{"type":"string","title":"Provider Name","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider/properties/name","errorMessage":{}},"id":{"type":"string","title":"Provider ID","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider/properties/id","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider","errorMessage":{"required":{"type":"required information","name":"required information","id":"required information"}}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model","errorMessage":{"required":{"id":"required information","name":"required information","provider":"required information"}}};
 const schema33 = {"type":"object","layout":"card","required":["unlimited","monthlyLimit"],"properties":{"unlimited":{"type":"boolean","title":"Unlimited","default":false,"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/unlimited","errorMessage":{}},"monthlyLimit":{"layout":{"if":"!parent.data.unlimited"},"type":"number","title":"Monthly Limit","description":"Weekly limit = monthly / 2, daily limit = monthly / 4","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyLimit","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota","errorMessage":{"required":{"unlimited":"required information","monthlyLimit":"required information"}}};
 const formats0 = fullFormats["date-time"];
@@ -4518,8 +4518,9 @@ vErrors.push(err0);
 }
 errors++;
 }
-if(data.models === undefined){
-const err1 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "models"},message:"must have required property '"+"models"+"'",schema:schema27.required,parentSchema:schema27,data};
+for(const key0 in data){
+if(!(((((((key0 === "createdAt") || (key0 === "updatedAt")) || (key0 === "storeTraces")) || (key0 === "owner")) || (key0 === "providers")) || (key0 === "models")) || (key0 === "quotas"))){
+const err1 = {instancePath,schemaPath:"#/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties",schema:false,parentSchema:schema27,data};
 if(vErrors === null){
 vErrors = [err1];
 }
@@ -4528,8 +4529,12 @@ vErrors.push(err1);
 }
 errors++;
 }
-if(data.quotas === undefined){
-const err2 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "quotas"},message:"must have required property '"+"quotas"+"'",schema:schema27.required,parentSchema:schema27,data};
+}
+if(data.createdAt !== undefined){
+let data0 = data.createdAt;
+if(typeof data0 === "string"){
+if(!(formats0.validate(data0))){
+const err2 = {instancePath:instancePath+"/createdAt",schemaPath:"#/properties/createdAt/format",keyword:"format",params:{format: "date-time"},message:"must match format \""+"date-time"+"\"",schema:"date-time",parentSchema:schema27.properties.createdAt,data:data0};
 if(vErrors === null){
 vErrors = [err2];
 }
@@ -4538,9 +4543,9 @@ vErrors.push(err2);
 }
 errors++;
 }
-for(const key0 in data){
-if(!((((((key0 === "createdAt") || (key0 === "updatedAt")) || (key0 === "owner")) || (key0 === "providers")) || (key0 === "models")) || (key0 === "quotas"))){
-const err3 = {instancePath,schemaPath:"#/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties",schema:false,parentSchema:schema27,data};
+}
+else {
+const err3 = {instancePath:instancePath+"/createdAt",schemaPath:"#/properties/createdAt/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.createdAt.type,parentSchema:schema27.properties.createdAt,data:data0};
 if(vErrors === null){
 vErrors = [err3];
 }
@@ -4549,36 +4554,11 @@ vErrors.push(err3);
 }
 errors++;
 }
-}
-if(data.createdAt !== undefined){
-let data0 = data.createdAt;
-if(typeof data0 === "string"){
-if(!(formats0.validate(data0))){
-const err4 = {instancePath:instancePath+"/createdAt",schemaPath:"#/properties/createdAt/format",keyword:"format",params:{format: "date-time"},message:"must match format \""+"date-time"+"\"",schema:"date-time",parentSchema:schema27.properties.createdAt,data:data0};
-if(vErrors === null){
-vErrors = [err4];
-}
-else {
-vErrors.push(err4);
-}
-errors++;
-}
-}
-else {
-const err5 = {instancePath:instancePath+"/createdAt",schemaPath:"#/properties/createdAt/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.createdAt.type,parentSchema:schema27.properties.createdAt,data:data0};
-if(vErrors === null){
-vErrors = [err5];
-}
-else {
-vErrors.push(err5);
-}
-errors++;
-}
 if(errors > 0){
 const emErrs0 = [];
-for(const err6 of vErrors){
-if(!err6.emUsed){
-emErrs0.push(err6);
+for(const err4 of vErrors){
+if(!err4.emUsed){
+emErrs0.push(err4);
 }
 }
 vErrors = emErrs0;
@@ -4589,18 +4569,41 @@ if(data.updatedAt !== undefined){
 let data1 = data.updatedAt;
 if(typeof data1 === "string"){
 if(!(formats0.validate(data1))){
-const err7 = {instancePath:instancePath+"/updatedAt",schemaPath:"#/properties/updatedAt/format",keyword:"format",params:{format: "date-time"},message:"must match format \""+"date-time"+"\"",schema:"date-time",parentSchema:schema27.properties.updatedAt,data:data1};
+const err5 = {instancePath:instancePath+"/updatedAt",schemaPath:"#/properties/updatedAt/format",keyword:"format",params:{format: "date-time"},message:"must match format \""+"date-time"+"\"",schema:"date-time",parentSchema:schema27.properties.updatedAt,data:data1};
 if(vErrors === null){
-vErrors = [err7];
+vErrors = [err5];
 }
 else {
-vErrors.push(err7);
+vErrors.push(err5);
 }
 errors++;
 }
 }
 else {
-const err8 = {instancePath:instancePath+"/updatedAt",schemaPath:"#/properties/updatedAt/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.updatedAt.type,parentSchema:schema27.properties.updatedAt,data:data1};
+const err6 = {instancePath:instancePath+"/updatedAt",schemaPath:"#/properties/updatedAt/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.updatedAt.type,parentSchema:schema27.properties.updatedAt,data:data1};
+if(vErrors === null){
+vErrors = [err6];
+}
+else {
+vErrors.push(err6);
+}
+errors++;
+}
+if(errors > 0){
+const emErrs1 = [];
+for(const err7 of vErrors){
+if(!err7.emUsed){
+emErrs1.push(err7);
+}
+}
+vErrors = emErrs1;
+errors = emErrs1.length;
+}
+}
+if(data.storeTraces !== undefined){
+let data2 = data.storeTraces;
+if(typeof data2 !== "boolean"){
+const err8 = {instancePath:instancePath+"/storeTraces",schemaPath:"#/properties/storeTraces/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema27.properties.storeTraces.type,parentSchema:schema27.properties.storeTraces,data:data2};
 if(vErrors === null){
 vErrors = [err8];
 }
@@ -4610,21 +4613,21 @@ vErrors.push(err8);
 errors++;
 }
 if(errors > 0){
-const emErrs1 = [];
+const emErrs2 = [];
 for(const err9 of vErrors){
 if(!err9.emUsed){
-emErrs1.push(err9);
+emErrs2.push(err9);
 }
 }
-vErrors = emErrs1;
-errors = emErrs1.length;
+vErrors = emErrs2;
+errors = emErrs2.length;
 }
 }
 if(data.owner !== undefined){
-let data2 = data.owner;
-if(data2 && typeof data2 == "object" && !Array.isArray(data2)){
-if(data2.type === undefined){
-const err10 = {instancePath:instancePath+"/owner",schemaPath:"#/properties/owner/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema27.properties.owner.required,parentSchema:schema27.properties.owner,data:data2};
+let data3 = data.owner;
+if(data3 && typeof data3 == "object" && !Array.isArray(data3)){
+if(data3.type === undefined){
+const err10 = {instancePath:instancePath+"/owner",schemaPath:"#/properties/owner/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema27.properties.owner.required,parentSchema:schema27.properties.owner,data:data3};
 if(vErrors === null){
 vErrors = [err10];
 }
@@ -4633,8 +4636,8 @@ vErrors.push(err10);
 }
 errors++;
 }
-if(data2.id === undefined){
-const err11 = {instancePath:instancePath+"/owner",schemaPath:"#/properties/owner/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema27.properties.owner.required,parentSchema:schema27.properties.owner,data:data2};
+if(data3.id === undefined){
+const err11 = {instancePath:instancePath+"/owner",schemaPath:"#/properties/owner/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema27.properties.owner.required,parentSchema:schema27.properties.owner,data:data3};
 if(vErrors === null){
 vErrors = [err11];
 }
@@ -4643,9 +4646,9 @@ vErrors.push(err11);
 }
 errors++;
 }
-for(const key1 in data2){
+for(const key1 in data3){
 if(!((((key1 === "type") || (key1 === "id")) || (key1 === "name")) || (key1 === "department"))){
-const err12 = {instancePath:instancePath+"/owner",schemaPath:"#/properties/owner/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key1},message:"must NOT have additional properties",schema:false,parentSchema:schema27.properties.owner,data:data2};
+const err12 = {instancePath:instancePath+"/owner",schemaPath:"#/properties/owner/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key1},message:"must NOT have additional properties",schema:false,parentSchema:schema27.properties.owner,data:data3};
 if(vErrors === null){
 vErrors = [err12];
 }
@@ -4655,10 +4658,10 @@ vErrors.push(err12);
 errors++;
 }
 }
-if(data2.type !== undefined){
-let data3 = data2.type;
-if(typeof data3 !== "string"){
-const err13 = {instancePath:instancePath+"/owner/type",schemaPath:"#/properties/owner/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.owner.properties.type.type,parentSchema:schema27.properties.owner.properties.type,data:data3};
+if(data3.type !== undefined){
+let data4 = data3.type;
+if(typeof data4 !== "string"){
+const err13 = {instancePath:instancePath+"/owner/type",schemaPath:"#/properties/owner/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.owner.properties.type.type,parentSchema:schema27.properties.owner.properties.type,data:data4};
 if(vErrors === null){
 vErrors = [err13];
 }
@@ -4667,8 +4670,8 @@ vErrors.push(err13);
 }
 errors++;
 }
-if(!((data3 === "user") || (data3 === "organization"))){
-const err14 = {instancePath:instancePath+"/owner/type",schemaPath:"#/properties/owner/properties/type/enum",keyword:"enum",params:{allowedValues: schema27.properties.owner.properties.type.enum},message:"must be equal to one of the allowed values",schema:schema27.properties.owner.properties.type.enum,parentSchema:schema27.properties.owner.properties.type,data:data3};
+if(!((data4 === "user") || (data4 === "organization"))){
+const err14 = {instancePath:instancePath+"/owner/type",schemaPath:"#/properties/owner/properties/type/enum",keyword:"enum",params:{allowedValues: schema27.properties.owner.properties.type.enum},message:"must be equal to one of the allowed values",schema:schema27.properties.owner.properties.type.enum,parentSchema:schema27.properties.owner.properties.type,data:data4};
 if(vErrors === null){
 vErrors = [err14];
 }
@@ -4678,20 +4681,20 @@ vErrors.push(err14);
 errors++;
 }
 if(errors > 0){
-const emErrs2 = [];
+const emErrs3 = [];
 for(const err15 of vErrors){
 if(!err15.emUsed){
-emErrs2.push(err15);
+emErrs3.push(err15);
 }
 }
-vErrors = emErrs2;
-errors = emErrs2.length;
+vErrors = emErrs3;
+errors = emErrs3.length;
 }
 }
-if(data2.id !== undefined){
-let data4 = data2.id;
-if(typeof data4 !== "string"){
-const err16 = {instancePath:instancePath+"/owner/id",schemaPath:"#/properties/owner/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.owner.properties.id.type,parentSchema:schema27.properties.owner.properties.id,data:data4};
+if(data3.id !== undefined){
+let data5 = data3.id;
+if(typeof data5 !== "string"){
+const err16 = {instancePath:instancePath+"/owner/id",schemaPath:"#/properties/owner/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.owner.properties.id.type,parentSchema:schema27.properties.owner.properties.id,data:data5};
 if(vErrors === null){
 vErrors = [err16];
 }
@@ -4701,20 +4704,20 @@ vErrors.push(err16);
 errors++;
 }
 if(errors > 0){
-const emErrs3 = [];
+const emErrs4 = [];
 for(const err17 of vErrors){
 if(!err17.emUsed){
-emErrs3.push(err17);
+emErrs4.push(err17);
 }
 }
-vErrors = emErrs3;
-errors = emErrs3.length;
+vErrors = emErrs4;
+errors = emErrs4.length;
 }
 }
-if(data2.name !== undefined){
-let data5 = data2.name;
-if(typeof data5 !== "string"){
-const err18 = {instancePath:instancePath+"/owner/name",schemaPath:"#/properties/owner/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.owner.properties.name.type,parentSchema:schema27.properties.owner.properties.name,data:data5};
+if(data3.name !== undefined){
+let data6 = data3.name;
+if(typeof data6 !== "string"){
+const err18 = {instancePath:instancePath+"/owner/name",schemaPath:"#/properties/owner/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.owner.properties.name.type,parentSchema:schema27.properties.owner.properties.name,data:data6};
 if(vErrors === null){
 vErrors = [err18];
 }
@@ -4724,20 +4727,20 @@ vErrors.push(err18);
 errors++;
 }
 if(errors > 0){
-const emErrs4 = [];
+const emErrs5 = [];
 for(const err19 of vErrors){
 if(!err19.emUsed){
-emErrs4.push(err19);
+emErrs5.push(err19);
 }
 }
-vErrors = emErrs4;
-errors = emErrs4.length;
+vErrors = emErrs5;
+errors = emErrs5.length;
 }
 }
-if(data2.department !== undefined){
-let data6 = data2.department;
-if(typeof data6 !== "string"){
-const err20 = {instancePath:instancePath+"/owner/department",schemaPath:"#/properties/owner/properties/department/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.owner.properties.department.type,parentSchema:schema27.properties.owner.properties.department,data:data6};
+if(data3.department !== undefined){
+let data7 = data3.department;
+if(typeof data7 !== "string"){
+const err20 = {instancePath:instancePath+"/owner/department",schemaPath:"#/properties/owner/properties/department/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.owner.properties.department.type,parentSchema:schema27.properties.owner.properties.department,data:data7};
 if(vErrors === null){
 vErrors = [err20];
 }
@@ -4747,19 +4750,19 @@ vErrors.push(err20);
 errors++;
 }
 if(errors > 0){
-const emErrs5 = [];
+const emErrs6 = [];
 for(const err21 of vErrors){
 if(!err21.emUsed){
-emErrs5.push(err21);
+emErrs6.push(err21);
 }
 }
-vErrors = emErrs5;
-errors = emErrs5.length;
+vErrors = emErrs6;
+errors = emErrs6.length;
 }
 }
 }
 else {
-const err22 = {instancePath:instancePath+"/owner",schemaPath:"#/properties/owner/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.owner.type,parentSchema:schema27.properties.owner,data:data2};
+const err22 = {instancePath:instancePath+"/owner",schemaPath:"#/properties/owner/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.owner.type,parentSchema:schema27.properties.owner,data:data3};
 if(vErrors === null){
 vErrors = [err22];
 }
@@ -4788,7 +4791,7 @@ for(const keyProp0 in emErrors0[key2]){
 emParamsErrors0 = emErrors0[key2][keyProp0];
 if(emParamsErrors0.length){
 const tmpl0 = templates0[key2] && templates0[key2][keyProp0];
-const err24 = {instancePath:instancePath+"/owner",schemaPath:"#/properties/owner/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema27.properties.owner.errorMessage[key2][keyProp0],schema:schema27.properties.owner.errorMessage,parentSchema:schema27.properties.owner,data:data2};
+const err24 = {instancePath:instancePath+"/owner",schemaPath:"#/properties/owner/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema27.properties.owner.errorMessage[key2][keyProp0],schema:schema27.properties.owner.errorMessage,parentSchema:schema27.properties.owner,data:data3};
 if(vErrors === null){
 vErrors = [err24];
 }
@@ -4799,29 +4802,29 @@ errors++;
 }
 }
 }
-const emErrs6 = [];
+const emErrs7 = [];
 for(const err25 of vErrors){
 if(!err25.emUsed){
-emErrs6.push(err25);
+emErrs7.push(err25);
 }
 }
-vErrors = emErrs6;
-errors = emErrs6.length;
+vErrors = emErrs7;
+errors = emErrs7.length;
 }
 }
 if(data.providers !== undefined){
-let data7 = data.providers;
-if(Array.isArray(data7)){
-const len0 = data7.length;
+let data8 = data.providers;
+if(Array.isArray(data8)){
+const len0 = data8.length;
 for(let i0=0; i0<len0; i0++){
-let data8 = data7[i0];
-const _errs21 = errors;
+let data9 = data8[i0];
+const _errs23 = errors;
 let valid4 = false;
 let passing0 = null;
-const _errs22 = errors;
-if(data8 && typeof data8 == "object" && !Array.isArray(data8)){
-if(data8.type === undefined){
-const err26 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/0/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema27.properties.providers.items.oneOf[0].required,parentSchema:schema27.properties.providers.items.oneOf[0],data:data8};
+const _errs24 = errors;
+if(data9 && typeof data9 == "object" && !Array.isArray(data9)){
+if(data9.type === undefined){
+const err26 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/0/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema27.properties.providers.items.oneOf[0].required,parentSchema:schema27.properties.providers.items.oneOf[0],data:data9};
 if(vErrors === null){
 vErrors = [err26];
 }
@@ -4830,8 +4833,8 @@ vErrors.push(err26);
 }
 errors++;
 }
-if(data8.name === undefined){
-const err27 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/0/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema27.properties.providers.items.oneOf[0].required,parentSchema:schema27.properties.providers.items.oneOf[0],data:data8};
+if(data9.name === undefined){
+const err27 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/0/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema27.properties.providers.items.oneOf[0].required,parentSchema:schema27.properties.providers.items.oneOf[0],data:data9};
 if(vErrors === null){
 vErrors = [err27];
 }
@@ -4840,8 +4843,8 @@ vErrors.push(err27);
 }
 errors++;
 }
-if(data8.id === undefined){
-const err28 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/0/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema27.properties.providers.items.oneOf[0].required,parentSchema:schema27.properties.providers.items.oneOf[0],data:data8};
+if(data9.id === undefined){
+const err28 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/0/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema27.properties.providers.items.oneOf[0].required,parentSchema:schema27.properties.providers.items.oneOf[0],data:data9};
 if(vErrors === null){
 vErrors = [err28];
 }
@@ -4850,8 +4853,8 @@ vErrors.push(err28);
 }
 errors++;
 }
-if(data8.enabled === undefined){
-const err29 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/0/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema27.properties.providers.items.oneOf[0].required,parentSchema:schema27.properties.providers.items.oneOf[0],data:data8};
+if(data9.enabled === undefined){
+const err29 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/0/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema27.properties.providers.items.oneOf[0].required,parentSchema:schema27.properties.providers.items.oneOf[0],data:data9};
 if(vErrors === null){
 vErrors = [err29];
 }
@@ -4860,10 +4863,10 @@ vErrors.push(err29);
 }
 errors++;
 }
-if(data8.type !== undefined){
-let data9 = data8.type;
-if(typeof data9 !== "string"){
-const err30 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"#/properties/providers/items/oneOf/0/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[0].properties.type.type,parentSchema:schema27.properties.providers.items.oneOf[0].properties.type,data:data9};
+if(data9.type !== undefined){
+let data10 = data9.type;
+if(typeof data10 !== "string"){
+const err30 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"#/properties/providers/items/oneOf/0/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[0].properties.type.type,parentSchema:schema27.properties.providers.items.oneOf[0].properties.type,data:data10};
 if(vErrors === null){
 vErrors = [err30];
 }
@@ -4872,8 +4875,8 @@ vErrors.push(err30);
 }
 errors++;
 }
-if("openai" !== data9){
-const err31 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"#/properties/providers/items/oneOf/0/properties/type/const",keyword:"const",params:{allowedValue: "openai"},message:"must be equal to constant",schema:"openai",parentSchema:schema27.properties.providers.items.oneOf[0].properties.type,data:data9};
+if("openai" !== data10){
+const err31 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"#/properties/providers/items/oneOf/0/properties/type/const",keyword:"const",params:{allowedValue: "openai"},message:"must be equal to constant",schema:"openai",parentSchema:schema27.properties.providers.items.oneOf[0].properties.type,data:data10};
 if(vErrors === null){
 vErrors = [err31];
 }
@@ -4883,20 +4886,20 @@ vErrors.push(err31);
 errors++;
 }
 if(errors > 0){
-const emErrs7 = [];
+const emErrs8 = [];
 for(const err32 of vErrors){
 if(!err32.emUsed){
-emErrs7.push(err32);
+emErrs8.push(err32);
 }
 }
-vErrors = emErrs7;
-errors = emErrs7.length;
+vErrors = emErrs8;
+errors = emErrs8.length;
 }
 }
-if(data8.id !== undefined){
-let data10 = data8.id;
-if(typeof data10 !== "string"){
-const err33 = {instancePath:instancePath+"/providers/" + i0+"/id",schemaPath:"#/properties/providers/items/oneOf/0/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[0].properties.id.type,parentSchema:schema27.properties.providers.items.oneOf[0].properties.id,data:data10};
+if(data9.id !== undefined){
+let data11 = data9.id;
+if(typeof data11 !== "string"){
+const err33 = {instancePath:instancePath+"/providers/" + i0+"/id",schemaPath:"#/properties/providers/items/oneOf/0/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[0].properties.id.type,parentSchema:schema27.properties.providers.items.oneOf[0].properties.id,data:data11};
 if(vErrors === null){
 vErrors = [err33];
 }
@@ -4906,20 +4909,20 @@ vErrors.push(err33);
 errors++;
 }
 if(errors > 0){
-const emErrs8 = [];
+const emErrs9 = [];
 for(const err34 of vErrors){
 if(!err34.emUsed){
-emErrs8.push(err34);
+emErrs9.push(err34);
 }
 }
-vErrors = emErrs8;
-errors = emErrs8.length;
+vErrors = emErrs9;
+errors = emErrs9.length;
 }
 }
-if(data8.name !== undefined){
-let data11 = data8.name;
-if(typeof data11 !== "string"){
-const err35 = {instancePath:instancePath+"/providers/" + i0+"/name",schemaPath:"#/properties/providers/items/oneOf/0/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[0].properties.name.type,parentSchema:schema27.properties.providers.items.oneOf[0].properties.name,data:data11};
+if(data9.name !== undefined){
+let data12 = data9.name;
+if(typeof data12 !== "string"){
+const err35 = {instancePath:instancePath+"/providers/" + i0+"/name",schemaPath:"#/properties/providers/items/oneOf/0/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[0].properties.name.type,parentSchema:schema27.properties.providers.items.oneOf[0].properties.name,data:data12};
 if(vErrors === null){
 vErrors = [err35];
 }
@@ -4929,20 +4932,20 @@ vErrors.push(err35);
 errors++;
 }
 if(errors > 0){
-const emErrs9 = [];
+const emErrs10 = [];
 for(const err36 of vErrors){
 if(!err36.emUsed){
-emErrs9.push(err36);
+emErrs10.push(err36);
 }
 }
-vErrors = emErrs9;
-errors = emErrs9.length;
+vErrors = emErrs10;
+errors = emErrs10.length;
 }
 }
-if(data8.enabled !== undefined){
-let data12 = data8.enabled;
-if(typeof data12 !== "boolean"){
-const err37 = {instancePath:instancePath+"/providers/" + i0+"/enabled",schemaPath:"#/properties/providers/items/oneOf/0/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema27.properties.providers.items.oneOf[0].properties.enabled.type,parentSchema:schema27.properties.providers.items.oneOf[0].properties.enabled,data:data12};
+if(data9.enabled !== undefined){
+let data13 = data9.enabled;
+if(typeof data13 !== "boolean"){
+const err37 = {instancePath:instancePath+"/providers/" + i0+"/enabled",schemaPath:"#/properties/providers/items/oneOf/0/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema27.properties.providers.items.oneOf[0].properties.enabled.type,parentSchema:schema27.properties.providers.items.oneOf[0].properties.enabled,data:data13};
 if(vErrors === null){
 vErrors = [err37];
 }
@@ -4952,20 +4955,20 @@ vErrors.push(err37);
 errors++;
 }
 if(errors > 0){
-const emErrs10 = [];
+const emErrs11 = [];
 for(const err38 of vErrors){
 if(!err38.emUsed){
-emErrs10.push(err38);
+emErrs11.push(err38);
 }
 }
-vErrors = emErrs10;
-errors = emErrs10.length;
+vErrors = emErrs11;
+errors = emErrs11.length;
 }
 }
-if(data8.apiKey !== undefined){
-let data13 = data8.apiKey;
-if(typeof data13 !== "string"){
-const err39 = {instancePath:instancePath+"/providers/" + i0+"/apiKey",schemaPath:"#/properties/providers/items/oneOf/0/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[0].properties.apiKey.type,parentSchema:schema27.properties.providers.items.oneOf[0].properties.apiKey,data:data13};
+if(data9.apiKey !== undefined){
+let data14 = data9.apiKey;
+if(typeof data14 !== "string"){
+const err39 = {instancePath:instancePath+"/providers/" + i0+"/apiKey",schemaPath:"#/properties/providers/items/oneOf/0/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[0].properties.apiKey.type,parentSchema:schema27.properties.providers.items.oneOf[0].properties.apiKey,data:data14};
 if(vErrors === null){
 vErrors = [err39];
 }
@@ -4975,19 +4978,19 @@ vErrors.push(err39);
 errors++;
 }
 if(errors > 0){
-const emErrs11 = [];
+const emErrs12 = [];
 for(const err40 of vErrors){
 if(!err40.emUsed){
-emErrs11.push(err40);
+emErrs12.push(err40);
 }
 }
-vErrors = emErrs11;
-errors = emErrs11.length;
+vErrors = emErrs12;
+errors = emErrs12.length;
 }
 }
 }
 else {
-const err41 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/0/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.providers.items.oneOf[0].type,parentSchema:schema27.properties.providers.items.oneOf[0],data:data8};
+const err41 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/0/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.providers.items.oneOf[0].type,parentSchema:schema27.properties.providers.items.oneOf[0],data:data9};
 if(vErrors === null){
 vErrors = [err41];
 }
@@ -5016,7 +5019,7 @@ for(const keyProp1 in emErrors1[key3]){
 emParamsErrors1 = emErrors1[key3][keyProp1];
 if(emParamsErrors1.length){
 const tmpl1 = templates1[key3] && templates1[key3][keyProp1];
-const err43 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/0/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors1},message:tmpl1 ? tmpl1() : schema27.properties.providers.items.oneOf[0].errorMessage[key3][keyProp1],schema:schema27.properties.providers.items.oneOf[0].errorMessage,parentSchema:schema27.properties.providers.items.oneOf[0],data:data8};
+const err43 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/0/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors1},message:tmpl1 ? tmpl1() : schema27.properties.providers.items.oneOf[0].errorMessage[key3][keyProp1],schema:schema27.properties.providers.items.oneOf[0].errorMessage,parentSchema:schema27.properties.providers.items.oneOf[0],data:data9};
 if(vErrors === null){
 vErrors = [err43];
 }
@@ -5027,16 +5030,16 @@ errors++;
 }
 }
 }
-const emErrs12 = [];
+const emErrs13 = [];
 for(const err44 of vErrors){
 if(!err44.emUsed){
-emErrs12.push(err44);
+emErrs13.push(err44);
 }
 }
-vErrors = emErrs12;
-errors = emErrs12.length;
+vErrors = emErrs13;
+errors = emErrs13.length;
 }
-var _valid0 = _errs22 === errors;
+var _valid0 = _errs24 === errors;
 if(_valid0){
 valid4 = true;
 passing0 = 0;
@@ -5047,10 +5050,10 @@ props0.name = true;
 props0.enabled = true;
 props0.apiKey = true;
 }
-const _errs34 = errors;
-if(data8 && typeof data8 == "object" && !Array.isArray(data8)){
-if(data8.type === undefined){
-const err45 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/1/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema27.properties.providers.items.oneOf[1].required,parentSchema:schema27.properties.providers.items.oneOf[1],data:data8};
+const _errs36 = errors;
+if(data9 && typeof data9 == "object" && !Array.isArray(data9)){
+if(data9.type === undefined){
+const err45 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/1/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema27.properties.providers.items.oneOf[1].required,parentSchema:schema27.properties.providers.items.oneOf[1],data:data9};
 if(vErrors === null){
 vErrors = [err45];
 }
@@ -5059,8 +5062,8 @@ vErrors.push(err45);
 }
 errors++;
 }
-if(data8.name === undefined){
-const err46 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/1/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema27.properties.providers.items.oneOf[1].required,parentSchema:schema27.properties.providers.items.oneOf[1],data:data8};
+if(data9.name === undefined){
+const err46 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/1/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema27.properties.providers.items.oneOf[1].required,parentSchema:schema27.properties.providers.items.oneOf[1],data:data9};
 if(vErrors === null){
 vErrors = [err46];
 }
@@ -5069,8 +5072,8 @@ vErrors.push(err46);
 }
 errors++;
 }
-if(data8.id === undefined){
-const err47 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/1/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema27.properties.providers.items.oneOf[1].required,parentSchema:schema27.properties.providers.items.oneOf[1],data:data8};
+if(data9.id === undefined){
+const err47 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/1/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema27.properties.providers.items.oneOf[1].required,parentSchema:schema27.properties.providers.items.oneOf[1],data:data9};
 if(vErrors === null){
 vErrors = [err47];
 }
@@ -5079,8 +5082,8 @@ vErrors.push(err47);
 }
 errors++;
 }
-if(data8.enabled === undefined){
-const err48 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/1/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema27.properties.providers.items.oneOf[1].required,parentSchema:schema27.properties.providers.items.oneOf[1],data:data8};
+if(data9.enabled === undefined){
+const err48 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/1/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema27.properties.providers.items.oneOf[1].required,parentSchema:schema27.properties.providers.items.oneOf[1],data:data9};
 if(vErrors === null){
 vErrors = [err48];
 }
@@ -5089,10 +5092,10 @@ vErrors.push(err48);
 }
 errors++;
 }
-if(data8.type !== undefined){
-let data14 = data8.type;
-if(typeof data14 !== "string"){
-const err49 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"#/properties/providers/items/oneOf/1/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[1].properties.type.type,parentSchema:schema27.properties.providers.items.oneOf[1].properties.type,data:data14};
+if(data9.type !== undefined){
+let data15 = data9.type;
+if(typeof data15 !== "string"){
+const err49 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"#/properties/providers/items/oneOf/1/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[1].properties.type.type,parentSchema:schema27.properties.providers.items.oneOf[1].properties.type,data:data15};
 if(vErrors === null){
 vErrors = [err49];
 }
@@ -5101,8 +5104,8 @@ vErrors.push(err49);
 }
 errors++;
 }
-if("anthropic" !== data14){
-const err50 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"#/properties/providers/items/oneOf/1/properties/type/const",keyword:"const",params:{allowedValue: "anthropic"},message:"must be equal to constant",schema:"anthropic",parentSchema:schema27.properties.providers.items.oneOf[1].properties.type,data:data14};
+if("anthropic" !== data15){
+const err50 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"#/properties/providers/items/oneOf/1/properties/type/const",keyword:"const",params:{allowedValue: "anthropic"},message:"must be equal to constant",schema:"anthropic",parentSchema:schema27.properties.providers.items.oneOf[1].properties.type,data:data15};
 if(vErrors === null){
 vErrors = [err50];
 }
@@ -5112,20 +5115,20 @@ vErrors.push(err50);
 errors++;
 }
 if(errors > 0){
-const emErrs13 = [];
+const emErrs14 = [];
 for(const err51 of vErrors){
 if(!err51.emUsed){
-emErrs13.push(err51);
+emErrs14.push(err51);
 }
 }
-vErrors = emErrs13;
-errors = emErrs13.length;
+vErrors = emErrs14;
+errors = emErrs14.length;
 }
 }
-if(data8.id !== undefined){
-let data15 = data8.id;
-if(typeof data15 !== "string"){
-const err52 = {instancePath:instancePath+"/providers/" + i0+"/id",schemaPath:"#/properties/providers/items/oneOf/1/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[1].properties.id.type,parentSchema:schema27.properties.providers.items.oneOf[1].properties.id,data:data15};
+if(data9.id !== undefined){
+let data16 = data9.id;
+if(typeof data16 !== "string"){
+const err52 = {instancePath:instancePath+"/providers/" + i0+"/id",schemaPath:"#/properties/providers/items/oneOf/1/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[1].properties.id.type,parentSchema:schema27.properties.providers.items.oneOf[1].properties.id,data:data16};
 if(vErrors === null){
 vErrors = [err52];
 }
@@ -5135,20 +5138,20 @@ vErrors.push(err52);
 errors++;
 }
 if(errors > 0){
-const emErrs14 = [];
+const emErrs15 = [];
 for(const err53 of vErrors){
 if(!err53.emUsed){
-emErrs14.push(err53);
+emErrs15.push(err53);
 }
 }
-vErrors = emErrs14;
-errors = emErrs14.length;
+vErrors = emErrs15;
+errors = emErrs15.length;
 }
 }
-if(data8.name !== undefined){
-let data16 = data8.name;
-if(typeof data16 !== "string"){
-const err54 = {instancePath:instancePath+"/providers/" + i0+"/name",schemaPath:"#/properties/providers/items/oneOf/1/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[1].properties.name.type,parentSchema:schema27.properties.providers.items.oneOf[1].properties.name,data:data16};
+if(data9.name !== undefined){
+let data17 = data9.name;
+if(typeof data17 !== "string"){
+const err54 = {instancePath:instancePath+"/providers/" + i0+"/name",schemaPath:"#/properties/providers/items/oneOf/1/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[1].properties.name.type,parentSchema:schema27.properties.providers.items.oneOf[1].properties.name,data:data17};
 if(vErrors === null){
 vErrors = [err54];
 }
@@ -5158,20 +5161,20 @@ vErrors.push(err54);
 errors++;
 }
 if(errors > 0){
-const emErrs15 = [];
+const emErrs16 = [];
 for(const err55 of vErrors){
 if(!err55.emUsed){
-emErrs15.push(err55);
+emErrs16.push(err55);
 }
 }
-vErrors = emErrs15;
-errors = emErrs15.length;
+vErrors = emErrs16;
+errors = emErrs16.length;
 }
 }
-if(data8.enabled !== undefined){
-let data17 = data8.enabled;
-if(typeof data17 !== "boolean"){
-const err56 = {instancePath:instancePath+"/providers/" + i0+"/enabled",schemaPath:"#/properties/providers/items/oneOf/1/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema27.properties.providers.items.oneOf[1].properties.enabled.type,parentSchema:schema27.properties.providers.items.oneOf[1].properties.enabled,data:data17};
+if(data9.enabled !== undefined){
+let data18 = data9.enabled;
+if(typeof data18 !== "boolean"){
+const err56 = {instancePath:instancePath+"/providers/" + i0+"/enabled",schemaPath:"#/properties/providers/items/oneOf/1/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema27.properties.providers.items.oneOf[1].properties.enabled.type,parentSchema:schema27.properties.providers.items.oneOf[1].properties.enabled,data:data18};
 if(vErrors === null){
 vErrors = [err56];
 }
@@ -5181,20 +5184,20 @@ vErrors.push(err56);
 errors++;
 }
 if(errors > 0){
-const emErrs16 = [];
+const emErrs17 = [];
 for(const err57 of vErrors){
 if(!err57.emUsed){
-emErrs16.push(err57);
+emErrs17.push(err57);
 }
 }
-vErrors = emErrs16;
-errors = emErrs16.length;
+vErrors = emErrs17;
+errors = emErrs17.length;
 }
 }
-if(data8.apiKey !== undefined){
-let data18 = data8.apiKey;
-if(typeof data18 !== "string"){
-const err58 = {instancePath:instancePath+"/providers/" + i0+"/apiKey",schemaPath:"#/properties/providers/items/oneOf/1/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[1].properties.apiKey.type,parentSchema:schema27.properties.providers.items.oneOf[1].properties.apiKey,data:data18};
+if(data9.apiKey !== undefined){
+let data19 = data9.apiKey;
+if(typeof data19 !== "string"){
+const err58 = {instancePath:instancePath+"/providers/" + i0+"/apiKey",schemaPath:"#/properties/providers/items/oneOf/1/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[1].properties.apiKey.type,parentSchema:schema27.properties.providers.items.oneOf[1].properties.apiKey,data:data19};
 if(vErrors === null){
 vErrors = [err58];
 }
@@ -5204,19 +5207,19 @@ vErrors.push(err58);
 errors++;
 }
 if(errors > 0){
-const emErrs17 = [];
+const emErrs18 = [];
 for(const err59 of vErrors){
 if(!err59.emUsed){
-emErrs17.push(err59);
+emErrs18.push(err59);
 }
 }
-vErrors = emErrs17;
-errors = emErrs17.length;
+vErrors = emErrs18;
+errors = emErrs18.length;
 }
 }
 }
 else {
-const err60 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/1/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.providers.items.oneOf[1].type,parentSchema:schema27.properties.providers.items.oneOf[1],data:data8};
+const err60 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/1/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.providers.items.oneOf[1].type,parentSchema:schema27.properties.providers.items.oneOf[1],data:data9};
 if(vErrors === null){
 vErrors = [err60];
 }
@@ -5245,7 +5248,7 @@ for(const keyProp2 in emErrors2[key4]){
 emParamsErrors2 = emErrors2[key4][keyProp2];
 if(emParamsErrors2.length){
 const tmpl2 = templates2[key4] && templates2[key4][keyProp2];
-const err62 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/1/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors2},message:tmpl2 ? tmpl2() : schema27.properties.providers.items.oneOf[1].errorMessage[key4][keyProp2],schema:schema27.properties.providers.items.oneOf[1].errorMessage,parentSchema:schema27.properties.providers.items.oneOf[1],data:data8};
+const err62 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/1/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors2},message:tmpl2 ? tmpl2() : schema27.properties.providers.items.oneOf[1].errorMessage[key4][keyProp2],schema:schema27.properties.providers.items.oneOf[1].errorMessage,parentSchema:schema27.properties.providers.items.oneOf[1],data:data9};
 if(vErrors === null){
 vErrors = [err62];
 }
@@ -5256,16 +5259,16 @@ errors++;
 }
 }
 }
-const emErrs18 = [];
+const emErrs19 = [];
 for(const err63 of vErrors){
 if(!err63.emUsed){
-emErrs18.push(err63);
+emErrs19.push(err63);
 }
 }
-vErrors = emErrs18;
-errors = emErrs18.length;
+vErrors = emErrs19;
+errors = emErrs19.length;
 }
-var _valid0 = _errs34 === errors;
+var _valid0 = _errs36 === errors;
 if(_valid0 && valid4){
 valid4 = false;
 passing0 = [passing0, 1];
@@ -5283,10 +5286,10 @@ props0.enabled = true;
 props0.apiKey = true;
 }
 }
-const _errs46 = errors;
-if(data8 && typeof data8 == "object" && !Array.isArray(data8)){
-if(data8.type === undefined){
-const err64 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/2/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema27.properties.providers.items.oneOf[2].required,parentSchema:schema27.properties.providers.items.oneOf[2],data:data8};
+const _errs48 = errors;
+if(data9 && typeof data9 == "object" && !Array.isArray(data9)){
+if(data9.type === undefined){
+const err64 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/2/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema27.properties.providers.items.oneOf[2].required,parentSchema:schema27.properties.providers.items.oneOf[2],data:data9};
 if(vErrors === null){
 vErrors = [err64];
 }
@@ -5295,8 +5298,8 @@ vErrors.push(err64);
 }
 errors++;
 }
-if(data8.name === undefined){
-const err65 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/2/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema27.properties.providers.items.oneOf[2].required,parentSchema:schema27.properties.providers.items.oneOf[2],data:data8};
+if(data9.name === undefined){
+const err65 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/2/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema27.properties.providers.items.oneOf[2].required,parentSchema:schema27.properties.providers.items.oneOf[2],data:data9};
 if(vErrors === null){
 vErrors = [err65];
 }
@@ -5305,8 +5308,8 @@ vErrors.push(err65);
 }
 errors++;
 }
-if(data8.id === undefined){
-const err66 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/2/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema27.properties.providers.items.oneOf[2].required,parentSchema:schema27.properties.providers.items.oneOf[2],data:data8};
+if(data9.id === undefined){
+const err66 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/2/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema27.properties.providers.items.oneOf[2].required,parentSchema:schema27.properties.providers.items.oneOf[2],data:data9};
 if(vErrors === null){
 vErrors = [err66];
 }
@@ -5315,8 +5318,8 @@ vErrors.push(err66);
 }
 errors++;
 }
-if(data8.enabled === undefined){
-const err67 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/2/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema27.properties.providers.items.oneOf[2].required,parentSchema:schema27.properties.providers.items.oneOf[2],data:data8};
+if(data9.enabled === undefined){
+const err67 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/2/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema27.properties.providers.items.oneOf[2].required,parentSchema:schema27.properties.providers.items.oneOf[2],data:data9};
 if(vErrors === null){
 vErrors = [err67];
 }
@@ -5325,10 +5328,10 @@ vErrors.push(err67);
 }
 errors++;
 }
-if(data8.type !== undefined){
-let data19 = data8.type;
-if(typeof data19 !== "string"){
-const err68 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"#/properties/providers/items/oneOf/2/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[2].properties.type.type,parentSchema:schema27.properties.providers.items.oneOf[2].properties.type,data:data19};
+if(data9.type !== undefined){
+let data20 = data9.type;
+if(typeof data20 !== "string"){
+const err68 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"#/properties/providers/items/oneOf/2/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[2].properties.type.type,parentSchema:schema27.properties.providers.items.oneOf[2].properties.type,data:data20};
 if(vErrors === null){
 vErrors = [err68];
 }
@@ -5337,8 +5340,8 @@ vErrors.push(err68);
 }
 errors++;
 }
-if("google" !== data19){
-const err69 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"#/properties/providers/items/oneOf/2/properties/type/const",keyword:"const",params:{allowedValue: "google"},message:"must be equal to constant",schema:"google",parentSchema:schema27.properties.providers.items.oneOf[2].properties.type,data:data19};
+if("google" !== data20){
+const err69 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"#/properties/providers/items/oneOf/2/properties/type/const",keyword:"const",params:{allowedValue: "google"},message:"must be equal to constant",schema:"google",parentSchema:schema27.properties.providers.items.oneOf[2].properties.type,data:data20};
 if(vErrors === null){
 vErrors = [err69];
 }
@@ -5348,20 +5351,20 @@ vErrors.push(err69);
 errors++;
 }
 if(errors > 0){
-const emErrs19 = [];
+const emErrs20 = [];
 for(const err70 of vErrors){
 if(!err70.emUsed){
-emErrs19.push(err70);
+emErrs20.push(err70);
 }
 }
-vErrors = emErrs19;
-errors = emErrs19.length;
+vErrors = emErrs20;
+errors = emErrs20.length;
 }
 }
-if(data8.id !== undefined){
-let data20 = data8.id;
-if(typeof data20 !== "string"){
-const err71 = {instancePath:instancePath+"/providers/" + i0+"/id",schemaPath:"#/properties/providers/items/oneOf/2/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[2].properties.id.type,parentSchema:schema27.properties.providers.items.oneOf[2].properties.id,data:data20};
+if(data9.id !== undefined){
+let data21 = data9.id;
+if(typeof data21 !== "string"){
+const err71 = {instancePath:instancePath+"/providers/" + i0+"/id",schemaPath:"#/properties/providers/items/oneOf/2/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[2].properties.id.type,parentSchema:schema27.properties.providers.items.oneOf[2].properties.id,data:data21};
 if(vErrors === null){
 vErrors = [err71];
 }
@@ -5371,20 +5374,20 @@ vErrors.push(err71);
 errors++;
 }
 if(errors > 0){
-const emErrs20 = [];
+const emErrs21 = [];
 for(const err72 of vErrors){
 if(!err72.emUsed){
-emErrs20.push(err72);
+emErrs21.push(err72);
 }
 }
-vErrors = emErrs20;
-errors = emErrs20.length;
+vErrors = emErrs21;
+errors = emErrs21.length;
 }
 }
-if(data8.name !== undefined){
-let data21 = data8.name;
-if(typeof data21 !== "string"){
-const err73 = {instancePath:instancePath+"/providers/" + i0+"/name",schemaPath:"#/properties/providers/items/oneOf/2/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[2].properties.name.type,parentSchema:schema27.properties.providers.items.oneOf[2].properties.name,data:data21};
+if(data9.name !== undefined){
+let data22 = data9.name;
+if(typeof data22 !== "string"){
+const err73 = {instancePath:instancePath+"/providers/" + i0+"/name",schemaPath:"#/properties/providers/items/oneOf/2/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[2].properties.name.type,parentSchema:schema27.properties.providers.items.oneOf[2].properties.name,data:data22};
 if(vErrors === null){
 vErrors = [err73];
 }
@@ -5394,20 +5397,20 @@ vErrors.push(err73);
 errors++;
 }
 if(errors > 0){
-const emErrs21 = [];
+const emErrs22 = [];
 for(const err74 of vErrors){
 if(!err74.emUsed){
-emErrs21.push(err74);
+emErrs22.push(err74);
 }
 }
-vErrors = emErrs21;
-errors = emErrs21.length;
+vErrors = emErrs22;
+errors = emErrs22.length;
 }
 }
-if(data8.enabled !== undefined){
-let data22 = data8.enabled;
-if(typeof data22 !== "boolean"){
-const err75 = {instancePath:instancePath+"/providers/" + i0+"/enabled",schemaPath:"#/properties/providers/items/oneOf/2/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema27.properties.providers.items.oneOf[2].properties.enabled.type,parentSchema:schema27.properties.providers.items.oneOf[2].properties.enabled,data:data22};
+if(data9.enabled !== undefined){
+let data23 = data9.enabled;
+if(typeof data23 !== "boolean"){
+const err75 = {instancePath:instancePath+"/providers/" + i0+"/enabled",schemaPath:"#/properties/providers/items/oneOf/2/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema27.properties.providers.items.oneOf[2].properties.enabled.type,parentSchema:schema27.properties.providers.items.oneOf[2].properties.enabled,data:data23};
 if(vErrors === null){
 vErrors = [err75];
 }
@@ -5417,20 +5420,20 @@ vErrors.push(err75);
 errors++;
 }
 if(errors > 0){
-const emErrs22 = [];
+const emErrs23 = [];
 for(const err76 of vErrors){
 if(!err76.emUsed){
-emErrs22.push(err76);
+emErrs23.push(err76);
 }
 }
-vErrors = emErrs22;
-errors = emErrs22.length;
+vErrors = emErrs23;
+errors = emErrs23.length;
 }
 }
-if(data8.apiKey !== undefined){
-let data23 = data8.apiKey;
-if(typeof data23 !== "string"){
-const err77 = {instancePath:instancePath+"/providers/" + i0+"/apiKey",schemaPath:"#/properties/providers/items/oneOf/2/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[2].properties.apiKey.type,parentSchema:schema27.properties.providers.items.oneOf[2].properties.apiKey,data:data23};
+if(data9.apiKey !== undefined){
+let data24 = data9.apiKey;
+if(typeof data24 !== "string"){
+const err77 = {instancePath:instancePath+"/providers/" + i0+"/apiKey",schemaPath:"#/properties/providers/items/oneOf/2/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[2].properties.apiKey.type,parentSchema:schema27.properties.providers.items.oneOf[2].properties.apiKey,data:data24};
 if(vErrors === null){
 vErrors = [err77];
 }
@@ -5440,19 +5443,19 @@ vErrors.push(err77);
 errors++;
 }
 if(errors > 0){
-const emErrs23 = [];
+const emErrs24 = [];
 for(const err78 of vErrors){
 if(!err78.emUsed){
-emErrs23.push(err78);
+emErrs24.push(err78);
 }
 }
-vErrors = emErrs23;
-errors = emErrs23.length;
+vErrors = emErrs24;
+errors = emErrs24.length;
 }
 }
 }
 else {
-const err79 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/2/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.providers.items.oneOf[2].type,parentSchema:schema27.properties.providers.items.oneOf[2],data:data8};
+const err79 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/2/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.providers.items.oneOf[2].type,parentSchema:schema27.properties.providers.items.oneOf[2],data:data9};
 if(vErrors === null){
 vErrors = [err79];
 }
@@ -5481,7 +5484,7 @@ for(const keyProp3 in emErrors3[key5]){
 emParamsErrors3 = emErrors3[key5][keyProp3];
 if(emParamsErrors3.length){
 const tmpl3 = templates3[key5] && templates3[key5][keyProp3];
-const err81 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/2/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors3},message:tmpl3 ? tmpl3() : schema27.properties.providers.items.oneOf[2].errorMessage[key5][keyProp3],schema:schema27.properties.providers.items.oneOf[2].errorMessage,parentSchema:schema27.properties.providers.items.oneOf[2],data:data8};
+const err81 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/2/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors3},message:tmpl3 ? tmpl3() : schema27.properties.providers.items.oneOf[2].errorMessage[key5][keyProp3],schema:schema27.properties.providers.items.oneOf[2].errorMessage,parentSchema:schema27.properties.providers.items.oneOf[2],data:data9};
 if(vErrors === null){
 vErrors = [err81];
 }
@@ -5492,16 +5495,16 @@ errors++;
 }
 }
 }
-const emErrs24 = [];
+const emErrs25 = [];
 for(const err82 of vErrors){
 if(!err82.emUsed){
-emErrs24.push(err82);
+emErrs25.push(err82);
 }
 }
-vErrors = emErrs24;
-errors = emErrs24.length;
+vErrors = emErrs25;
+errors = emErrs25.length;
 }
-var _valid0 = _errs46 === errors;
+var _valid0 = _errs48 === errors;
 if(_valid0 && valid4){
 valid4 = false;
 passing0 = [passing0, 2];
@@ -5519,10 +5522,10 @@ props0.enabled = true;
 props0.apiKey = true;
 }
 }
-const _errs58 = errors;
-if(data8 && typeof data8 == "object" && !Array.isArray(data8)){
-if(data8.type === undefined){
-const err83 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/3/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema27.properties.providers.items.oneOf[3].required,parentSchema:schema27.properties.providers.items.oneOf[3],data:data8};
+const _errs60 = errors;
+if(data9 && typeof data9 == "object" && !Array.isArray(data9)){
+if(data9.type === undefined){
+const err83 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/3/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema27.properties.providers.items.oneOf[3].required,parentSchema:schema27.properties.providers.items.oneOf[3],data:data9};
 if(vErrors === null){
 vErrors = [err83];
 }
@@ -5531,8 +5534,8 @@ vErrors.push(err83);
 }
 errors++;
 }
-if(data8.name === undefined){
-const err84 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/3/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema27.properties.providers.items.oneOf[3].required,parentSchema:schema27.properties.providers.items.oneOf[3],data:data8};
+if(data9.name === undefined){
+const err84 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/3/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema27.properties.providers.items.oneOf[3].required,parentSchema:schema27.properties.providers.items.oneOf[3],data:data9};
 if(vErrors === null){
 vErrors = [err84];
 }
@@ -5541,8 +5544,8 @@ vErrors.push(err84);
 }
 errors++;
 }
-if(data8.id === undefined){
-const err85 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/3/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema27.properties.providers.items.oneOf[3].required,parentSchema:schema27.properties.providers.items.oneOf[3],data:data8};
+if(data9.id === undefined){
+const err85 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/3/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema27.properties.providers.items.oneOf[3].required,parentSchema:schema27.properties.providers.items.oneOf[3],data:data9};
 if(vErrors === null){
 vErrors = [err85];
 }
@@ -5551,8 +5554,8 @@ vErrors.push(err85);
 }
 errors++;
 }
-if(data8.enabled === undefined){
-const err86 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/3/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema27.properties.providers.items.oneOf[3].required,parentSchema:schema27.properties.providers.items.oneOf[3],data:data8};
+if(data9.enabled === undefined){
+const err86 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/3/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema27.properties.providers.items.oneOf[3].required,parentSchema:schema27.properties.providers.items.oneOf[3],data:data9};
 if(vErrors === null){
 vErrors = [err86];
 }
@@ -5561,10 +5564,10 @@ vErrors.push(err86);
 }
 errors++;
 }
-if(data8.type !== undefined){
-let data24 = data8.type;
-if(typeof data24 !== "string"){
-const err87 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"#/properties/providers/items/oneOf/3/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[3].properties.type.type,parentSchema:schema27.properties.providers.items.oneOf[3].properties.type,data:data24};
+if(data9.type !== undefined){
+let data25 = data9.type;
+if(typeof data25 !== "string"){
+const err87 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"#/properties/providers/items/oneOf/3/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[3].properties.type.type,parentSchema:schema27.properties.providers.items.oneOf[3].properties.type,data:data25};
 if(vErrors === null){
 vErrors = [err87];
 }
@@ -5573,8 +5576,8 @@ vErrors.push(err87);
 }
 errors++;
 }
-if("mistral" !== data24){
-const err88 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"#/properties/providers/items/oneOf/3/properties/type/const",keyword:"const",params:{allowedValue: "mistral"},message:"must be equal to constant",schema:"mistral",parentSchema:schema27.properties.providers.items.oneOf[3].properties.type,data:data24};
+if("mistral" !== data25){
+const err88 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"#/properties/providers/items/oneOf/3/properties/type/const",keyword:"const",params:{allowedValue: "mistral"},message:"must be equal to constant",schema:"mistral",parentSchema:schema27.properties.providers.items.oneOf[3].properties.type,data:data25};
 if(vErrors === null){
 vErrors = [err88];
 }
@@ -5584,20 +5587,20 @@ vErrors.push(err88);
 errors++;
 }
 if(errors > 0){
-const emErrs25 = [];
+const emErrs26 = [];
 for(const err89 of vErrors){
 if(!err89.emUsed){
-emErrs25.push(err89);
+emErrs26.push(err89);
 }
 }
-vErrors = emErrs25;
-errors = emErrs25.length;
+vErrors = emErrs26;
+errors = emErrs26.length;
 }
 }
-if(data8.id !== undefined){
-let data25 = data8.id;
-if(typeof data25 !== "string"){
-const err90 = {instancePath:instancePath+"/providers/" + i0+"/id",schemaPath:"#/properties/providers/items/oneOf/3/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[3].properties.id.type,parentSchema:schema27.properties.providers.items.oneOf[3].properties.id,data:data25};
+if(data9.id !== undefined){
+let data26 = data9.id;
+if(typeof data26 !== "string"){
+const err90 = {instancePath:instancePath+"/providers/" + i0+"/id",schemaPath:"#/properties/providers/items/oneOf/3/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[3].properties.id.type,parentSchema:schema27.properties.providers.items.oneOf[3].properties.id,data:data26};
 if(vErrors === null){
 vErrors = [err90];
 }
@@ -5607,20 +5610,20 @@ vErrors.push(err90);
 errors++;
 }
 if(errors > 0){
-const emErrs26 = [];
+const emErrs27 = [];
 for(const err91 of vErrors){
 if(!err91.emUsed){
-emErrs26.push(err91);
+emErrs27.push(err91);
 }
 }
-vErrors = emErrs26;
-errors = emErrs26.length;
+vErrors = emErrs27;
+errors = emErrs27.length;
 }
 }
-if(data8.name !== undefined){
-let data26 = data8.name;
-if(typeof data26 !== "string"){
-const err92 = {instancePath:instancePath+"/providers/" + i0+"/name",schemaPath:"#/properties/providers/items/oneOf/3/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[3].properties.name.type,parentSchema:schema27.properties.providers.items.oneOf[3].properties.name,data:data26};
+if(data9.name !== undefined){
+let data27 = data9.name;
+if(typeof data27 !== "string"){
+const err92 = {instancePath:instancePath+"/providers/" + i0+"/name",schemaPath:"#/properties/providers/items/oneOf/3/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[3].properties.name.type,parentSchema:schema27.properties.providers.items.oneOf[3].properties.name,data:data27};
 if(vErrors === null){
 vErrors = [err92];
 }
@@ -5630,20 +5633,20 @@ vErrors.push(err92);
 errors++;
 }
 if(errors > 0){
-const emErrs27 = [];
+const emErrs28 = [];
 for(const err93 of vErrors){
 if(!err93.emUsed){
-emErrs27.push(err93);
+emErrs28.push(err93);
 }
 }
-vErrors = emErrs27;
-errors = emErrs27.length;
+vErrors = emErrs28;
+errors = emErrs28.length;
 }
 }
-if(data8.enabled !== undefined){
-let data27 = data8.enabled;
-if(typeof data27 !== "boolean"){
-const err94 = {instancePath:instancePath+"/providers/" + i0+"/enabled",schemaPath:"#/properties/providers/items/oneOf/3/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema27.properties.providers.items.oneOf[3].properties.enabled.type,parentSchema:schema27.properties.providers.items.oneOf[3].properties.enabled,data:data27};
+if(data9.enabled !== undefined){
+let data28 = data9.enabled;
+if(typeof data28 !== "boolean"){
+const err94 = {instancePath:instancePath+"/providers/" + i0+"/enabled",schemaPath:"#/properties/providers/items/oneOf/3/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema27.properties.providers.items.oneOf[3].properties.enabled.type,parentSchema:schema27.properties.providers.items.oneOf[3].properties.enabled,data:data28};
 if(vErrors === null){
 vErrors = [err94];
 }
@@ -5653,20 +5656,20 @@ vErrors.push(err94);
 errors++;
 }
 if(errors > 0){
-const emErrs28 = [];
+const emErrs29 = [];
 for(const err95 of vErrors){
 if(!err95.emUsed){
-emErrs28.push(err95);
+emErrs29.push(err95);
 }
 }
-vErrors = emErrs28;
-errors = emErrs28.length;
+vErrors = emErrs29;
+errors = emErrs29.length;
 }
 }
-if(data8.apiKey !== undefined){
-let data28 = data8.apiKey;
-if(typeof data28 !== "string"){
-const err96 = {instancePath:instancePath+"/providers/" + i0+"/apiKey",schemaPath:"#/properties/providers/items/oneOf/3/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[3].properties.apiKey.type,parentSchema:schema27.properties.providers.items.oneOf[3].properties.apiKey,data:data28};
+if(data9.apiKey !== undefined){
+let data29 = data9.apiKey;
+if(typeof data29 !== "string"){
+const err96 = {instancePath:instancePath+"/providers/" + i0+"/apiKey",schemaPath:"#/properties/providers/items/oneOf/3/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[3].properties.apiKey.type,parentSchema:schema27.properties.providers.items.oneOf[3].properties.apiKey,data:data29};
 if(vErrors === null){
 vErrors = [err96];
 }
@@ -5676,19 +5679,19 @@ vErrors.push(err96);
 errors++;
 }
 if(errors > 0){
-const emErrs29 = [];
+const emErrs30 = [];
 for(const err97 of vErrors){
 if(!err97.emUsed){
-emErrs29.push(err97);
+emErrs30.push(err97);
 }
 }
-vErrors = emErrs29;
-errors = emErrs29.length;
+vErrors = emErrs30;
+errors = emErrs30.length;
 }
 }
 }
 else {
-const err98 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/3/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.providers.items.oneOf[3].type,parentSchema:schema27.properties.providers.items.oneOf[3],data:data8};
+const err98 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/3/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.providers.items.oneOf[3].type,parentSchema:schema27.properties.providers.items.oneOf[3],data:data9};
 if(vErrors === null){
 vErrors = [err98];
 }
@@ -5717,7 +5720,7 @@ for(const keyProp4 in emErrors4[key6]){
 emParamsErrors4 = emErrors4[key6][keyProp4];
 if(emParamsErrors4.length){
 const tmpl4 = templates4[key6] && templates4[key6][keyProp4];
-const err100 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/3/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors4},message:tmpl4 ? tmpl4() : schema27.properties.providers.items.oneOf[3].errorMessage[key6][keyProp4],schema:schema27.properties.providers.items.oneOf[3].errorMessage,parentSchema:schema27.properties.providers.items.oneOf[3],data:data8};
+const err100 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/3/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors4},message:tmpl4 ? tmpl4() : schema27.properties.providers.items.oneOf[3].errorMessage[key6][keyProp4],schema:schema27.properties.providers.items.oneOf[3].errorMessage,parentSchema:schema27.properties.providers.items.oneOf[3],data:data9};
 if(vErrors === null){
 vErrors = [err100];
 }
@@ -5728,16 +5731,16 @@ errors++;
 }
 }
 }
-const emErrs30 = [];
+const emErrs31 = [];
 for(const err101 of vErrors){
 if(!err101.emUsed){
-emErrs30.push(err101);
+emErrs31.push(err101);
 }
 }
-vErrors = emErrs30;
-errors = emErrs30.length;
+vErrors = emErrs31;
+errors = emErrs31.length;
 }
-var _valid0 = _errs58 === errors;
+var _valid0 = _errs60 === errors;
 if(_valid0 && valid4){
 valid4 = false;
 passing0 = [passing0, 3];
@@ -5755,10 +5758,10 @@ props0.enabled = true;
 props0.apiKey = true;
 }
 }
-const _errs70 = errors;
-if(data8 && typeof data8 == "object" && !Array.isArray(data8)){
-if(data8.type === undefined){
-const err102 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/4/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema27.properties.providers.items.oneOf[4].required,parentSchema:schema27.properties.providers.items.oneOf[4],data:data8};
+const _errs72 = errors;
+if(data9 && typeof data9 == "object" && !Array.isArray(data9)){
+if(data9.type === undefined){
+const err102 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/4/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema27.properties.providers.items.oneOf[4].required,parentSchema:schema27.properties.providers.items.oneOf[4],data:data9};
 if(vErrors === null){
 vErrors = [err102];
 }
@@ -5767,8 +5770,8 @@ vErrors.push(err102);
 }
 errors++;
 }
-if(data8.name === undefined){
-const err103 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/4/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema27.properties.providers.items.oneOf[4].required,parentSchema:schema27.properties.providers.items.oneOf[4],data:data8};
+if(data9.name === undefined){
+const err103 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/4/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema27.properties.providers.items.oneOf[4].required,parentSchema:schema27.properties.providers.items.oneOf[4],data:data9};
 if(vErrors === null){
 vErrors = [err103];
 }
@@ -5777,8 +5780,8 @@ vErrors.push(err103);
 }
 errors++;
 }
-if(data8.id === undefined){
-const err104 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/4/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema27.properties.providers.items.oneOf[4].required,parentSchema:schema27.properties.providers.items.oneOf[4],data:data8};
+if(data9.id === undefined){
+const err104 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/4/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema27.properties.providers.items.oneOf[4].required,parentSchema:schema27.properties.providers.items.oneOf[4],data:data9};
 if(vErrors === null){
 vErrors = [err104];
 }
@@ -5787,8 +5790,8 @@ vErrors.push(err104);
 }
 errors++;
 }
-if(data8.enabled === undefined){
-const err105 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/4/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema27.properties.providers.items.oneOf[4].required,parentSchema:schema27.properties.providers.items.oneOf[4],data:data8};
+if(data9.enabled === undefined){
+const err105 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/4/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema27.properties.providers.items.oneOf[4].required,parentSchema:schema27.properties.providers.items.oneOf[4],data:data9};
 if(vErrors === null){
 vErrors = [err105];
 }
@@ -5797,10 +5800,10 @@ vErrors.push(err105);
 }
 errors++;
 }
-if(data8.type !== undefined){
-let data29 = data8.type;
-if(typeof data29 !== "string"){
-const err106 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"#/properties/providers/items/oneOf/4/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[4].properties.type.type,parentSchema:schema27.properties.providers.items.oneOf[4].properties.type,data:data29};
+if(data9.type !== undefined){
+let data30 = data9.type;
+if(typeof data30 !== "string"){
+const err106 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"#/properties/providers/items/oneOf/4/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[4].properties.type.type,parentSchema:schema27.properties.providers.items.oneOf[4].properties.type,data:data30};
 if(vErrors === null){
 vErrors = [err106];
 }
@@ -5809,8 +5812,8 @@ vErrors.push(err106);
 }
 errors++;
 }
-if("openrouter" !== data29){
-const err107 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"#/properties/providers/items/oneOf/4/properties/type/const",keyword:"const",params:{allowedValue: "openrouter"},message:"must be equal to constant",schema:"openrouter",parentSchema:schema27.properties.providers.items.oneOf[4].properties.type,data:data29};
+if("openrouter" !== data30){
+const err107 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"#/properties/providers/items/oneOf/4/properties/type/const",keyword:"const",params:{allowedValue: "openrouter"},message:"must be equal to constant",schema:"openrouter",parentSchema:schema27.properties.providers.items.oneOf[4].properties.type,data:data30};
 if(vErrors === null){
 vErrors = [err107];
 }
@@ -5820,20 +5823,20 @@ vErrors.push(err107);
 errors++;
 }
 if(errors > 0){
-const emErrs31 = [];
+const emErrs32 = [];
 for(const err108 of vErrors){
 if(!err108.emUsed){
-emErrs31.push(err108);
+emErrs32.push(err108);
 }
 }
-vErrors = emErrs31;
-errors = emErrs31.length;
+vErrors = emErrs32;
+errors = emErrs32.length;
 }
 }
-if(data8.id !== undefined){
-let data30 = data8.id;
-if(typeof data30 !== "string"){
-const err109 = {instancePath:instancePath+"/providers/" + i0+"/id",schemaPath:"#/properties/providers/items/oneOf/4/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[4].properties.id.type,parentSchema:schema27.properties.providers.items.oneOf[4].properties.id,data:data30};
+if(data9.id !== undefined){
+let data31 = data9.id;
+if(typeof data31 !== "string"){
+const err109 = {instancePath:instancePath+"/providers/" + i0+"/id",schemaPath:"#/properties/providers/items/oneOf/4/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[4].properties.id.type,parentSchema:schema27.properties.providers.items.oneOf[4].properties.id,data:data31};
 if(vErrors === null){
 vErrors = [err109];
 }
@@ -5843,20 +5846,20 @@ vErrors.push(err109);
 errors++;
 }
 if(errors > 0){
-const emErrs32 = [];
+const emErrs33 = [];
 for(const err110 of vErrors){
 if(!err110.emUsed){
-emErrs32.push(err110);
+emErrs33.push(err110);
 }
 }
-vErrors = emErrs32;
-errors = emErrs32.length;
+vErrors = emErrs33;
+errors = emErrs33.length;
 }
 }
-if(data8.name !== undefined){
-let data31 = data8.name;
-if(typeof data31 !== "string"){
-const err111 = {instancePath:instancePath+"/providers/" + i0+"/name",schemaPath:"#/properties/providers/items/oneOf/4/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[4].properties.name.type,parentSchema:schema27.properties.providers.items.oneOf[4].properties.name,data:data31};
+if(data9.name !== undefined){
+let data32 = data9.name;
+if(typeof data32 !== "string"){
+const err111 = {instancePath:instancePath+"/providers/" + i0+"/name",schemaPath:"#/properties/providers/items/oneOf/4/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[4].properties.name.type,parentSchema:schema27.properties.providers.items.oneOf[4].properties.name,data:data32};
 if(vErrors === null){
 vErrors = [err111];
 }
@@ -5866,20 +5869,20 @@ vErrors.push(err111);
 errors++;
 }
 if(errors > 0){
-const emErrs33 = [];
+const emErrs34 = [];
 for(const err112 of vErrors){
 if(!err112.emUsed){
-emErrs33.push(err112);
+emErrs34.push(err112);
 }
 }
-vErrors = emErrs33;
-errors = emErrs33.length;
+vErrors = emErrs34;
+errors = emErrs34.length;
 }
 }
-if(data8.enabled !== undefined){
-let data32 = data8.enabled;
-if(typeof data32 !== "boolean"){
-const err113 = {instancePath:instancePath+"/providers/" + i0+"/enabled",schemaPath:"#/properties/providers/items/oneOf/4/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema27.properties.providers.items.oneOf[4].properties.enabled.type,parentSchema:schema27.properties.providers.items.oneOf[4].properties.enabled,data:data32};
+if(data9.enabled !== undefined){
+let data33 = data9.enabled;
+if(typeof data33 !== "boolean"){
+const err113 = {instancePath:instancePath+"/providers/" + i0+"/enabled",schemaPath:"#/properties/providers/items/oneOf/4/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema27.properties.providers.items.oneOf[4].properties.enabled.type,parentSchema:schema27.properties.providers.items.oneOf[4].properties.enabled,data:data33};
 if(vErrors === null){
 vErrors = [err113];
 }
@@ -5889,20 +5892,20 @@ vErrors.push(err113);
 errors++;
 }
 if(errors > 0){
-const emErrs34 = [];
+const emErrs35 = [];
 for(const err114 of vErrors){
 if(!err114.emUsed){
-emErrs34.push(err114);
+emErrs35.push(err114);
 }
 }
-vErrors = emErrs34;
-errors = emErrs34.length;
+vErrors = emErrs35;
+errors = emErrs35.length;
 }
 }
-if(data8.apiKey !== undefined){
-let data33 = data8.apiKey;
-if(typeof data33 !== "string"){
-const err115 = {instancePath:instancePath+"/providers/" + i0+"/apiKey",schemaPath:"#/properties/providers/items/oneOf/4/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[4].properties.apiKey.type,parentSchema:schema27.properties.providers.items.oneOf[4].properties.apiKey,data:data33};
+if(data9.apiKey !== undefined){
+let data34 = data9.apiKey;
+if(typeof data34 !== "string"){
+const err115 = {instancePath:instancePath+"/providers/" + i0+"/apiKey",schemaPath:"#/properties/providers/items/oneOf/4/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[4].properties.apiKey.type,parentSchema:schema27.properties.providers.items.oneOf[4].properties.apiKey,data:data34};
 if(vErrors === null){
 vErrors = [err115];
 }
@@ -5912,19 +5915,19 @@ vErrors.push(err115);
 errors++;
 }
 if(errors > 0){
-const emErrs35 = [];
+const emErrs36 = [];
 for(const err116 of vErrors){
 if(!err116.emUsed){
-emErrs35.push(err116);
+emErrs36.push(err116);
 }
 }
-vErrors = emErrs35;
-errors = emErrs35.length;
+vErrors = emErrs36;
+errors = emErrs36.length;
 }
 }
 }
 else {
-const err117 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/4/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.providers.items.oneOf[4].type,parentSchema:schema27.properties.providers.items.oneOf[4],data:data8};
+const err117 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/4/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.providers.items.oneOf[4].type,parentSchema:schema27.properties.providers.items.oneOf[4],data:data9};
 if(vErrors === null){
 vErrors = [err117];
 }
@@ -5953,7 +5956,7 @@ for(const keyProp5 in emErrors5[key7]){
 emParamsErrors5 = emErrors5[key7][keyProp5];
 if(emParamsErrors5.length){
 const tmpl5 = templates5[key7] && templates5[key7][keyProp5];
-const err119 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/4/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors5},message:tmpl5 ? tmpl5() : schema27.properties.providers.items.oneOf[4].errorMessage[key7][keyProp5],schema:schema27.properties.providers.items.oneOf[4].errorMessage,parentSchema:schema27.properties.providers.items.oneOf[4],data:data8};
+const err119 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/4/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors5},message:tmpl5 ? tmpl5() : schema27.properties.providers.items.oneOf[4].errorMessage[key7][keyProp5],schema:schema27.properties.providers.items.oneOf[4].errorMessage,parentSchema:schema27.properties.providers.items.oneOf[4],data:data9};
 if(vErrors === null){
 vErrors = [err119];
 }
@@ -5964,16 +5967,16 @@ errors++;
 }
 }
 }
-const emErrs36 = [];
+const emErrs37 = [];
 for(const err120 of vErrors){
 if(!err120.emUsed){
-emErrs36.push(err120);
+emErrs37.push(err120);
 }
 }
-vErrors = emErrs36;
-errors = emErrs36.length;
+vErrors = emErrs37;
+errors = emErrs37.length;
 }
-var _valid0 = _errs70 === errors;
+var _valid0 = _errs72 === errors;
 if(_valid0 && valid4){
 valid4 = false;
 passing0 = [passing0, 4];
@@ -5991,10 +5994,10 @@ props0.enabled = true;
 props0.apiKey = true;
 }
 }
-const _errs82 = errors;
-if(data8 && typeof data8 == "object" && !Array.isArray(data8)){
-if(data8.type === undefined){
-const err121 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/5/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema27.properties.providers.items.oneOf[5].required,parentSchema:schema27.properties.providers.items.oneOf[5],data:data8};
+const _errs84 = errors;
+if(data9 && typeof data9 == "object" && !Array.isArray(data9)){
+if(data9.type === undefined){
+const err121 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/5/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema27.properties.providers.items.oneOf[5].required,parentSchema:schema27.properties.providers.items.oneOf[5],data:data9};
 if(vErrors === null){
 vErrors = [err121];
 }
@@ -6003,8 +6006,8 @@ vErrors.push(err121);
 }
 errors++;
 }
-if(data8.name === undefined){
-const err122 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/5/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema27.properties.providers.items.oneOf[5].required,parentSchema:schema27.properties.providers.items.oneOf[5],data:data8};
+if(data9.name === undefined){
+const err122 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/5/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema27.properties.providers.items.oneOf[5].required,parentSchema:schema27.properties.providers.items.oneOf[5],data:data9};
 if(vErrors === null){
 vErrors = [err122];
 }
@@ -6013,8 +6016,8 @@ vErrors.push(err122);
 }
 errors++;
 }
-if(data8.id === undefined){
-const err123 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/5/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema27.properties.providers.items.oneOf[5].required,parentSchema:schema27.properties.providers.items.oneOf[5],data:data8};
+if(data9.id === undefined){
+const err123 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/5/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema27.properties.providers.items.oneOf[5].required,parentSchema:schema27.properties.providers.items.oneOf[5],data:data9};
 if(vErrors === null){
 vErrors = [err123];
 }
@@ -6023,8 +6026,8 @@ vErrors.push(err123);
 }
 errors++;
 }
-if(data8.enabled === undefined){
-const err124 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/5/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema27.properties.providers.items.oneOf[5].required,parentSchema:schema27.properties.providers.items.oneOf[5],data:data8};
+if(data9.enabled === undefined){
+const err124 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/5/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema27.properties.providers.items.oneOf[5].required,parentSchema:schema27.properties.providers.items.oneOf[5],data:data9};
 if(vErrors === null){
 vErrors = [err124];
 }
@@ -6033,8 +6036,8 @@ vErrors.push(err124);
 }
 errors++;
 }
-if(data8.baseURL === undefined){
-const err125 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/5/required",keyword:"required",params:{missingProperty: "baseURL"},message:"must have required property '"+"baseURL"+"'",schema:schema27.properties.providers.items.oneOf[5].required,parentSchema:schema27.properties.providers.items.oneOf[5],data:data8};
+if(data9.baseURL === undefined){
+const err125 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/5/required",keyword:"required",params:{missingProperty: "baseURL"},message:"must have required property '"+"baseURL"+"'",schema:schema27.properties.providers.items.oneOf[5].required,parentSchema:schema27.properties.providers.items.oneOf[5],data:data9};
 if(vErrors === null){
 vErrors = [err125];
 }
@@ -6043,10 +6046,10 @@ vErrors.push(err125);
 }
 errors++;
 }
-if(data8.type !== undefined){
-let data34 = data8.type;
-if(typeof data34 !== "string"){
-const err126 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"#/properties/providers/items/oneOf/5/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[5].properties.type.type,parentSchema:schema27.properties.providers.items.oneOf[5].properties.type,data:data34};
+if(data9.type !== undefined){
+let data35 = data9.type;
+if(typeof data35 !== "string"){
+const err126 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"#/properties/providers/items/oneOf/5/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[5].properties.type.type,parentSchema:schema27.properties.providers.items.oneOf[5].properties.type,data:data35};
 if(vErrors === null){
 vErrors = [err126];
 }
@@ -6055,8 +6058,8 @@ vErrors.push(err126);
 }
 errors++;
 }
-if("ollama" !== data34){
-const err127 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"#/properties/providers/items/oneOf/5/properties/type/const",keyword:"const",params:{allowedValue: "ollama"},message:"must be equal to constant",schema:"ollama",parentSchema:schema27.properties.providers.items.oneOf[5].properties.type,data:data34};
+if("ollama" !== data35){
+const err127 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"#/properties/providers/items/oneOf/5/properties/type/const",keyword:"const",params:{allowedValue: "ollama"},message:"must be equal to constant",schema:"ollama",parentSchema:schema27.properties.providers.items.oneOf[5].properties.type,data:data35};
 if(vErrors === null){
 vErrors = [err127];
 }
@@ -6066,20 +6069,20 @@ vErrors.push(err127);
 errors++;
 }
 if(errors > 0){
-const emErrs37 = [];
+const emErrs38 = [];
 for(const err128 of vErrors){
 if(!err128.emUsed){
-emErrs37.push(err128);
+emErrs38.push(err128);
 }
 }
-vErrors = emErrs37;
-errors = emErrs37.length;
+vErrors = emErrs38;
+errors = emErrs38.length;
 }
 }
-if(data8.id !== undefined){
-let data35 = data8.id;
-if(typeof data35 !== "string"){
-const err129 = {instancePath:instancePath+"/providers/" + i0+"/id",schemaPath:"#/properties/providers/items/oneOf/5/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[5].properties.id.type,parentSchema:schema27.properties.providers.items.oneOf[5].properties.id,data:data35};
+if(data9.id !== undefined){
+let data36 = data9.id;
+if(typeof data36 !== "string"){
+const err129 = {instancePath:instancePath+"/providers/" + i0+"/id",schemaPath:"#/properties/providers/items/oneOf/5/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[5].properties.id.type,parentSchema:schema27.properties.providers.items.oneOf[5].properties.id,data:data36};
 if(vErrors === null){
 vErrors = [err129];
 }
@@ -6089,20 +6092,20 @@ vErrors.push(err129);
 errors++;
 }
 if(errors > 0){
-const emErrs38 = [];
+const emErrs39 = [];
 for(const err130 of vErrors){
 if(!err130.emUsed){
-emErrs38.push(err130);
+emErrs39.push(err130);
 }
 }
-vErrors = emErrs38;
-errors = emErrs38.length;
+vErrors = emErrs39;
+errors = emErrs39.length;
 }
 }
-if(data8.name !== undefined){
-let data36 = data8.name;
-if(typeof data36 !== "string"){
-const err131 = {instancePath:instancePath+"/providers/" + i0+"/name",schemaPath:"#/properties/providers/items/oneOf/5/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[5].properties.name.type,parentSchema:schema27.properties.providers.items.oneOf[5].properties.name,data:data36};
+if(data9.name !== undefined){
+let data37 = data9.name;
+if(typeof data37 !== "string"){
+const err131 = {instancePath:instancePath+"/providers/" + i0+"/name",schemaPath:"#/properties/providers/items/oneOf/5/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[5].properties.name.type,parentSchema:schema27.properties.providers.items.oneOf[5].properties.name,data:data37};
 if(vErrors === null){
 vErrors = [err131];
 }
@@ -6112,20 +6115,20 @@ vErrors.push(err131);
 errors++;
 }
 if(errors > 0){
-const emErrs39 = [];
+const emErrs40 = [];
 for(const err132 of vErrors){
 if(!err132.emUsed){
-emErrs39.push(err132);
+emErrs40.push(err132);
 }
 }
-vErrors = emErrs39;
-errors = emErrs39.length;
+vErrors = emErrs40;
+errors = emErrs40.length;
 }
 }
-if(data8.enabled !== undefined){
-let data37 = data8.enabled;
-if(typeof data37 !== "boolean"){
-const err133 = {instancePath:instancePath+"/providers/" + i0+"/enabled",schemaPath:"#/properties/providers/items/oneOf/5/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema27.properties.providers.items.oneOf[5].properties.enabled.type,parentSchema:schema27.properties.providers.items.oneOf[5].properties.enabled,data:data37};
+if(data9.enabled !== undefined){
+let data38 = data9.enabled;
+if(typeof data38 !== "boolean"){
+const err133 = {instancePath:instancePath+"/providers/" + i0+"/enabled",schemaPath:"#/properties/providers/items/oneOf/5/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema27.properties.providers.items.oneOf[5].properties.enabled.type,parentSchema:schema27.properties.providers.items.oneOf[5].properties.enabled,data:data38};
 if(vErrors === null){
 vErrors = [err133];
 }
@@ -6135,20 +6138,20 @@ vErrors.push(err133);
 errors++;
 }
 if(errors > 0){
-const emErrs40 = [];
+const emErrs41 = [];
 for(const err134 of vErrors){
 if(!err134.emUsed){
-emErrs40.push(err134);
+emErrs41.push(err134);
 }
 }
-vErrors = emErrs40;
-errors = emErrs40.length;
+vErrors = emErrs41;
+errors = emErrs41.length;
 }
 }
-if(data8.apiKey !== undefined){
-let data38 = data8.apiKey;
-if(typeof data38 !== "string"){
-const err135 = {instancePath:instancePath+"/providers/" + i0+"/apiKey",schemaPath:"#/properties/providers/items/oneOf/5/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[5].properties.apiKey.type,parentSchema:schema27.properties.providers.items.oneOf[5].properties.apiKey,data:data38};
+if(data9.apiKey !== undefined){
+let data39 = data9.apiKey;
+if(typeof data39 !== "string"){
+const err135 = {instancePath:instancePath+"/providers/" + i0+"/apiKey",schemaPath:"#/properties/providers/items/oneOf/5/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[5].properties.apiKey.type,parentSchema:schema27.properties.providers.items.oneOf[5].properties.apiKey,data:data39};
 if(vErrors === null){
 vErrors = [err135];
 }
@@ -6158,20 +6161,20 @@ vErrors.push(err135);
 errors++;
 }
 if(errors > 0){
-const emErrs41 = [];
+const emErrs42 = [];
 for(const err136 of vErrors){
 if(!err136.emUsed){
-emErrs41.push(err136);
+emErrs42.push(err136);
 }
 }
-vErrors = emErrs41;
-errors = emErrs41.length;
+vErrors = emErrs42;
+errors = emErrs42.length;
 }
 }
-if(data8.baseURL !== undefined){
-let data39 = data8.baseURL;
-if(typeof data39 !== "string"){
-const err137 = {instancePath:instancePath+"/providers/" + i0+"/baseURL",schemaPath:"#/properties/providers/items/oneOf/5/properties/baseURL/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[5].properties.baseURL.type,parentSchema:schema27.properties.providers.items.oneOf[5].properties.baseURL,data:data39};
+if(data9.baseURL !== undefined){
+let data40 = data9.baseURL;
+if(typeof data40 !== "string"){
+const err137 = {instancePath:instancePath+"/providers/" + i0+"/baseURL",schemaPath:"#/properties/providers/items/oneOf/5/properties/baseURL/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[5].properties.baseURL.type,parentSchema:schema27.properties.providers.items.oneOf[5].properties.baseURL,data:data40};
 if(vErrors === null){
 vErrors = [err137];
 }
@@ -6181,19 +6184,19 @@ vErrors.push(err137);
 errors++;
 }
 if(errors > 0){
-const emErrs42 = [];
+const emErrs43 = [];
 for(const err138 of vErrors){
 if(!err138.emUsed){
-emErrs42.push(err138);
+emErrs43.push(err138);
 }
 }
-vErrors = emErrs42;
-errors = emErrs42.length;
+vErrors = emErrs43;
+errors = emErrs43.length;
 }
 }
 }
 else {
-const err139 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/5/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.providers.items.oneOf[5].type,parentSchema:schema27.properties.providers.items.oneOf[5],data:data8};
+const err139 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/5/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.providers.items.oneOf[5].type,parentSchema:schema27.properties.providers.items.oneOf[5],data:data9};
 if(vErrors === null){
 vErrors = [err139];
 }
@@ -6222,7 +6225,7 @@ for(const keyProp6 in emErrors6[key8]){
 emParamsErrors6 = emErrors6[key8][keyProp6];
 if(emParamsErrors6.length){
 const tmpl6 = templates6[key8] && templates6[key8][keyProp6];
-const err141 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/5/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors6},message:tmpl6 ? tmpl6() : schema27.properties.providers.items.oneOf[5].errorMessage[key8][keyProp6],schema:schema27.properties.providers.items.oneOf[5].errorMessage,parentSchema:schema27.properties.providers.items.oneOf[5],data:data8};
+const err141 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/5/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors6},message:tmpl6 ? tmpl6() : schema27.properties.providers.items.oneOf[5].errorMessage[key8][keyProp6],schema:schema27.properties.providers.items.oneOf[5].errorMessage,parentSchema:schema27.properties.providers.items.oneOf[5],data:data9};
 if(vErrors === null){
 vErrors = [err141];
 }
@@ -6233,16 +6236,16 @@ errors++;
 }
 }
 }
-const emErrs43 = [];
+const emErrs44 = [];
 for(const err142 of vErrors){
 if(!err142.emUsed){
-emErrs43.push(err142);
+emErrs44.push(err142);
 }
 }
-vErrors = emErrs43;
-errors = emErrs43.length;
+vErrors = emErrs44;
+errors = emErrs44.length;
 }
-var _valid0 = _errs82 === errors;
+var _valid0 = _errs84 === errors;
 if(_valid0 && valid4){
 valid4 = false;
 passing0 = [passing0, 5];
@@ -6261,10 +6264,10 @@ props0.apiKey = true;
 props0.baseURL = true;
 }
 }
-const _errs96 = errors;
-if(data8 && typeof data8 == "object" && !Array.isArray(data8)){
-if(data8.type === undefined){
-const err143 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/6/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema27.properties.providers.items.oneOf[6].required,parentSchema:schema27.properties.providers.items.oneOf[6],data:data8};
+const _errs98 = errors;
+if(data9 && typeof data9 == "object" && !Array.isArray(data9)){
+if(data9.type === undefined){
+const err143 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/6/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema27.properties.providers.items.oneOf[6].required,parentSchema:schema27.properties.providers.items.oneOf[6],data:data9};
 if(vErrors === null){
 vErrors = [err143];
 }
@@ -6273,8 +6276,8 @@ vErrors.push(err143);
 }
 errors++;
 }
-if(data8.name === undefined){
-const err144 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/6/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema27.properties.providers.items.oneOf[6].required,parentSchema:schema27.properties.providers.items.oneOf[6],data:data8};
+if(data9.name === undefined){
+const err144 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/6/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema27.properties.providers.items.oneOf[6].required,parentSchema:schema27.properties.providers.items.oneOf[6],data:data9};
 if(vErrors === null){
 vErrors = [err144];
 }
@@ -6283,8 +6286,8 @@ vErrors.push(err144);
 }
 errors++;
 }
-if(data8.id === undefined){
-const err145 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/6/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema27.properties.providers.items.oneOf[6].required,parentSchema:schema27.properties.providers.items.oneOf[6],data:data8};
+if(data9.id === undefined){
+const err145 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/6/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema27.properties.providers.items.oneOf[6].required,parentSchema:schema27.properties.providers.items.oneOf[6],data:data9};
 if(vErrors === null){
 vErrors = [err145];
 }
@@ -6293,8 +6296,8 @@ vErrors.push(err145);
 }
 errors++;
 }
-if(data8.enabled === undefined){
-const err146 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/6/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema27.properties.providers.items.oneOf[6].required,parentSchema:schema27.properties.providers.items.oneOf[6],data:data8};
+if(data9.enabled === undefined){
+const err146 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/6/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema27.properties.providers.items.oneOf[6].required,parentSchema:schema27.properties.providers.items.oneOf[6],data:data9};
 if(vErrors === null){
 vErrors = [err146];
 }
@@ -6303,8 +6306,8 @@ vErrors.push(err146);
 }
 errors++;
 }
-if(data8.apiKey === undefined){
-const err147 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/6/required",keyword:"required",params:{missingProperty: "apiKey"},message:"must have required property '"+"apiKey"+"'",schema:schema27.properties.providers.items.oneOf[6].required,parentSchema:schema27.properties.providers.items.oneOf[6],data:data8};
+if(data9.apiKey === undefined){
+const err147 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/6/required",keyword:"required",params:{missingProperty: "apiKey"},message:"must have required property '"+"apiKey"+"'",schema:schema27.properties.providers.items.oneOf[6].required,parentSchema:schema27.properties.providers.items.oneOf[6],data:data9};
 if(vErrors === null){
 vErrors = [err147];
 }
@@ -6313,10 +6316,10 @@ vErrors.push(err147);
 }
 errors++;
 }
-if(data8.type !== undefined){
-let data40 = data8.type;
-if(typeof data40 !== "string"){
-const err148 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"#/properties/providers/items/oneOf/6/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[6].properties.type.type,parentSchema:schema27.properties.providers.items.oneOf[6].properties.type,data:data40};
+if(data9.type !== undefined){
+let data41 = data9.type;
+if(typeof data41 !== "string"){
+const err148 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"#/properties/providers/items/oneOf/6/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[6].properties.type.type,parentSchema:schema27.properties.providers.items.oneOf[6].properties.type,data:data41};
 if(vErrors === null){
 vErrors = [err148];
 }
@@ -6325,8 +6328,8 @@ vErrors.push(err148);
 }
 errors++;
 }
-if("scaleway" !== data40){
-const err149 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"#/properties/providers/items/oneOf/6/properties/type/const",keyword:"const",params:{allowedValue: "scaleway"},message:"must be equal to constant",schema:"scaleway",parentSchema:schema27.properties.providers.items.oneOf[6].properties.type,data:data40};
+if("scaleway" !== data41){
+const err149 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"#/properties/providers/items/oneOf/6/properties/type/const",keyword:"const",params:{allowedValue: "scaleway"},message:"must be equal to constant",schema:"scaleway",parentSchema:schema27.properties.providers.items.oneOf[6].properties.type,data:data41};
 if(vErrors === null){
 vErrors = [err149];
 }
@@ -6336,20 +6339,20 @@ vErrors.push(err149);
 errors++;
 }
 if(errors > 0){
-const emErrs44 = [];
+const emErrs45 = [];
 for(const err150 of vErrors){
 if(!err150.emUsed){
-emErrs44.push(err150);
+emErrs45.push(err150);
 }
 }
-vErrors = emErrs44;
-errors = emErrs44.length;
+vErrors = emErrs45;
+errors = emErrs45.length;
 }
 }
-if(data8.id !== undefined){
-let data41 = data8.id;
-if(typeof data41 !== "string"){
-const err151 = {instancePath:instancePath+"/providers/" + i0+"/id",schemaPath:"#/properties/providers/items/oneOf/6/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[6].properties.id.type,parentSchema:schema27.properties.providers.items.oneOf[6].properties.id,data:data41};
+if(data9.id !== undefined){
+let data42 = data9.id;
+if(typeof data42 !== "string"){
+const err151 = {instancePath:instancePath+"/providers/" + i0+"/id",schemaPath:"#/properties/providers/items/oneOf/6/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[6].properties.id.type,parentSchema:schema27.properties.providers.items.oneOf[6].properties.id,data:data42};
 if(vErrors === null){
 vErrors = [err151];
 }
@@ -6359,20 +6362,20 @@ vErrors.push(err151);
 errors++;
 }
 if(errors > 0){
-const emErrs45 = [];
+const emErrs46 = [];
 for(const err152 of vErrors){
 if(!err152.emUsed){
-emErrs45.push(err152);
+emErrs46.push(err152);
 }
 }
-vErrors = emErrs45;
-errors = emErrs45.length;
+vErrors = emErrs46;
+errors = emErrs46.length;
 }
 }
-if(data8.name !== undefined){
-let data42 = data8.name;
-if(typeof data42 !== "string"){
-const err153 = {instancePath:instancePath+"/providers/" + i0+"/name",schemaPath:"#/properties/providers/items/oneOf/6/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[6].properties.name.type,parentSchema:schema27.properties.providers.items.oneOf[6].properties.name,data:data42};
+if(data9.name !== undefined){
+let data43 = data9.name;
+if(typeof data43 !== "string"){
+const err153 = {instancePath:instancePath+"/providers/" + i0+"/name",schemaPath:"#/properties/providers/items/oneOf/6/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[6].properties.name.type,parentSchema:schema27.properties.providers.items.oneOf[6].properties.name,data:data43};
 if(vErrors === null){
 vErrors = [err153];
 }
@@ -6382,20 +6385,20 @@ vErrors.push(err153);
 errors++;
 }
 if(errors > 0){
-const emErrs46 = [];
+const emErrs47 = [];
 for(const err154 of vErrors){
 if(!err154.emUsed){
-emErrs46.push(err154);
+emErrs47.push(err154);
 }
 }
-vErrors = emErrs46;
-errors = emErrs46.length;
+vErrors = emErrs47;
+errors = emErrs47.length;
 }
 }
-if(data8.enabled !== undefined){
-let data43 = data8.enabled;
-if(typeof data43 !== "boolean"){
-const err155 = {instancePath:instancePath+"/providers/" + i0+"/enabled",schemaPath:"#/properties/providers/items/oneOf/6/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema27.properties.providers.items.oneOf[6].properties.enabled.type,parentSchema:schema27.properties.providers.items.oneOf[6].properties.enabled,data:data43};
+if(data9.enabled !== undefined){
+let data44 = data9.enabled;
+if(typeof data44 !== "boolean"){
+const err155 = {instancePath:instancePath+"/providers/" + i0+"/enabled",schemaPath:"#/properties/providers/items/oneOf/6/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema27.properties.providers.items.oneOf[6].properties.enabled.type,parentSchema:schema27.properties.providers.items.oneOf[6].properties.enabled,data:data44};
 if(vErrors === null){
 vErrors = [err155];
 }
@@ -6405,20 +6408,20 @@ vErrors.push(err155);
 errors++;
 }
 if(errors > 0){
-const emErrs47 = [];
+const emErrs48 = [];
 for(const err156 of vErrors){
 if(!err156.emUsed){
-emErrs47.push(err156);
+emErrs48.push(err156);
 }
 }
-vErrors = emErrs47;
-errors = emErrs47.length;
+vErrors = emErrs48;
+errors = emErrs48.length;
 }
 }
-if(data8.apiKey !== undefined){
-let data44 = data8.apiKey;
-if(typeof data44 !== "string"){
-const err157 = {instancePath:instancePath+"/providers/" + i0+"/apiKey",schemaPath:"#/properties/providers/items/oneOf/6/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[6].properties.apiKey.type,parentSchema:schema27.properties.providers.items.oneOf[6].properties.apiKey,data:data44};
+if(data9.apiKey !== undefined){
+let data45 = data9.apiKey;
+if(typeof data45 !== "string"){
+const err157 = {instancePath:instancePath+"/providers/" + i0+"/apiKey",schemaPath:"#/properties/providers/items/oneOf/6/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[6].properties.apiKey.type,parentSchema:schema27.properties.providers.items.oneOf[6].properties.apiKey,data:data45};
 if(vErrors === null){
 vErrors = [err157];
 }
@@ -6428,19 +6431,19 @@ vErrors.push(err157);
 errors++;
 }
 if(errors > 0){
-const emErrs48 = [];
+const emErrs49 = [];
 for(const err158 of vErrors){
 if(!err158.emUsed){
-emErrs48.push(err158);
+emErrs49.push(err158);
 }
 }
-vErrors = emErrs48;
-errors = emErrs48.length;
+vErrors = emErrs49;
+errors = emErrs49.length;
 }
 }
 }
 else {
-const err159 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/6/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.providers.items.oneOf[6].type,parentSchema:schema27.properties.providers.items.oneOf[6],data:data8};
+const err159 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/6/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.providers.items.oneOf[6].type,parentSchema:schema27.properties.providers.items.oneOf[6],data:data9};
 if(vErrors === null){
 vErrors = [err159];
 }
@@ -6469,7 +6472,7 @@ for(const keyProp7 in emErrors7[key9]){
 emParamsErrors7 = emErrors7[key9][keyProp7];
 if(emParamsErrors7.length){
 const tmpl7 = templates7[key9] && templates7[key9][keyProp7];
-const err161 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/6/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors7},message:tmpl7 ? tmpl7() : schema27.properties.providers.items.oneOf[6].errorMessage[key9][keyProp7],schema:schema27.properties.providers.items.oneOf[6].errorMessage,parentSchema:schema27.properties.providers.items.oneOf[6],data:data8};
+const err161 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/6/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors7},message:tmpl7 ? tmpl7() : schema27.properties.providers.items.oneOf[6].errorMessage[key9][keyProp7],schema:schema27.properties.providers.items.oneOf[6].errorMessage,parentSchema:schema27.properties.providers.items.oneOf[6],data:data9};
 if(vErrors === null){
 vErrors = [err161];
 }
@@ -6480,16 +6483,16 @@ errors++;
 }
 }
 }
-const emErrs49 = [];
+const emErrs50 = [];
 for(const err162 of vErrors){
 if(!err162.emUsed){
-emErrs49.push(err162);
+emErrs50.push(err162);
 }
 }
-vErrors = emErrs49;
-errors = emErrs49.length;
+vErrors = emErrs50;
+errors = emErrs50.length;
 }
-var _valid0 = _errs96 === errors;
+var _valid0 = _errs98 === errors;
 if(_valid0 && valid4){
 valid4 = false;
 passing0 = [passing0, 6];
@@ -6507,10 +6510,10 @@ props0.enabled = true;
 props0.apiKey = true;
 }
 }
-const _errs108 = errors;
-if(data8 && typeof data8 == "object" && !Array.isArray(data8)){
-if(data8.type === undefined){
-const err163 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/7/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema27.properties.providers.items.oneOf[7].required,parentSchema:schema27.properties.providers.items.oneOf[7],data:data8};
+const _errs110 = errors;
+if(data9 && typeof data9 == "object" && !Array.isArray(data9)){
+if(data9.type === undefined){
+const err163 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/7/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema27.properties.providers.items.oneOf[7].required,parentSchema:schema27.properties.providers.items.oneOf[7],data:data9};
 if(vErrors === null){
 vErrors = [err163];
 }
@@ -6519,8 +6522,8 @@ vErrors.push(err163);
 }
 errors++;
 }
-if(data8.name === undefined){
-const err164 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/7/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema27.properties.providers.items.oneOf[7].required,parentSchema:schema27.properties.providers.items.oneOf[7],data:data8};
+if(data9.name === undefined){
+const err164 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/7/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema27.properties.providers.items.oneOf[7].required,parentSchema:schema27.properties.providers.items.oneOf[7],data:data9};
 if(vErrors === null){
 vErrors = [err164];
 }
@@ -6529,8 +6532,8 @@ vErrors.push(err164);
 }
 errors++;
 }
-if(data8.id === undefined){
-const err165 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/7/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema27.properties.providers.items.oneOf[7].required,parentSchema:schema27.properties.providers.items.oneOf[7],data:data8};
+if(data9.id === undefined){
+const err165 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/7/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema27.properties.providers.items.oneOf[7].required,parentSchema:schema27.properties.providers.items.oneOf[7],data:data9};
 if(vErrors === null){
 vErrors = [err165];
 }
@@ -6539,8 +6542,8 @@ vErrors.push(err165);
 }
 errors++;
 }
-if(data8.enabled === undefined){
-const err166 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/7/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema27.properties.providers.items.oneOf[7].required,parentSchema:schema27.properties.providers.items.oneOf[7],data:data8};
+if(data9.enabled === undefined){
+const err166 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/7/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema27.properties.providers.items.oneOf[7].required,parentSchema:schema27.properties.providers.items.oneOf[7],data:data9};
 if(vErrors === null){
 vErrors = [err166];
 }
@@ -6549,8 +6552,8 @@ vErrors.push(err166);
 }
 errors++;
 }
-if(data8.baseURL === undefined){
-const err167 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/7/required",keyword:"required",params:{missingProperty: "baseURL"},message:"must have required property '"+"baseURL"+"'",schema:schema27.properties.providers.items.oneOf[7].required,parentSchema:schema27.properties.providers.items.oneOf[7],data:data8};
+if(data9.baseURL === undefined){
+const err167 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/7/required",keyword:"required",params:{missingProperty: "baseURL"},message:"must have required property '"+"baseURL"+"'",schema:schema27.properties.providers.items.oneOf[7].required,parentSchema:schema27.properties.providers.items.oneOf[7],data:data9};
 if(vErrors === null){
 vErrors = [err167];
 }
@@ -6559,10 +6562,10 @@ vErrors.push(err167);
 }
 errors++;
 }
-if(data8.type !== undefined){
-let data45 = data8.type;
-if(typeof data45 !== "string"){
-const err168 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"#/properties/providers/items/oneOf/7/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[7].properties.type.type,parentSchema:schema27.properties.providers.items.oneOf[7].properties.type,data:data45};
+if(data9.type !== undefined){
+let data46 = data9.type;
+if(typeof data46 !== "string"){
+const err168 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"#/properties/providers/items/oneOf/7/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[7].properties.type.type,parentSchema:schema27.properties.providers.items.oneOf[7].properties.type,data:data46};
 if(vErrors === null){
 vErrors = [err168];
 }
@@ -6571,8 +6574,8 @@ vErrors.push(err168);
 }
 errors++;
 }
-if("openai-compatible" !== data45){
-const err169 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"#/properties/providers/items/oneOf/7/properties/type/const",keyword:"const",params:{allowedValue: "openai-compatible"},message:"must be equal to constant",schema:"openai-compatible",parentSchema:schema27.properties.providers.items.oneOf[7].properties.type,data:data45};
+if("openai-compatible" !== data46){
+const err169 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"#/properties/providers/items/oneOf/7/properties/type/const",keyword:"const",params:{allowedValue: "openai-compatible"},message:"must be equal to constant",schema:"openai-compatible",parentSchema:schema27.properties.providers.items.oneOf[7].properties.type,data:data46};
 if(vErrors === null){
 vErrors = [err169];
 }
@@ -6582,20 +6585,20 @@ vErrors.push(err169);
 errors++;
 }
 if(errors > 0){
-const emErrs50 = [];
+const emErrs51 = [];
 for(const err170 of vErrors){
 if(!err170.emUsed){
-emErrs50.push(err170);
+emErrs51.push(err170);
 }
 }
-vErrors = emErrs50;
-errors = emErrs50.length;
+vErrors = emErrs51;
+errors = emErrs51.length;
 }
 }
-if(data8.id !== undefined){
-let data46 = data8.id;
-if(typeof data46 !== "string"){
-const err171 = {instancePath:instancePath+"/providers/" + i0+"/id",schemaPath:"#/properties/providers/items/oneOf/7/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[7].properties.id.type,parentSchema:schema27.properties.providers.items.oneOf[7].properties.id,data:data46};
+if(data9.id !== undefined){
+let data47 = data9.id;
+if(typeof data47 !== "string"){
+const err171 = {instancePath:instancePath+"/providers/" + i0+"/id",schemaPath:"#/properties/providers/items/oneOf/7/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[7].properties.id.type,parentSchema:schema27.properties.providers.items.oneOf[7].properties.id,data:data47};
 if(vErrors === null){
 vErrors = [err171];
 }
@@ -6605,20 +6608,20 @@ vErrors.push(err171);
 errors++;
 }
 if(errors > 0){
-const emErrs51 = [];
+const emErrs52 = [];
 for(const err172 of vErrors){
 if(!err172.emUsed){
-emErrs51.push(err172);
+emErrs52.push(err172);
 }
 }
-vErrors = emErrs51;
-errors = emErrs51.length;
+vErrors = emErrs52;
+errors = emErrs52.length;
 }
 }
-if(data8.name !== undefined){
-let data47 = data8.name;
-if(typeof data47 !== "string"){
-const err173 = {instancePath:instancePath+"/providers/" + i0+"/name",schemaPath:"#/properties/providers/items/oneOf/7/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[7].properties.name.type,parentSchema:schema27.properties.providers.items.oneOf[7].properties.name,data:data47};
+if(data9.name !== undefined){
+let data48 = data9.name;
+if(typeof data48 !== "string"){
+const err173 = {instancePath:instancePath+"/providers/" + i0+"/name",schemaPath:"#/properties/providers/items/oneOf/7/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[7].properties.name.type,parentSchema:schema27.properties.providers.items.oneOf[7].properties.name,data:data48};
 if(vErrors === null){
 vErrors = [err173];
 }
@@ -6628,20 +6631,20 @@ vErrors.push(err173);
 errors++;
 }
 if(errors > 0){
-const emErrs52 = [];
+const emErrs53 = [];
 for(const err174 of vErrors){
 if(!err174.emUsed){
-emErrs52.push(err174);
+emErrs53.push(err174);
 }
 }
-vErrors = emErrs52;
-errors = emErrs52.length;
+vErrors = emErrs53;
+errors = emErrs53.length;
 }
 }
-if(data8.enabled !== undefined){
-let data48 = data8.enabled;
-if(typeof data48 !== "boolean"){
-const err175 = {instancePath:instancePath+"/providers/" + i0+"/enabled",schemaPath:"#/properties/providers/items/oneOf/7/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema27.properties.providers.items.oneOf[7].properties.enabled.type,parentSchema:schema27.properties.providers.items.oneOf[7].properties.enabled,data:data48};
+if(data9.enabled !== undefined){
+let data49 = data9.enabled;
+if(typeof data49 !== "boolean"){
+const err175 = {instancePath:instancePath+"/providers/" + i0+"/enabled",schemaPath:"#/properties/providers/items/oneOf/7/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema27.properties.providers.items.oneOf[7].properties.enabled.type,parentSchema:schema27.properties.providers.items.oneOf[7].properties.enabled,data:data49};
 if(vErrors === null){
 vErrors = [err175];
 }
@@ -6651,20 +6654,20 @@ vErrors.push(err175);
 errors++;
 }
 if(errors > 0){
-const emErrs53 = [];
+const emErrs54 = [];
 for(const err176 of vErrors){
 if(!err176.emUsed){
-emErrs53.push(err176);
+emErrs54.push(err176);
 }
 }
-vErrors = emErrs53;
-errors = emErrs53.length;
+vErrors = emErrs54;
+errors = emErrs54.length;
 }
 }
-if(data8.baseURL !== undefined){
-let data49 = data8.baseURL;
-if(typeof data49 !== "string"){
-const err177 = {instancePath:instancePath+"/providers/" + i0+"/baseURL",schemaPath:"#/properties/providers/items/oneOf/7/properties/baseURL/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[7].properties.baseURL.type,parentSchema:schema27.properties.providers.items.oneOf[7].properties.baseURL,data:data49};
+if(data9.baseURL !== undefined){
+let data50 = data9.baseURL;
+if(typeof data50 !== "string"){
+const err177 = {instancePath:instancePath+"/providers/" + i0+"/baseURL",schemaPath:"#/properties/providers/items/oneOf/7/properties/baseURL/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[7].properties.baseURL.type,parentSchema:schema27.properties.providers.items.oneOf[7].properties.baseURL,data:data50};
 if(vErrors === null){
 vErrors = [err177];
 }
@@ -6674,20 +6677,20 @@ vErrors.push(err177);
 errors++;
 }
 if(errors > 0){
-const emErrs54 = [];
+const emErrs55 = [];
 for(const err178 of vErrors){
 if(!err178.emUsed){
-emErrs54.push(err178);
+emErrs55.push(err178);
 }
 }
-vErrors = emErrs54;
-errors = emErrs54.length;
+vErrors = emErrs55;
+errors = emErrs55.length;
 }
 }
-if(data8.apiKey !== undefined){
-let data50 = data8.apiKey;
-if(typeof data50 !== "string"){
-const err179 = {instancePath:instancePath+"/providers/" + i0+"/apiKey",schemaPath:"#/properties/providers/items/oneOf/7/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[7].properties.apiKey.type,parentSchema:schema27.properties.providers.items.oneOf[7].properties.apiKey,data:data50};
+if(data9.apiKey !== undefined){
+let data51 = data9.apiKey;
+if(typeof data51 !== "string"){
+const err179 = {instancePath:instancePath+"/providers/" + i0+"/apiKey",schemaPath:"#/properties/providers/items/oneOf/7/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[7].properties.apiKey.type,parentSchema:schema27.properties.providers.items.oneOf[7].properties.apiKey,data:data51};
 if(vErrors === null){
 vErrors = [err179];
 }
@@ -6697,19 +6700,19 @@ vErrors.push(err179);
 errors++;
 }
 if(errors > 0){
-const emErrs55 = [];
+const emErrs56 = [];
 for(const err180 of vErrors){
 if(!err180.emUsed){
-emErrs55.push(err180);
+emErrs56.push(err180);
 }
 }
-vErrors = emErrs55;
-errors = emErrs55.length;
+vErrors = emErrs56;
+errors = emErrs56.length;
 }
 }
 }
 else {
-const err181 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/7/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.providers.items.oneOf[7].type,parentSchema:schema27.properties.providers.items.oneOf[7],data:data8};
+const err181 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/7/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.providers.items.oneOf[7].type,parentSchema:schema27.properties.providers.items.oneOf[7],data:data9};
 if(vErrors === null){
 vErrors = [err181];
 }
@@ -6738,7 +6741,7 @@ for(const keyProp8 in emErrors8[key10]){
 emParamsErrors8 = emErrors8[key10][keyProp8];
 if(emParamsErrors8.length){
 const tmpl8 = templates8[key10] && templates8[key10][keyProp8];
-const err183 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/7/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors8},message:tmpl8 ? tmpl8() : schema27.properties.providers.items.oneOf[7].errorMessage[key10][keyProp8],schema:schema27.properties.providers.items.oneOf[7].errorMessage,parentSchema:schema27.properties.providers.items.oneOf[7],data:data8};
+const err183 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/7/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors8},message:tmpl8 ? tmpl8() : schema27.properties.providers.items.oneOf[7].errorMessage[key10][keyProp8],schema:schema27.properties.providers.items.oneOf[7].errorMessage,parentSchema:schema27.properties.providers.items.oneOf[7],data:data9};
 if(vErrors === null){
 vErrors = [err183];
 }
@@ -6749,16 +6752,16 @@ errors++;
 }
 }
 }
-const emErrs56 = [];
+const emErrs57 = [];
 for(const err184 of vErrors){
 if(!err184.emUsed){
-emErrs56.push(err184);
+emErrs57.push(err184);
 }
 }
-vErrors = emErrs56;
-errors = emErrs56.length;
+vErrors = emErrs57;
+errors = emErrs57.length;
 }
-var _valid0 = _errs108 === errors;
+var _valid0 = _errs110 === errors;
 if(_valid0 && valid4){
 valid4 = false;
 passing0 = [passing0, 7];
@@ -6777,10 +6780,10 @@ props0.baseURL = true;
 props0.apiKey = true;
 }
 }
-const _errs122 = errors;
-if(data8 && typeof data8 == "object" && !Array.isArray(data8)){
-if(data8.type === undefined){
-const err185 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/8/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema27.properties.providers.items.oneOf[8].required,parentSchema:schema27.properties.providers.items.oneOf[8],data:data8};
+const _errs124 = errors;
+if(data9 && typeof data9 == "object" && !Array.isArray(data9)){
+if(data9.type === undefined){
+const err185 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/8/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema27.properties.providers.items.oneOf[8].required,parentSchema:schema27.properties.providers.items.oneOf[8],data:data9};
 if(vErrors === null){
 vErrors = [err185];
 }
@@ -6789,8 +6792,8 @@ vErrors.push(err185);
 }
 errors++;
 }
-if(data8.name === undefined){
-const err186 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/8/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema27.properties.providers.items.oneOf[8].required,parentSchema:schema27.properties.providers.items.oneOf[8],data:data8};
+if(data9.name === undefined){
+const err186 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/8/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema27.properties.providers.items.oneOf[8].required,parentSchema:schema27.properties.providers.items.oneOf[8],data:data9};
 if(vErrors === null){
 vErrors = [err186];
 }
@@ -6799,8 +6802,8 @@ vErrors.push(err186);
 }
 errors++;
 }
-if(data8.id === undefined){
-const err187 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/8/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema27.properties.providers.items.oneOf[8].required,parentSchema:schema27.properties.providers.items.oneOf[8],data:data8};
+if(data9.id === undefined){
+const err187 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/8/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema27.properties.providers.items.oneOf[8].required,parentSchema:schema27.properties.providers.items.oneOf[8],data:data9};
 if(vErrors === null){
 vErrors = [err187];
 }
@@ -6809,8 +6812,8 @@ vErrors.push(err187);
 }
 errors++;
 }
-if(data8.enabled === undefined){
-const err188 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/8/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema27.properties.providers.items.oneOf[8].required,parentSchema:schema27.properties.providers.items.oneOf[8],data:data8};
+if(data9.enabled === undefined){
+const err188 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/8/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema27.properties.providers.items.oneOf[8].required,parentSchema:schema27.properties.providers.items.oneOf[8],data:data9};
 if(vErrors === null){
 vErrors = [err188];
 }
@@ -6819,10 +6822,10 @@ vErrors.push(err188);
 }
 errors++;
 }
-if(data8.type !== undefined){
-let data51 = data8.type;
-if(typeof data51 !== "string"){
-const err189 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"#/properties/providers/items/oneOf/8/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[8].properties.type.type,parentSchema:schema27.properties.providers.items.oneOf[8].properties.type,data:data51};
+if(data9.type !== undefined){
+let data52 = data9.type;
+if(typeof data52 !== "string"){
+const err189 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"#/properties/providers/items/oneOf/8/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[8].properties.type.type,parentSchema:schema27.properties.providers.items.oneOf[8].properties.type,data:data52};
 if(vErrors === null){
 vErrors = [err189];
 }
@@ -6831,8 +6834,8 @@ vErrors.push(err189);
 }
 errors++;
 }
-if("mock" !== data51){
-const err190 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"#/properties/providers/items/oneOf/8/properties/type/const",keyword:"const",params:{allowedValue: "mock"},message:"must be equal to constant",schema:"mock",parentSchema:schema27.properties.providers.items.oneOf[8].properties.type,data:data51};
+if("mock" !== data52){
+const err190 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"#/properties/providers/items/oneOf/8/properties/type/const",keyword:"const",params:{allowedValue: "mock"},message:"must be equal to constant",schema:"mock",parentSchema:schema27.properties.providers.items.oneOf[8].properties.type,data:data52};
 if(vErrors === null){
 vErrors = [err190];
 }
@@ -6842,20 +6845,20 @@ vErrors.push(err190);
 errors++;
 }
 if(errors > 0){
-const emErrs57 = [];
+const emErrs58 = [];
 for(const err191 of vErrors){
 if(!err191.emUsed){
-emErrs57.push(err191);
+emErrs58.push(err191);
 }
 }
-vErrors = emErrs57;
-errors = emErrs57.length;
+vErrors = emErrs58;
+errors = emErrs58.length;
 }
 }
-if(data8.id !== undefined){
-let data52 = data8.id;
-if(typeof data52 !== "string"){
-const err192 = {instancePath:instancePath+"/providers/" + i0+"/id",schemaPath:"#/properties/providers/items/oneOf/8/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[8].properties.id.type,parentSchema:schema27.properties.providers.items.oneOf[8].properties.id,data:data52};
+if(data9.id !== undefined){
+let data53 = data9.id;
+if(typeof data53 !== "string"){
+const err192 = {instancePath:instancePath+"/providers/" + i0+"/id",schemaPath:"#/properties/providers/items/oneOf/8/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[8].properties.id.type,parentSchema:schema27.properties.providers.items.oneOf[8].properties.id,data:data53};
 if(vErrors === null){
 vErrors = [err192];
 }
@@ -6865,20 +6868,20 @@ vErrors.push(err192);
 errors++;
 }
 if(errors > 0){
-const emErrs58 = [];
+const emErrs59 = [];
 for(const err193 of vErrors){
 if(!err193.emUsed){
-emErrs58.push(err193);
+emErrs59.push(err193);
 }
 }
-vErrors = emErrs58;
-errors = emErrs58.length;
+vErrors = emErrs59;
+errors = emErrs59.length;
 }
 }
-if(data8.name !== undefined){
-let data53 = data8.name;
-if(typeof data53 !== "string"){
-const err194 = {instancePath:instancePath+"/providers/" + i0+"/name",schemaPath:"#/properties/providers/items/oneOf/8/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[8].properties.name.type,parentSchema:schema27.properties.providers.items.oneOf[8].properties.name,data:data53};
+if(data9.name !== undefined){
+let data54 = data9.name;
+if(typeof data54 !== "string"){
+const err194 = {instancePath:instancePath+"/providers/" + i0+"/name",schemaPath:"#/properties/providers/items/oneOf/8/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.providers.items.oneOf[8].properties.name.type,parentSchema:schema27.properties.providers.items.oneOf[8].properties.name,data:data54};
 if(vErrors === null){
 vErrors = [err194];
 }
@@ -6888,20 +6891,20 @@ vErrors.push(err194);
 errors++;
 }
 if(errors > 0){
-const emErrs59 = [];
+const emErrs60 = [];
 for(const err195 of vErrors){
 if(!err195.emUsed){
-emErrs59.push(err195);
+emErrs60.push(err195);
 }
 }
-vErrors = emErrs59;
-errors = emErrs59.length;
+vErrors = emErrs60;
+errors = emErrs60.length;
 }
 }
-if(data8.enabled !== undefined){
-let data54 = data8.enabled;
-if(typeof data54 !== "boolean"){
-const err196 = {instancePath:instancePath+"/providers/" + i0+"/enabled",schemaPath:"#/properties/providers/items/oneOf/8/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema27.properties.providers.items.oneOf[8].properties.enabled.type,parentSchema:schema27.properties.providers.items.oneOf[8].properties.enabled,data:data54};
+if(data9.enabled !== undefined){
+let data55 = data9.enabled;
+if(typeof data55 !== "boolean"){
+const err196 = {instancePath:instancePath+"/providers/" + i0+"/enabled",schemaPath:"#/properties/providers/items/oneOf/8/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema27.properties.providers.items.oneOf[8].properties.enabled.type,parentSchema:schema27.properties.providers.items.oneOf[8].properties.enabled,data:data55};
 if(vErrors === null){
 vErrors = [err196];
 }
@@ -6911,19 +6914,19 @@ vErrors.push(err196);
 errors++;
 }
 if(errors > 0){
-const emErrs60 = [];
+const emErrs61 = [];
 for(const err197 of vErrors){
 if(!err197.emUsed){
-emErrs60.push(err197);
+emErrs61.push(err197);
 }
 }
-vErrors = emErrs60;
-errors = emErrs60.length;
+vErrors = emErrs61;
+errors = emErrs61.length;
 }
 }
 }
 else {
-const err198 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/8/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.providers.items.oneOf[8].type,parentSchema:schema27.properties.providers.items.oneOf[8],data:data8};
+const err198 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/8/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.providers.items.oneOf[8].type,parentSchema:schema27.properties.providers.items.oneOf[8],data:data9};
 if(vErrors === null){
 vErrors = [err198];
 }
@@ -6952,7 +6955,7 @@ for(const keyProp9 in emErrors9[key11]){
 emParamsErrors9 = emErrors9[key11][keyProp9];
 if(emParamsErrors9.length){
 const tmpl9 = templates9[key11] && templates9[key11][keyProp9];
-const err200 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/8/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors9},message:tmpl9 ? tmpl9() : schema27.properties.providers.items.oneOf[8].errorMessage[key11][keyProp9],schema:schema27.properties.providers.items.oneOf[8].errorMessage,parentSchema:schema27.properties.providers.items.oneOf[8],data:data8};
+const err200 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf/8/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors9},message:tmpl9 ? tmpl9() : schema27.properties.providers.items.oneOf[8].errorMessage[key11][keyProp9],schema:schema27.properties.providers.items.oneOf[8].errorMessage,parentSchema:schema27.properties.providers.items.oneOf[8],data:data9};
 if(vErrors === null){
 vErrors = [err200];
 }
@@ -6963,16 +6966,16 @@ errors++;
 }
 }
 }
-const emErrs61 = [];
+const emErrs62 = [];
 for(const err201 of vErrors){
 if(!err201.emUsed){
-emErrs61.push(err201);
+emErrs62.push(err201);
 }
 }
-vErrors = emErrs61;
-errors = emErrs61.length;
+vErrors = emErrs62;
+errors = emErrs62.length;
 }
-var _valid0 = _errs122 === errors;
+var _valid0 = _errs124 === errors;
 if(_valid0 && valid4){
 valid4 = false;
 passing0 = [passing0, 8];
@@ -6998,7 +7001,7 @@ props0.enabled = true;
 }
 }
 if(!valid4){
-const err202 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf",keyword:"oneOf",params:{passingSchemas: passing0},message:"must match exactly one schema in oneOf",schema:schema27.properties.providers.items.oneOf,parentSchema:schema27.properties.providers.items,data:data8};
+const err202 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/oneOf",keyword:"oneOf",params:{passingSchemas: passing0},message:"must match exactly one schema in oneOf",schema:schema27.properties.providers.items.oneOf,parentSchema:schema27.properties.providers.items,data:data9};
 if(vErrors === null){
 vErrors = [err202];
 }
@@ -7008,21 +7011,21 @@ vErrors.push(err202);
 errors++;
 }
 else {
-errors = _errs21;
+errors = _errs23;
 if(vErrors !== null){
-if(_errs21){
-vErrors.length = _errs21;
+if(_errs23){
+vErrors.length = _errs23;
 }
 else {
 vErrors = null;
 }
 }
 }
-if(data8 && typeof data8 == "object" && !Array.isArray(data8)){
+if(data9 && typeof data9 == "object" && !Array.isArray(data9)){
 if(props0 !== true){
-for(const key12 in data8){
+for(const key12 in data9){
 if(!props0 || !props0[key12]){
-const err203 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/unevaluatedProperties",keyword:"unevaluatedProperties",params:{unevaluatedProperty: key12},message:"must NOT have unevaluated properties",schema:false,parentSchema:schema27.properties.providers.items,data:data8};
+const err203 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/unevaluatedProperties",keyword:"unevaluatedProperties",params:{unevaluatedProperty: key12},message:"must NOT have unevaluated properties",schema:false,parentSchema:schema27.properties.providers.items,data:data9};
 if(vErrors === null){
 vErrors = [err203];
 }
@@ -7035,7 +7038,7 @@ errors++;
 }
 }
 else {
-const err204 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.providers.items.type,parentSchema:schema27.properties.providers.items,data:data8};
+const err204 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.providers.items.type,parentSchema:schema27.properties.providers.items,data:data9};
 if(vErrors === null){
 vErrors = [err204];
 }
@@ -7055,7 +7058,7 @@ err205.emUsed = true;
 }
 for(const key13 in emErrors10){
 if(emErrors10[key13].length){
-const err206 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/errorMessage",keyword:"errorMessage",params:{errors: emErrors10[key13]},message:key13 in templates10 ? templates10[key13]() : schema27.properties.providers.items.errorMessage[key13],schema:schema27.properties.providers.items.errorMessage,parentSchema:schema27.properties.providers.items,data:data8};
+const err206 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/errorMessage",keyword:"errorMessage",params:{errors: emErrors10[key13]},message:key13 in templates10 ? templates10[key13]() : schema27.properties.providers.items.errorMessage[key13],schema:schema27.properties.providers.items.errorMessage,parentSchema:schema27.properties.providers.items,data:data9};
 if(vErrors === null){
 vErrors = [err206];
 }
@@ -7065,19 +7068,19 @@ vErrors.push(err206);
 errors++;
 }
 }
-const emErrs62 = [];
+const emErrs63 = [];
 for(const err207 of vErrors){
 if(!err207.emUsed){
-emErrs62.push(err207);
+emErrs63.push(err207);
 }
 }
-vErrors = emErrs62;
-errors = emErrs62.length;
+vErrors = emErrs63;
+errors = emErrs63.length;
 }
 }
 }
 else {
-const err208 = {instancePath:instancePath+"/providers",schemaPath:"#/properties/providers/type",keyword:"type",params:{type: "array"},message:"must be array",schema:schema27.properties.providers.type,parentSchema:schema27.properties.providers,data:data7};
+const err208 = {instancePath:instancePath+"/providers",schemaPath:"#/properties/providers/type",keyword:"type",params:{type: "array"},message:"must be array",schema:schema27.properties.providers.type,parentSchema:schema27.properties.providers,data:data8};
 if(vErrors === null){
 vErrors = [err208];
 }
@@ -7087,27 +7090,27 @@ vErrors.push(err208);
 errors++;
 }
 if(errors > 0){
-const emErrs63 = [];
+const emErrs64 = [];
 for(const err209 of vErrors){
 if(!err209.emUsed){
-emErrs63.push(err209);
+emErrs64.push(err209);
 }
 }
-vErrors = emErrs63;
-errors = emErrs63.length;
+vErrors = emErrs64;
+errors = emErrs64.length;
 }
 }
 if(data.models !== undefined){
-let data55 = data.models;
-if(data55 && typeof data55 == "object" && !Array.isArray(data55)){
-if(data55.assistant !== undefined){
-let data56 = data55.assistant;
+let data56 = data.models;
 if(data56 && typeof data56 == "object" && !Array.isArray(data56)){
-if(data56.model !== undefined){
-let data57 = data56.model;
+if(data56.assistant !== undefined){
+let data57 = data56.assistant;
 if(data57 && typeof data57 == "object" && !Array.isArray(data57)){
-if(data57.id === undefined){
-const err210 = {instancePath:instancePath+"/models/assistant/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.required,parentSchema:schema28,data:data57};
+if(data57.model !== undefined){
+let data58 = data57.model;
+if(data58 && typeof data58 == "object" && !Array.isArray(data58)){
+if(data58.id === undefined){
+const err210 = {instancePath:instancePath+"/models/assistant/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.required,parentSchema:schema28,data:data58};
 if(vErrors === null){
 vErrors = [err210];
 }
@@ -7116,8 +7119,8 @@ vErrors.push(err210);
 }
 errors++;
 }
-if(data57.name === undefined){
-const err211 = {instancePath:instancePath+"/models/assistant/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.required,parentSchema:schema28,data:data57};
+if(data58.name === undefined){
+const err211 = {instancePath:instancePath+"/models/assistant/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.required,parentSchema:schema28,data:data58};
 if(vErrors === null){
 vErrors = [err211];
 }
@@ -7126,8 +7129,8 @@ vErrors.push(err211);
 }
 errors++;
 }
-if(data57.provider === undefined){
-const err212 = {instancePath:instancePath+"/models/assistant/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'",schema:schema28.required,parentSchema:schema28,data:data57};
+if(data58.provider === undefined){
+const err212 = {instancePath:instancePath+"/models/assistant/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'",schema:schema28.required,parentSchema:schema28,data:data58};
 if(vErrors === null){
 vErrors = [err212];
 }
@@ -7136,10 +7139,10 @@ vErrors.push(err212);
 }
 errors++;
 }
-if(data57.id !== undefined){
-let data58 = data57.id;
-if(typeof data58 !== "string"){
-const err213 = {instancePath:instancePath+"/models/assistant/model/id",schemaPath:"#/definitions/Model/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.id.type,parentSchema:schema28.properties.id,data:data58};
+if(data58.id !== undefined){
+let data59 = data58.id;
+if(typeof data59 !== "string"){
+const err213 = {instancePath:instancePath+"/models/assistant/model/id",schemaPath:"#/definitions/Model/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.id.type,parentSchema:schema28.properties.id,data:data59};
 if(vErrors === null){
 vErrors = [err213];
 }
@@ -7149,20 +7152,20 @@ vErrors.push(err213);
 errors++;
 }
 if(errors > 0){
-const emErrs64 = [];
+const emErrs65 = [];
 for(const err214 of vErrors){
 if(!err214.emUsed){
-emErrs64.push(err214);
+emErrs65.push(err214);
 }
 }
-vErrors = emErrs64;
-errors = emErrs64.length;
+vErrors = emErrs65;
+errors = emErrs65.length;
 }
 }
-if(data57.name !== undefined){
-let data59 = data57.name;
-if(typeof data59 !== "string"){
-const err215 = {instancePath:instancePath+"/models/assistant/model/name",schemaPath:"#/definitions/Model/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.name.type,parentSchema:schema28.properties.name,data:data59};
+if(data58.name !== undefined){
+let data60 = data58.name;
+if(typeof data60 !== "string"){
+const err215 = {instancePath:instancePath+"/models/assistant/model/name",schemaPath:"#/definitions/Model/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.name.type,parentSchema:schema28.properties.name,data:data60};
 if(vErrors === null){
 vErrors = [err215];
 }
@@ -7172,21 +7175,21 @@ vErrors.push(err215);
 errors++;
 }
 if(errors > 0){
-const emErrs65 = [];
+const emErrs66 = [];
 for(const err216 of vErrors){
 if(!err216.emUsed){
-emErrs65.push(err216);
+emErrs66.push(err216);
 }
 }
-vErrors = emErrs65;
-errors = emErrs65.length;
+vErrors = emErrs66;
+errors = emErrs66.length;
 }
 }
-if(data57.provider !== undefined){
-let data60 = data57.provider;
-if(data60 && typeof data60 == "object" && !Array.isArray(data60)){
-if(data60.type === undefined){
-const err217 = {instancePath:instancePath+"/models/assistant/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data60};
+if(data58.provider !== undefined){
+let data61 = data58.provider;
+if(data61 && typeof data61 == "object" && !Array.isArray(data61)){
+if(data61.type === undefined){
+const err217 = {instancePath:instancePath+"/models/assistant/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data61};
 if(vErrors === null){
 vErrors = [err217];
 }
@@ -7195,8 +7198,8 @@ vErrors.push(err217);
 }
 errors++;
 }
-if(data60.name === undefined){
-const err218 = {instancePath:instancePath+"/models/assistant/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data60};
+if(data61.name === undefined){
+const err218 = {instancePath:instancePath+"/models/assistant/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data61};
 if(vErrors === null){
 vErrors = [err218];
 }
@@ -7205,8 +7208,8 @@ vErrors.push(err218);
 }
 errors++;
 }
-if(data60.id === undefined){
-const err219 = {instancePath:instancePath+"/models/assistant/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data60};
+if(data61.id === undefined){
+const err219 = {instancePath:instancePath+"/models/assistant/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data61};
 if(vErrors === null){
 vErrors = [err219];
 }
@@ -7215,10 +7218,10 @@ vErrors.push(err219);
 }
 errors++;
 }
-if(data60.type !== undefined){
-let data61 = data60.type;
-if(typeof data61 !== "string"){
-const err220 = {instancePath:instancePath+"/models/assistant/model/provider/type",schemaPath:"#/definitions/Model/properties/provider/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.type.type,parentSchema:schema28.properties.provider.properties.type,data:data61};
+if(data61.type !== undefined){
+let data62 = data61.type;
+if(typeof data62 !== "string"){
+const err220 = {instancePath:instancePath+"/models/assistant/model/provider/type",schemaPath:"#/definitions/Model/properties/provider/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.type.type,parentSchema:schema28.properties.provider.properties.type,data:data62};
 if(vErrors === null){
 vErrors = [err220];
 }
@@ -7228,20 +7231,20 @@ vErrors.push(err220);
 errors++;
 }
 if(errors > 0){
-const emErrs66 = [];
+const emErrs67 = [];
 for(const err221 of vErrors){
 if(!err221.emUsed){
-emErrs66.push(err221);
+emErrs67.push(err221);
 }
 }
-vErrors = emErrs66;
-errors = emErrs66.length;
+vErrors = emErrs67;
+errors = emErrs67.length;
 }
 }
-if(data60.name !== undefined){
-let data62 = data60.name;
-if(typeof data62 !== "string"){
-const err222 = {instancePath:instancePath+"/models/assistant/model/provider/name",schemaPath:"#/definitions/Model/properties/provider/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.name.type,parentSchema:schema28.properties.provider.properties.name,data:data62};
+if(data61.name !== undefined){
+let data63 = data61.name;
+if(typeof data63 !== "string"){
+const err222 = {instancePath:instancePath+"/models/assistant/model/provider/name",schemaPath:"#/definitions/Model/properties/provider/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.name.type,parentSchema:schema28.properties.provider.properties.name,data:data63};
 if(vErrors === null){
 vErrors = [err222];
 }
@@ -7251,20 +7254,20 @@ vErrors.push(err222);
 errors++;
 }
 if(errors > 0){
-const emErrs67 = [];
+const emErrs68 = [];
 for(const err223 of vErrors){
 if(!err223.emUsed){
-emErrs67.push(err223);
+emErrs68.push(err223);
 }
 }
-vErrors = emErrs67;
-errors = emErrs67.length;
+vErrors = emErrs68;
+errors = emErrs68.length;
 }
 }
-if(data60.id !== undefined){
-let data63 = data60.id;
-if(typeof data63 !== "string"){
-const err224 = {instancePath:instancePath+"/models/assistant/model/provider/id",schemaPath:"#/definitions/Model/properties/provider/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.id.type,parentSchema:schema28.properties.provider.properties.id,data:data63};
+if(data61.id !== undefined){
+let data64 = data61.id;
+if(typeof data64 !== "string"){
+const err224 = {instancePath:instancePath+"/models/assistant/model/provider/id",schemaPath:"#/definitions/Model/properties/provider/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.id.type,parentSchema:schema28.properties.provider.properties.id,data:data64};
 if(vErrors === null){
 vErrors = [err224];
 }
@@ -7274,19 +7277,19 @@ vErrors.push(err224);
 errors++;
 }
 if(errors > 0){
-const emErrs68 = [];
+const emErrs69 = [];
 for(const err225 of vErrors){
 if(!err225.emUsed){
-emErrs68.push(err225);
+emErrs69.push(err225);
 }
 }
-vErrors = emErrs68;
-errors = emErrs68.length;
+vErrors = emErrs69;
+errors = emErrs69.length;
 }
 }
 }
 else {
-const err226 = {instancePath:instancePath+"/models/assistant/model/provider",schemaPath:"#/definitions/Model/properties/provider/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.properties.provider.type,parentSchema:schema28.properties.provider,data:data60};
+const err226 = {instancePath:instancePath+"/models/assistant/model/provider",schemaPath:"#/definitions/Model/properties/provider/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.properties.provider.type,parentSchema:schema28.properties.provider,data:data61};
 if(vErrors === null){
 vErrors = [err226];
 }
@@ -7315,7 +7318,7 @@ for(const keyProp10 in emErrors11[key14]){
 emParamsErrors10 = emErrors11[key14][keyProp10];
 if(emParamsErrors10.length){
 const tmpl10 = templates11[key14] && templates11[key14][keyProp10];
-const err228 = {instancePath:instancePath+"/models/assistant/model/provider",schemaPath:"#/definitions/Model/properties/provider/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors10},message:tmpl10 ? tmpl10() : schema28.properties.provider.errorMessage[key14][keyProp10],schema:schema28.properties.provider.errorMessage,parentSchema:schema28.properties.provider,data:data60};
+const err228 = {instancePath:instancePath+"/models/assistant/model/provider",schemaPath:"#/definitions/Model/properties/provider/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors10},message:tmpl10 ? tmpl10() : schema28.properties.provider.errorMessage[key14][keyProp10],schema:schema28.properties.provider.errorMessage,parentSchema:schema28.properties.provider,data:data61};
 if(vErrors === null){
 vErrors = [err228];
 }
@@ -7326,19 +7329,19 @@ errors++;
 }
 }
 }
-const emErrs69 = [];
+const emErrs70 = [];
 for(const err229 of vErrors){
 if(!err229.emUsed){
-emErrs69.push(err229);
+emErrs70.push(err229);
 }
 }
-vErrors = emErrs69;
-errors = emErrs69.length;
+vErrors = emErrs70;
+errors = emErrs70.length;
 }
 }
 }
 else {
-const err230 = {instancePath:instancePath+"/models/assistant/model",schemaPath:"#/definitions/Model/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.type,parentSchema:schema28,data:data57};
+const err230 = {instancePath:instancePath+"/models/assistant/model",schemaPath:"#/definitions/Model/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.type,parentSchema:schema28,data:data58};
 if(vErrors === null){
 vErrors = [err230];
 }
@@ -7367,7 +7370,7 @@ for(const keyProp11 in emErrors12[key15]){
 emParamsErrors11 = emErrors12[key15][keyProp11];
 if(emParamsErrors11.length){
 const tmpl11 = templates12[key15] && templates12[key15][keyProp11];
-const err232 = {instancePath:instancePath+"/models/assistant/model",schemaPath:"#/definitions/Model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors11},message:tmpl11 ? tmpl11() : schema28.errorMessage[key15][keyProp11],schema:schema28.errorMessage,parentSchema:schema28,data:data57};
+const err232 = {instancePath:instancePath+"/models/assistant/model",schemaPath:"#/definitions/Model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors11},message:tmpl11 ? tmpl11() : schema28.errorMessage[key15][keyProp11],schema:schema28.errorMessage,parentSchema:schema28,data:data58};
 if(vErrors === null){
 vErrors = [err232];
 }
@@ -7378,14 +7381,14 @@ errors++;
 }
 }
 }
-const emErrs70 = [];
+const emErrs71 = [];
 for(const err233 of vErrors){
 if(!err233.emUsed){
-emErrs70.push(err233);
+emErrs71.push(err233);
 }
 }
-vErrors = emErrs70;
-errors = emErrs70.length;
+vErrors = emErrs71;
+errors = emErrs71.length;
 }
 if(errors > 0){
 const emErrors13 = {"required":{"id":[],"name":[],"provider":[]}};
@@ -7407,7 +7410,7 @@ for(const keyProp12 in emErrors13[key16]){
 emParamsErrors12 = emErrors13[key16][keyProp12];
 if(emParamsErrors12.length){
 const tmpl12 = templates13[key16] && templates13[key16][keyProp12];
-const err235 = {instancePath:instancePath+"/models/assistant/model",schemaPath:"#/properties/models/properties/assistant/properties/model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors12},message:tmpl12 ? tmpl12() : schema27.properties.models.properties.assistant.properties.model.errorMessage[key16][keyProp12],schema:schema27.properties.models.properties.assistant.properties.model.errorMessage,parentSchema:schema27.properties.models.properties.assistant.properties.model,data:data57};
+const err235 = {instancePath:instancePath+"/models/assistant/model",schemaPath:"#/properties/models/properties/assistant/properties/model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors12},message:tmpl12 ? tmpl12() : schema27.properties.models.properties.assistant.properties.model.errorMessage[key16][keyProp12],schema:schema27.properties.models.properties.assistant.properties.model.errorMessage,parentSchema:schema27.properties.models.properties.assistant.properties.model,data:data58};
 if(vErrors === null){
 vErrors = [err235];
 }
@@ -7418,21 +7421,21 @@ errors++;
 }
 }
 }
-const emErrs71 = [];
+const emErrs72 = [];
 for(const err236 of vErrors){
 if(!err236.emUsed){
-emErrs71.push(err236);
+emErrs72.push(err236);
 }
 }
-vErrors = emErrs71;
-errors = emErrs71.length;
+vErrors = emErrs72;
+errors = emErrs72.length;
 }
 }
-if(data56.inputPricePerMillion !== undefined){
-let data64 = data56.inputPricePerMillion;
-if(typeof data64 == "number"){
-if(data64 < 0 || isNaN(data64)){
-const err237 = {instancePath:instancePath+"/models/assistant/inputPricePerMillion",schemaPath:"#/properties/models/properties/assistant/properties/inputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.assistant.properties.inputPricePerMillion,data:data64};
+if(data57.inputPricePerMillion !== undefined){
+let data65 = data57.inputPricePerMillion;
+if(typeof data65 == "number"){
+if(data65 < 0 || isNaN(data65)){
+const err237 = {instancePath:instancePath+"/models/assistant/inputPricePerMillion",schemaPath:"#/properties/models/properties/assistant/properties/inputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.assistant.properties.inputPricePerMillion,data:data65};
 if(vErrors === null){
 vErrors = [err237];
 }
@@ -7443,7 +7446,7 @@ errors++;
 }
 }
 else {
-const err238 = {instancePath:instancePath+"/models/assistant/inputPricePerMillion",schemaPath:"#/properties/models/properties/assistant/properties/inputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.assistant.properties.inputPricePerMillion.type,parentSchema:schema27.properties.models.properties.assistant.properties.inputPricePerMillion,data:data64};
+const err238 = {instancePath:instancePath+"/models/assistant/inputPricePerMillion",schemaPath:"#/properties/models/properties/assistant/properties/inputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.assistant.properties.inputPricePerMillion.type,parentSchema:schema27.properties.models.properties.assistant.properties.inputPricePerMillion,data:data65};
 if(vErrors === null){
 vErrors = [err238];
 }
@@ -7453,21 +7456,21 @@ vErrors.push(err238);
 errors++;
 }
 if(errors > 0){
-const emErrs72 = [];
+const emErrs73 = [];
 for(const err239 of vErrors){
 if(!err239.emUsed){
-emErrs72.push(err239);
+emErrs73.push(err239);
 }
 }
-vErrors = emErrs72;
-errors = emErrs72.length;
+vErrors = emErrs73;
+errors = emErrs73.length;
 }
 }
-if(data56.outputPricePerMillion !== undefined){
-let data65 = data56.outputPricePerMillion;
-if(typeof data65 == "number"){
-if(data65 < 0 || isNaN(data65)){
-const err240 = {instancePath:instancePath+"/models/assistant/outputPricePerMillion",schemaPath:"#/properties/models/properties/assistant/properties/outputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.assistant.properties.outputPricePerMillion,data:data65};
+if(data57.outputPricePerMillion !== undefined){
+let data66 = data57.outputPricePerMillion;
+if(typeof data66 == "number"){
+if(data66 < 0 || isNaN(data66)){
+const err240 = {instancePath:instancePath+"/models/assistant/outputPricePerMillion",schemaPath:"#/properties/models/properties/assistant/properties/outputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.assistant.properties.outputPricePerMillion,data:data66};
 if(vErrors === null){
 vErrors = [err240];
 }
@@ -7478,7 +7481,7 @@ errors++;
 }
 }
 else {
-const err241 = {instancePath:instancePath+"/models/assistant/outputPricePerMillion",schemaPath:"#/properties/models/properties/assistant/properties/outputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.assistant.properties.outputPricePerMillion.type,parentSchema:schema27.properties.models.properties.assistant.properties.outputPricePerMillion,data:data65};
+const err241 = {instancePath:instancePath+"/models/assistant/outputPricePerMillion",schemaPath:"#/properties/models/properties/assistant/properties/outputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.assistant.properties.outputPricePerMillion.type,parentSchema:schema27.properties.models.properties.assistant.properties.outputPricePerMillion,data:data66};
 if(vErrors === null){
 vErrors = [err241];
 }
@@ -7488,19 +7491,19 @@ vErrors.push(err241);
 errors++;
 }
 if(errors > 0){
-const emErrs73 = [];
+const emErrs74 = [];
 for(const err242 of vErrors){
 if(!err242.emUsed){
-emErrs73.push(err242);
+emErrs74.push(err242);
 }
 }
-vErrors = emErrs73;
-errors = emErrs73.length;
+vErrors = emErrs74;
+errors = emErrs74.length;
 }
 }
 }
 else {
-const err243 = {instancePath:instancePath+"/models/assistant",schemaPath:"#/properties/models/properties/assistant/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.models.properties.assistant.type,parentSchema:schema27.properties.models.properties.assistant,data:data56};
+const err243 = {instancePath:instancePath+"/models/assistant",schemaPath:"#/properties/models/properties/assistant/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.models.properties.assistant.type,parentSchema:schema27.properties.models.properties.assistant,data:data57};
 if(vErrors === null){
 vErrors = [err243];
 }
@@ -7510,24 +7513,24 @@ vErrors.push(err243);
 errors++;
 }
 if(errors > 0){
-const emErrs74 = [];
+const emErrs75 = [];
 for(const err244 of vErrors){
 if(!err244.emUsed){
-emErrs74.push(err244);
+emErrs75.push(err244);
 }
 }
-vErrors = emErrs74;
-errors = emErrs74.length;
+vErrors = emErrs75;
+errors = emErrs75.length;
 }
 }
-if(data55.tools !== undefined){
-let data66 = data55.tools;
-if(data66 && typeof data66 == "object" && !Array.isArray(data66)){
-if(data66.model !== undefined){
-let data67 = data66.model;
+if(data56.tools !== undefined){
+let data67 = data56.tools;
 if(data67 && typeof data67 == "object" && !Array.isArray(data67)){
-if(data67.id === undefined){
-const err245 = {instancePath:instancePath+"/models/tools/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.required,parentSchema:schema28,data:data67};
+if(data67.model !== undefined){
+let data68 = data67.model;
+if(data68 && typeof data68 == "object" && !Array.isArray(data68)){
+if(data68.id === undefined){
+const err245 = {instancePath:instancePath+"/models/tools/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.required,parentSchema:schema28,data:data68};
 if(vErrors === null){
 vErrors = [err245];
 }
@@ -7536,8 +7539,8 @@ vErrors.push(err245);
 }
 errors++;
 }
-if(data67.name === undefined){
-const err246 = {instancePath:instancePath+"/models/tools/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.required,parentSchema:schema28,data:data67};
+if(data68.name === undefined){
+const err246 = {instancePath:instancePath+"/models/tools/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.required,parentSchema:schema28,data:data68};
 if(vErrors === null){
 vErrors = [err246];
 }
@@ -7546,8 +7549,8 @@ vErrors.push(err246);
 }
 errors++;
 }
-if(data67.provider === undefined){
-const err247 = {instancePath:instancePath+"/models/tools/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'",schema:schema28.required,parentSchema:schema28,data:data67};
+if(data68.provider === undefined){
+const err247 = {instancePath:instancePath+"/models/tools/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'",schema:schema28.required,parentSchema:schema28,data:data68};
 if(vErrors === null){
 vErrors = [err247];
 }
@@ -7556,10 +7559,10 @@ vErrors.push(err247);
 }
 errors++;
 }
-if(data67.id !== undefined){
-let data68 = data67.id;
-if(typeof data68 !== "string"){
-const err248 = {instancePath:instancePath+"/models/tools/model/id",schemaPath:"#/definitions/Model/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.id.type,parentSchema:schema28.properties.id,data:data68};
+if(data68.id !== undefined){
+let data69 = data68.id;
+if(typeof data69 !== "string"){
+const err248 = {instancePath:instancePath+"/models/tools/model/id",schemaPath:"#/definitions/Model/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.id.type,parentSchema:schema28.properties.id,data:data69};
 if(vErrors === null){
 vErrors = [err248];
 }
@@ -7569,20 +7572,20 @@ vErrors.push(err248);
 errors++;
 }
 if(errors > 0){
-const emErrs75 = [];
+const emErrs76 = [];
 for(const err249 of vErrors){
 if(!err249.emUsed){
-emErrs75.push(err249);
+emErrs76.push(err249);
 }
 }
-vErrors = emErrs75;
-errors = emErrs75.length;
+vErrors = emErrs76;
+errors = emErrs76.length;
 }
 }
-if(data67.name !== undefined){
-let data69 = data67.name;
-if(typeof data69 !== "string"){
-const err250 = {instancePath:instancePath+"/models/tools/model/name",schemaPath:"#/definitions/Model/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.name.type,parentSchema:schema28.properties.name,data:data69};
+if(data68.name !== undefined){
+let data70 = data68.name;
+if(typeof data70 !== "string"){
+const err250 = {instancePath:instancePath+"/models/tools/model/name",schemaPath:"#/definitions/Model/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.name.type,parentSchema:schema28.properties.name,data:data70};
 if(vErrors === null){
 vErrors = [err250];
 }
@@ -7592,21 +7595,21 @@ vErrors.push(err250);
 errors++;
 }
 if(errors > 0){
-const emErrs76 = [];
+const emErrs77 = [];
 for(const err251 of vErrors){
 if(!err251.emUsed){
-emErrs76.push(err251);
+emErrs77.push(err251);
 }
 }
-vErrors = emErrs76;
-errors = emErrs76.length;
+vErrors = emErrs77;
+errors = emErrs77.length;
 }
 }
-if(data67.provider !== undefined){
-let data70 = data67.provider;
-if(data70 && typeof data70 == "object" && !Array.isArray(data70)){
-if(data70.type === undefined){
-const err252 = {instancePath:instancePath+"/models/tools/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data70};
+if(data68.provider !== undefined){
+let data71 = data68.provider;
+if(data71 && typeof data71 == "object" && !Array.isArray(data71)){
+if(data71.type === undefined){
+const err252 = {instancePath:instancePath+"/models/tools/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data71};
 if(vErrors === null){
 vErrors = [err252];
 }
@@ -7615,8 +7618,8 @@ vErrors.push(err252);
 }
 errors++;
 }
-if(data70.name === undefined){
-const err253 = {instancePath:instancePath+"/models/tools/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data70};
+if(data71.name === undefined){
+const err253 = {instancePath:instancePath+"/models/tools/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data71};
 if(vErrors === null){
 vErrors = [err253];
 }
@@ -7625,8 +7628,8 @@ vErrors.push(err253);
 }
 errors++;
 }
-if(data70.id === undefined){
-const err254 = {instancePath:instancePath+"/models/tools/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data70};
+if(data71.id === undefined){
+const err254 = {instancePath:instancePath+"/models/tools/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data71};
 if(vErrors === null){
 vErrors = [err254];
 }
@@ -7635,10 +7638,10 @@ vErrors.push(err254);
 }
 errors++;
 }
-if(data70.type !== undefined){
-let data71 = data70.type;
-if(typeof data71 !== "string"){
-const err255 = {instancePath:instancePath+"/models/tools/model/provider/type",schemaPath:"#/definitions/Model/properties/provider/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.type.type,parentSchema:schema28.properties.provider.properties.type,data:data71};
+if(data71.type !== undefined){
+let data72 = data71.type;
+if(typeof data72 !== "string"){
+const err255 = {instancePath:instancePath+"/models/tools/model/provider/type",schemaPath:"#/definitions/Model/properties/provider/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.type.type,parentSchema:schema28.properties.provider.properties.type,data:data72};
 if(vErrors === null){
 vErrors = [err255];
 }
@@ -7648,20 +7651,20 @@ vErrors.push(err255);
 errors++;
 }
 if(errors > 0){
-const emErrs77 = [];
+const emErrs78 = [];
 for(const err256 of vErrors){
 if(!err256.emUsed){
-emErrs77.push(err256);
+emErrs78.push(err256);
 }
 }
-vErrors = emErrs77;
-errors = emErrs77.length;
+vErrors = emErrs78;
+errors = emErrs78.length;
 }
 }
-if(data70.name !== undefined){
-let data72 = data70.name;
-if(typeof data72 !== "string"){
-const err257 = {instancePath:instancePath+"/models/tools/model/provider/name",schemaPath:"#/definitions/Model/properties/provider/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.name.type,parentSchema:schema28.properties.provider.properties.name,data:data72};
+if(data71.name !== undefined){
+let data73 = data71.name;
+if(typeof data73 !== "string"){
+const err257 = {instancePath:instancePath+"/models/tools/model/provider/name",schemaPath:"#/definitions/Model/properties/provider/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.name.type,parentSchema:schema28.properties.provider.properties.name,data:data73};
 if(vErrors === null){
 vErrors = [err257];
 }
@@ -7671,20 +7674,20 @@ vErrors.push(err257);
 errors++;
 }
 if(errors > 0){
-const emErrs78 = [];
+const emErrs79 = [];
 for(const err258 of vErrors){
 if(!err258.emUsed){
-emErrs78.push(err258);
+emErrs79.push(err258);
 }
 }
-vErrors = emErrs78;
-errors = emErrs78.length;
+vErrors = emErrs79;
+errors = emErrs79.length;
 }
 }
-if(data70.id !== undefined){
-let data73 = data70.id;
-if(typeof data73 !== "string"){
-const err259 = {instancePath:instancePath+"/models/tools/model/provider/id",schemaPath:"#/definitions/Model/properties/provider/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.id.type,parentSchema:schema28.properties.provider.properties.id,data:data73};
+if(data71.id !== undefined){
+let data74 = data71.id;
+if(typeof data74 !== "string"){
+const err259 = {instancePath:instancePath+"/models/tools/model/provider/id",schemaPath:"#/definitions/Model/properties/provider/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.id.type,parentSchema:schema28.properties.provider.properties.id,data:data74};
 if(vErrors === null){
 vErrors = [err259];
 }
@@ -7694,19 +7697,19 @@ vErrors.push(err259);
 errors++;
 }
 if(errors > 0){
-const emErrs79 = [];
+const emErrs80 = [];
 for(const err260 of vErrors){
 if(!err260.emUsed){
-emErrs79.push(err260);
+emErrs80.push(err260);
 }
 }
-vErrors = emErrs79;
-errors = emErrs79.length;
+vErrors = emErrs80;
+errors = emErrs80.length;
 }
 }
 }
 else {
-const err261 = {instancePath:instancePath+"/models/tools/model/provider",schemaPath:"#/definitions/Model/properties/provider/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.properties.provider.type,parentSchema:schema28.properties.provider,data:data70};
+const err261 = {instancePath:instancePath+"/models/tools/model/provider",schemaPath:"#/definitions/Model/properties/provider/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.properties.provider.type,parentSchema:schema28.properties.provider,data:data71};
 if(vErrors === null){
 vErrors = [err261];
 }
@@ -7735,7 +7738,7 @@ for(const keyProp13 in emErrors14[key17]){
 emParamsErrors13 = emErrors14[key17][keyProp13];
 if(emParamsErrors13.length){
 const tmpl13 = templates14[key17] && templates14[key17][keyProp13];
-const err263 = {instancePath:instancePath+"/models/tools/model/provider",schemaPath:"#/definitions/Model/properties/provider/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors13},message:tmpl13 ? tmpl13() : schema28.properties.provider.errorMessage[key17][keyProp13],schema:schema28.properties.provider.errorMessage,parentSchema:schema28.properties.provider,data:data70};
+const err263 = {instancePath:instancePath+"/models/tools/model/provider",schemaPath:"#/definitions/Model/properties/provider/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors13},message:tmpl13 ? tmpl13() : schema28.properties.provider.errorMessage[key17][keyProp13],schema:schema28.properties.provider.errorMessage,parentSchema:schema28.properties.provider,data:data71};
 if(vErrors === null){
 vErrors = [err263];
 }
@@ -7746,19 +7749,19 @@ errors++;
 }
 }
 }
-const emErrs80 = [];
+const emErrs81 = [];
 for(const err264 of vErrors){
 if(!err264.emUsed){
-emErrs80.push(err264);
+emErrs81.push(err264);
 }
 }
-vErrors = emErrs80;
-errors = emErrs80.length;
+vErrors = emErrs81;
+errors = emErrs81.length;
 }
 }
 }
 else {
-const err265 = {instancePath:instancePath+"/models/tools/model",schemaPath:"#/definitions/Model/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.type,parentSchema:schema28,data:data67};
+const err265 = {instancePath:instancePath+"/models/tools/model",schemaPath:"#/definitions/Model/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.type,parentSchema:schema28,data:data68};
 if(vErrors === null){
 vErrors = [err265];
 }
@@ -7787,7 +7790,7 @@ for(const keyProp14 in emErrors15[key18]){
 emParamsErrors14 = emErrors15[key18][keyProp14];
 if(emParamsErrors14.length){
 const tmpl14 = templates15[key18] && templates15[key18][keyProp14];
-const err267 = {instancePath:instancePath+"/models/tools/model",schemaPath:"#/definitions/Model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors14},message:tmpl14 ? tmpl14() : schema28.errorMessage[key18][keyProp14],schema:schema28.errorMessage,parentSchema:schema28,data:data67};
+const err267 = {instancePath:instancePath+"/models/tools/model",schemaPath:"#/definitions/Model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors14},message:tmpl14 ? tmpl14() : schema28.errorMessage[key18][keyProp14],schema:schema28.errorMessage,parentSchema:schema28,data:data68};
 if(vErrors === null){
 vErrors = [err267];
 }
@@ -7798,14 +7801,14 @@ errors++;
 }
 }
 }
-const emErrs81 = [];
+const emErrs82 = [];
 for(const err268 of vErrors){
 if(!err268.emUsed){
-emErrs81.push(err268);
+emErrs82.push(err268);
 }
 }
-vErrors = emErrs81;
-errors = emErrs81.length;
+vErrors = emErrs82;
+errors = emErrs82.length;
 }
 if(errors > 0){
 const emErrors16 = {"required":{"id":[],"name":[],"provider":[]}};
@@ -7827,7 +7830,7 @@ for(const keyProp15 in emErrors16[key19]){
 emParamsErrors15 = emErrors16[key19][keyProp15];
 if(emParamsErrors15.length){
 const tmpl15 = templates16[key19] && templates16[key19][keyProp15];
-const err270 = {instancePath:instancePath+"/models/tools/model",schemaPath:"#/properties/models/properties/tools/properties/model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors15},message:tmpl15 ? tmpl15() : schema27.properties.models.properties.tools.properties.model.errorMessage[key19][keyProp15],schema:schema27.properties.models.properties.tools.properties.model.errorMessage,parentSchema:schema27.properties.models.properties.tools.properties.model,data:data67};
+const err270 = {instancePath:instancePath+"/models/tools/model",schemaPath:"#/properties/models/properties/tools/properties/model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors15},message:tmpl15 ? tmpl15() : schema27.properties.models.properties.tools.properties.model.errorMessage[key19][keyProp15],schema:schema27.properties.models.properties.tools.properties.model.errorMessage,parentSchema:schema27.properties.models.properties.tools.properties.model,data:data68};
 if(vErrors === null){
 vErrors = [err270];
 }
@@ -7838,21 +7841,21 @@ errors++;
 }
 }
 }
-const emErrs82 = [];
+const emErrs83 = [];
 for(const err271 of vErrors){
 if(!err271.emUsed){
-emErrs82.push(err271);
+emErrs83.push(err271);
 }
 }
-vErrors = emErrs82;
-errors = emErrs82.length;
+vErrors = emErrs83;
+errors = emErrs83.length;
 }
 }
-if(data66.inputPricePerMillion !== undefined){
-let data74 = data66.inputPricePerMillion;
-if(typeof data74 == "number"){
-if(data74 < 0 || isNaN(data74)){
-const err272 = {instancePath:instancePath+"/models/tools/inputPricePerMillion",schemaPath:"#/properties/models/properties/tools/properties/inputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.tools.properties.inputPricePerMillion,data:data74};
+if(data67.inputPricePerMillion !== undefined){
+let data75 = data67.inputPricePerMillion;
+if(typeof data75 == "number"){
+if(data75 < 0 || isNaN(data75)){
+const err272 = {instancePath:instancePath+"/models/tools/inputPricePerMillion",schemaPath:"#/properties/models/properties/tools/properties/inputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.tools.properties.inputPricePerMillion,data:data75};
 if(vErrors === null){
 vErrors = [err272];
 }
@@ -7863,7 +7866,7 @@ errors++;
 }
 }
 else {
-const err273 = {instancePath:instancePath+"/models/tools/inputPricePerMillion",schemaPath:"#/properties/models/properties/tools/properties/inputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.tools.properties.inputPricePerMillion.type,parentSchema:schema27.properties.models.properties.tools.properties.inputPricePerMillion,data:data74};
+const err273 = {instancePath:instancePath+"/models/tools/inputPricePerMillion",schemaPath:"#/properties/models/properties/tools/properties/inputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.tools.properties.inputPricePerMillion.type,parentSchema:schema27.properties.models.properties.tools.properties.inputPricePerMillion,data:data75};
 if(vErrors === null){
 vErrors = [err273];
 }
@@ -7873,21 +7876,21 @@ vErrors.push(err273);
 errors++;
 }
 if(errors > 0){
-const emErrs83 = [];
+const emErrs84 = [];
 for(const err274 of vErrors){
 if(!err274.emUsed){
-emErrs83.push(err274);
+emErrs84.push(err274);
 }
 }
-vErrors = emErrs83;
-errors = emErrs83.length;
+vErrors = emErrs84;
+errors = emErrs84.length;
 }
 }
-if(data66.outputPricePerMillion !== undefined){
-let data75 = data66.outputPricePerMillion;
-if(typeof data75 == "number"){
-if(data75 < 0 || isNaN(data75)){
-const err275 = {instancePath:instancePath+"/models/tools/outputPricePerMillion",schemaPath:"#/properties/models/properties/tools/properties/outputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.tools.properties.outputPricePerMillion,data:data75};
+if(data67.outputPricePerMillion !== undefined){
+let data76 = data67.outputPricePerMillion;
+if(typeof data76 == "number"){
+if(data76 < 0 || isNaN(data76)){
+const err275 = {instancePath:instancePath+"/models/tools/outputPricePerMillion",schemaPath:"#/properties/models/properties/tools/properties/outputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.tools.properties.outputPricePerMillion,data:data76};
 if(vErrors === null){
 vErrors = [err275];
 }
@@ -7898,7 +7901,7 @@ errors++;
 }
 }
 else {
-const err276 = {instancePath:instancePath+"/models/tools/outputPricePerMillion",schemaPath:"#/properties/models/properties/tools/properties/outputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.tools.properties.outputPricePerMillion.type,parentSchema:schema27.properties.models.properties.tools.properties.outputPricePerMillion,data:data75};
+const err276 = {instancePath:instancePath+"/models/tools/outputPricePerMillion",schemaPath:"#/properties/models/properties/tools/properties/outputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.tools.properties.outputPricePerMillion.type,parentSchema:schema27.properties.models.properties.tools.properties.outputPricePerMillion,data:data76};
 if(vErrors === null){
 vErrors = [err276];
 }
@@ -7908,19 +7911,19 @@ vErrors.push(err276);
 errors++;
 }
 if(errors > 0){
-const emErrs84 = [];
+const emErrs85 = [];
 for(const err277 of vErrors){
 if(!err277.emUsed){
-emErrs84.push(err277);
+emErrs85.push(err277);
 }
 }
-vErrors = emErrs84;
-errors = emErrs84.length;
+vErrors = emErrs85;
+errors = emErrs85.length;
 }
 }
 }
 else {
-const err278 = {instancePath:instancePath+"/models/tools",schemaPath:"#/properties/models/properties/tools/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.models.properties.tools.type,parentSchema:schema27.properties.models.properties.tools,data:data66};
+const err278 = {instancePath:instancePath+"/models/tools",schemaPath:"#/properties/models/properties/tools/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.models.properties.tools.type,parentSchema:schema27.properties.models.properties.tools,data:data67};
 if(vErrors === null){
 vErrors = [err278];
 }
@@ -7930,24 +7933,24 @@ vErrors.push(err278);
 errors++;
 }
 if(errors > 0){
-const emErrs85 = [];
+const emErrs86 = [];
 for(const err279 of vErrors){
 if(!err279.emUsed){
-emErrs85.push(err279);
+emErrs86.push(err279);
 }
 }
-vErrors = emErrs85;
-errors = emErrs85.length;
+vErrors = emErrs86;
+errors = emErrs86.length;
 }
 }
-if(data55.summarizer !== undefined){
-let data76 = data55.summarizer;
-if(data76 && typeof data76 == "object" && !Array.isArray(data76)){
-if(data76.model !== undefined){
-let data77 = data76.model;
+if(data56.summarizer !== undefined){
+let data77 = data56.summarizer;
 if(data77 && typeof data77 == "object" && !Array.isArray(data77)){
-if(data77.id === undefined){
-const err280 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.required,parentSchema:schema28,data:data77};
+if(data77.model !== undefined){
+let data78 = data77.model;
+if(data78 && typeof data78 == "object" && !Array.isArray(data78)){
+if(data78.id === undefined){
+const err280 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.required,parentSchema:schema28,data:data78};
 if(vErrors === null){
 vErrors = [err280];
 }
@@ -7956,8 +7959,8 @@ vErrors.push(err280);
 }
 errors++;
 }
-if(data77.name === undefined){
-const err281 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.required,parentSchema:schema28,data:data77};
+if(data78.name === undefined){
+const err281 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.required,parentSchema:schema28,data:data78};
 if(vErrors === null){
 vErrors = [err281];
 }
@@ -7966,8 +7969,8 @@ vErrors.push(err281);
 }
 errors++;
 }
-if(data77.provider === undefined){
-const err282 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'",schema:schema28.required,parentSchema:schema28,data:data77};
+if(data78.provider === undefined){
+const err282 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'",schema:schema28.required,parentSchema:schema28,data:data78};
 if(vErrors === null){
 vErrors = [err282];
 }
@@ -7976,10 +7979,10 @@ vErrors.push(err282);
 }
 errors++;
 }
-if(data77.id !== undefined){
-let data78 = data77.id;
-if(typeof data78 !== "string"){
-const err283 = {instancePath:instancePath+"/models/summarizer/model/id",schemaPath:"#/definitions/Model/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.id.type,parentSchema:schema28.properties.id,data:data78};
+if(data78.id !== undefined){
+let data79 = data78.id;
+if(typeof data79 !== "string"){
+const err283 = {instancePath:instancePath+"/models/summarizer/model/id",schemaPath:"#/definitions/Model/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.id.type,parentSchema:schema28.properties.id,data:data79};
 if(vErrors === null){
 vErrors = [err283];
 }
@@ -7989,20 +7992,20 @@ vErrors.push(err283);
 errors++;
 }
 if(errors > 0){
-const emErrs86 = [];
+const emErrs87 = [];
 for(const err284 of vErrors){
 if(!err284.emUsed){
-emErrs86.push(err284);
+emErrs87.push(err284);
 }
 }
-vErrors = emErrs86;
-errors = emErrs86.length;
+vErrors = emErrs87;
+errors = emErrs87.length;
 }
 }
-if(data77.name !== undefined){
-let data79 = data77.name;
-if(typeof data79 !== "string"){
-const err285 = {instancePath:instancePath+"/models/summarizer/model/name",schemaPath:"#/definitions/Model/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.name.type,parentSchema:schema28.properties.name,data:data79};
+if(data78.name !== undefined){
+let data80 = data78.name;
+if(typeof data80 !== "string"){
+const err285 = {instancePath:instancePath+"/models/summarizer/model/name",schemaPath:"#/definitions/Model/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.name.type,parentSchema:schema28.properties.name,data:data80};
 if(vErrors === null){
 vErrors = [err285];
 }
@@ -8012,21 +8015,21 @@ vErrors.push(err285);
 errors++;
 }
 if(errors > 0){
-const emErrs87 = [];
+const emErrs88 = [];
 for(const err286 of vErrors){
 if(!err286.emUsed){
-emErrs87.push(err286);
+emErrs88.push(err286);
 }
 }
-vErrors = emErrs87;
-errors = emErrs87.length;
+vErrors = emErrs88;
+errors = emErrs88.length;
 }
 }
-if(data77.provider !== undefined){
-let data80 = data77.provider;
-if(data80 && typeof data80 == "object" && !Array.isArray(data80)){
-if(data80.type === undefined){
-const err287 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data80};
+if(data78.provider !== undefined){
+let data81 = data78.provider;
+if(data81 && typeof data81 == "object" && !Array.isArray(data81)){
+if(data81.type === undefined){
+const err287 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data81};
 if(vErrors === null){
 vErrors = [err287];
 }
@@ -8035,8 +8038,8 @@ vErrors.push(err287);
 }
 errors++;
 }
-if(data80.name === undefined){
-const err288 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data80};
+if(data81.name === undefined){
+const err288 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data81};
 if(vErrors === null){
 vErrors = [err288];
 }
@@ -8045,8 +8048,8 @@ vErrors.push(err288);
 }
 errors++;
 }
-if(data80.id === undefined){
-const err289 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data80};
+if(data81.id === undefined){
+const err289 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data81};
 if(vErrors === null){
 vErrors = [err289];
 }
@@ -8055,10 +8058,10 @@ vErrors.push(err289);
 }
 errors++;
 }
-if(data80.type !== undefined){
-let data81 = data80.type;
-if(typeof data81 !== "string"){
-const err290 = {instancePath:instancePath+"/models/summarizer/model/provider/type",schemaPath:"#/definitions/Model/properties/provider/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.type.type,parentSchema:schema28.properties.provider.properties.type,data:data81};
+if(data81.type !== undefined){
+let data82 = data81.type;
+if(typeof data82 !== "string"){
+const err290 = {instancePath:instancePath+"/models/summarizer/model/provider/type",schemaPath:"#/definitions/Model/properties/provider/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.type.type,parentSchema:schema28.properties.provider.properties.type,data:data82};
 if(vErrors === null){
 vErrors = [err290];
 }
@@ -8068,20 +8071,20 @@ vErrors.push(err290);
 errors++;
 }
 if(errors > 0){
-const emErrs88 = [];
+const emErrs89 = [];
 for(const err291 of vErrors){
 if(!err291.emUsed){
-emErrs88.push(err291);
+emErrs89.push(err291);
 }
 }
-vErrors = emErrs88;
-errors = emErrs88.length;
+vErrors = emErrs89;
+errors = emErrs89.length;
 }
 }
-if(data80.name !== undefined){
-let data82 = data80.name;
-if(typeof data82 !== "string"){
-const err292 = {instancePath:instancePath+"/models/summarizer/model/provider/name",schemaPath:"#/definitions/Model/properties/provider/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.name.type,parentSchema:schema28.properties.provider.properties.name,data:data82};
+if(data81.name !== undefined){
+let data83 = data81.name;
+if(typeof data83 !== "string"){
+const err292 = {instancePath:instancePath+"/models/summarizer/model/provider/name",schemaPath:"#/definitions/Model/properties/provider/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.name.type,parentSchema:schema28.properties.provider.properties.name,data:data83};
 if(vErrors === null){
 vErrors = [err292];
 }
@@ -8091,20 +8094,20 @@ vErrors.push(err292);
 errors++;
 }
 if(errors > 0){
-const emErrs89 = [];
+const emErrs90 = [];
 for(const err293 of vErrors){
 if(!err293.emUsed){
-emErrs89.push(err293);
+emErrs90.push(err293);
 }
 }
-vErrors = emErrs89;
-errors = emErrs89.length;
+vErrors = emErrs90;
+errors = emErrs90.length;
 }
 }
-if(data80.id !== undefined){
-let data83 = data80.id;
-if(typeof data83 !== "string"){
-const err294 = {instancePath:instancePath+"/models/summarizer/model/provider/id",schemaPath:"#/definitions/Model/properties/provider/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.id.type,parentSchema:schema28.properties.provider.properties.id,data:data83};
+if(data81.id !== undefined){
+let data84 = data81.id;
+if(typeof data84 !== "string"){
+const err294 = {instancePath:instancePath+"/models/summarizer/model/provider/id",schemaPath:"#/definitions/Model/properties/provider/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.id.type,parentSchema:schema28.properties.provider.properties.id,data:data84};
 if(vErrors === null){
 vErrors = [err294];
 }
@@ -8114,19 +8117,19 @@ vErrors.push(err294);
 errors++;
 }
 if(errors > 0){
-const emErrs90 = [];
+const emErrs91 = [];
 for(const err295 of vErrors){
 if(!err295.emUsed){
-emErrs90.push(err295);
+emErrs91.push(err295);
 }
 }
-vErrors = emErrs90;
-errors = emErrs90.length;
+vErrors = emErrs91;
+errors = emErrs91.length;
 }
 }
 }
 else {
-const err296 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.properties.provider.type,parentSchema:schema28.properties.provider,data:data80};
+const err296 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.properties.provider.type,parentSchema:schema28.properties.provider,data:data81};
 if(vErrors === null){
 vErrors = [err296];
 }
@@ -8155,7 +8158,7 @@ for(const keyProp16 in emErrors17[key20]){
 emParamsErrors16 = emErrors17[key20][keyProp16];
 if(emParamsErrors16.length){
 const tmpl16 = templates17[key20] && templates17[key20][keyProp16];
-const err298 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors16},message:tmpl16 ? tmpl16() : schema28.properties.provider.errorMessage[key20][keyProp16],schema:schema28.properties.provider.errorMessage,parentSchema:schema28.properties.provider,data:data80};
+const err298 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors16},message:tmpl16 ? tmpl16() : schema28.properties.provider.errorMessage[key20][keyProp16],schema:schema28.properties.provider.errorMessage,parentSchema:schema28.properties.provider,data:data81};
 if(vErrors === null){
 vErrors = [err298];
 }
@@ -8166,19 +8169,19 @@ errors++;
 }
 }
 }
-const emErrs91 = [];
+const emErrs92 = [];
 for(const err299 of vErrors){
 if(!err299.emUsed){
-emErrs91.push(err299);
+emErrs92.push(err299);
 }
 }
-vErrors = emErrs91;
-errors = emErrs91.length;
+vErrors = emErrs92;
+errors = emErrs92.length;
 }
 }
 }
 else {
-const err300 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.type,parentSchema:schema28,data:data77};
+const err300 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.type,parentSchema:schema28,data:data78};
 if(vErrors === null){
 vErrors = [err300];
 }
@@ -8207,7 +8210,7 @@ for(const keyProp17 in emErrors18[key21]){
 emParamsErrors17 = emErrors18[key21][keyProp17];
 if(emParamsErrors17.length){
 const tmpl17 = templates18[key21] && templates18[key21][keyProp17];
-const err302 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors17},message:tmpl17 ? tmpl17() : schema28.errorMessage[key21][keyProp17],schema:schema28.errorMessage,parentSchema:schema28,data:data77};
+const err302 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors17},message:tmpl17 ? tmpl17() : schema28.errorMessage[key21][keyProp17],schema:schema28.errorMessage,parentSchema:schema28,data:data78};
 if(vErrors === null){
 vErrors = [err302];
 }
@@ -8218,14 +8221,14 @@ errors++;
 }
 }
 }
-const emErrs92 = [];
+const emErrs93 = [];
 for(const err303 of vErrors){
 if(!err303.emUsed){
-emErrs92.push(err303);
+emErrs93.push(err303);
 }
 }
-vErrors = emErrs92;
-errors = emErrs92.length;
+vErrors = emErrs93;
+errors = emErrs93.length;
 }
 if(errors > 0){
 const emErrors19 = {"required":{"id":[],"name":[],"provider":[]}};
@@ -8247,7 +8250,7 @@ for(const keyProp18 in emErrors19[key22]){
 emParamsErrors18 = emErrors19[key22][keyProp18];
 if(emParamsErrors18.length){
 const tmpl18 = templates19[key22] && templates19[key22][keyProp18];
-const err305 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/properties/models/properties/summarizer/properties/model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors18},message:tmpl18 ? tmpl18() : schema27.properties.models.properties.summarizer.properties.model.errorMessage[key22][keyProp18],schema:schema27.properties.models.properties.summarizer.properties.model.errorMessage,parentSchema:schema27.properties.models.properties.summarizer.properties.model,data:data77};
+const err305 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/properties/models/properties/summarizer/properties/model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors18},message:tmpl18 ? tmpl18() : schema27.properties.models.properties.summarizer.properties.model.errorMessage[key22][keyProp18],schema:schema27.properties.models.properties.summarizer.properties.model.errorMessage,parentSchema:schema27.properties.models.properties.summarizer.properties.model,data:data78};
 if(vErrors === null){
 vErrors = [err305];
 }
@@ -8258,21 +8261,21 @@ errors++;
 }
 }
 }
-const emErrs93 = [];
+const emErrs94 = [];
 for(const err306 of vErrors){
 if(!err306.emUsed){
-emErrs93.push(err306);
+emErrs94.push(err306);
 }
 }
-vErrors = emErrs93;
-errors = emErrs93.length;
+vErrors = emErrs94;
+errors = emErrs94.length;
 }
 }
-if(data76.inputPricePerMillion !== undefined){
-let data84 = data76.inputPricePerMillion;
-if(typeof data84 == "number"){
-if(data84 < 0 || isNaN(data84)){
-const err307 = {instancePath:instancePath+"/models/summarizer/inputPricePerMillion",schemaPath:"#/properties/models/properties/summarizer/properties/inputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.summarizer.properties.inputPricePerMillion,data:data84};
+if(data77.inputPricePerMillion !== undefined){
+let data85 = data77.inputPricePerMillion;
+if(typeof data85 == "number"){
+if(data85 < 0 || isNaN(data85)){
+const err307 = {instancePath:instancePath+"/models/summarizer/inputPricePerMillion",schemaPath:"#/properties/models/properties/summarizer/properties/inputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.summarizer.properties.inputPricePerMillion,data:data85};
 if(vErrors === null){
 vErrors = [err307];
 }
@@ -8283,7 +8286,7 @@ errors++;
 }
 }
 else {
-const err308 = {instancePath:instancePath+"/models/summarizer/inputPricePerMillion",schemaPath:"#/properties/models/properties/summarizer/properties/inputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.summarizer.properties.inputPricePerMillion.type,parentSchema:schema27.properties.models.properties.summarizer.properties.inputPricePerMillion,data:data84};
+const err308 = {instancePath:instancePath+"/models/summarizer/inputPricePerMillion",schemaPath:"#/properties/models/properties/summarizer/properties/inputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.summarizer.properties.inputPricePerMillion.type,parentSchema:schema27.properties.models.properties.summarizer.properties.inputPricePerMillion,data:data85};
 if(vErrors === null){
 vErrors = [err308];
 }
@@ -8293,21 +8296,21 @@ vErrors.push(err308);
 errors++;
 }
 if(errors > 0){
-const emErrs94 = [];
+const emErrs95 = [];
 for(const err309 of vErrors){
 if(!err309.emUsed){
-emErrs94.push(err309);
+emErrs95.push(err309);
 }
 }
-vErrors = emErrs94;
-errors = emErrs94.length;
+vErrors = emErrs95;
+errors = emErrs95.length;
 }
 }
-if(data76.outputPricePerMillion !== undefined){
-let data85 = data76.outputPricePerMillion;
-if(typeof data85 == "number"){
-if(data85 < 0 || isNaN(data85)){
-const err310 = {instancePath:instancePath+"/models/summarizer/outputPricePerMillion",schemaPath:"#/properties/models/properties/summarizer/properties/outputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.summarizer.properties.outputPricePerMillion,data:data85};
+if(data77.outputPricePerMillion !== undefined){
+let data86 = data77.outputPricePerMillion;
+if(typeof data86 == "number"){
+if(data86 < 0 || isNaN(data86)){
+const err310 = {instancePath:instancePath+"/models/summarizer/outputPricePerMillion",schemaPath:"#/properties/models/properties/summarizer/properties/outputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.summarizer.properties.outputPricePerMillion,data:data86};
 if(vErrors === null){
 vErrors = [err310];
 }
@@ -8318,7 +8321,7 @@ errors++;
 }
 }
 else {
-const err311 = {instancePath:instancePath+"/models/summarizer/outputPricePerMillion",schemaPath:"#/properties/models/properties/summarizer/properties/outputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.summarizer.properties.outputPricePerMillion.type,parentSchema:schema27.properties.models.properties.summarizer.properties.outputPricePerMillion,data:data85};
+const err311 = {instancePath:instancePath+"/models/summarizer/outputPricePerMillion",schemaPath:"#/properties/models/properties/summarizer/properties/outputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.summarizer.properties.outputPricePerMillion.type,parentSchema:schema27.properties.models.properties.summarizer.properties.outputPricePerMillion,data:data86};
 if(vErrors === null){
 vErrors = [err311];
 }
@@ -8328,19 +8331,19 @@ vErrors.push(err311);
 errors++;
 }
 if(errors > 0){
-const emErrs95 = [];
+const emErrs96 = [];
 for(const err312 of vErrors){
 if(!err312.emUsed){
-emErrs95.push(err312);
+emErrs96.push(err312);
 }
 }
-vErrors = emErrs95;
-errors = emErrs95.length;
+vErrors = emErrs96;
+errors = emErrs96.length;
 }
 }
 }
 else {
-const err313 = {instancePath:instancePath+"/models/summarizer",schemaPath:"#/properties/models/properties/summarizer/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.models.properties.summarizer.type,parentSchema:schema27.properties.models.properties.summarizer,data:data76};
+const err313 = {instancePath:instancePath+"/models/summarizer",schemaPath:"#/properties/models/properties/summarizer/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.models.properties.summarizer.type,parentSchema:schema27.properties.models.properties.summarizer,data:data77};
 if(vErrors === null){
 vErrors = [err313];
 }
@@ -8350,24 +8353,24 @@ vErrors.push(err313);
 errors++;
 }
 if(errors > 0){
-const emErrs96 = [];
+const emErrs97 = [];
 for(const err314 of vErrors){
 if(!err314.emUsed){
-emErrs96.push(err314);
+emErrs97.push(err314);
 }
 }
-vErrors = emErrs96;
-errors = emErrs96.length;
+vErrors = emErrs97;
+errors = emErrs97.length;
 }
 }
-if(data55.evaluator !== undefined){
-let data86 = data55.evaluator;
-if(data86 && typeof data86 == "object" && !Array.isArray(data86)){
-if(data86.model !== undefined){
-let data87 = data86.model;
+if(data56.evaluator !== undefined){
+let data87 = data56.evaluator;
 if(data87 && typeof data87 == "object" && !Array.isArray(data87)){
-if(data87.id === undefined){
-const err315 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.required,parentSchema:schema28,data:data87};
+if(data87.model !== undefined){
+let data88 = data87.model;
+if(data88 && typeof data88 == "object" && !Array.isArray(data88)){
+if(data88.id === undefined){
+const err315 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.required,parentSchema:schema28,data:data88};
 if(vErrors === null){
 vErrors = [err315];
 }
@@ -8376,8 +8379,8 @@ vErrors.push(err315);
 }
 errors++;
 }
-if(data87.name === undefined){
-const err316 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.required,parentSchema:schema28,data:data87};
+if(data88.name === undefined){
+const err316 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.required,parentSchema:schema28,data:data88};
 if(vErrors === null){
 vErrors = [err316];
 }
@@ -8386,8 +8389,8 @@ vErrors.push(err316);
 }
 errors++;
 }
-if(data87.provider === undefined){
-const err317 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'",schema:schema28.required,parentSchema:schema28,data:data87};
+if(data88.provider === undefined){
+const err317 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'",schema:schema28.required,parentSchema:schema28,data:data88};
 if(vErrors === null){
 vErrors = [err317];
 }
@@ -8396,10 +8399,10 @@ vErrors.push(err317);
 }
 errors++;
 }
-if(data87.id !== undefined){
-let data88 = data87.id;
-if(typeof data88 !== "string"){
-const err318 = {instancePath:instancePath+"/models/evaluator/model/id",schemaPath:"#/definitions/Model/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.id.type,parentSchema:schema28.properties.id,data:data88};
+if(data88.id !== undefined){
+let data89 = data88.id;
+if(typeof data89 !== "string"){
+const err318 = {instancePath:instancePath+"/models/evaluator/model/id",schemaPath:"#/definitions/Model/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.id.type,parentSchema:schema28.properties.id,data:data89};
 if(vErrors === null){
 vErrors = [err318];
 }
@@ -8409,20 +8412,20 @@ vErrors.push(err318);
 errors++;
 }
 if(errors > 0){
-const emErrs97 = [];
+const emErrs98 = [];
 for(const err319 of vErrors){
 if(!err319.emUsed){
-emErrs97.push(err319);
+emErrs98.push(err319);
 }
 }
-vErrors = emErrs97;
-errors = emErrs97.length;
+vErrors = emErrs98;
+errors = emErrs98.length;
 }
 }
-if(data87.name !== undefined){
-let data89 = data87.name;
-if(typeof data89 !== "string"){
-const err320 = {instancePath:instancePath+"/models/evaluator/model/name",schemaPath:"#/definitions/Model/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.name.type,parentSchema:schema28.properties.name,data:data89};
+if(data88.name !== undefined){
+let data90 = data88.name;
+if(typeof data90 !== "string"){
+const err320 = {instancePath:instancePath+"/models/evaluator/model/name",schemaPath:"#/definitions/Model/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.name.type,parentSchema:schema28.properties.name,data:data90};
 if(vErrors === null){
 vErrors = [err320];
 }
@@ -8432,21 +8435,21 @@ vErrors.push(err320);
 errors++;
 }
 if(errors > 0){
-const emErrs98 = [];
+const emErrs99 = [];
 for(const err321 of vErrors){
 if(!err321.emUsed){
-emErrs98.push(err321);
+emErrs99.push(err321);
 }
 }
-vErrors = emErrs98;
-errors = emErrs98.length;
+vErrors = emErrs99;
+errors = emErrs99.length;
 }
 }
-if(data87.provider !== undefined){
-let data90 = data87.provider;
-if(data90 && typeof data90 == "object" && !Array.isArray(data90)){
-if(data90.type === undefined){
-const err322 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data90};
+if(data88.provider !== undefined){
+let data91 = data88.provider;
+if(data91 && typeof data91 == "object" && !Array.isArray(data91)){
+if(data91.type === undefined){
+const err322 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data91};
 if(vErrors === null){
 vErrors = [err322];
 }
@@ -8455,8 +8458,8 @@ vErrors.push(err322);
 }
 errors++;
 }
-if(data90.name === undefined){
-const err323 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data90};
+if(data91.name === undefined){
+const err323 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data91};
 if(vErrors === null){
 vErrors = [err323];
 }
@@ -8465,8 +8468,8 @@ vErrors.push(err323);
 }
 errors++;
 }
-if(data90.id === undefined){
-const err324 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data90};
+if(data91.id === undefined){
+const err324 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data91};
 if(vErrors === null){
 vErrors = [err324];
 }
@@ -8475,10 +8478,10 @@ vErrors.push(err324);
 }
 errors++;
 }
-if(data90.type !== undefined){
-let data91 = data90.type;
-if(typeof data91 !== "string"){
-const err325 = {instancePath:instancePath+"/models/evaluator/model/provider/type",schemaPath:"#/definitions/Model/properties/provider/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.type.type,parentSchema:schema28.properties.provider.properties.type,data:data91};
+if(data91.type !== undefined){
+let data92 = data91.type;
+if(typeof data92 !== "string"){
+const err325 = {instancePath:instancePath+"/models/evaluator/model/provider/type",schemaPath:"#/definitions/Model/properties/provider/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.type.type,parentSchema:schema28.properties.provider.properties.type,data:data92};
 if(vErrors === null){
 vErrors = [err325];
 }
@@ -8488,20 +8491,20 @@ vErrors.push(err325);
 errors++;
 }
 if(errors > 0){
-const emErrs99 = [];
+const emErrs100 = [];
 for(const err326 of vErrors){
 if(!err326.emUsed){
-emErrs99.push(err326);
+emErrs100.push(err326);
 }
 }
-vErrors = emErrs99;
-errors = emErrs99.length;
+vErrors = emErrs100;
+errors = emErrs100.length;
 }
 }
-if(data90.name !== undefined){
-let data92 = data90.name;
-if(typeof data92 !== "string"){
-const err327 = {instancePath:instancePath+"/models/evaluator/model/provider/name",schemaPath:"#/definitions/Model/properties/provider/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.name.type,parentSchema:schema28.properties.provider.properties.name,data:data92};
+if(data91.name !== undefined){
+let data93 = data91.name;
+if(typeof data93 !== "string"){
+const err327 = {instancePath:instancePath+"/models/evaluator/model/provider/name",schemaPath:"#/definitions/Model/properties/provider/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.name.type,parentSchema:schema28.properties.provider.properties.name,data:data93};
 if(vErrors === null){
 vErrors = [err327];
 }
@@ -8511,20 +8514,20 @@ vErrors.push(err327);
 errors++;
 }
 if(errors > 0){
-const emErrs100 = [];
+const emErrs101 = [];
 for(const err328 of vErrors){
 if(!err328.emUsed){
-emErrs100.push(err328);
+emErrs101.push(err328);
 }
 }
-vErrors = emErrs100;
-errors = emErrs100.length;
+vErrors = emErrs101;
+errors = emErrs101.length;
 }
 }
-if(data90.id !== undefined){
-let data93 = data90.id;
-if(typeof data93 !== "string"){
-const err329 = {instancePath:instancePath+"/models/evaluator/model/provider/id",schemaPath:"#/definitions/Model/properties/provider/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.id.type,parentSchema:schema28.properties.provider.properties.id,data:data93};
+if(data91.id !== undefined){
+let data94 = data91.id;
+if(typeof data94 !== "string"){
+const err329 = {instancePath:instancePath+"/models/evaluator/model/provider/id",schemaPath:"#/definitions/Model/properties/provider/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.id.type,parentSchema:schema28.properties.provider.properties.id,data:data94};
 if(vErrors === null){
 vErrors = [err329];
 }
@@ -8534,19 +8537,19 @@ vErrors.push(err329);
 errors++;
 }
 if(errors > 0){
-const emErrs101 = [];
+const emErrs102 = [];
 for(const err330 of vErrors){
 if(!err330.emUsed){
-emErrs101.push(err330);
+emErrs102.push(err330);
 }
 }
-vErrors = emErrs101;
-errors = emErrs101.length;
+vErrors = emErrs102;
+errors = emErrs102.length;
 }
 }
 }
 else {
-const err331 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.properties.provider.type,parentSchema:schema28.properties.provider,data:data90};
+const err331 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.properties.provider.type,parentSchema:schema28.properties.provider,data:data91};
 if(vErrors === null){
 vErrors = [err331];
 }
@@ -8575,7 +8578,7 @@ for(const keyProp19 in emErrors20[key23]){
 emParamsErrors19 = emErrors20[key23][keyProp19];
 if(emParamsErrors19.length){
 const tmpl19 = templates20[key23] && templates20[key23][keyProp19];
-const err333 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors19},message:tmpl19 ? tmpl19() : schema28.properties.provider.errorMessage[key23][keyProp19],schema:schema28.properties.provider.errorMessage,parentSchema:schema28.properties.provider,data:data90};
+const err333 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors19},message:tmpl19 ? tmpl19() : schema28.properties.provider.errorMessage[key23][keyProp19],schema:schema28.properties.provider.errorMessage,parentSchema:schema28.properties.provider,data:data91};
 if(vErrors === null){
 vErrors = [err333];
 }
@@ -8586,19 +8589,19 @@ errors++;
 }
 }
 }
-const emErrs102 = [];
+const emErrs103 = [];
 for(const err334 of vErrors){
 if(!err334.emUsed){
-emErrs102.push(err334);
+emErrs103.push(err334);
 }
 }
-vErrors = emErrs102;
-errors = emErrs102.length;
+vErrors = emErrs103;
+errors = emErrs103.length;
 }
 }
 }
 else {
-const err335 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.type,parentSchema:schema28,data:data87};
+const err335 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.type,parentSchema:schema28,data:data88};
 if(vErrors === null){
 vErrors = [err335];
 }
@@ -8627,7 +8630,7 @@ for(const keyProp20 in emErrors21[key24]){
 emParamsErrors20 = emErrors21[key24][keyProp20];
 if(emParamsErrors20.length){
 const tmpl20 = templates21[key24] && templates21[key24][keyProp20];
-const err337 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors20},message:tmpl20 ? tmpl20() : schema28.errorMessage[key24][keyProp20],schema:schema28.errorMessage,parentSchema:schema28,data:data87};
+const err337 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors20},message:tmpl20 ? tmpl20() : schema28.errorMessage[key24][keyProp20],schema:schema28.errorMessage,parentSchema:schema28,data:data88};
 if(vErrors === null){
 vErrors = [err337];
 }
@@ -8638,14 +8641,14 @@ errors++;
 }
 }
 }
-const emErrs103 = [];
+const emErrs104 = [];
 for(const err338 of vErrors){
 if(!err338.emUsed){
-emErrs103.push(err338);
+emErrs104.push(err338);
 }
 }
-vErrors = emErrs103;
-errors = emErrs103.length;
+vErrors = emErrs104;
+errors = emErrs104.length;
 }
 if(errors > 0){
 const emErrors22 = {"required":{"id":[],"name":[],"provider":[]}};
@@ -8667,7 +8670,7 @@ for(const keyProp21 in emErrors22[key25]){
 emParamsErrors21 = emErrors22[key25][keyProp21];
 if(emParamsErrors21.length){
 const tmpl21 = templates22[key25] && templates22[key25][keyProp21];
-const err340 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/properties/models/properties/evaluator/properties/model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors21},message:tmpl21 ? tmpl21() : schema27.properties.models.properties.evaluator.properties.model.errorMessage[key25][keyProp21],schema:schema27.properties.models.properties.evaluator.properties.model.errorMessage,parentSchema:schema27.properties.models.properties.evaluator.properties.model,data:data87};
+const err340 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/properties/models/properties/evaluator/properties/model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors21},message:tmpl21 ? tmpl21() : schema27.properties.models.properties.evaluator.properties.model.errorMessage[key25][keyProp21],schema:schema27.properties.models.properties.evaluator.properties.model.errorMessage,parentSchema:schema27.properties.models.properties.evaluator.properties.model,data:data88};
 if(vErrors === null){
 vErrors = [err340];
 }
@@ -8678,21 +8681,21 @@ errors++;
 }
 }
 }
-const emErrs104 = [];
+const emErrs105 = [];
 for(const err341 of vErrors){
 if(!err341.emUsed){
-emErrs104.push(err341);
+emErrs105.push(err341);
 }
 }
-vErrors = emErrs104;
-errors = emErrs104.length;
+vErrors = emErrs105;
+errors = emErrs105.length;
 }
 }
-if(data86.inputPricePerMillion !== undefined){
-let data94 = data86.inputPricePerMillion;
-if(typeof data94 == "number"){
-if(data94 < 0 || isNaN(data94)){
-const err342 = {instancePath:instancePath+"/models/evaluator/inputPricePerMillion",schemaPath:"#/properties/models/properties/evaluator/properties/inputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.evaluator.properties.inputPricePerMillion,data:data94};
+if(data87.inputPricePerMillion !== undefined){
+let data95 = data87.inputPricePerMillion;
+if(typeof data95 == "number"){
+if(data95 < 0 || isNaN(data95)){
+const err342 = {instancePath:instancePath+"/models/evaluator/inputPricePerMillion",schemaPath:"#/properties/models/properties/evaluator/properties/inputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.evaluator.properties.inputPricePerMillion,data:data95};
 if(vErrors === null){
 vErrors = [err342];
 }
@@ -8703,7 +8706,7 @@ errors++;
 }
 }
 else {
-const err343 = {instancePath:instancePath+"/models/evaluator/inputPricePerMillion",schemaPath:"#/properties/models/properties/evaluator/properties/inputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.evaluator.properties.inputPricePerMillion.type,parentSchema:schema27.properties.models.properties.evaluator.properties.inputPricePerMillion,data:data94};
+const err343 = {instancePath:instancePath+"/models/evaluator/inputPricePerMillion",schemaPath:"#/properties/models/properties/evaluator/properties/inputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.evaluator.properties.inputPricePerMillion.type,parentSchema:schema27.properties.models.properties.evaluator.properties.inputPricePerMillion,data:data95};
 if(vErrors === null){
 vErrors = [err343];
 }
@@ -8713,21 +8716,21 @@ vErrors.push(err343);
 errors++;
 }
 if(errors > 0){
-const emErrs105 = [];
+const emErrs106 = [];
 for(const err344 of vErrors){
 if(!err344.emUsed){
-emErrs105.push(err344);
+emErrs106.push(err344);
 }
 }
-vErrors = emErrs105;
-errors = emErrs105.length;
+vErrors = emErrs106;
+errors = emErrs106.length;
 }
 }
-if(data86.outputPricePerMillion !== undefined){
-let data95 = data86.outputPricePerMillion;
-if(typeof data95 == "number"){
-if(data95 < 0 || isNaN(data95)){
-const err345 = {instancePath:instancePath+"/models/evaluator/outputPricePerMillion",schemaPath:"#/properties/models/properties/evaluator/properties/outputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.evaluator.properties.outputPricePerMillion,data:data95};
+if(data87.outputPricePerMillion !== undefined){
+let data96 = data87.outputPricePerMillion;
+if(typeof data96 == "number"){
+if(data96 < 0 || isNaN(data96)){
+const err345 = {instancePath:instancePath+"/models/evaluator/outputPricePerMillion",schemaPath:"#/properties/models/properties/evaluator/properties/outputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.evaluator.properties.outputPricePerMillion,data:data96};
 if(vErrors === null){
 vErrors = [err345];
 }
@@ -8738,7 +8741,7 @@ errors++;
 }
 }
 else {
-const err346 = {instancePath:instancePath+"/models/evaluator/outputPricePerMillion",schemaPath:"#/properties/models/properties/evaluator/properties/outputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.evaluator.properties.outputPricePerMillion.type,parentSchema:schema27.properties.models.properties.evaluator.properties.outputPricePerMillion,data:data95};
+const err346 = {instancePath:instancePath+"/models/evaluator/outputPricePerMillion",schemaPath:"#/properties/models/properties/evaluator/properties/outputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.evaluator.properties.outputPricePerMillion.type,parentSchema:schema27.properties.models.properties.evaluator.properties.outputPricePerMillion,data:data96};
 if(vErrors === null){
 vErrors = [err346];
 }
@@ -8748,19 +8751,19 @@ vErrors.push(err346);
 errors++;
 }
 if(errors > 0){
-const emErrs106 = [];
+const emErrs107 = [];
 for(const err347 of vErrors){
 if(!err347.emUsed){
-emErrs106.push(err347);
+emErrs107.push(err347);
 }
 }
-vErrors = emErrs106;
-errors = emErrs106.length;
+vErrors = emErrs107;
+errors = emErrs107.length;
 }
 }
 }
 else {
-const err348 = {instancePath:instancePath+"/models/evaluator",schemaPath:"#/properties/models/properties/evaluator/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.models.properties.evaluator.type,parentSchema:schema27.properties.models.properties.evaluator,data:data86};
+const err348 = {instancePath:instancePath+"/models/evaluator",schemaPath:"#/properties/models/properties/evaluator/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.models.properties.evaluator.type,parentSchema:schema27.properties.models.properties.evaluator,data:data87};
 if(vErrors === null){
 vErrors = [err348];
 }
@@ -8770,24 +8773,24 @@ vErrors.push(err348);
 errors++;
 }
 if(errors > 0){
-const emErrs107 = [];
+const emErrs108 = [];
 for(const err349 of vErrors){
 if(!err349.emUsed){
-emErrs107.push(err349);
+emErrs108.push(err349);
 }
 }
-vErrors = emErrs107;
-errors = emErrs107.length;
+vErrors = emErrs108;
+errors = emErrs108.length;
 }
 }
-if(data55.moderator !== undefined){
-let data96 = data55.moderator;
-if(data96 && typeof data96 == "object" && !Array.isArray(data96)){
-if(data96.model !== undefined){
-let data97 = data96.model;
+if(data56.moderator !== undefined){
+let data97 = data56.moderator;
 if(data97 && typeof data97 == "object" && !Array.isArray(data97)){
-if(data97.id === undefined){
-const err350 = {instancePath:instancePath+"/models/moderator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.required,parentSchema:schema28,data:data97};
+if(data97.model !== undefined){
+let data98 = data97.model;
+if(data98 && typeof data98 == "object" && !Array.isArray(data98)){
+if(data98.id === undefined){
+const err350 = {instancePath:instancePath+"/models/moderator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.required,parentSchema:schema28,data:data98};
 if(vErrors === null){
 vErrors = [err350];
 }
@@ -8796,8 +8799,8 @@ vErrors.push(err350);
 }
 errors++;
 }
-if(data97.name === undefined){
-const err351 = {instancePath:instancePath+"/models/moderator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.required,parentSchema:schema28,data:data97};
+if(data98.name === undefined){
+const err351 = {instancePath:instancePath+"/models/moderator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.required,parentSchema:schema28,data:data98};
 if(vErrors === null){
 vErrors = [err351];
 }
@@ -8806,8 +8809,8 @@ vErrors.push(err351);
 }
 errors++;
 }
-if(data97.provider === undefined){
-const err352 = {instancePath:instancePath+"/models/moderator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'",schema:schema28.required,parentSchema:schema28,data:data97};
+if(data98.provider === undefined){
+const err352 = {instancePath:instancePath+"/models/moderator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'",schema:schema28.required,parentSchema:schema28,data:data98};
 if(vErrors === null){
 vErrors = [err352];
 }
@@ -8816,10 +8819,10 @@ vErrors.push(err352);
 }
 errors++;
 }
-if(data97.id !== undefined){
-let data98 = data97.id;
-if(typeof data98 !== "string"){
-const err353 = {instancePath:instancePath+"/models/moderator/model/id",schemaPath:"#/definitions/Model/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.id.type,parentSchema:schema28.properties.id,data:data98};
+if(data98.id !== undefined){
+let data99 = data98.id;
+if(typeof data99 !== "string"){
+const err353 = {instancePath:instancePath+"/models/moderator/model/id",schemaPath:"#/definitions/Model/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.id.type,parentSchema:schema28.properties.id,data:data99};
 if(vErrors === null){
 vErrors = [err353];
 }
@@ -8829,20 +8832,20 @@ vErrors.push(err353);
 errors++;
 }
 if(errors > 0){
-const emErrs108 = [];
+const emErrs109 = [];
 for(const err354 of vErrors){
 if(!err354.emUsed){
-emErrs108.push(err354);
+emErrs109.push(err354);
 }
 }
-vErrors = emErrs108;
-errors = emErrs108.length;
+vErrors = emErrs109;
+errors = emErrs109.length;
 }
 }
-if(data97.name !== undefined){
-let data99 = data97.name;
-if(typeof data99 !== "string"){
-const err355 = {instancePath:instancePath+"/models/moderator/model/name",schemaPath:"#/definitions/Model/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.name.type,parentSchema:schema28.properties.name,data:data99};
+if(data98.name !== undefined){
+let data100 = data98.name;
+if(typeof data100 !== "string"){
+const err355 = {instancePath:instancePath+"/models/moderator/model/name",schemaPath:"#/definitions/Model/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.name.type,parentSchema:schema28.properties.name,data:data100};
 if(vErrors === null){
 vErrors = [err355];
 }
@@ -8852,21 +8855,21 @@ vErrors.push(err355);
 errors++;
 }
 if(errors > 0){
-const emErrs109 = [];
+const emErrs110 = [];
 for(const err356 of vErrors){
 if(!err356.emUsed){
-emErrs109.push(err356);
+emErrs110.push(err356);
 }
 }
-vErrors = emErrs109;
-errors = emErrs109.length;
+vErrors = emErrs110;
+errors = emErrs110.length;
 }
 }
-if(data97.provider !== undefined){
-let data100 = data97.provider;
-if(data100 && typeof data100 == "object" && !Array.isArray(data100)){
-if(data100.type === undefined){
-const err357 = {instancePath:instancePath+"/models/moderator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data100};
+if(data98.provider !== undefined){
+let data101 = data98.provider;
+if(data101 && typeof data101 == "object" && !Array.isArray(data101)){
+if(data101.type === undefined){
+const err357 = {instancePath:instancePath+"/models/moderator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data101};
 if(vErrors === null){
 vErrors = [err357];
 }
@@ -8875,8 +8878,8 @@ vErrors.push(err357);
 }
 errors++;
 }
-if(data100.name === undefined){
-const err358 = {instancePath:instancePath+"/models/moderator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data100};
+if(data101.name === undefined){
+const err358 = {instancePath:instancePath+"/models/moderator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data101};
 if(vErrors === null){
 vErrors = [err358];
 }
@@ -8885,8 +8888,8 @@ vErrors.push(err358);
 }
 errors++;
 }
-if(data100.id === undefined){
-const err359 = {instancePath:instancePath+"/models/moderator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data100};
+if(data101.id === undefined){
+const err359 = {instancePath:instancePath+"/models/moderator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data101};
 if(vErrors === null){
 vErrors = [err359];
 }
@@ -8895,10 +8898,10 @@ vErrors.push(err359);
 }
 errors++;
 }
-if(data100.type !== undefined){
-let data101 = data100.type;
-if(typeof data101 !== "string"){
-const err360 = {instancePath:instancePath+"/models/moderator/model/provider/type",schemaPath:"#/definitions/Model/properties/provider/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.type.type,parentSchema:schema28.properties.provider.properties.type,data:data101};
+if(data101.type !== undefined){
+let data102 = data101.type;
+if(typeof data102 !== "string"){
+const err360 = {instancePath:instancePath+"/models/moderator/model/provider/type",schemaPath:"#/definitions/Model/properties/provider/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.type.type,parentSchema:schema28.properties.provider.properties.type,data:data102};
 if(vErrors === null){
 vErrors = [err360];
 }
@@ -8908,20 +8911,20 @@ vErrors.push(err360);
 errors++;
 }
 if(errors > 0){
-const emErrs110 = [];
+const emErrs111 = [];
 for(const err361 of vErrors){
 if(!err361.emUsed){
-emErrs110.push(err361);
+emErrs111.push(err361);
 }
 }
-vErrors = emErrs110;
-errors = emErrs110.length;
+vErrors = emErrs111;
+errors = emErrs111.length;
 }
 }
-if(data100.name !== undefined){
-let data102 = data100.name;
-if(typeof data102 !== "string"){
-const err362 = {instancePath:instancePath+"/models/moderator/model/provider/name",schemaPath:"#/definitions/Model/properties/provider/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.name.type,parentSchema:schema28.properties.provider.properties.name,data:data102};
+if(data101.name !== undefined){
+let data103 = data101.name;
+if(typeof data103 !== "string"){
+const err362 = {instancePath:instancePath+"/models/moderator/model/provider/name",schemaPath:"#/definitions/Model/properties/provider/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.name.type,parentSchema:schema28.properties.provider.properties.name,data:data103};
 if(vErrors === null){
 vErrors = [err362];
 }
@@ -8931,20 +8934,20 @@ vErrors.push(err362);
 errors++;
 }
 if(errors > 0){
-const emErrs111 = [];
+const emErrs112 = [];
 for(const err363 of vErrors){
 if(!err363.emUsed){
-emErrs111.push(err363);
+emErrs112.push(err363);
 }
 }
-vErrors = emErrs111;
-errors = emErrs111.length;
+vErrors = emErrs112;
+errors = emErrs112.length;
 }
 }
-if(data100.id !== undefined){
-let data103 = data100.id;
-if(typeof data103 !== "string"){
-const err364 = {instancePath:instancePath+"/models/moderator/model/provider/id",schemaPath:"#/definitions/Model/properties/provider/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.id.type,parentSchema:schema28.properties.provider.properties.id,data:data103};
+if(data101.id !== undefined){
+let data104 = data101.id;
+if(typeof data104 !== "string"){
+const err364 = {instancePath:instancePath+"/models/moderator/model/provider/id",schemaPath:"#/definitions/Model/properties/provider/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.id.type,parentSchema:schema28.properties.provider.properties.id,data:data104};
 if(vErrors === null){
 vErrors = [err364];
 }
@@ -8954,19 +8957,19 @@ vErrors.push(err364);
 errors++;
 }
 if(errors > 0){
-const emErrs112 = [];
+const emErrs113 = [];
 for(const err365 of vErrors){
 if(!err365.emUsed){
-emErrs112.push(err365);
+emErrs113.push(err365);
 }
 }
-vErrors = emErrs112;
-errors = emErrs112.length;
+vErrors = emErrs113;
+errors = emErrs113.length;
 }
 }
 }
 else {
-const err366 = {instancePath:instancePath+"/models/moderator/model/provider",schemaPath:"#/definitions/Model/properties/provider/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.properties.provider.type,parentSchema:schema28.properties.provider,data:data100};
+const err366 = {instancePath:instancePath+"/models/moderator/model/provider",schemaPath:"#/definitions/Model/properties/provider/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.properties.provider.type,parentSchema:schema28.properties.provider,data:data101};
 if(vErrors === null){
 vErrors = [err366];
 }
@@ -8995,7 +8998,7 @@ for(const keyProp22 in emErrors23[key26]){
 emParamsErrors22 = emErrors23[key26][keyProp22];
 if(emParamsErrors22.length){
 const tmpl22 = templates23[key26] && templates23[key26][keyProp22];
-const err368 = {instancePath:instancePath+"/models/moderator/model/provider",schemaPath:"#/definitions/Model/properties/provider/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors22},message:tmpl22 ? tmpl22() : schema28.properties.provider.errorMessage[key26][keyProp22],schema:schema28.properties.provider.errorMessage,parentSchema:schema28.properties.provider,data:data100};
+const err368 = {instancePath:instancePath+"/models/moderator/model/provider",schemaPath:"#/definitions/Model/properties/provider/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors22},message:tmpl22 ? tmpl22() : schema28.properties.provider.errorMessage[key26][keyProp22],schema:schema28.properties.provider.errorMessage,parentSchema:schema28.properties.provider,data:data101};
 if(vErrors === null){
 vErrors = [err368];
 }
@@ -9006,19 +9009,19 @@ errors++;
 }
 }
 }
-const emErrs113 = [];
+const emErrs114 = [];
 for(const err369 of vErrors){
 if(!err369.emUsed){
-emErrs113.push(err369);
+emErrs114.push(err369);
 }
 }
-vErrors = emErrs113;
-errors = emErrs113.length;
+vErrors = emErrs114;
+errors = emErrs114.length;
 }
 }
 }
 else {
-const err370 = {instancePath:instancePath+"/models/moderator/model",schemaPath:"#/definitions/Model/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.type,parentSchema:schema28,data:data97};
+const err370 = {instancePath:instancePath+"/models/moderator/model",schemaPath:"#/definitions/Model/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.type,parentSchema:schema28,data:data98};
 if(vErrors === null){
 vErrors = [err370];
 }
@@ -9047,7 +9050,7 @@ for(const keyProp23 in emErrors24[key27]){
 emParamsErrors23 = emErrors24[key27][keyProp23];
 if(emParamsErrors23.length){
 const tmpl23 = templates24[key27] && templates24[key27][keyProp23];
-const err372 = {instancePath:instancePath+"/models/moderator/model",schemaPath:"#/definitions/Model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors23},message:tmpl23 ? tmpl23() : schema28.errorMessage[key27][keyProp23],schema:schema28.errorMessage,parentSchema:schema28,data:data97};
+const err372 = {instancePath:instancePath+"/models/moderator/model",schemaPath:"#/definitions/Model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors23},message:tmpl23 ? tmpl23() : schema28.errorMessage[key27][keyProp23],schema:schema28.errorMessage,parentSchema:schema28,data:data98};
 if(vErrors === null){
 vErrors = [err372];
 }
@@ -9058,14 +9061,14 @@ errors++;
 }
 }
 }
-const emErrs114 = [];
+const emErrs115 = [];
 for(const err373 of vErrors){
 if(!err373.emUsed){
-emErrs114.push(err373);
+emErrs115.push(err373);
 }
 }
-vErrors = emErrs114;
-errors = emErrs114.length;
+vErrors = emErrs115;
+errors = emErrs115.length;
 }
 if(errors > 0){
 const emErrors25 = {"required":{"id":[],"name":[],"provider":[]}};
@@ -9087,7 +9090,7 @@ for(const keyProp24 in emErrors25[key28]){
 emParamsErrors24 = emErrors25[key28][keyProp24];
 if(emParamsErrors24.length){
 const tmpl24 = templates25[key28] && templates25[key28][keyProp24];
-const err375 = {instancePath:instancePath+"/models/moderator/model",schemaPath:"#/properties/models/properties/moderator/properties/model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors24},message:tmpl24 ? tmpl24() : schema27.properties.models.properties.moderator.properties.model.errorMessage[key28][keyProp24],schema:schema27.properties.models.properties.moderator.properties.model.errorMessage,parentSchema:schema27.properties.models.properties.moderator.properties.model,data:data97};
+const err375 = {instancePath:instancePath+"/models/moderator/model",schemaPath:"#/properties/models/properties/moderator/properties/model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors24},message:tmpl24 ? tmpl24() : schema27.properties.models.properties.moderator.properties.model.errorMessage[key28][keyProp24],schema:schema27.properties.models.properties.moderator.properties.model.errorMessage,parentSchema:schema27.properties.models.properties.moderator.properties.model,data:data98};
 if(vErrors === null){
 vErrors = [err375];
 }
@@ -9098,21 +9101,21 @@ errors++;
 }
 }
 }
-const emErrs115 = [];
+const emErrs116 = [];
 for(const err376 of vErrors){
 if(!err376.emUsed){
-emErrs115.push(err376);
+emErrs116.push(err376);
 }
 }
-vErrors = emErrs115;
-errors = emErrs115.length;
+vErrors = emErrs116;
+errors = emErrs116.length;
 }
 }
-if(data96.inputPricePerMillion !== undefined){
-let data104 = data96.inputPricePerMillion;
-if(typeof data104 == "number"){
-if(data104 < 0 || isNaN(data104)){
-const err377 = {instancePath:instancePath+"/models/moderator/inputPricePerMillion",schemaPath:"#/properties/models/properties/moderator/properties/inputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.moderator.properties.inputPricePerMillion,data:data104};
+if(data97.inputPricePerMillion !== undefined){
+let data105 = data97.inputPricePerMillion;
+if(typeof data105 == "number"){
+if(data105 < 0 || isNaN(data105)){
+const err377 = {instancePath:instancePath+"/models/moderator/inputPricePerMillion",schemaPath:"#/properties/models/properties/moderator/properties/inputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.moderator.properties.inputPricePerMillion,data:data105};
 if(vErrors === null){
 vErrors = [err377];
 }
@@ -9123,7 +9126,7 @@ errors++;
 }
 }
 else {
-const err378 = {instancePath:instancePath+"/models/moderator/inputPricePerMillion",schemaPath:"#/properties/models/properties/moderator/properties/inputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.moderator.properties.inputPricePerMillion.type,parentSchema:schema27.properties.models.properties.moderator.properties.inputPricePerMillion,data:data104};
+const err378 = {instancePath:instancePath+"/models/moderator/inputPricePerMillion",schemaPath:"#/properties/models/properties/moderator/properties/inputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.moderator.properties.inputPricePerMillion.type,parentSchema:schema27.properties.models.properties.moderator.properties.inputPricePerMillion,data:data105};
 if(vErrors === null){
 vErrors = [err378];
 }
@@ -9133,21 +9136,21 @@ vErrors.push(err378);
 errors++;
 }
 if(errors > 0){
-const emErrs116 = [];
+const emErrs117 = [];
 for(const err379 of vErrors){
 if(!err379.emUsed){
-emErrs116.push(err379);
+emErrs117.push(err379);
 }
 }
-vErrors = emErrs116;
-errors = emErrs116.length;
+vErrors = emErrs117;
+errors = emErrs117.length;
 }
 }
-if(data96.outputPricePerMillion !== undefined){
-let data105 = data96.outputPricePerMillion;
-if(typeof data105 == "number"){
-if(data105 < 0 || isNaN(data105)){
-const err380 = {instancePath:instancePath+"/models/moderator/outputPricePerMillion",schemaPath:"#/properties/models/properties/moderator/properties/outputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.moderator.properties.outputPricePerMillion,data:data105};
+if(data97.outputPricePerMillion !== undefined){
+let data106 = data97.outputPricePerMillion;
+if(typeof data106 == "number"){
+if(data106 < 0 || isNaN(data106)){
+const err380 = {instancePath:instancePath+"/models/moderator/outputPricePerMillion",schemaPath:"#/properties/models/properties/moderator/properties/outputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.moderator.properties.outputPricePerMillion,data:data106};
 if(vErrors === null){
 vErrors = [err380];
 }
@@ -9158,7 +9161,7 @@ errors++;
 }
 }
 else {
-const err381 = {instancePath:instancePath+"/models/moderator/outputPricePerMillion",schemaPath:"#/properties/models/properties/moderator/properties/outputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.moderator.properties.outputPricePerMillion.type,parentSchema:schema27.properties.models.properties.moderator.properties.outputPricePerMillion,data:data105};
+const err381 = {instancePath:instancePath+"/models/moderator/outputPricePerMillion",schemaPath:"#/properties/models/properties/moderator/properties/outputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.moderator.properties.outputPricePerMillion.type,parentSchema:schema27.properties.models.properties.moderator.properties.outputPricePerMillion,data:data106};
 if(vErrors === null){
 vErrors = [err381];
 }
@@ -9168,19 +9171,19 @@ vErrors.push(err381);
 errors++;
 }
 if(errors > 0){
-const emErrs117 = [];
+const emErrs118 = [];
 for(const err382 of vErrors){
 if(!err382.emUsed){
-emErrs117.push(err382);
+emErrs118.push(err382);
 }
 }
-vErrors = emErrs117;
-errors = emErrs117.length;
+vErrors = emErrs118;
+errors = emErrs118.length;
 }
 }
 }
 else {
-const err383 = {instancePath:instancePath+"/models/moderator",schemaPath:"#/properties/models/properties/moderator/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.models.properties.moderator.type,parentSchema:schema27.properties.models.properties.moderator,data:data96};
+const err383 = {instancePath:instancePath+"/models/moderator",schemaPath:"#/properties/models/properties/moderator/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.models.properties.moderator.type,parentSchema:schema27.properties.models.properties.moderator,data:data97};
 if(vErrors === null){
 vErrors = [err383];
 }
@@ -9190,19 +9193,19 @@ vErrors.push(err383);
 errors++;
 }
 if(errors > 0){
-const emErrs118 = [];
+const emErrs119 = [];
 for(const err384 of vErrors){
 if(!err384.emUsed){
-emErrs118.push(err384);
+emErrs119.push(err384);
 }
 }
-vErrors = emErrs118;
-errors = emErrs118.length;
+vErrors = emErrs119;
+errors = emErrs119.length;
 }
 }
 }
 else {
-const err385 = {instancePath:instancePath+"/models",schemaPath:"#/properties/models/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.models.type,parentSchema:schema27.properties.models,data:data55};
+const err385 = {instancePath:instancePath+"/models",schemaPath:"#/properties/models/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.models.type,parentSchema:schema27.properties.models,data:data56};
 if(vErrors === null){
 vErrors = [err385];
 }
@@ -9212,21 +9215,21 @@ vErrors.push(err385);
 errors++;
 }
 if(errors > 0){
-const emErrs119 = [];
+const emErrs120 = [];
 for(const err386 of vErrors){
 if(!err386.emUsed){
-emErrs119.push(err386);
+emErrs120.push(err386);
 }
 }
-vErrors = emErrs119;
-errors = emErrs119.length;
+vErrors = emErrs120;
+errors = emErrs120.length;
 }
 }
 if(data.quotas !== undefined){
-let data106 = data.quotas;
-if(data106 && typeof data106 == "object" && !Array.isArray(data106)){
-if(data106.global === undefined){
-const err387 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "global"},message:"must have required property '"+"global"+"'",schema:schema27.properties.quotas.required,parentSchema:schema27.properties.quotas,data:data106};
+let data107 = data.quotas;
+if(data107 && typeof data107 == "object" && !Array.isArray(data107)){
+if(data107.global === undefined){
+const err387 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "global"},message:"must have required property '"+"global"+"'",schema:schema27.properties.quotas.required,parentSchema:schema27.properties.quotas,data:data107};
 if(vErrors === null){
 vErrors = [err387];
 }
@@ -9235,8 +9238,8 @@ vErrors.push(err387);
 }
 errors++;
 }
-if(data106.admin === undefined){
-const err388 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "admin"},message:"must have required property '"+"admin"+"'",schema:schema27.properties.quotas.required,parentSchema:schema27.properties.quotas,data:data106};
+if(data107.admin === undefined){
+const err388 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "admin"},message:"must have required property '"+"admin"+"'",schema:schema27.properties.quotas.required,parentSchema:schema27.properties.quotas,data:data107};
 if(vErrors === null){
 vErrors = [err388];
 }
@@ -9245,8 +9248,8 @@ vErrors.push(err388);
 }
 errors++;
 }
-if(data106.contrib === undefined){
-const err389 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "contrib"},message:"must have required property '"+"contrib"+"'",schema:schema27.properties.quotas.required,parentSchema:schema27.properties.quotas,data:data106};
+if(data107.contrib === undefined){
+const err389 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "contrib"},message:"must have required property '"+"contrib"+"'",schema:schema27.properties.quotas.required,parentSchema:schema27.properties.quotas,data:data107};
 if(vErrors === null){
 vErrors = [err389];
 }
@@ -9255,8 +9258,8 @@ vErrors.push(err389);
 }
 errors++;
 }
-if(data106.user === undefined){
-const err390 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "user"},message:"must have required property '"+"user"+"'",schema:schema27.properties.quotas.required,parentSchema:schema27.properties.quotas,data:data106};
+if(data107.user === undefined){
+const err390 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "user"},message:"must have required property '"+"user"+"'",schema:schema27.properties.quotas.required,parentSchema:schema27.properties.quotas,data:data107};
 if(vErrors === null){
 vErrors = [err390];
 }
@@ -9265,8 +9268,8 @@ vErrors.push(err390);
 }
 errors++;
 }
-if(data106.external === undefined){
-const err391 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "external"},message:"must have required property '"+"external"+"'",schema:schema27.properties.quotas.required,parentSchema:schema27.properties.quotas,data:data106};
+if(data107.external === undefined){
+const err391 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "external"},message:"must have required property '"+"external"+"'",schema:schema27.properties.quotas.required,parentSchema:schema27.properties.quotas,data:data107};
 if(vErrors === null){
 vErrors = [err391];
 }
@@ -9275,8 +9278,8 @@ vErrors.push(err391);
 }
 errors++;
 }
-if(data106.anonymous === undefined){
-const err392 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "anonymous"},message:"must have required property '"+"anonymous"+"'",schema:schema27.properties.quotas.required,parentSchema:schema27.properties.quotas,data:data106};
+if(data107.anonymous === undefined){
+const err392 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "anonymous"},message:"must have required property '"+"anonymous"+"'",schema:schema27.properties.quotas.required,parentSchema:schema27.properties.quotas,data:data107};
 if(vErrors === null){
 vErrors = [err392];
 }
@@ -9285,11 +9288,11 @@ vErrors.push(err392);
 }
 errors++;
 }
-if(data106.global !== undefined){
-let data107 = data106.global;
-if(data107 && typeof data107 == "object" && !Array.isArray(data107)){
-if(data107.unlimited === undefined){
-const err393 = {instancePath:instancePath+"/quotas/global",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'",schema:schema33.required,parentSchema:schema33,data:data107};
+if(data107.global !== undefined){
+let data108 = data107.global;
+if(data108 && typeof data108 == "object" && !Array.isArray(data108)){
+if(data108.unlimited === undefined){
+const err393 = {instancePath:instancePath+"/quotas/global",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'",schema:schema33.required,parentSchema:schema33,data:data108};
 if(vErrors === null){
 vErrors = [err393];
 }
@@ -9298,8 +9301,8 @@ vErrors.push(err393);
 }
 errors++;
 }
-if(data107.monthlyLimit === undefined){
-const err394 = {instancePath:instancePath+"/quotas/global",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'",schema:schema33.required,parentSchema:schema33,data:data107};
+if(data108.monthlyLimit === undefined){
+const err394 = {instancePath:instancePath+"/quotas/global",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'",schema:schema33.required,parentSchema:schema33,data:data108};
 if(vErrors === null){
 vErrors = [err394];
 }
@@ -9308,10 +9311,10 @@ vErrors.push(err394);
 }
 errors++;
 }
-if(data107.unlimited !== undefined){
-let data108 = data107.unlimited;
-if(typeof data108 !== "boolean"){
-const err395 = {instancePath:instancePath+"/quotas/global/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema33.properties.unlimited.type,parentSchema:schema33.properties.unlimited,data:data108};
+if(data108.unlimited !== undefined){
+let data109 = data108.unlimited;
+if(typeof data109 !== "boolean"){
+const err395 = {instancePath:instancePath+"/quotas/global/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema33.properties.unlimited.type,parentSchema:schema33.properties.unlimited,data:data109};
 if(vErrors === null){
 vErrors = [err395];
 }
@@ -9321,21 +9324,21 @@ vErrors.push(err395);
 errors++;
 }
 if(errors > 0){
-const emErrs120 = [];
+const emErrs121 = [];
 for(const err396 of vErrors){
 if(!err396.emUsed){
-emErrs120.push(err396);
+emErrs121.push(err396);
 }
 }
-vErrors = emErrs120;
-errors = emErrs120.length;
+vErrors = emErrs121;
+errors = emErrs121.length;
 }
 }
-if(data107.monthlyLimit !== undefined){
-let data109 = data107.monthlyLimit;
-if(typeof data109 == "number"){
-if(data109 < 0 || isNaN(data109)){
-const err397 = {instancePath:instancePath+"/quotas/global/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema33.properties.monthlyLimit,data:data109};
+if(data108.monthlyLimit !== undefined){
+let data110 = data108.monthlyLimit;
+if(typeof data110 == "number"){
+if(data110 < 0 || isNaN(data110)){
+const err397 = {instancePath:instancePath+"/quotas/global/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema33.properties.monthlyLimit,data:data110};
 if(vErrors === null){
 vErrors = [err397];
 }
@@ -9346,7 +9349,7 @@ errors++;
 }
 }
 else {
-const err398 = {instancePath:instancePath+"/quotas/global/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema33.properties.monthlyLimit.type,parentSchema:schema33.properties.monthlyLimit,data:data109};
+const err398 = {instancePath:instancePath+"/quotas/global/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema33.properties.monthlyLimit.type,parentSchema:schema33.properties.monthlyLimit,data:data110};
 if(vErrors === null){
 vErrors = [err398];
 }
@@ -9356,19 +9359,19 @@ vErrors.push(err398);
 errors++;
 }
 if(errors > 0){
-const emErrs121 = [];
+const emErrs122 = [];
 for(const err399 of vErrors){
 if(!err399.emUsed){
-emErrs121.push(err399);
+emErrs122.push(err399);
 }
 }
-vErrors = emErrs121;
-errors = emErrs121.length;
+vErrors = emErrs122;
+errors = emErrs122.length;
 }
 }
 }
 else {
-const err400 = {instancePath:instancePath+"/quotas/global",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema33.type,parentSchema:schema33,data:data107};
+const err400 = {instancePath:instancePath+"/quotas/global",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema33.type,parentSchema:schema33,data:data108};
 if(vErrors === null){
 vErrors = [err400];
 }
@@ -9397,7 +9400,7 @@ for(const keyProp25 in emErrors26[key29]){
 emParamsErrors25 = emErrors26[key29][keyProp25];
 if(emParamsErrors25.length){
 const tmpl25 = templates26[key29] && templates26[key29][keyProp25];
-const err402 = {instancePath:instancePath+"/quotas/global",schemaPath:"#/definitions/RoleQuota/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors25},message:tmpl25 ? tmpl25() : schema33.errorMessage[key29][keyProp25],schema:schema33.errorMessage,parentSchema:schema33,data:data107};
+const err402 = {instancePath:instancePath+"/quotas/global",schemaPath:"#/definitions/RoleQuota/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors25},message:tmpl25 ? tmpl25() : schema33.errorMessage[key29][keyProp25],schema:schema33.errorMessage,parentSchema:schema33,data:data108};
 if(vErrors === null){
 vErrors = [err402];
 }
@@ -9408,14 +9411,14 @@ errors++;
 }
 }
 }
-const emErrs122 = [];
+const emErrs123 = [];
 for(const err403 of vErrors){
 if(!err403.emUsed){
-emErrs122.push(err403);
+emErrs123.push(err403);
 }
 }
-vErrors = emErrs122;
-errors = emErrs122.length;
+vErrors = emErrs123;
+errors = emErrs123.length;
 }
 if(errors > 0){
 const emErrors27 = {"required":{"unlimited":[],"monthlyLimit":[]}};
@@ -9437,7 +9440,7 @@ for(const keyProp26 in emErrors27[key30]){
 emParamsErrors26 = emErrors27[key30][keyProp26];
 if(emParamsErrors26.length){
 const tmpl26 = templates27[key30] && templates27[key30][keyProp26];
-const err405 = {instancePath:instancePath+"/quotas/global",schemaPath:"#/properties/quotas/properties/global/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors26},message:tmpl26 ? tmpl26() : schema27.properties.quotas.properties.global.errorMessage[key30][keyProp26],schema:schema27.properties.quotas.properties.global.errorMessage,parentSchema:schema27.properties.quotas.properties.global,data:data107};
+const err405 = {instancePath:instancePath+"/quotas/global",schemaPath:"#/properties/quotas/properties/global/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors26},message:tmpl26 ? tmpl26() : schema27.properties.quotas.properties.global.errorMessage[key30][keyProp26],schema:schema27.properties.quotas.properties.global.errorMessage,parentSchema:schema27.properties.quotas.properties.global,data:data108};
 if(vErrors === null){
 vErrors = [err405];
 }
@@ -9448,21 +9451,21 @@ errors++;
 }
 }
 }
-const emErrs123 = [];
+const emErrs124 = [];
 for(const err406 of vErrors){
 if(!err406.emUsed){
-emErrs123.push(err406);
+emErrs124.push(err406);
 }
 }
-vErrors = emErrs123;
-errors = emErrs123.length;
+vErrors = emErrs124;
+errors = emErrs124.length;
 }
 }
-if(data106.admin !== undefined){
-let data110 = data106.admin;
-if(data110 && typeof data110 == "object" && !Array.isArray(data110)){
-if(data110.unlimited === undefined){
-const err407 = {instancePath:instancePath+"/quotas/admin",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'",schema:schema33.required,parentSchema:schema33,data:data110};
+if(data107.admin !== undefined){
+let data111 = data107.admin;
+if(data111 && typeof data111 == "object" && !Array.isArray(data111)){
+if(data111.unlimited === undefined){
+const err407 = {instancePath:instancePath+"/quotas/admin",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'",schema:schema33.required,parentSchema:schema33,data:data111};
 if(vErrors === null){
 vErrors = [err407];
 }
@@ -9471,8 +9474,8 @@ vErrors.push(err407);
 }
 errors++;
 }
-if(data110.monthlyLimit === undefined){
-const err408 = {instancePath:instancePath+"/quotas/admin",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'",schema:schema33.required,parentSchema:schema33,data:data110};
+if(data111.monthlyLimit === undefined){
+const err408 = {instancePath:instancePath+"/quotas/admin",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'",schema:schema33.required,parentSchema:schema33,data:data111};
 if(vErrors === null){
 vErrors = [err408];
 }
@@ -9481,10 +9484,10 @@ vErrors.push(err408);
 }
 errors++;
 }
-if(data110.unlimited !== undefined){
-let data111 = data110.unlimited;
-if(typeof data111 !== "boolean"){
-const err409 = {instancePath:instancePath+"/quotas/admin/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema33.properties.unlimited.type,parentSchema:schema33.properties.unlimited,data:data111};
+if(data111.unlimited !== undefined){
+let data112 = data111.unlimited;
+if(typeof data112 !== "boolean"){
+const err409 = {instancePath:instancePath+"/quotas/admin/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema33.properties.unlimited.type,parentSchema:schema33.properties.unlimited,data:data112};
 if(vErrors === null){
 vErrors = [err409];
 }
@@ -9494,21 +9497,21 @@ vErrors.push(err409);
 errors++;
 }
 if(errors > 0){
-const emErrs124 = [];
+const emErrs125 = [];
 for(const err410 of vErrors){
 if(!err410.emUsed){
-emErrs124.push(err410);
+emErrs125.push(err410);
 }
 }
-vErrors = emErrs124;
-errors = emErrs124.length;
+vErrors = emErrs125;
+errors = emErrs125.length;
 }
 }
-if(data110.monthlyLimit !== undefined){
-let data112 = data110.monthlyLimit;
-if(typeof data112 == "number"){
-if(data112 < 0 || isNaN(data112)){
-const err411 = {instancePath:instancePath+"/quotas/admin/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema33.properties.monthlyLimit,data:data112};
+if(data111.monthlyLimit !== undefined){
+let data113 = data111.monthlyLimit;
+if(typeof data113 == "number"){
+if(data113 < 0 || isNaN(data113)){
+const err411 = {instancePath:instancePath+"/quotas/admin/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema33.properties.monthlyLimit,data:data113};
 if(vErrors === null){
 vErrors = [err411];
 }
@@ -9519,7 +9522,7 @@ errors++;
 }
 }
 else {
-const err412 = {instancePath:instancePath+"/quotas/admin/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema33.properties.monthlyLimit.type,parentSchema:schema33.properties.monthlyLimit,data:data112};
+const err412 = {instancePath:instancePath+"/quotas/admin/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema33.properties.monthlyLimit.type,parentSchema:schema33.properties.monthlyLimit,data:data113};
 if(vErrors === null){
 vErrors = [err412];
 }
@@ -9529,19 +9532,19 @@ vErrors.push(err412);
 errors++;
 }
 if(errors > 0){
-const emErrs125 = [];
+const emErrs126 = [];
 for(const err413 of vErrors){
 if(!err413.emUsed){
-emErrs125.push(err413);
+emErrs126.push(err413);
 }
 }
-vErrors = emErrs125;
-errors = emErrs125.length;
+vErrors = emErrs126;
+errors = emErrs126.length;
 }
 }
 }
 else {
-const err414 = {instancePath:instancePath+"/quotas/admin",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema33.type,parentSchema:schema33,data:data110};
+const err414 = {instancePath:instancePath+"/quotas/admin",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema33.type,parentSchema:schema33,data:data111};
 if(vErrors === null){
 vErrors = [err414];
 }
@@ -9570,7 +9573,7 @@ for(const keyProp27 in emErrors28[key31]){
 emParamsErrors27 = emErrors28[key31][keyProp27];
 if(emParamsErrors27.length){
 const tmpl27 = templates28[key31] && templates28[key31][keyProp27];
-const err416 = {instancePath:instancePath+"/quotas/admin",schemaPath:"#/definitions/RoleQuota/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors27},message:tmpl27 ? tmpl27() : schema33.errorMessage[key31][keyProp27],schema:schema33.errorMessage,parentSchema:schema33,data:data110};
+const err416 = {instancePath:instancePath+"/quotas/admin",schemaPath:"#/definitions/RoleQuota/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors27},message:tmpl27 ? tmpl27() : schema33.errorMessage[key31][keyProp27],schema:schema33.errorMessage,parentSchema:schema33,data:data111};
 if(vErrors === null){
 vErrors = [err416];
 }
@@ -9581,14 +9584,14 @@ errors++;
 }
 }
 }
-const emErrs126 = [];
+const emErrs127 = [];
 for(const err417 of vErrors){
 if(!err417.emUsed){
-emErrs126.push(err417);
+emErrs127.push(err417);
 }
 }
-vErrors = emErrs126;
-errors = emErrs126.length;
+vErrors = emErrs127;
+errors = emErrs127.length;
 }
 if(errors > 0){
 const emErrors29 = {"required":{"unlimited":[],"monthlyLimit":[]}};
@@ -9610,7 +9613,7 @@ for(const keyProp28 in emErrors29[key32]){
 emParamsErrors28 = emErrors29[key32][keyProp28];
 if(emParamsErrors28.length){
 const tmpl28 = templates29[key32] && templates29[key32][keyProp28];
-const err419 = {instancePath:instancePath+"/quotas/admin",schemaPath:"#/properties/quotas/properties/admin/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors28},message:tmpl28 ? tmpl28() : schema27.properties.quotas.properties.admin.errorMessage[key32][keyProp28],schema:schema27.properties.quotas.properties.admin.errorMessage,parentSchema:schema27.properties.quotas.properties.admin,data:data110};
+const err419 = {instancePath:instancePath+"/quotas/admin",schemaPath:"#/properties/quotas/properties/admin/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors28},message:tmpl28 ? tmpl28() : schema27.properties.quotas.properties.admin.errorMessage[key32][keyProp28],schema:schema27.properties.quotas.properties.admin.errorMessage,parentSchema:schema27.properties.quotas.properties.admin,data:data111};
 if(vErrors === null){
 vErrors = [err419];
 }
@@ -9621,21 +9624,21 @@ errors++;
 }
 }
 }
-const emErrs127 = [];
+const emErrs128 = [];
 for(const err420 of vErrors){
 if(!err420.emUsed){
-emErrs127.push(err420);
+emErrs128.push(err420);
 }
 }
-vErrors = emErrs127;
-errors = emErrs127.length;
+vErrors = emErrs128;
+errors = emErrs128.length;
 }
 }
-if(data106.contrib !== undefined){
-let data113 = data106.contrib;
-if(data113 && typeof data113 == "object" && !Array.isArray(data113)){
-if(data113.unlimited === undefined){
-const err421 = {instancePath:instancePath+"/quotas/contrib",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'",schema:schema33.required,parentSchema:schema33,data:data113};
+if(data107.contrib !== undefined){
+let data114 = data107.contrib;
+if(data114 && typeof data114 == "object" && !Array.isArray(data114)){
+if(data114.unlimited === undefined){
+const err421 = {instancePath:instancePath+"/quotas/contrib",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'",schema:schema33.required,parentSchema:schema33,data:data114};
 if(vErrors === null){
 vErrors = [err421];
 }
@@ -9644,8 +9647,8 @@ vErrors.push(err421);
 }
 errors++;
 }
-if(data113.monthlyLimit === undefined){
-const err422 = {instancePath:instancePath+"/quotas/contrib",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'",schema:schema33.required,parentSchema:schema33,data:data113};
+if(data114.monthlyLimit === undefined){
+const err422 = {instancePath:instancePath+"/quotas/contrib",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'",schema:schema33.required,parentSchema:schema33,data:data114};
 if(vErrors === null){
 vErrors = [err422];
 }
@@ -9654,10 +9657,10 @@ vErrors.push(err422);
 }
 errors++;
 }
-if(data113.unlimited !== undefined){
-let data114 = data113.unlimited;
-if(typeof data114 !== "boolean"){
-const err423 = {instancePath:instancePath+"/quotas/contrib/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema33.properties.unlimited.type,parentSchema:schema33.properties.unlimited,data:data114};
+if(data114.unlimited !== undefined){
+let data115 = data114.unlimited;
+if(typeof data115 !== "boolean"){
+const err423 = {instancePath:instancePath+"/quotas/contrib/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema33.properties.unlimited.type,parentSchema:schema33.properties.unlimited,data:data115};
 if(vErrors === null){
 vErrors = [err423];
 }
@@ -9667,21 +9670,21 @@ vErrors.push(err423);
 errors++;
 }
 if(errors > 0){
-const emErrs128 = [];
+const emErrs129 = [];
 for(const err424 of vErrors){
 if(!err424.emUsed){
-emErrs128.push(err424);
+emErrs129.push(err424);
 }
 }
-vErrors = emErrs128;
-errors = emErrs128.length;
+vErrors = emErrs129;
+errors = emErrs129.length;
 }
 }
-if(data113.monthlyLimit !== undefined){
-let data115 = data113.monthlyLimit;
-if(typeof data115 == "number"){
-if(data115 < 0 || isNaN(data115)){
-const err425 = {instancePath:instancePath+"/quotas/contrib/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema33.properties.monthlyLimit,data:data115};
+if(data114.monthlyLimit !== undefined){
+let data116 = data114.monthlyLimit;
+if(typeof data116 == "number"){
+if(data116 < 0 || isNaN(data116)){
+const err425 = {instancePath:instancePath+"/quotas/contrib/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema33.properties.monthlyLimit,data:data116};
 if(vErrors === null){
 vErrors = [err425];
 }
@@ -9692,7 +9695,7 @@ errors++;
 }
 }
 else {
-const err426 = {instancePath:instancePath+"/quotas/contrib/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema33.properties.monthlyLimit.type,parentSchema:schema33.properties.monthlyLimit,data:data115};
+const err426 = {instancePath:instancePath+"/quotas/contrib/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema33.properties.monthlyLimit.type,parentSchema:schema33.properties.monthlyLimit,data:data116};
 if(vErrors === null){
 vErrors = [err426];
 }
@@ -9702,19 +9705,19 @@ vErrors.push(err426);
 errors++;
 }
 if(errors > 0){
-const emErrs129 = [];
+const emErrs130 = [];
 for(const err427 of vErrors){
 if(!err427.emUsed){
-emErrs129.push(err427);
+emErrs130.push(err427);
 }
 }
-vErrors = emErrs129;
-errors = emErrs129.length;
+vErrors = emErrs130;
+errors = emErrs130.length;
 }
 }
 }
 else {
-const err428 = {instancePath:instancePath+"/quotas/contrib",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema33.type,parentSchema:schema33,data:data113};
+const err428 = {instancePath:instancePath+"/quotas/contrib",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema33.type,parentSchema:schema33,data:data114};
 if(vErrors === null){
 vErrors = [err428];
 }
@@ -9743,7 +9746,7 @@ for(const keyProp29 in emErrors30[key33]){
 emParamsErrors29 = emErrors30[key33][keyProp29];
 if(emParamsErrors29.length){
 const tmpl29 = templates30[key33] && templates30[key33][keyProp29];
-const err430 = {instancePath:instancePath+"/quotas/contrib",schemaPath:"#/definitions/RoleQuota/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors29},message:tmpl29 ? tmpl29() : schema33.errorMessage[key33][keyProp29],schema:schema33.errorMessage,parentSchema:schema33,data:data113};
+const err430 = {instancePath:instancePath+"/quotas/contrib",schemaPath:"#/definitions/RoleQuota/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors29},message:tmpl29 ? tmpl29() : schema33.errorMessage[key33][keyProp29],schema:schema33.errorMessage,parentSchema:schema33,data:data114};
 if(vErrors === null){
 vErrors = [err430];
 }
@@ -9754,14 +9757,14 @@ errors++;
 }
 }
 }
-const emErrs130 = [];
+const emErrs131 = [];
 for(const err431 of vErrors){
 if(!err431.emUsed){
-emErrs130.push(err431);
+emErrs131.push(err431);
 }
 }
-vErrors = emErrs130;
-errors = emErrs130.length;
+vErrors = emErrs131;
+errors = emErrs131.length;
 }
 if(errors > 0){
 const emErrors31 = {"required":{"unlimited":[],"monthlyLimit":[]}};
@@ -9783,7 +9786,7 @@ for(const keyProp30 in emErrors31[key34]){
 emParamsErrors30 = emErrors31[key34][keyProp30];
 if(emParamsErrors30.length){
 const tmpl30 = templates31[key34] && templates31[key34][keyProp30];
-const err433 = {instancePath:instancePath+"/quotas/contrib",schemaPath:"#/properties/quotas/properties/contrib/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors30},message:tmpl30 ? tmpl30() : schema27.properties.quotas.properties.contrib.errorMessage[key34][keyProp30],schema:schema27.properties.quotas.properties.contrib.errorMessage,parentSchema:schema27.properties.quotas.properties.contrib,data:data113};
+const err433 = {instancePath:instancePath+"/quotas/contrib",schemaPath:"#/properties/quotas/properties/contrib/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors30},message:tmpl30 ? tmpl30() : schema27.properties.quotas.properties.contrib.errorMessage[key34][keyProp30],schema:schema27.properties.quotas.properties.contrib.errorMessage,parentSchema:schema27.properties.quotas.properties.contrib,data:data114};
 if(vErrors === null){
 vErrors = [err433];
 }
@@ -9794,21 +9797,21 @@ errors++;
 }
 }
 }
-const emErrs131 = [];
+const emErrs132 = [];
 for(const err434 of vErrors){
 if(!err434.emUsed){
-emErrs131.push(err434);
+emErrs132.push(err434);
 }
 }
-vErrors = emErrs131;
-errors = emErrs131.length;
+vErrors = emErrs132;
+errors = emErrs132.length;
 }
 }
-if(data106.user !== undefined){
-let data116 = data106.user;
-if(data116 && typeof data116 == "object" && !Array.isArray(data116)){
-if(data116.unlimited === undefined){
-const err435 = {instancePath:instancePath+"/quotas/user",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'",schema:schema33.required,parentSchema:schema33,data:data116};
+if(data107.user !== undefined){
+let data117 = data107.user;
+if(data117 && typeof data117 == "object" && !Array.isArray(data117)){
+if(data117.unlimited === undefined){
+const err435 = {instancePath:instancePath+"/quotas/user",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'",schema:schema33.required,parentSchema:schema33,data:data117};
 if(vErrors === null){
 vErrors = [err435];
 }
@@ -9817,8 +9820,8 @@ vErrors.push(err435);
 }
 errors++;
 }
-if(data116.monthlyLimit === undefined){
-const err436 = {instancePath:instancePath+"/quotas/user",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'",schema:schema33.required,parentSchema:schema33,data:data116};
+if(data117.monthlyLimit === undefined){
+const err436 = {instancePath:instancePath+"/quotas/user",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'",schema:schema33.required,parentSchema:schema33,data:data117};
 if(vErrors === null){
 vErrors = [err436];
 }
@@ -9827,10 +9830,10 @@ vErrors.push(err436);
 }
 errors++;
 }
-if(data116.unlimited !== undefined){
-let data117 = data116.unlimited;
-if(typeof data117 !== "boolean"){
-const err437 = {instancePath:instancePath+"/quotas/user/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema33.properties.unlimited.type,parentSchema:schema33.properties.unlimited,data:data117};
+if(data117.unlimited !== undefined){
+let data118 = data117.unlimited;
+if(typeof data118 !== "boolean"){
+const err437 = {instancePath:instancePath+"/quotas/user/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema33.properties.unlimited.type,parentSchema:schema33.properties.unlimited,data:data118};
 if(vErrors === null){
 vErrors = [err437];
 }
@@ -9840,21 +9843,21 @@ vErrors.push(err437);
 errors++;
 }
 if(errors > 0){
-const emErrs132 = [];
+const emErrs133 = [];
 for(const err438 of vErrors){
 if(!err438.emUsed){
-emErrs132.push(err438);
+emErrs133.push(err438);
 }
 }
-vErrors = emErrs132;
-errors = emErrs132.length;
+vErrors = emErrs133;
+errors = emErrs133.length;
 }
 }
-if(data116.monthlyLimit !== undefined){
-let data118 = data116.monthlyLimit;
-if(typeof data118 == "number"){
-if(data118 < 0 || isNaN(data118)){
-const err439 = {instancePath:instancePath+"/quotas/user/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema33.properties.monthlyLimit,data:data118};
+if(data117.monthlyLimit !== undefined){
+let data119 = data117.monthlyLimit;
+if(typeof data119 == "number"){
+if(data119 < 0 || isNaN(data119)){
+const err439 = {instancePath:instancePath+"/quotas/user/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema33.properties.monthlyLimit,data:data119};
 if(vErrors === null){
 vErrors = [err439];
 }
@@ -9865,7 +9868,7 @@ errors++;
 }
 }
 else {
-const err440 = {instancePath:instancePath+"/quotas/user/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema33.properties.monthlyLimit.type,parentSchema:schema33.properties.monthlyLimit,data:data118};
+const err440 = {instancePath:instancePath+"/quotas/user/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema33.properties.monthlyLimit.type,parentSchema:schema33.properties.monthlyLimit,data:data119};
 if(vErrors === null){
 vErrors = [err440];
 }
@@ -9875,19 +9878,19 @@ vErrors.push(err440);
 errors++;
 }
 if(errors > 0){
-const emErrs133 = [];
+const emErrs134 = [];
 for(const err441 of vErrors){
 if(!err441.emUsed){
-emErrs133.push(err441);
+emErrs134.push(err441);
 }
 }
-vErrors = emErrs133;
-errors = emErrs133.length;
+vErrors = emErrs134;
+errors = emErrs134.length;
 }
 }
 }
 else {
-const err442 = {instancePath:instancePath+"/quotas/user",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema33.type,parentSchema:schema33,data:data116};
+const err442 = {instancePath:instancePath+"/quotas/user",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema33.type,parentSchema:schema33,data:data117};
 if(vErrors === null){
 vErrors = [err442];
 }
@@ -9916,7 +9919,7 @@ for(const keyProp31 in emErrors32[key35]){
 emParamsErrors31 = emErrors32[key35][keyProp31];
 if(emParamsErrors31.length){
 const tmpl31 = templates32[key35] && templates32[key35][keyProp31];
-const err444 = {instancePath:instancePath+"/quotas/user",schemaPath:"#/definitions/RoleQuota/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors31},message:tmpl31 ? tmpl31() : schema33.errorMessage[key35][keyProp31],schema:schema33.errorMessage,parentSchema:schema33,data:data116};
+const err444 = {instancePath:instancePath+"/quotas/user",schemaPath:"#/definitions/RoleQuota/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors31},message:tmpl31 ? tmpl31() : schema33.errorMessage[key35][keyProp31],schema:schema33.errorMessage,parentSchema:schema33,data:data117};
 if(vErrors === null){
 vErrors = [err444];
 }
@@ -9927,14 +9930,14 @@ errors++;
 }
 }
 }
-const emErrs134 = [];
+const emErrs135 = [];
 for(const err445 of vErrors){
 if(!err445.emUsed){
-emErrs134.push(err445);
+emErrs135.push(err445);
 }
 }
-vErrors = emErrs134;
-errors = emErrs134.length;
+vErrors = emErrs135;
+errors = emErrs135.length;
 }
 if(errors > 0){
 const emErrors33 = {"required":{"unlimited":[],"monthlyLimit":[]}};
@@ -9956,7 +9959,7 @@ for(const keyProp32 in emErrors33[key36]){
 emParamsErrors32 = emErrors33[key36][keyProp32];
 if(emParamsErrors32.length){
 const tmpl32 = templates33[key36] && templates33[key36][keyProp32];
-const err447 = {instancePath:instancePath+"/quotas/user",schemaPath:"#/properties/quotas/properties/user/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors32},message:tmpl32 ? tmpl32() : schema27.properties.quotas.properties.user.errorMessage[key36][keyProp32],schema:schema27.properties.quotas.properties.user.errorMessage,parentSchema:schema27.properties.quotas.properties.user,data:data116};
+const err447 = {instancePath:instancePath+"/quotas/user",schemaPath:"#/properties/quotas/properties/user/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors32},message:tmpl32 ? tmpl32() : schema27.properties.quotas.properties.user.errorMessage[key36][keyProp32],schema:schema27.properties.quotas.properties.user.errorMessage,parentSchema:schema27.properties.quotas.properties.user,data:data117};
 if(vErrors === null){
 vErrors = [err447];
 }
@@ -9967,21 +9970,21 @@ errors++;
 }
 }
 }
-const emErrs135 = [];
+const emErrs136 = [];
 for(const err448 of vErrors){
 if(!err448.emUsed){
-emErrs135.push(err448);
+emErrs136.push(err448);
 }
 }
-vErrors = emErrs135;
-errors = emErrs135.length;
+vErrors = emErrs136;
+errors = emErrs136.length;
 }
 }
-if(data106.external !== undefined){
-let data119 = data106.external;
-if(data119 && typeof data119 == "object" && !Array.isArray(data119)){
-if(data119.unlimited === undefined){
-const err449 = {instancePath:instancePath+"/quotas/external",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'",schema:schema33.required,parentSchema:schema33,data:data119};
+if(data107.external !== undefined){
+let data120 = data107.external;
+if(data120 && typeof data120 == "object" && !Array.isArray(data120)){
+if(data120.unlimited === undefined){
+const err449 = {instancePath:instancePath+"/quotas/external",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'",schema:schema33.required,parentSchema:schema33,data:data120};
 if(vErrors === null){
 vErrors = [err449];
 }
@@ -9990,8 +9993,8 @@ vErrors.push(err449);
 }
 errors++;
 }
-if(data119.monthlyLimit === undefined){
-const err450 = {instancePath:instancePath+"/quotas/external",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'",schema:schema33.required,parentSchema:schema33,data:data119};
+if(data120.monthlyLimit === undefined){
+const err450 = {instancePath:instancePath+"/quotas/external",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'",schema:schema33.required,parentSchema:schema33,data:data120};
 if(vErrors === null){
 vErrors = [err450];
 }
@@ -10000,10 +10003,10 @@ vErrors.push(err450);
 }
 errors++;
 }
-if(data119.unlimited !== undefined){
-let data120 = data119.unlimited;
-if(typeof data120 !== "boolean"){
-const err451 = {instancePath:instancePath+"/quotas/external/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema33.properties.unlimited.type,parentSchema:schema33.properties.unlimited,data:data120};
+if(data120.unlimited !== undefined){
+let data121 = data120.unlimited;
+if(typeof data121 !== "boolean"){
+const err451 = {instancePath:instancePath+"/quotas/external/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema33.properties.unlimited.type,parentSchema:schema33.properties.unlimited,data:data121};
 if(vErrors === null){
 vErrors = [err451];
 }
@@ -10013,21 +10016,21 @@ vErrors.push(err451);
 errors++;
 }
 if(errors > 0){
-const emErrs136 = [];
+const emErrs137 = [];
 for(const err452 of vErrors){
 if(!err452.emUsed){
-emErrs136.push(err452);
+emErrs137.push(err452);
 }
 }
-vErrors = emErrs136;
-errors = emErrs136.length;
+vErrors = emErrs137;
+errors = emErrs137.length;
 }
 }
-if(data119.monthlyLimit !== undefined){
-let data121 = data119.monthlyLimit;
-if(typeof data121 == "number"){
-if(data121 < 0 || isNaN(data121)){
-const err453 = {instancePath:instancePath+"/quotas/external/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema33.properties.monthlyLimit,data:data121};
+if(data120.monthlyLimit !== undefined){
+let data122 = data120.monthlyLimit;
+if(typeof data122 == "number"){
+if(data122 < 0 || isNaN(data122)){
+const err453 = {instancePath:instancePath+"/quotas/external/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema33.properties.monthlyLimit,data:data122};
 if(vErrors === null){
 vErrors = [err453];
 }
@@ -10038,7 +10041,7 @@ errors++;
 }
 }
 else {
-const err454 = {instancePath:instancePath+"/quotas/external/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema33.properties.monthlyLimit.type,parentSchema:schema33.properties.monthlyLimit,data:data121};
+const err454 = {instancePath:instancePath+"/quotas/external/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema33.properties.monthlyLimit.type,parentSchema:schema33.properties.monthlyLimit,data:data122};
 if(vErrors === null){
 vErrors = [err454];
 }
@@ -10048,19 +10051,19 @@ vErrors.push(err454);
 errors++;
 }
 if(errors > 0){
-const emErrs137 = [];
+const emErrs138 = [];
 for(const err455 of vErrors){
 if(!err455.emUsed){
-emErrs137.push(err455);
+emErrs138.push(err455);
 }
 }
-vErrors = emErrs137;
-errors = emErrs137.length;
+vErrors = emErrs138;
+errors = emErrs138.length;
 }
 }
 }
 else {
-const err456 = {instancePath:instancePath+"/quotas/external",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema33.type,parentSchema:schema33,data:data119};
+const err456 = {instancePath:instancePath+"/quotas/external",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema33.type,parentSchema:schema33,data:data120};
 if(vErrors === null){
 vErrors = [err456];
 }
@@ -10089,7 +10092,7 @@ for(const keyProp33 in emErrors34[key37]){
 emParamsErrors33 = emErrors34[key37][keyProp33];
 if(emParamsErrors33.length){
 const tmpl33 = templates34[key37] && templates34[key37][keyProp33];
-const err458 = {instancePath:instancePath+"/quotas/external",schemaPath:"#/definitions/RoleQuota/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors33},message:tmpl33 ? tmpl33() : schema33.errorMessage[key37][keyProp33],schema:schema33.errorMessage,parentSchema:schema33,data:data119};
+const err458 = {instancePath:instancePath+"/quotas/external",schemaPath:"#/definitions/RoleQuota/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors33},message:tmpl33 ? tmpl33() : schema33.errorMessage[key37][keyProp33],schema:schema33.errorMessage,parentSchema:schema33,data:data120};
 if(vErrors === null){
 vErrors = [err458];
 }
@@ -10100,14 +10103,14 @@ errors++;
 }
 }
 }
-const emErrs138 = [];
+const emErrs139 = [];
 for(const err459 of vErrors){
 if(!err459.emUsed){
-emErrs138.push(err459);
+emErrs139.push(err459);
 }
 }
-vErrors = emErrs138;
-errors = emErrs138.length;
+vErrors = emErrs139;
+errors = emErrs139.length;
 }
 if(errors > 0){
 const emErrors35 = {"required":{"unlimited":[],"monthlyLimit":[]}};
@@ -10129,7 +10132,7 @@ for(const keyProp34 in emErrors35[key38]){
 emParamsErrors34 = emErrors35[key38][keyProp34];
 if(emParamsErrors34.length){
 const tmpl34 = templates35[key38] && templates35[key38][keyProp34];
-const err461 = {instancePath:instancePath+"/quotas/external",schemaPath:"#/properties/quotas/properties/external/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors34},message:tmpl34 ? tmpl34() : schema27.properties.quotas.properties.external.errorMessage[key38][keyProp34],schema:schema27.properties.quotas.properties.external.errorMessage,parentSchema:schema27.properties.quotas.properties.external,data:data119};
+const err461 = {instancePath:instancePath+"/quotas/external",schemaPath:"#/properties/quotas/properties/external/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors34},message:tmpl34 ? tmpl34() : schema27.properties.quotas.properties.external.errorMessage[key38][keyProp34],schema:schema27.properties.quotas.properties.external.errorMessage,parentSchema:schema27.properties.quotas.properties.external,data:data120};
 if(vErrors === null){
 vErrors = [err461];
 }
@@ -10140,21 +10143,21 @@ errors++;
 }
 }
 }
-const emErrs139 = [];
+const emErrs140 = [];
 for(const err462 of vErrors){
 if(!err462.emUsed){
-emErrs139.push(err462);
+emErrs140.push(err462);
 }
 }
-vErrors = emErrs139;
-errors = emErrs139.length;
+vErrors = emErrs140;
+errors = emErrs140.length;
 }
 }
-if(data106.anonymous !== undefined){
-let data122 = data106.anonymous;
-if(data122 && typeof data122 == "object" && !Array.isArray(data122)){
-if(data122.unlimited === undefined){
-const err463 = {instancePath:instancePath+"/quotas/anonymous",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'",schema:schema33.required,parentSchema:schema33,data:data122};
+if(data107.anonymous !== undefined){
+let data123 = data107.anonymous;
+if(data123 && typeof data123 == "object" && !Array.isArray(data123)){
+if(data123.unlimited === undefined){
+const err463 = {instancePath:instancePath+"/quotas/anonymous",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'",schema:schema33.required,parentSchema:schema33,data:data123};
 if(vErrors === null){
 vErrors = [err463];
 }
@@ -10163,8 +10166,8 @@ vErrors.push(err463);
 }
 errors++;
 }
-if(data122.monthlyLimit === undefined){
-const err464 = {instancePath:instancePath+"/quotas/anonymous",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'",schema:schema33.required,parentSchema:schema33,data:data122};
+if(data123.monthlyLimit === undefined){
+const err464 = {instancePath:instancePath+"/quotas/anonymous",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'",schema:schema33.required,parentSchema:schema33,data:data123};
 if(vErrors === null){
 vErrors = [err464];
 }
@@ -10173,10 +10176,10 @@ vErrors.push(err464);
 }
 errors++;
 }
-if(data122.unlimited !== undefined){
-let data123 = data122.unlimited;
-if(typeof data123 !== "boolean"){
-const err465 = {instancePath:instancePath+"/quotas/anonymous/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema33.properties.unlimited.type,parentSchema:schema33.properties.unlimited,data:data123};
+if(data123.unlimited !== undefined){
+let data124 = data123.unlimited;
+if(typeof data124 !== "boolean"){
+const err465 = {instancePath:instancePath+"/quotas/anonymous/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema33.properties.unlimited.type,parentSchema:schema33.properties.unlimited,data:data124};
 if(vErrors === null){
 vErrors = [err465];
 }
@@ -10186,21 +10189,21 @@ vErrors.push(err465);
 errors++;
 }
 if(errors > 0){
-const emErrs140 = [];
+const emErrs141 = [];
 for(const err466 of vErrors){
 if(!err466.emUsed){
-emErrs140.push(err466);
+emErrs141.push(err466);
 }
 }
-vErrors = emErrs140;
-errors = emErrs140.length;
+vErrors = emErrs141;
+errors = emErrs141.length;
 }
 }
-if(data122.monthlyLimit !== undefined){
-let data124 = data122.monthlyLimit;
-if(typeof data124 == "number"){
-if(data124 < 0 || isNaN(data124)){
-const err467 = {instancePath:instancePath+"/quotas/anonymous/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema33.properties.monthlyLimit,data:data124};
+if(data123.monthlyLimit !== undefined){
+let data125 = data123.monthlyLimit;
+if(typeof data125 == "number"){
+if(data125 < 0 || isNaN(data125)){
+const err467 = {instancePath:instancePath+"/quotas/anonymous/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema33.properties.monthlyLimit,data:data125};
 if(vErrors === null){
 vErrors = [err467];
 }
@@ -10211,7 +10214,7 @@ errors++;
 }
 }
 else {
-const err468 = {instancePath:instancePath+"/quotas/anonymous/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema33.properties.monthlyLimit.type,parentSchema:schema33.properties.monthlyLimit,data:data124};
+const err468 = {instancePath:instancePath+"/quotas/anonymous/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema33.properties.monthlyLimit.type,parentSchema:schema33.properties.monthlyLimit,data:data125};
 if(vErrors === null){
 vErrors = [err468];
 }
@@ -10221,19 +10224,19 @@ vErrors.push(err468);
 errors++;
 }
 if(errors > 0){
-const emErrs141 = [];
+const emErrs142 = [];
 for(const err469 of vErrors){
 if(!err469.emUsed){
-emErrs141.push(err469);
+emErrs142.push(err469);
 }
 }
-vErrors = emErrs141;
-errors = emErrs141.length;
+vErrors = emErrs142;
+errors = emErrs142.length;
 }
 }
 }
 else {
-const err470 = {instancePath:instancePath+"/quotas/anonymous",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema33.type,parentSchema:schema33,data:data122};
+const err470 = {instancePath:instancePath+"/quotas/anonymous",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema33.type,parentSchema:schema33,data:data123};
 if(vErrors === null){
 vErrors = [err470];
 }
@@ -10262,7 +10265,7 @@ for(const keyProp35 in emErrors36[key39]){
 emParamsErrors35 = emErrors36[key39][keyProp35];
 if(emParamsErrors35.length){
 const tmpl35 = templates36[key39] && templates36[key39][keyProp35];
-const err472 = {instancePath:instancePath+"/quotas/anonymous",schemaPath:"#/definitions/RoleQuota/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors35},message:tmpl35 ? tmpl35() : schema33.errorMessage[key39][keyProp35],schema:schema33.errorMessage,parentSchema:schema33,data:data122};
+const err472 = {instancePath:instancePath+"/quotas/anonymous",schemaPath:"#/definitions/RoleQuota/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors35},message:tmpl35 ? tmpl35() : schema33.errorMessage[key39][keyProp35],schema:schema33.errorMessage,parentSchema:schema33,data:data123};
 if(vErrors === null){
 vErrors = [err472];
 }
@@ -10273,14 +10276,14 @@ errors++;
 }
 }
 }
-const emErrs142 = [];
+const emErrs143 = [];
 for(const err473 of vErrors){
 if(!err473.emUsed){
-emErrs142.push(err473);
+emErrs143.push(err473);
 }
 }
-vErrors = emErrs142;
-errors = emErrs142.length;
+vErrors = emErrs143;
+errors = emErrs143.length;
 }
 if(errors > 0){
 const emErrors37 = {"required":{"unlimited":[],"monthlyLimit":[]}};
@@ -10302,7 +10305,7 @@ for(const keyProp36 in emErrors37[key40]){
 emParamsErrors36 = emErrors37[key40][keyProp36];
 if(emParamsErrors36.length){
 const tmpl36 = templates37[key40] && templates37[key40][keyProp36];
-const err475 = {instancePath:instancePath+"/quotas/anonymous",schemaPath:"#/properties/quotas/properties/anonymous/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors36},message:tmpl36 ? tmpl36() : schema27.properties.quotas.properties.anonymous.errorMessage[key40][keyProp36],schema:schema27.properties.quotas.properties.anonymous.errorMessage,parentSchema:schema27.properties.quotas.properties.anonymous,data:data122};
+const err475 = {instancePath:instancePath+"/quotas/anonymous",schemaPath:"#/properties/quotas/properties/anonymous/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors36},message:tmpl36 ? tmpl36() : schema27.properties.quotas.properties.anonymous.errorMessage[key40][keyProp36],schema:schema27.properties.quotas.properties.anonymous.errorMessage,parentSchema:schema27.properties.quotas.properties.anonymous,data:data123};
 if(vErrors === null){
 vErrors = [err475];
 }
@@ -10313,19 +10316,21 @@ errors++;
 }
 }
 }
-const emErrs143 = [];
+const emErrs144 = [];
 for(const err476 of vErrors){
 if(!err476.emUsed){
-emErrs143.push(err476);
+emErrs144.push(err476);
 }
 }
-vErrors = emErrs143;
-errors = emErrs143.length;
+vErrors = emErrs144;
+errors = emErrs144.length;
 }
 }
-}
-else {
-const err477 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.quotas.type,parentSchema:schema27.properties.quotas,data:data106};
+if(data107.untrusted !== undefined){
+let data126 = data107.untrusted;
+if(data126 && typeof data126 == "object" && !Array.isArray(data126)){
+if(data126.unlimited === undefined){
+const err477 = {instancePath:instancePath+"/quotas/untrusted",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'",schema:schema33.required,parentSchema:schema33,data:data126};
 if(vErrors === null){
 vErrors = [err477];
 }
@@ -10334,27 +10339,20 @@ vErrors.push(err477);
 }
 errors++;
 }
-if(errors > 0){
-const emErrors38 = {"required":{"global":[],"admin":[],"contrib":[],"user":[],"external":[],"anonymous":[]}};
-const templates38 = {required:{}};
-let emPropParams37;
-let emParamsErrors37;
-for(const err478 of vErrors){
-if((((((err478.keyword !== "errorMessage") && (!err478.emUsed)) && (err478.instancePath === instancePath+"/quotas")) && (err478.keyword in emErrors38)) && (err478.schemaPath.indexOf("#/properties/quotas") === 0)) && (/^\/[^\/]*$/.test(err478.schemaPath.slice(19)))){
-emPropParams37 = obj0[err478.keyword];
-emParamsErrors37 = emErrors38[err478.keyword][err478.params[emPropParams37]];
-if(emParamsErrors37){
-emParamsErrors37.push(err478);
-err478.emUsed = true;
+if(data126.monthlyLimit === undefined){
+const err478 = {instancePath:instancePath+"/quotas/untrusted",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'",schema:schema33.required,parentSchema:schema33,data:data126};
+if(vErrors === null){
+vErrors = [err478];
 }
+else {
+vErrors.push(err478);
 }
+errors++;
 }
-for(const key41 in emErrors38){
-for(const keyProp37 in emErrors38[key41]){
-emParamsErrors37 = emErrors38[key41][keyProp37];
-if(emParamsErrors37.length){
-const tmpl37 = templates38[key41] && templates38[key41][keyProp37];
-const err479 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors37},message:tmpl37 ? tmpl37() : schema27.properties.quotas.errorMessage[key41][keyProp37],schema:schema27.properties.quotas.errorMessage,parentSchema:schema27.properties.quotas,data:data106};
+if(data126.unlimited !== undefined){
+let data127 = data126.unlimited;
+if(typeof data127 !== "boolean"){
+const err479 = {instancePath:instancePath+"/quotas/untrusted/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema33.properties.unlimited.type,parentSchema:schema33.properties.unlimited,data:data127};
 if(vErrors === null){
 vErrors = [err479];
 }
@@ -10363,21 +10361,22 @@ vErrors.push(err479);
 }
 errors++;
 }
-}
-}
-const emErrs144 = [];
+if(errors > 0){
+const emErrs145 = [];
 for(const err480 of vErrors){
 if(!err480.emUsed){
-emErrs144.push(err480);
+emErrs145.push(err480);
 }
 }
-vErrors = emErrs144;
-errors = emErrs144.length;
+vErrors = emErrs145;
+errors = emErrs145.length;
 }
 }
-}
-else {
-const err481 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.type,parentSchema:schema27,data};
+if(data126.monthlyLimit !== undefined){
+let data128 = data126.monthlyLimit;
+if(typeof data128 == "number"){
+if(data128 < 0 || isNaN(data128)){
+const err481 = {instancePath:instancePath+"/quotas/untrusted/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema33.properties.monthlyLimit,data:data128};
 if(vErrors === null){
 vErrors = [err481];
 }
@@ -10386,18 +10385,91 @@ vErrors.push(err481);
 }
 errors++;
 }
+}
+else {
+const err482 = {instancePath:instancePath+"/quotas/untrusted/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema33.properties.monthlyLimit.type,parentSchema:schema33.properties.monthlyLimit,data:data128};
+if(vErrors === null){
+vErrors = [err482];
+}
+else {
+vErrors.push(err482);
+}
+errors++;
+}
 if(errors > 0){
-const emErrors39 = {"required":{"providers":[],"models":[],"quotas":[]}};
+const emErrs146 = [];
+for(const err483 of vErrors){
+if(!err483.emUsed){
+emErrs146.push(err483);
+}
+}
+vErrors = emErrs146;
+errors = emErrs146.length;
+}
+}
+}
+else {
+const err484 = {instancePath:instancePath+"/quotas/untrusted",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema33.type,parentSchema:schema33,data:data126};
+if(vErrors === null){
+vErrors = [err484];
+}
+else {
+vErrors.push(err484);
+}
+errors++;
+}
+if(errors > 0){
+const emErrors38 = {"required":{"unlimited":[],"monthlyLimit":[]}};
+const templates38 = {required:{}};
+let emPropParams37;
+let emParamsErrors37;
+for(const err485 of vErrors){
+if((((((err485.keyword !== "errorMessage") && (!err485.emUsed)) && (err485.instancePath === instancePath+"/quotas/untrusted")) && (err485.keyword in emErrors38)) && (err485.schemaPath.indexOf("#/definitions/RoleQuota") === 0)) && (/^\/[^\/]*$/.test(err485.schemaPath.slice(23)))){
+emPropParams37 = obj0[err485.keyword];
+emParamsErrors37 = emErrors38[err485.keyword][err485.params[emPropParams37]];
+if(emParamsErrors37){
+emParamsErrors37.push(err485);
+err485.emUsed = true;
+}
+}
+}
+for(const key41 in emErrors38){
+for(const keyProp37 in emErrors38[key41]){
+emParamsErrors37 = emErrors38[key41][keyProp37];
+if(emParamsErrors37.length){
+const tmpl37 = templates38[key41] && templates38[key41][keyProp37];
+const err486 = {instancePath:instancePath+"/quotas/untrusted",schemaPath:"#/definitions/RoleQuota/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors37},message:tmpl37 ? tmpl37() : schema33.errorMessage[key41][keyProp37],schema:schema33.errorMessage,parentSchema:schema33,data:data126};
+if(vErrors === null){
+vErrors = [err486];
+}
+else {
+vErrors.push(err486);
+}
+errors++;
+}
+}
+}
+const emErrs147 = [];
+for(const err487 of vErrors){
+if(!err487.emUsed){
+emErrs147.push(err487);
+}
+}
+vErrors = emErrs147;
+errors = emErrs147.length;
+}
+if(errors > 0){
+const emErrors39 = {"required":{"unlimited":[],"monthlyLimit":[]}};
 const templates39 = {required:{}};
 let emPropParams38;
 let emParamsErrors38;
-for(const err482 of vErrors){
-if((((((err482.keyword !== "errorMessage") && (!err482.emUsed)) && (err482.instancePath === instancePath)) && (err482.keyword in emErrors39)) && (err482.schemaPath.indexOf("#") === 0)) && (/^\/[^\/]*$/.test(err482.schemaPath.slice(1)))){
-emPropParams38 = obj0[err482.keyword];
-emParamsErrors38 = emErrors39[err482.keyword][err482.params[emPropParams38]];
+for(const err488 of vErrors){
+if((((((err488.keyword !== "errorMessage") && (!err488.emUsed)) && (err488.instancePath === instancePath+"/quotas/untrusted")) && (err488.keyword in emErrors39)) && (err488.schemaPath.indexOf("#/properties/quotas/properties/untrusted") === 0)) && (/^\/[^\/]*$/.test(err488.schemaPath.slice(40)))){
+emPropParams38 = obj0[err488.keyword];
+emParamsErrors38 = emErrors39[err488.keyword][err488.params[emPropParams38]];
 if(emParamsErrors38){
-emParamsErrors38.push(err482);
-err482.emUsed = true;
+emParamsErrors38.push(err488);
+err488.emUsed = true;
 }
 }
 }
@@ -10406,25 +10478,129 @@ for(const keyProp38 in emErrors39[key42]){
 emParamsErrors38 = emErrors39[key42][keyProp38];
 if(emParamsErrors38.length){
 const tmpl38 = templates39[key42] && templates39[key42][keyProp38];
-const err483 = {instancePath,schemaPath:"#/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors38},message:tmpl38 ? tmpl38() : schema27.errorMessage[key42][keyProp38],schema:schema27.errorMessage,parentSchema:schema27,data};
+const err489 = {instancePath:instancePath+"/quotas/untrusted",schemaPath:"#/properties/quotas/properties/untrusted/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors38},message:tmpl38 ? tmpl38() : schema27.properties.quotas.properties.untrusted.errorMessage[key42][keyProp38],schema:schema27.properties.quotas.properties.untrusted.errorMessage,parentSchema:schema27.properties.quotas.properties.untrusted,data:data126};
 if(vErrors === null){
-vErrors = [err483];
+vErrors = [err489];
 }
 else {
-vErrors.push(err483);
+vErrors.push(err489);
 }
 errors++;
 }
 }
 }
-const emErrs145 = [];
-for(const err484 of vErrors){
-if(!err484.emUsed){
-emErrs145.push(err484);
+const emErrs148 = [];
+for(const err490 of vErrors){
+if(!err490.emUsed){
+emErrs148.push(err490);
 }
 }
-vErrors = emErrs145;
-errors = emErrs145.length;
+vErrors = emErrs148;
+errors = emErrs148.length;
+}
+}
+}
+else {
+const err491 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.quotas.type,parentSchema:schema27.properties.quotas,data:data107};
+if(vErrors === null){
+vErrors = [err491];
+}
+else {
+vErrors.push(err491);
+}
+errors++;
+}
+if(errors > 0){
+const emErrors40 = {"required":{"global":[],"admin":[],"contrib":[],"user":[],"external":[],"anonymous":[]}};
+const templates40 = {required:{}};
+let emPropParams39;
+let emParamsErrors39;
+for(const err492 of vErrors){
+if((((((err492.keyword !== "errorMessage") && (!err492.emUsed)) && (err492.instancePath === instancePath+"/quotas")) && (err492.keyword in emErrors40)) && (err492.schemaPath.indexOf("#/properties/quotas") === 0)) && (/^\/[^\/]*$/.test(err492.schemaPath.slice(19)))){
+emPropParams39 = obj0[err492.keyword];
+emParamsErrors39 = emErrors40[err492.keyword][err492.params[emPropParams39]];
+if(emParamsErrors39){
+emParamsErrors39.push(err492);
+err492.emUsed = true;
+}
+}
+}
+for(const key43 in emErrors40){
+for(const keyProp39 in emErrors40[key43]){
+emParamsErrors39 = emErrors40[key43][keyProp39];
+if(emParamsErrors39.length){
+const tmpl39 = templates40[key43] && templates40[key43][keyProp39];
+const err493 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors39},message:tmpl39 ? tmpl39() : schema27.properties.quotas.errorMessage[key43][keyProp39],schema:schema27.properties.quotas.errorMessage,parentSchema:schema27.properties.quotas,data:data107};
+if(vErrors === null){
+vErrors = [err493];
+}
+else {
+vErrors.push(err493);
+}
+errors++;
+}
+}
+}
+const emErrs149 = [];
+for(const err494 of vErrors){
+if(!err494.emUsed){
+emErrs149.push(err494);
+}
+}
+vErrors = emErrs149;
+errors = emErrs149.length;
+}
+}
+}
+else {
+const err495 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.type,parentSchema:schema27,data};
+if(vErrors === null){
+vErrors = [err495];
+}
+else {
+vErrors.push(err495);
+}
+errors++;
+}
+if(errors > 0){
+const emErrors41 = {"required":{"providers":[]}};
+const templates41 = {required:{}};
+let emPropParams40;
+let emParamsErrors40;
+for(const err496 of vErrors){
+if((((((err496.keyword !== "errorMessage") && (!err496.emUsed)) && (err496.instancePath === instancePath)) && (err496.keyword in emErrors41)) && (err496.schemaPath.indexOf("#") === 0)) && (/^\/[^\/]*$/.test(err496.schemaPath.slice(1)))){
+emPropParams40 = obj0[err496.keyword];
+emParamsErrors40 = emErrors41[err496.keyword][err496.params[emPropParams40]];
+if(emParamsErrors40){
+emParamsErrors40.push(err496);
+err496.emUsed = true;
+}
+}
+}
+for(const key44 in emErrors41){
+for(const keyProp40 in emErrors41[key44]){
+emParamsErrors40 = emErrors41[key44][keyProp40];
+if(emParamsErrors40.length){
+const tmpl40 = templates41[key44] && templates41[key44][keyProp40];
+const err497 = {instancePath,schemaPath:"#/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors40},message:tmpl40 ? tmpl40() : schema27.errorMessage[key44][keyProp40],schema:schema27.errorMessage,parentSchema:schema27,data};
+if(vErrors === null){
+vErrors = [err497];
+}
+else {
+vErrors.push(err497);
+}
+errors++;
+}
+}
+}
+const emErrs150 = [];
+for(const err498 of vErrors){
+if(!err498.emUsed){
+emErrs150.push(err498);
+}
+}
+vErrors = emErrs150;
+errors = emErrs150.length;
 }
 validate23.errors = vErrors;
 return errors === 0;
@@ -10611,11 +10787,11 @@ const compiledLayout = {
       pointer: "https://github.com/data-fair/agents/settings-put#",
       refPointer: "https://github.com/data-fair/agents/settings-put#",
       pure: false,
-      propertyKeys: ["createdAt", "updatedAt", "owner", "providers", "models", "quotas"],
+      propertyKeys: ["createdAt", "updatedAt", "storeTraces", "owner", "providers", "models", "quotas"],
       roPropertyKeys: ["createdAt", "updatedAt", "owner"],
       nullable: false,
       required: true,
-      children: ["https://github.com/data-fair/agents/settings-put#/properties/createdAt", "https://github.com/data-fair/agents/settings-put#/properties/updatedAt", "https://github.com/data-fair/agents/settings-put#/properties/owner", "https://github.com/data-fair/agents/settings-put#/properties/providers", "https://github.com/data-fair/agents/settings-put#/properties/models", "https://github.com/data-fair/agents/settings-put#/properties/quotas"]
+      children: ["https://github.com/data-fair/agents/settings-put#/properties/createdAt", "https://github.com/data-fair/agents/settings-put#/properties/updatedAt", "https://github.com/data-fair/agents/settings-put#/properties/storeTraces", "https://github.com/data-fair/agents/settings-put#/properties/owner", "https://github.com/data-fair/agents/settings-put#/properties/providers", "https://github.com/data-fair/agents/settings-put#/properties/models", "https://github.com/data-fair/agents/settings-put#/properties/quotas"]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/createdAt": {
@@ -10635,6 +10811,18 @@ const compiledLayout = {
       key: "updatedAt",
       pointer: "https://github.com/data-fair/agents/settings-put#/properties/updatedAt",
       refPointer: "https://github.com/data-fair/agents/settings-put#/properties/updatedAt",
+      pure: true,
+      propertyKeys: [],
+      roPropertyKeys: [],
+      nullable: false,
+      required: false
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/storeTraces": {
+      title: "Store conversation traces",
+      key: "storeTraces",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/storeTraces",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/storeTraces",
       pure: true,
       propertyKeys: [],
       roPropertyKeys: [],
@@ -11409,7 +11597,7 @@ const compiledLayout = {
       propertyKeys: ["assistant", "tools", "summarizer", "evaluator", "moderator"],
       roPropertyKeys: [],
       nullable: false,
-      required: true,
+      required: false,
       children: ["https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant", "https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools", "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer", "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator", "https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator"]
     },
 
@@ -11742,11 +11930,11 @@ const compiledLayout = {
       pointer: "https://github.com/data-fair/agents/settings-put#/properties/quotas",
       refPointer: "https://github.com/data-fair/agents/settings-put#/properties/quotas",
       pure: false,
-      propertyKeys: ["global", "admin", "contrib", "user", "external", "anonymous"],
+      propertyKeys: ["global", "admin", "contrib", "user", "external", "anonymous", "untrusted"],
       roPropertyKeys: [],
       nullable: false,
-      required: true,
-      children: ["https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/global", "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/admin", "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/contrib", "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/user", "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/external", "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/anonymous"]
+      required: false,
+      children: ["https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/global", "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/admin", "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/contrib", "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/user", "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/external", "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/anonymous", "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/untrusted"]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/global": {
@@ -11849,6 +12037,19 @@ const compiledLayout = {
       nullable: false,
       required: true,
       children: ["https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/unlimited", "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyLimit"]
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/untrusted": {
+      title: "Anonymous + external pool",
+      key: "untrusted",
+      pointer: "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/untrusted",
+      refPointer: "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota",
+      pure: false,
+      propertyKeys: ["unlimited", "monthlyLimit"],
+      roPropertyKeys: [],
+      nullable: false,
+      required: false,
+      children: ["https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/unlimited", "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyLimit"]
     }
   },
 
@@ -11861,6 +12062,8 @@ const compiledLayout = {
         key: "createdAt"
       }, {
         key: "updatedAt"
+      }, {
+        key: "storeTraces"
       }, {
         key: "owner"
       }, {
@@ -11915,6 +12118,21 @@ const compiledLayout = {
         pure: true,
         dataAlias: "value",
         ref: 1
+      }
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/storeTraces": {
+      comp: "checkbox",
+      label: "Store conversation traces",
+      help: "<p>When enabled, conversations of consenting users are stored on the server for 30 days for admin review. Each user must explicitly accept.</p>",
+      defaultData: false,
+
+      getDefaultData: {
+        type: "js-eval",
+        expr: "layout.defaultData",
+        pure: true,
+        dataAlias: "value",
+        ref: 0
       }
     },
 
@@ -13585,6 +13803,14 @@ const compiledLayout = {
           sm: 6,
           md: 4
         }
+      }, {
+        key: "untrusted",
+
+        cols: {
+          xs: 12,
+          sm: 6,
+          md: 4
+        }
       }],
 
       comp: "section",
@@ -13616,6 +13842,11 @@ const compiledLayout = {
         },
 
         anonymous: {
+          unlimited: false,
+          monthlyLimit: 0
+        },
+
+        untrusted: {
           unlimited: false,
           monthlyLimit: 0
         }
@@ -13803,6 +14034,32 @@ const compiledLayout = {
       }],
 
       title: "Anonymous user quotas",
+
+      defaultData: {
+        unlimited: false,
+        monthlyLimit: 0
+      },
+
+      getDefaultData: {
+        type: "js-eval",
+        expr: "layout.defaultData",
+        pure: true,
+        dataAlias: "value",
+        ref: 0
+      }
+    },
+
+    "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/untrusted": {
+      comp: "card",
+
+      children: [{
+        key: "unlimited"
+      }, {
+        key: "monthlyLimit"
+      }],
+
+      title: "Anonymous + external pool",
+      subtitle: "<p>Aggregate cap shared by all anonymous and external usage combined, so untrusted traffic cannot consume the whole account budget. 0 = no pool cap.</p>",
 
       defaultData: {
         unlimited: false,
@@ -14289,6 +14546,8 @@ const nodeComponents = {
   
   "date-time-picker": datetimepickerNode,
   
+  "checkbox": checkboxNode,
+  
   "select": selectNode,
   
   "text-field": textfieldNode,
@@ -14296,8 +14555,6 @@ const nodeComponents = {
   "list": listNode,
   
   "one-of-select": oneofselectNode,
-  
-  "checkbox": checkboxNode,
   
   "card": cardNode,
   

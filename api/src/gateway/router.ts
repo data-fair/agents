@@ -1,21 +1,16 @@
 import { Router } from 'express'
 import { generateText, streamText, type LanguageModelUsage } from 'ai'
 import { type AccountKeys, reqSession, isAuthenticated } from '@data-fair/lib-express'
-import { reqIp as _reqIp } from '@data-fair/lib-express/req-origin.js'
-import { assertCanUseModel, assertRoleQuota, getEffectiveRole } from '../auth.ts'
-import { assertAnonymousActionToken } from '../anonymous-token/service.ts'
-import { getRawSettings } from '../settings/service.ts'
+import { getRawSettings, defaultQuotas } from '../settings/service.ts'
 import { createModel } from '../models/operations.ts'
-import { getUsage, getOwnerUsage, recordUsage } from '../usage/service.ts'
-import { checkQuota, computeCost } from '../usage/operations.ts'
+import { recordUsage } from '../usage/service.ts'
+import { computeCost } from '../usage/operations.ts'
+import { resolveUsageIdentity, enforceQuotas } from '../usage/enforce.ts'
 import { convertOpenAITools, convertOpenAIMessages, convertToolChoice, mapFinishReason } from './operations.ts'
 import type { Settings } from '#types'
 import type { OpenAIMessage, OpenAIToolDefinition, OpenAIToolChoice, FinishReason } from './operations.ts'
+import { recordTraceRequest } from '../traces/service.ts'
 import crypto from 'node:crypto'
-
-function safeReqIp (req: import('express').Request): string {
-  try { return _reqIp(req) } catch { return req.ip || '127.0.0.1' }
-}
 
 // Build an OpenAI-compatible usage object, surfacing cache token details when the
 // provider reports them (Anthropic cache read/write, OpenAI cached_tokens, etc.).
@@ -58,8 +53,8 @@ function getModelConfig (settings: Settings, modelId: ModelId) {
   // assistant as a guaranteed last resort; every other role falls back straight
   // to the assistant.
   const chain = modelId === 'moderator'
-    ? [settings.models.moderator, settings.models.summarizer, settings.models.assistant]
-    : [settings.models[modelId], settings.models.assistant]
+    ? [settings.models?.moderator, settings.models?.summarizer, settings.models?.assistant]
+    : [settings.models?.[modelId], settings.models?.assistant]
   const source = chain.find(entry => entry?.model)
   if (!source?.model) throw new Error(`No model configured for ${modelId}`)
   return {
@@ -123,77 +118,54 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
       return
     }
 
-    const quotas = settings.quotas ?? {}
+    const quotas = settings.quotas ?? defaultQuotas
 
-    let trackPerUser: boolean
-    let usageUserId: string | undefined
-    let usageUserName: string | undefined
+    const identity = await resolveUsageIdentity(req, owner, quotas, sessionState, authenticated)
+    const { usageUserId, usageUserName, poolId } = identity
 
-    if (!authenticated) {
-      // Anonymous path
-      assertRoleQuota('anonymous', quotas)
-      await assertAnonymousActionToken(req)
-      const ipHash = crypto.createHash('sha256').update(safeReqIp(req)).digest('hex').slice(0, 16)
-      usageUserId = `anon:${ipHash}`
-      trackPerUser = true
-    } else {
-      // Authenticated path
-      const session = sessionState
-      const isSameAccount = session.account!.type === owner.type && session.account!.id === owner.id
-      trackPerUser = owner.type === 'organization' || !isSameAccount
-
-      // Permission check via role-based quotas
-      assertCanUseModel(session as any, owner, quotas)
-      usageUserId = trackPerUser ? session.user!.id : undefined
-      usageUserName = trackPerUser ? session.user!.name : undefined
-    }
-
-    // Check account limits against account usage
-    const accountLimits = settings.quotas.global
-
-    if (!accountLimits.unlimited && accountLimits.monthlyLimit) {
-      const accountUsage = await getOwnerUsage(owner)
-      const quotaCheck = checkQuota(accountUsage, accountLimits, trackPerUser ? 'organization' : 'user')
-      if (quotaCheck) {
-        res.status(429).json({
-          error: {
-            message: quotaCheck.reason,
-            type: 'rate_limit_error',
-            scope: quotaCheck.scope,
-            usage: quotaCheck.usage,
-            limit: quotaCheck.limit,
-            resets_at: quotaCheck.resetsAt
-          }
-        })
-        return
-      }
-    }
-
-    // Check role-based user quota
-    if (trackPerUser) {
-      const role = authenticated ? getEffectiveRole(sessionState as any, owner) : 'anonymous'
-      const roleQuota = quotas[role]
-      if (roleQuota && !roleQuota.unlimited && roleQuota.monthlyLimit) {
-        const userUsage = await getUsage(owner, usageUserId)
-        const quotaCheck = checkQuota(userUsage, roleQuota, 'user')
-        if (quotaCheck) {
-          res.status(429).json({
-            error: {
-              message: quotaCheck.reason,
-              type: 'rate_limit_error',
-              scope: quotaCheck.scope,
-              usage: quotaCheck.usage,
-              limit: quotaCheck.limit,
-              resets_at: quotaCheck.resetsAt
-            }
-          })
-          return
+    const quotaCheck = await enforceQuotas(owner, quotas, identity)
+    if (quotaCheck) {
+      res.status(429).json({
+        error: {
+          message: quotaCheck.reason,
+          type: 'rate_limit_error',
+          scope: quotaCheck.scope,
+          usage: quotaCheck.usage,
+          limit: quotaCheck.limit,
+          resets_at: quotaCheck.resetsAt
         }
-      }
+      })
+      return
     }
 
-    const { inputPricePerMillion, outputPricePerMillion } = getModelConfig(settings, modelId)
+    const { modelConfig, inputPricePerMillion, outputPricePerMillion } = getModelConfig(settings, modelId)
     const model = await getModelForGateway(settings, modelId)
+
+    const storeTraces = settings.storeTraces === true
+    if (storeTraces) res.setHeader('x-trace-storage', 'available')
+    const consented = req.get('x-trace-consent') === 'yes'
+    const shouldStoreTrace = storeTraces && consented
+    const traceConversationId = req.get('x-trace-conversation') || undefined
+    const traceContextId = req.get('x-trace-ctx') || 'unknown'
+    const traceStart = Date.now()
+    const recordTrace = (response: { content: string, toolCalls: { id: string, name: string, arguments: string }[], finishReason?: string }, usage: { inputTokens: number, outputTokens: number, cacheReadTokens?: number, cacheWriteTokens?: number }, timeToFirstChunkMs?: number) => {
+      if (!shouldStoreTrace || !traceConversationId) return
+      recordTraceRequest({
+        owner,
+        userId: usageUserId,
+        userName: usageUserName,
+        conversationId: traceConversationId,
+        contextId: traceContextId,
+        modelRole: modelId,
+        providerName: modelConfig.provider.name,
+        providerType: modelConfig.provider.type,
+        resolvedModel: modelConfig.id,
+        body: req.body,
+        response,
+        usage,
+        timing: { durationMs: Date.now() - traceStart, ...(timeToFirstChunkMs != null ? { timeToFirstChunkMs } : {}) }
+      })
+    }
 
     // Extract system message from OpenAI messages array
     const systemMessages = messages.filter(m => m.role === 'system')
@@ -233,9 +205,19 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
         choices: [{ index: 0, delta: { role: 'assistant', content: '' }, finish_reason: null }]
       })}\n\n`)
 
+      // Parallel tool calls are distinguished in the OpenAI streaming wire format only by
+      // their `index`. Assign a stable incrementing index per tool call id so the client
+      // does not collapse several calls into a single index-0 slot.
+      const toolCallIndexes = new Map<string, number>()
+
       try {
+        let streamedText = ''
+        let ttfc: number | undefined
+        const streamedToolCalls = new Map<string, { id: string, name: string, arguments: string }>()
         for await (const part of result.fullStream) {
           if (part.type === 'text-delta') {
+            streamedText += part.text
+            if (ttfc === undefined) ttfc = Date.now() - traceStart
             res.write(`data: ${JSON.stringify({
               id: completionId,
               object: 'chat.completion.chunk',
@@ -244,6 +226,9 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
               choices: [{ index: 0, delta: { content: part.text }, finish_reason: null }]
             })}\n\n`)
           } else if (part.type === 'tool-input-start') {
+            const toolCallIndex = toolCallIndexes.size
+            toolCallIndexes.set(part.id, toolCallIndex)
+            streamedToolCalls.set(part.id, { id: part.id, name: part.toolName, arguments: '' })
             res.write(`data: ${JSON.stringify({
               id: completionId,
               object: 'chat.completion.chunk',
@@ -253,7 +238,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
                 index: 0,
                 delta: {
                   tool_calls: [{
-                    index: 0,
+                    index: toolCallIndex,
                     id: part.id,
                     type: 'function',
                     function: { name: part.toolName, arguments: '' }
@@ -263,6 +248,9 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
               }]
             })}\n\n`)
           } else if (part.type === 'tool-input-delta') {
+            const toolCallIndex = toolCallIndexes.get(part.id) ?? 0
+            const entry = streamedToolCalls.get(part.id)
+            if (entry) entry.arguments += part.delta
             res.write(`data: ${JSON.stringify({
               id: completionId,
               object: 'chat.completion.chunk',
@@ -272,7 +260,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
                 index: 0,
                 delta: {
                   tool_calls: [{
-                    index: 0,
+                    index: toolCallIndex,
                     function: { arguments: part.delta }
                   }]
                 },
@@ -285,7 +273,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
             const outputTokens = part.totalUsage?.outputTokens ?? 0
             const cost = computeCost(inputTokens, outputTokens, inputPricePerMillion, outputPricePerMillion)
             if (cost > 0) {
-              await recordUsage(owner, cost, usageUserId, usageUserName)
+              await recordUsage(owner, cost, usageUserId, usageUserName, poolId)
             }
 
             res.write(`data: ${JSON.stringify({
@@ -296,6 +284,12 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
               choices: [{ index: 0, delta: {}, finish_reason: mapFinishReason(part.finishReason as FinishReason) }],
               usage: buildUsage(part.totalUsage)
             })}\n\n`)
+
+            recordTrace(
+              { content: streamedText, toolCalls: [...streamedToolCalls.values()], finishReason: mapFinishReason(part.finishReason as FinishReason) },
+              { inputTokens, outputTokens, cacheReadTokens: part.totalUsage?.inputTokenDetails?.cacheReadTokens, cacheWriteTokens: part.totalUsage?.inputTokenDetails?.cacheWriteTokens },
+              ttfc
+            )
           }
         }
 
@@ -326,7 +320,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
       const outputTokens = result.usage?.outputTokens ?? 0
       const cost = computeCost(inputTokens, outputTokens, inputPricePerMillion, outputPricePerMillion)
       if (cost > 0) {
-        await recordUsage(owner, cost, usageUserId, usageUserName)
+        await recordUsage(owner, cost, usageUserId, usageUserName, poolId)
       }
 
       // Build response message
@@ -359,6 +353,15 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
         }],
         usage: buildUsage(result.usage)
       })
+
+      recordTrace(
+        {
+          content: result.text || '',
+          toolCalls: (result.toolCalls ?? []).map((tc: { toolCallId: string, toolName: string, input?: unknown }) => ({ id: tc.toolCallId, name: tc.toolName, arguments: JSON.stringify(tc.input ?? {}) })),
+          finishReason: mapFinishReason(result.finishReason as FinishReason)
+        },
+        { inputTokens, outputTokens, cacheReadTokens: result.usage?.inputTokenDetails?.cacheReadTokens, cacheWriteTokens: result.usage?.inputTokenDetails?.cacheWriteTokens }
+      )
     }
   } catch (err) {
     next(err)
