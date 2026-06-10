@@ -253,3 +253,31 @@ late-abort, strikes, events/admin page, trace embedding.
 - The `/api/summary` endpoint is not moderated: its content has already passed the
   gateway gate when originally submitted by the user. Direct abuse of the summary
   endpoint as a generic LLM is bounded by its fixed summarization prompt and quotas.
+
+## Amendments (2026-06-10, plan-time)
+
+Exploration during planning corrected four points:
+
+1. **No vendor `moderation` field on gateway responses.** Live in-browser trace
+   recording no longer exists (the 2026-06-09 trace simplification made
+   `SessionRecorder` a read-only viewer over server-reconstructed traces), so the
+   client needs nothing beyond `finish_reason: "content_filter"`. The review page
+   and in-chat debug dialog both read the verdict from the `moderation` field
+   embedded in stored trace requests.
+2. **One event per check.** A check that times out and later resolves `allow`
+   records a single `fail-open-timeout` event (with the real settle latency); one
+   that times out and later resolves `block` records a single `late-block` event.
+   No double counting. A check whose verdict has not settled by the time a trace
+   request is recorded simply has no `moderation` field on that trace doc — the
+   events collection remains the authoritative record.
+3. **Sub-agent blocks degrade gracefully.** A `content_filter` on a sub-agent's
+   gateway call surfaces the refusal as that sub-agent's output (visible to the
+   main agent and the UI) instead of aborting the whole turn; only a block on the
+   main turn's call aborts the turn. Sub-agent task texts are written by the
+   assistant, so blocks there are rare false positives — degrading beats nuking.
+4. **Admin UI placement and stats shape.** The moderation admin UI is a section on
+   the existing `/:type/:id/activity` page (the established admin surface), not a
+   new page. The stats endpoint returns per-action totals, avg/p95 verdict latency,
+   and a last-24h fail-open sample — no per-day series in v1. Old stored
+   `moderation:<turnId>` context requests are dropped from reconstruction entirely
+   (they expire within 30 days).
