@@ -37,6 +37,11 @@ function cacheGet (key: string, now: number): ModerationVerdict | undefined {
   return entry.verdict
 }
 
+// test-env support: the in-process cache would otherwise leak verdicts across test runs
+export function clearVerdictCache (): void {
+  verdictCache.clear()
+}
+
 function cacheSet (key: string, verdict: ModerationVerdict, now: number): void {
   if (verdictCache.size >= CACHE_MAX_ENTRIES) {
     const oldest = verdictCache.keys().next().value

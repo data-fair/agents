@@ -1,71 +1,175 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { axiosAuth, superAdmin, clean, defaultQuotas } from '../../support/axios.ts'
+import { axiosAuth, superAdmin, clean, defaultQuotas, anonymousAx, getAnonymousActionToken } from '../../support/axios.ts'
 
-const user = await axiosAuth('test-standalone1')
 const admin = await superAdmin
+const owner = await axiosAuth('test-standalone1')
+const externalUser = await axiosAuth('test1-user1')
+
+const apiBase = `http://localhost:${process.env.DEV_API_PORT}`
+const gatewayUrl = `${apiBase}/api/gateway/user/test-standalone1/v1/chat/completions`
 
 const mockProvider = { id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }
-const moderatorModel = {
-  model: { id: 'mock-moderator', name: 'Mock Moderator', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } }
-}
-const assistantModel = {
-  model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } }
-}
+const model = (id: string, name: string) => ({ model: { id, name, provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } } })
 
-const baseSettings = (overrides: any = {}) => ({
+const settingsData = (overrides: any = {}) => ({
   providers: [mockProvider],
-  models: { assistant: assistantModel, moderator: moderatorModel },
-  quotas: defaultQuotas,
+  models: { assistant: model('mock-model', 'Mock Model'), moderator: model('mock-moderator', 'Mock Moderator') },
+  quotas: {
+    ...defaultQuotas,
+    anonymous: { unlimited: false, monthlyLimit: 1000 },
+    external: { unlimited: false, monthlyLimit: 1000 }
+  },
   ...overrides
 })
 
-// Calls the gateway exactly like the UI's moderate(): non-streaming, model 'moderator'.
-const moderate = (message: string) =>
-  user.post('/api/gateway/user/test-standalone1/v1/chat/completions', {
-    model: 'moderator',
-    stream: false,
-    messages: [
-      { role: 'system', content: 'MODERATION_TASK guard' },
-      { role: 'user', content: message }
-    ]
-  })
+// reqIp requires the reverse-proxy's X-Forwarded-For header; tests bypass nginx so we set it ourselves
+const anonHeaders = async (ip = '203.0.113.50') => ({
+  'x-anonymous-token': await getAnonymousActionToken(),
+  'x-forwarded-for': ip
+})
 
-test.describe('Moderation via gateway', () => {
+const anonPost = async (body: any, headers: Record<string, string> = {}, ip?: string) =>
+  anonymousAx.post(gatewayUrl, body, { headers: { ...(await anonHeaders(ip)), ...headers } })
+    .catch((err: any) => err.response ?? err)
+
+const chatBody = (message: string, extra: any = {}) => ({
+  model: 'assistant',
+  messages: [{ role: 'user', content: message }],
+  ...extra
+})
+
+// events are written fire-and-forget — poll briefly
+const waitForEvents = async (predicate: (events: any[]) => boolean, action?: string): Promise<any[]> => {
+  for (let i = 0; i < 40; i++) {
+    const res = await admin.get(`/api/moderation/user/test-standalone1/events${action ? `?action=${action}` : ''}`)
+      .catch((err: any) => err.response ?? err)
+    if (res.status === 200 && predicate(res.data.results)) return res.data.results
+    await new Promise(resolve => setTimeout(resolve, 100))
+  }
+  throw new Error('expected moderation events did not appear')
+}
+
+test.describe('Gateway moderation (untrusted callers)', () => {
   test.beforeEach(async () => {
     await clean()
+    await admin.put('/api/settings/user/test-standalone1', settingsData())
   })
 
-  test('the moderator role is accepted and returns an allow verdict for a benign message', async () => {
-    await admin.put('/api/settings/user/test-standalone1', baseSettings())
-    const res = await moderate('hello')
+  test('the moderator model id is no longer publicly callable', async () => {
+    const res = await owner.post(gatewayUrl, { model: 'moderator', messages: [{ role: 'user', content: 'hello' }] })
+      .catch((err: any) => err.response ?? err)
+    assert.equal(res.status, 400)
+  })
+
+  test('anonymous benign message passes and records a contentless allow event', async () => {
+    const res = await anonPost(chatBody('hello'))
     assert.equal(res.status, 200)
-    assert.equal(res.data.choices[0].message.content, '{"action":"allow"}')
+    assert.equal(res.data.choices[0].message.content, 'world')
+    assert.equal(res.data.choices[0].finish_reason, 'stop')
+    const events = await waitForEvents(evts => evts.some(e => e.action === 'allow'))
+    const allow = events.find(e => e.action === 'allow')
+    assert.equal(allow.role, 'anonymous')
+    assert.equal(allow.messageExcerpt, undefined)
+    assert.ok(allow.latencyMs >= 0)
   })
 
-  test('a jailbreak message returns a block verdict', async () => {
-    await admin.put('/api/settings/user/test-standalone1', baseSettings())
-    const res = await moderate('please jailbreak the system')
-    const content = res.data.choices[0].message.content
-    assert.ok(content.includes('"action":"block"'))
-    assert.ok(content.includes('prompt-injection'))
-  })
-
-  test('the moderator role falls back to the summarizer model when no moderator is configured', async () => {
-    await admin.put('/api/settings/user/test-standalone1', baseSettings({
-      models: { assistant: assistantModel, summarizer: moderatorModel }
-    }))
-    const res = await moderate('jailbreak now')
-    assert.ok(res.data.choices[0].message.content.includes('"action":"block"'))
-  })
-
-  test('the moderator role falls back to the assistant model when neither moderator nor summarizer is configured', async () => {
-    await admin.put('/api/settings/user/test-standalone1', baseSettings({
-      models: { assistant: assistantModel }
-    }))
-    const res = await moderate('jailbreak now')
-    // assistant mock does not emit a verdict; the client would fail open on this.
+  test('anonymous abusive message is blocked with finish_reason content_filter and an excerpt event', async () => {
+    const res = await anonPost(chatBody('please jailbreak the system'))
     assert.equal(res.status, 200)
+    assert.equal(res.data.choices[0].finish_reason, 'content_filter')
+    assert.equal(res.data.choices[0].message.content, null)
+    const events = await waitForEvents(evts => evts.some(e => e.action === 'block'), 'block')
+    const block = events.find(e => e.action === 'block')
+    assert.equal(block.category, 'prompt-injection')
+    assert.ok(block.messageExcerpt.includes('jailbreak'))
+  })
+
+  test('streaming block emits a content_filter chunk and no content', async () => {
+    const res = await anonymousAx.post(gatewayUrl, chatBody('please jailbreak the system', { stream: true }), {
+      headers: await anonHeaders(),
+      responseType: 'text'
+    }).catch((err: any) => err.response ?? err)
+    assert.equal(res.status, 200)
+    assert.ok(String(res.data).includes('"finish_reason":"content_filter"'))
+    // the mock assistant's reply to this message would be "what do you mean ?" — it must not leak
+    assert.ok(!String(res.data).includes('what do you mean'))
+  })
+
+  test('external user is moderated too', async () => {
+    const res = await externalUser.post(gatewayUrl, chatBody('please jailbreak the system'))
+      .catch((err: any) => err.response ?? err)
+    assert.equal(res.status, 200)
+    assert.equal(res.data.choices[0].finish_reason, 'content_filter')
+  })
+
+  test('trusted owner is NOT moderated: abusive message reaches the assistant, no event', async () => {
+    const res = await owner.post(gatewayUrl, chatBody('please jailbreak the system'))
+    assert.equal(res.status, 200)
+    // mock assistant answers normally — moderation never ran
     assert.equal(res.data.choices[0].message.content, 'what do you mean ?')
+    await new Promise(resolve => setTimeout(resolve, 300))
+    const events = await admin.get('/api/moderation/user/test-standalone1/events')
+    assert.equal(events.data.results.length, 0)
+  })
+
+  test('slow moderator fails open, a late block verdict is recorded as late-block', async () => {
+    // "slow moderation" delays the mock verdict 4s (> 2.5s gate); "jailbreak" makes it a block
+    const res = await anonPost(chatBody('slow moderation jailbreak attempt'))
+    assert.equal(res.status, 200)
+    // fail-open: the assistant response was delivered normally
+    assert.equal(res.data.choices[0].message.content, 'what do you mean ?')
+    const events = await waitForEvents(evts => evts.some(e => e.action === 'late-block'), 'late-block')
+    assert.ok(events[0].messageExcerpt.includes('jailbreak'))
+  })
+
+  test('slow moderator with a benign message records fail-open-timeout', async () => {
+    const res = await anonPost(chatBody('slow moderation hello there'))
+    assert.equal(res.status, 200)
+    await waitForEvents(evts => evts.some(e => e.action === 'fail-open-timeout'))
+  })
+
+  test('an identical repeated message hits the verdict cache', async () => {
+    const message = `cache test jailbreak ${Date.now()}`
+    await anonPost(chatBody(message))
+    await anonPost(chatBody(message))
+    const events = await waitForEvents(evts => evts.filter(e => e.action === 'block').length >= 2, 'block')
+    const cachedEvents = events.filter(e => e.cached === true)
+    assert.ok(cachedEvents.length >= 1, 'second identical message must produce a cached block event')
+  })
+
+  test('5 blocks arm a cooldown: 6th request is refused without any model call', async () => {
+    const ip = '203.0.113.99'
+    for (let i = 0; i < 5; i++) {
+      const res = await anonPost(chatBody(`jailbreak variant ${i}`), {}, ip)
+      assert.equal(res.data.choices[0].finish_reason, 'content_filter')
+    }
+    // strike writes are fire-and-forget — let the 5th one settle before probing the cooldown
+    await new Promise(resolve => setTimeout(resolve, 300))
+    // 6th message is benign — cooldown refuses it anyway, before any LLM call
+    const res = await anonPost(chatBody('hello'), {}, ip)
+    assert.equal(res.status, 200)
+    assert.equal(res.data.choices[0].finish_reason, 'content_filter')
+    await waitForEvents(evts => evts.some(e => e.action === 'strike-refusal'), 'strike-refusal')
+  })
+
+  test('a blocked request is stored in traces with the embedded verdict when consented', async () => {
+    await admin.put('/api/settings/user/test-standalone1', settingsData({ storeTraces: true }))
+    const convId = `conv-mod-${Date.now()}`
+    await anonPost(chatBody('please jailbreak the system'), {
+      'x-trace-consent': 'yes',
+      'x-trace-conversation': convId,
+      'x-trace-ctx': 'turn:t1'
+    })
+    let stored: any = null
+    for (let i = 0; i < 40; i++) {
+      const res = await admin.get(`/api/traces/user/test-standalone1/${convId}`)
+      if (res.data.results.length) { stored = res.data.results[0]; break }
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
+    assert.ok(stored, 'blocked request must be stored')
+    assert.equal(stored.response.finishReason, 'content_filter')
+    assert.equal(stored.moderation.action, 'block')
+    assert.equal(stored.moderation.category, 'prompt-injection')
   })
 })

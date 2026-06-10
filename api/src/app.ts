@@ -6,6 +6,7 @@ import { uiConfig } from './ui-config.ts'
 import settingsRouter from './settings/router.ts'
 import adminRouter from './admin/router.ts'
 import modelsRouter, { getModelsForOwner } from './models/router.ts'
+import { clearVerdictCache } from './moderation/service.ts'
 import summaryRouter from './summary/router.ts'
 import gatewayRouter from './gateway/router.ts'
 import usageRouter from './usage/router.ts'
@@ -46,6 +47,7 @@ app.use('/api/ping', (req, res) => res.send('ok'))
 if (process.env.NODE_ENV === 'development') {
   app.delete('/api/test-env', async (req, res) => {
     getModelsForOwner.clear()
+    clearVerdictCache()
     await mongo.db.collection('settings').deleteMany({ 'owner.id': /^test/ })
     await mongo.db.collection('usage').deleteMany({ 'owner.id': /^test/ })
     await mongo.db.collection('trace-requests').deleteMany({ 'owner.id': /^test/ })
