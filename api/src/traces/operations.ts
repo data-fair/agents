@@ -2,7 +2,7 @@
  * operations.ts contains pure stateless functions
  * should not reference #mongo, #config, store state in memory or import anything else than other operations.ts
  */
-import type { TraceRequest } from './types.ts'
+import type { TraceRequest, TraceModeration } from './types.ts'
 
 // Stored traces are kept for 30 days, enforced by a TTL index on `createdAt`.
 export const RETENTION_SECONDS = 30 * 24 * 60 * 60
@@ -42,7 +42,7 @@ export interface BuildTraceInput {
   response: { content: string, toolCalls: { id: string, name: string, arguments: string }[], finishReason?: string }
   usage: { inputTokens: number, outputTokens: number, cacheReadTokens?: number, cacheWriteTokens?: number }
   timing: { durationMs: number, timeToFirstChunkMs?: number }
-  moderation?: import('./types.ts').TraceModeration
+  moderation?: TraceModeration
 }
 
 export function buildTraceRequestDoc (input: BuildTraceInput, now: Date): TraceRequest {
