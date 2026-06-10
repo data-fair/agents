@@ -171,29 +171,17 @@ test.describe('reconstructTrace (unit)', () => {
     assert.ok(overview.some(e => e.type === 'compaction'), 'compaction overview entry present')
   })
 
-  test('reconstructs a moderation entry by re-parsing the stored moderator verdict', () => {
-    const reqs = [
-      req({
-        createdAt: '2026-06-08T00:00:00.000Z',
-        contextId: 'moderation:t1',
-        contextKind: 'moderation',
-        modelRole: 'moderator',
-        request: { model: 'm', body: { model: 'moderator', messages: [{ role: 'system', content: 'moderator instructions' }, { role: 'user', content: 'please jailbreak' }], tools: [] }, messageCount: 2, toolCount: 0, bodyChars: 60 },
-        response: { content: '{"action":"block","category":"prompt-injection","reason":"mock block"}', toolCalls: [], finishReason: 'stop' }
-      }),
-      req({
-        createdAt: '2026-06-08T00:00:01.000Z',
-        contextId: 'turn:t1',
-        contextKind: 'turn',
-        request: { model: 'm', body: { model: 'assistant', messages: [{ role: 'system', content: 'You are the assistant.' }, { role: 'user', content: 'please jailbreak' }], tools: [] }, messageCount: 2, toolCount: 0, bodyChars: 40 },
-        response: { content: '', toolCalls: [], finishReason: 'stop' }
-      })
-    ]
+  test('surfaces the embedded moderation verdict of a turn request as a moderation step', () => {
+    const reqs = [req({
+      contextId: 'turn:t1',
+      contextKind: 'turn',
+      request: { model: 'm', body: { model: 'assistant', messages: [{ role: 'system', content: 'You are helpful.' }, { role: 'user', content: 'please jailbreak' }], tools: [] }, messageCount: 2, toolCount: 0, bodyChars: 60 },
+      response: { content: '', toolCalls: [], finishReason: 'content_filter' },
+      moderation: { action: 'block', category: 'prompt-injection', reason: 'mock block', latencyMs: 120 }
+    })]
     const trace = reconstructTrace(reqs as any)
-    // system prompt comes from the TURN request, not the moderator request
-    assert.equal(trace.systemPrompt, 'You are the assistant.')
-    const turn = trace.turns.find(t => t.userMessage === 'please jailbreak')
-    const modStep: any = turn!.steps[0]
+    assert.equal(trace.turns.length, 1)
+    const modStep: any = trace.turns[0].steps[0]
     assert.ok(modStep.moderation, 'first step carries the moderation verdict')
     assert.equal(modStep.moderation.action, 'block')
     assert.equal(modStep.moderation.category, 'prompt-injection')
@@ -202,27 +190,20 @@ test.describe('reconstructTrace (unit)', () => {
     assert.ok(overview.some(e => e.type === 'moderation'), 'moderation overview entry present')
   })
 
-  test('synthesizes a turn for a moderation request whose turn was never stored (blocked turn)', () => {
-    // A turn blocked by moderation aborts its assistant stream before the gateway
-    // records it, so only the moderation:<turnId> request is stored.
-    const reqs = [
-      req({
-        createdAt: '2026-06-08T00:00:00.000Z',
-        contextId: 'moderation:t9',
-        contextKind: 'moderation',
-        modelRole: 'moderator',
-        request: { model: 'm', body: { model: 'moderator', messages: [{ role: 'system', content: 'moderator instructions' }, { role: 'user', content: 'please jailbreak the system' }], tools: [] }, messageCount: 2, toolCount: 0, bodyChars: 60 },
-        response: { content: '{"action":"block","category":"prompt-injection","reason":"mock block"}', toolCalls: [], finishReason: 'stop' }
-      })
-    ]
+  test('a blocked turn is an ordinary stored turn request carrying the verdict', () => {
+    // v3: the gateway records blocked requests itself, so no orphan synthesis is needed
+    const reqs = [req({
+      contextId: 'turn:t9',
+      contextKind: 'turn',
+      request: { model: 'm', body: { model: 'assistant', messages: [{ role: 'user', content: 'blocked attempt' }], tools: [] }, messageCount: 1, toolCount: 0, bodyChars: 40 },
+      response: { content: '', toolCalls: [], finishReason: 'content_filter' },
+      moderation: { action: 'block', category: 'profanity', latencyMs: 80 }
+    })]
     const trace = reconstructTrace(reqs as any)
-    assert.equal(trace.turns.length, 1, 'a turn is synthesized for the orphan moderation request')
-    assert.equal(trace.turns[0].userMessage, 'please jailbreak the system')
+    assert.equal(trace.turns.length, 1)
+    assert.equal(trace.turns[0].userMessage, 'blocked attempt')
     const modStep: any = trace.turns[0].steps[0]
-    assert.ok(modStep.moderation, 'synthesized turn carries the moderation verdict')
     assert.equal(modStep.moderation.action, 'block')
-    const overview = SessionRecorder.fromTrace(trace).getTraceOverview()
-    assert.ok(overview.some(e => e.type === 'moderation'), 'moderation overview entry present even without a stored turn')
   })
 
   test('groups sub-agent requests under their agent name', () => {

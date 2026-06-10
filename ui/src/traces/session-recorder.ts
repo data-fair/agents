@@ -184,10 +184,10 @@ export class SessionRecorder {
         }
         if ((step as any).moderation) {
           const m = (step as any).moderation
-          const verdict = m.skipped ? 'skipped' : m.action
+          const verdict = m.failOpen ? 'skipped' : m.action
           add(
             { type: 'moderation', timestamp: step.timestamp, label: verdict, preview: [m.category, m.reason].filter(Boolean).join(': ').slice(0, 150) },
-            { action: m.action, category: m.category, reason: m.reason, skipped: m.skipped }
+            { action: m.action, category: m.category, reason: m.reason, failOpen: m.failOpen, latencyMs: m.latencyMs }
           )
         }
         for (const tc of step.toolCalls) {

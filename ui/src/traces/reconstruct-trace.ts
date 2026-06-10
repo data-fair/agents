@@ -1,5 +1,4 @@
 import type { SessionTrace, PhysicalRequestTrace, TurnTrace, StepTrace, ToolCallTrace, ToolSnapshot, SubAgentTrace } from './session-recorder.ts'
-import { parseModerationVerdict } from '../composables/moderation.ts'
 
 export interface StoredTraceRequest {
   conversation: { id: string }
@@ -12,6 +11,7 @@ export interface StoredTraceRequest {
   usage: { inputTokens: number, outputTokens: number, cacheReadTokens?: number, cacheWriteTokens?: number }
   timing: { durationMs: number, timeToFirstChunkMs?: number }
   createdAt: string
+  moderation?: { action: 'allow' | 'block', category?: string, reason?: string, latencyMs?: number, failOpen?: 'timeout' | 'error' }
 }
 
 const ts = (iso: string) => new Date(iso)
@@ -73,12 +73,12 @@ function compactionStepOf (comp: StoredTraceRequest): StepTrace {
   return step
 }
 
-// A moderation request (ctx `moderation:<turnId>`) → a step carrying the verdict,
-// re-parsed from the stored moderator response.
-function moderationStepOf (mod: StoredTraceRequest): StepTrace {
-  const verdict = parseModerationVerdict(mod.response.content)
-  const step: StepTrace = { timestamp: ts(mod.createdAt), messages: [], toolCalls: [] }
-  ;(step as any).moderation = { action: verdict.action, category: verdict.category, reason: verdict.reason, skipped: verdict.skipped }
+// A turn request carrying an embedded gateway moderation verdict → a step
+// surfacing it as a moderation entry.
+function moderationStepOf (r: StoredTraceRequest): StepTrace {
+  const m = r.moderation!
+  const step: StepTrace = { timestamp: ts(r.createdAt), messages: [], toolCalls: [] }
+  ;(step as any).moderation = { action: m.action, category: m.category, reason: m.reason, latencyMs: m.latencyMs, failOpen: m.failOpen }
   return step
 }
 
@@ -112,16 +112,6 @@ export function reconstructTrace (requests: StoredTraceRequest[]): SessionTrace 
     if (r.contextKind === 'compaction') {
       const turnId = r.contextId.replace(/^compaction:/, '')
       if (!compactionByTurn.has(turnId)) compactionByTurn.set(turnId, r)
-    }
-  }
-
-  // Moderation requests use ctx `moderation:<turnId>`; the verdict is re-parsed from the
-  // stored moderator response so it can surface as a moderation entry in the matching turn.
-  const moderationByTurn = new Map<string, StoredTraceRequest>()
-  for (const r of sorted) {
-    if (r.contextKind === 'moderation') {
-      const turnId = r.contextId.replace(/^moderation:/, '')
-      if (!moderationByTurn.has(turnId)) moderationByTurn.set(turnId, r)
     }
   }
 
@@ -222,25 +212,20 @@ export function reconstructTrace (requests: StoredTraceRequest[]): SessionTrace 
     const prefix: StepTrace[] = []
     const comp = compactionByTurn.get(turnId)
     if (comp) prefix.push(compactionStepOf(comp))
-    const mod = moderationByTurn.get(turnId)
+    const mod = reqs.find(r => r.moderation)
     if (mod) prefix.push(moderationStepOf(mod))
     return { userMessage: lastUserMessage(reqs[0].request.body), timestamp: ts(reqs[0].createdAt), steps: [...prefix, ...steps] }
   })
 
-  // Synthesize turns for compaction/moderation whose main turn request was never stored.
-  // A turn blocked by moderation aborts its assistant stream before the gateway records
-  // it, so only the moderation request survives — still surface it as its own turn.
+  // Synthesize turns for compaction requests whose main turn request was never stored.
   const builtTurnIds = new Set(uidOrder.map(uid => uid.replace(/^turn:/, '')))
   const orphanIds = new Set<string>()
   for (const k of compactionByTurn.keys()) if (!builtTurnIds.has(k)) orphanIds.add(k)
-  for (const k of moderationByTurn.keys()) if (!builtTurnIds.has(k)) orphanIds.add(k)
   for (const turnId of orphanIds) {
     const comp = compactionByTurn.get(turnId)
-    const mod = moderationByTurn.get(turnId)
     const steps: StepTrace[] = []
     if (comp) steps.push(compactionStepOf(comp))
-    if (mod) steps.push(moderationStepOf(mod))
-    const src = (mod ?? comp)!
+    const src = comp!
     turns.push({ userMessage: lastUserMessage(src.request.body), timestamp: ts(src.createdAt), steps })
   }
   // Keep turns chronological after appending any synthesized ones.
