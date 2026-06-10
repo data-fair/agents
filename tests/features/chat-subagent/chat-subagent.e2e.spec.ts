@@ -110,10 +110,17 @@ test.describe('Chat Sub-Agent UI', () => {
     // The sub-agent expansion panel should appear
     await expect(page.locator('.agent-chat').getByText('Data Analyst').first()).toBeVisible({ timeout: 15000 })
 
-    // The latest (and only) sub-agent panel must auto-expand deterministically,
-    // with no manual click — this is the behaviour that used to be flaky.
+    // Wait for the turn to finish: after the sub-agent returns, the parent agent
+    // emits a trailing "done" text message. By design a turn that ends on a text
+    // message leaves all sub-agent panels collapsed (only a turn ending on a
+    // sub-agent stays auto-expanded), so once "done" is shown the panel has
+    // settled closed — we then expand it manually to inspect the sub-agent's tools.
+    await expect(page.locator('.agent-chat').getByText('done', { exact: true }).first()).toBeVisible({ timeout: 15000 })
+
+    // Expand the sub-agent panel and verify it called the reserved get_schema tool
     const dataAnalystTitle = page.locator('.agent-chat .v-expansion-panel-title', { hasText: 'Data Analyst' }).first()
-    await expect(dataAnalystTitle).toHaveClass(/v-expansion-panel-title--active/, { timeout: 15000 })
+    await dataAnalystTitle.click()
+    await expect(dataAnalystTitle).toHaveClass(/v-expansion-panel-title--active/, { timeout: 5000 })
 
     // At least one get_schema tool chip should appear inside the sub-agent expansion panel
     const chatArea = page.locator('.agent-chat')

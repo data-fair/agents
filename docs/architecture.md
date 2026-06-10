@@ -61,7 +61,7 @@ sequenceDiagram
 - `api/src/gateway/operations.ts` — OpenAI ↔ AI SDK message/tool format conversion
 - `ui/src/composables/use-agent-chat.ts` — client-side history management
 
-**Model IDs are roles, not model names.** The client requests `assistant`, `tools`, `summarizer`, `evaluator`, or `moderator` — the server resolves which provider/model to use from settings.
+**Model IDs are roles, not model names.** The client requests `assistant`, `tools`, `summarizer`, or `evaluator` — the server resolves which provider/model to use from settings. The `moderator` role exists in settings but is internal (used by the gateway's moderation guard, not client-callable).
 
 ---
 
@@ -168,7 +168,7 @@ graph LR
 | `tools` | Structured data / tool-calling specialist | 0.5 |
 | `summarizer` | Context compaction | 0.5 |
 | `evaluator` | Quality control / reasoning | 1.0 |
-| `moderator` | Input moderation guard (fast/cheap) | 0.5 |
+| `moderator` | Input moderation guard (internal, gateway-side) | 0.5 |
 
 Each owner (user or organization) configures their own providers and model assignments. API keys are **encrypted at rest** (AES-256-CBC) and obfuscated in API responses. Model lists are fetched from provider APIs with **5-minute memoized caching**.
 
@@ -302,47 +302,53 @@ graph TB
 
 ## 8. Input Moderation Guard
 
-A per-message guard protects the **UI-integrated assistant** from abuse — profanity, prompt-injection attempts, persona/identity override, and out-of-scope requests that deviate from the agent's mission. It is **always on** and runs **concurrently** with the assistant turn, only withholding the first visible output byte; the request itself is never delayed.
+A gateway-enforced, per-message guard protects the platform from abuse by **untrusted callers** — profanity, prompt-injection attempts, persona override, and heavy off-platform tasks. Trusted callers (account owner, org members) are never checked: zero cost, zero latency for them.
 
 ```mermaid
 sequenceDiagram
-  participant Chat as use-agent-chat
+  participant Client
   participant GW as Gateway (/v1/chat/completions)
-  participant LLM as Resolved model
+  participant Mod as Moderator model
+  participant LLM as Requested model
 
-  Note over Chat: on user submit, both start in parallel
-  Chat->>GW: POST model=assistant, stream=true
-  Chat->>GW: POST model=moderator, stream=false
-  GW->>GW: role + quota check (both calls)
-  GW->>LLM: generateText (moderator→summarizer→assistant)
-  LLM-->>GW: verdict text
-  GW->>GW: recordUsage (metered)
-  GW-->>Chat: completion JSON
-  Chat->>Chat: parseModerationVerdict (client-side, 1.5s fail-open)
-  GW-->>Chat: SSE chunks (buffered until verdict)
-  alt allow
-    Chat->>Chat: flush + stream normally
-  else block
-    Chat->>Chat: abort stream, drop user msg, show hardcoded refusal
+  Client->>GW: POST (anonymous or external caller)
+  GW->>GW: strike cooldown? → immediate content_filter
+  par race
+    GW->>Mod: generateObject(verdict), metered
+  and
+    GW->>LLM: streamText(), SSE buffered
+  end
+  alt verdict allow (≤2.5s)
+    GW-->>Client: flush + stream normally
+  else verdict block
+    GW->>LLM: abort
+    GW-->>Client: finish_reason: content_filter
+  else timeout
+    GW-->>Client: fail open (flush); a late block aborts mid-stream
   end
 ```
 
-**Reuses the gateway.** There is no dedicated moderation endpoint. The client issues a second, non-streaming gateway call with `model: 'moderator'`, which resolves **moderator → summarizer → assistant** server-side (`getModelConfig`). Because it goes through the gateway, moderation inherits the same role checks, quota checks, and usage recording as any other model call — every user message therefore costs two metered calls (moderation + assistant).
+**Enforced in the gateway, for all model roles.** Every completions call whose effective role is `anonymous` or `external` is checked — the last user message of the request, truncated head+tail, judged by `generateObject` against a **generic server-side mission** (the request's own system prompt is attacker-controlled and not trusted for scoping). The `moderator` model id is internal-only (not in the public `MODEL_IDS`); it resolves **moderator → summarizer → assistant** and is metered like any call. A small in-memory verdict cache (10 min TTL) absorbs repeats within a turn.
 
-**Advisory, not a security boundary.** The gate lives in the client orchestration loop. A direct or anonymous call straight to the gateway's `assistant` model bypasses moderation entirely; that is by design and governed by auth/quotas. The moderation prompt and verdict parser live in the browser (`ui/src/composables/moderation.ts`).
+**Race, don't gate.** The verdict races the model call; content chunks are buffered server-side for at most 2.5s. Fail-open is repaired by a **late abort**: a block verdict arriving after the gate failed open still cuts the stream with `finish_reason: "content_filter"`.
 
-**Fail-open everywhere.** A client-side 1.5s timeout, any transport/HTTP error (including a quota 429 on the moderation call), and any unparseable model output all resolve to `allow`. Moderation never blocks the user on an internal failure.
+**Strikes.** 5 blocks within 24h arm a 1h cooldown (`moderation-strikes`, keyed by the usage identity `anon:<ip-hash>` / user id) during which the caller is refused with zero LLM calls.
 
-**Hardcoded refusal.** Blocked messages show a fixed, localized refusal (en/fr) supplied by the chat component; it is not configurable. The model's `category`/`reason` are recorded in the trace but never shown to the user.
+**Observable by construction.** Every check writes exactly one event to `moderation-events` (TTL 30 days): `allow`, `block`, `late-block`, `fail-open-timeout`, `fail-open-error`, or `strike-refusal`, with verdict latency. Only block events keep a ~500-char message excerpt (the review payload). Admin-only endpoints (`/api/moderation/:type/:id/stats|events|probe`) and a section on the activity page expose totals, fail-open rate (with a >20%/24h warning banner), recent blocks, and a live 3-message test probe. The events collection is the authoritative record: a verdict that has not settled when a trace is recorded appears only there. Stats use MongoDB's `$percentile` (requires MongoDB ≥ 7.0).
 
-**Input only (v1).** The moderator sees the new user message plus the agent mission (system prompt) — not the full history. No output moderation, no tool-result / indirect-injection coverage, no multi-turn jailbreak detection. A block is enforced before any assistant text is shown, but if a turn's first action is a tool call, the tool may already have executed by the time the verdict arrives — moderation does not roll back tool side effects.
+**Trace embedding.** When trace storage is active, the verdict is embedded as a `moderation` field on the stored request — blocked requests are recorded by the gateway itself (`finish_reason: "content_filter"`), so blocked turns appear in the review page with their verdict chip. A streaming turn cut by a late block aborts before any finish event, so it appears in the events collection only — events, not traces, are the authoritative moderation record.
 
-**Observable, client-side only.** Every decision — `allow`, `skip` (fail-open), and `block` — is recorded in the session trace (`SessionRecorder.recordModerationDecision`) with the model's `category` and `reason`, viewable in the debug dialog. Tracing is ephemeral and client-only.
+**Client is passive.** The browser performs no moderation; it reacts to `finish_reason: "content_filter"` by dropping the turn from context and showing a localized refusal. A content_filter on a sub-agent call surfaces as that sub-agent's output instead of aborting the turn.
+
+**Input only (v1).** No output moderation, no tool-result / indirect-injection coverage, no multi-turn jailbreak detection. The `/api/summary` endpoint (for untrusted callers its system prompt is pinned server-side and strike cooldowns apply; its content is not verdict-checked).
 
 **Key files:**
-- `api/src/gateway/router.ts` — resolves the `moderator` role and meters the call
-- `ui/src/composables/moderation.ts` — moderation prompt + tolerant verdict parser
-- `ui/src/composables/use-agent-chat.ts` — parallel gate, withholding the first byte, block → refusal
+- `api/src/moderation/operations.ts` — prompt, truncation, strike arithmetic, verdict schema
+- `api/src/moderation/service.ts` — verdict cache, events, strikes, the gate run, probe
+- `api/src/moderation/router.ts` — admin-only stats/events/probe
+- `api/src/gateway/router.ts` — strike short-circuit, SSE gate, content_filter responses
+- `ui/src/components/ModerationSection.vue` — admin observability section
+
 ## 9. Progressive Tool Disclosure (Tool Exploration)
 
 When many tools are registered (or they churn as the user navigates), sending every tool's full schema on every request bloats context and destabilises any prompt cache. An **opt-in** exploration mode replaces "send all tools" with "discover on demand": the assistant sees only a single always-on `explore_tools` tool plus a catalog of tool *names*, and must call `explore_tools` to make the tools it needs callable.

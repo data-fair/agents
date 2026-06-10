@@ -33,6 +33,14 @@
     />
 
     <h3 class="text-title-large mt-6 mb-4">
+      {{ t('moderation') }}
+    </h3>
+    <moderation-section
+      :account-type="accountType"
+      :account-id="accountId"
+    />
+
+    <h3 class="text-title-large mt-6 mb-4">
       {{ t('traces') }}
     </h3>
     <p
@@ -77,12 +85,14 @@
 fr:
   configuration: Configuration
   usage: Consommation
+  moderation: Modération
   traces: Conversations enregistrées
   requests: "{n} requête | {n} requêtes"
   loadError: Erreur de chargement des traces.
 en:
   configuration: Configuration
   usage: Usage
+  moderation: Moderation
   traces: Stored conversations
   requests: "{n} request | {n} requests"
   loadError: Failed to load traces.
@@ -99,6 +109,7 @@ import ConfigSummary from '~/components/agent-chat/ConfigSummary.vue'
 import UsageCard from '~/components/UsageCard.vue'
 import MonitoringGlobalSection from '~/components/MonitoringGlobalSection.vue'
 import MonitoringIndividualSection from '~/components/MonitoringIndividualSection.vue'
+import ModerationSection from '~/components/ModerationSection.vue'
 
 const { t } = useI18n()
 const route = useRoute()
