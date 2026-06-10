@@ -113,6 +113,37 @@ test.describe('Gateway moderation (untrusted callers)', () => {
     assert.equal(events.data.results.length, 0)
   })
 
+  test('admin self-test header subjects the trusted owner to the moderation gate', async () => {
+    const res = await owner.post(gatewayUrl, chatBody('please jailbreak the system'), {
+      headers: { 'x-moderation-self-test': 'yes' }
+    }).catch((err: any) => err.response ?? err)
+    assert.equal(res.status, 200)
+    // same content_filter outcome an external user would get
+    assert.equal(res.data.choices[0].finish_reason, 'content_filter')
+    assert.equal(res.data.choices[0].message.content, null)
+  })
+
+  test('admin self-test does not record an event or a strike', async () => {
+    const res = await owner.post(gatewayUrl, chatBody('please jailbreak the system'), {
+      headers: { 'x-moderation-self-test': 'yes' }
+    })
+    assert.equal(res.data.choices[0].finish_reason, 'content_filter')
+    // give fire-and-forget writes time to (not) land
+    await new Promise(resolve => setTimeout(resolve, 300))
+    const events = await admin.get('/api/moderation/user/test-standalone1/events')
+    assert.equal(events.data.results.length, 0)
+  })
+
+  test('admin self-test benign message passes through to the assistant', async () => {
+    const res = await owner.post(gatewayUrl, chatBody('hello'), {
+      headers: { 'x-moderation-self-test': 'yes' }
+    })
+    assert.equal(res.status, 200)
+    // gate allows → mock assistant answers normally
+    assert.equal(res.data.choices[0].message.content, 'world')
+    assert.equal(res.data.choices[0].finish_reason, 'stop')
+  })
+
   test('slow moderator fails open, a late block verdict is recorded as late-block', async () => {
     // "slow moderation" delays the mock verdict 4s (> 2.5s gate); "jailbreak" makes it a block
     const res = await anonPost(chatBody('slow moderation jailbreak attempt'))

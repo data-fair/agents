@@ -161,10 +161,10 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
 
     // Gateway-side input moderation: untrusted callers only, racing the model call.
     let moderation: ModerationRun | null = null
-    if (identity.isUntrusted) {
+    if (identity.isUntrusted || identity.selfTestModeration) {
       const lastUserMessage = extractLastUserMessage(messages)
       if (lastUserMessage) {
-        moderation = startModeration({ settings, owner, identity, message: lastUserMessage, modelRole: modelId })
+        moderation = startModeration({ settings, owner, identity, message: lastUserMessage, modelRole: modelId, selfTest: identity.selfTestModeration })
       }
     }
     const upstreamAbort = new AbortController()
