@@ -2,8 +2,8 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import {
   buildModerationSystemPrompt, extractLastUserMessage, truncateForModeration,
-  truncateExcerpt, nextStrikeState, isInCooldown,
-  MODERATION_TASK_MARKER, STRIKE_THRESHOLD, STRIKE_WINDOW_MS, STRIKE_COOLDOWN_MS,
+  truncateExcerpt, isInCooldown,
+  MODERATION_TASK_MARKER,
   INPUT_HEAD_CHARS, INPUT_TAIL_CHARS, EXCERPT_MAX_CHARS
 } from '../../../api/src/moderation/operations.ts'
 
@@ -68,34 +68,6 @@ test.describe('truncation', () => {
 
 test.describe('strikes', () => {
   const now = new Date('2026-06-10T12:00:00Z')
-
-  test('first block starts a window with count 1 and no cooldown', () => {
-    const s = nextStrikeState(null, now)
-    assert.equal(s.count, 1)
-    assert.equal(s.windowStartedAt.getTime(), now.getTime())
-    assert.equal(s.cooldownUntil, undefined)
-  })
-
-  test('blocks inside the window increment the count', () => {
-    const prev = { count: 2, windowStartedAt: new Date(now.getTime() - 1000) }
-    const s = nextStrikeState(prev, now)
-    assert.equal(s.count, 3)
-    assert.equal(s.windowStartedAt.getTime(), prev.windowStartedAt.getTime())
-  })
-
-  test('a stale window resets the count', () => {
-    const prev = { count: 4, windowStartedAt: new Date(now.getTime() - STRIKE_WINDOW_MS - 1) }
-    const s = nextStrikeState(prev, now)
-    assert.equal(s.count, 1)
-    assert.equal(s.windowStartedAt.getTime(), now.getTime())
-  })
-
-  test('reaching the threshold arms the cooldown', () => {
-    const prev = { count: STRIKE_THRESHOLD - 1, windowStartedAt: new Date(now.getTime() - 1000) }
-    const s = nextStrikeState(prev, now)
-    assert.equal(s.count, STRIKE_THRESHOLD)
-    assert.equal(s.cooldownUntil!.getTime(), now.getTime() + STRIKE_COOLDOWN_MS)
-  })
 
   test('isInCooldown respects cooldownUntil', () => {
     assert.equal(isInCooldown(null, now), false)

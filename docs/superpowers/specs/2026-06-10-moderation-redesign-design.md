@@ -250,9 +250,11 @@ late-abort, strikes, events/admin page, trace embedding.
 - Output moderation; tool-result / indirect prompt-injection coverage; multi-turn
   jailbreak detection (single-message checks only).
 - Configurable thresholds, role lists, or refusal text.
-- The `/api/summary` endpoint is not moderated: its content has already passed the
-  gateway gate when originally submitted by the user. Direct abuse of the summary
-  endpoint as a generic LLM is bounded by its fixed summarization prompt and quotas.
+- The `/api/summary` endpoint runs no verdict check on its content. Its exposure is
+  bounded instead: untrusted callers get a pinned server-side summarization prompt
+  (the caller-supplied `prompt` is honored only for trusted callers) and are
+  refused during a strike cooldown. Content already passed the gateway gate when
+  originally submitted through the chat.
 
 ## Amendments (2026-06-10, plan-time)
 

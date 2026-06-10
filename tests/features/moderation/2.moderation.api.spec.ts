@@ -153,6 +153,20 @@ test.describe('Gateway moderation (untrusted callers)', () => {
     await waitForEvents(evts => evts.some(e => e.action === 'strike-refusal'), 'strike-refusal')
   })
 
+  test('summary endpoint pins the prompt for untrusted callers and honors strike cooldowns', async () => {
+    const summaryUrl = `${apiBase}/api/summary/user/test-standalone1`
+    // trusted caller: custom prompt honored (mock assistant echoes per its rules — just assert 200)
+    const trusted = await owner.post(summaryUrl, { prompt: 'Custom prompt', content: 'hello' })
+    assert.equal(trusted.status, 200)
+    // untrusted caller with 5 strikes is refused on summary too
+    const ip = '203.0.113.77'
+    for (let i = 0; i < 5; i++) await anonPost(chatBody(`jailbreak again ${i}`), {}, ip)
+    await new Promise(resolve => setTimeout(resolve, 300))
+    const res = await anonymousAx.post(summaryUrl, { content: 'hello' }, { headers: await anonHeaders(ip) })
+      .catch((err: any) => err.response ?? err)
+    assert.equal(res.status, 403)
+  })
+
   test('a blocked request is stored in traces with the embedded verdict when consented', async () => {
     await admin.put('/api/settings/user/test-standalone1', settingsData({ storeTraces: true }))
     const convId = `conv-mod-${Date.now()}`
@@ -200,6 +214,9 @@ test.describe('Moderation admin API', () => {
     const res = await admin.get('/api/moderation/user/test-standalone1/events?action=block&size=1&page=1')
     assert.equal(res.data.results.length, 1)
     assert.ok(res.data.count >= 1)
+    const multi = await admin.get('/api/moderation/user/test-standalone1/events?action=block,late-block')
+    assert.ok(multi.data.results.every((e: any) => ['block', 'late-block'].includes(e.action)))
+    assert.ok(multi.data.results.length >= 1)
   })
 
   test('probe runs the three canned messages through the live moderator', async () => {

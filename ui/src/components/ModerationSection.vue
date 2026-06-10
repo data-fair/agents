@@ -167,7 +167,7 @@ const fetchAll = async () => {
   try {
     const [sRes, eRes] = await Promise.all([
       fetch(`${base.value}/stats`, { credentials: 'include' }),
-      fetch(`${base.value}/events?action=block&size=10`, { credentials: 'include' })
+      fetch(`${base.value}/events?action=block,late-block&size=10`, { credentials: 'include' })
     ])
     if (!sRes.ok || !eRes.ok) { loadError.value = t('loadError'); return }
     stats.value = await sRes.json()

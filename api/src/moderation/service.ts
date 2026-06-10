@@ -14,8 +14,9 @@ import { recordUsage } from '../usage/service.ts'
 import { computeCost } from '../usage/operations.ts'
 import {
   buildModerationSystemPrompt, truncateForModeration, truncateExcerpt,
-  verdictSchema, isInCooldown, nextStrikeState,
+  verdictSchema, isInCooldown,
   MODERATION_TIMEOUT_MS, MODERATION_HARD_TIMEOUT_MS, VERDICT_CACHE_TTL_MS,
+  STRIKE_WINDOW_MS, STRIKE_COOLDOWN_MS, STRIKE_THRESHOLD,
   type ModerationVerdict
 } from './operations.ts'
 import type { ModerationEvent, ModerationEventAction } from './types.ts'
@@ -66,19 +67,33 @@ export async function isStrikeCooldownActive (owner: AccountKeys, userId: string
 
 async function registerBlockStrike (owner: AccountKeys, userId: string): Promise<void> {
   try {
-    const filter = { 'owner.type': owner.type, 'owner.id': owner.id, userId }
-    const prev = await mongo.moderationStrikes.findOne(filter)
     const now = new Date()
-    const next = nextStrikeState(prev, now)
-    await mongo.moderationStrikes.updateOne(filter, {
-      $set: {
-        count: next.count,
-        windowStartedAt: next.windowStartedAt,
-        updatedAt: now,
-        ...(next.cooldownUntil ? { cooldownUntil: next.cooldownUntil } : {})
-      },
-      $setOnInsert: { owner: { type: owner.type, id: owner.id }, userId }
-    }, { upsert: true })
+    const windowCutoff = new Date(now.getTime() - STRIKE_WINDOW_MS)
+    const cooldownEnd = new Date(now.getTime() + STRIKE_COOLDOWN_MS)
+    // Single atomic pipeline update: increment within an active window, reset a
+    // stale one, and arm the cooldown when the threshold is reached — concurrent
+    // blocks cannot lose increments the way a read-modify-write would.
+    await mongo.moderationStrikes.updateOne(
+      { 'owner.type': owner.type, 'owner.id': owner.id, userId },
+      [
+        {
+          $set: {
+            owner: { type: owner.type, id: owner.id },
+            userId,
+            count: { $cond: [{ $gte: ['$windowStartedAt', windowCutoff] }, { $add: [{ $ifNull: ['$count', 0] }, 1] }, 1] },
+            windowStartedAt: { $cond: [{ $gte: ['$windowStartedAt', windowCutoff] }, '$windowStartedAt', now] },
+            updatedAt: now
+          }
+        },
+        {
+          // reads the count updated by the previous stage
+          $set: {
+            cooldownUntil: { $cond: [{ $gte: ['$count', STRIKE_THRESHOLD] }, cooldownEnd, '$$REMOVE'] }
+          }
+        }
+      ],
+      { upsert: true }
+    )
   } catch {
     // strike accounting must never affect the chat response
   }

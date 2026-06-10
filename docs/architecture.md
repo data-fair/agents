@@ -334,13 +334,13 @@ sequenceDiagram
 
 **Strikes.** 5 blocks within 24h arm a 1h cooldown (`moderation-strikes`, keyed by the usage identity `anon:<ip-hash>` / user id) during which the caller is refused with zero LLM calls.
 
-**Observable by construction.** Every check writes exactly one event to `moderation-events` (TTL 30 days): `allow`, `block`, `late-block`, `fail-open-timeout`, `fail-open-error`, or `strike-refusal`, with verdict latency. Only block events keep a ~500-char message excerpt (the review payload). Admin-only endpoints (`/api/moderation/:type/:id/stats|events|probe`) and a section on the activity page expose totals, fail-open rate (with a >20%/24h warning banner), recent blocks, and a live 3-message test probe. The events collection is the authoritative record: a verdict that has not settled when a trace is recorded appears only there.
+**Observable by construction.** Every check writes exactly one event to `moderation-events` (TTL 30 days): `allow`, `block`, `late-block`, `fail-open-timeout`, `fail-open-error`, or `strike-refusal`, with verdict latency. Only block events keep a ~500-char message excerpt (the review payload). Admin-only endpoints (`/api/moderation/:type/:id/stats|events|probe`) and a section on the activity page expose totals, fail-open rate (with a >20%/24h warning banner), recent blocks, and a live 3-message test probe. The events collection is the authoritative record: a verdict that has not settled when a trace is recorded appears only there. Stats use MongoDB's `$percentile` (requires MongoDB ≥ 7.0).
 
-**Trace embedding.** When trace storage is active, the verdict is embedded as a `moderation` field on the stored request — blocked requests are recorded by the gateway itself (`finish_reason: "content_filter"`), so blocked turns appear in the review page with their verdict chip.
+**Trace embedding.** When trace storage is active, the verdict is embedded as a `moderation` field on the stored request — blocked requests are recorded by the gateway itself (`finish_reason: "content_filter"`), so blocked turns appear in the review page with their verdict chip. A streaming turn cut by a late block aborts before any finish event, so it appears in the events collection only — events, not traces, are the authoritative moderation record.
 
 **Client is passive.** The browser performs no moderation; it reacts to `finish_reason: "content_filter"` by dropping the turn from context and showing a localized refusal. A content_filter on a sub-agent call surfaces as that sub-agent's output instead of aborting the turn.
 
-**Input only (v1).** No output moderation, no tool-result / indirect-injection coverage, no multi-turn jailbreak detection. The `/api/summary` endpoint is not moderated (its content already passed the gate when first submitted; direct abuse is bounded by its fixed prompt and quotas).
+**Input only (v1).** No output moderation, no tool-result / indirect-injection coverage, no multi-turn jailbreak detection. The `/api/summary` endpoint (for untrusted callers its system prompt is pinned server-side and strike cooldowns apply; its content is not verdict-checked).
 
 **Key files:**
 - `api/src/moderation/operations.ts` — prompt, truncation, strike arithmetic, verdict schema

@@ -4,8 +4,8 @@
  */
 import { z } from 'zod'
 
-// Embedded in the moderation system prompt so the mock provider (and human
-// debuggers) can recognise a moderation request.
+// Prefixed to the moderation system prompt so moderation requests are
+// recognizable to humans in logs, traces and provider dashboards.
 export const MODERATION_TASK_MARKER = 'MODERATION_TASK'
 
 // The response gate waits this long for a verdict before failing open.
@@ -77,15 +77,4 @@ export interface StrikeState {
 
 export function isInCooldown (strike: StrikeState | null | undefined, now: Date): boolean {
   return !!strike?.cooldownUntil && strike.cooldownUntil.getTime() > now.getTime()
-}
-
-// Called on each block verdict: increments the rolling-window counter, resets a
-// stale window, and arms the cooldown when the threshold is reached.
-export function nextStrikeState (prev: StrikeState | null | undefined, now: Date): StrikeState {
-  const windowActive = !!prev && (now.getTime() - prev.windowStartedAt.getTime()) < STRIKE_WINDOW_MS
-  const count = windowActive ? prev.count + 1 : 1
-  const windowStartedAt = windowActive ? prev.windowStartedAt : now
-  const next: StrikeState = { count, windowStartedAt }
-  if (count >= STRIKE_THRESHOLD) next.cooldownUntil = new Date(now.getTime() + STRIKE_COOLDOWN_MS)
-  return next
 }

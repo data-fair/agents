@@ -59,7 +59,7 @@ router.get('/:type/:id/events', async (req, res) => {
   const filter: Record<string, any> = {
     'owner.type': owner.type,
     'owner.id': owner.id,
-    ...(req.query.action ? { action: String(req.query.action) } : {})
+    ...(req.query.action ? { action: { $in: String(req.query.action).split(',') } } : {})
   }
   const [results, count] = await Promise.all([
     mongo.moderationEvents.find(filter, { projection: { _id: 0 } })
