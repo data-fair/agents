@@ -419,6 +419,9 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
         }
       }
 
+      // Two late-block outcomes: (A) the abort lands while generateText is in
+      // flight and it throws, (B) generateText settles first and the verdict
+      // arrives just after — both must answer with the content_filter refusal.
       let result: Awaited<typeof generation>
       try {
         result = await generation
