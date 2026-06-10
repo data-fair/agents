@@ -6,7 +6,7 @@ import { createModel } from '../models/operations.ts'
 import { recordUsage } from '../usage/service.ts'
 import { computeCost } from '../usage/operations.ts'
 import { resolveUsageIdentity, enforceQuotas } from '../usage/enforce.ts'
-import { isStrikeCooldownActive } from '../moderation/service.ts'
+import { isStrikeCooldownActive, recordStrikeRefusal } from '../moderation/service.ts'
 import type { Settings } from '#types'
 
 const router = Router()
@@ -71,6 +71,7 @@ router.post('/:type/:id', async (req, res, next) => {
     // calls too, and the system prompt is pinned server-side (a caller-supplied
     // prompt would be an unmoderated jailbreak vector).
     if (identity.isUntrusted && identity.usageUserId && await isStrikeCooldownActive(owner, identity.usageUserId)) {
+      recordStrikeRefusal(owner, identity, 'summarizer')
       res.status(403).json({ error: 'Temporarily blocked by moderation' })
       return
     }
