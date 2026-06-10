@@ -151,15 +151,15 @@ function processMockSummarizerPrompt (): MockPromptResult {
 
 /**
  * mock-moderator: returns a deterministic moderation verdict as JSON text
- * (parseable by generateObject). Messages containing "jailbreak" /
- * "ignore (all|previous) instructions" are blocked as prompt-injection,
+ * (parseable by generateObject). Messages containing "jailbreak" or an
+ * "ignore (all/previous) instructions" phrase are blocked as prompt-injection,
  * "fuck" as profanity; everything else is allowed. A message containing
  * "slow moderation" delays the verdict past the gateway's 2.5s gate so the
  * fail-open and late-block paths are testable.
  */
 function processMockModeratorPrompt (lastMessage: string): MockPromptResult {
   const delayMs = /slow moderation/i.test(lastMessage) ? 4000 : undefined
-  if (/jailbreak|ignore (all|previous) instructions/i.test(lastMessage)) {
+  if (/jailbreak|ignore (all |previous )+instructions/i.test(lastMessage)) {
     return { type: 'text', text: '{"action":"block","category":"prompt-injection","reason":"mock block"}', delayMs }
   }
   if (/\bfuck/i.test(lastMessage)) {
