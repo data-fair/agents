@@ -1,6 +1,33 @@
-# Sub-Agent Orchestration
+# Sub-agent orchestration
 
 The orchestrator-worker pattern runs **entirely in the browser**. The main agent delegates tasks to specialized sub-agents via pseudo-tools (`subagent_*`), each backed by a `ToolLoopAgent` from Vercel AI SDK v6.
+
+```mermaid
+flowchart TB
+  User([User message])
+  User --> Main[Main Agent<br/>model: assistant]
+
+  Main -->|"subagent_analyst({task})"| SA1[Sub-Agent: analyst<br/>model: tools]
+  Main -->|"subagent_writer({task})"| SA2[Sub-Agent: writer<br/>model: tools]
+  Main -->|"set_display()"| Tool1[Direct tool]
+
+  SA1 -->|"query_data()"| T1[Reserved tool]
+  SA1 -->|"get_schema()"| T2[Reserved tool]
+  SA2 -->|"format_text()"| T3[Reserved tool]
+
+  SA1 -.->|toModelOutput: summary text| Main
+  SA2 -.->|toModelOutput: summary text| Main
+```
+
+At a glance:
+
+1. **Registration** — Child components call `useAgentSubAgent()` which registers a `subagent_*` MCP tool with a JSON config (prompt, tool list, model).
+2. **Partitioning** — `use-agent-chat.ts` splits tools: sub-agent reserved tools are removed from the main set.
+3. **Execution** — Each sub-agent gets a `ToolLoopAgent` instance with its own tool set and system prompt. It runs up to 10 steps autonomously. Sub-agents execute **sequentially** — even if the main agent requests multiple sub-agent calls in one step, they run one after another.
+4. **Multi-turn** — History accumulates per sub-agent in a `Map<string, ModelMessage[]>`. Subsequent calls resume the conversation.
+5. **Context reduction** — The main agent sees only a compact text summary via `toModelOutput()`. The UI renders the full sub-agent trace in collapsible panels.
+
+The rest of this document expands each of these mechanics in turn.
 
 ---
 
@@ -26,8 +53,6 @@ This registers a pseudo-tool named `subagent_analyst` via `useAgentTool()`. The 
 ```
 
 The config is not used directly by the LLM — it is consumed by the orchestration layer to bootstrap the sub-agent at runtime.
-
-**Key file:** `lib-vue/use-agent-sub-agent.ts`
 
 ---
 
@@ -62,8 +87,6 @@ After resolveSubAgents:
 ```
 
 This ensures the main agent cannot call tools that belong to a sub-agent, enforcing delegation.
-
-**Key file:** `ui/src/composables/use-agent-chat.ts:82-112` (partitionTools), `:259-286` (resolveSubAgents)
 
 ---
 
@@ -104,7 +127,7 @@ Each `ToolLoopAgent` is configured with:
 - **tools** — the reserved tool set (only tools listed in `config.tools`)
 - **stopWhen** — `stepCountIs(10)` (max 10 autonomous steps)
 
-**Key file:** `ui/src/composables/use-agent-chat.ts:396-494`
+Sub-agents execute **sequentially** — even if the main agent requests multiple sub-agent calls in a single step, the orchestrator runs them one after another rather than concurrently.
 
 ---
 
@@ -183,22 +206,15 @@ toModelOutput: ({ output }) => {
 }
 ```
 
-This keeps the main agent's context window lean — a sub-agent that made 8 tool calls across 5 steps produces a single paragraph of text in the main conversation. The full trace is visible in the UI via `ChatMessage.subAgentMessages`.
+This keeps the main agent's context window lean — a sub-agent that made 8 tool calls across 5 steps produces a single paragraph of text in the main conversation. The full trace is visible in the UI via `ChatMessage.subAgentMessages`, rendered in collapsible panels.
 
-This also reduces pressure on the 24,000-character compaction threshold.
+This also reduces pressure on the 24,000-character compaction threshold (see [Conversation history compaction](./compaction.md)).
 
 ---
 
 ## 7. Telemetry
 
-When a `SessionRecorder` is provided, the orchestrator records:
-
-| Event | Data |
-|-------|------|
-| `startSubAgent` | parent tool call ID, display name, system prompt, task, tool snapshots, call index |
-| `addSubAgentStepMessages` | response messages, token usage |
-
-This enables full trace reconstruction in the debug dialog, showing each sub-agent's reasoning and tool calls alongside the main agent's flow.
+There is no live in-browser recorder. Instead, each sub-agent's physical LLM requests are tagged with a trace context id via an `x-trace-ctx: sub:<name>:<index>:<parentToolCallId>` header (`use-agent-chat.ts:505`). When [trace storage](./tracing.md) is enabled (org `storeTraces`) and consented (`x-trace-consent`), the gateway stores those requests; at view time `reconstructTrace()` groups them by `contextId` into a sub-agent block (`ui/src/traces/reconstruct-trace.ts:146`), shown alongside the main agent's flow on the review page.
 
 ---
 
@@ -234,12 +250,10 @@ interface DebugToolsPartition {
 
 ---
 
-## Key Files
+## Key files
 
-| File | Role |
-|------|------|
-| `lib-vue/use-agent-sub-agent.ts` | Registration composable — declares sub-agents as pseudo-tools |
-| `ui/src/composables/use-agent-chat.ts:82-112` | `partitionTools()` — separates main and sub-agent tools |
-| `ui/src/composables/use-agent-chat.ts:259-286` | `resolveSubAgents()` — fetches configs, reserves tools |
-| `ui/src/composables/use-agent-chat.ts:396-494` | `ToolLoopAgent` wrapping, async generator, multi-turn state |
-| `ui/src/composables/use-agent-chat.ts:292-316` | `uiMessageToChatMessages()` — UIMessage → ChatMessage conversion |
+- `lib-vue/use-agent-sub-agent.ts` — Sub-agent registration composable; declares sub-agents as pseudo-tools
+- `ui/src/composables/use-agent-chat.ts:82-112` — `partitionTools()`, separates main and sub-agent tools
+- `ui/src/composables/use-agent-chat.ts:259-286` — `resolveSubAgents()`, fetches configs and reserves tools
+- `ui/src/composables/use-agent-chat.ts:292-316` — `uiMessageToChatMessages()`, UIMessage → ChatMessage conversion
+- `ui/src/composables/use-agent-chat.ts:396-494` — `ToolLoopAgent` wiring, async generator streaming, multi-turn state

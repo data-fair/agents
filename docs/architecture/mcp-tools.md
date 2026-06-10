@@ -1,6 +1,37 @@
-# MCP Tool Integration
+# MCP tool integration
 
-Tools are **decoupled from the chat UI**. MCP servers run in sibling frames and are discovered dynamically through BroadcastChannel. This document covers the full lifecycle from tool registration to LLM invocation.
+Tools are **decoupled from the chat UI**. Each frame declares its tools through the **WebMCP** standard (`navigator.modelContext`, via the `@mcp-b/webmcp-*` packages); the project adds a **BroadcastChannel transport** on top so those WebMCP servers can be discovered and shared across sibling frames of the same origin — which WebMCP, scoped to a single page, does not cover on its own. This document covers the full lifecycle from tool registration to LLM invocation.
+
+## Overview
+
+Each frame runs a WebMCP server (`navigator.modelContext`); these servers are discovered dynamically through the BroadcastChannel transport.
+
+```mermaid
+sequenceDiagram
+  participant Host as Host App Frame
+  participant BC as BroadcastChannel
+  participant Chat as Chat UI (iframe)
+  participant Agg as FrameClientAggregator
+
+  Host->>Host: useFrameServer() starts MCP server
+  Host->>BC: mcp-server-ready {serverId}
+  Agg->>BC: listening...
+  BC-->>Agg: discovers server
+  Agg->>Host: MCP connect + listTools()
+  Host-->>Agg: tool definitions
+  Agg->>Chat: onToolsChanged(mergedTools)
+
+  Note over Chat: tools available to LLM
+
+  Chat->>Agg: execute tool "query_data"
+  Agg->>Host: MCP callTool()
+  Host-->>Agg: result
+  Agg-->>Chat: tool result
+```
+
+**Why BroadcastChannel over postMessage?** No parent/child relationship needed — any frame on the same origin can expose tools. Multiple MCP servers are aggregated into a single tool map. Servers can appear and disappear dynamically.
+
+The rest of this document drills into each stage: registration & the WebMCP polyfill, the server-side transport, the BroadcastChannel discovery protocol, `FrameClientAggregator` aggregation/merge, the flow to the LLM, gateway tool conversion, and error handling.
 
 ---
 
@@ -189,7 +220,7 @@ flowchart LR
 ```
 
 1. `tools.value` is updated reactively when `onToolsChanged` fires
-2. Before each `sendMessage()`, tools are partitioned (see [Sub-Agent Orchestration](./subagent-orchestration.md))
+2. Before each `sendMessage()`, tools are partitioned (see [Sub-Agent Orchestration](./sub-agents.md))
 3. `streamText()` receives the tool map — the AI SDK handles tool-call/tool-result cycling up to 10 steps
 
 When the LLM requests a tool call:
@@ -200,7 +231,7 @@ When the LLM requests a tool call:
 
 **Key file:** `ui/src/composables/use-agent-chat.ts:114-582`
 
-> By default the full aggregated tool map is sent to the LLM on every request. An opt-in **exploration mode** instead discloses tools on demand — see [§8](#8-progressive-tool-disclosure-exploration-mode).
+> By default the full aggregated tool map is sent to the LLM on every request. An opt-in **exploration mode** instead discloses tools on demand — see [Tool exploration](./tool-exploration.md).
 
 ---
 
@@ -237,50 +268,15 @@ Errors are handled at four layers:
 
 ## 8. Progressive Tool Disclosure (Exploration Mode)
 
-By default every aggregated tool — full description and input schema — is sent on every request. With ~20+ tools that can churn as the user navigates, this inflates context and busts any prompt cache on each tool-set mutation. **Exploration mode** is an opt-in alternative: the assistant sees only a single constant `explore_tools` tool plus a catalog of tool *names*, and promotes the real tools it needs on demand.
+By default every aggregated tool is sent on every request. An opt-in **exploration mode** instead discloses tools on demand: the assistant sees only a single constant `explore_tools` tool plus a catalog of tool *names*, and promotes the real tools it needs as it goes. See [Tool exploration](./tool-exploration.md) for the full mechanism.
 
-It is gated by `debug` + `sessionStorage.getItem('agent-chat-explore') === '1'` (mirroring the tracing toggle in `AgentChat.vue`). When off, the flow in §5 is unchanged.
+---
 
-### Mechanism
+## Execution context & safety
 
-The full registry is still handed to `streamText`, but the AI SDK's `activeTools` controls which entries are actually advertised to the model, and `prepareStep` recomputes `activeTools` before every step:
+Tool `execute()` runs **client-side only**, inside the user's own browser session and with exactly the user's permissions — the gateway never runs tools (it forwards schema-only definitions and sees only tool-calls/results in the message history). A tool therefore can do nothing the user could not already do: a prompt injection or a compromised tool descriptor cannot escalate privileges or reach resources the session isn't entitled to. The blast radius of any injection is bounded to the same restricted tool surface already available to the user.
 
-```mermaid
-flowchart TB
-  subgraph sendMessage (exploration on)
-    Reg[mainTools snapshot → plainTools]
-    Reg --> Cat[buildToolCatalog → folded into system text]
-    Reg --> EX["mainLLMTools[explore_tools] = createExploreTool(...)"]
-    EX --> PS["prepareStep ⇒ activeTools =\n[explore_tools, …subAgents, …promotedTools]"]
-  end
-  PS --> ST[streamText]
-  ST -->|step calls explore_tools| Exec[explore_tools.execute]
-  Exec -->|generateText + forced select_tools| Sum[Summarizer model]
-  Sum -->|{ summary, toolNames }| Promote[selectPromotions → promotedTools.add]
-  Promote -.->|read live next step| PS
-```
-
-1. **Snapshot & catalog** — after sub-agent partitioning, `plainTools` (the non-sub-agent main tools) is snapshotted. `buildToolCatalog(plainTools)` renders `- name: <one-line desc>` lines that `buildExplorationSystem` folds into the system text. `explore_tools` is added to `mainLLMTools`.
-2. **Gating** — `prepareStep` returns `activeTools = [explore_tools, …subAgentNames, …promotedTools].filter(n => n in mainLLMTools)`. Initially `promotedTools` is empty, so only `explore_tools` and sub-agent pseudo-tools are exposed.
-3. **Exploration** — `explore_tools.execute(intent)` builds a `<candidate-tools>` block from `plainTools` and calls `generateText` on the **summarizer** with a single `select_tools` tool and `toolChoice: { type: 'tool', toolName: 'select_tools' }`. The structured result `{ summary, toolNames }` is read from `result.toolCalls[0].input`.
-4. **Promotion** — `selectPromotions(toolNames, Object.keys(plainTools))` drops unknown/duplicate names; the survivors are added to `promotedTools`. Because `prepareStep` reads the live set, the promoted tools are advertised on the **next** step of the same turn — the assistant then calls them directly.
-5. **Reset** — `promotedTools` is cleared on history compaction (and on `reset()`). The name catalog is always present, so the assistant can re-explore cheaply after compaction.
-
-### Why the catalog lives in the system text
-
-The user-facing intent was "tool names ride as a conversation message." In practice the gateway hoists **all** `system`-role messages into the top-level system block (`api/src/gateway/router.ts`), Anthropic rejects consecutive same-role messages, and no provider prompt cache is active yet — so a literal tail message is both fragile and pointless today. The catalog is therefore folded into the system text at stream time. If prompt caching is introduced later, revisit moving it to the cache-friendly tail.
-
-### Scope & limitations
-
-- **Sub-agents are unaffected** — `subagent_*` pseudo-tools (and their reserved tools) are excluded from `plainTools` and always kept in `activeTools`.
-- **Advertisement, not enforcement** — `activeTools` limits what the model *sees*; it is not a hard execution barrier. A tool present in the map can still execute if a call for it arrives (relevant only to the mock test model, which ignores `activeTools`).
-- **Structured output through the gateway** — `explore_tools` relies on a forced tool call rather than `generateObject`, because the gateway forwards `tool_choice` but not `response_format`. The `mock` model has a small seam (`processSelectToolsSeam`) that returns a deterministic `select_tools` call when offered, enabling end-to-end tests.
-
-**Key files:**
-- `ui/src/composables/tool-exploration.ts` — `createExploreTool()`, `buildToolCatalog()`, `buildExplorationSystem()`, `selectPromotions()`
-- `ui/src/composables/use-agent-chat.ts` — `promotedTools`, `prepareStep`/`activeTools`, compaction/reset clearing
-- `ui/src/components/AgentChat.vue` — `agent-chat-explore` toggle
-- `api/src/models/mock-model.ts` — `processSelectToolsSeam()` test seam
+That surface is deliberately narrow and **assistive / non-destructive** by design: no generic HTTP client, no arbitrary-code/JS executor — only well-defined actions over page content or read-only API endpoints. Tools never commit writes themselves; at most a tool *prepares* an action (e.g. pre-fills a form), and the actual write is performed by the user, with the UI responsible for surfacing the pending changes before they are committed. This is why a tool call that slips through on a moderation fail-open before a late block lands ([moderation](./moderation.md)) is acceptable — such side effects are reads or staged actions, never validated writes.
 
 ---
 

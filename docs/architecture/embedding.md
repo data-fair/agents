@@ -1,10 +1,45 @@
-# Embedding Guide
+# Embedding
 
-The chat UI is designed to be **embedded as an iframe** in any data-fair application. `lib-vuetify` provides ready-made container components and composables.
+The chat UI is designed to be **embedded as an iframe** in any data-fair application. `lib-vuetify` provides ready-made container components: a floating `DfAgentChatDrawer`, a popover `DfAgentChatMenu`, and a flat in-page `DfAgentChatBlock` (always visible, for embedding a custom chat directly in a portal page).
+
+```mermaid
+graph TB
+  subgraph Host Application
+    Toggle[DfAgentChatToggle<br/>FAB button]
+    Drawer[DfAgentChatDrawer<br/>VNavigationDrawer]
+    Frame[d-frame<br/>iframe src=/agents/chat]
+    Tools[useFrameServer<br/>MCP tools]
+  end
+
+  subgraph Chat iframe
+    ChatUI[AgentChat component]
+    Agg[FrameClientAggregator]
+    Core[use-agent-chat]
+  end
+
+  Toggle -->|toggle open/close| Drawer
+  Drawer --> Frame
+  Frame --> ChatUI
+
+  Tools -->|BroadcastChannel| Agg
+  Agg --> Core
+
+  ChatUI -.->|postMessage: status, unread| Drawer
+  Drawer -.->|BroadcastChannel: start-session| ChatUI
+
+  style Frame fill:#e8f4fd
+```
+
+**Communication channels:**
+- **BroadcastChannel** — Tool discovery (MCP), session lifecycle (`agent-start-session`, `agent-chat-ready`, ping/pong)
+- **postMessage (d-frame)** — Status updates (`agent-status`), unread indicators, tools-changed notifications
+- **sessionStorage init-config** — One-shot host→iframe handoff of `systemPrompt` and `title` (keyed by a `?initConfig=<key>` URL param). Replaces URL query params so prompts can be arbitrarily long and stay out of logs/history. See [Initial Configuration](#initial-configuration-systemprompt--title).
+
+**Singleton composables** (`useAgentChatDrawer`, `useAgentChatMenu`, `useAgentChatBlock`) ensure a single instance across the host app. Drawer/menu open state persists to `localStorage`; the block is always open and persists nothing.
 
 ---
 
-## 1. Component Options
+## Component Options
 
 ### Drawer — `DfAgentChatDrawer`
 
@@ -70,7 +105,7 @@ All three components (drawer, menu, block) accept:
 | `accountId` | `string` | Account ID for the chat session |
 | `src` | `string` | Custom iframe URL (overrides account-based URL resolution) |
 | `chatTitle` | `string` | Title displayed in the chat header |
-| `systemPrompt` | `string` | System prompt passed to the LLM (no length limit — see [Initial Configuration](#9-initial-configuration-systemprompt--title)) |
+| `systemPrompt` | `string` | System prompt passed to the LLM (no length limit — see [Initial Configuration](#initial-configuration-systemprompt--title)) |
 | `initConfigKey` | `string` | Override the per-variant init-config key. Only needed when mounting several instances of the same variant in one tab (defaults to `'drawer'` / `'menu'` / `'block'`) |
 
 Drawer-specific: `drawerProps` (pass-through to `VNavigationDrawer`).
@@ -80,7 +115,7 @@ Menu-specific: `btnProps`, `menuProps`, `cardProps` (pass-through to Vuetify com
 
 ---
 
-## 2. Singleton State
+## Singleton State
 
 Drawer, menu and block each use a **singleton composable** — calling one from multiple components returns the same shared state:
 
@@ -95,7 +130,7 @@ Open/close state is persisted to `localStorage` (`df-agent-chat-open` / `df-agen
 
 ---
 
-## 3. Status Indicator
+## Status Indicator
 
 The FAB button reflects the chat agent's current state:
 
@@ -114,7 +149,7 @@ An unread badge (red dot) appears when the agent produces a response while the d
 
 ---
 
-## 4. iframe Communication
+## iframe Communication
 
 The chat iframe and host app communicate through two channels:
 
@@ -144,7 +179,7 @@ Used for session lifecycle — any frame on the same origin can interact:
 
 ---
 
-## 5. Exposing Tools from the Host App
+## Exposing Tools from the Host App
 
 The host application can expose tools to the chat agent via MCP over BroadcastChannel:
 
@@ -176,11 +211,11 @@ useAgentTool({
 
 Tools are automatically unregistered when the component unmounts (via `onScopeDispose`).
 
-The chat iframe's `FrameClientAggregator` discovers the server and makes the tools available to the LLM. See [MCP Tool Integration](./mcp-tool-integration.md) for the full protocol.
+The chat iframe's `FrameClientAggregator` discovers the server and makes the tools available to the LLM. See [MCP tool integration](./mcp-tools.md) for the full protocol.
 
 ---
 
-## 6. Declaring Sub-Agents
+## Declaring Sub-Agents
 
 Host applications can also declare sub-agents that have exclusive access to specific tools:
 
@@ -206,11 +241,11 @@ useAgentSubAgent({
 </script>
 ```
 
-The main agent will delegate to `subagent_analyst` rather than calling `query_data` directly. See [Sub-Agent Orchestration](./subagent-orchestration.md) for details.
+The main agent will delegate to `subagent_analyst` rather than calling `query_data` directly. See [Sub-agent orchestration](./sub-agents.md) for details.
 
 ---
 
-## 7. Starting Sessions Programmatically
+## Starting Sessions Programmatically
 
 Action buttons or host-app logic can trigger a chat session via BroadcastChannel:
 
@@ -237,9 +272,15 @@ bc.postMessage({ channel: channelId, type: 'agent-chat-ping' })
 // Listen for 'agent-chat-pong' response
 ```
 
+### Inline action button
+
+`DfAgentChatAction` is a button a host app drops directly into a page (for example a contextual "ask the assistant" help action next to a creation or configuration form — this is how it is used in data-fair on creation/config pages). On mount it pings over BroadcastChannel for a live drawer and only shows itself once one answers (`agent-chat-pong` / `agent-chat-ready`). On click it broadcasts an `agent-start-session` message carrying a `visiblePrompt` (shown to the user) and a `hiddenContext` (page context passed to the agent silently), which opens the drawer and starts the conversation. It is the declarative, in-page counterpart to the programmatic `agent-start-session` snippet above.
+
+**Key file:** `lib-vuetify/DfAgentChatAction.vue`
+
 ---
 
-## 8. URL Resolution
+## URL Resolution
 
 The iframe URL is resolved as follows:
 1. If `src` prop is provided → use it directly
@@ -251,7 +292,7 @@ The drawer/menu/block components then append a single `?initConfig=<key>` query 
 
 ---
 
-## 9. Initial Configuration (systemPrompt & title)
+## Initial Configuration (systemPrompt & title)
 
 The `systemPrompt` and `chatTitle` props are handed to the iframe through **same-origin sessionStorage**, not the URL. This is a one-shot "set then get" handoff: the host writes the config before the iframe loads, and the iframe reads it once on mount. It is **not** a reactive channel — changing the prop after the iframe is running does not update the live agent.
 
@@ -285,6 +326,7 @@ setAgentInitConfig('my-chat', { prompt: 'You are a portal assistant…', title: 
 | `lib-vuetify/DfAgentChatMenu.vue` | Popover menu with iframe |
 | `lib-vuetify/DfAgentChatBlock.vue` | Flat in-page chat (always visible) |
 | `lib-vuetify/DfAgentChatToggle.vue` | FAB button with status indicator |
+| `lib-vuetify/DfAgentChatAction.vue` | Inline in-page action button that broadcasts `agent-start-session` |
 | `lib-vuetify/useAgentChatBase.ts` | Shared state factory: status, unread, BroadcastChannel, URL resolution |
 | `lib-vuetify/useAgentChatDrawer.ts` | Drawer singleton composable |
 | `lib-vuetify/useAgentChatMenu.ts` | Menu singleton composable |
