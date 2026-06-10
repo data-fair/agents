@@ -137,7 +137,7 @@
           <v-window-item value="settings">
             <div class="pa-3">
               <v-switch
-                v-if="traceStorageAvailable"
+                v-if="showConsentToggle"
                 :model-value="consentRef === 'yes'"
                 :label="t('storeTraces')"
                 color="primary"
@@ -242,6 +242,11 @@ const totalToolCount = computed(() => {
   const p = props.debugToolsPartition
   return p.mainTools.length + p.subAgents.reduce((sum, sa) => sum + sa.tools.length, 0)
 })
+
+// Show the consent toggle as soon as storage is advertised, OR if a prior
+// decision is already stored in the cookie — so a user who consented in a
+// previous session can flip it back without sending a first message.
+const showConsentToggle = computed(() => traceStorageAvailable.value || consentRef.value !== undefined)
 
 const showReview = computed(() => !!props.isAdmin && traceStorageAvailable.value && consentRef.value === 'yes')
 
