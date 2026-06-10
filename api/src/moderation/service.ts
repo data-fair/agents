@@ -222,7 +222,16 @@ export function startModeration (params: {
       () => ({ action: 'allow' }) as ModerationGateResult
     ),
     new Promise<ModerationGateResult>(resolve => {
-      const timer = setTimeout(() => { timedOut = true; resolve({ action: 'allow', timedOut: true }) }, MODERATION_TIMEOUT_MS)
+      const timer = setTimeout(() => {
+        timedOut = true
+        // Publish a provisional trace verdict now: the response (and its trace)
+        // is recorded the instant the gate opens, which is before the real
+        // verdict settles and runs finalize(). Without this, the fail-open —
+        // the verdict an admin most needs to see — is silently dropped from the
+        // trace. finalize() overwrites it later for the event/late-block paths.
+        trace = { action: 'allow', failOpen: 'timeout', latencyMs: Date.now() - startedAt }
+        resolve({ action: 'allow', timedOut: true })
+      }, MODERATION_TIMEOUT_MS)
       // do not keep the process alive for the gate timer alone
       timer.unref?.()
     })

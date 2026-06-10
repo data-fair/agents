@@ -217,6 +217,31 @@ test.describe('Gateway moderation (untrusted callers)', () => {
     assert.equal(stored.moderation.action, 'block')
     assert.equal(stored.moderation.category, 'prompt-injection')
   })
+
+  test('a fail-open timeout still embeds the verdict in the stored trace', async () => {
+    await admin.put('/api/settings/user/test-standalone1', settingsData({ storeTraces: true }))
+    const convId = `conv-mod-timeout-${Date.now()}`
+    // slow moderator: the verdict settles after the gate fails open, so the
+    // trace is written before finalize() runs — the verdict must still show up
+    await anonPost(chatBody('slow moderation hello there'), {
+      'x-trace-consent': 'yes',
+      'x-trace-conversation': convId,
+      'x-trace-ctx': 'turn:t1'
+    })
+    let stored: any = null
+    for (let i = 0; i < 40; i++) {
+      const res = await admin.get(`/api/traces/user/test-standalone1/${convId}`)
+      if (res.data.results.length) { stored = res.data.results[0]; break }
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
+    assert.ok(stored, 'fail-open request must be stored')
+    // fail-open: the assistant response was delivered, not a content_filter
+    assert.notEqual(stored.response.finishReason, 'content_filter')
+    // the timed-out verdict must be visible to an admin reviewing the trace
+    assert.ok(stored.moderation, 'fail-open verdict must be embedded in the trace')
+    assert.equal(stored.moderation.action, 'allow')
+    assert.equal(stored.moderation.failOpen, 'timeout')
+  })
 })
 
 test.describe('Moderation admin API', () => {

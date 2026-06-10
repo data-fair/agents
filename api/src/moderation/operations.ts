@@ -9,7 +9,7 @@ import { z } from 'zod'
 export const MODERATION_TASK_MARKER = 'MODERATION_TASK'
 
 // The response gate waits this long for a verdict before failing open.
-export const MODERATION_TIMEOUT_MS = 2500
+export const MODERATION_TIMEOUT_MS = 3500
 // Hard cap on the moderator call itself so every check eventually settles and
 // writes exactly one event, even when a provider hangs.
 export const MODERATION_HARD_TIMEOUT_MS = 30_000
