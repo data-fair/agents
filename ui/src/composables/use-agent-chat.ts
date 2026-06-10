@@ -223,10 +223,15 @@ export function useAgentChat (options: UseAgentChatOptions) {
 
   function traceHeaders (ctx: string): Record<string, string> {
     const consent = readConsent()
+    // Admin moderation self-test (browser-local opt-in): mirror real untrusted
+    // traffic by sending it on every gateway call. The server only honours it
+    // for admins, so a stray flag on a non-admin browser is inert.
+    const selfTest = localStorage.getItem('agent-chat-moderation-self-test') === '1'
     return {
       'x-trace-ctx': ctx,
       'x-trace-conversation': conversationId,
-      ...(consent ? { 'x-trace-consent': consent } : {})
+      ...(consent ? { 'x-trace-consent': consent } : {}),
+      ...(selfTest ? { 'x-moderation-self-test': 'yes' } : {})
     }
   }
 
