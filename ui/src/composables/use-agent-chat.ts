@@ -10,10 +10,13 @@ import { useSession } from '@data-fair/lib-vue/session.js'
 import { getAnonymousToken, resetAnonymousToken } from '~/composables/use-anonymous-token'
 import { extractErrorMessage } from '~/utils/error'
 import { readConsent, traceStorageAvailable } from '~/traces/trace-consent'
-import { buildModerationSystemPrompt, parseModerationVerdict, DEFAULT_REFUSAL, type ModerationVerdict } from '~/composables/moderation'
 import Debug from 'debug'
 
 const debug = Debug('df-agents:use-agent-chat')
+
+// Shown when the gateway blocks a message (finish_reason content_filter); the
+// host normally supplies a localized refusalMessage, this is the fallback.
+const DEFAULT_REFUSAL = "This request can't be processed as it falls outside what this assistant is meant to help with."
 
 export interface ChatMessage {
   role: 'user' | 'assistant'
@@ -126,7 +129,6 @@ export function useAgentChat (options: UseAgentChatOptions) {
   // characters of serialized history before compaction
   // 24000 is roughly equivalent to a 8k tokens context with 10-15 turns of dialogue an 2-3 tool calls
   const COMPACTION_THRESHOLD = 24_000
-  const MODERATION_TIMEOUT_MS = 1500
   // Read live from `options` (like systemPrompt) so toggling exploration takes
   // effect on the next turn; callers flip it via setToolExploration + reset.
   const explorationEnabled = () => !!options.toolExploration
@@ -254,31 +256,6 @@ export function useAgentChat (options: UseAgentChatOptions) {
     apiKey: 'unused',
     fetch: gatewayFetch
   })
-
-  // Always-on input moderation. Runs through the gateway as the 'moderator' role
-  // (which falls back moderator -> summarizer -> assistant server-side), so it is
-  // metered and authorised like any other model call. Fails open on timeout,
-  // transport error, or unparseable output.
-  const moderate = async (message: string, turnId: number): Promise<ModerationVerdict> => {
-    const ac = new AbortController()
-    const timer = setTimeout(() => ac.abort(), MODERATION_TIMEOUT_MS)
-    try {
-      const { text } = await generateText({
-        model: provider.chat('moderator'),
-        system: buildModerationSystemPrompt(options.systemPrompt),
-        messages: [{ role: 'user', content: message }],
-        abortSignal: ac.signal,
-        // Tag with a trace context so the gateway stores the moderation round-trip
-        // and it can be reconstructed as a moderation entry on the review page.
-        headers: traceHeaders(`moderation:${turnId}`)
-      })
-      return parseModerationVerdict(text)
-    } catch {
-      return { action: 'allow', skipped: true }
-    } finally {
-      clearTimeout(timer)
-    }
-  }
 
   onScopeDispose(() => {
     if (aggregator) {
@@ -418,14 +395,12 @@ export function useAgentChat (options: UseAgentChatOptions) {
     const turnId = turnSeq++
     error.value = null
     messages.value.push({ role: 'user', content: msg })
+    // Index of the first message added after the user message this turn — used to
+    // roll back partial assistant output if the gateway blocks the turn.
+    const turnMessagesStart = messages.value.length
 
     // Add user message to history
     history.push({ role: 'user', content: msg })
-
-    // Kick off moderation concurrently with the rest of the turn (does not delay request start).
-    // Only the user-facing assistant is moderated; internal chats (e.g. the evaluator) are not.
-    const moderationPromise = chatModelName === 'assistant' ? moderate(msg, turnId) : null
-    let moderationChecked = false
 
     // Compact history if it exceeds the threshold
     const compactionCtxId = `compaction:${turnId}`
@@ -521,6 +496,15 @@ export function useAgentChat (options: UseAgentChatOptions) {
 
             // Accumulate history for the next call to this subagent
             const subResponse = await subResult.response
+            // A content_filter on the sub-agent's own gateway call (untrusted callers)
+            // surfaces as a refusal output instead of aborting the whole turn.
+            if ((await subResult.finishReason) === 'content-filter') {
+              const refusal: ChatMessage = { role: 'assistant', content: options.refusalMessage || DEFAULT_REFUSAL }
+              if (currentAssistantMessage) {
+                currentAssistantMessage.subAgentMessages = [...(currentAssistantMessage.subAgentMessages ?? []), refusal]
+              }
+              yield [refusal]
+            }
             subAgentHistory.set(name, [
               ...priorMessages,
               { role: 'user' as const, content: args.task },
@@ -597,24 +581,20 @@ export function useAgentChat (options: UseAgentChatOptions) {
       })
 
       for await (const part of result.fullStream) {
-        if (moderationPromise && !moderationChecked && (part.type === 'text-delta' || part.type === 'tool-call')) {
-          const verdict = await moderationPromise
-          moderationChecked = true
-          if (verdict.action === 'block') {
-            abortController?.abort()
-            // Drop this turn's messages from model context. The blocked user message is
-            // the tail; if exploration announced tools this turn, a <tools-available>
-            // notice sits just before it — pop the user message, then that notice (and
-            // un-announce it, so it re-announces on the retry).
+        if (part.type === 'finish' && part.finishReason === 'content-filter') {
+          // The gateway blocked this turn (moderation). Drop it from model context;
+          // the blocked user message is the history tail; if exploration announced
+          // tools this turn, a <tools-available> notice sits just before it.
+          history.pop()
+          if (announcedThisTurn.length) {
             history.pop()
-            if (announcedThisTurn.length) {
-              history.pop()
-              for (const n of announcedThisTurn) announcedTools.delete(n)
-            }
-            messages.value.push({ role: 'assistant', content: options.refusalMessage || DEFAULT_REFUSAL })
-            status.value = 'ready'
-            return
+            for (const n of announcedThisTurn) announcedTools.delete(n)
           }
+          // Discard partial assistant output (late blocks cut mid-stream)
+          messages.value.splice(turnMessagesStart)
+          messages.value.push({ role: 'assistant', content: options.refusalMessage || DEFAULT_REFUSAL })
+          status.value = 'ready'
+          return
         }
         if (part.type === 'text-delta') {
           if (!currentAssistantMessage) {
