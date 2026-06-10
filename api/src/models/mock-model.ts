@@ -8,6 +8,8 @@ interface MockPromptResult {
   toolArgs?: string
   /** When set, emit several parallel tool calls in a single step (takes precedence over toolName/toolArgs) */
   toolCalls?: Array<{ toolName: string, toolArgs: string }>
+  /** When set, wait this long before answering (tests the moderation fail-open path) */
+  delayMs?: number
 }
 
 const defaultUsage: LanguageModelV3Usage = {
@@ -148,15 +150,22 @@ function processMockSummarizerPrompt (): MockPromptResult {
 }
 
 /**
- * mock-moderator: returns a deterministic moderation verdict as JSON text.
- * Messages containing "jailbreak" or "ignore (all|previous) instructions" are
- * blocked; everything else is allowed. Used by moderation tests.
+ * mock-moderator: returns a deterministic moderation verdict as JSON text
+ * (parseable by generateObject). Messages containing "jailbreak" /
+ * "ignore (all|previous) instructions" are blocked as prompt-injection,
+ * "fuck" as profanity; everything else is allowed. A message containing
+ * "slow moderation" delays the verdict past the gateway's 2.5s gate so the
+ * fail-open and late-block paths are testable.
  */
 function processMockModeratorPrompt (lastMessage: string): MockPromptResult {
+  const delayMs = /slow moderation/i.test(lastMessage) ? 4000 : undefined
   if (/jailbreak|ignore (all|previous) instructions/i.test(lastMessage)) {
-    return { type: 'text', text: '{"action":"block","category":"prompt-injection","reason":"mock block"}' }
+    return { type: 'text', text: '{"action":"block","category":"prompt-injection","reason":"mock block"}', delayMs }
   }
-  return { type: 'text', text: '{"action":"allow"}' }
+  if (/\bfuck/i.test(lastMessage)) {
+    return { type: 'text', text: '{"action":"block","category":"profanity","reason":"mock profanity"}', delayMs }
+  }
+  return { type: 'text', text: '{"action":"allow"}', delayMs }
 }
 
 /**
@@ -203,6 +212,7 @@ export function createMockLanguageModel (modelId: string = 'mock-model'): Langua
     supportedUrls: {},
     doStream: async (options) => {
       const result = processForModel(modelId, options)
+      if (result.delayMs) await new Promise(resolve => setTimeout(resolve, result.delayMs))
 
       if (result.type === 'tool-call') {
         const calls = result.toolCalls ?? [{ toolName: result.toolName!, toolArgs: result.toolArgs || '{}' }]
@@ -254,6 +264,7 @@ export function createMockLanguageModel (modelId: string = 'mock-model'): Langua
     },
     doGenerate: async (options) => {
       const result = processForModel(modelId, options)
+      if (result.delayMs) await new Promise(resolve => setTimeout(resolve, result.delayMs))
 
       if (result.type === 'tool-call') {
         const calls = result.toolCalls ?? [{ toolName: result.toolName!, toolArgs: result.toolArgs || '{}' }]
