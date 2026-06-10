@@ -1,6 +1,6 @@
 ## Architecture
 
-Le service repose sur quatre choix structurants : une **passerelle sans état** qui relaie les requêtes vers les fournisseurs, une **orchestration entièrement côté navigateur**, un **embarquement par iframe** où les outils sont découverts dynamiquement, et une **configuration multi-fournisseurs** propre à chaque compte. Les sections suivantes détaillent chacun de ces choix et leurs conséquences.
+Le service repose sur quatre choix structurants : une **passerelle sans état** qui relaie les requêtes vers les fournisseurs, une **orchestration entièrement côté navigateur**, un **embarquement par iframe** où les outils sont découverts dynamiquement, et une **configuration multi-fournisseurs** propre à chaque compte.
 
 ```mermaid
 graph TD
@@ -42,7 +42,7 @@ Un sous-agent peut enchaîner plusieurs appels d'outils, puis ne restitue à l'a
 
 ### Embarquement et découverte d'outils
 
-L'interface est rendue dans une iframe isolée que l'application hôte intègre dans ses pages. Les outils disponibles ne sont pas figés dans le service : ils sont fournis à l'exécution par les **éléments de page** de l'hôte — un tableau, un formulaire, un graphique — qui déclarent leurs outils selon le standard **WebMCP** (l'API navigateur `navigator.modelContext`) — nom, paramètres, description. Ces définitions sont partagées entre frames par une couche de transport BroadcastChannel ; l'assistant les agrège et peut invoquer les outils correspondants.
+L'interface est rendue dans une iframe isolée que l'application hôte intègre dans ses pages. Les outils disponibles ne sont pas figés dans le service : ils sont fournis à l'exécution par les **éléments de page** de l'hôte — un tableau, un formulaire, un graphique — qui déclarent leurs outils selon le standard **WebMCP** — nom, description, paramètres. Ces définitions sont partagées entre frames par une couche de transport BroadcastChannel ; l'assistant les agrège et peut invoquer les outils correspondants.
 
 L'assistant n'a donc aucune connaissance codée en dur des applications : il découvre les capacités selon le contexte de la page. Toute nouvelle application peut exposer ses outils sans toucher au service, et l'isolation de l'iframe interdit tout accès direct au DOM de l'hôte — les échanges passent uniquement par un protocole de messages défini.
 
@@ -56,6 +56,6 @@ Un même déploiement adresse plusieurs fournisseurs simultanément. Chaque comp
 | Outils | Exécution des appels d'outils enchaînés par les sous-agents |
 | Résumeur | Synthèse compacte du travail des sous-agents |
 | Évaluateur | Contrôle qualité et raisonnement approfondi |
-| Modérateur | Classification des messages entrants |
+| Modérateur | Filtrage des messages du trafic non fiable (utilisé en interne par la passerelle, voir la section Sécurité) |
 
 Cette séparation permet d'affecter un modèle rapide et économique aux rôles sensibles à la latence et au coût, et un modèle plus puissant aux tâches de raisonnement. Comme la passerelle normalise les échanges, le code d'orchestration ne dépend d'aucun fournisseur : passer d'un service hébergé à un serveur local ne demande qu'une reconfiguration du compte.

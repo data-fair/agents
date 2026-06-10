@@ -1,6 +1,6 @@
 ## Sécurité
 
-Cette section vise une évaluation rigoureuse : elle décrit les contrôles en place et énonce honnêtement leurs limites, plutôt que de défendre une posture.
+Cette section décrit les contrôles en place et énonce leurs limites, pour permettre une évaluation sur pièces.
 
 ### Modèle de menace
 
@@ -12,15 +12,55 @@ La passerelle détermine à chaque requête l'identité et les droits de l'appel
 
 Les quotas de jetons s'appliquent à deux niveaux : un plafond global au compte, et des limites par rôle (mensuelles, hebdomadaires, journalières) calculées par ratio. En complément, les appelants non fiables — anonymes et externes — partagent un pool de quota commun, qui empêche ce trafic, pris collectivement, d'épuiser la capacité du compte même lorsque chaque appelant reste sous sa propre limite.
 
+```mermaid
+flowchart TD
+    R["Requête entrante"] --> Q1{"Plafond global\ndu compte ?"}
+    Q1 -->|"dépassé"| Refus1["Refus"]
+    Q1 -->|"ok"| Q2{"Appelant non fiable ?\n(anonyme ou externe)"}
+    Q2 -->|"oui"| Q3{"Pool commun\nnon fiable ?"}
+    Q2 -->|"non"| Q4{"Limite individuelle\ndu rôle ?"}
+    Q3 -->|"dépassé"| Refus2["Refus"]
+    Q3 -->|"ok"| Q4
+    Q4 -->|"dépassée"| Refus3["Refus"]
+    Q4 -->|"ok"| OK["Requête traitée"]
+```
+
 ### Chiffrement des clés d'API
 
-Les clés des fournisseurs sont chiffrées au repos (AES-256-CBC) et ne sont jamais renvoyées en clair : l'API de configuration retourne une valeur masquée. Le navigateur n'est jamais exposé aux clés ni aux identifiants de modèles concrets — il ne transmet qu'un rôle fonctionnel, la passerelle résolvant le fournisseur côté serveur. La compromission du navigateur ou d'un script tiers ne donne donc pas accès aux clés.
+Les clés des fournisseurs sont chiffrées au repos (AES-256) et ne sont jamais renvoyées en clair : l'API de configuration retourne une valeur masquée. Le navigateur n'est jamais exposé aux clés ni aux identifiants de modèles concrets — il ne transmet qu'un rôle fonctionnel, la passerelle résolvant le fournisseur côté serveur. La compromission du navigateur ou d'un script tiers ne donne donc pas accès aux clés.
 
 ### Modération des entrées
 
-Chaque message entrant passant par l'interface de chat est classé par un modèle dédié au rôle modérateur (grossièretés, injection de prompt, usurpation d'identité, demande hors périmètre) ; une classification défavorable déclenche un refus fixe et localisé, et le message n'est pas transmis au modèle principal.
+La modération protège la plateforme contre les abus du **trafic non fiable** — visiteurs anonymes et utilisateurs externes : grossièretés, tentatives d'injection de prompt, usurpation de l'identité de l'assistant, tâches lourdes sans rapport avec la plateforme. Les membres authentifiés du compte n'y sont pas soumis : pour eux, aucun surcoût ni délai. Le contrôle est appliqué par la passerelle elle-même, et non par l'interface de chat : un appel direct du trafic non fiable y est soumis au même titre qu'un message saisi dans le chat.
 
-Ses limites sont structurelles et doivent être comprises avant tout déploiement. La modération est **consultative, pas une barrière de sécurité** : elle augmente le coût d'une attaque sans la rendre impossible. Elle est **fail-open** — un dépassement du délai d'attente (environ 1,5 s), une erreur de transport ou une sortie inexploitable aboutissent à « autoriser ». Un **appel direct à la passerelle** sur le rôle assistant la contourne entièrement, par conception ; la gouvernance repose alors sur l'authentification et les quotas. Son **périmètre se limite au message entrant** : ni les sorties du modèle, ni les résultats d'outils, ni le contenu des jeux de données, ni les attaques étalées sur plusieurs tours ne sont couverts. Enfin, si la première action d'un tour est un appel d'outil, celui-ci peut s'exécuter avant l'arrivée du verdict ; ses effets restent néanmoins bornés par le périmètre des outils décrit ci-dessous — au pire une lecture ou une préparation d'action, jamais une écriture validée.
+Pour ne pas dégrader la latence, la passerelle lance la classification et la requête principale en parallèle, et retient simplement la diffusion de la réponse tant que le verdict n'est pas rendu — quelques secondes au plus. Un verdict défavorable interrompt la requête et renvoie un refus. Un verdict trop tardif laisse passer la réponse — priorité à la disponibilité — quitte à la couper en cours de diffusion si le blocage arrive ensuite. Après cinq blocages en vingt-quatre heures, l'appelant est mis à l'écart pendant une heure : ses messages sont refusés d'emblée, sans solliciter aucun modèle.
+
+```mermaid
+sequenceDiagram
+    participant C as Appelant non fiable
+    participant G as Passerelle
+    participant M as Modérateur
+    participant F as Modèle demandé
+
+    C->>G: message
+    par classification
+        G->>M: classification du message
+    and requête principale
+        G->>F: requête (diffusion retenue)
+    end
+    alt verdict favorable
+        G-->>C: réponse diffusée normalement
+    else verdict défavorable
+        G->>F: requête interrompue
+        G-->>C: refus
+    else verdict tardif
+        G-->>C: réponse diffusée, coupée si blocage tardif
+    end
+```
+
+Le dispositif s'observe : chaque décision est consignée pendant trente jours, et un tableau de bord réservé aux administrateurs expose le volume de contrôles, la part de verdicts arrivés trop tard (avec une alerte au-delà d'un seuil), les derniers blocages, ainsi qu'un test en direct pour soumettre des messages d'essai au filtre.
+
+Ses limites doivent être comprises avant tout déploiement. La modération privilégie la disponibilité : en cas d'erreur ou de délai dépassé, le message passe. Son périmètre se limite au message entrant : ni les sorties du modèle, ni les résultats d'outils, ni le contenu des jeux de données, ni les attaques étalées sur plusieurs tours ne sont couverts. Enfin, si un verdict tardif laisse s'exécuter un appel d'outil, ses effets restent bornés par le périmètre des outils décrit ci-dessous — au pire une lecture ou une préparation d'action, jamais une écriture validée.
 
 ### Périmètre et exécution des outils
 
@@ -41,7 +81,7 @@ flowchart LR
         EP["Éléments de page"]
     end
     subgraph GW["Passerelle (sans état)"]
-        Auth["Auth + quotas"]
+        Auth["Auth + quotas + modération"]
         Route["Résolution fournisseur / modèle"]
     end
     subgraph LLM["Fournisseur LLM (externe)"]
@@ -61,10 +101,10 @@ flowchart LR
 
 La traçabilité repose sur un enregistrement **côté serveur, désactivé par défaut**. Il n'existe plus d'enregistreur « live » dans le navigateur : la passerelle consigne une entrée par requête physique adressée au fournisseur, et ces requêtes constituent la source unique de vérité — la trace complète d'une conversation est reconstruite à la consultation, sans double envoi.
 
-L'enregistrement n'a lieu que si deux conditions sont réunies : un administrateur l'a activé au niveau du compte, et l'utilisateur concerné a donné un consentement explicite. Sans cela, rien n'est stocké. Les traces conservées sont automatiquement supprimées après 30 jours, leur lecture est réservée aux administrateurs, et chaque utilisateur peut demander l'effacement des siennes — une conception orientée RGPD (consentement, finalité d'administration, rétention bornée, droit à l'effacement). À noter : une décision de modération *ignorée* (fail-open, sans appel de modèle) ne produit aucune requête physique et n'apparaît donc pas dans la trace. La capacité d'audit dépend ainsi de l'activation de cet enregistrement et reste bornée à 30 jours.
+L'enregistrement n'a lieu que si deux conditions sont réunies : un administrateur l'a activé au niveau du compte, et l'utilisateur concerné a donné un consentement explicite. Sans cela, rien n'est stocké. Les traces conservées sont automatiquement supprimées après 30 jours, leur lecture est réservée aux administrateurs, et chaque utilisateur peut demander l'effacement des siennes — une conception orientée RGPD (consentement, finalité d'administration, rétention bornée, droit à l'effacement). Le journal de modération évoqué plus haut est tenu séparément et fait foi pour les décisions de filtrage, y compris celles qui ne figurent pas dans les traces. La capacité d'audit des conversations dépend ainsi de l'activation de cet enregistrement et reste bornée à 30 jours.
 
 ### Limites face à l'injection de prompt
 
-La modération réduit le risque d'**injection directe** sans l'éliminer (fail-open, contournable par appel direct). L'**injection indirecte** via les données n'est pas couverte : le contenu d'un jeu de données réintégré dans le contexte peut contenir des instructions adversariales. Les **descripteurs d'outils** fournis par un élément de page de même origine sont transmis tels quels au modèle, et un élément compromis pourrait tenter de l'influencer. Enfin, une attaque **étalée sur plusieurs tours** n'est pas détectée, chaque message étant évalué isolément.
+La modération réduit le risque d'**injection directe** sans l'éliminer : elle privilégie la disponibilité et ne contrôle que le trafic non fiable. L'**injection indirecte** via les données n'est pas couverte : le contenu d'un jeu de données réintégré dans le contexte peut contenir des instructions adversariales. Les **descripteurs d'outils** fournis par un élément de page de même origine sont transmis tels quels au modèle, et un élément compromis pourrait tenter de l'influencer. Enfin, une attaque **étalée sur plusieurs tours** n'est pas détectée, chaque message étant évalué isolément.
 
 Ces limites doivent toutefois se lire à la lumière du périmètre d'exécution des outils (voir plus haut) : même une injection réussie reste confinée à des outils restreints et non destructeurs, exécutés avec les seuls droits de l'utilisateur, sans écriture automatique. Le risque résiduel porte donc surtout sur la confidentialité (une lecture exfiltrée) et sur l'orientation des réponses, plutôt que sur une action destructrice ou une élévation de privilèges. Pour un déploiement traitant des données sensibles, les mesures complémentaires utiles restent le contrôle de l'origine des jeux de données accessibles, la revue des outils exposés et l'accès au moindre privilège.

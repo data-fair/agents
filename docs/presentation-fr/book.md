@@ -1,7 +1,7 @@
 ---
 title: "data-fair/agents — Présentation technique"
-version: "1.0"
-date: "2026-06-09"
+version: "1.1"
+date: "2026-06-10"
 description: "Architecture, protocoles, scénarios d'intégration et sécurité du service d'assistant IA data-fair/agents."
 toc: true
 tocLevels: 2

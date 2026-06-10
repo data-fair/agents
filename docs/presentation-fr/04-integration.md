@@ -2,6 +2,13 @@
 
 Le service s'embarque selon trois modes, qui partagent la même passerelle mais diffèrent par leur présentation, leur périmètre d'outils et leur configuration.
 
+| | Back-office data-fair | Portail public | Élément de page confiné |
+|---|---|---|---|
+| **Présentation** | Tiroir latéral, sur toutes les pages | Tiroir latéral ou menu flottant | Bloc intégré dans une page |
+| **Périmètre d'outils** | Administration complète | Contenu publié du portail | Jeux de données focalisés |
+| **Configuration** | Par compte | Par portail | Par bloc |
+| **Public visé** | Administrateurs et contributeurs | Visiteurs, selon leur rôle | Visiteurs d'une page précise |
+
 ### Assistant global du back-office data-fair
 
 Dans l'interface d'administration, l'assistant prend la forme d'un tiroir latéral accessible depuis n'importe quelle page, activable par compte. Il dispose d'un jeu d'outils étendu couvrant la navigation applicative, l'exploration et l'interrogation des jeux de données, la gestion des applications et visualisations, la géolocalisation et des aides à la création (suggestions de schémas, titres, descriptions). Des boutons d'aide contextuels, placés sur les pages clés comme la création d'un jeu de données, ouvrent le tiroir en lui transmettant le contexte courant, pour une assistance ciblée sans reformulation.
