@@ -2,12 +2,11 @@ import { Router } from 'express'
 import { generateText, streamText, type LanguageModelUsage } from 'ai'
 import { type AccountKeys, reqSession, isAuthenticated } from '@data-fair/lib-express'
 import { getRawSettings, defaultQuotas } from '../settings/service.ts'
-import { createModel } from '../models/operations.ts'
+import { getModelConfig, resolveModelForRole } from '../models/operations.ts'
 import { recordUsage } from '../usage/service.ts'
 import { computeCost } from '../usage/operations.ts'
 import { resolveUsageIdentity, enforceQuotas } from '../usage/enforce.ts'
 import { convertOpenAITools, convertOpenAIMessages, convertToolChoice, mapFinishReason } from './operations.ts'
-import type { Settings } from '#types'
 import type { OpenAIMessage, OpenAIToolDefinition, OpenAIToolChoice, FinishReason } from './operations.ts'
 import { recordTraceRequest } from '../traces/service.ts'
 import crypto from 'node:crypto'
@@ -46,32 +45,6 @@ type ModelId = typeof MODEL_IDS[number]
 
 function isValidModelId (id: string): id is ModelId {
   return MODEL_IDS.includes(id as ModelId)
-}
-
-function getModelConfig (settings: Settings, modelId: ModelId) {
-  // moderator prefers a cheap dedicated model, then the summarizer, then the
-  // assistant as a guaranteed last resort; every other role falls back straight
-  // to the assistant.
-  const chain = modelId === 'moderator'
-    ? [settings.models?.moderator, settings.models?.summarizer, settings.models?.assistant]
-    : [settings.models?.[modelId], settings.models?.assistant]
-  const source = chain.find(entry => entry?.model)
-  if (!source?.model) throw new Error(`No model configured for ${modelId}`)
-  return {
-    modelConfig: source.model,
-    inputPricePerMillion: source.inputPricePerMillion ?? 0,
-    outputPricePerMillion: source.outputPricePerMillion ?? 0
-  }
-}
-
-async function getModelForGateway (settings: Settings, modelId: ModelId) {
-  const { modelConfig } = getModelConfig(settings, modelId)
-
-  const provider = settings.providers.find(p => p.id === modelConfig.provider.id)
-  if (!provider) throw new Error('Provider not found')
-  if (!provider.enabled) throw new Error('Provider is disabled')
-
-  return createModel(provider, modelConfig.id)
 }
 
 // OpenAI-compatible chat completions endpoint
@@ -139,7 +112,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
     }
 
     const { modelConfig, inputPricePerMillion, outputPricePerMillion } = getModelConfig(settings, modelId)
-    const model = await getModelForGateway(settings, modelId)
+    const model = resolveModelForRole(settings, modelId)
 
     const storeTraces = settings.storeTraces === true
     if (storeTraces) res.setHeader('x-trace-storage', 'available')
