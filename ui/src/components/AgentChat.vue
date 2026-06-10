@@ -51,7 +51,7 @@
       v-model="showDebugDialog"
       :system-prompt="finalSystemPrompt"
       :debug-tools-partition="debugToolsPartition"
-      :conversation-id="chat.conversationId"
+      :conversation-id="chat.conversationId.value"
       :is-admin="isAdmin"
       :account-type="accountType"
       :account-id="accountId"

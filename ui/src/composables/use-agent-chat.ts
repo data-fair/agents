@@ -114,7 +114,9 @@ export function useAgentChat (options: UseAgentChatOptions) {
 
   const { localTools, modelName } = options
   const chatModelName = modelName ?? 'assistant'
-  const conversationId = crypto.randomUUID()
+  // Reactive so a reset starts a fresh trace: consumers (debug dialog review link)
+  // and trace headers pick up the new id.
+  const conversationId = ref(crypto.randomUUID())
 
   const messages = ref<ChatMessage[]>(options.initialMessages ?? [])
 
@@ -223,7 +225,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
     const consent = readConsent()
     return {
       'x-trace-ctx': ctx,
-      'x-trace-conversation': conversationId,
+      'x-trace-conversation': conversationId.value,
       ...(consent ? { 'x-trace-consent': consent } : {})
     }
   }
@@ -304,6 +306,8 @@ export function useAgentChat (options: UseAgentChatOptions) {
     status.value = 'ready'
     error.value = null
     history = []
+    // Start a fresh trace: a reset is a new conversation, not a continuation.
+    conversationId.value = crypto.randomUUID()
     // abort() above guarantees no in-flight prepareStep will read the old Set
     promotedTools = new Set<string>()
     announcedTools.clear()
