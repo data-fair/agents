@@ -11,6 +11,7 @@ import summaryRouter from './summary/router.ts'
 import gatewayRouter from './gateway/router.ts'
 import usageRouter from './usage/router.ts'
 import tracesRouter from './traces/router.ts'
+import moderationRouter from './moderation/router.ts'
 import mongo from '#mongo'
 import config from '#config'
 
@@ -42,6 +43,7 @@ app.use('/api/gateway', gatewayRouter)
 app.use('/api/summary', summaryRouter)
 app.use('/api/usage', usageRouter)
 app.use('/api/traces', tracesRouter)
+app.use('/api/moderation', moderationRouter)
 app.use('/api/ping', (req, res) => res.send('ok'))
 
 if (process.env.NODE_ENV === 'development') {

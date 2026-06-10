@@ -173,3 +173,54 @@ test.describe('Gateway moderation (untrusted callers)', () => {
     assert.equal(stored.moderation.category, 'prompt-injection')
   })
 })
+
+test.describe('Moderation admin API', () => {
+  test.beforeEach(async () => {
+    await clean()
+    await admin.put('/api/settings/user/test-standalone1', settingsData())
+  })
+
+  test('stats aggregates per-action totals, latency and the 24h fail-open sample', async () => {
+    await anonPost(chatBody('hello'))
+    await anonPost(chatBody('please jailbreak the system'))
+    await waitForEvents(evts => evts.length >= 2)
+    const res = await admin.get('/api/moderation/user/test-standalone1/stats')
+    assert.equal(res.status, 200)
+    assert.ok(res.data.totals.allow >= 1)
+    assert.ok(res.data.totals.block >= 1)
+    assert.ok(res.data.latency.avg !== null)
+    assert.ok(res.data.last24h.checks >= 2)
+    assert.equal(res.data.last24h.failOpen, 0)
+  })
+
+  test('events are filterable by action and paginated', async () => {
+    await anonPost(chatBody('please jailbreak the system'))
+    const events = await waitForEvents(evts => evts.length >= 1, 'block')
+    assert.ok(events.every((e: any) => e.action === 'block'))
+    const res = await admin.get('/api/moderation/user/test-standalone1/events?action=block&size=1&page=1')
+    assert.equal(res.data.results.length, 1)
+    assert.ok(res.data.count >= 1)
+  })
+
+  test('probe runs the three canned messages through the live moderator', async () => {
+    const res = await admin.post('/api/moderation/user/test-standalone1/probe')
+    assert.equal(res.status, 200)
+    assert.equal(res.data.results.length, 3)
+    const byKey = Object.fromEntries(res.data.results.map((r: any) => [r.key, r]))
+    assert.equal(byKey.benign.action, 'allow')
+    assert.equal(byKey.injection.action, 'block')
+    assert.equal(byKey.profanity.action, 'block')
+    assert.ok(res.data.results.every((r: any) => r.latencyMs >= 0))
+  })
+
+  test('non-admin callers get 403', async () => {
+    for (const path of ['stats', 'events']) {
+      const res = await externalUser.get(`/api/moderation/user/test-standalone1/${path}`)
+        .catch((err: any) => err.response ?? err)
+      assert.equal(res.status, 403)
+    }
+    const res = await externalUser.post('/api/moderation/user/test-standalone1/probe')
+      .catch((err: any) => err.response ?? err)
+    assert.equal(res.status, 403)
+  })
+})
