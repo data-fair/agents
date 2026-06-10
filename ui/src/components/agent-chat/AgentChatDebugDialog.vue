@@ -137,7 +137,7 @@
           <v-window-item value="settings">
             <div class="pa-3">
               <v-switch
-                v-if="traceStorageAvailable"
+                v-if="showConsentToggle"
                 :model-value="consentRef === 'yes'"
                 :label="t('storeTraces')"
                 color="primary"
@@ -156,6 +156,18 @@
               />
               <p class="text-caption text-medium-emphasis mt-1">
                 {{ t('toolExplorationHint') }}
+              </p>
+              <v-switch
+                :model-value="moderationSelfTest"
+                color="primary"
+                density="compact"
+                hide-details
+                :label="t('moderationSelfTest')"
+                class="mt-2"
+                @update:model-value="$emit('update:moderationSelfTest', $event ?? false)"
+              />
+              <p class="text-caption text-medium-emphasis mt-1">
+                {{ t('moderationSelfTestHint') }}
               </p>
             </div>
           </v-window-item>
@@ -178,6 +190,8 @@ fr:
   storeTraces: Enregistrer mes conversations pour relecture
   toolExploration: Exploration des outils (expérimental)
   toolExplorationHint: "Masque les outils derrière un outil « explore_tools » que l'assistant appelle pour découvrir et activer les outils pertinents à la demande. Changer ce réglage réinitialise la conversation."
+  moderationSelfTest: Modération en self-test (aperçu)
+  moderationSelfTestHint: "Soumet vos propres messages à la modération comme pour un utilisateur externe, afin de prévisualiser l'expérience. N'affecte que votre navigateur ; n'enregistre ni évènement ni sanction."
 en:
   close: Close
   info: Info
@@ -190,6 +204,8 @@ en:
   storeTraces: Store my conversations for review
   toolExploration: Tool exploration (experimental)
   toolExplorationHint: "Hides tools behind an 'explore_tools' tool the assistant calls to discover and enable relevant tools on demand. Changing this setting resets the conversation."
+  moderationSelfTest: Moderation self-test (preview)
+  moderationSelfTestHint: "Subjects your own messages to moderation like an external user, to preview the experience. Affects only your browser; records no events or strikes."
 </i18n>
 
 <script lang="ts" setup>
@@ -209,11 +225,13 @@ const props = defineProps<{
   accountType: string
   accountId: string
   toolExploration?: boolean
+  moderationSelfTest?: boolean
 }>()
 
 defineEmits<{
   'update:modelValue': [value: boolean]
   'update:toolExploration': [value: boolean]
+  'update:moderationSelfTest': [value: boolean]
 }>()
 
 const { t } = useI18n()
@@ -224,6 +242,11 @@ const totalToolCount = computed(() => {
   const p = props.debugToolsPartition
   return p.mainTools.length + p.subAgents.reduce((sum, sa) => sum + sa.tools.length, 0)
 })
+
+// Show the consent toggle as soon as storage is advertised, OR if a prior
+// decision is already stored in the cookie — so a user who consented in a
+// previous session can flip it back without sending a first message.
+const showConsentToggle = computed(() => traceStorageAvailable.value || consentRef.value !== undefined)
 
 const showReview = computed(() => !!props.isAdmin && traceStorageAvailable.value && consentRef.value === 'yes')
 

@@ -263,10 +263,9 @@ test.describe('SessionRecorder - buildCache coverage for compaction / moderation
     assert.equal(detail.content.action, 'block')
     assert.equal(detail.content.category, 'profanity')
     assert.equal(detail.content.reason, 'offensive language')
-    assert.equal(detail.content.skipped, false)
   })
 
-  test('moderation: step.moderation with skipped=true uses "skipped" as label', () => {
+  test('moderation: step.moderation with failOpen uses "skipped" as label', () => {
     const now = new Date('2020-01-01T00:00:00Z')
     const moderationStep: any = {
       timestamp: now,
@@ -276,7 +275,7 @@ test.describe('SessionRecorder - buildCache coverage for compaction / moderation
         action: undefined,
         category: undefined,
         reason: undefined,
-        skipped: true
+        failOpen: 'timeout'
       }
     }
     const trace: SessionTrace = {

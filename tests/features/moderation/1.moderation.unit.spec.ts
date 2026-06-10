@@ -1,39 +1,77 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { buildModerationSystemPrompt, parseModerationVerdict, DEFAULT_REFUSAL } from '../../../ui/src/composables/moderation.ts'
+import {
+  buildModerationSystemPrompt, extractLastUserMessage, truncateForModeration,
+  truncateExcerpt, isInCooldown,
+  MODERATION_TASK_MARKER,
+  INPUT_HEAD_CHARS, INPUT_TAIL_CHARS, EXCERPT_MAX_CHARS
+} from '../../../api/src/moderation/operations.ts'
 
-test('buildModerationSystemPrompt embeds the mission and the task marker', () => {
-  const prompt = buildModerationSystemPrompt('Help users query the sales dataset.')
-  assert.ok(prompt.includes('Help users query the sales dataset.'))
-  assert.ok(prompt.includes('MODERATION_TASK'))
+test.describe('moderation prompt', () => {
+  test('embeds the task marker and the generic platform mission', () => {
+    const prompt = buildModerationSystemPrompt()
+    assert.ok(prompt.includes(MODERATION_TASK_MARKER))
+    assert.ok(prompt.toLowerCase().includes('data platform'))
+  })
 })
 
-test('parseModerationVerdict reads a block verdict', () => {
-  const v = parseModerationVerdict('{"action":"block","category":"injection","reason":"x"}')
-  assert.equal(v.action, 'block')
-  assert.equal(v.category, 'injection')
-  assert.equal(v.reason, 'x')
+test.describe('extractLastUserMessage', () => {
+  test('returns the last user message with string content', () => {
+    const messages = [
+      { role: 'user', content: 'first' },
+      { role: 'assistant', content: 'reply' },
+      { role: 'user', content: 'second' }
+    ]
+    assert.equal(extractLastUserMessage(messages), 'second')
+  })
+
+  test('finds the last user message even when followed by tool messages', () => {
+    const messages = [
+      { role: 'user', content: 'the question' },
+      { role: 'assistant', content: '' },
+      { role: 'tool', content: '{"ok":true}' }
+    ]
+    assert.equal(extractLastUserMessage(messages), 'the question')
+  })
+
+  test('joins text parts of array content', () => {
+    const messages = [{ role: 'user', content: [{ type: 'text', text: 'a' }, { type: 'text', text: 'b' }] }]
+    assert.equal(extractLastUserMessage(messages), 'a\nb')
+  })
+
+  test('returns null when there is no user message', () => {
+    assert.equal(extractLastUserMessage([{ role: 'system', content: 's' }]), null)
+    assert.equal(extractLastUserMessage([]), null)
+    assert.equal(extractLastUserMessage(undefined), null)
+  })
 })
 
-test('parseModerationVerdict reads an allow verdict', () => {
-  assert.equal(parseModerationVerdict('{"action":"allow"}').action, 'allow')
+test.describe('truncation', () => {
+  test('short messages pass through unchanged', () => {
+    assert.equal(truncateForModeration('hello'), 'hello')
+  })
+
+  test('long messages keep head and tail', () => {
+    const msg = 'a'.repeat(INPUT_HEAD_CHARS) + 'MIDDLE' + 'b'.repeat(INPUT_TAIL_CHARS)
+    const out = truncateForModeration(msg)
+    assert.ok(out.startsWith('a'.repeat(100)))
+    assert.ok(out.endsWith('b'.repeat(100)))
+    assert.ok(!out.includes('MIDDLE'))
+    assert.ok(out.length < msg.length)
+  })
+
+  test('excerpts cap at EXCERPT_MAX_CHARS', () => {
+    assert.equal(truncateExcerpt('x'.repeat(EXCERPT_MAX_CHARS + 50)).length, EXCERPT_MAX_CHARS)
+    assert.equal(truncateExcerpt('short'), 'short')
+  })
 })
 
-test('parseModerationVerdict tolerates surrounding prose', () => {
-  assert.equal(parseModerationVerdict('Sure: {"action":"block"} done').action, 'block')
-})
+test.describe('strikes', () => {
+  const now = new Date('2026-06-10T12:00:00Z')
 
-test('parseModerationVerdict reads the first object when a stray second one follows', () => {
-  const v = parseModerationVerdict('{"action":"block","category":"x"} {"action":"allow"}')
-  assert.equal(v.action, 'block')
-  assert.equal(v.category, 'x')
-})
-
-test('parseModerationVerdict fails open on garbage', () => {
-  assert.equal(parseModerationVerdict('not json at all').action, 'allow')
-  assert.equal(parseModerationVerdict('').action, 'allow')
-})
-
-test('DEFAULT_REFUSAL is a non-empty string', () => {
-  assert.ok(DEFAULT_REFUSAL.length > 0)
+  test('isInCooldown respects cooldownUntil', () => {
+    assert.equal(isInCooldown(null, now), false)
+    assert.equal(isInCooldown({ count: 5, windowStartedAt: now, cooldownUntil: new Date(now.getTime() + 1000) }, now), true)
+    assert.equal(isInCooldown({ count: 5, windowStartedAt: now, cooldownUntil: new Date(now.getTime() - 1000) }, now), false)
+  })
 })

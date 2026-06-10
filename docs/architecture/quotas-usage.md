@@ -46,6 +46,8 @@ Per-user role quotas cap each *individual* anonymous IP and external user, and t
 
 A caller is "untrusted" when `isUntrustedRole(role)` is true, i.e. `role === 'anonymous' || role === 'external'` (`api/src/usage/operations.ts:104`). `resolveUsageIdentity()` sets `isUntrusted` and tags the request with `poolId = 'pool:untrusted'` (the `UNTRUSTED_POOL_ID` sentinel, `api/src/usage/enforce.ts:25`) for untrusted callers; trusted callers get no `poolId`.
 
+The same `isUntrusted` flag also gates the [moderation guard](./moderation.md): before any quota check, the gateway refuses untrusted callers under a moderation strike cooldown outright (zero LLM calls, no quota consumed).
+
 **Enforcement order.** The single entry point is `enforceQuotas()` (`api/src/usage/enforce.ts:71`), called from the gateway at `api/src/gateway/router.ts:126`. It builds the checks in this order and returns the first violation via `firstQuotaViolation()`:
 
 1. **Global** (account-wide aggregate, `getOwnerUsage()`), scope `organization`/`user`.

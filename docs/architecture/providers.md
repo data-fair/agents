@@ -21,7 +21,7 @@ graph LR
   OLL --> LLM6[Ollama local]
 ```
 
-**Settings map 4 roles to concrete models:**
+**Settings map 5 roles to concrete models:**
 
 | Role | Purpose | Typical cost ratio |
 |------|---------|-------------------|
@@ -29,7 +29,7 @@ graph LR
 | `tools` | Structured data / tool-calling specialist | 0.5 |
 | `summarizer` | Context compaction | 0.5 |
 | `evaluator` | Quality control / reasoning | 1.0 |
-| `moderator` | Input moderation guard (fast/cheap) | 0.5 |
+| `moderator` | Input moderation guard (internal, gateway-side) | 0.5 |
 
 Each owner (user or organization) configures their own providers and model assignments. API keys are **encrypted at rest** (AES-256-CBC) and obfuscated in API responses. Model lists are fetched from provider APIs with **5-minute memoized caching**.
 

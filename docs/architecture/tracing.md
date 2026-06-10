@@ -1,7 +1,7 @@
 # Tracing
 
 The agent loop runs almost entirely in the browser: the UI composable orchestrates
-turns, sub-agents, tool calls, moderation and compaction, and only the raw LLM
+turns, sub-agents, tool calls and compaction, and only the raw LLM
 completions cross the network (through the [gateway](./gateway.md)). Tracing makes that
 flow inspectable in two complementary ways:
 
@@ -49,11 +49,14 @@ captures (see `api/src/traces/types.ts` for the full shape):
 - `conversation.id` (from the `x-trace-conversation` header, a stable id generated once
   per `useAgentChat` session, `use-agent-chat.ts:117`);
 - `contextId` / `contextKind` / optional `agent` — parsed from the `x-trace-ctx` header
-  (`turn:<uid>` / `sub:<name>:<idx>:<uid>` / `compaction:<uid>` / `moderation:<uid>`) by
+  (`turn:<uid>` / `sub:<name>:<idx>:<uid>` / `compaction:<uid>`) by
   `parseContextId` (`operations.ts:16`), preserving sub-agent identity and ordering that
   the request body alone does not carry;
-- `modelRole` (`assistant` / `tools` / `summarizer` / `moderator` / `evaluator`),
+- `modelRole` (`assistant` / `tools` / `summarizer` / `evaluator`),
   resolved `provider` (name + type) and resolved `request.model`;
+- optional `moderation` — the gateway-side [moderation](./moderation.md) verdict
+  (`action`, `category`, `reason`, `latencyMs`, `failOpen`), embedded when the check had
+  settled by the time the request was recorded (untrusted callers only);
 - `request.body` — the raw OpenAI request body (system + messages + tools) — plus derived
   `messageCount` / `toolCount` / `bodyChars`;
 - `response` (assistant content, tool calls, finish reason), `usage` (input/output and
@@ -106,7 +109,7 @@ takes the ordered stored requests for a conversation and rebuilds a full `Sessio
 - rebuilds `turns → steps → toolCalls / tool results` by diffing successive
   `request.messages` and reading each `response`;
 - groups sub-agent requests by `contextId` into [sub-agent](./sub-agents.md) blocks;
-- maps `moderator`-role requests to [moderation](./moderation.md) entries and the
+- maps embedded `moderation` verdicts to [moderation](./moderation.md) entries and the
   `compaction` context to a compaction entry.
 
 The output feeds `SessionRecorder.fromTrace()` (`ui/src/traces/session-recorder.ts:129`).
@@ -116,8 +119,10 @@ old live-capture methods that fed an in-memory trace during chat have been remov
 single source of truth means there is **no duplicate upload**: the data the viewer shows
 is exactly what the gateway already stored.
 
-Known fidelity gap: **skipped** moderation decisions produce no physical LLM request, so
-they do not appear server-side (accepted — they are no-ops).
+Known fidelity gap: a moderation verdict that has not settled when the request is
+recorded (and a late block, which aborts before any finish event) appears only in the
+`moderation-events` collection — events, not traces, are the authoritative moderation
+record (see [moderation](./moderation.md)).
 
 ```mermaid
 flowchart LR

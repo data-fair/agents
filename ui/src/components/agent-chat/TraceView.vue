@@ -192,15 +192,14 @@ const traceEntryColor = (type: string) => {
   return colors[type] || 'default'
 }
 
-const moderationActionColor = (content?: { action?: string; skipped?: boolean }) => {
-  if (!content) return 'default'
-  if (content.skipped) return 'grey'
+const moderationActionColor = (content?: { action?: string, failOpen?: string }) => {
+  if (!content || content.failOpen) return 'warning'
   return content.action === 'block' ? 'error' : 'success'
 }
 
-const moderationActionLabel = (content?: { action?: string; skipped?: boolean }) => {
+const moderationActionLabel = (content?: { action?: string, failOpen?: string }) => {
   if (!content) return ''
-  if (content.skipped) return t('moderationSkipped')
+  if (content.failOpen) return t('moderationSkipped')
   return content.action === 'block' ? t('moderationBlocked') : t('moderationAllowed')
 }
 

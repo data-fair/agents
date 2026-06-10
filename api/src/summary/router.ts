@@ -6,6 +6,7 @@ import { createModel } from '../models/operations.ts'
 import { recordUsage } from '../usage/service.ts'
 import { computeCost } from '../usage/operations.ts'
 import { resolveUsageIdentity, enforceQuotas } from '../usage/enforce.ts'
+import { isStrikeCooldownActive, recordStrikeRefusal } from '../moderation/service.ts'
 import type { Settings } from '#types'
 
 const router = Router()
@@ -66,9 +67,18 @@ router.post('/:type/:id', async (req, res, next) => {
       return
     }
 
+    // Moderation posture for untrusted callers: a strike cooldown blocks summary
+    // calls too, and the system prompt is pinned server-side (a caller-supplied
+    // prompt would be an unmoderated jailbreak vector).
+    if (identity.isUntrusted && identity.usageUserId && await isStrikeCooldownActive(owner, identity.usageUserId)) {
+      recordStrikeRefusal(owner, identity, 'summarizer')
+      res.status(403).json({ error: 'Temporarily blocked by moderation' })
+      return
+    }
+
     const model = await getSummaryModel(settings)
     const { inputPricePerMillion, outputPricePerMillion } = getSummaryPricing(settings)
-    const system = body.prompt || 'Summarize the following content concisely:'
+    const system = (!identity.isUntrusted && body.prompt) || 'Summarize the following content concisely:'
 
     const { text, usage } = await generateText({
       model,
