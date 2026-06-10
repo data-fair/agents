@@ -131,8 +131,9 @@ export function startModeration (params: {
   identity: UsageIdentity
   message: string
   modelRole: string
+  selfTest?: boolean
 }): ModerationRun {
-  const { settings, owner, identity, modelRole } = params
+  const { settings, owner, identity, modelRole, selfTest } = params
   const startedAt = Date.now()
   const message = truncateForModeration(params.message)
   const eventBase = {
@@ -149,15 +150,20 @@ export function startModeration (params: {
   // Exactly one event per check, written when the check settles.
   const finalize = (action: ModerationEventAction, verdict?: ModerationVerdict, opts?: { cached?: boolean, failOpen?: 'timeout' | 'error' }) => {
     const latencyMs = Date.now() - startedAt
-    recordEvent({
-      ...eventBase,
-      action,
-      ...(verdict?.category ? { category: verdict.category } : {}),
-      ...(verdict?.reason ? { reason: verdict.reason } : {}),
-      latencyMs,
-      ...(opts?.cached ? { cached: true } : {}),
-      ...(action === 'block' || action === 'late-block' ? { messageExcerpt: truncateExcerpt(params.message) } : {})
-    })
+    // Self-test runs are an admin previewing the gate: keep them out of
+    // moderation-events (so stats/fail-open metrics reflect only real untrusted
+    // traffic) and never accrue strikes. The gate decision itself is unchanged.
+    if (!selfTest) {
+      recordEvent({
+        ...eventBase,
+        action,
+        ...(verdict?.category ? { category: verdict.category } : {}),
+        ...(verdict?.reason ? { reason: verdict.reason } : {}),
+        latencyMs,
+        ...(opts?.cached ? { cached: true } : {}),
+        ...(action === 'block' || action === 'late-block' ? { messageExcerpt: truncateExcerpt(params.message) } : {})
+      })
+    }
     trace = {
       action: verdict?.action ?? 'allow',
       ...(verdict?.category ? { category: verdict.category } : {}),
@@ -165,7 +171,7 @@ export function startModeration (params: {
       latencyMs,
       ...(opts?.failOpen ? { failOpen: opts.failOpen } : {})
     }
-    if (verdict?.action === 'block') registerBlockStrike(owner, eventBase.userId).catch(() => {})
+    if (!selfTest && verdict?.action === 'block') registerBlockStrike(owner, eventBase.userId).catch(() => {})
   }
 
   const key = cacheKey(owner, message)
