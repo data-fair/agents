@@ -4,7 +4,7 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { checkQuota, computeCost, firstQuotaViolation, isUntrustedRole, type UsageInfo, type UsageLimits } from '../../../api/src/usage/operations.ts'
+import { checkQuota, computeCost, firstQuotaViolation, isUntrustedRole, isSelfTestModeration, type UsageInfo, type UsageLimits } from '../../../api/src/usage/operations.ts'
 
 function mkUsage (daily: number, weekly: number, monthly: number): UsageInfo {
   return {
@@ -98,5 +98,22 @@ test.describe('computeCost', () => {
 
   test('zero prices → zero cost', () => {
     assert.equal(computeCost(1_000_000, 1_000_000, 0, 0), 0)
+  })
+})
+
+test.describe('isSelfTestModeration', () => {
+  test('admin with the opt-in header is true', () => {
+    assert.equal(isSelfTestModeration('admin', 'yes'), true)
+  })
+  test('admin without the header is false', () => {
+    assert.equal(isSelfTestModeration('admin', undefined), false)
+  })
+  test('admin with a non-yes header value is false', () => {
+    assert.equal(isSelfTestModeration('admin', 'true'), false)
+  })
+  test('non-admin roles are never self-test even with the header', () => {
+    for (const role of ['contrib', 'user', 'external', 'anonymous']) {
+      assert.equal(isSelfTestModeration(role, 'yes'), false)
+    }
   })
 })
