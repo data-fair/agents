@@ -184,7 +184,7 @@ export type Models = {
  *
  * The primary conversational interface. Balanced for reasoning, instruction-following, and human-like interaction. This model manages the high-level flow and delegates complex tasks to subagents.
  *
- * Recommendations: GPT-5.4, Claude 4.5 Sonnet, Llama 4 Maverick, Mistral Large 3, etc.
+ * Recommendations: GPT-5.4, Claude 4.5 Sonnet, Kimi K2, Mistral Large 3, etc.
  */
 export type Assistant = {
   model?: Model;
@@ -230,7 +230,7 @@ export type Model1 = {
  *
  * A "shorthand" specialist. Optimized for quickly distilling key points from small-to-medium text blocks. It focuses on high information density and brevity to keep context windows lean and costs low.
  *
- * Recommendations: GPT-5.4 Mini, Claude 4.5 Haiku, Mistral Small 4, Llama 4 (8B), etc.
+ * Recommendations: GPT-5.4 Mini, Claude 4.5 Haiku, Mistral Small 4, Qwen3 (8B), etc.
  */
 export type Summarizer = {
   model?: Model2;
@@ -276,7 +276,7 @@ export type Model3 = {
  *
  * The "gatekeeper." Classifies each new user message for profanity, prompt-injection, persona override, and out-of-scope requests. Should be fast and cheap — it sits on the critical path to the first response token.
  *
- * Recommendations: a small/fast model, e.g. Claude 4.5 Haiku, GPT-5.4 Mini, Mistral Small 4, or a dedicated moderation classifier.
+ * Recommendations: a small/fast general-purpose model with structured (JSON) output support, e.g. Claude 4.5 Haiku, GPT-5.4 Mini, Mistral Small 4, Qwen3 (4B). Dedicated moderation classifiers (Llama Guard, moderation APIs) are not compatible: they use fixed taxonomies and output formats that cannot express this platform's custom policy.
  */
 export type Moderator = {
   model?: Model4;
