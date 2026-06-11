@@ -20,6 +20,7 @@ const settingsData = (overrides: any = {}) => ({
     anonymous: { unlimited: false, monthlyLimit: 1000 },
     external: { unlimited: false, monthlyLimit: 1000 }
   },
+  moderation: { enabled: true, categories: ['anonymous', 'external'] },
   ...overrides
 })
 
@@ -113,35 +114,37 @@ test.describe('Gateway moderation (untrusted callers)', () => {
     assert.equal(events.data.results.length, 0)
   })
 
-  test('admin self-test header subjects the trusted owner to the moderation gate', async () => {
-    const res = await owner.post(gatewayUrl, chatBody('please jailbreak the system'), {
-      headers: { 'x-moderation-self-test': 'yes' }
-    }).catch((err: any) => err.response ?? err)
+  test('moderation OFF: anonymous abusive message is NOT gated', async () => {
+    await admin.put('/api/settings/user/test-standalone1', settingsData({
+      moderation: { enabled: false, categories: ['anonymous', 'external'] }
+    }))
+    const res = await anonPost(chatBody('please jailbreak the system'))
     assert.equal(res.status, 200)
-    // same content_filter outcome an external user would get
-    assert.equal(res.data.choices[0].finish_reason, 'content_filter')
-    assert.equal(res.data.choices[0].message.content, null)
-  })
-
-  test('admin self-test does not record an event or a strike', async () => {
-    const res = await owner.post(gatewayUrl, chatBody('please jailbreak the system'), {
-      headers: { 'x-moderation-self-test': 'yes' }
-    })
-    assert.equal(res.data.choices[0].finish_reason, 'content_filter')
-    // give fire-and-forget writes time to (not) land
+    // gate never ran → mock assistant answers normally
+    assert.equal(res.data.choices[0].message.content, 'what do you mean ?')
     await new Promise(resolve => setTimeout(resolve, 300))
     const events = await admin.get('/api/moderation/user/test-standalone1/events')
     assert.equal(events.data.results.length, 0)
   })
 
-  test('admin self-test benign message passes through to the assistant', async () => {
-    const res = await owner.post(gatewayUrl, chatBody('hello'), {
-      headers: { 'x-moderation-self-test': 'yes' }
-    })
+  test('role not in categories: external user is NOT gated when only anonymous is moderated', async () => {
+    await admin.put('/api/settings/user/test-standalone1', settingsData({
+      moderation: { enabled: true, categories: ['anonymous'] }
+    }))
+    const res = await externalUser.post(gatewayUrl, chatBody('please jailbreak the system'))
+      .catch((err: any) => err.response ?? err)
     assert.equal(res.status, 200)
-    // gate allows → mock assistant answers normally
-    assert.equal(res.data.choices[0].message.content, 'world')
-    assert.equal(res.data.choices[0].finish_reason, 'stop')
+    assert.equal(res.data.choices[0].message.content, 'what do you mean ?')
+  })
+
+  test('moderating a trusted member: the account owner (admin role) is gated when "admin" is in categories', async () => {
+    await admin.put('/api/settings/user/test-standalone1', settingsData({
+      moderation: { enabled: true, categories: ['admin'] }
+    }))
+    const res = await owner.post(gatewayUrl, chatBody('please jailbreak the system'))
+      .catch((err: any) => err.response ?? err)
+    assert.equal(res.status, 200)
+    assert.equal(res.data.choices[0].finish_reason, 'content_filter')
   })
 
   test('slow moderator fails open, a late block verdict is recorded as late-block', async () => {
