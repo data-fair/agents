@@ -103,7 +103,7 @@ export function recordStrikeRefusal (owner: AccountKeys, identity: UsageIdentity
   recordEvent({
     owner: { type: owner.type, id: owner.id },
     action: 'strike-refusal',
-    role: identity.role as 'anonymous' | 'external',
+    role: identity.role,
     userId: identity.usageUserId ?? '',
     modelRole
   })
@@ -131,14 +131,13 @@ export function startModeration (params: {
   identity: UsageIdentity
   message: string
   modelRole: string
-  selfTest?: boolean
 }): ModerationRun {
-  const { settings, owner, identity, modelRole, selfTest } = params
+  const { settings, owner, identity, modelRole } = params
   const startedAt = Date.now()
   const message = truncateForModeration(params.message)
   const eventBase = {
     owner: { type: owner.type, id: owner.id },
-    role: identity.role as 'anonymous' | 'external',
+    role: identity.role,
     userId: identity.usageUserId ?? '',
     modelRole
   }
@@ -150,20 +149,15 @@ export function startModeration (params: {
   // Exactly one event per check, written when the check settles.
   const finalize = (action: ModerationEventAction, verdict?: ModerationVerdict, opts?: { cached?: boolean, failOpen?: 'timeout' | 'error' }) => {
     const latencyMs = Date.now() - startedAt
-    // Self-test runs are an admin previewing the gate: keep them out of
-    // moderation-events (so stats/fail-open metrics reflect only real untrusted
-    // traffic) and never accrue strikes. The gate decision itself is unchanged.
-    if (!selfTest) {
-      recordEvent({
-        ...eventBase,
-        action,
-        ...(verdict?.category ? { category: verdict.category } : {}),
-        ...(verdict?.reason ? { reason: verdict.reason } : {}),
-        latencyMs,
-        ...(opts?.cached ? { cached: true } : {}),
-        ...(action === 'block' || action === 'late-block' ? { messageExcerpt: truncateExcerpt(params.message) } : {})
-      })
-    }
+    recordEvent({
+      ...eventBase,
+      action,
+      ...(verdict?.category ? { category: verdict.category } : {}),
+      ...(verdict?.reason ? { reason: verdict.reason } : {}),
+      latencyMs,
+      ...(opts?.cached ? { cached: true } : {}),
+      ...(action === 'block' || action === 'late-block' ? { messageExcerpt: truncateExcerpt(params.message) } : {})
+    })
     trace = {
       action: verdict?.action ?? 'allow',
       ...(verdict?.category ? { category: verdict.category } : {}),
@@ -171,7 +165,10 @@ export function startModeration (params: {
       latencyMs,
       ...(opts?.failOpen ? { failOpen: opts.failOpen } : {})
     }
-    if (!selfTest && verdict?.action === 'block') registerBlockStrike(owner, eventBase.userId).catch(() => {})
+    // Strikes accrue for untrusted callers only — they drive the cooldown
+    // lockout, which must never apply to trusted (org-member) callers even when
+    // their category is moderated. Their messages are still blocked one by one.
+    if (identity.isUntrusted && verdict?.action === 'block') registerBlockStrike(owner, eventBase.userId).catch(() => {})
   }
 
   const key = cacheKey(owner, message)

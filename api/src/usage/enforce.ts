@@ -17,7 +17,7 @@ import type { Settings } from '#types'
 import { assertCanUseModel, assertRoleQuota, getEffectiveRole, type EffectiveRole } from '../auth.ts'
 import { assertAnonymousActionToken } from '../anonymous-token/service.ts'
 import { getUsage, getOwnerUsage } from './service.ts'
-import { firstQuotaViolation, isUntrustedRole, isSelfTestModeration, type QuotaCheckInput, type QuotaExceeded } from './operations.ts'
+import { firstQuotaViolation, isUntrustedRole, type QuotaCheckInput, type QuotaExceeded } from './operations.ts'
 
 type Quotas = NonNullable<Settings['quotas']>
 
@@ -30,9 +30,6 @@ export interface UsageIdentity {
   usageUserName?: string
   role: EffectiveRole
   isUntrusted: boolean
-  // admin opt-in: run the moderation gate for this request only (no strikes,
-  // no untrusted pool) — see isSelfTestModeration
-  selfTestModeration?: boolean
   // sentinel userId of the shared pool this request contributes to, if any
   poolId?: string
 }
@@ -57,14 +54,12 @@ export async function resolveUsageIdentity (req: Request, owner: AccountKeys, qu
   assertCanUseModel(session, owner, quotas)
   const role = getEffectiveRole(session, owner)
   const isUntrusted = isUntrustedRole(role)
-  const selfTestModeration = isSelfTestModeration(role, req.get('x-moderation-self-test'))
   return {
     trackPerUser,
     usageUserId: trackPerUser ? session.user.id : undefined,
     usageUserName: trackPerUser ? session.user.name : undefined,
     role,
     isUntrusted,
-    selfTestModeration,
     poolId: isUntrusted ? UNTRUSTED_POOL_ID : undefined
   }
 }

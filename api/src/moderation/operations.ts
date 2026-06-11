@@ -2,6 +2,7 @@
  * operations.ts contains pure stateless functions
  * should not reference #mongo, #config, store state in memory or import anything else than other operations.ts
  */
+import type { Settings } from '#types'
 import { z } from 'zod'
 
 // Prefixed to the moderation system prompt so moderation requests are
@@ -77,4 +78,14 @@ export interface StrikeState {
 
 export function isInCooldown (strike: StrikeState | null | undefined, now: Date): boolean {
   return !!strike?.cooldownUntil && strike.cooldownUntil.getTime() > now.getTime()
+}
+
+/**
+ * Whether the input-moderation gate applies to a request, given the account
+ * settings and the caller's effective role. Pure: drives the gateway and the
+ * summary endpoint identically. Off unless the org enabled moderation AND the
+ * caller's role is in the configured category list.
+ */
+export function moderationApplies (settings: Settings, role: string): boolean {
+  return !!settings.moderation?.enabled && ((settings.moderation.categories ?? []) as string[]).includes(role)
 }

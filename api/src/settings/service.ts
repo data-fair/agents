@@ -20,6 +20,11 @@ export const defaultQuotas: NonNullable<Settings['quotas']> = {
   untrusted: { unlimited: false, monthlyLimit: 0 }
 }
 
+export const defaultModeration: NonNullable<Settings['moderation']> = {
+  enabled: false,
+  categories: ['anonymous', 'external']
+}
+
 export const getRawSettings = async (owner: AccountKeys): Promise<Settings | null> => {
   const settings = await mongo.settings.findOne({ 'owner.type': owner.type, 'owner.id': owner.id }, { projection: { _id: 0 } })
   if (!settings) return null

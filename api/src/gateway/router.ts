@@ -9,7 +9,7 @@ import { resolveUsageIdentity, enforceQuotas } from '../usage/enforce.ts'
 import { convertOpenAITools, convertOpenAIMessages, convertToolChoice, mapFinishReason } from './operations.ts'
 import type { OpenAIMessage, OpenAIToolDefinition, OpenAIToolChoice, FinishReason } from './operations.ts'
 import { recordTraceRequest } from '../traces/service.ts'
-import { extractLastUserMessage } from '../moderation/operations.ts'
+import { extractLastUserMessage, moderationApplies } from '../moderation/operations.ts'
 import { startModeration, isStrikeCooldownActive, recordStrikeRefusal, type ModerationRun } from '../moderation/service.ts'
 import crypto from 'node:crypto'
 
@@ -135,6 +135,9 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
       }
     }
 
+    // Strikes & the cooldown are an anti-abuse measure for untrusted callers
+    // only. Moderated trusted members get individual messages blocked by the
+    // gate below, but are never locked out.
     if (identity.isUntrusted && identity.usageUserId && await isStrikeCooldownActive(owner, identity.usageUserId)) {
       recordStrikeRefusal(owner, identity, modelId)
       respondBlocked()
@@ -159,12 +162,13 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
     const { modelConfig, inputPricePerMillion, outputPricePerMillion } = getModelConfig(settings, modelId)
     const model = resolveModelForRole(settings, modelId)
 
-    // Gateway-side input moderation: untrusted callers only, racing the model call.
+    // Gateway-side input moderation: applies to the configured user categories
+    // when the org enabled it, racing the model call.
     let moderation: ModerationRun | null = null
-    if (identity.isUntrusted || identity.selfTestModeration) {
+    if (moderationApplies(settings, identity.role)) {
       const lastUserMessage = extractLastUserMessage(messages)
       if (lastUserMessage) {
-        moderation = startModeration({ settings, owner, identity, message: lastUserMessage, modelRole: modelId, selfTest: identity.selfTestModeration })
+        moderation = startModeration({ settings, owner, identity, message: lastUserMessage, modelRole: modelId })
       }
     }
     const upstreamAbort = new AbortController()

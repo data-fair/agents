@@ -14,8 +14,8 @@ export const getAnonymousActionToken = async (): Promise<string> => {
   return typeof res.data === 'string' ? res.data : String(res.data)
 }
 
-export const axiosAuth = (user: string, opts?: { adminMode?: boolean }) => {
-  return _axiosAuth({ email: user + '@test.com', password: 'passwd', adminMode: opts?.adminMode, axiosOpts, directoryUrl })
+export const axiosAuth = (user: string, opts?: { adminMode?: boolean, org?: string }) => {
+  return _axiosAuth({ email: user + '@test.com', password: 'passwd', adminMode: opts?.adminMode, org: opts?.org, axiosOpts, directoryUrl })
 }
 
 export const superAdmin = axiosAuth('superadmin', { adminMode: true })

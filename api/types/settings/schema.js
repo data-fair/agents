@@ -853,6 +853,50 @@ Recommendations: a small/fast general-purpose model with structured (JSON) outpu
         }
       }
     },
+    moderation: {
+      type: 'object',
+      title: 'Input moderation',
+      'x-i18n-title': { en: 'Input moderation', fr: 'Modération des entrées' },
+      layout: { if: 'parent.data.providers?.length' },
+      default: { enabled: false, categories: ['anonymous', 'external'] },
+      required: ['enabled', 'categories'],
+      additionalProperties: false,
+      properties: {
+        enabled: {
+          type: 'boolean',
+          title: 'Enable input moderation',
+          'x-i18n-title': { en: 'Enable input moderation', fr: 'Activer la modération des entrées' },
+          description: 'When enabled, the last user message of each request from a moderated category is classified before the model responds.',
+          'x-i18n-description': {
+            en: 'When enabled, the last user message of each request from a moderated category is classified before the model responds.',
+            fr: 'Si activé, le dernier message utilisateur de chaque requête provenant d\'une catégorie modérée est classé avant la réponse du modèle.'
+          },
+          default: false
+        },
+        categories: {
+          type: 'array',
+          uniqueItems: true,
+          default: ['anonymous', 'external'],
+          title: 'Moderated user categories',
+          'x-i18n-title': { en: 'Moderated user categories', fr: 'Catégories d\'utilisateurs modérées' },
+          description: 'User categories whose requests are checked by the gate when moderation is enabled.',
+          'x-i18n-description': {
+            en: 'User categories whose requests are checked by the gate when moderation is enabled.',
+            fr: 'Catégories d\'utilisateurs dont les requêtes sont vérifiées par le filtre lorsque la modération est activée.'
+          },
+          items: {
+            type: 'string',
+            oneOf: [
+              { const: 'anonymous', title: 'Anonymous', 'x-i18n-title': { en: 'Anonymous', fr: 'Anonyme' } },
+              { const: 'external', title: 'External', 'x-i18n-title': { en: 'External', fr: 'Externe' } },
+              { const: 'user', title: 'User', 'x-i18n-title': { en: 'User', fr: 'Utilisateur' } },
+              { const: 'contrib', title: 'Contributor', 'x-i18n-title': { en: 'Contributor', fr: 'Contributeur' } },
+              { const: 'admin', title: 'Admin', 'x-i18n-title': { en: 'Admin', fr: 'Administrateur' } }
+            ]
+          }
+        }
+      }
+    },
     quotas: {
       type: 'object',
       title: 'Role Quotas',

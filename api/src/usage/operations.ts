@@ -104,13 +104,3 @@ export function firstQuotaViolation (checks: (QuotaCheckInput | null | undefined
 export function isUntrustedRole (role: string): boolean {
   return role === 'anonymous' || role === 'external'
 }
-
-/**
- * Admin moderation self-test: a same-account admin can opt their own requests
- * into the moderation gate (and only the gate — no strikes, no untrusted pool,
- * no recorded events) to preview the external-user experience. Triggered
- * per-request by an opt-in header set from the admin's browser.
- */
-export function isSelfTestModeration (role: string, selfTestHeader: string | undefined): boolean {
-  return role === 'admin' && selfTestHeader === 'yes'
-}

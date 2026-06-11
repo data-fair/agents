@@ -11,13 +11,13 @@ import eventsLog from '@data-fair/lib-express/events-log.js'
 import * as putReqBody from '#doc/settings/put-req/index.ts'
 import { type Settings } from '#types'
 import { encryptProviderApiKeys, obfuscateProviderApiKeys } from './operations.ts'
-import { defaultQuotas } from './service.ts'
+import { defaultQuotas, defaultModeration } from './service.ts'
 import { securityKey } from '../cipher/service.ts'
 
 const router = Router()
 export default router
 
-const emptySettings = (owner: AccountKeys): Settings => ({ owner, providers: [], quotas: defaultQuotas, storeTraces: false })
+const emptySettings = (owner: AccountKeys): Settings => ({ owner, providers: [], quotas: defaultQuotas, storeTraces: false, moderation: defaultModeration })
 
 router.get('/:type/:id', async (req, res, next) => {
   const session = reqSessionAuthenticated(req)
@@ -47,7 +47,8 @@ router.put('/:type/:id', async (req, res, next) => {
     owner,
     providers: encryptProviderApiKeys(body.providers || [], existing?.providers || [], securityKey),
     quotas: body.quotas ?? defaultQuotas,
-    storeTraces: body.storeTraces ?? false
+    storeTraces: body.storeTraces ?? false,
+    moderation: body.moderation ?? defaultModeration
   }
   // Persist models exactly as the form represents them: the model-role sections
   // are hidden until a provider exists, so an empty config legitimately has no

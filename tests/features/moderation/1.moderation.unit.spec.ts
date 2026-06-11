@@ -2,7 +2,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import {
   buildModerationSystemPrompt, extractLastUserMessage, truncateForModeration,
-  truncateExcerpt, isInCooldown,
+  truncateExcerpt, isInCooldown, moderationApplies,
   MODERATION_TASK_MARKER,
   INPUT_HEAD_CHARS, INPUT_TAIL_CHARS, EXCERPT_MAX_CHARS
 } from '../../../api/src/moderation/operations.ts'
@@ -73,5 +73,28 @@ test.describe('strikes', () => {
     assert.equal(isInCooldown(null, now), false)
     assert.equal(isInCooldown({ count: 5, windowStartedAt: now, cooldownUntil: new Date(now.getTime() + 1000) }, now), true)
     assert.equal(isInCooldown({ count: 5, windowStartedAt: now, cooldownUntil: new Date(now.getTime() - 1000) }, now), false)
+  })
+})
+
+test.describe('moderationApplies', () => {
+  const base = { providers: [], owner: { type: 'user', id: 'x' } } as any
+
+  test('false when moderation is absent or disabled', () => {
+    assert.equal(moderationApplies({ ...base }, 'anonymous'), false)
+    assert.equal(moderationApplies({ ...base, moderation: { enabled: false, categories: ['anonymous'] } }, 'anonymous'), false)
+  })
+
+  test('true only for roles listed in categories when enabled', () => {
+    const settings = { ...base, moderation: { enabled: true, categories: ['anonymous', 'external'] } }
+    assert.equal(moderationApplies(settings, 'anonymous'), true)
+    assert.equal(moderationApplies(settings, 'external'), true)
+    assert.equal(moderationApplies(settings, 'user'), false)
+    assert.equal(moderationApplies(settings, 'admin'), false)
+  })
+
+  test('honours a custom category set', () => {
+    const settings = { ...base, moderation: { enabled: true, categories: ['user', 'admin'] } }
+    assert.equal(moderationApplies(settings, 'user'), true)
+    assert.equal(moderationApplies(settings, 'anonymous'), false)
   })
 })

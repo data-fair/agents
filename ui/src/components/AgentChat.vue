@@ -56,9 +56,7 @@
       :account-type="accountType"
       :account-id="accountId"
       :tool-exploration="explorationEnabled"
-      :moderation-self-test="moderationSelfTestEnabled"
       @update:tool-exploration="handleToolExploration"
-      @update:moderation-self-test="handleModerationSelfTest"
     />
 
     <trace-consent-sheet />
@@ -148,10 +146,6 @@ const finalSystemPrompt = computed(() => {
 // Experimental tool-exploration mode: admin-only opt-in, persisted in localStorage
 // and toggled from the debug dialog's Settings tab.
 const explorationEnabled = ref(!!props.isAdmin && localStorage.getItem('agent-chat-explore') === '1')
-
-// Admin moderation self-test: browser-local opt-in to preview the external-user
-// moderation experience, toggled from the debug dialog's Settings tab.
-const moderationSelfTestEnabled = ref(!!props.isAdmin && localStorage.getItem('agent-chat-moderation-self-test') === '1')
 
 const chatResult = useAgentChat({
   accountType: props.accountType,
@@ -270,13 +264,6 @@ function handleToolExploration (enabled: boolean) {
   chat.setToolExploration(enabled)
   // Reset the conversation so the new tool set applies from a clean state.
   handleReset()
-}
-
-function handleModerationSelfTest (enabled: boolean) {
-  moderationSelfTestEnabled.value = enabled
-  if (enabled) localStorage.setItem('agent-chat-moderation-self-test', '1')
-  else localStorage.removeItem('agent-chat-moderation-self-test')
-  // No conversation reset: the header only affects subsequent messages.
 }
 
 function handleReset () {

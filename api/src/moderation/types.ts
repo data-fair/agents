@@ -1,3 +1,5 @@
+import type { EffectiveRole } from '../auth.ts'
+
 export type ModerationEventAction = 'allow' | 'block' | 'late-block' | 'fail-open-timeout' | 'fail-open-error' | 'strike-refusal'
 
 export interface ModerationEvent {
@@ -7,7 +9,7 @@ export interface ModerationEvent {
   reason?: string
   latencyMs?: number
   cached?: boolean
-  role: 'anonymous' | 'external'
+  role: EffectiveRole
   userId: string
   modelRole: string
   // present only on block / late-block: the review payload
