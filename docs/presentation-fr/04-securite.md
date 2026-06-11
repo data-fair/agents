@@ -31,9 +31,9 @@ Les clés des fournisseurs sont chiffrées au repos (AES-256) et ne sont jamais 
 
 ### Modération des entrées
 
-La modération protège la plateforme contre les abus du **trafic non fiable** (visiteurs anonymes et utilisateurs externes) : grossièretés, tentatives d'injection de prompt, usurpation de l'identité de l'assistant, tâches lourdes sans rapport avec la plateforme. Les membres authentifiés du compte n'y sont pas soumis : pour eux, aucun surcoût ni délai. Le contrôle est appliqué par la passerelle elle-même, et non par l'interface de chat : un appel direct du trafic non fiable y est soumis au même titre qu'un message saisi dans le chat.
+La modération protège la plateforme contre les abus du **trafic non fiable** (visiteurs anonymes et utilisateurs externes) : grossièretés, tentatives d'injection de prompt, usurpation de l'identité de l'assistant, tâches lourdes sans rapport avec la plateforme. Les membres authentifiés du compte n'y sont pas soumis — aucun surcoût ni délai pour eux. Le contrôle est appliqué par la passerelle elle-même, et non par l'interface de chat : un appel direct y est soumis au même titre qu'un message saisi dans le chat.
 
-Pour ne pas dégrader la latence, la passerelle lance la classification et la requête principale en parallèle, et retient simplement la diffusion de la réponse tant que le verdict n'est pas rendu, quelques secondes au plus. Un verdict défavorable interrompt la requête et renvoie un refus. Un verdict trop tardif laisse passer la réponse, la disponibilité étant prioritaire, quitte à la couper en cours de diffusion si le blocage arrive ensuite. Après cinq blocages en vingt-quatre heures, l'appelant est mis à l'écart pendant une heure : ses messages sont refusés d'emblée, sans solliciter aucun modèle.
+Pour préserver la latence, la passerelle lance la classification et la requête principale en parallèle et retient la diffusion de la réponse jusqu'au verdict, quelques secondes au plus. Un verdict défavorable interrompt la requête et renvoie un refus ; un verdict trop tardif laisse passer la réponse, la disponibilité étant prioritaire. Après cinq blocages en vingt-quatre heures, l'appelant est écarté une heure, ses messages refusés sans solliciter aucun modèle. Chaque décision est consignée trente jours, et un tableau de bord administrateur expose le volume de contrôles, la part de verdicts tardifs (avec alerte au-delà d'un seuil) et un test en direct du filtre.
 
 ```mermaid
 sequenceDiagram
@@ -58,11 +58,7 @@ sequenceDiagram
     end
 ```
 
-Le dispositif s'observe : chaque décision est consignée pendant trente jours, et un tableau de bord réservé aux administrateurs expose le volume de contrôles, la part de verdicts arrivés trop tard (avec une alerte au-delà d'un seuil), les derniers blocages, ainsi qu'un test en direct pour soumettre des messages d'essai au filtre.
-
-Ses limites doivent être comprises avant tout déploiement. La modération privilégie la disponibilité : en cas d'erreur ou de délai dépassé, le message passe. Son périmètre se limite au message entrant : ni les sorties du modèle, ni les résultats d'outils, ni le contenu des jeux de données, ni les attaques étalées sur plusieurs tours ne sont couverts. Enfin, si un verdict tardif laisse s'exécuter un appel d'outil, ses effets restent bornés par le périmètre des outils décrit ci-dessous : au pire une lecture ou une préparation d'action, jamais une écriture validée.
-
-Le maintien des réponses dans le thème attendu — l'énergie, sur un portail qui n'expose que des jeux de données de ce domaine — ne repose donc pas sur un filtrage des sorties, mais sur la restriction **en amont** du périmètre accessible : jeux de données focalisés et outils ciblés sur le contenu du portail bornent ce que l'assistant peut interroger, et la modération écarte en entrée les requêtes manifestement hors sujet. La combinaison de ces deux mécanismes confine l'échange à la thématique du portail, sans nécessiter d'analyse des réponses générées.
+La modération privilégie donc la disponibilité — en cas de doute, le message passe — et ne porte que sur le message entrant ; ses angles morts (sorties du modèle, injection indirecte, attaques multi-tours) sont traités plus bas, à la lumière du périmètre d'outils qui en borne l'impact. Le maintien des réponses dans le thème attendu ne repose d'ailleurs pas sur un filtrage des sorties, mais sur la restriction **en amont** du périmètre accessible : jeux de données focalisés et outils ciblés bornent ce que l'assistant peut interroger, la modération écartant en entrée les requêtes manifestement hors sujet.
 
 ### Périmètre et exécution des outils
 

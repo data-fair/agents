@@ -10,12 +10,16 @@ theme: koumoul
 
 @./01-introduction.md
 
+---
+
 @./02-architecture.md
 
-@./03-protocoles.md
+---
 
-@./04-integration.md
+@./03-integration.md
 
-@./05-securite.md
+---
 
-@./06-conclusion.md
+@./04-securite.md
+
+@./05-conclusion.md
