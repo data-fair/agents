@@ -10,19 +10,6 @@ export declare function returnValid(data: any, options?: import('@data-fair/lib-
  * When enabled, conversations of consenting users are stored on the server for 30 days for admin review. Each user must explicitly accept.
  */
 export type StoreConversationTraces = boolean;
-/**
- * When enabled, the last user message of each request from a moderated category is classified before the model responds.
- */
-export type EnableInputModeration = boolean;
-export type Anonymous = "anonymous";
-export type External = "external";
-export type User = "user";
-export type Contributor = "contrib";
-export type Admin = "admin";
-/**
- * User categories whose requests are checked by the gate when moderation is enabled.
- */
-export type ModeratedUserCategories = ((Anonymous | External | User | Contributor | Admin) & string)[];
 export type Provider = OpenAI | Anthropic | Google | Mistral | OpenRouter | Ollama | Scaleway | OpenAICompatible | Mock;
 export type ProviderType = "openai";
 export type ProviderID = string;
@@ -86,6 +73,19 @@ export type InputPricePer1MTokens3 = number;
 export type OutputPricePer1MTokens3 = number;
 export type InputPricePer1MTokens4 = number;
 export type OutputPricePer1MTokens4 = number;
+/**
+ * When enabled, the last user message of each request from a moderated category is classified before the model responds.
+ */
+export type EnableInputModeration = boolean;
+export type Anonymous = "anonymous";
+export type External = "external";
+export type User = "user";
+export type Contributor = "contrib";
+export type Admin = "admin";
+/**
+ * User categories whose requests are checked by the gate when moderation is enabled.
+ */
+export type ModeratedUserCategories = ((Anonymous | External | User | Contributor | Admin) & string)[];
 export type Unlimited = boolean;
 /**
  * Weekly limit = monthly / 2, daily limit = monthly / 4
@@ -96,7 +96,6 @@ export type SettingsPut = {
   createdAt?: string;
   updatedAt?: string;
   storeTraces?: StoreConversationTraces;
-  moderation?: InputModeration;
   owner?: {
     type: "user" | "organization";
     id: string;
@@ -105,11 +104,8 @@ export type SettingsPut = {
   };
   providers: AIProviders;
   models?: Models;
+  moderation?: InputModeration;
   quotas?: RoleQuotas;
-}
-export type InputModeration = {
-  enabled: EnableInputModeration;
-  categories: ModeratedUserCategories;
 }
 export type OpenAI = {
   type: ProviderType;
@@ -312,6 +308,10 @@ export type Model4 = {
     [k: string]: unknown;
   };
   [k: string]: unknown;
+}
+export type InputModeration = {
+  enabled: EnableInputModeration;
+  categories: ModeratedUserCategories;
 }
 export type RoleQuotas = {
   global: GlobalQuotas;
