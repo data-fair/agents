@@ -21,17 +21,6 @@
     </v-row>
 
     <v-row>
-      <v-col cols="12">
-        <v-text-field
-          v-model="prompt"
-          :label="t('promptLabel')"
-          :placeholder="t('promptPlaceholder')"
-          variant="outlined"
-        />
-      </v-col>
-    </v-row>
-
-    <v-row>
       <v-col cols="auto">
         <v-btn
           color="primary"
@@ -76,16 +65,12 @@ fr:
   title: Summary Dev
   contentLabel: Contenu à résumer
   contentPlaceholder: Entrez le texte à résumer...
-  promptLabel: Prompt optionnel
-  promptPlaceholder: "Par défaut: Summarize the following content concisely:"
   summarize: Résumer
   result: Résumé
 en:
   title: Summary Dev
   contentLabel: Content to summarize
   contentPlaceholder: Enter text to summarize...
-  promptLabel: Optional prompt
-  promptPlaceholder: "Default: Summarize the following content concisely:"
   summarize: Summarize
   result: Summary
 </i18n>
@@ -100,7 +85,6 @@ const { t } = useI18n()
 const session = useSessionAuthenticated()
 
 const content = ref('')
-const prompt = ref('')
 const loading = ref(false)
 const error = ref('')
 const result = ref('')
@@ -113,16 +97,11 @@ const summarize = async () => {
   result.value = ''
 
   try {
-    const body: { content: string; prompt?: string } = { content: content.value }
-    if (prompt.value.trim()) {
-      body.prompt = prompt.value
-    }
-
     const res = await fetch(`${$apiPath}/summary/${session.account.value.type}/${session.account.value.id}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify(body)
+      body: JSON.stringify({ content: content.value })
     })
 
     if (!res.ok) {
