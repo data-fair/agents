@@ -93,8 +93,13 @@
           {{ row.messageExcerpt || '—' }}
         </v-list-item-title>
         <v-list-item-subtitle class="text-caption">
-          {{ row.category || '—' }} · {{ row.reason || '—' }} · {{ row.role }} · {{ formatDate(row.createdAt) }}
+          {{ row.category || '—' }} · {{ row.reason || '—' }} · {{ row.role }}
         </v-list-item-subtitle>
+        <template #append>
+          <span class="text-caption text-medium-emphasis text-no-wrap ml-2">
+            {{ formatDate(row.createdAt) }}
+          </span>
+        </template>
       </v-list-item>
     </v-list>
   </div>

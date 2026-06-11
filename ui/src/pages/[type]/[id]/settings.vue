@@ -49,6 +49,26 @@
       />
     </div>
 
+    <div id="section-moderation">
+      <h3 class="text-title-large mt-6 mb-4">
+        {{ t('moderation') }}
+      </h3>
+      <moderation-section
+        :account-type="accountType"
+        :account-id="accountId"
+      />
+    </div>
+
+    <div id="section-traces">
+      <h3 class="text-title-large mt-6 mb-4">
+        {{ t('traces') }}
+      </h3>
+      <traces-section
+        :account-type="accountType"
+        :account-id="accountId"
+      />
+    </div>
+
     <df-navigation-right>
       <v-list-item v-if="settingsEditFetch.hasDiff.value">
         <v-btn
@@ -74,6 +94,8 @@ fr:
   configuration: Configuration
   globalUsage: Consommation globale
   individualUsage: Consommation individuelle
+  moderation: Modération
+  traces: Conversations enregistrées
 en:
   settings: Settings
   save: Save
@@ -81,6 +103,8 @@ en:
   configuration: Configuration
   globalUsage: Global usage
   individualUsage: Individual usage
+  moderation: Moderation
+  traces: Stored conversations
 </i18n>
 
 <script lang="ts" setup>
@@ -96,6 +120,8 @@ import type { VjsfOptions } from '@koumoul/vjsf/types.js'
 import UsageCard from '~/components/UsageCard.vue'
 import MonitoringGlobalSection from '~/components/MonitoringGlobalSection.vue'
 import MonitoringIndividualSection from '~/components/MonitoringIndividualSection.vue'
+import ModerationSection from '~/components/ModerationSection.vue'
+import TracesSection from '~/components/TracesSection.vue'
 
 const { t, locale } = useI18n()
 const route = useRoute()
@@ -128,6 +154,8 @@ const vjsfOptions = computed<Partial<VjsfOptions>>(() => ({
 const sections = computed(() => [
   { id: 'section-configuration', title: t('configuration') },
   { id: 'section-global', title: t('globalUsage') },
-  { id: 'section-individual', title: t('individualUsage') }
+  { id: 'section-individual', title: t('individualUsage') },
+  { id: 'section-moderation', title: t('moderation') },
+  { id: 'section-traces', title: t('traces') }
 ])
 </script>
