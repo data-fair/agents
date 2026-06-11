@@ -18,7 +18,8 @@ const settingsData = {
       model: { id: 'mock-moderator', name: 'Mock Moderator', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } }
     }
   },
-  quotas: { ...defaultQuotas, external: { unlimited: false, monthlyLimit: 1000 } }
+  quotas: { ...defaultQuotas, external: { unlimited: false, monthlyLimit: 1000 } },
+  moderation: { enabled: true, categories: ['anonymous', 'external'] }
 }
 
 test.describe('Moderation E2E (gateway-enforced, untrusted only)', () => {
