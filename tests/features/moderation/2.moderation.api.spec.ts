@@ -286,6 +286,16 @@ test.describe('Moderation admin API', () => {
     assert.ok(res.data.results.every((r: any) => r.latencyMs >= 0))
   })
 
+  test('settings round-trip persists the moderation config', async () => {
+    await admin.put('/api/settings/user/test-standalone1', settingsData({
+      moderation: { enabled: true, categories: ['anonymous', 'external', 'user'] }
+    }))
+    const res = await admin.get('/api/settings/user/test-standalone1')
+    assert.equal(res.status, 200)
+    assert.equal(res.data.moderation.enabled, true)
+    assert.deepEqual(res.data.moderation.categories, ['anonymous', 'external', 'user'])
+  })
+
   test('non-admin callers get 403', async () => {
     for (const path of ['stats', 'events']) {
       const res = await externalUser.get(`/api/moderation/user/test-standalone1/${path}`)
