@@ -13,9 +13,14 @@ const router = Router()
 export default router
 
 interface SummaryRequest {
-  prompt?: string
   content: string
 }
+
+// The summarizer system prompt is always pinned server-side. The endpoint is
+// publicly mounted and accepts arbitrary content; a caller-supplied system
+// prompt would be a fully unmoderated injection vector. Callers that need
+// specific instructions (e.g. the trace evaluator) frame them into `content`.
+const SUMMARY_SYSTEM_PROMPT = 'Summarize the following content concisely:'
 
 function getSummaryPricing (settings: Settings) {
   const source = settings.models?.summarizer?.model ? settings.models.summarizer : settings.models?.assistant
@@ -68,8 +73,7 @@ router.post('/:type/:id', async (req, res, next) => {
     }
 
     // Moderation posture for untrusted callers: a strike cooldown blocks summary
-    // calls too, and the system prompt is pinned server-side (a caller-supplied
-    // prompt would be an unmoderated jailbreak vector).
+    // calls too (the content is still unmoderated here).
     if (identity.isUntrusted && identity.usageUserId && await isStrikeCooldownActive(owner, identity.usageUserId)) {
       recordStrikeRefusal(owner, identity, 'summarizer')
       res.status(403).json({ error: 'Temporarily blocked by moderation' })
@@ -78,11 +82,10 @@ router.post('/:type/:id', async (req, res, next) => {
 
     const model = await getSummaryModel(settings)
     const { inputPricePerMillion, outputPricePerMillion } = getSummaryPricing(settings)
-    const system = (!identity.isUntrusted && body.prompt) || 'Summarize the following content concisely:'
 
     const { text, usage } = await generateText({
       model,
-      system,
+      system: SUMMARY_SYSTEM_PROMPT,
       messages: [{ role: 'user' as const, content: body.content }]
     })
 

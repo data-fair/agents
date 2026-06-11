@@ -33,7 +33,7 @@ test.describe('Summary API', () => {
     assert.ok(typeof res.data.summary === 'string')
   })
 
-  test('should summarize content with custom prompt', async () => {
+  test('should ignore a caller-supplied prompt (system prompt is pinned)', async () => {
     await admin.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
       models: { assistant: { model: mockModel } },
