@@ -184,9 +184,9 @@ test.describe('Gateway moderation (untrusted callers)', () => {
     await waitForEvents(evts => evts.some(e => e.action === 'strike-refusal'), 'strike-refusal')
   })
 
-  test('summary endpoint pins the prompt for untrusted callers and honors strike cooldowns', async () => {
+  test('summary endpoint pins the prompt and honors strike cooldowns', async () => {
     const summaryUrl = `${apiBase}/api/summary/user/test-standalone1`
-    // trusted caller: custom prompt honored (mock assistant echoes per its rules — just assert 200)
+    // system prompt is always pinned; a caller-supplied prompt is ignored, not honored
     const trusted = await owner.post(summaryUrl, { prompt: 'Custom prompt', content: 'hello' })
     assert.equal(trusted.status, 200)
     // untrusted caller with 5 strikes is refused on summary too

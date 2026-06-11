@@ -32,23 +32,6 @@ test.describe('Summary UI', () => {
     await expect(page.getByRole('heading', { name: 'Summary', level: 2 })).toBeVisible()
   })
 
-  test('Can use custom prompt', async ({ page, goToWithAuth }) => {
-    const admin = await superAdmin
-    await admin.put('/api/settings/user/test-standalone1', {
-      providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
-      models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' } } } },
-      quotas: defaultQuotas
-    })
-
-    await goToWithAuth('/agents/_dev/summary', 'test-standalone1')
-
-    await page.getByLabel('Content to summarize').fill('Some content to summarize.')
-    await page.getByLabel('Optional prompt').fill('Create a short version:')
-    await page.getByRole('button', { name: 'Summarize' }).click()
-
-    await expect(page.getByRole('heading', { name: 'Summary', level: 2 })).toBeVisible()
-  })
-
   test('Shows error when assistant model not configured', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/_dev/summary', 'test-standalone1')
 

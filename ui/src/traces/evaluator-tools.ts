@@ -96,13 +96,16 @@ export function buildEvaluatorTools (
         if (entry.type !== 'physical-request') {
           return `Entry ${args.index} is not a physical-request entry (it is ${entry.type}). Use getTraceEntry instead.`
         }
+        // The summary endpoint pins its own system prompt, so we frame the
+        // analysis instructions into the content itself.
+        const content = `${PHYSICAL_REQUEST_SUMMARY_PROMPT}\n\nPayload to analyze:\n${JSON.stringify(entry.content.requestBody)}`
         const res = await fetch(
           `${window.location.origin}${opts.apiPath}/summary/${opts.accountType}/${opts.accountId}`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify({ prompt: PHYSICAL_REQUEST_SUMMARY_PROMPT, content: JSON.stringify(entry.content.requestBody) })
+            body: JSON.stringify({ content })
           }
         )
         if (!res.ok) return `Summary failed (HTTP ${res.status})`
