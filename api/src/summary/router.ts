@@ -7,7 +7,6 @@ import { recordUsage } from '../usage/service.ts'
 import { computeCost } from '../usage/operations.ts'
 import { resolveUsageIdentity, enforceQuotas } from '../usage/enforce.ts'
 import { isStrikeCooldownActive, recordStrikeRefusal } from '../moderation/service.ts'
-import { moderationApplies } from '../moderation/operations.ts'
 import type { Settings } from '#types'
 
 const router = Router()
@@ -71,7 +70,7 @@ router.post('/:type/:id', async (req, res, next) => {
     // Moderation posture for untrusted callers: a strike cooldown blocks summary
     // calls too, and the system prompt is pinned server-side (a caller-supplied
     // prompt would be an unmoderated jailbreak vector).
-    if (moderationApplies(settings, identity.role) && identity.usageUserId && await isStrikeCooldownActive(owner, identity.usageUserId)) {
+    if (identity.isUntrusted && identity.usageUserId && await isStrikeCooldownActive(owner, identity.usageUserId)) {
       recordStrikeRefusal(owner, identity, 'summarizer')
       res.status(403).json({ error: 'Temporarily blocked by moderation' })
       return

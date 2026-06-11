@@ -41,9 +41,9 @@ const chatBody = (message: string, extra: any = {}) => ({
 })
 
 // events are written fire-and-forget — poll briefly
-const waitForEvents = async (predicate: (events: any[]) => boolean, action?: string): Promise<any[]> => {
+const waitForEvents = async (predicate: (events: any[]) => boolean, action?: string, ownerPath = 'user/test-standalone1'): Promise<any[]> => {
   for (let i = 0; i < 40; i++) {
-    const res = await admin.get(`/api/moderation/user/test-standalone1/events${action ? `?action=${action}` : ''}`)
+    const res = await admin.get(`/api/moderation/${ownerPath}/events${action ? `?action=${action}` : ''}`)
       .catch((err: any) => err.response ?? err)
     if (res.status === 200 && predicate(res.data.results)) return res.data.results
     await new Promise(resolve => setTimeout(resolve, 100))
@@ -145,6 +145,27 @@ test.describe('Gateway moderation', () => {
       .catch((err: any) => err.response ?? err)
     assert.equal(res.status, 200)
     assert.equal(res.data.choices[0].finish_reason, 'content_filter')
+  })
+
+  test('a moderated trusted member is blocked per-message but never strike-cooldowned', async () => {
+    // test1-contrib1 is a 'contrib' member of org test1 (a trusted role with a
+    // usageUserId). Strikes/cooldown must stay an untrusted-only measure: each
+    // abusive message is blocked by the gate, but the member is never locked out.
+    const orgGatewayUrl = `${apiBase}/api/gateway/organization/test1/v1/chat/completions`
+    const member = await axiosAuth('test1-contrib1', { org: 'test1' })
+    await admin.put('/api/settings/organization/test1', settingsData({
+      moderation: { enabled: true, categories: ['contrib'] },
+      quotas: { ...defaultQuotas, contrib: { unlimited: true, monthlyLimit: 0 } }
+    }))
+    for (let i = 0; i < 6; i++) {
+      const res = await member.post(orgGatewayUrl, chatBody(`jailbreak member ${i}`))
+        .catch((err: any) => err.response ?? err)
+      assert.equal(res.status, 200)
+      assert.equal(res.data.choices[0].finish_reason, 'content_filter')
+    }
+    // every block came from the gate — the member is never strike-refused
+    const events = await waitForEvents(evts => evts.filter(e => e.action === 'block').length >= 6, undefined, 'organization/test1')
+    assert.equal(events.filter(e => e.action === 'strike-refusal').length, 0)
   })
 
   test('slow moderator fails open, a late block verdict is recorded as late-block', async () => {

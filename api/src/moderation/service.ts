@@ -165,7 +165,10 @@ export function startModeration (params: {
       latencyMs,
       ...(opts?.failOpen ? { failOpen: opts.failOpen } : {})
     }
-    if (verdict?.action === 'block') registerBlockStrike(owner, eventBase.userId).catch(() => {})
+    // Strikes accrue for untrusted callers only — they drive the cooldown
+    // lockout, which must never apply to trusted (org-member) callers even when
+    // their category is moderated. Their messages are still blocked one by one.
+    if (identity.isUntrusted && verdict?.action === 'block') registerBlockStrike(owner, eventBase.userId).catch(() => {})
   }
 
   const key = cacheKey(owner, message)

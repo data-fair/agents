@@ -135,7 +135,10 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
       }
     }
 
-    if (moderationApplies(settings, identity.role) && identity.usageUserId && await isStrikeCooldownActive(owner, identity.usageUserId)) {
+    // Strikes & the cooldown are an anti-abuse measure for untrusted callers
+    // only. Moderated trusted members get individual messages blocked by the
+    // gate below, but are never locked out.
+    if (identity.isUntrusted && identity.usageUserId && await isStrikeCooldownActive(owner, identity.usageUserId)) {
       recordStrikeRefusal(owner, identity, modelId)
       respondBlocked()
       return
