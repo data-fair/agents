@@ -10,10 +10,10 @@ Le service présente quatre surfaces d'entrée : les messages utilisateur (vecte
 
 La passerelle détermine à chaque requête l'identité et les droits de l'appelant, sans état de session serveur. Le rôle effectif est l'un de : anonyme, propriétaire du compte, membre de l'organisation, ou utilisateur externe. Les appels anonymes ne sont pas rejetés d'office mais exigent un jeton d'action dédié, distinct d'un jeton de session et révocable indépendamment.
 
-Les quotas de jetons s'appliquent à deux niveaux : un plafond global au compte, et des limites par rôle (mensuelles, hebdomadaires, journalières) calculées par ratio. En complément, les appelants non fiables — anonymes et externes — partagent un pool de quota commun, qui empêche ce trafic, pris collectivement, d'épuiser la capacité du compte même lorsque chaque appelant reste sous sa propre limite.
+Les quotas de jetons s'appliquent à deux niveaux : un plafond global au compte, et des limites par rôle (mensuelles, hebdomadaires, journalières) calculées par ratio. En complément, les appelants non fiables (anonymes et externes) partagent un pool de quota commun, qui empêche ce trafic, pris collectivement, d'épuiser la capacité du compte même lorsque chaque appelant reste sous sa propre limite.
 
 ```mermaid
-flowchart TD
+flowchart LR
     R["Requête entrante"] --> Q1{"Plafond global\ndu compte ?"}
     Q1 -->|"dépassé"| Refus1["Refus"]
     Q1 -->|"ok"| Q2{"Appelant non fiable ?\n(anonyme ou externe)"}
@@ -27,13 +27,13 @@ flowchart TD
 
 ### Chiffrement des clés d'API
 
-Les clés des fournisseurs sont chiffrées au repos (AES-256) et ne sont jamais renvoyées en clair : l'API de configuration retourne une valeur masquée. Le navigateur n'est jamais exposé aux clés ni aux identifiants de modèles concrets — il ne transmet qu'un rôle fonctionnel, la passerelle résolvant le fournisseur côté serveur. La compromission du navigateur ou d'un script tiers ne donne donc pas accès aux clés.
+Les clés des fournisseurs sont chiffrées au repos (AES-256) et ne sont jamais renvoyées en clair : l'API de configuration retourne une valeur masquée. Le navigateur n'est jamais exposé aux clés ni aux identifiants de modèles concrets : il ne transmet qu'un rôle fonctionnel, la passerelle résolvant le fournisseur côté serveur. La compromission du navigateur ou d'un script tiers ne donne donc pas accès aux clés.
 
 ### Modération des entrées
 
-La modération protège la plateforme contre les abus du **trafic non fiable** — visiteurs anonymes et utilisateurs externes : grossièretés, tentatives d'injection de prompt, usurpation de l'identité de l'assistant, tâches lourdes sans rapport avec la plateforme. Les membres authentifiés du compte n'y sont pas soumis : pour eux, aucun surcoût ni délai. Le contrôle est appliqué par la passerelle elle-même, et non par l'interface de chat : un appel direct du trafic non fiable y est soumis au même titre qu'un message saisi dans le chat.
+La modération protège la plateforme contre les abus du **trafic non fiable** (visiteurs anonymes et utilisateurs externes) : grossièretés, tentatives d'injection de prompt, usurpation de l'identité de l'assistant, tâches lourdes sans rapport avec la plateforme. Les membres authentifiés du compte n'y sont pas soumis : pour eux, aucun surcoût ni délai. Le contrôle est appliqué par la passerelle elle-même, et non par l'interface de chat : un appel direct du trafic non fiable y est soumis au même titre qu'un message saisi dans le chat.
 
-Pour ne pas dégrader la latence, la passerelle lance la classification et la requête principale en parallèle, et retient simplement la diffusion de la réponse tant que le verdict n'est pas rendu — quelques secondes au plus. Un verdict défavorable interrompt la requête et renvoie un refus. Un verdict trop tardif laisse passer la réponse — priorité à la disponibilité — quitte à la couper en cours de diffusion si le blocage arrive ensuite. Après cinq blocages en vingt-quatre heures, l'appelant est mis à l'écart pendant une heure : ses messages sont refusés d'emblée, sans solliciter aucun modèle.
+Pour ne pas dégrader la latence, la passerelle lance la classification et la requête principale en parallèle, et retient simplement la diffusion de la réponse tant que le verdict n'est pas rendu, quelques secondes au plus. Un verdict défavorable interrompt la requête et renvoie un refus. Un verdict trop tardif laisse passer la réponse, la disponibilité étant prioritaire, quitte à la couper en cours de diffusion si le blocage arrive ensuite. Après cinq blocages en vingt-quatre heures, l'appelant est mis à l'écart pendant une heure : ses messages sont refusés d'emblée, sans solliciter aucun modèle.
 
 ```mermaid
 sequenceDiagram
@@ -60,22 +60,24 @@ sequenceDiagram
 
 Le dispositif s'observe : chaque décision est consignée pendant trente jours, et un tableau de bord réservé aux administrateurs expose le volume de contrôles, la part de verdicts arrivés trop tard (avec une alerte au-delà d'un seuil), les derniers blocages, ainsi qu'un test en direct pour soumettre des messages d'essai au filtre.
 
-Ses limites doivent être comprises avant tout déploiement. La modération privilégie la disponibilité : en cas d'erreur ou de délai dépassé, le message passe. Son périmètre se limite au message entrant : ni les sorties du modèle, ni les résultats d'outils, ni le contenu des jeux de données, ni les attaques étalées sur plusieurs tours ne sont couverts. Enfin, si un verdict tardif laisse s'exécuter un appel d'outil, ses effets restent bornés par le périmètre des outils décrit ci-dessous — au pire une lecture ou une préparation d'action, jamais une écriture validée.
+Ses limites doivent être comprises avant tout déploiement. La modération privilégie la disponibilité : en cas d'erreur ou de délai dépassé, le message passe. Son périmètre se limite au message entrant : ni les sorties du modèle, ni les résultats d'outils, ni le contenu des jeux de données, ni les attaques étalées sur plusieurs tours ne sont couverts. Enfin, si un verdict tardif laisse s'exécuter un appel d'outil, ses effets restent bornés par le périmètre des outils décrit ci-dessous : au pire une lecture ou une préparation d'action, jamais une écriture validée.
+
+Le maintien des réponses dans le thème attendu — l'énergie, sur un portail qui n'expose que des jeux de données de ce domaine — ne repose donc pas sur un filtrage des sorties, mais sur la restriction **en amont** du périmètre accessible : jeux de données focalisés et outils ciblés sur le contenu du portail bornent ce que l'assistant peut interroger, et la modération écarte en entrée les requêtes manifestement hors sujet. La combinaison de ces deux mécanismes confine l'échange à la thématique du portail, sans nécessiter d'analyse des réponses générées.
 
 ### Périmètre et exécution des outils
 
-C'est le contrôle le plus structurant de l'ensemble, car il borne l'impact de toutes les attaques évoquées ici. Les outils ne s'exécutent **jamais côté serveur** : ils tournent dans le navigateur, au sein de la session de l'utilisateur courant et avec exactement ses droits. Un outil ne peut donc accomplir aucune opération que l'utilisateur n'est pas déjà autorisé à effectuer — aucune injection de prompt ni aucun détournement ne permet une élévation de privilèges ou l'accès à des ressources interdites. Le mieux qu'une attaque réussie puisse obtenir, c'est l'usage du même périmètre d'outils, déjà accessible à l'utilisateur.
+C'est le contrôle le plus structurant de l'ensemble, car il borne l'impact de toutes les attaques évoquées ici. Les outils ne s'exécutent **jamais côté serveur** : ils tournent dans le navigateur, au sein de la session de l'utilisateur courant et avec exactement ses droits. Un outil ne peut donc accomplir aucune opération que l'utilisateur n'est pas déjà autorisé à effectuer : aucune injection de prompt ni aucun détournement ne permet une élévation de privilèges ou l'accès à des ressources interdites. Le mieux qu'une attaque réussie puisse obtenir, c'est l'usage du même périmètre d'outils, déjà accessible à l'utilisateur.
 
 Ce périmètre est délibérément étroit. Le service n'expose **que des outils assistifs et non destructeurs**, définis et bornés : pas de client HTTP générique, pas d'exécuteur de code ou de JavaScript arbitraire, mais des actions précises portant sur le contenu de la page ou sur des points d'accès en lecture seule.
 
-Surtout, **aucune écriture n'est effectuée par un outil**. Un outil peut au plus préparer une action — par exemple pré-remplir un formulaire — mais c'est toujours l'utilisateur qui valide et déclenche l'écriture réelle, l'interface mettant clairement en évidence les modifications sur le point d'être enregistrées. L'utilisateur garde ainsi la main sur tout effet persistant.
+Surtout, **aucune écriture n'est effectuée par un outil**. Un outil peut au plus préparer une action, par exemple pré-remplir un formulaire, mais c'est toujours l'utilisateur qui valide et déclenche l'écriture réelle, l'interface mettant clairement en évidence les modifications sur le point d'être enregistrées. L'utilisateur garde ainsi la main sur tout effet persistant.
 
 ### Isolation et confidentialité des données
 
-L'iframe de chat est isolée du DOM de l'hôte par le mécanisme natif du navigateur, et le canal de découverte d'outils est restreint à la même origine : un contexte d'une autre origine ne peut ni enregistrer d'outils ni recevoir les messages de découverte — la frontière de confiance est la *Same-Origin Policy*. Les prompts système, qui peuvent contenir des consignes sensibles, sont transmis hors de l'URL : ils n'apparaissent donc ni dans les journaux HTTP, ni dans l'historique de navigation, ni dans les en-têtes `Referer`.
+L'iframe de chat est isolée du DOM de l'hôte par le mécanisme natif du navigateur, et le canal de découverte d'outils est restreint à la même origine : un contexte d'une autre origine ne peut ni enregistrer d'outils ni recevoir les messages de découverte : la frontière de confiance est la *Same-Origin Policy*. Les prompts système, qui peuvent contenir des consignes sensibles, sont transmis hors de l'URL : ils n'apparaissent donc ni dans les journaux HTTP, ni dans l'historique de navigation, ni dans les en-têtes `Referer`.
 
 ```mermaid
-flowchart LR
+flowchart TD
     subgraph Browser["Navigateur (état + orchestration)"]
         IF["iframe de chat"]
         EP["Éléments de page"]
@@ -95,13 +97,13 @@ flowchart LR
     Route --> IF
 ```
 
-À chaque tour, le navigateur envoie à la passerelle l'historique reconstruit, les descripteurs d'outils actifs, les extraits de données nécessaires et le jeton de l'appelant. Le fonctionnement de la passerelle ne repose sur aucune conversation conservée côté serveur : l'historique vit dans le navigateur (l'enregistrement de traces décrit plus bas est une fonction distincte et optionnelle). Les données sont ensuite relayées au fournisseur retenu, dont les conditions (rétention, journalisation, entraînement) régissent leur traitement — le choix d'un fournisseur compatible avec les obligations réglementaires de l'opérateur (RGPD, contraintes sectorielles) relève de sa responsabilité.
+À chaque tour, le navigateur envoie à la passerelle l'historique reconstruit, les descripteurs d'outils actifs, les extraits de données nécessaires et le jeton de l'appelant. Le fonctionnement de la passerelle ne repose sur aucune conversation conservée côté serveur : l'historique vit dans le navigateur (l'enregistrement de traces décrit plus bas est une fonction distincte et optionnelle). Les données sont ensuite relayées au fournisseur retenu, dont les conditions (rétention, journalisation, entraînement) régissent leur traitement ; le choix d'un fournisseur compatible avec les obligations réglementaires de l'opérateur (RGPD, contraintes sectorielles) relève de sa responsabilité.
 
 ### Traçabilité
 
-La traçabilité repose sur un enregistrement **côté serveur, désactivé par défaut**. Il n'existe plus d'enregistreur « live » dans le navigateur : la passerelle consigne une entrée par requête physique adressée au fournisseur, et ces requêtes constituent la source unique de vérité — la trace complète d'une conversation est reconstruite à la consultation, sans double envoi.
+La traçabilité repose sur un enregistrement **côté serveur, désactivé par défaut**. Il n'existe plus d'enregistreur « live » dans le navigateur : la passerelle consigne une entrée par requête physique adressée au fournisseur, et ces requêtes constituent la source unique de vérité : la trace complète d'une conversation est reconstruite à la consultation, sans double envoi.
 
-L'enregistrement n'a lieu que si deux conditions sont réunies : un administrateur l'a activé au niveau du compte, et l'utilisateur concerné a donné un consentement explicite. Sans cela, rien n'est stocké. Les traces conservées sont automatiquement supprimées après 30 jours, leur lecture est réservée aux administrateurs, et chaque utilisateur peut demander l'effacement des siennes — une conception orientée RGPD (consentement, finalité d'administration, rétention bornée, droit à l'effacement). Le journal de modération évoqué plus haut est tenu séparément et fait foi pour les décisions de filtrage, y compris celles qui ne figurent pas dans les traces. La capacité d'audit des conversations dépend ainsi de l'activation de cet enregistrement et reste bornée à 30 jours.
+L'enregistrement n'a lieu que si deux conditions sont réunies : un administrateur l'a activé au niveau du compte, et l'utilisateur concerné a donné un consentement explicite. Sans cela, rien n'est stocké. Les traces conservées sont automatiquement supprimées après 30 jours, leur lecture est réservée aux administrateurs, et chaque utilisateur peut demander l'effacement des siennes, dans une conception orientée RGPD (consentement, finalité d'administration, rétention bornée, droit à l'effacement). Le journal de modération évoqué plus haut est tenu séparément et fait foi pour les décisions de filtrage, y compris celles qui ne figurent pas dans les traces. La capacité d'audit des conversations dépend ainsi de l'activation de cet enregistrement et reste bornée à 30 jours.
 
 ### Limites face à l'injection de prompt
 

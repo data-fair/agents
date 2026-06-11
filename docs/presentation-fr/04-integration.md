@@ -19,7 +19,9 @@ Sur un portail, l'assistant s'expose en tiroir latéral ou en menu flottant, au 
 
 ### Élément de page confiné
 
-Ce mode n'utilise ni tiroir ni superposition : le chat s'intègre directement dans le flux d'une page de portail, comme un bloc de contenu. Chaque bloc se configure indépendamment — prompt système propre, visibilité par rôle, hauteur — et surtout peut être restreint à un ou plusieurs **jeux de données focalisés** qui bornent son périmètre de recherche. Une consigne de confinement lui interdit de proposer une navigation hors de la page sauf demande explicite, ce qui maintient le bloc centré sur son sujet.
+Ce mode n'utilise ni tiroir ni superposition : le chat s'intègre directement dans le flux d'une page de portail, comme un bloc de contenu. Chaque bloc se configure indépendamment (prompt système propre, visibilité par rôle, hauteur) et surtout peut être restreint à un ou plusieurs **jeux de données focalisés** qui bornent son périmètre de recherche. Une consigne de confinement lui interdit de proposer une navigation hors de la page sauf demande explicite, ce qui maintient le bloc centré sur son sujet.
+
+Ce même bloc peut être exposé sur un **site tiers** (par exemple un observatoire externe) sans développement particulier : le site hôte intègre dans ses pages une iframe pointant vers la page de portail qui porte le bloc. L'assistant et les éléments de page qui lui fournissent ses outils vivent alors dans une seule et même origine — celle du portail — à l'intérieur de cette iframe. La frontière de même origine de la découverte d'outils (voir la section Sécurité) est ainsi respectée par construction, et le site hôte n'a qu'à réserver un emplacement à l'iframe, sans héberger ni configurer quoi que ce soit.
 
 ### Configuration des fournisseurs
 
