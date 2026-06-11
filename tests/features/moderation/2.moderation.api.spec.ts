@@ -51,7 +51,7 @@ const waitForEvents = async (predicate: (events: any[]) => boolean, action?: str
   throw new Error('expected moderation events did not appear')
 }
 
-test.describe('Gateway moderation (untrusted callers)', () => {
+test.describe('Gateway moderation', () => {
   test.beforeEach(async () => {
     await clean()
     await admin.put('/api/settings/user/test-standalone1', settingsData())

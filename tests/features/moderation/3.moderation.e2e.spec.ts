@@ -22,7 +22,7 @@ const settingsData = {
   moderation: { enabled: true, categories: ['anonymous', 'external'] }
 }
 
-test.describe('Moderation E2E (gateway-enforced, untrusted only)', () => {
+test.describe('Moderation E2E (gateway-enforced)', () => {
   test.beforeEach(async () => {
     await clean()
     await admin.put('/api/settings/user/test-standalone1', settingsData)
