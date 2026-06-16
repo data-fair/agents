@@ -44,10 +44,11 @@
             v-else
             class="text-body-medium"
           >
-            <!-- eslint-disable-next-line vue/no-v-html -->
-            <div
+            <markdown-content
               class="assistant-content markdown-content"
-              v-html="renderStreamingMarkdown(message.content, isStreaming && index === messages.length - 1)"
+              :content="message.content"
+              :streaming="isStreaming && index === messages.length - 1"
+              :mermaid="mermaidEnabled"
             />
             <div
               v-if="message.toolInvocations?.length"
@@ -110,10 +111,11 @@
                         :key="subIdx"
                         class="py-1"
                       >
-                        <!-- eslint-disable-next-line vue/no-v-html -->
-                        <div
+                        <markdown-content
                           class="text-body-medium markdown-content"
-                          v-html="renderStreamingMarkdown(subMsg.content, isStreaming && index === messages.length - 1 && subIdx === message.subAgentMessages!.length - 1)"
+                          :content="subMsg.content"
+                          :streaming="isStreaming && index === messages.length - 1 && subIdx === message.subAgentMessages!.length - 1"
+                          :mermaid="mermaidEnabled"
                         />
                         <div
                           v-if="subMsg.toolInvocations?.length"
@@ -220,8 +222,8 @@ import { ref, reactive, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAutoScrollBottom } from '@data-fair/lib-vue/auto-scroll-bottom.js'
 import { mdiCheck, mdiLoading, mdiArrowDown } from '@mdi/js'
-import { renderStreamingMarkdown } from '~/utils/markdown'
 import { streamedLength, latestSubAgentPanel } from './auto-scroll'
+import MarkdownContent from './MarkdownContent.vue'
 import type { ChatMessage } from '~/composables/use-agent-chat'
 
 const emit = defineEmits<{
@@ -235,6 +237,7 @@ const props = defineProps<{
   welcomeText: string
   toolTitle: (toolName: string) => string
   actionVisiblePrompt: string | null
+  mermaidEnabled: boolean
 }>()
 
 const isActionPrompt = (message: ChatMessage) => {
