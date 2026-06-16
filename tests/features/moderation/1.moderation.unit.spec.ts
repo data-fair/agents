@@ -2,7 +2,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import {
   buildModerationSystemPrompt, extractLastUserMessage, truncateForModeration,
-  truncateExcerpt, isInCooldown, moderationApplies, stripHiddenContext,
+  truncateExcerpt, isInCooldown, moderationApplies,
   MODERATION_TASK_MARKER,
   INPUT_HEAD_CHARS, INPUT_TAIL_CHARS, EXCERPT_MAX_CHARS
 } from '../../../api/src/moderation/operations.ts'
@@ -96,21 +96,5 @@ test.describe('moderationApplies', () => {
     const settings = { ...base, moderation: { enabled: true, categories: ['user', 'admin'] } }
     assert.equal(moderationApplies(settings, 'user'), true)
     assert.equal(moderationApplies(settings, 'anonymous'), false)
-  })
-})
-
-test.describe('stripHiddenContext', () => {
-  test('removes a leading hidden-context block, keeping the visible prompt', () => {
-    const wrapped = '<hidden-context>\nfocus on tools\n</hidden-context>\n\nWhat datasets do I have?'
-    assert.equal(stripHiddenContext(wrapped), 'What datasets do I have?')
-  })
-
-  test('leaves a plain message untouched', () => {
-    assert.equal(stripHiddenContext('just a question'), 'just a question')
-  })
-
-  test('does not strip a non-leading occurrence', () => {
-    const text = 'tell me about <hidden-context>\nx\n</hidden-context>'
-    assert.equal(stripHiddenContext(text), text)
   })
 })

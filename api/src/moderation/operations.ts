@@ -61,16 +61,6 @@ export function extractLastUserMessage (messages: Array<{ role?: string, content
   return null
 }
 
-// Mirror of ui/src/traces/hidden-context.ts. Hidden context from agent action
-// buttons is wrapped in these sentinels at the head of the user message; the
-// moderation gate must judge only the user's own visible text, so strip the
-// wrapped block before classifying.
-const HIDDEN_CONTEXT_RE = /^<hidden-context>\n[\s\S]*?\n<\/hidden-context>\n\n/
-
-export function stripHiddenContext (text: string): string {
-  return text.replace(HIDDEN_CONTEXT_RE, '')
-}
-
 export function truncateForModeration (message: string): string {
   if (message.length <= INPUT_HEAD_CHARS + INPUT_TAIL_CHARS) return message
   return `${message.slice(0, INPUT_HEAD_CHARS)}\n…\n${message.slice(-INPUT_TAIL_CHARS)}`

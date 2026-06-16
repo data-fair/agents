@@ -9,7 +9,7 @@ import { resolveUsageIdentity, enforceQuotas } from '../usage/enforce.ts'
 import { convertOpenAITools, convertOpenAIMessages, convertToolChoice, mapFinishReason } from './operations.ts'
 import type { OpenAIMessage, OpenAIToolDefinition, OpenAIToolChoice, FinishReason } from './operations.ts'
 import { recordTraceRequest } from '../traces/service.ts'
-import { extractLastUserMessage, moderationApplies, stripHiddenContext } from '../moderation/operations.ts'
+import { extractLastUserMessage, moderationApplies } from '../moderation/operations.ts'
 import { startModeration, isStrikeCooldownActive, recordStrikeRefusal, type ModerationRun } from '../moderation/service.ts'
 import crypto from 'node:crypto'
 
@@ -166,12 +166,13 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
     // when the org enabled it, racing the model call.
     let moderation: ModerationRun | null = null
     if (moderationApplies(settings, identity.role)) {
-      // Action-button hidden context rides inside the last user message; moderate
-      // only the user's own visible text, not the app-injected context.
+      // Moderate the FULL last user message, including any <hidden-context> block.
+      // Direct API callers control the raw body, so stripping the wrapper here
+      // would let an untrusted caller smuggle a payload past the gate by forging
+      // the sentinels while the model still receives it.
       const lastUserMessage = extractLastUserMessage(messages)
-      const visibleMessage = lastUserMessage ? stripHiddenContext(lastUserMessage) : null
-      if (visibleMessage) {
-        moderation = startModeration({ settings, owner, identity, message: visibleMessage, modelRole: modelId })
+      if (lastUserMessage) {
+        moderation = startModeration({ settings, owner, identity, message: lastUserMessage, modelRole: modelId })
       }
     }
     const upstreamAbort = new AbortController()
