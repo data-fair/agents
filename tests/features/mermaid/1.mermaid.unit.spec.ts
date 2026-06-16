@@ -56,4 +56,15 @@ test.describe('mermaid theme variables (unit)', () => {
     assert.equal(typeof vars.primaryTextColor, 'string')
     assert.equal(typeof vars.lineColor, 'string')
   })
+
+  test('drives the xychart palette and text from the theme (legible, on-brand)', () => {
+    const xy = buildMermaidThemeVariables(colors).xyChart as Record<string, string>
+    // plots use the theme's primary/secondary, not mermaid's default palette
+    assert.equal(xy.plotColorPalette, '#1E88E5,#42A5F5')
+    // title and every axis text/line color use on-surface so they stay legible
+    assert.equal(xy.titleColor, '#212121')
+    assert.equal(xy.xAxisLabelColor, '#212121')
+    assert.equal(xy.yAxisLabelColor, '#212121')
+    assert.equal(xy.backgroundColor, '#FFFFFF')
+  })
 })

@@ -1,7 +1,14 @@
 // Maps the live Vuetify theme palette (useTheme().current.value.colors) to Mermaid
 // `themeVariables`, reusing the variable set proven in /home/alban/koumoul/doc.
 // Keeping it pure makes it unit-testable and independent of the mermaid import.
-export function buildMermaidThemeVariables (colors: Record<string, string>): Record<string, string> {
+//
+// The nested `xyChart` block is necessary because xychart-beta ignores the generic
+// variables (primaryColor/lineColor) and reads its own palette: without it, plots
+// fall back to mermaid's default colors and the title/axis text is near-invisible on
+// the chat background. We point its plot colors at the theme's primary/secondary and
+// all its text/axis colors at on-surface, so XY charts match the app and stay legible
+// in both light and dark mode.
+export function buildMermaidThemeVariables (colors: Record<string, string>): Record<string, unknown> {
   const primary = colors.primary ?? '#1976D2'
   const onPrimary = colors['on-primary'] ?? '#FFFFFF'
   const onSurface = colors['on-surface'] ?? '#424242'
@@ -13,7 +20,20 @@ export function buildMermaidThemeVariables (colors: Record<string, string>): Rec
     primaryBorderColor: secondary,
     lineColor: onSurface,
     secondaryColor: secondary,
-    tertiaryColor: surface
+    tertiaryColor: surface,
+    xyChart: {
+      backgroundColor: surface,
+      titleColor: onSurface,
+      plotColorPalette: `${primary},${secondary}`,
+      xAxisLabelColor: onSurface,
+      xAxisTitleColor: onSurface,
+      xAxisTickColor: onSurface,
+      xAxisLineColor: onSurface,
+      yAxisLabelColor: onSurface,
+      yAxisTitleColor: onSurface,
+      yAxisTickColor: onSurface,
+      yAxisLineColor: onSurface
+    }
   }
 }
 
@@ -42,7 +62,7 @@ function inlineError (block: HTMLElement, source: string, message: string) {
 // Lazy-loads mermaid (kept out of the initial bundle), (re)initializes it with the
 // app theme, and renders each diagram inside `el` independently so one bad diagram
 // cannot abort the rest of the message.
-export async function renderMermaidIn (el: HTMLElement, themeVariables: Record<string, string>): Promise<void> {
+export async function renderMermaidIn (el: HTMLElement, themeVariables: Record<string, unknown>): Promise<void> {
   const blocks = el.querySelectorAll<HTMLElement>('pre.mermaid')
   if (!blocks.length) return
 
