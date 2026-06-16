@@ -18,6 +18,7 @@
         :welcome-text="t('welcome')"
         :tool-title="toolTitle"
         :action-visible-prompt="actionVisiblePrompt"
+        :mermaid-enabled="mermaidEnabled"
         @navigate="url => sendDFrameMessage({ type: 'navigate', url })"
       />
 
@@ -56,7 +57,9 @@
       :account-type="accountType"
       :account-id="accountId"
       :tool-exploration="explorationEnabled"
+      :mermaid="mermaidEnabled"
       @update:tool-exploration="handleToolExploration"
+      @update:mermaid="handleMermaid"
     />
 
     <trace-consent-sheet />
@@ -71,6 +74,7 @@ fr:
   systemPromptOrg: "L'utilisateur actuel est membre de l'organisation {orgName}{depPart}."
   systemPromptDep: ", département {depName}"
   systemPromptCompact: "Tes réponses sont affichées dans un widget de chat étroit. Garde un formatage compact : utilise des paragraphes courts et des listes à puces simples. Évite les tableaux, les blocs de code larges et les sorties verbeuses. Sois concis."
+  systemPromptMermaid: "Tu peux afficher des diagrammes et graphiques en émettant des blocs de code Mermaid (```mermaid). Privilégie les graphiques XY simples (xychart-beta) pour visualiser des données quantitatives (tendances, comparaisons). N'utilise un diagramme que s'il aide vraiment à la compréhension ; sinon réponds en texte ou avec un tableau."
   moderationRefusal: "Cette demande ne peut pas être traitée car elle sort du cadre de ce que cet assistant peut faire."
 en:
   welcome: How can I help you?
@@ -79,6 +83,7 @@ en:
   systemPromptOrg: "The current user is a member of the organization {orgName}{depPart}."
   systemPromptDep: ", department {depName}"
   systemPromptCompact: "Your responses are displayed in a narrow chat widget. Keep formatting compact: use short paragraphs and simple bullet lists. Avoid tables, wide code blocks, and verbose output. Be concise."
+  systemPromptMermaid: "You can render diagrams and charts by emitting Mermaid fenced code blocks (```mermaid). Prefer simple XY charts (xychart-beta) to visualize quantitative data such as trends and comparisons. Only use a diagram when it genuinely aids understanding; otherwise answer with prose or a table."
   moderationRefusal: "This request can't be processed as it falls outside what this assistant is meant to help with."
 </i18n>
 
@@ -140,12 +145,20 @@ const finalSystemPrompt = computed(() => {
     parts.push(t('systemPromptCompact'))
   }
 
+  if (mermaidEnabled.value) {
+    parts.push(t('systemPromptMermaid'))
+  }
+
   return parts.join(' ')
 })
 
 // Experimental tool-exploration mode: admin-only opt-in, persisted in localStorage
 // and toggled from the debug dialog's Settings tab.
 const explorationEnabled = ref(!!props.isAdmin && localStorage.getItem('agent-chat-explore') === '1')
+
+// Experimental mermaid rendering: per-user opt-in (any role), persisted in
+// localStorage and toggled from the settings dialog.
+const mermaidEnabled = ref(localStorage.getItem('agent-chat-mermaid') === '1')
 
 const chatResult = useAgentChat({
   accountType: props.accountType,
@@ -261,6 +274,14 @@ function handleToolExploration (enabled: boolean) {
   else localStorage.removeItem('agent-chat-explore')
   chat.setToolExploration(enabled)
   // Reset the conversation so the new tool set applies from a clean state.
+  handleReset()
+}
+
+function handleMermaid (enabled: boolean) {
+  mermaidEnabled.value = enabled
+  if (enabled) localStorage.setItem('agent-chat-mermaid', '1')
+  else localStorage.removeItem('agent-chat-mermaid')
+  // Reset so the system prompt is uniform across the whole conversation.
   handleReset()
 }
 
