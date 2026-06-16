@@ -47,6 +47,8 @@ test.describe('reconstructTrace (unit)', () => {
     assert.equal(trace.toolSnapshots[0][0].name, 'search')
     assert.equal(trace.turns.length, 1)
     assert.equal(trace.turns[0].userMessage, 'hello')
+    // a plain (non-action) turn carries no hidden-context key
+    assert.equal(trace.turns[0].hiddenContext, undefined)
   })
 
   test('pairs a tool call with its result from the next request', () => {
