@@ -74,7 +74,16 @@ fr:
   systemPromptOrg: "L'utilisateur actuel est membre de l'organisation {orgName}{depPart}."
   systemPromptDep: ", département {depName}"
   systemPromptCompact: "Tes réponses sont affichées dans un widget de chat étroit. Garde un formatage compact : utilise des paragraphes courts et des listes à puces simples. Évite les tableaux, les blocs de code larges et les sorties verbeuses. Sois concis."
-  systemPromptMermaid: "Tu peux afficher des diagrammes et graphiques en émettant des blocs de code Mermaid (```mermaid). Privilégie les graphiques XY simples (xychart-beta) pour visualiser des données quantitatives (tendances, comparaisons). N'utilise un diagramme que s'il aide vraiment à la compréhension ; sinon réponds en texte ou avec un tableau."
+  systemPromptMermaid: |
+    Tu peux afficher des diagrammes et graphiques en émettant des blocs de code Mermaid (```mermaid). Privilégie les graphiques XY simples (xychart-beta) pour visualiser des données quantitatives (tendances, comparaisons). N'utilise un diagramme que s'il aide vraiment à la compréhension ; sinon réponds en texte ou avec un tableau. Pour un graphique XY, suis exactement cette syntaxe :
+    ```mermaid
+    xychart-beta
+      title "Chiffre d'affaires"
+      x-axis [jan, fev, mar]
+      y-axis "EUR" 0 --> 100
+      bar [20, 50, 90]
+      line [20, 50, 90]
+    ```
   moderationRefusal: "Cette demande ne peut pas être traitée car elle sort du cadre de ce que cet assistant peut faire."
 en:
   welcome: How can I help you?
@@ -83,7 +92,16 @@ en:
   systemPromptOrg: "The current user is a member of the organization {orgName}{depPart}."
   systemPromptDep: ", department {depName}"
   systemPromptCompact: "Your responses are displayed in a narrow chat widget. Keep formatting compact: use short paragraphs and simple bullet lists. Avoid tables, wide code blocks, and verbose output. Be concise."
-  systemPromptMermaid: "You can render diagrams and charts by emitting Mermaid fenced code blocks (```mermaid). Prefer simple XY charts (xychart-beta) to visualize quantitative data such as trends and comparisons. Only use a diagram when it genuinely aids understanding; otherwise answer with prose or a table."
+  systemPromptMermaid: |
+    You can render diagrams and charts by emitting Mermaid fenced code blocks (```mermaid). Prefer simple XY charts (xychart-beta) to visualize quantitative data such as trends and comparisons. Only use a diagram when it genuinely aids understanding; otherwise answer with prose or a table. When you draw an XY chart, follow this exact syntax:
+    ```mermaid
+    xychart-beta
+      title "Revenue"
+      x-axis [jan, feb, mar]
+      y-axis "USD" 0 --> 100
+      bar [20, 50, 90]
+      line [20, 50, 90]
+    ```
   moderationRefusal: "This request can't be processed as it falls outside what this assistant is meant to help with."
 </i18n>
 
