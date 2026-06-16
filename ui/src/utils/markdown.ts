@@ -30,6 +30,25 @@ marked.use({
   }
 })
 
+// Mermaid fences become a container that a post-render pass (see utils/mermaid.ts)
+// turns into an SVG. Gated by a module-level flag set synchronously before each
+// marked.parse call below — safe because parsing is fully synchronous.
+let mermaidActive = false
+
+const escapeHtml = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+marked.use({
+  renderer: {
+    code (token) {
+      if (mermaidActive && token.lang === 'mermaid') {
+        return `<div class="mermaid-block"><pre class="mermaid">${escapeHtml(token.text)}</pre></div>`
+      }
+      return marked.Renderer.prototype.code.call(this, token)
+    }
+  }
+})
+
 // Models sometimes emit LaTeX-style inline math (e.g. `$\rightarrow$`) that marked
 // does not render. Substitute the common commands with their Unicode equivalent.
 const latexToUnicode: Record<string, string> = {
@@ -67,14 +86,16 @@ const replaceLatexCommands = (markdown: string): string =>
     latexToUnicode[cmd] ?? match
   )
 
-export const renderMarkdown = (markdown: string) =>
-  sanitizeHtml(marked.parse(replaceLatexCommands(markdown)) as string, sanitizeOpts)
+export const renderMarkdown = (markdown: string, opts?: { mermaid?: boolean }) => {
+  mermaidActive = !!opts?.mermaid
+  return sanitizeHtml(marked.parse(replaceLatexCommands(markdown)) as string, sanitizeOpts)
+}
 
-export const renderStreamingMarkdown = (markdown: string, isStreaming: boolean): string => {
-  if (!isStreaming || !markdown) return renderMarkdown(markdown)
+export const renderStreamingMarkdown = (markdown: string, isStreaming: boolean, opts?: { mermaid?: boolean }): string => {
+  if (!isStreaming || !markdown) return renderMarkdown(markdown, opts)
 
   const lastBlock = markdown.lastIndexOf('\n\n')
   if (lastBlock === -1) return '' // No complete block yet — show nothing
 
-  return renderMarkdown(markdown.slice(0, lastBlock + 2))
+  return renderMarkdown(markdown.slice(0, lastBlock + 2), opts)
 }
