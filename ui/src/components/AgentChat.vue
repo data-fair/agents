@@ -243,17 +243,15 @@ onUnmounted(() => {
 
 function startActionSession (visiblePrompt: string, hiddenContext: string) {
   sessionStorage.removeItem('df-agent-pending-action')
-  const newSystemPrompt = finalSystemPrompt.value + '\n\n' + hiddenContext
 
   // Abort any in-flight response so sendMessage won't be silently dropped
   chat.abort()
 
-  // Update the system prompt without clearing the conversation
-  chat.setSystemPrompt(newSystemPrompt)
-
   actionVisiblePrompt.value = visiblePrompt
 
-  // Send the visible prompt — this adds it to messages + history and triggers the LLM
+  // The hidden context rides inside this user turn (see use-agent-chat sendMessage)
+  // instead of mutating the session system prompt, so it stays scoped to the turn
+  // and surfaces in the trace reviewer.
   chat.sendMessage(visiblePrompt, { hiddenContext })
 }
 
@@ -275,11 +273,9 @@ function handleReset () {
 
 function handleSessionCleared () {
   // The action that started this context is gone, but the conversation continues.
-  // Just clear the action-specific state without disrupting the chat.
+  // Hidden context now lives in the user turn (not the system prompt), so there is
+  // nothing to restore — just clear the action-specific banner state.
   actionVisiblePrompt.value = null
-
-  // Restore the base system prompt (remove action-specific hidden context)
-  chat.setSystemPrompt(finalSystemPrompt.value)
 }
 
 watch(() => chat.status.value, (status) => {
