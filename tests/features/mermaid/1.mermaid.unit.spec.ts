@@ -2,6 +2,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { renderMarkdown } from '../../../ui/src/utils/markdown.ts'
 import { buildMermaidThemeVariables } from '../../../ui/src/utils/mermaid.ts'
+import { formatMermaidFix } from '../../../ui/src/utils/mermaid-fix.ts'
 
 const diagram = '```mermaid\nxychart-beta\n  line [1, 2, 3]\n```'
 
@@ -66,5 +67,14 @@ test.describe('mermaid theme variables (unit)', () => {
     assert.equal(xy.xAxisLabelColor, '#212121')
     assert.equal(xy.yAxisLabelColor, '#212121')
     assert.equal(xy.backgroundColor, '#FFFFFF')
+  })
+})
+
+test.describe('formatMermaidFix (unit)', () => {
+  test('embeds the error and a fenced mermaid source', () => {
+    const out = formatMermaidFix('Parse error on line 2', 'xychart-beta\n  bad')
+    assert.match(out, /Parse error on line 2/)
+    assert.match(out, /```mermaid\nxychart-beta\n {2}bad\n```/)
+    assert.match(out, /syntax corrected/i)
   })
 })
