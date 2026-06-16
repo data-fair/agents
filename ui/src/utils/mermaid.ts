@@ -41,7 +41,7 @@ let mermaidModule: typeof import('mermaid').default | null = null
 let lastThemeKey = ''
 let idCounter = 0
 
-function inlineError (block: HTMLElement, source: string, message: string) {
+function inlineError (block: HTMLElement, source: string, message: string, fixLabel?: string) {
   const wrapper = block.closest('.mermaid-block')
   wrapper?.classList.add('mermaid-error')
   const content = document.createElement('div')
@@ -56,13 +56,24 @@ function inlineError (block: HTMLElement, source: string, message: string) {
   src.className = 'mermaid-error-source'
   src.textContent = source
   content.append(title, detail, src)
+  // The "fix" button is delegated-click handled by AgentChatMessages (it lives in v-html,
+  // so it cannot be a Vue component). It carries the failed source/error in its dataset.
+  if (fixLabel) {
+    const fix = document.createElement('button')
+    fix.className = 'mermaid-fix-btn'
+    fix.setAttribute('data-mermaid-fix', '')
+    fix.textContent = fixLabel
+    fix.dataset.mermaidSource = source
+    fix.dataset.mermaidError = message
+    content.append(fix)
+  }
   block.replaceWith(content)
 }
 
 // Lazy-loads mermaid (kept out of the initial bundle), (re)initializes it with the
 // app theme, and renders each diagram inside `el` independently so one bad diagram
 // cannot abort the rest of the message.
-export async function renderMermaidIn (el: HTMLElement, themeVariables: Record<string, unknown>): Promise<void> {
+export async function renderMermaidIn (el: HTMLElement, themeVariables: Record<string, unknown>, fixLabel?: string): Promise<void> {
   const blocks = el.querySelectorAll<HTMLElement>('pre.mermaid')
   if (!blocks.length) return
 
@@ -85,7 +96,7 @@ export async function renderMermaidIn (el: HTMLElement, themeVariables: Record<s
     } catch (err) {
       document.getElementById(id)?.remove() // drop mermaid's leftover temp nodes
       document.getElementById('d' + id)?.remove()
-      inlineError(block, source, err instanceof Error ? err.message : String(err))
+      inlineError(block, source, err instanceof Error ? err.message : String(err), fixLabel)
     }
   }
 }
