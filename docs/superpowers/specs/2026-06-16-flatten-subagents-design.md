@@ -107,26 +107,33 @@ loop (line 434), branch:
 
 - *Delegated mode (flatten off):* unchanged — build the `ToolLoopAgent` and the async
   generator tool (lines 443-518+).
-- *Flat mode (flatten on):* register a plain guidance tool instead:
+- *Flat mode (flatten on):* register a plain guidance tool instead, under the
+  **de-prefixed** name so it renders as an ordinary tool chip rather than an empty
+  sub-agent expansion panel (`AgentChatMessages.vue` keys panel rendering off the
+  `subagent_` name prefix, line 61/86):
   ```ts
-  mainLLMTools[name] = tool({
+  const flatName = name.replace(/^subagent_/, '')
+  mainLLMTools[flatName] = tool({
     description: (entry.tool as any).description || '',
     inputSchema: jsonSchema({ type: 'object', properties: {}, additionalProperties: false }),
     execute: async () => entry.config.prompt
   })
   ```
   No arguments (confirmed decision). No `subAgentHistory` / `subAgentCallCount`, no
-  streaming generator, no `toModelOutput`.
+  streaming generator, no `toModelOutput`. The model now sees and calls `data_analyst`
+  (not `subagent_data_analyst`); reserved tools are already exposed flat, so after reading
+  the brief the main agent drives them itself in the same loop.
 
 The `subAgentHistory` / `subAgentCallCount` maps (lines 431-432) are only constructed/used
 in delegated mode.
 
 ### 3. UI and traces
 
-No UI changes beyond the toggle. In flat mode no `subAgentMessages` are produced, so the
-collapsible sub-agent panels simply do not appear; everything renders in the main message
-flow. Trace requests carry no `sub:` context headers, so the trace reviewer shows a single
-main-agent flow — correct for flat mode.
+No UI changes beyond the toggle. In flat mode no `subAgentMessages` are produced and the
+guidance tools are registered under de-prefixed names, so the collapsible sub-agent panels
+never appear; the guidance tool shows as an ordinary tool chip and everything renders in the
+main message flow. Trace requests carry no `sub:` context headers, so the trace reviewer
+shows a single main-agent flow — correct for flat mode.
 
 ### 4. Interaction with tool-exploration
 
@@ -139,13 +146,24 @@ per the exploration logic already in place.
 
 ## Testing
 
-- **Unit** (`tests/features/.../*.unit.spec.ts` style): exercise the partition/build step
-  with flatten on:
-  - reserved tools remain in the main tool set (not removed),
-  - the `subagent_*` entry is built as a plain tool whose `execute()` returns the
-    sub-agent's prompt string and whose input schema has no properties,
-  - no `ToolLoopAgent` is constructed.
-- **Regression:** existing delegated-mode sub-agent tests stay green (flatten defaults off).
+The flatten logic lives inside `useAgentChat`'s `sendMessage` (`partitionTools` is not
+exported), so coverage follows the established pattern for this area: **e2e via the
+`/agents/_dev/chat-subagent` dev page** with the mock provider (mirroring
+`tests/features/chat-subagent/chat-subagent.e2e.spec.ts`). New spec
+`tests/features/chat-subagent/chat-subagent-flatten.e2e.spec.ts`:
+
+- **Toggle**: the "Flatten sub-agents" switch in the debug Settings tab is visible and,
+  when flipped, persists `agent-chat-flatten=1` in localStorage.
+- **Flat reserved-tool exposure**: with flatten pre-enabled (init script sets the
+  localStorage key), the main agent calls the reserved `get_schema` tool directly — a
+  `get_schema` chip appears in the main message flow and **no** sub-agent expansion panel
+  appears. (In delegated mode `get_schema` is removed from the main set, so this is the
+  decisive behavioral difference.)
+- **Guidance tool**: with flatten on, the de-prefixed `data_analyst` tool is callable and
+  renders as an ordinary chip, never a "Data Analyst" panel.
+
+**Regression:** existing delegated-mode sub-agent e2e tests stay green (flatten defaults
+off).
 
 ## Files touched
 
