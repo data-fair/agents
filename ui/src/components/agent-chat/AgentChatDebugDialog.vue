@@ -157,18 +157,20 @@
               <p class="text-caption text-medium-emphasis mt-1">
                 {{ t('toolExplorationHint') }}
               </p>
-              <v-switch
-                :model-value="mermaid"
-                color="primary"
-                density="compact"
-                hide-details
-                :label="t('mermaid')"
-                class="mt-2"
-                @update:model-value="(v: boolean | null) => $emit('update:mermaid', v ?? false)"
-              />
-              <p class="text-caption text-medium-emphasis mt-1">
-                {{ t('mermaidHint') }}
-              </p>
+              <template v-if="isAdmin">
+                <v-switch
+                  :model-value="mermaid"
+                  color="primary"
+                  density="compact"
+                  hide-details
+                  :label="t('mermaid')"
+                  class="mt-2"
+                  @update:model-value="(v: boolean | null) => $emit('update:mermaid', v ?? false)"
+                />
+                <p class="text-caption text-medium-emphasis mt-1">
+                  {{ t('mermaidHint') }}
+                </p>
+              </template>
             </div>
           </v-window-item>
         </v-window>

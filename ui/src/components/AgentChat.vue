@@ -178,9 +178,9 @@ const finalSystemPrompt = computed(() => {
 // and toggled from the debug dialog's Settings tab.
 const explorationEnabled = ref(!!props.isAdmin && localStorage.getItem('agent-chat-explore') === '1')
 
-// Experimental mermaid rendering: per-user opt-in (any role), persisted in
-// localStorage and toggled from the settings dialog.
-const mermaidEnabled = ref(localStorage.getItem('agent-chat-mermaid') === '1')
+// Experimental mermaid rendering: admin-only opt-in (still experimental), persisted
+// in localStorage and toggled from the settings dialog.
+const mermaidEnabled = ref(!!props.isAdmin && localStorage.getItem('agent-chat-mermaid') === '1')
 
 const chatResult = useAgentChat({
   accountType: props.accountType,
