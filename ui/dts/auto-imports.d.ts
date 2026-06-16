@@ -43,6 +43,7 @@ declare global {
   const effectScope: typeof import('vue')['effectScope']
   const extractErrorMessage: typeof import('../src/utils/error')['extractErrorMessage']
   const formatBytes: typeof import('@data-fair/lib-vue/format/bytes.js')['formatBytes']
+  const formatMermaidFix: typeof import('../src/utils/mermaid-fix')['formatMermaidFix']
   const formatToolsAvailableMessage: typeof import('../src/composables/tool-exploration')['formatToolsAvailableMessage']
   const getAnonymousToken: typeof import('../src/composables/use-anonymous-token')['getAnonymousToken']
   const getCurrentInstance: typeof import('vue')['getCurrentInstance']
@@ -168,6 +169,7 @@ declare module 'vue' {
     readonly effectScope: UnwrapRef<typeof import('vue')['effectScope']>
     readonly extractErrorMessage: UnwrapRef<typeof import('../src/utils/error')['extractErrorMessage']>
     readonly formatBytes: UnwrapRef<typeof import('@data-fair/lib-vue/format/bytes.js')['formatBytes']>
+    readonly formatMermaidFix: UnwrapRef<typeof import('../src/utils/mermaid-fix')['formatMermaidFix']>
     readonly formatToolsAvailableMessage: UnwrapRef<typeof import('../src/composables/tool-exploration')['formatToolsAvailableMessage']>
     readonly getAnonymousToken: UnwrapRef<typeof import('../src/composables/use-anonymous-token')['getAnonymousToken']>
     readonly getCurrentInstance: UnwrapRef<typeof import('vue')['getCurrentInstance']>
