@@ -59,6 +59,7 @@ export interface UseAgentChatOptions {
   modelName?: string
   refusalMessage?: string
   toolExploration?: boolean
+  flattenSubAgents?: boolean
 }
 
 interface SubAgentConfig {
@@ -135,6 +136,9 @@ export function useAgentChat (options: UseAgentChatOptions) {
   // Read live from `options` (like systemPrompt) so toggling exploration takes
   // effect on the next turn; callers flip it via setToolExploration + reset.
   const explorationEnabled = () => !!options.toolExploration
+  // Read live like explorationEnabled so toggling takes effect on the next turn;
+  // callers flip it via setFlattenSubAgents + reset.
+  const flatteningEnabled = () => !!options.flattenSubAgents
   // Tools promoted to the callable set via explore_tools; persists across turns,
   // cleared on compaction and reset. Read live by prepareStep.
   let promotedTools = new Set<string>()
@@ -296,11 +300,13 @@ export function useAgentChat (options: UseAgentChatOptions) {
 
   /**
    * Resolve sub-agent configs by calling their execute functions.
-   * Also removes reserved tools from mainTools.
+   * Also removes reserved tools from mainTools, unless opts.keepReservedTools is set
+   * (flatten mode keeps them callable by the main agent).
    */
   async function resolveSubAgents (
     mainTools: Record<string, Tool>,
-    subAgents: Record<string, { tool: Tool, config: SubAgentConfig }>
+    subAgents: Record<string, { tool: Tool, config: SubAgentConfig }>,
+    opts?: { keepReservedTools?: boolean }
   ) {
     for (const [, entry] of Object.entries(subAgents)) {
       const executeFn = (entry.tool as any).execute
@@ -319,9 +325,12 @@ export function useAgentChat (options: UseAgentChatOptions) {
         }
         entry.config = JSON.parse(configStr) as SubAgentConfig
 
-        // Remove reserved tools from main set
-        for (const reservedName of entry.config.tools) {
-          delete mainTools[reservedName]
+        // Remove reserved tools from main set — unless flattening, where they stay
+        // callable by the main agent directly.
+        if (!opts?.keepReservedTools) {
+          for (const reservedName of entry.config.tools) {
+            delete mainTools[reservedName]
+          }
         }
       }
     }
@@ -423,8 +432,10 @@ export function useAgentChat (options: UseAgentChatOptions) {
       const { mainTools, subAgents } = partitionTools(currentTools)
       debug('partitioned tools: main=%o subAgents=%o', Object.keys(mainTools), Object.keys(subAgents))
 
-      // Resolve sub-agent configs and remove their reserved tools from mainTools
-      await resolveSubAgents(mainTools, subAgents)
+      // Flat mode keeps reserved tools in the main set and turns sub-agents into
+      // no-arg guidance tools (experimental flatten toggle).
+      const flatten = flatteningEnabled()
+      await resolveSubAgents(mainTools, subAgents, { keepReservedTools: flatten })
 
       // Build the tool set for the main LLM:
       // main tools + sub-agent pseudo-tools using ToolLoopAgent + async generators
@@ -433,6 +444,23 @@ export function useAgentChat (options: UseAgentChatOptions) {
       const mainLLMTools: Record<string, Tool> = { ...mainTools }
       for (const [name, entry] of Object.entries(subAgents)) {
         const config = entry.config
+
+        if (flatten) {
+          // Flattened: register the sub-agent as a no-arg guidance tool that returns its
+          // own prompt, under the de-prefixed name so AgentChatMessages renders it as an
+          // ordinary chip (not an empty sub-agent panel — panel rendering keys off the
+          // `subagent_` prefix). Reserved tools are already exposed flat, so the main agent
+          // reads the brief and then drives them itself in the same loop.
+          // Assumes sub-agent names don't collide with real tool names; in flat mode a
+          // colliding flatName would overwrite that tool in mainLLMTools.
+          const flatName = name.replace(/^subagent_/, '')
+          mainLLMTools[flatName] = tool({
+            description: (entry.tool as any).description || '',
+            inputSchema: jsonSchema({ type: 'object', properties: {}, additionalProperties: false }),
+            execute: async () => config.prompt
+          })
+          continue
+        }
 
         // Collect the sub-agent's tools from the full tool set
         const subAgentTools: Record<string, Tool> = {}
@@ -670,7 +698,11 @@ export function useAgentChat (options: UseAgentChatOptions) {
     options.toolExploration = enabled
   }
 
-  return { messages, status, error, tools, toolsVersion, resolvedPartition, conversationId, sendMessage, abort, reset, setSystemPrompt, setToolExploration }
+  const setFlattenSubAgents = (enabled: boolean) => {
+    options.flattenSubAgents = enabled
+  }
+
+  return { messages, status, error, tools, toolsVersion, resolvedPartition, conversationId, sendMessage, abort, reset, setSystemPrompt, setToolExploration, setFlattenSubAgents }
 }
 
 export default useAgentChat
