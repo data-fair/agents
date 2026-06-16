@@ -1,4 +1,5 @@
 import type { SessionTrace, PhysicalRequestTrace, TurnTrace, StepTrace, ToolCallTrace, ToolSnapshot, SubAgentTrace } from './session-recorder.ts'
+import { splitHiddenContext } from './hidden-context.ts'
 
 export interface StoredTraceRequest {
   conversation: { id: string }
@@ -214,7 +215,8 @@ export function reconstructTrace (requests: StoredTraceRequest[]): SessionTrace 
     if (comp) prefix.push(compactionStepOf(comp))
     const mod = reqs.find(r => r.moderation)
     if (mod) prefix.push(moderationStepOf(mod))
-    return { userMessage: lastUserMessage(reqs[0].request.body), timestamp: ts(reqs[0].createdAt), steps: [...prefix, ...steps] }
+    const { visible, hidden } = splitHiddenContext(lastUserMessage(reqs[0].request.body))
+    return { userMessage: visible, ...(hidden ? { hiddenContext: hidden } : {}), timestamp: ts(reqs[0].createdAt), steps: [...prefix, ...steps] }
   })
 
   // Synthesize turns for compaction requests whose main turn request was never stored.
@@ -226,7 +228,8 @@ export function reconstructTrace (requests: StoredTraceRequest[]): SessionTrace 
     const steps: StepTrace[] = []
     if (comp) steps.push(compactionStepOf(comp))
     const src = comp!
-    turns.push({ userMessage: lastUserMessage(src.request.body), timestamp: ts(src.createdAt), steps })
+    const { visible, hidden } = splitHiddenContext(lastUserMessage(src.request.body))
+    turns.push({ userMessage: visible, ...(hidden ? { hiddenContext: hidden } : {}), timestamp: ts(src.createdAt), steps })
   }
   // Keep turns chronological after appending any synthesized ones.
   turns.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())

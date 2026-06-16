@@ -224,4 +224,30 @@ test.describe('reconstructTrace (unit)', () => {
     assert.equal(sub!.name, 'Researcher')
     assert.ok(sub!.steps.length >= 1)
   })
+
+  test('splits hidden context out of the last user message into turn.hiddenContext', () => {
+    const reqs = [req({
+      createdAt: '2026-06-08T00:00:00.000Z',
+      request: {
+        model: 'm',
+        body: {
+          model: 'assistant',
+          messages: [
+            { role: 'system', content: 'You are helpful.' },
+            { role: 'user', content: '<hidden-context>\nfocus on dataset tools\n</hidden-context>\n\nHelp me create a dataset' }
+          ],
+          tools: []
+        },
+        messageCount: 2,
+        toolCount: 0,
+        bodyChars: 80
+      },
+      response: { content: 'sure', toolCalls: [], finishReason: 'stop' }
+    })]
+    const trace = reconstructTrace(reqs as any)
+    assert.equal(trace.turns[0].userMessage, 'Help me create a dataset')
+    assert.equal(trace.turns[0].hiddenContext, 'focus on dataset tools')
+    const overview = SessionRecorder.fromTrace(trace).getTraceOverview()
+    assert.ok(overview.some(e => e.type === 'hidden-context'), 'hidden-context overview entry present')
+  })
 })
