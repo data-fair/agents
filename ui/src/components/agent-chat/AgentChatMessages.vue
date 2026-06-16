@@ -357,7 +357,10 @@ function onLinkClick (e: MouseEvent) {
   if (!anchor) return
   if (!inIframe) return
   e.preventDefault()
-  emit('navigate', (anchor as HTMLAnchorElement).href)
+  // Forward the raw href the model wrote, not the DOM-resolved one: this iframe's URL
+  // (/agents/.../chat) is never the link target, so resolving here would corrupt
+  // app-relative links. The host resolves it against the embedding app's router base.
+  emit('navigate', anchor.getAttribute('href') ?? (anchor as HTMLAnchorElement).href)
 }
 
 </script>
