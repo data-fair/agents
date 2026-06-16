@@ -10,6 +10,7 @@ import { useSession } from '@data-fair/lib-vue/session.js'
 import { getAnonymousToken, resetAnonymousToken } from '~/composables/use-anonymous-token'
 import { extractErrorMessage } from '~/utils/error'
 import { readConsent, traceStorageAvailable } from '~/traces/trace-consent'
+import { wrapHiddenContext } from '~/traces/hidden-context'
 import Debug from 'debug'
 
 const debug = Debug('df-agents:use-agent-chat')
@@ -392,7 +393,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
     }
   }
 
-  const sendMessage = async (msg: string, _sendOptions?: { hiddenContext?: string }) => {
+  const sendMessage = async (msg: string, sendOptions?: { hiddenContext?: string }) => {
     if (status.value === 'streaming') return
 
     status.value = 'streaming'
@@ -403,8 +404,11 @@ export function useAgentChat (options: UseAgentChatOptions) {
     // roll back partial assistant output if the gateway blocks the turn.
     const turnMessagesStart = messages.value.length
 
-    // Add user message to history
-    history.push({ role: 'user', content: msg })
+    // Add user message to history. When an action button supplied hidden context,
+    // wrap it into this same user turn so the model sees it as turn-scoped context
+    // (not a permanent system-prompt mutation); the chat UI above shows only `msg`.
+    const hiddenContext = sendOptions?.hiddenContext
+    history.push({ role: 'user', content: hiddenContext ? wrapHiddenContext(hiddenContext, msg) : msg })
 
     // Compact history if it exceeds the threshold
     const compactionCtxId = `compaction:${turnId}`

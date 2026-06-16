@@ -166,6 +166,10 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
     // when the org enabled it, racing the model call.
     let moderation: ModerationRun | null = null
     if (moderationApplies(settings, identity.role)) {
+      // Moderate the FULL last user message, including any <hidden-context> block.
+      // Direct API callers control the raw body, so stripping the wrapper here
+      // would let an untrusted caller smuggle a payload past the gate by forging
+      // the sentinels while the model still receives it.
       const lastUserMessage = extractLastUserMessage(messages)
       if (lastUserMessage) {
         moderation = startModeration({ settings, owner, identity, message: lastUserMessage, modelRole: modelId })
