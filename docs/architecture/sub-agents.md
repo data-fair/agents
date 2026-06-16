@@ -218,6 +218,28 @@ There is no live in-browser recorder. Instead, each sub-agent's physical LLM req
 
 ---
 
+## 8. Flatten mode (experimental)
+
+An admin-only opt-in (`localStorage` key `agent-chat-flatten`, toggled from the chat debug
+dialog's Settings tab) replaces delegation with flat tool exposure. When on, `sendMessage`:
+
+- keeps each sub-agent's reserved tools in the main tool set (`resolveSubAgents` is called
+  with `keepReservedTools`), so the main agent calls them directly;
+- registers each `subagent_*` as a no-arg **guidance tool** under its de-prefixed name
+  (`data_analyst`), whose `execute()` returns the sub-agent's own prompt. No `ToolLoopAgent`,
+  separate model, multi-turn history, `toModelOutput` summary, or sub-agent UI panel.
+
+It exists to A/B whether a flat tool surface yields better tool use than delegation. It is
+orthogonal to and composes with [tool-exploration](./tool-exploration.md): the flat set is
+gated behind `explore_tools` the same way the delegated set is.
+
+**Key files:**
+- `ui/src/composables/use-agent-chat.ts` — `flatteningEnabled`, `sendMessage` flat branch
+- `ui/src/components/AgentChat.vue` — `agent-chat-flatten` toggle handler
+- `ui/src/components/agent-chat/AgentChatDebugDialog.vue` — the Settings-tab switch
+
+---
+
 ## Data Structures
 
 ```typescript
