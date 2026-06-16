@@ -16,6 +16,7 @@ declare global {
   const EffectScope: typeof import('vue')['EffectScope']
   const MODERATION_TASK_MARKER: typeof import('../src/composables/moderation')['MODERATION_TASK_MARKER']
   const SELECT_TOOL_NAME: typeof import('../src/composables/tool-exploration')['SELECT_TOOL_NAME']
+  const buildMermaidThemeVariables: typeof import('../src/utils/mermaid')['buildMermaidThemeVariables']
   const buildModerationSystemPrompt: typeof import('../src/composables/moderation')['buildModerationSystemPrompt']
   const computed: typeof import('vue')['computed']
   const computedDeepDiff: typeof import('@data-fair/lib-vue/deep-diff.js')['computedDeepDiff']
@@ -79,6 +80,7 @@ declare global {
   const readonly: typeof import('vue')['readonly']
   const ref: typeof import('vue')['ref']
   const renderMarkdown: typeof import('../src/utils/markdown')['renderMarkdown']
+  const renderMermaidIn: typeof import('../src/utils/mermaid')['renderMermaidIn']
   const renderStreamingMarkdown: typeof import('../src/utils/markdown')['renderStreamingMarkdown']
   const resetAnonymousToken: typeof import('../src/composables/use-anonymous-token')['resetAnonymousToken']
   const resolveComponent: typeof import('vue')['resolveComponent']
@@ -155,6 +157,7 @@ declare module 'vue' {
     readonly EXPLORE_TOOL_NAME: UnwrapRef<typeof import('../src/composables/tool-exploration')['EXPLORE_TOOL_NAME']>
     readonly EffectScope: UnwrapRef<typeof import('vue')['EffectScope']>
     readonly SELECT_TOOL_NAME: UnwrapRef<typeof import('../src/composables/tool-exploration')['SELECT_TOOL_NAME']>
+    readonly buildMermaidThemeVariables: UnwrapRef<typeof import('../src/utils/mermaid')['buildMermaidThemeVariables']>
     readonly computed: UnwrapRef<typeof import('vue')['computed']>
     readonly computedDeepDiff: UnwrapRef<typeof import('@data-fair/lib-vue/deep-diff.js')['computedDeepDiff']>
     readonly createApp: UnwrapRef<typeof import('vue')['createApp']>
@@ -200,6 +203,7 @@ declare module 'vue' {
     readonly readonly: UnwrapRef<typeof import('vue')['readonly']>
     readonly ref: UnwrapRef<typeof import('vue')['ref']>
     readonly renderMarkdown: UnwrapRef<typeof import('../src/utils/markdown')['renderMarkdown']>
+    readonly renderMermaidIn: UnwrapRef<typeof import('../src/utils/mermaid')['renderMermaidIn']>
     readonly renderStreamingMarkdown: UnwrapRef<typeof import('../src/utils/markdown')['renderStreamingMarkdown']>
     readonly resetAnonymousToken: UnwrapRef<typeof import('../src/composables/use-anonymous-token')['resetAnonymousToken']>
     readonly resolveComponent: UnwrapRef<typeof import('vue')['resolveComponent']>
