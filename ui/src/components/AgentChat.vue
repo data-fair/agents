@@ -20,6 +20,7 @@
         :action-visible-prompt="actionVisiblePrompt"
         :mermaid-enabled="mermaidEnabled"
         @navigate="url => sendDFrameMessage({ type: 'navigate', url })"
+        @fix-mermaid="handleFixMermaid"
       />
 
       <agent-chat-input
@@ -85,6 +86,7 @@ fr:
       line [20, 50, 90]
     ```
   moderationRefusal: "Cette demande ne peut pas être traitée car elle sort du cadre de ce que cet assistant peut faire."
+  fixMermaidVisible: "Corrige le diagramme qui n'a pas pu s'afficher."
 en:
   welcome: How can I help you?
   systemPromptBase: You are a helpful AI assistant for the Data Fair platform.
@@ -103,6 +105,7 @@ en:
       line [20, 50, 90]
     ```
   moderationRefusal: "This request can't be processed as it falls outside what this assistant is meant to help with."
+  fixMermaidVisible: "Please fix the diagram that failed to render."
 </i18n>
 
 <script lang="ts" setup>
@@ -111,6 +114,7 @@ import { useI18n } from 'vue-i18n'
 import { useSession } from '@data-fair/lib-vue/session.js'
 import { useVueRouterDFrameContent } from '@data-fair/frame/lib/vue-router/d-frame-content.js'
 import { useAgentChat, type ChatMessage } from '~/composables/use-agent-chat'
+import { formatMermaidFix } from '~/utils/mermaid-fix'
 import { getTabChannelId, getAgentInitConfig } from '@data-fair/lib-vue-agents'
 import type { AgentChatMessage } from '@data-fair/lib-vuetify-agents/types.js'
 import AgentChatHeader from './agent-chat/AgentChatHeader.vue'
@@ -355,6 +359,11 @@ const toolTitle = (toolName: string) => {
 const handleSend = (userMessage: string) => {
   if (isStreaming.value) return
   chat.sendMessage(userMessage)
+}
+
+function handleFixMermaid ({ source, error }: { source: string, error: string }) {
+  if (isStreaming.value) return
+  chat.sendMessage(t('fixMermaidVisible'), { hiddenContext: formatMermaidFix(error, source) })
 }
 
 const handleAbort = () => {
