@@ -58,8 +58,10 @@
       :account-type="accountType"
       :account-id="accountId"
       :tool-exploration="explorationEnabled"
+      :flatten-sub-agents="flattenEnabled"
       :mermaid="mermaidEnabled"
       @update:tool-exploration="handleToolExploration"
+      @update:flatten-sub-agents="handleFlattenSubAgents"
       @update:mermaid="handleMermaid"
     />
 
@@ -178,6 +180,10 @@ const finalSystemPrompt = computed(() => {
 // and toggled from the debug dialog's Settings tab.
 const explorationEnabled = ref(!!props.isAdmin && localStorage.getItem('agent-chat-explore') === '1')
 
+// Experimental flatten-subagents mode: admin-only opt-in, persisted in localStorage
+// and toggled from the debug dialog's Settings tab.
+const flattenEnabled = ref(!!props.isAdmin && localStorage.getItem('agent-chat-flatten') === '1')
+
 // Experimental mermaid rendering: admin-only opt-in (still experimental), persisted
 // in localStorage and toggled from the settings dialog.
 const mermaidEnabled = ref(!!props.isAdmin && localStorage.getItem('agent-chat-mermaid') === '1')
@@ -188,7 +194,8 @@ const chatResult = useAgentChat({
   systemPrompt: finalSystemPrompt.value,
   initialMessages: props.initialMessages,
   refusalMessage: t('moderationRefusal'),
-  toolExploration: explorationEnabled.value
+  toolExploration: explorationEnabled.value,
+  flattenSubAgents: flattenEnabled.value
 })
 
 if (!chatResult) {
@@ -295,6 +302,15 @@ function handleToolExploration (enabled: boolean) {
   if (enabled) localStorage.setItem('agent-chat-explore', '1')
   else localStorage.removeItem('agent-chat-explore')
   chat.setToolExploration(enabled)
+  // Reset the conversation so the new tool set applies from a clean state.
+  handleReset()
+}
+
+function handleFlattenSubAgents (enabled: boolean) {
+  flattenEnabled.value = enabled
+  if (enabled) localStorage.setItem('agent-chat-flatten', '1')
+  else localStorage.removeItem('agent-chat-flatten')
+  chat.setFlattenSubAgents(enabled)
   // Reset the conversation so the new tool set applies from a clean state.
   handleReset()
 }

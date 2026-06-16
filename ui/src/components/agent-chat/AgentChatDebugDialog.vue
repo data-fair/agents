@@ -157,6 +157,18 @@
               <p class="text-caption text-medium-emphasis mt-1">
                 {{ t('toolExplorationHint') }}
               </p>
+              <v-switch
+                :model-value="flattenSubAgents"
+                color="primary"
+                density="compact"
+                hide-details
+                :label="t('flatten')"
+                class="mt-2"
+                @update:model-value="$emit('update:flattenSubAgents', $event ?? false)"
+              />
+              <p class="text-caption text-medium-emphasis mt-1">
+                {{ t('flattenHint') }}
+              </p>
               <template v-if="isAdmin">
                 <v-switch
                   :model-value="mermaid"
@@ -192,6 +204,8 @@ fr:
   storeTraces: Enregistrer mes conversations pour relecture
   toolExploration: Exploration des outils (expérimental)
   toolExplorationHint: "Masque les outils derrière un outil « explore_tools » que l'assistant appelle pour découvrir et activer les outils pertinents à la demande. Changer ce réglage réinitialise la conversation."
+  flatten: Aplatir les sous-agents (expérimental)
+  flattenHint: "Expose tous les outils des sous-agents directement à l'assistant au lieu de déléguer. Chaque sous-agent devient un outil de consigne qui renvoie son prompt. Changer ce réglage réinitialise la conversation."
   mermaid: Diagrammes Mermaid (expérimental)
   mermaidHint: "Affiche les blocs de code Mermaid sous forme de diagrammes (graphiques XY, organigrammes, etc.). Changer ce réglage réinitialise la conversation."
 en:
@@ -206,6 +220,8 @@ en:
   storeTraces: Store my conversations for review
   toolExploration: Tool exploration (experimental)
   toolExplorationHint: "Hides tools behind an 'explore_tools' tool the assistant calls to discover and enable relevant tools on demand. Changing this setting resets the conversation."
+  flatten: Flatten sub-agents (experimental)
+  flattenHint: "Exposes every sub-agent tool directly to the assistant instead of delegating. Each sub-agent becomes a guidance tool that returns its prompt. Changing this setting resets the conversation."
   mermaid: Mermaid diagrams (experimental)
   mermaidHint: "Renders Mermaid code blocks as diagrams (XY charts, flowcharts, etc.). Changing this setting resets the conversation."
 </i18n>
@@ -227,12 +243,14 @@ const props = defineProps<{
   accountType: string
   accountId: string
   toolExploration?: boolean
+  flattenSubAgents?: boolean
   mermaid?: boolean
 }>()
 
 defineEmits<{
   'update:modelValue': [value: boolean]
   'update:toolExploration': [value: boolean]
+  'update:flattenSubAgents': [value: boolean]
   'update:mermaid': [value: boolean]
 }>()
 
