@@ -83,6 +83,24 @@ const mockMessages: ChatMessage[] = [
   },
   {
     role: 'user',
+    content: 'Peux-tu visualiser ces moyennes sous forme de graphique ?'
+  },
+  {
+    role: 'assistant',
+    content: 'Bien sûr, voici ces moyennes sous forme de graphique (nécessite l\'option « Diagrammes Mermaid » activée dans les paramètres) :\n\n```mermaid\nxychart-beta\n  title "Moyenne PM2.5 par station (µg/m³)"\n  x-axis [ST-001, ST-002, ST-003, ST-004]\n  y-axis "µg/m³" 0 --> 20\n  bar [12.3, 18.7, 9.1, 15.4]\n```'
+  },
+  {
+    role: 'user',
+    content: 'Et si la syntaxe est cassée ?'
+  },
+  {
+    // Intentionally invalid mermaid: exercises the inline render error and the
+    // "Corriger ce diagramme" (fix) button. Keep this broken on purpose.
+    role: 'assistant',
+    content: 'Voici un diagramme volontairement invalide, pour tester le bouton « Corriger ce diagramme » :\n\n```mermaid\nxychart-beta\n  ceci n\'est pas une syntaxe valide !!!\n```'
+  },
+  {
+    role: 'user',
     content: 'Montre-moi tous les niveaux de titres pour vérifier le rendu.'
   },
   {

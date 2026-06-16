@@ -32,6 +32,17 @@
 
         <v-window v-model="activeDebugTab">
           <v-window-item value="info">
+            <v-btn
+              v-if="showReview"
+              variant="tonal"
+              size="small"
+              :prepend-icon="mdiOpenInNew"
+              class="mt-3"
+              @click="openReview"
+            >
+              {{ t('openReview') }}
+            </v-btn>
+
             <div class="text-caption font-weight-bold mt-3 mb-1 px-2">
               {{ t('systemPrompt') }}
             </div>
@@ -121,17 +132,6 @@
                 </v-expansion-panels>
               </template>
             </template>
-
-            <v-btn
-              v-if="showReview"
-              variant="tonal"
-              size="small"
-              :prepend-icon="mdiOpenInNew"
-              class="mt-2"
-              @click="openReview"
-            >
-              {{ t('openReview') }}
-            </v-btn>
           </v-window-item>
 
           <v-window-item value="settings">
@@ -169,6 +169,20 @@
               <p class="text-caption text-medium-emphasis mt-1">
                 {{ t('flattenHint') }}
               </p>
+              <template v-if="isAdmin">
+                <v-switch
+                  :model-value="mermaid"
+                  color="primary"
+                  density="compact"
+                  hide-details
+                  :label="t('mermaid')"
+                  class="mt-2"
+                  @update:model-value="(v: boolean | null) => $emit('update:mermaid', v ?? false)"
+                />
+                <p class="text-caption text-medium-emphasis mt-1">
+                  {{ t('mermaidHint') }}
+                </p>
+              </template>
             </div>
           </v-window-item>
         </v-window>
@@ -192,6 +206,8 @@ fr:
   toolExplorationHint: "Masque les outils derrière un outil « explore_tools » que l'assistant appelle pour découvrir et activer les outils pertinents à la demande. Changer ce réglage réinitialise la conversation."
   flatten: Aplatir les sous-agents (expérimental)
   flattenHint: "Expose tous les outils des sous-agents directement à l'assistant au lieu de déléguer. Chaque sous-agent devient un outil de consigne qui renvoie son prompt. Changer ce réglage réinitialise la conversation."
+  mermaid: Diagrammes Mermaid (expérimental)
+  mermaidHint: "Affiche les blocs de code Mermaid sous forme de diagrammes (graphiques XY, organigrammes, etc.). Changer ce réglage réinitialise la conversation."
 en:
   close: Close
   info: Info
@@ -206,6 +222,8 @@ en:
   toolExplorationHint: "Hides tools behind an 'explore_tools' tool the assistant calls to discover and enable relevant tools on demand. Changing this setting resets the conversation."
   flatten: Flatten sub-agents (experimental)
   flattenHint: "Exposes every sub-agent tool directly to the assistant instead of delegating. Each sub-agent becomes a guidance tool that returns its prompt. Changing this setting resets the conversation."
+  mermaid: Mermaid diagrams (experimental)
+  mermaidHint: "Renders Mermaid code blocks as diagrams (XY charts, flowcharts, etc.). Changing this setting resets the conversation."
 </i18n>
 
 <script lang="ts" setup>
@@ -226,12 +244,14 @@ const props = defineProps<{
   accountId: string
   toolExploration?: boolean
   flattenSubAgents?: boolean
+  mermaid?: boolean
 }>()
 
 defineEmits<{
   'update:modelValue': [value: boolean]
   'update:toolExploration': [value: boolean]
   'update:flattenSubAgents': [value: boolean]
+  'update:mermaid': [value: boolean]
 }>()
 
 const { t } = useI18n()

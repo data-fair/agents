@@ -18,7 +18,9 @@
         :welcome-text="t('welcome')"
         :tool-title="toolTitle"
         :action-visible-prompt="actionVisiblePrompt"
+        :mermaid-enabled="mermaidEnabled"
         @navigate="url => sendDFrameMessage({ type: 'navigate', url })"
+        @fix-mermaid="handleFixMermaid"
       />
 
       <agent-chat-input
@@ -57,8 +59,10 @@
       :account-id="accountId"
       :tool-exploration="explorationEnabled"
       :flatten-sub-agents="flattenEnabled"
+      :mermaid="mermaidEnabled"
       @update:tool-exploration="handleToolExploration"
       @update:flatten-sub-agents="handleFlattenSubAgents"
+      @update:mermaid="handleMermaid"
     />
 
     <trace-consent-sheet />
@@ -73,7 +77,18 @@ fr:
   systemPromptOrg: "L'utilisateur actuel est membre de l'organisation {orgName}{depPart}."
   systemPromptDep: ", département {depName}"
   systemPromptCompact: "Tes réponses sont affichées dans un widget de chat étroit. Garde un formatage compact : utilise des paragraphes courts et des listes à puces simples. Évite les tableaux, les blocs de code larges et les sorties verbeuses. Sois concis."
+  systemPromptMermaid: |
+    Tu peux afficher des diagrammes et graphiques en émettant des blocs de code Mermaid (```mermaid). Privilégie les graphiques XY simples (xychart-beta) pour visualiser des données quantitatives (tendances, comparaisons). N'utilise un diagramme que s'il aide vraiment à la compréhension ; sinon réponds en texte ou avec un tableau. Pour un graphique XY, suis exactement cette syntaxe :
+    ```mermaid
+    xychart-beta
+      title "Chiffre d'affaires"
+      x-axis [jan, fev, mar]
+      y-axis "EUR" 0 --> 100
+      bar [20, 50, 90]
+      line [20, 50, 90]
+    ```
   moderationRefusal: "Cette demande ne peut pas être traitée car elle sort du cadre de ce que cet assistant peut faire."
+  fixMermaidVisible: "Corrige le diagramme qui n'a pas pu s'afficher."
 en:
   welcome: How can I help you?
   systemPromptBase: You are a helpful AI assistant for the Data Fair platform.
@@ -81,7 +96,18 @@ en:
   systemPromptOrg: "The current user is a member of the organization {orgName}{depPart}."
   systemPromptDep: ", department {depName}"
   systemPromptCompact: "Your responses are displayed in a narrow chat widget. Keep formatting compact: use short paragraphs and simple bullet lists. Avoid tables, wide code blocks, and verbose output. Be concise."
+  systemPromptMermaid: |
+    You can render diagrams and charts by emitting Mermaid fenced code blocks (```mermaid). Prefer simple XY charts (xychart-beta) to visualize quantitative data such as trends and comparisons. Only use a diagram when it genuinely aids understanding; otherwise answer with prose or a table. When you draw an XY chart, follow this exact syntax:
+    ```mermaid
+    xychart-beta
+      title "Revenue"
+      x-axis [jan, feb, mar]
+      y-axis "USD" 0 --> 100
+      bar [20, 50, 90]
+      line [20, 50, 90]
+    ```
   moderationRefusal: "This request can't be processed as it falls outside what this assistant is meant to help with."
+  fixMermaidVisible: "Please fix the diagram that failed to render."
 </i18n>
 
 <script lang="ts" setup>
@@ -90,6 +116,7 @@ import { useI18n } from 'vue-i18n'
 import { useSession } from '@data-fair/lib-vue/session.js'
 import { useVueRouterDFrameContent } from '@data-fair/frame/lib/vue-router/d-frame-content.js'
 import { useAgentChat, type ChatMessage } from '~/composables/use-agent-chat'
+import { formatMermaidFix } from '~/utils/mermaid-fix'
 import { getTabChannelId, getAgentInitConfig } from '@data-fair/lib-vue-agents'
 import type { AgentChatMessage } from '@data-fair/lib-vuetify-agents/types.js'
 import AgentChatHeader from './agent-chat/AgentChatHeader.vue'
@@ -142,6 +169,10 @@ const finalSystemPrompt = computed(() => {
     parts.push(t('systemPromptCompact'))
   }
 
+  if (mermaidEnabled.value) {
+    parts.push(t('systemPromptMermaid'))
+  }
+
   return parts.join(' ')
 })
 
@@ -152,6 +183,10 @@ const explorationEnabled = ref(!!props.isAdmin && localStorage.getItem('agent-ch
 // Experimental flatten-subagents mode: admin-only opt-in, persisted in localStorage
 // and toggled from the debug dialog's Settings tab.
 const flattenEnabled = ref(!!props.isAdmin && localStorage.getItem('agent-chat-flatten') === '1')
+
+// Experimental mermaid rendering: admin-only opt-in (still experimental), persisted
+// in localStorage and toggled from the settings dialog.
+const mermaidEnabled = ref(!!props.isAdmin && localStorage.getItem('agent-chat-mermaid') === '1')
 
 const chatResult = useAgentChat({
   accountType: props.accountType,
@@ -280,6 +315,14 @@ function handleFlattenSubAgents (enabled: boolean) {
   handleReset()
 }
 
+function handleMermaid (enabled: boolean) {
+  mermaidEnabled.value = enabled
+  if (enabled) localStorage.setItem('agent-chat-mermaid', '1')
+  else localStorage.removeItem('agent-chat-mermaid')
+  // Reset so the system prompt is uniform across the whole conversation.
+  handleReset()
+}
+
 function handleReset () {
   chat.abort()
   chat.reset(finalSystemPrompt.value)
@@ -332,6 +375,11 @@ const toolTitle = (toolName: string) => {
 const handleSend = (userMessage: string) => {
   if (isStreaming.value) return
   chat.sendMessage(userMessage)
+}
+
+function handleFixMermaid ({ source, error }: { source: string, error: string }) {
+  if (isStreaming.value) return
+  chat.sendMessage(t('fixMermaidVisible'), { hiddenContext: formatMermaidFix(error, source) })
 }
 
 const handleAbort = () => {
