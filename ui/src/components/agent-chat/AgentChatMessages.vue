@@ -7,7 +7,7 @@
       ref="messagesContainer"
       class="flex-grow-1 overflow-y-auto agent-chat-message"
       style="min-height: 0"
-      @click="onLinkClick"
+      @click="onContentClick"
       @scroll="updateAtBottom"
     >
       <!-- Welcome message -->
@@ -228,6 +228,7 @@ import type { ChatMessage } from '~/composables/use-agent-chat'
 
 const emit = defineEmits<{
   navigate: [url: string]
+  'fix-mermaid': [payload: { source: string, error: string }]
 }>()
 
 const props = defineProps<{
@@ -355,14 +356,24 @@ const subAgentTitle = (toolName: string) => {
 
 const inIframe = window.parent !== window
 
-function onLinkClick (e: MouseEvent) {
-  const anchor = (e.target as HTMLElement).closest('a[href]')
+function onContentClick (e: MouseEvent) {
+  const target = e.target as HTMLElement
+  // The mermaid "fix" button lives in v-html, so it is handled by delegation here.
+  const fixBtn = target.closest('[data-mermaid-fix]') as HTMLElement | null
+  if (fixBtn) {
+    emit('fix-mermaid', {
+      source: fixBtn.dataset.mermaidSource ?? '',
+      error: fixBtn.dataset.mermaidError ?? ''
+    })
+    return
+  }
+  const anchor = target.closest('a[href]')
   if (!anchor) return
   if (!inIframe) return
-  e.preventDefault()
   // Forward the raw href the model wrote, not the DOM-resolved one: this iframe's URL
   // (/agents/.../chat) is never the link target, so resolving here would corrupt
   // app-relative links. The host resolves it against the embedding app's router base.
+  e.preventDefault()
   emit('navigate', anchor.getAttribute('href') ?? (anchor as HTMLAnchorElement).href)
 }
 
