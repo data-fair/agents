@@ -230,8 +230,13 @@ dialog's Settings tab) replaces delegation with flat tool exposure. When on, `se
   separate model, multi-turn history, `toModelOutput` summary, or sub-agent UI panel.
 
 It exists to A/B whether a flat tool surface yields better tool use than delegation. It is
-orthogonal to and composes with [tool-exploration](./tool-exploration.md): the flat set is
-gated behind `explore_tools` the same way the delegated set is.
+independent of [tool-exploration](./tool-exploration.md) and the two can be enabled together:
+the now-flat reserved tools are still gated behind `explore_tools` like any plain tool.
+Known limitation of the combined mode: the de-prefixed guidance tools are not promotable by
+`explore_tools` (they live in `mainLLMTools` but not `mainTools`, and the always-active list
+still references the `subagent_`-prefixed names), so they are effectively hidden when
+exploration is also on. This degrades gracefully (no crash) and matters only when both
+experimental toggles are active at once.
 
 **Key files:**
 - `ui/src/composables/use-agent-chat.ts` — `flatteningEnabled`, `sendMessage` flat branch
