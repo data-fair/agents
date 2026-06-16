@@ -3,6 +3,7 @@ import { useRouter } from 'vue-router'
 import { mdiRobotOutline, mdiCommentQuestion, mdiAlertCircle } from '@mdi/js'
 import { getTabChannelId } from '@data-fair/lib-vue-agents'
 import type { AgentStatus, AgentChatMessage, AgentChatPong } from './types.js'
+import { resolveAgentLink } from './link-utils.js'
 import Debug from './debug.js'
 
 const debug = Debug('df-agents:agent-chat')
@@ -75,12 +76,15 @@ export function createAgentChatBase (isOpen: Ref<boolean>, storageKey?: string) 
       if (toolsChangedTimeout) clearTimeout(toolsChangedTimeout)
       toolsChangedTimeout = setTimeout(() => { toolsJustChanged.value = false }, 3000)
     } else if (msg.type === 'navigate') {
-      const parsed = new URL(msg.url, window.location.origin)
-      const base = router.options.history.base
-      if (parsed.origin === window.location.origin && parsed.pathname.startsWith(base)) {
-        router.push(parsed.pathname.slice(base.length - (base.endsWith('/') ? 1 : 0)) + parsed.search + parsed.hash)
+      // The link may be a full URL, a base-prefixed path, or an app-relative path that
+      // omits our base prefix (models often write those). Resolve against our router base
+      // and navigate in-SPA when it maps to a real route; otherwise fall back to a full
+      // navigation (external links, or same-origin pages outside this app).
+      const link = resolveAgentLink(msg.url, window.location.origin, router.options.history.base)
+      if (!link.external && router.resolve(link.path).matched.length > 0) {
+        router.push(link.path)
       } else {
-        window.location.href = msg.url
+        window.location.href = link.url
       }
     } else if (msg.type === 'unread') {
       if (!isOpen.value && msg.unread) {
