@@ -91,6 +91,16 @@ const mockMessages: ChatMessage[] = [
   },
   {
     role: 'user',
+    content: 'Et si la syntaxe est cassée ?'
+  },
+  {
+    // Intentionally invalid mermaid: exercises the inline render error and the
+    // "Corriger ce diagramme" (fix) button. Keep this broken on purpose.
+    role: 'assistant',
+    content: 'Voici un diagramme volontairement invalide, pour tester le bouton « Corriger ce diagramme » :\n\n```mermaid\nxychart-beta\n  ceci n\'est pas une syntaxe valide !!!\n```'
+  },
+  {
+    role: 'user',
     content: 'Montre-moi tous les niveaux de titres pour vérifier le rendu.'
   },
   {
