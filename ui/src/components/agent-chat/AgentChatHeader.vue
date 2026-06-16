@@ -12,7 +12,6 @@
       @click="$emit('reset')"
     />
     <v-btn
-      v-if="isAdmin"
       :icon="mdiCog"
       variant="flat"
       density="compact"

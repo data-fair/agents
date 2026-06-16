@@ -7,7 +7,7 @@
       ref="messagesContainer"
       class="flex-grow-1 overflow-y-auto agent-chat-message"
       style="min-height: 0"
-      @click="onLinkClick"
+      @click="onContentClick"
       @scroll="updateAtBottom"
     >
       <!-- Welcome message -->
@@ -44,10 +44,11 @@
             v-else
             class="text-body-medium"
           >
-            <!-- eslint-disable-next-line vue/no-v-html -->
-            <div
+            <markdown-content
               class="assistant-content markdown-content"
-              v-html="renderStreamingMarkdown(message.content, isStreaming && index === messages.length - 1)"
+              :content="message.content"
+              :streaming="isStreaming && index === messages.length - 1"
+              :mermaid="mermaidEnabled"
             />
             <div
               v-if="message.toolInvocations?.length"
@@ -110,10 +111,11 @@
                         :key="subIdx"
                         class="py-1"
                       >
-                        <!-- eslint-disable-next-line vue/no-v-html -->
-                        <div
+                        <markdown-content
                           class="text-body-medium markdown-content"
-                          v-html="renderStreamingMarkdown(subMsg.content, isStreaming && index === messages.length - 1 && subIdx === message.subAgentMessages!.length - 1)"
+                          :content="subMsg.content"
+                          :streaming="isStreaming && index === messages.length - 1 && subIdx === message.subAgentMessages!.length - 1"
+                          :mermaid="mermaidEnabled"
                         />
                         <div
                           v-if="subMsg.toolInvocations?.length"
@@ -220,12 +222,13 @@ import { ref, reactive, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAutoScrollBottom } from '@data-fair/lib-vue/auto-scroll-bottom.js'
 import { mdiCheck, mdiLoading, mdiArrowDown } from '@mdi/js'
-import { renderStreamingMarkdown } from '~/utils/markdown'
 import { streamedLength, latestSubAgentPanel } from './auto-scroll'
+import MarkdownContent from './MarkdownContent.vue'
 import type { ChatMessage } from '~/composables/use-agent-chat'
 
 const emit = defineEmits<{
   navigate: [url: string]
+  'fix-mermaid': [payload: { source: string, error: string }]
 }>()
 
 const props = defineProps<{
@@ -235,6 +238,7 @@ const props = defineProps<{
   welcomeText: string
   toolTitle: (toolName: string) => string
   actionVisiblePrompt: string | null
+  mermaidEnabled: boolean
 }>()
 
 const isActionPrompt = (message: ChatMessage) => {
@@ -352,14 +356,24 @@ const subAgentTitle = (toolName: string) => {
 
 const inIframe = window.parent !== window
 
-function onLinkClick (e: MouseEvent) {
-  const anchor = (e.target as HTMLElement).closest('a[href]')
+function onContentClick (e: MouseEvent) {
+  const target = e.target as HTMLElement
+  // The mermaid "fix" button lives in v-html, so it is handled by delegation here.
+  const fixBtn = target.closest('[data-mermaid-fix]') as HTMLElement | null
+  if (fixBtn) {
+    emit('fix-mermaid', {
+      source: fixBtn.dataset.mermaidSource ?? '',
+      error: fixBtn.dataset.mermaidError ?? ''
+    })
+    return
+  }
+  const anchor = target.closest('a[href]')
   if (!anchor) return
   if (!inIframe) return
-  e.preventDefault()
   // Forward the raw href the model wrote, not the DOM-resolved one: this iframe's URL
   // (/agents/.../chat) is never the link target, so resolving here would corrupt
   // app-relative links. The host resolves it against the embedding app's router base.
+  e.preventDefault()
   emit('navigate', anchor.getAttribute('href') ?? (anchor as HTMLAnchorElement).href)
 }
 

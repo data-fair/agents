@@ -8,6 +8,7 @@
       :welcome-text="t('welcome')"
       :tool-title="toolTitle"
       :action-visible-prompt="null"
+      :mermaid-enabled="false"
       @navigate="onNavigate"
     />
     <div
