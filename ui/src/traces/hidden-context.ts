@@ -2,9 +2,9 @@
 // user message, wrapped in these sentinels, so it reaches the model as part of
 // the user turn instead of being merged into the session system prompt. The chat
 // UI renders only the visible prompt; trace reconstruction splits it back out.
-//
-// NOTE: api/src/moderation/operations.ts mirrors this format (stripHiddenContext)
-// because ui and api are separate TS projects and cannot share this module.
+// The server-side moderation gate deliberately does NOT strip this wrapper: it
+// classifies the full user message, since a direct API caller could otherwise
+// forge the sentinels to smuggle content past the gate.
 export const HIDDEN_CONTEXT_OPEN = '<hidden-context>'
 export const HIDDEN_CONTEXT_CLOSE = '</hidden-context>'
 
