@@ -221,13 +221,25 @@ There is no live in-browser recorder. Instead, each sub-agent's physical LLM req
 ## 8. Flatten mode (experimental)
 
 An admin-only opt-in (`localStorage` key `agent-chat-flatten`, toggled from the chat debug
-dialog's Settings tab) replaces delegation with flat tool exposure. When on, `sendMessage`:
+dialog's Settings tab) replaces delegation with flat tool exposure. The choice is made **per
+sub-agent** each turn via `shouldFlattenSubAgent(config, flatten)` (`ui/src/composables/sub-agent-flatten.ts`).
+For a sub-agent that flattens, `sendMessage`:
 
-- keeps each sub-agent's reserved tools in the main tool set (`resolveSubAgents` is called
-  with `keepReservedTools`), so the main agent calls them directly;
-- registers each `subagent_*` as a no-arg **guidance tool** under its de-prefixed name
+- keeps its reserved tools in the main tool set (`resolveSubAgents` skips removal for that
+  sub-agent), so the main agent calls them directly;
+- registers its `subagent_*` as a no-arg **guidance tool** under its de-prefixed name
   (`data_analyst`), whose `execute()` returns the sub-agent's own prompt. No `ToolLoopAgent`,
   separate model, multi-turn history, `toModelOutput` summary, or sub-agent UI panel.
+
+**Per-sub-agent opt-out.** Flattening is lossy for sub-agents a host prompt uses as
+black-box *producers* (it inverts the "delegate then receive a deliverable" contract and
+discards any pinned model). So a sub-agent **stays delegated** even when the toggle is on
+when it pins a non-default model (the default heuristic — lib-vue materializes the default
+to `tools`, so non-`tools` is an explicit pin) or when its config sets `delegateOnly: true`
+(explicit override, added to lib-vue's `useAgentSubAgent`). `delegateOnly: false` forces
+flattening even for a model-pinned sub-agent. Reserved-tool removal is therefore per
+sub-agent, and a single turn can run some sub-agents flat and others delegated (**mixed
+mode**).
 
 It exists to A/B whether a flat tool surface yields better tool use than delegation. It is
 independent of [tool-exploration](./tool-exploration.md) and the two can be enabled together:
@@ -240,6 +252,8 @@ experimental toggles are active at once.
 
 **Key files:**
 - `ui/src/composables/use-agent-chat.ts` — `flatteningEnabled`, `sendMessage` flat branch
+- `ui/src/composables/sub-agent-flatten.ts` — `shouldFlattenSubAgent` policy (pure, unit-tested)
+- `lib-vue/use-agent-sub-agent.ts` — `delegateOnly` opt-out field
 - `ui/src/components/AgentChat.vue` — `agent-chat-flatten` toggle handler
 - `ui/src/components/agent-chat/AgentChatDebugDialog.vue` — the Settings-tab switch
 

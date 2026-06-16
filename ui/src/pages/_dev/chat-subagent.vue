@@ -218,6 +218,32 @@ onMounted(() => {
     prompt: 'You are a data analyst. Use the get_schema tool to understand dataset structure, then use query_data to retrieve and analyze data. Provide concise statistical summaries.',
     tools: ['get_schema', 'query_data']
   })
+
+  // Tool reserved for the summarizer sub-agent
+  useAgentTool({
+    name: 'summarize_data',
+    description: 'Returns a one-line summary of the demo dataset',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        dataset: { type: 'string', description: 'Name of the dataset' }
+      },
+      required: ['dataset']
+    },
+    execute: (args: { dataset: string }) => {
+      return { summary: `Air quality measurements for ${args.dataset || 'air_quality_2024'}` }
+    }
+  } as any)
+
+  // Sub-agent that pins a non-default model: it stays delegated even when the experimental
+  // flatten toggle is on (model routing and its producer contract would be lost if flattened).
+  useAgentSubAgent({
+    name: 'data_summarizer',
+    description: 'Produces a concise summary of a dataset',
+    model: 'summarizer',
+    prompt: 'You are a dataset summarizer. Call summarize_data and return the summary text as your final response.',
+    tools: ['summarize_data']
+  })
 })
 </script>
 

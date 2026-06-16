@@ -5,6 +5,7 @@ import type { ModelMessage, Tool } from 'ai'
 import { getTabChannelId } from '@data-fair/lib-vue-agents'
 import { FrameClientAggregator } from '~/transports/frame-client-aggregator'
 import { createExploreTool, formatToolsAvailableMessage, newlyAvailableTools, EXPLORE_TOOL_NAME } from '~/composables/tool-exploration'
+import { shouldFlattenSubAgent } from '~/composables/sub-agent-flatten'
 import { $apiPath } from '~/context'
 import { useSession } from '@data-fair/lib-vue/session.js'
 import { getAnonymousToken, resetAnonymousToken } from '~/composables/use-anonymous-token'
@@ -66,6 +67,7 @@ interface SubAgentConfig {
   prompt: string
   tools: string[]
   model?: string
+  delegateOnly?: boolean
 }
 
 /**
@@ -300,13 +302,13 @@ export function useAgentChat (options: UseAgentChatOptions) {
 
   /**
    * Resolve sub-agent configs by calling their execute functions.
-   * Also removes reserved tools from mainTools, unless opts.keepReservedTools is set
-   * (flatten mode keeps them callable by the main agent).
+   * Removes a sub-agent's reserved tools from mainTools unless that sub-agent will be
+   * flattened (opts.willFlatten), where the reserved tools stay callable by the main agent.
    */
   async function resolveSubAgents (
     mainTools: Record<string, Tool>,
     subAgents: Record<string, { tool: Tool, config: SubAgentConfig }>,
-    opts?: { keepReservedTools?: boolean }
+    opts?: { willFlatten?: (config: SubAgentConfig) => boolean }
   ) {
     for (const [, entry] of Object.entries(subAgents)) {
       const executeFn = (entry.tool as any).execute
@@ -325,9 +327,9 @@ export function useAgentChat (options: UseAgentChatOptions) {
         }
         entry.config = JSON.parse(configStr) as SubAgentConfig
 
-        // Remove reserved tools from main set — unless flattening, where they stay
-        // callable by the main agent directly.
-        if (!opts?.keepReservedTools) {
+        // Keep reserved tools in the main set only for flattened sub-agents; delegated
+        // sub-agents keep them exclusive to their ToolLoopAgent.
+        if (!opts?.willFlatten?.(entry.config)) {
           for (const reservedName of entry.config.tools) {
             delete mainTools[reservedName]
           }
@@ -433,9 +435,11 @@ export function useAgentChat (options: UseAgentChatOptions) {
       debug('partitioned tools: main=%o subAgents=%o', Object.keys(mainTools), Object.keys(subAgents))
 
       // Flat mode keeps reserved tools in the main set and turns sub-agents into
-      // no-arg guidance tools (experimental flatten toggle).
+      // no-arg guidance tools (experimental flatten toggle). The decision is per sub-agent:
+      // model-pinned or delegateOnly sub-agents stay delegated even when flatten is on.
       const flatten = flatteningEnabled()
-      await resolveSubAgents(mainTools, subAgents, { keepReservedTools: flatten })
+      const willFlatten = (config: SubAgentConfig) => shouldFlattenSubAgent(config, flatten)
+      await resolveSubAgents(mainTools, subAgents, { willFlatten })
 
       // Build the tool set for the main LLM:
       // main tools + sub-agent pseudo-tools using ToolLoopAgent + async generators
@@ -445,7 +449,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
       for (const [name, entry] of Object.entries(subAgents)) {
         const config = entry.config
 
-        if (flatten) {
+        if (willFlatten(config)) {
           // Flattened: register the sub-agent as a no-arg guidance tool that returns its
           // own prompt, under the de-prefixed name so AgentChatMessages renders it as an
           // ordinary chip (not an empty sub-agent panel — panel rendering keys off the

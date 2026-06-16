@@ -10,6 +10,14 @@ export interface SubAgentOptions {
   prompt: string
   tools: string[]
   model?: string
+  /**
+   * Keep this sub-agent delegated even when the host enables the experimental
+   * "flatten sub-agents" mode. Set this for producer sub-agents whose return value a
+   * host prompt consumes as a finished deliverable (flattening would invert that
+   * contract). When omitted, the host defaults to keeping model-pinned sub-agents
+   * delegated; see shouldFlattenSubAgent in the agents app.
+   */
+  delegateOnly?: boolean
 }
 
 export function useAgentSubAgent (options: SubAgentOptions) {
@@ -29,7 +37,9 @@ export function useAgentSubAgent (options: SubAgentOptions) {
       return JSON.stringify({
         prompt: options.prompt,
         tools: options.tools,
-        model: options.model ?? 'tools'
+        model: options.model ?? 'tools',
+        // Omitted from the JSON when undefined, so the consumer falls back to its heuristic.
+        delegateOnly: options.delegateOnly
       })
     }
   } as any)

@@ -107,7 +107,44 @@ loop (line 434), branch:
 
 - *Delegated mode (flatten off):* unchanged — build the `ToolLoopAgent` and the async
   generator tool (lines 443-518+).
-- *Flat mode (flatten on):* register a plain guidance tool instead, under the
+#### Per-sub-agent opt-out
+
+Flattening is **not transparent** for every sub-agent. Some are used by host prompts as
+black-box **producers**: a delegated call returns a finished deliverable that an action's
+hidden context then applies (e.g. data-fair's `dataset_summarizer` returns summary text,
+and the `summarize-dataset` action then calls `set_dataset_summary`). Flattening such a
+sub-agent inverts the contract — calling the guidance tool now returns *instructions*, not
+the deliverable — and also discards any pinned model role (e.g. the cheap `summarizer`
+model).
+
+So a sub-agent can stay delegated even when the global toggle is on. The decision is a small
+pure helper, `shouldFlattenSubAgent(config, flatten)` in `ui/src/composables/sub-agent-flatten.ts`:
+
+```ts
+export function shouldFlattenSubAgent (config: { model?: string, delegateOnly?: boolean }, flatten: boolean): boolean {
+  if (!flatten) return false
+  // Opt-out default: a sub-agent that pins a non-default model is kept delegated (its model
+  // routing and producer/return contract would be lost when flattened). lib-vue materializes
+  // the default to 'tools', so a non-'tools' value is an explicit pin. An explicit
+  // `delegateOnly` in the sub-agent config overrides the heuristic either way.
+  const stayDelegated = config.delegateOnly ?? (config.model !== undefined && config.model !== 'tools')
+  return !stayDelegated
+}
+```
+
+`delegateOnly?: boolean` is added to lib-vue's `SubAgentOptions` (`useAgentSubAgent`) and
+emitted into the config JSON, so integration authors can mark producer sub-agents that don't
+pin a special model (e.g. `dataset_description_writer`). `SubAgentConfig` in
+`use-agent-chat.ts` gains the same optional field.
+
+Consequence for tool partitioning: reserved-tool removal becomes **per sub-agent**.
+`resolveSubAgents` keeps reserved tools in the main set only for sub-agents that *will* be
+flattened; sub-agents that stay delegated still have their reserved tools removed (exclusive
+to their `ToolLoopAgent`). The flat/delegated branch in `sendMessage` is chosen per entry via
+the same helper. This makes **mixed mode** valid: in one turn some sub-agents flatten while
+others stay delegated.
+
+- *Flat mode (flatten on, sub-agent flattened):* register a plain guidance tool instead, under the
   **de-prefixed** name so it renders as an ordinary tool chip rather than an empty
   sub-agent expansion panel (`AgentChatMessages.vue` keys panel rendering off the
   `subagent_` name prefix, line 61/86):

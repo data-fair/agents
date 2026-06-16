@@ -98,4 +98,23 @@ test.describe('Chat Sub-Agent Flatten toggle', () => {
       .toBeVisible({ timeout: 15000 })
     await expect(page.locator('.agent-chat .v-expansion-panel')).toHaveCount(0)
   })
+
+  test('Flat mode: a model-pinned sub-agent stays delegated (opt-out)', async ({ page, goToWithAuth }) => {
+    await page.addInitScript(() => localStorage.setItem('agent-chat-flatten', '1'))
+    await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
+
+    await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
+    await page.getByRole('tab', { name: 'Info' }).click()
+    await expect(page.locator('.v-dialog .v-window-item--active').getByRole('button', { name: 'set_display' }))
+      .toBeVisible({ timeout: 5000 })
+    await page.getByRole('button', { name: /Close|Fermer/ }).click()
+
+    // data_summarizer pins model 'summarizer', so even with flatten on it must stay a
+    // delegated sub-agent: calling it (under its subagent_ name) opens a sub-agent panel.
+    await page.getByPlaceholder('Type your message...').fill('call tool subagent_data_summarizer {"task":"hello"}')
+    await page.getByRole('button', { name: 'Send' }).click()
+
+    await expect(page.locator('.agent-chat').getByText('Data Summarizer').first())
+      .toBeVisible({ timeout: 15000 })
+  })
 })
