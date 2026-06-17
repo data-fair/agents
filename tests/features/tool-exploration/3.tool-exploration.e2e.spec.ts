@@ -57,9 +57,10 @@ test.describe('Tool exploration E2E', () => {
     // Turn 1: trigger explore_tools via the mock "call tool" syntax
     await sendMessage(page, 'call tool explore_tools {"intent":"display some text"}')
 
-    // Wait for the explore_tools chip to appear in the assistant message
+    // explore_tools is an internal step: while it runs a placeholder skeleton chip
+    // is shown, and the explore_tools name is NEVER rendered as a chip.
     await expect(
-      page.locator('.agent-chat .v-chip', { hasText: 'explore_tools' }).first()
+      page.locator('.agent-chat [data-testid="explore-skeleton"]').first()
     ).toBeVisible({ timeout: 20000 })
 
     // Wait for the full turn 1 response (the assistant text after the tool result).
@@ -68,6 +69,9 @@ test.describe('Tool exploration E2E', () => {
     await expect(
       page.locator('.agent-chat .assistant-content').last()
     ).toContainText('done', { timeout: 20000 })
+
+    // The internal explore_tools call is never surfaced as a named chip.
+    await expect(page.locator('.agent-chat .v-chip', { hasText: 'explore_tools' })).toHaveCount(0)
 
     // Turn 2: call set_display – should now be callable (promoted by explore_tools)
     await sendMessage(page, 'call tool set_display {"text":"hello-from-explore"}')

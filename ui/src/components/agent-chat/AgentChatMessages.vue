@@ -22,131 +22,145 @@
 
       <div ref="messagesContent">
         <!-- Chat messages -->
-        <div
+        <template
           v-for="(message, index) in messages"
           :key="index"
-          class="px-2 py-1 px-sm-4 py-sm-2"
         >
           <div
-            v-if="message.role === 'user'"
-            class="d-flex justify-end"
+            v-if="!isHiddenExploreStep(message)"
+            class="px-2 py-1 px-sm-4 py-sm-2"
           >
-            <v-card
-              class="pa-3 text-body-medium rounded-xl"
-              :class="{ 'bg-surface': !isActionPrompt(message) }"
-              color="secondary"
-              :variant="isActionPrompt(message) ? 'flat' : 'outlined'"
-            >
-              {{ message.content }}
-            </v-card>
-          </div>
-          <div
-            v-else
-            class="text-body-medium"
-          >
-            <markdown-content
-              class="assistant-content markdown-content"
-              :content="message.content"
-              :streaming="isStreaming && index === messages.length - 1"
-              :mermaid="mermaidEnabled"
-              @mermaid-error="failures => emit('mermaid-error', { index, failures })"
-            />
             <div
-              v-if="message.toolInvocations?.length"
-              class="mt-2"
+              v-if="message.role === 'user'"
+              class="d-flex justify-end"
             >
-              <template
-                v-for="invocation in message.toolInvocations"
-                :key="invocation.toolCallId"
+              <v-card
+                class="pa-3 text-body-medium rounded-xl"
+                :class="{ 'bg-surface': !isActionPrompt(message) }"
+                color="secondary"
+                :variant="isActionPrompt(message) ? 'flat' : 'outlined'"
               >
-                <v-chip
-                  v-if="!invocation.toolName.startsWith('subagent_')"
-                  size="x-small"
-                  :color="invocation.state === 'done' ? 'success' : 'warning'"
-                  variant="tonal"
-                  class="mr-1 mb-1"
-                >
-                  {{ toolTitle(invocation.toolName) }}
-                </v-chip>
-              </template>
+                {{ message.content }}
+              </v-card>
             </div>
-            <!-- Sub-agent expandable sections -->
             <div
-              v-if="message.toolInvocations?.some(ti => ti.toolName.startsWith('subagent_'))"
-              class="mt-2"
+              v-else
+              class="text-body-medium"
             >
-              <v-expansion-panels
-                :model-value="openPanelFor(index)"
-                variant="accordion"
-                density="compact"
-                flat
-                tile
-                class="agent-chat__subagent-panels border-secondary border-s-sm border-opacity-100"
-                @update:model-value="(v: unknown) => setOpenPanel(index, v as number | undefined)"
+              <markdown-content
+                class="assistant-content markdown-content"
+                :content="message.content"
+                :streaming="isStreaming && index === messages.length - 1"
+                :mermaid="mermaidEnabled"
+                @mermaid-error="failures => emit('mermaid-error', { index, failures })"
+              />
+              <div
+                v-if="hasVisibleTools(message) || isExploring(message)"
+                class="mt-2"
               >
-                <v-expansion-panel
-                  v-for="invocation in message.toolInvocations.filter(ti => ti.toolName.startsWith('subagent_'))"
+                <template
+                  v-for="invocation in message.toolInvocations"
                   :key="invocation.toolCallId"
-                  density="compact"
                 >
-                  <v-expansion-panel-title class="text-body-medium py-1">
-                    <v-icon
-                      size="x-small"
-                      :color="invocation.state === 'done' ? 'success' : 'warning'"
-                      class="mr-2"
-                      :icon="invocation.state === 'done' ? mdiCheck : mdiLoading"
-                      :class="{ 'agent-chat__spin': invocation.state !== 'done' }"
-                    />
-                    <span class="font-weight-medium">{{ subAgentTitle(invocation.toolName) }}</span>
-                    <span
-                      v-if="message.subAgentTurn"
-                      class="text-medium-emphasis ml-1"
-                    >(tour {{ message.subAgentTurn + 1 }})</span>
-                  </v-expansion-panel-title>
-                  <v-expansion-panel-text>
-                    <div
-                      v-if="message.subAgentMessages?.length"
-                    >
+                  <v-chip
+                    v-if="!invocation.toolName.startsWith('subagent_') && invocation.toolName !== EXPLORE_TOOL_NAME"
+                    size="x-small"
+                    :color="invocation.state === 'done' ? 'success' : 'warning'"
+                    variant="tonal"
+                    class="mr-1 mb-1"
+                  >
+                    {{ toolTitle(invocation.toolName) }}
+                  </v-chip>
+                </template>
+                <!-- explore_tools is an internal step (deciding which tool to use): show a
+                   placeholder skeleton chip while it runs; the real tool's chip then takes
+                   its place in the next assistant message. The explore_tools name is never shown. -->
+                <v-skeleton-loader
+                  v-if="isExploring(message)"
+                  type="chip"
+                  :aria-label="t('findingTool')"
+                  data-testid="explore-skeleton"
+                  class="agent-chat__tool-skeleton d-inline-flex"
+                />
+              </div>
+              <!-- Sub-agent expandable sections -->
+              <div
+                v-if="message.toolInvocations?.some(ti => ti.toolName.startsWith('subagent_'))"
+                class="mt-2"
+              >
+                <v-expansion-panels
+                  :model-value="openPanelFor(index)"
+                  variant="accordion"
+                  density="compact"
+                  flat
+                  tile
+                  class="agent-chat__subagent-panels border-secondary border-s-sm border-opacity-100"
+                  @update:model-value="(v: unknown) => setOpenPanel(index, v as number | undefined)"
+                >
+                  <v-expansion-panel
+                    v-for="invocation in message.toolInvocations.filter(ti => ti.toolName.startsWith('subagent_'))"
+                    :key="invocation.toolCallId"
+                    density="compact"
+                  >
+                    <v-expansion-panel-title class="text-body-medium py-1">
+                      <v-icon
+                        size="x-small"
+                        :color="invocation.state === 'done' ? 'success' : 'warning'"
+                        class="mr-2"
+                        :icon="invocation.state === 'done' ? mdiCheck : mdiLoading"
+                        :class="{ 'agent-chat__spin': invocation.state !== 'done' }"
+                      />
+                      <span class="font-weight-medium">{{ subAgentTitle(invocation.toolName) }}</span>
+                      <span
+                        v-if="message.subAgentTurn"
+                        class="text-medium-emphasis ml-1"
+                      >(tour {{ message.subAgentTurn + 1 }})</span>
+                    </v-expansion-panel-title>
+                    <v-expansion-panel-text>
                       <div
-                        v-for="(subMsg, subIdx) in message.subAgentMessages"
-                        :key="subIdx"
-                        class="py-1"
+                        v-if="message.subAgentMessages?.length"
                       >
-                        <markdown-content
-                          class="text-body-medium markdown-content"
-                          :content="subMsg.content"
-                          :streaming="isStreaming && index === messages.length - 1 && subIdx === message.subAgentMessages!.length - 1"
-                          :mermaid="mermaidEnabled"
-                        />
                         <div
-                          v-if="subMsg.toolInvocations?.length"
-                          class="mt-1"
+                          v-for="(subMsg, subIdx) in message.subAgentMessages"
+                          :key="subIdx"
+                          class="py-1"
                         >
-                          <v-chip
-                            v-for="subInv in subMsg.toolInvocations"
-                            :key="subInv.toolCallId"
-                            size="x-small"
-                            :color="subInv.state === 'done' ? 'success' : 'warning'"
-                            variant="tonal"
-                            class="mr-1 mb-1"
+                          <markdown-content
+                            class="text-body-medium markdown-content"
+                            :content="subMsg.content"
+                            :streaming="isStreaming && index === messages.length - 1 && subIdx === message.subAgentMessages!.length - 1"
+                            :mermaid="mermaidEnabled"
+                          />
+                          <div
+                            v-if="subMsg.toolInvocations?.length"
+                            class="mt-1"
                           >
-                            {{ toolTitle(subInv.toolName) }}
-                          </v-chip>
+                            <v-chip
+                              v-for="subInv in subMsg.toolInvocations"
+                              :key="subInv.toolCallId"
+                              size="x-small"
+                              :color="subInv.state === 'done' ? 'success' : 'warning'"
+                              variant="tonal"
+                              class="mr-1 mb-1"
+                            >
+                              {{ toolTitle(subInv.toolName) }}
+                            </v-chip>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <div
-                      v-else
-                      class="text-body-medium text-medium-emphasis"
-                    >
-                      {{ invocation.state === 'done' ? t('subAgentDone') : t('subAgentRunning') }}
-                    </div>
-                  </v-expansion-panel-text>
-                </v-expansion-panel>
-              </v-expansion-panels>
+                      <div
+                        v-else
+                        class="text-body-medium text-medium-emphasis"
+                      >
+                        {{ invocation.state === 'done' ? t('subAgentDone') : t('subAgentRunning') }}
+                      </div>
+                    </v-expansion-panel-text>
+                  </v-expansion-panel>
+                </v-expansion-panels>
+              </div>
             </div>
           </div>
-        </div>
+        </template>
 
         <!-- Skeleton loader while waiting for first content -->
         <div
@@ -212,10 +226,12 @@ fr:
   subAgentRunning: Sous-agent en cours d'exécution...
   subAgentDone: Sous-agent terminé.
   jumpToBottom: Aller en bas
+  findingTool: Recherche de l'outil adapté…
 en:
   subAgentRunning: Sub-agent running...
   subAgentDone: Sub-agent finished.
   jumpToBottom: Jump to bottom
+  findingTool: Finding the right tool…
 </i18n>
 
 <script lang="ts" setup>
@@ -225,6 +241,7 @@ import { useAutoScrollBottom } from '@data-fair/lib-vue/auto-scroll-bottom.js'
 import { mdiCheck, mdiLoading, mdiArrowDown } from '@mdi/js'
 import { streamedLength, latestSubAgentPanel } from './auto-scroll'
 import MarkdownContent from './MarkdownContent.vue'
+import { EXPLORE_TOOL_NAME } from '~/composables/tool-exploration'
 import type { MermaidFailure } from '~/utils/mermaid'
 import type { ChatMessage } from '~/composables/use-agent-chat'
 
@@ -249,6 +266,28 @@ const props = defineProps<{
 const isActionPrompt = (message: ChatMessage) => {
   return message.role === 'user' && props.actionVisiblePrompt === message.content
 }
+
+// explore_tools is an internal "which tool should I use?" step. It is never shown as a
+// named chip; instead a skeleton placeholder chip is shown while it runs, and the
+// resolved explore-only message bubble is hidden so the real tool chip (emitted in the
+// next assistant message) appears in its place.
+const isExploring = (message: ChatMessage) =>
+  !!message.toolInvocations?.some(ti => ti.toolName === EXPLORE_TOOL_NAME && ti.state !== 'done')
+
+const hasVisibleTools = (message: ChatMessage) =>
+  !!message.toolInvocations?.some(ti => !ti.toolName.startsWith('subagent_') && ti.toolName !== EXPLORE_TOOL_NAME)
+
+const hasSubAgents = (message: ChatMessage) =>
+  !!message.toolInvocations?.some(ti => ti.toolName.startsWith('subagent_'))
+
+// A finished explore-only step (no text, no other tool calls): hide the empty bubble.
+const isHiddenExploreStep = (message: ChatMessage) =>
+  message.role === 'assistant' &&
+  !message.content?.trim() &&
+  !!message.toolInvocations?.some(ti => ti.toolName === EXPLORE_TOOL_NAME) &&
+  !isExploring(message) &&
+  !hasVisibleTools(message) &&
+  !hasSubAgents(message)
 
 const { t } = useI18n()
 
@@ -407,6 +446,17 @@ function onContentClick (e: MouseEvent) {
 
 .agent-chat-message .agent-chat__spin {
   animation: agent-chat-spin 1s linear infinite;
+}
+
+/* explore_tools placeholder: a small chip-shaped skeleton sized to match the
+   x-small tool chips it stands in for. */
+.agent-chat-message .agent-chat__tool-skeleton {
+  vertical-align: middle;
+}
+.agent-chat-message .agent-chat__tool-skeleton .v-skeleton-loader__chip {
+  width: 72px;
+  height: 20px;
+  margin: 0 4px 4px 0;
 }
 
 .agent-chat-message .agent-chat__subagent-panels .v-expansion-panel-text__wrapper {

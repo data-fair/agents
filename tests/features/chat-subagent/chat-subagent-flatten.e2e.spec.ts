@@ -40,25 +40,37 @@ test.describe('Chat Sub-Agent Flatten toggle', () => {
     await admin.put('/api/settings/user/test-standalone1', settingsData)
   })
 
-  test('Flatten switch is visible and persists to localStorage', async ({ page, goToWithAuth }) => {
+  test('Sub-agents switch is on by default and persists the off opt-out to localStorage', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
 
     // Open the debug dialog, go to the Settings tab
     await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
     await page.getByRole('tab', { name: /Settings|Paramètres/ }).click()
 
-    const flattenSwitch = page.getByLabel(/Flatten sub-agents|Aplatir les sous-agents/)
-    await expect(flattenSwitch).toBeVisible({ timeout: 5000 })
+    const settingsTab = page.locator('.v-dialog .v-window-item--active')
 
-    await flattenSwitch.click()
+    // Experimental flags are grouped under an "Experimental" section heading.
+    await expect(settingsTab.getByText(/^Experimental$|^Expérimental$/)).toBeVisible({ timeout: 5000 })
+
+    // Each option is explained by a (collapsed) tutorial-alert: clicking its info
+    // button reveals the help text.
+    await settingsTab.getByRole('button', { name: /Open a help message|message d'aide/ }).first().click()
+    await expect(settingsTab.getByText(/explore_tools|sous-agents spécialisés|specialised sub-agents/).first())
+      .toBeVisible({ timeout: 5000 })
+
+    // Positive flag: on by default (sub-agents delegated). Turning it off enables flatten.
+    const subAgentsSwitch = page.getByLabel(/Sub-agents|Sous-agents/)
+    await expect(subAgentsSwitch).toBeChecked({ timeout: 5000 })
+
+    await subAgentsSwitch.click()
     await expect
-      .poll(() => page.evaluate(() => localStorage.getItem('agent-chat-flatten')), { timeout: 5000 })
-      .toBe('1')
+      .poll(() => page.evaluate(() => localStorage.getItem('agent-chat-subagents')), { timeout: 5000 })
+      .toBe('0')
   })
 
   test('Flat mode: main agent calls a reserved tool directly, no sub-agent panel', async ({ page, goToWithAuth }) => {
-    // Pre-enable flatten before the app boots (admin-only localStorage opt-in)
-    await page.addInitScript(() => localStorage.setItem('agent-chat-flatten', '1'))
+    // Pre-enable flatten before the app boots (admin-only localStorage opt-out: sub-agents off)
+    await page.addInitScript(() => localStorage.setItem('agent-chat-subagents', '0'))
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
 
     // Wait until tools are discovered (set_display always exists on the main agent)
@@ -80,7 +92,7 @@ test.describe('Chat Sub-Agent Flatten toggle', () => {
   })
 
   test('Flat mode: the sub-agent is exposed as a de-prefixed guidance tool', async ({ page, goToWithAuth }) => {
-    await page.addInitScript(() => localStorage.setItem('agent-chat-flatten', '1'))
+    await page.addInitScript(() => localStorage.setItem('agent-chat-subagents', '0'))
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
 
     await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
@@ -100,7 +112,7 @@ test.describe('Chat Sub-Agent Flatten toggle', () => {
   })
 
   test('Flat mode: a model-pinned sub-agent stays delegated (opt-out)', async ({ page, goToWithAuth }) => {
-    await page.addInitScript(() => localStorage.setItem('agent-chat-flatten', '1'))
+    await page.addInitScript(() => localStorage.setItem('agent-chat-subagents', '0'))
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
 
     await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
