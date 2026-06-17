@@ -12,11 +12,19 @@
  *   anything else                    → "what do you mean ?"
  */
 
-import { expect } from '@playwright/test'
+import { expect, type Page } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
 
 const admin = await superAdmin
+
+// Turn flatten on before the app boots: readFlags() (ui/src/utils/agent-flags.ts)
+// reads the `agent-chat-flags` cookie, so seed it with sub-agents off. Path '/'
+// keeps it visible to the UI page (the app writes a gateway-scoped variant).
+const seedFlattenCookie = (page: Page) => page.addInitScript(() => {
+  const flags = { toolExploration: false, subAgents: false, mermaid: false }
+  document.cookie = `agent-chat-flags=${encodeURIComponent(JSON.stringify(flags))}; path=/`
+})
 
 const settingsData = {
   providers: [
@@ -40,7 +48,7 @@ test.describe('Chat Sub-Agent Flatten toggle', () => {
     await admin.put('/api/settings/user/test-standalone1', settingsData)
   })
 
-  test('Sub-agents switch is on by default and persists the off opt-out to localStorage', async ({ page, goToWithAuth }) => {
+  test('Sub-agents switch is on by default and persists the off opt-out to the flags cookie', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
 
     // Open the debug dialog, go to the Settings tab
@@ -63,14 +71,22 @@ test.describe('Chat Sub-Agent Flatten toggle', () => {
     await expect(subAgentsSwitch).toBeChecked({ timeout: 5000 })
 
     await subAgentsSwitch.click()
+    // The opt-out is persisted to the gateway-scoped `agent-chat-flags` cookie
+    // (see ui/src/utils/agent-flags.ts), which replaced the old localStorage key.
+    // The cookie's Path keeps it off `document.cookie` on this page, so read it
+    // through the browser context instead.
     await expect
-      .poll(() => page.evaluate(() => localStorage.getItem('agent-chat-subagents')), { timeout: 5000 })
-      .toBe('0')
+      .poll(async () => {
+        const cookie = (await page.context().cookies()).find(c => c.name === 'agent-chat-flags')
+        return cookie ? JSON.parse(decodeURIComponent(cookie.value)).subAgents : undefined
+      }, { timeout: 5000 })
+      .toBe(false)
   })
 
   test('Flat mode: main agent calls a reserved tool directly, no sub-agent panel', async ({ page, goToWithAuth }) => {
-    // Pre-enable flatten before the app boots (admin-only localStorage opt-out: sub-agents off)
-    await page.addInitScript(() => localStorage.setItem('agent-chat-subagents', '0'))
+    // Pre-enable flatten before the app boots by seeding the flags cookie that
+    // readFlags() consumes (sub-agents off). Path '/' so the UI page can read it.
+    await seedFlattenCookie(page)
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
 
     // Wait until tools are discovered (set_display always exists on the main agent)
@@ -92,7 +108,7 @@ test.describe('Chat Sub-Agent Flatten toggle', () => {
   })
 
   test('Flat mode: the sub-agent is exposed as a de-prefixed guidance tool', async ({ page, goToWithAuth }) => {
-    await page.addInitScript(() => localStorage.setItem('agent-chat-subagents', '0'))
+    await seedFlattenCookie(page)
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
 
     await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
@@ -112,7 +128,7 @@ test.describe('Chat Sub-Agent Flatten toggle', () => {
   })
 
   test('Flat mode: a model-pinned sub-agent stays delegated (opt-out)', async ({ page, goToWithAuth }) => {
-    await page.addInitScript(() => localStorage.setItem('agent-chat-subagents', '0'))
+    await seedFlattenCookie(page)
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
 
     await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
