@@ -23,7 +23,7 @@ async function chat (storeTraces: boolean, headers: Record<string, string>) {
   const provider = createOpenAI({
     baseURL: `http://localhost:${process.env.DEV_API_PORT}/api/gateway/user/test-standalone1/v1`,
     apiKey: 'unused',
-    headers: { cookie: cookieString, ...headers },
+    headers: { ...headers, cookie: [cookieString, (headers as any).cookie].filter(Boolean).join('; ') },
     name: 'data-fair-gateway'
   })
   await generateText({ model: provider.chat('assistant'), messages: [{ role: 'user', content: 'hello' }] })
@@ -137,6 +137,27 @@ test.describe('Trace storage API', () => {
     const stranger = await axiosAuth('test1-user1')
     const res = await stranger.get('/api/traces/conversation/conv-byid-2').catch((err: any) => err.response ?? err)
     assert.equal(res.status, 403)
+  })
+
+  test('records positive experimental flags from the cookie', async () => {
+    const flags = { toolExploration: true, subAgents: false, mermaid: true }
+    const flagCookie = `agent-chat-flags=${encodeURIComponent(JSON.stringify(flags))}`
+    await chat(true, {
+      'x-trace-consent': 'yes',
+      'x-trace-conversation': 'conv-flags',
+      'x-trace-ctx': 'turn:t1',
+      cookie: flagCookie
+    })
+    await waitForConversations()
+    const res = await admin.get('/api/traces/conversation/conv-flags')
+    assert.deepEqual(res.data.results[0].flags, flags)
+  })
+
+  test('omits flags when no flags cookie is sent', async () => {
+    await chat(true, { 'x-trace-consent': 'yes', 'x-trace-conversation': 'conv-noflags', 'x-trace-ctx': 'turn:t1' })
+    await waitForConversations()
+    const res = await admin.get('/api/traces/conversation/conv-noflags')
+    assert.equal('flags' in res.data.results[0], false)
   })
 
   test('GDPR per-user erasure deletes all traces for a specific user (org owner)', async () => {

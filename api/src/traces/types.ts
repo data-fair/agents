@@ -6,6 +6,12 @@ export interface TraceModeration {
   failOpen?: 'timeout' | 'error'
 }
 
+export interface TraceFlags {
+  toolExploration: boolean
+  subAgents: boolean
+  mermaid: boolean
+}
+
 export interface TraceRequest {
   owner: { type: string, id: string, department?: string }
   userId?: string
@@ -34,5 +40,7 @@ export interface TraceRequest {
   // verdict of the gateway-side moderation check, when it had settled by the
   // time this request was recorded (untrusted callers only)
   moderation?: TraceModeration
+  // experimental flags the user had active for this conversation (constant per conversation)
+  flags?: TraceFlags
   createdAt: Date              // ordering key + TTL target (30-day index on this field)
 }

@@ -1,5 +1,9 @@
-import type { SessionTrace, PhysicalRequestTrace, TurnTrace, StepTrace, ToolCallTrace, ToolSnapshot, SubAgentTrace } from './session-recorder.ts'
+import type { SessionTrace, TraceSummary, PhysicalRequestTrace, TurnTrace, StepTrace, ToolCallTrace, ToolSnapshot, SubAgentTrace } from './session-recorder.ts'
 import { splitHiddenContext } from './hidden-context.ts'
+// Relative path (not the ~/ alias) so the root `tsc` pass — which compiles the
+// unit tests that import this module — resolves it; the ~ Vite alias is not
+// configured for that pass. Don't "fix" this to ~/utils/agent-flags.
+import { DEFAULT_FLAGS, type AgentFlags } from '../utils/agent-flags.ts'
 
 export interface StoredTraceRequest {
   conversation: { id: string }
@@ -13,6 +17,7 @@ export interface StoredTraceRequest {
   timing: { durationMs: number, timeToFirstChunkMs?: number }
   createdAt: string
   moderation?: { action: 'allow' | 'block', category?: string, reason?: string, latencyMs?: number, failOpen?: 'timeout' | 'error' }
+  flags?: AgentFlags
 }
 
 const ts = (iso: string) => new Date(iso)
@@ -83,7 +88,7 @@ function moderationStepOf (r: StoredTraceRequest): StepTrace {
   return step
 }
 
-export function reconstructTrace (requests: StoredTraceRequest[]): SessionTrace {
+export function reconstructTrace (requests: StoredTraceRequest[]): SessionTrace & { summary: TraceSummary } {
   const sorted = [...requests].sort((a, b) => ts(a.createdAt).getTime() - ts(b.createdAt).getTime())
 
   const physicalRequests: PhysicalRequestTrace[] = sorted.map(r => ({
@@ -234,5 +239,13 @@ export function reconstructTrace (requests: StoredTraceRequest[]): SessionTrace 
   // Keep turns chronological after appending any synthesized ones.
   turns.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
 
-  return { systemPrompt, toolSnapshots, toolChanges, turns, physicalRequests }
+  const flags = sorted.find(r => r.flags)?.flags ?? DEFAULT_FLAGS
+  const summary = {
+    requestCount: physicalRequests.length,
+    inputTokens: physicalRequests.reduce((s, p) => s + (p.inputTokens || 0), 0),
+    outputTokens: physicalRequests.reduce((s, p) => s + (p.outputTokens || 0), 0),
+    flags
+  }
+
+  return { systemPrompt, toolSnapshots, toolChanges, turns, physicalRequests, summary }
 }

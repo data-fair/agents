@@ -9,6 +9,7 @@ import { resolveUsageIdentity, enforceQuotas } from '../usage/enforce.ts'
 import { convertOpenAITools, convertOpenAIMessages, convertToolChoice, mapFinishReason } from './operations.ts'
 import type { OpenAIMessage, OpenAIToolDefinition, OpenAIToolChoice, FinishReason } from './operations.ts'
 import { recordTraceRequest } from '../traces/service.ts'
+import { parseFlagsCookie } from '../traces/operations.ts'
 import { extractLastUserMessage, moderationApplies } from '../moderation/operations.ts'
 import { startModeration, isStrikeCooldownActive, recordStrikeRefusal, type ModerationRun } from '../moderation/service.ts'
 import crypto from 'node:crypto'
@@ -183,6 +184,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
     const shouldStoreTrace = storeTraces && consented
     const traceConversationId = req.get('x-trace-conversation') || undefined
     const traceContextId = req.get('x-trace-ctx') || 'unknown'
+    const traceFlags = parseFlagsCookie(req.headers.cookie)
     const traceStart = Date.now()
     const recordTrace = (response: { content: string, toolCalls: { id: string, name: string, arguments: string }[], finishReason?: string }, usage: { inputTokens: number, outputTokens: number, cacheReadTokens?: number, cacheWriteTokens?: number }, timeToFirstChunkMs?: number) => {
       if (!shouldStoreTrace || !traceConversationId) return
@@ -200,7 +202,8 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
         response,
         usage,
         timing: { durationMs: Date.now() - traceStart, ...(timeToFirstChunkMs != null ? { timeToFirstChunkMs } : {}) },
-        ...(moderation?.traceInfo() ? { moderation: moderation.traceInfo() } : {})
+        ...(moderation?.traceInfo() ? { moderation: moderation.traceInfo() } : {}),
+        ...(traceFlags ? { flags: traceFlags } : {})
       })
     }
 

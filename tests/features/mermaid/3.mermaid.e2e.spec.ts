@@ -21,8 +21,13 @@ test.describe('Mermaid bounded auto-fix (e2e)', () => {
     const admin = await superAdmin
     await admin.put('/api/settings/user/test-standalone1', mockSettings)
 
-    // Mermaid rendering is an admin opt-in persisted in localStorage; set it before mount.
-    await page.addInitScript(() => localStorage.setItem('agent-chat-mermaid', '1'))
+    // Mermaid rendering is an opt-in flag persisted in the `agent-chat-flags`
+    // cookie that readFlags() consumes (see ui/src/utils/agent-flags.ts); seed it
+    // before mount. Path '/' keeps it visible to the UI page.
+    await page.addInitScript(() => {
+      const flags = { toolExploration: false, subAgents: true, mermaid: true }
+      document.cookie = `agent-chat-flags=${encodeURIComponent(JSON.stringify(flags))}; path=/`
+    })
 
     await goToWithAuth('/agents/_dev/chat-mcp', 'test-standalone1')
 
