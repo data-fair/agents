@@ -7,7 +7,7 @@
   </div>
   <template v-else>
     <div
-      class="agent-chat__trace-summary d-flex align-center flex-wrap ga-2 px-2 py-1 mb-1"
+      class="d-flex align-center flex-wrap ga-2 px-2 py-1 mb-1 bg-background rounded"
     >
       <span class="text-caption font-weight-medium">
         {{ summary.requestCount }} {{ t('requests') }} · {{ formatTokens(summary.inputTokens) }} {{ t('in') }} · {{ formatTokens(summary.outputTokens) }} {{ t('out') }}
@@ -320,10 +320,5 @@ const formatTokens = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : `$
 
 .agent-chat__trace-panels :deep(.v-expansion-panel-text__wrapper) {
   padding: 4px 12px 8px;
-}
-
-.agent-chat__trace-summary {
-  background: rgb(var(--v-theme-surface-variant));
-  border-radius: 4px;
 }
 </style>
