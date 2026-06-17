@@ -215,6 +215,13 @@ watch(finalSystemPrompt, (prompt) => {
 
 const actionVisiblePrompt = ref<string | null>(null)
 
+// Replenished on every genuine user turn (typed send or action session) so each turn gets
+// its own automatic-fix budget; a model that keeps emitting broken diagrams within one turn
+// can't loop (see shouldAutoFixMermaid), it falls back to the manual "fix this diagram"
+// button. Declared here — before the synchronous pending-action block below can call
+// startActionSession during setup — so it is never read in its temporal dead zone.
+const mermaidAutoFixBudget = ref(MERMAID_AUTO_FIX_BUDGET)
+
 const messages = computed(() => chat.messages.value)
 const isStreaming = computed(() => chat.status.value === 'streaming')
 const chatError = computed(() => chat.error.value)
@@ -376,11 +383,6 @@ const toolTitle = (toolName: string) => {
   const t = chat.tools.value[toolName] as any
   return t?.title || toolName
 }
-
-// Replenished on every genuine user turn so each turn gets its own automatic-fix budget;
-// a model that keeps emitting broken diagrams within one turn can't loop (see
-// shouldAutoFixMermaid), it falls back to the manual "fix this diagram" button.
-const mermaidAutoFixBudget = ref(MERMAID_AUTO_FIX_BUDGET)
 
 const handleSend = (userMessage: string) => {
   if (isStreaming.value) return
