@@ -65,7 +65,8 @@ test.describe('Trace review page (/traces/:id/review)', () => {
       headers: {
         'x-trace-consent': 'yes',
         'x-trace-conversation': CONV_ID,
-        'x-trace-ctx': `turn:${CONV_ID}`
+        'x-trace-ctx': `turn:${CONV_ID}`,
+        cookie: `agent-chat-flags=${encodeURIComponent(JSON.stringify({ toolExploration: true, subAgents: false, mermaid: true }))}`
       }
     })
 
@@ -82,5 +83,19 @@ test.describe('Trace review page (/traces/:id/review)', () => {
     // TraceView renders a chip per trace entry; the first user message produces a
     // "user-message" chip — same assertion used in trace-review.e2e.spec.ts
     await expect(page.getByText('user-message').first()).toBeVisible({ timeout: 15000 })
+  })
+
+  test('shows the summary bar, flag chips and view toggle', async ({ page, goToWithAuth }) => {
+    await goToWithAuth(`/agents/traces/${CONV_ID}/review`, 'superadmin', { adminMode: true })
+
+    // summary bar: at least one request and the token labels
+    await expect(page.getByText('in', { exact: false }).first()).toBeVisible({ timeout: 15000 })
+
+    // default Interpreted view hides physical-request entries
+    await expect(page.getByText('physical-request')).toHaveCount(0)
+
+    // switching to Raw reveals them
+    await page.getByRole('button', { name: 'Raw' }).click()
+    await expect(page.getByText('physical-request').first()).toBeVisible()
   })
 })

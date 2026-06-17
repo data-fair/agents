@@ -5,120 +5,153 @@
   >
     {{ t('noTrace') }}
   </div>
-  <v-expansion-panels
-    v-else
-    variant="accordion"
-    density="compact"
-    class="mt-1 agent-chat__trace-panels"
-    @update:model-value="onTraceExpand"
-  >
-    <v-expansion-panel
-      v-for="entry in traceOverview"
-      :key="entry.index"
-      :value="entry.index"
-      density="compact"
+  <template v-else>
+    <div
+      class="agent-chat__trace-summary d-flex align-center flex-wrap ga-2 px-2 py-1 mb-1"
     >
-      <v-expansion-panel-title class="text-caption py-0">
-        <v-chip
-          size="x-small"
-          :color="traceEntryColor(entry.type)"
-          variant="tonal"
-          label
-          class="mr-2 flex-shrink-0"
-          style="font-size: 0.65rem;"
-        >
-          {{ entry.type }}
-        </v-chip>
-        <span
-          v-if="entry.label"
-          class="font-weight-medium mr-2 flex-shrink-0"
-        >{{ entry.label }}</span>
-        <span class="text-label-small text-medium-emphasis text-truncate agent-chat__trace-preview">{{ entry.preview }}</span>
-        <span
-          class="text-medium-emphasis ml-2 flex-shrink-0"
-          style="white-space: nowrap;"
-        >
-          {{ formatTraceTime(entry.timestamp) }}
-        </span>
-      </v-expansion-panel-title>
-      <v-expansion-panel-text>
-        <template v-if="traceEntryDetails[entry.index]">
-          <template v-if="entry.type === 'assistant-step' || entry.type === 'sub-agent-step'">
-            <v-chip
-              v-if="traceEntryDetails[entry.index]?.content?.finishReason"
-              size="x-small"
-              variant="tonal"
-              label
-              class="my-2"
-            >
-              {{ traceEntryDetails[entry.index].content.finishReason }}
-            </v-chip>
-            <pre class="agent-chat__pre pa-2 mt-1">{{ JSON.stringify(traceEntryDetails[entry.index]?.content?.messages, null, 2) }}</pre>
-          </template>
-          <template v-else-if="entry.type === 'physical-request'">
-            <v-chip
-              v-if="traceEntryDetails[entry.index].content.finishReason"
-              size="x-small"
-              variant="tonal"
-              label
-              class="my-2"
-            >
-              {{ traceEntryDetails[entry.index].content.finishReason }}
-            </v-chip>
-            <div class="text-caption text-medium-emphasis mb-1 mt-2">
-              {{ t('request') }}
-            </div>
-            <pre class="agent-chat__pre pa-2 mt-1">{{ JSON.stringify(traceEntryDetails[entry.index]?.content?.requestBody, null, 2) }}</pre>
-            <div class="text-caption text-medium-emphasis mb-1 mt-2">
-              {{ t('response') }}
-            </div>
-            <pre class="agent-chat__pre pa-2 mt-1">{{ JSON.stringify(traceEntryDetails[entry.index]?.content?.result, null, 2) }}</pre>
-          </template>
-          <template v-else-if="entry.type === 'sub-agent-start'">
-            <div class="text-caption text-medium-emphasis mb-1">
-              {{ t('task') }}
-            </div>
-            <pre class="agent-chat__pre pa-2 mt-1">{{ traceEntryDetails[entry.index]?.content?.task }}</pre>
-            <div class="text-caption text-medium-emphasis mb-1 mt-2">
-              {{ t('tools') }}
-            </div>
-            <pre class="agent-chat__pre pa-2 mt-1">{{ JSON.stringify(traceEntryDetails[entry.index]?.content?.tools, null, 2) }}</pre>
-          </template>
-          <template v-else-if="entry.type === 'moderation'">
-            <v-chip
-              size="x-small"
-              :color="moderationActionColor(traceEntryDetails[entry.index]?.content)"
-              variant="tonal"
-              label
-              class="my-2"
-            >
-              {{ moderationActionLabel(traceEntryDetails[entry.index]?.content) }}
-            </v-chip>
-            <template v-if="traceEntryDetails[entry.index]?.content?.category">
-              <div class="text-caption text-medium-emphasis mb-1 mt-2">
-                {{ t('category') }}
-              </div>
-              <div class="text-caption">
-                {{ traceEntryDetails[entry.index].content.category }}
-              </div>
+      <span class="text-caption font-weight-medium">
+        {{ summary.requestCount }} {{ t('requests') }} · {{ formatTokens(summary.inputTokens) }} {{ t('in') }} · {{ formatTokens(summary.outputTokens) }} {{ t('out') }}
+      </span>
+      <v-spacer />
+      <v-chip
+        v-for="f in flagChips"
+        :key="f.key"
+        size="x-small"
+        :color="f.active ? 'primary' : undefined"
+        :variant="f.active ? 'tonal' : 'outlined'"
+        label
+        :class="['flex-shrink-0', { 'text-decoration-line-through text-disabled': !f.active }]"
+        style="font-size: 0.65rem;"
+      >
+        {{ t(f.key) }}
+      </v-chip>
+      <v-btn-toggle
+        v-model="viewMode"
+        density="compact"
+        variant="outlined"
+        divided
+        mandatory
+        class="ml-2"
+      >
+        <v-btn size="x-small" value="interpreted">{{ t('interpreted') }}</v-btn>
+        <v-btn size="x-small" value="raw">{{ t('raw') }}</v-btn>
+        <v-btn size="x-small" value="both">{{ t('both') }}</v-btn>
+      </v-btn-toggle>
+    </div>
+    <v-expansion-panels
+      variant="accordion"
+      density="compact"
+      class="mt-1 agent-chat__trace-panels"
+      @update:model-value="onTraceExpand"
+    >
+      <v-expansion-panel
+        v-for="entry in visibleOverview"
+        :key="entry.index"
+        :value="entry.index"
+        density="compact"
+      >
+        <v-expansion-panel-title class="text-caption py-0">
+          <v-chip
+            size="x-small"
+            :color="traceEntryColor(entry.type)"
+            variant="tonal"
+            label
+            class="mr-2 flex-shrink-0"
+            style="font-size: 0.65rem;"
+          >
+            {{ entry.type }}
+          </v-chip>
+          <span
+            v-if="entry.label"
+            class="font-weight-medium mr-2 flex-shrink-0"
+          >{{ entry.label }}</span>
+          <span class="text-label-small text-medium-emphasis text-truncate agent-chat__trace-preview">{{ entry.preview }}</span>
+          <span
+            class="text-medium-emphasis ml-2 flex-shrink-0"
+            style="white-space: nowrap;"
+          >
+            {{ formatTraceTime(entry.timestamp) }}
+          </span>
+        </v-expansion-panel-title>
+        <v-expansion-panel-text>
+          <template v-if="traceEntryDetails[entry.index]">
+            <template v-if="entry.type === 'assistant-step' || entry.type === 'sub-agent-step'">
+              <v-chip
+                v-if="traceEntryDetails[entry.index]?.content?.finishReason"
+                size="x-small"
+                variant="tonal"
+                label
+                class="my-2"
+              >
+                {{ traceEntryDetails[entry.index].content.finishReason }}
+              </v-chip>
+              <pre class="agent-chat__pre pa-2 mt-1">{{ JSON.stringify(traceEntryDetails[entry.index]?.content?.messages, null, 2) }}</pre>
             </template>
-            <template v-if="traceEntryDetails[entry.index]?.content?.reason">
+            <template v-else-if="entry.type === 'physical-request'">
+              <v-chip
+                v-if="traceEntryDetails[entry.index].content.finishReason"
+                size="x-small"
+                variant="tonal"
+                label
+                class="my-2"
+              >
+                {{ traceEntryDetails[entry.index].content.finishReason }}
+              </v-chip>
               <div class="text-caption text-medium-emphasis mb-1 mt-2">
-                {{ t('reason') }}
+                {{ t('request') }}
               </div>
-              <div class="text-caption">
-                {{ traceEntryDetails[entry.index].content.reason }}
+              <pre class="agent-chat__pre pa-2 mt-1">{{ JSON.stringify(traceEntryDetails[entry.index]?.content?.requestBody, null, 2) }}</pre>
+              <div class="text-caption text-medium-emphasis mb-1 mt-2">
+                {{ t('response') }}
               </div>
+              <pre class="agent-chat__pre pa-2 mt-1">{{ JSON.stringify(traceEntryDetails[entry.index]?.content?.result, null, 2) }}</pre>
             </template>
+            <template v-else-if="entry.type === 'sub-agent-start'">
+              <div class="text-caption text-medium-emphasis mb-1">
+                {{ t('task') }}
+              </div>
+              <pre class="agent-chat__pre pa-2 mt-1">{{ traceEntryDetails[entry.index]?.content?.task }}</pre>
+              <div class="text-caption text-medium-emphasis mb-1 mt-2">
+                {{ t('tools') }}
+              </div>
+              <pre class="agent-chat__pre pa-2 mt-1">{{ JSON.stringify(traceEntryDetails[entry.index]?.content?.tools, null, 2) }}</pre>
+            </template>
+            <template v-else-if="entry.type === 'moderation'">
+              <v-chip
+                size="x-small"
+                :color="moderationActionColor(traceEntryDetails[entry.index]?.content)"
+                variant="tonal"
+                label
+                class="my-2"
+              >
+                {{ moderationActionLabel(traceEntryDetails[entry.index]?.content) }}
+              </v-chip>
+              <template v-if="traceEntryDetails[entry.index]?.content?.category">
+                <div class="text-caption text-medium-emphasis mb-1 mt-2">
+                  {{ t('category') }}
+                </div>
+                <div class="text-caption">
+                  {{ traceEntryDetails[entry.index].content.category }}
+                </div>
+              </template>
+              <template v-if="traceEntryDetails[entry.index]?.content?.reason">
+                <div class="text-caption text-medium-emphasis mb-1 mt-2">
+                  {{ t('reason') }}
+                </div>
+                <div class="text-caption">
+                  {{ traceEntryDetails[entry.index].content.reason }}
+                </div>
+              </template>
+            </template>
+            <pre
+              v-else
+              class="agent-chat__pre pa-2 mt-1"
+            >{{ formatContent(traceEntryDetails[entry.index]?.content) }}</pre>
           </template>
-          <pre
-            v-else
-            class="agent-chat__pre pa-2 mt-1"
-          >{{ formatContent(traceEntryDetails[entry.index]?.content) }}</pre>
-        </template>
-      </v-expansion-panel-text>
-    </v-expansion-panel>
-  </v-expansion-panels>
+        </v-expansion-panel-text>
+      </v-expansion-panel>
+    </v-expansion-panels>
+  </template>
 </template>
 
 <i18n lang="yaml">
@@ -133,6 +166,15 @@ fr:
   moderationAllowed: Autorisé
   moderationBlocked: Bloqué
   moderationSkipped: Ignoré (fail-open)
+  requests: requêtes
+  in: entrée
+  out: sortie
+  interpreted: Interprété
+  raw: Brut
+  both: Les deux
+  subAgents: sous-agents
+  toolExploration: exploration d'outils
+  mermaid: mermaid
 en:
   noTrace: No trace recorded.
   task: Task
@@ -144,10 +186,19 @@ en:
   moderationAllowed: Allowed
   moderationBlocked: Blocked
   moderationSkipped: Skipped (fail-open)
+  requests: requests
+  in: in
+  out: out
+  interpreted: Interpreted
+  raw: Raw
+  both: Both
+  subAgents: sub-agents
+  toolExploration: tool exploration
+  mermaid: mermaid
 </i18n>
 
 <script lang="ts" setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { TraceOverviewEntry, TraceEntryDetail, SessionRecorder } from '~/traces/session-recorder'
 
@@ -209,6 +260,25 @@ const formatTraceTime = (date: Date) => date.toLocaleTimeString()
 // readable; structured content is pretty-printed as JSON.
 const formatContent = (content: unknown) =>
   typeof content === 'string' ? content : JSON.stringify(content, null, 2)
+
+const summary = computed(() => props.recorder.getSummary())
+
+const viewMode = ref<'interpreted' | 'raw' | 'both'>('interpreted')
+
+const visibleOverview = computed(() => {
+  if (viewMode.value === 'both') return props.traceOverview
+  if (viewMode.value === 'raw') return props.traceOverview.filter(e => e.type === 'physical-request')
+  return props.traceOverview.filter(e => e.type !== 'physical-request')
+})
+
+const flagChips = computed(() => [
+  { key: 'subAgents', active: summary.value.flags.subAgents },
+  { key: 'toolExploration', active: summary.value.flags.toolExploration },
+  { key: 'mermaid', active: summary.value.flags.mermaid }
+])
+
+// Compact token formatting: 1234 -> "1.2k", 999 -> "999".
+const formatTokens = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : `${n}`
 </script>
 
 <style scoped>
@@ -235,5 +305,10 @@ const formatContent = (content: unknown) =>
 
 .agent-chat__trace-panels :deep(.v-expansion-panel-text__wrapper) {
   padding: 4px 12px 8px;
+}
+
+.agent-chat__trace-summary {
+  background: rgb(var(--v-theme-surface-variant));
+  border-radius: 4px;
 }
 </style>
