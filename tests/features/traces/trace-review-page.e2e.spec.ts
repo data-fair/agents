@@ -88,8 +88,10 @@ test.describe('Trace review page (/traces/:id/review)', () => {
   test('shows the summary bar, flag chips and view toggle', async ({ page, goToWithAuth }) => {
     await goToWithAuth(`/agents/traces/${CONV_ID}/review`, 'superadmin', { adminMode: true })
 
-    // summary bar: at least one request and the token labels
-    await expect(page.getByText('in', { exact: false }).first()).toBeVisible({ timeout: 15000 })
+    // summary bar: the request-count metric and a feature-specific flag chip
+    // ('tool exploration' is active per the cookie set in beforeEach).
+    await expect(page.getByText('1 requests', { exact: false })).toBeVisible({ timeout: 15000 })
+    await expect(page.getByText('tool exploration', { exact: false })).toBeVisible()
 
     // default Interpreted view hides physical-request entries
     await expect(page.getByText('physical-request')).toHaveCount(0)

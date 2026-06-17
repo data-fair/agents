@@ -1,4 +1,6 @@
 import type { ModelMessage } from 'ai'
+// Relative path (not the ~/ alias) so the root `tsc` pass over the unit tests
+// resolves it; the ~ Vite alias is not configured for that pass.
 import { DEFAULT_FLAGS, type AgentFlags } from '../utils/agent-flags.ts'
 
 export interface ToolCallTrace {
