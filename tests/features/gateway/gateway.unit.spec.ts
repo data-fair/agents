@@ -122,6 +122,10 @@ test.describe('Gateway operations - convertOpenAIMessages', () => {
     const result = convertOpenAIMessages(messages)
     assert.equal(result.length, 2)
     assert.equal(result[1].role, 'tool')
+    // valid JSON is typed as json, with the parsed value
+    const output = (result[1].content as any)[0].output
+    assert.equal(output.type, 'json')
+    assert.deepEqual(output.value, { temp: 20 })
   })
 
   test('handles malformed JSON in tool arguments gracefully', () => {
@@ -146,6 +150,10 @@ test.describe('Gateway operations - convertOpenAIMessages', () => {
     }]
     const result = convertOpenAIMessages(messages)
     assert.equal(result.length, 1)
+    // non-JSON content is typed as text (not mislabeled as json), carrying the raw string
+    const output = (result[0].content as any)[0].output
+    assert.equal(output.type, 'text')
+    assert.equal(output.value, 'plain text result')
   })
 })
 

@@ -104,11 +104,19 @@ export function convertOpenAIMessages (messages: OpenAIMessage[]): ModelMessage[
       }
     } else if (msg.role === 'tool') {
       const toolName = toolCallNames[msg.tool_call_id || ''] || 'unknown'
-      let outputValue: unknown
-      try {
-        outputValue = typeof msg.content === 'string' ? JSON.parse(msg.content) : msg.content
-      } catch {
-        outputValue = msg.content
+      // Type the tool output faithfully: a result that parses as JSON is sent as `json`,
+      // anything else (plain text, or a tool that failed to produce JSON) is sent as
+      // `text` rather than mislabeled as `json`. Mislabeling lies to the model about the
+      // shape of the data and makes a JSON round-trip wrap plain strings in quotes.
+      let output: { type: 'json', value: unknown } | { type: 'text', value: string }
+      if (typeof msg.content === 'string') {
+        try {
+          output = { type: 'json', value: JSON.parse(msg.content) }
+        } catch {
+          output = { type: 'text', value: msg.content }
+        }
+      } else {
+        output = { type: 'json', value: msg.content }
       }
       result.push({
         role: 'tool',
@@ -116,7 +124,7 @@ export function convertOpenAIMessages (messages: OpenAIMessage[]): ModelMessage[
           type: 'tool-result',
           toolCallId: msg.tool_call_id || '',
           toolName,
-          output: { type: 'json', value: outputValue }
+          output
         }]
       } as ModelMessage)
     }
