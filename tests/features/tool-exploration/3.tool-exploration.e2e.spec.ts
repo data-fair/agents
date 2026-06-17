@@ -45,11 +45,13 @@ test.describe('Tool exploration E2E', () => {
   })
 
   test('explore_tools promotes tools then set_display updates the output area', async ({ page, goToWithAuth }) => {
+    // Enable exploration mode via the `agent-chat-flags` cookie that readFlags()
+    // consumes (see ui/src/utils/agent-flags.ts); seed it before the app mounts.
+    await page.addInitScript(() => {
+      const flags = { toolExploration: true, subAgents: true, mermaid: false }
+      document.cookie = `agent-chat-flags=${encodeURIComponent(JSON.stringify(flags))}; path=/`
+    })
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
-
-    // Enable exploration mode (requires debug=true which is set on the page)
-    await page.evaluate(() => localStorage.setItem('agent-chat-explore', '1'))
-    await page.reload()
 
     // Wait for the input to be ready
     await expect(page.getByPlaceholder('Type your message...')).toBeEnabled({ timeout: 10000 })
@@ -83,7 +85,7 @@ test.describe('Tool exploration E2E', () => {
   test('without exploration mode, set_display is called directly and updates the output area', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
 
-    // Exploration mode is NOT enabled (no localStorage['agent-chat-explore'])
+    // Exploration mode is NOT enabled (no agent-chat-flags cookie, so toolExploration defaults off)
 
     // Wait for tools to be registered via MCP before sending – mirrors the waitForToolsReady
     // pattern from chat-subagent.e2e.spec.ts (avoids the race between MCP setup and sendMessage)
