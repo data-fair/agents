@@ -2,10 +2,26 @@
  * operations.ts contains pure stateless functions
  * should not reference #mongo, #config, store state in memory or import anything else than other operations.ts
  */
-import type { TraceRequest, TraceModeration } from './types.ts'
+import type { TraceRequest, TraceModeration, TraceFlags } from './types.ts'
 
 // Stored traces are kept for 30 days, enforced by a TTL index on `createdAt`.
 export const RETENTION_SECONDS = 30 * 24 * 60 * 60
+
+// Parse the positive experimental flags from the request Cookie header.
+// Returns undefined when the cookie is absent or unparseable, so callers can omit it.
+export function parseFlagsCookie (cookieHeader?: string): TraceFlags | undefined {
+  if (!cookieHeader) return undefined
+  for (const part of cookieHeader.split(';')) {
+    const [k, ...rest] = part.trim().split('=')
+    if (k !== 'agent-chat-flags') continue
+    try {
+      const v = JSON.parse(decodeURIComponent(rest.join('=')))
+      if (!v || typeof v !== 'object') return undefined
+      return { toolExploration: !!v.toolExploration, subAgents: v.subAgents !== false, mermaid: !!v.mermaid }
+    } catch { return undefined }
+  }
+  return undefined
+}
 
 export interface ParsedContext {
   kind: 'turn' | 'sub' | 'compaction' | 'unknown'
@@ -43,6 +59,7 @@ export interface BuildTraceInput {
   usage: { inputTokens: number, outputTokens: number, cacheReadTokens?: number, cacheWriteTokens?: number }
   timing: { durationMs: number, timeToFirstChunkMs?: number }
   moderation?: TraceModeration
+  flags?: TraceFlags
 }
 
 export function buildTraceRequestDoc (input: BuildTraceInput, now: Date): TraceRequest {
@@ -71,6 +88,7 @@ export function buildTraceRequestDoc (input: BuildTraceInput, now: Date): TraceR
     usage: input.usage,
     timing: input.timing,
     ...(input.moderation ? { moderation: input.moderation } : {}),
+    ...(input.flags ? { flags: input.flags } : {}),
     // A BSON Date so the TTL index on `createdAt` can expire the document.
     createdAt: now
   }
