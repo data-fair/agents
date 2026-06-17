@@ -49,6 +49,7 @@
               :content="message.content"
               :streaming="isStreaming && index === messages.length - 1"
               :mermaid="mermaidEnabled"
+              @mermaid-error="failures => emit('mermaid-error', { index, failures })"
             />
             <div
               v-if="message.toolInvocations?.length"
@@ -224,11 +225,15 @@ import { useAutoScrollBottom } from '@data-fair/lib-vue/auto-scroll-bottom.js'
 import { mdiCheck, mdiLoading, mdiArrowDown } from '@mdi/js'
 import { streamedLength, latestSubAgentPanel } from './auto-scroll'
 import MarkdownContent from './MarkdownContent.vue'
+import type { MermaidFailure } from '~/utils/mermaid'
 import type { ChatMessage } from '~/composables/use-agent-chat'
 
 const emit = defineEmits<{
   navigate: [url: string]
   'fix-mermaid': [payload: { source: string, error: string }]
+  // Forwarded only for top-level assistant messages, carrying the message index so the
+  // parent can confirm it is the latest before firing a bounded automatic fix.
+  'mermaid-error': [payload: { index: number, failures: MermaidFailure[] }]
 }>()
 
 const props = defineProps<{

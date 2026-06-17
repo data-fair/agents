@@ -2,7 +2,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { renderMarkdown } from '../../../ui/src/utils/markdown.ts'
 import { buildMermaidThemeVariables } from '../../../ui/src/utils/mermaid.ts'
-import { formatMermaidFix } from '../../../ui/src/utils/mermaid-fix.ts'
+import { formatMermaidFix, shouldAutoFixMermaid, MERMAID_AUTO_FIX_BUDGET } from '../../../ui/src/utils/mermaid-fix.ts'
 
 const diagram = '```mermaid\nxychart-beta\n  line [1, 2, 3]\n```'
 
@@ -76,5 +76,25 @@ test.describe('formatMermaidFix (unit)', () => {
     assert.match(out, /Parse error on line 2/)
     assert.match(out, /```mermaid\nxychart-beta\n {2}bad\n```/)
     assert.match(out, /syntax corrected/i)
+  })
+})
+
+test.describe('shouldAutoFixMermaid (unit)', () => {
+  const base = { budget: MERMAID_AUTO_FIX_BUDGET, isStreaming: false, isLatestMessage: true }
+
+  test('fixes a fresh failure in the latest message', () => {
+    assert.equal(shouldAutoFixMermaid(base), true)
+  })
+
+  test('does not fix once the budget is spent (no loop)', () => {
+    assert.equal(shouldAutoFixMermaid({ ...base, budget: 0 }), false)
+  })
+
+  test('does not fix while a reply is streaming', () => {
+    assert.equal(shouldAutoFixMermaid({ ...base, isStreaming: true }), false)
+  })
+
+  test('does not fix an older message re-rendering (e.g. theme switch)', () => {
+    assert.equal(shouldAutoFixMermaid({ ...base, isLatestMessage: false }), false)
   })
 })

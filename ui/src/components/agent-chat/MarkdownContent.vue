@@ -19,13 +19,17 @@ import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useTheme } from 'vuetify'
 import { useI18n } from 'vue-i18n'
 import { renderStreamingMarkdown } from '~/utils/markdown'
-import { renderMermaidIn, buildMermaidThemeVariables } from '~/utils/mermaid'
+import { renderMermaidIn, buildMermaidThemeVariables, type MermaidFailure } from '~/utils/mermaid'
 
 const props = defineProps<{
   content: string
   streaming: boolean
   mermaid: boolean
 }>()
+
+// Reports diagrams that failed to render so the parent can offer a bounded automatic fix.
+// The manual "fix this diagram" button (rendered inline in v-html) is independent of this.
+const emit = defineEmits<{ 'mermaid-error': [failures: MermaidFailure[]] }>()
 
 const theme = useTheme()
 const { t } = useI18n()
@@ -38,7 +42,8 @@ const root = ref<HTMLElement | null>(null)
 async function runMermaid () {
   // Don't render half-streamed diagrams; the post-stream update re-triggers this.
   if (!props.mermaid || props.streaming || !root.value) return
-  await renderMermaidIn(root.value, buildMermaidThemeVariables(theme.current.value.colors as Record<string, string>), t('fixDiagram'))
+  const failures = await renderMermaidIn(root.value, buildMermaidThemeVariables(theme.current.value.colors as Record<string, string>), t('fixDiagram'))
+  if (failures.length) emit('mermaid-error', failures)
 }
 
 onMounted(runMermaid)

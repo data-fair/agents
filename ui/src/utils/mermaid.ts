@@ -37,6 +37,11 @@ export function buildMermaidThemeVariables (colors: Record<string, string>): Rec
   }
 }
 
+export interface MermaidFailure {
+  source: string
+  error: string
+}
+
 let mermaidModule: typeof import('mermaid').default | null = null
 let lastThemeKey = ''
 let idCounter = 0
@@ -72,10 +77,11 @@ function inlineError (block: HTMLElement, source: string, message: string, fixLa
 
 // Lazy-loads mermaid (kept out of the initial bundle), (re)initializes it with the
 // app theme, and renders each diagram inside `el` independently so one bad diagram
-// cannot abort the rest of the message.
-export async function renderMermaidIn (el: HTMLElement, themeVariables: Record<string, unknown>, fixLabel?: string): Promise<void> {
+// cannot abort the rest of the message. Returns the diagrams that failed to render so
+// the caller can offer an automatic fix; an empty array means everything rendered.
+export async function renderMermaidIn (el: HTMLElement, themeVariables: Record<string, unknown>, fixLabel?: string): Promise<MermaidFailure[]> {
   const blocks = el.querySelectorAll<HTMLElement>('pre.mermaid')
-  if (!blocks.length) return
+  if (!blocks.length) return []
 
   if (!mermaidModule) mermaidModule = (await import('mermaid')).default
   const mermaid = mermaidModule
@@ -86,6 +92,7 @@ export async function renderMermaidIn (el: HTMLElement, themeVariables: Record<s
     lastThemeKey = themeKey
   }
 
+  const failures: MermaidFailure[] = []
   for (const block of blocks) {
     const source = block.textContent ?? ''
     const id = `mermaid-svg-${idCounter++}`
@@ -96,7 +103,10 @@ export async function renderMermaidIn (el: HTMLElement, themeVariables: Record<s
     } catch (err) {
       document.getElementById(id)?.remove() // drop mermaid's leftover temp nodes
       document.getElementById('d' + id)?.remove()
-      inlineError(block, source, err instanceof Error ? err.message : String(err), fixLabel)
+      const message = err instanceof Error ? err.message : String(err)
+      inlineError(block, source, message, fixLabel)
+      failures.push({ source, error: message })
     }
   }
+  return failures
 }
