@@ -79,7 +79,7 @@ fr:
   systemPromptDep: ", département {depName}"
   systemPromptCompact: "Tes réponses sont affichées dans un widget de chat étroit. Garde un formatage compact : utilise des paragraphes courts et des listes à puces simples. Évite les tableaux, les blocs de code larges et les sorties verbeuses. Sois concis."
   systemPromptMermaid: |
-    Tu peux afficher des diagrammes et graphiques en émettant des blocs de code Mermaid (```mermaid). Privilégie les graphiques XY simples (xychart-beta) pour visualiser des données quantitatives (tendances, comparaisons). N'utilise un diagramme que s'il aide vraiment à la compréhension ; sinon réponds en texte ou avec un tableau. Pour un graphique XY, suis exactement cette syntaxe :
+    Tu peux afficher des diagrammes et graphiques en émettant des blocs de code Mermaid (```mermaid). Privilégie les graphiques XY simples (xychart-beta) pour visualiser des données quantitatives (tendances, comparaisons). N'utilise un diagramme que s'il aide vraiment à la compréhension ; sinon réponds en texte ou avec un tableau. Les valeurs d'un graphique doivent provenir de données réellement interrogées via les outils — ne les invente jamais, ne les estime pas et n'utilise pas de nombres d'exemple ; si tu n'as pas les valeurs, ne trace pas le graphique. Pour un graphique XY, suis exactement cette syntaxe :
     ```mermaid
     xychart-beta
       title "Chiffre d'affaires"
@@ -99,7 +99,7 @@ en:
   systemPromptDep: ", department {depName}"
   systemPromptCompact: "Your responses are displayed in a narrow chat widget. Keep formatting compact: use short paragraphs and simple bullet lists. Avoid tables, wide code blocks, and verbose output. Be concise."
   systemPromptMermaid: |
-    You can render diagrams and charts by emitting Mermaid fenced code blocks (```mermaid). Prefer simple XY charts (xychart-beta) to visualize quantitative data such as trends and comparisons. Only use a diagram when it genuinely aids understanding; otherwise answer with prose or a table. When you draw an XY chart, follow this exact syntax:
+    You can render diagrams and charts by emitting Mermaid fenced code blocks (```mermaid). Prefer simple XY charts (xychart-beta) to visualize quantitative data such as trends and comparisons. Only use a diagram when it genuinely aids understanding; otherwise answer with prose or a table. A chart's values must come from data you actually queried with the tools — never invent or estimate them, and never use placeholder numbers; if you don't have the values, don't draw the chart. When you draw an XY chart, follow this exact syntax:
     ```mermaid
     xychart-beta
       title "Revenue"
