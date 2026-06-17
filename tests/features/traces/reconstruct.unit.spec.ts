@@ -252,4 +252,23 @@ test.describe('reconstructTrace (unit)', () => {
     const overview = SessionRecorder.fromTrace(trace).getTraceOverview()
     assert.ok(overview.some(e => e.type === 'hidden-context'), 'hidden-context overview entry present')
   })
+
+  test('computes summary totals and flags', () => {
+    const reqs = [
+      req({ usage: { inputTokens: 100, outputTokens: 10 }, flags: { toolExploration: true, subAgents: false, mermaid: true } }),
+      req({ createdAt: '2026-06-08T00:00:01.000Z', usage: { inputTokens: 50, outputTokens: 5 } })
+    ]
+    const trace = reconstructTrace(reqs as any)
+    assert.equal(trace.summary.requestCount, 2)
+    assert.equal(trace.summary.inputTokens, 150)
+    assert.equal(trace.summary.outputTokens, 15)
+    // flags come from the first request that carries them
+    assert.deepEqual(trace.summary.flags, { toolExploration: true, subAgents: false, mermaid: true })
+  })
+
+  test('summary flags fall back to defaults when no request carries flags', () => {
+    const trace = reconstructTrace([req({})] as any)
+    assert.deepEqual(trace.summary.flags, { toolExploration: false, subAgents: true, mermaid: false })
+    assert.equal(trace.summary.requestCount, 1)
+  })
 })

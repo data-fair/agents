@@ -1,4 +1,5 @@
 import type { ModelMessage } from 'ai'
+import { DEFAULT_FLAGS, type AgentFlags } from '../utils/agent-flags.ts'
 
 export interface ToolCallTrace {
   id: string
@@ -63,12 +64,23 @@ export interface ToolChangeEvent {
   tools: ToolSnapshot[]
 }
 
+export interface TraceSummary {
+  requestCount: number
+  inputTokens: number
+  outputTokens: number
+  flags: AgentFlags
+}
+
 export interface SessionTrace {
   systemPrompt: string
   toolSnapshots: ToolSnapshot[][]
   toolChanges: ToolChangeEvent[]
   turns: TurnTrace[]
   physicalRequests: PhysicalRequestTrace[]
+  // Optional so externally-deserialized/legacy traces (and the empty-trace test
+  // fixture) remain valid; reconstructTrace always populates it and getSummary
+  // falls back to a zeroed summary when absent.
+  summary?: TraceSummary
 }
 
 export interface TraceOverviewEntry {
@@ -119,7 +131,8 @@ export class SessionRecorder {
     toolSnapshots: [],
     toolChanges: [],
     turns: [],
-    physicalRequests: []
+    physicalRequests: [],
+    summary: { requestCount: 0, inputTokens: 0, outputTokens: 0, flags: { ...DEFAULT_FLAGS } }
   }
 
   getTrace (): SessionTrace {
@@ -135,6 +148,10 @@ export class SessionRecorder {
   getTraceOverview (): TraceOverviewEntry[] {
     this.buildCache()
     return this.cachedOverview
+  }
+
+  getSummary (): TraceSummary {
+    return this.trace.summary ?? { requestCount: 0, inputTokens: 0, outputTokens: 0, flags: { ...DEFAULT_FLAGS } }
   }
 
   private cachedOverview: TraceOverviewEntry[] = []
