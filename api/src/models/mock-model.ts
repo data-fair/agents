@@ -55,6 +55,16 @@ function processMockPrompt (lastMessage: string, prompt: string | Array<any>): M
     return { type: 'text', text: 'See [the docs](https://example.com/docs) for details.\n\n' }
   }
 
+  // Mermaid bounded auto-fix seam: "broken mermaid" answers with an invalid diagram;
+  // once the UI's auto-fix resends (its hidden context says the diagram "failed to
+  // render"), answer with a valid one so the loop converges.
+  if (/failed to render/i.test(lastMessage)) {
+    return { type: 'text', text: '```mermaid\nflowchart TD\n  A[Start] --> B[End]\n```' }
+  }
+  if (lastMessage.toLowerCase().includes('broken mermaid')) {
+    return { type: 'text', text: 'Here is the chart:\n\n```mermaid\nthisisnotavaliddiagram\n```' }
+  }
+
   // If the most recent message in the prompt is a tool result, we already called a tool
   // in this step — respond with text instead of calling another tool
   if (Array.isArray(prompt) && prompt.length > 0 && prompt[prompt.length - 1].role === 'tool') {

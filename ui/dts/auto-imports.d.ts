@@ -14,6 +14,7 @@ declare global {
   const DEFAULT_REFUSAL: typeof import('../src/composables/moderation')['DEFAULT_REFUSAL']
   const EXPLORE_TOOL_NAME: typeof import('../src/composables/tool-exploration')['EXPLORE_TOOL_NAME']
   const EffectScope: typeof import('vue')['EffectScope']
+  const MERMAID_AUTO_FIX_BUDGET: typeof import('../src/utils/mermaid-fix')['MERMAID_AUTO_FIX_BUDGET']
   const MODERATION_TASK_MARKER: typeof import('../src/composables/moderation')['MODERATION_TASK_MARKER']
   const SELECT_TOOL_NAME: typeof import('../src/composables/tool-exploration')['SELECT_TOOL_NAME']
   const buildMermaidThemeVariables: typeof import('../src/utils/mermaid')['buildMermaidThemeVariables']
@@ -43,6 +44,7 @@ declare global {
   const effectScope: typeof import('vue')['effectScope']
   const extractErrorMessage: typeof import('../src/utils/error')['extractErrorMessage']
   const formatBytes: typeof import('@data-fair/lib-vue/format/bytes.js')['formatBytes']
+  const formatMcpToolResult: typeof import('../src/utils/tool-result')['formatMcpToolResult']
   const formatMermaidFix: typeof import('../src/utils/mermaid-fix')['formatMermaidFix']
   const formatToolsAvailableMessage: typeof import('../src/composables/tool-exploration')['formatToolsAvailableMessage']
   const getAnonymousToken: typeof import('../src/composables/use-anonymous-token')['getAnonymousToken']
@@ -89,6 +91,7 @@ declare global {
   const shallowReactive: typeof import('vue')['shallowReactive']
   const shallowReadonly: typeof import('vue')['shallowReadonly']
   const shallowRef: typeof import('vue')['shallowRef']
+  const shouldAutoFixMermaid: typeof import('../src/utils/mermaid-fix')['shouldAutoFixMermaid']
   const shouldFlattenSubAgent: typeof import('../src/composables/sub-agent-flatten')['shouldFlattenSubAgent']
   const toRaw: typeof import('vue')['toRaw']
   const toRef: typeof import('vue')['toRef']
@@ -158,6 +161,7 @@ declare module 'vue' {
     readonly $uiConfig: UnwrapRef<typeof import('~/context')['$uiConfig']>
     readonly EXPLORE_TOOL_NAME: UnwrapRef<typeof import('../src/composables/tool-exploration')['EXPLORE_TOOL_NAME']>
     readonly EffectScope: UnwrapRef<typeof import('vue')['EffectScope']>
+    readonly MERMAID_AUTO_FIX_BUDGET: UnwrapRef<typeof import('../src/utils/mermaid-fix')['MERMAID_AUTO_FIX_BUDGET']>
     readonly SELECT_TOOL_NAME: UnwrapRef<typeof import('../src/composables/tool-exploration')['SELECT_TOOL_NAME']>
     readonly buildMermaidThemeVariables: UnwrapRef<typeof import('../src/utils/mermaid')['buildMermaidThemeVariables']>
     readonly computed: UnwrapRef<typeof import('vue')['computed']>
@@ -170,6 +174,7 @@ declare module 'vue' {
     readonly effectScope: UnwrapRef<typeof import('vue')['effectScope']>
     readonly extractErrorMessage: UnwrapRef<typeof import('../src/utils/error')['extractErrorMessage']>
     readonly formatBytes: UnwrapRef<typeof import('@data-fair/lib-vue/format/bytes.js')['formatBytes']>
+    readonly formatMcpToolResult: UnwrapRef<typeof import('../src/utils/tool-result')['formatMcpToolResult']>
     readonly formatMermaidFix: UnwrapRef<typeof import('../src/utils/mermaid-fix')['formatMermaidFix']>
     readonly formatToolsAvailableMessage: UnwrapRef<typeof import('../src/composables/tool-exploration')['formatToolsAvailableMessage']>
     readonly getAnonymousToken: UnwrapRef<typeof import('../src/composables/use-anonymous-token')['getAnonymousToken']>
@@ -214,6 +219,7 @@ declare module 'vue' {
     readonly shallowReactive: UnwrapRef<typeof import('vue')['shallowReactive']>
     readonly shallowReadonly: UnwrapRef<typeof import('vue')['shallowReadonly']>
     readonly shallowRef: UnwrapRef<typeof import('vue')['shallowRef']>
+    readonly shouldAutoFixMermaid: UnwrapRef<typeof import('../src/utils/mermaid-fix')['shouldAutoFixMermaid']>
     readonly shouldFlattenSubAgent: UnwrapRef<typeof import('../src/composables/sub-agent-flatten')['shouldFlattenSubAgent']>
     readonly toRaw: UnwrapRef<typeof import('vue')['toRaw']>
     readonly toRef: UnwrapRef<typeof import('vue')['toRef']>

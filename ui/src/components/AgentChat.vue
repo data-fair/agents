@@ -21,6 +21,7 @@
         :mermaid-enabled="mermaidEnabled"
         @navigate="url => sendDFrameMessage({ type: 'navigate', url })"
         @fix-mermaid="handleFixMermaid"
+        @mermaid-error="handleMermaidError"
       />
 
       <agent-chat-input
@@ -78,7 +79,7 @@ fr:
   systemPromptDep: ", département {depName}"
   systemPromptCompact: "Tes réponses sont affichées dans un widget de chat étroit. Garde un formatage compact : utilise des paragraphes courts et des listes à puces simples. Évite les tableaux, les blocs de code larges et les sorties verbeuses. Sois concis."
   systemPromptMermaid: |
-    Tu peux afficher des diagrammes et graphiques en émettant des blocs de code Mermaid (```mermaid). Privilégie les graphiques XY simples (xychart-beta) pour visualiser des données quantitatives (tendances, comparaisons). N'utilise un diagramme que s'il aide vraiment à la compréhension ; sinon réponds en texte ou avec un tableau. Pour un graphique XY, suis exactement cette syntaxe :
+    Tu peux afficher des diagrammes et graphiques en émettant des blocs de code Mermaid (```mermaid). Privilégie les graphiques XY simples (xychart-beta) pour visualiser des données quantitatives (tendances, comparaisons). N'utilise un diagramme que s'il aide vraiment à la compréhension ; sinon réponds en texte ou avec un tableau. Les valeurs d'un graphique doivent provenir de données réellement interrogées via les outils — ne les invente jamais, ne les estime pas et n'utilise pas de nombres d'exemple ; si tu n'as pas les valeurs, ne trace pas le graphique. Pour un graphique XY, suis exactement cette syntaxe :
     ```mermaid
     xychart-beta
       title "Chiffre d'affaires"
@@ -89,6 +90,7 @@ fr:
     ```
   moderationRefusal: "Cette demande ne peut pas être traitée car elle sort du cadre de ce que cet assistant peut faire."
   fixMermaidVisible: "Corrige le diagramme qui n'a pas pu s'afficher."
+  fixMermaidAuto: "Le diagramme n'a pas pu s'afficher, correction automatique en cours…"
 en:
   welcome: How can I help you?
   systemPromptBase: You are a helpful AI assistant for the Data Fair platform.
@@ -97,7 +99,7 @@ en:
   systemPromptDep: ", department {depName}"
   systemPromptCompact: "Your responses are displayed in a narrow chat widget. Keep formatting compact: use short paragraphs and simple bullet lists. Avoid tables, wide code blocks, and verbose output. Be concise."
   systemPromptMermaid: |
-    You can render diagrams and charts by emitting Mermaid fenced code blocks (```mermaid). Prefer simple XY charts (xychart-beta) to visualize quantitative data such as trends and comparisons. Only use a diagram when it genuinely aids understanding; otherwise answer with prose or a table. When you draw an XY chart, follow this exact syntax:
+    You can render diagrams and charts by emitting Mermaid fenced code blocks (```mermaid). Prefer simple XY charts (xychart-beta) to visualize quantitative data such as trends and comparisons. Only use a diagram when it genuinely aids understanding; otherwise answer with prose or a table. A chart's values must come from data you actually queried with the tools — never invent or estimate them, and never use placeholder numbers; if you don't have the values, don't draw the chart. When you draw an XY chart, follow this exact syntax:
     ```mermaid
     xychart-beta
       title "Revenue"
@@ -108,6 +110,7 @@ en:
     ```
   moderationRefusal: "This request can't be processed as it falls outside what this assistant is meant to help with."
   fixMermaidVisible: "Please fix the diagram that failed to render."
+  fixMermaidAuto: "The diagram failed to render, fixing it automatically…"
 </i18n>
 
 <script lang="ts" setup>
@@ -116,7 +119,8 @@ import { useI18n } from 'vue-i18n'
 import { useSession } from '@data-fair/lib-vue/session.js'
 import { useVueRouterDFrameContent } from '@data-fair/frame/lib/vue-router/d-frame-content.js'
 import { useAgentChat, type ChatMessage } from '~/composables/use-agent-chat'
-import { formatMermaidFix } from '~/utils/mermaid-fix'
+import { formatMermaidFix, shouldAutoFixMermaid, MERMAID_AUTO_FIX_BUDGET } from '~/utils/mermaid-fix'
+import type { MermaidFailure } from '~/utils/mermaid'
 import { getTabChannelId, getAgentInitConfig } from '@data-fair/lib-vue-agents'
 import type { AgentChatMessage } from '@data-fair/lib-vuetify-agents/types.js'
 import AgentChatHeader from './agent-chat/AgentChatHeader.vue'
@@ -212,6 +216,13 @@ watch(finalSystemPrompt, (prompt) => {
 
 const actionVisiblePrompt = ref<string | null>(null)
 
+// Replenished on every genuine user turn (typed send or action session) so each turn gets
+// its own automatic-fix budget; a model that keeps emitting broken diagrams within one turn
+// can't loop (see shouldAutoFixMermaid), it falls back to the manual "fix this diagram"
+// button. Declared here — before the synchronous pending-action block below can call
+// startActionSession during setup — so it is never read in its temporal dead zone.
+const mermaidAutoFixBudget = ref(MERMAID_AUTO_FIX_BUDGET)
+
 const messages = computed(() => chat.messages.value)
 const isStreaming = computed(() => chat.status.value === 'streaming')
 const chatError = computed(() => chat.error.value)
@@ -291,6 +302,7 @@ function startActionSession (visiblePrompt: string, hiddenContext: string) {
   chat.abort()
 
   actionVisiblePrompt.value = visiblePrompt
+  mermaidAutoFixBudget.value = MERMAID_AUTO_FIX_BUDGET
 
   // The hidden context rides inside this user turn (see use-agent-chat sendMessage)
   // instead of mutating the session system prompt, so it stays scoped to the turn
@@ -376,12 +388,25 @@ const toolTitle = (toolName: string) => {
 
 const handleSend = (userMessage: string) => {
   if (isStreaming.value) return
+  mermaidAutoFixBudget.value = MERMAID_AUTO_FIX_BUDGET
   chat.sendMessage(userMessage)
 }
 
 function handleFixMermaid ({ source, error }: { source: string, error: string }) {
   if (isStreaming.value) return
   chat.sendMessage(t('fixMermaidVisible'), { hiddenContext: formatMermaidFix(error, source) })
+}
+
+// Bounded automatic counterpart to the manual fix: when the latest reply contains a
+// diagram that failed to render, silently ask the model to correct it once — without the
+// user having to click. The budget caps retries so a persistently broken diagram settles
+// on the manual button instead of looping.
+function handleMermaidError ({ index, failures }: { index: number, failures: MermaidFailure[] }) {
+  const isLatestMessage = index === messages.value.length - 1
+  if (!shouldAutoFixMermaid({ budget: mermaidAutoFixBudget.value, isStreaming: isStreaming.value, isLatestMessage })) return
+  mermaidAutoFixBudget.value--
+  const { source, error } = failures[0]
+  chat.sendMessage(t('fixMermaidAuto'), { hiddenContext: formatMermaidFix(error, source) })
 }
 
 const handleAbort = () => {

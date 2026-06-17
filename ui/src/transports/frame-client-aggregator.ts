@@ -2,6 +2,7 @@ import { Client, ToolListChangedNotificationSchema, PolyfillJsonSchemaValidator 
 import { tool, jsonSchema } from 'ai'
 import type { Tool } from 'ai'
 import { FrameClientTransport } from './frame-client-transport'
+import { formatMcpToolResult, type McpCallResult } from '~/utils/tool-result'
 import Debug from 'debug'
 
 const debug = Debug('df-agents:frame-client-aggregator')
@@ -116,10 +117,7 @@ export class FrameClientAggregator {
             debug('execute tool=%s via server=%s args=%o', t.name, serverId, args)
             const callResult = await server.client.callTool({ name: t.name, arguments: args })
             debug('tool result=%s via server=%s result=%o', t.name, serverId, callResult)
-            const textParts = (callResult.content as Array<{ type: string; text?: string }> | undefined)
-              ?.filter((c) => c.type === 'text')
-              .map((c) => c.text)
-            return textParts?.join('\n') ?? JSON.stringify(callResult)
+            return formatMcpToolResult(callResult as McpCallResult)
           }
         })
         const title = (t as any).annotations?.title
