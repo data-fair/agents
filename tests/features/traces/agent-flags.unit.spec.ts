@@ -14,11 +14,13 @@ test.describe('agent flags cookie (unit)', () => {
   test('defaults: subAgents on, others off', () => {
     assert.deepEqual(DEFAULT_FLAGS, { toolExploration: false, subAgents: true, mermaid: false })
   })
-  test('serializes a gateway-scoped 1-year cookie', () => {
+  test('serializes a service-scoped 1-year cookie', () => {
     const c = serializeFlagsCookie({ toolExploration: false, subAgents: true, mermaid: false }, '/data-fair/agents/api')
     assert.match(c, new RegExp(`^${FLAGS_COOKIE}=`))
     assert.match(c, /Max-Age=31536000/)
     assert.match(c, /SameSite=Lax/)
-    assert.match(c, /Path=\/data-fair\/agents\/api\/gateway/)
+    // Scoped to the agents service root, not the narrower gateway endpoint, so the
+    // UI pages can read it back; still off sibling services like /data-fair/simple-directory.
+    assert.match(c, /Path=\/data-fair\/agents; /)
   })
 })

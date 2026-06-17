@@ -182,7 +182,7 @@ const finalSystemPrompt = computed(() => {
   return parts.join(' ')
 })
 
-// Experimental chat flags, persisted in a gateway-scoped cookie (see agent-flags.ts)
+// Experimental chat flags, persisted in a service-scoped cookie (see agent-flags.ts)
 // and toggled from the debug dialog's Settings tab. subAgents is ON by default;
 // turning it off is the "flatten" mode (every sub-agent tool exposed directly).
 const initialFlags = readFlags()

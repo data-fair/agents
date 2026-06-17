@@ -71,16 +71,21 @@ test.describe('Chat Sub-Agent Flatten toggle', () => {
     await expect(subAgentsSwitch).toBeChecked({ timeout: 5000 })
 
     await subAgentsSwitch.click()
-    // The opt-out is persisted to the gateway-scoped `agent-chat-flags` cookie
+    // The opt-out is persisted to the service-scoped `agent-chat-flags` cookie
     // (see ui/src/utils/agent-flags.ts), which replaced the old localStorage key.
-    // The cookie's Path keeps it off `document.cookie` on this page, so read it
-    // through the browser context instead.
     await expect
       .poll(async () => {
         const cookie = (await page.context().cookies()).find(c => c.name === 'agent-chat-flags')
         return cookie ? JSON.parse(decodeURIComponent(cookie.value)).subAgents : undefined
       }, { timeout: 5000 })
       .toBe(false)
+
+    // The service-scoped path keeps the cookie readable by readFlags() on the UI
+    // page, so the opt-out must survive a full reload (the switch stays off).
+    await page.reload()
+    await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
+    await page.getByRole('tab', { name: /Settings|Paramètres/ }).click()
+    await expect(page.getByLabel(/Sub-agents|Sous-agents/)).not.toBeChecked({ timeout: 5000 })
   })
 
   test('Flat mode: main agent calls a reserved tool directly, no sub-agent panel', async ({ page, goToWithAuth }) => {
