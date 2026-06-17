@@ -33,9 +33,24 @@
         mandatory
         class="ml-2"
       >
-        <v-btn size="x-small" value="interpreted">{{ t('interpreted') }}</v-btn>
-        <v-btn size="x-small" value="raw">{{ t('raw') }}</v-btn>
-        <v-btn size="x-small" value="both">{{ t('both') }}</v-btn>
+        <v-btn
+          size="x-small"
+          value="interpreted"
+        >
+          {{ t('interpreted') }}
+        </v-btn>
+        <v-btn
+          size="x-small"
+          value="raw"
+        >
+          {{ t('raw') }}
+        </v-btn>
+        <v-btn
+          size="x-small"
+          value="both"
+        >
+          {{ t('both') }}
+        </v-btn>
       </v-btn-toggle>
     </div>
     <v-expansion-panels
