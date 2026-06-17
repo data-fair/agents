@@ -13,6 +13,20 @@ test.describe('moderation prompt', () => {
     assert.ok(prompt.includes(MODERATION_TASK_MARKER))
     assert.ok(prompt.toLowerCase().includes('data platform'))
   })
+
+  test('keeps data/sub-agent tasks in scope but general software work out, biasing to allow', () => {
+    const prompt = buildModerationSystemPrompt().toLowerCase()
+    // legitimate data and delegated sub-agent work must not be treated as off-scope abuse
+    assert.ok(prompt.includes('sub-agent'))
+    // small platform-data/API scripts are explicitly allowed...
+    assert.ok(prompt.includes('script'))
+    assert.ok(prompt.includes('api'))
+    // ...but writing substantial general-purpose software stays out of scope
+    assert.ok(prompt.includes('general-purpose'))
+    assert.ok(prompt.includes('software'))
+    // and the resolution of the ambiguous middle is to allow
+    assert.ok(prompt.includes('when in doubt, allow'))
+  })
 })
 
 test.describe('extractLastUserMessage', () => {

@@ -1,6 +1,6 @@
 # Input moderation guard
 
-A gateway-enforced, per-message guard protects the platform from abuse — profanity, prompt-injection attempts, persona override, and heavy off-platform tasks. Moderation is **opt-in per organization**: an admin enables it and chooses which user categories it applies to (any of `anonymous`, `external`, `user`, `contrib`, `admin`). It is off by default; categories that aren't selected are never checked — zero cost, zero latency for them.
+A gateway-enforced, per-message guard protects the platform from abuse — profanity, prompt-injection attempts, persona override, and using the assistant as a free general-purpose tool unrelated to the platform's data (general chatbot use, essays, writing substantial general-purpose software). The off-scope criterion is scoped to that misuse: data exploration/analysis/visualization, working with dataset and file content, small scripts that consume the platform's data or API, and delegated sub-agent tasks all stay in scope even when detailed or technical, so legitimate work (notably sub-agent task delegations) is not blocked as off-platform. Writing general-purpose code is out of scope, but a small data/API-consuming script is allowed, and the ambiguous middle resolves to allow. Moderation is **opt-in per organization**: an admin enables it and chooses which user categories it applies to (any of `anonymous`, `external`, `user`, `contrib`, `admin`). It is off by default; categories that aren't selected are never checked — zero cost, zero latency for them.
 
 ```mermaid
 sequenceDiagram
