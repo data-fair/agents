@@ -176,18 +176,18 @@ const finalSystemPrompt = computed(() => {
   return parts.join(' ')
 })
 
-// Experimental tool-exploration mode: admin-only opt-in, persisted in localStorage
+// Experimental tool-exploration mode: opt-in for everyone, persisted in localStorage
 // and toggled from the debug dialog's Settings tab.
-const explorationEnabled = ref(!!props.isAdmin && localStorage.getItem('agent-chat-explore') === '1')
+const explorationEnabled = ref(localStorage.getItem('agent-chat-explore') === '1')
 
 // Sub-agent delegation: ON by default. Turning it off is the experimental "flatten"
-// mode (every sub-agent tool exposed directly to the assistant). Admin-only opt-out,
+// mode (every sub-agent tool exposed directly to the assistant). Opt-out for everyone,
 // persisted in localStorage ('0' when disabled) and toggled from the Settings tab.
-const subAgentsEnabled = ref(!props.isAdmin || localStorage.getItem('agent-chat-subagents') !== '0')
+const subAgentsEnabled = ref(localStorage.getItem('agent-chat-subagents') !== '0')
 
-// Experimental mermaid rendering: admin-only opt-in (still experimental), persisted
-// in localStorage and toggled from the settings dialog.
-const mermaidEnabled = ref(!!props.isAdmin && localStorage.getItem('agent-chat-mermaid') === '1')
+// Experimental mermaid rendering: opt-in for everyone, persisted in localStorage
+// and toggled from the settings dialog.
+const mermaidEnabled = ref(localStorage.getItem('agent-chat-mermaid') === '1')
 
 const chatResult = useAgentChat({
   accountType: props.accountType,

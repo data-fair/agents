@@ -187,22 +187,20 @@
                 @update:model-value="$emit('update:subAgents', $event ?? true)"
               />
 
-              <template v-if="isAdmin">
-                <df-tutorial-alert
-                  id="agent-settings-mermaid"
-                  :text="t('mermaidHint')"
-                  :initial="false"
-                  persistent
-                />
-                <v-switch
-                  :model-value="mermaid"
-                  color="primary"
-                  density="compact"
-                  hide-details
-                  :label="t('mermaid')"
-                  @update:model-value="(v: boolean | null) => $emit('update:mermaid', v ?? false)"
-                />
-              </template>
+              <df-tutorial-alert
+                id="agent-settings-mermaid"
+                :text="t('mermaidHint')"
+                :initial="false"
+                persistent
+              />
+              <v-switch
+                :model-value="mermaid"
+                color="primary"
+                density="compact"
+                hide-details
+                :label="t('mermaid')"
+                @update:model-value="(v: boolean | null) => $emit('update:mermaid', v ?? false)"
+              />
             </div>
           </v-window-item>
         </v-window>
