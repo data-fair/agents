@@ -136,14 +136,32 @@
 
           <v-window-item value="settings">
             <div class="pa-3">
-              <v-switch
-                v-if="showConsentToggle"
-                :model-value="consentRef === 'yes'"
-                :label="t('storeTraces')"
-                color="primary"
-                density="compact"
-                hide-details
-                @update:model-value="(v: boolean | null) => writeConsent(v ? 'yes' : 'no')"
+              <template v-if="showConsentToggle">
+                <df-tutorial-alert
+                  id="agent-settings-store-traces"
+                  :text="t('storeTracesHint')"
+                  :initial="false"
+                  persistent
+                />
+                <v-switch
+                  :model-value="consentRef === 'yes'"
+                  :label="t('storeTraces')"
+                  color="primary"
+                  density="compact"
+                  hide-details
+                  @update:model-value="(v: boolean | null) => writeConsent(v ? 'yes' : 'no')"
+                />
+              </template>
+
+              <div class="text-caption font-weight-bold text-medium-emphasis mt-4 mb-1">
+                {{ t('experimental') }}
+              </div>
+
+              <df-tutorial-alert
+                id="agent-settings-tool-exploration"
+                :text="t('toolExplorationHint')"
+                :initial="false"
+                persistent
               />
               <v-switch
                 :model-value="toolExploration"
@@ -151,37 +169,39 @@
                 density="compact"
                 hide-details
                 :label="t('toolExploration')"
-                class="mt-2"
                 @update:model-value="$emit('update:toolExploration', $event ?? false)"
               />
-              <p class="text-caption text-medium-emphasis mt-1">
-                {{ t('toolExplorationHint') }}
-              </p>
+
+              <df-tutorial-alert
+                id="agent-settings-subagents"
+                :text="t('subAgentsHint')"
+                :initial="false"
+                persistent
+              />
               <v-switch
-                :model-value="flattenSubAgents"
+                :model-value="subAgents"
                 color="primary"
                 density="compact"
                 hide-details
-                :label="t('flatten')"
-                class="mt-2"
-                @update:model-value="$emit('update:flattenSubAgents', $event ?? false)"
+                :label="t('subAgents')"
+                @update:model-value="$emit('update:subAgents', $event ?? true)"
               />
-              <p class="text-caption text-medium-emphasis mt-1">
-                {{ t('flattenHint') }}
-              </p>
+
               <template v-if="isAdmin">
+                <df-tutorial-alert
+                  id="agent-settings-mermaid"
+                  :text="t('mermaidHint')"
+                  :initial="false"
+                  persistent
+                />
                 <v-switch
                   :model-value="mermaid"
                   color="primary"
                   density="compact"
                   hide-details
                   :label="t('mermaid')"
-                  class="mt-2"
                   @update:model-value="(v: boolean | null) => $emit('update:mermaid', v ?? false)"
                 />
-                <p class="text-caption text-medium-emphasis mt-1">
-                  {{ t('mermaidHint') }}
-                </p>
               </template>
             </div>
           </v-window-item>
@@ -202,11 +222,13 @@ fr:
   openReview: Ouvrir l'analyse
   settings: Paramètres
   storeTraces: Enregistrer mes conversations pour relecture
-  toolExploration: Exploration des outils (expérimental)
+  storeTracesHint: "Vos conversations seront enregistrées sur le serveur pendant 30 jours afin qu'un administrateur puisse les relire. Vous pouvez retirer votre consentement à tout moment."
+  experimental: Expérimental
+  toolExploration: Exploration des outils
   toolExplorationHint: "Masque les outils derrière un outil « explore_tools » que l'assistant appelle pour découvrir et activer les outils pertinents à la demande. Changer ce réglage réinitialise la conversation."
-  flatten: Aplatir les sous-agents (expérimental)
-  flattenHint: "Expose tous les outils des sous-agents directement à l'assistant au lieu de déléguer. Chaque sous-agent devient un outil de consigne qui renvoie son prompt. Changer ce réglage réinitialise la conversation."
-  mermaid: Diagrammes Mermaid (expérimental)
+  subAgents: Sous-agents
+  subAgentsHint: "Délègue les tâches complexes à des sous-agents spécialisés (comportement par défaut). Désactivez pour exposer tous les outils des sous-agents directement à l'assistant : chaque sous-agent devient un outil de consigne qui renvoie son prompt. Changer ce réglage réinitialise la conversation."
+  mermaid: Diagrammes Mermaid
   mermaidHint: "Affiche les blocs de code Mermaid sous forme de diagrammes (graphiques XY, organigrammes, etc.). Changer ce réglage réinitialise la conversation."
 en:
   close: Close
@@ -218,11 +240,13 @@ en:
   openReview: Open review
   settings: Settings
   storeTraces: Store my conversations for review
-  toolExploration: Tool exploration (experimental)
+  storeTracesHint: "Your conversations will be stored on the server for 30 days so an administrator can review them. You can withdraw your consent at any time."
+  experimental: Experimental
+  toolExploration: Tool exploration
   toolExplorationHint: "Hides tools behind an 'explore_tools' tool the assistant calls to discover and enable relevant tools on demand. Changing this setting resets the conversation."
-  flatten: Flatten sub-agents (experimental)
-  flattenHint: "Exposes every sub-agent tool directly to the assistant instead of delegating. Each sub-agent becomes a guidance tool that returns its prompt. Changing this setting resets the conversation."
-  mermaid: Mermaid diagrams (experimental)
+  subAgents: Sub-agents
+  subAgentsHint: "Delegates complex tasks to specialised sub-agents (the default behaviour). Turn off to expose every sub-agent tool directly to the assistant: each sub-agent becomes a guidance tool that returns its prompt. Changing this setting resets the conversation."
+  mermaid: Mermaid diagrams
   mermaidHint: "Renders Mermaid code blocks as diagrams (XY charts, flowcharts, etc.). Changing this setting resets the conversation."
 </i18n>
 
@@ -231,6 +255,7 @@ import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { mdiClose, mdiOpenInNew } from '@mdi/js'
+import DfTutorialAlert from '@data-fair/lib-vuetify/tutorial-alert.vue'
 import type { DebugToolsPartition } from '~/composables/use-agent-chat'
 import { traceStorageAvailable, consentRef, writeConsent } from '~/traces/trace-consent'
 
@@ -243,14 +268,14 @@ const props = defineProps<{
   accountType: string
   accountId: string
   toolExploration?: boolean
-  flattenSubAgents?: boolean
+  subAgents?: boolean
   mermaid?: boolean
 }>()
 
 defineEmits<{
   'update:modelValue': [value: boolean]
   'update:toolExploration': [value: boolean]
-  'update:flattenSubAgents': [value: boolean]
+  'update:subAgents': [value: boolean]
   'update:mermaid': [value: boolean]
 }>()
 

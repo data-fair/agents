@@ -58,10 +58,10 @@
       :account-type="accountType"
       :account-id="accountId"
       :tool-exploration="explorationEnabled"
-      :flatten-sub-agents="flattenEnabled"
+      :sub-agents="subAgentsEnabled"
       :mermaid="mermaidEnabled"
       @update:tool-exploration="handleToolExploration"
-      @update:flatten-sub-agents="handleFlattenSubAgents"
+      @update:sub-agents="handleSubAgents"
       @update:mermaid="handleMermaid"
     />
 
@@ -180,9 +180,10 @@ const finalSystemPrompt = computed(() => {
 // and toggled from the debug dialog's Settings tab.
 const explorationEnabled = ref(!!props.isAdmin && localStorage.getItem('agent-chat-explore') === '1')
 
-// Experimental flatten-subagents mode: admin-only opt-in, persisted in localStorage
-// and toggled from the debug dialog's Settings tab.
-const flattenEnabled = ref(!!props.isAdmin && localStorage.getItem('agent-chat-flatten') === '1')
+// Sub-agent delegation: ON by default. Turning it off is the experimental "flatten"
+// mode (every sub-agent tool exposed directly to the assistant). Admin-only opt-out,
+// persisted in localStorage ('0' when disabled) and toggled from the Settings tab.
+const subAgentsEnabled = ref(!props.isAdmin || localStorage.getItem('agent-chat-subagents') !== '0')
 
 // Experimental mermaid rendering: admin-only opt-in (still experimental), persisted
 // in localStorage and toggled from the settings dialog.
@@ -195,7 +196,7 @@ const chatResult = useAgentChat({
   initialMessages: props.initialMessages,
   refusalMessage: t('moderationRefusal'),
   toolExploration: explorationEnabled.value,
-  flattenSubAgents: flattenEnabled.value
+  flattenSubAgents: !subAgentsEnabled.value
 })
 
 if (!chatResult) {
@@ -306,11 +307,12 @@ function handleToolExploration (enabled: boolean) {
   handleReset()
 }
 
-function handleFlattenSubAgents (enabled: boolean) {
-  flattenEnabled.value = enabled
-  if (enabled) localStorage.setItem('agent-chat-flatten', '1')
-  else localStorage.removeItem('agent-chat-flatten')
-  chat.setFlattenSubAgents(enabled)
+function handleSubAgents (enabled: boolean) {
+  subAgentsEnabled.value = enabled
+  // Default is on, so only persist the off (flatten) opt-out.
+  if (enabled) localStorage.removeItem('agent-chat-subagents')
+  else localStorage.setItem('agent-chat-subagents', '0')
+  chat.setFlattenSubAgents(!enabled)
   // Reset the conversation so the new tool set applies from a clean state.
   handleReset()
 }
