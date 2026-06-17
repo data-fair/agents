@@ -128,6 +128,8 @@ import AgentChatMessages from './agent-chat/AgentChatMessages.vue'
 import AgentChatInput from './agent-chat/AgentChatInput.vue'
 import AgentChatDebugDialog from './agent-chat/AgentChatDebugDialog.vue'
 import TraceConsentSheet from './agent-chat/TraceConsentSheet.vue'
+import { readFlags, writeFlags } from '~/utils/agent-flags'
+import { $apiPath } from '~/context'
 
 const props = defineProps<{
   isAdmin?: boolean
@@ -180,18 +182,13 @@ const finalSystemPrompt = computed(() => {
   return parts.join(' ')
 })
 
-// Experimental tool-exploration mode: opt-in for everyone, persisted in localStorage
-// and toggled from the debug dialog's Settings tab.
-const explorationEnabled = ref(localStorage.getItem('agent-chat-explore') === '1')
-
-// Sub-agent delegation: ON by default. Turning it off is the experimental "flatten"
-// mode (every sub-agent tool exposed directly to the assistant). Opt-out for everyone,
-// persisted in localStorage ('0' when disabled) and toggled from the Settings tab.
-const subAgentsEnabled = ref(localStorage.getItem('agent-chat-subagents') !== '0')
-
-// Experimental mermaid rendering: opt-in for everyone, persisted in localStorage
-// and toggled from the settings dialog.
-const mermaidEnabled = ref(localStorage.getItem('agent-chat-mermaid') === '1')
+// Experimental chat flags, persisted in a gateway-scoped cookie (see agent-flags.ts)
+// and toggled from the debug dialog's Settings tab. subAgents is ON by default;
+// turning it off is the "flatten" mode (every sub-agent tool exposed directly).
+const initialFlags = readFlags()
+const explorationEnabled = ref(initialFlags.toolExploration)
+const subAgentsEnabled = ref(initialFlags.subAgents)
+const mermaidEnabled = ref(initialFlags.mermaid)
 
 const chatResult = useAgentChat({
   accountType: props.accountType,
@@ -310,10 +307,17 @@ function startActionSession (visiblePrompt: string, hiddenContext: string) {
   chat.sendMessage(visiblePrompt, { hiddenContext })
 }
 
+function persistFlags () {
+  writeFlags({
+    toolExploration: explorationEnabled.value,
+    subAgents: subAgentsEnabled.value,
+    mermaid: mermaidEnabled.value
+  }, $apiPath)
+}
+
 function handleToolExploration (enabled: boolean) {
   explorationEnabled.value = enabled
-  if (enabled) localStorage.setItem('agent-chat-explore', '1')
-  else localStorage.removeItem('agent-chat-explore')
+  persistFlags()
   chat.setToolExploration(enabled)
   // Reset the conversation so the new tool set applies from a clean state.
   handleReset()
@@ -321,9 +325,7 @@ function handleToolExploration (enabled: boolean) {
 
 function handleSubAgents (enabled: boolean) {
   subAgentsEnabled.value = enabled
-  // Default is on, so only persist the off (flatten) opt-out.
-  if (enabled) localStorage.removeItem('agent-chat-subagents')
-  else localStorage.setItem('agent-chat-subagents', '0')
+  persistFlags()
   chat.setFlattenSubAgents(!enabled)
   // Reset the conversation so the new tool set applies from a clean state.
   handleReset()
@@ -331,8 +333,7 @@ function handleSubAgents (enabled: boolean) {
 
 function handleMermaid (enabled: boolean) {
   mermaidEnabled.value = enabled
-  if (enabled) localStorage.setItem('agent-chat-mermaid', '1')
-  else localStorage.removeItem('agent-chat-mermaid')
+  persistFlags()
   // Reset so the system prompt is uniform across the whole conversation.
   handleReset()
 }
