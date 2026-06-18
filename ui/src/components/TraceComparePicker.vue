@@ -85,6 +85,8 @@ const formatDate = (iso: string) => new Date(iso).toLocaleString()
 const base = computed(() => `${$apiPath}/traces/${props.accountType}/${props.accountId}`)
 
 const fetchTraces = async () => {
+  // Reset so a stale error/list never lingers above fresh results on retry.
+  loadError.value = ''
   try {
     const res = await fetch(`${base.value}?page=${page.value}&size=${SIZE}`, { credentials: 'include' })
     if (!res.ok) { loadError.value = t('loadError'); return }

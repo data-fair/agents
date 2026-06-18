@@ -79,7 +79,7 @@
           class="trace-review__pane trace-review__chat"
         >
           <evaluator-chat
-            :key="recorderB ? 'compare' : 'single'"
+            :key="recorderB ? 'compare-' + (route.query.compare ?? '') : 'single'"
             :recorder="recorder"
             :recorder-b="recorderB ?? undefined"
             :account-type="owner.type"
