@@ -146,16 +146,39 @@ declare module 'vue-router/auto-routes' {
       { type: ParamValue<false>, id: ParamValue<false> },
       | never
     >,
-    '/[type]/[id]/settings': RouteRecordInfo<
-      '/[type]/[id]/settings',
-      '/:type/:id/settings',
+    '/[type]/[id]/traces/[convId]': RouteRecordInfo<
+      '/[type]/[id]/traces/[convId]',
+      '/:type/:id/traces/:convId',
+      { type: ParamValue<true>, id: ParamValue<true>, convId: ParamValue<true> },
+      { type: ParamValue<false>, id: ParamValue<false>, convId: ParamValue<false> },
+      | never
+    >,
+    '/admin': RouteRecordInfo<
+      '/admin',
+      '/admin',
+      Record<never, never>,
+      Record<never, never>,
+      | '/admin/'
+      | '/admin/[type]/[id]/'
+      | '/admin/[type]/[id]/traces/[convId]'
+    >,
+    '/admin/': RouteRecordInfo<
+      '/admin/',
+      '/admin',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/admin/[type]/[id]/': RouteRecordInfo<
+      '/admin/[type]/[id]/',
+      '/admin/:type/:id',
       { type: ParamValue<true>, id: ParamValue<true> },
       { type: ParamValue<false>, id: ParamValue<false> },
       | never
     >,
-    '/[type]/[id]/traces/[convId]': RouteRecordInfo<
-      '/[type]/[id]/traces/[convId]',
-      '/:type/:id/traces/:convId',
+    '/admin/[type]/[id]/traces/[convId]': RouteRecordInfo<
+      '/admin/[type]/[id]/traces/[convId]',
+      '/admin/:type/:id/traces/:convId',
       { type: ParamValue<true>, id: ParamValue<true>, convId: ParamValue<true> },
       { type: ParamValue<false>, id: ParamValue<false>, convId: ParamValue<false> },
       | never
@@ -282,15 +305,36 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
-    'src/pages/[type]/[id]/settings.vue': {
-      routes:
-        | '/[type]/[id]/settings'
-      views:
-        | never
-    }
     'src/pages/[type]/[id]/traces/[convId].vue': {
       routes:
         | '/[type]/[id]/traces/[convId]'
+      views:
+        | never
+    }
+    'src/pages/admin.vue': {
+      routes:
+        | '/admin'
+        | '/admin/'
+        | '/admin/[type]/[id]/'
+        | '/admin/[type]/[id]/traces/[convId]'
+      views:
+        | 'default'
+    }
+    'src/pages/admin/index.vue': {
+      routes:
+        | '/admin/'
+      views:
+        | never
+    }
+    'src/pages/admin/[type]/[id]/index.vue': {
+      routes:
+        | '/admin/[type]/[id]/'
+      views:
+        | never
+    }
+    'src/pages/admin/[type]/[id]/traces/[convId].vue': {
+      routes:
+        | '/admin/[type]/[id]/traces/[convId]'
       views:
         | never
     }

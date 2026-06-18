@@ -66,7 +66,7 @@
       <traces-section
         :account-type="accountType"
         :account-id="accountId"
-        :base="`/${accountType}/${accountId}`"
+        :base="`/admin/${accountType}/${accountId}`"
       />
     </div>
 

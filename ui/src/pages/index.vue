@@ -3,9 +3,9 @@
     <v-spacer />
     <v-btn
       v-if="session.account.value"
-      :to="`/${session.account.value.type}/${session.account.value.id}/settings`"
+      :to="`/${session.account.value.type}/${session.account.value.id}`"
     >
-      {{ t('settings') }}
+      {{ t('activity') }}
     </v-btn>
     <personal-menu dark-mode-switch />
   </v-app-bar>
@@ -39,9 +39,9 @@
 
 <i18n lang="yaml">
 fr:
-  settings: Paramètres
+  activity: Activité
 en:
-  settings: Settings
+  activity: Activity
 </i18n>
 
 <script lang="ts" setup>
