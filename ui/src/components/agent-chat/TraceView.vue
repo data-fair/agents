@@ -131,6 +131,25 @@
               </div>
               <pre class="agent-chat__pre pa-2 mt-1">{{ JSON.stringify(traceEntryDetails[entry.index]?.content?.tools, null, 2) }}</pre>
             </template>
+            <template v-else-if="entry.type === 'compaction'">
+              <v-chip
+                size="x-small"
+                color="orange"
+                variant="tonal"
+                label
+                class="my-2"
+              >
+                {{ traceEntryDetails[entry.index].content.originalCharCount }} → {{ traceEntryDetails[entry.index].content.compactedCharCount }} {{ t('chars') }}
+              </v-chip>
+              <div class="text-caption text-medium-emphasis mb-1 mt-2">
+                {{ t('summary') }}
+              </div>
+              <pre class="agent-chat__pre pa-2 mt-1">{{ traceEntryDetails[entry.index]?.content?.summary }}</pre>
+              <div class="text-caption text-medium-emphasis mb-1 mt-2">
+                {{ t('summarizedMessages') }}
+              </div>
+              <pre class="agent-chat__pre pa-2 mt-1">{{ JSON.stringify(traceEntryDetails[entry.index]?.content?.originalMessages, null, 2) }}</pre>
+            </template>
             <template v-else-if="entry.type === 'moderation'">
               <v-chip
                 size="x-small"
@@ -176,6 +195,9 @@ fr:
   tools: Outils
   request: Requête
   response: Réponse
+  summary: Résumé
+  summarizedMessages: Messages résumés
+  chars: caractères
   category: Catégorie
   reason: Raison
   moderationAllowed: Autorisé
@@ -196,6 +218,9 @@ en:
   tools: Tools
   request: Request
   response: Response
+  summary: Summary
+  summarizedMessages: Summarized messages
+  chars: chars
   category: Category
   reason: Reason
   moderationAllowed: Allowed
