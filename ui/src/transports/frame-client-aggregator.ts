@@ -1,4 +1,4 @@
-import { Client, ToolListChangedNotificationSchema, PolyfillJsonSchemaValidator } from '@mcp-b/webmcp-ts-sdk'
+import { Client, ToolListChangedNotificationSchema, PolyfillJsonSchemaValidator, CallToolResultSchema } from '@mcp-b/webmcp-ts-sdk'
 import { tool, jsonSchema } from 'ai'
 import type { Tool } from 'ai'
 import { FrameClientTransport } from './frame-client-transport'
@@ -115,7 +115,15 @@ export class FrameClientAggregator {
           inputSchema: jsonSchema(t.inputSchema as any || { type: 'object', properties: {} }),
           execute: async (args: any) => {
             debug('execute tool=%s via server=%s args=%o', t.name, serverId, args)
-            const callResult = await server.client.callTool({ name: t.name, arguments: args })
+            // Issue the tools/call request directly instead of via client.callTool().
+            // callTool() additionally enforces the tool's declared outputSchema against
+            // the result's `structuredContent`, throwing when it is absent or mismatched.
+            // But formatMcpToolResult discards structuredContent entirely — the
+            // OpenAI-compatible wire protocol to the gateway carries only a text string —
+            // so that validation can only ever break an otherwise-usable call over a value
+            // we throw away. Going through request() keeps the identical request path while
+            // leaving validation coherent with the text-only payload we actually consume.
+            const callResult = await server.client.request({ method: 'tools/call', params: { name: t.name, arguments: args } }, CallToolResultSchema)
             debug('tool result=%s via server=%s result=%o', t.name, serverId, callResult)
             return formatMcpToolResult(callResult as McpCallResult)
           }
