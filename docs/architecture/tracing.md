@@ -151,6 +151,3 @@ Two pages consume the stored traces, both admin-gated:
 > upload/`localStorage`-handoff review page (the now-removed
 > `ui/src/pages/[type]/[id]/trace-review.vue`) have been replaced by the server-stored,
 > reconstruct-at-view model described above.
-
-</content>
-</invoke>

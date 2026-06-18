@@ -22,8 +22,7 @@ export function buildDocMap (modules: Record<string, string>): Record<string, st
 
 /** Look up a doc by topic; on a miss, return the sorted list of valid topics. */
 export function lookupArchitectureDoc (docs: Record<string, string>, topic: string): string {
-  const content = docs[topic]
-  if (content) return content
+  if (topic in docs) return docs[topic]
   const topics = Object.keys(docs).sort().join(', ')
   return `Unknown topic "${topic}". Available topics: ${topics}`
 }
