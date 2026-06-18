@@ -255,11 +255,12 @@ test.describe('reconstructTrace (unit)', () => {
 
   test('computes summary totals and flags', () => {
     const reqs = [
-      req({ usage: { inputTokens: 100, outputTokens: 10 }, flags: { toolExploration: true, subAgents: false, mermaid: true } }),
-      req({ createdAt: '2026-06-08T00:00:01.000Z', usage: { inputTokens: 50, outputTokens: 5 } })
+      req({ usage: { inputTokens: 100, outputTokens: 10 }, timing: { durationMs: 120 }, flags: { toolExploration: true, subAgents: false, mermaid: true } }),
+      req({ createdAt: '2026-06-08T00:00:01.000Z', usage: { inputTokens: 50, outputTokens: 5 }, timing: { durationMs: 80 } })
     ]
     const trace = reconstructTrace(reqs as any)
     assert.equal(trace.summary.requestCount, 2)
+    assert.equal(trace.summary.totalDurationMs, 200)
     assert.equal(trace.summary.inputTokens, 150)
     assert.equal(trace.summary.outputTokens, 15)
     // flags come from the first request that carries them

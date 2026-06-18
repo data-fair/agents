@@ -68,6 +68,7 @@ export interface ToolChangeEvent {
 
 export interface TraceSummary {
   requestCount: number
+  totalDurationMs: number
   inputTokens: number
   outputTokens: number
   flags: AgentFlags
@@ -134,7 +135,7 @@ export class SessionRecorder {
     toolChanges: [],
     turns: [],
     physicalRequests: [],
-    summary: { requestCount: 0, inputTokens: 0, outputTokens: 0, flags: { ...DEFAULT_FLAGS } }
+    summary: { requestCount: 0, totalDurationMs: 0, inputTokens: 0, outputTokens: 0, flags: { ...DEFAULT_FLAGS } }
   }
 
   getTrace (): SessionTrace {
@@ -153,7 +154,7 @@ export class SessionRecorder {
   }
 
   getSummary (): TraceSummary {
-    return this.trace.summary ?? { requestCount: 0, inputTokens: 0, outputTokens: 0, flags: { ...DEFAULT_FLAGS } }
+    return this.trace.summary ?? { requestCount: 0, totalDurationMs: 0, inputTokens: 0, outputTokens: 0, flags: { ...DEFAULT_FLAGS } }
   }
 
   private cachedOverview: TraceOverviewEntry[] = []

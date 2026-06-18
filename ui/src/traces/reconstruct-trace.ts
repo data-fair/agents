@@ -242,6 +242,7 @@ export function reconstructTrace (requests: StoredTraceRequest[]): SessionTrace 
   const flags = sorted.find(r => r.flags)?.flags ?? DEFAULT_FLAGS
   const summary = {
     requestCount: physicalRequests.length,
+    totalDurationMs: physicalRequests.reduce((s, p) => s + (p.durationMs || 0), 0),
     inputTokens: physicalRequests.reduce((s, p) => s + (p.inputTokens || 0), 0),
     outputTokens: physicalRequests.reduce((s, p) => s + (p.outputTokens || 0), 0),
     flags

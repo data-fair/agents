@@ -2,7 +2,6 @@
   <v-container
     fluid
     class="trace-review pa-0"
-    data-iframe-height
   >
     <p
       v-if="loadError"
@@ -43,8 +42,12 @@
 <i18n lang="yaml">
 fr:
   loadError: Trace introuvable ou accès refusé.
+  storedConversations: Conversations enregistrées
+  review: Relecture
 en:
   loadError: Trace not found or access denied.
+  storedConversations: Stored conversations
+  review: Review
 </i18n>
 
 <script lang="ts" setup>
@@ -57,6 +60,7 @@ import { reconstructTrace } from '~/traces/reconstruct-trace'
 import { $apiPath } from '~/context'
 import TraceView from '~/components/agent-chat/TraceView.vue'
 import EvaluatorChat from '~/components/EvaluatorChat.vue'
+import { setBreadcrumbs } from '~/utils/breadcrumbs'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -75,8 +79,15 @@ onMounted(async () => {
     const res = await fetch(`${$apiPath}/traces/conversation/${conversationId}`, { credentials: 'include' })
     if (!res.ok) { loadError.value = t('loadError'); return }
     const body = await res.json()
-    owner.value = body.owner
+    const traceOwner = body.owner as { type: string, id: string }
+    owner.value = traceOwner
     recorder.value = SessionRecorder.fromTrace(reconstructTrace(body.results))
+    const firstMessage = recorder.value.getTrace().turns[0]?.userMessage?.trim()
+    const label = firstMessage ? firstMessage.slice(0, 60) : t('review')
+    setBreadcrumbs([
+      { text: t('storedConversations'), to: `/${traceOwner.type}/${traceOwner.id}/activity` },
+      { text: label }
+    ])
   } catch {
     loadError.value = t('loadError')
   }
@@ -84,7 +95,9 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.trace-review { height: 100%; }
+/* Fixed viewport height (no data-iframe-height) so each pane scrolls on its own:
+   scrolling the trace stack on the left no longer drives the evaluator chat on the right. */
+.trace-review { height: 100vh; }
 .trace-review__pane { height: 100%; overflow-y: auto; border-right: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)); }
 .trace-review__chat { border-right: none; }
 </style>

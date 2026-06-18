@@ -10,7 +10,7 @@
       class="d-flex align-center flex-wrap ga-2 px-2 py-1 mb-1 bg-background rounded"
     >
       <span class="text-caption font-weight-medium">
-        {{ summary.requestCount }} {{ t('requests') }} · {{ formatTokens(summary.inputTokens) }} {{ t('in') }} · {{ formatTokens(summary.outputTokens) }} {{ t('out') }}
+        {{ summary.requestCount }} {{ t('requests') }} · {{ formatDuration(summary.totalDurationMs) }} · {{ formatTokens(summary.inputTokens) }} {{ t('in') }} · {{ formatTokens(summary.outputTokens) }} {{ t('out') }}
       </span>
       <v-spacer />
       <v-chip
@@ -294,6 +294,16 @@ const flagChips = computed(() => [
 
 // Compact token formatting: 1234 -> "1.2k", 999 -> "999".
 const formatTokens = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : `${n}`
+
+// Cumulated request time: sub-second stays in ms, otherwise seconds (one decimal
+// under a minute) then minutes+seconds.
+const formatDuration = (ms: number) => {
+  if (ms < 1000) return `${Math.round(ms)}ms`
+  const s = ms / 1000
+  if (s < 60) return `${s.toFixed(1)}s`
+  const m = Math.floor(s / 60)
+  return `${m}m ${Math.round(s % 60)}s`
+}
 </script>
 
 <style scoped>
