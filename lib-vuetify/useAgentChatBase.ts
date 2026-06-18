@@ -1,15 +1,27 @@
 import { ref, computed, watch, type Ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, type Router } from 'vue-router'
 import { mdiRobotOutline, mdiCommentQuestion, mdiAlertCircle } from '@mdi/js'
 import { getTabChannelId } from '@data-fair/lib-vue-agents'
 import type { AgentStatus, AgentChatMessage, AgentChatPong } from './types.js'
-import { resolveAgentLink } from './link-utils.js'
+import { decideAgentNavigation } from './link-utils.js'
 import Debug from './debug.js'
 
 const debug = Debug('df-agents:agent-chat')
 
-export function createAgentChatBase (isOpen: Ref<boolean>, storageKey?: string) {
+// vue-router's useRouter() is inject()-based and only resolves during a synchronous
+// component setup. The chat state is a lazily-created singleton that a host may first
+// instantiate outside that window (e.g. from a watchEffect once a session loads), where
+// useRouter() returns undefined. So the rendering components — whose setup always runs in
+// router context — register the router here, and the navigate handler reads it from here.
+let chatRouter: Router | undefined
+
+/** Called from a chat component's setup (router context guaranteed) to capture the router. */
+export function registerAgentChatRouter () {
   const router = useRouter()
+  if (router) chatRouter = router
+}
+
+export function createAgentChatBase (isOpen: Ref<boolean>, storageKey?: string) {
   const agentStatus = ref<AgentStatus>('idle')
   const hasUnread = ref(false)
   const toolsJustChanged = ref(false)
@@ -79,12 +91,12 @@ export function createAgentChatBase (isOpen: Ref<boolean>, storageKey?: string) 
       // The link may be a full URL, a base-prefixed path, or an app-relative path that
       // omits our base prefix (models often write those). Resolve against our router base
       // and navigate in-SPA when it maps to a real route; otherwise fall back to a full
-      // navigation (external links, or same-origin pages outside this app).
-      const link = resolveAgentLink(msg.url, window.location.origin, router.options.history.base)
-      if (!link.external && router.resolve(link.path).matched.length > 0) {
-        router.push(link.path)
+      // navigation (external links, same-origin pages outside this app, or no router).
+      const decision = decideAgentNavigation(msg.url, window.location.origin, chatRouter)
+      if (decision.spa && chatRouter) {
+        chatRouter.push(decision.path)
       } else {
-        window.location.href = link.url
+        window.location.href = decision.url
       }
     } else if (msg.type === 'unread') {
       if (!isOpen.value && msg.unread) {

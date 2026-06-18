@@ -25,6 +25,11 @@ import { VBadge } from 'vuetify/components/VBadge'
 import { VBtn } from 'vuetify/components/VBtn'
 import { VIcon } from 'vuetify/components/VIcon'
 import { useAgentChatDrawer } from './useAgentChatDrawer.js'
+import { registerAgentChatRouter } from './useAgentChatBase.js'
+
+// Mounted early in the nav bar (router context guaranteed), so register the router here
+// to ensure the shared chat state can navigate in-SPA before the drawer iframe loads.
+registerAgentChatRouter()
 
 type BtnProps = Omit<VBtn['$props'], 'icon' | 'color' | 'loading' | 'onClick'>
 
