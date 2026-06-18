@@ -1,16 +1,17 @@
 import { ref } from 'vue'
 import { createAgentChatBase } from './useAgentChatBase.js'
 
-const STORAGE_KEY = 'df-agent-menu-open'
 const EXPANDED_KEY = 'df-agent-menu-expanded'
 
 let singleton: AgentChatMenuState | null = null
 
 function createAgentChatMenu () {
-  const wasOpen = localStorage.getItem(STORAGE_KEY) === '1'
-  const menuOpen = ref(wasOpen)
+  // The menu always starts closed and opens only on click (or when an action button
+  // starts a session). Its open state is intentionally not persisted: restoring it
+  // across reloads made the menu pop up on its own, which is unwanted.
+  const menuOpen = ref(false)
   const expanded = ref(localStorage.getItem(EXPANDED_KEY) === '1')
-  const base = createAgentChatBase(menuOpen, STORAGE_KEY)
+  const base = createAgentChatBase(menuOpen)
 
   function toggleExpanded () {
     expanded.value = !expanded.value

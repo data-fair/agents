@@ -78,6 +78,21 @@ test.describe('Chat Menu Integration', () => {
     await expect(dFrame).toBeAttached()
   })
 
+  test('Menu starts closed after a reload (open state is not memorized)', async ({ page, goToWithAuth }) => {
+    await goToWithAuth('/agents/_dev/chat-menu', 'test-standalone1')
+
+    await expect(page.locator(fabSelector)).toBeAttached()
+    await clickFab(page)
+    await expect(page.locator(menuContentSelector)).toBeVisible()
+
+    await page.reload()
+
+    // The menu must always start closed and open only on click — it should not
+    // restore its previously-open state from a prior visit.
+    await expect(page.locator(fabSelector)).toBeAttached()
+    await expect(page.locator(menuContentSelector)).not.toBeVisible()
+  })
+
   test('Chat works inside the menu iframe', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/_dev/chat-menu', 'test-standalone1')
 
