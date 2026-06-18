@@ -40,6 +40,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAgentChat } from '~/composables/use-agent-chat'
 import { buildEvaluatorTools } from '~/traces/evaluator-tools'
+import { architectureDocs, architectureTopics } from '~/traces/architecture-docs'
 import { EVALUATOR_PROMPT } from '~/traces/evaluator-prompt'
 import type { SessionRecorder } from '~/traces/session-recorder'
 import { $apiPath } from '~/context'
@@ -57,7 +58,7 @@ const { t } = useI18n()
 const chatResult = useAgentChat({
   accountType: props.accountType,
   accountId: props.accountId,
-  localTools: buildEvaluatorTools(props.recorder, { accountType: props.accountType, accountId: props.accountId, apiPath: $apiPath }),
+  localTools: buildEvaluatorTools(props.recorder, { accountType: props.accountType, accountId: props.accountId, apiPath: $apiPath, architectureDocs, architectureTopics }),
   modelName: 'evaluator',
   systemPrompt: EVALUATOR_PROMPT
 })

@@ -1,6 +1,7 @@
 import { tool, jsonSchema } from 'ai'
 import type { Tool } from 'ai'
 import type { SessionRecorder, TraceOverviewEntry } from './session-recorder.js'
+import { lookupArchitectureDoc } from './architecture-docs-lookup.js'
 
 const PHYSICAL_REQUEST_SUMMARY_PROMPT = `You analyze a single physical LLM request payload (the full cumulative context that was sent to the model). Produce three sections:
 
@@ -12,8 +13,14 @@ Be concise and specific.`
 
 export function buildEvaluatorTools (
   recorder: SessionRecorder,
-  opts: { accountType: string; accountId: string; apiPath: string }
+  opts: { accountType: string; accountId: string; apiPath: string; architectureDocs?: Record<string, string>; architectureTopics?: string[] }
 ): Record<string, Tool> {
+  // Docs are injected (not imported) so this module — which is exercised by
+  // the non-Vite unit test runner — never pulls in the Vite-only
+  // architecture-docs.ts (import.meta.glob). EvaluatorChat.vue passes the
+  // bundled docs; tests omit them and get an empty set.
+  const architectureDocs = opts.architectureDocs ?? {}
+  const architectureTopics = opts.architectureTopics ?? Object.keys(architectureDocs).sort()
   return {
     getTraceOverview: tool({
       description: 'List all trace entries in chronological order. Returns index, type, timestamp, label, and preview for each entry.',
@@ -79,6 +86,22 @@ export function buildEvaluatorTools (
           tools: latestTools
         }, null, 2)
       }
+    }),
+
+    readArchitectureDoc: tool({
+      description: 'Read one of this platform\'s architecture docs to understand how a feature actually behaves (compaction, moderation, sub-agents, quotas, gateway, tracing, integration-context, etc.) before judging it. Pass an unknown topic to get the list of available topics.',
+      inputSchema: jsonSchema({
+        type: 'object',
+        properties: {
+          topic: {
+            type: 'string',
+            enum: architectureTopics,
+            description: 'The architecture doc to read (filename without extension)'
+          }
+        },
+        required: ['topic']
+      }),
+      execute: async (args: { topic: string }) => lookupArchitectureDoc(architectureDocs, args.topic)
     }),
 
     summarizePhysicalRequest: tool({
