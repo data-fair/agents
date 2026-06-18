@@ -147,6 +147,19 @@ Two pages consume the stored traces, both admin-gated:
   link to the current conversation's review only when the viewer is an admin and trace
   storage is available and consented.
 
+### Comparing two traces
+
+The review page accepts an optional `?compare=<conversationId>` query param. A
+"Compare with…" picker lists the account's other stored conversations (reusing the
+paginated `GET /traces/:type/:id` list) and sets the param. When present, the page
+fetches and reconstructs a second `SessionRecorder` and renders it beside the first
+(two `TraceView`s + a collapsible `EvaluatorChat`). There is no built-in diff — the
+two traces are shown raw, side by side. The single evaluator chat can query either
+trace: in compare mode each trace-scoped evaluator tool takes a required `trace: 'A' | 'B'`
+parameter and the evaluator system prompt gains a compare preamble. Comparison is
+restricted to traces of the same owner (the evaluator is owner-scoped); no new API
+endpoints are introduced.
+
 > Historical note: an earlier always-on in-browser recorder, a chat "trace" tab, and an
 > upload/`localStorage`-handoff review page (the now-removed
 > `ui/src/pages/[type]/[id]/trace-review.vue`) have been replaced by the server-stored,
