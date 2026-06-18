@@ -201,6 +201,8 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
         body: req.body,
         response,
         usage,
+        inputPricePerMillion,
+        outputPricePerMillion,
         timing: { durationMs: Date.now() - traceStart, ...(timeToFirstChunkMs != null ? { timeToFirstChunkMs } : {}) },
         ...(moderation?.traceInfo() ? { moderation: moderation.traceInfo() } : {}),
         ...(traceFlags ? { flags: traceFlags } : {})
