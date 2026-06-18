@@ -272,4 +272,21 @@ test.describe('reconstructTrace (unit)', () => {
     assert.deepEqual(trace.summary.flags, { toolExploration: false, subAgents: true, mermaid: false })
     assert.equal(trace.summary.requestCount, 1)
   })
+
+  test('carries model, provider and cost onto physical requests, and sums totalCost', () => {
+    const reqs = [
+      req({ provider: { name: 'OpenAI', type: 'openai' }, request: { model: 'gpt-5', body: { model: 'assistant', messages: [], tools: [] }, messageCount: 0, toolCount: 0, bodyChars: 2 }, cost: { input: 0.001, output: 0.002, total: 0.003 } }),
+      req({ createdAt: '2026-06-08T00:00:01.000Z', cost: { input: 0.004, output: 0.001, total: 0.005 } })
+    ]
+    const trace = reconstructTrace(reqs as any)
+    assert.equal(trace.physicalRequests[0].model, 'gpt-5')
+    assert.deepEqual(trace.physicalRequests[0].provider, { name: 'OpenAI', type: 'openai' })
+    assert.deepEqual(trace.physicalRequests[0].cost, { input: 0.001, output: 0.002, total: 0.003 })
+    assert.equal(trace.summary.totalCost, 0.008)
+  })
+
+  test('leaves totalCost undefined when no request carries cost', () => {
+    const trace = reconstructTrace([req({})] as any)
+    assert.equal(trace.summary.totalCost, undefined)
+  })
 })
