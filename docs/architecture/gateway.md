@@ -21,11 +21,6 @@ sequenceDiagram
 
 **Error handling:** The gateway is fail-fast — there is no automatic retry or provider fallback. On streaming errors, the server writes an SSE error event and closes the stream. The client surfaces the error to the user, who can re-submit the message.
 
-**Key files:**
-- `api/src/gateway/router.ts` — SSE streaming, tool forwarding, usage recording
-- `api/src/gateway/operations.ts` — OpenAI ↔ AI SDK message/tool format conversion
-- `ui/src/composables/use-agent-chat.ts` — client-side history management
-
 **Model IDs are roles, not model names.** The client requests `assistant`, `tools`, `summarizer`, or `evaluator` — the server resolves which provider/model to use from settings. The `moderator` role exists in settings but is internal (used by the gateway's [moderation guard](./moderation.md), not client-callable).
 
 **Untrusted callers are moderated.** For `anonymous`/`external` callers the gateway short-circuits requests under a strike cooldown and races a moderation verdict against the model call, buffering SSE output until the verdict settles — see [moderation](./moderation.md).

@@ -42,10 +42,3 @@ sequenceDiagram
 
 **Input only (v1).** No output moderation, no tool-result / indirect-injection coverage, no multi-turn jailbreak detection. The `/api/summary` endpoint is not verdict-checked, but it shares the moderation posture for **untrusted** callers (anonymous/external): strike cooldowns apply and its system prompt is pinned server-side (a caller-supplied prompt would be an unmoderated jailbreak vector). On a fail-open turn a tool call may execute before a late block lands; the impact is bounded — tools run client-side with the user's own permissions and are assistive/non-destructive (never validated writes — see [mcp-tools](./mcp-tools.md#execution-context--safety)).
 
-**Key files:**
-- `api/types/settings/schema.js` — the `moderation: { enabled, categories }` setting (off by default)
-- `api/src/moderation/operations.ts` — `moderationApplies` gate decision, prompt, truncation, strike arithmetic, verdict schema
-- `api/src/moderation/service.ts` — verdict cache, events, strikes, the gate run, probe
-- `api/src/moderation/router.ts` — admin-only stats/events/probe
-- `api/src/gateway/router.ts` — strike short-circuit, SSE gate, content_filter responses
-- `ui/src/components/ModerationSection.vue` — admin observability section

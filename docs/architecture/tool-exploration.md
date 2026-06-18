@@ -29,9 +29,4 @@ sequenceDiagram
 
 **Opt-in & testing.** Gated by `debug` + `sessionStorage.setItem('agent-chat-explore', '1')`, mirroring the tracing toggle — when off, the chat behaves exactly as before (no `explore_tools`, no `prepareStep`). Sub-agent pseudo-tools are always active and unaffected. Gating limits which tools are *advertised*, not a hard execution barrier.
 
-**Key files:**
-- `ui/src/composables/tool-exploration.ts` — `createExploreTool()` factory + catalog/promotion helpers
-- `ui/src/composables/use-agent-chat.ts` — `promotedTools` set, `prepareStep`/`activeTools`, compaction reset
-- `ui/src/components/AgentChat.vue` — the `agent-chat-explore` toggle
-
 See [MCP tool integration §8](./mcp-tools.md#8-progressive-tool-disclosure-exploration-mode) for the detailed mechanism.
