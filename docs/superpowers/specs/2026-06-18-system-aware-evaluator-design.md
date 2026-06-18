@@ -72,6 +72,41 @@ fragile references. Covers:
 - Known integration gaps/quirks an evaluator should weigh when judging a
   session (sourced from data-fair's `agent-integration-gaps.md`).
 
+Source material (gathered from `~/data-fair/data-fair` and `~/data-fair/portals`;
+to be distilled into the doc, kept conceptual and free of fragile references):
+
+- **Embedding:** the agent runs in a browser **iframe** (`DfAgentChatDrawer`)
+  beside the host app, sharing the user's session (user/org owner). Tools run
+  **client-side** via **WebMCP over BroadcastChannel** — the agents service
+  never calls the data-fair / portals API directly. Activation is gated per
+  account (`agent-chat` setting).
+- **data-fair back-office tools** (the rich context — ~37 tools across
+  subagents), grouped by family: navigation (`navigate`, `list_pages`,
+  `get_current_location`); dataset exploration (`list_datasets`,
+  `describe_dataset`, `get_dataset_schema`, `search_data`, `aggregate_data`,
+  `calculate_metric`, `get_field_values`); metadata/expression editing
+  (`set_dataset_summary`, `set_dataset_description`, `set_expression`,
+  `test_expression`, `set_property_config`); data entry
+  (`open_add_line_dialog`, `open_edit_line_dialog`); applications
+  (`list_applications`, `describe_application`, `get_application_config`);
+  creation wizards (dataset/application); connectors & catalogs
+  (`list_processings`, `list_catalogs`, `explore_github`); geolocation
+  (`geocode_address`, `get_user_geolocation`).
+- **portals manager tools:** VJSF form subagents only — `pageConfig_form`,
+  `portalConfig_form` (translate natural language into form mutations via
+  StatefulLayout/WebMCP; user still saves).
+- **Domain:** *datasets* = tabular data with schemas exposed as APIs;
+  *applications* = visualizations built on datasets; *portals* = public sites
+  publishing selected datasets/apps. Users are back-office admins / dataset
+  owners / portal designers.
+- **Quirks an evaluator must know:** tool responses carry **absolute URLs** that
+  the model must use verbatim (relative links break inside the cross-origin
+  iframe); a `_c_`-prefixed column filter silently matches nothing; filter
+  capability is **error-driven** (invalid filters return HTTP 400 with guidance,
+  the agent self-corrects); metadata/expression writes only populate the edit
+  **form** — the user must still Save/Publish, the agent cannot commit
+  autonomously.
+
 ### 3. Docs bundling — `ui/src/traces/architecture-docs.ts`
 
 A small module that raw-imports all `docs/architecture/*.md` at build time:
