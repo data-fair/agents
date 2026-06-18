@@ -145,9 +145,6 @@ Add a tight "How this platform works" section to `EVALUATOR_PROMPT` that:
   and MCP / dataset tools.
 - States that the agent usually runs embedded in **data-fair / portals**, and
   to read `integration-context` to understand the tools and data involved.
-- Calls out the exact trap that motivated this: *prompt-cache (`cache` tokens)
-  is not the compaction feature; compaction is a deliberate mechanism that
-  appears as its own `compaction` trace entry.*
 - Instructs it to read `readArchitectureDoc('overview')` first for the system
   map, then pull the specific doc (e.g. `compaction`) when evaluating that
   behaviour.
@@ -166,11 +163,14 @@ A unit test following the existing `*.unit.spec.ts` pattern:
 
 No e2e test needed — this is prompt/tooling configuration.
 
-## Net effect on the motivating example
+## Net effect
 
-Asked "did compaction work?", the evaluator now knows compaction is a real
-feature, reads `compaction.md` to learn what "working" means, and checks for a
-`compaction` trace entry — instead of guessing from cache tokens.
+The evaluator gains a general working model of the platform and its integration
+context, so it reasons from how the system actually behaves rather than guessing
+from raw trace signals. The original compaction question is one illustration:
+with this knowledge the evaluator can recognise compaction as a real feature and
+read its doc to judge it properly — but the improvement is general, not a
+hardcoded answer to any single case.
 
 ## Files touched
 
