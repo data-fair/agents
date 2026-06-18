@@ -24,7 +24,11 @@ import { VNavigationDrawer } from 'vuetify/components/VNavigationDrawer'
 import('@data-fair/frame/lib/d-frame.js')
 import { setAgentInitConfig } from '@data-fair/lib-vue-agents'
 import { useAgentChatDrawer } from './useAgentChatDrawer.js'
-import { resolveAgentChatUrl } from './useAgentChatBase.js'
+import { resolveAgentChatUrl, registerAgentChatRouter } from './useAgentChatBase.js'
+
+// Capture the router from this setup (always run in router context) so the shared,
+// possibly lazily-created chat state can navigate in-SPA on iframe link clicks.
+registerAgentChatRouter()
 
 type DrawerProps = Omit<VNavigationDrawer['$props'], 'modelValue' | 'location' | 'width' | 'floating'>
 
