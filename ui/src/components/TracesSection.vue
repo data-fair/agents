@@ -16,7 +16,7 @@
       <v-list-item
         v-for="row in traces"
         :key="row.conversationId"
-        :to="`/traces/${row.conversationId}/review`"
+        :to="`${base}/traces/${row.conversationId}`"
       >
         <v-list-item-title class="text-body-2">
           {{ row.preview || row.conversationId }}
@@ -61,7 +61,7 @@ import { useI18n } from 'vue-i18n'
 import { mdiDelete } from '@mdi/js'
 import { $apiPath } from '~/context'
 
-const props = defineProps<{ accountType: string, accountId: string }>()
+const props = defineProps<{ accountType: string, accountId: string, base: string }>()
 const { t } = useI18n()
 const SIZE = 20
 
@@ -72,11 +72,11 @@ const loadError = ref('')
 
 const formatDate = (iso: string) => new Date(iso).toLocaleString()
 
-const base = computed(() => `${$apiPath}/traces/${props.accountType}/${props.accountId}`)
+const apiBase = computed(() => `${$apiPath}/traces/${props.accountType}/${props.accountId}`)
 
 const fetchTraces = async () => {
   try {
-    const res = await fetch(`${base.value}?page=${page.value}&size=${SIZE}`, { credentials: 'include' })
+    const res = await fetch(`${apiBase.value}?page=${page.value}&size=${SIZE}`, { credentials: 'include' })
     if (!res.ok) { loadError.value = t('loadError'); return }
     const body = await res.json()
     traces.value = body.results
@@ -86,7 +86,7 @@ const fetchTraces = async () => {
 
 const deleteTrace = async (conversationId: string) => {
   try {
-    const res = await fetch(`${base.value}/${conversationId}`, { method: 'DELETE', credentials: 'include' })
+    const res = await fetch(`${apiBase.value}/${conversationId}`, { method: 'DELETE', credentials: 'include' })
     if (!res.ok) { loadError.value = t('loadError'); return }
   } catch { loadError.value = t('loadError'); return }
   await fetchTraces()

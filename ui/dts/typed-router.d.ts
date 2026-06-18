@@ -132,9 +132,9 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
-    '/[type]/[id]/activity': RouteRecordInfo<
-      '/[type]/[id]/activity',
-      '/:type/:id/activity',
+    '/[type]/[id]/': RouteRecordInfo<
+      '/[type]/[id]/',
+      '/:type/:id',
       { type: ParamValue<true>, id: ParamValue<true> },
       { type: ParamValue<false>, id: ParamValue<false> },
       | never
@@ -151,6 +151,13 @@ declare module 'vue-router/auto-routes' {
       '/:type/:id/settings',
       { type: ParamValue<true>, id: ParamValue<true> },
       { type: ParamValue<false>, id: ParamValue<false> },
+      | never
+    >,
+    '/[type]/[id]/traces/[convId]': RouteRecordInfo<
+      '/[type]/[id]/traces/[convId]',
+      '/:type/:id/traces/:convId',
+      { type: ParamValue<true>, id: ParamValue<true>, convId: ParamValue<true> },
+      { type: ParamValue<false>, id: ParamValue<false>, convId: ParamValue<false> },
       | never
     >,
     '/traces/[id]/review': RouteRecordInfo<
@@ -263,9 +270,9 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
-    'src/pages/[type]/[id]/activity.vue': {
+    'src/pages/[type]/[id]/index.vue': {
       routes:
-        | '/[type]/[id]/activity'
+        | '/[type]/[id]/'
       views:
         | never
     }
@@ -278,6 +285,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/[type]/[id]/settings.vue': {
       routes:
         | '/[type]/[id]/settings'
+      views:
+        | never
+    }
+    'src/pages/[type]/[id]/traces/[convId].vue': {
+      routes:
+        | '/[type]/[id]/traces/[convId]'
       views:
         | never
     }
