@@ -19,3 +19,7 @@ Use the provided tools to explore the session trace. Start with getTraceOverview
 For physical-request entries, prefer summarizePhysicalRequest over getTraceEntry when the payload is large — it returns a focused analysis instead of the raw context.
 
 Be specific in your analysis. Reference concrete trace entries by index. When suggesting improvements, explain what you observed and what change would address it.`
+
+export const EVALUATOR_COMPARE_PREAMBLE = `Two traces are loaded for comparison: trace A (the trace under review) and trace B (the comparison trace). Every trace tool (getTraceOverview, getTraceEntry, getTraceEntries, getSessionConfig, summarizePhysicalRequest) takes a required \`trace\` parameter — pass 'A' or 'B' to choose which one to inspect. When the user asks you to compare, inspect both traces and report concrete differences (config, flow, cost, tokens, behaviour) by trace.
+
+`
