@@ -40,10 +40,11 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAgentChat } from '~/composables/use-agent-chat'
 import { buildEvaluatorTools } from '~/traces/evaluator-tools'
+import { buildEvaluatorDataTools } from '~/traces/evaluator-data-tools'
 import { architectureDocs, architectureTopics } from '~/traces/architecture-docs'
 import { EVALUATOR_PROMPT, EVALUATOR_COMPARE_PREAMBLE } from '~/traces/evaluator-prompt'
 import type { SessionRecorder } from '~/traces/session-recorder'
-import { $apiPath } from '~/context'
+import { $apiPath, $sitePath } from '~/context'
 import AgentChatMessages from './agent-chat/AgentChatMessages.vue'
 import AgentChatInput from './agent-chat/AgentChatInput.vue'
 
@@ -52,6 +53,7 @@ const props = defineProps<{
   recorderB?: SessionRecorder
   accountType: string
   accountId: string
+  department?: string
 }>()
 
 const { t } = useI18n()
@@ -59,11 +61,19 @@ const { t } = useI18n()
 const chatResult = useAgentChat({
   accountType: props.accountType,
   accountId: props.accountId,
-  localTools: buildEvaluatorTools(
-    props.recorder,
-    { accountType: props.accountType, accountId: props.accountId, apiPath: $apiPath, architectureDocs, architectureTopics },
-    props.recorderB
-  ),
+  localTools: {
+    ...buildEvaluatorTools(
+      props.recorder,
+      { accountType: props.accountType, accountId: props.accountId, apiPath: $apiPath, architectureDocs, architectureTopics },
+      props.recorderB
+    ),
+    ...buildEvaluatorDataTools({
+      accountType: props.accountType,
+      accountId: props.accountId,
+      department: props.department,
+      dataFairApiPath: $sitePath + '/data-fair/api/v1'
+    })
+  },
   modelName: 'evaluator',
   systemPrompt: props.recorderB ? EVALUATOR_COMPARE_PREAMBLE + EVALUATOR_PROMPT : EVALUATOR_PROMPT
 })

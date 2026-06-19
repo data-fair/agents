@@ -84,6 +84,7 @@
             :recorder-b="recorderB ?? undefined"
             :account-type="owner.type"
             :account-id="owner.id"
+            :department="owner.department"
           />
         </v-col>
       </v-row>
@@ -141,7 +142,7 @@ const conversationId = props.conversationId
 
 const recorder = shallowRef<SessionRecorder | null>(null)
 const recorderB = shallowRef<SessionRecorder | null>(null)
-const owner = ref<{ type: string, id: string } | null>(null)
+const owner = ref<{ type: string, id: string, department?: string } | null>(null)
 const loadError = ref('')
 const compareError = ref('')
 const pickerOpen = ref(false)
@@ -162,12 +163,12 @@ const traceCols = computed(() => {
 })
 const evaluatorCols = computed(() => (recorderB.value ? 4 : 6))
 
-async function fetchTrace (id: string): Promise<{ owner: { type: string, id: string }, recorder: SessionRecorder } | null> {
+async function fetchTrace (id: string): Promise<{ owner: { type: string, id: string, department?: string }, recorder: SessionRecorder } | null> {
   const res = await fetch(`${$apiPath}/traces/conversation/${id}`, { credentials: 'include' })
   if (!res.ok) return null
   const body = await res.json()
   return {
-    owner: body.owner as { type: string, id: string },
+    owner: body.owner as { type: string, id: string, department?: string },
     recorder: SessionRecorder.fromTrace(reconstructTrace(body.results))
   }
 }
