@@ -1,6 +1,6 @@
 /**
  * Superadmin reviews another account's trace; the evaluator runs against the
- * configured source account (config.evaluatorAccount = user/superadmin in dev),
+ * configured source account (config.evaluatorAccount = organization/test1 in dev),
  * not the reviewed account.
  *
  * Mirrors trace-review.e2e.spec.ts for seeding a stored trace.
@@ -36,7 +36,7 @@ test.describe('Promoted evaluator (superadmin review)', () => {
   test.beforeEach(async () => {
     await clean()
     await admin.put('/api/settings/user/test-standalone1', reviewedSettings)
-    await admin.put('/api/settings/user/superadmin', sourceSettings)
+    await admin.put('/api/settings/organization/test1', sourceSettings)
   })
 
   test('evaluator runs against the source account, not the reviewed account', async ({ page, context, goToWithAuth }) => {
@@ -61,7 +61,7 @@ test.describe('Promoted evaluator (superadmin review)', () => {
     await goToWithAuth(`/agents/admin/user/test-standalone1/traces/${convId}`, 'superadmin', { adminMode: true })
 
     // The evaluator's gateway call must target the SOURCE account, not the reviewed one.
-    const reqPromise = page.waitForRequest(r => r.url().includes('/api/gateway/user/superadmin/'))
+    const reqPromise = page.waitForRequest(r => r.url().includes('/api/gateway/organization/test1/'))
     const evalInput = page.getByPlaceholder('Type your message...')
     await expect(evalInput).toBeEnabled({ timeout: 10000 })
     await evalInput.fill('call tool getTraceOverview')

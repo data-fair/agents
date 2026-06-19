@@ -18,12 +18,12 @@ test.describe('Admin info — promoted evaluator', () => {
 
   test('reports evaluatorAccount and evaluatorAvailable=false when the source has no evaluator model', async () => {
     const res = await admin.get('/api/admin/info')
-    assert.deepEqual(res.data.evaluatorAccount, { type: 'user', id: 'superadmin' })
+    assert.deepEqual(res.data.evaluatorAccount, { type: 'organization', id: 'test1' })
     assert.equal(res.data.evaluatorAvailable, false)
   })
 
   test('evaluatorAvailable stays false with an evaluator model but no assistant (gateway requires an assistant)', async () => {
-    await admin.put('/api/settings/user/superadmin', {
+    await admin.put('/api/settings/organization/test1', {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
       models: { evaluator: { model: { id: 'mock-evaluator', name: 'Mock Evaluator', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } } } },
       quotas: defaultQuotas
@@ -33,7 +33,7 @@ test.describe('Admin info — promoted evaluator', () => {
   })
 
   test('evaluatorAvailable=true once the source account has both an assistant and an evaluator model', async () => {
-    await admin.put('/api/settings/user/superadmin', {
+    await admin.put('/api/settings/organization/test1', {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
       models: {
         assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } } },

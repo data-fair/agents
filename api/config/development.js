@@ -18,5 +18,5 @@ export default {
   },
   cipherPassword: 'test',
   upgradeRoot: '../',
-  evaluatorAccount: { type: 'user', id: 'superadmin' }
+  evaluatorAccount: { type: 'organization', id: 'test1' }
 }
