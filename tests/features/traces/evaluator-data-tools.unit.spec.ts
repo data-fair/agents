@@ -76,8 +76,11 @@ test.describe('evaluator data tools (unit)', () => {
       dataFairApiPath: '/x',
       apiFetch: async (path, o) => { calls.push({ path, query: o?.query }); return { total: 0, results: [] } }
     })
-    await (tools.search_data as any).execute({ datasetId: 'ds1', next: 'datasets/ds1/lines?after=42' }, {})
-    assert.equal(calls[0].path, 'datasets/ds1/lines?after=42')
+    // data-fair returns an absolute next URL; it must be passed straight through
+    // (ofetch leaves absolute URLs untouched by baseURL).
+    const next = 'https://data-fair.test/data-fair/api/v1/datasets/ds1/lines?after=42'
+    await (tools.search_data as any).execute({ datasetId: 'ds1', next }, {})
+    assert.equal(calls[0].path, next)
     assert.equal(calls[0].query, undefined)
   })
 
