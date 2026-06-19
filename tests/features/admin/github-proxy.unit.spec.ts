@@ -12,6 +12,7 @@ test.describe('github-proxy helpers', () => {
     assert.equal(validateGithubSourcePath('/repos/data-fair/agents/contents/docs/architecture').ok, true)
     assert.equal(validateGithubSourcePath('/repos/data-fair/data-fair/git/trees/main').ok, true)
     assert.equal(validateGithubSourcePath('/repos/data-fair/portals/contents/portal').ok, true)
+    assert.equal(validateGithubSourcePath('/repos/json-layout/json-layout/contents/core/src/webmcp/tools').ok, true)
   })
 
   test('rejects non-/repos paths', () => {

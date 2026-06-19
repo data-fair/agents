@@ -544,6 +544,7 @@ test.describe('source tools', () => {
     assert.match(desc, /data-fair\/agents/)
     assert.match(desc, /data-fair\/data-fair/)
     assert.match(desc, /data-fair\/portals/)
+    assert.match(desc, /json-layout\/json-layout/)
   })
 })
 

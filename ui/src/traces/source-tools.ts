@@ -6,6 +6,7 @@ const EXPLORE_GITHUB_DESCRIPTION = [
   '- data-fair/agents (this service) — start at docs/architecture/, api/src/, ui/src/traces/',
   '- data-fair/data-fair — start at agent-tools/ (the server-side tools the assistant calls)',
   '- data-fair/portals — start at portal/app/composables/agent/ (client-side agent tools)',
+  '- json-layout/json-layout — start at core/src/webmcp/tools/ (the MCP form tools backing the *_form form sub-agents, e.g. pageConfig_form, portalConfig_form)',
   'Useful endpoints (pass as `path`):',
   '- /repos/{owner}/{repo}/git/trees/{ref}?recursive=1 — list every file (use `query`="recursive=1")',
   '- /repos/{owner}/{repo}/contents/{path} with raw=true — read a file as text',

@@ -4,7 +4,7 @@
  * non-Vite runner. The HTTP handler lives in router.ts.
  */
 
-export const GITHUB_SOURCE_REPOS = ['data-fair/agents', 'data-fair/data-fair', 'data-fair/portals'] as const
+export const GITHUB_SOURCE_REPOS = ['data-fair/agents', 'data-fair/data-fair', 'data-fair/portals', 'json-layout/json-layout'] as const
 
 /** Validate a GitHub REST path: read-only access under one of the whitelisted repos. */
 export function validateGithubSourcePath (path: string): { ok: true } | { ok: false, message: string } {
