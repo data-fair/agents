@@ -67,4 +67,31 @@ test.describe('evaluator data tools (unit)', () => {
     assert.ok(paths.includes('datasets/ds1'))
     assert.ok(paths.includes('datasets/ds1/lines'))
   })
+
+  test('search_data follows a next URL directly without rebuilding the query', async () => {
+    const calls: any[] = []
+    const tools = buildEvaluatorDataTools({
+      accountType: 'user',
+      accountId: 'u1',
+      dataFairApiPath: '/x',
+      apiFetch: async (path, o) => { calls.push({ path, query: o?.query }); return { total: 0, results: [] } }
+    })
+    await (tools.search_data as any).execute({ datasetId: 'ds1', next: 'datasets/ds1/lines?after=42' }, {})
+    assert.equal(calls[0].path, 'datasets/ds1/lines?after=42')
+    assert.equal(calls[0].query, undefined)
+  })
+
+  test('get_dataset_metadata_raw returns the full dataset JSON with no select', async () => {
+    const calls: any[] = []
+    const tools = buildEvaluatorDataTools({
+      accountType: 'user',
+      accountId: 'u1',
+      dataFairApiPath: '/x',
+      apiFetch: async (path, o) => { calls.push({ path, query: o?.query }); return { id: 'ds1', title: 'T', schema: [] } }
+    })
+    const res = await (tools.get_dataset_metadata_raw as any).execute({ datasetId: 'ds1' }, {})
+    assert.equal(calls[0].path, 'datasets/ds1')
+    assert.equal(calls[0].query, undefined)
+    assert.match(res, /"id": "ds1"/)
+  })
 })

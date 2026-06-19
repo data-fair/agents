@@ -117,6 +117,21 @@ export function buildEvaluatorDataTools (opts: EvaluatorDataToolsOpts): Record<s
         const values = await apiFetch(path, { query })
         return getFieldValues.formatResult(values, params).text
       })
+    }),
+
+    get_dataset_metadata_raw: tool({
+      description: 'Returns the complete raw metadata JSON for a dataset (full schema with every field attribute, extensions, capabilities, license, topics, etc.). Use it to assess metadata quality (missing titles/descriptions/concepts/labels) and to check whether the assistant\'s own tools (describe_dataset / get_dataset_schema) omitted relevant information. Takes the dataset id from list_datasets.',
+      inputSchema: jsonSchema({
+        type: 'object',
+        properties: {
+          datasetId: { type: 'string', description: 'The exact dataset ID from list_datasets results.' }
+        },
+        required: ['datasetId']
+      }),
+      execute: safe(async (params: { datasetId: string }) => {
+        const dataset = await apiFetch(`datasets/${encodeURIComponent(params.datasetId)}`)
+        return JSON.stringify(dataset, null, 2)
+      })
     })
   }
 }
