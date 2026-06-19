@@ -1,5 +1,8 @@
 <template>
-  <div class="d-flex flex-column fill-height">
+  <div
+    v-if="session.state.user?.isAdmin"
+    class="d-flex flex-column fill-height"
+  >
     <div class="d-flex align-center ga-4 pa-4 flex-shrink-0">
       <h2 class="text-title-large">
         {{ t('agents') }}
