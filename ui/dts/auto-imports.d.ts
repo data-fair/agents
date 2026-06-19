@@ -19,6 +19,7 @@ declare global {
   const MERMAID_AUTO_FIX_BUDGET: typeof import('../src/utils/mermaid-fix')['MERMAID_AUTO_FIX_BUDGET']
   const MODERATION_TASK_MARKER: typeof import('../src/composables/moderation')['MODERATION_TASK_MARKER']
   const SELECT_TOOL_NAME: typeof import('../src/composables/tool-exploration')['SELECT_TOOL_NAME']
+  const breadcrumbs: typeof import('../src/utils/breadcrumbs')['default']
   const buildMermaidThemeVariables: typeof import('../src/utils/mermaid')['buildMermaidThemeVariables']
   const buildModerationSystemPrompt: typeof import('../src/composables/moderation')['buildModerationSystemPrompt']
   const computed: typeof import('vue')['computed']
@@ -91,6 +92,7 @@ declare global {
   const resolveComponent: typeof import('vue')['resolveComponent']
   const selectPromotions: typeof import('../src/composables/tool-exploration')['selectPromotions']
   const serializeFlagsCookie: typeof import('../src/utils/agent-flags')['serializeFlagsCookie']
+  const setBreadcrumbs: typeof import('../src/utils/breadcrumbs')['setBreadcrumbs']
   const shallowReactive: typeof import('vue')['shallowReactive']
   const shallowReadonly: typeof import('vue')['shallowReadonly']
   const shallowRef: typeof import('vue')['shallowRef']
@@ -169,6 +171,7 @@ declare module 'vue' {
     readonly FLAGS_COOKIE: UnwrapRef<typeof import('../src/utils/agent-flags')['FLAGS_COOKIE']>
     readonly MERMAID_AUTO_FIX_BUDGET: UnwrapRef<typeof import('../src/utils/mermaid-fix')['MERMAID_AUTO_FIX_BUDGET']>
     readonly SELECT_TOOL_NAME: UnwrapRef<typeof import('../src/composables/tool-exploration')['SELECT_TOOL_NAME']>
+    readonly breadcrumbs: UnwrapRef<typeof import('../src/utils/breadcrumbs')['default']>
     readonly buildMermaidThemeVariables: UnwrapRef<typeof import('../src/utils/mermaid')['buildMermaidThemeVariables']>
     readonly computed: UnwrapRef<typeof import('vue')['computed']>
     readonly computedDeepDiff: UnwrapRef<typeof import('@data-fair/lib-vue/deep-diff.js')['computedDeepDiff']>
@@ -223,6 +226,7 @@ declare module 'vue' {
     readonly resolveComponent: UnwrapRef<typeof import('vue')['resolveComponent']>
     readonly selectPromotions: UnwrapRef<typeof import('../src/composables/tool-exploration')['selectPromotions']>
     readonly serializeFlagsCookie: UnwrapRef<typeof import('../src/utils/agent-flags')['serializeFlagsCookie']>
+    readonly setBreadcrumbs: UnwrapRef<typeof import('../src/utils/breadcrumbs')['setBreadcrumbs']>
     readonly shallowReactive: UnwrapRef<typeof import('vue')['shallowReactive']>
     readonly shallowReadonly: UnwrapRef<typeof import('vue')['shallowReadonly']>
     readonly shallowRef: UnwrapRef<typeof import('vue')['shallowRef']>
