@@ -85,6 +85,7 @@
             :account-type="owner.type"
             :account-id="owner.id"
             :department="owner.department"
+            :is-superadmin="isSuperadmin"
           />
         </v-col>
       </v-row>
@@ -124,6 +125,7 @@ en:
 import { ref, shallowRef, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
+import { useSession } from '@data-fair/lib-vue/session.js'
 import { mdiCompareHorizontal, mdiClose, mdiChevronLeft, mdiChevronRight } from '@mdi/js'
 import { SessionRecorder } from '~/traces/session-recorder'
 import type { TraceOverviewEntry } from '~/traces/session-recorder'
@@ -136,6 +138,8 @@ import TraceComparePicker from '~/components/TraceComparePicker.vue'
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
+const session = useSession()
+const isSuperadmin = computed(() => !!session.state.user?.adminMode)
 const props = defineProps<{ conversationId: string }>()
 const emit = defineEmits<{ loaded: [{ owner: { type: string, id: string, department?: string }, label: string }] }>()
 const conversationId = props.conversationId

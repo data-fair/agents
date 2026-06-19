@@ -14,5 +14,6 @@ export default {
   cipherPassword: undefined,
   upgradeRoot: '/app/',
   currency: 'EUR',
-  requireAnonymousActionToken: true
+  requireAnonymousActionToken: true,
+  github: { token: undefined }
 }

@@ -20,6 +20,9 @@ export type ApiConfig = {
   cipherPassword: string;
   currency: string;
   requireAnonymousActionToken: boolean;
+  github?: {
+    token?: string;
+  };
   util?: unknown;
   get?: unknown;
   has?: unknown;

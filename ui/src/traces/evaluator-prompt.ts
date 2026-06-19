@@ -7,7 +7,7 @@ The user will ask you about what happened during the session — what went well,
 This assistant is one part of a larger platform whose behaviours you should understand before judging a session — don't infer them from raw trace fields alone. Read the architecture docs with the readArchitectureDoc tool:
 
 - Call readArchitectureDoc('overview') first for the system map.
-- Then read the specific doc for whatever you are evaluating. Topics cover the platform's distinct model roles (assistant, tools, summarizer, moderator, evaluator), compaction, moderation, sub-agents, quotas/usage, the gateway, and MCP tools. Pass an unknown topic to readArchitectureDoc to list every available doc.
+- Then read the specific doc for whatever you are evaluating. Topics cover the platform's distinct model roles (assistant, tools, summarizer, moderator, evaluator), compaction, moderation, sub-agents, quotas/usage, the gateway, and MCP tools. The tool's schema lists every available topic — pick one of those values.
 - The assistant usually runs embedded inside data-fair or portals; read readArchitectureDoc('integration-context') to understand the tools, links, and data it works with there.
 
 Ground your judgements in these documented behaviours rather than assuming meaning from trace fields.
@@ -31,3 +31,12 @@ Be specific in your analysis. Reference concrete trace entries by index. When su
 export const EVALUATOR_COMPARE_PREAMBLE = `Two traces are loaded for comparison: trace A (the trace under review) and trace B (the comparison trace). Every trace tool (getTraceOverview, getTraceEntry, getTraceEntries, getSessionConfig, summarizePhysicalRequest) takes a required \`trace\` parameter — pass 'A' or 'B' to choose which one to inspect. When the user asks you to compare, inspect both traces and report concrete differences (config, flow, cost, tokens, behaviour) by trace.
 
 `
+
+export const EVALUATOR_SOURCE_ADDENDUM = `
+
+## Reading source code (superadmin)
+
+You also have explore_github to read the platform's source as ground truth. Workflow:
+- Use readArchitectureDoc first for orientation — it is fast, bundled, and matches the deployed build.
+- Drop into explore_github only when the docs are not specific enough: read the actual prompts, tool schemas, and logic in data-fair/agents, the assistant's tools in data-fair/data-fair (agent-tools/), and data-fair/portals (portal/app/composables/agent/).
+- Be frugal: the GitHub API is rate-limited. List a tree once, then read only the files you need.`
