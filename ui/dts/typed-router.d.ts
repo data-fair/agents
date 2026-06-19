@@ -153,15 +153,6 @@ declare module 'vue-router/auto-routes' {
       { type: ParamValue<false>, id: ParamValue<false>, convId: ParamValue<false> },
       | never
     >,
-    '/admin': RouteRecordInfo<
-      '/admin',
-      '/admin',
-      Record<never, never>,
-      Record<never, never>,
-      | '/admin/'
-      | '/admin/[type]/[id]/'
-      | '/admin/[type]/[id]/traces/[convId]'
-    >,
     '/admin/': RouteRecordInfo<
       '/admin/',
       '/admin',
@@ -303,15 +294,6 @@ declare module 'vue-router/auto-routes' {
         | '/[type]/[id]/traces/[convId]'
       views:
         | never
-    }
-    'src/pages/admin.vue': {
-      routes:
-        | '/admin'
-        | '/admin/'
-        | '/admin/[type]/[id]/'
-        | '/admin/[type]/[id]/traces/[convId]'
-      views:
-        | 'default'
     }
     'src/pages/admin/index.vue': {
       routes:

@@ -1,94 +1,106 @@
 <template>
-  <v-container
-    v-if="settingsEditFetch.data.value"
-    data-iframe-height
+  <div
+    v-if="session.state.user?.isAdmin"
+    class="d-flex flex-column fill-height"
   >
-    <div id="section-configuration">
-      <h3 class="text-title-large mb-4">
-        {{ t('configuration') }}
-      </h3>
-      <v-row>
-        <v-col>
-          <v-form v-model="valid">
-            <vjsf-put-req
-              v-model="settingsEditFetch.data.value"
-              :options="vjsfOptions"
-              :locale="locale"
+    <div class="d-flex align-center ga-4 pa-4 flex-shrink-0">
+      <h2 class="text-title-large">
+        {{ t('agents') }}
+      </h2>
+      <account-selector />
+    </div>
+    <v-container
+      v-if="settingsEditFetch.data.value"
+      data-iframe-height
+    >
+      <div id="section-configuration">
+        <h3 class="text-title-large mb-4">
+          {{ t('configuration') }}
+        </h3>
+        <v-row>
+          <v-col>
+            <v-form v-model="valid">
+              <vjsf-put-req
+                v-model="settingsEditFetch.data.value"
+                :options="vjsfOptions"
+                :locale="locale"
+              />
+            </v-form>
+          </v-col>
+        </v-row>
+
+        <v-row>
+          <v-col>
+            <usage-card
+              :account-type="accountType"
+              :account-id="accountId"
             />
-          </v-form>
-        </v-col>
-      </v-row>
+          </v-col>
+        </v-row>
+      </div>
 
-      <v-row>
-        <v-col>
-          <usage-card
-            :account-type="accountType"
-            :account-id="accountId"
-          />
-        </v-col>
-      </v-row>
-    </div>
+      <div id="section-global">
+        <h3 class="text-title-large mt-6 mb-4">
+          {{ t('globalUsage') }}
+        </h3>
+        <monitoring-global-section
+          :account-type="accountType"
+          :account-id="accountId"
+        />
+      </div>
 
-    <div id="section-global">
-      <h3 class="text-title-large mt-6 mb-4">
-        {{ t('globalUsage') }}
-      </h3>
-      <monitoring-global-section
-        :account-type="accountType"
-        :account-id="accountId"
-      />
-    </div>
+      <div id="section-individual">
+        <h3 class="text-title-large mt-6 mb-4">
+          {{ t('individualUsage') }}
+        </h3>
+        <monitoring-individual-section
+          :account-type="accountType"
+          :account-id="accountId"
+        />
+      </div>
 
-    <div id="section-individual">
-      <h3 class="text-title-large mt-6 mb-4">
-        {{ t('individualUsage') }}
-      </h3>
-      <monitoring-individual-section
-        :account-type="accountType"
-        :account-id="accountId"
-      />
-    </div>
+      <div id="section-moderation">
+        <h3 class="text-title-large mt-6 mb-4">
+          {{ t('moderation') }}
+        </h3>
+        <moderation-section
+          :account-type="accountType"
+          :account-id="accountId"
+        />
+      </div>
 
-    <div id="section-moderation">
-      <h3 class="text-title-large mt-6 mb-4">
-        {{ t('moderation') }}
-      </h3>
-      <moderation-section
-        :account-type="accountType"
-        :account-id="accountId"
-      />
-    </div>
+      <div id="section-traces">
+        <h3 class="text-title-large mt-6 mb-4">
+          {{ t('traces') }}
+        </h3>
+        <traces-section
+          :account-type="accountType"
+          :account-id="accountId"
+          :base="`/admin/${accountType}/${accountId}`"
+        />
+      </div>
 
-    <div id="section-traces">
-      <h3 class="text-title-large mt-6 mb-4">
-        {{ t('traces') }}
-      </h3>
-      <traces-section
-        :account-type="accountType"
-        :account-id="accountId"
-        :base="`/admin/${accountType}/${accountId}`"
-      />
-    </div>
-
-    <df-navigation-right>
-      <v-list-item v-if="settingsEditFetch.hasDiff.value">
-        <v-btn
-          width="100%"
-          color="accent"
-          :disabled="!valid"
-          :loading="settingsEditFetch.save.loading.value"
-          @click="settingsEditFetch.save.execute()"
-        >
-          {{ t('save') }}
-        </v-btn>
-      </v-list-item>
-      <df-toc :sections="sections" />
-    </df-navigation-right>
-  </v-container>
+      <df-navigation-right>
+        <v-list-item v-if="settingsEditFetch.hasDiff.value">
+          <v-btn
+            width="100%"
+            color="accent"
+            :disabled="!valid"
+            :loading="settingsEditFetch.save.loading.value"
+            @click="settingsEditFetch.save.execute()"
+          >
+            {{ t('save') }}
+          </v-btn>
+        </v-list-item>
+        <df-toc :sections="sections" />
+      </df-navigation-right>
+    </v-container>
+  </div>
 </template>
 
 <i18n lang="yaml">
 fr:
+  agents: Agents
   settings: Paramètres
   save: Enregistrer
   saved: Les modifications ont été enregistrées
@@ -99,6 +111,7 @@ fr:
   traces: Conversations enregistrées
 en:
   settings: Settings
+  agents: Agents
   save: Save
   saved: Changes have been saved
   configuration: Configuration
@@ -111,22 +124,30 @@ en:
 <script lang="ts" setup>
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRoute } from 'vue-router'
-import { useSessionAuthenticated } from '@data-fair/lib-vue/session.js'
+import { useRoute, useRouter } from 'vue-router'
+import { useSession } from '@data-fair/lib-vue/session.js'
 import { useEditFetch } from '@data-fair/lib-vue/edit-fetch.js'
 import type { Settings } from '#api/types'
 import DfNavigationRight from '@data-fair/lib-vuetify/navigation-right.vue'
 import DfToc from '@data-fair/lib-vuetify/toc.vue'
 import type { VjsfOptions } from '@koumoul/vjsf/types.js'
+import AccountSelector from '~/components/AccountSelector.vue'
 import UsageCard from '~/components/UsageCard.vue'
 import MonitoringGlobalSection from '~/components/MonitoringGlobalSection.vue'
 import MonitoringIndividualSection from '~/components/MonitoringIndividualSection.vue'
 import ModerationSection from '~/components/ModerationSection.vue'
 import TracesSection from '~/components/TracesSection.vue'
+import { setBreadcrumbs } from '~/utils/breadcrumbs'
 
 const { t, locale } = useI18n()
 const route = useRoute()
-useSessionAuthenticated()
+const router = useRouter()
+const session = useSession()
+
+// superadmin gate
+if (!session.state.user?.isAdmin) router.replace('/')
+
+setBreadcrumbs([])
 
 const accountType = route.params.type as string
 const accountId = route.params.id as string

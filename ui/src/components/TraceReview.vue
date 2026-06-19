@@ -43,8 +43,10 @@
 <i18n lang="yaml">
 fr:
   loadError: Trace introuvable ou accès refusé.
+  review: Analyse
 en:
   loadError: Trace not found or access denied.
+  review: Review
 </i18n>
 
 <script lang="ts" setup>
@@ -59,6 +61,7 @@ import EvaluatorChat from '~/components/EvaluatorChat.vue'
 
 const { t } = useI18n()
 const props = defineProps<{ conversationId: string }>()
+const emit = defineEmits<{ loaded: [{ owner: { type: string, id: string }, label: string }] }>()
 
 const recorder = shallowRef<SessionRecorder | null>(null)
 const owner = ref<{ type: string, id: string } | null>(null)
@@ -75,6 +78,8 @@ onMounted(async () => {
     const body = await res.json()
     owner.value = body.owner
     recorder.value = SessionRecorder.fromTrace(reconstructTrace(body.results))
+    const firstMessage = recorder.value.getTrace().turns[0]?.userMessage?.trim()
+    emit('loaded', { owner: body.owner, label: firstMessage ? firstMessage.slice(0, 60) : t('review') })
   } catch {
     loadError.value = t('loadError')
   }

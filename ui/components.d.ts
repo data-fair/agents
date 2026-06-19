@@ -7,6 +7,7 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    AccountSelector: typeof import('./src/components/AccountSelector.vue')['default']
     AgentChat: typeof import('./src/components/AgentChat.vue')['default']
     AgentChatDebugDialog: typeof import('./src/components/agent-chat/AgentChatDebugDialog.vue')['default']
     AgentChatHeader: typeof import('./src/components/agent-chat/AgentChatHeader.vue')['default']
