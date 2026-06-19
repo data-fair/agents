@@ -12,7 +12,7 @@
  *      With consent active, this conversation is stored server-side.
  *   4. Poll GET /api/traces/user/test-standalone1 until the conversation appears
  *      and grab its conversationId.
- *   5. Navigate to /agents/traces/:id/review as test-standalone1.
+ *   5. Navigate to /agents/user/test-standalone1/traces/:id as test-standalone1.
  *   6. Assert the TraceView rendered (a "user-message" chip is visible).
  *   7. Use the evaluator: send "call tool getTraceOverview" and assert the
  *      getTraceOverview tool-invocation chip appears.
@@ -84,7 +84,7 @@ test.describe('Trace review flow', () => {
     expect(conversationId).toBeTruthy()
 
     // Step 5: Navigate to the new per-trace review page
-    await goToWithAuth(`/agents/traces/${conversationId}/review`, 'test-standalone1')
+    await goToWithAuth(`/agents/user/test-standalone1/traces/${conversationId}`, 'test-standalone1')
 
     // Step 6: Assert the TraceView populated — a "user-message" type chip is visible
     await expect(page.getByText('user-message').first()).toBeVisible({ timeout: 10000 })

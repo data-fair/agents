@@ -1,7 +1,7 @@
 /**
  * E2E test for the stored-trace review page's auto-load-detail behavior.
  *
- * Validates that, on the /traces/:id/review page:
+ * Validates that, on the /user/test-standalone1/traces/:id page:
  *   - Expanding a tool-call entry auto-loads its details (no "Show detail" button)
  *   - A tool-result entry displays its content (including the toolName field)
  */
@@ -73,7 +73,7 @@ test.describe('Trace review detail loading', () => {
     expect(conversationId).toBeTruthy()
 
     // Open the per-trace review page.
-    await goToWithAuth(`/agents/traces/${conversationId}/review`, 'test-standalone1')
+    await goToWithAuth(`/agents/user/test-standalone1/traces/${conversationId}`, 'test-standalone1')
 
     const tracePanel = page.locator('.agent-chat__trace-panels')
     await expect(tracePanel).toBeVisible({ timeout: 10000 })

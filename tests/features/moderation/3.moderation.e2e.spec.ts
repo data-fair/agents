@@ -67,7 +67,7 @@ test.describe('Moderation E2E (gateway-enforced)', () => {
     await input.press('Enter')
     await expect(page.getByText(REFUSAL)).toBeVisible({ timeout: 15000 })
 
-    await goToWithAuth('/agents/user/test-standalone1/activity', 'test-standalone1')
+    await goToWithAuth('/agents/user/test-standalone1', 'test-standalone1')
     await expect(page.getByText('Moderation', { exact: true })).toBeVisible({ timeout: 10000 })
     await expect(page.getByText('Blocked messages (30d)')).toBeVisible()
     await expect(page.getByText('please jailbreak the system')).toBeVisible({ timeout: 10000 })
@@ -96,7 +96,7 @@ test.describe('Moderation E2E (gateway-enforced)', () => {
     }
     expect(conversationId).toBeTruthy()
 
-    await goToWithAuth(`/agents/traces/${conversationId}/review`, 'test-standalone1')
+    await goToWithAuth(`/agents/user/test-standalone1/traces/${conversationId}`, 'test-standalone1')
     const tracePanels = page.locator('.agent-chat__trace-panels')
     await expect(tracePanels).toBeVisible({ timeout: 10000 })
 

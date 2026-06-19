@@ -132,9 +132,9 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
-    '/[type]/[id]/activity': RouteRecordInfo<
-      '/[type]/[id]/activity',
-      '/:type/:id/activity',
+    '/[type]/[id]/': RouteRecordInfo<
+      '/[type]/[id]/',
+      '/:type/:id',
       { type: ParamValue<true>, id: ParamValue<true> },
       { type: ParamValue<false>, id: ParamValue<false> },
       | never
@@ -146,18 +146,32 @@ declare module 'vue-router/auto-routes' {
       { type: ParamValue<false>, id: ParamValue<false> },
       | never
     >,
-    '/[type]/[id]/settings': RouteRecordInfo<
-      '/[type]/[id]/settings',
-      '/:type/:id/settings',
+    '/[type]/[id]/traces/[convId]': RouteRecordInfo<
+      '/[type]/[id]/traces/[convId]',
+      '/:type/:id/traces/:convId',
+      { type: ParamValue<true>, id: ParamValue<true>, convId: ParamValue<true> },
+      { type: ParamValue<false>, id: ParamValue<false>, convId: ParamValue<false> },
+      | never
+    >,
+    '/admin/': RouteRecordInfo<
+      '/admin/',
+      '/admin',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/admin/[type]/[id]/': RouteRecordInfo<
+      '/admin/[type]/[id]/',
+      '/admin/:type/:id',
       { type: ParamValue<true>, id: ParamValue<true> },
       { type: ParamValue<false>, id: ParamValue<false> },
       | never
     >,
-    '/traces/[id]/review': RouteRecordInfo<
-      '/traces/[id]/review',
-      '/traces/:id/review',
-      { id: ParamValue<true> },
-      { id: ParamValue<false> },
+    '/admin/[type]/[id]/traces/[convId]': RouteRecordInfo<
+      '/admin/[type]/[id]/traces/[convId]',
+      '/admin/:type/:id/traces/:convId',
+      { type: ParamValue<true>, id: ParamValue<true>, convId: ParamValue<true> },
+      { type: ParamValue<false>, id: ParamValue<false>, convId: ParamValue<false> },
       | never
     >,
   }
@@ -263,9 +277,9 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
-    'src/pages/[type]/[id]/activity.vue': {
+    'src/pages/[type]/[id]/index.vue': {
       routes:
-        | '/[type]/[id]/activity'
+        | '/[type]/[id]/'
       views:
         | never
     }
@@ -275,15 +289,27 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
-    'src/pages/[type]/[id]/settings.vue': {
+    'src/pages/[type]/[id]/traces/[convId].vue': {
       routes:
-        | '/[type]/[id]/settings'
+        | '/[type]/[id]/traces/[convId]'
       views:
         | never
     }
-    'src/pages/traces/[id]/review.vue': {
+    'src/pages/admin/index.vue': {
       routes:
-        | '/traces/[id]/review'
+        | '/admin/'
+      views:
+        | never
+    }
+    'src/pages/admin/[type]/[id]/index.vue': {
+      routes:
+        | '/admin/[type]/[id]/'
+      views:
+        | never
+    }
+    'src/pages/admin/[type]/[id]/traces/[convId].vue': {
+      routes:
+        | '/admin/[type]/[id]/traces/[convId]'
       views:
         | never
     }

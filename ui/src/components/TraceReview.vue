@@ -43,14 +43,15 @@
 <i18n lang="yaml">
 fr:
   loadError: Trace introuvable ou accès refusé.
+  review: Analyse
 en:
   loadError: Trace not found or access denied.
+  review: Review
 </i18n>
 
 <script lang="ts" setup>
 import { ref, shallowRef, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRoute } from 'vue-router'
 import { SessionRecorder } from '~/traces/session-recorder'
 import type { TraceOverviewEntry } from '~/traces/session-recorder'
 import { reconstructTrace } from '~/traces/reconstruct-trace'
@@ -59,8 +60,8 @@ import TraceView from '~/components/agent-chat/TraceView.vue'
 import EvaluatorChat from '~/components/EvaluatorChat.vue'
 
 const { t } = useI18n()
-const route = useRoute()
-const conversationId = route.params.id as string
+const props = defineProps<{ conversationId: string }>()
+const emit = defineEmits<{ loaded: [{ owner: { type: string, id: string }, label: string }] }>()
 
 const recorder = shallowRef<SessionRecorder | null>(null)
 const owner = ref<{ type: string, id: string } | null>(null)
@@ -72,11 +73,13 @@ const traceOverview = computed<TraceOverviewEntry[]>(() =>
 
 onMounted(async () => {
   try {
-    const res = await fetch(`${$apiPath}/traces/conversation/${conversationId}`, { credentials: 'include' })
+    const res = await fetch(`${$apiPath}/traces/conversation/${props.conversationId}`, { credentials: 'include' })
     if (!res.ok) { loadError.value = t('loadError'); return }
     const body = await res.json()
     owner.value = body.owner
     recorder.value = SessionRecorder.fromTrace(reconstructTrace(body.results))
+    const firstMessage = recorder.value.getTrace().turns[0]?.userMessage?.trim()
+    emit('loaded', { owner: body.owner, label: firstMessage ? firstMessage.slice(0, 60) : t('review') })
   } catch {
     loadError.value = t('loadError')
   }
