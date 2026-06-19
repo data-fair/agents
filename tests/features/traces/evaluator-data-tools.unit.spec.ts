@@ -40,4 +40,31 @@ test.describe('evaluator data tools (unit)', () => {
     assert.match(res, /unavailable/i)
     assert.match(res, /404/)
   })
+
+  test('search_data fetches by datasetId and returns formatted text (no owner filter)', async () => {
+    const calls: any[] = []
+    const tools = buildEvaluatorDataTools({
+      accountType: 'user',
+      accountId: 'u1',
+      dataFairApiPath: '/x',
+      apiFetch: async (path, o) => { calls.push({ path, query: o?.query }); return { total: 0, results: [] } }
+    })
+    const res = await (tools.search_data as any).execute({ datasetId: 'ds1' }, {})
+    assert.equal(calls[0].path, 'datasets/ds1/lines')
+    assert.equal(calls[0].query.owner, undefined)
+    assert.equal(typeof res, 'string')
+  })
+
+  test('get_dataset_schema issues both the schema and samples requests', async () => {
+    const paths: string[] = []
+    const tools = buildEvaluatorDataTools({
+      accountType: 'user',
+      accountId: 'u1',
+      dataFairApiPath: '/x',
+      apiFetch: async (path) => { paths.push(path); return path.endsWith('/lines') ? { results: [] } : { schema: [], title: 'T', slug: 's' } }
+    })
+    await (tools.get_dataset_schema as any).execute({ datasetId: 'ds1' }, {})
+    assert.ok(paths.includes('datasets/ds1'))
+    assert.ok(paths.includes('datasets/ds1/lines'))
+  })
 })
