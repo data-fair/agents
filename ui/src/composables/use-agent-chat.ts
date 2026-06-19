@@ -18,7 +18,20 @@ const debug = Debug('df-agents:use-agent-chat')
 
 // Shown when the gateway blocks a message (finish_reason content_filter); the
 // host normally supplies a localized refusalMessage, this is the fallback.
-const DEFAULT_REFUSAL = "This request can't be processed as it falls outside what this assistant is meant to help with."
+// Names the decision as content moderation (generic: a content_filter can come
+// from this platform's gate or an upstream provider's own filter) so a falsely
+// blocked user understands what happened and can react, without revealing a
+// category/reason that would give abusers feedback.
+const DEFAULT_REFUSAL = 'This message was declined by content moderation — it appears to fall outside what this assistant is meant to help with. Try rephrasing if you think this is a mistake.'
+
+// Returned to the MAIN assistant (not the user) as a delegated sub-agent's result
+// when that sub-agent was moderation-blocked. Distinct from the user-facing
+// refusal: it tells the assistant this was a content-policy decision (not a tool
+// failure) and gives bounded guidance, so it can re-formulate a legitimate task
+// or explain the block — rather than dead-ending. Deliberately discourages blind
+// resubmission (each re-delegation is itself re-moderated; the turn is capped at
+// stepCountIs(10)) so this does not become a moderation-probing retry loop.
+const SUBAGENT_MODERATION_NOTICE = 'This delegated sub-agent task was blocked by content moderation — a content-policy decision, not a tool error. If the task is legitimate platform work (for example editing a resource\'s title, description, summary or other metadata), rephrase it more precisely and delegate again, or carry it out yourself if you have the necessary tools. Otherwise, briefly tell the user the request was declined by moderation. Do not resubmit the same task wording unchanged.'
 
 // Shown when a turn finishes cleanly but the assistant produced no text at all
 // (empty model completion, a sub-agent that returned nothing, or the step limit
@@ -41,6 +54,10 @@ export interface ChatMessage {
   }>
   subAgentMessages?: ChatMessage[]
   subAgentTurn?: number
+  // Set on a sub-agent refusal message so toModelOutput can hand the main agent a
+  // moderation-specific notice instead of the generic user-facing refusal text.
+  // Not rendered; the panel shows `content` like any other message.
+  moderationBlocked?: boolean
 }
 
 export interface ToolInfo {
@@ -556,7 +573,10 @@ export function useAgentChat (options: UseAgentChatOptions) {
               // A content_filter on the sub-agent's own gateway call (untrusted callers)
               // surfaces as a refusal output instead of aborting the whole turn.
               if ((await subResult.finishReason) === 'content-filter') {
-                const refusal: ChatMessage = { role: 'assistant', content: options.refusalMessage || DEFAULT_REFUSAL }
+                // User-facing refusal for the panel; moderationBlocked tells
+                // toModelOutput to hand the main agent SUBAGENT_MODERATION_NOTICE
+                // instead of this generic text so it can react appropriately.
+                const refusal: ChatMessage = { role: 'assistant', content: options.refusalMessage || DEFAULT_REFUSAL, moderationBlocked: true }
                 if (currentAssistantMessage) {
                   currentAssistantMessage.subAgentMessages = [...(currentAssistantMessage.subAgentMessages ?? []), refusal]
                 }
@@ -586,6 +606,12 @@ export function useAgentChat (options: UseAgentChatOptions) {
           toModelOutput: ({ output }: { output: any }) => {
             // Main agent sees only the final text summary, not full subagent trace
             const lastMsg = Array.isArray(output) ? output[output.length - 1] : null
+            // A moderation block is a content-policy decision, not a finished task:
+            // give the main agent an actionable notice rather than the user-facing
+            // refusal text so it can re-formulate a legitimate task or explain.
+            if ((lastMsg as ChatMessage | null)?.moderationBlocked) {
+              return { type: 'text' as const, value: SUBAGENT_MODERATION_NOTICE }
+            }
             return {
               type: 'text' as const,
               value: (lastMsg as ChatMessage | null)?.content || 'Task completed.'
