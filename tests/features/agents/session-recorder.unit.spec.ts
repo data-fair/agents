@@ -546,3 +546,22 @@ test.describe('source tools', () => {
     assert.match(desc, /data-fair\/portals/)
   })
 })
+
+test.describe('evaluator source-tool gating', () => {
+  const gateOpts = { accountType: 'user', accountId: 'alice', apiPath: '/agents/api' }
+  const rec = () => SessionRecorder.fromTrace({
+    conversationId: 'c', systemPrompt: 'P', steps: [], toolSnapshots: [], physicalRequests: []
+  } as any)
+
+  test('omits explore_github by default', () => {
+    const tools = buildEvaluatorTools(rec(), gateOpts)
+    assert.ok(!tools.explore_github, 'no source tool without the flag')
+    assert.ok(tools.readArchitectureDoc, 'docs tool still present')
+  })
+
+  test('includes explore_github when includeSourceTools is set', () => {
+    const tools = buildEvaluatorTools(rec(), { ...gateOpts, includeSourceTools: true })
+    assert.ok(tools.explore_github, 'source tool present for superadmin')
+    assert.ok(tools.readArchitectureDoc, 'docs tool still present for superadmin')
+  })
+})

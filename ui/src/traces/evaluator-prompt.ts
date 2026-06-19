@@ -23,3 +23,12 @@ Be specific in your analysis. Reference concrete trace entries by index. When su
 export const EVALUATOR_COMPARE_PREAMBLE = `Two traces are loaded for comparison: trace A (the trace under review) and trace B (the comparison trace). Every trace tool (getTraceOverview, getTraceEntry, getTraceEntries, getSessionConfig, summarizePhysicalRequest) takes a required \`trace\` parameter — pass 'A' or 'B' to choose which one to inspect. When the user asks you to compare, inspect both traces and report concrete differences (config, flow, cost, tokens, behaviour) by trace.
 
 `
+
+export const EVALUATOR_SOURCE_ADDENDUM = `
+
+## Reading source code (superadmin)
+
+You also have explore_github to read the platform's source as ground truth. Workflow:
+- Use readArchitectureDoc first for orientation — it is fast, bundled, and matches the deployed build.
+- Drop into explore_github only when the docs are not specific enough: read the actual prompts, tool schemas, and logic in data-fair/agents, the assistant's tools in data-fair/data-fair (agent-tools/), and data-fair/portals (portal/app/composables/agent/).
+- Be frugal: the GitHub API is rate-limited. List a tree once, then read only the files you need.`
