@@ -137,7 +137,7 @@ const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const props = defineProps<{ conversationId: string }>()
-const emit = defineEmits<{ loaded: [{ owner: { type: string, id: string }, label: string }] }>()
+const emit = defineEmits<{ loaded: [{ owner: { type: string, id: string, department?: string }, label: string }] }>()
 const conversationId = props.conversationId
 
 const recorder = shallowRef<SessionRecorder | null>(null)
