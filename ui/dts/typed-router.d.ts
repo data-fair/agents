@@ -183,13 +183,6 @@ declare module 'vue-router/auto-routes' {
       { type: ParamValue<false>, id: ParamValue<false>, convId: ParamValue<false> },
       | never
     >,
-    '/traces/[id]/review': RouteRecordInfo<
-      '/traces/[id]/review',
-      '/traces/:id/review',
-      { id: ParamValue<true> },
-      { id: ParamValue<false> },
-      | never
-    >,
   }
 
   /**
@@ -335,12 +328,6 @@ declare module 'vue-router/auto-routes' {
     'src/pages/admin/[type]/[id]/traces/[convId].vue': {
       routes:
         | '/admin/[type]/[id]/traces/[convId]'
-      views:
-        | never
-    }
-    'src/pages/traces/[id]/review.vue': {
-      routes:
-        | '/traces/[id]/review'
       views:
         | never
     }
