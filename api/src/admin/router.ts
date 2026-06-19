@@ -23,7 +23,12 @@ router.get('/info', async (req, res) => {
   let evaluatorAvailable = false
   if (evaluatorAccount) {
     const settings = await getRawSettings(evaluatorAccount)
-    evaluatorAvailable = !!settings?.models?.evaluator?.model
+    // The gateway refuses any account without an assistant model ("Agent not
+    // configured"), regardless of the requested role — so the promoted evaluator
+    // is only usable when the source account has BOTH an assistant and an
+    // evaluator model. Advertising availability on evaluator alone would enable
+    // a chat whose every call 404s.
+    evaluatorAvailable = !!settings?.models?.assistant?.model && !!settings?.models?.evaluator?.model
   }
   res.send({ ...info, evaluatorAccount, evaluatorAvailable })
 })

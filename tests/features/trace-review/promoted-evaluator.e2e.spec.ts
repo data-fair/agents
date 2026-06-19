@@ -20,10 +20,13 @@ const reviewedSettings = {
   storeTraces: true
 }
 
-// Source account (config.evaluatorAccount) — gives the promoted evaluator a model.
+// Source account (config.evaluatorAccount) — a fully configured agent: the
+// gateway requires an assistant model on any account ("Agent not configured"
+// otherwise), and the promoted evaluator additionally needs an evaluator model.
 const sourceSettings = {
   providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
   models: {
+    assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } } },
     evaluator: { model: { id: 'mock-evaluator', name: 'Mock Evaluator', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } } }
   },
   quotas: defaultQuotas
@@ -40,9 +43,11 @@ test.describe('Promoted evaluator (superadmin review)', () => {
     // Seed a stored trace on the reviewed account (consent cookie → x-trace-consent: yes).
     await context.addCookies([{ name: 'agent-chat-trace-consent', value: 'yes', domain: 'localhost', path: '/' }])
     await goToWithAuth('/agents/user/test-standalone1/chat', 'test-standalone1')
-    await page.getByRole('textbox').fill('hello')
-    await page.getByRole('textbox').press('Enter')
-    await expect(page.getByText('world')).toBeVisible()
+    const chatInput = page.getByPlaceholder('Type your message...')
+    await expect(chatInput).toBeEnabled({ timeout: 10000 })
+    await chatInput.fill('hello')
+    await page.getByRole('button', { name: 'Send' }).click()
+    await expect(page.locator('.assistant-content').last()).toContainText('world', { timeout: 15000 })
 
     // Find the stored conversation id.
     let convId = ''
@@ -57,10 +62,17 @@ test.describe('Promoted evaluator (superadmin review)', () => {
 
     // The evaluator's gateway call must target the SOURCE account, not the reviewed one.
     const reqPromise = page.waitForRequest(r => r.url().includes('/api/gateway/user/superadmin/'))
-    await page.getByRole('textbox').fill('call tool getTraceOverview')
-    await page.getByRole('textbox').press('Enter')
+    const evalInput = page.getByPlaceholder('Type your message...')
+    await expect(evalInput).toBeEnabled({ timeout: 10000 })
+    await evalInput.fill('call tool getTraceOverview')
+    await page.getByRole('button', { name: 'Send' }).click()
     const req = await reqPromise
     expect(req.url()).not.toContain('/api/gateway/user/test-standalone1/')
-    await expect(page.getByText('getTraceOverview')).toBeVisible()
+
+    // The tool-invocation chip only appears if the evaluator actually responded
+    // (via the source account) with the tool call — proving the call did not 404.
+    await expect(
+      page.locator('.v-chip').filter({ hasText: 'getTraceOverview' }).first()
+    ).toBeVisible({ timeout: 15000 })
   })
 })

@@ -151,7 +151,12 @@ Two pages consume the stored traces, both admin-gated:
   against the account configured by `config.evaluatorAccount` — advertised via the
   admin `/info` route (`evaluatorAccount` / `evaluatorAvailable`) — so reviewing a
   trace never consumes the reviewed account; the chat is disabled with a hint when
-  that source account is unset, lacks an evaluator model, or admin mode is off.
+  that source account is unset, lacks an assistant **or** evaluator model (the
+  gateway refuses any account without an assistant), or admin mode is off. The
+  source account is consumed like a normal session — its quotas apply and its usage
+  is recorded under the superadmin's id. Operators should not add `admin` to the
+  source account's moderation categories, or superadmin review messages would be
+  moderated.
 
 ### Comparing two traces
 
