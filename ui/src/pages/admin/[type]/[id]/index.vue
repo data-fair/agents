@@ -122,7 +122,7 @@ en:
 </i18n>
 
 <script lang="ts" setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watchEffect } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useSession } from '@data-fair/lib-vue/session.js'
@@ -147,16 +147,18 @@ const session = useSession()
 // superadmin gate
 if (!session.state.user?.isAdmin) router.replace('/')
 
-const accountType = route.params.type as string
-const accountId = route.params.id as string
+const accountType = computed(() => route.params.type as string)
+const accountId = computed(() => route.params.id as string)
 
-setBreadcrumbs([
-  { text: t('agents'), to: '/admin/agents' },
-  { text: accountId }
-])
+watchEffect(() => {
+  setBreadcrumbs([
+    { text: t('agents'), to: '/admin/agents' },
+    { text: accountId.value }
+  ])
+})
 
 const settingsEditFetch = useEditFetch<Settings>(
-  () => `${$apiPath}/settings/${accountType}/${accountId}`,
+  () => `${$apiPath}/settings/${accountType.value}/${accountId.value}`,
   {
     saveOptions: {
       success: t('saved')
@@ -173,7 +175,7 @@ const vjsfOptions = computed<Partial<VjsfOptions>>(() => ({
   density: 'comfortable',
   readOnlyPropertiesMode: 'hide',
   initialValidation: 'always',
-  context: { apiPath: $apiPath, accountType, accountId }
+  context: { apiPath: $apiPath, accountType: accountType.value, accountId: accountId.value }
 }))
 
 const sections = computed(() => [
