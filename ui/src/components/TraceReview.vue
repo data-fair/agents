@@ -85,6 +85,9 @@
             :recorder-b="recorderB ?? undefined"
             :account-type="evaluatorOwner.type"
             :account-id="evaluatorOwner.id"
+            :data-account-type="owner.type"
+            :data-account-id="owner.id"
+            :department="owner.department"
             :is-superadmin="isSuperadmin"
           />
           <div
@@ -154,7 +157,7 @@ const props = defineProps<{
   conversationId: string
   promotedEvaluator?: { account: { type: string, id: string } | null, available: boolean }
 }>()
-const emit = defineEmits<{ loaded: [{ owner: { type: string, id: string }, label: string }] }>()
+const emit = defineEmits<{ loaded: [{ owner: { type: string, id: string, department?: string }, label: string }] }>()
 const conversationId = props.conversationId
 
 // In superadmin (promoted) mode the evaluator runs against the configured source
@@ -170,7 +173,7 @@ const evaluatorHint = computed(() => props.promotedEvaluator && !props.promotedE
 
 const recorder = shallowRef<SessionRecorder | null>(null)
 const recorderB = shallowRef<SessionRecorder | null>(null)
-const owner = ref<{ type: string, id: string } | null>(null)
+const owner = ref<{ type: string, id: string, department?: string } | null>(null)
 const loadError = ref('')
 const compareError = ref('')
 const pickerOpen = ref(false)
@@ -191,12 +194,12 @@ const traceCols = computed(() => {
 })
 const evaluatorCols = computed(() => (recorderB.value ? 4 : 6))
 
-async function fetchTrace (id: string): Promise<{ owner: { type: string, id: string }, recorder: SessionRecorder } | null> {
+async function fetchTrace (id: string): Promise<{ owner: { type: string, id: string, department?: string }, recorder: SessionRecorder } | null> {
   const res = await fetch(`${$apiPath}/traces/conversation/${id}`, { credentials: 'include' })
   if (!res.ok) return null
   const body = await res.json()
   return {
-    owner: body.owner as { type: string, id: string },
+    owner: body.owner as { type: string, id: string, department?: string },
     recorder: SessionRecorder.fromTrace(reconstructTrace(body.results))
   }
 }
