@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { Router } from 'express'
 import { session } from '@data-fair/lib-express/index.js'
 import config from '#config'
+import { getRawSettings } from '../settings/service.ts'
 import { validateGithubSourcePath, buildGithubUrl, truncateGithubBody, githubErrorMessage } from './github-proxy.ts'
 
 const router = Router()
@@ -18,8 +19,19 @@ let info = { version: process.env.NODE_ENV }
 if (process.env.NODE_ENV === 'production') {
   info = JSON.parse(await readFile(resolve(import.meta.dirname, '../../../BUILD.json'), 'utf8'))
 }
-router.get('/info', (req, res) => {
-  res.send(info)
+router.get('/info', async (req, res) => {
+  const evaluatorAccount = config.evaluatorAccount ?? null
+  let evaluatorAvailable = false
+  if (evaluatorAccount) {
+    const settings = await getRawSettings(evaluatorAccount)
+    // The gateway refuses any account without an assistant model ("Agent not
+    // configured"), regardless of the requested role — so the promoted evaluator
+    // is only usable when the source account has BOTH an assistant and an
+    // evaluator model. Advertising availability on evaluator alone would enable
+    // a chat whose every call 404s.
+    evaluatorAvailable = !!settings?.models?.assistant?.model && !!settings?.models?.evaluator?.model
+  }
+  res.send({ ...info, evaluatorAccount, evaluatorAvailable })
 })
 
 // Superadmin-only read-only proxy to the public GitHub REST API, scoped to the
