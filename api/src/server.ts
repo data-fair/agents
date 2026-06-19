@@ -42,6 +42,9 @@ export const start = async () => {
   await eventPromise(server, 'listening')
 
   console.log(`API server listening on port ${config.port}`)
+  if (!config.github?.token) {
+    console.log('[github] No GITHUB_TOKEN configured: the trace evaluator\'s source exploration (explore_github) will use unauthenticated GitHub (60 requests/hour/IP). To raise the limit to 5000/hour, create a fine-grained personal access token with public read-only access at https://github.com/settings/tokens and set the GITHUB_TOKEN environment variable on the container.')
+  }
 }
 
 export const stop = async () => {

@@ -15,5 +15,6 @@ export default {
   upgradeRoot: '/app/',
   currency: 'EUR',
   requireAnonymousActionToken: true,
-  evaluatorAccount: null
+  evaluatorAccount: null,
+  github: { token: undefined }
 }

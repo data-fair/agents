@@ -41,7 +41,7 @@ import { useI18n } from 'vue-i18n'
 import { useAgentChat } from '~/composables/use-agent-chat'
 import { buildEvaluatorTools } from '~/traces/evaluator-tools'
 import { architectureDocs, architectureTopics } from '~/traces/architecture-docs'
-import { EVALUATOR_PROMPT, EVALUATOR_COMPARE_PREAMBLE } from '~/traces/evaluator-prompt'
+import { EVALUATOR_PROMPT, EVALUATOR_COMPARE_PREAMBLE, EVALUATOR_SOURCE_ADDENDUM } from '~/traces/evaluator-prompt'
 import type { SessionRecorder } from '~/traces/session-recorder'
 import { $apiPath } from '~/context'
 import AgentChatMessages from './agent-chat/AgentChatMessages.vue'
@@ -52,20 +52,23 @@ const props = defineProps<{
   recorderB?: SessionRecorder
   accountType: string
   accountId: string
+  isSuperadmin?: boolean
 }>()
 
 const { t } = useI18n()
+
+const baseSystemPrompt = props.recorderB ? EVALUATOR_COMPARE_PREAMBLE + EVALUATOR_PROMPT : EVALUATOR_PROMPT
 
 const chatResult = useAgentChat({
   accountType: props.accountType,
   accountId: props.accountId,
   localTools: buildEvaluatorTools(
     props.recorder,
-    { accountType: props.accountType, accountId: props.accountId, apiPath: $apiPath, architectureDocs, architectureTopics },
+    { accountType: props.accountType, accountId: props.accountId, apiPath: $apiPath, architectureDocs, architectureTopics, includeSourceTools: props.isSuperadmin },
     props.recorderB
   ),
   modelName: 'evaluator',
-  systemPrompt: props.recorderB ? EVALUATOR_COMPARE_PREAMBLE + EVALUATOR_PROMPT : EVALUATOR_PROMPT
+  systemPrompt: props.isSuperadmin ? baseSystemPrompt + EVALUATOR_SOURCE_ADDENDUM : baseSystemPrompt
 })
 if (!chatResult) throw new Error('Chat not supported in SSR')
 const chat = chatResult

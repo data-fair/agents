@@ -85,6 +85,7 @@
             :recorder-b="recorderB ?? undefined"
             :account-type="evaluatorOwner.type"
             :account-id="evaluatorOwner.id"
+            :is-superadmin="isSuperadmin"
           />
           <div
             v-else
@@ -134,6 +135,7 @@ en:
 import { ref, shallowRef, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
+import { useSession } from '@data-fair/lib-vue/session.js'
 import { mdiCompareHorizontal, mdiClose, mdiChevronLeft, mdiChevronRight } from '@mdi/js'
 import { SessionRecorder } from '~/traces/session-recorder'
 import type { TraceOverviewEntry } from '~/traces/session-recorder'
@@ -142,18 +144,18 @@ import { $apiPath } from '~/context'
 import TraceView from '~/components/agent-chat/TraceView.vue'
 import EvaluatorChat from '~/components/EvaluatorChat.vue'
 import TraceComparePicker from '~/components/TraceComparePicker.vue'
-import { useSession } from '@data-fair/lib-vue/session.js'
 
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
+const session = useSession()
+const isSuperadmin = computed(() => !!session.state.user?.adminMode)
 const props = defineProps<{
   conversationId: string
   promotedEvaluator?: { account: { type: string, id: string } | null, available: boolean }
 }>()
 const emit = defineEmits<{ loaded: [{ owner: { type: string, id: string }, label: string }] }>()
 const conversationId = props.conversationId
-const session = useSession()
 
 // In superadmin (promoted) mode the evaluator runs against the configured source
 // account, never the reviewed owner; account-admins keep using their own account.

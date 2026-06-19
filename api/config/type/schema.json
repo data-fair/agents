@@ -82,6 +82,13 @@
         "id": { "type": "string" }
       }
     },
+    "github": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "token": { "type": "string" }
+      }
+    },
     "util": {},
     "get": {},
     "has": {}

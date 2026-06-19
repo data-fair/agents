@@ -24,6 +24,9 @@ export type ApiConfig = {
     type: "user" | "organization";
     id: string;
   } | null;
+  github?: {
+    token?: string;
+  };
   util?: unknown;
   get?: unknown;
   has?: unknown;

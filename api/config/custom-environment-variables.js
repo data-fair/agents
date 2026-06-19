@@ -17,5 +17,6 @@ export default {
   evaluatorAccount: {
     type: 'EVALUATOR_ACCOUNT_TYPE',
     id: 'EVALUATOR_ACCOUNT_ID'
-  }
+  },
+  github: { token: 'GITHUB_TOKEN' }
 }
