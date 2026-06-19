@@ -4,7 +4,7 @@
 "use strict";
 export const validate = validate14;
 export default validate14;
-const schema16 = {"$id":"https://github.com/data-fair/agents/api/config","x-exports":["types","validate"],"x-ajv":{"coerceTypes":"array"},"type":"object","title":"Api config","additionalProperties":false,"required":["privateDirectoryUrl","mongoUrl","port","tmpDir","observer","secretKeys","cipherPassword","currency","requireAnonymousActionToken"],"properties":{"mongoUrl":{"type":"string"},"port":{"type":"number"},"tmpDir":{"type":"string"},"privateDirectoryUrl":{"type":"string","pattern":"^https?://"},"privateEventsUrl":{"type":"string"},"secretKeys":{"type":"object","additionalProperties":false,"properties":{"events":{"type":"string"}}},"observer":{"type":"object","properties":{"active":{"type":"boolean"},"port":{"type":"number"}}},"upgradeRoot":{"type":"string"},"cipherPassword":{"type":"string"},"currency":{"type":"string","default":"EUR"},"requireAnonymousActionToken":{"type":"boolean","default":true},"util":{},"get":{},"has":{}}};
+const schema16 = {"$id":"https://github.com/data-fair/agents/api/config","x-exports":["types","validate"],"x-ajv":{"coerceTypes":"array"},"type":"object","title":"Api config","additionalProperties":false,"required":["privateDirectoryUrl","mongoUrl","port","tmpDir","observer","secretKeys","cipherPassword","currency","requireAnonymousActionToken"],"properties":{"mongoUrl":{"type":"string"},"port":{"type":"number"},"tmpDir":{"type":"string"},"privateDirectoryUrl":{"type":"string","pattern":"^https?://"},"privateEventsUrl":{"type":"string"},"secretKeys":{"type":"object","additionalProperties":false,"properties":{"events":{"type":"string"}}},"observer":{"type":"object","properties":{"active":{"type":"boolean"},"port":{"type":"number"}}},"upgradeRoot":{"type":"string"},"cipherPassword":{"type":"string"},"currency":{"type":"string","default":"EUR"},"requireAnonymousActionToken":{"type":"boolean","default":true},"github":{"type":"object","additionalProperties":false,"properties":{"token":{"type":"string"}}},"util":{},"get":{},"has":{}}};
 const func2 = Object.prototype.hasOwnProperty;
 const pattern0 = new RegExp("^https?://", "u");
 
@@ -621,14 +621,79 @@ data["requireAnonymousActionToken"] = coerced11;
 }
 }
 }
-}
-else {
-const err26 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(data.github !== undefined){
+let data14 = data.github;
+if(data14 && typeof data14 == "object" && !Array.isArray(data14)){
+for(const key2 in data14){
+if(!(key2 === "token")){
+const err26 = {instancePath:instancePath+"/github",schemaPath:"#/properties/github/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key2},message:"must NOT have additional properties"};
 if(vErrors === null){
 vErrors = [err26];
 }
 else {
 vErrors.push(err26);
+}
+errors++;
+}
+}
+if(data14.token !== undefined){
+let data15 = data14.token;
+if(typeof data15 !== "string"){
+let dataType12 = typeof data15;
+let coerced12 = undefined;
+if(dataType12 == 'object' && Array.isArray(data15) && data15.length == 1){
+data15 = data15[0];
+dataType12 = typeof data15;
+if(typeof data15 === "string"){
+coerced12 = data15;
+}
+}
+if(!(coerced12 !== undefined)){
+if(dataType12 == "number" || dataType12 == "boolean"){
+coerced12 = "" + data15;
+}
+else if(data15 === null){
+coerced12 = "";
+}
+else {
+const err27 = {instancePath:instancePath+"/github/token",schemaPath:"#/properties/github/properties/token/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err27];
+}
+else {
+vErrors.push(err27);
+}
+errors++;
+}
+}
+if(coerced12 !== undefined){
+data15 = coerced12;
+if(data14 !== undefined){
+data14["token"] = coerced12;
+}
+}
+}
+}
+}
+else {
+const err28 = {instancePath:instancePath+"/github",schemaPath:"#/properties/github/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(vErrors === null){
+vErrors = [err28];
+}
+else {
+vErrors.push(err28);
+}
+errors++;
+}
+}
+}
+else {
+const err29 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(vErrors === null){
+vErrors = [err29];
+}
+else {
+vErrors.push(err29);
 }
 errors++;
 }
