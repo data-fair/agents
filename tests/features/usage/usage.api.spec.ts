@@ -53,7 +53,7 @@ test.describe('Usage API', () => {
   })
 
   test('should return usage with limits after gateway request', async () => {
-    // Use gateway to generate a request (mock provider returns 0 tokens)
+    // Use gateway to generate a request (mock tokens are priced at 0, so cost stays 0)
     const cookieString = await user.cookieJar.getCookieString(directoryUrl)
     const provider = createOpenAI({
       baseURL: `http://localhost:${process.env.DEV_API_PORT}/api/gateway/user/test-standalone1/v1`,

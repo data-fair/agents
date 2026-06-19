@@ -12,9 +12,25 @@ interface MockPromptResult {
   delayMs?: number
 }
 
-const defaultUsage: LanguageModelV3Usage = {
-  inputTokens: { total: 0, cacheRead: undefined, cacheWrite: undefined, noCache: undefined },
-  outputTokens: { total: 0, text: undefined, reasoning: undefined }
+/**
+ * Minimal stand-in token estimator: ~4 characters per token, rounded up. The
+ * mock provider has no real tokenizer, so this gives dev/test traces non-zero,
+ * length-proportional token counts (and thus visible cost when prices are
+ * configured) instead of always reporting 0.
+ */
+export function estimateMockTokens (text: string): number {
+  return Math.ceil((text?.length ?? 0) / 4)
+}
+
+function serializePrompt (prompt: string | Array<any>): string {
+  return typeof prompt === 'string' ? prompt : JSON.stringify(prompt)
+}
+
+function buildUsage (promptText: string, outputText: string): LanguageModelV3Usage {
+  return {
+    inputTokens: { total: estimateMockTokens(promptText), cacheRead: undefined, cacheWrite: undefined, noCache: undefined },
+    outputTokens: { total: estimateMockTokens(outputText), text: undefined, reasoning: undefined }
+  }
 }
 
 function getLastUserMessage (options: { prompt: string | Array<any> }): string {
@@ -223,9 +239,11 @@ export function createMockLanguageModel (modelId: string = 'mock-model'): Langua
     doStream: async (options) => {
       const result = processForModel(modelId, options)
       if (result.delayMs) await new Promise(resolve => setTimeout(resolve, result.delayMs))
+      const promptText = serializePrompt(options.prompt)
 
       if (result.type === 'tool-call') {
         const calls = result.toolCalls ?? [{ toolName: result.toolName!, toolArgs: result.toolArgs || '{}' }]
+        const usage = buildUsage(promptText, JSON.stringify(calls))
         const stream = new ReadableStream<LanguageModelV3StreamPart>({
           start (controller) {
             calls.forEach((call, idx) => {
@@ -242,7 +260,7 @@ export function createMockLanguageModel (modelId: string = 'mock-model'): Langua
             })
             controller.enqueue({
               type: 'finish',
-              usage: defaultUsage,
+              usage,
               finishReason: { unified: 'tool-calls' as const, raw: undefined }
             })
             controller.close()
@@ -251,6 +269,7 @@ export function createMockLanguageModel (modelId: string = 'mock-model'): Langua
         return { stream }
       }
 
+      const usage = buildUsage(promptText, result.text ?? '')
       const stream = new ReadableStream<LanguageModelV3StreamPart>({
         start (controller) {
           let i = 0
@@ -261,7 +280,7 @@ export function createMockLanguageModel (modelId: string = 'mock-model'): Langua
               setTimeout(pushChar, 10)
             } else {
               controller.enqueue({ type: 'text-end', id: 'mock-id' })
-              controller.enqueue({ type: 'finish', usage: defaultUsage, finishReason: { unified: 'stop' as const, raw: undefined } })
+              controller.enqueue({ type: 'finish', usage, finishReason: { unified: 'stop' as const, raw: undefined } })
               controller.close()
             }
           }
@@ -275,6 +294,7 @@ export function createMockLanguageModel (modelId: string = 'mock-model'): Langua
     doGenerate: async (options) => {
       const result = processForModel(modelId, options)
       if (result.delayMs) await new Promise(resolve => setTimeout(resolve, result.delayMs))
+      const promptText = serializePrompt(options.prompt)
 
       if (result.type === 'tool-call') {
         const calls = result.toolCalls ?? [{ toolName: result.toolName!, toolArgs: result.toolArgs || '{}' }]
@@ -286,7 +306,7 @@ export function createMockLanguageModel (modelId: string = 'mock-model'): Langua
             input: call.toolArgs ? JSON.parse(call.toolArgs) : {}
           })),
           finishReason: { unified: 'tool-calls' as const, raw: undefined },
-          usage: defaultUsage,
+          usage: buildUsage(promptText, JSON.stringify(calls)),
           warnings: []
         }
       }
@@ -294,7 +314,7 @@ export function createMockLanguageModel (modelId: string = 'mock-model'): Langua
       return {
         content: [{ type: 'text' as const, text: result.text! }],
         finishReason: { unified: 'stop' as const, raw: undefined },
-        usage: defaultUsage,
+        usage: buildUsage(promptText, result.text ?? ''),
         warnings: []
       }
     }
