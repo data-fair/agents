@@ -16,7 +16,14 @@
     max-width="300"
     variant="outlined"
     @update:model-value="onSelect"
-  />
+  >
+    <!-- Render the selection in a slot so the typed search text stays
+         decoupled from the selected org's name (otherwise the selected name
+         is pushed into `search` and filters the next server query). -->
+    <template #selection>
+      {{ selectedOwner?.name }}
+    </template>
+  </v-autocomplete>
 </template>
 
 <i18n lang="yaml">
