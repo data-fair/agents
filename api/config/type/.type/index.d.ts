@@ -20,6 +20,10 @@ export type ApiConfig = {
   cipherPassword: string;
   currency: string;
   requireAnonymousActionToken: boolean;
+  evaluatorAccount?: {
+    type: "user" | "organization";
+    id: string;
+  } | null;
   util?: unknown;
   get?: unknown;
   has?: unknown;

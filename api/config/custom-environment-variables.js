@@ -13,5 +13,9 @@ export default {
   upgradeRoot: 'UPGRADE_ROOT',
   cipherPassword: 'CIPHER_PASSWORD',
   currency: 'CURRENCY',
-  requireAnonymousActionToken: 'REQUIRE_ANONYMOUS_ACTION_TOKEN'
+  requireAnonymousActionToken: 'REQUIRE_ANONYMOUS_ACTION_TOKEN',
+  evaluatorAccount: {
+    type: 'EVALUATOR_ACCOUNT_TYPE',
+    id: 'EVALUATOR_ACCOUNT_ID'
+  }
 }
