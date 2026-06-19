@@ -305,6 +305,15 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
         let ttfc: number | undefined
         const streamedToolCalls = new Map<string, { id: string, name: string, arguments: string }>()
         for await (const part of result.fullStream) {
+          if (part.type === 'error') {
+            // The AI SDK surfaces a mid-stream provider failure as an in-band 'error'
+            // part rather than throwing out of the for-await. Without re-throwing it the
+            // loop would end normally and we'd emit a clean [DONE] with no error chunk —
+            // the client would then see an empty completion and silently drop the turn.
+            // Throw so the catch below emits a proper error chunk to the client.
+            const e = (part as { error?: unknown }).error
+            throw (e instanceof Error ? e : new Error(typeof e === 'string' ? e : 'Stream error'))
+          }
           if (part.type === 'text-delta') {
             streamedText += part.text
             if (ttfc === undefined) ttfc = Date.now() - traceStart
