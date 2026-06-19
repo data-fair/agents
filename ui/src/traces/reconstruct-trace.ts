@@ -11,9 +11,11 @@ export interface StoredTraceRequest {
   contextKind: 'turn' | 'sub' | 'compaction' | 'moderation' | 'unknown'
   agent?: { name: string, index?: number }
   modelRole: string
+  provider?: { name: string, type: string }
   request: { model: string, body: any, messageCount: number, toolCount: number, bodyChars: number }
   response: { content: string, toolCalls: { id: string, name: string, arguments: string }[], finishReason?: string }
   usage: { inputTokens: number, outputTokens: number, cacheReadTokens?: number, cacheWriteTokens?: number }
+  cost?: { input: number, output: number, total: number }
   timing: { durationMs: number, timeToFirstChunkMs?: number }
   createdAt: string
   moderation?: { action: 'allow' | 'block', category?: string, reason?: string, latencyMs?: number, failOpen?: 'timeout' | 'error' }
@@ -95,6 +97,9 @@ export function reconstructTrace (requests: StoredTraceRequest[]): SessionTrace 
     contextId: r.contextId,
     timestamp: ts(r.createdAt),
     modelRole: r.modelRole,
+    model: r.request.model,
+    provider: r.provider,
+    cost: r.cost,
     requestBody: r.request.body,
     result: { content: r.response.content, toolCalls: r.response.toolCalls, finishReason: r.response.finishReason },
     inputTokens: r.usage.inputTokens,
@@ -242,8 +247,10 @@ export function reconstructTrace (requests: StoredTraceRequest[]): SessionTrace 
   const flags = sorted.find(r => r.flags)?.flags ?? DEFAULT_FLAGS
   const summary = {
     requestCount: physicalRequests.length,
+    totalDurationMs: physicalRequests.reduce((s, p) => s + (p.durationMs || 0), 0),
     inputTokens: physicalRequests.reduce((s, p) => s + (p.inputTokens || 0), 0),
     outputTokens: physicalRequests.reduce((s, p) => s + (p.outputTokens || 0), 0),
+    ...(physicalRequests.some(p => p.cost) ? { totalCost: physicalRequests.reduce((s, p) => s + (p.cost?.total || 0), 0) } : {}),
     flags
   }
 

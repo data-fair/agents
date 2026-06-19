@@ -31,36 +31,27 @@ flowchart TD
 
 **Storage:** Two MongoDB documents per user×period — one `daily:YYYY-MM-DD`, one `monthly:YYYY-MM`. Atomic `$inc` upserts for concurrent-safe recording.
 
-**Key files:**
-- `api/src/usage/enforce.ts:41` — `resolveUsageIdentity()` resolves the caller's identity (per-user/per-IP, untrusted flag, `poolId`)
-- `api/src/usage/enforce.ts:71` — `enforceQuotas()` orchestrates the global → untrusted-pool → per-user checks
-- `api/src/usage/operations.ts:32` — `checkQuota()`, plus `firstQuotaViolation()` and `isUntrustedRole()` (`api/src/usage/operations.ts:104`)
-- `api/src/usage/service.ts:61` — `getUsage()`, `recordUsage()` (`:81`), `getOwnerUsage()` (`:141`)
-- `api/src/settings/service.ts:13` — `defaultQuotas` (includes the `untrusted` pool entry, `:20`)
-- `api/src/auth.ts` — `getEffectiveRole()`, `assertCanUseModel()`, `assertRoleQuota()`
-- `api/src/gateway/router.ts:123` — request path: `resolveUsageIdentity()` then `enforceQuotas()`, 429 on violation
-
 ## Untrusted pool quota
 
 Per-user role quotas cap each *individual* anonymous IP and external user, and the global quota caps *everyone combined* — but neither caps the *aggregate* of untrusted traffic on its own. With a per-IP cap of e.g. $10 and a thousand IPs, anonymous traffic could grow until it hits the shared global cap and starve the account's real members. The **untrusted pool** closes that gap: a single shared quota covering all `anonymous` and `external` usage combined, sitting between the global and per-user checks.
 
-A caller is "untrusted" when `isUntrustedRole(role)` is true, i.e. `role === 'anonymous' || role === 'external'` (`api/src/usage/operations.ts:104`). `resolveUsageIdentity()` sets `isUntrusted` and tags the request with `poolId = 'pool:untrusted'` (the `UNTRUSTED_POOL_ID` sentinel, `api/src/usage/enforce.ts:25`) for untrusted callers; trusted callers get no `poolId`.
+A caller is "untrusted" when `isUntrustedRole(role)` is true, i.e. `role === 'anonymous' || role === 'external'`. `resolveUsageIdentity()` sets `isUntrusted` and tags the request with `poolId = 'pool:untrusted'` (the `UNTRUSTED_POOL_ID` sentinel) for untrusted callers; trusted callers get no `poolId`.
 
 The same `isUntrusted` flag also gates the [moderation guard](./moderation.md): before any quota check, the gateway refuses untrusted callers under a moderation strike cooldown outright (zero LLM calls, no quota consumed).
 
-**Enforcement order.** The single entry point is `enforceQuotas()` (`api/src/usage/enforce.ts:71`), called from the gateway at `api/src/gateway/router.ts:126`. It builds the checks in this order and returns the first violation via `firstQuotaViolation()`:
+**Enforcement order.** The single entry point is `enforceQuotas()` in `api/src/usage/enforce.ts`, called from the gateway router. It builds the checks in this order and returns the first violation via `firstQuotaViolation()`:
 
 1. **Global** (account-wide aggregate, `getOwnerUsage()`), scope `organization`/`user`.
 2. **Untrusted pool** — only when `identity.isUntrusted`; reads the pool aggregate with `getUsage(owner, 'pool:untrusted')`, scope `untrusted`.
 3. **Per-user / per-IP** role cap — only when `trackPerUser`; reads `getUsage(owner, usageUserId)`, scope `user`.
 
-> Note: the design spec proposed the order per-user → pool → global, but the implemented order is global → pool → per-user (verified in `api/src/usage/enforce.ts`). Each check is skipped when its `RoleQuota` is `unlimited` or has `monthlyLimit === 0`, so a pool limit of `0` means "no pool cap" — backwards-compatible for accounts that never configure one.
+> Note: the design spec proposed the order per-user → pool → global, but the implemented order is global → pool → per-user. Each check is skipped when its `RoleQuota` is `unlimited` or has `monthlyLimit === 0`, so a pool limit of `0` means "no pool cap" — backwards-compatible for accounts that never configure one.
 
-**Recording.** `recordUsage()` takes an optional `poolId` (`api/src/usage/service.ts:81`); when set it upserts the `pool:untrusted` daily/weekly/monthly aggregates the same way it already upserts the account aggregate, in addition to the per-user record. The gateway passes `identity.poolId` so untrusted requests increment all three (per-user + account + pool).
+**Recording.** `recordUsage()` takes an optional `poolId`; when set it upserts the `pool:untrusted` daily/weekly/monthly aggregates the same way it already upserts the account aggregate, in addition to the per-user record. The gateway passes `identity.poolId` so untrusted requests increment all three (per-user + account + pool).
 
-**Configuration.** The limit is a standard `RoleQuota` (`unlimited` + `monthlyLimit`) stored under `quotas.untrusted` in account settings (`api/types/settings/schema.js`, UI title "Anonymous + external pool"), defaulting to `{ unlimited: false, monthlyLimit: 0 }` in `defaultQuotas` (`api/src/settings/service.ts:20`).
+**Configuration.** The limit is a standard `RoleQuota` (`unlimited` + `monthlyLimit`) stored under `quotas.untrusted` in account settings (UI title "Anonymous + external pool"), defaulting to `{ unlimited: false, monthlyLimit: 0 }` in `defaultQuotas`.
 
-**Pool records are not real users.** `getUsersDailyHistory()` skips any `userId` starting with `pool:` so the shared aggregate never appears as a user in usage history (`api/src/usage/service.ts`).
+**Pool records are not real users.** `getUsersDailyHistory()` skips any `userId` starting with `pool:` so the shared aggregate never appears as a user in usage history.
 
 ## Account & role routing
 

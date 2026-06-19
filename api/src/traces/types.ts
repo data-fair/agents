@@ -36,6 +36,9 @@ export interface TraceRequest {
     finishReason?: string
   }
   usage: { inputTokens: number, outputTokens: number, cacheReadTokens?: number, cacheWriteTokens?: number }
+  // money cost of this request, computed at record time from the unit prices in
+  // effect then; absent on pre-feature documents (cacheTokens are not priced)
+  cost?: { input: number, output: number, total: number }
   timing: { durationMs: number, timeToFirstChunkMs?: number }
   // verdict of the gateway-side moderation check, when it had settled by the
   // time this request was recorded (untrusted callers only)

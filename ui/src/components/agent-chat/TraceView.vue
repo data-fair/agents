@@ -10,7 +10,7 @@
       class="d-flex align-center flex-wrap ga-2 px-2 py-1 mb-1 bg-background rounded"
     >
       <span class="text-caption font-weight-medium">
-        {{ summary.requestCount }} {{ t('requests') }} · {{ formatTokens(summary.inputTokens) }} {{ t('in') }} · {{ formatTokens(summary.outputTokens) }} {{ t('out') }}
+        {{ summary.requestCount }} {{ t('requests') }} · {{ formatDuration(summary.totalDurationMs) }} · {{ formatTokens(summary.inputTokens) }} {{ t('in') }} · {{ formatTokens(summary.outputTokens) }} {{ t('out') }}<template v-if="summary.totalCost != null"> · {{ formatCost(summary.totalCost) }}</template>
       </span>
       <v-spacer />
       <v-chip
@@ -82,6 +82,11 @@
           >{{ entry.label }}</span>
           <span class="text-label-small text-medium-emphasis text-truncate agent-chat__trace-preview">{{ entry.preview }}</span>
           <span
+            v-if="entry.cost != null"
+            class="text-medium-emphasis ml-2 flex-shrink-0"
+            style="white-space: nowrap;"
+          >{{ formatCost(entry.cost.total) }}</span>
+          <span
             class="text-medium-emphasis ml-2 flex-shrink-0"
             style="white-space: nowrap;"
           >
@@ -112,6 +117,16 @@
               >
                 {{ traceEntryDetails[entry.index].content.finishReason }}
               </v-chip>
+              <div
+                v-if="traceEntryDetails[entry.index].content.model"
+                class="text-caption mt-2"
+              >
+                {{ traceEntryDetails[entry.index].content.model }}<template v-if="traceEntryDetails[entry.index].content.provider">
+                  ({{ traceEntryDetails[entry.index].content.provider.name }})
+                </template><template v-if="traceEntryDetails[entry.index].content.cost">
+                  · {{ formatCost(traceEntryDetails[entry.index].content.cost.total) }} ({{ formatCost(traceEntryDetails[entry.index].content.cost.input) }} {{ t('in') }} + {{ formatCost(traceEntryDetails[entry.index].content.cost.output) }} {{ t('out') }})
+                </template>
+              </div>
               <div class="text-caption text-medium-emphasis mb-1 mt-2">
                 {{ t('request') }}
               </div>
@@ -130,6 +145,25 @@
                 {{ t('tools') }}
               </div>
               <pre class="agent-chat__pre pa-2 mt-1">{{ JSON.stringify(traceEntryDetails[entry.index]?.content?.tools, null, 2) }}</pre>
+            </template>
+            <template v-else-if="entry.type === 'compaction'">
+              <v-chip
+                size="x-small"
+                color="orange"
+                variant="tonal"
+                label
+                class="my-2"
+              >
+                {{ traceEntryDetails[entry.index].content.originalCharCount }} → {{ traceEntryDetails[entry.index].content.compactedCharCount }} {{ t('chars') }}
+              </v-chip>
+              <div class="text-caption text-medium-emphasis mb-1 mt-2">
+                {{ t('summary') }}
+              </div>
+              <pre class="agent-chat__pre pa-2 mt-1">{{ traceEntryDetails[entry.index]?.content?.summary }}</pre>
+              <div class="text-caption text-medium-emphasis mb-1 mt-2">
+                {{ t('summarizedMessages') }}
+              </div>
+              <pre class="agent-chat__pre pa-2 mt-1">{{ JSON.stringify(traceEntryDetails[entry.index]?.content?.originalMessages, null, 2) }}</pre>
             </template>
             <template v-else-if="entry.type === 'moderation'">
               <v-chip
@@ -176,6 +210,9 @@ fr:
   tools: Outils
   request: Requête
   response: Réponse
+  summary: Résumé
+  summarizedMessages: Messages résumés
+  chars: caractères
   category: Catégorie
   reason: Raison
   moderationAllowed: Autorisé
@@ -196,6 +233,9 @@ en:
   tools: Tools
   request: Request
   response: Response
+  summary: Summary
+  summarizedMessages: Summarized messages
+  chars: chars
   category: Category
   reason: Reason
   moderationAllowed: Allowed
@@ -294,6 +334,18 @@ const flagChips = computed(() => [
 
 // Compact token formatting: 1234 -> "1.2k", 999 -> "999".
 const formatTokens = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : `${n}`
+
+const formatCost = (n: number) => `${n.toFixed(4)} €`
+
+// Cumulated request time: sub-second stays in ms, otherwise seconds (one decimal
+// under a minute) then minutes+seconds.
+const formatDuration = (ms: number) => {
+  if (ms < 1000) return `${Math.round(ms)}ms`
+  const s = ms / 1000
+  if (s < 60) return `${s.toFixed(1)}s`
+  const m = Math.floor(s / 60)
+  return `${m}m ${Math.round(s % 60)}s`
+}
 </script>
 
 <style scoped>

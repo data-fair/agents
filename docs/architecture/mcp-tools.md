@@ -64,8 +64,6 @@ Under the hood:
 2. The tool is registered via `navigator.modelContext.registerTool(agentTool)`
 3. `onScopeDispose()` automatically unregisters the tool when the Vue component unmounts
 
-**Key file:** `lib-vue/use-agent-tools.ts`
-
 ---
 
 ## 2. Server-Side Transport
@@ -83,8 +81,6 @@ This composable:
 2. Creates a `BrowserMcpServer` wrapping the existing `navigator.modelContext` (preserving already-registered tools)
 3. **Replaces** `navigator.modelContext` with the server — all subsequent `registerTool()` calls go through the MCP server and are automatically exposed via BroadcastChannel
 4. On dispose: closes transport, restores original `navigator.modelContext`
-
-**Key files:** `lib-vue/use-frame-server.ts`, `lib-vue/frame-server-transport.ts`
 
 ---
 
@@ -211,8 +207,6 @@ Tool annotations (like `title`) are preserved on the wrapper for UI display.
 
 Tool name collisions across servers are resolved by last-write-wins (`Object.assign`).
 
-**Key file:** `ui/src/transports/frame-client-aggregator.ts`
-
 ---
 
 ## 5. Flow to the LLM
@@ -239,8 +233,6 @@ When the LLM requests a tool call:
 3. The MCP server dispatches to the registered tool's execute function
 4. The result flows back through the same chain
 
-**Key file:** `ui/src/composables/use-agent-chat.ts:114-582`
-
 > By default the full aggregated tool map is sent to the LLM on every request. An opt-in **exploration mode** instead discloses tools on demand — see [Tool exploration](./tool-exploration.md).
 
 ---
@@ -258,8 +250,6 @@ The gateway's `convertOpenAITools()` creates tools **without execute functions**
 `convertToolChoice()` maps between formats:
 - `'none'` / `'auto'` / `'required'` → AI SDK equivalents
 - `{ type: 'function', function: { name } }` → `{ type: 'tool', toolName }`
-
-**Key file:** `api/src/gateway/operations.ts`
 
 ---
 
@@ -314,14 +304,3 @@ Execution:
 
 ---
 
-## Key Files
-
-| File | Role |
-|------|------|
-| `lib-vue/use-agent-tools.ts` | `useAgentTool()` — registers tools via WebMCP polyfill |
-| `lib-vue/use-frame-server.ts` | `useFrameServer()` — exposes tools across frames |
-| `lib-vue/frame-server-transport.ts` | `FrameServerTransport` — BroadcastChannel server-side |
-| `ui/src/transports/frame-client-transport.ts` | `FrameClientTransport` — BroadcastChannel client-side |
-| `ui/src/transports/frame-client-aggregator.ts` | `FrameClientAggregator` — discovers servers, merges tools |
-| `ui/src/composables/use-agent-chat.ts` | Passes tools to LLM, handles tool results |
-| `api/src/gateway/operations.ts` | `convertOpenAITools()` — OpenAI ↔ AI SDK conversion |

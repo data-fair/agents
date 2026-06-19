@@ -23,6 +23,7 @@ declare module 'vue' {
     MonitoringUserHistogram: typeof import('./src/components/MonitoringUserHistogram.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    TraceComparePicker: typeof import('./src/components/TraceComparePicker.vue')['default']
     TraceConsentSheet: typeof import('./src/components/agent-chat/TraceConsentSheet.vue')['default']
     TraceReview: typeof import('./src/components/TraceReview.vue')['default']
     TracesSection: typeof import('./src/components/TracesSection.vue')['default']

@@ -102,13 +102,18 @@ test.describe('History Compaction', () => {
     const compactionEntry = tracePanels.locator('.v-expansion-panel', { hasText: 'compaction' }).first()
     await expect(compactionEntry).toBeVisible({ timeout: 10000 })
 
-    // Expand the entry — detail auto-loads and contains the compaction fields.
+    // Expand the entry — the dedicated compaction panel auto-loads. It renders a
+    // char-count chip (originalCharCount → compactedCharCount chars) and the summary
+    // text in the first <pre>, rather than a raw JSON detail.
     await compactionEntry.locator('.v-expansion-panel-title').click()
     await expect(compactionEntry.locator('.agent-chat__pre').first()).toBeVisible({ timeout: 3000 })
     const detail = await compactionEntry.locator('.agent-chat__pre').first().textContent()
-    expect(detail).toContain('summary')
-    expect(detail).toContain('originalCharCount')
-    expect(detail).toContain('compactedCharCount')
+    expect(detail).toContain('conversation covered the main topics')
+    // The char-count chip in the panel body shows the reduction "<original> → <compacted> chars".
+    // Filter by 'chars' so we match the body chip, not the "compaction" type badge in the title.
+    const chip = await compactionEntry.locator('.v-chip', { hasText: 'chars' }).first().textContent()
+    expect(chip).toContain('→')
+    expect(chip).toContain('chars')
   })
 
   test('Conversation remains functional after compaction', async ({ page, goToWithAuth }) => {

@@ -255,11 +255,12 @@ test.describe('reconstructTrace (unit)', () => {
 
   test('computes summary totals and flags', () => {
     const reqs = [
-      req({ usage: { inputTokens: 100, outputTokens: 10 }, flags: { toolExploration: true, subAgents: false, mermaid: true } }),
-      req({ createdAt: '2026-06-08T00:00:01.000Z', usage: { inputTokens: 50, outputTokens: 5 } })
+      req({ usage: { inputTokens: 100, outputTokens: 10 }, timing: { durationMs: 120 }, flags: { toolExploration: true, subAgents: false, mermaid: true } }),
+      req({ createdAt: '2026-06-08T00:00:01.000Z', usage: { inputTokens: 50, outputTokens: 5 }, timing: { durationMs: 80 } })
     ]
     const trace = reconstructTrace(reqs as any)
     assert.equal(trace.summary.requestCount, 2)
+    assert.equal(trace.summary.totalDurationMs, 200)
     assert.equal(trace.summary.inputTokens, 150)
     assert.equal(trace.summary.outputTokens, 15)
     // flags come from the first request that carries them
@@ -270,5 +271,22 @@ test.describe('reconstructTrace (unit)', () => {
     const trace = reconstructTrace([req({})] as any)
     assert.deepEqual(trace.summary.flags, { toolExploration: false, subAgents: true, mermaid: false })
     assert.equal(trace.summary.requestCount, 1)
+  })
+
+  test('carries model, provider and cost onto physical requests, and sums totalCost', () => {
+    const reqs = [
+      req({ provider: { name: 'OpenAI', type: 'openai' }, request: { model: 'gpt-5', body: { model: 'assistant', messages: [], tools: [] }, messageCount: 0, toolCount: 0, bodyChars: 2 }, cost: { input: 0.001, output: 0.002, total: 0.003 } }),
+      req({ createdAt: '2026-06-08T00:00:01.000Z', cost: { input: 0.004, output: 0.001, total: 0.005 } })
+    ]
+    const trace = reconstructTrace(reqs as any)
+    assert.equal(trace.physicalRequests[0].model, 'gpt-5')
+    assert.deepEqual(trace.physicalRequests[0].provider, { name: 'OpenAI', type: 'openai' })
+    assert.deepEqual(trace.physicalRequests[0].cost, { input: 0.001, output: 0.002, total: 0.003 })
+    assert.equal(trace.summary.totalCost, 0.008)
+  })
+
+  test('leaves totalCost undefined when no request carries cost', () => {
+    const trace = reconstructTrace([req({})] as any)
+    assert.equal(trace.summary.totalCost, undefined)
   })
 })

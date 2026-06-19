@@ -30,7 +30,9 @@ test.describe('traces operations (unit)', () => {
       body: { model: 'assistant', messages: [{ role: 'user', content: 'hi' }], tools: [] },
       response: { content: 'world', toolCalls: [], finishReason: 'stop' },
       usage: { inputTokens: 0, outputTokens: 0 },
-      timing: { durationMs: 12 }
+      timing: { durationMs: 12 },
+      inputPricePerMillion: 0,
+      outputPricePerMillion: 0
     }, now)
 
     assert.equal(doc.conversation.id, 'conv1')
@@ -41,5 +43,45 @@ test.describe('traces operations (unit)', () => {
     // createdAt is a BSON Date (the TTL index on it expires the doc after 30 days)
     assert.ok(doc.createdAt instanceof Date)
     assert.equal(doc.createdAt.getTime(), now.getTime())
+  })
+
+  test('buildTraceRequestDoc computes the cost breakdown from tokens and prices', () => {
+    const now = new Date('2026-06-08T00:00:00.000Z')
+    const doc = buildTraceRequestDoc({
+      owner: { type: 'user', id: 'u1' },
+      conversationId: 'c1',
+      contextId: 'turn:t1',
+      modelRole: 'assistant',
+      providerName: 'OpenAI',
+      providerType: 'openai',
+      resolvedModel: 'gpt-5',
+      body: { messages: [], tools: [] },
+      response: { content: 'hi', toolCalls: [] },
+      usage: { inputTokens: 1_000_000, outputTokens: 500_000 },
+      timing: { durationMs: 10 },
+      inputPricePerMillion: 3,
+      outputPricePerMillion: 6
+    }, now)
+    assert.deepEqual(doc.cost, { input: 3, output: 3, total: 6 })
+  })
+
+  test('buildTraceRequestDoc yields zero cost when prices are zero', () => {
+    const now = new Date('2026-06-08T00:00:00.000Z')
+    const doc = buildTraceRequestDoc({
+      owner: { type: 'user', id: 'u1' },
+      conversationId: 'c1',
+      contextId: 'turn:t1',
+      modelRole: 'assistant',
+      providerName: 'Mock',
+      providerType: 'mock',
+      resolvedModel: 'm',
+      body: { messages: [], tools: [] },
+      response: { content: '', toolCalls: [] },
+      usage: { inputTokens: 100, outputTokens: 10 },
+      timing: { durationMs: 1 },
+      inputPricePerMillion: 0,
+      outputPricePerMillion: 0
+    }, now)
+    assert.deepEqual(doc.cost, { input: 0, output: 0, total: 0 })
   })
 })

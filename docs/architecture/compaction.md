@@ -25,6 +25,3 @@ sequenceDiagram
 
 The threshold is overridable via `sessionStorage.setItem('agent-chat-compaction-threshold', ...)` for testing.
 
-**Key files:**
-- `ui/src/composables/use-agent-chat.ts` — `compactHistory()`
-- `api/src/summary/router.ts` — Server-side summarization endpoint

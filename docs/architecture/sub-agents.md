@@ -214,7 +214,7 @@ This also reduces pressure on the 24,000-character compaction threshold (see [Co
 
 ## 7. Telemetry
 
-There is no live in-browser recorder. Instead, each sub-agent's physical LLM requests are tagged with a trace context id via an `x-trace-ctx: sub:<name>:<index>:<parentToolCallId>` header (`use-agent-chat.ts:505`). When [trace storage](./tracing.md) is enabled (org `storeTraces`) and consented (`x-trace-consent`), the gateway stores those requests; at view time `reconstructTrace()` groups them by `contextId` into a sub-agent block (`ui/src/traces/reconstruct-trace.ts:146`), shown alongside the main agent's flow on the review page.
+There is no live in-browser recorder. Instead, each sub-agent's physical LLM requests are tagged with a trace context id via an `x-trace-ctx: sub:<name>:<index>:<parentToolCallId>` header. When [trace storage](./tracing.md) is enabled (org `storeTraces`) and consented (`x-trace-consent`), the gateway stores those requests; at view time `reconstructTrace()` groups them by `contextId` into a sub-agent block, shown alongside the main agent's flow on the review page.
 
 ---
 
@@ -250,13 +250,6 @@ still references the `subagent_`-prefixed names), so they are effectively hidden
 exploration is also on. This degrades gracefully (no crash) and matters only when both
 experimental toggles are active at once.
 
-**Key files:**
-- `ui/src/composables/use-agent-chat.ts` — `flatteningEnabled`, `sendMessage` flat branch
-- `ui/src/composables/sub-agent-flatten.ts` — `shouldFlattenSubAgent` policy (pure, unit-tested)
-- `lib-vue/use-agent-sub-agent.ts` — `delegateOnly` opt-out field
-- `ui/src/components/AgentChat.vue` — `agent-chat-flatten` toggle handler
-- `ui/src/components/agent-chat/AgentChatDebugDialog.vue` — the Settings-tab switch
-
 ---
 
 ## Data Structures
@@ -291,10 +284,3 @@ interface DebugToolsPartition {
 
 ---
 
-## Key files
-
-- `lib-vue/use-agent-sub-agent.ts` — Sub-agent registration composable; declares sub-agents as pseudo-tools
-- `ui/src/composables/use-agent-chat.ts:82-112` — `partitionTools()`, separates main and sub-agent tools
-- `ui/src/composables/use-agent-chat.ts:259-286` — `resolveSubAgents()`, fetches configs and reserves tools
-- `ui/src/composables/use-agent-chat.ts:292-316` — `uiMessageToChatMessages()`, UIMessage → ChatMessage conversion
-- `ui/src/composables/use-agent-chat.ts:396-494` — `ToolLoopAgent` wiring, async generator streaming, multi-turn state

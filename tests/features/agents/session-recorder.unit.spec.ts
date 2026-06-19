@@ -428,6 +428,81 @@ test.describe('Evaluator tools', () => {
   })
 })
 
+test.describe('Evaluator tools - compare mode', () => {
+  function buildRecorderWith (systemPrompt: string) {
+    const trace: SessionTrace = {
+      systemPrompt,
+      toolSnapshots: [[{ name: 'search', description: 'Search', inputSchema: { type: 'object' } }]],
+      toolChanges: [],
+      turns: [{ userMessage: 'hi', timestamp: new Date(), steps: [{ timestamp: new Date(), messages: [{ role: 'assistant', content: [{ type: 'text', text: 'ok' }] }], finishReason: 'stop', toolCalls: [] }] }],
+      physicalRequests: []
+    }
+    return SessionRecorder.fromTrace(trace)
+  }
+  const opts = { accountType: 'user', accountId: 'alice', apiPath: '/agents/api' }
+
+  test('single mode: trace-scoped tools have no trace param', () => {
+    const tools = buildEvaluatorTools(buildRecorderWith('PROMPT-A'), opts)
+    const schema = (tools.getTraceEntry as any).inputSchema.jsonSchema
+    assert.ok(!schema.properties.trace, 'single mode should not expose a trace param')
+    assert.deepEqual(schema.required, ['index'])
+  })
+
+  test('compare mode: trace-scoped tools gain a required trace param', () => {
+    const tools = buildEvaluatorTools(buildRecorderWith('PROMPT-A'), opts, buildRecorderWith('PROMPT-B'))
+    const schema = (tools.getTraceEntry as any).inputSchema.jsonSchema
+    assert.deepEqual(schema.properties.trace.enum, ['A', 'B'])
+    assert.ok(schema.required.includes('trace'))
+    // readArchitectureDoc stays un-scoped
+    assert.ok(!(tools.readArchitectureDoc as any).inputSchema.jsonSchema.properties.trace)
+  })
+
+  test('compare mode: getSessionConfig routes to A or B by the trace param', async () => {
+    const tools = buildEvaluatorTools(buildRecorderWith('PROMPT-A'), opts, buildRecorderWith('PROMPT-B'))
+    const ra = await (tools.getSessionConfig as any).execute({ trace: 'A' })
+    const rb = await (tools.getSessionConfig as any).execute({ trace: 'B' })
+    assert.ok(ra.includes('PROMPT-A'))
+    assert.ok(rb.includes('PROMPT-B'))
+    assert.ok(!ra.includes('PROMPT-B'))
+  })
+
+  test('compare mode: getTraceOverview routes to B', async () => {
+    const traceA: SessionTrace = {
+      systemPrompt: 'PROMPT-A',
+      toolSnapshots: [],
+      toolChanges: [],
+      turns: [{ userMessage: 'hello from A', timestamp: new Date(), steps: [] }],
+      physicalRequests: []
+    }
+    const traceB: SessionTrace = {
+      systemPrompt: 'PROMPT-B',
+      toolSnapshots: [],
+      toolChanges: [],
+      turns: [{ userMessage: 'hello from B', timestamp: new Date(), steps: [] }],
+      physicalRequests: []
+    }
+    const a = SessionRecorder.fromTrace(traceA)
+    const b = SessionRecorder.fromTrace(traceB)
+    const tools = buildEvaluatorTools(a, opts, b)
+    const resultB = await (tools.getTraceOverview as any).execute({ trace: 'B' })
+    assert.ok(typeof resultB === 'string')
+    assert.ok(resultB.includes('hello from B'), 'result should contain B user message')
+    assert.ok(!resultB.includes('hello from A'), 'result should NOT contain A user message')
+    // Also verify routing to A works
+    const resultA = await (tools.getTraceOverview as any).execute({ trace: 'A' })
+    assert.ok(resultA.includes('hello from A'), 'result should contain A user message')
+    assert.ok(!resultA.includes('hello from B'), 'result should NOT contain B user message')
+  })
+
+  test('compare mode: trace-scoped tool throws when trace param is omitted', async () => {
+    const tools = buildEvaluatorTools(buildRecorderWith('PROMPT-A'), opts, buildRecorderWith('PROMPT-B'))
+    await assert.rejects(
+      async () => (tools.getTraceOverview as any).execute({}),
+      /trace.*parameter.*required|required.*trace.*parameter/i
+    )
+  })
+})
+
 test.describe('SessionRecorder - serialization', () => {
   test('serializeTrace + fromTrace round-trips and revives Date fields', () => {
     const trace = buildSampleTrace()

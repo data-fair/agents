@@ -33,7 +33,3 @@ graph LR
 
 Each owner (user or organization) configures their own providers and model assignments. API keys are **encrypted at rest** (AES-256-CBC) and obfuscated in API responses. Model lists are fetched from provider APIs with **5-minute memoized caching**.
 
-**Key files:**
-- `api/src/models/operations.ts` — `createModel()` factory
-- `api/src/models/router.ts` — Dynamic model discovery with caching
-- `api/src/settings/operations.ts` — API key encryption/obfuscation

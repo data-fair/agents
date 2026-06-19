@@ -25,6 +25,9 @@ export interface PhysicalRequestTrace {
   contextId: string
   timestamp: Date
   modelRole: string
+  model?: string
+  provider?: { name: string, type: string }
+  cost?: { input: number, output: number, total: number }
   requestBody: any
   result: { content: string; toolCalls: { id: string; name: string; arguments: string }[]; finishReason?: string }
   inputTokens: number
@@ -68,8 +71,10 @@ export interface ToolChangeEvent {
 
 export interface TraceSummary {
   requestCount: number
+  totalDurationMs: number
   inputTokens: number
   outputTokens: number
+  totalCost?: number
   flags: AgentFlags
 }
 
@@ -91,6 +96,7 @@ export interface TraceOverviewEntry {
   timestamp: Date
   label: string
   preview: string
+  cost?: { input: number, output: number, total: number }
 }
 
 export interface TraceEntryDetail {
@@ -134,7 +140,7 @@ export class SessionRecorder {
     toolChanges: [],
     turns: [],
     physicalRequests: [],
-    summary: { requestCount: 0, inputTokens: 0, outputTokens: 0, flags: { ...DEFAULT_FLAGS } }
+    summary: { requestCount: 0, totalDurationMs: 0, inputTokens: 0, outputTokens: 0, flags: { ...DEFAULT_FLAGS } }
   }
 
   getTrace (): SessionTrace {
@@ -153,7 +159,7 @@ export class SessionRecorder {
   }
 
   getSummary (): TraceSummary {
-    return this.trace.summary ?? { requestCount: 0, inputTokens: 0, outputTokens: 0, flags: { ...DEFAULT_FLAGS } }
+    return this.trace.summary ?? { requestCount: 0, totalDurationMs: 0, inputTokens: 0, outputTokens: 0, flags: { ...DEFAULT_FLAGS } }
   }
 
   private cachedOverview: TraceOverviewEntry[] = []
@@ -278,11 +284,15 @@ export class SessionRecorder {
         {
           type: 'physical-request',
           timestamp: pr.timestamp,
-          label: pr.modelRole,
-          preview: `${pr.inputTokens} in${pr.cacheReadTokens ? ` (${pr.cacheReadTokens} cached)` : ''} · ${pr.outputTokens} out · ${pr.messageCount} msgs · ${pr.toolCount} tools · ${Math.round(pr.durationMs)}ms`
+          label: pr.model ? `${pr.modelRole} · ${pr.model}${pr.provider ? ` (${pr.provider.name})` : ''}` : pr.modelRole,
+          preview: `${pr.inputTokens} in${pr.cacheReadTokens ? ` (${pr.cacheReadTokens} cached)` : ''} · ${pr.outputTokens} out · ${pr.messageCount} msgs · ${pr.toolCount} tools · ${Math.round(pr.durationMs)}ms`,
+          ...(pr.cost ? { cost: pr.cost } : {})
         },
         {
           modelRole: pr.modelRole,
+          model: pr.model,
+          provider: pr.provider,
+          cost: pr.cost,
           inputTokens: pr.inputTokens,
           outputTokens: pr.outputTokens,
           cacheReadTokens: pr.cacheReadTokens,

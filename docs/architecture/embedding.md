@@ -111,8 +111,6 @@ All three components (drawer, menu, block) accept:
 Drawer-specific: `drawerProps` (pass-through to `VNavigationDrawer`).
 Menu-specific: `btnProps`, `menuProps`, `cardProps` (pass-through to Vuetify components).
 
-**Key files:** `lib-vuetify/DfAgentChatDrawer.vue`, `lib-vuetify/DfAgentChatMenu.vue`, `lib-vuetify/DfAgentChatBlock.vue`, `lib-vuetify/DfAgentChatToggle.vue`
-
 ---
 
 ## Singleton State
@@ -145,8 +143,6 @@ When tools change dynamically, the button flashes `accent` for 3 seconds (`tools
 
 An unread badge (red dot) appears when the agent produces a response while the drawer is closed.
 
-**Key file:** `lib-vuetify/useAgentChatBase.ts`
-
 ---
 
 ## iframe Communication
@@ -174,8 +170,6 @@ Used for session lifecycle — any frame on the same origin can interact:
 | `agent-session-cleared` | Action → all | Signals that an action button was unmounted |
 | `agent-chat-ping` | Action → drawer | Discovery probe |
 | `agent-chat-pong` | Drawer → action | Presence response |
-
-**Key file:** `lib-vuetify/types.ts`
 
 ---
 
@@ -276,8 +270,6 @@ bc.postMessage({ channel: channelId, type: 'agent-chat-ping' })
 
 `DfAgentChatAction` is a button a host app drops directly into a page (for example a contextual "ask the assistant" help action next to a creation or configuration form — this is how it is used in data-fair on creation/config pages). On mount it pings over BroadcastChannel for a live drawer and only shows itself once one answers (`agent-chat-pong` / `agent-chat-ready`). On click it broadcasts an `agent-start-session` message carrying a `visiblePrompt` (shown to the user) and a `hiddenContext` (page context passed to the agent silently), which opens the drawer and starts the conversation. It is the declarative, in-page counterpart to the programmatic `agent-start-session` snippet above.
 
-**Key file:** `lib-vuetify/DfAgentChatAction.vue`
-
 ---
 
 ## URL Resolution
@@ -314,25 +306,5 @@ setAgentInitConfig('my-chat', { prompt: 'You are a portal assistant…', title: 
 // then load the iframe with `…/chat?initConfig=my-chat`
 ```
 
-**Key file:** `lib-vue/agent-init-config.ts`
-
 ---
 
-## Key Files
-
-| File | Role |
-|------|------|
-| `lib-vuetify/DfAgentChatDrawer.vue` | Floating drawer with iframe |
-| `lib-vuetify/DfAgentChatMenu.vue` | Popover menu with iframe |
-| `lib-vuetify/DfAgentChatBlock.vue` | Flat in-page chat (always visible) |
-| `lib-vuetify/DfAgentChatToggle.vue` | FAB button with status indicator |
-| `lib-vuetify/DfAgentChatAction.vue` | Inline in-page action button that broadcasts `agent-start-session` |
-| `lib-vuetify/useAgentChatBase.ts` | Shared state factory: status, unread, BroadcastChannel, URL resolution |
-| `lib-vuetify/useAgentChatDrawer.ts` | Drawer singleton composable |
-| `lib-vuetify/useAgentChatMenu.ts` | Menu singleton composable |
-| `lib-vuetify/useAgentChatBlock.ts` | Block singleton composable |
-| `lib-vuetify/types.ts` | Message type definitions |
-| `lib-vue/agent-init-config.ts` | sessionStorage handoff for systemPrompt/title |
-| `lib-vue/use-frame-server.ts` | Expose tools via MCP over BroadcastChannel |
-| `lib-vue/use-agent-tools.ts` | Register tools via WebMCP polyfill |
-| `lib-vue/use-agent-sub-agent.ts` | Declare sub-agents |
