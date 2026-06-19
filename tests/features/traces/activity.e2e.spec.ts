@@ -1,15 +1,15 @@
 /**
- * E2E test: activity page (/:type/:id/activity) lists stored conversations
- * and navigates to /traces/:id/review when a row is clicked.
+ * E2E test: activity page (/:type/:id) lists stored conversations
+ * and navigates to /:type/:id/traces/:id when a row is clicked.
  *
  * Scenario:
  *   1. PUT settings with storeTraces: true and a mock provider/assistant model.
  *   2. Drive a gateway request with consent headers so a trace gets stored.
  *   3. Poll GET /api/traces/organization/test1 until the conversation appears.
- *   4. Navigate to /agents/organization/test1/activity as superadmin in adminMode.
+ *   4. Navigate to /agents/organization/test1 as superadmin in adminMode.
  *   5. Assert ConfigSummary chip "Mock Provider · mock" is visible.
  *   6. Assert the trace row with preview "activity hello" is listed.
- *   7. Click the row; assert the URL changes to /traces/conv-act/review.
+ *   7. Click the row; assert the URL changes to /organization/test1/traces/conv-act.
  */
 
 import { expect } from '@playwright/test'
@@ -73,7 +73,7 @@ test.describe('Activity page', () => {
   })
 
   test('lists stored conversations and navigates to review', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/organization/test1/activity', 'superadmin', { adminMode: true })
+    await goToWithAuth('/agents/organization/test1', 'superadmin', { adminMode: true })
 
     // ConfigSummary renders a chip per provider: "{{ p.name }} · {{ p.type }}"
     await expect(page.getByText('Mock Provider · mock')).toBeVisible({ timeout: 15000 })
@@ -84,6 +84,6 @@ test.describe('Activity page', () => {
 
     // Clicking the row navigates to the review page
     await convRow.click()
-    await expect(page).toHaveURL(/\/traces\/conv-act\/review/, { timeout: 10000 })
+    await expect(page).toHaveURL(/\/organization\/test1\/traces\/conv-act/, { timeout: 10000 })
   })
 })

@@ -178,7 +178,7 @@ test.describe('Advanced Sub-Agent Scenarios', () => {
     const conversationId = await pollConversationId()
     expect(conversationId).toBeTruthy()
 
-    await goToWithAuth(`/agents/traces/${conversationId}/review`, 'test-standalone1')
+    await goToWithAuth(`/agents/user/test-standalone1/traces/${conversationId}`, 'test-standalone1')
 
     const tracePanel = page.locator('.agent-chat__trace-panels')
     await expect(tracePanel).toBeVisible({ timeout: 10000 })

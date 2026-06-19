@@ -68,7 +68,7 @@ const accountPages = computed(() => {
   if (!account) return []
   const base = `/${account.type}/${account.id}`
   return [
-    { path: `${base}/settings`, title: 'settings' },
+    { path: base, title: 'activity' },
     { path: `${base}/chat`, title: 'chat' }
   ]
 })

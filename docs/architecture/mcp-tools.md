@@ -175,14 +175,24 @@ const aiTool = tool({
   description: t.description || '',
   inputSchema: jsonSchema(t.inputSchema || { type: 'object', properties: {} }),
   execute: async (args) => {
-    const callResult = await server.client.callTool({ name: t.name, arguments: args })
-    const textParts = callResult.content
-      ?.filter(c => c.type === 'text')
-      .map(c => c.text)
-    return textParts?.join('\n') ?? JSON.stringify(callResult)
+    // request() rather than callTool(): the latter also validates the result's
+    // structuredContent against the tool's declared outputSchema, but we discard
+    // structuredContent (see below), so that check could only break the call.
+    const callResult = await server.client.request(
+      { method: 'tools/call', params: { name: t.name, arguments: args } },
+      CallToolResultSchema
+    )
+    return formatMcpToolResult(callResult)
   }
 })
 ```
+
+`formatMcpToolResult` keeps only the text `content` parts (and prefixes `isError`
+results) — `structuredContent` is intentionally dropped because the
+OpenAI-compatible wire protocol to the gateway carries tool output as a single
+text string with no structured channel. Because that payload is text-only,
+output-schema validation is bypassed (see above) so it cannot reject a call over
+a value that is never consumed.
 
 Tool annotations (like `title`) are preserved on the wrapper for UI display.
 

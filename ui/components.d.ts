@@ -7,6 +7,7 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    AccountSelector: typeof import('./src/components/AccountSelector.vue')['default']
     AgentChat: typeof import('./src/components/AgentChat.vue')['default']
     AgentChatDebugDialog: typeof import('./src/components/agent-chat/AgentChatDebugDialog.vue')['default']
     AgentChatHeader: typeof import('./src/components/agent-chat/AgentChatHeader.vue')['default']
@@ -24,6 +25,7 @@ declare module 'vue' {
     RouterView: typeof import('vue-router')['RouterView']
     TraceComparePicker: typeof import('./src/components/TraceComparePicker.vue')['default']
     TraceConsentSheet: typeof import('./src/components/agent-chat/TraceConsentSheet.vue')['default']
+    TraceReview: typeof import('./src/components/TraceReview.vue')['default']
     TracesSection: typeof import('./src/components/TracesSection.vue')['default']
     TraceView: typeof import('./src/components/agent-chat/TraceView.vue')['default']
     UsageCard: typeof import('./src/components/UsageCard.vue')['default']

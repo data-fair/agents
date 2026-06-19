@@ -46,6 +46,7 @@
     <traces-section
       :account-type="accountType"
       :account-id="accountId"
+      :base="`/${accountType}/${accountId}`"
     />
   </v-container>
 </template>
@@ -77,6 +78,7 @@ import MonitoringGlobalSection from '~/components/MonitoringGlobalSection.vue'
 import MonitoringIndividualSection from '~/components/MonitoringIndividualSection.vue'
 import ModerationSection from '~/components/ModerationSection.vue'
 import TracesSection from '~/components/TracesSection.vue'
+import { setBreadcrumbs } from '~/utils/breadcrumbs'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -84,6 +86,8 @@ const router = useRouter()
 const session = useSession()
 const accountType = route.params.type as string
 const accountId = route.params.id as string
+
+setBreadcrumbs([])
 
 const settings = ref<any>(null)
 const loadError = ref('')

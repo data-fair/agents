@@ -1,11 +1,11 @@
 /**
- * E2E test: navigate to /traces/:id/review and assert the stored trace renders.
+ * E2E test: navigate to /organization/test1/traces/:id and assert the stored trace renders.
  *
  * Scenario:
  *   1. PUT settings with storeTraces: true and a mock provider/assistant model.
  *   2. Drive a gateway request with consent headers so a trace gets stored.
  *   3. Poll GET /api/traces/conversation/:id until the trace appears.
- *   4. Navigate to /agents/traces/:id/review as superadmin.
+ *   4. Navigate to /agents/organization/test1/traces/:id as superadmin.
  *   5. Assert the TraceView rendered (a user-message chip is visible).
  */
 
@@ -52,7 +52,7 @@ async function waitForConversation (conversationId: string) {
   throw new Error(`Timed out waiting for conversation ${conversationId}`)
 }
 
-test.describe('Trace review page (/traces/:id/review)', () => {
+test.describe('Trace review page (/organization/test1/traces/:id)', () => {
   test.beforeEach(async () => {
     await clean()
     await admin.put('/api/settings/organization/test1', settingsData)
@@ -75,7 +75,7 @@ test.describe('Trace review page (/traces/:id/review)', () => {
   })
 
   test('renders the stored trace for an admin', async ({ page, goToWithAuth }) => {
-    await goToWithAuth(`/agents/traces/${CONV_ID}/review`, 'superadmin', { adminMode: true })
+    await goToWithAuth(`/agents/organization/test1/traces/${CONV_ID}`, 'superadmin', { adminMode: true })
 
     // The page must not show the load-error state
     await expect(page.getByText('Trace not found or access denied.', { exact: false })).toHaveCount(0)
@@ -86,7 +86,7 @@ test.describe('Trace review page (/traces/:id/review)', () => {
   })
 
   test('shows the summary bar, flag chips and view toggle', async ({ page, goToWithAuth }) => {
-    await goToWithAuth(`/agents/traces/${CONV_ID}/review`, 'superadmin', { adminMode: true })
+    await goToWithAuth(`/agents/organization/test1/traces/${CONV_ID}`, 'superadmin', { adminMode: true })
 
     // summary bar: the request-count metric and a feature-specific flag chip
     // ('tool exploration' is active per the cookie set in beforeEach).

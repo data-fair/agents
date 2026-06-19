@@ -4,7 +4,7 @@
  * Scenario:
  *   1. PUT settings with storeTraces + a mock provider/assistant model.
  *   2. Drive two gateway requests (two conversation ids) so two traces get stored.
- *   3. Navigate to /agents/traces/:idA/review as superadmin.
+ *   3. Navigate to /agents/organization/test1/traces/:idA as superadmin.
  *   4. Click "Compare with…", pick the second conversation.
  *   5. Assert ?compare= is set and two TraceViews render.
  *   6. Collapse the evaluator, then clear the comparison.
@@ -74,7 +74,7 @@ test.describe('Trace comparison (/traces/:id/review?compare=)', () => {
   })
 
   test('picks a second trace and renders both side by side', async ({ page, goToWithAuth }) => {
-    await goToWithAuth(`/agents/traces/${CONV_A}/review`, 'superadmin', { adminMode: true })
+    await goToWithAuth(`/agents/organization/test1/traces/${CONV_A}`, 'superadmin', { adminMode: true })
 
     // single view first: one TraceView (one user-message chip)
     await expect(page.getByText('user-message').first()).toBeVisible({ timeout: 15000 })

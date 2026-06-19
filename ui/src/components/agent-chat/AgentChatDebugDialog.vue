@@ -293,11 +293,11 @@ const showConsentToggle = computed(() => traceStorageAvailable.value || consentR
 
 const showReview = computed(() => !!props.isAdmin && traceStorageAvailable.value && consentRef.value === 'yes')
 
-// Open the review in a new tab. `router.resolve(...).href` includes the app's
-// base ('/agents'), so this works whether the chat is standalone or embedded in
-// data-fair — and avoids relying on host navigation for a route the host doesn't have.
+// Open the review in a new tab at the account-scoped trace route. `router.resolve(...).href`
+// includes the app's base ('/agents'), so this works whether the chat is standalone or
+// embedded in data-fair.
 const openReview = () => {
-  const href = router.resolve({ path: `/traces/${props.conversationId}/review` }).href
+  const href = router.resolve({ path: `/${props.accountType}/${props.accountId}/traces/${props.conversationId}` }).href
   window.open(href, '_blank')
 }
 </script>

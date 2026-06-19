@@ -39,7 +39,7 @@ test.describe('Monitoring UI', () => {
     await admin.post('/api/test-env/usage', { owner, cost: 5, period: dailyPeriod(0) })
     await admin.post('/api/test-env/usage', { owner, cost: 30, period: monthlyPeriod(0) })
 
-    await goToWithAuth('/agents/user/test-standalone1/settings', 'test-standalone1')
+    await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
 
     await page.locator('#section-global').scrollIntoViewIfNeeded()
     await expect(page.getByText('Monthly usage (12 months)')).toBeVisible()
@@ -52,7 +52,7 @@ test.describe('Monitoring UI', () => {
 
     await admin.post('/api/test-env/usage', { owner, userId: 'user-a', cost: 10, period: dailyPeriod(0) })
 
-    await goToWithAuth('/agents/user/test-standalone1/settings', 'test-standalone1')
+    await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
 
     await page.locator('#section-individual').scrollIntoViewIfNeeded()
     await expect(page.getByText('Per-user usage (last 7 days)')).toBeVisible()
@@ -66,7 +66,7 @@ test.describe('Monitoring UI', () => {
     const admin = await superAdmin
     await admin.put('/api/settings/user/test-standalone1', settingsData)
 
-    await goToWithAuth('/agents/user/test-standalone1/settings', 'test-standalone1')
+    await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
 
     await page.locator('#section-global').scrollIntoViewIfNeeded()
     // Both histograms should show no data

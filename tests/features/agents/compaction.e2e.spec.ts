@@ -4,7 +4,7 @@
  * Validates that:
  *   - When history exceeds the compaction threshold, compaction is triggered
  *   - The compaction round-trip is stored server-side and visible on the
- *     /traces/:id/review page
+ *     /user/test-standalone1/traces/:id page
  *   - The conversation continues working after compaction
  */
 
@@ -91,7 +91,7 @@ test.describe('History Compaction', () => {
     expect(conversationId).toBeTruthy()
 
     // Open the per-trace review page.
-    await goToWithAuth(`/agents/traces/${conversationId}/review`, 'test-standalone1')
+    await goToWithAuth(`/agents/user/test-standalone1/traces/${conversationId}`, 'test-standalone1')
 
     // reconstruct-trace rebuilds a dedicated "compaction" trace entry from the stored
     // summarizer round-trip, so the review page shows a compaction chip with the

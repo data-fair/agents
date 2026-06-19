@@ -101,8 +101,7 @@
 <i18n lang="yaml">
 fr:
   loadError: Trace introuvable ou accès refusé.
-  storedConversations: Conversations enregistrées
-  review: Relecture
+  review: Analyse
   compareWith: Comparer avec…
   comparing: Comparaison de deux traces (A / B)
   clearCompare: Fermer la comparaison
@@ -111,7 +110,6 @@ fr:
   compareError: Trace de comparaison introuvable ou propriétaire différent.
 en:
   loadError: Trace not found or access denied.
-  storedConversations: Stored conversations
   review: Review
   compareWith: Compare with…
   comparing: Comparing two traces (A / B)
@@ -133,12 +131,13 @@ import { $apiPath } from '~/context'
 import TraceView from '~/components/agent-chat/TraceView.vue'
 import EvaluatorChat from '~/components/EvaluatorChat.vue'
 import TraceComparePicker from '~/components/TraceComparePicker.vue'
-import { setBreadcrumbs } from '~/utils/breadcrumbs'
 
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
-const conversationId = route.params.id as string
+const props = defineProps<{ conversationId: string }>()
+const emit = defineEmits<{ loaded: [{ owner: { type: string, id: string }, label: string }] }>()
+const conversationId = props.conversationId
 
 const recorder = shallowRef<SessionRecorder | null>(null)
 const recorderB = shallowRef<SessionRecorder | null>(null)
@@ -214,11 +213,7 @@ onMounted(async () => {
     owner.value = loaded.owner
     recorder.value = loaded.recorder
     const firstMessage = recorder.value.getTrace().turns[0]?.userMessage?.trim()
-    const label = firstMessage ? firstMessage.slice(0, 60) : t('review')
-    setBreadcrumbs([
-      { text: t('storedConversations'), to: `/${loaded.owner.type}/${loaded.owner.id}/activity` },
-      { text: label }
-    ])
+    emit('loaded', { owner: loaded.owner, label: firstMessage ? firstMessage.slice(0, 60) : t('review') })
     // Honor a ?compare= param present on first load (deep link / refresh).
     const compareId = route.query.compare
     if (typeof compareId === 'string' && compareId && compareId !== conversationId) {

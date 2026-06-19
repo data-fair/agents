@@ -13,18 +13,18 @@ test.describe('Settings UI', () => {
   })
 
   test('Page loads with AI Providers section', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/user/test-standalone1/settings', 'test-standalone1')
+    await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
     await expect(page.getByText('AI Providers')).toBeVisible({ timeout: 10000 })
   })
 
   test('Can add a new Mock provider', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/user/test-standalone1/settings', 'test-standalone1')
+    await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
 
     // Click "Add item" button in AI Providers section
     await page.getByRole('button', { name: 'Add item' }).click()
 
     // Select provider type from dropdown
-    await page.getByRole('combobox').first().click()
+    await page.locator('.v-form').getByRole('combobox').first().click()
     await page.getByRole('option', { name: 'Mock' }).click()
 
     // Verify provider was added with correct name
@@ -38,14 +38,14 @@ test.describe('Settings UI', () => {
   })
 
   test('Save button appears when there are changes', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/user/test-standalone1/settings', 'test-standalone1')
+    await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
 
     // Initially Save button should not be visible (no changes)
     await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
 
     // Add a provider to create changes
     await page.getByRole('button', { name: 'Add item' }).click()
-    await page.getByRole('combobox').first().click()
+    await page.locator('.v-form').getByRole('combobox').first().click()
     await page.getByRole('option', { name: 'Mock' }).click()
 
     // Now Save button should be visible
@@ -61,7 +61,7 @@ test.describe('Settings UI', () => {
       quotas: defaultQuotas
     })
 
-    await goToWithAuth('/agents/user/test-standalone1/settings', 'superadmin', { adminMode: true })
+    await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
 
     // Wait for page to fully load
     await expect(page.getByText('AI Providers')).toBeVisible()
@@ -71,7 +71,7 @@ test.describe('Settings UI', () => {
 
     // Add a provider to create changes
     await page.getByRole('button', { name: 'Add item' }).click()
-    await page.getByRole('combobox').first().click()
+    await page.locator('.v-form').getByRole('combobox').first().click()
     await page.getByRole('option', { name: 'Mock' }).click()
 
     // Wait for form to validate
@@ -93,14 +93,14 @@ test.describe('Settings UI', () => {
       quotas: defaultQuotas
     })
 
-    await goToWithAuth('/agents/user/test-standalone1/settings', 'test-standalone1')
+    await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
 
     // Wait for page to load
     await expect(page.getByText('AI Providers')).toBeVisible()
 
     // Add a provider to create changes
     await page.getByRole('button', { name: 'Add item' }).click()
-    await page.getByRole('combobox').first().click()
+    await page.locator('.v-form').getByRole('combobox').first().click()
     await page.getByRole('option', { name: 'Mock' }).click()
 
     // Save button should now be visible
@@ -108,11 +108,11 @@ test.describe('Settings UI', () => {
   })
 
   test('Can delete a provider', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/user/test-standalone1/settings', 'test-standalone1')
+    await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
 
     // Add a Mock provider first
     await page.getByRole('button', { name: 'Add item' }).click()
-    await page.getByRole('combobox').first().click()
+    await page.locator('.v-form').getByRole('combobox').first().click()
     await page.getByRole('option', { name: 'Mock' }).click()
 
     // Verify provider was added
@@ -150,7 +150,7 @@ test.describe('Settings UI', () => {
   // on an empty config used to prune those hidden required props and raise a global
   // "required" error. The empty config must stay valid (models/quotas are not required).
   test('Toggling store-traces on an empty config does not raise a required error', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/user/test-standalone1/settings', 'superadmin', { adminMode: true })
+    await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
     await expect(page.getByText('AI Providers')).toBeVisible({ timeout: 10000 })
     await page.waitForTimeout(500)
 
@@ -174,7 +174,7 @@ test.describe('Settings UI', () => {
       quotas: defaultQuotas
     })
 
-    await goToWithAuth('/agents/organization/test1/settings', 'superadmin', { adminMode: true })
+    await goToWithAuth('/agents/admin/organization/test1', 'superadmin', { adminMode: true })
     await expect(page.getByText('AI Providers')).toBeVisible({ timeout: 10000 })
     await page.waitForTimeout(800)
 
@@ -193,7 +193,7 @@ test.describe('Settings UI', () => {
   // model-role sections (no providers). After saving, a reload must converge to a
   // clean state with no spurious diff.
   test('Saving an empty config converges: Save button stays hidden after reload', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/organization/test1/settings', 'superadmin', { adminMode: true })
+    await goToWithAuth('/agents/admin/organization/test1', 'superadmin', { adminMode: true })
     await expect(page.getByText('AI Providers')).toBeVisible({ timeout: 10000 })
     await page.waitForTimeout(500)
 
