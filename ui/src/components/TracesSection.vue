@@ -56,7 +56,7 @@ en:
 </i18n>
 
 <script lang="ts" setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { mdiDelete } from '@mdi/js'
 import { $apiPath } from '~/context'
@@ -92,5 +92,7 @@ const deleteTrace = async (conversationId: string) => {
   await fetchTraces()
 }
 
-onMounted(fetchTraces)
+// Refetch on mount and whenever the account changes (the section is reused
+// across org switches in the admin settings view), resetting pagination.
+watch(apiBase, () => { page.value = 1; fetchTraces() }, { immediate: true })
 </script>
