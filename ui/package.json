@@ -15,6 +15,7 @@
     "@agents/shared": "*",
     "@ai-sdk/openai": "^3.0.41",
     "@ai-sdk/vue": "^3.0.116",
+    "@data-fair/agent-tools-data-fair": "^0.6.3",
     "@data-fair/frame": "^0.18.0",
     "@data-fair/lib-vue": "^1.28.1",
     "@data-fair/lib-vue-agents": "*",
