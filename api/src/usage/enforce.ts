@@ -49,6 +49,22 @@ export async function resolveUsageIdentity (req: Request, owner: AccountKeys, qu
 
   // Authenticated path
   const session = sessionState
+
+  // Admin-mode superadmins may consume any account's gateway: treat them as an
+  // admin of the owner regardless of membership. This powers cross-account trace
+  // evaluation — the configured evaluator account is consumed, never the reviewed
+  // account. Quotas still apply and usage is still recorded on the owner below.
+  if (session.user?.adminMode) {
+    const trackPerUser = owner.type === 'organization'
+    return {
+      trackPerUser,
+      usageUserId: trackPerUser ? session.user.id : undefined,
+      usageUserName: trackPerUser ? session.user.name : undefined,
+      role: 'admin',
+      isUntrusted: false
+    }
+  }
+
   const isSameAccount = session.account.type === owner.type && session.account.id === owner.id
   const trackPerUser = owner.type === 'organization' || !isSameAccount
   assertCanUseModel(session, owner, quotas)

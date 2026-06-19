@@ -17,5 +17,6 @@ export default {
     events: 'secret-events'
   },
   cipherPassword: 'test',
-  upgradeRoot: '../'
+  upgradeRoot: '../',
+  evaluatorAccount: { type: 'organization', id: 'test1' }
 }

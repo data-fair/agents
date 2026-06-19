@@ -53,6 +53,11 @@ const props = defineProps<{
   recorderB?: SessionRecorder
   accountType: string
   accountId: string
+  // The conversation owner's account. Data-exploration tools scope to it, which
+  // can differ from accountType/accountId when a superadmin runs the evaluator
+  // against a promoted evaluator account. Falls back to accountType/accountId.
+  dataAccountType?: string
+  dataAccountId?: string
   department?: string
   isSuperadmin?: boolean
 }>()
@@ -71,8 +76,8 @@ const chatResult = useAgentChat({
       props.recorderB
     ),
     ...buildEvaluatorDataTools({
-      accountType: props.accountType,
-      accountId: props.accountId,
+      accountType: props.dataAccountType ?? props.accountType,
+      accountId: props.dataAccountId ?? props.accountId,
       department: props.department,
       dataFairApiPath: $sitePath + '/data-fair/api/v1'
     })
