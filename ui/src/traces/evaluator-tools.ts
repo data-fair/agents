@@ -109,12 +109,17 @@ export function buildEvaluatorTools (
     }),
 
     readArchitectureDoc: tool({
-      description: 'Read one of this platform\'s architecture docs to understand how a feature actually behaves (compaction, moderation, sub-agents, quotas, gateway, tracing, integration-context, etc.) before judging it. Pass an unknown topic to get the list of available topics.',
+      description: `Read one of this platform's architecture docs to understand how a feature actually behaves before judging it. Available topics: ${architectureTopics.join(', ')}.`,
       inputSchema: jsonSchema({
         type: 'object',
         properties: {
           topic: {
             type: 'string',
+            // Constrain to the real doc names so the model picks a valid topic
+            // directly. The topics are also listed in the description above —
+            // do NOT instruct the model to "pass an unknown topic to discover
+            // them": the enum rejects unknown values before execute() runs, so
+            // that round-trip only produces repeated validation errors.
             enum: architectureTopics,
             description: 'The architecture doc to read (filename without extension)'
           }
