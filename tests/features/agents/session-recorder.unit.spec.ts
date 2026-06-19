@@ -8,6 +8,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { SessionRecorder, serializeTrace, type SessionTrace } from '../../../ui/src/traces/session-recorder.ts'
 import { buildEvaluatorTools } from '../../../ui/src/traces/evaluator-tools.ts'
+import { buildSourceTools } from '../../../ui/src/traces/source-tools.ts'
 
 function buildSampleTrace (): SessionTrace {
   const now = new Date('2020-01-01T00:00:00Z')
@@ -523,5 +524,25 @@ test.describe('SessionRecorder - serialization', () => {
   test('fromTrace tolerates an empty trace', () => {
     const restored = SessionRecorder.fromTrace({ systemPrompt: '', toolSnapshots: [], toolChanges: [], turns: [], physicalRequests: [] })
     assert.deepEqual(restored.getTraceOverview(), [])
+  })
+})
+
+test.describe('source tools', () => {
+  test('explore_github exposes path/query/raw with only path required', () => {
+    const tools = buildSourceTools({ apiPath: '/agents/api' })
+    assert.ok(tools.explore_github, 'explore_github tool present')
+    const schema = (tools.explore_github as any).inputSchema.jsonSchema
+    assert.deepEqual(schema.required, ['path'])
+    assert.ok(schema.properties.path)
+    assert.ok(schema.properties.query)
+    assert.ok(schema.properties.raw)
+  })
+
+  test('explore_github description lists the whitelisted repos', () => {
+    const tools = buildSourceTools({ apiPath: '/agents/api' })
+    const desc = (tools.explore_github as any).description as string
+    assert.match(desc, /data-fair\/agents/)
+    assert.match(desc, /data-fair\/data-fair/)
+    assert.match(desc, /data-fair\/portals/)
   })
 })
