@@ -133,15 +133,16 @@ flowchart LR
 
 Two pages consume the stored traces, both admin-gated:
 
-- **Activity page** — `ui/src/pages/[type]/[id]/activity.vue`, route
-  `/:type/:id/activity`. Read-only, for any admin of the account (`isAdmin`:
+- **Activity page** — `ui/src/pages/[type]/[id]/index.vue`, route
+  `/:type/:id`. Read-only, for any admin of the account (`isAdmin`:
   site-admin or `admin` role on the account, redirects to chat otherwise). It shows a
   read-only configuration/limits summary and a paginated list of recent stored
   conversations (`GET /traces/:type/:id`), with per-row delete and per-user erase
   actions; each row links to the review page.
-- **Trace review page** — `ui/src/pages/traces/[id]/review.vue`, route
-  `/traces/:id/review` (`:id` = `conversationId`). It fetches
-  `GET /traces/conversation/:id` (which resolves the owner and asserts the requester is
+- **Trace review page** — `ui/src/components/TraceReview.vue`, mounted by the
+  account-scoped route page `ui/src/pages/[type]/[id]/traces/[convId].vue` (route
+  `/:type/:id/traces/:convId`) and a superadmin variant under `admin/`. It fetches
+  `GET /traces/conversation/:convId` (which resolves the owner and asserts the requester is
   an admin of it), runs `reconstructTrace` → `SessionRecorder.fromTrace`, and renders the
   two-pane `TraceView` + `EvaluatorChat` for analysis. The chat debug dialog surfaces a
   link to the current conversation's review only when the viewer is an admin and trace
