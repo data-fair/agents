@@ -40,10 +40,11 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAgentChat } from '~/composables/use-agent-chat'
 import { buildEvaluatorTools } from '~/traces/evaluator-tools'
+import { buildEvaluatorDataTools } from '~/traces/evaluator-data-tools'
 import { architectureDocs, architectureTopics } from '~/traces/architecture-docs'
-import { EVALUATOR_PROMPT, EVALUATOR_COMPARE_PREAMBLE } from '~/traces/evaluator-prompt'
+import { EVALUATOR_PROMPT, EVALUATOR_COMPARE_PREAMBLE, EVALUATOR_SOURCE_ADDENDUM } from '~/traces/evaluator-prompt'
 import type { SessionRecorder } from '~/traces/session-recorder'
-import { $apiPath } from '~/context'
+import { $apiPath, $sitePath } from '~/context'
 import AgentChatMessages from './agent-chat/AgentChatMessages.vue'
 import AgentChatInput from './agent-chat/AgentChatInput.vue'
 
@@ -52,20 +53,37 @@ const props = defineProps<{
   recorderB?: SessionRecorder
   accountType: string
   accountId: string
+  // The conversation owner's account. Data-exploration tools scope to it, which
+  // can differ from accountType/accountId when a superadmin runs the evaluator
+  // against a promoted evaluator account. Falls back to accountType/accountId.
+  dataAccountType?: string
+  dataAccountId?: string
+  department?: string
+  isSuperadmin?: boolean
 }>()
 
 const { t } = useI18n()
 
+const baseSystemPrompt = props.recorderB ? EVALUATOR_COMPARE_PREAMBLE + EVALUATOR_PROMPT : EVALUATOR_PROMPT
+
 const chatResult = useAgentChat({
   accountType: props.accountType,
   accountId: props.accountId,
-  localTools: buildEvaluatorTools(
-    props.recorder,
-    { accountType: props.accountType, accountId: props.accountId, apiPath: $apiPath, architectureDocs, architectureTopics },
-    props.recorderB
-  ),
+  localTools: {
+    ...buildEvaluatorTools(
+      props.recorder,
+      { accountType: props.accountType, accountId: props.accountId, apiPath: $apiPath, architectureDocs, architectureTopics, includeSourceTools: props.isSuperadmin },
+      props.recorderB
+    ),
+    ...buildEvaluatorDataTools({
+      accountType: props.dataAccountType ?? props.accountType,
+      accountId: props.dataAccountId ?? props.accountId,
+      department: props.department,
+      dataFairApiPath: $sitePath + '/data-fair/api/v1'
+    })
+  },
   modelName: 'evaluator',
-  systemPrompt: props.recorderB ? EVALUATOR_COMPARE_PREAMBLE + EVALUATOR_PROMPT : EVALUATOR_PROMPT
+  systemPrompt: props.isSuperadmin ? baseSystemPrompt + EVALUATOR_SOURCE_ADDENDUM : baseSystemPrompt
 })
 if (!chatResult) throw new Error('Chat not supported in SSR')
 const chat = chatResult

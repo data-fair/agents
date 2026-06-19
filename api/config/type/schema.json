@@ -72,6 +72,23 @@
       "type": "boolean",
       "default": true
     },
+    "evaluatorAccount": {
+      "type": ["object", "null"],
+      "default": null,
+      "additionalProperties": false,
+      "required": ["type", "id"],
+      "properties": {
+        "type": { "type": "string", "enum": ["user", "organization"] },
+        "id": { "type": "string" }
+      }
+    },
+    "github": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "token": { "type": "string" }
+      }
+    },
     "util": {},
     "get": {},
     "has": {}
