@@ -147,10 +147,13 @@ const session = useSession()
 // superadmin gate
 if (!session.state.user?.isAdmin) router.replace('/')
 
-setBreadcrumbs([])
-
 const accountType = route.params.type as string
 const accountId = route.params.id as string
+
+setBreadcrumbs([
+  { text: t('agents'), to: '/admin/agents' },
+  { text: accountId }
+])
 
 const settingsEditFetch = useEditFetch<Settings>(
   () => `${$apiPath}/settings/${accountType}/${accountId}`,

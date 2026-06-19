@@ -40,5 +40,5 @@ const session = useSession()
 // superadmin gate
 if (!session.state.user?.isAdmin) router.replace('/')
 
-setBreadcrumbs([])
+setBreadcrumbs([{ text: t('agents') }])
 </script>
