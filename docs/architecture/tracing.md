@@ -147,6 +147,11 @@ Two pages consume the stored traces, both admin-gated:
   two-pane `TraceView` + `EvaluatorChat` for analysis. The chat debug dialog surfaces a
   link to the current conversation's review only when the viewer is an admin and trace
   storage is available and consented.
+  In the superadmin (`admin/`) variant the evaluator (and its summarizer tool) run
+  against the account configured by `config.evaluatorAccount` — advertised via the
+  admin `/info` route (`evaluatorAccount` / `evaluatorAvailable`) — so reviewing a
+  trace never consumes the reviewed account; the chat is disabled with a hint when
+  that source account is unset, lacks an evaluator model, or admin mode is off.
 
 ### Comparing two traces
 

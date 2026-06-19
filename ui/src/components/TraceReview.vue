@@ -79,12 +79,19 @@
           class="trace-review__pane trace-review__chat"
         >
           <evaluator-chat
+            v-if="evaluatorEnabled && evaluatorOwner"
             :key="recorderB ? 'compare-' + (route.query.compare ?? '') : 'single'"
             :recorder="recorder"
             :recorder-b="recorderB ?? undefined"
-            :account-type="owner.type"
-            :account-id="owner.id"
+            :account-type="evaluatorOwner.type"
+            :account-id="evaluatorOwner.id"
           />
+          <div
+            v-else
+            class="pa-4 text-body-2 text-medium-emphasis"
+          >
+            {{ evaluatorHint }}
+          </div>
         </v-col>
       </v-row>
       <trace-compare-picker
@@ -108,6 +115,8 @@ fr:
   hideEvaluator: Masquer l'évaluateur
   showEvaluator: Afficher l'évaluateur
   compareError: Trace de comparaison introuvable ou propriétaire différent.
+  evaluatorNotConfigured: "Aucun compte évaluateur n'est configuré sur cette instance (config.evaluatorAccount avec un modèle évaluateur)."
+  enableAdminMode: "Activez le mode administrateur pour analyser les traces."
 en:
   loadError: Trace not found or access denied.
   review: Review
@@ -117,6 +126,8 @@ en:
   hideEvaluator: Hide evaluator
   showEvaluator: Show evaluator
   compareError: Comparison trace not found or has a different owner.
+  evaluatorNotConfigured: "No evaluator account is configured on this instance (config.evaluatorAccount with an evaluator model)."
+  enableAdminMode: "Enable admin mode to review traces."
 </i18n>
 
 <script lang="ts" setup>
@@ -131,13 +142,29 @@ import { $apiPath } from '~/context'
 import TraceView from '~/components/agent-chat/TraceView.vue'
 import EvaluatorChat from '~/components/EvaluatorChat.vue'
 import TraceComparePicker from '~/components/TraceComparePicker.vue'
+import { useSession } from '@data-fair/lib-vue/session.js'
 
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
-const props = defineProps<{ conversationId: string }>()
+const props = defineProps<{
+  conversationId: string
+  promotedEvaluator?: { account: { type: string, id: string } | null, available: boolean }
+}>()
 const emit = defineEmits<{ loaded: [{ owner: { type: string, id: string }, label: string }] }>()
 const conversationId = props.conversationId
+const session = useSession()
+
+// In superadmin (promoted) mode the evaluator runs against the configured source
+// account, never the reviewed owner; account-admins keep using their own account.
+const evaluatorOwner = computed(() => props.promotedEvaluator?.account ?? owner.value)
+const evaluatorEnabled = computed(() => {
+  if (!props.promotedEvaluator) return true
+  return props.promotedEvaluator.available && !!session.state.user?.adminMode
+})
+const evaluatorHint = computed(() => props.promotedEvaluator && !props.promotedEvaluator.available
+  ? t('evaluatorNotConfigured')
+  : t('enableAdminMode'))
 
 const recorder = shallowRef<SessionRecorder | null>(null)
 const recorderB = shallowRef<SessionRecorder | null>(null)
