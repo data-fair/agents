@@ -4,7 +4,7 @@ import { clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
 
 const admin = await superAdmin
 
-const REFUSAL = "This request can't be processed as it falls outside what this assistant is meant to help with."
+const REFUSAL = 'This message was declined by content moderation — it appears to fall outside what this assistant is meant to help with. Try rephrasing if you think this is a mistake.'
 
 const settingsData = {
   providers: [

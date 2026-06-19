@@ -88,7 +88,7 @@ fr:
       bar [20, 50, 90]
       line [20, 50, 90]
     ```
-  moderationRefusal: "Cette demande ne peut pas être traitée car elle sort du cadre de ce que cet assistant peut faire."
+  moderationRefusal: "Ce message a été refusé par la modération de contenu — il semble sortir du cadre de ce que cet assistant peut faire. Reformulez votre demande si vous pensez qu'il s'agit d'une erreur."
   fixMermaidVisible: "Corrige le diagramme qui n'a pas pu s'afficher."
   fixMermaidAuto: "Le diagramme n'a pas pu s'afficher, correction automatique en cours…"
 en:
@@ -108,7 +108,7 @@ en:
       bar [20, 50, 90]
       line [20, 50, 90]
     ```
-  moderationRefusal: "This request can't be processed as it falls outside what this assistant is meant to help with."
+  moderationRefusal: "This message was declined by content moderation — it appears to fall outside what this assistant is meant to help with. Try rephrasing if you think this is a mistake."
   fixMermaidVisible: "Please fix the diagram that failed to render."
   fixMermaidAuto: "The diagram failed to render, fixing it automatically…"
 </i18n>
