@@ -60,6 +60,7 @@ declare global {
   const isReactive: typeof import('vue')['isReactive']
   const isReadonly: typeof import('vue')['isReadonly']
   const isRef: typeof import('vue')['isRef']
+  const looksLikeIncompleteTable: typeof import('../src/utils/markdown')['looksLikeIncompleteTable']
   const markRaw: typeof import('vue')['markRaw']
   const newlyAvailableTools: typeof import('../src/composables/tool-exploration')['newlyAvailableTools']
   const nextTick: typeof import('vue')['nextTick']
@@ -88,6 +89,7 @@ declare global {
   const renderMarkdown: typeof import('../src/utils/markdown')['renderMarkdown']
   const renderMermaidIn: typeof import('../src/utils/mermaid')['renderMermaidIn']
   const renderStreamingMarkdown: typeof import('../src/utils/markdown')['renderStreamingMarkdown']
+  const repairInline: typeof import('../src/utils/markdown')['repairInline']
   const resetAnonymousToken: typeof import('../src/composables/use-anonymous-token')['resetAnonymousToken']
   const resolveComponent: typeof import('vue')['resolveComponent']
   const selectPromotions: typeof import('../src/composables/tool-exploration')['selectPromotions']
@@ -98,6 +100,7 @@ declare global {
   const shallowRef: typeof import('vue')['shallowRef']
   const shouldAutoFixMermaid: typeof import('../src/utils/mermaid-fix')['shouldAutoFixMermaid']
   const shouldFlattenSubAgent: typeof import('../src/composables/sub-agent-flatten')['shouldFlattenSubAgent']
+  const streamingSafeBuffer: typeof import('../src/utils/markdown')['streamingSafeBuffer']
   const toRaw: typeof import('vue')['toRaw']
   const toRef: typeof import('vue')['toRef']
   const toRefs: typeof import('vue')['toRefs']
@@ -196,6 +199,7 @@ declare module 'vue' {
     readonly isReactive: UnwrapRef<typeof import('vue')['isReactive']>
     readonly isReadonly: UnwrapRef<typeof import('vue')['isReadonly']>
     readonly isRef: UnwrapRef<typeof import('vue')['isRef']>
+    readonly looksLikeIncompleteTable: UnwrapRef<typeof import('../src/utils/markdown')['looksLikeIncompleteTable']>
     readonly markRaw: UnwrapRef<typeof import('vue')['markRaw']>
     readonly newlyAvailableTools: UnwrapRef<typeof import('../src/composables/tool-exploration')['newlyAvailableTools']>
     readonly nextTick: UnwrapRef<typeof import('vue')['nextTick']>
@@ -222,6 +226,7 @@ declare module 'vue' {
     readonly renderMarkdown: UnwrapRef<typeof import('../src/utils/markdown')['renderMarkdown']>
     readonly renderMermaidIn: UnwrapRef<typeof import('../src/utils/mermaid')['renderMermaidIn']>
     readonly renderStreamingMarkdown: UnwrapRef<typeof import('../src/utils/markdown')['renderStreamingMarkdown']>
+    readonly repairInline: UnwrapRef<typeof import('../src/utils/markdown')['repairInline']>
     readonly resetAnonymousToken: UnwrapRef<typeof import('../src/composables/use-anonymous-token')['resetAnonymousToken']>
     readonly resolveComponent: UnwrapRef<typeof import('vue')['resolveComponent']>
     readonly selectPromotions: UnwrapRef<typeof import('../src/composables/tool-exploration')['selectPromotions']>
@@ -232,6 +237,7 @@ declare module 'vue' {
     readonly shallowRef: UnwrapRef<typeof import('vue')['shallowRef']>
     readonly shouldAutoFixMermaid: UnwrapRef<typeof import('../src/utils/mermaid-fix')['shouldAutoFixMermaid']>
     readonly shouldFlattenSubAgent: UnwrapRef<typeof import('../src/composables/sub-agent-flatten')['shouldFlattenSubAgent']>
+    readonly streamingSafeBuffer: UnwrapRef<typeof import('../src/utils/markdown')['streamingSafeBuffer']>
     readonly toRaw: UnwrapRef<typeof import('vue')['toRaw']>
     readonly toRef: UnwrapRef<typeof import('vue')['toRef']>
     readonly toRefs: UnwrapRef<typeof import('vue')['toRefs']>
