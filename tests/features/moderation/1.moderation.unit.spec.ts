@@ -29,6 +29,16 @@ test.describe('moderation prompt', () => {
     // and the resolution of the ambiguous middle is to allow
     assert.ok(prompt.includes('when in doubt, allow'))
   })
+
+  test('whitelists resource metadata authoring so description/summary writing is not blocked as an essay', () => {
+    const prompt = buildModerationSystemPrompt().toLowerCase()
+    // writing a resource's description/summary is metadata management, always in scope
+    assert.ok(prompt.includes('metadata'))
+    assert.ok(prompt.includes('description'))
+    assert.ok(prompt.includes('summary'))
+    // and it must be explicitly distinguished from off-platform essay writing
+    assert.ok(prompt.includes('essay'))
+  })
 })
 
 test.describe('extractLastUserMessage', () => {

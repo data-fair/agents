@@ -18,7 +18,31 @@ const debug = Debug('df-agents:use-agent-chat')
 
 // Shown when the gateway blocks a message (finish_reason content_filter); the
 // host normally supplies a localized refusalMessage, this is the fallback.
-const DEFAULT_REFUSAL = "This request can't be processed as it falls outside what this assistant is meant to help with."
+// Names the decision as content moderation (generic: a content_filter can come
+// from this platform's gate or an upstream provider's own filter) so a falsely
+// blocked user understands what happened and can react, without revealing a
+// category/reason that would give abusers feedback.
+const DEFAULT_REFUSAL = 'This message was declined by content moderation — it appears to fall outside what this assistant is meant to help with. Try rephrasing if you think this is a mistake.'
+
+// Returned to the MAIN assistant (not the user) as a delegated sub-agent's result
+// when that sub-agent was moderation-blocked. Distinct from the user-facing
+// refusal: it tells the assistant this was a content-policy decision (not a tool
+// failure) and gives bounded guidance, so it can re-formulate a legitimate task
+// or explain the block — rather than dead-ending. Deliberately discourages blind
+// resubmission (each re-delegation is itself re-moderated; the turn is capped at
+// stepCountIs(10)) so this does not become a moderation-probing retry loop.
+const SUBAGENT_MODERATION_NOTICE = 'This delegated sub-agent task was blocked by content moderation — a content-policy decision, not a tool error. If the task is legitimate platform work (for example editing a resource\'s title, description, summary or other metadata), rephrase it more precisely and delegate again, or carry it out yourself if you have the necessary tools. Otherwise, briefly tell the user the request was declined by moderation. Do not resubmit the same task wording unchanged.'
+
+// Shown when a turn finishes cleanly but the assistant produced no text at all
+// (empty model completion, a sub-agent that returned nothing, or the step limit
+// reached on a tool call). Without this the turn would render as a blank bubble
+// and the conversation would appear to silently stop.
+const DEFAULT_EMPTY_RESPONSE = "I wasn't able to produce a response. Please try rephrasing your request."
+
+// Shown inside the sub-agent panel when a delegated sub-agent fails (its own
+// gateway/provider call errors). Surfaces the failure instead of letting it
+// bubble up as an unhandled tool error that stalls the turn.
+const DEFAULT_SUBAGENT_ERROR = 'The sub-agent could not complete this task.'
 
 export interface ChatMessage {
   role: 'user' | 'assistant'
@@ -30,6 +54,10 @@ export interface ChatMessage {
   }>
   subAgentMessages?: ChatMessage[]
   subAgentTurn?: number
+  // Set on a sub-agent refusal message so toModelOutput can hand the main agent a
+  // moderation-specific notice instead of the generic user-facing refusal text.
+  // Not rendered; the panel shows `content` like any other message.
+  moderationBlocked?: boolean
 }
 
 export interface ToolInfo {
@@ -59,6 +87,7 @@ export interface UseAgentChatOptions {
   localTools?: Record<string, Tool>
   modelName?: string
   refusalMessage?: string
+  emptyResponseMessage?: string
   toolExploration?: boolean
   flattenSubAgents?: boolean
 }
@@ -428,6 +457,10 @@ export function useAgentChat (options: UseAgentChatOptions) {
     abortController = new AbortController()
     let currentAssistantMessage: ChatMessage | null = null
     let streamError: unknown = null
+    // Whether the assistant emitted any text this turn. A clean finish with no text
+    // means a blank turn (empty completion / empty sub-agent / step limit on a tool
+    // call); we surface a fallback rather than ending the conversation silently.
+    let producedText = false
 
     try {
       const currentTools = tools.value
@@ -513,47 +546,72 @@ export function useAgentChat (options: UseAgentChatOptions) {
               currentAssistantMessage.subAgentTurn = callIndex
             }
 
-            // First call: single prompt. Subsequent calls: pass accumulated conversation history.
-            const subResult = priorMessages.length === 0
-              // `headers` is a construction-time setting in the AI SDK's agent types, not a
-              // call-time param, so we widen only for it while keeping the rest type-checked.
-              ? await subAgent.stream({ prompt: args.task, abortSignal, headers: traceHeaders(`sub:${ctxName}:${callIndex}:${parentToolCallId}`) } as Parameters<typeof subAgent.stream>[0] & { headers: Record<string, string> })
-              : await subAgent.stream({
-                messages: [...priorMessages, { role: 'user' as const, content: args.task }],
-                abortSignal,
-                headers: traceHeaders(`sub:${ctxName}:${callIndex}:${parentToolCallId}`)
-              } as Parameters<typeof subAgent.stream>[0] & { headers: Record<string, string> })
+            try {
+              // First call: single prompt. Subsequent calls: pass accumulated conversation history.
+              const subResult = priorMessages.length === 0
+                // `headers` is a construction-time setting in the AI SDK's agent types, not a
+                // call-time param, so we widen only for it while keeping the rest type-checked.
+                ? await subAgent.stream({ prompt: args.task, abortSignal, headers: traceHeaders(`sub:${ctxName}:${callIndex}:${parentToolCallId}`) } as Parameters<typeof subAgent.stream>[0] & { headers: Record<string, string> })
+                : await subAgent.stream({
+                  messages: [...priorMessages, { role: 'user' as const, content: args.task }],
+                  abortSignal,
+                  headers: traceHeaders(`sub:${ctxName}:${callIndex}:${parentToolCallId}`)
+                } as Parameters<typeof subAgent.stream>[0] & { headers: Record<string, string> })
 
-            // Yield intermediate UIMessages as preliminary results (streaming progress)
-            for await (const uiMessage of readUIMessageStream({ stream: subResult.toUIMessageStream() })) {
-              const chatMessages = uiMessageToChatMessages(uiMessage)
-              // Replace subAgentMessages on each yield (readUIMessageStream accumulates)
-              if (currentAssistantMessage) {
-                currentAssistantMessage.subAgentMessages = chatMessages
+              // Yield intermediate UIMessages as preliminary results (streaming progress)
+              for await (const uiMessage of readUIMessageStream({ stream: subResult.toUIMessageStream() })) {
+                const chatMessages = uiMessageToChatMessages(uiMessage)
+                // Replace subAgentMessages on each yield (readUIMessageStream accumulates)
+                if (currentAssistantMessage) {
+                  currentAssistantMessage.subAgentMessages = chatMessages
+                }
+                yield chatMessages
               }
-              yield chatMessages
-            }
 
-            // Accumulate history for the next call to this subagent
-            const subResponse = await subResult.response
-            // A content_filter on the sub-agent's own gateway call (untrusted callers)
-            // surfaces as a refusal output instead of aborting the whole turn.
-            if ((await subResult.finishReason) === 'content-filter') {
-              const refusal: ChatMessage = { role: 'assistant', content: options.refusalMessage || DEFAULT_REFUSAL }
-              if (currentAssistantMessage) {
-                currentAssistantMessage.subAgentMessages = [...(currentAssistantMessage.subAgentMessages ?? []), refusal]
+              // Accumulate history for the next call to this subagent
+              const subResponse = await subResult.response
+              // A content_filter on the sub-agent's own gateway call (untrusted callers)
+              // surfaces as a refusal output instead of aborting the whole turn.
+              if ((await subResult.finishReason) === 'content-filter') {
+                // User-facing refusal for the panel; moderationBlocked tells
+                // toModelOutput to hand the main agent SUBAGENT_MODERATION_NOTICE
+                // instead of this generic text so it can react appropriately.
+                const refusal: ChatMessage = { role: 'assistant', content: options.refusalMessage || DEFAULT_REFUSAL, moderationBlocked: true }
+                if (currentAssistantMessage) {
+                  currentAssistantMessage.subAgentMessages = [...(currentAssistantMessage.subAgentMessages ?? []), refusal]
+                }
+                yield [refusal]
               }
-              yield [refusal]
+              subAgentHistory.set(name, [
+                ...priorMessages,
+                { role: 'user' as const, content: args.task },
+                ...subResponse.messages
+              ])
+            } catch (subErr: any) {
+              // Let an abort tear down the whole turn (handled by sendMessage's catch).
+              if (subErr?.name === 'AbortError') throw subErr
+              // Any other sub-agent failure (its own gateway/provider error) would
+              // otherwise surface as an unhandled tool-error: the model gets no result,
+              // the panel keeps spinning, and the turn can end with no visible output.
+              // Yield a final error message instead so the failure is shown and becomes
+              // this tool's output (via toModelOutput) for the main agent to react to.
+              debug('sub-agent %s failed: %O', name, subErr)
+              const errorMsg: ChatMessage = { role: 'assistant', content: DEFAULT_SUBAGENT_ERROR }
+              if (currentAssistantMessage) {
+                currentAssistantMessage.subAgentMessages = [...(currentAssistantMessage.subAgentMessages ?? []), errorMsg]
+              }
+              yield [errorMsg]
             }
-            subAgentHistory.set(name, [
-              ...priorMessages,
-              { role: 'user' as const, content: args.task },
-              ...subResponse.messages
-            ])
           },
           toModelOutput: ({ output }: { output: any }) => {
             // Main agent sees only the final text summary, not full subagent trace
             const lastMsg = Array.isArray(output) ? output[output.length - 1] : null
+            // A moderation block is a content-policy decision, not a finished task:
+            // give the main agent an actionable notice rather than the user-facing
+            // refusal text so it can re-formulate a legitimate task or explain.
+            if ((lastMsg as ChatMessage | null)?.moderationBlocked) {
+              return { type: 'text' as const, value: SUBAGENT_MODERATION_NOTICE }
+            }
             return {
               type: 'text' as const,
               value: (lastMsg as ChatMessage | null)?.content || 'Task completed.'
@@ -636,7 +694,16 @@ export function useAgentChat (options: UseAgentChatOptions) {
           status.value = 'ready'
           return
         }
+        if (part.type === 'error') {
+          // The provider emits a mid-stream failure as an in-band 'error' part instead
+          // of throwing (onError also fires, but races our consumer). streamText's
+          // result.response only rejects when zero steps completed, so after a tool
+          // step this error would otherwise be silently dropped. Capture and stop.
+          streamError = streamError ?? (part as any).error
+          break
+        }
         if (part.type === 'text-delta') {
+          if (part.text) producedText = true
           if (!currentAssistantMessage) {
             messages.value.push({ role: 'assistant', content: '' })
             currentAssistantMessage = messages.value[messages.value.length - 1]
@@ -665,15 +732,39 @@ export function useAgentChat (options: UseAgentChatOptions) {
             )
             if (invocation) invocation.state = 'done'
           }
+        } else if (part.type === 'tool-error') {
+          // A tool's execute threw. The SDK keeps the loop going (it feeds the error
+          // back to the model), but the invocation never gets a 'tool-result', so
+          // without this the chip would spin forever. Mark it done so the UI settles.
+          debug('tool-error name=%s id=%s error=%O', (part as any).toolName, part.toolCallId, (part as any).error)
+          if (currentAssistantMessage?.toolInvocations) {
+            const invocation = currentAssistantMessage.toolInvocations.find(
+              ti => ti.toolCallId === part.toolCallId
+            )
+            if (invocation) invocation.state = 'done'
+          }
         } else if (part.type === 'finish-step') {
           // Reset for next step (new assistant message after tool results)
           currentAssistantMessage = null
         }
       }
 
+      // Surface an in-band stream error captured during the loop (or by onError).
+      // The fullStream does not throw on an 'error' part and result.response only
+      // rejects when no step completed, so after a tool step the error must be
+      // re-thrown here to reach the catch instead of finishing as a blank 'ready'.
+      if (streamError) throw streamError
+
       // Update history with all response messages
       const response = await result.response
       history = history.concat(response.messages)
+
+      // A clean finish with no assistant text is a silent drop: empty model
+      // completion, a sub-agent that returned nothing, or the step limit reached on
+      // a tool call. Surface a fallback so the turn is never visibly empty.
+      if (!producedText) {
+        messages.value.push({ role: 'assistant', content: options.emptyResponseMessage || DEFAULT_EMPTY_RESPONSE })
+      }
 
       status.value = 'ready'
     } catch (err: any) {

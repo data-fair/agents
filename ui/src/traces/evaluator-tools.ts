@@ -2,6 +2,7 @@ import { tool, jsonSchema } from 'ai'
 import type { Tool } from 'ai'
 import type { SessionRecorder, TraceOverviewEntry } from './session-recorder.js'
 import { lookupArchitectureDoc } from './architecture-docs-lookup.js'
+import { buildSourceTools } from './source-tools.js'
 
 const PHYSICAL_REQUEST_SUMMARY_PROMPT = `You analyze a single physical LLM request payload (the full cumulative context that was sent to the model). Produce three sections:
 
@@ -13,7 +14,7 @@ Be concise and specific.`
 
 export function buildEvaluatorTools (
   recorder: SessionRecorder,
-  opts: { accountType: string; accountId: string; apiPath: string; architectureDocs?: Record<string, string>; architectureTopics?: string[] },
+  opts: { accountType: string; accountId: string; apiPath: string; architectureDocs?: Record<string, string>; architectureTopics?: string[]; includeSourceTools?: boolean },
   recorderB?: SessionRecorder
 ): Record<string, Tool> {
   // Docs are injected (not imported) so this module — which is exercised by
@@ -39,7 +40,7 @@ export function buildEvaluatorTools (
   }
   const note = compare ? ' Two traces are loaded (A and B); pass the `trace` parameter to choose which one.' : ''
 
-  return {
+  const baseTools: Record<string, Tool> = {
     getTraceOverview: tool({
       description: 'List all trace entries in chronological order. Returns index, type, timestamp, label, and preview for each entry.' + note,
       inputSchema: jsonSchema({
@@ -109,12 +110,17 @@ export function buildEvaluatorTools (
     }),
 
     readArchitectureDoc: tool({
-      description: 'Read one of this platform\'s architecture docs to understand how a feature actually behaves (compaction, moderation, sub-agents, quotas, gateway, tracing, integration-context, etc.) before judging it. Pass an unknown topic to get the list of available topics.',
+      description: `Read one of this platform's architecture docs to understand how a feature actually behaves before judging it. Available topics: ${architectureTopics.join(', ')}.`,
       inputSchema: jsonSchema({
         type: 'object',
         properties: {
           topic: {
             type: 'string',
+            // Constrain to the real doc names so the model picks a valid topic
+            // directly. The topics are also listed in the description above —
+            // do NOT instruct the model to "pass an unknown topic to discover
+            // them": the enum rejects unknown values before execute() runs, so
+            // that round-trip only produces repeated validation errors.
             enum: architectureTopics,
             description: 'The architecture doc to read (filename without extension)'
           }
@@ -158,4 +164,7 @@ export function buildEvaluatorTools (
       }
     })
   }
+
+  if (opts.includeSourceTools) Object.assign(baseTools, buildSourceTools({ apiPath: opts.apiPath }))
+  return baseTools
 }

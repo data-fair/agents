@@ -2,7 +2,7 @@ import type { LanguageModel } from 'ai'
 import type { LanguageModelV3StreamPart, LanguageModelV3Usage } from '@ai-sdk/provider'
 
 interface MockPromptResult {
-  type: 'text' | 'tool-call'
+  type: 'text' | 'tool-call' | 'error'
   text?: string
   toolName?: string
   toolArgs?: string
@@ -225,6 +225,11 @@ function processForModel (modelId: string, options: { prompt: string | Array<any
   const lastMessage = getLastUserMessage(options)
   const seam = processSelectToolsSeam(lastMessage, options.tools)
   if (seam) return seam
+  // Silent-drop test seams (apply to every model role): "empty" makes the model
+  // return an empty completion (no text, no tool call), "stream error" makes the
+  // stream fail mid-flight. Both previously ended the conversation silently.
+  if (lastMessage.toLowerCase() === 'empty') return { type: 'text', text: '' }
+  if (lastMessage.toLowerCase() === 'stream error') return { type: 'error' }
   switch (modelId) {
     case 'mock-tools':
       return processMockToolsPrompt(lastMessage, options.prompt)
@@ -247,6 +252,18 @@ export function createMockLanguageModel (modelId: string = 'mock-model'): Langua
       const result = processForModel(modelId, options)
       if (result.delayMs) await new Promise(resolve => setTimeout(resolve, result.delayMs))
       const promptText = serializePrompt(options.prompt)
+
+      if (result.type === 'error') {
+        // Fail mid-stream: emit a text-start (so the stream has begun) then error it,
+        // mirroring a provider that dies partway through a response.
+        const stream = new ReadableStream<LanguageModelV3StreamPart>({
+          start (controller) {
+            controller.enqueue({ type: 'text-start', id: 'mock-id' })
+            controller.error(new Error('mock stream error'))
+          }
+        })
+        return { stream }
+      }
 
       if (result.type === 'tool-call') {
         const calls = result.toolCalls ?? [{ toolName: result.toolName!, toolArgs: result.toolArgs || '{}' }]
@@ -302,6 +319,10 @@ export function createMockLanguageModel (modelId: string = 'mock-model'): Langua
       const result = processForModel(modelId, options)
       if (result.delayMs) await new Promise(resolve => setTimeout(resolve, result.delayMs))
       const promptText = serializePrompt(options.prompt)
+
+      if (result.type === 'error') {
+        throw new Error('mock stream error')
+      }
 
       if (result.type === 'tool-call') {
         const calls = result.toolCalls ?? [{ toolName: result.toolName!, toolArgs: result.toolArgs || '{}' }]

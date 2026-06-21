@@ -4,7 +4,7 @@
 "use strict";
 export const validate = validate14;
 export default validate14;
-const schema16 = {"$id":"https://github.com/data-fair/agents/api/config","x-exports":["types","validate"],"x-ajv":{"coerceTypes":"array"},"type":"object","title":"Api config","additionalProperties":false,"required":["privateDirectoryUrl","mongoUrl","port","tmpDir","observer","secretKeys","cipherPassword","currency","requireAnonymousActionToken"],"properties":{"mongoUrl":{"type":"string"},"port":{"type":"number"},"tmpDir":{"type":"string"},"privateDirectoryUrl":{"type":"string","pattern":"^https?://"},"privateEventsUrl":{"type":"string"},"secretKeys":{"type":"object","additionalProperties":false,"properties":{"events":{"type":"string"}}},"observer":{"type":"object","properties":{"active":{"type":"boolean"},"port":{"type":"number"}}},"upgradeRoot":{"type":"string"},"cipherPassword":{"type":"string"},"currency":{"type":"string","default":"EUR"},"requireAnonymousActionToken":{"type":"boolean","default":true},"util":{},"get":{},"has":{}}};
+const schema16 = {"$id":"https://github.com/data-fair/agents/api/config","x-exports":["types","validate"],"x-ajv":{"coerceTypes":"array"},"type":"object","title":"Api config","additionalProperties":false,"required":["privateDirectoryUrl","mongoUrl","port","tmpDir","observer","secretKeys","cipherPassword","currency","requireAnonymousActionToken"],"properties":{"mongoUrl":{"type":"string"},"port":{"type":"number"},"tmpDir":{"type":"string"},"privateDirectoryUrl":{"type":"string","pattern":"^https?://"},"privateEventsUrl":{"type":"string"},"secretKeys":{"type":"object","additionalProperties":false,"properties":{"events":{"type":"string"}}},"observer":{"type":"object","properties":{"active":{"type":"boolean"},"port":{"type":"number"}}},"upgradeRoot":{"type":"string"},"cipherPassword":{"type":"string"},"currency":{"type":"string","default":"EUR"},"requireAnonymousActionToken":{"type":"boolean","default":true},"evaluatorAccount":{"type":["object","null"],"default":null,"additionalProperties":false,"required":["type","id"],"properties":{"type":{"type":"string","enum":["user","organization"]},"id":{"type":"string"}}},"github":{"type":"object","additionalProperties":false,"properties":{"token":{"type":"string"}}},"util":{},"get":{},"has":{}}};
 const func2 = Object.prototype.hasOwnProperty;
 const pattern0 = new RegExp("^https?://", "u");
 
@@ -621,14 +621,234 @@ data["requireAnonymousActionToken"] = coerced11;
 }
 }
 }
+if(data.evaluatorAccount !== undefined){
+let data14 = data.evaluatorAccount;
+if((!(data14 && typeof data14 == "object" && !Array.isArray(data14))) && (data14 !== null)){
+let dataType12 = typeof data14;
+let coerced12 = undefined;
+if(dataType12 == 'object' && Array.isArray(data14) && data14.length == 1){
+data14 = data14[0];
+dataType12 = typeof data14;
+if((data14 && typeof data14 == "object" && !Array.isArray(data14)) && (data14 === null)){
+coerced12 = data14;
+}
+}
+if(!(coerced12 !== undefined)){
+if(data14 === "" || data14 === 0 || data14 === false){
+coerced12 = null;
 }
 else {
-const err26 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object"};
+const err26 = {instancePath:instancePath+"/evaluatorAccount",schemaPath:"#/properties/evaluatorAccount/type",keyword:"type",params:{type: schema16.properties.evaluatorAccount.type},message:"must be object,null"};
 if(vErrors === null){
 vErrors = [err26];
 }
 else {
 vErrors.push(err26);
+}
+errors++;
+}
+}
+if(coerced12 !== undefined){
+data14 = coerced12;
+if(data !== undefined){
+data["evaluatorAccount"] = coerced12;
+}
+}
+}
+if(data14 && typeof data14 == "object" && !Array.isArray(data14)){
+if(data14.type === undefined){
+const err27 = {instancePath:instancePath+"/evaluatorAccount",schemaPath:"#/properties/evaluatorAccount/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'"};
+if(vErrors === null){
+vErrors = [err27];
+}
+else {
+vErrors.push(err27);
+}
+errors++;
+}
+if(data14.id === undefined){
+const err28 = {instancePath:instancePath+"/evaluatorAccount",schemaPath:"#/properties/evaluatorAccount/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+if(vErrors === null){
+vErrors = [err28];
+}
+else {
+vErrors.push(err28);
+}
+errors++;
+}
+for(const key2 in data14){
+if(!((key2 === "type") || (key2 === "id"))){
+const err29 = {instancePath:instancePath+"/evaluatorAccount",schemaPath:"#/properties/evaluatorAccount/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key2},message:"must NOT have additional properties"};
+if(vErrors === null){
+vErrors = [err29];
+}
+else {
+vErrors.push(err29);
+}
+errors++;
+}
+}
+if(data14.type !== undefined){
+let data15 = data14.type;
+if(typeof data15 !== "string"){
+let dataType13 = typeof data15;
+let coerced13 = undefined;
+if(dataType13 == 'object' && Array.isArray(data15) && data15.length == 1){
+data15 = data15[0];
+dataType13 = typeof data15;
+if(typeof data15 === "string"){
+coerced13 = data15;
+}
+}
+if(!(coerced13 !== undefined)){
+if(dataType13 == "number" || dataType13 == "boolean"){
+coerced13 = "" + data15;
+}
+else if(data15 === null){
+coerced13 = "";
+}
+else {
+const err30 = {instancePath:instancePath+"/evaluatorAccount/type",schemaPath:"#/properties/evaluatorAccount/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err30];
+}
+else {
+vErrors.push(err30);
+}
+errors++;
+}
+}
+if(coerced13 !== undefined){
+data15 = coerced13;
+if(data14 !== undefined){
+data14["type"] = coerced13;
+}
+}
+}
+if(!((data15 === "user") || (data15 === "organization"))){
+const err31 = {instancePath:instancePath+"/evaluatorAccount/type",schemaPath:"#/properties/evaluatorAccount/properties/type/enum",keyword:"enum",params:{allowedValues: schema16.properties.evaluatorAccount.properties.type.enum},message:"must be equal to one of the allowed values"};
+if(vErrors === null){
+vErrors = [err31];
+}
+else {
+vErrors.push(err31);
+}
+errors++;
+}
+}
+if(data14.id !== undefined){
+let data16 = data14.id;
+if(typeof data16 !== "string"){
+let dataType14 = typeof data16;
+let coerced14 = undefined;
+if(dataType14 == 'object' && Array.isArray(data16) && data16.length == 1){
+data16 = data16[0];
+dataType14 = typeof data16;
+if(typeof data16 === "string"){
+coerced14 = data16;
+}
+}
+if(!(coerced14 !== undefined)){
+if(dataType14 == "number" || dataType14 == "boolean"){
+coerced14 = "" + data16;
+}
+else if(data16 === null){
+coerced14 = "";
+}
+else {
+const err32 = {instancePath:instancePath+"/evaluatorAccount/id",schemaPath:"#/properties/evaluatorAccount/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err32];
+}
+else {
+vErrors.push(err32);
+}
+errors++;
+}
+}
+if(coerced14 !== undefined){
+data16 = coerced14;
+if(data14 !== undefined){
+data14["id"] = coerced14;
+}
+}
+}
+}
+}
+}
+if(data.github !== undefined){
+let data17 = data.github;
+if(data17 && typeof data17 == "object" && !Array.isArray(data17)){
+for(const key3 in data17){
+if(!(key3 === "token")){
+const err33 = {instancePath:instancePath+"/github",schemaPath:"#/properties/github/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key3},message:"must NOT have additional properties"};
+if(vErrors === null){
+vErrors = [err33];
+}
+else {
+vErrors.push(err33);
+}
+errors++;
+}
+}
+if(data17.token !== undefined){
+let data18 = data17.token;
+if(typeof data18 !== "string"){
+let dataType15 = typeof data18;
+let coerced15 = undefined;
+if(dataType15 == 'object' && Array.isArray(data18) && data18.length == 1){
+data18 = data18[0];
+dataType15 = typeof data18;
+if(typeof data18 === "string"){
+coerced15 = data18;
+}
+}
+if(!(coerced15 !== undefined)){
+if(dataType15 == "number" || dataType15 == "boolean"){
+coerced15 = "" + data18;
+}
+else if(data18 === null){
+coerced15 = "";
+}
+else {
+const err34 = {instancePath:instancePath+"/github/token",schemaPath:"#/properties/github/properties/token/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err34];
+}
+else {
+vErrors.push(err34);
+}
+errors++;
+}
+}
+if(coerced15 !== undefined){
+data18 = coerced15;
+if(data17 !== undefined){
+data17["token"] = coerced15;
+}
+}
+}
+}
+}
+else {
+const err35 = {instancePath:instancePath+"/github",schemaPath:"#/properties/github/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(vErrors === null){
+vErrors = [err35];
+}
+else {
+vErrors.push(err35);
+}
+errors++;
+}
+}
+}
+else {
+const err36 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(vErrors === null){
+vErrors = [err36];
+}
+else {
+vErrors.push(err36);
 }
 errors++;
 }
