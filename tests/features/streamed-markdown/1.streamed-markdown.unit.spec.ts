@@ -1,7 +1,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { marked } from 'marked'
-import { repairInline, streamingSafeBuffer, looksLikeIncompleteTable } from '../../../ui/src/utils/markdown.ts'
+import { repairInline, streamingSafeBuffer, looksLikeIncompleteTable, renderStreamingMarkdown } from '../../../ui/src/utils/markdown.ts'
 
 test.describe('repairInline (unit)', () => {
   test('closes an unclosed code span', () => {
@@ -84,5 +84,31 @@ test.describe('looksLikeIncompleteTable (unit)', () => {
   })
   test('false for text without pipes', () => {
     assert.equal(looksLikeIncompleteTable('just text'), false)
+  })
+})
+
+test.describe('renderStreamingMarkdown (unit)', () => {
+  test('renders every list item while streaming, including the partial last', () => {
+    const html = renderStreamingMarkdown('- a\n- b\n- c', true)
+    assert.match(html, /<li[^>]*>a<\/li>/)
+    assert.match(html, /<li[^>]*>b<\/li>/)
+    assert.match(html, /<li[^>]*>c<\/li>/)
+  })
+  test('renders open bold as <strong> while streaming', () => {
+    const html = renderStreamingMarkdown('this is **bo', true)
+    assert.match(html, /<strong>bo<\/strong>/)
+  })
+  test('renders nothing for empty streaming input', () => {
+    assert.equal(renderStreamingMarkdown('', true), '')
+  })
+  test('renders nothing for a table header before its delimiter', () => {
+    assert.equal(renderStreamingMarkdown('| a | b |', true), '')
+  })
+  test('holds back an open mermaid fence while streaming', () => {
+    assert.equal(renderStreamingMarkdown('```mermaid\ngraph TD\nA-->B', true, { mermaid: true }), '')
+  })
+  test('when not streaming, renders the full buffer like renderMarkdown', () => {
+    const html = renderStreamingMarkdown('# Title', false)
+    assert.match(html, /Title/)
   })
 })

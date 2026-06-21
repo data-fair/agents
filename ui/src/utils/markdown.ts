@@ -176,9 +176,6 @@ export const renderMarkdown = (markdown: string, opts?: { mermaid?: boolean }) =
 
 export const renderStreamingMarkdown = (markdown: string, isStreaming: boolean, opts?: { mermaid?: boolean }): string => {
   if (!isStreaming || !markdown) return renderMarkdown(markdown, opts)
-
-  const lastBlock = markdown.lastIndexOf('\n\n')
-  if (lastBlock === -1) return '' // No complete block yet — show nothing
-
-  return renderMarkdown(markdown.slice(0, lastBlock + 2), opts)
+  const safe = streamingSafeBuffer(markdown)
+  return safe === '' ? '' : renderMarkdown(safe, opts)
 }
