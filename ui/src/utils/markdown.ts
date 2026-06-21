@@ -143,6 +143,12 @@ export const looksLikeIncompleteTable = (text: string): boolean =>
 // Decide which markdown source to feed renderMarkdown while streaming. We lex the
 // raw buffer to classify the last (active) block, then apply a per-type rule.
 export const streamingSafeBuffer = (markdown: string): string => {
+  // Normalize line endings first: marked collapses \r\n to \n internally, so
+  // without this `token.raw` would be shorter than the source and the
+  // `activeStart = markdown.length - last.raw.length` offset would point at the
+  // wrong index. The output still flows through renderMarkdown, which normalizes
+  // again, so this changes nothing for LF input (the assistant's usual case).
+  markdown = markdown.replace(/\r\n/g, '\n')
   const tokens = marked.lexer(markdown)
   if (!tokens.length) return ''
   const last = tokens[tokens.length - 1]

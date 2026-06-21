@@ -87,6 +87,13 @@ test.describe('looksLikeIncompleteTable (unit)', () => {
   })
 })
 
+test.describe('streamingSafeBuffer CRLF handling (unit)', () => {
+  test('a CRLF list round-trips its committed items', () => {
+    const out = streamingSafeBuffer('- a\r\n- b\r\n- partial **bo')
+    assert.equal(out, '- a\n- b\n- partial **bo**')
+  })
+})
+
 test.describe('renderStreamingMarkdown (unit)', () => {
   test('renders every list item while streaming, including the partial last', () => {
     const html = renderStreamingMarkdown('- a\n- b\n- c', true)
