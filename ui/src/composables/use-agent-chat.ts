@@ -1,5 +1,5 @@
 import { ref, watch, onScopeDispose } from 'vue'
-import { streamText, generateText, stepCountIs, tool, jsonSchema, ToolLoopAgent, readUIMessageStream } from 'ai'
+import { streamText, generateText, stepCountIs, tool, jsonSchema, ToolLoopAgent } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import type { ModelMessage, Tool } from 'ai'
 import { getTabChannelId } from '@data-fair/lib-vue-agents'
@@ -14,7 +14,7 @@ import { readConsent, traceStorageAvailable } from '~/traces/trace-consent'
 import { wrapHiddenContext } from '~/traces/hidden-context'
 import Debug from 'debug'
 import type { ChatActivity } from './agent-activity.ts'
-import { applyStreamPart, type StreamScope } from './agent-stream-parts.ts'
+import { applyStreamPart, type StreamScope, type StreamPart } from './agent-stream-parts.ts'
 
 const debug = Debug('df-agents:use-agent-chat')
 
@@ -388,36 +388,6 @@ export function useAgentChat (options: UseAgentChatOptions) {
     }
   }
 
-  /**
-   * Convert a UIMessage (from readUIMessageStream) into our ChatMessage[] format
-   * for rendering in the existing UI components.
-   */
-  function uiMessageToChatMessages (uiMessage: any): ChatMessage[] {
-    const chatMessages: ChatMessage[] = []
-    let current: ChatMessage | null = null
-
-    for (const part of uiMessage.parts ?? []) {
-      if (part.type === 'text') {
-        if (!current) { current = { role: 'assistant', content: '' }; chatMessages.push(current) }
-        current.content += part.text
-      } else if (part.type === 'dynamic-tool' || (part.type?.startsWith('tool-') && part.type !== 'tool-invocation')) {
-        // Dynamic tools: type 'dynamic-tool' with toolName/toolCallId/state
-        // Static tools: type 'tool-<name>' with same fields
-        if (!current) { current = { role: 'assistant', content: '', toolInvocations: [] }; chatMessages.push(current) }
-        if (!current.toolInvocations) current.toolInvocations = []
-        const toolName = part.toolName ?? part.type.replace(/^tool-/, '')
-        current.toolInvocations.push({
-          toolCallId: part.toolCallId,
-          toolName,
-          state: part.state === 'output-available' ? 'done' : 'pending'
-        })
-      } else if (part.type === 'step-start') {
-        current = null // new step → new message
-      }
-    }
-    return chatMessages
-  }
-
   async function compactHistory (compactionCtxId: string, signal: AbortSignal): Promise<void> {
     const threshold = Number(sessionStorage.getItem('agent-chat-compaction-threshold')) || COMPACTION_THRESHOLD
     const serialized = JSON.stringify(history)
@@ -607,26 +577,53 @@ export function useAgentChat (options: UseAgentChatOptions) {
             required: ['task']
           }),
           execute: async function * (args: any, { abortSignal }: { abortSignal?: AbortSignal }) {
-            // Track multi-turn state for this subagent
+            // Track multi-turn state for this sub-agent
             const priorMessages = subAgentHistory.get(name) ?? []
             const callIndex = subAgentCallCount.get(name) ?? 0
             subAgentCallCount.set(name, callIndex + 1)
 
-            // Find the parent tool call ID from mainScope.current
-            const parentToolCallId = mainScope.current?.toolInvocations?.find(
+            // The parent assistant message hosting this sub-agent's panel. The SDK invokes
+            // this tool's execute BEFORE the main loop processes the `subagent_` tool-call
+            // part, so mainScope.current is still null on entry; it is set during the first
+            // `await` below. So we read it LIVE (via liveParent) at each write site rather
+            // than capturing it once. mainScope.current is the structural StreamMessage
+            // minimum; here we need the ChatMessage fields (subAgentMessages/subAgentTurn),
+            // and at these call sites it always IS a ChatMessage (applyStreamPart pushed it
+            // into messages.value, a ChatMessage[]).
+            const liveParent = () => mainScope.current as ChatMessage | null
+            const parentToolCallId = liveParent()?.toolInvocations?.find(
               ti => ti.toolName === name && ti.state === 'pending'
             )?.toolCallId ?? name
 
-            // Ensure subAgentMessages array exists on parent message
-            if (mainScope.current && !(mainScope.current as ChatMessage).subAgentMessages) {
-              (mainScope.current as ChatMessage).subAgentMessages = []
-            }
-            if (mainScope.current) {
-              (mainScope.current as ChatMessage).subAgentTurn = callIndex
+            // Same shared builder as the main loop, but its activity drives the SAME
+            // global `activity` ref tagged for THIS sub-agent, so the component shows
+            // the phase inside this panel. Unlike the main line, the 'tool' phase shows
+            // (sub-agent chips don't spin, so the panel line carries it).
+            // The builder writes into this scratch array; each yield we copy a fresh
+            // snapshot onto the reactive parent's subAgentMessages. Reassigning a new
+            // array (rather than mutating in place) is what reliably triggers Vue to
+            // re-render the panel — the same approach the previous snapshot path used.
+            const subScope: StreamScope = {
+              messages: [],
+              current: null,
+              producedText: false,
+              stepHadTool: false,
+              setActivity: (phase) => {
+                switch (phase) {
+                  case 'streaming': activity.value = null; break
+                  case 'tool': activity.value = { kind: 'subagent', name, phase: 'tool' }; break
+                  case 'analyzing': activity.value = { kind: 'subagent', name, phase: 'analyzing' }; break
+                  case 'thinking': activity.value = { kind: 'subagent', name, phase: 'thinking' }; break
+                }
+              }
             }
 
+            // Enter gap: name the spin-up before the first token arrives.
+            activity.value = { kind: 'subagent', name, phase: 'starting' }
+
+            let subStreamError: unknown = null
             try {
-              // First call: single prompt. Subsequent calls: pass accumulated conversation history.
+              // First call: single prompt. Subsequent calls: pass accumulated history.
               const subResult = priorMessages.length === 0
                 // `headers` is a construction-time setting in the AI SDK's agent types, not a
                 // call-time param, so we widen only for it while keeping the rest type-checked.
@@ -637,17 +634,25 @@ export function useAgentChat (options: UseAgentChatOptions) {
                   headers: traceHeaders(`sub:${ctxName}:${callIndex}:${parentToolCallId}`)
                 } as Parameters<typeof subAgent.stream>[0] & { headers: Record<string, string> })
 
-              // Yield intermediate UIMessages as preliminary results (streaming progress)
-              for await (const uiMessage of readUIMessageStream({ stream: subResult.toUIMessageStream() })) {
-                const chatMessages = uiMessageToChatMessages(uiMessage)
-                // Replace subAgentMessages on each yield (readUIMessageStream accumulates)
-                if (mainScope.current) {
-                  (mainScope.current as ChatMessage).subAgentMessages = chatMessages
+              // Build the panel transcript from the same delta parts the main loop uses,
+              // yielding a snapshot each part so the SDK gets streaming preliminary results.
+              for await (const part of subResult.fullStream) {
+                // In-band provider error (the #38 silent-drop class): the SDK does not
+                // throw it, so capture and stop instead of finishing as a blank sub-agent.
+                if (part.type === 'error') { subStreamError = (part as any).error; break }
+                applyStreamPart(part as unknown as StreamPart, subScope)
+                // Publish a fresh snapshot onto the (now-live) parent each part so Vue
+                // re-renders the panel; reassigning a new array is what triggers it.
+                const parent = liveParent()
+                if (parent) {
+                  parent.subAgentTurn = callIndex
+                  parent.subAgentMessages = [...subScope.messages]
                 }
-                yield chatMessages
+                yield [...subScope.messages]
               }
+              if (subStreamError) throw subStreamError
 
-              // Accumulate history for the next call to this subagent
+              // Accumulate history for the next call to this sub-agent
               const subResponse = await subResult.response
               // A content_filter on the sub-agent's own gateway call (untrusted callers)
               // surfaces as a refusal output instead of aborting the whole turn.
@@ -656,8 +661,9 @@ export function useAgentChat (options: UseAgentChatOptions) {
                 // toModelOutput to hand the main agent SUBAGENT_MODERATION_NOTICE
                 // instead of this generic text so it can react appropriately.
                 const refusal: ChatMessage = { role: 'assistant', content: options.refusalMessage || DEFAULT_REFUSAL, moderationBlocked: true }
-                if (mainScope.current) {
-                  (mainScope.current as ChatMessage).subAgentMessages = [...((mainScope.current as ChatMessage).subAgentMessages ?? []), refusal]
+                const parent = liveParent()
+                if (parent) {
+                  parent.subAgentMessages = [...(parent.subAgentMessages ?? []), refusal]
                 }
                 yield [refusal]
               }
@@ -676,8 +682,9 @@ export function useAgentChat (options: UseAgentChatOptions) {
               // this tool's output (via toModelOutput) for the main agent to react to.
               debug('sub-agent %s failed: %O', name, subErr)
               const errorMsg: ChatMessage = { role: 'assistant', content: DEFAULT_SUBAGENT_ERROR }
-              if (mainScope.current) {
-                (mainScope.current as ChatMessage).subAgentMessages = [...((mainScope.current as ChatMessage).subAgentMessages ?? []), errorMsg]
+              const parent = liveParent()
+              if (parent) {
+                parent.subAgentMessages = [...(parent.subAgentMessages ?? []), errorMsg]
               }
               yield [errorMsg]
             }
