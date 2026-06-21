@@ -10,7 +10,7 @@ import { convertOpenAITools, convertOpenAIMessages, convertToolChoice, mapFinish
 import type { OpenAIMessage, OpenAIToolDefinition, OpenAIToolChoice, FinishReason } from './operations.ts'
 import { recordTraceRequest } from '../traces/service.ts'
 import { parseFlagsCookie } from '../traces/operations.ts'
-import { extractLastUserMessage, moderationApplies } from '../moderation/operations.ts'
+import { extractLastUserMessage, buildModerationContext, moderationApplies } from '../moderation/operations.ts'
 import { startModeration, isStrikeCooldownActive, recordStrikeRefusal, type ModerationRun } from '../moderation/service.ts'
 import crypto from 'node:crypto'
 
@@ -173,7 +173,10 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
       // the sentinels while the model still receives it.
       const lastUserMessage = extractLastUserMessage(messages)
       if (lastUserMessage) {
-        moderation = startModeration({ settings, owner, identity, message: lastUserMessage, modelRole: modelId })
+        // Recent turns give the classifier enough context to read short follow-ups;
+        // they are reference-only and never the judged unit (see operations.ts).
+        const context = buildModerationContext(messages)
+        moderation = startModeration({ settings, owner, identity, message: lastUserMessage, context, modelRole: modelId })
       }
     }
     const upstreamAbort = new AbortController()

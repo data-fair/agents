@@ -11,7 +11,7 @@ import { getModelConfig, resolveModelForRole } from '../models/operations.ts'
 import { recordUsage } from '../usage/service.ts'
 import { computeCost } from '../usage/operations.ts'
 import {
-  buildModerationSystemPrompt, truncateForModeration, truncateExcerpt,
+  buildModerationSystemPrompt, truncateForModeration, truncateExcerpt, formatModerationInput,
   verdictSchema, isInCooldown,
   MODERATION_TIMEOUT_MS, MODERATION_HARD_TIMEOUT_MS,
   STRIKE_WINDOW_MS, STRIKE_COOLDOWN_MS, STRIKE_THRESHOLD,
@@ -99,11 +99,13 @@ export function startModeration (params: {
   owner: AccountKeys
   identity: UsageIdentity
   message: string
+  context: string
   modelRole: string
 }): ModerationRun {
   const { settings, owner, identity, modelRole } = params
   const startedAt = Date.now()
   const message = truncateForModeration(params.message)
+  const moderationInput = formatModerationInput(params.context, message)
   const eventBase = {
     owner: { type: owner.type, id: owner.id },
     role: identity.role,
@@ -148,7 +150,7 @@ export function startModeration (params: {
       temperature: 0,
       maxOutputTokens: 100,
       system: buildModerationSystemPrompt(),
-      messages: [{ role: 'user', content: message }],
+      messages: [{ role: 'user', content: moderationInput }],
       abortSignal: AbortSignal.timeout(MODERATION_HARD_TIMEOUT_MS)
     })
     const cost = computeCost(usage?.inputTokens ?? 0, usage?.outputTokens ?? 0, inputPricePerMillion, outputPricePerMillion)
