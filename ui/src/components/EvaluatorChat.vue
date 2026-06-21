@@ -4,6 +4,7 @@
       v-if="messages.length"
       :messages="messages"
       :is-streaming="isStreaming"
+      :activity="activity"
       :chat-error="chatError"
       :welcome-text="t('welcome')"
       :tool-title="toolTitle"
@@ -90,6 +91,7 @@ const chat = chatResult
 
 const messages = computed(() => chat.messages.value)
 const isStreaming = computed(() => chat.status.value === 'streaming')
+const activity = computed(() => chat.activity.value)
 const chatError = computed(() => chat.error.value)
 
 const toolTitle = (toolName: string) => {
