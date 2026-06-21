@@ -86,6 +86,95 @@ const replaceLatexCommands = (markdown: string): string =>
     latexToUnicode[cmd] ?? match
   )
 
+// While streaming, inline markup may be opened but not yet closed. marked renders
+// such fragments literally (e.g. `**foo` stays `**foo`), so we synthesize the
+// missing *markdown* closers before parsing. Pragmatic: code spans take
+// precedence, then the common emphasis delimiters; links/images/html are left to
+// render literally and resolve when complete.
+export const repairInline = (text: string): string => {
+  // 1) Code spans first. Find an unclosed backtick run across the whole text.
+  let openTick = 0
+  for (let i = 0; i < text.length;) {
+    if (text[i] === '`') {
+      let n = 0
+      while (text[i] === '`') { n++; i++ }
+      if (openTick === 0) openTick = n
+      else if (openTick === n) openTick = 0
+    } else i++
+  }
+  if (openTick > 0) return text + '`'.repeat(openTick)
+
+  // 2) No open code span: balance emphasis/strong/strikethrough, line by line,
+  //    skipping balanced inline code spans and ignoring line-leading markers.
+  const stack: string[] = []
+  for (let line of text.split('\n')) {
+    line = line.replace(/^(\s*)([-*+]\s+|>\s?|\d+\.\s+)/, '')
+    for (let i = 0; i < line.length;) {
+      const ch = line[i]
+      if (ch === '`') {
+        let n = 0; let j = i
+        while (line[j] === '`') { n++; j++ }
+        const close = line.indexOf('`'.repeat(n), j)
+        i = close === -1 ? line.length : close + n
+        continue
+      }
+      const two = line.slice(i, i + 2)
+      if (two === '**' || two === '__' || two === '~~') {
+        if (stack[stack.length - 1] === two) stack.pop(); else stack.push(two)
+        i += 2; continue
+      }
+      if (ch === '*' || ch === '_') {
+        if (stack[stack.length - 1] === ch) stack.pop(); else stack.push(ch)
+        i += 1; continue
+      }
+      i += 1
+    }
+  }
+  let out = text
+  for (let k = stack.length - 1; k >= 0; k--) out += stack[k]
+  return out
+}
+
+const tableDelimiterRe = /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?\s*$/m
+
+export const looksLikeIncompleteTable = (text: string): boolean =>
+  /\|/.test(text) && !tableDelimiterRe.test(text)
+
+// Decide which markdown source to feed renderMarkdown while streaming. We lex the
+// raw buffer to classify the last (active) block, then apply a per-type rule.
+export const streamingSafeBuffer = (markdown: string): string => {
+  // Normalize line endings first: marked collapses \r\n to \n internally, so
+  // without this `token.raw` would be shorter than the source and the
+  // `activeStart = markdown.length - last.raw.length` offset would point at the
+  // wrong index. The output still flows through renderMarkdown, which normalizes
+  // again, so this changes nothing for LF input (the assistant's usual case).
+  markdown = markdown.replace(/\r\n/g, '\n')
+  const tokens = marked.lexer(markdown)
+  if (!tokens.length) return ''
+  const last = tokens[tokens.length - 1]
+  const activeStart = markdown.length - last.raw.length
+  const stable = markdown.slice(0, activeStart)
+  const active = markdown.slice(activeStart)
+
+  // Held back entirely: raw mermaid source (SVG render is deferred anyway) and a
+  // table header that has not yet produced its delimiter row.
+  if (last.type === 'code' && (last as { lang?: string }).lang === 'mermaid') return stable
+  if (last.type === 'paragraph' && looksLikeIncompleteTable(active)) return stable
+
+  // Real table: commit complete rows, hold the still-growing last row.
+  if (last.type === 'table') {
+    const nl = active.lastIndexOf('\n')
+    return nl === -1 ? stable : markdown.slice(0, activeStart + nl + 1)
+  }
+
+  // Regular code fence: an unclosed fence renders as a code block, so stream raw.
+  if (last.type === 'code') return markdown
+
+  // Inline-repairable block (paragraph, list, blockquote, heading, …): render the
+  // whole buffer with synthetic closers for any inline markup left open.
+  return stable + repairInline(active)
+}
+
 export const renderMarkdown = (markdown: string, opts?: { mermaid?: boolean }) => {
   mermaidActive = !!opts?.mermaid
   return sanitizeHtml(marked.parse(replaceLatexCommands(markdown)) as string, sanitizeOpts)
@@ -93,9 +182,6 @@ export const renderMarkdown = (markdown: string, opts?: { mermaid?: boolean }) =
 
 export const renderStreamingMarkdown = (markdown: string, isStreaming: boolean, opts?: { mermaid?: boolean }): string => {
   if (!isStreaming || !markdown) return renderMarkdown(markdown, opts)
-
-  const lastBlock = markdown.lastIndexOf('\n\n')
-  if (lastBlock === -1) return '' // No complete block yet — show nothing
-
-  return renderMarkdown(markdown.slice(0, lastBlock + 2), opts)
+  const safe = streamingSafeBuffer(markdown)
+  return safe === '' ? '' : renderMarkdown(safe, opts)
 }
