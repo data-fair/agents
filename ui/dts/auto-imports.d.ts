@@ -88,6 +88,7 @@ declare global {
   const renderMarkdown: typeof import('../src/utils/markdown')['renderMarkdown']
   const renderMermaidIn: typeof import('../src/utils/mermaid')['renderMermaidIn']
   const renderStreamingMarkdown: typeof import('../src/utils/markdown')['renderStreamingMarkdown']
+  const repairInline: typeof import('../src/utils/markdown')['repairInline']
   const resetAnonymousToken: typeof import('../src/composables/use-anonymous-token')['resetAnonymousToken']
   const resolveComponent: typeof import('vue')['resolveComponent']
   const selectPromotions: typeof import('../src/composables/tool-exploration')['selectPromotions']
@@ -222,6 +223,7 @@ declare module 'vue' {
     readonly renderMarkdown: UnwrapRef<typeof import('../src/utils/markdown')['renderMarkdown']>
     readonly renderMermaidIn: UnwrapRef<typeof import('../src/utils/mermaid')['renderMermaidIn']>
     readonly renderStreamingMarkdown: UnwrapRef<typeof import('../src/utils/markdown')['renderStreamingMarkdown']>
+    readonly repairInline: UnwrapRef<typeof import('../src/utils/markdown')['repairInline']>
     readonly resetAnonymousToken: UnwrapRef<typeof import('../src/composables/use-anonymous-token')['resetAnonymousToken']>
     readonly resolveComponent: UnwrapRef<typeof import('vue')['resolveComponent']>
     readonly selectPromotions: UnwrapRef<typeof import('../src/composables/tool-exploration')['selectPromotions']>

@@ -86,6 +86,55 @@ const replaceLatexCommands = (markdown: string): string =>
     latexToUnicode[cmd] ?? match
   )
 
+// While streaming, inline markup may be opened but not yet closed. marked renders
+// such fragments literally (e.g. `**foo` stays `**foo`), so we synthesize the
+// missing *markdown* closers before parsing. Pragmatic: code spans take
+// precedence, then the common emphasis delimiters; links/images/html are left to
+// render literally and resolve when complete.
+export const repairInline = (text: string): string => {
+  // 1) Code spans first. Find an unclosed backtick run across the whole text.
+  let openTick = 0
+  for (let i = 0; i < text.length;) {
+    if (text[i] === '`') {
+      let n = 0
+      while (text[i] === '`') { n++; i++ }
+      if (openTick === 0) openTick = n
+      else if (openTick === n) openTick = 0
+    } else i++
+  }
+  if (openTick > 0) return text + '`'.repeat(openTick)
+
+  // 2) No open code span: balance emphasis/strong/strikethrough, line by line,
+  //    skipping balanced inline code spans and ignoring line-leading markers.
+  const stack: string[] = []
+  for (let line of text.split('\n')) {
+    line = line.replace(/^(\s*)([-*+]\s+|>\s?|\d+\.\s+)/, '')
+    for (let i = 0; i < line.length;) {
+      const ch = line[i]
+      if (ch === '`') {
+        let n = 0; let j = i
+        while (line[j] === '`') { n++; j++ }
+        const close = line.indexOf('`'.repeat(n), j)
+        i = close === -1 ? line.length : close + n
+        continue
+      }
+      const two = line.slice(i, i + 2)
+      if (two === '**' || two === '__' || two === '~~') {
+        if (stack[stack.length - 1] === two) stack.pop(); else stack.push(two)
+        i += 2; continue
+      }
+      if (ch === '*' || ch === '_') {
+        if (stack[stack.length - 1] === ch) stack.pop(); else stack.push(ch)
+        i += 1; continue
+      }
+      i += 1
+    }
+  }
+  let out = text
+  for (let k = stack.length - 1; k >= 0; k--) out += stack[k]
+  return out
+}
+
 export const renderMarkdown = (markdown: string, opts?: { mermaid?: boolean }) => {
   mermaidActive = !!opts?.mermaid
   return sanitizeHtml(marked.parse(replaceLatexCommands(markdown)) as string, sanitizeOpts)
