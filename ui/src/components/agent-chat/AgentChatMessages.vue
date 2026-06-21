@@ -128,7 +128,7 @@
                           <markdown-content
                             class="text-body-medium markdown-content"
                             :content="subMsg.content"
-                            :streaming="isStreaming && index === messages.length - 1 && subIdx === message.subAgentMessages!.length - 1"
+                            :streaming="isStreaming && index === messages.length - 1 && subIdx === message.subAgentMessages!.length - 1 && invocation.state !== 'done'"
                             :mermaid="mermaidEnabled"
                           />
                           <div
