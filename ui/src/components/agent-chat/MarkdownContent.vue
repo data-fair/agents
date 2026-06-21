@@ -57,6 +57,23 @@ watch([html, () => props.streaming, themeName], async () => {
 </script>
 
 <style>
+/* Blinking caret marking the live end of a streaming message (injected by
+   renderStreamingMarkdown while streaming, removed once the turn settles). */
+.agent-chat__streaming-caret {
+  display: inline-block;
+  width: 0.45em;
+  height: 1.05em;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background-color: currentColor;
+  border-radius: 1px;
+  animation: agent-chat-caret-blink 1.05s steps(1, end) infinite;
+}
+@keyframes agent-chat-caret-blink {
+  0%, 50% { opacity: 0.55; }
+  50.01%, 100% { opacity: 0; }
+}
+
 .mermaid-block {
   overflow-x: auto;
 }

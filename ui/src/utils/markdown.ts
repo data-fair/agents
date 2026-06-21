@@ -180,8 +180,27 @@ export const renderMarkdown = (markdown: string, opts?: { mermaid?: boolean }) =
   return sanitizeHtml(marked.parse(replaceLatexCommands(markdown)) as string, sanitizeOpts)
 }
 
+// A blinking caret marking the live end of a streaming message, so the reader can
+// tell the answer is still being written (there is no other in-progress signal once
+// text starts flowing). Injected into already-sanitized HTML, so this trusted span
+// is not re-sanitized.
+const STREAMING_CARET_HTML = '<span class="agent-chat__streaming-caret" aria-hidden="true"></span>'
+
+// Matches the LAST leaf block closer in the HTML (no later one, via the negative
+// lookahead). Inserting the caret just before it keeps the caret inline at the true
+// end of the text — inside the last paragraph / list item / heading / cell — rather
+// than dropping to a new line below the last block.
+const LAST_LEAF_CLOSE = /<\/(?:p|li|h[1-6]|blockquote|pre|td|th|dd|figcaption)>(?![\s\S]*<\/(?:p|li|h[1-6]|blockquote|pre|td|th|dd|figcaption)>)/i
+
+export const appendStreamingCaret = (html: string): string => {
+  if (!html) return html
+  const m = LAST_LEAF_CLOSE.exec(html)
+  if (m) return html.slice(0, m.index) + STREAMING_CARET_HTML + html.slice(m.index)
+  return html + STREAMING_CARET_HTML
+}
+
 export const renderStreamingMarkdown = (markdown: string, isStreaming: boolean, opts?: { mermaid?: boolean }): string => {
   if (!isStreaming || !markdown) return renderMarkdown(markdown, opts)
   const safe = streamingSafeBuffer(markdown)
-  return safe === '' ? '' : renderMarkdown(safe, opts)
+  return safe === '' ? '' : appendStreamingCaret(renderMarkdown(safe, opts))
 }

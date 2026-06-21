@@ -19,6 +19,9 @@ declare global {
   const MERMAID_AUTO_FIX_BUDGET: typeof import('../src/utils/mermaid-fix')['MERMAID_AUTO_FIX_BUDGET']
   const MODERATION_TASK_MARKER: typeof import('../src/composables/moderation')['MODERATION_TASK_MARKER']
   const SELECT_TOOL_NAME: typeof import('../src/composables/tool-exploration')['SELECT_TOOL_NAME']
+  const activityLabelKey: typeof import('../src/composables/agent-activity')['activityLabelKey']
+  const appendStreamingCaret: typeof import('../src/utils/markdown')['appendStreamingCaret']
+  const applyStreamPart: typeof import('../src/composables/agent-stream-parts')['applyStreamPart']
   const breadcrumbs: typeof import('../src/utils/breadcrumbs')['default']
   const buildMermaidThemeVariables: typeof import('../src/utils/mermaid')['buildMermaidThemeVariables']
   const buildModerationSystemPrompt: typeof import('../src/composables/moderation')['buildModerationSystemPrompt']
@@ -174,6 +177,9 @@ declare module 'vue' {
     readonly FLAGS_COOKIE: UnwrapRef<typeof import('../src/utils/agent-flags')['FLAGS_COOKIE']>
     readonly MERMAID_AUTO_FIX_BUDGET: UnwrapRef<typeof import('../src/utils/mermaid-fix')['MERMAID_AUTO_FIX_BUDGET']>
     readonly SELECT_TOOL_NAME: UnwrapRef<typeof import('../src/composables/tool-exploration')['SELECT_TOOL_NAME']>
+    readonly activityLabelKey: UnwrapRef<typeof import('../src/composables/agent-activity')['activityLabelKey']>
+    readonly appendStreamingCaret: UnwrapRef<typeof import('../src/utils/markdown')['appendStreamingCaret']>
+    readonly applyStreamPart: UnwrapRef<typeof import('../src/composables/agent-stream-parts')['applyStreamPart']>
     readonly breadcrumbs: UnwrapRef<typeof import('../src/utils/breadcrumbs')['default']>
     readonly buildMermaidThemeVariables: UnwrapRef<typeof import('../src/utils/mermaid')['buildMermaidThemeVariables']>
     readonly computed: UnwrapRef<typeof import('vue')['computed']>

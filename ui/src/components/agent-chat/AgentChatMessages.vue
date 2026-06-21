@@ -128,7 +128,7 @@
                           <markdown-content
                             class="text-body-medium markdown-content"
                             :content="subMsg.content"
-                            :streaming="isStreaming && index === messages.length - 1 && subIdx === message.subAgentMessages!.length - 1"
+                            :streaming="isStreaming && index === messages.length - 1 && subIdx === message.subAgentMessages!.length - 1 && invocation.state !== 'done'"
                             :mermaid="mermaidEnabled"
                           />
                           <div
@@ -149,10 +149,25 @@
                         </div>
                       </div>
                       <div
-                        v-else
+                        v-else-if="invocation.state === 'done'"
                         class="text-body-medium text-medium-emphasis"
                       >
-                        {{ invocation.state === 'done' ? t('subAgentDone') : t('subAgentRunning') }}
+                        {{ t('subAgentDone') }}
+                      </div>
+                      <!-- Live phase of this sub-agent, shown inside its open panel
+                           (the running pane is open anyway). Replaces the bottom line
+                           for sub-agent work; the panel title still spins if collapsed. -->
+                      <div
+                        v-if="isStreaming && index === messages.length - 1 && subAgentActivityLabel(invocation.toolName)"
+                        class="d-flex align-center text-caption text-medium-emphasis py-1"
+                        data-testid="subagent-activity"
+                      >
+                        <v-icon
+                          :icon="mdiLoading"
+                          size="x-small"
+                          class="agent-chat__spin mr-2"
+                        />
+                        <span class="font-italic">{{ subAgentActivityLabel(invocation.toolName) }}</span>
                       </div>
                     </v-expansion-panel-text>
                   </v-expansion-panel>
@@ -168,7 +183,7 @@
              while text streams, `activity` is null and the markdown cursor is the
              progress signal. -->
         <div
-          v-if="isStreaming && activity"
+          v-if="isStreaming && activityLabel"
           class="px-2 py-1 px-sm-4 py-sm-2 d-flex align-center text-caption text-medium-emphasis"
           data-testid="chat-activity"
         >
@@ -212,21 +227,29 @@
 
 <i18n lang="yaml">
 fr:
-  subAgentRunning: Sous-agent en cours d'exécution...
   subAgentDone: Sous-agent terminé.
   jumpToBottom: Aller en bas
   findingTool: Recherche de l'outil adapté…
   activityCompacting: Compression de la conversation…
   activityThinking: Réflexion…
   activityAnalyzing: Analyse du résultat de l'outil…
+  activityAnalyzingSubAgent: Analyse du résultat de {name}…
+  activitySubAgentStarting: Démarrage…
+  activitySubAgentThinking: Réflexion…
+  activitySubAgentTool: Exécution d'un outil…
+  activitySubAgentAnalyzing: Analyse du résultat de l'outil…
 en:
-  subAgentRunning: Sub-agent running...
   subAgentDone: Sub-agent finished.
   jumpToBottom: Jump to bottom
   findingTool: Finding the right tool…
   activityCompacting: Compacting conversation…
   activityThinking: Thinking…
   activityAnalyzing: Analyzing tool result…
+  activityAnalyzingSubAgent: Analyzing {name}'s result…
+  activitySubAgentStarting: Starting…
+  activitySubAgentThinking: Thinking…
+  activitySubAgentTool: Running a tool…
+  activitySubAgentAnalyzing: Analyzing tool result…
 </i18n>
 
 <script lang="ts" setup>
@@ -239,6 +262,7 @@ import MarkdownContent from './MarkdownContent.vue'
 import { EXPLORE_TOOL_NAME } from '~/composables/tool-exploration'
 import type { MermaidFailure } from '~/utils/mermaid'
 import type { ChatMessage } from '~/composables/use-agent-chat'
+import { activityLabelKey, type ChatActivity } from '~/composables/agent-activity'
 
 const emit = defineEmits<{
   navigate: [url: string]
@@ -253,7 +277,7 @@ const props = defineProps<{
   isStreaming: boolean
   // Coarse phase of the current streaming turn, shown as a discreet muted line
   // during gaps with no visible output. null while text streams or when idle.
-  activity?: 'compacting' | 'thinking' | 'analyzing' | null
+  activity?: ChatActivity | null
   chatError: string | null
   welcomeText: string
   toolTitle: (toolName: string) => string
@@ -289,12 +313,14 @@ const isHiddenExploreStep = (message: ChatMessage) =>
 
 const { t } = useI18n()
 
+// Bottom-line label: top-level phases only. Sub-agent phases (kind 'subagent')
+// render inside their panel via subAgentActivityLabel, not here.
 const activityLabel = computed(() => {
-  switch (props.activity) {
-    case 'compacting': return t('activityCompacting')
-    case 'analyzing': return t('activityAnalyzing')
-    default: return t('activityThinking')
-  }
+  const a = props.activity
+  if (!a || a.kind === 'subagent') return ''
+  const label = activityLabelKey(a)
+  if (!label) return ''
+  return t(label.key, label.name ? { name: subAgentTitle(label.name) } : {})
 })
 
 const messagesContainer = ref<HTMLElement | null>(null)
@@ -402,6 +428,15 @@ const subAgentTitle = (toolName: string) => {
   if (title !== toolName) return title
   const name = toolName.replace(/^subagent_/, '')
   return name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+}
+
+// In-panel label for the sub-agent whose `subagent_*` tool name matches the
+// current activity; '' for any other panel.
+const subAgentActivityLabel = (toolName: string) => {
+  const a = props.activity
+  if (!a || a.kind !== 'subagent' || a.name !== toolName) return ''
+  const label = activityLabelKey(a)
+  return label ? t(label.key) : ''
 }
 
 const inIframe = window.parent !== window

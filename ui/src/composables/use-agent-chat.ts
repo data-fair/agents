@@ -1,5 +1,5 @@
 import { ref, watch, onScopeDispose } from 'vue'
-import { streamText, generateText, stepCountIs, tool, jsonSchema, ToolLoopAgent, readUIMessageStream } from 'ai'
+import { streamText, generateText, stepCountIs, tool, jsonSchema, ToolLoopAgent } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import type { ModelMessage, Tool } from 'ai'
 import { getTabChannelId } from '@data-fair/lib-vue-agents'
@@ -13,6 +13,8 @@ import { extractErrorMessage } from '~/utils/error'
 import { readConsent, traceStorageAvailable } from '~/traces/trace-consent'
 import { wrapHiddenContext } from '~/traces/hidden-context'
 import Debug from 'debug'
+import type { ChatActivity } from './agent-activity.ts'
+import { applyStreamPart, type StreamScope, type StreamPart } from './agent-stream-parts.ts'
 
 const debug = Debug('df-agents:use-agent-chat')
 
@@ -176,7 +178,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
   // output, so the UI can show a discreet "Compacting…/Thinking…/Analyzing tool
   // result…" line instead of an ambiguous spinner. Held null while text is actively
   // streaming (the streaming markdown cursor is signal enough) and while idle.
-  const activity = ref<'compacting' | 'thinking' | 'analyzing' | null>(null)
+  const activity = ref<ChatActivity | null>(null)
   const tools = ref<Record<string, Tool>>({})
   const toolsVersion = ref(0)
   let history: ModelMessage[] = []
@@ -386,36 +388,6 @@ export function useAgentChat (options: UseAgentChatOptions) {
     }
   }
 
-  /**
-   * Convert a UIMessage (from readUIMessageStream) into our ChatMessage[] format
-   * for rendering in the existing UI components.
-   */
-  function uiMessageToChatMessages (uiMessage: any): ChatMessage[] {
-    const chatMessages: ChatMessage[] = []
-    let current: ChatMessage | null = null
-
-    for (const part of uiMessage.parts ?? []) {
-      if (part.type === 'text') {
-        if (!current) { current = { role: 'assistant', content: '' }; chatMessages.push(current) }
-        current.content += part.text
-      } else if (part.type === 'dynamic-tool' || (part.type?.startsWith('tool-') && part.type !== 'tool-invocation')) {
-        // Dynamic tools: type 'dynamic-tool' with toolName/toolCallId/state
-        // Static tools: type 'tool-<name>' with same fields
-        if (!current) { current = { role: 'assistant', content: '', toolInvocations: [] }; chatMessages.push(current) }
-        if (!current.toolInvocations) current.toolInvocations = []
-        const toolName = part.toolName ?? part.type.replace(/^tool-/, '')
-        current.toolInvocations.push({
-          toolCallId: part.toolCallId,
-          toolName,
-          state: part.state === 'output-available' ? 'done' : 'pending'
-        })
-      } else if (part.type === 'step-start') {
-        current = null // new step → new message
-      }
-    }
-    return chatMessages
-  }
-
   async function compactHistory (compactionCtxId: string, signal: AbortSignal): Promise<void> {
     const threshold = Number(sessionStorage.getItem('agent-chat-compaction-threshold')) || COMPACTION_THRESHOLD
     const serialized = JSON.stringify(history)
@@ -429,7 +401,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
     // Compaction is otherwise an invisible, multi-second blank gap (a separate
     // summarizer call over the whole history before the real turn even starts);
     // name it so the user sees what's happening instead of a mute spinner.
-    activity.value = 'compacting'
+    activity.value = { kind: 'compacting' }
 
     // The summary becomes the assistant's only memory of everything before the last
     // user message, so it must stay *actionable*: keep the open task and its next
@@ -495,16 +467,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
     // no controller, leaving a slow/stalled summarize unkillable and invisible.
     abortController = new AbortController()
     const signal = abortController.signal
-    let currentAssistantMessage: ChatMessage | null = null
     let streamError: unknown = null
-    // Whether the assistant emitted any text this turn. A clean finish with no text
-    // means a blank turn (empty completion / empty sub-agent / step limit on a tool
-    // call); we surface a fallback rather than ending the conversation silently.
-    let producedText = false
-    // Idle watchdog: a turn that goes silent for too long (no compaction result, no
-    // SSE part) is hung. Re-armed on every part received and around compaction; on
-    // expiry it aborts the turn so the catch surfaces a recoverable timeout instead
-    // of an endless spinner. `timedOut` distinguishes it from a user-initiated abort.
     let timedOut = false
     let watchdog: ReturnType<typeof setTimeout> | undefined
     const idleMs = Number(sessionStorage.getItem('agent-chat-idle-timeout')) || STREAM_IDLE_TIMEOUT_MS
@@ -512,18 +475,41 @@ export function useAgentChat (options: UseAgentChatOptions) {
       if (watchdog) clearTimeout(watchdog)
       watchdog = setTimeout(() => { timedOut = true; abortController?.abort() }, idleMs)
     }
-    // 'analyzing' (the post-tool continuation gap) only applies after a step that
-    // actually called a tool; track it across the loop to label that gap correctly.
-    let stepHadTool = false
 
-    activity.value = 'thinking'
+    // The main assistant transcript is built by the shared applyStreamPart, the same
+    // builder each sub-agent uses. `current`, `producedText` and `stepHadTool` live on
+    // the scope; the sub-agent execute closure reads `mainScope.current` as its parent
+    // message. The main bottom line stays quiet while a tool runs (its chip spins, and
+    // a sub-agent drives its own panel line); the post-step gap names the sub-agent.
+    const mainScope: StreamScope = {
+      messages: messages.value,
+      current: null,
+      producedText: false,
+      stepHadTool: false,
+      setActivity: (phase, toolName) => {
+        switch (phase) {
+          case 'streaming':
+          case 'tool':
+            activity.value = null
+            break
+          case 'analyzing':
+            activity.value = { kind: 'analyzing', subAgent: toolName?.startsWith('subagent_') ? toolName : undefined }
+            break
+          case 'thinking':
+            activity.value = { kind: 'thinking' }
+            break
+        }
+      }
+    }
+
+    activity.value = { kind: 'thinking' }
     armWatchdog()
 
     try {
       // Compact history if it exceeds the threshold (abortable, watchdog-covered).
       const compactionCtxId = `compaction:${turnId}`
       await compactHistory(compactionCtxId, signal)
-      activity.value = 'thinking'
+      activity.value = { kind: 'thinking' }
       armWatchdog()
 
       const currentTools = tools.value
@@ -591,26 +577,53 @@ export function useAgentChat (options: UseAgentChatOptions) {
             required: ['task']
           }),
           execute: async function * (args: any, { abortSignal }: { abortSignal?: AbortSignal }) {
-            // Track multi-turn state for this subagent
+            // Track multi-turn state for this sub-agent
             const priorMessages = subAgentHistory.get(name) ?? []
             const callIndex = subAgentCallCount.get(name) ?? 0
             subAgentCallCount.set(name, callIndex + 1)
 
-            // Find the parent tool call ID from currentAssistantMessage
-            const parentToolCallId = currentAssistantMessage?.toolInvocations?.find(
+            // The parent assistant message hosting this sub-agent's panel. The SDK invokes
+            // this tool's execute BEFORE the main loop processes the `subagent_` tool-call
+            // part, so mainScope.current is still null on entry; it is set during the first
+            // `await` below. So we read it LIVE (via liveParent) at each write site rather
+            // than capturing it once. mainScope.current is the structural StreamMessage
+            // minimum; here we need the ChatMessage fields (subAgentMessages/subAgentTurn),
+            // and at these call sites it always IS a ChatMessage (applyStreamPart pushed it
+            // into messages.value, a ChatMessage[]).
+            const liveParent = () => mainScope.current as ChatMessage | null
+            const parentToolCallId = liveParent()?.toolInvocations?.find(
               ti => ti.toolName === name && ti.state === 'pending'
             )?.toolCallId ?? name
 
-            // Ensure subAgentMessages array exists on parent message
-            if (currentAssistantMessage && !currentAssistantMessage.subAgentMessages) {
-              currentAssistantMessage.subAgentMessages = []
-            }
-            if (currentAssistantMessage) {
-              currentAssistantMessage.subAgentTurn = callIndex
+            // Same shared builder as the main loop, but its activity drives the SAME
+            // global `activity` ref tagged for THIS sub-agent, so the component shows
+            // the phase inside this panel. Unlike the main line, the 'tool' phase shows
+            // (sub-agent chips don't spin, so the panel line carries it).
+            // The builder writes into this scratch array; each yield we copy a fresh
+            // snapshot onto the reactive parent's subAgentMessages. Reassigning a new
+            // array (rather than mutating in place) is what reliably triggers Vue to
+            // re-render the panel — the same approach the previous snapshot path used.
+            const subScope: StreamScope = {
+              messages: [],
+              current: null,
+              producedText: false,
+              stepHadTool: false,
+              setActivity: (phase) => {
+                switch (phase) {
+                  case 'streaming': activity.value = null; break
+                  case 'tool': activity.value = { kind: 'subagent', name, phase: 'tool' }; break
+                  case 'analyzing': activity.value = { kind: 'subagent', name, phase: 'analyzing' }; break
+                  case 'thinking': activity.value = { kind: 'subagent', name, phase: 'thinking' }; break
+                }
+              }
             }
 
+            // Enter gap: name the spin-up before the first token arrives.
+            activity.value = { kind: 'subagent', name, phase: 'starting' }
+
+            let subStreamError: unknown = null
             try {
-              // First call: single prompt. Subsequent calls: pass accumulated conversation history.
+              // First call: single prompt. Subsequent calls: pass accumulated history.
               const subResult = priorMessages.length === 0
                 // `headers` is a construction-time setting in the AI SDK's agent types, not a
                 // call-time param, so we widen only for it while keeping the rest type-checked.
@@ -621,17 +634,25 @@ export function useAgentChat (options: UseAgentChatOptions) {
                   headers: traceHeaders(`sub:${ctxName}:${callIndex}:${parentToolCallId}`)
                 } as Parameters<typeof subAgent.stream>[0] & { headers: Record<string, string> })
 
-              // Yield intermediate UIMessages as preliminary results (streaming progress)
-              for await (const uiMessage of readUIMessageStream({ stream: subResult.toUIMessageStream() })) {
-                const chatMessages = uiMessageToChatMessages(uiMessage)
-                // Replace subAgentMessages on each yield (readUIMessageStream accumulates)
-                if (currentAssistantMessage) {
-                  currentAssistantMessage.subAgentMessages = chatMessages
+              // Build the panel transcript from the same delta parts the main loop uses,
+              // yielding a snapshot each part so the SDK gets streaming preliminary results.
+              for await (const part of subResult.fullStream) {
+                // In-band provider error (the #38 silent-drop class): the SDK does not
+                // throw it, so capture and stop instead of finishing as a blank sub-agent.
+                if (part.type === 'error') { subStreamError = (part as any).error; break }
+                applyStreamPart(part as unknown as StreamPart, subScope)
+                // Publish a fresh snapshot onto the (now-live) parent each part so Vue
+                // re-renders the panel; reassigning a new array is what triggers it.
+                const parent = liveParent()
+                if (parent) {
+                  parent.subAgentTurn = callIndex
+                  parent.subAgentMessages = [...subScope.messages]
                 }
-                yield chatMessages
+                yield [...subScope.messages]
               }
+              if (subStreamError) throw subStreamError
 
-              // Accumulate history for the next call to this subagent
+              // Accumulate history for the next call to this sub-agent
               const subResponse = await subResult.response
               // A content_filter on the sub-agent's own gateway call (untrusted callers)
               // surfaces as a refusal output instead of aborting the whole turn.
@@ -640,8 +661,9 @@ export function useAgentChat (options: UseAgentChatOptions) {
                 // toModelOutput to hand the main agent SUBAGENT_MODERATION_NOTICE
                 // instead of this generic text so it can react appropriately.
                 const refusal: ChatMessage = { role: 'assistant', content: options.refusalMessage || DEFAULT_REFUSAL, moderationBlocked: true }
-                if (currentAssistantMessage) {
-                  currentAssistantMessage.subAgentMessages = [...(currentAssistantMessage.subAgentMessages ?? []), refusal]
+                const parent = liveParent()
+                if (parent) {
+                  parent.subAgentMessages = [...(parent.subAgentMessages ?? []), refusal]
                 }
                 yield [refusal]
               }
@@ -660,8 +682,9 @@ export function useAgentChat (options: UseAgentChatOptions) {
               // this tool's output (via toModelOutput) for the main agent to react to.
               debug('sub-agent %s failed: %O', name, subErr)
               const errorMsg: ChatMessage = { role: 'assistant', content: DEFAULT_SUBAGENT_ERROR }
-              if (currentAssistantMessage) {
-                currentAssistantMessage.subAgentMessages = [...(currentAssistantMessage.subAgentMessages ?? []), errorMsg]
+              const parent = liveParent()
+              if (parent) {
+                parent.subAgentMessages = [...(parent.subAgentMessages ?? []), errorMsg]
               }
               yield [errorMsg]
             }
@@ -768,59 +791,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
           streamError = streamError ?? (part as any).error
           break
         }
-        if (part.type === 'text-delta') {
-          // Text is now visibly streaming (markdown cursor); drop the gap label.
-          if (part.text) { producedText = true; activity.value = null }
-          if (!currentAssistantMessage) {
-            messages.value.push({ role: 'assistant', content: '' })
-            currentAssistantMessage = messages.value[messages.value.length - 1]
-          }
-          currentAssistantMessage.content += part.text
-        } else if (part.type === 'tool-call') {
-          debug('tool-call name=%s id=%s', part.toolName, part.toolCallId)
-          // The tool chip (pending/spinning) is the indicator while the tool runs.
-          stepHadTool = true
-          activity.value = null
-          if (!currentAssistantMessage) {
-            messages.value.push({ role: 'assistant', content: '', toolInvocations: [] })
-            currentAssistantMessage = messages.value[messages.value.length - 1]
-          }
-          if (!currentAssistantMessage.toolInvocations) {
-            currentAssistantMessage.toolInvocations = []
-          }
-          currentAssistantMessage.toolInvocations.push({
-            toolCallId: part.toolCallId,
-            toolName: part.toolName,
-            state: 'pending'
-          })
-        } else if (part.type === 'tool-result') {
-          // Async generator tools emit preliminary results; only mark done on final
-          const isPreliminary = !!(part as any).preliminary
-          if (currentAssistantMessage?.toolInvocations && !isPreliminary) {
-            const invocation = currentAssistantMessage.toolInvocations.find(
-              ti => ti.toolCallId === part.toolCallId
-            )
-            if (invocation) invocation.state = 'done'
-          }
-        } else if (part.type === 'tool-error') {
-          // A tool's execute threw. The SDK keeps the loop going (it feeds the error
-          // back to the model), but the invocation never gets a 'tool-result', so
-          // without this the chip would spin forever. Mark it done so the UI settles.
-          debug('tool-error name=%s id=%s error=%O', (part as any).toolName, part.toolCallId, (part as any).error)
-          if (currentAssistantMessage?.toolInvocations) {
-            const invocation = currentAssistantMessage.toolInvocations.find(
-              ti => ti.toolCallId === part.toolCallId
-            )
-            if (invocation) invocation.state = 'done'
-          }
-        } else if (part.type === 'finish-step') {
-          // Reset for next step (new assistant message after tool results)
-          currentAssistantMessage = null
-          // A step that called a tool is normally followed by another model step (the
-          // continuation that reads the tool result) — label that otherwise-blank gap.
-          activity.value = stepHadTool ? 'analyzing' : 'thinking'
-          stepHadTool = false
-        }
+        applyStreamPart(part, mainScope)
       }
 
       // Surface an in-band stream error captured during the loop (or by onError).
@@ -836,7 +807,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
       // A clean finish with no assistant text is a silent drop: empty model
       // completion, a sub-agent that returned nothing, or the step limit reached on
       // a tool call. Surface a fallback so the turn is never visibly empty.
-      if (!producedText) {
+      if (!mainScope.producedText) {
         messages.value.push({ role: 'assistant', content: options.emptyResponseMessage || DEFAULT_EMPTY_RESPONSE })
       }
 
