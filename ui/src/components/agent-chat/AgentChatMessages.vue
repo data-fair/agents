@@ -162,33 +162,22 @@
           </div>
         </template>
 
-        <!-- Skeleton loader while waiting for first content -->
+        <!-- Discreet activity line: one muted label naming the current phase
+             (compacting / thinking / analyzing a tool result) instead of an
+             ambiguous skeleton. Shown only during a gap with no visible output —
+             while text streams, `activity` is null and the markdown cursor is the
+             progress signal. -->
         <div
-          v-if="isStreaming && (!messages.length || messages[messages.length - 1].role === 'user')"
-          class="px-2 py-1 px-sm-4 py-sm-2"
+          v-if="isStreaming && activity"
+          class="px-2 py-1 px-sm-4 py-sm-2 d-flex align-center text-caption text-medium-emphasis"
+          data-testid="chat-activity"
         >
-          <v-skeleton-loader
-            type="text"
-            width="80%"
-            class="bg-transparent"
+          <v-icon
+            :icon="mdiLoading"
+            size="x-small"
+            class="agent-chat__spin mr-2"
           />
-          <v-skeleton-loader
-            type="text"
-            width="60%"
-            class="bg-transparent"
-          />
-        </div>
-
-        <!-- Discreet skeleton while still receiving more content -->
-        <div
-          v-if="isStreaming && messages.length && messages[messages.length - 1].role === 'assistant'"
-          class="px-2 py-1 px-sm-4 py-sm-2"
-        >
-          <v-skeleton-loader
-            type="text"
-            width="40%"
-            class="bg-transparent"
-          />
+          <span class="font-italic">{{ activityLabel }}</span>
         </div>
 
         <!-- Error -->
@@ -227,15 +216,21 @@ fr:
   subAgentDone: Sous-agent terminé.
   jumpToBottom: Aller en bas
   findingTool: Recherche de l'outil adapté…
+  activityCompacting: Compression de la conversation…
+  activityThinking: Réflexion…
+  activityAnalyzing: Analyse du résultat de l'outil…
 en:
   subAgentRunning: Sub-agent running...
   subAgentDone: Sub-agent finished.
   jumpToBottom: Jump to bottom
   findingTool: Finding the right tool…
+  activityCompacting: Compacting conversation…
+  activityThinking: Thinking…
+  activityAnalyzing: Analyzing tool result…
 </i18n>
 
 <script lang="ts" setup>
-import { ref, reactive, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, reactive, watch, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAutoScrollBottom } from '@data-fair/lib-vue/auto-scroll-bottom.js'
 import { mdiCheck, mdiLoading, mdiArrowDown } from '@mdi/js'
@@ -256,6 +251,9 @@ const emit = defineEmits<{
 const props = defineProps<{
   messages: ChatMessage[]
   isStreaming: boolean
+  // Coarse phase of the current streaming turn, shown as a discreet muted line
+  // during gaps with no visible output. null while text streams or when idle.
+  activity?: 'compacting' | 'thinking' | 'analyzing' | null
   chatError: string | null
   welcomeText: string
   toolTitle: (toolName: string) => string
@@ -290,6 +288,14 @@ const isHiddenExploreStep = (message: ChatMessage) =>
   !hasSubAgents(message)
 
 const { t } = useI18n()
+
+const activityLabel = computed(() => {
+  switch (props.activity) {
+    case 'compacting': return t('activityCompacting')
+    case 'analyzing': return t('activityAnalyzing')
+    default: return t('activityThinking')
+  }
+})
 
 const messagesContainer = ref<HTMLElement | null>(null)
 const messagesContent = ref<HTMLElement | null>(null)

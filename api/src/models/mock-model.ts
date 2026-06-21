@@ -230,6 +230,10 @@ function processForModel (modelId: string, options: { prompt: string | Array<any
   // stream fail mid-flight. Both previously ended the conversation silently.
   if (lastMessage.toLowerCase() === 'empty') return { type: 'text', text: '' }
   if (lastMessage.toLowerCase() === 'stream error') return { type: 'error' }
+  // Hang seam: "stall" holds the response open far longer than any test idle-watchdog
+  // timeout, simulating a provider/gateway that keeps the socket open but emits
+  // nothing — the client's watchdog must abort the turn with a recoverable timeout.
+  if (lastMessage.toLowerCase() === 'stall') return { type: 'text', text: 'too late', delayMs: 30_000 }
   switch (modelId) {
     case 'mock-tools':
       return processMockToolsPrompt(lastMessage, options.prompt)
