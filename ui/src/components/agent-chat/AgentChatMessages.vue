@@ -168,7 +168,7 @@
              while text streams, `activity` is null and the markdown cursor is the
              progress signal. -->
         <div
-          v-if="isStreaming && activity"
+          v-if="isStreaming && activityLabel"
           class="px-2 py-1 px-sm-4 py-sm-2 d-flex align-center text-caption text-medium-emphasis"
           data-testid="chat-activity"
         >
@@ -219,6 +219,7 @@ fr:
   activityCompacting: Compression de la conversation…
   activityThinking: Réflexion…
   activityAnalyzing: Analyse du résultat de l'outil…
+  activityAnalyzingSubAgent: Analyse du résultat de {name}…
 en:
   subAgentRunning: Sub-agent running...
   subAgentDone: Sub-agent finished.
@@ -227,6 +228,7 @@ en:
   activityCompacting: Compacting conversation…
   activityThinking: Thinking…
   activityAnalyzing: Analyzing tool result…
+  activityAnalyzingSubAgent: Analyzing {name}'s result…
 </i18n>
 
 <script lang="ts" setup>
@@ -239,6 +241,7 @@ import MarkdownContent from './MarkdownContent.vue'
 import { EXPLORE_TOOL_NAME } from '~/composables/tool-exploration'
 import type { MermaidFailure } from '~/utils/mermaid'
 import type { ChatMessage } from '~/composables/use-agent-chat'
+import { activityLabelKey, type ChatActivity } from '~/composables/agent-activity'
 
 const emit = defineEmits<{
   navigate: [url: string]
@@ -253,7 +256,7 @@ const props = defineProps<{
   isStreaming: boolean
   // Coarse phase of the current streaming turn, shown as a discreet muted line
   // during gaps with no visible output. null while text streams or when idle.
-  activity?: 'compacting' | 'thinking' | 'analyzing' | null
+  activity?: ChatActivity | null
   chatError: string | null
   welcomeText: string
   toolTitle: (toolName: string) => string
@@ -289,12 +292,14 @@ const isHiddenExploreStep = (message: ChatMessage) =>
 
 const { t } = useI18n()
 
+// Bottom-line label: top-level phases only. Sub-agent phases (kind 'subagent')
+// render inside their panel via subAgentActivityLabel, not here.
 const activityLabel = computed(() => {
-  switch (props.activity) {
-    case 'compacting': return t('activityCompacting')
-    case 'analyzing': return t('activityAnalyzing')
-    default: return t('activityThinking')
-  }
+  const a = props.activity
+  if (!a || a.kind === 'subagent') return ''
+  const label = activityLabelKey(a)
+  if (!label) return ''
+  return t(label.key, label.name ? { name: subAgentTitle(label.name) } : {})
 })
 
 const messagesContainer = ref<HTMLElement | null>(null)

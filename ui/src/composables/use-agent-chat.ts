@@ -13,6 +13,8 @@ import { extractErrorMessage } from '~/utils/error'
 import { readConsent, traceStorageAvailable } from '~/traces/trace-consent'
 import { wrapHiddenContext } from '~/traces/hidden-context'
 import Debug from 'debug'
+import type { ChatActivity } from './agent-activity.ts'
+import { applyStreamPart, type StreamScope } from './agent-stream-parts.ts'
 
 const debug = Debug('df-agents:use-agent-chat')
 
@@ -176,7 +178,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
   // output, so the UI can show a discreet "Compacting…/Thinking…/Analyzing tool
   // result…" line instead of an ambiguous spinner. Held null while text is actively
   // streaming (the streaming markdown cursor is signal enough) and while idle.
-  const activity = ref<'compacting' | 'thinking' | 'analyzing' | null>(null)
+  const activity = ref<ChatActivity | null>(null)
   const tools = ref<Record<string, Tool>>({})
   const toolsVersion = ref(0)
   let history: ModelMessage[] = []
@@ -429,7 +431,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
     // Compaction is otherwise an invisible, multi-second blank gap (a separate
     // summarizer call over the whole history before the real turn even starts);
     // name it so the user sees what's happening instead of a mute spinner.
-    activity.value = 'compacting'
+    activity.value = { kind: 'compacting' }
 
     // The summary becomes the assistant's only memory of everything before the last
     // user message, so it must stay *actionable*: keep the open task and its next
@@ -495,16 +497,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
     // no controller, leaving a slow/stalled summarize unkillable and invisible.
     abortController = new AbortController()
     const signal = abortController.signal
-    let currentAssistantMessage: ChatMessage | null = null
     let streamError: unknown = null
-    // Whether the assistant emitted any text this turn. A clean finish with no text
-    // means a blank turn (empty completion / empty sub-agent / step limit on a tool
-    // call); we surface a fallback rather than ending the conversation silently.
-    let producedText = false
-    // Idle watchdog: a turn that goes silent for too long (no compaction result, no
-    // SSE part) is hung. Re-armed on every part received and around compaction; on
-    // expiry it aborts the turn so the catch surfaces a recoverable timeout instead
-    // of an endless spinner. `timedOut` distinguishes it from a user-initiated abort.
     let timedOut = false
     let watchdog: ReturnType<typeof setTimeout> | undefined
     const idleMs = Number(sessionStorage.getItem('agent-chat-idle-timeout')) || STREAM_IDLE_TIMEOUT_MS
@@ -512,18 +505,41 @@ export function useAgentChat (options: UseAgentChatOptions) {
       if (watchdog) clearTimeout(watchdog)
       watchdog = setTimeout(() => { timedOut = true; abortController?.abort() }, idleMs)
     }
-    // 'analyzing' (the post-tool continuation gap) only applies after a step that
-    // actually called a tool; track it across the loop to label that gap correctly.
-    let stepHadTool = false
 
-    activity.value = 'thinking'
+    // The main assistant transcript is built by the shared applyStreamPart, the same
+    // builder each sub-agent uses. `current`, `producedText` and `stepHadTool` live on
+    // the scope; the sub-agent execute closure reads `mainScope.current` as its parent
+    // message. The main bottom line stays quiet while a tool runs (its chip spins, and
+    // a sub-agent drives its own panel line); the post-step gap names the sub-agent.
+    const mainScope: StreamScope = {
+      messages: messages.value,
+      current: null,
+      producedText: false,
+      stepHadTool: false,
+      setActivity: (phase, toolName) => {
+        switch (phase) {
+          case 'streaming':
+          case 'tool':
+            activity.value = null
+            break
+          case 'analyzing':
+            activity.value = { kind: 'analyzing', subAgent: toolName?.startsWith('subagent_') ? toolName : undefined }
+            break
+          case 'thinking':
+            activity.value = { kind: 'thinking' }
+            break
+        }
+      }
+    }
+
+    activity.value = { kind: 'thinking' }
     armWatchdog()
 
     try {
       // Compact history if it exceeds the threshold (abortable, watchdog-covered).
       const compactionCtxId = `compaction:${turnId}`
       await compactHistory(compactionCtxId, signal)
-      activity.value = 'thinking'
+      activity.value = { kind: 'thinking' }
       armWatchdog()
 
       const currentTools = tools.value
@@ -596,17 +612,17 @@ export function useAgentChat (options: UseAgentChatOptions) {
             const callIndex = subAgentCallCount.get(name) ?? 0
             subAgentCallCount.set(name, callIndex + 1)
 
-            // Find the parent tool call ID from currentAssistantMessage
-            const parentToolCallId = currentAssistantMessage?.toolInvocations?.find(
+            // Find the parent tool call ID from mainScope.current
+            const parentToolCallId = mainScope.current?.toolInvocations?.find(
               ti => ti.toolName === name && ti.state === 'pending'
             )?.toolCallId ?? name
 
             // Ensure subAgentMessages array exists on parent message
-            if (currentAssistantMessage && !currentAssistantMessage.subAgentMessages) {
-              currentAssistantMessage.subAgentMessages = []
+            if (mainScope.current && !(mainScope.current as ChatMessage).subAgentMessages) {
+              (mainScope.current as ChatMessage).subAgentMessages = []
             }
-            if (currentAssistantMessage) {
-              currentAssistantMessage.subAgentTurn = callIndex
+            if (mainScope.current) {
+              (mainScope.current as ChatMessage).subAgentTurn = callIndex
             }
 
             try {
@@ -625,8 +641,8 @@ export function useAgentChat (options: UseAgentChatOptions) {
               for await (const uiMessage of readUIMessageStream({ stream: subResult.toUIMessageStream() })) {
                 const chatMessages = uiMessageToChatMessages(uiMessage)
                 // Replace subAgentMessages on each yield (readUIMessageStream accumulates)
-                if (currentAssistantMessage) {
-                  currentAssistantMessage.subAgentMessages = chatMessages
+                if (mainScope.current) {
+                  (mainScope.current as ChatMessage).subAgentMessages = chatMessages
                 }
                 yield chatMessages
               }
@@ -640,8 +656,8 @@ export function useAgentChat (options: UseAgentChatOptions) {
                 // toModelOutput to hand the main agent SUBAGENT_MODERATION_NOTICE
                 // instead of this generic text so it can react appropriately.
                 const refusal: ChatMessage = { role: 'assistant', content: options.refusalMessage || DEFAULT_REFUSAL, moderationBlocked: true }
-                if (currentAssistantMessage) {
-                  currentAssistantMessage.subAgentMessages = [...(currentAssistantMessage.subAgentMessages ?? []), refusal]
+                if (mainScope.current) {
+                  (mainScope.current as ChatMessage).subAgentMessages = [...((mainScope.current as ChatMessage).subAgentMessages ?? []), refusal]
                 }
                 yield [refusal]
               }
@@ -660,8 +676,8 @@ export function useAgentChat (options: UseAgentChatOptions) {
               // this tool's output (via toModelOutput) for the main agent to react to.
               debug('sub-agent %s failed: %O', name, subErr)
               const errorMsg: ChatMessage = { role: 'assistant', content: DEFAULT_SUBAGENT_ERROR }
-              if (currentAssistantMessage) {
-                currentAssistantMessage.subAgentMessages = [...(currentAssistantMessage.subAgentMessages ?? []), errorMsg]
+              if (mainScope.current) {
+                (mainScope.current as ChatMessage).subAgentMessages = [...((mainScope.current as ChatMessage).subAgentMessages ?? []), errorMsg]
               }
               yield [errorMsg]
             }
@@ -768,59 +784,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
           streamError = streamError ?? (part as any).error
           break
         }
-        if (part.type === 'text-delta') {
-          // Text is now visibly streaming (markdown cursor); drop the gap label.
-          if (part.text) { producedText = true; activity.value = null }
-          if (!currentAssistantMessage) {
-            messages.value.push({ role: 'assistant', content: '' })
-            currentAssistantMessage = messages.value[messages.value.length - 1]
-          }
-          currentAssistantMessage.content += part.text
-        } else if (part.type === 'tool-call') {
-          debug('tool-call name=%s id=%s', part.toolName, part.toolCallId)
-          // The tool chip (pending/spinning) is the indicator while the tool runs.
-          stepHadTool = true
-          activity.value = null
-          if (!currentAssistantMessage) {
-            messages.value.push({ role: 'assistant', content: '', toolInvocations: [] })
-            currentAssistantMessage = messages.value[messages.value.length - 1]
-          }
-          if (!currentAssistantMessage.toolInvocations) {
-            currentAssistantMessage.toolInvocations = []
-          }
-          currentAssistantMessage.toolInvocations.push({
-            toolCallId: part.toolCallId,
-            toolName: part.toolName,
-            state: 'pending'
-          })
-        } else if (part.type === 'tool-result') {
-          // Async generator tools emit preliminary results; only mark done on final
-          const isPreliminary = !!(part as any).preliminary
-          if (currentAssistantMessage?.toolInvocations && !isPreliminary) {
-            const invocation = currentAssistantMessage.toolInvocations.find(
-              ti => ti.toolCallId === part.toolCallId
-            )
-            if (invocation) invocation.state = 'done'
-          }
-        } else if (part.type === 'tool-error') {
-          // A tool's execute threw. The SDK keeps the loop going (it feeds the error
-          // back to the model), but the invocation never gets a 'tool-result', so
-          // without this the chip would spin forever. Mark it done so the UI settles.
-          debug('tool-error name=%s id=%s error=%O', (part as any).toolName, part.toolCallId, (part as any).error)
-          if (currentAssistantMessage?.toolInvocations) {
-            const invocation = currentAssistantMessage.toolInvocations.find(
-              ti => ti.toolCallId === part.toolCallId
-            )
-            if (invocation) invocation.state = 'done'
-          }
-        } else if (part.type === 'finish-step') {
-          // Reset for next step (new assistant message after tool results)
-          currentAssistantMessage = null
-          // A step that called a tool is normally followed by another model step (the
-          // continuation that reads the tool result) — label that otherwise-blank gap.
-          activity.value = stepHadTool ? 'analyzing' : 'thinking'
-          stepHadTool = false
-        }
+        applyStreamPart(part, mainScope)
       }
 
       // Surface an in-band stream error captured during the loop (or by onError).
@@ -836,7 +800,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
       // A clean finish with no assistant text is a silent drop: empty model
       // completion, a sub-agent that returned nothing, or the step limit reached on
       // a tool call. Surface a fallback so the turn is never visibly empty.
-      if (!producedText) {
+      if (!mainScope.producedText) {
         messages.value.push({ role: 'assistant', content: options.emptyResponseMessage || DEFAULT_EMPTY_RESPONSE })
       }
 
