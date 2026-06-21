@@ -44,6 +44,19 @@ const DEFAULT_EMPTY_RESPONSE = "I wasn't able to produce a response. Please try 
 // bubble up as an unhandled tool error that stalls the turn.
 const DEFAULT_SUBAGENT_ERROR = 'The sub-agent could not complete this task.'
 
+// Shown when a turn is aborted because the stream went silent for too long
+// (a provider/gateway stall holding the socket open, or a compaction call that
+// never returns). The idle watchdog turns an otherwise indefinite hang — a
+// spinner that resolves to nothing — into a recoverable error the user can retry.
+const DEFAULT_TIMEOUT_RESPONSE = 'The assistant took too long to respond, so the request was stopped. Please try again.'
+
+// No stream activity (no compaction result, no SSE part) for this long is treated
+// as a hang: the watchdog aborts the turn and surfaces DEFAULT_TIMEOUT_RESPONSE.
+// Deliberately generous — a slow first token from a large reasoning model on a big
+// context must not trip it; only a genuine stall should. Overridable for tests via
+// sessionStorage('agent-chat-idle-timeout').
+const STREAM_IDLE_TIMEOUT_MS = 90_000
+
 export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
@@ -88,6 +101,7 @@ export interface UseAgentChatOptions {
   modelName?: string
   refusalMessage?: string
   emptyResponseMessage?: string
+  timeoutMessage?: string
   toolExploration?: boolean
   flattenSubAgents?: boolean
 }
@@ -158,6 +172,11 @@ export function useAgentChat (options: UseAgentChatOptions) {
 
   const status = ref<'ready' | 'streaming' | 'error'>('ready')
   const error = ref<string | null>(null)
+  // Coarse label for what a streaming turn is doing during a gap with no visible
+  // output, so the UI can show a discreet "Compacting…/Thinking…/Analyzing tool
+  // result…" line instead of an ambiguous spinner. Held null while text is actively
+  // streaming (the streaming markdown cursor is signal enough) and while idle.
+  const activity = ref<'compacting' | 'thinking' | 'analyzing' | null>(null)
   const tools = ref<Record<string, Tool>>({})
   const toolsVersion = ref(0)
   let history: ModelMessage[] = []
@@ -397,7 +416,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
     return chatMessages
   }
 
-  async function compactHistory (compactionCtxId: string): Promise<void> {
+  async function compactHistory (compactionCtxId: string, signal: AbortSignal): Promise<void> {
     const threshold = Number(sessionStorage.getItem('agent-chat-compaction-threshold')) || COMPACTION_THRESHOLD
     const serialized = JSON.stringify(history)
     if (serialized.length < threshold) return
@@ -407,20 +426,37 @@ export function useAgentChat (options: UseAgentChatOptions) {
     const historyToCompact = history.slice(0, -1)
     if (historyToCompact.length === 0) return
 
-    const prompt = 'You are summarizing a conversation history between a user and an AI assistant that uses tools. Preserve all key facts, decisions, tool results, and context needed to continue the conversation naturally. Be concise but complete.'
+    // Compaction is otherwise an invisible, multi-second blank gap (a separate
+    // summarizer call over the whole history before the real turn even starts);
+    // name it so the user sees what's happening instead of a mute spinner.
+    activity.value = 'compacting'
+
+    // The summary becomes the assistant's only memory of everything before the last
+    // user message, so it must stay *actionable*: keep the open task and its next
+    // step, the user's goals/constraints, decisions, and — verbatim — the identifiers
+    // the assistant needs to keep acting (ids, indices, paths, URLs, names, figures).
+    // Detailed tool payloads can be dropped (tools remain callable to re-fetch them)
+    // but the references to re-fetch them must survive.
+    const prompt = 'You are compacting the earlier part of a conversation between a user and a tool-using AI assistant so it can continue within a smaller context window. Write a dense recap that preserves everything needed to continue seamlessly: any task still in progress and the concrete next step; the user\'s stated goals, preferences and constraints; key decisions and conclusions; and important results from tool calls. Keep identifiers and references verbatim — dataset/resource ids, entry indices, file paths, URLs, names, exact figures — since the assistant may need them to act again. Omit pleasantries and redundant back-and-forth. Be concise, but lossless on actionable details.'
 
     try {
       const { text: summary } = await generateText({
         model: provider.chat('summarizer'),
         system: prompt,
         messages: [{ role: 'user' as const, content: JSON.stringify(historyToCompact) }],
+        abortSignal: signal,
         headers: traceHeaders(compactionCtxId)
       })
 
       const originalLength = serialized.length
 
+      // Framed as a user turn (not assistant): providers like Anthropic require the
+      // history to start with a user message, and the SDK coalesces it with the
+      // verbatim last user message that follows. The preamble tells the model this is
+      // a condensed record of the earlier exchange — including its own actions — so it
+      // doesn't mistake the recap for a fresh user request.
       history = [
-        { role: 'user' as const, content: `[Previous conversation summary]\n${summary}` },
+        { role: 'user' as const, content: `[Automatic recap of our earlier conversation, condensed to save context — continue as if you remember it]\n${summary}` },
         lastMessage
       ]
 
@@ -429,6 +465,10 @@ export function useAgentChat (options: UseAgentChatOptions) {
 
       debug('compacted history from %d chars to %d chars', originalLength, JSON.stringify(history).length)
     } catch (err) {
+      // An abort (the user pressed Stop, or the idle watchdog fired) must stop the
+      // whole turn — rethrow so sendMessage's catch handles it. Any other failure is
+      // non-fatal: fall through and continue with the un-compacted history.
+      if (signal.aborted) throw err
       debug('compaction error, continuing with full history: %O', err)
     }
   }
@@ -450,19 +490,42 @@ export function useAgentChat (options: UseAgentChatOptions) {
     const hiddenContext = sendOptions?.hiddenContext
     history.push({ role: 'user', content: hiddenContext ? wrapHiddenContext(hiddenContext, msg) : msg })
 
-    // Compact history if it exceeds the threshold
-    const compactionCtxId = `compaction:${turnId}`
-    await compactHistory(compactionCtxId)
-
+    // Create the abort controller before compaction so the Stop button (and the idle
+    // watchdog) can cancel the summarizer call too — previously compaction ran with
+    // no controller, leaving a slow/stalled summarize unkillable and invisible.
     abortController = new AbortController()
+    const signal = abortController.signal
     let currentAssistantMessage: ChatMessage | null = null
     let streamError: unknown = null
     // Whether the assistant emitted any text this turn. A clean finish with no text
     // means a blank turn (empty completion / empty sub-agent / step limit on a tool
     // call); we surface a fallback rather than ending the conversation silently.
     let producedText = false
+    // Idle watchdog: a turn that goes silent for too long (no compaction result, no
+    // SSE part) is hung. Re-armed on every part received and around compaction; on
+    // expiry it aborts the turn so the catch surfaces a recoverable timeout instead
+    // of an endless spinner. `timedOut` distinguishes it from a user-initiated abort.
+    let timedOut = false
+    let watchdog: ReturnType<typeof setTimeout> | undefined
+    const idleMs = Number(sessionStorage.getItem('agent-chat-idle-timeout')) || STREAM_IDLE_TIMEOUT_MS
+    const armWatchdog = () => {
+      if (watchdog) clearTimeout(watchdog)
+      watchdog = setTimeout(() => { timedOut = true; abortController?.abort() }, idleMs)
+    }
+    // 'analyzing' (the post-tool continuation gap) only applies after a step that
+    // actually called a tool; track it across the loop to label that gap correctly.
+    let stepHadTool = false
+
+    activity.value = 'thinking'
+    armWatchdog()
 
     try {
+      // Compact history if it exceeds the threshold (abortable, watchdog-covered).
+      const compactionCtxId = `compaction:${turnId}`
+      await compactHistory(compactionCtxId, signal)
+      activity.value = 'thinking'
+      armWatchdog()
+
       const currentTools = tools.value
       const { mainTools, subAgents } = partitionTools(currentTools)
       debug('partitioned tools: main=%o subAgents=%o', Object.keys(mainTools), Object.keys(subAgents))
@@ -670,7 +733,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
         messages: history,
         tools: Object.keys(mainLLMTools).length > 0 ? mainLLMTools : undefined,
         stopWhen: stepCountIs(10),
-        abortSignal: abortController.signal,
+        abortSignal: signal,
         ...(prepareStep ? { prepareStep } : {}),
         headers: traceHeaders(`turn:${turnId}`),
         onError: ({ error: err }) => {
@@ -679,6 +742,9 @@ export function useAgentChat (options: UseAgentChatOptions) {
       })
 
       for await (const part of result.fullStream) {
+        // Any part counts as activity: re-arm so the watchdog only fires on a genuine
+        // stall (a gap longer than idleMs between parts), not on a slow-but-live stream.
+        armWatchdog()
         if (part.type === 'finish' && part.finishReason === 'content-filter') {
           // The gateway blocked this turn (moderation). Drop it from model context;
           // the blocked user message is the history tail; if exploration announced
@@ -703,7 +769,8 @@ export function useAgentChat (options: UseAgentChatOptions) {
           break
         }
         if (part.type === 'text-delta') {
-          if (part.text) producedText = true
+          // Text is now visibly streaming (markdown cursor); drop the gap label.
+          if (part.text) { producedText = true; activity.value = null }
           if (!currentAssistantMessage) {
             messages.value.push({ role: 'assistant', content: '' })
             currentAssistantMessage = messages.value[messages.value.length - 1]
@@ -711,6 +778,9 @@ export function useAgentChat (options: UseAgentChatOptions) {
           currentAssistantMessage.content += part.text
         } else if (part.type === 'tool-call') {
           debug('tool-call name=%s id=%s', part.toolName, part.toolCallId)
+          // The tool chip (pending/spinning) is the indicator while the tool runs.
+          stepHadTool = true
+          activity.value = null
           if (!currentAssistantMessage) {
             messages.value.push({ role: 'assistant', content: '', toolInvocations: [] })
             currentAssistantMessage = messages.value[messages.value.length - 1]
@@ -746,6 +816,10 @@ export function useAgentChat (options: UseAgentChatOptions) {
         } else if (part.type === 'finish-step') {
           // Reset for next step (new assistant message after tool results)
           currentAssistantMessage = null
+          // A step that called a tool is normally followed by another model step (the
+          // continuation that reads the tool result) — label that otherwise-blank gap.
+          activity.value = stepHadTool ? 'analyzing' : 'thinking'
+          stepHadTool = false
         }
       }
 
@@ -769,7 +843,15 @@ export function useAgentChat (options: UseAgentChatOptions) {
       status.value = 'ready'
     } catch (err: any) {
       if (err.name === 'AbortError') {
-        status.value = 'ready'
+        // The watchdog aborts the same controller as the Stop button; distinguish
+        // them so a genuine hang surfaces a recoverable timeout error, while a user
+        // abort stays silent.
+        if (timedOut) {
+          error.value = options.timeoutMessage || DEFAULT_TIMEOUT_RESPONSE
+          status.value = 'error'
+        } else {
+          status.value = 'ready'
+        }
         return
       }
       // The AI SDK wraps stream failures in a generic NoOutputGeneratedError.
@@ -781,6 +863,8 @@ export function useAgentChat (options: UseAgentChatOptions) {
       error.value = message
       status.value = 'error'
     } finally {
+      if (watchdog) clearTimeout(watchdog)
+      activity.value = null
       abortController = null
     }
   }
@@ -797,7 +881,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
     options.flattenSubAgents = enabled
   }
 
-  return { messages, status, error, tools, toolsVersion, resolvedPartition, conversationId, sendMessage, abort, reset, setSystemPrompt, setToolExploration, setFlattenSubAgents }
+  return { messages, status, error, activity, tools, toolsVersion, resolvedPartition, conversationId, sendMessage, abort, reset, setSystemPrompt, setToolExploration, setFlattenSubAgents }
 }
 
 export default useAgentChat
