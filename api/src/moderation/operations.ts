@@ -19,7 +19,6 @@ export const STRIKE_THRESHOLD = 5
 export const STRIKE_WINDOW_MS = 24 * 60 * 60 * 1000
 export const STRIKE_COOLDOWN_MS = 60 * 60 * 1000
 
-export const VERDICT_CACHE_TTL_MS = 10 * 60 * 1000
 export const EXCERPT_MAX_CHARS = 500
 export const INPUT_HEAD_CHARS = 2000
 export const INPUT_TAIL_CHARS = 1000

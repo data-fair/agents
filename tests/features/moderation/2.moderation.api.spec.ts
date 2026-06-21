@@ -184,15 +184,6 @@ test.describe('Gateway moderation', () => {
     await waitForEvents(evts => evts.some(e => e.action === 'fail-open-timeout'))
   })
 
-  test('an identical repeated message hits the verdict cache', async () => {
-    const message = `cache test jailbreak ${Date.now()}`
-    await anonPost(chatBody(message))
-    await anonPost(chatBody(message))
-    const events = await waitForEvents(evts => evts.filter(e => e.action === 'block').length >= 2, 'block')
-    const cachedEvents = events.filter(e => e.cached === true)
-    assert.ok(cachedEvents.length >= 1, 'second identical message must produce a cached block event')
-  })
-
   test('5 blocks arm a cooldown: 6th request is refused without any model call', async () => {
     const ip = '203.0.113.99'
     for (let i = 0; i < 5; i++) {
