@@ -135,6 +135,40 @@ export const repairInline = (text: string): string => {
   return out
 }
 
+const tableDelimiterRe = /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?\s*$/m
+
+export const looksLikeIncompleteTable = (text: string): boolean =>
+  /\|/.test(text) && !tableDelimiterRe.test(text)
+
+// Decide which markdown source to feed renderMarkdown while streaming. We lex the
+// raw buffer to classify the last (active) block, then apply a per-type rule.
+export const streamingSafeBuffer = (markdown: string): string => {
+  const tokens = marked.lexer(markdown)
+  if (!tokens.length) return ''
+  const last = tokens[tokens.length - 1]
+  const activeStart = markdown.length - last.raw.length
+  const stable = markdown.slice(0, activeStart)
+  const active = markdown.slice(activeStart)
+
+  // Held back entirely: raw mermaid source (SVG render is deferred anyway) and a
+  // table header that has not yet produced its delimiter row.
+  if (last.type === 'code' && (last as { lang?: string }).lang === 'mermaid') return stable
+  if (last.type === 'paragraph' && looksLikeIncompleteTable(active)) return stable
+
+  // Real table: commit complete rows, hold the still-growing last row.
+  if (last.type === 'table') {
+    const nl = active.lastIndexOf('\n')
+    return nl === -1 ? stable : markdown.slice(0, activeStart + nl + 1)
+  }
+
+  // Regular code fence: an unclosed fence renders as a code block, so stream raw.
+  if (last.type === 'code') return markdown
+
+  // Inline-repairable block (paragraph, list, blockquote, heading, …): render the
+  // whole buffer with synthetic closers for any inline markup left open.
+  return stable + repairInline(active)
+}
+
 export const renderMarkdown = (markdown: string, opts?: { mermaid?: boolean }) => {
   mermaidActive = !!opts?.mermaid
   return sanitizeHtml(marked.parse(replaceLatexCommands(markdown)) as string, sanitizeOpts)
