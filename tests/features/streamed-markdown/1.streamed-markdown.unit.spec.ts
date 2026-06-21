@@ -1,7 +1,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { marked } from 'marked'
-import { repairInline, streamingSafeBuffer, looksLikeIncompleteTable, renderStreamingMarkdown } from '../../../ui/src/utils/markdown.ts'
+import { repairInline, streamingSafeBuffer, looksLikeIncompleteTable, renderStreamingMarkdown, appendStreamingCaret } from '../../../ui/src/utils/markdown.ts'
 
 test.describe('repairInline (unit)', () => {
   test('closes an unclosed code span', () => {
@@ -99,7 +99,8 @@ test.describe('renderStreamingMarkdown (unit)', () => {
     const html = renderStreamingMarkdown('- a\n- b\n- c', true)
     assert.match(html, /<li[^>]*>a<\/li>/)
     assert.match(html, /<li[^>]*>b<\/li>/)
-    assert.match(html, /<li[^>]*>c<\/li>/)
+    // the last item carries the streaming caret, so allow markup between c and </li>
+    assert.match(html, /<li[^>]*>c.*<\/li>/)
   })
   test('renders open bold as <strong> while streaming', () => {
     const html = renderStreamingMarkdown('this is **bo', true)
@@ -117,5 +118,41 @@ test.describe('renderStreamingMarkdown (unit)', () => {
   test('when not streaming, renders the full buffer like renderMarkdown', () => {
     const html = renderStreamingMarkdown('# Title', false)
     assert.match(html, /Title/)
+  })
+  test('appends a blinking caret inline at the end while streaming', () => {
+    const html = renderStreamingMarkdown('hello', true)
+    // caret sits inside the last paragraph, right after the text
+    assert.match(html, /hello<span class="agent-chat__streaming-caret" aria-hidden="true"><\/span><\/p>/)
+  })
+  test('places the caret inside the last list item, not after the list', () => {
+    const html = renderStreamingMarkdown('- a\n- b', true)
+    assert.match(html, /<li[^>]*>b<span class="agent-chat__streaming-caret" aria-hidden="true"><\/span><\/li>/)
+  })
+  test('no caret when not streaming', () => {
+    assert.doesNotMatch(renderStreamingMarkdown('hello', false), /streaming-caret/)
+  })
+})
+
+test.describe('appendStreamingCaret (unit)', () => {
+  test('inserts before the last leaf block closer', () => {
+    assert.equal(
+      appendStreamingCaret('<p>a</p><p>b</p>'),
+      '<p>a</p><p>b<span class="agent-chat__streaming-caret" aria-hidden="true"></span></p>'
+    )
+  })
+  test('targets the last list item, not the enclosing list', () => {
+    assert.equal(
+      appendStreamingCaret('<ul><li>a</li><li>b</li></ul>'),
+      '<ul><li>a</li><li>b<span class="agent-chat__streaming-caret" aria-hidden="true"></span></li></ul>'
+    )
+  })
+  test('appends at the end when there is no block element', () => {
+    assert.equal(
+      appendStreamingCaret('just text'),
+      'just text<span class="agent-chat__streaming-caret" aria-hidden="true"></span>'
+    )
+  })
+  test('returns empty input unchanged', () => {
+    assert.equal(appendStreamingCaret(''), '')
   })
 })
