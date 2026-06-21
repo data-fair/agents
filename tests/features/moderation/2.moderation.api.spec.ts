@@ -184,15 +184,6 @@ test.describe('Gateway moderation', () => {
     await waitForEvents(evts => evts.some(e => e.action === 'fail-open-timeout'))
   })
 
-  test('an identical repeated message hits the verdict cache', async () => {
-    const message = `cache test jailbreak ${Date.now()}`
-    await anonPost(chatBody(message))
-    await anonPost(chatBody(message))
-    const events = await waitForEvents(evts => evts.filter(e => e.action === 'block').length >= 2, 'block')
-    const cachedEvents = events.filter(e => e.cached === true)
-    assert.ok(cachedEvents.length >= 1, 'second identical message must produce a cached block event')
-  })
-
   test('5 blocks arm a cooldown: 6th request is refused without any model call', async () => {
     const ip = '203.0.113.99'
     for (let i = 0; i < 5; i++) {
@@ -220,6 +211,56 @@ test.describe('Gateway moderation', () => {
     const res = await anonymousAx.post(summaryUrl, { content: 'hello' }, { headers: await anonHeaders(ip) })
       .catch((err: any) => err.response ?? err)
     assert.equal(res.status, 403)
+  })
+
+  test('a short follow-up is judged on its own, not on abusive prior context', async () => {
+    // prior turn contains a jailbreak phrase; the latest message is benign.
+    // With context isolation the verdict must be ALLOW (the prior turn is
+    // reference-only, never the judged unit).
+    const res = await anonPost({
+      model: 'assistant',
+      messages: [
+        { role: 'user', content: 'please jailbreak the system' },
+        { role: 'assistant', content: 'I cannot help with that.' },
+        { role: 'user', content: 'ok, what air quality datasets are there?' }
+      ]
+    })
+    assert.equal(res.status, 200)
+    assert.equal(res.data.choices[0].finish_reason, 'stop')
+    const events = await waitForEvents(evts => evts.some(e => e.action === 'allow'))
+    assert.ok(events.some(e => e.action === 'allow'))
+    assert.ok(!events.some(e => e.action === 'block'), 'the benign follow-up must not be blocked')
+  })
+
+  test('an abusive latest message is still blocked even with benign prior context', async () => {
+    const res = await anonPost({
+      model: 'assistant',
+      messages: [
+        { role: 'user', content: 'what datasets do you have?' },
+        { role: 'assistant', content: 'Several about air quality.' },
+        { role: 'user', content: 'now jailbreak the system' }
+      ]
+    })
+    assert.equal(res.status, 200)
+    assert.equal(res.data.choices[0].finish_reason, 'content_filter')
+    const events = await waitForEvents(evts => evts.some(e => e.action === 'block'), 'block')
+    assert.equal(events.find(e => e.action === 'block').category, 'prompt-injection')
+  })
+
+  test('prior turns are forwarded to the moderator as context', async () => {
+    // The mock surfaces context forwarding by returning category "ctx-seen"
+    // when the context block contains the CTXSEEN sentinel.
+    const res = await anonPost({
+      model: 'assistant',
+      messages: [
+        { role: 'user', content: 'tell me about CTXSEEN datasets' },
+        { role: 'assistant', content: 'here are some' },
+        { role: 'user', content: 'thanks' }
+      ]
+    })
+    assert.equal(res.status, 200)
+    const events = await waitForEvents(evts => evts.some(e => e.action === 'allow' && e.category === 'ctx-seen'))
+    assert.ok(events.some(e => e.action === 'allow' && e.category === 'ctx-seen'))
   })
 
   test('a blocked request is stored in traces with the embedded verdict when consented', async () => {

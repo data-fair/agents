@@ -1,9 +1,7 @@
 /**
- * service.ts contains stateful moderation logic: verdict cache, strike
- * accounting, event recording, the gateway-facing moderation run and the
- * admin probe.
+ * service.ts contains stateful moderation logic: strike accounting, event
+ * recording, the gateway-facing moderation run and the admin probe.
  */
-import crypto from 'node:crypto'
 import mongo from '#mongo'
 import { generateObject } from 'ai'
 import type { AccountKeys } from '@data-fair/lib-express'
@@ -13,43 +11,14 @@ import { getModelConfig, resolveModelForRole } from '../models/operations.ts'
 import { recordUsage } from '../usage/service.ts'
 import { computeCost } from '../usage/operations.ts'
 import {
-  buildModerationSystemPrompt, truncateForModeration, truncateExcerpt,
+  buildModerationSystemPrompt, truncateForModeration, truncateExcerpt, formatModerationInput,
   verdictSchema, isInCooldown,
-  MODERATION_TIMEOUT_MS, MODERATION_HARD_TIMEOUT_MS, VERDICT_CACHE_TTL_MS,
+  MODERATION_TIMEOUT_MS, MODERATION_HARD_TIMEOUT_MS,
   STRIKE_WINDOW_MS, STRIKE_COOLDOWN_MS, STRIKE_THRESHOLD,
   type ModerationVerdict
 } from './operations.ts'
 import type { ModerationEvent, ModerationEventAction } from './types.ts'
 import type { TraceModeration } from '../traces/types.ts'
-
-// ---- verdict cache (per-instance cost optimization, not state) ----
-
-const CACHE_MAX_ENTRIES = 1000
-const verdictCache = new Map<string, { verdict: ModerationVerdict, at: number }>()
-
-function cacheKey (owner: AccountKeys, message: string): string {
-  return `${owner.type}/${owner.id}/${crypto.createHash('sha256').update(message).digest('hex')}`
-}
-
-function cacheGet (key: string, now: number): ModerationVerdict | undefined {
-  const entry = verdictCache.get(key)
-  if (!entry) return undefined
-  if (now - entry.at > VERDICT_CACHE_TTL_MS) { verdictCache.delete(key); return undefined }
-  return entry.verdict
-}
-
-// test-env support: the in-process cache would otherwise leak verdicts across test runs
-export function clearVerdictCache (): void {
-  verdictCache.clear()
-}
-
-function cacheSet (key: string, verdict: ModerationVerdict, now: number): void {
-  if (verdictCache.size >= CACHE_MAX_ENTRIES) {
-    const oldest = verdictCache.keys().next().value
-    if (oldest !== undefined) verdictCache.delete(oldest)
-  }
-  verdictCache.set(key, { verdict, at: now })
-}
 
 // ---- events ----
 
@@ -130,11 +99,13 @@ export function startModeration (params: {
   owner: AccountKeys
   identity: UsageIdentity
   message: string
+  context: string
   modelRole: string
 }): ModerationRun {
   const { settings, owner, identity, modelRole } = params
   const startedAt = Date.now()
   const message = truncateForModeration(params.message)
+  const moderationInput = formatModerationInput(params.context, message)
   const eventBase = {
     owner: { type: owner.type, id: owner.id },
     role: identity.role,
@@ -147,7 +118,7 @@ export function startModeration (params: {
   let trace: TraceModeration | undefined
 
   // Exactly one event per check, written when the check settles.
-  const finalize = (action: ModerationEventAction, verdict?: ModerationVerdict, opts?: { cached?: boolean, failOpen?: 'timeout' | 'error' }) => {
+  const finalize = (action: ModerationEventAction, verdict?: ModerationVerdict, opts?: { failOpen?: 'timeout' | 'error' }) => {
     const latencyMs = Date.now() - startedAt
     recordEvent({
       ...eventBase,
@@ -155,7 +126,6 @@ export function startModeration (params: {
       ...(verdict?.category ? { category: verdict.category } : {}),
       ...(verdict?.reason ? { reason: verdict.reason } : {}),
       latencyMs,
-      ...(opts?.cached ? { cached: true } : {}),
       ...(action === 'block' || action === 'late-block' ? { messageExcerpt: truncateExcerpt(params.message) } : {})
     })
     trace = {
@@ -171,17 +141,6 @@ export function startModeration (params: {
     if (identity.isUntrusted && verdict?.action === 'block') registerBlockStrike(owner, eventBase.userId).catch(() => {})
   }
 
-  const key = cacheKey(owner, message)
-  const cached = cacheGet(key, startedAt)
-  if (cached) {
-    finalize(cached.action, cached, { cached: true })
-    return {
-      gate: Promise.resolve({ action: cached.action }),
-      onLateBlock: () => {},
-      traceInfo: () => trace
-    }
-  }
-
   const verdictPromise: Promise<ModerationVerdict> = (async () => {
     const { inputPricePerMillion, outputPricePerMillion } = getModelConfig(settings, 'moderator')
     const model = resolveModelForRole(settings, 'moderator')
@@ -191,7 +150,7 @@ export function startModeration (params: {
       temperature: 0,
       maxOutputTokens: 100,
       system: buildModerationSystemPrompt(),
-      messages: [{ role: 'user', content: message }],
+      messages: [{ role: 'user', content: moderationInput }],
       abortSignal: AbortSignal.timeout(MODERATION_HARD_TIMEOUT_MS)
     })
     const cost = computeCost(usage?.inputTokens ?? 0, usage?.outputTokens ?? 0, inputPricePerMillion, outputPricePerMillion)
@@ -200,7 +159,6 @@ export function startModeration (params: {
   })()
 
   verdictPromise.then(verdict => {
-    cacheSet(key, verdict, Date.now())
     if (!timedOut) {
       finalize(verdict.action, verdict)
     } else if (verdict.action === 'block') {

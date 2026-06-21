@@ -177,19 +177,26 @@ function processMockSummarizerPrompt (): MockPromptResult {
 
 /**
  * mock-moderator: returns a deterministic moderation verdict as JSON text
- * (parseable by generateObject). Messages containing "jailbreak" or an
- * "ignore (all/previous) instructions" phrase are blocked as prompt-injection,
- * "fuck" as profanity; everything else is allowed. A message containing
- * "slow moderation" delays the verdict well past the gateway's gate timeout so
- * the fail-open and late-block paths are testable.
+ * (parseable by generateObject). When the gateway wraps conversation context,
+ * it judges ONLY the <message_to_moderate> portion — mirroring the real prompt's
+ * isolation rule. Messages containing "jailbreak" or an "ignore (all/previous)
+ * instructions" phrase are blocked as prompt-injection, "fuck" as profanity;
+ * everything else is allowed. "slow moderation" delays the verdict past the gate
+ * timeout (fail-open / late-block paths). The "CTXSEEN" sentinel in the context
+ * surfaces (as category "ctx-seen" on an allow) that prior turns were forwarded.
  */
 function processMockModeratorPrompt (lastMessage: string): MockPromptResult {
-  const delayMs = /slow moderation/i.test(lastMessage) ? 6000 : undefined
-  if (/jailbreak|ignore (all |previous )+instructions/i.test(lastMessage)) {
+  const judged = lastMessage.match(/<message_to_moderate>([\s\S]*?)<\/message_to_moderate>/)?.[1] ?? lastMessage
+  const context = lastMessage.match(/<conversation_context>([\s\S]*?)<\/conversation_context>/)?.[1] ?? ''
+  const delayMs = /slow moderation/i.test(judged) ? 6000 : undefined
+  if (/jailbreak|ignore (all |previous )+instructions/i.test(judged)) {
     return { type: 'text', text: '{"action":"block","category":"prompt-injection","reason":"mock block"}', delayMs }
   }
-  if (/\bfuck/i.test(lastMessage)) {
+  if (/\bfuck/i.test(judged)) {
     return { type: 'text', text: '{"action":"block","category":"profanity","reason":"mock profanity"}', delayMs }
+  }
+  if (/CTXSEEN/.test(context)) {
+    return { type: 'text', text: '{"action":"allow","category":"ctx-seen"}', delayMs }
   }
   return { type: 'text', text: '{"action":"allow"}', delayMs }
 }

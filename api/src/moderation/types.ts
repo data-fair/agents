@@ -8,7 +8,6 @@ export interface ModerationEvent {
   category?: string
   reason?: string
   latencyMs?: number
-  cached?: boolean
   role: EffectiveRole
   userId: string
   modelRole: string

@@ -29,9 +29,9 @@ router.get('/:type/:id/stats', async (req, res) => {
       { $match: { ...ownerFilter, createdAt: { $gte: since } } },
       { $group: { _id: '$action', count: { $sum: 1 } } }
     ]).toArray(),
-    // verdict latency over real checks (cached lookups and refusals excluded)
+    // verdict latency over real checks (refusals excluded)
     mongo.moderationEvents.aggregate([
-      { $match: { ...ownerFilter, createdAt: { $gte: since }, cached: { $ne: true }, action: { $ne: 'strike-refusal' } } },
+      { $match: { ...ownerFilter, createdAt: { $gte: since }, action: { $ne: 'strike-refusal' } } },
       { $group: { _id: null, avg: { $avg: '$latencyMs' }, p95: { $percentile: { input: '$latencyMs', p: [0.95], method: 'approximate' } } } }
     ] as any[]).toArray(),
     // the silent-breakage alarm sample: last 24h fail-open rate

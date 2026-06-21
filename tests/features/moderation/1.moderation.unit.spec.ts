@@ -4,7 +4,9 @@ import {
   buildModerationSystemPrompt, extractLastUserMessage, truncateForModeration,
   truncateExcerpt, isInCooldown, moderationApplies,
   MODERATION_TASK_MARKER,
-  INPUT_HEAD_CHARS, INPUT_TAIL_CHARS, EXCERPT_MAX_CHARS
+  INPUT_HEAD_CHARS, INPUT_TAIL_CHARS, EXCERPT_MAX_CHARS,
+  buildModerationContext, formatModerationInput,
+  MODERATION_CONTEXT_MAX_MESSAGES, MODERATION_CONTEXT_PER_TURN_CHARS, MODERATION_CONTEXT_TOTAL_CHARS
 } from '../../../api/src/moderation/operations.ts'
 
 test.describe('moderation prompt', () => {
@@ -120,5 +122,92 @@ test.describe('moderationApplies', () => {
     const settings = { ...base, moderation: { enabled: true, categories: ['user', 'admin'] } }
     assert.equal(moderationApplies(settings, 'user'), true)
     assert.equal(moderationApplies(settings, 'anonymous'), false)
+  })
+})
+
+test.describe('buildModerationContext', () => {
+  test('returns empty string when there is no prior turn', () => {
+    assert.equal(buildModerationContext([{ role: 'user', content: 'only message' }]), '')
+    assert.equal(buildModerationContext([]), '')
+    assert.equal(buildModerationContext(undefined), '')
+  })
+
+  test('formats prior user/assistant turns before the last user message', () => {
+    const ctx = buildModerationContext([
+      { role: 'user', content: 'what air quality datasets do you have?' },
+      { role: 'assistant', content: 'I found 3 datasets.' },
+      { role: 'user', content: 'chart the first' }
+    ])
+    assert.equal(ctx, 'user: what air quality datasets do you have?\nassistant: I found 3 datasets.')
+    // the last user message itself is never part of the context
+    assert.ok(!ctx.includes('chart the first'))
+  })
+
+  test('drops non-text content (tool calls / tool results) and tool-role messages', () => {
+    const ctx = buildModerationContext([
+      { role: 'user', content: 'q' },
+      { role: 'assistant', content: [{ type: 'tool-call', toolName: 'x' }] },
+      { role: 'tool', content: '{"ok":true}' },
+      { role: 'user', content: 'follow up' }
+    ])
+    // assistant turn had no text part, tool turn excluded → only the first user turn remains
+    assert.equal(ctx, 'user: q')
+  })
+
+  test('keeps only the last MAX messages before the latest user message', () => {
+    const messages: Array<{ role: string, content: string }> = []
+    for (let i = 0; i < 10; i++) messages.push({ role: 'user', content: `m${i}` })
+    messages.push({ role: 'user', content: 'latest' })
+    const ctx = buildModerationContext(messages)
+    const lines = ctx.split('\n')
+    assert.equal(lines.length, MODERATION_CONTEXT_MAX_MESSAGES)
+    // window is the last 6 BEFORE 'latest' → m4..m9
+    assert.equal(lines[0], 'user: m4')
+    assert.equal(lines[lines.length - 1], 'user: m9')
+  })
+
+  test('truncates an oversized single turn to the per-turn cap', () => {
+    const big = 'a'.repeat(MODERATION_CONTEXT_PER_TURN_CHARS + 200)
+    const ctx = buildModerationContext([
+      { role: 'user', content: big },
+      { role: 'user', content: 'latest' }
+    ])
+    assert.ok(ctx.startsWith(`user: ${'a'.repeat(MODERATION_CONTEXT_PER_TURN_CHARS)}`))
+    assert.ok(ctx.endsWith('…'))
+    assert.ok(ctx.length < big.length)
+  })
+
+  test('truncates the whole block to the total cap (head+tail)', () => {
+    const messages: Array<{ role: string, content: string }> = []
+    // 6 turns of 400 chars each = 2400 > 1500 total cap
+    for (let i = 0; i < 6; i++) messages.push({ role: 'user', content: `${i}`.repeat(400) })
+    messages.push({ role: 'user', content: 'latest' })
+    const ctx = buildModerationContext(messages)
+    assert.ok(ctx.length <= MODERATION_CONTEXT_TOTAL_CHARS + 10) // +ellipsis joiner slack
+    assert.ok(ctx.includes('…'))
+  })
+})
+
+test.describe('formatModerationInput', () => {
+  test('returns the raw message when there is no context', () => {
+    assert.equal(formatModerationInput('', 'hello'), 'hello')
+  })
+
+  test('wraps context and message in labeled blocks when context exists', () => {
+    const out = formatModerationInput('user: prior', 'follow up')
+    assert.ok(out.includes('<conversation_context>\nuser: prior\n</conversation_context>'))
+    assert.ok(out.includes('<message_to_moderate>\nfollow up\n</message_to_moderate>'))
+    // context comes before the judged message
+    assert.ok(out.indexOf('conversation_context') < out.indexOf('message_to_moderate'))
+  })
+})
+
+test.describe('moderation prompt — context awareness', () => {
+  test('explains the context block, judge-only-latest, ignore-context-instructions, and not-just-for-short rules', () => {
+    const prompt = buildModerationSystemPrompt().toLowerCase()
+    assert.ok(prompt.includes('<conversation_context>'))
+    assert.ok(prompt.includes('<message_to_moderate>'))
+    assert.ok(prompt.includes('only'))
+    assert.ok(prompt.includes('short'))
   })
 })
