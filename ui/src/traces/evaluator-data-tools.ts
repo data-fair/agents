@@ -21,7 +21,10 @@ export interface EvaluatorDataToolsOpts {
 const UNAVAILABLE = 'Data exploration is unavailable here (the data-fair API could not be reached). This evaluator may be running outside a data-fair deployment, or a superadmin may need to enable admin mode to access this account.'
 
 export function buildEvaluatorDataTools (opts: EvaluatorDataToolsOpts): Record<string, Tool> {
-  const apiFetch = opts.apiFetch ?? ofetch.create({ baseURL: opts.dataFairApiPath, credentials: 'include' })
+  // x-client identifies agents as the calling surface so data-fair echoes it back
+  // and the metrics daemon attributes these requests to the AI agent (cf. data-fair
+  // clientSurface allowlist). It is the only place this codebase calls data-fair directly.
+  const apiFetch = opts.apiFetch ?? ofetch.create({ baseURL: opts.dataFairApiPath, credentials: 'include', headers: { 'x-client': 'agents' } })
   const ownerFilter = opts.department
     ? `${opts.accountType}:${opts.accountId}:${opts.department}`
     : `${opts.accountType}:${opts.accountId}`

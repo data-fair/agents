@@ -84,6 +84,23 @@ test.describe('evaluator data tools (unit)', () => {
     assert.equal(calls[0].query, undefined)
   })
 
+  test('the default data-fair client tags requests with x-client: agents', async () => {
+    const originalFetch = globalThis.fetch
+    let sentClient: string | null = null
+    globalThis.fetch = (async (input: any, init: any) => {
+      const headers = new Headers(init?.headers ?? input?.headers)
+      sentClient = headers.get('x-client')
+      return new Response(JSON.stringify({ results: [], count: 0 }), { status: 200, headers: { 'content-type': 'application/json' } })
+    }) as any
+    try {
+      const tools = buildEvaluatorDataTools({ accountType: 'user', accountId: 'u1', dataFairApiPath: '/x' })
+      await (tools.list_datasets as any).execute({}, {})
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+    assert.equal(sentClient, 'agents')
+  })
+
   test('get_dataset_metadata_raw returns the full dataset JSON with no select', async () => {
     const calls: any[] = []
     const tools = buildEvaluatorDataTools({
