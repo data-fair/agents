@@ -808,6 +808,23 @@ export function useAgentChat (options: UseAgentChatOptions) {
       // completion, a sub-agent that returned nothing, or the step limit reached on
       // a tool call. Surface a fallback so the turn is never visibly empty.
       if (!mainScope.producedText) {
+        // An empty turn is anomalous — put it on the same footing as an error and dump
+        // the physical request/response to the console for diagnosis (the user only sees
+        // the generic fallback bubble). The usage is the tell: a non-zero
+        // completion_tokens with no text means the model spent the turn on reasoning the
+        // gateway dropped; a tool-calls/length finish reason points elsewhere (step cap,
+        // output cap). request/response are the OpenAI-compatible payloads the client
+        // actually exchanged with the gateway.
+        try {
+          console.warn('Agent chat: empty assistant response (treated as a bug)', {
+            request: (await result.request)?.body,
+            response,
+            finishReason: await result.finishReason,
+            usage: await result.usage
+          })
+        } catch (logErr) {
+          console.warn('Agent chat: empty assistant response (failed to read request/response)', logErr)
+        }
         messages.value.push({ role: 'assistant', content: options.emptyResponseMessage || DEFAULT_EMPTY_RESPONSE })
       }
 
