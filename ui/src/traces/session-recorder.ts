@@ -39,6 +39,7 @@ export interface PhysicalRequestTrace {
   bodyChars: number
   durationMs: number
   timeToFirstChunkMs?: number
+  upstream?: { request: { url: string, body: any, bodyChars: number }, response: { status: number, raw: string, rawChars: number, truncated?: boolean } }
 }
 
 export interface TurnTrace {
