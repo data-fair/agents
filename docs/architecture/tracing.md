@@ -96,6 +96,32 @@ The capture is exposed to the evaluator via the **`getUpstreamExchange`** tool
 `upstream.request` and `upstream.response` (raw bytes included). The trace-viewer surfaces this
 in a collapsible **"Upstream (provider)"** panel, visible to account admins only.
 
+### Debug logging of raw exchanges
+
+Independently of trace storage, setting the `DEBUG` env var on the API process logs
+raw LLM exchanges through the [`debug`](https://www.npmjs.com/package/debug) module,
+namespaced **per provider** so logging can be restricted to a single provider:
+
+- `agents:upstream:<type>:<id>` — the raw gateway→provider HTTP request (URL + body,
+  **never headers**) and the raw response (status + accumulated body). Emitted by the
+  `createDebugFetch` wrapper (`api/src/models/debug-fetch.ts`, the sibling of
+  `capturing-fetch.ts`), composed into `createModel` (`api/src/models/operations.ts`).
+  Living at that single chokepoint, it covers the assistant, tools, summarizer and
+  evaluator roles **and** the moderator/summary callers.
+- `agents:downstream:<type>:<id>` — the OpenAI-format request received by the gateway
+  and the assembled response returned to the client, logged in `api/src/gateway/router.ts`.
+
+Restrict scope with the standard `debug` patterns: one provider
+(`DEBUG=agents:upstream:openai:<id>`), one provider type
+(`DEBUG=agents:upstream:openai:*`), one direction (`DEBUG=agents:downstream:*`) or
+everything (`DEBUG=agents:*`).
+
+This is a developer-only diagnostic, **gated solely by `DEBUG`** — it does not require
+`storeTraces` or user consent. When a namespace is disabled the wrapper returns the base
+fetch unchanged and the downstream serialisation is skipped, so there is **no runtime cost
+unless the flag is activated**. Bodies are logged **uncapped** (unlike the 256 KB
+`UPSTREAM_RAW_CAP` applied to stored traces).
+
 ### Collection, retention and GDPR controls
 
 Documents live in the **`trace-requests`** MongoDB collection. Retention is a **fixed
