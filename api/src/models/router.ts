@@ -5,6 +5,7 @@ import { Ollama } from 'ollama'
 import memoize from 'memoizee'
 import axios from 'axios'
 import type { Model, Provider, Settings } from '#types'
+import { scalewayBaseURL } from './operations.ts'
 
 const router = Router()
 export default router
@@ -157,7 +158,7 @@ async function fetchModelsForProvider (
     case 'openrouter':
       return fetchOpenRouterModels(provider.apiKey)
     case 'scaleway':
-      return fetchOpenAICompatibleModels('https://api.scaleway.ai/v1', provider.apiKey)
+      return fetchOpenAICompatibleModels(scalewayBaseURL(provider.projectId), provider.apiKey)
     default:
       return []
   }
