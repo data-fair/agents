@@ -32,8 +32,15 @@ export function createModel (provider: Provider, modelId: string): LanguageModel
       return createOllama({ baseURL: provider.baseURL })(modelId)
     case 'scaleway':
       return createOpenAI({ apiKey: provider.apiKey, baseURL: 'https://api.scaleway.ai/v1' })(modelId)
-    case 'openai-compatible':
-      return createOpenAI({ apiKey: provider.apiKey, baseURL: provider.baseURL })(modelId)
+    case 'openai-compatible': {
+      const openai = createOpenAI({
+        apiKey: provider.apiKey,
+        baseURL: provider.baseURL
+      })
+      return provider.compatibility === 'compatible'
+        ? openai.chat(modelId)
+        : openai(modelId)
+    }
     case 'mock':
       if (modelId === 'evaluator-mock-model') return createEvaluatorMockLanguageModel()
       return createMockLanguageModel(modelId)
