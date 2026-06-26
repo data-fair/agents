@@ -106,6 +106,11 @@ export interface UseAgentChatOptions {
   timeoutMessage?: string
   toolExploration?: boolean
   flattenSubAgents?: boolean
+  // When set, this chat never opts into server-side trace storage: the
+  // x-trace-consent header is withheld so the gateway never records its
+  // requests. Used by the evaluator, whose own LLM calls reviewing a stored
+  // trace would otherwise be stored as a confusing "meta" trace.
+  disableTraceStorage?: boolean
 }
 
 interface SubAgentConfig {
@@ -281,7 +286,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
   watch(() => toolsVersion.value, () => { resolveToolsPartition() }, { immediate: true })
 
   function traceHeaders (ctx: string): Record<string, string> {
-    const consent = readConsent()
+    const consent = options.disableTraceStorage ? null : readConsent()
     return {
       'x-trace-ctx': ctx,
       'x-trace-conversation': conversationId.value,

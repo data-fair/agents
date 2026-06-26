@@ -99,5 +99,17 @@ test.describe('Trace review flow', () => {
     await expect(
       page.locator('.v-chip').filter({ hasText: 'getTraceOverview' }).first()
     ).toBeVisible({ timeout: 15000 })
+
+    // Step 8: The evaluator's own LLM calls must NOT be stored as traces.
+    // Reviewing a trace runs the evaluator through the gateway; if it sent the
+    // trace-consent header it would record a confusing "meta" conversation.
+    // Trace storage is fire-and-forget, so give it time to flush, then assert
+    // the stored-conversation list still holds exactly the one real chat.
+    for (let i = 0; i < 15; i++) {
+      const res = await admin.get('/api/traces/user/test-standalone1?page=1&size=20')
+      expect(res.data.results).toHaveLength(1)
+      expect(res.data.results[0].conversationId).toBe(conversationId)
+      await new Promise(resolve => setTimeout(resolve, 200))
+    }
   })
 })
