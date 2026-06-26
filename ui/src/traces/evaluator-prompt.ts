@@ -16,7 +16,7 @@ Ground your judgements in these documented behaviours rather than assuming meani
 
 Use the provided tools to explore the session trace. Start with getTraceOverview to understand the session flow, then use getTraceEntry or getTraceEntries to examine specific parts in detail. Use getSessionConfig to review the system prompt and available tools.
 
-For physical-request entries, prefer summarizePhysicalRequest over getTraceEntry when the payload is large — it returns a focused analysis instead of the raw context.
+For physical-request entries, prefer summarizePhysicalRequest over getTraceEntry when the payload is large — it returns a focused analysis instead of the raw context. Use getUpstreamExchange to read the raw provider request/response for a physical-request entry — useful when the assistant-facing response is empty or you suspect the provider returned reasoning that was dropped.
 
 ## Exploring the data (data-fair context)
 
