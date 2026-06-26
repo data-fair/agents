@@ -12,6 +12,11 @@ export interface TraceFlags {
   mermaid: boolean
 }
 
+export interface UpstreamCapture {
+  request: { url: string, body: any, bodyChars: number }
+  response: { status: number, raw: string, rawChars: number, truncated?: boolean }
+}
+
 export interface TraceRequest {
   owner: { type: string, id: string, department?: string }
   userId?: string
@@ -45,5 +50,7 @@ export interface TraceRequest {
   moderation?: TraceModeration
   // experimental flags the user had active for this conversation (constant per conversation)
   flags?: TraceFlags
+  // raw gateway→provider exchange, captured only when storeTraces+consent is on
+  upstream?: UpstreamCapture
   createdAt: Date              // ordering key + TTL target (30-day index on this field)
 }
