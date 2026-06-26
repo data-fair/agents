@@ -10,6 +10,7 @@ import { convertOpenAITools, convertOpenAIMessages, convertToolChoice, mapFinish
 import type { OpenAIMessage, OpenAIToolDefinition, OpenAIToolChoice, FinishReason } from './operations.ts'
 import { recordTraceRequest } from '../traces/service.ts'
 import { parseFlagsCookie } from '../traces/operations.ts'
+import { createCapturingFetch, type UpstreamCaptureSink } from '../models/capturing-fetch.ts'
 import { extractLastUserMessage, buildModerationContext, moderationApplies } from '../moderation/operations.ts'
 import { startModeration, isStrikeCooldownActive, recordStrikeRefusal, type ModerationRun } from '../moderation/service.ts'
 import crypto from 'node:crypto'
@@ -160,9 +161,6 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
       return
     }
 
-    const { modelConfig, inputPricePerMillion, outputPricePerMillion } = getModelConfig(settings, modelId)
-    const model = resolveModelForRole(settings, modelId)
-
     // Gateway-side input moderation: applies to the configured user categories
     // when the org enabled it, racing the model call.
     let moderation: ModerationRun | null = null
@@ -185,6 +183,12 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
     if (storeTraces) res.setHeader('x-trace-storage', 'available')
     const consented = req.get('x-trace-consent') === 'yes'
     const shouldStoreTrace = storeTraces && consented
+
+    const captureSink: UpstreamCaptureSink | undefined = shouldStoreTrace ? {} : undefined
+    const captureFetch = captureSink ? createCapturingFetch(captureSink) : undefined
+
+    const { modelConfig, inputPricePerMillion, outputPricePerMillion } = getModelConfig(settings, modelId)
+    const model = resolveModelForRole(settings, modelId, captureFetch)
     const traceConversationId = req.get('x-trace-conversation') || undefined
     const traceContextId = req.get('x-trace-ctx') || 'unknown'
     const traceFlags = parseFlagsCookie(req.headers.cookie)
@@ -208,7 +212,8 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
         outputPricePerMillion,
         timing: { durationMs: Date.now() - traceStart, ...(timeToFirstChunkMs != null ? { timeToFirstChunkMs } : {}) },
         ...(moderation?.traceInfo() ? { moderation: moderation.traceInfo() } : {}),
-        ...(traceFlags ? { flags: traceFlags } : {})
+        ...(traceFlags ? { flags: traceFlags } : {}),
+        ...(captureSink?.response ? { upstream: { request: captureSink.request!, response: captureSink.response } } : {})
       })
     }
 
