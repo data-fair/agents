@@ -2,7 +2,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import {
   buildModerationSystemPrompt, extractLastUserMessage, truncateForModeration,
-  truncateExcerpt, isInCooldown, moderationApplies,
+  truncateExcerpt, isInCooldown, moderationApplies, isReasoningEffortRejected,
   MODERATION_TASK_MARKER,
   INPUT_HEAD_CHARS, INPUT_TAIL_CHARS, EXCERPT_MAX_CHARS,
   buildModerationContext, formatModerationInput,
@@ -209,5 +209,19 @@ test.describe('moderation prompt — context awareness', () => {
     assert.ok(prompt.includes('<message_to_moderate>'))
     assert.ok(prompt.includes('only'))
     assert.ok(prompt.includes('short'))
+  })
+})
+
+test.describe('isReasoningEffortRejected', () => {
+  test('detects the Scaleway reasoning_effort validation error (message + body)', () => {
+    assert.equal(isReasoningEffortRejected(new Error("1 validation error: {'loc': ('body', 'reasoning_effort'), 'msg': ...}")), true)
+    assert.equal(isReasoningEffortRejected({ responseBody: "litellm.UnsupportedParamsError: openai does not support parameters: ['reasoning_effort']" }), true)
+    assert.equal(isReasoningEffortRejected({ data: { error: { param: 'reasoning_effort' } } }), true)
+  })
+
+  test('ignores unrelated errors so a real failure still propagates (fail-open, not retry)', () => {
+    assert.equal(isReasoningEffortRejected(new Error('connection refused')), false)
+    assert.equal(isReasoningEffortRejected({ responseBody: 'rate limit exceeded' }), false)
+    assert.equal(isReasoningEffortRejected(undefined), false)
   })
 })

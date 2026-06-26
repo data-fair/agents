@@ -29,6 +29,11 @@ export function scalewayBaseURL (projectId?: string): string {
   return trimmed ? `https://api.scaleway.ai/${trimmed}/v1` : 'https://api.scaleway.ai/v1'
 }
 
+// Shared @ai-sdk/openai-compatible provider name for the scaleway + openai-compatible
+// routes. It is the key under which callers pass providerOptions (e.g. reasoningEffort),
+// so keep it a single constant rather than per-provider names.
+export const OPENAI_COMPATIBLE_PROVIDER_NAME = 'openai-compatible'
+
 export function createModel (provider: Provider, modelId: string, fetchImpl?: typeof fetch): LanguageModel {
   // Wrap the effective fetch (the injected capture fetch when trace storage is on,
   // otherwise the global) with the provider-scoped debug logger. When the DEBUG
@@ -54,14 +59,14 @@ export function createModel (provider: Provider, modelId: string, fetchImpl?: ty
       // /v1/chat/completions model. Route it through @ai-sdk/openai-compatible (rather
       // than @ai-sdk/openai's .chat()) so reasoning models' `reasoning_content` is
       // captured as reasoning parts — @ai-sdk/openai silently drops that field.
-      return createOpenAICompatible({ name: 'scaleway', apiKey: provider.apiKey, baseURL: scalewayBaseURL(provider.projectId), includeUsage: true, ...f }).chatModel(modelId)
+      return createOpenAICompatible({ name: OPENAI_COMPATIBLE_PROVIDER_NAME, apiKey: provider.apiKey, baseURL: scalewayBaseURL(provider.projectId), includeUsage: true, ...f }).chatModel(modelId)
     case 'openai-compatible': {
       // 'compatible' mode targets /v1/chat/completions; route it through
       // @ai-sdk/openai-compatible to capture `reasoning_content` (see scaleway above).
       // 'default' mode keeps @ai-sdk/openai's /v1/responses callable, which already
       // surfaces reasoning natively.
       if (provider.compatibility === 'compatible') {
-        return createOpenAICompatible({ name: provider.name || 'openai-compatible', apiKey: provider.apiKey, baseURL: provider.baseURL!, includeUsage: true, ...f }).chatModel(modelId)
+        return createOpenAICompatible({ name: OPENAI_COMPATIBLE_PROVIDER_NAME, apiKey: provider.apiKey, baseURL: provider.baseURL!, includeUsage: true, ...f }).chatModel(modelId)
       }
       return createOpenAI({ apiKey: provider.apiKey, baseURL: provider.baseURL, ...f })(modelId)
     }
