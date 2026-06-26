@@ -344,6 +344,9 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
             ...(hasTools ? { tools, toolChoice: convertToolChoice(toolChoice) } : {})
           })
           ttfc = Date.now() - traceStart
+          if (gen.reasoningText) {
+            sseWrite(`data: ${JSON.stringify({ id: completionId, object: 'chat.completion.chunk', created, model: modelId, choices: [{ index: 0, delta: { reasoning_content: gen.reasoningText }, finish_reason: null }] })}\n\n`)
+          }
           if (gen.text) {
             streamedText = gen.text
             sseWrite(`data: ${JSON.stringify({ id: completionId, object: 'chat.completion.chunk', created, model: modelId, choices: [{ index: 0, delta: { content: gen.text }, finish_reason: null }] })}\n\n`)
@@ -388,6 +391,12 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
               model: modelId,
               choices: [{ index: 0, delta: { content: part.text }, finish_reason: null }]
             })}\n\n`)
+            } else if (part.type === 'reasoning-delta') {
+              // Forward reasoning tokens (captured by @ai-sdk/openai-compatible for
+              // reasoning models) on the OpenAI-compatible `reasoning_content` channel so
+              // the client provider parses them back as reasoning.
+              if (ttfc === undefined) ttfc = Date.now() - traceStart
+              sseWrite(`data: ${JSON.stringify({ id: completionId, object: 'chat.completion.chunk', created, model: modelId, choices: [{ index: 0, delta: { reasoning_content: part.text }, finish_reason: null }] })}\n\n`)
             } else if (part.type === 'tool-input-start') {
               const toolCallIndex = toolCallIndexes.size
               toolCallIndexes.set(part.id, toolCallIndex)
@@ -535,10 +544,11 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
       }
 
       // Build response message
-      const responseMessage: { role: string, content: string | null, tool_calls?: Array<{ id: string, type: string, function: { name: string, arguments: string } }> } = {
+      const responseMessage: { role: string, content: string | null, reasoning_content?: string, tool_calls?: Array<{ id: string, type: string, function: { name: string, arguments: string } }> } = {
         role: 'assistant',
         content: result.text || null
       }
+      if (result.reasoningText) responseMessage.reasoning_content = result.reasoningText
 
       // Include tool calls if present
       if (result.toolCalls && result.toolCalls.length > 0) {

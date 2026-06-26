@@ -1,6 +1,6 @@
 import { ref, watch, onScopeDispose } from 'vue'
 import { streamText, generateText, stepCountIs, tool, jsonSchema, ToolLoopAgent } from 'ai'
-import { createOpenAI } from '@ai-sdk/openai'
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import type { ModelMessage, Tool } from 'ai'
 import { getTabChannelId } from '@data-fair/lib-vue-agents'
 import { FrameClientAggregator } from '~/transports/frame-client-aggregator'
@@ -62,6 +62,8 @@ const STREAM_IDLE_TIMEOUT_MS = 90_000
 export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
+  // Reasoning ("thinking") tokens from reasoning models, shown collapsed in the UI.
+  reasoning?: string
   toolInvocations?: Array<{
     toolCallId: string
     toolName: string
@@ -310,7 +312,10 @@ export function useAgentChat (options: UseAgentChatOptions) {
     return noteStorageHeader(res)
   }
 
-  const provider = createOpenAI({
+  // openai-compatible (not @ai-sdk/openai) so the client parses the gateway's
+  // `reasoning_content` SSE channel into reasoning parts for reasoning models.
+  const provider = createOpenAICompatible({
+    name: 'gateway',
     baseURL: `${window.location.origin}${$apiPath}/gateway/${options.accountType}/${options.accountId}/v1`,
     apiKey: 'unused',
     fetch: gatewayFetch
@@ -413,7 +418,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
 
     try {
       const { text: summary } = await generateText({
-        model: provider.chat('summarizer'),
+        model: provider.chatModel('summarizer'),
         system: prompt,
         messages: [{ role: 'user' as const, content: JSON.stringify(historyToCompact) }],
         abortSignal: signal,
@@ -555,7 +560,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
         }
 
         const subAgent = new ToolLoopAgent({
-          model: provider.chat(config.model ?? 'tools'),
+          model: provider.chatModel(config.model ?? 'tools'),
           instructions: config.prompt,
           tools: subAgentTools,
           stopWhen: stepCountIs(10)
@@ -720,7 +725,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
         mainLLMTools[EXPLORE_TOOL_NAME] = createExploreTool({
           plainTools,
           promote: (names) => names.forEach(n => promotedTools.add(n)),
-          summarizer: provider.chat('summarizer'),
+          summarizer: provider.chatModel('summarizer'),
           headers: traceHeaders(`turn:${turnId}`)
         })
 
@@ -751,7 +756,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
 
       debug('streaming with model=%s tools=%o exploration=%s', chatModelName, Object.keys(mainLLMTools), explorationEnabled())
       const result = streamText({
-        model: provider.chat(chatModelName),
+        model: provider.chatModel(chatModelName),
         system: options.systemPrompt,
         messages: history,
         tools: Object.keys(mainLLMTools).length > 0 ? mainLLMTools : undefined,

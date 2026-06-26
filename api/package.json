@@ -22,6 +22,7 @@
     "@ai-sdk/google": "^3.0.43",
     "@ai-sdk/mistral": "^3.0.24",
     "@ai-sdk/openai": "^3.0.41",
+    "@ai-sdk/openai-compatible": "^2.0.52",
     "@data-fair/lib-express": "^1.19.0",
     "@data-fair/lib-node": "^2.12.0",
     "@data-fair/lib-utils": "^1.11.0",

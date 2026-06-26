@@ -6,6 +6,7 @@
 import type { Provider, Settings } from '#types'
 import type { LanguageModel } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { createMistral } from '@ai-sdk/mistral'
@@ -49,14 +50,20 @@ export function createModel (provider: Provider, modelId: string, fetchImpl?: ty
     case 'ollama':
       return createOllama({ baseURL: provider.baseURL, ...f })(modelId)
     case 'scaleway':
-      // Scaleway does not implement the OpenAI /v1/responses endpoint that the
-      // default callable targets; use the /v1/chat/completions model via .chat().
-      return createOpenAI({ apiKey: provider.apiKey, baseURL: scalewayBaseURL(provider.projectId), ...f }).chat(modelId)
+      // Scaleway does not implement the OpenAI /v1/responses endpoint, so it uses the
+      // /v1/chat/completions model. Route it through @ai-sdk/openai-compatible (rather
+      // than @ai-sdk/openai's .chat()) so reasoning models' `reasoning_content` is
+      // captured as reasoning parts — @ai-sdk/openai silently drops that field.
+      return createOpenAICompatible({ name: 'scaleway', apiKey: provider.apiKey, baseURL: scalewayBaseURL(provider.projectId), includeUsage: true, ...f }).chatModel(modelId)
     case 'openai-compatible': {
-      const openai = createOpenAI({ apiKey: provider.apiKey, baseURL: provider.baseURL, ...f })
-      return provider.compatibility === 'compatible'
-        ? openai.chat(modelId)
-        : openai(modelId)
+      // 'compatible' mode targets /v1/chat/completions; route it through
+      // @ai-sdk/openai-compatible to capture `reasoning_content` (see scaleway above).
+      // 'default' mode keeps @ai-sdk/openai's /v1/responses callable, which already
+      // surfaces reasoning natively.
+      if (provider.compatibility === 'compatible') {
+        return createOpenAICompatible({ name: provider.name || 'openai-compatible', apiKey: provider.apiKey, baseURL: provider.baseURL!, includeUsage: true, ...f }).chatModel(modelId)
+      }
+      return createOpenAI({ apiKey: provider.apiKey, baseURL: provider.baseURL, ...f })(modelId)
     }
     case 'mock':
       if (modelId === 'evaluator-mock-model') return createEvaluatorMockLanguageModel()
