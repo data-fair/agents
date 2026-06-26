@@ -38,6 +38,34 @@ async function sendMessage (page: import('@playwright/test').Page, text: string)
   await page.getByRole('button', { name: 'Send' }).click()
 }
 
+// The explore-skeleton chip lives in the DOM only between the explore_tools
+// tool-call and its tool-result — i.e. for the single mock round-trip of
+// explore_tools.execute, which on localhost can be a few milliseconds. Polling
+// assertions (toBeVisible) occasionally never sample inside that window and miss
+// it. A MutationObserver records the insertion even if the node is added and
+// removed within one frame, so the assertion becomes deterministic. Install it
+// before the triggering turn; read the flag afterwards.
+async function watchForExploreSkeleton (page: import('@playwright/test').Page) {
+  await page.evaluate(() => {
+    const sel = '[data-testid="explore-skeleton"]'
+    // The skeleton only ever renders inside .agent-chat, so matching the testid on
+    // the added node (or anywhere in its added subtree) is enough.
+    const hasSkeleton = (node: Node) =>
+      node instanceof Element && (node.matches(sel) || !!node.querySelector(sel))
+    const w = window as unknown as { __exploreSkeletonSeen?: boolean, __exploreSkeletonObserver?: MutationObserver }
+    w.__exploreSkeletonSeen = !!document.querySelector(`.agent-chat ${sel}`)
+    const obs = new MutationObserver(records => {
+      for (const r of records) {
+        for (const node of r.addedNodes) {
+          if (hasSkeleton(node)) w.__exploreSkeletonSeen = true
+        }
+      }
+    })
+    obs.observe(document.body, { childList: true, subtree: true })
+    w.__exploreSkeletonObserver = obs
+  })
+}
+
 test.describe('Tool exploration E2E', () => {
   test.beforeEach(async () => {
     await clean()
@@ -56,14 +84,19 @@ test.describe('Tool exploration E2E', () => {
     // Wait for the input to be ready
     await expect(page.getByPlaceholder('Type your message...')).toBeEnabled({ timeout: 10000 })
 
+    // Record the transient skeleton via a MutationObserver before triggering the
+    // turn, so a fast mock round-trip can't slip the chip in and out between polls.
+    await watchForExploreSkeleton(page)
+
     // Turn 1: trigger explore_tools via the mock "call tool" syntax
     await sendMessage(page, 'call tool explore_tools {"intent":"display some text"}')
 
     // explore_tools is an internal step: while it runs a placeholder skeleton chip
     // is shown, and the explore_tools name is NEVER rendered as a chip.
-    await expect(
-      page.locator('.agent-chat [data-testid="explore-skeleton"]').first()
-    ).toBeVisible({ timeout: 20000 })
+    await expect.poll(
+      () => page.evaluate(() => (window as unknown as { __exploreSkeletonSeen?: boolean }).__exploreSkeletonSeen === true),
+      { timeout: 20000 }
+    ).toBe(true)
 
     // Wait for the full turn 1 response (the assistant text after the tool result).
     // 'done' appears only after explore_tools.execute has finished running

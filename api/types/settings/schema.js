@@ -441,6 +441,11 @@ export default {
         }, {
           required: ['type', 'name', 'id', 'enabled', 'apiKey'],
           title: 'Scaleway',
+          description: 'For an API key scoped to a specific Scaleway Project, set the Project ID so requests target that project. Leave it empty to use the organization default project.',
+          'x-i18n-description': {
+            en: 'For an API key scoped to a specific Scaleway Project, set the Project ID so requests target that project. Leave it empty to use the organization default project.',
+            fr: "Pour une clé API liée à un Projet Scaleway spécifique, renseignez l'ID du projet afin que les requêtes ciblent ce projet. Laissez vide pour utiliser le projet par défaut de l'organisation."
+          },
           properties: {
             type: {
               type: 'string',
@@ -482,6 +487,19 @@ export default {
               'x-i18n-title': {
                 en: 'API Key',
                 fr: 'Clé API'
+              }
+            },
+            projectId: {
+              type: 'string',
+              title: 'Project ID',
+              'x-i18n-title': {
+                en: 'Project ID',
+                fr: 'ID du projet'
+              },
+              description: 'Optional. The Scaleway Project ID (UUID) the API key is scoped to. Required when the key only has access to a specific project, otherwise model listing and inference return 403.',
+              'x-i18n-description': {
+                en: 'Optional. The Scaleway Project ID (UUID) the API key is scoped to. Required when the key only has access to a specific project, otherwise model listing and inference return 403.',
+                fr: "Optionnel. L'ID du Projet Scaleway (UUID) auquel la clé API est liée. Requis lorsque la clé n'a accès qu'à un projet spécifique, sinon le listing des modèles et l'inférence renvoient une erreur 403."
               }
             }
           }

@@ -88,6 +88,45 @@ test.describe('Settings API', () => {
     assert.ok(mockModels.some((m: any) => m.id === 'evaluator-mock-model'))
   })
 
+  test('surfaces per-provider model-listing errors without dropping working providers', async () => {
+    const settingsData = {
+      providers: [
+        { id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true },
+        // unreachable endpoint: connection refused, fails fast and deterministically
+        { id: 'broken-compat', type: 'openai-compatible', name: 'Broken Endpoint', enabled: true, baseURL: 'http://localhost:1/v1' }
+      ],
+      models: { assistant: { model: mockModel } },
+      quotas: defaultQuotas
+    }
+    await admin.put('/api/settings/user/test-standalone1', settingsData)
+
+    const res = await user.get('/api/models/user/test-standalone1')
+    assert.equal(res.status, 200)
+
+    // the working provider still returns its models
+    const mockModels = res.data.results.filter((m: any) => m.provider.type === 'mock')
+    assert.equal(mockModels.length, 4)
+
+    // the failing provider is reported instead of silently dropped
+    assert.ok(Array.isArray(res.data.errors))
+    const brokenError = res.data.errors.find((e: any) => e.providerId === 'broken-compat')
+    assert.ok(brokenError, 'expected an error entry for the unreachable provider')
+    assert.equal(brokenError.providerType, 'openai-compatible')
+    assert.equal(brokenError.providerName, 'Broken Endpoint')
+    assert.ok(typeof brokenError.message === 'string' && brokenError.message.length > 0)
+  })
+
+  test('reports no errors when every provider lists successfully', async () => {
+    await admin.put('/api/settings/user/test-standalone1', {
+      providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
+      models: { assistant: { model: mockModel } },
+      quotas: defaultQuotas
+    })
+    const res = await user.get('/api/models/user/test-standalone1')
+    assert.equal(res.status, 200)
+    assert.deepEqual(res.data.errors, [])
+  })
+
   test('should return empty defaults when no settings exist', async () => {
     const res = await user.get('/api/settings/user/test-standalone1')
     assert.equal(res.status, 200)
