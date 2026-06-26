@@ -14,6 +14,7 @@ import { createCapturingFetch, type UpstreamCaptureSink } from '../models/captur
 import { extractLastUserMessage, buildModerationContext, moderationApplies } from '../moderation/operations.ts'
 import { startModeration, isStrikeCooldownActive, recordStrikeRefusal, type ModerationRun } from '../moderation/service.ts'
 import crypto from 'node:crypto'
+import createDebug from 'debug'
 
 // Build an OpenAI-compatible usage object, surfacing cache token details when the
 // provider reports them (Anthropic cache read/write, OpenAI cached_tokens, etc.).
@@ -189,11 +190,17 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
 
     const { modelConfig, inputPricePerMillion, outputPricePerMillion } = getModelConfig(settings, modelId)
     const model = resolveModelForRole(settings, modelId, captureFetch)
+    // Downstream debug logging (client→gateway OpenAI exchange), scoped per provider
+    // so it can be restricted to one provider: DEBUG=agents:downstream:<type>:<id>.
+    // Independent of trace storage; serialisation happens only when the flag is on.
+    const debugDown = createDebug(`agents:downstream:${modelConfig.provider.type}:${modelConfig.provider.id}`)
+    if (debugDown.enabled) debugDown('request\n%s', JSON.stringify(req.body))
     const traceConversationId = req.get('x-trace-conversation') || undefined
     const traceContextId = req.get('x-trace-ctx') || 'unknown'
     const traceFlags = parseFlagsCookie(req.headers.cookie)
     const traceStart = Date.now()
     const recordTrace = (response: { content: string, toolCalls: { id: string, name: string, arguments: string }[], finishReason?: string }, usage: { inputTokens: number, outputTokens: number, cacheReadTokens?: number, cacheWriteTokens?: number }, timeToFirstChunkMs?: number) => {
+      if (debugDown.enabled) debugDown('response %s\n%s', response.finishReason ?? '', JSON.stringify({ content: response.content, toolCalls: response.toolCalls }))
       if (!shouldStoreTrace || !traceConversationId) return
       recordTraceRequest({
         owner,
