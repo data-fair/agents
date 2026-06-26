@@ -165,9 +165,10 @@ export class SessionRecorder {
 
   private cachedOverview: TraceOverviewEntry[] = []
   private cachedDetails: TraceEntryDetail[] = []
+  private upstreamByIndex = new Map<number, NonNullable<PhysicalRequestTrace['upstream']>>()
 
   private buildCache (): void {
-    const items: { overview: Omit<TraceOverviewEntry, 'index'>; detail: any }[] = []
+    const items: { overview: Omit<TraceOverviewEntry, 'index'>; detail: any; upstreamData?: NonNullable<PhysicalRequestTrace['upstream']> }[] = []
 
     const add = (overview: Omit<TraceOverviewEntry, 'index'>, content: any) => {
       items.push({ overview, detail: content })
@@ -305,9 +306,22 @@ export class SessionRecorder {
           timeToFirstChunkMs: pr.timeToFirstChunkMs,
           finishReason: pr.result.finishReason,
           requestBody: pr.requestBody,
+          ...(pr.upstream
+            ? {
+                upstream: {
+                  request: { url: pr.upstream.request.url, bodyChars: pr.upstream.request.bodyChars },
+                  response: {
+                    status: pr.upstream.response.status,
+                    rawChars: pr.upstream.response.rawChars,
+                    ...(pr.upstream.response.truncated ? { truncated: true } : {})
+                  }
+                }
+              }
+            : {}),
           result: pr.result
         }
       )
+      if (pr.upstream) items[items.length - 1].upstreamData = pr.upstream
     }
 
     // A physical request and the semantic entries reconstructed from its response share the
@@ -333,7 +347,11 @@ export class SessionRecorder {
       (a.overview.timestamp.getTime() - b.overview.timestamp.getTime()) ||
       (sortRank[a.overview.type] - sortRank[b.overview.type]))
 
-    this.cachedOverview = items.map((item, i) => ({ ...item.overview, index: i }))
+    this.upstreamByIndex = new Map()
+    this.cachedOverview = items.map((item, i) => {
+      if (item.upstreamData) this.upstreamByIndex.set(i, item.upstreamData)
+      return { ...item.overview, index: i }
+    })
     this.cachedDetails = items.map((item, i) => ({ ...item.overview, index: i, content: item.detail }))
   }
 
@@ -357,5 +375,10 @@ export class SessionRecorder {
   getTraceEntries (from: number, to: number): TraceEntryDetail[] {
     this.buildCache()
     return this.cachedDetails.slice(from, to + 1)
+  }
+
+  getUpstreamExchange (index: number): NonNullable<PhysicalRequestTrace['upstream']> | null {
+    this.buildCache()
+    return this.upstreamByIndex.get(index) ?? null
   }
 }
