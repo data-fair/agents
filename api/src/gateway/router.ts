@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { generateText, streamText, type LanguageModelUsage } from 'ai'
 import { type AccountKeys, reqSession, isAuthenticated } from '@data-fair/lib-express'
 import { getRawSettings, defaultQuotas } from '../settings/service.ts'
-import { getModelConfig, resolveModelForRole, streamedToolCallsBroken } from '../models/operations.ts'
+import { getModelConfig, resolveModelForRole, streamedToolCallsBroken, OPENAI_COMPATIBLE_PROVIDER_NAME } from '../models/operations.ts'
 import { recordUsage } from '../usage/service.ts'
 import { computeCost } from '../usage/operations.ts'
 import { resolveUsageIdentity, enforceQuotas } from '../usage/enforce.ts'
@@ -11,7 +11,7 @@ import type { OpenAIMessage, OpenAIToolDefinition, OpenAIToolChoice, FinishReaso
 import { recordTraceRequest } from '../traces/service.ts'
 import { parseFlagsCookie } from '../traces/operations.ts'
 import { createCapturingFetch, type UpstreamCaptureSink } from '../models/capturing-fetch.ts'
-import { extractLastUserMessage, buildModerationContext, moderationApplies } from '../moderation/operations.ts'
+import { extractLastUserMessage, buildModerationContext, moderationApplies, isReasoningEffortRejected } from '../moderation/operations.ts'
 import { startModeration, isStrikeCooldownActive, recordStrikeRefusal, type ModerationRun } from '../moderation/service.ts'
 import crypto from 'node:crypto'
 import createDebug from 'debug'
@@ -491,7 +491,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
       let lateBlocked = false
       moderation?.onLateBlock(() => { lateBlocked = true; upstreamAbort.abort() })
 
-      const generation = generateText({
+      const genArgs = {
         model,
         system,
         messages: aiMessages,
@@ -501,7 +501,17 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
         stopSequences: stop,
         abortSignal: upstreamAbort.signal,
         ...(hasTools ? { tools, toolChoice: convertToolChoice(toolChoice) } : {})
-      })
+      }
+      // The summarizer (history compaction) doesn't need to think: ask reasoning models
+      // to skip reasoning (reasoning_effort:none) so the summary is fast and cheap. It is
+      // ignored by non-openai-compatible providers and rejected with a 400 by
+      // non-reasoning OpenAI-compatible models — those fall back below.
+      const runGeneration = (skipReasoning: boolean) => generateText(
+        skipReasoning && modelId === 'summarizer'
+          ? { ...genArgs, providerOptions: { [OPENAI_COMPATIBLE_PROVIDER_NAME]: { reasoningEffort: 'none' } } }
+          : genArgs
+      )
+      const generation = runGeneration(true)
       // surfaced through the gate/result handling below; avoids an unhandled rejection
       generation.catch(() => {})
 
@@ -527,7 +537,12 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
           recordTrace({ content: '', toolCalls: [], finishReason: 'content_filter' }, { inputTokens: 0, outputTokens: 0 })
           return
         }
-        throw genErr
+        if (modelId === 'summarizer' && isReasoningEffortRejected(genErr)) {
+          // Non-reasoning summarizer rejected reasoning_effort: redo without it.
+          result = await runGeneration(false)
+        } else {
+          throw genErr
+        }
       }
       if (lateBlocked) {
         respondBlocked()
