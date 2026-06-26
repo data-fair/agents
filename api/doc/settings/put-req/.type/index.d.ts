@@ -53,6 +53,10 @@ export type DisplayName7 = string;
 export type Enabled7 = boolean;
 export type BaseURL1 = string;
 export type APIKey7 = string;
+/**
+ * Use "compatible" for providers that do not support the new /v1/responses endpoint (e.g. LiteLLM, older OpenAI-compatible APIs). Leave empty for standard OpenAI behavior.
+ */
+export type CompatibilityMode = "default" | "compatible";
 export type ProviderType8 = "mock";
 export type ProviderID8 = string;
 export type DisplayName8 = string;
@@ -174,6 +178,7 @@ export type OpenAICompatible = {
   enabled: Enabled7;
   baseURL: BaseURL1;
   apiKey?: APIKey7;
+  compatibility?: CompatibilityMode;
   [k: string]: unknown;
 }
 /**
