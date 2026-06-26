@@ -81,17 +81,18 @@ gateway→provider exchange — the actual HTTP call the gateway made to the mod
 - `upstream.response.raw` — the raw response body as a string (the streamed SSE text or
   JSON, exactly as received), **capped at 256 KB** (`UPSTREAM_RAW_CAP`). When the raw
   response exceeds the cap it is truncated and the document sets `upstream.response.truncated = true`;
-  `upstream.response.rawChars` records the pre-truncation byte count.
+  `upstream.response.rawChars` records the pre-truncation character count.
 
 **Request headers are never captured** — this prevents API-key leakage.
 
-Capture is a passthrough `capturingFetch` wrapper injected into `createModel` (`api/src/providers/service.ts`).
+Capture is a passthrough fetch wrapper (`createCapturingFetch` in `api/src/models/capturing-fetch.ts`)
+injected into `createModel` / `resolveModelForRole` (`api/src/models/operations.ts`).
 It is only active when both `storeTraces` and user consent are on — the same two conditions that
 gate the document write.  Only the **main model** (assistant / tools / summarizer / evaluator roles)
 is captured; the moderator model is excluded.
 
 The capture is exposed to the evaluator via the **`getUpstreamExchange`** tool
-(`api/src/evaluator/operations.ts`): given a physical-request index it returns the stored
+(`ui/src/traces/evaluator-tools.ts`): given a physical-request index it returns the stored
 `upstream.request` and `upstream.response` (raw bytes included). The trace-viewer surfaces this
 in a collapsible **"Upstream (provider)"** panel, visible to account admins only.
 
