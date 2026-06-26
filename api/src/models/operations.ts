@@ -16,27 +16,25 @@ import { createEvaluatorMockLanguageModel } from './evaluator-mock-model.ts'
 
 export { createMockLanguageModel, createEvaluatorMockLanguageModel }
 
-export function createModel (provider: Provider, modelId: string): LanguageModel {
+export function createModel (provider: Provider, modelId: string, fetchImpl?: typeof fetch): LanguageModel {
+  const f = fetchImpl ? { fetch: fetchImpl } : {}
   switch (provider.type) {
     case 'openai':
-      return createOpenAI({ apiKey: provider.apiKey })(modelId)
+      return createOpenAI({ apiKey: provider.apiKey, ...f })(modelId)
     case 'anthropic':
-      return createAnthropic({ apiKey: provider.apiKey })(modelId)
+      return createAnthropic({ apiKey: provider.apiKey, ...f })(modelId)
     case 'google':
-      return createGoogleGenerativeAI({ apiKey: provider.apiKey })(modelId)
+      return createGoogleGenerativeAI({ apiKey: provider.apiKey, ...f })(modelId)
     case 'mistral':
-      return createMistral({ apiKey: provider.apiKey })(modelId)
+      return createMistral({ apiKey: provider.apiKey, ...f })(modelId)
     case 'openrouter':
-      return createOpenRouter({ apiKey: provider.apiKey })(modelId) as unknown as LanguageModel
+      return createOpenRouter({ apiKey: provider.apiKey, ...f })(modelId) as unknown as LanguageModel
     case 'ollama':
-      return createOllama({ baseURL: provider.baseURL })(modelId)
+      return createOllama({ baseURL: provider.baseURL, ...f })(modelId)
     case 'scaleway':
-      return createOpenAI({ apiKey: provider.apiKey, baseURL: 'https://api.scaleway.ai/v1' })(modelId)
+      return createOpenAI({ apiKey: provider.apiKey, baseURL: 'https://api.scaleway.ai/v1', ...f })(modelId)
     case 'openai-compatible': {
-      const openai = createOpenAI({
-        apiKey: provider.apiKey,
-        baseURL: provider.baseURL
-      })
+      const openai = createOpenAI({ apiKey: provider.apiKey, baseURL: provider.baseURL, ...f })
       return provider.compatibility === 'compatible'
         ? openai.chat(modelId)
         : openai(modelId)
@@ -67,10 +65,10 @@ export function getModelConfig (settings: Settings, modelRole: ModelRole) {
   }
 }
 
-export function resolveModelForRole (settings: Settings, modelRole: ModelRole): LanguageModel {
+export function resolveModelForRole (settings: Settings, modelRole: ModelRole, fetchImpl?: typeof fetch): LanguageModel {
   const { modelConfig } = getModelConfig(settings, modelRole)
   const provider = settings.providers.find(p => p.id === modelConfig.provider.id)
   if (!provider) throw new Error('Provider not found')
   if (!provider.enabled) throw new Error('Provider is disabled')
-  return createModel(provider, modelConfig.id)
+  return createModel(provider, modelConfig.id, fetchImpl)
 }
