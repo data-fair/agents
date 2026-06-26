@@ -17,6 +17,22 @@
         <h3 class="text-title-large mb-4">
           {{ t('configuration') }}
         </h3>
+        <v-alert
+          v-if="modelErrors.length"
+          type="warning"
+          variant="tonal"
+          class="mb-4"
+          :title="t('modelErrorsTitle')"
+        >
+          <ul class="ms-4 mt-2">
+            <li
+              v-for="err in modelErrors"
+              :key="err.providerId"
+            >
+              {{ errorLabel(err) }}
+            </li>
+          </ul>
+        </v-alert>
         <v-row>
           <v-col>
             <v-form v-model="valid">
@@ -109,6 +125,7 @@ fr:
   individualUsage: Consommation individuelle
   moderation: Modération
   traces: Conversations enregistrées
+  modelErrorsTitle: Certains fournisseurs n'ont pas pu lister leurs modèles
 en:
   settings: Settings
   agents: Agents
@@ -119,10 +136,11 @@ en:
   individualUsage: Individual usage
   moderation: Moderation
   traces: Stored conversations
+  modelErrorsTitle: Some providers could not list their models
 </i18n>
 
 <script lang="ts" setup>
-import { ref, computed, watchEffect } from 'vue'
+import { ref, computed, watch, watchEffect } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useSession } from '@data-fair/lib-vue/session.js'
@@ -168,6 +186,25 @@ const settingsEditFetch = useEditFetch<Settings>(
 useLeaveGuard(settingsEditFetch.hasDiff, { locale })
 
 const valid = ref(true)
+
+// Per-provider model-listing failures, so an empty/short model dropdown is
+// explained (e.g. a wrong key or project) instead of silently empty. Refreshed
+// on account change and whenever settings are saved (updatedAt changes).
+type ProviderModelsError = { providerId: string, providerName: string, providerType: string, status?: number, message: string }
+const modelErrors = ref<ProviderModelsError[]>([])
+const loadModelErrors = async () => {
+  try {
+    const res = await fetch(`${$apiPath}/models/${accountType.value}/${accountId.value}`, { credentials: 'include' })
+    modelErrors.value = res.ok ? (await res.json()).errors ?? [] : []
+  } catch { modelErrors.value = [] }
+}
+const errorLabel = (err: ProviderModelsError) =>
+  `${err.providerName} (${err.providerType}${err.status ? `, HTTP ${err.status}` : ''}): ${err.message}`
+watch(
+  () => [accountType.value, accountId.value, settingsEditFetch.data.value?.updatedAt] as const,
+  () => { if (settingsEditFetch.data.value) loadModelErrors() },
+  { immediate: true }
+)
 
 const vjsfOptions = computed<Partial<VjsfOptions>>(() => ({
   validateOn: 'input',
