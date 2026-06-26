@@ -16,6 +16,17 @@ import { createEvaluatorMockLanguageModel } from './evaluator-mock-model.ts'
 
 export { createMockLanguageModel, createEvaluatorMockLanguageModel }
 
+/**
+ * Scaleway's Generative APIs are reached at https://api.scaleway.ai/v1, but an
+ * API key scoped to a single Project must target the project-scoped URL
+ * https://api.scaleway.ai/{projectId}/v1 — otherwise both model listing and
+ * inference return 403 "insufficient permissions to access the resource".
+ */
+export function scalewayBaseURL (projectId?: string): string {
+  const trimmed = projectId?.trim()
+  return trimmed ? `https://api.scaleway.ai/${trimmed}/v1` : 'https://api.scaleway.ai/v1'
+}
+
 export function createModel (provider: Provider, modelId: string): LanguageModel {
   switch (provider.type) {
     case 'openai':
@@ -31,7 +42,9 @@ export function createModel (provider: Provider, modelId: string): LanguageModel
     case 'ollama':
       return createOllama({ baseURL: provider.baseURL })(modelId)
     case 'scaleway':
-      return createOpenAI({ apiKey: provider.apiKey, baseURL: 'https://api.scaleway.ai/v1' })(modelId)
+      // Scaleway does not implement the OpenAI /v1/responses endpoint that the
+      // default callable targets; use the /v1/chat/completions model via .chat().
+      return createOpenAI({ apiKey: provider.apiKey, baseURL: scalewayBaseURL(provider.projectId) }).chat(modelId)
     case 'openai-compatible': {
       const openai = createOpenAI({
         apiKey: provider.apiKey,

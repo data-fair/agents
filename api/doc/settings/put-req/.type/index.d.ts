@@ -47,6 +47,10 @@ export type ProviderID6 = string;
 export type DisplayName6 = string;
 export type Enabled6 = boolean;
 export type APIKey6 = string;
+/**
+ * Optional. The Scaleway Project ID (UUID) the API key is scoped to. Required when the key only has access to a specific project, otherwise model listing and inference return 403.
+ */
+export type ProjectID = string;
 export type ProviderType7 = "openai-compatible";
 export type ProviderID7 = string;
 export type DisplayName7 = string;
@@ -160,12 +164,16 @@ export type Ollama = {
   baseURL: BaseURL;
   [k: string]: unknown;
 }
+/**
+ * For an API key scoped to a specific Scaleway Project, set the Project ID so requests target that project. Leave it empty to use the organization default project.
+ */
 export type Scaleway = {
   type: ProviderType6;
   id: ProviderID6;
   name: DisplayName6;
   enabled: Enabled6;
   apiKey: APIKey6;
+  projectId?: ProjectID;
   [k: string]: unknown;
 }
 /**
