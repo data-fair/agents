@@ -11,13 +11,19 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { createMistral } from '@ai-sdk/mistral'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { createOllama } from 'ai-sdk-ollama'
+import { createDebugFetch } from './debug-fetch.ts'
 import { createMockLanguageModel } from './mock-model.ts'
 import { createEvaluatorMockLanguageModel } from './evaluator-mock-model.ts'
 
 export { createMockLanguageModel, createEvaluatorMockLanguageModel }
 
 export function createModel (provider: Provider, modelId: string, fetchImpl?: typeof fetch): LanguageModel {
-  const f = fetchImpl ? { fetch: fetchImpl } : {}
+  // Wrap the effective fetch (the injected capture fetch when trace storage is on,
+  // otherwise the global) with the provider-scoped debug logger. When the DEBUG
+  // namespace is off this returns the same reference, so there is no added cost.
+  const baseFetch = fetchImpl ?? globalThis.fetch
+  const debugFetch = createDebugFetch(provider, baseFetch)
+  const f = debugFetch !== globalThis.fetch ? { fetch: debugFetch } : {}
   switch (provider.type) {
     case 'openai':
       return createOpenAI({ apiKey: provider.apiKey, ...f })(modelId)
