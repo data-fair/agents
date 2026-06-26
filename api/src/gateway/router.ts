@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { generateText, streamText, type LanguageModelUsage } from 'ai'
 import { type AccountKeys, reqSession, isAuthenticated } from '@data-fair/lib-express'
 import { getRawSettings, defaultQuotas } from '../settings/service.ts'
-import { getModelConfig, resolveModelForRole } from '../models/operations.ts'
+import { getModelConfig, resolveModelForRole, streamedToolCallsBroken } from '../models/operations.ts'
 import { recordUsage } from '../usage/service.ts'
 import { computeCost } from '../usage/operations.ts'
 import { resolveUsageIdentity, enforceQuotas } from '../usage/enforce.ts'
@@ -239,17 +239,25 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
       res.setHeader('Connection', 'keep-alive')
       res.setHeader('X-Accel-Buffering', 'no')
 
-      const result = await streamText({
-        model,
-        system,
-        messages: aiMessages,
-        temperature,
-        maxOutputTokens: maxTokens,
-        topP,
-        stopSequences: stop,
-        abortSignal: upstreamAbort.signal,
-        ...(hasTools ? { tools, toolChoice: convertToolChoice(toolChoice) } : {})
-      })
+      // Some upstreams (Scaleway glm-5.2) drop tool_calls in streaming mode but return
+      // them correctly non-streamed. When such a model is paired with tools, run the
+      // upstream call non-streaming and synthesise the SSE chunks below, so the client
+      // still gets a normal stream. See streamedToolCallsBroken.
+      const upstreamNonStreaming = hasTools && streamedToolCallsBroken(modelConfig.provider.type, modelConfig.id)
+      if (upstreamNonStreaming) debugDown('upstream non-streaming workaround active for %s/%s', modelConfig.provider.type, modelConfig.id)
+      const result = upstreamNonStreaming
+        ? null
+        : await streamText({
+          model,
+          system,
+          messages: aiMessages,
+          temperature,
+          maxOutputTokens: maxTokens,
+          topP,
+          stopSequences: stop,
+          abortSignal: upstreamAbort.signal,
+          ...(hasTools ? { tools, toolChoice: convertToolChoice(toolChoice) } : {})
+        })
 
       // Send initial chunk with role — safe before the verdict (no content)
       res.write(`data: ${JSON.stringify({
@@ -319,31 +327,72 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
         let streamedText = ''
         let ttfc: number | undefined
         const streamedToolCalls = new Map<string, { id: string, name: string, arguments: string }>()
-        for await (const part of result.fullStream) {
-          if (part.type === 'error') {
+        if (upstreamNonStreaming) {
+          // Non-streaming upstream: get the full completion (with the tool call the
+          // streamed path would have dropped), then emit it as the same SSE chunks the
+          // streaming path produces — routed through sseWrite so the moderation gate
+          // still buffers/blocks identically.
+          const gen = await generateText({
+            model,
+            system,
+            messages: aiMessages,
+            temperature,
+            maxOutputTokens: maxTokens,
+            topP,
+            stopSequences: stop,
+            abortSignal: upstreamAbort.signal,
+            ...(hasTools ? { tools, toolChoice: convertToolChoice(toolChoice) } : {})
+          })
+          ttfc = Date.now() - traceStart
+          if (gen.text) {
+            streamedText = gen.text
+            sseWrite(`data: ${JSON.stringify({ id: completionId, object: 'chat.completion.chunk', created, model: modelId, choices: [{ index: 0, delta: { content: gen.text }, finish_reason: null }] })}\n\n`)
+          }
+          for (const tc of gen.toolCalls ?? []) {
+            const toolCallIndex = toolCallIndexes.size
+            toolCallIndexes.set(tc.toolCallId, toolCallIndex)
+            const args = JSON.stringify(tc.input ?? {})
+            streamedToolCalls.set(tc.toolCallId, { id: tc.toolCallId, name: tc.toolName, arguments: args })
+            sseWrite(`data: ${JSON.stringify({ id: completionId, object: 'chat.completion.chunk', created, model: modelId, choices: [{ index: 0, delta: { tool_calls: [{ index: toolCallIndex, id: tc.toolCallId, type: 'function', function: { name: tc.toolName, arguments: args } }] }, finish_reason: null }] })}\n\n`)
+          }
+          const inputTokens = gen.usage?.inputTokens ?? 0
+          const outputTokens = gen.usage?.outputTokens ?? 0
+          const cost = computeCost(inputTokens, outputTokens, inputPricePerMillion, outputPricePerMillion)
+          if (cost > 0) await recordUsage(owner, cost, usageUserId, usageUserName, poolId)
+          sseWrite(`data: ${JSON.stringify({ id: completionId, object: 'chat.completion.chunk', created, model: modelId, choices: [{ index: 0, delta: {}, finish_reason: mapFinishReason(gen.finishReason as FinishReason) }], usage: buildUsage(gen.usage) })}\n\n`)
+          const recordFinishTrace = () => recordTrace(
+            { content: streamedText, toolCalls: [...streamedToolCalls.values()], finishReason: mapFinishReason(gen.finishReason as FinishReason) },
+            { inputTokens, outputTokens, cacheReadTokens: gen.usage?.inputTokenDetails?.cacheReadTokens, cacheWriteTokens: gen.usage?.inputTokenDetails?.cacheWriteTokens },
+            ttfc
+          )
+          if (gateState === 'pending') deferredFinishTrace = recordFinishTrace
+          else if (gateState === 'open') recordFinishTrace()
+        } else {
+          for await (const part of result!.fullStream) {
+            if (part.type === 'error') {
             // The AI SDK surfaces a mid-stream provider failure as an in-band 'error'
             // part rather than throwing out of the for-await. Without re-throwing it the
             // loop would end normally and we'd emit a clean [DONE] with no error chunk —
             // the client would then see an empty completion and silently drop the turn.
             // Throw so the catch below emits a proper error chunk to the client.
-            const e = (part as { error?: unknown }).error
-            throw (e instanceof Error ? e : new Error(typeof e === 'string' ? e : 'Stream error'))
-          }
-          if (part.type === 'text-delta') {
-            streamedText += part.text
-            if (ttfc === undefined) ttfc = Date.now() - traceStart
-            sseWrite(`data: ${JSON.stringify({
+              const e = (part as { error?: unknown }).error
+              throw (e instanceof Error ? e : new Error(typeof e === 'string' ? e : 'Stream error'))
+            }
+            if (part.type === 'text-delta') {
+              streamedText += part.text
+              if (ttfc === undefined) ttfc = Date.now() - traceStart
+              sseWrite(`data: ${JSON.stringify({
               id: completionId,
               object: 'chat.completion.chunk',
               created,
               model: modelId,
               choices: [{ index: 0, delta: { content: part.text }, finish_reason: null }]
             })}\n\n`)
-          } else if (part.type === 'tool-input-start') {
-            const toolCallIndex = toolCallIndexes.size
-            toolCallIndexes.set(part.id, toolCallIndex)
-            streamedToolCalls.set(part.id, { id: part.id, name: part.toolName, arguments: '' })
-            sseWrite(`data: ${JSON.stringify({
+            } else if (part.type === 'tool-input-start') {
+              const toolCallIndex = toolCallIndexes.size
+              toolCallIndexes.set(part.id, toolCallIndex)
+              streamedToolCalls.set(part.id, { id: part.id, name: part.toolName, arguments: '' })
+              sseWrite(`data: ${JSON.stringify({
               id: completionId,
               object: 'chat.completion.chunk',
               created,
@@ -361,11 +410,11 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
                 finish_reason: null
               }]
             })}\n\n`)
-          } else if (part.type === 'tool-input-delta') {
-            const toolCallIndex = toolCallIndexes.get(part.id) ?? 0
-            const entry = streamedToolCalls.get(part.id)
-            if (entry) entry.arguments += part.delta
-            sseWrite(`data: ${JSON.stringify({
+            } else if (part.type === 'tool-input-delta') {
+              const toolCallIndex = toolCallIndexes.get(part.id) ?? 0
+              const entry = streamedToolCalls.get(part.id)
+              if (entry) entry.arguments += part.delta
+              sseWrite(`data: ${JSON.stringify({
               id: completionId,
               object: 'chat.completion.chunk',
               created,
@@ -381,16 +430,16 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
                 finish_reason: null
               }]
             })}\n\n`)
-          } else if (part.type === 'finish') {
+            } else if (part.type === 'finish') {
             // Record usage for streaming responses (money cost)
-            const inputTokens = part.totalUsage?.inputTokens ?? 0
-            const outputTokens = part.totalUsage?.outputTokens ?? 0
-            const cost = computeCost(inputTokens, outputTokens, inputPricePerMillion, outputPricePerMillion)
-            if (cost > 0) {
-              await recordUsage(owner, cost, usageUserId, usageUserName, poolId)
-            }
+              const inputTokens = part.totalUsage?.inputTokens ?? 0
+              const outputTokens = part.totalUsage?.outputTokens ?? 0
+              const cost = computeCost(inputTokens, outputTokens, inputPricePerMillion, outputPricePerMillion)
+              if (cost > 0) {
+                await recordUsage(owner, cost, usageUserId, usageUserName, poolId)
+              }
 
-            sseWrite(`data: ${JSON.stringify({
+              sseWrite(`data: ${JSON.stringify({
               id: completionId,
               object: 'chat.completion.chunk',
               created,
@@ -399,15 +448,16 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
               usage: buildUsage(part.totalUsage)
             })}\n\n`)
 
-            const recordFinishTrace = () => recordTrace(
-              { content: streamedText, toolCalls: [...streamedToolCalls.values()], finishReason: mapFinishReason(part.finishReason as FinishReason) },
-              { inputTokens, outputTokens, cacheReadTokens: part.totalUsage?.inputTokenDetails?.cacheReadTokens, cacheWriteTokens: part.totalUsage?.inputTokenDetails?.cacheWriteTokens },
-              ttfc
-            )
-            // While the gate is pending the content must not reach trace storage:
-            // a block verdict records its own content-free content_filter trace.
-            if (gateState === 'pending') deferredFinishTrace = recordFinishTrace
-            else if (gateState === 'open') recordFinishTrace()
+              const recordFinishTrace = () => recordTrace(
+                { content: streamedText, toolCalls: [...streamedToolCalls.values()], finishReason: mapFinishReason(part.finishReason as FinishReason) },
+                { inputTokens, outputTokens, cacheReadTokens: part.totalUsage?.inputTokenDetails?.cacheReadTokens, cacheWriteTokens: part.totalUsage?.inputTokenDetails?.cacheWriteTokens },
+                ttfc
+              )
+              // While the gate is pending the content must not reach trace storage:
+              // a block verdict records its own content-free content_filter trace.
+              if (gateState === 'pending') deferredFinishTrace = recordFinishTrace
+              else if (gateState === 'open') recordFinishTrace()
+            }
           }
         }
 
