@@ -148,6 +148,13 @@ export function startModeration (params: {
       model,
       schema: verdictSchema,
       temperature: 0,
+      // Intentionally tiny: the verdict is one short JSON object and this call is on
+      // the critical path to the first token (see MODERATION_TIMEOUT_MS). A reasoning
+      // ("thinking") model is unsuitable here — it spends the whole budget on hidden
+      // reasoning_content, returns finish_reason:"length" with content:null, and the
+      // generateObject parse rejects → we fail open (allow). The OpenAI chat-completions
+      // provider does not even surface reasoning_content, so there is nothing to reclaim.
+      // The moderator model description in the settings schema warns admins accordingly.
       maxOutputTokens: 100,
       system: buildModerationSystemPrompt(),
       messages: [{ role: 'user', content: moderationInput }],
