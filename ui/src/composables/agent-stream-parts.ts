@@ -32,7 +32,7 @@ export type ActivityPhase = 'streaming' | 'tool' | 'analyzing' | 'thinking'
 
 export interface StreamScope {
   // Sink for assistant messages. MUST be the reactive array under Vue
-  // (messages.value, or a message's subAgentMessages) so the read-back yields a
+  // (messages.value, or a panel's subAgentPanels[id].messages) so the read-back yields a
   // reactive proxy whose mutations the UI observes.
   messages: StreamMessage[]
   // Message currently being appended to; reset to null at each finish-step.

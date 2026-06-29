@@ -62,20 +62,24 @@ const mockMessages: ChatMessage[] = [
     toolInvocations: [
       { toolCallId: 'call_sub_1', toolName: 'subagent_data_analyst', state: 'done' }
     ],
-    subAgentMessages: [
-      {
-        role: 'assistant',
-        content: 'Je récupère le schéma et lance la requête.',
-        toolInvocations: [
-          { toolCallId: 'call_sub_t1', toolName: 'getSchema', state: 'done' },
-          { toolCallId: 'call_sub_t2', toolName: 'queryDataset', state: 'done' }
+    subAgentPanels: {
+      call_sub_1: {
+        messages: [
+          {
+            role: 'assistant',
+            content: 'Je récupère le schéma et lance la requête.',
+            toolInvocations: [
+              { toolCallId: 'call_sub_t1', toolName: 'getSchema', state: 'done' },
+              { toolCallId: 'call_sub_t2', toolName: 'queryDataset', state: 'done' }
+            ]
+          },
+          {
+            role: 'assistant',
+            content: 'Analyse terminée. Moyennes de PM2.5 : ST-001 = 12.3, ST-002 = 18.7, ST-003 = 9.1, ST-004 = 15.4 µg/m³.'
+          }
         ]
-      },
-      {
-        role: 'assistant',
-        content: 'Analyse terminée. Moyennes de PM2.5 : ST-001 = 12.3, ST-002 = 18.7, ST-003 = 9.1, ST-004 = 15.4 µg/m³.'
       }
-    ]
+    }
   },
   {
     role: 'assistant',

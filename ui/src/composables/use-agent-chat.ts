@@ -15,6 +15,7 @@ import { wrapHiddenContext } from '~/traces/hidden-context'
 import Debug from 'debug'
 import type { ChatActivity } from './agent-activity.ts'
 import { applyStreamPart, type StreamScope, type StreamPart } from './agent-stream-parts.ts'
+import { SUBAGENT_STEP_LIMIT_NOTICE, subAgentModelOutput } from './agent-subagent-output.ts'
 
 const debug = Debug('df-agents:use-agent-chat')
 
@@ -25,15 +26,6 @@ const debug = Debug('df-agents:use-agent-chat')
 // blocked user understands what happened and can react, without revealing a
 // category/reason that would give abusers feedback.
 const DEFAULT_REFUSAL = 'This message was declined by content moderation — it appears to fall outside what this assistant is meant to help with. Try rephrasing if you think this is a mistake.'
-
-// Returned to the MAIN assistant (not the user) as a delegated sub-agent's result
-// when that sub-agent was moderation-blocked. Distinct from the user-facing
-// refusal: it tells the assistant this was a content-policy decision (not a tool
-// failure) and gives bounded guidance, so it can re-formulate a legitimate task
-// or explain the block — rather than dead-ending. Deliberately discourages blind
-// resubmission (each re-delegation is itself re-moderated; the turn is capped at
-// stepCountIs(10)) so this does not become a moderation-probing retry loop.
-const SUBAGENT_MODERATION_NOTICE = 'This delegated sub-agent task was blocked by content moderation — a content-policy decision, not a tool error. If the task is legitimate platform work (for example editing a resource\'s title, description, summary or other metadata), rephrase it more precisely and delegate again, or carry it out yourself if you have the necessary tools. Otherwise, briefly tell the user the request was declined by moderation. Do not resubmit the same task wording unchanged.'
 
 // Shown when a turn finishes cleanly but the assistant produced no text at all
 // (empty model completion, a sub-agent that returned nothing, or the step limit
@@ -69,12 +61,19 @@ export interface ChatMessage {
     toolName: string
     state: 'pending' | 'done'
   }>
-  subAgentMessages?: ChatMessage[]
-  subAgentTurn?: number
+  // Per delegating tool-call id: the sub-agent's transcript. Keyed by toolCallId so
+  // concurrent sub-agent calls under one assistant message render in separate panels
+  // instead of clobbering one shared array. Workers are stateless (single-shot), so
+  // there is no cross-call turn index — each delegation stands alone.
+  subAgentPanels?: Record<string, { messages: ChatMessage[] }>
   // Set on a sub-agent refusal message so toModelOutput can hand the main agent a
   // moderation-specific notice instead of the generic user-facing refusal text.
   // Not rendered; the panel shows `content` like any other message.
   moderationBlocked?: boolean
+  // Set on the trailing sub-agent message when the worker stopped at its step limit
+  // while still mid-tool-chain (truncated, not finished). toModelOutput uses it to
+  // tell the main agent the result is partial instead of the bare 'Task completed.'.
+  stepLimitReached?: boolean
 }
 
 export interface ToolInfo {
@@ -186,6 +185,10 @@ export function useAgentChat (options: UseAgentChatOptions) {
   // result…" line instead of an ambiguous spinner. Held null while text is actively
   // streaming (the streaming markdown cursor is signal enough) and while idle.
   const activity = ref<ChatActivity | null>(null)
+  // Live phase per RUNNING sub-agent panel, keyed by the delegating toolCallId.
+  // Separate from the single global `activity` (main-agent phases only) so two
+  // concurrent sub-agents each show their own phase line in their own panel.
+  const subAgentActivities = ref<Record<string, ChatActivity>>({})
   const tools = ref<Record<string, Tool>>({})
   const toolsVersion = ref(0)
   let history: ModelMessage[] = []
@@ -355,6 +358,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
     // abort() above guarantees no in-flight prepareStep will read the old Set
     promotedTools = new Set<string>()
     announcedTools.clear()
+    subAgentActivities.value = {}
     if (newSystemPrompt !== undefined) {
       options.systemPrompt = newSystemPrompt
     }
@@ -535,8 +539,6 @@ export function useAgentChat (options: UseAgentChatOptions) {
 
       // Build the tool set for the main LLM:
       // main tools + sub-agent pseudo-tools using ToolLoopAgent + async generators
-      const subAgentHistory = new Map<string, ModelMessage[]>()
-      const subAgentCallCount = new Map<string, number>()
       const mainLLMTools: Record<string, Tool> = { ...mainTools }
       for (const [name, entry] of Object.entries(subAgents)) {
         const config = entry.config
@@ -586,32 +588,32 @@ export function useAgentChat (options: UseAgentChatOptions) {
             },
             required: ['task']
           }),
-          execute: async function * (args: any, { abortSignal }: { abortSignal?: AbortSignal }) {
-            // Track multi-turn state for this sub-agent
-            const priorMessages = subAgentHistory.get(name) ?? []
-            const callIndex = subAgentCallCount.get(name) ?? 0
-            subAgentCallCount.set(name, callIndex + 1)
-
+          execute: async function * (args: any, { abortSignal, toolCallId: sdkToolCallId }: { abortSignal?: AbortSignal, toolCallId?: string }) {
             // The parent assistant message hosting this sub-agent's panel. The SDK invokes
             // this tool's execute BEFORE the main loop processes the `subagent_` tool-call
             // part, so mainScope.current is still null on entry; it is set during the first
             // `await` below. So we read it LIVE (via liveParent) at each write site rather
             // than capturing it once. mainScope.current is the structural StreamMessage
-            // minimum; here we need the ChatMessage fields (subAgentMessages/subAgentTurn),
+            // minimum; here we need the ChatMessage fields (subAgentPanels),
             // and at these call sites it always IS a ChatMessage (applyStreamPart pushed it
             // into messages.value, a ChatMessage[]).
             const liveParent = () => mainScope.current as ChatMessage | null
-            const parentToolCallId = liveParent()?.toolInvocations?.find(
+            // Use the SDK-provided toolCallId directly — it matches invocation.toolCallId
+            // in the component's subAgentPanels lookup. The previous approach searched
+            // liveParent()?.toolInvocations but mainScope.current is null at execute-start
+            // (the main loop hasn't processed the tool-call stream part yet), causing the
+            // fallback to `name` and a key mismatch that left all panels empty.
+            const parentToolCallId = sdkToolCallId ?? liveParent()?.toolInvocations?.find(
               ti => ti.toolName === name && ti.state === 'pending'
             )?.toolCallId ?? name
 
-            // Same shared builder as the main loop, but its activity drives the SAME
-            // global `activity` ref tagged for THIS sub-agent, so the component shows
-            // the phase inside this panel. Unlike the main line, the 'tool' phase shows
-            // (sub-agent chips don't spin, so the panel line carries it).
+            // Same shared builder as the main loop, but its activity writes the per-toolCallId
+            // `subAgentActivities` map keyed by parentToolCallId, so each concurrent panel
+            // shows its own phase line independently. Unlike the main line, the 'tool' phase
+            // shows (sub-agent chips don't spin, so the panel line carries it).
             // The builder writes into this scratch array; each yield we copy a fresh
-            // snapshot onto the reactive parent's subAgentMessages. Reassigning a new
-            // array (rather than mutating in place) is what reliably triggers Vue to
+            // snapshot onto the reactive parent's subAgentPanels[parentToolCallId]. Reassigning
+            // a new array (rather than mutating in place) is what reliably triggers Vue to
             // re-render the panel — the same approach the previous snapshot path used.
             const subScope: StreamScope = {
               messages: [],
@@ -619,30 +621,36 @@ export function useAgentChat (options: UseAgentChatOptions) {
               producedText: false,
               stepHadTool: false,
               setActivity: (phase) => {
+                const setPhase = (a: ChatActivity | null) => {
+                  const next = { ...subAgentActivities.value }
+                  if (a) next[parentToolCallId] = a
+                  else delete next[parentToolCallId]
+                  subAgentActivities.value = next
+                }
                 switch (phase) {
-                  case 'streaming': activity.value = null; break
-                  case 'tool': activity.value = { kind: 'subagent', name, phase: 'tool' }; break
-                  case 'analyzing': activity.value = { kind: 'subagent', name, phase: 'analyzing' }; break
-                  case 'thinking': activity.value = { kind: 'subagent', name, phase: 'thinking' }; break
+                  case 'streaming': setPhase(null); break
+                  case 'tool': setPhase({ kind: 'subagent', name, phase: 'tool' }); break
+                  case 'analyzing': setPhase({ kind: 'subagent', name, phase: 'analyzing' }); break
+                  case 'thinking': setPhase({ kind: 'subagent', name, phase: 'thinking' }); break
                 }
               }
             }
 
             // Enter gap: name the spin-up before the first token arrives.
-            activity.value = { kind: 'subagent', name, phase: 'starting' }
+            subAgentActivities.value = { ...subAgentActivities.value, [parentToolCallId]: { kind: 'subagent', name, phase: 'starting' } }
 
             let subStreamError: unknown = null
             try {
-              // First call: single prompt. Subsequent calls: pass accumulated history.
-              const subResult = priorMessages.length === 0
-                // `headers` is a construction-time setting in the AI SDK's agent types, not a
-                // call-time param, so we widen only for it while keeping the rest type-checked.
-                ? await subAgent.stream({ prompt: args.task, abortSignal, headers: traceHeaders(`sub:${ctxName}:${callIndex}:${parentToolCallId}`) } as Parameters<typeof subAgent.stream>[0] & { headers: Record<string, string> })
-                : await subAgent.stream({
-                  messages: [...priorMessages, { role: 'user' as const, content: args.task }],
-                  abortSignal,
-                  headers: traceHeaders(`sub:${ctxName}:${callIndex}:${parentToolCallId}`)
-                } as Parameters<typeof subAgent.stream>[0] & { headers: Record<string, string> })
+              // Stateless worker: each delegation is a fresh, single-shot run. The lead
+              // holds the conversation state and re-states all needed context in `task`
+              // (see the input schema), so the worker keeps no history across calls — this
+              // matches SOTA orchestrator-worker design and bounds the worker window by
+              // construction. The trace ctx keeps a fixed `0` index slot for wire-format
+              // compatibility with parseContextId; the unique `parentToolCallId` already
+              // distinguishes concurrent and repeated delegations.
+              // `headers` is a construction-time setting in the AI SDK's agent types, not a
+              // call-time param, so we widen only for it while keeping the rest type-checked.
+              const subResult = await subAgent.stream({ prompt: args.task, abortSignal, headers: traceHeaders(`sub:${ctxName}:0:${parentToolCallId}`) } as Parameters<typeof subAgent.stream>[0] & { headers: Record<string, string> })
 
               // Build the panel transcript from the same delta parts the main loop uses,
               // yielding a snapshot each part so the SDK gets streaming preliminary results.
@@ -655,33 +663,49 @@ export function useAgentChat (options: UseAgentChatOptions) {
                 // re-renders the panel; reassigning a new array is what triggers it.
                 const parent = liveParent()
                 if (parent) {
-                  parent.subAgentTurn = callIndex
-                  parent.subAgentMessages = [...subScope.messages]
+                  parent.subAgentPanels = {
+                    ...(parent.subAgentPanels ?? {}),
+                    [parentToolCallId]: { messages: [...subScope.messages] }
+                  }
                 }
                 yield [...subScope.messages]
               }
               if (subStreamError) throw subStreamError
 
-              // Accumulate history for the next call to this sub-agent
-              const subResponse = await subResult.response
+              const finishReason = await subResult.finishReason
               // A content_filter on the sub-agent's own gateway call (untrusted callers)
               // surfaces as a refusal output instead of aborting the whole turn.
-              if ((await subResult.finishReason) === 'content-filter') {
+              if (finishReason === 'content-filter') {
                 // User-facing refusal for the panel; moderationBlocked tells
                 // toModelOutput to hand the main agent SUBAGENT_MODERATION_NOTICE
                 // instead of this generic text so it can react appropriately.
                 const refusal: ChatMessage = { role: 'assistant', content: options.refusalMessage || DEFAULT_REFUSAL, moderationBlocked: true }
                 const parent = liveParent()
                 if (parent) {
-                  parent.subAgentMessages = [...(parent.subAgentMessages ?? []), refusal]
+                  const prev = parent.subAgentPanels?.[parentToolCallId]?.messages ?? subScope.messages
+                  parent.subAgentPanels = {
+                    ...(parent.subAgentPanels ?? {}),
+                    [parentToolCallId]: { messages: [...prev, refusal] }
+                  }
                 }
                 yield [refusal]
+              } else if (finishReason === 'tool-calls') {
+                // The loop stopped while the model still wanted to call tools — it hit the
+                // stepCountIs cap mid-chain and never produced a closing summary. Without
+                // this the trailing message is empty and toModelOutput would report the
+                // bare 'Task completed.', i.e. a truncation disguised as success. Append a
+                // flagged notice so the panel shows it and the main agent is told it's partial.
+                const truncated: ChatMessage = { role: 'assistant', content: SUBAGENT_STEP_LIMIT_NOTICE, stepLimitReached: true }
+                const parent = liveParent()
+                if (parent) {
+                  const prev = parent.subAgentPanels?.[parentToolCallId]?.messages ?? subScope.messages
+                  parent.subAgentPanels = {
+                    ...(parent.subAgentPanels ?? {}),
+                    [parentToolCallId]: { messages: [...prev, truncated] }
+                  }
+                }
+                yield [truncated]
               }
-              subAgentHistory.set(name, [
-                ...priorMessages,
-                { role: 'user' as const, content: args.task },
-                ...subResponse.messages
-              ])
             } catch (subErr: any) {
               // Let an abort tear down the whole turn (handled by sendMessage's catch).
               if (subErr?.name === 'AbortError') throw subErr
@@ -694,25 +718,23 @@ export function useAgentChat (options: UseAgentChatOptions) {
               const errorMsg: ChatMessage = { role: 'assistant', content: DEFAULT_SUBAGENT_ERROR }
               const parent = liveParent()
               if (parent) {
-                parent.subAgentMessages = [...(parent.subAgentMessages ?? []), errorMsg]
+                const prev = parent.subAgentPanels?.[parentToolCallId]?.messages ?? subScope.messages
+                parent.subAgentPanels = {
+                  ...(parent.subAgentPanels ?? {}),
+                  [parentToolCallId]: { messages: [...prev, errorMsg] }
+                }
               }
               yield [errorMsg]
+            } finally {
+              const next = { ...subAgentActivities.value }
+              delete next[parentToolCallId]
+              subAgentActivities.value = next
             }
           },
-          toModelOutput: ({ output }: { output: any }) => {
-            // Main agent sees only the final text summary, not full subagent trace
-            const lastMsg = Array.isArray(output) ? output[output.length - 1] : null
-            // A moderation block is a content-policy decision, not a finished task:
-            // give the main agent an actionable notice rather than the user-facing
-            // refusal text so it can re-formulate a legitimate task or explain.
-            if ((lastMsg as ChatMessage | null)?.moderationBlocked) {
-              return { type: 'text' as const, value: SUBAGENT_MODERATION_NOTICE }
-            }
-            return {
-              type: 'text' as const,
-              value: (lastMsg as ChatMessage | null)?.content || 'Task completed.'
-            }
-          }
+          // Main agent sees only this single text summary, not the full sub-agent
+          // trace. Trailing-message flags (moderationBlocked / stepLimitReached) change
+          // what the lead is told; see subAgentModelOutput for the decision.
+          toModelOutput: ({ output }: { output: any }) => ({ type: 'text' as const, value: subAgentModelOutput(output) })
         })
       }
 
@@ -863,6 +885,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
     } finally {
       if (watchdog) clearTimeout(watchdog)
       activity.value = null
+      subAgentActivities.value = {}
       abortController = null
     }
   }
@@ -879,7 +902,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
     options.flattenSubAgents = enabled
   }
 
-  return { messages, status, error, activity, tools, toolsVersion, resolvedPartition, conversationId, sendMessage, abort, reset, setSystemPrompt, setToolExploration, setFlattenSubAgents }
+  return { messages, status, error, activity, subAgentActivities, tools, toolsVersion, resolvedPartition, conversationId, sendMessage, abort, reset, setSystemPrompt, setToolExploration, setFlattenSubAgents }
 }
 
 export default useAgentChat

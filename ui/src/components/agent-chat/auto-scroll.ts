@@ -10,7 +10,7 @@
 export interface ScrollMessage {
   content: string
   toolInvocations?: { toolName: string }[]
-  subAgentMessages?: ScrollMessage[]
+  subAgentPanels?: Record<string, { messages: ScrollMessage[] }>
 }
 
 /**
@@ -20,7 +20,7 @@ export interface ScrollMessage {
  * This is the growth signal for useAutoScrollBottom — it must change whenever
  * the rendered height grows. In particular it has to keep moving while a
  * sub-agent streams: during that phase the parent message's own `content` is
- * static and only `subAgentMessages` grows, so a signal based on the parent
+ * static and only `subAgentPanels` grows, so a signal based on the parent
  * content alone would freeze and autoscroll would stop following.
  */
 export function streamedLength (messages: ScrollMessage[]): number {
@@ -28,21 +28,12 @@ export function streamedLength (messages: ScrollMessage[]): number {
   for (const message of messages) {
     total += message.content.length
     total += message.toolInvocations?.length ?? 0
-    for (const sub of message.subAgentMessages ?? []) {
-      total += sub.content.length
-      total += sub.toolInvocations?.length ?? 0
+    for (const panel of Object.values(message.subAgentPanels ?? {})) {
+      for (const sub of panel.messages) {
+        total += sub.content.length
+        total += sub.toolInvocations?.length ?? 0
+      }
     }
   }
   return total
-}
-
-/**
- * Index of the latest sub-agent panel to keep open for a message, or `undefined`
- * when the message has no sub-agent invocations. Panels render in the order of
- * the message's `subagent_*` tool invocations, so the latest is `count - 1`.
- * Switching to a newer sub-agent thus collapses the previous one.
- */
-export function latestSubAgentPanel (message: ScrollMessage | undefined): number | undefined {
-  const count = message?.toolInvocations?.filter(ti => ti.toolName.startsWith('subagent_')).length ?? 0
-  return count > 0 ? count - 1 : undefined
 }

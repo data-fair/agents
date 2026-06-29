@@ -8,6 +8,9 @@
 export interface AgentFlags {
   toolExploration: boolean
   subAgents: boolean
+  // Render delegations as a plain tool chip instead of an expandable trace
+  // panel. On by default. Render-only — toggling it never resets the chat.
+  simpleSubAgents: boolean
   mermaid: boolean
   // Show reasoning models' "thinking" as a foldable panel above each answer.
   // Off by default: the transient "Thinking…" activity line is the only feedback,
@@ -16,7 +19,7 @@ export interface AgentFlags {
 }
 
 export const FLAGS_COOKIE = 'agent-chat-flags'
-export const DEFAULT_FLAGS: AgentFlags = { toolExploration: false, subAgents: true, mermaid: false, showReasoning: false }
+export const DEFAULT_FLAGS: AgentFlags = { toolExploration: false, subAgents: true, simpleSubAgents: true, mermaid: false, showReasoning: false }
 
 export function readFlags (cookieString = document.cookie): AgentFlags {
   for (const part of cookieString.split(';')) {
@@ -25,7 +28,7 @@ export function readFlags (cookieString = document.cookie): AgentFlags {
     try {
       const v = JSON.parse(decodeURIComponent(rest.join('=')))
       if (v && typeof v === 'object') {
-        return { toolExploration: !!v.toolExploration, subAgents: v.subAgents !== false, mermaid: !!v.mermaid, showReasoning: !!v.showReasoning }
+        return { toolExploration: !!v.toolExploration, subAgents: v.subAgents !== false, simpleSubAgents: v.simpleSubAgents !== false, mermaid: !!v.mermaid, showReasoning: !!v.showReasoning }
       }
     } catch { /* fall through to defaults */ }
   }

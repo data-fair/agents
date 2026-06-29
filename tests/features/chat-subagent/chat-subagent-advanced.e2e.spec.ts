@@ -1,5 +1,8 @@
 /**
- * Advanced E2E tests for multi-turn sub-agent scenarios.
+ * Advanced E2E tests for sub-agent scenarios (multi-step chains, multiple user
+ * messages, mixed delegation, concurrency, compaction). Workers are stateless and
+ * single-shot, so "across multiple messages" means independent fresh delegations,
+ * not a resumed conversation.
  *
  * Uses distinct mock models per role:
  *   - mock-model (assistant): standard "hello"→"world" / "call tool" behavior
@@ -7,11 +10,24 @@
  *   - mock-summarizer (summarizer): always returns a fixed summary string
  */
 
-import { expect } from '@playwright/test'
+import { expect, type Page } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
 
 const admin = await superAdmin
+
+// Seed the flags cookie before boot so each test pins its own sub-agent render
+// mode. goToWithAuth reuses a cached browser context, so a path=/ cookie set by
+// one test leaks into the next — every rendering test must seed explicitly
+// rather than rely on the default.
+const seedFlagsCookie = (page: Page, simpleSubAgents: boolean) => page.addInitScript((simple) => {
+  const flags = { toolExploration: false, subAgents: true, mermaid: false, simpleSubAgents: simple }
+  document.cookie = `agent-chat-flags=${encodeURIComponent(JSON.stringify(flags))}; path=/`
+}, simpleSubAgents)
+// Full v-alert panel rendering (to inspect the inner sub-agent trace).
+const seedFullPanelCookie = (page: Page) => seedFlagsCookie(page, false)
+// Simplified chip rendering (the product default).
+const seedChipCookie = (page: Page) => seedFlagsCookie(page, true)
 
 const mockProvider = { type: 'mock', name: 'Mock Provider', id: 'mock-provider' }
 
@@ -77,44 +93,40 @@ test.describe('Advanced Sub-Agent Scenarios', () => {
   test('Subagent multi-step tool chain (get_schema → query_data → summary)', async ({ page, goToWithAuth }) => {
     // Live-UI test only: the reconstructed-trace view of sub-agents is covered by
     // "Subagent trace appears on the review page", so this one needs no trace storage.
+    await seedFullPanelCookie(page)
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
     await waitForToolsReady(page, 'data_analyst (2 tools)', true)
 
     // Trigger the sub-agent with a generic task — mock-tools will autonomously chain tools
     await sendMessage(page, 'call tool subagent_data_analyst {"task":"analyze the data"}')
 
-    // Sub-agent expansion panel should appear
-    await expect(page.locator('.agent-chat').getByText('Data Analyst').first()).toBeVisible({ timeout: 15000 })
+    const panel = page.locator('.agent-chat').getByTestId('subagent-panel').first()
+    await expect(panel).toBeVisible({ timeout: 15000 })
 
-    // The mock main-agent appends a trailing "done" reply after the sub-agent's
-    // tool result, so this turn "ends on text". Wait for it: once it lands the turn
-    // is fully settled and — by design (see AgentChatMessages auto-open logic) — the
-    // sub-agent panel has auto-collapsed. Asserting on the auto-expanded panel here
-    // would race that collapse against the sub-agent's final text rendering.
+    // Turn ends on the trailing main-agent "done"; the panel stays collapsed (no auto-open).
     await expect(page.locator('.agent-chat-message .assistant-content').last()).toHaveText('done', { timeout: 15000 })
+    await expect(panel.getByTestId('subagent-panel-body')).toBeHidden()
 
-    // Expand the now-collapsed panel explicitly to inspect the chain it ran.
-    const dataAnalystTitle = page.locator('.agent-chat .v-expansion-panel-title', { hasText: 'Data Analyst' }).first()
-    await dataAnalystTitle.click()
-    await expect(dataAnalystTitle).toHaveClass(/v-expansion-panel-title--active/, { timeout: 5000 })
-
-    const subAgentPanel = page.locator('.agent-chat__subagent-panels').first()
+    // Expand to inspect the chain it ran.
+    await panel.getByTestId('subagent-panel-header').click()
+    const body = panel.getByTestId('subagent-panel-body')
 
     // get_schema should appear as a tool chip (first step in the chain)
-    await expect(subAgentPanel.locator('.v-chip', { hasText: 'get_schema' }).first()).toBeVisible({ timeout: 10000 })
+    await expect(body.locator('.v-chip', { hasText: 'get_schema' }).first()).toBeVisible({ timeout: 10000 })
 
     // The final summary text proves the full chain completed (get_schema → query_data → summary)
     // because mock-tools only returns this text after both tool results are in context
-    await expect(subAgentPanel.getByText('Analysis complete')).toBeVisible({ timeout: 10000 })
+    await expect(body.getByText('Analysis complete')).toBeVisible({ timeout: 10000 })
   })
 
   test('Subagent works across multiple user messages', async ({ page, goToWithAuth }) => {
+    await seedFullPanelCookie(page)
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
     await waitForToolsReady(page, 'data_analyst (2 tools)', true)
 
     // First call to sub-agent
     await sendMessage(page, 'call tool subagent_data_analyst {"task":"hello"}')
-    await expect(page.locator('.agent-chat').getByText('Data Analyst').first()).toBeVisible({ timeout: 15000 })
+    await expect(page.locator('.agent-chat').getByTestId('subagent-panel').first()).toBeVisible({ timeout: 15000 })
 
     // Wait for the first response to complete before sending the second
     await expect(page.getByPlaceholder('Type your message...')).toBeEnabled({ timeout: 15000 })
@@ -122,23 +134,19 @@ test.describe('Advanced Sub-Agent Scenarios', () => {
     // Second call — subagent should work again in a subsequent message
     await sendMessage(page, 'call tool subagent_data_analyst {"task":"hello"}')
 
-    // Two sub-agent panels now exist (one per user message): the sub-agent works
-    // across multiple messages.
-    const subAgentPanels = page.locator('.agent-chat__subagent-panels')
-    await expect(subAgentPanels).toHaveCount(2, { timeout: 15000 })
+    // One panel per user message: the sub-agent works across multiple messages.
+    await expect(page.locator('.agent-chat').getByTestId('subagent-panel')).toHaveCount(2, { timeout: 15000 })
 
     // Wait for the second response to fully complete.
     await expect(page.getByPlaceholder('Type your message...')).toBeEnabled({ timeout: 15000 })
 
-    // In autoscroll mode a sub-agent panel is auto-closed as soon as a newer
-    // message lands behind it. Each turn here ends with a trailing assistant
-    // reply, so once both turns are done neither sub-agent panel stays open.
-    // (A conversation that *ends* on a sub-agent keeps its panel open — covered
-    // by the single-turn tests.)
-    await expect(page.locator('.agent-chat .v-expansion-panel-title--active')).toHaveCount(0)
+    // Panels never auto-open: both bodies stay collapsed.
+    await expect(page.locator('.agent-chat').getByTestId('subagent-panel-body').first()).toBeHidden()
+    await expect(page.locator('.agent-chat').getByTestId('subagent-panel-body').last()).toBeHidden()
   })
 
   test('Mixed main agent tools and subagent delegation', async ({ page, goToWithAuth }) => {
+    await seedChipCookie(page)
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
     await waitForToolsReady(page, 'set_display')
 
@@ -149,9 +157,9 @@ test.describe('Advanced Sub-Agent Scenarios', () => {
     // Wait for input to be ready again
     await expect(page.getByPlaceholder('Type your message...')).toBeEnabled({ timeout: 15000 })
 
-    // Then: main agent delegates to sub-agent
+    // Then: main agent delegates to sub-agent (default simple mode → chip)
     await sendMessage(page, 'call tool subagent_data_analyst {"task":"hello"}')
-    await expect(page.locator('.agent-chat').getByText('Data Analyst').first()).toBeVisible({ timeout: 15000 })
+    await expect(page.locator('.agent-chat').getByTestId('subagent-chip').filter({ hasText: 'Data Analyst' }).first()).toBeVisible({ timeout: 15000 })
 
     // Output area should still show the previous value
     await expect(page.getByLabel('Output')).toHaveValue('step1')
@@ -162,12 +170,13 @@ test.describe('Advanced Sub-Agent Scenarios', () => {
     // conversation is stored server-side and the consent sheet stays hidden.
     await admin.put('/api/settings/user/test-standalone1', { ...settingsData, storeTraces: true })
     await context.addCookies([{ name: 'agent-chat-trace-consent', value: 'yes', domain: 'localhost', path: '/' }])
+    await seedChipCookie(page)
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
     await waitForToolsReady(page, 'data_analyst (2 tools)', true)
 
-    // Trigger a sub-agent call
+    // Trigger a sub-agent call (default simple mode → chip)
     await sendMessage(page, 'call tool subagent_data_analyst {"task":"hello"}')
-    await expect(page.locator('.agent-chat').getByText('Data Analyst').first()).toBeVisible({ timeout: 15000 })
+    await expect(page.locator('.agent-chat').getByTestId('subagent-chip').filter({ hasText: 'Data Analyst' }).first()).toBeVisible({ timeout: 15000 })
 
     // Wait for response to complete
     await expect(page.getByPlaceholder('Type your message...')).toBeEnabled({ timeout: 15000 })
@@ -187,7 +196,33 @@ test.describe('Advanced Sub-Agent Scenarios', () => {
     await expect(tracePanel.locator('.v-expansion-panel', { hasText: 'data_analyst' }).first()).toBeVisible({ timeout: 10000 })
   })
 
+  test('Two sub-agents delegated in one step render separate panels concurrently', async ({ page, goToWithAuth }) => {
+    await seedFullPanelCookie(page)
+    await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
+    await waitForToolsReady(page, 'data_analyst (2 tools)', true)
+
+    await sendMessage(page, 'parallel subagents')
+
+    const chat = page.locator('.agent-chat')
+    const analystPanel = chat.getByTestId('subagent-panel').filter({ hasText: 'Data Analyst' }).first()
+    const summarizerPanel = chat.getByTestId('subagent-panel').filter({ hasText: 'Data Summarizer' }).first()
+    await expect(analystPanel).toBeVisible({ timeout: 15000 })
+    await expect(summarizerPanel).toBeVisible({ timeout: 15000 })
+
+    // Turn settles (input re-enabled) — robust against the collapsed panel bodies
+    // that v-show keeps in the DOM.
+    await expect(page.getByPlaceholder('Type your message...')).toBeEnabled({ timeout: 15000 })
+
+    // Independent boxes (no single-open accordion): expand BOTH and verify each
+    // shows its OWN transcript (proves no shared-array clobber).
+    await analystPanel.getByTestId('subagent-panel-header').click()
+    await summarizerPanel.getByTestId('subagent-panel-header').click()
+    await expect(analystPanel.getByTestId('subagent-panel-body').getByText('Analysis complete', { exact: false })).toBeVisible({ timeout: 5000 })
+    await expect(summarizerPanel.getByTestId('subagent-panel-body').getByText('Summary', { exact: false })).toBeVisible({ timeout: 5000 })
+  })
+
   test('Compaction works during subagent conversation', async ({ page, goToWithAuth }) => {
+    await seedChipCookie(page)
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
     // Set low compaction threshold and enable trace
     await page.evaluate(() => {
@@ -199,7 +234,7 @@ test.describe('Advanced Sub-Agent Scenarios', () => {
 
     // First message to build history
     await sendMessage(page, 'call tool subagent_data_analyst {"task":"hello"}')
-    await expect(page.locator('.agent-chat').getByText('Data Analyst').first()).toBeVisible({ timeout: 15000 })
+    await expect(page.locator('.agent-chat').getByTestId('subagent-chip').filter({ hasText: 'Data Analyst' }).first()).toBeVisible({ timeout: 15000 })
     await expect(page.getByPlaceholder('Type your message...')).toBeEnabled({ timeout: 15000 })
 
     // Second message should trigger compaction (history > 100 chars)

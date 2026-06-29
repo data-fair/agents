@@ -7,11 +7,23 @@
  *   anything else                    → "what do you mean ?"
  */
 
-import { expect } from '@playwright/test'
+import { expect, type Page } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
 
 const admin = await superAdmin
+
+// Seed the flags cookie before boot so each test pins its own sub-agent render
+// mode. goToWithAuth reuses a cached browser context, so a path=/ cookie set by
+// one test leaks into the next — every rendering test must seed explicitly.
+const seedFlagsCookie = (page: Page, simpleSubAgents: boolean) => page.addInitScript((simple) => {
+  const flags = { toolExploration: false, subAgents: true, mermaid: false, simpleSubAgents: simple }
+  document.cookie = `agent-chat-flags=${encodeURIComponent(JSON.stringify(flags))}; path=/`
+}, simpleSubAgents)
+// Full v-alert panel rendering (to inspect the inner sub-agent trace).
+const seedFullPanelCookie = (page: Page) => seedFlagsCookie(page, false)
+// Simplified chip rendering (the product default).
+const seedChipCookie = (page: Page) => seedFlagsCookie(page, true)
 
 const settingsData = {
   providers: [
@@ -85,20 +97,22 @@ test.describe('Chat Sub-Agent UI', () => {
     await expect(page.getByLabel('Output')).toHaveValue('Hello from test', { timeout: 15000 })
   })
 
-  test('Main agent can delegate to sub-agent', async ({ page, goToWithAuth }) => {
+  test('Main agent delegates to a sub-agent (simplified chip)', async ({ page, goToWithAuth }) => {
+    await seedChipCookie(page)
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
     await waitForToolsReady(page, 'data_analyst (2 tools)', true)
 
-    // Ask the mock model to call the sub-agent
     // The sub-agent receives "hello" as task → mock responds "world"
     await page.getByPlaceholder('Type your message...').fill('call tool subagent_data_analyst {"task":"hello"}')
     await page.getByRole('button', { name: 'Send' }).click()
 
-    // A sub-agent expansion panel should appear with title "Data Analyst"
-    await expect(page.locator('.agent-chat').getByText('Data Analyst').first()).toBeVisible({ timeout: 15000 })
+    // Default simple mode: the delegation renders as a chip, not a panel.
+    await expect(page.getByTestId('subagent-chip').filter({ hasText: 'Data Analyst' }).first()).toBeVisible({ timeout: 15000 })
+    await expect(page.getByTestId('subagent-panel')).toHaveCount(0)
   })
 
-  test('Sub-agent can use reserved tools', async ({ page, goToWithAuth }) => {
+  test('Sub-agent can use reserved tools (full panel)', async ({ page, goToWithAuth }) => {
+    await seedFullPanelCookie(page)
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
     await waitForToolsReady(page, 'data_analyst (2 tools)', true)
 
@@ -107,23 +121,18 @@ test.describe('Chat Sub-Agent UI', () => {
     await page.getByPlaceholder('Type your message...').fill('call tool subagent_data_analyst {"task":"call tool get_schema {\\"dataset\\":\\"test\\"}"}')
     await page.getByRole('button', { name: 'Send' }).click()
 
-    // The sub-agent expansion panel should appear
-    await expect(page.locator('.agent-chat').getByText('Data Analyst').first()).toBeVisible({ timeout: 15000 })
+    // The sub-agent panel appears and is collapsed by default (no auto-open).
+    const panel = page.locator('.agent-chat').getByTestId('subagent-panel').first()
+    await expect(panel).toBeVisible({ timeout: 15000 })
+    await expect(panel.getByTestId('subagent-panel-body')).toBeHidden()
 
-    // Wait for the turn to finish: after the sub-agent returns, the parent agent
-    // emits a trailing "done" text message. By design a turn that ends on a text
-    // message leaves all sub-agent panels collapsed (only a turn ending on a
-    // sub-agent stays auto-expanded), so once "done" is shown the panel has
-    // settled closed — we then expand it manually to inspect the sub-agent's tools.
-    await expect(page.locator('.agent-chat').getByText('done', { exact: true }).first()).toBeVisible({ timeout: 15000 })
+    // Wait for the turn to fully settle (input re-enabled) before expanding.
+    await expect(page.getByPlaceholder('Type your message...')).toBeEnabled({ timeout: 15000 })
 
-    // Expand the sub-agent panel and verify it called the reserved get_schema tool
-    const dataAnalystTitle = page.locator('.agent-chat .v-expansion-panel-title', { hasText: 'Data Analyst' }).first()
-    await dataAnalystTitle.click()
-    await expect(dataAnalystTitle).toHaveClass(/v-expansion-panel-title--active/, { timeout: 5000 })
-
-    // At least one get_schema tool chip should appear inside the sub-agent expansion panel
-    const chatArea = page.locator('.agent-chat')
-    await expect(chatArea.locator('.v-expansion-panel-text .v-chip', { hasText: 'get_schema' }).first()).toBeVisible({ timeout: 5000 })
+    // Expand manually and verify the reserved get_schema tool chip is inside the body.
+    await panel.getByTestId('subagent-panel-header').click()
+    const body = panel.getByTestId('subagent-panel-body')
+    await expect(body).toBeVisible({ timeout: 5000 })
+    await expect(body.locator('.v-chip', { hasText: 'get_schema' }).first()).toBeVisible({ timeout: 5000 })
   })
 })

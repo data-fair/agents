@@ -15,11 +15,13 @@
         :messages="messages"
         :is-streaming="isStreaming"
         :activity="activity"
+        :sub-agent-activities="subAgentActivities"
         :chat-error="chatError"
         :welcome-text="t('welcome')"
         :tool-title="toolTitle"
         :action-visible-prompt="actionVisiblePrompt"
         :mermaid-enabled="mermaidEnabled"
+        :simple-sub-agents="simpleSubAgentsEnabled"
         :show-reasoning="showReasoningEnabled"
         @navigate="url => sendDFrameMessage({ type: 'navigate', url })"
         @fix-mermaid="handleFixMermaid"
@@ -62,10 +64,12 @@
       :account-id="accountId"
       :tool-exploration="explorationEnabled"
       :sub-agents="subAgentsEnabled"
+      :simple-sub-agents="simpleSubAgentsEnabled"
       :mermaid="mermaidEnabled"
       :show-reasoning="showReasoningEnabled"
       @update:tool-exploration="handleToolExploration"
       @update:sub-agents="handleSubAgents"
+      @update:simple-sub-agents="handleSimpleSubAgents"
       @update:mermaid="handleMermaid"
       @update:show-reasoning="handleShowReasoning"
     />
@@ -192,6 +196,7 @@ const finalSystemPrompt = computed(() => {
 const initialFlags = readFlags()
 const explorationEnabled = ref(initialFlags.toolExploration)
 const subAgentsEnabled = ref(initialFlags.subAgents)
+const simpleSubAgentsEnabled = ref(initialFlags.simpleSubAgents)
 const mermaidEnabled = ref(initialFlags.mermaid)
 const showReasoningEnabled = ref(initialFlags.showReasoning)
 
@@ -228,6 +233,7 @@ const mermaidAutoFixBudget = ref(MERMAID_AUTO_FIX_BUDGET)
 const messages = computed(() => chat.messages.value)
 const isStreaming = computed(() => chat.status.value === 'streaming')
 const activity = computed(() => chat.activity.value)
+const subAgentActivities = computed(() => chat.subAgentActivities.value)
 const chatError = computed(() => chat.error.value)
 
 const showDebugDialog = ref(false)
@@ -317,6 +323,7 @@ function persistFlags () {
   writeFlags({
     toolExploration: explorationEnabled.value,
     subAgents: subAgentsEnabled.value,
+    simpleSubAgents: simpleSubAgentsEnabled.value,
     mermaid: mermaidEnabled.value,
     showReasoning: showReasoningEnabled.value
   }, $apiPath)
@@ -336,6 +343,12 @@ function handleSubAgents (enabled: boolean) {
   chat.setFlattenSubAgents(!enabled)
   // Reset the conversation so the new tool set applies from a clean state.
   handleReset()
+}
+
+function handleSimpleSubAgents (enabled: boolean) {
+  simpleSubAgentsEnabled.value = enabled
+  persistFlags()
+  // Presentation-only: no conversation reset (unlike mermaid/subAgents/toolExploration).
 }
 
 function handleMermaid (enabled: boolean) {
