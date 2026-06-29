@@ -64,7 +64,6 @@ const mockMessages: ChatMessage[] = [
     ],
     subAgentPanels: {
       call_sub_1: {
-        turn: 0,
         messages: [
           {
             role: 'assistant',

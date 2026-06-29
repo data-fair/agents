@@ -23,8 +23,8 @@ At a glance:
 
 1. **Registration** — Child components call `useAgentSubAgent()` which registers a `subagent_*` MCP tool with a JSON config (prompt, tool list, model).
 2. **Partitioning** — `use-agent-chat.ts` splits tools: sub-agent reserved tools are removed from the main set.
-3. **Execution** — Each sub-agent gets a `ToolLoopAgent` instance with its own tool set and system prompt. It runs up to 10 steps autonomously. Sub-agents run **concurrently** when the main agent requests several in one step — the AI SDK dispatches each tool call without awaiting the previous (`executeToolCall` is fired and tracked, not awaited). Each call streams into its own panel, keyed by the delegating `toolCallId`. The one exception: two concurrent calls to the **same** sub-agent are serialized (they share accumulated conversation history), so a sub-agent's turns stay ordered while different sub-agents stay parallel.
-4. **Multi-turn** — History accumulates per sub-agent in a `Map<string, ModelMessage[]>`. Subsequent calls resume the conversation.
+3. **Execution** — Each sub-agent gets a `ToolLoopAgent` instance with its own tool set and system prompt. It runs up to 10 steps autonomously. Sub-agents run **concurrently** when the main agent requests several in one step — the AI SDK dispatches each tool call without awaiting the previous (`executeToolCall` is fired and tracked, not awaited). Each call streams into its own panel, keyed by the delegating `toolCallId`. There is no special-casing for repeated or same-name calls: every delegation is independent, so concurrent calls to the same sub-agent run in parallel just like calls to different ones.
+4. **Stateless workers** — Each delegation is a fresh, single-shot run: the worker keeps no conversation history across calls. The lead holds the state and re-states all needed context in the `task` field.
 5. **Context reduction** — The main agent sees only a compact text summary via `toModelOutput()`. The UI renders the full sub-agent trace in collapsible panels.
 
 The rest of this document expands each of these mechanics in turn.
@@ -127,7 +127,7 @@ Each `ToolLoopAgent` is configured with:
 - **tools** — the reserved tool set (only tools listed in `config.tools`)
 - **stopWhen** — `stepCountIs(10)` (max 10 autonomous steps)
 
-Sub-agents run **concurrently** when the main agent requests several in one step — the AI SDK dispatches each tool call without awaiting the previous (`executeToolCall` is fired and tracked, not awaited). Each call streams into its own panel, keyed by the delegating `toolCallId`. The one exception: two concurrent calls to the **same** sub-agent are serialized (they share accumulated conversation history), so a sub-agent's turns stay ordered while different sub-agents stay parallel.
+Sub-agents run **concurrently** when the main agent requests several in one step — the AI SDK dispatches each tool call without awaiting the previous (`executeToolCall` is fired and tracked, not awaited). Each call streams into its own panel, keyed by the delegating `toolCallId`. Because workers are stateless (§5), there is nothing to serialize: even two concurrent calls to the same sub-agent run in parallel.
 
 ---
 
@@ -158,9 +158,13 @@ The live phase (pending step count, tool name) is tracked per `toolCallId` via t
 
 ---
 
-## 5. Multi-Turn State
+## 5. Stateless Workers
 
-Sub-agents maintain conversation history across multiple invocations within the same user session:
+Sub-agents are **stateless and single-shot**: every delegation is a fresh run that keeps no
+conversation history across calls. This is the standard orchestrator-worker design — the
+*orchestrator* (main agent) holds the conversation state, and workers are pure functions of
+their `task` input. The input schema already instructs the lead to *"include all relevant
+context… that the sub-agent needs"*, so the worker never needs its own memory.
 
 ```mermaid
 sequenceDiagram
@@ -170,27 +174,27 @@ sequenceDiagram
 
   User->>Main: "What are the top products?"
   Main->>SA: {task: "Find top products by revenue"}
-  Note over SA: Call 0: stream({prompt: task})
+  Note over SA: stream({prompt: task}) — fresh run
   SA-->>Main: "Top 5 products are..."
 
   User->>Main: "Now break those down by region"
-  Main->>SA: {task: "Break down top products by region"}
-  Note over SA: Call 1: stream({messages: [prior + new]})
+  Main->>SA: {task: "For the top 5 products by revenue (A, B, …), break revenue down by region"}
+  Note over SA: stream({prompt: task}) — fresh run, lead re-supplies context
   SA-->>Main: "Regional breakdown shows..."
 ```
 
-Two `Map` structures track state per sub-agent:
-- **`subAgentHistory: Map<name, ModelMessage[]>`** — accumulated conversation messages. First call uses `stream({prompt})`, subsequent calls use `stream({messages: [...prior, newUserMessage]})`
-- **`subAgentCallCount: Map<name, number>`** — call index, stored on `ChatMessage.subAgentTurn` for the UI to display turn numbers
+Every call is `subAgent.stream({ prompt: args.task })` — there is no per-sub-agent history
+`Map`, no call-index tracking, and no serialization of same-name calls. Benefits:
 
-History is accumulated after each call:
-```typescript
-subAgentHistory.set(name, [
-  ...priorMessages,
-  { role: 'user', content: args.task },
-  ...subResponse.messages
-])
-```
+- **Bounded worker window by construction** — a worker's context can never grow beyond a
+  single task, so it needs no compaction and is exempt from no compaction-clearing edge cases.
+- **Full parallelism** — concurrent calls to the same sub-agent run in parallel (there is no
+  shared state to order).
+- **Internal consistency** — the worker behaves exactly as the `task` contract promises:
+  self-contained in, deliverable out.
+
+Multi-step work *within* a single delegation still happens — that is the `ToolLoopAgent`'s
+internal step loop (`stepCountIs(10)`), which is orthogonal to cross-call statelessness.
 
 ---
 
@@ -231,7 +235,7 @@ For a sub-agent that flattens, `sendMessage`:
   sub-agent), so the main agent calls them directly;
 - registers its `subagent_*` as a no-arg **guidance tool** under its de-prefixed name
   (`data_analyst`), whose `execute()` returns the sub-agent's own prompt. No `ToolLoopAgent`,
-  separate model, multi-turn history, `toModelOutput` summary, or sub-agent UI panel.
+  separate model, `toModelOutput` summary, or sub-agent UI panel.
 
 **Per-sub-agent opt-out.** Flattening is lossy for sub-agents a host prompt uses as
 black-box *producers* (it inverts the "delegate then receive a deliverable" contract and
@@ -273,9 +277,9 @@ interface ChatMessage {
     toolName: string
     state: 'pending' | 'done'
   }>
-  // Per delegating tool-call id: the sub-agent's full trace + its multi-turn index.
+  // Per delegating tool-call id: the sub-agent's full trace.
   // Keyed by toolCallId so concurrent delegations render in separate panels.
-  subAgentPanels?: Record<string, { messages: ChatMessage[], turn: number }>
+  subAgentPanels?: Record<string, { messages: ChatMessage[] }>
 }
 
 // Debug partition info (exposed via resolvedPartition ref)

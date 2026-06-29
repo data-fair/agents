@@ -1,5 +1,8 @@
 /**
- * Advanced E2E tests for multi-turn sub-agent scenarios.
+ * Advanced E2E tests for sub-agent scenarios (multi-step chains, multiple user
+ * messages, mixed delegation, concurrency, compaction). Workers are stateless and
+ * single-shot, so "across multiple messages" means independent fresh delegations,
+ * not a resumed conversation.
  *
  * Uses distinct mock models per role:
  *   - mock-model (assistant): standard "hello"→"world" / "call tool" behavior

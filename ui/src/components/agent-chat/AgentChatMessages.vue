@@ -139,10 +139,6 @@
                     />
                     <span class="text-body-medium font-weight-medium">{{ subAgentTitle(invocation.toolName) }}</span>
                     <span
-                      v-if="message.subAgentPanels?.[invocation.toolCallId]?.turn"
-                      class="text-medium-emphasis text-caption ml-1"
-                    >(tour {{ message.subAgentPanels[invocation.toolCallId].turn + 1 }})</span>
-                    <span
                       v-if="isStreaming && index === messages.length - 1 && subAgentActivityLabel(invocation.toolCallId)"
                       class="d-flex align-center text-caption text-medium-emphasis font-italic ml-2"
                       data-testid="subagent-activity"

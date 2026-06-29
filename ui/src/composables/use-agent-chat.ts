@@ -15,7 +15,6 @@ import { wrapHiddenContext } from '~/traces/hidden-context'
 import Debug from 'debug'
 import type { ChatActivity } from './agent-activity.ts'
 import { applyStreamPart, type StreamScope, type StreamPart } from './agent-stream-parts.ts'
-import { createSameNameGate } from '~/composables/sub-agent-serial.ts'
 
 const debug = Debug('df-agents:use-agent-chat')
 
@@ -70,10 +69,11 @@ export interface ChatMessage {
     toolName: string
     state: 'pending' | 'done'
   }>
-  // Per delegating tool-call id: the sub-agent's transcript and its multi-turn index.
-  // Keyed by toolCallId so concurrent sub-agent calls under one assistant message
-  // render in separate panels instead of clobbering one shared array.
-  subAgentPanels?: Record<string, { messages: ChatMessage[], turn: number }>
+  // Per delegating tool-call id: the sub-agent's transcript. Keyed by toolCallId so
+  // concurrent sub-agent calls under one assistant message render in separate panels
+  // instead of clobbering one shared array. Workers are stateless (single-shot), so
+  // there is no cross-call turn index — each delegation stands alone.
+  subAgentPanels?: Record<string, { messages: ChatMessage[] }>
   // Set on a sub-agent refusal message so toModelOutput can hand the main agent a
   // moderation-specific notice instead of the generic user-facing refusal text.
   // Not rendered; the panel shows `content` like any other message.
@@ -538,9 +538,6 @@ export function useAgentChat (options: UseAgentChatOptions) {
 
       // Build the tool set for the main LLM:
       // main tools + sub-agent pseudo-tools using ToolLoopAgent + async generators
-      const subAgentHistory = new Map<string, ModelMessage[]>()
-      const subAgentCallCount = new Map<string, number>()
-      const sameNameGate = createSameNameGate()
       const mainLLMTools: Record<string, Tool> = { ...mainTools }
       for (const [name, entry] of Object.entries(subAgents)) {
         const config = entry.config
@@ -641,24 +638,18 @@ export function useAgentChat (options: UseAgentChatOptions) {
             // Enter gap: name the spin-up before the first token arrives.
             subAgentActivities.value = { ...subAgentActivities.value, [parentToolCallId]: { kind: 'subagent', name, phase: 'starting' } }
 
-            // Same-name calls share accumulated history; run them as ordered turns.
-            // Different sub-agents acquire different keys and never wait here.
-            const releaseGate = await sameNameGate(name)
-            const priorMessages = subAgentHistory.get(name) ?? []
-            const callIndex = subAgentCallCount.get(name) ?? 0
-            subAgentCallCount.set(name, callIndex + 1)
             let subStreamError: unknown = null
             try {
-              // First call: single prompt. Subsequent calls: pass accumulated history.
-              const subResult = priorMessages.length === 0
-                // `headers` is a construction-time setting in the AI SDK's agent types, not a
-                // call-time param, so we widen only for it while keeping the rest type-checked.
-                ? await subAgent.stream({ prompt: args.task, abortSignal, headers: traceHeaders(`sub:${ctxName}:${callIndex}:${parentToolCallId}`) } as Parameters<typeof subAgent.stream>[0] & { headers: Record<string, string> })
-                : await subAgent.stream({
-                  messages: [...priorMessages, { role: 'user' as const, content: args.task }],
-                  abortSignal,
-                  headers: traceHeaders(`sub:${ctxName}:${callIndex}:${parentToolCallId}`)
-                } as Parameters<typeof subAgent.stream>[0] & { headers: Record<string, string> })
+              // Stateless worker: each delegation is a fresh, single-shot run. The lead
+              // holds the conversation state and re-states all needed context in `task`
+              // (see the input schema), so the worker keeps no history across calls — this
+              // matches SOTA orchestrator-worker design and bounds the worker window by
+              // construction. The trace ctx keeps a fixed `0` index slot for wire-format
+              // compatibility with parseContextId; the unique `parentToolCallId` already
+              // distinguishes concurrent and repeated delegations.
+              // `headers` is a construction-time setting in the AI SDK's agent types, not a
+              // call-time param, so we widen only for it while keeping the rest type-checked.
+              const subResult = await subAgent.stream({ prompt: args.task, abortSignal, headers: traceHeaders(`sub:${ctxName}:0:${parentToolCallId}`) } as Parameters<typeof subAgent.stream>[0] & { headers: Record<string, string> })
 
               // Build the panel transcript from the same delta parts the main loop uses,
               // yielding a snapshot each part so the SDK gets streaming preliminary results.
@@ -673,15 +664,13 @@ export function useAgentChat (options: UseAgentChatOptions) {
                 if (parent) {
                   parent.subAgentPanels = {
                     ...(parent.subAgentPanels ?? {}),
-                    [parentToolCallId]: { messages: [...subScope.messages], turn: callIndex }
+                    [parentToolCallId]: { messages: [...subScope.messages] }
                   }
                 }
                 yield [...subScope.messages]
               }
               if (subStreamError) throw subStreamError
 
-              // Accumulate history for the next call to this sub-agent
-              const subResponse = await subResult.response
               // A content_filter on the sub-agent's own gateway call (untrusted callers)
               // surfaces as a refusal output instead of aborting the whole turn.
               if ((await subResult.finishReason) === 'content-filter') {
@@ -694,16 +683,11 @@ export function useAgentChat (options: UseAgentChatOptions) {
                   const prev = parent.subAgentPanels?.[parentToolCallId]?.messages ?? subScope.messages
                   parent.subAgentPanels = {
                     ...(parent.subAgentPanels ?? {}),
-                    [parentToolCallId]: { messages: [...prev, refusal], turn: callIndex }
+                    [parentToolCallId]: { messages: [...prev, refusal] }
                   }
                 }
                 yield [refusal]
               }
-              subAgentHistory.set(name, [
-                ...priorMessages,
-                { role: 'user' as const, content: args.task },
-                ...subResponse.messages
-              ])
             } catch (subErr: any) {
               // Let an abort tear down the whole turn (handled by sendMessage's catch).
               if (subErr?.name === 'AbortError') throw subErr
@@ -719,12 +703,11 @@ export function useAgentChat (options: UseAgentChatOptions) {
                 const prev = parent.subAgentPanels?.[parentToolCallId]?.messages ?? subScope.messages
                 parent.subAgentPanels = {
                   ...(parent.subAgentPanels ?? {}),
-                  [parentToolCallId]: { messages: [...prev, errorMsg], turn: callIndex }
+                  [parentToolCallId]: { messages: [...prev, errorMsg] }
                 }
               }
               yield [errorMsg]
             } finally {
-              releaseGate()
               const next = { ...subAgentActivities.value }
               delete next[parentToolCallId]
               subAgentActivities.value = next
