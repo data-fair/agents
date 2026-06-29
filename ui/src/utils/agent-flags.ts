@@ -9,10 +9,14 @@ export interface AgentFlags {
   toolExploration: boolean
   subAgents: boolean
   mermaid: boolean
+  // Show reasoning models' "thinking" as a foldable panel above each answer.
+  // Off by default: the transient "Thinking…" activity line is the only feedback,
+  // keeping the transcript lean. Render-only — toggling it never resets the chat.
+  showReasoning: boolean
 }
 
 export const FLAGS_COOKIE = 'agent-chat-flags'
-export const DEFAULT_FLAGS: AgentFlags = { toolExploration: false, subAgents: true, mermaid: false }
+export const DEFAULT_FLAGS: AgentFlags = { toolExploration: false, subAgents: true, mermaid: false, showReasoning: false }
 
 export function readFlags (cookieString = document.cookie): AgentFlags {
   for (const part of cookieString.split(';')) {
@@ -21,7 +25,7 @@ export function readFlags (cookieString = document.cookie): AgentFlags {
     try {
       const v = JSON.parse(decodeURIComponent(rest.join('=')))
       if (v && typeof v === 'object') {
-        return { toolExploration: !!v.toolExploration, subAgents: v.subAgents !== false, mermaid: !!v.mermaid }
+        return { toolExploration: !!v.toolExploration, subAgents: v.subAgents !== false, mermaid: !!v.mermaid, showReasoning: !!v.showReasoning }
       }
     } catch { /* fall through to defaults */ }
   }

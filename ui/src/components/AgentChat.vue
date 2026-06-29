@@ -20,6 +20,7 @@
         :tool-title="toolTitle"
         :action-visible-prompt="actionVisiblePrompt"
         :mermaid-enabled="mermaidEnabled"
+        :show-reasoning="showReasoningEnabled"
         @navigate="url => sendDFrameMessage({ type: 'navigate', url })"
         @fix-mermaid="handleFixMermaid"
         @mermaid-error="handleMermaidError"
@@ -62,9 +63,11 @@
       :tool-exploration="explorationEnabled"
       :sub-agents="subAgentsEnabled"
       :mermaid="mermaidEnabled"
+      :show-reasoning="showReasoningEnabled"
       @update:tool-exploration="handleToolExploration"
       @update:sub-agents="handleSubAgents"
       @update:mermaid="handleMermaid"
+      @update:show-reasoning="handleShowReasoning"
     />
 
     <trace-consent-sheet />
@@ -190,6 +193,7 @@ const initialFlags = readFlags()
 const explorationEnabled = ref(initialFlags.toolExploration)
 const subAgentsEnabled = ref(initialFlags.subAgents)
 const mermaidEnabled = ref(initialFlags.mermaid)
+const showReasoningEnabled = ref(initialFlags.showReasoning)
 
 const chatResult = useAgentChat({
   accountType: props.accountType,
@@ -313,7 +317,8 @@ function persistFlags () {
   writeFlags({
     toolExploration: explorationEnabled.value,
     subAgents: subAgentsEnabled.value,
-    mermaid: mermaidEnabled.value
+    mermaid: mermaidEnabled.value,
+    showReasoning: showReasoningEnabled.value
   }, $apiPath)
 }
 
@@ -338,6 +343,14 @@ function handleMermaid (enabled: boolean) {
   persistFlags()
   // Reset so the system prompt is uniform across the whole conversation.
   handleReset()
+}
+
+function handleShowReasoning (enabled: boolean) {
+  // Render-only preference: reasoning is always captured onto the message, so this
+  // just toggles the panel's visibility. No conversation reset — existing reasoning
+  // panels appear/disappear reactively and the change is fully reversible.
+  showReasoningEnabled.value = enabled
+  persistFlags()
 }
 
 function handleReset () {

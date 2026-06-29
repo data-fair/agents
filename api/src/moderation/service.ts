@@ -7,18 +7,33 @@ import { generateObject } from 'ai'
 import type { AccountKeys } from '@data-fair/lib-express'
 import type { Settings } from '#types'
 import type { UsageIdentity } from '../usage/enforce.ts'
-import { getModelConfig, resolveModelForRole } from '../models/operations.ts'
+import { getModelConfig, resolveModelForRole, OPENAI_COMPATIBLE_PROVIDER_NAME } from '../models/operations.ts'
 import { recordUsage } from '../usage/service.ts'
 import { computeCost } from '../usage/operations.ts'
 import {
   buildModerationSystemPrompt, truncateForModeration, truncateExcerpt, formatModerationInput,
-  verdictSchema, isInCooldown,
+  verdictSchema, isInCooldown, isReasoningEffortRejected,
   MODERATION_TIMEOUT_MS, MODERATION_HARD_TIMEOUT_MS,
   STRIKE_WINDOW_MS, STRIKE_COOLDOWN_MS, STRIKE_THRESHOLD,
   type ModerationVerdict
 } from './operations.ts'
 import type { ModerationEvent, ModerationEventAction } from './types.ts'
 import type { TraceModeration } from '../traces/types.ts'
+
+// Run a moderator generateObject call with thinking disabled: reasoning_effort:none is
+// honoured by OpenAI-compatible reasoning models (Scaleway/GLM, …) so the short token
+// budget isn't spent on hidden reasoning (which would yield content:null → fail-open).
+// It is silently ignored by non-openai-compatible providers, and rejected with a 400 by
+// non-reasoning OpenAI-compatible models — those retry once without it. `call` receives
+// the extra options to spread into generateObject.
+async function withReasoningDisabled<T> (call: (extra: { providerOptions?: Record<string, Record<string, any>> }) => Promise<T>): Promise<T> {
+  try {
+    return await call({ providerOptions: { [OPENAI_COMPATIBLE_PROVIDER_NAME]: { reasoningEffort: 'none' } } })
+  } catch (err) {
+    if (!isReasoningEffortRejected(err)) throw err
+    return await call({})
+  }
+}
 
 // ---- events ----
 
@@ -144,15 +159,25 @@ export function startModeration (params: {
   const verdictPromise: Promise<ModerationVerdict> = (async () => {
     const { inputPricePerMillion, outputPricePerMillion } = getModelConfig(settings, 'moderator')
     const model = resolveModelForRole(settings, 'moderator')
-    const { object, usage } = await generateObject({
+    // The verdict is one short JSON object and this call is on the critical path to
+    // the first token (see MODERATION_TIMEOUT_MS), so the budget is intentionally tiny.
+    // A reasoning ("thinking") model would otherwise spend the whole budget on hidden
+    // reasoning_content and return content:null → the parse fails and we fail open.
+    // Ask the provider to disable thinking via reasoning_effort:none (honoured by
+    // Scaleway/GLM and other OpenAI-compatible reasoning models; keyed by
+    // OPENAI_COMPATIBLE_PROVIDER_NAME, and silently ignored by non-openai-compatible
+    // providers). Non-reasoning OpenAI-compatible models reject reasoning_effort with a
+    // 400 — those retry once without it.
+    const baseArgs = {
       model,
       schema: verdictSchema,
       temperature: 0,
       maxOutputTokens: 100,
       system: buildModerationSystemPrompt(),
-      messages: [{ role: 'user', content: moderationInput }],
+      messages: [{ role: 'user' as const, content: moderationInput }],
       abortSignal: AbortSignal.timeout(MODERATION_HARD_TIMEOUT_MS)
-    })
+    }
+    const { object, usage } = await withReasoningDisabled(extra => generateObject({ ...baseArgs, ...extra }))
     const cost = computeCost(usage?.inputTokens ?? 0, usage?.outputTokens ?? 0, inputPricePerMillion, outputPricePerMillion)
     if (cost > 0) await recordUsage(owner, cost, identity.usageUserId, identity.usageUserName, identity.poolId)
     return object
@@ -221,15 +246,16 @@ export async function runProbe (settings: Settings, owner: AccountKeys): Promise
   for (const probe of PROBE_MESSAGES) {
     const startedAt = Date.now()
     try {
-      const { object, usage } = await generateObject({
+      const probeArgs = {
         model,
         schema: verdictSchema,
         temperature: 0,
         maxOutputTokens: 100,
         system: buildModerationSystemPrompt(),
-        messages: [{ role: 'user', content: probe.message }],
+        messages: [{ role: 'user' as const, content: probe.message }],
         abortSignal: AbortSignal.timeout(MODERATION_HARD_TIMEOUT_MS)
-      })
+      }
+      const { object, usage } = await withReasoningDisabled(extra => generateObject({ ...probeArgs, ...extra }))
       const cost = computeCost(usage?.inputTokens ?? 0, usage?.outputTokens ?? 0, inputPricePerMillion, outputPricePerMillion)
       if (cost > 0) await recordUsage(owner, cost)
       results.push({ key: probe.key, message: probe.message, action: object.action, category: object.category, latencyMs: Date.now() - startedAt })

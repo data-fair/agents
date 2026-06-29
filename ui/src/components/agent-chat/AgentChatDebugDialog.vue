@@ -201,6 +201,21 @@
                 :label="t('mermaid')"
                 @update:model-value="(v: boolean | null) => $emit('update:mermaid', v ?? false)"
               />
+
+              <df-tutorial-alert
+                id="agent-settings-show-reasoning"
+                :text="t('showReasoningHint')"
+                :initial="false"
+                persistent
+              />
+              <v-switch
+                :model-value="showReasoning"
+                color="primary"
+                density="compact"
+                hide-details
+                :label="t('showReasoning')"
+                @update:model-value="(v: boolean | null) => $emit('update:showReasoning', v ?? false)"
+              />
             </div>
           </v-window-item>
         </v-window>
@@ -228,6 +243,8 @@ fr:
   subAgentsHint: "Délègue les tâches complexes à des sous-agents spécialisés (comportement par défaut). Désactivez pour exposer tous les outils des sous-agents directement à l'assistant : chaque sous-agent devient un outil de consigne qui renvoie son prompt. Changer ce réglage réinitialise la conversation."
   mermaid: Diagrammes Mermaid
   mermaidHint: "Affiche les blocs de code Mermaid sous forme de diagrammes (graphiques XY, organigrammes, etc.). Changer ce réglage réinitialise la conversation."
+  showReasoning: Affichage complet du raisonnement
+  showReasoningHint: "Affiche la réflexion des modèles de raisonnement dans un panneau dépliable au-dessus de chaque réponse. Désactivé, une brève ligne « Réflexion… » apparaît pendant que le modèle raisonne, sans rien conserver ensuite."
 en:
   close: Close
   info: Info
@@ -246,6 +263,8 @@ en:
   subAgentsHint: "Delegates complex tasks to specialised sub-agents (the default behaviour). Turn off to expose every sub-agent tool directly to the assistant: each sub-agent becomes a guidance tool that returns its prompt. Changing this setting resets the conversation."
   mermaid: Mermaid diagrams
   mermaidHint: "Renders Mermaid code blocks as diagrams (XY charts, flowcharts, etc.). Changing this setting resets the conversation."
+  showReasoning: Full reasoning display
+  showReasoningHint: "Shows reasoning models' thinking as a foldable panel above each answer. When off, a brief 'Thinking…' line appears while the model reasons and nothing is kept afterward."
 </i18n>
 
 <script lang="ts" setup>
@@ -268,6 +287,7 @@ const props = defineProps<{
   toolExploration?: boolean
   subAgents?: boolean
   mermaid?: boolean
+  showReasoning?: boolean
 }>()
 
 defineEmits<{
@@ -275,6 +295,7 @@ defineEmits<{
   'update:toolExploration': [value: boolean]
   'update:subAgents': [value: boolean]
   'update:mermaid': [value: boolean]
+  'update:showReasoning': [value: boolean]
 }>()
 
 const { t } = useI18n()
