@@ -135,4 +135,30 @@ test.describe('Chat Sub-Agent UI', () => {
     await expect(body).toBeVisible({ timeout: 5000 })
     await expect(body.locator('.v-chip', { hasText: 'get_schema' }).first()).toBeVisible({ timeout: 5000 })
   })
+
+  test('Sub-agent that loops to its step cap recovers a close-out answer', async ({ page, goToWithAuth }) => {
+    await seedFullPanelCookie(page)
+    await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
+    await waitForToolsReady(page, 'data_analyst (2 tools)', true)
+
+    // Task "loop forever" makes the sub-agent call a tool on every step until it hits
+    // the stepCountIs(10) cap (finishReason: tool-calls). The harness then runs ONE
+    // no-tools close-out turn that synthesizes a best-effort answer from what it
+    // gathered — instead of discarding the run and reporting a bare truncation.
+    await page.getByPlaceholder('Type your message...').fill('call tool subagent_data_analyst {"task":"loop forever"}')
+    await page.getByRole('button', { name: 'Send' }).click()
+
+    const panel = page.locator('.agent-chat').getByTestId('subagent-panel').first()
+    await expect(panel).toBeVisible({ timeout: 20000 })
+
+    // The looping + close-out must terminate the turn (input re-enabled), not hang.
+    await expect(page.getByPlaceholder('Type your message...')).toBeEnabled({ timeout: 20000 })
+
+    // Expand and confirm the recovered close-out answer is rendered in the panel —
+    // proving the answer survived the step cap rather than being lost to a notice.
+    await panel.getByTestId('subagent-panel-header').click()
+    const body = panel.getByTestId('subagent-panel-body')
+    await expect(body).toBeVisible({ timeout: 5000 })
+    await expect(body.getByText('Closed-out best-effort summary from gathered data.')).toBeVisible({ timeout: 5000 })
+  })
 })

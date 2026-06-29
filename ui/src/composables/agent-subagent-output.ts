@@ -6,9 +6,11 @@
  * flags that change what the lead should be told, so this is not a plain
  * "last message content" read:
  *  - `moderationBlocked` → a content-policy decision, not a finished task.
- *  - `stepLimitReached`  → the worker was truncated at its step cap mid-tool-chain;
- *    the trailing message is empty, so without this it would fall through to the
- *    'Task completed.' fallback and report a truncation as a success.
+ *  - `stepLimitReached`  → the worker exhausted its step cap while still calling tools.
+ *    A forced close-out turn (see use-agent-chat) usually recovers a best-effort answer,
+ *    carried as the message content: the lead gets that answer, prefixed so it treats it
+ *    as possibly incomplete. Only when nothing was recovered (empty content) does it fall
+ *    back to the standalone notice — without which it would report a truncation as success.
  */
 
 // Handed to the main agent when the sub-agent's own gateway call was blocked by
@@ -23,6 +25,12 @@ export const SUBAGENT_STEP_LIMIT_NOTICE = 'The sub-agent reached its step limit 
 // (e.g. ended on a tool result). A genuine, if uninformative, completion.
 export const SUBAGENT_DONE_FALLBACK = 'Task completed.'
 
+// Prepended to a recovered close-out answer. The worker exceeded its step budget, but a
+// final no-tools turn synthesized a best-effort answer from what it had already gathered.
+// The lead receives that answer flagged as possibly incomplete, so it can use the data
+// without treating it as authoritative or assuming the task fully succeeded.
+export const SUBAGENT_PARTIAL_PREFIX = '[Partial result — the sub-agent reached its step budget. The findings below are what it gathered; treat them as possibly incomplete and verify before relying on them.]'
+
 interface SubAgentOutputMessage {
   content?: string
   moderationBlocked?: boolean
@@ -34,6 +42,13 @@ export function subAgentModelOutput (output: unknown): string {
   const messages = Array.isArray(output) ? output as SubAgentOutputMessage[] : []
   const lastMsg = messages.length ? messages[messages.length - 1] : null
   if (lastMsg?.moderationBlocked) return SUBAGENT_MODERATION_NOTICE
-  if (lastMsg?.stepLimitReached) return SUBAGENT_STEP_LIMIT_NOTICE
+  if (lastMsg?.stepLimitReached) {
+    // The forced close-out turn (use-agent-chat) carries its synthesized answer as the
+    // message content. Hand that to the lead, prefixed as possibly incomplete. Only when
+    // the close-out produced nothing (content empty/missing) do we fall back to the
+    // standalone notice — i.e. report the truncation rather than fabricate a result.
+    const body = lastMsg.content?.trim()
+    return body ? `${SUBAGENT_PARTIAL_PREFIX}\n\n${body}` : SUBAGENT_STEP_LIMIT_NOTICE
+  }
   return lastMsg?.content || SUBAGENT_DONE_FALLBACK
 }

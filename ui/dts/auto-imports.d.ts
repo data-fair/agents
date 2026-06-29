@@ -21,6 +21,7 @@ declare global {
   const SELECT_TOOL_NAME: typeof import('../src/composables/tool-exploration')['SELECT_TOOL_NAME']
   const SUBAGENT_DONE_FALLBACK: typeof import('../src/composables/agent-subagent-output')['SUBAGENT_DONE_FALLBACK']
   const SUBAGENT_MODERATION_NOTICE: typeof import('../src/composables/agent-subagent-output')['SUBAGENT_MODERATION_NOTICE']
+  const SUBAGENT_PARTIAL_PREFIX: typeof import('../src/composables/agent-subagent-output')['SUBAGENT_PARTIAL_PREFIX']
   const SUBAGENT_STEP_LIMIT_NOTICE: typeof import('../src/composables/agent-subagent-output')['SUBAGENT_STEP_LIMIT_NOTICE']
   const activityLabelKey: typeof import('../src/composables/agent-activity')['activityLabelKey']
   const appendStreamingCaret: typeof import('../src/utils/markdown')['appendStreamingCaret']
@@ -184,6 +185,7 @@ declare module 'vue' {
     readonly SELECT_TOOL_NAME: UnwrapRef<typeof import('../src/composables/tool-exploration')['SELECT_TOOL_NAME']>
     readonly SUBAGENT_DONE_FALLBACK: UnwrapRef<typeof import('../src/composables/agent-subagent-output')['SUBAGENT_DONE_FALLBACK']>
     readonly SUBAGENT_MODERATION_NOTICE: UnwrapRef<typeof import('../src/composables/agent-subagent-output')['SUBAGENT_MODERATION_NOTICE']>
+    readonly SUBAGENT_PARTIAL_PREFIX: UnwrapRef<typeof import('../src/composables/agent-subagent-output')['SUBAGENT_PARTIAL_PREFIX']>
     readonly SUBAGENT_STEP_LIMIT_NOTICE: UnwrapRef<typeof import('../src/composables/agent-subagent-output')['SUBAGENT_STEP_LIMIT_NOTICE']>
     readonly activityLabelKey: UnwrapRef<typeof import('../src/composables/agent-activity')['activityLabelKey']>
     readonly appendStreamingCaret: UnwrapRef<typeof import('../src/utils/markdown')['appendStreamingCaret']>
