@@ -19,6 +19,9 @@ declare global {
   const MERMAID_AUTO_FIX_BUDGET: typeof import('../src/utils/mermaid-fix')['MERMAID_AUTO_FIX_BUDGET']
   const MODERATION_TASK_MARKER: typeof import('../src/composables/moderation')['MODERATION_TASK_MARKER']
   const SELECT_TOOL_NAME: typeof import('../src/composables/tool-exploration')['SELECT_TOOL_NAME']
+  const SUBAGENT_DONE_FALLBACK: typeof import('../src/composables/agent-subagent-output')['SUBAGENT_DONE_FALLBACK']
+  const SUBAGENT_MODERATION_NOTICE: typeof import('../src/composables/agent-subagent-output')['SUBAGENT_MODERATION_NOTICE']
+  const SUBAGENT_STEP_LIMIT_NOTICE: typeof import('../src/composables/agent-subagent-output')['SUBAGENT_STEP_LIMIT_NOTICE']
   const activityLabelKey: typeof import('../src/composables/agent-activity')['activityLabelKey']
   const appendStreamingCaret: typeof import('../src/utils/markdown')['appendStreamingCaret']
   const applyStreamPart: typeof import('../src/composables/agent-stream-parts')['applyStreamPart']
@@ -105,6 +108,7 @@ declare global {
   const shouldAutoFixMermaid: typeof import('../src/utils/mermaid-fix')['shouldAutoFixMermaid']
   const shouldFlattenSubAgent: typeof import('../src/composables/sub-agent-flatten')['shouldFlattenSubAgent']
   const streamingSafeBuffer: typeof import('../src/utils/markdown')['streamingSafeBuffer']
+  const subAgentModelOutput: typeof import('../src/composables/agent-subagent-output')['subAgentModelOutput']
   const toRaw: typeof import('vue')['toRaw']
   const toRef: typeof import('vue')['toRef']
   const toRefs: typeof import('vue')['toRefs']
@@ -178,6 +182,9 @@ declare module 'vue' {
     readonly FLAGS_COOKIE: UnwrapRef<typeof import('../src/utils/agent-flags')['FLAGS_COOKIE']>
     readonly MERMAID_AUTO_FIX_BUDGET: UnwrapRef<typeof import('../src/utils/mermaid-fix')['MERMAID_AUTO_FIX_BUDGET']>
     readonly SELECT_TOOL_NAME: UnwrapRef<typeof import('../src/composables/tool-exploration')['SELECT_TOOL_NAME']>
+    readonly SUBAGENT_DONE_FALLBACK: UnwrapRef<typeof import('../src/composables/agent-subagent-output')['SUBAGENT_DONE_FALLBACK']>
+    readonly SUBAGENT_MODERATION_NOTICE: UnwrapRef<typeof import('../src/composables/agent-subagent-output')['SUBAGENT_MODERATION_NOTICE']>
+    readonly SUBAGENT_STEP_LIMIT_NOTICE: UnwrapRef<typeof import('../src/composables/agent-subagent-output')['SUBAGENT_STEP_LIMIT_NOTICE']>
     readonly activityLabelKey: UnwrapRef<typeof import('../src/composables/agent-activity')['activityLabelKey']>
     readonly appendStreamingCaret: UnwrapRef<typeof import('../src/utils/markdown')['appendStreamingCaret']>
     readonly applyStreamPart: UnwrapRef<typeof import('../src/composables/agent-stream-parts')['applyStreamPart']>
@@ -245,6 +252,7 @@ declare module 'vue' {
     readonly shouldAutoFixMermaid: UnwrapRef<typeof import('../src/utils/mermaid-fix')['shouldAutoFixMermaid']>
     readonly shouldFlattenSubAgent: UnwrapRef<typeof import('../src/composables/sub-agent-flatten')['shouldFlattenSubAgent']>
     readonly streamingSafeBuffer: UnwrapRef<typeof import('../src/utils/markdown')['streamingSafeBuffer']>
+    readonly subAgentModelOutput: UnwrapRef<typeof import('../src/composables/agent-subagent-output')['subAgentModelOutput']>
     readonly toRaw: UnwrapRef<typeof import('vue')['toRaw']>
     readonly toRef: UnwrapRef<typeof import('vue')['toRef']>
     readonly toRefs: UnwrapRef<typeof import('vue')['toRefs']>

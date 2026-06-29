@@ -78,17 +78,25 @@ contract already promised ("include all relevant context"). Evidence it was safe
 data-fair sub-agent is a single-shot producer (read→write/summarize), none conversational, and
 no test asserted cross-call memory. The lead re-supplies context on follow-ups, which is SOTA.
 
-### 5. Lossy summary extraction ("telephone game")
-`toModelOutput` returns only `lastMsg.content`, or `'Task completed.'` if the worker ended on
-a tool call at the step limit (`:702-703`). A producer that did structured work but didn't
-narrate it returns ~nothing. SOTA fix (Anthropic) = artifact pattern: worker writes output to
-a store / via a tool (e.g. `set_display`) and passes a reference, instead of squeezing
-structured results through the lead as prose.
+### 5. Lossy summary extraction ("telephone game") — partially addressed
+`toModelOutput` returns only `lastMsg.content`. The worst case — a worker truncated at the
+step limit reporting the bare `'Task completed.'` (a false success) — is **fixed**: the
+decision now lives in the pure `subAgentModelOutput` (`agent-subagent-output.ts`), and a
+`finishReason === 'tool-calls'` stop appends a `stepLimitReached` notice so the lead is told
+the result is partial (see gap 6). The remaining, lower-severity case — a producer that did
+structured work but didn't narrate it — is unaddressed. SOTA fix (Anthropic) = artifact
+pattern: worker writes output to a store / via a tool (e.g. `set_display`) and passes a
+reference, instead of squeezing structured results through the lead as prose.
 
-### 6. Fixed `stepCountIs(10)` everywhere (`:561`, `:758`)
-Both lead and workers hard-capped at 10 regardless of task. Hitting it silently truncates and
-then returns the lossy `'Task completed.'`. Make the cap per-sub-agent configurable and
-surface "hit step limit" distinctly from "finished".
+### 6. Step-limit truncation reported as success — ✅ DONE (reporting), cap still fixed
+Both lead and workers are hard-capped at `stepCountIs(10)`. The dangerous part — a worker
+hitting the cap mid-tool-chain and returning `'Task completed.'`, so the lead treats a
+truncation as a finished deliverable — is **fixed** (see gap 5): a cap-hit now surfaces the
+`SUBAGENT_STEP_LIMIT_NOTICE` distinctly from a real finish. The main loop's own cap already
+degrades to a visible empty-response fallback (`:834`, not a false success), so it was left as
+is. Making the cap itself per-sub-agent configurable is the generic-delegator instinct and was
+deliberately **not** done — honest reporting is the real fix; tuning the number is a separate,
+lower-value knob.
 
 ### 7. Minor: config fetched via `execute({task:''})` (`:236`, `:367`)
 Static config is served by calling the tool's execute with a dummy empty task and parsing

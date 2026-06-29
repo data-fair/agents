@@ -15,6 +15,7 @@ import { wrapHiddenContext } from '~/traces/hidden-context'
 import Debug from 'debug'
 import type { ChatActivity } from './agent-activity.ts'
 import { applyStreamPart, type StreamScope, type StreamPart } from './agent-stream-parts.ts'
+import { SUBAGENT_STEP_LIMIT_NOTICE, subAgentModelOutput } from './agent-subagent-output.ts'
 
 const debug = Debug('df-agents:use-agent-chat')
 
@@ -25,15 +26,6 @@ const debug = Debug('df-agents:use-agent-chat')
 // blocked user understands what happened and can react, without revealing a
 // category/reason that would give abusers feedback.
 const DEFAULT_REFUSAL = 'This message was declined by content moderation — it appears to fall outside what this assistant is meant to help with. Try rephrasing if you think this is a mistake.'
-
-// Returned to the MAIN assistant (not the user) as a delegated sub-agent's result
-// when that sub-agent was moderation-blocked. Distinct from the user-facing
-// refusal: it tells the assistant this was a content-policy decision (not a tool
-// failure) and gives bounded guidance, so it can re-formulate a legitimate task
-// or explain the block — rather than dead-ending. Deliberately discourages blind
-// resubmission (each re-delegation is itself re-moderated; the turn is capped at
-// stepCountIs(10)) so this does not become a moderation-probing retry loop.
-const SUBAGENT_MODERATION_NOTICE = 'This delegated sub-agent task was blocked by content moderation — a content-policy decision, not a tool error. If the task is legitimate platform work (for example editing a resource\'s title, description, summary or other metadata), rephrase it more precisely and delegate again, or carry it out yourself if you have the necessary tools. Otherwise, briefly tell the user the request was declined by moderation. Do not resubmit the same task wording unchanged.'
 
 // Shown when a turn finishes cleanly but the assistant produced no text at all
 // (empty model completion, a sub-agent that returned nothing, or the step limit
@@ -78,6 +70,10 @@ export interface ChatMessage {
   // moderation-specific notice instead of the generic user-facing refusal text.
   // Not rendered; the panel shows `content` like any other message.
   moderationBlocked?: boolean
+  // Set on the trailing sub-agent message when the worker stopped at its step limit
+  // while still mid-tool-chain (truncated, not finished). toModelOutput uses it to
+  // tell the main agent the result is partial instead of the bare 'Task completed.'.
+  stepLimitReached?: boolean
 }
 
 export interface ToolInfo {
@@ -671,9 +667,10 @@ export function useAgentChat (options: UseAgentChatOptions) {
               }
               if (subStreamError) throw subStreamError
 
+              const finishReason = await subResult.finishReason
               // A content_filter on the sub-agent's own gateway call (untrusted callers)
               // surfaces as a refusal output instead of aborting the whole turn.
-              if ((await subResult.finishReason) === 'content-filter') {
+              if (finishReason === 'content-filter') {
                 // User-facing refusal for the panel; moderationBlocked tells
                 // toModelOutput to hand the main agent SUBAGENT_MODERATION_NOTICE
                 // instead of this generic text so it can react appropriately.
@@ -687,6 +684,22 @@ export function useAgentChat (options: UseAgentChatOptions) {
                   }
                 }
                 yield [refusal]
+              } else if (finishReason === 'tool-calls') {
+                // The loop stopped while the model still wanted to call tools — it hit the
+                // stepCountIs cap mid-chain and never produced a closing summary. Without
+                // this the trailing message is empty and toModelOutput would report the
+                // bare 'Task completed.', i.e. a truncation disguised as success. Append a
+                // flagged notice so the panel shows it and the main agent is told it's partial.
+                const truncated: ChatMessage = { role: 'assistant', content: SUBAGENT_STEP_LIMIT_NOTICE, stepLimitReached: true }
+                const parent = liveParent()
+                if (parent) {
+                  const prev = parent.subAgentPanels?.[parentToolCallId]?.messages ?? subScope.messages
+                  parent.subAgentPanels = {
+                    ...(parent.subAgentPanels ?? {}),
+                    [parentToolCallId]: { messages: [...prev, truncated] }
+                  }
+                }
+                yield [truncated]
               }
             } catch (subErr: any) {
               // Let an abort tear down the whole turn (handled by sendMessage's catch).
@@ -713,20 +726,10 @@ export function useAgentChat (options: UseAgentChatOptions) {
               subAgentActivities.value = next
             }
           },
-          toModelOutput: ({ output }: { output: any }) => {
-            // Main agent sees only the final text summary, not full subagent trace
-            const lastMsg = Array.isArray(output) ? output[output.length - 1] : null
-            // A moderation block is a content-policy decision, not a finished task:
-            // give the main agent an actionable notice rather than the user-facing
-            // refusal text so it can re-formulate a legitimate task or explain.
-            if ((lastMsg as ChatMessage | null)?.moderationBlocked) {
-              return { type: 'text' as const, value: SUBAGENT_MODERATION_NOTICE }
-            }
-            return {
-              type: 'text' as const,
-              value: (lastMsg as ChatMessage | null)?.content || 'Task completed.'
-            }
-          }
+          // Main agent sees only this single text summary, not the full sub-agent
+          // trace. Trailing-message flags (moderationBlocked / stepLimitReached) change
+          // what the lead is told; see subAgentModelOutput for the decision.
+          toModelOutput: ({ output }: { output: any }) => ({ type: 'text' as const, value: subAgentModelOutput(output) })
         })
       }
 
