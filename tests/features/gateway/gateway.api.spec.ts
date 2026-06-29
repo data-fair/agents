@@ -7,6 +7,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { generateText, streamText } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { axiosAuth, superAdmin, clean, directoryUrl, defaultQuotas, anonymousAx, getAnonymousActionToken } from '../../support/axios.ts'
 
 const user = await axiosAuth('test-standalone1')
@@ -91,6 +92,39 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
     })
 
     assert.equal(result.text, 'world')
+  })
+
+  // Reasoning models emit reasoning_content; the gateway must forward it on the
+  // reasoning_content SSE channel and an openai-compatible client must capture it.
+  test('forwards reasoning_content through the gateway (streaming)', async () => {
+    const cookieString = await user.cookieJar.getCookieString(directoryUrl)
+    const provider = createOpenAICompatible({
+      name: 'data-fair-gateway',
+      baseURL: `http://localhost:${process.env.DEV_API_PORT}/api/gateway/user/test-standalone1/v1`,
+      apiKey: 'unused',
+      headers: { cookie: cookieString }
+    })
+    const result = streamText({ model: provider.chatModel('assistant'), messages: [{ role: 'user', content: 'reason' }] })
+    let text = ''; let reasoning = ''
+    for await (const part of result.fullStream) {
+      if (part.type === 'text-delta') text += part.text
+      if (part.type === 'reasoning-delta') reasoning += part.text
+    }
+    assert.equal(text, 'world')
+    assert.equal(reasoning, 'Let me think about it.')
+  })
+
+  test('forwards reasoning_content through the gateway (non-streaming)', async () => {
+    const cookieString = await user.cookieJar.getCookieString(directoryUrl)
+    const provider = createOpenAICompatible({
+      name: 'data-fair-gateway',
+      baseURL: `http://localhost:${process.env.DEV_API_PORT}/api/gateway/user/test-standalone1/v1`,
+      apiKey: 'unused',
+      headers: { cookie: cookieString }
+    })
+    const result = await generateText({ model: provider.chatModel('assistant'), messages: [{ role: 'user', content: 'reason' }] })
+    assert.equal(result.text, 'world')
+    assert.equal(result.reasoningText, 'Let me think about it.')
   })
 
   test('rejects invalid model id', async () => {

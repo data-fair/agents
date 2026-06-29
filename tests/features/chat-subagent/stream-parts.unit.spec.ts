@@ -74,7 +74,30 @@ test.describe('applyStreamPart', () => {
   test('unknown part types are ignored', () => {
     const { scope } = makeScope()
     applyStreamPart({ type: 'finish' }, scope)
-    applyStreamPart({ type: 'reasoning-delta', text: 'x' }, scope)
+    applyStreamPart({ type: 'reasoning-start' }, scope)
     assert.equal(scope.messages.length, 0)
+  })
+
+  test('reasoning-delta accumulates onto a new assistant message and shows thinking (not producedText)', () => {
+    const { scope, phases } = makeScope()
+    applyStreamPart({ type: 'reasoning-delta', text: 'Let me ' }, scope)
+    applyStreamPart({ type: 'reasoning-delta', text: 'think.' }, scope)
+    assert.equal(scope.messages.length, 1)
+    assert.equal(scope.messages[0].reasoning, 'Let me think.')
+    assert.equal(scope.messages[0].content, '')
+    // reasoning is not the visible answer, so the empty-turn fallback must not be suppressed
+    assert.equal(scope.producedText, false)
+    assert.deepEqual(phases.at(-1), ['thinking', undefined])
+  })
+
+  test('reasoning then text/tool-call share one assistant message', () => {
+    const { scope } = makeScope()
+    applyStreamPart({ type: 'reasoning-delta', text: 'plan' }, scope)
+    applyStreamPart({ type: 'text-delta', text: 'answer' }, scope)
+    applyStreamPart({ type: 'tool-call', toolCallId: 'c1', toolName: 't' }, scope)
+    assert.equal(scope.messages.length, 1)
+    assert.equal(scope.messages[0].reasoning, 'plan')
+    assert.equal(scope.messages[0].content, 'answer')
+    assert.deepEqual(scope.messages[0].toolInvocations, [{ toolCallId: 'c1', toolName: 't', state: 'pending' }])
   })
 })

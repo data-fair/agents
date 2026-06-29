@@ -269,7 +269,7 @@ test.describe('reconstructTrace (unit)', () => {
 
   test('summary flags fall back to defaults when no request carries flags', () => {
     const trace = reconstructTrace([req({})] as any)
-    assert.deepEqual(trace.summary.flags, { toolExploration: false, subAgents: true, mermaid: false })
+    assert.deepEqual(trace.summary.flags, { toolExploration: false, subAgents: true, mermaid: false, showReasoning: false })
     assert.equal(trace.summary.requestCount, 1)
   })
 

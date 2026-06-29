@@ -47,6 +47,34 @@
               v-else
               class="text-body-medium"
             >
+              <!-- Reasoning ("thinking") from reasoning models: collapsed panel
+                   above the answer it produced. Only when the user opts into full
+                   reasoning display; otherwise the transient "Thinking…" activity
+                   line is the sole feedback and nothing persists. -->
+              <v-expansion-panels
+                v-if="showReasoning && message.reasoning && message.reasoning.trim()"
+                variant="accordion"
+                density="compact"
+                flat
+                tile
+                class="agent-chat__reasoning-panel mb-2 border-secondary border-s-sm border-opacity-100"
+              >
+                <v-expansion-panel>
+                  <v-expansion-panel-title class="text-caption text-medium-emphasis py-1">
+                    <v-icon
+                      size="x-small"
+                      :icon="mdiBrain"
+                      class="mr-2"
+                    />
+                    {{ t('reasoning') }}
+                  </v-expansion-panel-title>
+                  <v-expansion-panel-text>
+                    <div class="text-caption text-medium-emphasis agent-chat__reasoning-text">
+                      {{ message.reasoning }}
+                    </div>
+                  </v-expansion-panel-text>
+                </v-expansion-panel>
+              </v-expansion-panels>
               <markdown-content
                 class="assistant-content markdown-content"
                 :content="message.content"
@@ -227,6 +255,7 @@
 
 <i18n lang="yaml">
 fr:
+  reasoning: Raisonnement
   subAgentDone: Sous-agent terminé.
   jumpToBottom: Aller en bas
   findingTool: Recherche de l'outil adapté…
@@ -239,6 +268,7 @@ fr:
   activitySubAgentTool: Exécution d'un outil…
   activitySubAgentAnalyzing: Analyse du résultat de l'outil…
 en:
+  reasoning: Reasoning
   subAgentDone: Sub-agent finished.
   jumpToBottom: Jump to bottom
   findingTool: Finding the right tool…
@@ -256,7 +286,7 @@ en:
 import { ref, reactive, watch, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAutoScrollBottom } from '@data-fair/lib-vue/auto-scroll-bottom.js'
-import { mdiCheck, mdiLoading, mdiArrowDown } from '@mdi/js'
+import { mdiCheck, mdiLoading, mdiArrowDown, mdiBrain } from '@mdi/js'
 import { streamedLength, latestSubAgentPanel } from './auto-scroll'
 import MarkdownContent from './MarkdownContent.vue'
 import { EXPLORE_TOOL_NAME } from '~/composables/tool-exploration'
@@ -283,6 +313,9 @@ const props = defineProps<{
   toolTitle: (toolName: string) => string
   actionVisiblePrompt: string | null
   mermaidEnabled: boolean
+  // Render reasoning-model "thinking" as a foldable panel; when false the panel is
+  // omitted entirely (compact mode), leaving only the live "Thinking…" activity line.
+  showReasoning: boolean
 }>()
 
 const isActionPrompt = (message: ChatMessage) => {
@@ -478,6 +511,15 @@ function onContentClick (e: MouseEvent) {
 
 .agent-chat-message .assistant-content {
   word-break: break-word;
+}
+
+/* Reasoning panel: muted, monospace-ish, preserves the model's line breaks. */
+.agent-chat-message .agent-chat__reasoning-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.agent-chat-message .agent-chat__reasoning-panel .v-expansion-panel-text__wrapper {
+  padding: 0 8px 8px;
 }
 
 .agent-chat-message .markdown-content ul {
