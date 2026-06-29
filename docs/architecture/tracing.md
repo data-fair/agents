@@ -34,6 +34,11 @@ header **`x-trace-storage: available`**; the client flips the reactive `traceSto
 flag which drives the consent toggle in the chat. Storage only begins on turns sent *after*
 the user accepts — the pre-consent turn is never stored.
 
+The **evaluator chat is exempt**: it reuses `useAgentChat` (same gateway path) but passes
+`disableTraceStorage: true`, which withholds the `x-trace-consent` header so the gateway
+never records its requests. Otherwise, reviewing a stored trace would itself be stored as a
+confusing "meta" trace of the review.
+
 ### What the gateway writes
 
 Inside the completions handler, at the point usage is recorded, the gateway records

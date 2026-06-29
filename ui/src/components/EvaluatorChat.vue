@@ -85,7 +85,10 @@ const chatResult = useAgentChat({
     })
   },
   modelName: 'evaluator',
-  systemPrompt: props.isSuperadmin ? baseSystemPrompt + EVALUATOR_SOURCE_ADDENDUM : baseSystemPrompt
+  systemPrompt: props.isSuperadmin ? baseSystemPrompt + EVALUATOR_SOURCE_ADDENDUM : baseSystemPrompt,
+  // Never store the evaluator's own LLM calls: reviewing a stored trace would
+  // otherwise record a confusing "meta" trace of the review itself.
+  disableTraceStorage: true
 })
 if (!chatResult) throw new Error('Chat not supported in SSR')
 const chat = chatResult
