@@ -202,11 +202,13 @@ test.describe('Advanced Sub-Agent Scenarios', () => {
     await expect(chat.getByText('done', { exact: true }).first()).toBeVisible({ timeout: 15000 })
 
     // Each panel shows its OWN transcript (proves no shared-array clobber).
+    // Assert each panel's content while THAT panel is open: the panels are a single-open
+    // accordion (variant="accordion"), so opening one collapses the other.
     const analystPanel = chat.locator('.v-expansion-panel', { hasText: 'Data Analyst' }).first()
     const summarizerPanel = chat.locator('.v-expansion-panel', { hasText: 'Data Summarizer' }).first()
     await analystPanel.locator('.v-expansion-panel-title').click()
-    await summarizerPanel.locator('.v-expansion-panel-title').click()
     await expect(analystPanel.getByText('Analysis complete', { exact: false })).toBeVisible({ timeout: 5000 })
+    await summarizerPanel.locator('.v-expansion-panel-title').click()
     await expect(summarizerPanel.getByText('Summary', { exact: false })).toBeVisible({ timeout: 5000 })
   })
 

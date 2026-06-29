@@ -591,7 +591,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
             // part, so mainScope.current is still null on entry; it is set during the first
             // `await` below. So we read it LIVE (via liveParent) at each write site rather
             // than capturing it once. mainScope.current is the structural StreamMessage
-            // minimum; here we need the ChatMessage fields (subAgentMessages/subAgentTurn),
+            // minimum; here we need the ChatMessage fields (subAgentPanels),
             // and at these call sites it always IS a ChatMessage (applyStreamPart pushed it
             // into messages.value, a ChatMessage[]).
             const liveParent = () => mainScope.current as ChatMessage | null
@@ -604,13 +604,13 @@ export function useAgentChat (options: UseAgentChatOptions) {
               ti => ti.toolName === name && ti.state === 'pending'
             )?.toolCallId ?? name
 
-            // Same shared builder as the main loop, but its activity drives the SAME
-            // global `activity` ref tagged for THIS sub-agent, so the component shows
-            // the phase inside this panel. Unlike the main line, the 'tool' phase shows
-            // (sub-agent chips don't spin, so the panel line carries it).
+            // Same shared builder as the main loop, but its activity writes the per-toolCallId
+            // `subAgentActivities` map keyed by parentToolCallId, so each concurrent panel
+            // shows its own phase line independently. Unlike the main line, the 'tool' phase
+            // shows (sub-agent chips don't spin, so the panel line carries it).
             // The builder writes into this scratch array; each yield we copy a fresh
-            // snapshot onto the reactive parent's subAgentMessages. Reassigning a new
-            // array (rather than mutating in place) is what reliably triggers Vue to
+            // snapshot onto the reactive parent's subAgentPanels[parentToolCallId]. Reassigning
+            // a new array (rather than mutating in place) is what reliably triggers Vue to
             // re-render the panel — the same approach the previous snapshot path used.
             const subScope: StreamScope = {
               messages: [],

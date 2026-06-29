@@ -104,6 +104,7 @@ function processMockPrompt (lastMessage: string, prompt: string | Array<any>): M
       type: 'tool-call',
       toolCalls: [
         { toolName: 'subagent_data_analyst', toolArgs: JSON.stringify({ task: 'analyze' }) },
+        // task arg is inert: data_summarizer pins model:'summarizer'→mock-summarizer, which ignores input and always returns "Summary: …"
         { toolName: 'subagent_data_summarizer', toolArgs: JSON.stringify({ task: 'hello' }) }
       ]
     }
