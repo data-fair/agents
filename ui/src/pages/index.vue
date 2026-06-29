@@ -48,10 +48,10 @@ en:
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import personalMenu from '@data-fair/lib-vuetify/personal-menu.vue'
-import { useSessionAuthenticated } from '@data-fair/lib-vue/session.js'
+import { useSession } from '@data-fair/lib-vue/session.js'
 
 const { t } = useI18n()
-const session = useSessionAuthenticated()
+const session = useSession()
 
 // in dev mode, the home page redirects to the list of development pages
 if (import.meta.env.DEV) {

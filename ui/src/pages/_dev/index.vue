@@ -1,4 +1,8 @@
 <template>
+  <v-app-bar density="comfortable">
+    <v-spacer />
+    <personal-menu dark-mode-switch />
+  </v-app-bar>
   <v-container>
     <v-row justify="center">
       <v-col
@@ -50,10 +54,11 @@
 <script lang="ts" setup>
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { useSessionAuthenticated } from '@data-fair/lib-vue/session.js'
+import personalMenu from '@data-fair/lib-vuetify/personal-menu.vue'
+import { useSession } from '@data-fair/lib-vue/session.js'
 
 const router = useRouter()
-const session = useSessionAuthenticated()
+const session = useSession()
 
 const devPages = computed(() => router.getRoutes()
   .filter(r => r.path.startsWith('/_dev/') && r.path !== '/_dev/')
