@@ -13,9 +13,9 @@ Three related improvements to the sub-agent display:
 2. **Better panel display** — wrap each sub-agent in a `v-alert` box, show its
    live activity status even when collapsed, and use a clearer "delegated
    subtask" leading icon.
-3. **New per-user flag to simplify sub-agent output** — when on, a delegation
-   renders as a plain tool chip (exactly like any other tool call) instead of a
-   panel.
+3. **New per-user flag to simplify sub-agent output** — on by default; when on,
+   a delegation renders as a plain tool chip (exactly like any other tool call)
+   instead of a panel. Turning it off restores the full v-alert panel.
 
 ## Where the code lives
 
@@ -85,13 +85,15 @@ is replaced by the alert's own border; obsolete accordion CSS
 
 ## Change 3 — "Simplify sub-agent output" flag
 
-A new per-user, presentation-only flag rendering each delegation as a plain tool
-chip instead of a panel.
+A new per-user, presentation-only flag (on by default) rendering each delegation
+as a plain tool chip instead of a panel.
 
 **`agent-flags.ts`:**
 - Add `simpleSubAgents: boolean` to `AgentFlags`.
-- `DEFAULT_FLAGS`: `simpleSubAgents: false`.
-- `readFlags`: parse `simpleSubAgents: !!v.simpleSubAgents`.
+- `DEFAULT_FLAGS`: `simpleSubAgents: true`.
+- `readFlags`: parse `simpleSubAgents: v.simpleSubAgents !== false` (default-on,
+  matching the `subAgents` flag's convention so an absent/legacy cookie reads as
+  `true`).
 
 **`AgentChat.vue`:**
 - `const simpleSubAgentsEnabled = ref(initialFlags.simpleSubAgents)`.
