@@ -47,10 +47,12 @@
               v-else
               class="text-body-medium"
             >
-              <!-- Reasoning ("thinking") from reasoning models: collapsed by default,
-                   shown above the answer it produced. -->
+              <!-- Reasoning ("thinking") from reasoning models: collapsed panel
+                   above the answer it produced. Only when the user opts into full
+                   reasoning display; otherwise the transient "Thinking…" activity
+                   line is the sole feedback and nothing persists. -->
               <v-expansion-panels
-                v-if="message.reasoning && message.reasoning.trim()"
+                v-if="showReasoning && message.reasoning && message.reasoning.trim()"
                 variant="accordion"
                 density="compact"
                 flat
@@ -311,6 +313,9 @@ const props = defineProps<{
   toolTitle: (toolName: string) => string
   actionVisiblePrompt: string | null
   mermaidEnabled: boolean
+  // Render reasoning-model "thinking" as a foldable panel; when false the panel is
+  // omitted entirely (compact mode), leaving only the live "Thinking…" activity line.
+  showReasoning: boolean
 }>()
 
 const isActionPrompt = (message: ChatMessage) => {
