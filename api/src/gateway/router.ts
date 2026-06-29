@@ -10,7 +10,6 @@ import { convertOpenAITools, convertOpenAIMessages, convertToolChoice, mapFinish
 import type { OpenAIMessage, OpenAIToolDefinition, OpenAIToolChoice, FinishReason } from './operations.ts'
 import { recordTraceRequest } from '../traces/service.ts'
 import { parseFlagsCookie } from '../traces/operations.ts'
-import { createCapturingFetch, type UpstreamCaptureSink } from '../models/capturing-fetch.ts'
 import { extractLastUserMessage, buildModerationContext, moderationApplies, isReasoningEffortRejected } from '../moderation/operations.ts'
 import { startModeration, isStrikeCooldownActive, recordStrikeRefusal, type ModerationRun } from '../moderation/service.ts'
 import crypto from 'node:crypto'
@@ -185,11 +184,8 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
     const consented = req.get('x-trace-consent') === 'yes'
     const shouldStoreTrace = storeTraces && consented
 
-    const captureSink: UpstreamCaptureSink | undefined = shouldStoreTrace ? {} : undefined
-    const captureFetch = captureSink ? createCapturingFetch(captureSink) : undefined
-
     const { modelConfig, inputPricePerMillion, outputPricePerMillion } = getModelConfig(settings, modelId)
-    const model = resolveModelForRole(settings, modelId, captureFetch)
+    const model = resolveModelForRole(settings, modelId)
     // Downstream debug logging (client→gateway OpenAI exchange), scoped per provider
     // so it can be restricted to one provider: DEBUG=agents:downstream:<type>:<id>.
     // Independent of trace storage; serialisation happens only when the flag is on.
@@ -219,8 +215,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
         outputPricePerMillion,
         timing: { durationMs: Date.now() - traceStart, ...(timeToFirstChunkMs != null ? { timeToFirstChunkMs } : {}) },
         ...(moderation?.traceInfo() ? { moderation: moderation.traceInfo() } : {}),
-        ...(traceFlags ? { flags: traceFlags } : {}),
-        ...(captureSink?.response ? { upstream: { request: captureSink.request!, response: captureSink.response } } : {})
+        ...(traceFlags ? { flags: traceFlags } : {})
       })
     }
 

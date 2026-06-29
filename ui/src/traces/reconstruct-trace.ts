@@ -20,7 +20,6 @@ export interface StoredTraceRequest {
   createdAt: string
   moderation?: { action: 'allow' | 'block', category?: string, reason?: string, latencyMs?: number, failOpen?: 'timeout' | 'error' }
   flags?: AgentFlags
-  upstream?: { request: { url: string, body: any, bodyChars: number }, response: { status: number, raw: string, rawChars: number, truncated?: boolean } }
 }
 
 const ts = (iso: string) => new Date(iso)
@@ -102,7 +101,6 @@ export function reconstructTrace (requests: StoredTraceRequest[]): SessionTrace 
     provider: r.provider,
     cost: r.cost,
     requestBody: r.request.body,
-    upstream: r.upstream,
     result: { content: r.response.content, toolCalls: r.response.toolCalls, finishReason: r.response.finishReason },
     inputTokens: r.usage.inputTokens,
     outputTokens: r.usage.outputTokens,

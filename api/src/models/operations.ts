@@ -34,12 +34,11 @@ export function scalewayBaseURL (projectId?: string): string {
 // so keep it a single constant rather than per-provider names.
 export const OPENAI_COMPATIBLE_PROVIDER_NAME = 'openai-compatible'
 
-export function createModel (provider: Provider, modelId: string, fetchImpl?: typeof fetch): LanguageModel {
-  // Wrap the effective fetch (the injected capture fetch when trace storage is on,
-  // otherwise the global) with the provider-scoped debug logger. When the DEBUG
-  // namespace is off this returns the same reference, so there is no added cost.
-  const baseFetch = fetchImpl ?? globalThis.fetch
-  const debugFetch = createDebugFetch(provider, baseFetch)
+export function createModel (provider: Provider, modelId: string): LanguageModel {
+  // Wrap the provider's fetch with the provider-scoped debug logger. When the
+  // DEBUG namespace is off this returns the global fetch unchanged, so there is
+  // no added cost.
+  const debugFetch = createDebugFetch(provider)
   const f = debugFetch !== globalThis.fetch ? { fetch: debugFetch } : {}
   switch (provider.type) {
     case 'openai':
@@ -96,12 +95,12 @@ export function getModelConfig (settings: Settings, modelRole: ModelRole) {
   }
 }
 
-export function resolveModelForRole (settings: Settings, modelRole: ModelRole, fetchImpl?: typeof fetch): LanguageModel {
+export function resolveModelForRole (settings: Settings, modelRole: ModelRole): LanguageModel {
   const { modelConfig } = getModelConfig(settings, modelRole)
   const provider = settings.providers.find(p => p.id === modelConfig.provider.id)
   if (!provider) throw new Error('Provider not found')
   if (!provider.enabled) throw new Error('Provider is disabled')
-  return createModel(provider, modelConfig.id, fetchImpl)
+  return createModel(provider, modelConfig.id)
 }
 
 /**

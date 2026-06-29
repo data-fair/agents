@@ -90,22 +90,6 @@ export function buildEvaluatorTools (
       }
     }),
 
-    getUpstreamExchange: tool({
-      description: 'Get the raw gateway→provider (upstream) request and response for a physical-request entry by its index. Use this to see exactly what was sent to the provider and the raw bytes it returned — including reasoning the assistant-facing response may omit (e.g. an empty turn with non-zero output tokens). Only available when the upstream was captured at record time.' + note,
-      inputSchema: jsonSchema({
-        type: 'object',
-        properties: { index: { type: 'number', description: 'The index of the physical-request entry' }, ...traceProps },
-        required: ['index', ...traceRequired]
-      }),
-      execute: async (args: { index: number; trace?: 'A' | 'B' }) => {
-        const up = pickRecorder(args).getUpstreamExchange(args.index)
-        if (!up) return `No upstream exchange for entry ${args.index} (it may not be a physical request, or upstream capture was off for this session).`
-        // distinct name — `note` is already the compare-mode suffix in the enclosing scope
-        const truncatedNote = up.response.truncated ? `\n…[truncated, ${up.response.rawChars} total chars]` : ''
-        return `Upstream request → ${up.request.url}\n${JSON.stringify(up.request.body, null, 2)}\n\nUpstream response (HTTP ${up.response.status}):\n${up.response.raw}${truncatedNote}`
-      }
-    }),
-
     getSessionConfig: tool({
       description: 'Get the system prompt and tools definitions for the session.' + note,
       inputSchema: jsonSchema({

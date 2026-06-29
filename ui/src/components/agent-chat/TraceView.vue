@@ -135,17 +135,6 @@
                 {{ t('response') }}
               </div>
               <pre class="agent-chat__pre pa-2 mt-1">{{ JSON.stringify(traceEntryDetails[entry.index]?.content?.result, null, 2) }}</pre>
-              <template v-if="traceEntryDetails[entry.index]?.content?.upstream">
-                <div class="text-caption mt-3 font-weight-medium">
-                  Upstream (provider)
-                </div>
-                <div class="text-caption text-medium-emphasis">
-                  {{ traceEntryDetails[entry.index].content.upstream.request.url }} ·
-                  HTTP {{ traceEntryDetails[entry.index].content.upstream.response.status }} ·
-                  {{ traceEntryDetails[entry.index].content.upstream.response.rawChars }} chars{{ traceEntryDetails[entry.index].content.upstream.response.truncated ? ' (truncated)' : '' }}
-                </div>
-                <pre class="agent-chat__pre pa-2 mt-1">{{ recorder.getUpstreamExchange(entry.index)?.response.raw }}</pre>
-              </template>
             </template>
             <template v-else-if="entry.type === 'sub-agent-start'">
               <div class="text-caption text-medium-emphasis mb-1">

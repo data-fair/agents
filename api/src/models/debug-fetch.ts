@@ -5,9 +5,9 @@
  *   DEBUG=agents:upstream:openai:*      (one provider type)
  *   DEBUG=agents:upstream:*             (everything upstream)
  *
- * Linear passthrough mirroring capturing-fetch.ts: the response body is piped
- * through a TransformStream that accumulates chunks as the consumer reads them,
- * so logging completes when the SDK finishes reading — no clone(), no tee().
+ * Linear passthrough: the response body is piped through a TransformStream that
+ * accumulates chunks as the consumer reads them, so logging completes when the
+ * SDK finishes reading — no clone(), no tee().
  * Only the request URL and body are logged — never headers (no API-key leakage).
  * When the namespace is disabled the base fetch is returned unchanged, so there
  * is no per-request or per-chunk cost unless the flag is actually activated.
