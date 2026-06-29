@@ -63,13 +63,14 @@
                   :key="invocation.toolCallId"
                 >
                   <v-chip
-                    v-if="!invocation.toolName.startsWith('subagent_') && invocation.toolName !== EXPLORE_TOOL_NAME"
+                    v-if="invocation.toolName !== EXPLORE_TOOL_NAME && (simpleSubAgents || !invocation.toolName.startsWith('subagent_'))"
                     size="x-small"
                     :color="invocation.state === 'done' ? 'success' : 'warning'"
                     variant="tonal"
                     class="mr-1 mb-1"
+                    :data-testid="invocation.toolName.startsWith('subagent_') ? 'subagent-chip' : 'tool-chip'"
                   >
-                    {{ toolTitle(invocation.toolName) }}
+                    {{ chipLabel(invocation.toolName) }}
                   </v-chip>
                 </template>
                 <!-- explore_tools is an internal step (deciding which tool to use): show a
@@ -83,43 +84,58 @@
                   class="agent-chat__tool-skeleton d-inline-flex"
                 />
               </div>
-              <!-- Sub-agent expandable sections -->
+              <!-- Full sub-agent panels (when the simplify flag is off): each
+                   delegation is its own v-alert box, collapsed by default, with
+                   its live activity shown in the header even while collapsed. -->
               <div
-                v-if="message.toolInvocations?.some(ti => ti.toolName.startsWith('subagent_'))"
+                v-if="!simpleSubAgents && subAgentInvocations(message).length"
                 class="mt-2"
               >
-                <v-expansion-panels
-                  :model-value="openPanelFor(index)"
-                  variant="accordion"
+                <v-alert
+                  v-for="invocation in subAgentInvocations(message)"
+                  :key="invocation.toolCallId"
+                  :color="invocation.state === 'done' ? 'success' : 'warning'"
+                  variant="tonal"
                   density="compact"
-                  flat
-                  tile
-                  class="agent-chat__subagent-panels border-secondary border-s-sm border-opacity-100"
-                  @update:model-value="(v: unknown) => setOpenPanel(index, v as number | undefined)"
+                  :icon="mdiSubdirectoryArrowRight"
+                  class="agent-chat__subagent-alert mb-2"
+                  data-testid="subagent-panel"
                 >
-                  <v-expansion-panel
-                    v-for="invocation in message.toolInvocations.filter(ti => ti.toolName.startsWith('subagent_'))"
-                    :key="invocation.toolCallId"
-                    density="compact"
+                  <div
+                    class="d-flex align-center agent-chat__subagent-header"
+                    data-testid="subagent-panel-header"
+                    @click="toggleExpanded(invocation.toolCallId)"
                   >
-                    <v-expansion-panel-title class="text-body-medium py-1">
+                    <span class="text-body-medium font-weight-medium">{{ subAgentTitle(invocation.toolName) }}</span>
+                    <span
+                      v-if="message.subAgentPanels?.[invocation.toolCallId]?.turn"
+                      class="text-medium-emphasis text-caption ml-1"
+                    >(tour {{ message.subAgentPanels[invocation.toolCallId].turn + 1 }})</span>
+                    <span
+                      v-if="isStreaming && index === messages.length - 1 && subAgentActivityLabel(invocation.toolCallId)"
+                      class="d-flex align-center text-caption text-medium-emphasis font-italic ml-2"
+                      data-testid="subagent-activity"
+                    >
                       <v-icon
+                        :icon="mdiLoading"
                         size="x-small"
-                        :color="invocation.state === 'done' ? 'success' : 'warning'"
-                        class="mr-2"
-                        :icon="invocation.state === 'done' ? mdiCheck : mdiLoading"
-                        :class="{ 'agent-chat__spin': invocation.state !== 'done' }"
+                        class="agent-chat__spin mr-1"
                       />
-                      <span class="font-weight-medium">{{ subAgentTitle(invocation.toolName) }}</span>
-                      <span
-                        v-if="message.subAgentPanels?.[invocation.toolCallId]?.turn"
-                        class="text-medium-emphasis ml-1"
-                      >(tour {{ message.subAgentPanels[invocation.toolCallId].turn + 1 }})</span>
-                    </v-expansion-panel-title>
-                    <v-expansion-panel-text>
-                      <div
-                        v-if="message.subAgentPanels?.[invocation.toolCallId]?.messages.length"
-                      >
+                      {{ subAgentActivityLabel(invocation.toolCallId) }}
+                    </span>
+                    <v-spacer />
+                    <v-icon
+                      :icon="expanded[invocation.toolCallId] ? mdiChevronUp : mdiChevronDown"
+                      size="small"
+                    />
+                  </div>
+                  <v-expand-transition>
+                    <div
+                      v-show="expanded[invocation.toolCallId]"
+                      data-testid="subagent-panel-body"
+                      class="mt-2"
+                    >
+                      <div v-if="message.subAgentPanels?.[invocation.toolCallId]?.messages.length">
                         <div
                           v-for="(subMsg, subIdx) in message.subAgentPanels[invocation.toolCallId].messages"
                           :key="subIdx"
@@ -154,24 +170,9 @@
                       >
                         {{ t('subAgentDone') }}
                       </div>
-                      <!-- Live phase of this sub-agent, shown inside its open panel
-                           (the running pane is open anyway). Replaces the bottom line
-                           for sub-agent work; the panel title still spins if collapsed. -->
-                      <div
-                        v-if="isStreaming && index === messages.length - 1 && subAgentActivityLabel(invocation.toolCallId)"
-                        class="d-flex align-center text-caption text-medium-emphasis py-1"
-                        data-testid="subagent-activity"
-                      >
-                        <v-icon
-                          :icon="mdiLoading"
-                          size="x-small"
-                          class="agent-chat__spin mr-2"
-                        />
-                        <span class="font-italic">{{ subAgentActivityLabel(invocation.toolCallId) }}</span>
-                      </div>
-                    </v-expansion-panel-text>
-                  </v-expansion-panel>
-                </v-expansion-panels>
+                    </div>
+                  </v-expand-transition>
+                </v-alert>
               </div>
             </div>
           </div>
@@ -256,7 +257,7 @@ en:
 import { ref, reactive, watch, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAutoScrollBottom } from '@data-fair/lib-vue/auto-scroll-bottom.js'
-import { mdiCheck, mdiLoading, mdiArrowDown } from '@mdi/js'
+import { mdiLoading, mdiArrowDown, mdiSubdirectoryArrowRight, mdiChevronDown, mdiChevronUp } from '@mdi/js'
 import { streamedLength } from './auto-scroll'
 import MarkdownContent from './MarkdownContent.vue'
 import { EXPLORE_TOOL_NAME } from '~/composables/tool-exploration'
@@ -272,7 +273,7 @@ const emit = defineEmits<{
   'mermaid-error': [payload: { index: number, failures: MermaidFailure[] }]
 }>()
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   messages: ChatMessage[]
   isStreaming: boolean
   // Coarse phase of the current streaming turn, shown as a discreet muted line
@@ -284,7 +285,14 @@ const props = defineProps<{
   toolTitle: (toolName: string) => string
   actionVisiblePrompt: string | null
   mermaidEnabled: boolean
-}>()
+  // Default-on: render delegations as a plain tool chip. Callers that want the
+  // full expandable trace (e.g. the evaluator) pass false.
+  simpleSubAgents?: boolean
+}>(), {
+  activity: null,
+  subAgentActivities: () => ({}),
+  simpleSubAgents: true
+})
 
 const isActionPrompt = (message: ChatMessage) => {
   return message.role === 'user' && props.actionVisiblePrompt === message.content
@@ -298,7 +306,7 @@ const isExploring = (message: ChatMessage) =>
   !!message.toolInvocations?.some(ti => ti.toolName === EXPLORE_TOOL_NAME && ti.state !== 'done')
 
 const hasVisibleTools = (message: ChatMessage) =>
-  !!message.toolInvocations?.some(ti => !ti.toolName.startsWith('subagent_') && ti.toolName !== EXPLORE_TOOL_NAME)
+  !!message.toolInvocations?.some(ti => ti.toolName !== EXPLORE_TOOL_NAME && (props.simpleSubAgents || !ti.toolName.startsWith('subagent_')))
 
 const hasSubAgents = (message: ChatMessage) =>
   !!message.toolInvocations?.some(ti => ti.toolName.startsWith('subagent_'))
@@ -402,11 +410,12 @@ const jumpToBottom = () => {
   el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
 }
 
-// Open sub-agent panel per message index. Panels are collapsed by default and
-// only ever opened by an explicit user click — there is no auto-open.
-const openPanels = reactive<Record<number, number | undefined>>({})
-const openPanelFor = (index: number) => openPanels[index]
-const setOpenPanel = (index: number, v: number | undefined) => { openPanels[index] = v }
+// Sub-agent panels are collapsed by default and toggled manually, keyed by the
+// delegating toolCallId so concurrent sub-agents expand/collapse independently.
+const expanded = reactive<Record<string, boolean>>({})
+const toggleExpanded = (toolCallId: string) => { expanded[toolCallId] = !expanded[toolCallId] }
+const subAgentInvocations = (message: ChatMessage) =>
+  message.toolInvocations?.filter(ti => ti.toolName.startsWith('subagent_')) ?? []
 
 const subAgentTitle = (toolName: string) => {
   const title = props.toolTitle(toolName)
@@ -414,6 +423,11 @@ const subAgentTitle = (toolName: string) => {
   const name = toolName.replace(/^subagent_/, '')
   return name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
+
+// Chip label for the simplified tool-chip row: sub-agents use their display
+// title, plain tools use the host-provided tool title.
+const chipLabel = (toolName: string) =>
+  toolName.startsWith('subagent_') ? subAgentTitle(toolName) : props.toolTitle(toolName)
 
 // In-panel label for the sub-agent running under `toolCallId`. Reads the
 // per-call activity map so concurrent panels each show their own live phase.
@@ -485,15 +499,8 @@ function onContentClick (e: MouseEvent) {
   margin: 0 4px 4px 0;
 }
 
-.agent-chat-message .agent-chat__subagent-panels .v-expansion-panel-text__wrapper {
-  padding-left: 8px;
-  padding-right: 8px;
-  padding-top: 0px;
-  padding-bottom: 0px;
-}
-
-.agent-chat-message .agent-chat__subagent-panels .v-expansion-panel-title.v-expansion-panel-title--active {
-  min-height: 48px;
+.agent-chat-message .agent-chat__subagent-header {
+  cursor: pointer;
 }
 
 @keyframes agent-chat-spin {

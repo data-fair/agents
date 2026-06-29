@@ -10,6 +10,7 @@
       :tool-title="toolTitle"
       :action-visible-prompt="null"
       :mermaid-enabled="false"
+      :simple-sub-agents="false"
       @navigate="onNavigate"
     />
     <div
