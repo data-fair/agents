@@ -23,7 +23,7 @@ At a glance:
 
 1. **Registration** — Child components call `useAgentSubAgent()` which registers a `subagent_*` MCP tool with a JSON config (prompt, tool list, model).
 2. **Partitioning** — `use-agent-chat.ts` splits tools: sub-agent reserved tools are removed from the main set.
-3. **Execution** — Each sub-agent gets a `ToolLoopAgent` instance with its own tool set and system prompt. It runs up to 10 steps autonomously. Sub-agents execute **sequentially** — even if the main agent requests multiple sub-agent calls in one step, they run one after another.
+3. **Execution** — Each sub-agent gets a `ToolLoopAgent` instance with its own tool set and system prompt. It runs up to 10 steps autonomously. Sub-agents run **concurrently** when the main agent requests several in one step — the AI SDK dispatches each tool call without awaiting the previous (`executeToolCall` is fired and tracked, not awaited). Each call streams into its own panel, keyed by the delegating `toolCallId`. The one exception: two concurrent calls to the **same** sub-agent are serialized (they share accumulated conversation history), so a sub-agent's turns stay ordered while different sub-agents stay parallel.
 4. **Multi-turn** — History accumulates per sub-agent in a `Map<string, ModelMessage[]>`. Subsequent calls resume the conversation.
 5. **Context reduction** — The main agent sees only a compact text summary via `toModelOutput()`. The UI renders the full sub-agent trace in collapsible panels.
 
@@ -127,7 +127,7 @@ Each `ToolLoopAgent` is configured with:
 - **tools** — the reserved tool set (only tools listed in `config.tools`)
 - **stopWhen** — `stepCountIs(10)` (max 10 autonomous steps)
 
-Sub-agents execute **sequentially** — even if the main agent requests multiple sub-agent calls in a single step, the orchestrator runs them one after another rather than concurrently.
+Sub-agents run **concurrently** when the main agent requests several in one step — the AI SDK dispatches each tool call without awaiting the previous (`executeToolCall` is fired and tracked, not awaited). Each call streams into its own panel, keyed by the delegating `toolCallId`. The one exception: two concurrent calls to the **same** sub-agent are serialized (they share accumulated conversation history), so a sub-agent's turns stay ordered while different sub-agents stay parallel.
 
 ---
 
@@ -153,6 +153,8 @@ The `uiMessageToChatMessages()` converter transforms AI SDK `UIMessage` parts in
 - `text` parts → assistant message content
 - `dynamic-tool` / `tool-*` parts → tool invocation entries
 - `step-start` parts → message boundaries
+
+The live phase (pending step count, tool name) is tracked per `toolCallId` via the composable's `subAgentActivities` map, so concurrent panels each show their own phase independently.
 
 ---
 
@@ -271,8 +273,9 @@ interface ChatMessage {
     toolName: string
     state: 'pending' | 'done'
   }>
-  subAgentMessages?: ChatMessage[]  // full sub-agent trace for UI
-  subAgentTurn?: number             // call index (0-based)
+  // Per delegating tool-call id: the sub-agent's full trace + its multi-turn index.
+  // Keyed by toolCallId so concurrent delegations render in separate panels.
+  subAgentPanels?: Record<string, { messages: ChatMessage[], turn: number }>
 }
 
 // Debug partition info (exposed via resolvedPartition ref)
