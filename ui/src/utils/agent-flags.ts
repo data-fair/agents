@@ -9,10 +9,11 @@ export interface AgentFlags {
   toolExploration: boolean
   subAgents: boolean
   mermaid: boolean
+  simpleSubAgents: boolean
 }
 
 export const FLAGS_COOKIE = 'agent-chat-flags'
-export const DEFAULT_FLAGS: AgentFlags = { toolExploration: false, subAgents: true, mermaid: false }
+export const DEFAULT_FLAGS: AgentFlags = { toolExploration: false, subAgents: true, mermaid: false, simpleSubAgents: true }
 
 export function readFlags (cookieString = document.cookie): AgentFlags {
   for (const part of cookieString.split(';')) {
@@ -21,7 +22,7 @@ export function readFlags (cookieString = document.cookie): AgentFlags {
     try {
       const v = JSON.parse(decodeURIComponent(rest.join('=')))
       if (v && typeof v === 'object') {
-        return { toolExploration: !!v.toolExploration, subAgents: v.subAgents !== false, mermaid: !!v.mermaid }
+        return { toolExploration: !!v.toolExploration, subAgents: v.subAgents !== false, mermaid: !!v.mermaid, simpleSubAgents: v.simpleSubAgents !== false }
       }
     } catch { /* fall through to defaults */ }
   }
