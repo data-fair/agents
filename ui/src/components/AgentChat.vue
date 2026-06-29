@@ -21,6 +21,7 @@
         :tool-title="toolTitle"
         :action-visible-prompt="actionVisiblePrompt"
         :mermaid-enabled="mermaidEnabled"
+        :simple-sub-agents="simpleSubAgentsEnabled"
         @navigate="url => sendDFrameMessage({ type: 'navigate', url })"
         @fix-mermaid="handleFixMermaid"
         @mermaid-error="handleMermaidError"
@@ -63,9 +64,11 @@
       :tool-exploration="explorationEnabled"
       :sub-agents="subAgentsEnabled"
       :mermaid="mermaidEnabled"
+      :simple-sub-agents="simpleSubAgentsEnabled"
       @update:tool-exploration="handleToolExploration"
       @update:sub-agents="handleSubAgents"
       @update:mermaid="handleMermaid"
+      @update:simple-sub-agents="handleSimpleSubAgents"
     />
 
     <trace-consent-sheet />
@@ -191,6 +194,7 @@ const initialFlags = readFlags()
 const explorationEnabled = ref(initialFlags.toolExploration)
 const subAgentsEnabled = ref(initialFlags.subAgents)
 const mermaidEnabled = ref(initialFlags.mermaid)
+const simpleSubAgentsEnabled = ref(initialFlags.simpleSubAgents)
 
 const chatResult = useAgentChat({
   accountType: props.accountType,
@@ -315,7 +319,8 @@ function persistFlags () {
   writeFlags({
     toolExploration: explorationEnabled.value,
     subAgents: subAgentsEnabled.value,
-    mermaid: mermaidEnabled.value
+    mermaid: mermaidEnabled.value,
+    simpleSubAgents: simpleSubAgentsEnabled.value
   }, $apiPath)
 }
 
@@ -340,6 +345,12 @@ function handleMermaid (enabled: boolean) {
   persistFlags()
   // Reset so the system prompt is uniform across the whole conversation.
   handleReset()
+}
+
+function handleSimpleSubAgents (enabled: boolean) {
+  simpleSubAgentsEnabled.value = enabled
+  persistFlags()
+  // Presentation-only: no conversation reset (unlike mermaid/subAgents/toolExploration).
 }
 
 function handleReset () {

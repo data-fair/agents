@@ -201,6 +201,21 @@
                 :label="t('mermaid')"
                 @update:model-value="(v: boolean | null) => $emit('update:mermaid', v ?? false)"
               />
+
+              <df-tutorial-alert
+                id="agent-settings-simple-subagents"
+                :text="t('simpleSubAgentsHint')"
+                :initial="false"
+                persistent
+              />
+              <v-switch
+                :model-value="simpleSubAgents"
+                color="primary"
+                density="compact"
+                hide-details
+                :label="t('simpleSubAgents')"
+                @update:model-value="(v: boolean | null) => $emit('update:simpleSubAgents', v ?? true)"
+              />
             </div>
           </v-window-item>
         </v-window>
@@ -228,6 +243,8 @@ fr:
   subAgentsHint: "Délègue les tâches complexes à des sous-agents spécialisés (comportement par défaut). Désactivez pour exposer tous les outils des sous-agents directement à l'assistant : chaque sous-agent devient un outil de consigne qui renvoie son prompt. Changer ce réglage réinitialise la conversation."
   mermaid: Diagrammes Mermaid
   mermaidHint: "Affiche les blocs de code Mermaid sous forme de diagrammes (graphiques XY, organigrammes, etc.). Changer ce réglage réinitialise la conversation."
+  simpleSubAgents: Affichage simplifié des sous-agents
+  simpleSubAgentsHint: "Affiche les sous-agents délégués sous forme d'une simple puce de statut, au lieu d'un panneau de trace dépliable. Ce réglage ne réinitialise pas la conversation."
 en:
   close: Close
   info: Info
@@ -246,6 +263,8 @@ en:
   subAgentsHint: "Delegates complex tasks to specialised sub-agents (the default behaviour). Turn off to expose every sub-agent tool directly to the assistant: each sub-agent becomes a guidance tool that returns its prompt. Changing this setting resets the conversation."
   mermaid: Mermaid diagrams
   mermaidHint: "Renders Mermaid code blocks as diagrams (XY charts, flowcharts, etc.). Changing this setting resets the conversation."
+  simpleSubAgents: Simplify sub-agent display
+  simpleSubAgentsHint: "Shows delegated sub-agents as a simple status chip instead of an expandable trace panel. This setting does not reset the conversation."
 </i18n>
 
 <script lang="ts" setup>
@@ -268,6 +287,7 @@ const props = defineProps<{
   toolExploration?: boolean
   subAgents?: boolean
   mermaid?: boolean
+  simpleSubAgents?: boolean
 }>()
 
 defineEmits<{
@@ -275,6 +295,7 @@ defineEmits<{
   'update:toolExploration': [value: boolean]
   'update:subAgents': [value: boolean]
   'update:mermaid': [value: boolean]
+  'update:simpleSubAgents': [value: boolean]
 }>()
 
 const { t } = useI18n()
