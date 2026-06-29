@@ -96,6 +96,19 @@ function processMockPrompt (lastMessage: string, prompt: string | Array<any>): M
     }
   }
 
+  // "parallel subagents" → delegate to two DIFFERENT sub-agents in one step, each with a
+  // task its own reserved tools handle, to exercise concurrent sub-agent panels. The two
+  // tasks diverge so the rendered panels are distinguishable (no-clobber regression).
+  if (/^parallel subagents$/i.test(lastMessage)) {
+    return {
+      type: 'tool-call',
+      toolCalls: [
+        { toolName: 'subagent_data_analyst', toolArgs: JSON.stringify({ task: 'analyze' }) },
+        { toolName: 'subagent_data_summarizer', toolArgs: JSON.stringify({ task: 'hello' }) }
+      ]
+    }
+  }
+
   const callToolMatch = lastMessage.match(/^call tool (\w+)(.*)$/i)
   if (callToolMatch) {
     return {

@@ -31,6 +31,7 @@ declare global {
   const createExploreTool: typeof import('../src/composables/tool-exploration')['createExploreTool']
   const createReactiveSearchParams: typeof import('../src/composables/use-webmcp')['createReactiveSearchParams']
   const createRouter: typeof import('vue-router').createRouter
+  const createSameNameGate: typeof import('../src/composables/sub-agent-serial')['createSameNameGate']
   const createWebHistory: typeof import('vue-router').createWebHistory
   const customRef: typeof import('vue')['customRef']
   const defineAsyncComponent: typeof import('vue')['defineAsyncComponent']
@@ -186,6 +187,7 @@ declare module 'vue' {
     readonly computedDeepDiff: UnwrapRef<typeof import('@data-fair/lib-vue/deep-diff.js')['computedDeepDiff']>
     readonly createApp: UnwrapRef<typeof import('vue')['createApp']>
     readonly createExploreTool: UnwrapRef<typeof import('../src/composables/tool-exploration')['createExploreTool']>
+    readonly createSameNameGate: UnwrapRef<typeof import('../src/composables/sub-agent-serial')['createSameNameGate']>
     readonly customRef: UnwrapRef<typeof import('vue')['customRef']>
     readonly defineAsyncComponent: UnwrapRef<typeof import('vue')['defineAsyncComponent']>
     readonly defineComponent: UnwrapRef<typeof import('vue')['defineComponent']>

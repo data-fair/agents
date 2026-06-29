@@ -187,6 +187,29 @@ test.describe('Advanced Sub-Agent Scenarios', () => {
     await expect(tracePanel.locator('.v-expansion-panel', { hasText: 'data_analyst' }).first()).toBeVisible({ timeout: 10000 })
   })
 
+  test('Two sub-agents delegated in one step render separate panels concurrently', async ({ page, goToWithAuth }) => {
+    await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
+    await waitForToolsReady(page, 'data_analyst (2 tools)', true)
+
+    await sendMessage(page, 'parallel subagents')
+
+    const chat = page.locator('.agent-chat')
+    // Both panels appear under the same assistant message.
+    await expect(chat.getByText('Data Analyst').first()).toBeVisible({ timeout: 15000 })
+    await expect(chat.getByText('Data Summarizer').first()).toBeVisible({ timeout: 15000 })
+
+    // Turn settles on the trailing main-agent "done" text.
+    await expect(chat.getByText('done', { exact: true }).first()).toBeVisible({ timeout: 15000 })
+
+    // Each panel shows its OWN transcript (proves no shared-array clobber).
+    const analystPanel = chat.locator('.v-expansion-panel', { hasText: 'Data Analyst' }).first()
+    const summarizerPanel = chat.locator('.v-expansion-panel', { hasText: 'Data Summarizer' }).first()
+    await analystPanel.locator('.v-expansion-panel-title').click()
+    await summarizerPanel.locator('.v-expansion-panel-title').click()
+    await expect(analystPanel.getByText('Analysis complete', { exact: false })).toBeVisible({ timeout: 5000 })
+    await expect(summarizerPanel.getByText('Summary', { exact: false })).toBeVisible({ timeout: 5000 })
+  })
+
   test('Compaction works during subagent conversation', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
     // Set low compaction threshold and enable trace

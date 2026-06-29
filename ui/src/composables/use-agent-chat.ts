@@ -585,7 +585,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
             },
             required: ['task']
           }),
-          execute: async function * (args: any, { abortSignal }: { abortSignal?: AbortSignal }) {
+          execute: async function * (args: any, { abortSignal, toolCallId: sdkToolCallId }: { abortSignal?: AbortSignal, toolCallId?: string }) {
             // The parent assistant message hosting this sub-agent's panel. The SDK invokes
             // this tool's execute BEFORE the main loop processes the `subagent_` tool-call
             // part, so mainScope.current is still null on entry; it is set during the first
@@ -595,7 +595,12 @@ export function useAgentChat (options: UseAgentChatOptions) {
             // and at these call sites it always IS a ChatMessage (applyStreamPart pushed it
             // into messages.value, a ChatMessage[]).
             const liveParent = () => mainScope.current as ChatMessage | null
-            const parentToolCallId = liveParent()?.toolInvocations?.find(
+            // Use the SDK-provided toolCallId directly — it matches invocation.toolCallId
+            // in the component's subAgentPanels lookup. The previous approach searched
+            // liveParent()?.toolInvocations but mainScope.current is null at execute-start
+            // (the main loop hasn't processed the tool-call stream part yet), causing the
+            // fallback to `name` and a key mismatch that left all panels empty.
+            const parentToolCallId = sdkToolCallId ?? liveParent()?.toolInvocations?.find(
               ti => ti.toolName === name && ti.state === 'pending'
             )?.toolCallId ?? name
 
