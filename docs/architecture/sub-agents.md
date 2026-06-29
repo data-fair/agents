@@ -138,21 +138,21 @@ The sub-agent tool uses `async function*` to yield intermediate results while th
 ```typescript
 execute: async function* (args, { abortSignal }) {
   const subResult = await subAgent.stream({ prompt: args.task, abortSignal })
-  
-  for await (const uiMessage of readUIMessageStream({ stream: subResult.toUIMessageStream() })) {
-    const chatMessages = uiMessageToChatMessages(uiMessage)
-    currentAssistantMessage.subAgentMessages = chatMessages  // UI updates live
-    yield chatMessages  // AI SDK marks these as "preliminary" tool results
+
+  for await (const part of subResult.fullStream) {
+    applyStreamPart(part, subScope)               // build this panel's transcript
+    parent.subAgentPanels = {                      // reassign → Vue re-renders the panel
+      ...(parent.subAgentPanels ?? {}),
+      [parentToolCallId]: { messages: [...subScope.messages] }
+    }
+    yield [...subScope.messages]                   // AI SDK marks these "preliminary"
   }
 }
 ```
 
 Each `yield` emits a **preliminary** tool result. The AI SDK streams these to the main agent's `fullStream` with `preliminary: true`, which the UI uses to show real-time sub-agent progress without marking the tool invocation as done.
 
-The `uiMessageToChatMessages()` converter transforms AI SDK `UIMessage` parts into the app's `ChatMessage[]` format, handling:
-- `text` parts → assistant message content
-- `dynamic-tool` / `tool-*` parts → tool invocation entries
-- `step-start` parts → message boundaries
+`applyStreamPart()` (the same builder the main loop uses) folds each delta part into the panel's `ChatMessage[]`, handling text deltas, tool-call / tool-result parts, and step boundaries. The transcript is published per delegating `toolCallId` into `parent.subAgentPanels`, so concurrent delegations each render in their own panel.
 
 The live phase (pending step count, tool name) is tracked per `toolCallId` via the composable's `subAgentActivities` map, so concurrent panels each show their own phase independently.
 
@@ -212,7 +212,7 @@ toModelOutput: ({ output }) => {
 }
 ```
 
-This keeps the main agent's context window lean — a sub-agent that made 8 tool calls across 5 steps produces a single paragraph of text in the main conversation. The full trace is visible in the UI via `ChatMessage.subAgentPanels`, rendered per delegating tool-call as a `v-alert` box that is **collapsed by default** and expanded on demand (its live activity shows in the header even while collapsed). A per-user **"Simplify sub-agent display"** flag (`simpleSubAgents`, on by default) instead renders each delegation as a plain status chip, like any other tool call; the full-panel view is the opt-in. Panels never auto-open.
+This keeps the main agent's context window lean — a sub-agent that made 8 tool calls across 5 steps produces a single paragraph of text in the main conversation. The full trace is visible in the UI via `ChatMessage.subAgentPanels`, rendered per delegating tool-call as a bordered, state-colored panel that is **collapsed by default** and expanded on demand (its live activity shows in the header even while collapsed). A per-user **"Simplify sub-agent display"** flag (`simpleSubAgents`, on by default) instead renders each delegation as a plain status chip, like any other tool call; the full-panel view is the opt-in. Panels never auto-open.
 
 This also reduces pressure on the 24,000-character compaction threshold (see [Conversation history compaction](./compaction.md)).
 
