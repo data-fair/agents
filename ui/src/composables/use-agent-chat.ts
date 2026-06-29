@@ -15,6 +15,7 @@ import { wrapHiddenContext } from '~/traces/hidden-context'
 import Debug from 'debug'
 import type { ChatActivity } from './agent-activity.ts'
 import { applyStreamPart, type StreamScope, type StreamPart } from './agent-stream-parts.ts'
+import { createSameNameGate } from '~/composables/sub-agent-serial.ts'
 
 const debug = Debug('df-agents:use-agent-chat')
 
@@ -67,8 +68,10 @@ export interface ChatMessage {
     toolName: string
     state: 'pending' | 'done'
   }>
-  subAgentMessages?: ChatMessage[]
-  subAgentTurn?: number
+  // Per delegating tool-call id: the sub-agent's transcript and its multi-turn index.
+  // Keyed by toolCallId so concurrent sub-agent calls under one assistant message
+  // render in separate panels instead of clobbering one shared array.
+  subAgentPanels?: Record<string, { messages: ChatMessage[], turn: number }>
   // Set on a sub-agent refusal message so toModelOutput can hand the main agent a
   // moderation-specific notice instead of the generic user-facing refusal text.
   // Not rendered; the panel shows `content` like any other message.
@@ -179,6 +182,10 @@ export function useAgentChat (options: UseAgentChatOptions) {
   // result…" line instead of an ambiguous spinner. Held null while text is actively
   // streaming (the streaming markdown cursor is signal enough) and while idle.
   const activity = ref<ChatActivity | null>(null)
+  // Live phase per RUNNING sub-agent panel, keyed by the delegating toolCallId.
+  // Separate from the single global `activity` (main-agent phases only) so two
+  // concurrent sub-agents each show their own phase line in their own panel.
+  const subAgentActivities = ref<Record<string, ChatActivity>>({})
   const tools = ref<Record<string, Tool>>({})
   const toolsVersion = ref(0)
   let history: ModelMessage[] = []
@@ -345,6 +352,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
     // abort() above guarantees no in-flight prepareStep will read the old Set
     promotedTools = new Set<string>()
     announcedTools.clear()
+    subAgentActivities.value = {}
     if (newSystemPrompt !== undefined) {
       options.systemPrompt = newSystemPrompt
     }
@@ -527,6 +535,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
       // main tools + sub-agent pseudo-tools using ToolLoopAgent + async generators
       const subAgentHistory = new Map<string, ModelMessage[]>()
       const subAgentCallCount = new Map<string, number>()
+      const sameNameGate = createSameNameGate()
       const mainLLMTools: Record<string, Tool> = { ...mainTools }
       for (const [name, entry] of Object.entries(subAgents)) {
         const config = entry.config
@@ -577,11 +586,6 @@ export function useAgentChat (options: UseAgentChatOptions) {
             required: ['task']
           }),
           execute: async function * (args: any, { abortSignal }: { abortSignal?: AbortSignal }) {
-            // Track multi-turn state for this sub-agent
-            const priorMessages = subAgentHistory.get(name) ?? []
-            const callIndex = subAgentCallCount.get(name) ?? 0
-            subAgentCallCount.set(name, callIndex + 1)
-
             // The parent assistant message hosting this sub-agent's panel. The SDK invokes
             // this tool's execute BEFORE the main loop processes the `subagent_` tool-call
             // part, so mainScope.current is still null on entry; it is set during the first
@@ -609,18 +613,30 @@ export function useAgentChat (options: UseAgentChatOptions) {
               producedText: false,
               stepHadTool: false,
               setActivity: (phase) => {
+                const setPhase = (a: ChatActivity | null) => {
+                  const next = { ...subAgentActivities.value }
+                  if (a) next[parentToolCallId] = a
+                  else delete next[parentToolCallId]
+                  subAgentActivities.value = next
+                }
                 switch (phase) {
-                  case 'streaming': activity.value = null; break
-                  case 'tool': activity.value = { kind: 'subagent', name, phase: 'tool' }; break
-                  case 'analyzing': activity.value = { kind: 'subagent', name, phase: 'analyzing' }; break
-                  case 'thinking': activity.value = { kind: 'subagent', name, phase: 'thinking' }; break
+                  case 'streaming': setPhase(null); break
+                  case 'tool': setPhase({ kind: 'subagent', name, phase: 'tool' }); break
+                  case 'analyzing': setPhase({ kind: 'subagent', name, phase: 'analyzing' }); break
+                  case 'thinking': setPhase({ kind: 'subagent', name, phase: 'thinking' }); break
                 }
               }
             }
 
             // Enter gap: name the spin-up before the first token arrives.
-            activity.value = { kind: 'subagent', name, phase: 'starting' }
+            subAgentActivities.value = { ...subAgentActivities.value, [parentToolCallId]: { kind: 'subagent', name, phase: 'starting' } }
 
+            // Same-name calls share accumulated history; run them as ordered turns.
+            // Different sub-agents acquire different keys and never wait here.
+            const releaseGate = await sameNameGate(name)
+            const priorMessages = subAgentHistory.get(name) ?? []
+            const callIndex = subAgentCallCount.get(name) ?? 0
+            subAgentCallCount.set(name, callIndex + 1)
             let subStreamError: unknown = null
             try {
               // First call: single prompt. Subsequent calls: pass accumulated history.
@@ -645,8 +661,10 @@ export function useAgentChat (options: UseAgentChatOptions) {
                 // re-renders the panel; reassigning a new array is what triggers it.
                 const parent = liveParent()
                 if (parent) {
-                  parent.subAgentTurn = callIndex
-                  parent.subAgentMessages = [...subScope.messages]
+                  parent.subAgentPanels = {
+                    ...(parent.subAgentPanels ?? {}),
+                    [parentToolCallId]: { messages: [...subScope.messages], turn: callIndex }
+                  }
                 }
                 yield [...subScope.messages]
               }
@@ -663,7 +681,11 @@ export function useAgentChat (options: UseAgentChatOptions) {
                 const refusal: ChatMessage = { role: 'assistant', content: options.refusalMessage || DEFAULT_REFUSAL, moderationBlocked: true }
                 const parent = liveParent()
                 if (parent) {
-                  parent.subAgentMessages = [...(parent.subAgentMessages ?? []), refusal]
+                  const prev = parent.subAgentPanels?.[parentToolCallId]?.messages ?? subScope.messages
+                  parent.subAgentPanels = {
+                    ...(parent.subAgentPanels ?? {}),
+                    [parentToolCallId]: { messages: [...prev, refusal], turn: callIndex }
+                  }
                 }
                 yield [refusal]
               }
@@ -684,9 +706,18 @@ export function useAgentChat (options: UseAgentChatOptions) {
               const errorMsg: ChatMessage = { role: 'assistant', content: DEFAULT_SUBAGENT_ERROR }
               const parent = liveParent()
               if (parent) {
-                parent.subAgentMessages = [...(parent.subAgentMessages ?? []), errorMsg]
+                const prev = parent.subAgentPanels?.[parentToolCallId]?.messages ?? subScope.messages
+                parent.subAgentPanels = {
+                  ...(parent.subAgentPanels ?? {}),
+                  [parentToolCallId]: { messages: [...prev, errorMsg], turn: callIndex }
+                }
               }
               yield [errorMsg]
+            } finally {
+              releaseGate()
+              const next = { ...subAgentActivities.value }
+              delete next[parentToolCallId]
+              subAgentActivities.value = next
             }
           },
           toModelOutput: ({ output }: { output: any }) => {
@@ -836,6 +867,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
     } finally {
       if (watchdog) clearTimeout(watchdog)
       activity.value = null
+      subAgentActivities.value = {}
       abortController = null
     }
   }
@@ -852,7 +884,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
     options.flattenSubAgents = enabled
   }
 
-  return { messages, status, error, activity, tools, toolsVersion, resolvedPartition, conversationId, sendMessage, abort, reset, setSystemPrompt, setToolExploration, setFlattenSubAgents }
+  return { messages, status, error, activity, subAgentActivities, tools, toolsVersion, resolvedPartition, conversationId, sendMessage, abort, reset, setSystemPrompt, setToolExploration, setFlattenSubAgents }
 }
 
 export default useAgentChat
