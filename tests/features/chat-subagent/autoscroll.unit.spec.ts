@@ -42,10 +42,10 @@ test.describe('streamedLength (autoscroll growth signal)', () => {
   })
 
   test('REGRESSION: grows while a sub-agent streams even though parent content is static', () => {
-    // Parent message text never changes; only the nested sub-agent grows.
+    // Parent message text never changes; only the nested sub-agent panel grows.
     const base: ScrollMessage = { content: 'Delegating…', toolInvocations: [sub('data_analyst')] }
-    const early: ScrollMessage[] = [{ ...base, subAgentMessages: [{ content: 'analy' }] }]
-    const later: ScrollMessage[] = [{ ...base, subAgentMessages: [{ content: 'analysis complete' }] }]
+    const early: ScrollMessage[] = [{ ...base, subAgentPanels: { c1: { messages: [{ content: 'analy' }] } } }]
+    const later: ScrollMessage[] = [{ ...base, subAgentPanels: { c1: { messages: [{ content: 'analysis complete' }] } } }]
     assert.ok(
       streamedLength(later) > streamedLength(early),
       'growth signal must move while the sub-agent streams, otherwise autoscroll freezes'
@@ -54,12 +54,22 @@ test.describe('streamedLength (autoscroll growth signal)', () => {
 
   test('grows when a sub-agent gains a tool chip', () => {
     const base: ScrollMessage = { content: 'go', toolInvocations: [sub('data_analyst')] }
-    const before: ScrollMessage[] = [{ ...base, subAgentMessages: [{ content: 's' }] }]
+    const before: ScrollMessage[] = [{ ...base, subAgentPanels: { c1: { messages: [{ content: 's' }] } } }]
     const after: ScrollMessage[] = [{
       ...base,
-      subAgentMessages: [{ content: 's', toolInvocations: [{ toolName: 'get_schema' }] }]
+      subAgentPanels: { c1: { messages: [{ content: 's', toolInvocations: [{ toolName: 'get_schema' }] }] } }
     }]
     assert.ok(streamedLength(after) > streamedLength(before))
+  })
+
+  test('grows when a second concurrent panel streams under the same message', () => {
+    const base: ScrollMessage = { content: 'go', toolInvocations: [sub('data_analyst'), sub('data_summarizer')] }
+    const one: ScrollMessage[] = [{ ...base, subAgentPanels: { c1: { messages: [{ content: 'aa' }] } } }]
+    const two: ScrollMessage[] = [{
+      ...base,
+      subAgentPanels: { c1: { messages: [{ content: 'aa' }] }, c2: { messages: [{ content: 'bb' }] } }
+    }]
+    assert.ok(streamedLength(two) > streamedLength(one), 'a second concurrent panel must also grow the signal')
   })
 })
 
