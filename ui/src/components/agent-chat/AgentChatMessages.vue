@@ -92,9 +92,9 @@
                 >
                   <v-chip
                     v-if="invocation.toolName !== EXPLORE_TOOL_NAME && (simpleSubAgents || !invocation.toolName.startsWith('subagent_'))"
-                    size="x-small"
+                    size="small"
                     :color="invocation.state === 'done' ? 'success' : 'warning'"
-                    variant="tonal"
+                    variant="outlined"
                     class="mr-1 mb-1"
                     :data-testid="invocation.toolName.startsWith('subagent_') ? 'subagent-chip' : 'tool-chip'"
                   >
@@ -119,14 +119,11 @@
                 v-if="!simpleSubAgents && subAgentInvocations(message).length"
                 class="mt-2"
               >
-                <v-alert
+                <div
                   v-for="invocation in subAgentInvocations(message)"
                   :key="invocation.toolCallId"
-                  :color="invocation.state === 'done' ? 'success' : 'warning'"
-                  variant="tonal"
-                  density="compact"
-                  :icon="mdiSubdirectoryArrowRight"
-                  class="agent-chat__subagent-alert mb-2"
+                  class="agent-chat__subagent mb-2 px-3 py-2 border-sm rounded"
+                  :style="{ borderColor: `rgb(var(--v-theme-${invocation.state === 'done' ? 'success' : 'warning'}))` }"
                   data-testid="subagent-panel"
                 >
                   <div
@@ -134,6 +131,12 @@
                     data-testid="subagent-panel-header"
                     @click="toggleExpanded(invocation.toolCallId)"
                   >
+                    <v-icon
+                      :icon="mdiSubdirectoryArrowRight"
+                      size="small"
+                      class="mr-2 flex-shrink-0"
+                      :color="invocation.state === 'done' ? 'success' : 'warning'"
+                    />
                     <span class="text-body-medium font-weight-medium">{{ subAgentTitle(invocation.toolName) }}</span>
                     <span
                       v-if="message.subAgentPanels?.[invocation.toolCallId]?.turn"
@@ -182,9 +185,9 @@
                             <v-chip
                               v-for="subInv in subMsg.toolInvocations"
                               :key="subInv.toolCallId"
-                              size="x-small"
+                              size="small"
                               :color="subInv.state === 'done' ? 'success' : 'warning'"
-                              variant="tonal"
+                              variant="outlined"
                               class="mr-1 mb-1"
                             >
                               {{ toolTitle(subInv.toolName) }}
@@ -200,7 +203,7 @@
                       </div>
                     </div>
                   </v-expand-transition>
-                </v-alert>
+                </div>
               </div>
             </div>
           </div>
