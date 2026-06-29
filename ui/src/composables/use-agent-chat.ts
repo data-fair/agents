@@ -38,6 +38,12 @@ const DEFAULT_EMPTY_RESPONSE = "I wasn't able to produce a response. Please try 
 // bubble up as an unhandled tool error that stalls the turn.
 const DEFAULT_SUBAGENT_ERROR = 'The sub-agent could not complete this task.'
 
+// Final-turn prompt used when a sub-agent exhausts its step budget while still calling
+// tools. Run once with NO tools available, so the model cannot loop and must synthesize a
+// best-effort answer from what it already gathered (recovers the result a looping worker
+// had in hand). See the step-cap branch in the sub-agent execute().
+const SUBAGENT_CLOSEOUT_PROMPT = 'You have reached your step budget and can no longer call tools. Using only what you have already gathered, write your final answer now. If part of the task is incomplete, state explicitly what is missing — but still report everything you did obtain. Do not ask to continue.'
+
 // Shown when a turn is aborted because the stream went silent for too long
 // (a provider/gateway stall holding the socket open, or a compaction call that
 // never returns). The idle watchdog turns an otherwise indefinite hang — a
@@ -71,8 +77,9 @@ export interface ChatMessage {
   // Not rendered; the panel shows `content` like any other message.
   moderationBlocked?: boolean
   // Set on the trailing sub-agent message when the worker stopped at its step limit
-  // while still mid-tool-chain (truncated, not finished). toModelOutput uses it to
-  // tell the main agent the result is partial instead of the bare 'Task completed.'.
+  // while still mid-tool-chain (truncated, not finished). The message content is the
+  // best-effort answer recovered by the forced close-out turn (or empty if that failed);
+  // toModelOutput uses the flag to mark the result partial instead of reporting success.
   stepLimitReached?: boolean
 }
 
@@ -690,12 +697,34 @@ export function useAgentChat (options: UseAgentChatOptions) {
                 }
                 yield [refusal]
               } else if (finishReason === 'tool-calls') {
-                // The loop stopped while the model still wanted to call tools — it hit the
-                // stepCountIs cap mid-chain and never produced a closing summary. Without
-                // this the trailing message is empty and toModelOutput would report the
-                // bare 'Task completed.', i.e. a truncation disguised as success. Append a
-                // flagged notice so the panel shows it and the main agent is told it's partial.
-                const truncated: ChatMessage = { role: 'assistant', content: SUBAGENT_STEP_LIMIT_NOTICE, stepLimitReached: true }
+                // The worker hit the stepCountIs cap while still wanting to call tools.
+                // Rather than discard what it gathered and report a bare truncation, force
+                // ONE final close-out turn with NO tools: the model cannot loop, so it must
+                // synthesize a best-effort answer from the transcript. This recovers the
+                // (often already-complete) result a looping worker produced; subAgentModelOutput
+                // hands the lead that answer flagged as partial. Only when nothing is recovered
+                // (the close-out call itself failed) does it fall back to the standalone notice.
+                let closeout = ''
+                try {
+                  const transcript = (await subResult.response).messages
+                  const { text } = await generateText({
+                    model: provider.chatModel(config.model ?? 'tools'),
+                    system: config.prompt,
+                    // tools omitted ⇒ the model cannot loop ⇒ finishReason will be 'stop'
+                    messages: [...transcript, { role: 'user' as const, content: SUBAGENT_CLOSEOUT_PROMPT }],
+                    abortSignal,
+                    headers: traceHeaders(`sub:${ctxName}:0:${parentToolCallId}`)
+                  })
+                  closeout = text.trim()
+                } catch (closeoutErr: any) {
+                  // An abort still tears down the whole turn; any other failure just leaves
+                  // closeout empty and falls through to the standalone notice below.
+                  if (closeoutErr?.name === 'AbortError') throw closeoutErr
+                  debug('sub-agent %s close-out failed: %O', name, closeoutErr)
+                }
+                // Recovered answer → real data carried as content (flagged partial via
+                // stepLimitReached). Nothing recovered → the standalone step-limit notice.
+                const truncated: ChatMessage = { role: 'assistant', content: closeout || SUBAGENT_STEP_LIMIT_NOTICE, stepLimitReached: true }
                 const parent = liveParent()
                 if (parent) {
                   const prev = parent.subAgentPanels?.[parentToolCallId]?.messages ?? subScope.messages

@@ -123,9 +123,22 @@ sequenceDiagram
 
 Each `ToolLoopAgent` is configured with:
 - **model** — resolved from `provider.chat(config.model ?? 'tools')`
-- **instructions** — the sub-agent's system prompt
+- **instructions** — the sub-agent's system prompt (the host-provided prompt verbatim)
 - **tools** — the reserved tool set (only tools listed in `config.tools`)
 - **stopWhen** — `stepCountIs(10)` (max 10 autonomous steps)
+
+### Step-budget close-out
+
+A weak worker can keep calling tools after it already has the answer, exhausting the 10-step
+cap with `finishReason: 'tool-calls'`. Killing it there would discard a result it already
+produced and report a bare truncation. Instead, on that finish reason the orchestrator runs
+**one final close-out turn with no tools** (`SUBAGENT_CLOSEOUT_PROMPT` via `generateText`):
+the model cannot loop, so it must synthesize a best-effort answer from its own transcript.
+That recovered answer is carried as the trailing message content (flagged `stepLimitReached`)
+and surfaced to the lead as a *partial* result rather than a failure. Only if the close-out
+call itself fails does the worker fall back to the standalone step-limit notice. This mirrors
+AutoGen's `reflection_with_llm` summary mode (force a synthesis) rather than discarding the
+run; see [§6](#6-context-reduction) for how the partial result reaches the lead.
 
 Sub-agents run **concurrently** when the main agent requests several in one step — the AI SDK dispatches each tool call without awaiting the previous (`executeToolCall` is fired and tracked, not awaited). Each call streams into its own panel, keyed by the delegating `toolCallId`. Because workers are stateless (§5), there is nothing to serialize: even two concurrent calls to the same sub-agent run in parallel.
 
@@ -200,19 +213,24 @@ internal step loop (`stepCountIs(10)`), which is orthogonal to cross-call statel
 
 ## 6. Context Reduction
 
-The main agent never sees the full sub-agent trace. `toModelOutput()` extracts only the last assistant message's text:
+The main agent never sees the full sub-agent trace. `toModelOutput()` delegates to
+`subAgentModelOutput()`, which decides what single text the lead receives from the worker's
+message list. It is **not** a plain "last message content" read — the trailing message can
+carry flags that change the meaning:
 
 ```typescript
-toModelOutput: ({ output }) => {
-  const lastMsg = Array.isArray(output) ? output[output.length - 1] : null
-  return {
-    type: 'text',
-    value: (lastMsg as ChatMessage | null)?.content || 'Task completed.'
-  }
-}
+toModelOutput: ({ output }) => ({ type: 'text', value: subAgentModelOutput(output) })
+
+// subAgentModelOutput, by trailing-message flag:
+//   moderationBlocked → SUBAGENT_MODERATION_NOTICE  (a content-policy decision)
+//   stepLimitReached  → close-out answer prefixed with SUBAGENT_PARTIAL_PREFIX,
+//                       or SUBAGENT_STEP_LIMIT_NOTICE if nothing was recovered
+//   otherwise         → the trailing message text, or SUBAGENT_DONE_FALLBACK if empty
 ```
 
-This keeps the main agent's context window lean — a sub-agent that made 8 tool calls across 5 steps produces a single paragraph of text in the main conversation. The full trace is visible in the UI via `ChatMessage.subAgentPanels`, rendered per delegating tool-call as a bordered, state-colored panel that is **collapsed by default** and expanded on demand (its live activity shows in the header even while collapsed). A per-user **"Simplify sub-agent display"** flag (`simpleSubAgents`, on by default) instead renders each delegation as a plain status chip, like any other tool call; the full-panel view is the opt-in. Panels never auto-open.
+This mirrors OpenAI's `as_tool(custom_output_extractor=…)` hook: the deliverable is chosen
+from the run rather than blindly taken as the raw last token. It keeps the main agent's
+context window lean — a sub-agent that made 8 tool calls across 5 steps produces a single paragraph of text in the main conversation. The full trace is visible in the UI via `ChatMessage.subAgentPanels`, rendered per delegating tool-call as a bordered, state-colored panel that is **collapsed by default** and expanded on demand (its live activity shows in the header even while collapsed). A per-user **"Simplify sub-agent display"** flag (`simpleSubAgents`, on by default) instead renders each delegation as a plain status chip, like any other tool call; the full-panel view is the opt-in. Panels never auto-open.
 
 This also reduces pressure on the 24,000-character compaction threshold (see [Conversation history compaction](./compaction.md)).
 

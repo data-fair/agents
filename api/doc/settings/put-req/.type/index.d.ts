@@ -303,7 +303,7 @@ export type Model3 = {
  *
  * The "gatekeeper." Classifies each new user message for profanity, prompt-injection, persona override, and out-of-scope requests. Should be fast and cheap — it sits on the critical path to the first response token.
  *
- * Recommendations: a small/fast general-purpose model with structured (JSON) output support, e.g. Claude 4.5 Haiku, GPT-5.4 Mini, Mistral Small 4, Qwen3 (4B). Dedicated moderation classifiers (Llama Guard, moderation APIs) are not compatible: they use fixed taxonomies and output formats that cannot express this platform's custom policy. Avoid reasoning ("thinking") models: the verdict is capped at a small token budget and a short latency window, both of which a reasoning model spends on hidden reasoning instead of the JSON verdict — it then returns nothing usable in time and moderation silently fails open (every message is allowed).
+ * Recommendations: a small/fast general-purpose model with structured (JSON) output support, e.g. Claude 4.5 Haiku, GPT-5.4 Mini, Mistral Small 4, Qwen3 (4B). Dedicated moderation classifiers (Llama Guard, moderation APIs) are not compatible: they use fixed taxonomies and output formats that cannot express this platform's custom policy.
  */
 export type Moderator = {
   model?: Model4;

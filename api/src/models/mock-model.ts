@@ -253,6 +253,18 @@ function processForModel (modelId: string, options: { prompt: string | Array<any
   // Reasoning seam: emit reasoning tokens before the answer (exercises the gateway's
   // reasoning_content forwarding and the client's reasoning capture).
   if (lastMessage.toLowerCase() === 'reason') return { type: 'text', text: 'world', reasoning: 'Let me think about it.' }
+  // Step-budget close-out seams (exercise the sub-agent loop → close-out path).
+  // A task of exactly "loop forever" makes the model emit a tool call on EVERY step
+  // (ignoring prior tool results), so a sub-agent's ToolLoopAgent runs to its
+  // stepCountIs cap and finishes on 'tool-calls'. The harness then issues a no-tools
+  // close-out turn; the second seam recognizes that prompt and returns a distinctive
+  // best-effort answer the test asserts was recovered (not a bare truncation notice).
+  if (lastMessage.trim().toLowerCase() === 'loop forever') {
+    return { type: 'tool-call', toolName: 'get_schema', toolArgs: '{"dataset":"test"}' }
+  }
+  if (/reached your step budget/i.test(lastMessage)) {
+    return { type: 'text', text: 'Closed-out best-effort summary from gathered data.' }
+  }
   switch (modelId) {
     case 'mock-tools':
       return processMockToolsPrompt(lastMessage, options.prompt)
@@ -291,10 +303,13 @@ export function createMockLanguageModel (modelId: string = 'mock-model'): Langua
       if (result.type === 'tool-call') {
         const calls = result.toolCalls ?? [{ toolName: result.toolName!, toolArgs: result.toolArgs || '{}' }]
         const usage = buildUsage(promptText, JSON.stringify(calls))
+        // Salt the id with the prompt length so a multi-step loop (same tool every step)
+        // gets a distinct id per step instead of reusing one across the accumulated history.
+        const callIdSalt = Array.isArray(options.prompt) ? options.prompt.length : 0
         const stream = new ReadableStream<LanguageModelV3StreamPart>({
           start (controller) {
             calls.forEach((call, idx) => {
-              const toolCallId = `mock-tool-call-id-${idx}`
+              const toolCallId = `mock-tool-call-id-${callIdSalt}-${idx}`
               controller.enqueue({ type: 'tool-input-start', id: toolCallId, toolName: call.toolName })
               controller.enqueue({ type: 'tool-input-delta', id: toolCallId, delta: call.toolArgs || '{}' })
               controller.enqueue({ type: 'tool-input-end', id: toolCallId })
@@ -354,10 +369,11 @@ export function createMockLanguageModel (modelId: string = 'mock-model'): Langua
 
       if (result.type === 'tool-call') {
         const calls = result.toolCalls ?? [{ toolName: result.toolName!, toolArgs: result.toolArgs || '{}' }]
+        const callIdSalt = Array.isArray(options.prompt) ? options.prompt.length : 0
         return {
           content: calls.map((call, idx) => ({
             type: 'tool-call' as const,
-            toolCallId: `mock-tool-call-id-${idx}`,
+            toolCallId: `mock-tool-call-id-${callIdSalt}-${idx}`,
             toolName: call.toolName,
             input: call.toolArgs ? JSON.parse(call.toolArgs) : {}
           })),
