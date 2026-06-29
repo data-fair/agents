@@ -3,9 +3,11 @@ import { type AccountKeys, assertAccountRole, reqSessionAuthenticated } from '@d
 import { getRawSettings } from '../settings/service.ts'
 import { Ollama } from 'ollama'
 import memoize from 'memoizee'
-import axios from 'axios'
+// lib-node axios instance: shorter stack traces, request-context augmentation on
+// errors, and pooled http(s) agents tuned for nodejs.
+import axios from '@data-fair/lib-node/axios.js'
 import type { Model, Provider, Settings } from '#types'
-import { scalewayBaseURL } from './operations.ts'
+import { scalewayBaseURL, describeFetchError } from './operations.ts'
 
 const router = Router()
 export default router
@@ -23,19 +25,6 @@ export type ProviderModelsError = {
   providerType: string
   status?: number
   message: string
-}
-
-// Turn a thrown fetch error into a compact { status, message } the admin can
-// act on (e.g. Scaleway's 403 "insufficient permissions to access the resource").
-function describeFetchError (err: unknown): { status?: number, message: string } {
-  if (axios.isAxiosError(err)) {
-    const data = err.response?.data
-    const apiMessage = data && typeof data === 'object' && typeof (data as any).message === 'string'
-      ? (data as any).message as string
-      : undefined
-    return { status: err.response?.status, message: apiMessage || err.message }
-  }
-  return { message: err instanceof Error ? err.message : String(err) }
 }
 
 async function fetchOpenAIModels (apiKey: string): Promise<CoreModelInfo[]> {
@@ -171,7 +160,10 @@ export const getModelsForOwner = memoize(
         })))
       } catch (err) {
         const { status, message } = describeFetchError(err)
-        console.error(`Failed to fetch models for provider ${provider.type}/${provider.id}:`, err)
+        // Log only the compact description: this is an expected, surfaced error
+        // (returned in `errors` below), so dumping the full Axios object with its
+        // request/stack just floods the logs without adding actionable detail.
+        console.warn(`Failed to fetch models for provider ${provider.type}/${provider.id}: ${status ? `[${status}] ` : ''}${message}`)
         errors.push({ providerId: provider.id, providerName: provider.name, providerType: provider.type, status, message })
       }
     }

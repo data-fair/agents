@@ -120,3 +120,41 @@ export function resolveModelForRole (settings: Settings, modelRole: ModelRole): 
 export function streamedToolCallsBroken (providerType: string, modelId: string): boolean {
   return (providerType === 'scaleway' || providerType === 'openai-compatible') && /glm/i.test(modelId)
 }
+
+// Best-effort human-readable message from an arbitrary thrown value. Connection
+// failures can surface as an AggregateError (e.g. localhost resolving to both ::1
+// and 127.0.0.1, both refused) whose own `.message` is empty — the detail then
+// lives in `.code`, `.cause`, or the aggregated `.errors`. Dig those out so the
+// admin (and the surfaced error entry) always get a non-empty message.
+export function errorMessage (err: unknown): string {
+  if (!err) return ''
+  if (typeof err === 'string') return err
+  if (err instanceof Error) {
+    if (err.message) return err.message
+    const code = (err as any).code
+    if (typeof code === 'string') return code
+    const cause = (err as any).cause
+    if (cause) return errorMessage(cause)
+    const aggregated = (err as any).errors
+    if (Array.isArray(aggregated) && aggregated.length) return errorMessage(aggregated[0])
+    return err.name || 'Unknown error'
+  }
+  return String(err)
+}
+
+// Turn a thrown fetch error into a compact { status, message } the admin can
+// act on (e.g. Scaleway's 403 "insufficient permissions to access the resource").
+// The @data-fair/lib-node axios instance rejects HTTP errors as a flattened
+// errorContext carrying `status`/`data` directly, while connection failures keep
+// the raw AxiosError shape (`response.status`/`response.data`). Read from either.
+export function describeFetchError (err: unknown): { status?: number, message: string } {
+  const e = err as any
+  const status: number | undefined = typeof e?.response?.status === 'number'
+    ? e.response.status
+    : (typeof e?.status === 'number' ? e.status : undefined)
+  const data = e?.response?.data ?? e?.data
+  const apiMessage = data && typeof data === 'object' && typeof data.message === 'string'
+    ? data.message as string
+    : undefined
+  return { status, message: apiMessage || errorMessage(err) }
+}
