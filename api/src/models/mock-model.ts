@@ -10,6 +10,8 @@ interface MockPromptResult {
   toolCalls?: Array<{ toolName: string, toolArgs: string }>
   /** When set, wait this long before answering (tests the moderation fail-open path) */
   delayMs?: number
+  /** When set, emit these reasoning ("thinking") tokens before the answer */
+  reasoning?: string
 }
 
 /**
@@ -248,6 +250,9 @@ function processForModel (modelId: string, options: { prompt: string | Array<any
   // timeout, simulating a provider/gateway that keeps the socket open but emits
   // nothing — the client's watchdog must abort the turn with a recoverable timeout.
   if (lastMessage.toLowerCase() === 'stall') return { type: 'text', text: 'too late', delayMs: 30_000 }
+  // Reasoning seam: emit reasoning tokens before the answer (exercises the gateway's
+  // reasoning_content forwarding and the client's reasoning capture).
+  if (lastMessage.toLowerCase() === 'reason') return { type: 'text', text: 'world', reasoning: 'Let me think about it.' }
   switch (modelId) {
     case 'mock-tools':
       return processMockToolsPrompt(lastMessage, options.prompt)
@@ -314,6 +319,11 @@ export function createMockLanguageModel (modelId: string = 'mock-model'): Langua
       const usage = buildUsage(promptText, result.text ?? '')
       const stream = new ReadableStream<LanguageModelV3StreamPart>({
         start (controller) {
+          if (result.reasoning) {
+            controller.enqueue({ type: 'reasoning-start', id: 'mock-reason' })
+            controller.enqueue({ type: 'reasoning-delta', id: 'mock-reason', delta: result.reasoning })
+            controller.enqueue({ type: 'reasoning-end', id: 'mock-reason' })
+          }
           let i = 0
           const pushChar = () => {
             if (i < result.text!.length) {
@@ -358,7 +368,10 @@ export function createMockLanguageModel (modelId: string = 'mock-model'): Langua
       }
 
       return {
-        content: [{ type: 'text' as const, text: result.text! }],
+        content: [
+          ...(result.reasoning ? [{ type: 'reasoning' as const, text: result.reasoning }] : []),
+          { type: 'text' as const, text: result.text! }
+        ],
         finishReason: { unified: 'stop' as const, raw: undefined },
         usage: buildUsage(promptText, result.text ?? ''),
         warnings: []

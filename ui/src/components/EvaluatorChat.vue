@@ -11,6 +11,7 @@
       :action-visible-prompt="null"
       :mermaid-enabled="false"
       :simple-sub-agents="false"
+      :show-reasoning="true"
       @navigate="onNavigate"
     />
     <div

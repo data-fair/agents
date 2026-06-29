@@ -34,6 +34,19 @@ export const verdictSchema = z.object({
 })
 export type ModerationVerdict = z.infer<typeof verdictSchema>
 
+// A non-reasoning OpenAI-compatible model rejects `reasoning_effort` with a 400
+// (e.g. Scaleway: "validation error ... reasoning_effort"). The moderation call
+// sends reasoning_effort:none to disable thinking on reasoning models; detect this
+// rejection from the error text/body so it can retry once without the param.
+export function isReasoningEffortRejected (err: unknown): boolean {
+  const parts = [
+    err instanceof Error ? err.message : String(err),
+    (err as { responseBody?: unknown })?.responseBody,
+    JSON.stringify((err as { data?: unknown })?.data ?? '')
+  ]
+  return parts.some(p => typeof p === 'string' && p.includes('reasoning_effort'))
+}
+
 // The mission is generic and server-side on purpose: the request's own system
 // prompt is attacker-controlled for direct API calls, so it is not trusted for
 // scoping decisions.

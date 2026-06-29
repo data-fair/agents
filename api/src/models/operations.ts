@@ -6,11 +6,13 @@
 import type { Provider, Settings } from '#types'
 import type { LanguageModel } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { createMistral } from '@ai-sdk/mistral'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { createOllama } from 'ai-sdk-ollama'
+import { createDebugFetch } from './debug-fetch.ts'
 import { createMockLanguageModel } from './mock-model.ts'
 import { createEvaluatorMockLanguageModel } from './evaluator-mock-model.ts'
 
@@ -27,32 +29,45 @@ export function scalewayBaseURL (projectId?: string): string {
   return trimmed ? `https://api.scaleway.ai/${trimmed}/v1` : 'https://api.scaleway.ai/v1'
 }
 
+// Shared @ai-sdk/openai-compatible provider name for the scaleway + openai-compatible
+// routes. It is the key under which callers pass providerOptions (e.g. reasoningEffort),
+// so keep it a single constant rather than per-provider names.
+export const OPENAI_COMPATIBLE_PROVIDER_NAME = 'openai-compatible'
+
 export function createModel (provider: Provider, modelId: string): LanguageModel {
+  // Wrap the provider's fetch with the provider-scoped debug logger. When the
+  // DEBUG namespace is off this returns the global fetch unchanged, so there is
+  // no added cost.
+  const debugFetch = createDebugFetch(provider)
+  const f = debugFetch !== globalThis.fetch ? { fetch: debugFetch } : {}
   switch (provider.type) {
     case 'openai':
-      return createOpenAI({ apiKey: provider.apiKey })(modelId)
+      return createOpenAI({ apiKey: provider.apiKey, ...f })(modelId)
     case 'anthropic':
-      return createAnthropic({ apiKey: provider.apiKey })(modelId)
+      return createAnthropic({ apiKey: provider.apiKey, ...f })(modelId)
     case 'google':
-      return createGoogleGenerativeAI({ apiKey: provider.apiKey })(modelId)
+      return createGoogleGenerativeAI({ apiKey: provider.apiKey, ...f })(modelId)
     case 'mistral':
-      return createMistral({ apiKey: provider.apiKey })(modelId)
+      return createMistral({ apiKey: provider.apiKey, ...f })(modelId)
     case 'openrouter':
-      return createOpenRouter({ apiKey: provider.apiKey })(modelId) as unknown as LanguageModel
+      return createOpenRouter({ apiKey: provider.apiKey, ...f })(modelId) as unknown as LanguageModel
     case 'ollama':
-      return createOllama({ baseURL: provider.baseURL })(modelId)
+      return createOllama({ baseURL: provider.baseURL, ...f })(modelId)
     case 'scaleway':
-      // Scaleway does not implement the OpenAI /v1/responses endpoint that the
-      // default callable targets; use the /v1/chat/completions model via .chat().
-      return createOpenAI({ apiKey: provider.apiKey, baseURL: scalewayBaseURL(provider.projectId) }).chat(modelId)
+      // Scaleway does not implement the OpenAI /v1/responses endpoint, so it uses the
+      // /v1/chat/completions model. Route it through @ai-sdk/openai-compatible (rather
+      // than @ai-sdk/openai's .chat()) so reasoning models' `reasoning_content` is
+      // captured as reasoning parts — @ai-sdk/openai silently drops that field.
+      return createOpenAICompatible({ name: OPENAI_COMPATIBLE_PROVIDER_NAME, apiKey: provider.apiKey, baseURL: scalewayBaseURL(provider.projectId), includeUsage: true, ...f }).chatModel(modelId)
     case 'openai-compatible': {
-      const openai = createOpenAI({
-        apiKey: provider.apiKey,
-        baseURL: provider.baseURL
-      })
-      return provider.compatibility === 'compatible'
-        ? openai.chat(modelId)
-        : openai(modelId)
+      // 'compatible' mode targets /v1/chat/completions; route it through
+      // @ai-sdk/openai-compatible to capture `reasoning_content` (see scaleway above).
+      // 'default' mode keeps @ai-sdk/openai's /v1/responses callable, which already
+      // surfaces reasoning natively.
+      if (provider.compatibility === 'compatible') {
+        return createOpenAICompatible({ name: OPENAI_COMPATIBLE_PROVIDER_NAME, apiKey: provider.apiKey, baseURL: provider.baseURL!, includeUsage: true, ...f }).chatModel(modelId)
+      }
+      return createOpenAI({ apiKey: provider.apiKey, baseURL: provider.baseURL, ...f })(modelId)
     }
     case 'mock':
       if (modelId === 'evaluator-mock-model') return createEvaluatorMockLanguageModel()
@@ -86,4 +101,22 @@ export function resolveModelForRole (settings: Settings, modelRole: ModelRole): 
   if (!provider) throw new Error('Provider not found')
   if (!provider.enabled) throw new Error('Provider is disabled')
   return createModel(provider, modelConfig.id)
+}
+
+/**
+ * Scaleway's glm-5.2 deployment silently drops tool calls in STREAMING mode: a
+ * `stream:true` request returns `finish_reason:"stop"` with no tool-call deltas,
+ * while the identical `stream:false` request returns the tool call correctly. Every
+ * other Scaleway model tested (qwen3.5-397b, qwen3-235b, gpt-oss-120b — itself a
+ * reasoning model — and devstral-2-123b) streams tool calls fine, so this is a
+ * model-specific serving bug, not a provider-wide one. The gateway works around it by
+ * issuing the upstream call non-streaming when tools are present (it still streams SSE
+ * to the client). Covers both the direct `scaleway` provider (model id "glm-5.2") and
+ * the `openai-compatible` → LiteLLM passthrough (model id "glm-5.2-scw").
+ *
+ * Re-check whether the upstream is still broken with `dev/scripts/scw-toolcall-probe.mjs`;
+ * remove this workaround once Scaleway fixes streamed function-calling for GLM.
+ */
+export function streamedToolCallsBroken (providerType: string, modelId: string): boolean {
+  return (providerType === 'scaleway' || providerType === 'openai-compatible') && /glm/i.test(modelId)
 }

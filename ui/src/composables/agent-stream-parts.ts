@@ -12,6 +12,9 @@
 export interface StreamMessage {
   role: 'user' | 'assistant'
   content: string
+  // Reasoning ("thinking") tokens captured from reasoning models, accumulated
+  // before the visible content/tool calls of the same assistant step.
+  reasoning?: string
   toolInvocations?: { toolCallId: string, toolName: string, state: 'pending' | 'done' }[]
 }
 
@@ -47,6 +50,17 @@ export interface StreamScope {
 
 export function applyStreamPart (part: StreamPart, scope: StreamScope): void {
   switch (part.type) {
+    case 'reasoning-delta': {
+      // Reasoning streams before the visible answer; show the 'thinking' label and
+      // accumulate it onto the (possibly not-yet-created) current assistant message.
+      if (part.text) scope.setActivity('thinking')
+      if (!scope.current) {
+        scope.messages.push({ role: 'assistant', content: '' })
+        scope.current = scope.messages[scope.messages.length - 1]
+      }
+      scope.current.reasoning = (scope.current.reasoning ?? '') + (part.text ?? '')
+      break
+    }
     case 'text-delta': {
       // Text is visibly streaming (markdown cursor); drop the gap label.
       if (part.text) { scope.producedText = true; scope.setActivity('streaming') }

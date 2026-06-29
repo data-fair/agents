@@ -216,6 +216,21 @@
                 :label="t('simpleSubAgents')"
                 @update:model-value="(v: boolean | null) => $emit('update:simpleSubAgents', v ?? true)"
               />
+
+              <df-tutorial-alert
+                id="agent-settings-show-reasoning"
+                :text="t('showReasoningHint')"
+                :initial="false"
+                persistent
+              />
+              <v-switch
+                :model-value="showReasoning"
+                color="primary"
+                density="compact"
+                hide-details
+                :label="t('showReasoning')"
+                @update:model-value="(v: boolean | null) => $emit('update:showReasoning', v ?? false)"
+              />
             </div>
           </v-window-item>
         </v-window>
@@ -245,6 +260,8 @@ fr:
   mermaidHint: "Affiche les blocs de code Mermaid sous forme de diagrammes (graphiques XY, organigrammes, etc.). Changer ce réglage réinitialise la conversation."
   simpleSubAgents: Affichage simplifié des sous-agents
   simpleSubAgentsHint: "Affiche les sous-agents délégués sous forme d'une simple puce de statut, au lieu d'un panneau de trace dépliable. Ce réglage ne réinitialise pas la conversation."
+  showReasoning: Affichage complet du raisonnement
+  showReasoningHint: "Affiche la réflexion des modèles de raisonnement dans un panneau dépliable au-dessus de chaque réponse. Désactivé, une brève ligne « Réflexion… » apparaît pendant que le modèle raisonne, sans rien conserver ensuite."
 en:
   close: Close
   info: Info
@@ -265,6 +282,8 @@ en:
   mermaidHint: "Renders Mermaid code blocks as diagrams (XY charts, flowcharts, etc.). Changing this setting resets the conversation."
   simpleSubAgents: Simplify sub-agent display
   simpleSubAgentsHint: "Shows delegated sub-agents as a simple status chip instead of an expandable trace panel. This setting does not reset the conversation."
+  showReasoning: Full reasoning display
+  showReasoningHint: "Shows reasoning models' thinking as a foldable panel above each answer. When off, a brief 'Thinking…' line appears while the model reasons and nothing is kept afterward."
 </i18n>
 
 <script lang="ts" setup>
@@ -288,6 +307,7 @@ const props = defineProps<{
   subAgents?: boolean
   mermaid?: boolean
   simpleSubAgents?: boolean
+  showReasoning?: boolean
 }>()
 
 defineEmits<{
@@ -296,6 +316,7 @@ defineEmits<{
   'update:subAgents': [value: boolean]
   'update:mermaid': [value: boolean]
   'update:simpleSubAgents': [value: boolean]
+  'update:showReasoning': [value: boolean]
 }>()
 
 const { t } = useI18n()

@@ -22,6 +22,7 @@
         :action-visible-prompt="actionVisiblePrompt"
         :mermaid-enabled="mermaidEnabled"
         :simple-sub-agents="simpleSubAgentsEnabled"
+        :show-reasoning="showReasoningEnabled"
         @navigate="url => sendDFrameMessage({ type: 'navigate', url })"
         @fix-mermaid="handleFixMermaid"
         @mermaid-error="handleMermaidError"
@@ -65,10 +66,12 @@
       :sub-agents="subAgentsEnabled"
       :mermaid="mermaidEnabled"
       :simple-sub-agents="simpleSubAgentsEnabled"
+      :show-reasoning="showReasoningEnabled"
       @update:tool-exploration="handleToolExploration"
       @update:sub-agents="handleSubAgents"
       @update:mermaid="handleMermaid"
       @update:simple-sub-agents="handleSimpleSubAgents"
+      @update:show-reasoning="handleShowReasoning"
     />
 
     <trace-consent-sheet />
@@ -195,6 +198,7 @@ const explorationEnabled = ref(initialFlags.toolExploration)
 const subAgentsEnabled = ref(initialFlags.subAgents)
 const mermaidEnabled = ref(initialFlags.mermaid)
 const simpleSubAgentsEnabled = ref(initialFlags.simpleSubAgents)
+const showReasoningEnabled = ref(initialFlags.showReasoning)
 
 const chatResult = useAgentChat({
   accountType: props.accountType,
@@ -320,7 +324,8 @@ function persistFlags () {
     toolExploration: explorationEnabled.value,
     subAgents: subAgentsEnabled.value,
     mermaid: mermaidEnabled.value,
-    simpleSubAgents: simpleSubAgentsEnabled.value
+    simpleSubAgents: simpleSubAgentsEnabled.value,
+    showReasoning: showReasoningEnabled.value
   }, $apiPath)
 }
 
@@ -351,6 +356,14 @@ function handleSimpleSubAgents (enabled: boolean) {
   simpleSubAgentsEnabled.value = enabled
   persistFlags()
   // Presentation-only: no conversation reset (unlike mermaid/subAgents/toolExploration).
+}
+
+function handleShowReasoning (enabled: boolean) {
+  // Render-only preference: reasoning is always captured onto the message, so this
+  // just toggles the panel's visibility. No conversation reset — existing reasoning
+  // panels appear/disappear reactively and the change is fully reversible.
+  showReasoningEnabled.value = enabled
+  persistFlags()
 }
 
 function handleReset () {
