@@ -5,9 +5,7 @@
  *   - `streamedLength` must grow while a SUB-AGENT streams (not only when the
  *     parent assistant message's own content grows), so stick-to-bottom keeps
  *     following the tail during delegation.
- *   - `latestSubAgentPanel` must always point at the newest sub-agent panel, so
- *     it opens deterministically and switching to the next one collapses the
- *     previous — independent of any scroll state.
+ *   - panels no longer auto-open; only `streamedLength` is exercised here.
  *
  * The helpers take a structural subset of the real `ChatMessage`, so the test
  * data only carries the fields the helpers actually read.
@@ -15,7 +13,7 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { streamedLength, latestSubAgentPanel, type ScrollMessage } from '../../../ui/src/components/agent-chat/auto-scroll.ts'
+import { streamedLength, type ScrollMessage } from '../../../ui/src/components/agent-chat/auto-scroll.ts'
 
 const sub = (name: string) => ({ toolName: `subagent_${name}` })
 
@@ -70,39 +68,5 @@ test.describe('streamedLength (autoscroll growth signal)', () => {
       subAgentPanels: { c1: { messages: [{ content: 'aa' }] }, c2: { messages: [{ content: 'bb' }] } }
     }]
     assert.ok(streamedLength(two) > streamedLength(one), 'a second concurrent panel must also grow the signal')
-  })
-})
-
-test.describe('latestSubAgentPanel (auto-open target)', () => {
-  test('undefined message → undefined', () => {
-    assert.equal(latestSubAgentPanel(undefined), undefined)
-  })
-
-  test('no tool invocations → undefined', () => {
-    assert.equal(latestSubAgentPanel({ content: 'hi' }), undefined)
-  })
-
-  test('only non-subagent tools → undefined (no panel)', () => {
-    assert.equal(latestSubAgentPanel({ content: 'x', toolInvocations: [{ toolName: 'set_display' }] }), undefined)
-  })
-
-  test('single sub-agent → index 0', () => {
-    assert.equal(latestSubAgentPanel({ content: 'x', toolInvocations: [sub('data_analyst')] }), 0)
-  })
-
-  test('multiple sub-agents → latest index (count - 1), collapsing the previous', () => {
-    const message: ScrollMessage = {
-      content: 'x',
-      toolInvocations: [sub('data_analyst'), sub('writer'), sub('reviewer')]
-    }
-    assert.equal(latestSubAgentPanel(message), 2)
-  })
-
-  test('ignores interleaved non-subagent tools when counting panels', () => {
-    const message: ScrollMessage = {
-      content: 'x',
-      toolInvocations: [sub('data_analyst'), { toolName: 'set_display' }, sub('writer')]
-    }
-    assert.equal(latestSubAgentPanel(message), 1)
   })
 })

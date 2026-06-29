@@ -37,14 +37,3 @@ export function streamedLength (messages: ScrollMessage[]): number {
   }
   return total
 }
-
-/**
- * Index of the latest sub-agent panel to keep open for a message, or `undefined`
- * when the message has no sub-agent invocations. Panels render in the order of
- * the message's `subagent_*` tool invocations, so the latest is `count - 1`.
- * Switching to a newer sub-agent thus collapses the previous one.
- */
-export function latestSubAgentPanel (message: ScrollMessage | undefined): number | undefined {
-  const count = message?.toolInvocations?.filter(ti => ti.toolName.startsWith('subagent_')).length ?? 0
-  return count > 0 ? count - 1 : undefined
-}

@@ -257,7 +257,7 @@ import { ref, reactive, watch, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAutoScrollBottom } from '@data-fair/lib-vue/auto-scroll-bottom.js'
 import { mdiCheck, mdiLoading, mdiArrowDown } from '@mdi/js'
-import { streamedLength, latestSubAgentPanel } from './auto-scroll'
+import { streamedLength } from './auto-scroll'
 import MarkdownContent from './MarkdownContent.vue'
 import { EXPLORE_TOOL_NAME } from '~/composables/tool-exploration'
 import type { MermaidFailure } from '~/utils/mermaid'
@@ -402,27 +402,11 @@ const jumpToBottom = () => {
   el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
 }
 
-// Open sub-agent panel per message index. In autoscroll (following) mode only
-// the LAST message may keep a panel open, and only when it ends on a sub-agent:
-// as soon as a newer message arrives behind it (another sub-agent or a plain
-// text turn) the previous message's panel is closed. So a conversation that ends
-// on a sub-agent leaves it open; one that ends on text leaves everything closed.
-// Within a message the accordion still holds a single open index, so a newer
-// sub-agent in the same message collapses the previous one. Gated on `following`:
-// once the user scrolls up to read history we stop touching panels entirely
-// (their manual open/close holds) until they jump back to the bottom.
+// Open sub-agent panel per message index. Panels are collapsed by default and
+// only ever opened by an explicit user click — there is no auto-open.
 const openPanels = reactive<Record<number, number | undefined>>({})
 const openPanelFor = (index: number) => openPanels[index]
 const setOpenPanel = (index: number, v: number | undefined) => { openPanels[index] = v }
-watch(
-  () => [props.messages.length, latestSubAgentPanel(props.messages[props.messages.length - 1])] as const,
-  ([length, panel]) => {
-    if (!following.value) return
-    for (const key in openPanels) delete openPanels[key]
-    if (panel !== undefined) openPanels[length - 1] = panel
-  },
-  { immediate: true }
-)
 
 const subAgentTitle = (toolName: string) => {
   const title = props.toolTitle(toolName)
