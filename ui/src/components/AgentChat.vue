@@ -15,6 +15,7 @@
         :messages="messages"
         :is-streaming="isStreaming"
         :activity="activity"
+        :sub-agent-activities="subAgentActivities"
         :chat-error="chatError"
         :welcome-text="t('welcome')"
         :tool-title="toolTitle"
@@ -224,6 +225,7 @@ const mermaidAutoFixBudget = ref(MERMAID_AUTO_FIX_BUDGET)
 const messages = computed(() => chat.messages.value)
 const isStreaming = computed(() => chat.status.value === 'streaming')
 const activity = computed(() => chat.activity.value)
+const subAgentActivities = computed(() => chat.subAgentActivities.value)
 const chatError = computed(() => chat.error.value)
 
 const showDebugDialog = ref(false)

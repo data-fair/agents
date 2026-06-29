@@ -112,23 +112,23 @@
                       />
                       <span class="font-weight-medium">{{ subAgentTitle(invocation.toolName) }}</span>
                       <span
-                        v-if="message.subAgentTurn"
+                        v-if="message.subAgentPanels?.[invocation.toolCallId]?.turn"
                         class="text-medium-emphasis ml-1"
-                      >(tour {{ message.subAgentTurn + 1 }})</span>
+                      >(tour {{ message.subAgentPanels[invocation.toolCallId].turn + 1 }})</span>
                     </v-expansion-panel-title>
                     <v-expansion-panel-text>
                       <div
-                        v-if="message.subAgentMessages?.length"
+                        v-if="message.subAgentPanels?.[invocation.toolCallId]?.messages.length"
                       >
                         <div
-                          v-for="(subMsg, subIdx) in message.subAgentMessages"
+                          v-for="(subMsg, subIdx) in message.subAgentPanels[invocation.toolCallId].messages"
                           :key="subIdx"
                           class="py-1"
                         >
                           <markdown-content
                             class="text-body-medium markdown-content"
                             :content="subMsg.content"
-                            :streaming="isStreaming && index === messages.length - 1 && subIdx === message.subAgentMessages!.length - 1 && invocation.state !== 'done'"
+                            :streaming="isStreaming && index === messages.length - 1 && subIdx === message.subAgentPanels[invocation.toolCallId].messages.length - 1 && invocation.state !== 'done'"
                             :mermaid="mermaidEnabled"
                           />
                           <div
@@ -158,7 +158,7 @@
                            (the running pane is open anyway). Replaces the bottom line
                            for sub-agent work; the panel title still spins if collapsed. -->
                       <div
-                        v-if="isStreaming && index === messages.length - 1 && subAgentActivityLabel(invocation.toolName)"
+                        v-if="isStreaming && index === messages.length - 1 && subAgentActivityLabel(invocation.toolCallId)"
                         class="d-flex align-center text-caption text-medium-emphasis py-1"
                         data-testid="subagent-activity"
                       >
@@ -167,7 +167,7 @@
                           size="x-small"
                           class="agent-chat__spin mr-2"
                         />
-                        <span class="font-italic">{{ subAgentActivityLabel(invocation.toolName) }}</span>
+                        <span class="font-italic">{{ subAgentActivityLabel(invocation.toolCallId) }}</span>
                       </div>
                     </v-expansion-panel-text>
                   </v-expansion-panel>
@@ -278,6 +278,7 @@ const props = defineProps<{
   // Coarse phase of the current streaming turn, shown as a discreet muted line
   // during gaps with no visible output. null while text streams or when idle.
   activity?: ChatActivity | null
+  subAgentActivities?: Record<string, ChatActivity>
   chatError: string | null
   welcomeText: string
   toolTitle: (toolName: string) => string
@@ -430,11 +431,11 @@ const subAgentTitle = (toolName: string) => {
   return name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 
-// In-panel label for the sub-agent whose `subagent_*` tool name matches the
-// current activity; '' for any other panel.
-const subAgentActivityLabel = (toolName: string) => {
-  const a = props.activity
-  if (!a || a.kind !== 'subagent' || a.name !== toolName) return ''
+// In-panel label for the sub-agent running under `toolCallId`. Reads the
+// per-call activity map so concurrent panels each show their own live phase.
+const subAgentActivityLabel = (toolCallId: string) => {
+  const a = props.subAgentActivities?.[toolCallId]
+  if (!a || a.kind !== 'subagent') return ''
   const label = activityLabelKey(a)
   return label ? t(label.key) : ''
 }
