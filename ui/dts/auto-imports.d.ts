@@ -88,6 +88,7 @@ declare global {
   const provide: typeof import('vue')['provide']
   const reactive: typeof import('vue')['reactive']
   const reactiveSearchParamsKey: typeof import('../src/composables/use-webmcp')['reactiveSearchParamsKey']
+  const readFlags: typeof import('../src/utils/agent-flags')['readFlags']
   const readonly: typeof import('vue')['readonly']
   const ref: typeof import('vue')['ref']
   const renderMarkdown: typeof import('../src/utils/markdown')['renderMarkdown']

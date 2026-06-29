@@ -64,13 +64,13 @@
       :account-id="accountId"
       :tool-exploration="explorationEnabled"
       :sub-agents="subAgentsEnabled"
-      :mermaid="mermaidEnabled"
       :simple-sub-agents="simpleSubAgentsEnabled"
+      :mermaid="mermaidEnabled"
       :show-reasoning="showReasoningEnabled"
       @update:tool-exploration="handleToolExploration"
       @update:sub-agents="handleSubAgents"
-      @update:mermaid="handleMermaid"
       @update:simple-sub-agents="handleSimpleSubAgents"
+      @update:mermaid="handleMermaid"
       @update:show-reasoning="handleShowReasoning"
     />
 
@@ -196,8 +196,8 @@ const finalSystemPrompt = computed(() => {
 const initialFlags = readFlags()
 const explorationEnabled = ref(initialFlags.toolExploration)
 const subAgentsEnabled = ref(initialFlags.subAgents)
-const mermaidEnabled = ref(initialFlags.mermaid)
 const simpleSubAgentsEnabled = ref(initialFlags.simpleSubAgents)
+const mermaidEnabled = ref(initialFlags.mermaid)
 const showReasoningEnabled = ref(initialFlags.showReasoning)
 
 const chatResult = useAgentChat({
@@ -323,8 +323,8 @@ function persistFlags () {
   writeFlags({
     toolExploration: explorationEnabled.value,
     subAgents: subAgentsEnabled.value,
-    mermaid: mermaidEnabled.value,
     simpleSubAgents: simpleSubAgentsEnabled.value,
+    mermaid: mermaidEnabled.value,
     showReasoning: showReasoningEnabled.value
   }, $apiPath)
 }
@@ -345,17 +345,17 @@ function handleSubAgents (enabled: boolean) {
   handleReset()
 }
 
+function handleSimpleSubAgents (enabled: boolean) {
+  simpleSubAgentsEnabled.value = enabled
+  persistFlags()
+  // Presentation-only: no conversation reset (unlike mermaid/subAgents/toolExploration).
+}
+
 function handleMermaid (enabled: boolean) {
   mermaidEnabled.value = enabled
   persistFlags()
   // Reset so the system prompt is uniform across the whole conversation.
   handleReset()
-}
-
-function handleSimpleSubAgents (enabled: boolean) {
-  simpleSubAgentsEnabled.value = enabled
-  persistFlags()
-  // Presentation-only: no conversation reset (unlike mermaid/subAgents/toolExploration).
 }
 
 function handleShowReasoning (enabled: boolean) {
