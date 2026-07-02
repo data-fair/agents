@@ -27,9 +27,10 @@
           <v-btn
             v-if="isStreaming"
             :icon="mdiStop"
-            variant="tonal"
-            size="small"
+            variant="flat"
+            size="x-small"
             color="error"
+            class="composer-action"
             :title="t('stop')"
             @click="$emit('abort')"
           />
@@ -39,6 +40,7 @@
             variant="flat"
             size="x-small"
             color="secondary"
+            class="composer-action"
             :disabled="!localInput.trim()"
             :title="t('send')"
             @click="handleSend"
@@ -85,3 +87,17 @@ const handleSend = () => {
   localInput.value = ''
 }
 </script>
+
+<style scoped>
+/* The composer field is a 40px pill with an xl (24px) radius, so its trailing
+   end is a semicircular cap. Nest the action button as a 28px circle concentric
+   with that cap — an even ~6px halo all around — instead of a larger button
+   whose arc runs parallel to the border and reads as cramped. The negative end
+   margin pulls the circle into the field's trailing padding to reach concentric. */
+.composer-action.v-btn {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  margin-inline-end: -6px;
+}
+</style>
