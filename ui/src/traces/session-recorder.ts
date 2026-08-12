@@ -2,6 +2,10 @@ import type { ModelMessage } from 'ai'
 // Relative path (not the ~/ alias) so the root `tsc` pass over the unit tests
 // resolves it; the ~ Vite alias is not configured for that pass.
 import { DEFAULT_FLAGS, type AgentFlags } from '../utils/agent-flags.ts'
+// Stored traces must not carry base64 image payloads (MongoDB document size, and the
+// trace review UI embeds outputs as text) — media tool results are redacted to
+// small size placeholders at recording time.
+import { redactMediaToolResult, redactHistoryMediaToolResults } from '../utils/tool-result.ts'
 
 export interface ToolCallTrace {
   id: string
@@ -237,15 +241,16 @@ export class SessionRecorder {
                   { type: 'tool-call', timestamp: subTc.timestamp, label: `${subTc.toolName} (${tc.subAgent!.name})`, preview: (JSON.stringify(subTc.input) ?? '').slice(0, 150) },
                   { input: subTc.input, toolName: subTc.toolName }
                 )
+                const subOutput = redactMediaToolResult(subTc.output)
                 add(
-                  { type: 'tool-result', timestamp: subTc.timestamp, label: `${subTc.toolName} (${tc.subAgent!.name})`, preview: (JSON.stringify(subTc.output) ?? '').slice(0, 150) },
-                  { output: subTc.output, toolName: subTc.toolName, durationMs: subTc.durationMs }
+                  { type: 'tool-result', timestamp: subTc.timestamp, label: `${subTc.toolName} (${tc.subAgent!.name})`, preview: (JSON.stringify(subOutput) ?? '').slice(0, 150) },
+                  { output: subOutput, toolName: subTc.toolName, durationMs: subTc.durationMs }
                 )
               }
               if (subStep.messages.length > 0) {
                 add(
                   { type: 'sub-agent-step', timestamp: subStep.timestamp, label: tc.subAgent!.name, preview: this.extractTextPreview(subStep.messages) },
-                  { messages: subStep.messages, finishReason: subStep.finishReason }
+                  { messages: redactHistoryMediaToolResults(subStep.messages), finishReason: subStep.finishReason }
                 )
               }
             }
@@ -257,15 +262,16 @@ export class SessionRecorder {
               { name: tc.subAgent.name }
             )
           }
+          const output = redactMediaToolResult(tc.output)
           add(
-            { type: 'tool-result', timestamp: tc.endTimestamp ?? tc.timestamp, label: tc.toolName, preview: (JSON.stringify(tc.output) ?? '').slice(0, 150) },
-            { output: tc.output, toolName: tc.toolName, durationMs: tc.durationMs }
+            { type: 'tool-result', timestamp: tc.endTimestamp ?? tc.timestamp, label: tc.toolName, preview: (JSON.stringify(output) ?? '').slice(0, 150) },
+            { output, toolName: tc.toolName, durationMs: tc.durationMs }
           )
         }
         if (step.messages.length > 0) {
           add(
             { type: 'assistant-step', timestamp: step.timestamp, label: '', preview: this.extractTextPreview(step.messages) },
-            { messages: step.messages, finishReason: step.finishReason }
+            { messages: redactHistoryMediaToolResults(step.messages), finishReason: step.finishReason }
           )
         }
       }
