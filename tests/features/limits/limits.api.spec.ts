@@ -57,6 +57,26 @@ test.describe('limits API', () => {
     assert.equal(read.data.ai_credits.consumption, 40)
   })
 
+  test('push that omits ai_credits entirely preserves the existing limit and consumption', async () => {
+    await anonymousAx.post(`/api/v1/limits/organization/test1?key=${SECRET}`, {
+      name: 'Test 1', lastUpdate: new Date().toISOString(), ai_credits: { limit: 100, consumption: 40 }
+    })
+
+    // a push that never mentions ai_credits at all (e.g. a display-name-only
+    // update from customers) must not wipe the tracked sub-document
+    const res = await anonymousAx.post(`/api/v1/limits/organization/test1?key=${SECRET}`, {
+      name: 'Test 1 renamed', lastUpdate: new Date().toISOString()
+    })
+    assert.equal(res.status, 200)
+    assert.equal(res.data.ai_credits.limit, 100)
+    assert.equal(res.data.ai_credits.consumption, 40)
+
+    const read = await anonymousAx.get(`/api/v1/limits/organization/test1?key=${SECRET}`)
+    assert.equal(read.data.name, 'Test 1 renamed')
+    assert.equal(read.data.ai_credits.limit, 100)
+    assert.equal(read.data.ai_credits.consumption, 40)
+  })
+
   test('account member can read its own limits, non-member cannot', async () => {
     await anonymousAx.post(`/api/v1/limits/organization/test1?key=${SECRET}`, {
       name: 'Test 1', lastUpdate: new Date().toISOString(), ai_credits: { limit: 100, consumption: 0 }

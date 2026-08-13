@@ -16,6 +16,7 @@ import config from '#config'
 import type { Limits } from '#types'
 import * as postReq from '#doc/limits/post-req/index.ts'
 import { getLimits } from './service.ts'
+import { limitsKeyMatches } from './operations.ts'
 
 const router = Router()
 export default router
@@ -23,12 +24,13 @@ export default router
 // Endpoint for the customers service to create/update limits
 router.post('/:type/:id', async (req, res, next) => {
   try {
-    if (req.query.key !== config.secretKeys.limits) reqAdminMode(req)
+    if (!limitsKeyMatches(req.query.key, config.secretKeys.limits)) reqAdminMode(req)
     const { body } = postReq.returnValid({ body: req.body }, { name: 'req' })
     const existing = await mongo.limits.findOne({ type: req.params.type, id: req.params.id })
-    // preserve locally-tracked consumption when the push omits it
-    if (body.ai_credits && body.ai_credits.consumption === undefined && existing?.ai_credits?.consumption !== undefined) {
-      body.ai_credits.consumption = existing.ai_credits.consumption
+    // preserve any locally-tracked ai_credits sub-fields (e.g. consumption)
+    // that a push omits, including a push that omits ai_credits entirely
+    if (existing?.ai_credits) {
+      body.ai_credits = { ...existing.ai_credits, ...body.ai_credits }
     }
     const newLimits: Limits = { ...body, type: req.params.type, id: req.params.id }
     await mongo.limits.replaceOne({ type: req.params.type, id: req.params.id }, newLimits, { upsert: true })
@@ -42,7 +44,7 @@ router.post('/:type/:id', async (req, res, next) => {
 router.get('/:type/:id', async (req, res, next) => {
   try {
     const owner = { type: req.params.type, id: req.params.id } as AccountKeys
-    if (req.query.key !== config.secretKeys.limits) {
+    if (!limitsKeyMatches(req.query.key, config.secretKeys.limits)) {
       const s = reqSessionAuthenticated(req)
       // allAccounts: true because membership must hold regardless of which
       // account the session currently has "switched" into (the customers
@@ -55,7 +57,7 @@ router.get('/:type/:id', async (req, res, next) => {
 
 router.get('/', async (req, res, next) => {
   try {
-    if (req.query.key !== config.secretKeys.limits) reqAdminMode(req)
+    if (!limitsKeyMatches(req.query.key, config.secretKeys.limits)) reqAdminMode(req)
     const filter: Record<string, any> = {}
     if (req.query.type) filter.type = req.query.type
     if (req.query.id) filter.id = req.query.id
