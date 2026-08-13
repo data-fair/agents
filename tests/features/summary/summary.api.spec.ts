@@ -11,6 +11,10 @@ const admin = await superAdmin
 const otherUser = await axiosAuth('test1-user1')
 
 const mockModel = { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' } }
+const assistantOnly = {
+  models: [{ model: mockModel, usage: ['assistant'], multiplier: 0 }],
+  modelMapping: { assistant: { provider: 'mock', id: 'mock-model', name: 'Mock Model' } }
+}
 
 test.describe('Summary API', () => {
   test.beforeEach(async () => {
@@ -20,7 +24,7 @@ test.describe('Summary API', () => {
   test('should summarize content with default prompt', async () => {
     await admin.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
-      models: { assistant: { model: mockModel } },
+      ...assistantOnly,
       quotas: defaultQuotas
     })
 
@@ -36,7 +40,7 @@ test.describe('Summary API', () => {
   test('should ignore a caller-supplied prompt (system prompt is pinned)', async () => {
     await admin.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
-      models: { assistant: { model: mockModel } },
+      ...assistantOnly,
       quotas: defaultQuotas
     })
 
@@ -49,11 +53,14 @@ test.describe('Summary API', () => {
     assert.ok(res.data.summary)
   })
 
-  test('should fail when assistant model not configured', async () => {
-    await assert.rejects(
-      user.post('/api/summary/user/test-standalone1', { content: 'Test content' }),
-      (err: any) => err.status === 404
-    )
+  // An account with no settings at all still resolves the summarizer through the
+  // deployment's global default model (config.defaultModels), so it summarizes
+  // instead of 404ing. "Agent not configured" is now reachable only when the
+  // deployment itself ships no default for the role.
+  test('should fall back to the global default model when nothing is configured', async () => {
+    const res = await user.post('/api/summary/user/test-standalone1', { content: 'Test content' })
+    assert.equal(res.status, 200)
+    assert.ok(res.data.summary)
   })
 
   test('should use summarizer model when configured', async () => {
@@ -61,7 +68,14 @@ test.describe('Summary API', () => {
 
     await admin.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
-      models: { assistant: { model: mockModel }, summarizer: { model: summarizerModel } },
+      models: [
+        { model: mockModel, usage: ['assistant'], multiplier: 0 },
+        { model: summarizerModel, usage: ['summarizer'], multiplier: 0 }
+      ],
+      modelMapping: {
+        assistant: { provider: 'mock', id: 'mock-model', name: 'Mock Model' },
+        summarizer: { provider: 'mock', id: 'summary-model', name: 'Summary Model' }
+      },
       quotas: defaultQuotas
     })
 
@@ -76,7 +90,7 @@ test.describe('Summary API', () => {
   test('should fail when not authenticated', async () => {
     await admin.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
-      models: { assistant: { model: mockModel } },
+      ...assistantOnly,
       quotas: defaultQuotas
     })
     const unauthenticatedUser = axios()
@@ -90,7 +104,7 @@ test.describe('Summary API', () => {
   test('should fail when other user has no permission', async () => {
     await admin.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
-      models: { assistant: { model: mockModel } },
+      ...assistantOnly,
       quotas: defaultQuotas
     })
 
@@ -103,7 +117,7 @@ test.describe('Summary API', () => {
   test('external user can summarize when external quota is positive', async () => {
     await admin.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
-      models: { assistant: { model: mockModel } },
+      ...assistantOnly,
       quotas: {
         ...defaultQuotas,
         external: { unlimited: false, monthlyLimit: 100 }
@@ -120,7 +134,7 @@ test.describe('Summary API', () => {
   test('should fail when content is missing', async () => {
     await admin.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
-      models: { assistant: { model: mockModel } },
+      ...assistantOnly,
       quotas: defaultQuotas
     })
 
@@ -133,7 +147,7 @@ test.describe('Summary API', () => {
   test('should handle empty content', async () => {
     await admin.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
-      models: { assistant: { model: mockModel } },
+      ...assistantOnly,
       quotas: defaultQuotas
     })
 
@@ -145,7 +159,7 @@ test.describe('Summary API', () => {
 
   const anonSettings = (quotas: any) => ({
     providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
-    models: { assistant: { model: mockModel } },
+    ...assistantOnly,
     quotas
   })
   const anonQuotas = { ...defaultQuotas, anonymous: { unlimited: false, monthlyLimit: 100 } }
