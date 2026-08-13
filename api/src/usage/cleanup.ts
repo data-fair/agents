@@ -1,4 +1,5 @@
 import mongo from '#mongo'
+import { resetDefaultsConsumption } from '../limits/service.ts'
 
 export async function cleanupOldUsage (): Promise<void> {
   const now = new Date()
@@ -48,6 +49,8 @@ export async function cleanupOldUsage (): Promise<void> {
     mongo.usage.deleteMany({
       userId: { $regex: /^pool:/ },
       period: { $lt: accountMonthlyCutoffPeriod, $regex: /^monthly:/ }
-    } as any)
+    } as any),
+    // monthly renewal of self-managed (defaults) limits docs
+    resetDefaultsConsumption()
   ])
 }

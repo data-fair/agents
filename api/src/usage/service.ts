@@ -1,5 +1,6 @@
 import type { AccountKeys } from '@data-fair/lib-express'
 import mongo from '#mongo'
+import { incrementConsumption } from '../limits/service.ts'
 import type { UsageInfo } from './operations.ts'
 export { checkQuota } from './operations.ts'
 export type { UsageLimits, UsagePeriodInfo, UsageInfo, QuotaExceeded } from './operations.ts'
@@ -101,7 +102,7 @@ export async function recordUsage (owner: AccountKeys, cost: number, userId?: st
     { upsert: true }
   )
 
-  const ops = [upsertFor(dailyPeriod), upsertFor(weeklyPeriod), upsertFor(monthlyPeriod)]
+  const ops: Promise<unknown>[] = [upsertFor(dailyPeriod), upsertFor(weeklyPeriod), upsertFor(monthlyPeriod)]
 
   // for org owners with per-user tracking, also upsert account-level aggregate records
   if (userId) {
@@ -134,6 +135,9 @@ export async function recordUsage (owner: AccountKeys, cost: number, userId?: st
     )
     ops.push(poolUpsertFor(dailyPeriod), poolUpsertFor(weeklyPeriod), poolUpsertFor(monthlyPeriod))
   }
+
+  // keep the customers-facing credit consumption counter in sync
+  ops.push(incrementConsumption(owner, cost))
 
   await Promise.all(ops)
 }

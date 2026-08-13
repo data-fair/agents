@@ -11,6 +11,7 @@ import gatewayRouter from './gateway/router.ts'
 import usageRouter from './usage/router.ts'
 import tracesRouter from './traces/router.ts'
 import moderationRouter from './moderation/router.ts'
+import limitsRouter from './limits/router.ts'
 import mongo from '#mongo'
 import config from '#config'
 
@@ -43,6 +44,7 @@ app.use('/api/summary', summaryRouter)
 app.use('/api/usage', usageRouter)
 app.use('/api/traces', tracesRouter)
 app.use('/api/moderation', moderationRouter)
+app.use('/api/v1/limits', limitsRouter)
 app.use('/api/ping', (req, res) => res.send('ok'))
 
 if (process.env.NODE_ENV === 'development') {
@@ -53,6 +55,7 @@ if (process.env.NODE_ENV === 'development') {
     await mongo.db.collection('trace-requests').deleteMany({ 'owner.id': /^test/ })
     await mongo.db.collection('moderation-events').deleteMany({ 'owner.id': /^test/ })
     await mongo.db.collection('moderation-strikes').deleteMany({ 'owner.id': /^test/ })
+    await mongo.db.collection('limits').deleteMany({ id: /^test/ })
     res.send()
   })
   app.post('/api/test-env/usage', async (req, res) => {
