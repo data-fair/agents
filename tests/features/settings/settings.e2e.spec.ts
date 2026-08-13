@@ -21,7 +21,8 @@ test.describe('Settings UI', () => {
     await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
 
     // Click "Add item" button in AI Providers section
-    await page.getByRole('button', { name: 'Add item' }).click()
+    // .first(): the models array renders its own "Add item" once a provider exists
+    await page.getByRole('button', { name: 'Add item' }).first().click()
 
     // Select provider type from dropdown
     await page.locator('.v-form').getByRole('combobox').first().click()
@@ -44,7 +45,8 @@ test.describe('Settings UI', () => {
     await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
 
     // Add a provider to create changes
-    await page.getByRole('button', { name: 'Add item' }).click()
+    // .first(): the models array renders its own "Add item" once a provider exists
+    await page.getByRole('button', { name: 'Add item' }).first().click()
     await page.locator('.v-form').getByRole('combobox').first().click()
     await page.getByRole('option', { name: 'Mock' }).click()
 
@@ -79,7 +81,8 @@ test.describe('Settings UI', () => {
     await page.waitForTimeout(500)
 
     // Add a provider to create changes
-    await page.getByRole('button', { name: 'Add item' }).click()
+    // .first(): the models array renders its own "Add item" once a provider exists
+    await page.getByRole('button', { name: 'Add item' }).first().click()
     await page.locator('.v-form').getByRole('combobox').first().click()
     await page.getByRole('option', { name: 'Mock' }).click()
 
@@ -117,7 +120,8 @@ test.describe('Settings UI', () => {
     await expect(page.getByText('AI Providers')).toBeVisible()
 
     // Add a provider to create changes
-    await page.getByRole('button', { name: 'Add item' }).click()
+    // .first(): the models array renders its own "Add item" once a provider exists
+    await page.getByRole('button', { name: 'Add item' }).first().click()
     await page.locator('.v-form').getByRole('combobox').first().click()
     await page.getByRole('option', { name: 'Mock' }).click()
 
@@ -129,7 +133,8 @@ test.describe('Settings UI', () => {
     await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
 
     // Add a Mock provider first
-    await page.getByRole('button', { name: 'Add item' }).click()
+    // .first(): the models array renders its own "Add item" once a provider exists
+    await page.getByRole('button', { name: 'Add item' }).first().click()
     await page.locator('.v-form').getByRole('combobox').first().click()
     await page.getByRole('option', { name: 'Mock' }).click()
 
@@ -180,11 +185,11 @@ test.describe('Settings UI', () => {
     await expect(page.getByRole('button', { name: 'Save' })).toBeEnabled()
   })
 
-  // Regression: vjsf writes schema defaults (0 prices) into the model on load, so
-  // a config whose stored shape predates them shows a diff once. Because the
-  // server persists exactly what the form submits, saving normalises the document
-  // and a subsequent reload must converge to a clean, diff-free state.
-  test('A saved config converges after one save: no diff on reload', async ({ page, goToWithAuth }) => {
+  // Regression: vjsf writes schema defaults into the model on load and strips
+  // hidden sections, which used to make a fully configured account report a
+  // spurious unsaved change. A populated config must load clean, and stay clean
+  // across a real save + reload.
+  test('A populated config loads clean and stays clean across a save and reload', async ({ page, goToWithAuth }) => {
     const admin = await superAdmin
     await admin.put('/api/settings/organization/test1', {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
@@ -205,7 +210,11 @@ test.describe('Settings UI', () => {
     await expect(page.getByText('AI Providers')).toBeVisible({ timeout: 10000 })
     await page.waitForTimeout(800)
 
-    // Persist the form-normalised shape, then reload: the form must be clean.
+    // The stored shape already matches what the form produces: no diff on load.
+    await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
+
+    // Make a real change, save it, and reload: the form must be clean again.
+    await page.getByText('Store conversation traces').click()
     await page.getByRole('button', { name: 'Save' }).click()
     await expect(page.getByText('Changes have been saved')).toBeVisible()
 

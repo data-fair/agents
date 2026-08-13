@@ -44,15 +44,16 @@ router.put('/:type/:id', async (req, res, next) => {
     updatedAt: new Date().toISOString(),
     owner,
     providers: encryptProviderApiKeys(body.providers || [], existing?.providers || [], securityKey),
-    models: body.models ?? [],
     quotas: body.quotas ?? defaultQuotas,
     storeTraces: body.storeTraces ?? false,
     moderation: body.moderation ?? defaultModeration
   }
-  // The role mapping section is hidden until a provider exists, so an empty
-  // config legitimately has no modelMapping key. Injecting an empty object here
-  // would make the form report a spurious diff on the next load (it strips the
-  // hidden, empty value).
+  // Persist the model sections exactly as the form represents them: they are
+  // hidden until a provider exists, so an empty config legitimately has no
+  // `models` / `modelMapping` key. Injecting empty values here would make the
+  // form report a spurious diff on the next load (it strips the hidden, empty
+  // value). Readers treat an absent `models` as an empty catalog contribution.
+  if (body.models) settings.models = body.models
   if (body.modelMapping) settings.modelMapping = body.modelMapping
   await mongo.settings.replaceOne({ owner }, settings, { upsert: true })
 
