@@ -9,12 +9,18 @@ export default {
     port: 9090
   },
   secretKeys: {
-    events: undefined
+    events: undefined,
+    limits: undefined
   },
   cipherPassword: undefined,
   upgradeRoot: '/app/',
   currency: 'EUR',
   requireAnonymousActionToken: true,
   evaluatorAccount: null,
-  github: { token: undefined }
+  github: { token: undefined },
+  providers: [],
+  models: [],
+  defaultModels: {},
+  outputTokenWeight: 4,
+  defaultLimits: { credits: -1 }
 }

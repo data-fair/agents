@@ -19,8 +19,21 @@
     "secretKeys",
     "cipherPassword",
     "currency",
-    "requireAnonymousActionToken"
+    "requireAnonymousActionToken",
+    "outputTokenWeight",
+    "defaultLimits"
   ],
+  "$defs": {
+    "modelRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "id"],
+      "properties": {
+        "provider": { "type": "string" },
+        "id": { "type": "string" }
+      }
+    }
+  },
   "properties": {
     "mongoUrl": {
       "type": "string"
@@ -44,8 +57,65 @@
       "properties": {
         "events": {
           "type": "string"
+        },
+        "limits": {
+          "type": "string"
         }
       }
+    },
+    "providers": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "id", "name"],
+        "properties": {
+          "type": { "type": "string", "enum": ["openai", "anthropic", "google", "mistral", "openrouter", "ollama", "scaleway", "openai-compatible", "mock"] },
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "enabled": { "type": "boolean", "default": true },
+          "apiKey": { "type": "string" },
+          "baseURL": { "type": "string" },
+          "projectId": { "type": "string" },
+          "compatibility": { "type": "string", "enum": ["default", "compatible"] }
+        }
+      }
+    },
+    "models": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "provider", "usage"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "provider": { "type": "string" },
+          "usage": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "enum": ["assistant", "tools", "summarizer", "evaluator", "moderator"] } },
+          "multiplier": { "type": "number", "minimum": 0, "default": 1 }
+        }
+      }
+    },
+    "defaultModels": {
+      "type": "object",
+      "additionalProperties": false,
+      "default": {},
+      "properties": {
+        "assistant": { "$ref": "#/$defs/modelRef" },
+        "tools": { "$ref": "#/$defs/modelRef" },
+        "summarizer": { "$ref": "#/$defs/modelRef" },
+        "evaluator": { "$ref": "#/$defs/modelRef" },
+        "moderator": { "$ref": "#/$defs/modelRef" }
+      }
+    },
+    "outputTokenWeight": { "type": "number", "minimum": 0, "default": 4 },
+    "defaultLimits": {
+      "type": "object",
+      "additionalProperties": false,
+      "default": { "credits": -1 },
+      "properties": { "credits": { "type": "number", "default": -1 } }
     },
     "observer": {
       "type": "object",

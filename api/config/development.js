@@ -14,9 +14,13 @@ export default {
     port: process.env.DEV_OBSERVER_PORT
   },
   secretKeys: {
-    events: 'secret-events'
+    events: 'secret-events',
+    limits: 'secretlimits'
   },
   cipherPassword: 'test',
   upgradeRoot: '../',
-  evaluatorAccount: { type: 'organization', id: 'test1' }
+  evaluatorAccount: { type: 'organization', id: 'test1' },
+  providers: [{ type: 'mock', id: 'global-mock', name: 'Global Mock', enabled: true }],
+  models: [{ id: 'mock-model', name: 'Global Mock Model', provider: 'global-mock', usage: ['assistant', 'tools', 'summarizer', 'evaluator', 'moderator'], multiplier: 0 }],
+  defaultModels: { assistant: { provider: 'global-mock', id: 'mock-model' } }
 }

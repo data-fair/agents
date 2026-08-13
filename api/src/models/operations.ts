@@ -142,6 +142,56 @@ export function errorMessage (err: unknown): string {
   return String(err)
 }
 
+export interface GlobalAiProvider {
+  type: string
+  id: string
+  name: string
+  enabled?: boolean
+  apiKey?: string
+  baseURL?: string
+  projectId?: string
+  compatibility?: 'default' | 'compatible'
+}
+
+export interface GlobalAiModel {
+  id: string
+  name: string
+  provider: string
+  usage: ModelRole[]
+  multiplier?: number
+}
+
+export type DefaultModelRefs = Partial<Record<ModelRole, { provider: string, id: string }>>
+
+/**
+ * Fail-fast consistency check of the env-var-provided global AI config.
+ * Called once at boot from config.ts so a bad deployment config crashes
+ * immediately with an actionable message instead of failing at request time.
+ */
+export function assertGlobalAiConfig (providers: GlobalAiProvider[], models: GlobalAiModel[], defaultModels: DefaultModelRefs): void {
+  const providerIds = new Set<string>()
+  for (const p of providers) {
+    if (providerIds.has(p.id)) throw new Error(`invalid global AI config: duplicate global provider id "${p.id}"`)
+    providerIds.add(p.id)
+    if ((p.type === 'ollama' || p.type === 'openai-compatible') && !p.baseURL) {
+      throw new Error(`invalid global AI config: provider "${p.id}" (${p.type}) requires baseURL`)
+    }
+  }
+  const modelKeys = new Set<string>()
+  for (const m of models) {
+    const key = `${m.provider}/${m.id}`
+    if (modelKeys.has(key)) throw new Error(`invalid global AI config: duplicate global model "${key}"`)
+    modelKeys.add(key)
+    if (!providerIds.has(m.provider)) throw new Error(`invalid global AI config: model "${key}" references unknown provider "${m.provider}"`)
+  }
+  for (const [role, ref] of Object.entries(defaultModels)) {
+    if (!ref) continue
+    const model = models.find(m => m.provider === ref.provider && m.id === ref.id)
+    if (!model) throw new Error(`invalid global AI config: defaultModels.${role} references unknown global model "${ref.provider}/${ref.id}"`)
+    if (!model.usage.includes(role as ModelRole)) throw new Error(`invalid global AI config: defaultModels.${role} references model "${ref.provider}/${ref.id}" not flagged for usage "${role}"`)
+  }
+}
+
 // Turn a thrown fetch error into a compact { status, message } the admin can
 // act on (e.g. Scaleway's 403 "insufficient permissions to access the resource").
 // The @data-fair/lib-node axios instance rejects HTTP errors as a flattened
