@@ -8,16 +8,16 @@
       class="d-flex flex-column"
       flat
     >
-      <v-btn
-        :icon="mdiClose"
-        variant="text"
-        size="small"
-        :title="t('close')"
-        class="position-absolute"
-        style="top: 8px; left: 8px; z-index: 1"
-        @click="$emit('update:modelValue', false)"
-      />
-      <v-card-text class="flex-grow-1 pt-10 px-4">
+      <div class="d-flex align-center px-4 pt-2">
+        <v-btn
+          :icon="mdiArrowLeft"
+          variant="text"
+          size="small"
+          color="secondary"
+          :title="t('close')"
+          class="mr-2"
+          @click="$emit('update:modelValue', false)"
+        />
         <v-tabs
           v-model="activeDebugTab"
           density="compact"
@@ -29,7 +29,9 @@
             {{ t('settings') }}
           </v-tab>
         </v-tabs>
-
+        <v-spacer />
+      </div>
+      <v-card-text class="flex-grow-1 pt-2 px-4">
         <v-window v-model="activeDebugTab">
           <v-window-item value="info">
             <v-btn
@@ -135,103 +137,89 @@
           </v-window-item>
 
           <v-window-item value="settings">
-            <div class="pa-3">
-              <template v-if="showConsentToggle">
+            <v-defaults-provider
+              :defaults="{ VSwitch: { hideDetails: true, density: 'compact', color: 'primary' } }"
+            >
+              <div class="pa-3">
+                <template v-if="showConsentToggle">
+                  <df-tutorial-alert
+                    id="agent-settings-store-traces"
+                    :text="t('storeTracesHint')"
+                    :initial="false"
+                    persistent
+                  />
+                  <v-switch
+                    :model-value="consentRef === 'yes'"
+                    :label="t('storeTraces')"
+                    @update:model-value="(v: boolean | null) => writeConsent(v ? 'yes' : 'no')"
+                  />
+                </template>
+
+                <div class="text-caption font-weight-bold text-medium-emphasis mt-4 mb-1">
+                  {{ t('experimental') }}
+                </div>
+
                 <df-tutorial-alert
-                  id="agent-settings-store-traces"
-                  :text="t('storeTracesHint')"
+                  id="agent-settings-tool-exploration"
+                  :text="t('toolExplorationHint')"
                   :initial="false"
                   persistent
                 />
                 <v-switch
-                  :model-value="consentRef === 'yes'"
-                  :label="t('storeTraces')"
-                  color="primary"
-                  density="compact"
-                  hide-details
-                  @update:model-value="(v: boolean | null) => writeConsent(v ? 'yes' : 'no')"
+                  :model-value="toolExploration"
+                  :label="t('toolExploration')"
+                  @update:model-value="$emit('update:toolExploration', $event ?? false)"
                 />
-              </template>
 
-              <div class="text-caption font-weight-bold text-medium-emphasis mt-4 mb-1">
-                {{ t('experimental') }}
+                <df-tutorial-alert
+                  id="agent-settings-subagents"
+                  :text="t('subAgentsHint')"
+                  :initial="false"
+                  persistent
+                />
+                <v-switch
+                  :model-value="subAgents"
+                  :label="t('subAgents')"
+                  @update:model-value="$emit('update:subAgents', $event ?? true)"
+                />
+
+                <df-tutorial-alert
+                  id="agent-settings-simple-subagents"
+                  :text="t('simpleSubAgentsHint')"
+                  :initial="false"
+                  persistent
+                />
+                <v-switch
+                  :model-value="simpleSubAgents"
+                  :label="t('simpleSubAgents')"
+                  @update:model-value="(v: boolean | null) => $emit('update:simpleSubAgents', v ?? true)"
+                />
+
+                <df-tutorial-alert
+                  id="agent-settings-mermaid"
+                  :text="t('mermaidHint')"
+                  :initial="false"
+                  persistent
+                />
+                <v-switch
+                  :model-value="mermaid"
+                  :label="t('mermaid')"
+                  @update:model-value="(v: boolean | null) => $emit('update:mermaid', v ?? false)"
+                />
+
+                <df-tutorial-alert
+                  id="agent-settings-show-reasoning"
+                  :text="t('showReasoningHint')"
+                  :initial="false"
+                  persistent
+                />
+                <v-switch
+                  :model-value="showReasoning"
+                  :label="t('showReasoning')"
+                  @update:model-value="(v: boolean | null) => $emit('update:showReasoning', v ?? false)"
+                />
               </div>
-
-              <df-tutorial-alert
-                id="agent-settings-tool-exploration"
-                :text="t('toolExplorationHint')"
-                :initial="false"
-                persistent
-              />
-              <v-switch
-                :model-value="toolExploration"
-                color="primary"
-                density="compact"
-                hide-details
-                :label="t('toolExploration')"
-                @update:model-value="$emit('update:toolExploration', $event ?? false)"
-              />
-
-              <df-tutorial-alert
-                id="agent-settings-subagents"
-                :text="t('subAgentsHint')"
-                :initial="false"
-                persistent
-              />
-              <v-switch
-                :model-value="subAgents"
-                color="primary"
-                density="compact"
-                hide-details
-                :label="t('subAgents')"
-                @update:model-value="$emit('update:subAgents', $event ?? true)"
-              />
-
-              <df-tutorial-alert
-                id="agent-settings-simple-subagents"
-                :text="t('simpleSubAgentsHint')"
-                :initial="false"
-                persistent
-              />
-              <v-switch
-                :model-value="simpleSubAgents"
-                color="primary"
-                density="compact"
-                hide-details
-                :label="t('simpleSubAgents')"
-                @update:model-value="(v: boolean | null) => $emit('update:simpleSubAgents', v ?? true)"
-              />
-
-              <df-tutorial-alert
-                id="agent-settings-mermaid"
-                :text="t('mermaidHint')"
-                :initial="false"
-                persistent
-              />
-              <v-switch
-                :model-value="mermaid"
-                color="primary"
-                density="compact"
-                hide-details
-                :label="t('mermaid')"
-                @update:model-value="(v: boolean | null) => $emit('update:mermaid', v ?? false)"
-              />
-
-              <df-tutorial-alert
-                id="agent-settings-show-reasoning"
-                :text="t('showReasoningHint')"
-                :initial="false"
-                persistent
-              />
-              <v-switch
-                :model-value="showReasoning"
-                color="primary"
-                density="compact"
-                hide-details
-                :label="t('showReasoning')"
-                @update:model-value="(v: boolean | null) => $emit('update:showReasoning', v ?? false)"
-              />
-            </div>
+            </v-defaults-provider>
           </v-window-item>
         </v-window>
       </v-card-text>
@@ -290,7 +278,7 @@ en:
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
-import { mdiClose, mdiOpenInNew } from '@mdi/js'
+import { mdiArrowLeft, mdiOpenInNew } from '@mdi/js'
 import DfTutorialAlert from '@data-fair/lib-vuetify/tutorial-alert.vue'
 import type { DebugToolsPartition } from '~/composables/use-agent-chat'
 import { traceStorageAvailable, consentRef, writeConsent } from '~/traces/trace-consent'
