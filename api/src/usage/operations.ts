@@ -77,6 +77,10 @@ export function computeCost (inputTokens: number, outputTokens: number, inputPri
   return (inputTokens * inputPricePerMillion + outputTokens * outputPricePerMillion) / 1_000_000
 }
 
+export function computeCredits (inputTokens: number, outputTokens: number, multiplier: number, outputTokenWeight: number): number {
+  return (inputTokens + outputTokens * outputTokenWeight) / 1_000_000 * multiplier
+}
+
 export interface QuotaCheckInput {
   usage: UsageInfo
   limits: UsageLimits

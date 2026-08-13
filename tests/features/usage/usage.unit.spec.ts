@@ -4,7 +4,7 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { checkQuota, computeCost, firstQuotaViolation, isUntrustedRole, type UsageInfo, type UsageLimits } from '../../../api/src/usage/operations.ts'
+import { checkQuota, computeCost, computeCredits, firstQuotaViolation, isUntrustedRole, type UsageInfo, type UsageLimits } from '../../../api/src/usage/operations.ts'
 
 function mkUsage (daily: number, weekly: number, monthly: number): UsageInfo {
   return {
@@ -98,5 +98,15 @@ test.describe('computeCost', () => {
 
   test('zero prices → zero cost', () => {
     assert.equal(computeCost(1_000_000, 1_000_000, 0, 0), 0)
+  })
+})
+
+test.describe('computeCredits', () => {
+  test('applies the output weight and multiplier', () => {
+    // (1_000_000 input + 250_000 output * 4) / 1e6 * 1.5 = 3
+    assert.equal(computeCredits(1_000_000, 250_000, 1.5, 4), 3)
+  })
+  test('zero multiplier means zero credits', () => {
+    assert.equal(computeCredits(500, 500, 0, 4), 0)
   })
 })

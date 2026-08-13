@@ -192,6 +192,65 @@ export function assertGlobalAiConfig (providers: GlobalAiProvider[], models: Glo
   }
 }
 
+export interface CatalogModel {
+  id: string
+  name: string
+  provider: { type: string, name: string, id: string }
+  usage: ModelRole[]
+  multiplier: number
+  source: 'global' | 'org'
+}
+
+export interface ModelRef { provider: string, id: string, name?: string }
+export type ModelMapping = Partial<Record<ModelRole, ModelRef>>
+
+export interface OrgModelDef {
+  model: { id: string, name: string, provider: { type: string, name: string, id: string } }
+  usage: string[]
+  multiplier?: number
+}
+
+/** Merge global config models and per-org model definitions into the single
+ * catalog all model consumers resolve against. Disabled global providers'
+ * models are excluded (org provider enablement is checked at createModel time,
+ * where the full provider doc is at hand). */
+export function getModelCatalog (globalProviders: GlobalAiProvider[], globalModels: GlobalAiModel[], orgModels: OrgModelDef[]): CatalogModel[] {
+  const catalog: CatalogModel[] = []
+  for (const m of globalModels) {
+    const p = globalProviders.find(gp => gp.id === m.provider)
+    if (!p || p.enabled === false) continue
+    catalog.push({ id: m.id, name: m.name, provider: { type: p.type, name: p.name, id: p.id }, usage: m.usage, multiplier: m.multiplier ?? 1, source: 'global' })
+  }
+  for (const om of orgModels) {
+    catalog.push({ id: om.model.id, name: om.model.name, provider: om.model.provider, usage: om.usage as ModelRole[], multiplier: om.multiplier ?? 1, source: 'org' })
+  }
+  return catalog
+}
+
+const FALLBACK_CHAINS: Record<ModelRole, ModelRole[]> = {
+  assistant: ['assistant'],
+  tools: ['tools', 'assistant'],
+  summarizer: ['summarizer', 'assistant'],
+  evaluator: ['evaluator', 'assistant'],
+  moderator: ['moderator', 'summarizer', 'assistant']
+}
+
+/** Resolve the catalog entry for a role: org mapping first, then global
+ * defaults, walking the role's fallback chain. An unresolvable ref (e.g. its
+ * provider was deleted) logs a warning and falls through rather than failing
+ * the request. */
+export function getRoleModel (catalog: CatalogModel[], mapping: ModelMapping | undefined, defaultModels: DefaultModelRefs, role: ModelRole): CatalogModel {
+  for (const r of FALLBACK_CHAINS[role]) {
+    for (const ref of [mapping?.[r], defaultModels[r]]) {
+      if (!ref) continue
+      const entry = catalog.find(c => c.provider.id === ref.provider && c.id === ref.id)
+      if (entry) return entry
+      console.warn(`model ref for role ${r} (${ref.provider}/${ref.id}) not found in catalog, falling back`)
+    }
+  }
+  throw new Error(`No model configured for ${role}`)
+}
+
 // Turn a thrown fetch error into a compact { status, message } the admin can
 // act on (e.g. Scaleway's 403 "insufficient permissions to access the resource").
 // The @data-fair/lib-node axios instance rejects HTTP errors as a flattened
