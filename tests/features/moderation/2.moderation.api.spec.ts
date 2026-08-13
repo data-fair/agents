@@ -10,11 +10,17 @@ const apiBase = `http://localhost:${process.env.DEV_API_PORT}`
 const gatewayUrl = `${apiBase}/api/gateway/user/test-standalone1/v1/chat/completions`
 
 const mockProvider = { id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }
-const model = (id: string, name: string) => ({ model: { id, name, provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } } })
+const model = (id: string, name: string, usage: string[]) => ({
+  model: { id, name, provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
+  usage,
+  multiplier: 0
+})
+const modelRef = (id: string, name: string) => ({ provider: 'mock-provider', id, name })
 
 const settingsData = (overrides: any = {}) => ({
   providers: [mockProvider],
-  models: { assistant: model('mock-model', 'Mock Model'), moderator: model('mock-moderator', 'Mock Moderator') },
+  models: [model('mock-model', 'Mock Model', ['assistant']), model('mock-moderator', 'Mock Moderator', ['moderator'])],
+  modelMapping: { assistant: modelRef('mock-model', 'Mock Model'), moderator: modelRef('mock-moderator', 'Mock Moderator') },
   quotas: {
     ...defaultQuotas,
     anonymous: { unlimited: false, monthlyLimit: 1000 },

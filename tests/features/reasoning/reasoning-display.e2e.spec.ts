@@ -18,7 +18,16 @@ const admin = await superAdmin
 
 const mockSettings = {
   providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
-  models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' } } } },
+  models: [
+    {
+      model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' } },
+      usage: ['assistant'],
+      multiplier: 0
+    }
+  ],
+  modelMapping: {
+    assistant: { provider: 'mock', id: 'mock-model', name: 'Mock Model' }
+  },
   quotas: defaultQuotas
 }
 

@@ -13,12 +13,15 @@ const externalUser = await axiosAuth('test1-user1')  // not a member of test-sta
 
 const settingsData = {
   providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
-  models: {
-    assistant: {
+  models: [
+    {
       model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
-      inputPricePerMillion: 1,
-      outputPricePerMillion: 2
+      usage: ['assistant'],
+      multiplier: 0
     }
+  ],
+  modelMapping: {
+    assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' }
   },
   quotas: defaultQuotas
 }

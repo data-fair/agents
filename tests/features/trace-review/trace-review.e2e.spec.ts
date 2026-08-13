@@ -28,21 +28,21 @@ const settingsData = {
   providers: [
     { id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }
   ],
-  models: {
-    assistant: {
-      model: {
-        id: 'mock-model',
-        name: 'Mock Model',
-        provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' }
-      }
+  models: [
+    {
+      model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
+      usage: ['assistant'],
+      multiplier: 0
     },
-    evaluator: {
-      model: {
-        id: 'mock-evaluator',
-        name: 'Mock Evaluator',
-        provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' }
-      }
+    {
+      model: { id: 'mock-evaluator', name: 'Mock Evaluator', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
+      usage: ['evaluator'],
+      multiplier: 0
     }
+  ],
+  modelMapping: {
+    assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' },
+    evaluator: { provider: 'mock-provider', id: 'mock-evaluator', name: 'Mock Evaluator' }
   },
   quotas: defaultQuotas,
   storeTraces: true

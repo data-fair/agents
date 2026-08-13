@@ -10,13 +10,21 @@ const settingsData = {
   providers: [
     { id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }
   ],
-  models: {
-    assistant: {
-      model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } }
+  models: [
+    {
+      model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
+      usage: ['assistant'],
+      multiplier: 0
     },
-    moderator: {
-      model: { id: 'mock-moderator', name: 'Mock Moderator', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } }
+    {
+      model: { id: 'mock-moderator', name: 'Mock Moderator', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
+      usage: ['moderator'],
+      multiplier: 0
     }
+  ],
+  modelMapping: {
+    assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' },
+    moderator: { provider: 'mock-provider', id: 'mock-moderator', name: 'Mock Moderator' }
   },
   quotas: { ...defaultQuotas, external: { unlimited: false, monthlyLimit: 1000 } },
   moderation: { enabled: true, categories: ['anonymous', 'external'] }

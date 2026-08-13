@@ -21,7 +21,6 @@ export const axiosAuth = (user: string, opts?: { adminMode?: boolean, org?: stri
 export const superAdmin = axiosAuth('superadmin', { adminMode: true })
 
 export const defaultQuotas = {
-  global: { unlimited: false, monthlyLimit: 10 },
   admin: { unlimited: true, monthlyLimit: 0 },
   contrib: { unlimited: false, monthlyLimit: 0 },
   user: { unlimited: false, monthlyLimit: 0 },

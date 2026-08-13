@@ -18,23 +18,23 @@ const settingsData = {
   providers: [
     { id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }
   ],
-  models: {
-    assistant: {
-      model: {
-        id: 'mock-model',
-        name: 'Mock Model',
-        provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' }
-      }
+  models: [
+    {
+      model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
+      usage: ['assistant'],
+      multiplier: 0
     },
     // The compaction round-trip goes through the summarizer role, so this model
     // must be configured for the compaction call (and its stored trace) to exist.
-    summarizer: {
-      model: {
-        id: 'mock-summarizer',
-        name: 'Mock Summarizer',
-        provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' }
-      }
+    {
+      model: { id: 'mock-summarizer', name: 'Mock Summarizer', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
+      usage: ['summarizer'],
+      multiplier: 0
     }
+  ],
+  modelMapping: {
+    assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' },
+    summarizer: { provider: 'mock-provider', id: 'mock-summarizer', name: 'Mock Summarizer' }
   },
   quotas: defaultQuotas
   // NOTE: storeTraces is intentionally OFF here. Only the review-page test enables it

@@ -22,20 +22,21 @@ const settingsData = {
   providers: [
     { id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }
   ],
-  models: {
-    assistant: {
-      model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
-      inputPricePerMillion: 0,
-      outputPricePerMillion: 0
-    }
+  models: [{
+    model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
+    usage: ['assistant', 'tools', 'summarizer', 'evaluator', 'moderator'],
+    multiplier: 0
+  }],
+  modelMapping: {
+    assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' }
   },
   quotas: {
-    global: { unlimited: true, monthlyLimit: 0 },
     admin: { unlimited: true, monthlyLimit: 0 },
     contrib: { unlimited: false, monthlyLimit: 100 },
     user: { unlimited: false, monthlyLimit: 50 },
     external: { unlimited: false, monthlyLimit: 0 },
-    anonymous: { unlimited: false, monthlyLimit: 0 }
+    anonymous: { unlimited: false, monthlyLimit: 0 },
+    untrusted: { unlimited: false, monthlyLimit: 0 }
   },
   // store traces so the seeded conversations show up on the review pages
   storeTraces: true

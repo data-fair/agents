@@ -21,23 +21,17 @@ const settingsData = {
       enabled: true
     }
   ],
-  models: {
-    assistant: {
-      model: {
-        id: 'mock-model',
-        name: 'Mock Model',
-        provider: {
-          type: 'mock',
-          name: 'Mock Provider',
-          id: 'mock-provider'
-        }
-      },
-      inputPricePerMillion: 1,
-      outputPricePerMillion: 2
+  models: [
+    {
+      model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
+      usage: ['assistant'],
+      multiplier: 0
     }
+  ],
+  modelMapping: {
+    assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' }
   },
   quotas: {
-    global: { unlimited: false, monthlyLimit: 100 },
     admin: { unlimited: true, monthlyLimit: 0 },
     contrib: { unlimited: false, monthlyLimit: 0 },
     user: { unlimited: false, monthlyLimit: 0 },

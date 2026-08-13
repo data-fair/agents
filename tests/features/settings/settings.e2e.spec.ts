@@ -57,7 +57,16 @@ test.describe('Settings UI', () => {
     const admin = await superAdmin
     await admin.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'seed-provider', type: 'mock', name: 'Mock Seed', enabled: true }],
-      models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Seed', id: 'seed-provider' } } } },
+      models: [
+        {
+          model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Seed', id: 'seed-provider' } },
+          usage: ['assistant'],
+          multiplier: 0
+        }
+      ],
+      modelMapping: {
+        assistant: { provider: 'seed-provider', id: 'mock-model', name: 'Mock Model' }
+      },
       quotas: defaultQuotas
     })
 
@@ -89,7 +98,16 @@ test.describe('Settings UI', () => {
     const admin = await superAdmin
     await admin.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'seed-provider', type: 'mock', name: 'Mock Seed', enabled: true }],
-      models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Seed', id: 'seed-provider' } } } },
+      models: [
+        {
+          model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Seed', id: 'seed-provider' } },
+          usage: ['assistant'],
+          multiplier: 0
+        }
+      ],
+      modelMapping: {
+        assistant: { provider: 'seed-provider', id: 'mock-model', name: 'Mock Model' }
+      },
       quotas: defaultQuotas
     })
 
@@ -170,7 +188,16 @@ test.describe('Settings UI', () => {
     const admin = await superAdmin
     await admin.put('/api/settings/organization/test1', {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
-      models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } } } },
+      models: [
+        {
+          model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
+          usage: ['assistant'],
+          multiplier: 0
+        }
+      ],
+      modelMapping: {
+        assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' }
+      },
       quotas: defaultQuotas
     })
 
