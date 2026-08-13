@@ -25,18 +25,21 @@ router.get('/info', async (req, res) => {
   let evaluatorAvailable = false
   if (evaluatorAccount) {
     const settings = await getSettings(evaluatorAccount)
-    // The gateway refuses any account whose assistant role cannot be resolved
-    // ("Agent not configured"), regardless of the requested role — so the
-    // promoted evaluator is only usable when the source account resolves BOTH
-    // an assistant and an evaluator model. Advertising availability on the
-    // evaluator alone would enable a chat whose every call 404s.
-    const resolves = (role: 'assistant' | 'evaluator') => {
+    // Two independent conditions, both required:
+    // - the gateway refuses any account whose assistant role cannot be resolved
+    //   ("Agent not configured") regardless of the requested role, so the
+    //   assistant must resolve or the chat would 404 on every call;
+    // - the evaluator role must resolve to a model actually flagged for the
+    //   `evaluator` usage. Resolution alone is not enough: the role's fallback
+    //   chain ends on the assistant, so an account with no evaluator-capable
+    //   model still resolves *something* here. Advertising that would offer a
+    //   promoted-evaluator chat backed by a model nobody picked for the job.
+    const resolveEntry = (role: 'assistant' | 'evaluator') => {
       try {
-        resolveRoleModel(settings, role)
-        return true
-      } catch { return false }
+        return resolveRoleModel(settings, role).entry
+      } catch { return null }
     }
-    evaluatorAvailable = resolves('assistant') && resolves('evaluator')
+    evaluatorAvailable = !!resolveEntry('assistant') && !!resolveEntry('evaluator')?.usage.includes('evaluator')
   }
   res.send({ ...info, evaluatorAccount, evaluatorAvailable })
 })
