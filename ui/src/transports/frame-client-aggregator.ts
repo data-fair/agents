@@ -118,11 +118,11 @@ export class FrameClientAggregator {
             // Issue the tools/call request directly instead of via client.callTool().
             // callTool() additionally enforces the tool's declared outputSchema against
             // the result's `structuredContent`, throwing when it is absent or mismatched.
-            // But formatMcpToolResult discards structuredContent entirely — the
-            // OpenAI-compatible wire protocol to the gateway carries only a text string —
+            // But formatMcpToolResult discards structuredContent entirely — it keeps only
+            // text and image parts (the latter as a media envelope the gateway decodes) —
             // so that validation can only ever break an otherwise-usable call over a value
             // we throw away. Going through request() keeps the identical request path while
-            // leaving validation coherent with the text-only payload we actually consume.
+            // leaving validation coherent with the payload we actually consume.
             const callResult = await server.client.request({ method: 'tools/call', params: { name: t.name, arguments: args } }, CallToolResultSchema)
             debug('tool result=%s via server=%s result=%o', t.name, serverId, callResult)
             return formatMcpToolResult(callResult as McpCallResult)

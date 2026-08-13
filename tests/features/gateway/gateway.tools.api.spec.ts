@@ -157,6 +157,43 @@ test.describe('Gateway API - Tool forwarding', () => {
     assert.deepEqual(names, ['get_current_location', 'list_datasets'])
   })
 
+  test('accepts a media-envelope tool result (tool that returned an image)', async () => {
+    const cookieString = await user.cookieJar.getCookieString(directoryUrl)
+    const response = await fetch(`${baseURL}/api/gateway/user/test-standalone1/v1/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        cookie: cookieString
+      },
+      body: JSON.stringify({
+        model: 'assistant',
+        messages: [
+          { role: 'user', content: 'call tool snapshot {}' },
+          {
+            role: 'assistant',
+            content: null,
+            tool_calls: [{
+              id: 'call-1',
+              type: 'function',
+              function: { name: 'snapshot', arguments: '{}' }
+            }]
+          },
+          {
+            role: 'tool',
+            tool_call_id: 'call-1',
+            // envelope built by ui/src/utils/tool-result.ts for MCP image parts
+            content: JSON.stringify({ _agentsMediaResult: true, text: 'a chart', media: [{ data: 'iVBORw0KGgoAAAANSUhEUg==', mediaType: 'image/png' }] })
+          },
+          { role: 'user', content: 'hello' }
+        ]
+      })
+    })
+
+    assert.equal(response.ok, true)
+    const data = await response.json() as any
+    assert.equal(data.choices[0].message.content, 'world')
+  })
+
   test('generateText without tools still works', async () => {
     const provider = await createGatewayProvider()
 
