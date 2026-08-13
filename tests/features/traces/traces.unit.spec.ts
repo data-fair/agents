@@ -31,8 +31,8 @@ test.describe('traces operations (unit)', () => {
       response: { content: 'world', toolCalls: [], finishReason: 'stop' },
       usage: { inputTokens: 0, outputTokens: 0 },
       timing: { durationMs: 12 },
-      inputPricePerMillion: 0,
-      outputPricePerMillion: 0
+      multiplier: 0,
+      outputTokenWeight: 4
     }, now)
 
     assert.equal(doc.conversation.id, 'conv1')
@@ -45,7 +45,7 @@ test.describe('traces operations (unit)', () => {
     assert.equal(doc.createdAt.getTime(), now.getTime())
   })
 
-  test('buildTraceRequestDoc computes the cost breakdown from tokens and prices', () => {
+  test('buildTraceRequestDoc computes the credit breakdown from tokens, multiplier and output weight', () => {
     const now = new Date('2026-06-08T00:00:00.000Z')
     const doc = buildTraceRequestDoc({
       owner: { type: 'user', id: 'u1' },
@@ -59,13 +59,14 @@ test.describe('traces operations (unit)', () => {
       response: { content: 'hi', toolCalls: [] },
       usage: { inputTokens: 1_000_000, outputTokens: 500_000 },
       timing: { durationMs: 10 },
-      inputPricePerMillion: 3,
-      outputPricePerMillion: 6
+      multiplier: 3,
+      outputTokenWeight: 4
     }, now)
-    assert.deepEqual(doc.cost, { input: 3, output: 3, total: 6 })
+    // input: 1e6 / 1e6 * 3 = 3 ; output: 500 000 * 4 / 1e6 * 3 = 6
+    assert.deepEqual(doc.cost, { input: 3, output: 6, total: 9 })
   })
 
-  test('buildTraceRequestDoc yields zero cost when prices are zero', () => {
+  test('buildTraceRequestDoc yields zero cost when the multiplier is zero', () => {
     const now = new Date('2026-06-08T00:00:00.000Z')
     const doc = buildTraceRequestDoc({
       owner: { type: 'user', id: 'u1' },
@@ -79,8 +80,8 @@ test.describe('traces operations (unit)', () => {
       response: { content: '', toolCalls: [] },
       usage: { inputTokens: 100, outputTokens: 10 },
       timing: { durationMs: 1 },
-      inputPricePerMillion: 0,
-      outputPricePerMillion: 0
+      multiplier: 0,
+      outputTokenWeight: 4
     }, now)
     assert.deepEqual(doc.cost, { input: 0, output: 0, total: 0 })
   })

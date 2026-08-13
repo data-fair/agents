@@ -1,10 +1,10 @@
 /**
- * stateless unit tests for checkQuota: derived daily/weekly/monthly money limits
+ * stateless unit tests for checkQuota: derived daily/weekly/monthly credit limits
  */
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { checkQuota, computeCost, computeCredits, firstQuotaViolation, isUntrustedRole, type UsageInfo, type UsageLimits } from '../../../api/src/usage/operations.ts'
+import { checkQuota, computeCredits, firstQuotaViolation, isUntrustedRole, type UsageInfo, type UsageLimits } from '../../../api/src/usage/operations.ts'
 
 function mkUsage (daily: number, weekly: number, monthly: number): UsageInfo {
   return {
@@ -14,7 +14,7 @@ function mkUsage (daily: number, weekly: number, monthly: number): UsageInfo {
   }
 }
 
-test.describe('checkQuota (money-based, derived periods)', () => {
+test.describe('checkQuota (credit-based, derived periods)', () => {
   test('unlimited → no violation', () => {
     const limits: UsageLimits = { unlimited: true, monthlyLimit: 0 }
     assert.equal(checkQuota(mkUsage(1000, 1000, 1000), limits, 'user'), null)
@@ -86,21 +86,6 @@ test.describe('isUntrustedRole', () => {
   })
 })
 
-test.describe('computeCost', () => {
-  test('computes cost from tokens and prices per million', () => {
-    // 500k input @ $2/M + 100k output @ $6/M = 1 + 0.6 = 1.6
-    assert.equal(computeCost(500_000, 100_000, 2, 6), 1.6)
-  })
-
-  test('zero tokens → zero cost', () => {
-    assert.equal(computeCost(0, 0, 10, 20), 0)
-  })
-
-  test('zero prices → zero cost', () => {
-    assert.equal(computeCost(1_000_000, 1_000_000, 0, 0), 0)
-  })
-})
-
 test.describe('computeCredits', () => {
   test('applies the output weight and multiplier', () => {
     // (1_000_000 input + 250_000 output * 4) / 1e6 * 1.5 = 3
@@ -108,5 +93,8 @@ test.describe('computeCredits', () => {
   })
   test('zero multiplier means zero credits', () => {
     assert.equal(computeCredits(500, 500, 0, 4), 0)
+  })
+  test('zero tokens means zero credits', () => {
+    assert.equal(computeCredits(0, 0, 10, 4), 0)
   })
 })
