@@ -13,11 +13,13 @@ const externalUser = await axiosAuth('test1-user1')  // not a member of test-sta
 
 const settingsData = {
   providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
+  // multiplier 1e6 makes one token cost one credit, so the request below records
+  // a measurable amount on the consumed account
   models: [
     {
       model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
       usage: ['assistant'],
-      multiplier: 0
+      multiplier: 1_000_000
     }
   ],
   modelMapping: {
