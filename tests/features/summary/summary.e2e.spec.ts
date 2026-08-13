@@ -41,13 +41,17 @@ test.describe('Summary UI', () => {
     await expect(page.getByRole('heading', { name: 'Summary', level: 2 })).toBeVisible()
   })
 
-  test('Shows error when assistant model not configured', async ({ page, goToWithAuth }) => {
+  // An account with no settings of its own still summarizes: the deployment's
+  // global default model covers the summarizer role. (The former "Agent not
+  // configured" error is now reachable only when the deployment ships no
+  // default for the role.)
+  test('Summarizes with no account settings, using the global default model', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/_dev/summary', 'test-standalone1')
 
     await page.getByLabel('Content to summarize').fill('Test content')
     await page.getByRole('button', { name: 'Summarize' }).click()
 
-    await expect(page.getByText('Agent not configured')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Summary', level: 2 })).toBeVisible()
   })
 
   test('Button is disabled when content is empty', async ({ page, goToWithAuth }) => {
