@@ -169,7 +169,11 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
       messages: [{ role: 'user', content: 'hello' }]
     }).catch((err: any) => err.response ?? err)
     assert.equal(res.status, 429)
+    assert.equal(res.data.error.message, 'Daily cost quota exceeded')
+    assert.equal(res.data.error.type, 'rate_limit_error')
     assert.equal(res.data.error.scope, 'untrusted')
+    assert.equal(res.data.error.limit, 1)
+    assert.ok(res.data.error.resets_at)
   })
 
   test('external user denied when external quota is zero', async () => {
@@ -182,49 +186,27 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
     )
   })
 
-  test('returns 429 with quota exceeded message when daily global quota is exceeded', async () => {
-    // monthly=4 → daily=1 → seed daily usage >= 1
-    await admin.put('/api/settings/user/test-standalone1', {
-      ...settingsData,
-      quotas: {
-        ...defaultQuotas,
-        global: { unlimited: false, monthlyLimit: 4 }
-      }
-    })
-    const anonymousAx = (await import('../../support/axios.ts')).anonymousAx
-    await anonymousAx.post('http://localhost:' + process.env.DEV_API_PORT + '/api/test-env/usage', {
-      owner: { type: 'user', id: 'test-standalone1' },
-      cost: 2
-    })
-
-    const res = await user.post('/api/gateway/user/test-standalone1/v1/chat/completions', {
-      model: 'assistant',
-      messages: [{ role: 'user', content: 'hello' }]
-    }).catch((err: any) => err.response ?? err)
-
-    assert.equal(res.status, 429)
-    assert.equal(res.data.error.message, 'Daily cost quota exceeded')
-    assert.equal(res.data.error.type, 'rate_limit_error')
-    assert.equal(res.data.error.scope, 'user')
-    assert.equal(res.data.error.limit, 1)
-    assert.ok(res.data.error.resets_at)
-  })
+  // NOTE: the former 'daily global quota exceeded' test covered quotas.global,
+  // the account-wide cap; it is dropped from the settings and comes back as
+  // limits-based enforcement, so the test moved with it.
 
   test('AI SDK receives quota exceeded error with extractable message', async () => {
+    // driven through the untrusted pool: monthly=4 → daily=1, seeded above it
     await admin.put('/api/settings/user/test-standalone1', {
       ...settingsData,
       quotas: {
         ...defaultQuotas,
-        global: { unlimited: false, monthlyLimit: 4 }
+        external: { unlimited: false, monthlyLimit: 1000 },
+        untrusted: { unlimited: false, monthlyLimit: 4 }
       }
     })
-    const anonymousAx = (await import('../../support/axios.ts')).anonymousAx
     await anonymousAx.post('http://localhost:' + process.env.DEV_API_PORT + '/api/test-env/usage', {
       owner: { type: 'user', id: 'test-standalone1' },
+      userId: 'pool:untrusted',
       cost: 2
     })
 
-    const provider = await createGatewayProvider(user)
+    const provider = await createGatewayProvider(externalUser)
     try {
       await generateText({
         model: provider.chat('assistant'),
