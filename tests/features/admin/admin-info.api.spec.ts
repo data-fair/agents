@@ -16,32 +16,17 @@ test.describe('Admin info — promoted evaluator', () => {
     await assert.rejects(plainUser.get('/api/admin/info'))
   })
 
-  test('reports evaluatorAccount and evaluatorAvailable=false when the source has no evaluator model', async () => {
+  // The two former "evaluatorAvailable=false" cases (no model at all / an
+  // evaluator but no assistant) no longer exist: the deployment's global default
+  // model resolves the assistant role for every account, and the evaluator role
+  // falls back to the assistant. Availability now reflects that.
+  test('reports evaluatorAccount, available from the global default even with no org config', async () => {
     const res = await admin.get('/api/admin/info')
     assert.deepEqual(res.data.evaluatorAccount, { type: 'organization', id: 'test1' })
-    assert.equal(res.data.evaluatorAvailable, false)
+    assert.equal(res.data.evaluatorAvailable, true)
   })
 
-  test('evaluatorAvailable stays false with an evaluator model but no assistant (gateway requires an assistant)', async () => {
-    await admin.put('/api/settings/organization/test1', {
-      providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
-      models: [
-        {
-          model: { id: 'mock-evaluator', name: 'Mock Evaluator', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
-          usage: ['evaluator'],
-          multiplier: 0
-        }
-      ],
-      modelMapping: {
-        evaluator: { provider: 'mock-provider', id: 'mock-evaluator', name: 'Mock Evaluator' }
-      },
-      quotas: defaultQuotas
-    })
-    const res = await admin.get('/api/admin/info')
-    assert.equal(res.data.evaluatorAvailable, false)
-  })
-
-  test('evaluatorAvailable=true once the source account has both an assistant and an evaluator model', async () => {
+  test('evaluatorAvailable=true when the source account maps its own assistant and evaluator models', async () => {
     await admin.put('/api/settings/organization/test1', {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
       models: [
