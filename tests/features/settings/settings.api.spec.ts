@@ -11,6 +11,8 @@ const admin = await superAdmin
 const otherUser = await axiosAuth('test1-user1')
 
 const mockModel = { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' } }
+const orgModels = [{ model: mockModel, usage: ['assistant'], multiplier: 0 }]
+const mockModelMapping = { assistant: { provider: 'mock', id: 'mock-model', name: 'Mock Model' } }
 
 // API block: test HTTP and stateful database layer with HTTP client querying the dev server
 test.describe('Settings API', () => {
@@ -32,7 +34,8 @@ test.describe('Settings API', () => {
           }
         }
       ],
-      models: { assistant: { model: mockModel } },
+      models: orgModels,
+      modelMapping: mockModelMapping,
       quotas: defaultQuotas
     }
 
@@ -51,13 +54,16 @@ test.describe('Settings API', () => {
   test('should update settings', async () => {
     const settingsData = {
       providers: [],
-      models: { assistant: { model: mockModel } },
+      models: orgModels,
+      modelMapping: mockModelMapping,
       quotas: defaultQuotas
     }
 
     const updateRes = await admin.put('/api/settings/user/test-standalone1', settingsData)
     assert.equal(updateRes.status, 200)
-    assert.equal(updateRes.data.models.assistant.model.id, 'mock-model')
+    assert.equal(updateRes.data.models[0].model.id, 'mock-model')
+    assert.deepEqual(updateRes.data.models[0].usage, ['assistant'])
+    assert.equal(updateRes.data.modelMapping.assistant.id, 'mock-model')
   })
 
   test('should list mock models', async () => {
@@ -70,7 +76,8 @@ test.describe('Settings API', () => {
           enabled: true
         }
       ],
-      models: { assistant: { model: mockModel } },
+      models: orgModels,
+      modelMapping: mockModelMapping,
       quotas: defaultQuotas
     }
 
@@ -95,7 +102,8 @@ test.describe('Settings API', () => {
         // unreachable endpoint: connection refused, fails fast and deterministically
         { id: 'broken-compat', type: 'openai-compatible', name: 'Broken Endpoint', enabled: true, baseURL: 'http://localhost:1/v1' }
       ],
-      models: { assistant: { model: mockModel } },
+      models: orgModels,
+      modelMapping: mockModelMapping,
       quotas: defaultQuotas
     }
     await admin.put('/api/settings/user/test-standalone1', settingsData)
@@ -119,7 +127,8 @@ test.describe('Settings API', () => {
   test('reports no errors when every provider lists successfully', async () => {
     await admin.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
-      models: { assistant: { model: mockModel } },
+      models: orgModels,
+      modelMapping: mockModelMapping,
       quotas: defaultQuotas
     })
     const res = await user.get('/api/models/user/test-standalone1')
@@ -149,7 +158,8 @@ test.describe('Settings API', () => {
     for (const p of providerTypes) {
       const settingsData = {
         providers: [{ id: `provider-${p.type}`, ...p, enabled: true }],
-        models: { assistant: { model: mockModel } },
+        models: orgModels,
+        modelMapping: mockModelMapping,
         quotas: defaultQuotas
       }
 
@@ -173,7 +183,8 @@ test.describe('Settings API', () => {
           apiKey: 'sk-original-key-123'
         }
       ],
-      models: { assistant: { model: mockModel } },
+      models: orgModels,
+      modelMapping: mockModelMapping,
       quotas: defaultQuotas
     }
 
@@ -189,7 +200,8 @@ test.describe('Settings API', () => {
           apiKey: '********'
         }
       ],
-      models: { assistant: { model: mockModel } },
+      models: orgModels,
+      modelMapping: mockModelMapping,
       quotas: defaultQuotas
     }
 
@@ -214,7 +226,8 @@ test.describe('Settings API', () => {
           baseURL: 'http://localhost:1234/v1'
         }
       ],
-      models: { assistant: { model: mockModel } },
+      models: orgModels,
+      modelMapping: mockModelMapping,
       quotas: defaultQuotas
     }
 
@@ -236,7 +249,8 @@ test.describe('Settings API', () => {
           baseURL: 'http://localhost:11434'
         }
       ],
-      models: { assistant: { model: mockModel } },
+      models: orgModels,
+      modelMapping: mockModelMapping,
       quotas: defaultQuotas
     }
 
@@ -249,7 +263,8 @@ test.describe('Settings API', () => {
   test('should update settings multiple times (idempotency)', async () => {
     const settingsData1 = {
       providers: [{ id: 'p1', type: 'mock', name: 'Mock 1', enabled: true }],
-      models: { assistant: { model: mockModel } },
+      models: orgModels,
+      modelMapping: mockModelMapping,
       quotas: defaultQuotas
     }
 
@@ -258,7 +273,8 @@ test.describe('Settings API', () => {
 
     const settingsData2 = {
       providers: [{ id: 'p2', type: 'mock', name: 'Mock 2', enabled: true }],
-      models: { assistant: { model: mockModel } },
+      models: orgModels,
+      modelMapping: mockModelMapping,
       quotas: defaultQuotas
     }
 
@@ -274,7 +290,8 @@ test.describe('Settings API', () => {
   test('should handle empty providers array', async () => {
     const settingsData = {
       providers: [],
-      models: { assistant: { model: mockModel } },
+      models: orgModels,
+      modelMapping: mockModelMapping,
       quotas: defaultQuotas
     }
 
@@ -293,7 +310,8 @@ test.describe('Settings API', () => {
           enabled: true
         }
       ],
-      models: { assistant: { model: mockModel } },
+      models: orgModels,
+      modelMapping: mockModelMapping,
       quotas: defaultQuotas
     }
 
@@ -311,7 +329,8 @@ test.describe('Settings API', () => {
           type: 'openai'
         }
       ],
-      models: { assistant: { model: mockModel } },
+      models: orgModels,
+      modelMapping: mockModelMapping,
       quotas: defaultQuotas
     }
 
@@ -322,13 +341,28 @@ test.describe('Settings API', () => {
   })
 
   test('should fail when accessing another user settings', async () => {
-    await admin.put('/api/settings/user/test-standalone1', { providers: [], models: { assistant: { model: mockModel } }, quotas: defaultQuotas })
+    await admin.put('/api/settings/user/test-standalone1', {
+      providers: [],
+      models: orgModels,
+      modelMapping: mockModelMapping,
+      quotas: defaultQuotas
+    })
     await assert.rejects(otherUser.get('/api/settings/user/test-standalone1'), { status: 403 })
   })
 
   test('should fail when updating another user settings', async () => {
-    await admin.put('/api/settings/user/test-standalone1', { providers: [], models: { assistant: { model: mockModel } }, quotas: defaultQuotas })
-    await assert.rejects(otherUser.put('/api/settings/user/test-standalone1', { providers: [], models: { assistant: { model: mockModel } }, quotas: defaultQuotas }), { status: 403 })
+    await admin.put('/api/settings/user/test-standalone1', {
+      providers: [],
+      models: orgModels,
+      modelMapping: mockModelMapping,
+      quotas: defaultQuotas
+    })
+    await assert.rejects(otherUser.put('/api/settings/user/test-standalone1', {
+      providers: [],
+      models: orgModels,
+      modelMapping: mockModelMapping,
+      quotas: defaultQuotas
+    }), { status: 403 })
   })
 
   test('should add multiple providers in single request', async () => {
@@ -337,7 +371,8 @@ test.describe('Settings API', () => {
         { id: 'p1', type: 'openai', name: 'OpenAI', enabled: true, apiKey: 'sk-test1' },
         { id: 'p2', type: 'anthropic', name: 'Anthropic', enabled: true, apiKey: 'sk-test2' }
       ],
-      models: { assistant: { model: mockModel } },
+      models: orgModels,
+      modelMapping: mockModelMapping,
       quotas: defaultQuotas
     }
 
@@ -352,7 +387,8 @@ test.describe('Settings API', () => {
         { id: 'p1', type: 'openai', name: 'OpenAI', enabled: true },
         { id: 'p2', type: 'anthropic', name: 'Anthropic', enabled: true }
       ],
-      models: { assistant: { model: mockModel } },
+      models: orgModels,
+      modelMapping: mockModelMapping,
       quotas: defaultQuotas
     }
 
@@ -362,7 +398,8 @@ test.describe('Settings API', () => {
       providers: [
         { id: 'p1', type: 'openai', name: 'OpenAI', enabled: true }
       ],
-      models: { assistant: { model: mockModel } },
+      models: orgModels,
+      modelMapping: mockModelMapping,
       quotas: defaultQuotas
     }
 
@@ -375,7 +412,8 @@ test.describe('Settings API', () => {
   test('persists the storeTraces flag', async () => {
     const base = {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock', enabled: true }],
-      models: { assistant: { model: mockModel } },
+      models: orgModels,
+      modelMapping: mockModelMapping,
       quotas: defaultQuotas,
       storeTraces: true
     }
@@ -386,7 +424,8 @@ test.describe('Settings API', () => {
     // verify the default: omitting storeTraces should persist false
     const withoutFlag = {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock', enabled: true }],
-      models: { assistant: { model: mockModel } },
+      models: orgModels,
+      modelMapping: mockModelMapping,
       quotas: defaultQuotas
     }
     await admin.put('/api/settings/user/test-standalone1', withoutFlag)
