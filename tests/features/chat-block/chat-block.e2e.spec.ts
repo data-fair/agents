@@ -6,26 +6,10 @@
 
 import { expect, type Page } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
-import { clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
+import { clean, superAdmin } from '../../support/axios.ts'
+import { putMockSettings } from '../../support/settings.ts'
 
 const admin = await superAdmin
-
-const settingsData = {
-  providers: [
-    { id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }
-  ],
-  models: [
-    {
-      model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
-      usage: ['assistant'],
-      multiplier: 0
-    }
-  ],
-  modelMapping: {
-    assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' }
-  },
-  quotas: defaultQuotas
-}
 
 // The iframe URL carries an `?initConfig=<key>` param, so match on the pathname
 // (which also avoids matching the parent `/_dev/chat-block` frame).
@@ -49,7 +33,7 @@ async function waitForChatFrame (page: Page) {
 test.describe('Chat Block Integration', () => {
   test.beforeEach(async () => {
     await clean()
-    await admin.put('/api/settings/user/test-standalone1', settingsData)
+    await putMockSettings(admin, 'user/test-standalone1')
   })
 
   test('Block renders the chat iframe inline without any toggle', async ({ page, goToWithAuth }) => {

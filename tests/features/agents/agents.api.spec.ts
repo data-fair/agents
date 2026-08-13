@@ -6,37 +6,16 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { generateText } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
-import { axiosAuth, superAdmin, clean, directoryUrl, defaultQuotas } from '../../support/axios.ts'
+import { axiosAuth, superAdmin, clean, directoryUrl } from '../../support/axios.ts'
+import { putMockSettings } from '../../support/settings.ts'
 
 const user = await axiosAuth('test-standalone1')
 const admin = await superAdmin
 
-const settingsData = {
-  providers: [
-    {
-      id: 'mock-provider',
-      type: 'mock',
-      name: 'Mock Provider',
-      enabled: true
-    }
-  ],
-  models: [
-    {
-      model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
-      usage: ['assistant'],
-      multiplier: 0
-    }
-  ],
-  modelMapping: {
-    assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' }
-  },
-  quotas: defaultQuotas
-}
-
 test.describe('Chat API', () => {
   test.beforeEach(async () => {
     await clean()
-    await admin.put('/api/settings/user/test-standalone1', settingsData)
+    await putMockSettings(admin, 'user/test-standalone1')
   })
 
   test('should exchange messages through the gateway', async () => {
