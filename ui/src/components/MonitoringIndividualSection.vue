@@ -25,7 +25,6 @@
           <monitoring-user-histogram
             v-if="usersFetch.data.value"
             :users="filteredUsers"
-            :currency="currency"
           />
         </v-card-text>
       </v-card>
@@ -67,11 +66,6 @@ const { t } = useI18n()
 const usersFetch = useFetch<{ users: UserHistory[] }>(
   () => `${$apiPath}/usage/${props.accountType}/${props.accountId}/history?scope=users&days=7`
 )
-
-const currencyFetch = useFetch<{ currency: string }>(
-  () => `${$apiPath}/usage/${props.accountType}/${props.accountId}`
-)
-const currency = computed(() => currencyFetch.data.value?.currency || 'EUR')
 
 const weekDays = computed(() => {
   const days: { date: string, label: string }[] = []

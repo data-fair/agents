@@ -5,8 +5,8 @@
  * - resolveUsageIdentity: assert the caller may use the model and figure out how
  *   their usage is tracked (per-user / per-IP, and whether they belong to the
  *   untrusted anonymous+external pool).
- * - enforceQuotas: run the account-wide, untrusted-pool and per-user quotas in
- *   order and surface the first violation.
+ * - enforceQuotas: run the untrusted-pool and per-user quotas in order and
+ *   surface the first violation.
  */
 
 import crypto from 'node:crypto'
@@ -16,7 +16,7 @@ import { reqIp } from '@data-fair/lib-express/req-origin.js'
 import type { Settings } from '#types'
 import { assertCanUseModel, assertRoleQuota, getEffectiveRole, type EffectiveRole } from '../auth.ts'
 import { assertAnonymousActionToken } from '../anonymous-token/service.ts'
-import { getUsage, getOwnerUsage } from './service.ts'
+import { getUsage } from './service.ts'
 import { firstQuotaViolation, isUntrustedRole, type QuotaCheckInput, type QuotaExceeded } from './operations.ts'
 
 type Quotas = NonNullable<Settings['quotas']>
@@ -81,18 +81,13 @@ export async function resolveUsageIdentity (req: Request, owner: AccountKeys, qu
 }
 
 /**
- * Enforce account-wide, untrusted-pool and per-user quotas, in that order.
+ * Enforce the untrusted-pool and per-user quotas, in that order.
  * Returns the first violation (for a 429 response) or null when within all limits.
+ * The account-wide cap is not a quota any more: it is enforced from the
+ * account's credits limit.
  */
 export async function enforceQuotas (owner: AccountKeys, quotas: Quotas, identity: UsageIdentity): Promise<QuotaExceeded | null> {
   const checks: (QuotaCheckInput | null)[] = []
-
-  // account-wide cap (everyone combined)
-  const globalLimits = quotas.global
-  if (globalLimits && !globalLimits.unlimited && globalLimits.monthlyLimit) {
-    const usage = await getOwnerUsage(owner)
-    checks.push({ usage, limits: globalLimits, scope: identity.trackPerUser ? 'organization' : 'user' })
-  }
 
   // combined anonymous + external pool — caps untrusted traffic as a group
   if (identity.isUntrusted) {

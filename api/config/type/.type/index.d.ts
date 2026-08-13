@@ -62,7 +62,6 @@ export type ApiConfig = {
   };
   upgradeRoot?: string;
   cipherPassword: string;
-  currency: string;
   requireAnonymousActionToken: boolean;
   evaluatorAccount?: {
     type: "user" | "organization";

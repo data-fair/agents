@@ -5,9 +5,10 @@ import { fullFormats } from "ajv-formats/dist/formats.js";
 "use strict";
 export const validate = validate14;
 export default validate14;
-const schema16 = {"$id":"https://github.com/data-fair/agents/settings-put","x-exports":["validate","types","vjsf"],"title":"Settings put","x-i18n-title":{"en":"Settings","fr":"Paramètres"},"layout":{"title":null},"definitions":{"RoleQuota":{"type":"object","layout":"card","required":["unlimited","monthlyLimit"],"properties":{"unlimited":{"type":"boolean","title":"Unlimited","x-i18n-title":{"en":"Unlimited","fr":"Illimité"},"default":false},"monthlyLimit":{"layout":{"if":"!parent.data.unlimited"},"type":"number","title":"Monthly Limit","x-i18n-title":{"en":"Monthly Limit","fr":"Limite mensuelle"},"description":"Weekly limit = monthly / 2, daily limit = monthly / 4","x-i18n-description":{"en":"Weekly limit = monthly / 2, daily limit = monthly / 4","fr":"Limite hebdomadaire = mensuelle / 2, limite journalière = mensuelle / 4"},"default":0,"minimum":0}}},"Model":{"type":"object","required":["id","name","provider"],"layout":{"comp":"autocomplete","getItems":{"url":"${context.apiPath}/models/${context.accountType}/${context.accountId}?provider=${parent.parent.parent.data.providers.map(p => p.id).join(\",\")}","itemsResults":"data.results","itemTitle":"`${item.name} (${item.provider.name} - ${item.provider.id.slice(0, 8)})`","itemKey":"item.id"}},"properties":{"id":{"type":"string","title":"Model ID"},"name":{"type":"string","title":"Name"},"provider":{"type":"object","required":["type","name","id"],"properties":{"type":{"type":"string","title":"Provider Type"},"name":{"type":"string","title":"Provider Name"},"id":{"type":"string","title":"Provider ID"}}}}}},"type":"object","additionalProperties":false,"required":["providers"],"properties":{"createdAt":{"type":"string","format":"date-time","readOnly":true},"updatedAt":{"type":"string","format":"date-time","readOnly":true},"storeTraces":{"type":"boolean","title":"Store conversation traces","x-i18n-title":{"en":"Store conversation traces","fr":"Enregistrer les traces de conversation"},"description":"When enabled, conversations of consenting users are stored on the server for 30 days for admin review. Each user must explicitly accept.","x-i18n-description":{"en":"When enabled, conversations of consenting users are stored on the server for 30 days for admin review. Each user must explicitly accept.","fr":"Si activé, les conversations des utilisateurs consentants sont enregistrées sur le serveur pendant 30 jours pour relecture par un administrateur. Chaque utilisateur doit explicitement accepter."},"default":false},"owner":{"type":"object","additionalProperties":false,"required":["type","id"],"readOnly":true,"properties":{"type":{"type":"string","enum":["user","organization"]},"id":{"type":"string"},"name":{"type":"string"},"department":{"type":"string"}}},"providers":{"type":"array","title":"AI Providers","x-i18n-title":{"en":"AI Providers","fr":"Fournisseurs IA"},"layout":{"itemTitle":"item ? `${item.name || \"\"} - ${item.id.slice(0, 8)}` : \"\"","listActions":["add","edit","delete"]},"items":{"type":"object","title":"Provider","x-i18n-title":{"en":"Provider","fr":"Fournisseur"},"unevaluatedProperties":false,"oneOfLayout":{"emptyData":true},"discriminator":{"propertyName":"type"},"layout":{"getDefaultData":"{ id: crypto.randomUUID() }","switch":[{"if":"summary","children":[]}]},"oneOf":[{"required":["type","name","id","enabled"],"title":"Open AI","properties":{"type":{"type":"string","title":"Provider Type","const":"openai"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"Open AI\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true},"apiKey":{"type":"string","title":"API Key","x-i18n-title":{"en":"API Key","fr":"Clé API"}}}},{"required":["type","name","id","enabled"],"title":"Anthropic","properties":{"type":{"type":"string","title":"Provider Type","const":"anthropic"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"Anthropic\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true},"apiKey":{"type":"string","title":"API Key","x-i18n-title":{"en":"API Key","fr":"Clé API"}}}},{"required":["type","name","id","enabled"],"title":"Google","properties":{"type":{"type":"string","title":"Provider Type","const":"google"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"Google\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true},"apiKey":{"type":"string","title":"API Key","x-i18n-title":{"en":"API Key","fr":"Clé API"}}}},{"required":["type","name","id","enabled"],"title":"Mistral","properties":{"type":{"type":"string","title":"Provider Type","const":"mistral"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"Mistral\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true},"apiKey":{"type":"string","title":"API Key","x-i18n-title":{"en":"API Key","fr":"Clé API"}}}},{"required":["type","name","id","enabled"],"title":"OpenRouter","properties":{"type":{"type":"string","title":"Provider Type","const":"openrouter"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"OpenRouter\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true},"apiKey":{"type":"string","title":"API Key","x-i18n-title":{"en":"API Key","fr":"Clé API"}}}},{"required":["type","name","id","enabled","baseURL"],"title":"Ollama","properties":{"type":{"type":"string","title":"Provider Type","const":"ollama"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"Ollama\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true},"apiKey":{"type":"string","title":"API Key","x-i18n-title":{"en":"API Key","fr":"Clé API"}},"baseURL":{"type":"string","title":"Base URL","x-i18n-title":{"en":"Base URL","fr":"URL de base"},"default":"http://localhost:11434"}}},{"required":["type","name","id","enabled","apiKey"],"title":"Scaleway","description":"For an API key scoped to a specific Scaleway Project, set the Project ID so requests target that project. Leave it empty to use the organization default project.","x-i18n-description":{"en":"For an API key scoped to a specific Scaleway Project, set the Project ID so requests target that project. Leave it empty to use the organization default project.","fr":"Pour une clé API liée à un Projet Scaleway spécifique, renseignez l'ID du projet afin que les requêtes ciblent ce projet. Laissez vide pour utiliser le projet par défaut de l'organisation."},"properties":{"type":{"type":"string","title":"Provider Type","const":"scaleway"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"Scaleway\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true},"apiKey":{"type":"string","title":"API Key","x-i18n-title":{"en":"API Key","fr":"Clé API"}},"projectId":{"type":"string","title":"Project ID","x-i18n-title":{"en":"Project ID","fr":"ID du projet"},"description":"Optional. The Scaleway Project ID (UUID) the API key is scoped to. Required when the key only has access to a specific project, otherwise model listing and inference return 403.","x-i18n-description":{"en":"Optional. The Scaleway Project ID (UUID) the API key is scoped to. Required when the key only has access to a specific project, otherwise model listing and inference return 403.","fr":"Optionnel. L'ID du Projet Scaleway (UUID) auquel la clé API est liée. Requis lorsque la clé n'a accès qu'à un projet spécifique, sinon le listing des modèles et l'inférence renvoient une erreur 403."}}}},{"required":["type","name","id","enabled","baseURL"],"title":"OpenAI Compatible","x-i18n-title":{"en":"OpenAI Compatible","fr":"Compatible OpenAI"},"description":"Generic provider for any OpenAI-compatible endpoint (Together, Fireworks, Groq, DeepInfra, vLLM, LM Studio, etc.). API Key is optional for unauthenticated local servers.","x-i18n-description":{"en":"Generic provider for any OpenAI-compatible endpoint (Together, Fireworks, Groq, DeepInfra, vLLM, LM Studio, etc.). API Key is optional for unauthenticated local servers.","fr":"Fournisseur générique pour tout endpoint compatible OpenAI (Together, Fireworks, Groq, DeepInfra, vLLM, LM Studio, etc.). La clé API est optionnelle pour les serveurs locaux sans authentification."},"properties":{"type":{"type":"string","title":"Provider Type","const":"openai-compatible"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"OpenAI Compatible\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true},"baseURL":{"type":"string","title":"Base URL","x-i18n-title":{"en":"Base URL","fr":"URL de base"}},"apiKey":{"type":"string","title":"API Key","x-i18n-title":{"en":"API Key","fr":"Clé API"}},"compatibility":{"type":"string","title":"Compatibility Mode","x-i18n-title":{"en":"Compatibility Mode","fr":"Mode de compatibilité"},"description":"Use \"compatible\" for providers that do not support the new /v1/responses endpoint (e.g. LiteLLM, older OpenAI-compatible APIs). Leave empty for standard OpenAI behavior.","x-i18n-description":{"en":"Utilisez \"compatible\" pour les fournisseurs qui ne supportent pas le nouveau endpoint /v1/responses (ex: LiteLLM, anciennes APIs compatibles OpenAI). Laissez vide pour le comportement OpenAI standard.","fr":"Utilisez \"compatible\" pour les fournisseurs qui ne supportent pas le nouveau endpoint /v1/responses (ex: LiteLLM, anciennes APIs compatibles OpenAI). Laissez vide pour le comportement OpenAI standard."},"enum":["default","compatible"],"default":"default"}}},{"required":["type","name","id","enabled"],"title":"Mock","description":"To a message \"hello\" respond \"world\", to a message \"call tool ARG1 ARG2\" respond with a tool call, to anything else respond \"what do you mean ?\"","properties":{"type":{"type":"string","title":"Provider Type","const":"mock"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"Mock\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true}}}]}},"models":{"type":"object","title":"Models","x-i18n-title":{"en":"Models","fr":"Modèles"},"layout":{"title":null,"if":"parent.data.providers?.length"},"default":{},"properties":{"assistant":{"type":"object","title":"Assistant","description":"\nThe primary conversational interface. Balanced for reasoning, instruction-following, and human-like interaction. This model manages the high-level flow and delegates complex tasks to subagents.\n          \nRecommendations: GPT-5.4, Claude 4.5 Sonnet, Kimi K2, Mistral Large 3, etc.","x-i18n-title":{"en":"Assistant","fr":"Assistant"},"x-i18n-description":{"en":"The primary conversational interface. Balanced for reasoning, instruction-following, and human-like interaction. This model manages the high-level flow and delegates complex tasks to subagents.\n\nRecommendations: GPT-5.4, Claude 4.5 Sonnet, Kimi K2, Mistral Large 3, etc.","fr":"L'interface conversationnelle principale. Équilibré pour le raisonnement, le suivi d'instructions et l'interaction naturelle. Ce modèle gère le flux de haut niveau et délègue les tâches complexes aux sous-agents.\n\nRecommandations : GPT-5.4, Claude 4.5 Sonnet, Kimi K2, Mistral Large 3, etc."},"layout":{"comp":"card","children":[{"key":"model"},{"key":"inputPricePerMillion","cols":6},{"key":"outputPricePerMillion","cols":6}],"cols":6},"properties":{"model":{"$ref":"#/definitions/Model","title":"Model","x-i18n-title":{"en":"Model","fr":"Modèle"}},"inputPricePerMillion":{"type":"number","title":"Input price (per 1M tokens)","x-i18n-title":{"en":"Input price (per 1M tokens)","fr":"Prix d'entrée (par million de tokens)"},"default":0,"minimum":0},"outputPricePerMillion":{"type":"number","title":"Output price (per 1M tokens)","x-i18n-title":{"en":"Output price (per 1M tokens)","fr":"Prix de sortie (par million de tokens)"},"default":0,"minimum":0}}},"tools":{"type":"object","title":"Tools","description":"\nThe \"technician.\" Specialized in structured data and API interaction. It excels at chaining multiple tool calls without conversational filler, ensuring high reliability in automated workflows.\n\nRecommendations: GPT-5.4 Mini, Mistral DevStral, Claude 4.5 Sonnet (Computer Use), MiMo-V2-Flash, etc.","x-i18n-title":{"en":"Tools","fr":"Outils"},"x-i18n-description":{"en":"The \"technician.\" Specialized in structured data and API interaction. It excels at chaining multiple tool calls without conversational filler, ensuring high reliability in automated workflows.\n\nRecommendations: GPT-5.4 Mini, Mistral DevStral, Claude 4.5 Sonnet (Computer Use), MiMo-V2-Flash, etc.","fr":"Le « technicien ». Spécialisé dans les données structurées et l'interaction avec les API. Il excelle à enchaîner plusieurs appels d'outils sans remplissage conversationnel, garantissant une haute fiabilité dans les workflows automatisés.\n\nRecommandations : GPT-5.4 Mini, Mistral DevStral, Claude 4.5 Sonnet (Computer Use), MiMo-V2-Flash, etc."},"layout":{"comp":"card","children":[{"key":"model"},{"key":"inputPricePerMillion","cols":6},{"key":"outputPricePerMillion","cols":6}],"cols":6},"properties":{"model":{"$ref":"#/definitions/Model","title":"Model","x-i18n-title":{"en":"Model","fr":"Modèle"}},"inputPricePerMillion":{"type":"number","title":"Input price (per 1M tokens)","x-i18n-title":{"en":"Input price (per 1M tokens)","fr":"Prix d'entrée (par million de tokens)"},"default":0,"minimum":0},"outputPricePerMillion":{"type":"number","title":"Output price (per 1M tokens)","x-i18n-title":{"en":"Output price (per 1M tokens)","fr":"Prix de sortie (par million de tokens)"},"default":0,"minimum":0}}},"summarizer":{"type":"object","title":"Summarizer","description":"\nA \"shorthand\" specialist. Optimized for quickly distilling key points from small-to-medium text blocks. It focuses on high information density and brevity to keep context windows lean and costs low.\n          \nRecommendations: GPT-5.4 Mini, Claude 4.5 Haiku, Mistral Small 4, Qwen3 (8B), etc.","x-i18n-title":{"en":"Summarizer","fr":"Résumeur"},"x-i18n-description":{"en":"A \"shorthand\" specialist. Optimized for quickly distilling key points from small-to-medium text blocks. It focuses on high information density and brevity to keep context windows lean and costs low.\n\nRecommendations: GPT-5.4 Mini, Claude 4.5 Haiku, Mistral Small 4, Qwen3 (8B), etc.","fr":"Un spécialiste de la « synthèse ». Optimisé pour extraire rapidement les points clés de blocs de texte petits à moyens. Il privilégie la densité d'information et la concision pour garder les fenêtres de contexte légères et les coûts bas.\n\nRecommandations : GPT-5.4 Mini, Claude 4.5 Haiku, Mistral Small 4, Qwen3 (8B), etc."},"layout":{"comp":"card","children":[{"key":"model"},{"key":"inputPricePerMillion","cols":6},{"key":"outputPricePerMillion","cols":6}],"cols":6},"properties":{"model":{"$ref":"#/definitions/Model","title":"Model","x-i18n-title":{"en":"Model","fr":"Modèle"}},"inputPricePerMillion":{"type":"number","title":"Input price (per 1M tokens)","x-i18n-title":{"en":"Input price (per 1M tokens)","fr":"Prix d'entrée (par million de tokens)"},"default":0,"minimum":0},"outputPricePerMillion":{"type":"number","title":"Output price (per 1M tokens)","x-i18n-title":{"en":"Output price (per 1M tokens)","fr":"Prix de sortie (par million de tokens)"},"default":0,"minimum":0}}},"evaluator":{"type":"object","title":"Evaluator","description":"\nThe \"quality controller.\" Analyzes the assistant's logic and tool outputs for accuracy and safety. It requires the highest reasoning capabilities to act as a reliable ground truth for system performance.\n\nRecommendations: Claude Opus 4.6, GPT-5.4 (Reasoning), DeepSeek-R1, Pharia-1-LLM, etc.","x-i18n-title":{"en":"Evaluator","fr":"Évaluateur"},"x-i18n-description":{"en":"The \"quality controller.\" Analyzes the assistant's logic and tool outputs for accuracy and safety. It requires the highest reasoning capabilities to act as a reliable ground truth for system performance.\n\nRecommendations: Claude Opus 4.6, GPT-5.4 (Reasoning), DeepSeek-R1, Pharia-1-LLM, etc.","fr":"Le « contrôleur qualité ». Analyse la logique de l'assistant et les sorties des outils pour vérifier la précision et la sécurité. Il nécessite les capacités de raisonnement les plus élevées pour servir de référence fiable pour les performances du système.\n\nRecommandations : Claude Opus 4.6, GPT-5.4 (Reasoning), DeepSeek-R1, Pharia-1-LLM, etc."},"layout":{"comp":"card","children":[{"key":"model"},{"key":"inputPricePerMillion","cols":6},{"key":"outputPricePerMillion","cols":6}],"cols":6},"properties":{"model":{"$ref":"#/definitions/Model","title":"Model","x-i18n-title":{"en":"Model","fr":"Modèle"}},"inputPricePerMillion":{"type":"number","title":"Input price (per 1M tokens)","x-i18n-title":{"en":"Input price (per 1M tokens)","fr":"Prix d'entrée (par million de tokens)"},"default":0,"minimum":0},"outputPricePerMillion":{"type":"number","title":"Output price (per 1M tokens)","x-i18n-title":{"en":"Output price (per 1M tokens)","fr":"Prix de sortie (par million de tokens)"},"default":0,"minimum":0}}},"moderator":{"type":"object","title":"Moderator","description":"\nThe \"gatekeeper.\" Classifies each new user message for profanity, prompt-injection, persona override, and out-of-scope requests. Should be fast and cheap — it sits on the critical path to the first response token.\n\nRecommendations: a small/fast general-purpose model with structured (JSON) output support, e.g. Claude 4.5 Haiku, GPT-5.4 Mini, Mistral Small 4, Qwen3 (4B). Dedicated moderation classifiers (Llama Guard, moderation APIs) are not compatible: they use fixed taxonomies and output formats that cannot express this platform's custom policy.","x-i18n-title":{"en":"Moderator","fr":"Modérateur"},"x-i18n-description":{"en":"The \"gatekeeper.\" Classifies each new user message for profanity, prompt-injection, persona override, and out-of-scope requests. Should be fast and cheap — it sits on the critical path to the first response token.\n\nRecommendations: a small/fast general-purpose model with structured (JSON) output support, e.g. Claude 4.5 Haiku, GPT-5.4 Mini, Mistral Small 4, Qwen3 (4B). Dedicated moderation classifiers (Llama Guard, moderation APIs) are not compatible: they use fixed taxonomies and output formats that cannot express this platform's custom policy.","fr":"Le « gardien ». Classe chaque nouveau message utilisateur (grossièretés, injection de prompt, usurpation de persona, demandes hors périmètre). Doit être rapide et peu coûteux — il se trouve sur le chemin critique vers le premier token de réponse.\n\nRecommandations : un modèle généraliste petit et rapide avec support de sortie structurée (JSON), par ex. Claude 4.5 Haiku, GPT-5.4 Mini, Mistral Small 4, Qwen3 (4B). Les classifieurs de modération dédiés (Llama Guard, API de modération) ne sont pas compatibles : leurs taxonomies et formats de sortie fixes ne peuvent pas exprimer la politique spécifique de cette plateforme."},"layout":{"comp":"card","children":[{"key":"model"},{"key":"inputPricePerMillion","cols":6},{"key":"outputPricePerMillion","cols":6}],"cols":6},"properties":{"model":{"$ref":"#/definitions/Model","title":"Model","x-i18n-title":{"en":"Model","fr":"Modèle"}},"inputPricePerMillion":{"type":"number","title":"Input price (per 1M tokens)","x-i18n-title":{"en":"Input price (per 1M tokens)","fr":"Prix d'entrée (par million de tokens)"},"default":0,"minimum":0},"outputPricePerMillion":{"type":"number","title":"Output price (per 1M tokens)","x-i18n-title":{"en":"Output price (per 1M tokens)","fr":"Prix de sortie (par million de tokens)"},"default":0,"minimum":0}}}}},"moderation":{"type":"object","title":"Input moderation","x-i18n-title":{"en":"Input moderation","fr":"Modération des entrées"},"layout":{"if":"parent.data.providers?.length"},"default":{"enabled":false,"categories":["anonymous","external"]},"required":["enabled","categories"],"additionalProperties":false,"properties":{"enabled":{"type":"boolean","title":"Enable input moderation","x-i18n-title":{"en":"Enable input moderation","fr":"Activer la modération des entrées"},"description":"When enabled, the last user message of each request from a moderated category is classified before the model responds.","x-i18n-description":{"en":"When enabled, the last user message of each request from a moderated category is classified before the model responds.","fr":"Si activé, le dernier message utilisateur de chaque requête provenant d'une catégorie modérée est classé avant la réponse du modèle."},"default":false},"categories":{"type":"array","uniqueItems":true,"default":["anonymous","external"],"title":"Moderated user categories","x-i18n-title":{"en":"Moderated user categories","fr":"Catégories d'utilisateurs modérées"},"description":"User categories whose requests are checked by the gate when moderation is enabled.","x-i18n-description":{"en":"User categories whose requests are checked by the gate when moderation is enabled.","fr":"Catégories d'utilisateurs dont les requêtes sont vérifiées par le filtre lorsque la modération est activée."},"items":{"type":"string","oneOf":[{"const":"anonymous","title":"Anonymous","x-i18n-title":{"en":"Anonymous","fr":"Anonyme"}},{"const":"external","title":"External","x-i18n-title":{"en":"External","fr":"Externe"}},{"const":"user","title":"User","x-i18n-title":{"en":"User","fr":"Utilisateur"}},{"const":"contrib","title":"Contributor","x-i18n-title":{"en":"Contributor","fr":"Contributeur"}},{"const":"admin","title":"Admin","x-i18n-title":{"en":"Admin","fr":"Administrateur"}}]}}}},"quotas":{"type":"object","title":"Role Quotas","x-i18n-title":{"en":"Role Quotas","fr":"Quotas par rôle"},"layout":{"title":null,"if":"parent.data.providers?.length","children":[{"key":"global","cols":{"sm":6,"md":4}},{"key":"admin","cols":{"sm":6,"md":4}},{"key":"contrib","cols":{"sm":6,"md":4},"if":"context.accountType === \"organization\""},{"key":"user","cols":{"sm":6,"md":4},"if":"context.accountType === \"organization\""},{"key":"external","cols":{"sm":6,"md":4}},{"key":"anonymous","cols":{"sm":6,"md":4}},{"key":"untrusted","cols":{"sm":6,"md":4}}]},"required":["global","admin","contrib","user","external","anonymous"],"default":{"global":{"unlimited":false,"monthlyLimit":10},"admin":{"unlimited":true,"monthlyLimit":0},"contrib":{"unlimited":false,"monthlyLimit":0},"user":{"unlimited":false,"monthlyLimit":0},"external":{"unlimited":false,"monthlyLimit":0},"anonymous":{"unlimited":false,"monthlyLimit":0},"untrusted":{"unlimited":false,"monthlyLimit":0}},"properties":{"global":{"$ref":"#/definitions/RoleQuota","title":"Global quotas","x-i18n-title":{"en":"Global quotas","fr":"Quotas globaux"},"default":{"unlimited":false,"monthlyLimit":10}},"admin":{"$ref":"#/definitions/RoleQuota","title":"Admin quotas","x-i18n-title":{"en":"Admin quotas","fr":"Quotas administrateur"},"default":{"unlimited":true,"monthlyLimit":0}},"contrib":{"$ref":"#/definitions/RoleQuota","title":"Contributor quotas","x-i18n-title":{"en":"Contributor quotas","fr":"Quotas contributeur"},"default":{"unlimited":false,"monthlyLimit":0}},"user":{"$ref":"#/definitions/RoleQuota","title":"Simple user Quotas","x-i18n-title":{"en":"Simple user Quotas","fr":"Quotas utilisateur simple"},"default":{"unlimited":false,"monthlyLimit":0}},"external":{"$ref":"#/definitions/RoleQuota","title":"External user quotas","x-i18n-title":{"en":"External user quotas","fr":"Quotas utilisateur externe"},"default":{"unlimited":false,"monthlyLimit":0}},"anonymous":{"$ref":"#/definitions/RoleQuota","title":"Anonymous user quotas","x-i18n-title":{"en":"Anonymous user quotas","fr":"Quotas utilisateur anonyme"},"default":{"unlimited":false,"monthlyLimit":0}},"untrusted":{"$ref":"#/definitions/RoleQuota","title":"Anonymous + external pool","x-i18n-title":{"en":"Anonymous + external pool","fr":"Réserve anonyme + externe"},"description":"Aggregate cap shared by all anonymous and external usage combined, so untrusted traffic cannot consume the whole account budget. 0 = no pool cap.","x-i18n-description":{"en":"Aggregate cap shared by all anonymous and external usage combined, so untrusted traffic cannot consume the whole account budget. 0 = no pool cap.","fr":"Plafond agrégé partagé par l'ensemble des usages anonymes et externes, afin que le trafic non fiable ne puisse pas consommer tout le budget du compte. 0 = pas de plafond de réserve."},"default":{"unlimited":false,"monthlyLimit":0}}}}},"x-vjsf":{"xI18n":true,"pluginsImports":["@koumoul/vjsf-markdown"]},"x-vjsf-locales":["en","fr"]};
-const schema17 = {"type":"object","required":["id","name","provider"],"layout":{"comp":"autocomplete","getItems":{"url":"${context.apiPath}/models/${context.accountType}/${context.accountId}?provider=${parent.parent.parent.data.providers.map(p => p.id).join(\",\")}","itemsResults":"data.results","itemTitle":"`${item.name} (${item.provider.name} - ${item.provider.id.slice(0, 8)})`","itemKey":"item.id"}},"properties":{"id":{"type":"string","title":"Model ID"},"name":{"type":"string","title":"Name"},"provider":{"type":"object","required":["type","name","id"],"properties":{"type":{"type":"string","title":"Provider Type"},"name":{"type":"string","title":"Provider Name"},"id":{"type":"string","title":"Provider ID"}}}}};
-const schema22 = {"type":"object","layout":"card","required":["unlimited","monthlyLimit"],"properties":{"unlimited":{"type":"boolean","title":"Unlimited","x-i18n-title":{"en":"Unlimited","fr":"Illimité"},"default":false},"monthlyLimit":{"layout":{"if":"!parent.data.unlimited"},"type":"number","title":"Monthly Limit","x-i18n-title":{"en":"Monthly Limit","fr":"Limite mensuelle"},"description":"Weekly limit = monthly / 2, daily limit = monthly / 4","x-i18n-description":{"en":"Weekly limit = monthly / 2, daily limit = monthly / 4","fr":"Limite hebdomadaire = mensuelle / 2, limite journalière = mensuelle / 4"},"default":0,"minimum":0}}};
+const schema16 = {"$id":"https://github.com/data-fair/agents/settings-put","x-exports":["validate","types","vjsf"],"title":"Settings put","x-i18n-title":{"en":"Settings","fr":"Paramètres"},"layout":{"title":null},"definitions":{"RoleQuota":{"type":"object","layout":"card","required":["unlimited","monthlyLimit"],"properties":{"unlimited":{"type":"boolean","title":"Unlimited","x-i18n-title":{"en":"Unlimited","fr":"Illimité"},"default":false},"monthlyLimit":{"layout":{"if":"!parent.data.unlimited"},"type":"number","title":"Monthly Limit","x-i18n-title":{"en":"Monthly Limit","fr":"Limite mensuelle"},"description":"Weekly limit = monthly / 2, daily limit = monthly / 4","x-i18n-description":{"en":"Weekly limit = monthly / 2, daily limit = monthly / 4","fr":"Limite hebdomadaire = mensuelle / 2, limite journalière = mensuelle / 4"},"default":0,"minimum":0}}},"Model":{"type":"object","required":["id","name","provider"],"layout":{"comp":"autocomplete","getItems":{"url":"${context.apiPath}/models/${context.accountType}/${context.accountId}?provider=${(rootData.providers || []).map(p => p.id).join(\",\")}","itemsResults":"data.results","itemTitle":"`${item.name} (${item.provider.name} - ${item.provider.id.slice(0, 8)})`","itemKey":"item.id"}},"properties":{"id":{"type":"string","title":"Model ID"},"name":{"type":"string","title":"Name"},"provider":{"type":"object","required":["type","name","id"],"properties":{"type":{"type":"string","title":"Provider Type"},"name":{"type":"string","title":"Provider Name"},"id":{"type":"string","title":"Provider ID"}}}}}},"type":"object","additionalProperties":false,"required":["providers"],"properties":{"createdAt":{"type":"string","format":"date-time","readOnly":true},"updatedAt":{"type":"string","format":"date-time","readOnly":true},"storeTraces":{"type":"boolean","title":"Store conversation traces","x-i18n-title":{"en":"Store conversation traces","fr":"Enregistrer les traces de conversation"},"description":"When enabled, conversations of consenting users are stored on the server for 30 days for admin review. Each user must explicitly accept.","x-i18n-description":{"en":"When enabled, conversations of consenting users are stored on the server for 30 days for admin review. Each user must explicitly accept.","fr":"Si activé, les conversations des utilisateurs consentants sont enregistrées sur le serveur pendant 30 jours pour relecture par un administrateur. Chaque utilisateur doit explicitement accepter."},"default":false},"owner":{"type":"object","additionalProperties":false,"required":["type","id"],"readOnly":true,"properties":{"type":{"type":"string","enum":["user","organization"]},"id":{"type":"string"},"name":{"type":"string"},"department":{"type":"string"}}},"providers":{"type":"array","title":"AI Providers","x-i18n-title":{"en":"AI Providers","fr":"Fournisseurs IA"},"layout":{"itemTitle":"item ? `${item.name || \"\"} - ${item.id.slice(0, 8)}` : \"\"","listActions":["add","edit","delete"]},"items":{"type":"object","title":"Provider","x-i18n-title":{"en":"Provider","fr":"Fournisseur"},"unevaluatedProperties":false,"oneOfLayout":{"emptyData":true},"discriminator":{"propertyName":"type"},"layout":{"getDefaultData":"{ id: crypto.randomUUID() }","switch":[{"if":"summary","children":[]}]},"oneOf":[{"required":["type","name","id","enabled"],"title":"Open AI","properties":{"type":{"type":"string","title":"Provider Type","const":"openai"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"Open AI\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true},"apiKey":{"type":"string","title":"API Key","x-i18n-title":{"en":"API Key","fr":"Clé API"}}}},{"required":["type","name","id","enabled"],"title":"Anthropic","properties":{"type":{"type":"string","title":"Provider Type","const":"anthropic"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"Anthropic\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true},"apiKey":{"type":"string","title":"API Key","x-i18n-title":{"en":"API Key","fr":"Clé API"}}}},{"required":["type","name","id","enabled"],"title":"Google","properties":{"type":{"type":"string","title":"Provider Type","const":"google"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"Google\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true},"apiKey":{"type":"string","title":"API Key","x-i18n-title":{"en":"API Key","fr":"Clé API"}}}},{"required":["type","name","id","enabled"],"title":"Mistral","properties":{"type":{"type":"string","title":"Provider Type","const":"mistral"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"Mistral\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true},"apiKey":{"type":"string","title":"API Key","x-i18n-title":{"en":"API Key","fr":"Clé API"}}}},{"required":["type","name","id","enabled"],"title":"OpenRouter","properties":{"type":{"type":"string","title":"Provider Type","const":"openrouter"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"OpenRouter\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true},"apiKey":{"type":"string","title":"API Key","x-i18n-title":{"en":"API Key","fr":"Clé API"}}}},{"required":["type","name","id","enabled","baseURL"],"title":"Ollama","properties":{"type":{"type":"string","title":"Provider Type","const":"ollama"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"Ollama\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true},"apiKey":{"type":"string","title":"API Key","x-i18n-title":{"en":"API Key","fr":"Clé API"}},"baseURL":{"type":"string","title":"Base URL","x-i18n-title":{"en":"Base URL","fr":"URL de base"},"default":"http://localhost:11434"}}},{"required":["type","name","id","enabled","apiKey"],"title":"Scaleway","description":"For an API key scoped to a specific Scaleway Project, set the Project ID so requests target that project. Leave it empty to use the organization default project.","x-i18n-description":{"en":"For an API key scoped to a specific Scaleway Project, set the Project ID so requests target that project. Leave it empty to use the organization default project.","fr":"Pour une clé API liée à un Projet Scaleway spécifique, renseignez l'ID du projet afin que les requêtes ciblent ce projet. Laissez vide pour utiliser le projet par défaut de l'organisation."},"properties":{"type":{"type":"string","title":"Provider Type","const":"scaleway"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"Scaleway\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true},"apiKey":{"type":"string","title":"API Key","x-i18n-title":{"en":"API Key","fr":"Clé API"}},"projectId":{"type":"string","title":"Project ID","x-i18n-title":{"en":"Project ID","fr":"ID du projet"},"description":"Optional. The Scaleway Project ID (UUID) the API key is scoped to. Required when the key only has access to a specific project, otherwise model listing and inference return 403.","x-i18n-description":{"en":"Optional. The Scaleway Project ID (UUID) the API key is scoped to. Required when the key only has access to a specific project, otherwise model listing and inference return 403.","fr":"Optionnel. L'ID du Projet Scaleway (UUID) auquel la clé API est liée. Requis lorsque la clé n'a accès qu'à un projet spécifique, sinon le listing des modèles et l'inférence renvoient une erreur 403."}}}},{"required":["type","name","id","enabled","baseURL"],"title":"OpenAI Compatible","x-i18n-title":{"en":"OpenAI Compatible","fr":"Compatible OpenAI"},"description":"Generic provider for any OpenAI-compatible endpoint (Together, Fireworks, Groq, DeepInfra, vLLM, LM Studio, etc.). API Key is optional for unauthenticated local servers.","x-i18n-description":{"en":"Generic provider for any OpenAI-compatible endpoint (Together, Fireworks, Groq, DeepInfra, vLLM, LM Studio, etc.). API Key is optional for unauthenticated local servers.","fr":"Fournisseur générique pour tout endpoint compatible OpenAI (Together, Fireworks, Groq, DeepInfra, vLLM, LM Studio, etc.). La clé API est optionnelle pour les serveurs locaux sans authentification."},"properties":{"type":{"type":"string","title":"Provider Type","const":"openai-compatible"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"OpenAI Compatible\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true},"baseURL":{"type":"string","title":"Base URL","x-i18n-title":{"en":"Base URL","fr":"URL de base"}},"apiKey":{"type":"string","title":"API Key","x-i18n-title":{"en":"API Key","fr":"Clé API"}},"compatibility":{"type":"string","title":"Compatibility Mode","x-i18n-title":{"en":"Compatibility Mode","fr":"Mode de compatibilité"},"description":"Use \"compatible\" for providers that do not support the new /v1/responses endpoint (e.g. LiteLLM, older OpenAI-compatible APIs). Leave empty for standard OpenAI behavior.","x-i18n-description":{"en":"Utilisez \"compatible\" pour les fournisseurs qui ne supportent pas le nouveau endpoint /v1/responses (ex: LiteLLM, anciennes APIs compatibles OpenAI). Laissez vide pour le comportement OpenAI standard.","fr":"Utilisez \"compatible\" pour les fournisseurs qui ne supportent pas le nouveau endpoint /v1/responses (ex: LiteLLM, anciennes APIs compatibles OpenAI). Laissez vide pour le comportement OpenAI standard."},"enum":["default","compatible"],"default":"default"}}},{"required":["type","name","id","enabled"],"title":"Mock","description":"To a message \"hello\" respond \"world\", to a message \"call tool ARG1 ARG2\" respond with a tool call, to anything else respond \"what do you mean ?\"","properties":{"type":{"type":"string","title":"Provider Type","const":"mock"},"id":{"type":"string","title":"Provider ID","x-i18n-title":{"en":"Provider ID","fr":"ID du fournisseur"},"readOnly":true},"name":{"type":"string","title":"Display Name","x-i18n-title":{"en":"Display Name","fr":"Nom d'affichage"},"layout":{"getDefaultData":"\"Mock\""}},"enabled":{"type":"boolean","title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"},"default":true}}}]}},"models":{"type":"array","title":"Models","x-i18n-title":{"en":"Models","fr":"Modèles"},"default":[],"layout":{"if":"parent.data.providers?.length","itemTitle":"item?.model ? `${item.model.name} (${item.usage?.join(\", \")})` : \"\"","listActions":["add","edit","delete"]},"items":{"type":"object","additionalProperties":false,"required":["model","usage"],"properties":{"model":{"$ref":"#/definitions/Model","title":"Model","x-i18n-title":{"en":"Model","fr":"Modèle"}},"usage":{"type":"array","uniqueItems":true,"minItems":1,"title":"Appropriate usages","x-i18n-title":{"en":"Appropriate usages","fr":"Usages appropriés"},"items":{"type":"string","oneOf":[{"const":"assistant","title":"Assistant"},{"const":"tools","title":"Tools","x-i18n-title":{"en":"Tools","fr":"Outils"}},{"const":"summarizer","title":"Summarizer","x-i18n-title":{"en":"Summarizer","fr":"Résumeur"}},{"const":"evaluator","title":"Evaluator","x-i18n-title":{"en":"Evaluator","fr":"Évaluateur"}},{"const":"moderator","title":"Moderator","x-i18n-title":{"en":"Moderator","fr":"Modérateur"}}]}},"multiplier":{"type":"number","minimum":0,"default":1,"title":"Credit multiplier","x-i18n-title":{"en":"Credit multiplier","fr":"Multiplicateur de crédits"},"description":"credits = (input tokens + output tokens × output weight) / 1M × multiplier","x-i18n-description":{"en":"credits = (input tokens + output tokens × output weight) / 1M × multiplier","fr":"crédits = (tokens d'entrée + tokens de sortie × poids de sortie) / 1M × multiplicateur"}}}}},"modelMapping":{"type":"object","additionalProperties":false,"title":"Model roles","x-i18n-title":{"en":"Model roles","fr":"Rôles de modèles"},"layout":{"if":"parent.data.providers?.length"},"properties":{"assistant":{"type":"object","additionalProperties":false,"required":["provider","id"],"title":"Assistant","x-i18n-title":{"en":"Assistant","fr":"Assistant"},"description":"The primary conversational interface. Balanced for reasoning, instruction-following, and human-like interaction. This model manages the high-level flow and delegates complex tasks to subagents.","x-i18n-description":{"en":"The primary conversational interface. Balanced for reasoning, instruction-following, and human-like interaction. This model manages the high-level flow and delegates complex tasks to subagents.","fr":"L'interface conversationnelle principale. Équilibré pour le raisonnement, le suivi d'instructions et l'interaction naturelle. Ce modèle gère le flux de haut niveau et délègue les tâches complexes aux sous-agents."},"layout":{"comp":"autocomplete","cols":{"md":6},"getItems":{"url":"${context.apiPath}/catalog/${context.accountType}/${context.accountId}?usage=assistant","itemsResults":"data.results","itemTitle":"`${item.name} (${item.provider.name})`","itemKey":"item.provider.id + \":\" + item.id","itemValue":"({ provider: item.provider.id, id: item.id, name: item.name })"}},"properties":{"provider":{"type":"string"},"id":{"type":"string"},"name":{"type":"string"}}},"tools":{"type":"object","additionalProperties":false,"required":["provider","id"],"title":"Tools","x-i18n-title":{"en":"Tools","fr":"Outils"},"description":"The \"technician.\" Specialized in structured data and API interaction. It excels at chaining multiple tool calls without conversational filler, ensuring high reliability in automated workflows.","x-i18n-description":{"en":"The \"technician.\" Specialized in structured data and API interaction. It excels at chaining multiple tool calls without conversational filler, ensuring high reliability in automated workflows.","fr":"Le « technicien ». Spécialisé dans les données structurées et l'interaction avec les API. Il excelle à enchaîner plusieurs appels d'outils sans remplissage conversationnel, garantissant une haute fiabilité dans les workflows automatisés."},"layout":{"comp":"autocomplete","cols":{"md":6},"getItems":{"url":"${context.apiPath}/catalog/${context.accountType}/${context.accountId}?usage=tools","itemsResults":"data.results","itemTitle":"`${item.name} (${item.provider.name})`","itemKey":"item.provider.id + \":\" + item.id","itemValue":"({ provider: item.provider.id, id: item.id, name: item.name })"}},"properties":{"provider":{"type":"string"},"id":{"type":"string"},"name":{"type":"string"}}},"summarizer":{"type":"object","additionalProperties":false,"required":["provider","id"],"title":"Summarizer","x-i18n-title":{"en":"Summarizer","fr":"Résumeur"},"description":"A \"shorthand\" specialist. Optimized for quickly distilling key points from small-to-medium text blocks. It focuses on high information density and brevity to keep context windows lean and costs low.","x-i18n-description":{"en":"A \"shorthand\" specialist. Optimized for quickly distilling key points from small-to-medium text blocks. It focuses on high information density and brevity to keep context windows lean and costs low.","fr":"Un spécialiste de la « synthèse ». Optimisé pour extraire rapidement les points clés de blocs de texte petits à moyens. Il privilégie la densité d'information et la concision pour garder les fenêtres de contexte légères et les coûts bas."},"layout":{"comp":"autocomplete","cols":{"md":6},"getItems":{"url":"${context.apiPath}/catalog/${context.accountType}/${context.accountId}?usage=summarizer","itemsResults":"data.results","itemTitle":"`${item.name} (${item.provider.name})`","itemKey":"item.provider.id + \":\" + item.id","itemValue":"({ provider: item.provider.id, id: item.id, name: item.name })"}},"properties":{"provider":{"type":"string"},"id":{"type":"string"},"name":{"type":"string"}}},"evaluator":{"type":"object","additionalProperties":false,"required":["provider","id"],"title":"Evaluator","x-i18n-title":{"en":"Evaluator","fr":"Évaluateur"},"description":"The \"quality controller.\" Analyzes the assistant's logic and tool outputs for accuracy and safety. It requires the highest reasoning capabilities to act as a reliable ground truth for system performance.","x-i18n-description":{"en":"The \"quality controller.\" Analyzes the assistant's logic and tool outputs for accuracy and safety. It requires the highest reasoning capabilities to act as a reliable ground truth for system performance.","fr":"Le « contrôleur qualité ». Analyse la logique de l'assistant et les sorties des outils pour vérifier la précision et la sécurité. Il nécessite les capacités de raisonnement les plus élevées pour servir de référence fiable pour les performances du système."},"layout":{"comp":"autocomplete","cols":{"md":6},"getItems":{"url":"${context.apiPath}/catalog/${context.accountType}/${context.accountId}?usage=evaluator","itemsResults":"data.results","itemTitle":"`${item.name} (${item.provider.name})`","itemKey":"item.provider.id + \":\" + item.id","itemValue":"({ provider: item.provider.id, id: item.id, name: item.name })"}},"properties":{"provider":{"type":"string"},"id":{"type":"string"},"name":{"type":"string"}}},"moderator":{"type":"object","additionalProperties":false,"required":["provider","id"],"title":"Moderator","x-i18n-title":{"en":"Moderator","fr":"Modérateur"},"description":"The \"gatekeeper.\" Classifies each new user message for profanity, prompt-injection, persona override, and out-of-scope requests. Should be fast and cheap — it sits on the critical path to the first response token. Dedicated moderation classifiers (Llama Guard, moderation APIs) are not compatible: they use fixed taxonomies and output formats that cannot express this platform's custom policy.","x-i18n-description":{"en":"The \"gatekeeper.\" Classifies each new user message for profanity, prompt-injection, persona override, and out-of-scope requests. Should be fast and cheap — it sits on the critical path to the first response token. Dedicated moderation classifiers (Llama Guard, moderation APIs) are not compatible: they use fixed taxonomies and output formats that cannot express this platform's custom policy.","fr":"Le « gardien ». Classe chaque nouveau message utilisateur (grossièretés, injection de prompt, usurpation de persona, demandes hors périmètre). Doit être rapide et peu coûteux — il se trouve sur le chemin critique vers le premier token de réponse. Les classifieurs de modération dédiés (Llama Guard, API de modération) ne sont pas compatibles : leurs taxonomies et formats de sortie fixes ne peuvent pas exprimer la politique spécifique de cette plateforme."},"layout":{"comp":"autocomplete","cols":{"md":6},"getItems":{"url":"${context.apiPath}/catalog/${context.accountType}/${context.accountId}?usage=moderator","itemsResults":"data.results","itemTitle":"`${item.name} (${item.provider.name})`","itemKey":"item.provider.id + \":\" + item.id","itemValue":"({ provider: item.provider.id, id: item.id, name: item.name })"}},"properties":{"provider":{"type":"string"},"id":{"type":"string"},"name":{"type":"string"}}}}},"moderation":{"type":"object","title":"Input moderation","x-i18n-title":{"en":"Input moderation","fr":"Modération des entrées"},"layout":{"if":"parent.data.providers?.length"},"default":{"enabled":false,"categories":["anonymous","external"]},"required":["enabled","categories"],"additionalProperties":false,"properties":{"enabled":{"type":"boolean","title":"Enable input moderation","x-i18n-title":{"en":"Enable input moderation","fr":"Activer la modération des entrées"},"description":"When enabled, the last user message of each request from a moderated category is classified before the model responds.","x-i18n-description":{"en":"When enabled, the last user message of each request from a moderated category is classified before the model responds.","fr":"Si activé, le dernier message utilisateur de chaque requête provenant d'une catégorie modérée est classé avant la réponse du modèle."},"default":false},"categories":{"type":"array","uniqueItems":true,"default":["anonymous","external"],"title":"Moderated user categories","x-i18n-title":{"en":"Moderated user categories","fr":"Catégories d'utilisateurs modérées"},"description":"User categories whose requests are checked by the gate when moderation is enabled.","x-i18n-description":{"en":"User categories whose requests are checked by the gate when moderation is enabled.","fr":"Catégories d'utilisateurs dont les requêtes sont vérifiées par le filtre lorsque la modération est activée."},"items":{"type":"string","oneOf":[{"const":"anonymous","title":"Anonymous","x-i18n-title":{"en":"Anonymous","fr":"Anonyme"}},{"const":"external","title":"External","x-i18n-title":{"en":"External","fr":"Externe"}},{"const":"user","title":"User","x-i18n-title":{"en":"User","fr":"Utilisateur"}},{"const":"contrib","title":"Contributor","x-i18n-title":{"en":"Contributor","fr":"Contributeur"}},{"const":"admin","title":"Admin","x-i18n-title":{"en":"Admin","fr":"Administrateur"}}]}}}},"quotas":{"type":"object","title":"Role Quotas","x-i18n-title":{"en":"Role Quotas","fr":"Quotas par rôle"},"layout":{"title":null,"if":"parent.data.providers?.length","children":[{"key":"admin","cols":{"sm":6,"md":4}},{"key":"contrib","cols":{"sm":6,"md":4},"if":"context.accountType === \"organization\""},{"key":"user","cols":{"sm":6,"md":4},"if":"context.accountType === \"organization\""},{"key":"external","cols":{"sm":6,"md":4}},{"key":"anonymous","cols":{"sm":6,"md":4}},{"key":"untrusted","cols":{"sm":6,"md":4}}]},"required":["admin","contrib","user","external","anonymous"],"default":{"admin":{"unlimited":true,"monthlyLimit":0},"contrib":{"unlimited":false,"monthlyLimit":0},"user":{"unlimited":false,"monthlyLimit":0},"external":{"unlimited":false,"monthlyLimit":0},"anonymous":{"unlimited":false,"monthlyLimit":0},"untrusted":{"unlimited":false,"monthlyLimit":0}},"properties":{"admin":{"$ref":"#/definitions/RoleQuota","title":"Admin quotas","x-i18n-title":{"en":"Admin quotas","fr":"Quotas administrateur"},"default":{"unlimited":true,"monthlyLimit":0}},"contrib":{"$ref":"#/definitions/RoleQuota","title":"Contributor quotas","x-i18n-title":{"en":"Contributor quotas","fr":"Quotas contributeur"},"default":{"unlimited":false,"monthlyLimit":0}},"user":{"$ref":"#/definitions/RoleQuota","title":"Simple user Quotas","x-i18n-title":{"en":"Simple user Quotas","fr":"Quotas utilisateur simple"},"default":{"unlimited":false,"monthlyLimit":0}},"external":{"$ref":"#/definitions/RoleQuota","title":"External user quotas","x-i18n-title":{"en":"External user quotas","fr":"Quotas utilisateur externe"},"default":{"unlimited":false,"monthlyLimit":0}},"anonymous":{"$ref":"#/definitions/RoleQuota","title":"Anonymous user quotas","x-i18n-title":{"en":"Anonymous user quotas","fr":"Quotas utilisateur anonyme"},"default":{"unlimited":false,"monthlyLimit":0}},"untrusted":{"$ref":"#/definitions/RoleQuota","title":"Anonymous + external pool","x-i18n-title":{"en":"Anonymous + external pool","fr":"Réserve anonyme + externe"},"description":"Aggregate cap shared by all anonymous and external usage combined, so untrusted traffic cannot consume the whole account budget. 0 = no pool cap.","x-i18n-description":{"en":"Aggregate cap shared by all anonymous and external usage combined, so untrusted traffic cannot consume the whole account budget. 0 = no pool cap.","fr":"Plafond agrégé partagé par l'ensemble des usages anonymes et externes, afin que le trafic non fiable ne puisse pas consommer tout le budget du compte. 0 = pas de plafond de réserve."},"default":{"unlimited":false,"monthlyLimit":0}}}}},"x-vjsf":{"xI18n":true,"pluginsImports":["@koumoul/vjsf-markdown"]},"x-vjsf-locales":["en","fr"]};
+const schema17 = {"type":"object","required":["id","name","provider"],"layout":{"comp":"autocomplete","getItems":{"url":"${context.apiPath}/models/${context.accountType}/${context.accountId}?provider=${(rootData.providers || []).map(p => p.id).join(\",\")}","itemsResults":"data.results","itemTitle":"`${item.name} (${item.provider.name} - ${item.provider.id.slice(0, 8)})`","itemKey":"item.id"}},"properties":{"id":{"type":"string","title":"Model ID"},"name":{"type":"string","title":"Name"},"provider":{"type":"object","required":["type","name","id"],"properties":{"type":{"type":"string","title":"Provider Type"},"name":{"type":"string","title":"Provider Name"},"id":{"type":"string","title":"Provider ID"}}}}};
+const schema18 = {"type":"object","layout":"card","required":["unlimited","monthlyLimit"],"properties":{"unlimited":{"type":"boolean","title":"Unlimited","x-i18n-title":{"en":"Unlimited","fr":"Illimité"},"default":false},"monthlyLimit":{"layout":{"if":"!parent.data.unlimited"},"type":"number","title":"Monthly Limit","x-i18n-title":{"en":"Monthly Limit","fr":"Limite mensuelle"},"description":"Weekly limit = monthly / 2, daily limit = monthly / 4","x-i18n-description":{"en":"Weekly limit = monthly / 2, daily limit = monthly / 4","fr":"Limite hebdomadaire = mensuelle / 2, limite journalière = mensuelle / 4"},"default":0,"minimum":0}}};
+const func2 = Object.prototype.hasOwnProperty;
 const formats0 = fullFormats["date-time"];
 
 function validate14(data, {instancePath="", parentData, parentDataProperty, rootData=data}={}){
@@ -26,7 +27,7 @@ vErrors.push(err0);
 errors++;
 }
 for(const key0 in data){
-if(!((((((((key0 === "createdAt") || (key0 === "updatedAt")) || (key0 === "storeTraces")) || (key0 === "owner")) || (key0 === "providers")) || (key0 === "models")) || (key0 === "moderation")) || (key0 === "quotas"))){
+if(!(func2.call(schema16.properties, key0))){
 const err1 = {instancePath,schemaPath:"#/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties"};
 if(vErrors === null){
 vErrors = [err1];
@@ -1456,15 +1457,13 @@ errors++;
 }
 if(data.models !== undefined){
 let data58 = data.models;
-if(data58 && typeof data58 == "object" && !Array.isArray(data58)){
-if(data58.assistant !== undefined){
-let data59 = data58.assistant;
+if(Array.isArray(data58)){
+const len1 = data58.length;
+for(let i1=0; i1<len1; i1++){
+let data59 = data58[i1];
 if(data59 && typeof data59 == "object" && !Array.isArray(data59)){
-if(data59.model !== undefined){
-let data60 = data59.model;
-if(data60 && typeof data60 == "object" && !Array.isArray(data60)){
-if(data60.id === undefined){
-const err116 = {instancePath:instancePath+"/models/assistant/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+if(data59.model === undefined){
+const err116 = {instancePath:instancePath+"/models/" + i1,schemaPath:"#/properties/models/items/required",keyword:"required",params:{missingProperty: "model"},message:"must have required property '"+"model"+"'"};
 if(vErrors === null){
 vErrors = [err116];
 }
@@ -1473,8 +1472,8 @@ vErrors.push(err116);
 }
 errors++;
 }
-if(data60.name === undefined){
-const err117 = {instancePath:instancePath+"/models/assistant/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
+if(data59.usage === undefined){
+const err117 = {instancePath:instancePath+"/models/" + i1,schemaPath:"#/properties/models/items/required",keyword:"required",params:{missingProperty: "usage"},message:"must have required property '"+"usage"+"'"};
 if(vErrors === null){
 vErrors = [err117];
 }
@@ -1483,8 +1482,9 @@ vErrors.push(err117);
 }
 errors++;
 }
-if(data60.provider === undefined){
-const err118 = {instancePath:instancePath+"/models/assistant/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'"};
+for(const key2 in data59){
+if(!(((key2 === "model") || (key2 === "usage")) || (key2 === "multiplier"))){
+const err118 = {instancePath:instancePath+"/models/" + i1,schemaPath:"#/properties/models/items/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key2},message:"must NOT have additional properties"};
 if(vErrors === null){
 vErrors = [err118];
 }
@@ -1493,9 +1493,12 @@ vErrors.push(err118);
 }
 errors++;
 }
-if(data60.id !== undefined){
-if(typeof data60.id !== "string"){
-const err119 = {instancePath:instancePath+"/models/assistant/model/id",schemaPath:"#/definitions/Model/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+}
+if(data59.model !== undefined){
+let data60 = data59.model;
+if(data60 && typeof data60 == "object" && !Array.isArray(data60)){
+if(data60.id === undefined){
+const err119 = {instancePath:instancePath+"/models/" + i1+"/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
 if(vErrors === null){
 vErrors = [err119];
 }
@@ -1504,10 +1507,8 @@ vErrors.push(err119);
 }
 errors++;
 }
-}
-if(data60.name !== undefined){
-if(typeof data60.name !== "string"){
-const err120 = {instancePath:instancePath+"/models/assistant/model/name",schemaPath:"#/definitions/Model/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data60.name === undefined){
+const err120 = {instancePath:instancePath+"/models/" + i1+"/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
 if(vErrors === null){
 vErrors = [err120];
 }
@@ -1516,12 +1517,8 @@ vErrors.push(err120);
 }
 errors++;
 }
-}
-if(data60.provider !== undefined){
-let data63 = data60.provider;
-if(data63 && typeof data63 == "object" && !Array.isArray(data63)){
-if(data63.type === undefined){
-const err121 = {instancePath:instancePath+"/models/assistant/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'"};
+if(data60.provider === undefined){
+const err121 = {instancePath:instancePath+"/models/" + i1+"/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'"};
 if(vErrors === null){
 vErrors = [err121];
 }
@@ -1530,8 +1527,9 @@ vErrors.push(err121);
 }
 errors++;
 }
-if(data63.name === undefined){
-const err122 = {instancePath:instancePath+"/models/assistant/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
+if(data60.id !== undefined){
+if(typeof data60.id !== "string"){
+const err122 = {instancePath:instancePath+"/models/" + i1+"/model/id",schemaPath:"#/definitions/Model/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err122];
 }
@@ -1540,8 +1538,10 @@ vErrors.push(err122);
 }
 errors++;
 }
-if(data63.id === undefined){
-const err123 = {instancePath:instancePath+"/models/assistant/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+}
+if(data60.name !== undefined){
+if(typeof data60.name !== "string"){
+const err123 = {instancePath:instancePath+"/models/" + i1+"/model/name",schemaPath:"#/definitions/Model/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err123];
 }
@@ -1550,9 +1550,12 @@ vErrors.push(err123);
 }
 errors++;
 }
-if(data63.type !== undefined){
-if(typeof data63.type !== "string"){
-const err124 = {instancePath:instancePath+"/models/assistant/model/provider/type",schemaPath:"#/definitions/Model/properties/provider/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string"};
+}
+if(data60.provider !== undefined){
+let data63 = data60.provider;
+if(data63 && typeof data63 == "object" && !Array.isArray(data63)){
+if(data63.type === undefined){
+const err124 = {instancePath:instancePath+"/models/" + i1+"/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'"};
 if(vErrors === null){
 vErrors = [err124];
 }
@@ -1561,10 +1564,8 @@ vErrors.push(err124);
 }
 errors++;
 }
-}
-if(data63.name !== undefined){
-if(typeof data63.name !== "string"){
-const err125 = {instancePath:instancePath+"/models/assistant/model/provider/name",schemaPath:"#/definitions/Model/properties/provider/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data63.name === undefined){
+const err125 = {instancePath:instancePath+"/models/" + i1+"/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
 if(vErrors === null){
 vErrors = [err125];
 }
@@ -1573,10 +1574,8 @@ vErrors.push(err125);
 }
 errors++;
 }
-}
-if(data63.id !== undefined){
-if(typeof data63.id !== "string"){
-const err126 = {instancePath:instancePath+"/models/assistant/model/provider/id",schemaPath:"#/definitions/Model/properties/provider/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data63.id === undefined){
+const err126 = {instancePath:instancePath+"/models/" + i1+"/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
 if(vErrors === null){
 vErrors = [err126];
 }
@@ -1585,10 +1584,9 @@ vErrors.push(err126);
 }
 errors++;
 }
-}
-}
-else {
-const err127 = {instancePath:instancePath+"/models/assistant/model/provider",schemaPath:"#/definitions/Model/properties/provider/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(data63.type !== undefined){
+if(typeof data63.type !== "string"){
+const err127 = {instancePath:instancePath+"/models/" + i1+"/model/provider/type",schemaPath:"#/definitions/Model/properties/provider/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err127];
 }
@@ -1598,9 +1596,9 @@ vErrors.push(err127);
 errors++;
 }
 }
-}
-else {
-const err128 = {instancePath:instancePath+"/models/assistant/model",schemaPath:"#/definitions/Model/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(data63.name !== undefined){
+if(typeof data63.name !== "string"){
+const err128 = {instancePath:instancePath+"/models/" + i1+"/model/provider/name",schemaPath:"#/definitions/Model/properties/provider/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err128];
 }
@@ -1610,11 +1608,9 @@ vErrors.push(err128);
 errors++;
 }
 }
-if(data59.inputPricePerMillion !== undefined){
-let data67 = data59.inputPricePerMillion;
-if(typeof data67 == "number"){
-if(data67 < 0 || isNaN(data67)){
-const err129 = {instancePath:instancePath+"/models/assistant/inputPricePerMillion",schemaPath:"#/properties/models/properties/assistant/properties/inputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
+if(data63.id !== undefined){
+if(typeof data63.id !== "string"){
+const err129 = {instancePath:instancePath+"/models/" + i1+"/model/provider/id",schemaPath:"#/definitions/Model/properties/provider/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err129];
 }
@@ -1624,8 +1620,9 @@ vErrors.push(err129);
 errors++;
 }
 }
+}
 else {
-const err130 = {instancePath:instancePath+"/models/assistant/inputPricePerMillion",schemaPath:"#/properties/models/properties/assistant/properties/inputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number"};
+const err130 = {instancePath:instancePath+"/models/" + i1+"/model/provider",schemaPath:"#/definitions/Model/properties/provider/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err130];
 }
@@ -1635,11 +1632,9 @@ vErrors.push(err130);
 errors++;
 }
 }
-if(data59.outputPricePerMillion !== undefined){
-let data68 = data59.outputPricePerMillion;
-if(typeof data68 == "number"){
-if(data68 < 0 || isNaN(data68)){
-const err131 = {instancePath:instancePath+"/models/assistant/outputPricePerMillion",schemaPath:"#/properties/models/properties/assistant/properties/outputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
+}
+else {
+const err131 = {instancePath:instancePath+"/models/" + i1+"/model",schemaPath:"#/definitions/Model/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err131];
 }
@@ -1649,8 +1644,11 @@ vErrors.push(err131);
 errors++;
 }
 }
-else {
-const err132 = {instancePath:instancePath+"/models/assistant/outputPricePerMillion",schemaPath:"#/properties/models/properties/assistant/properties/outputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number"};
+if(data59.usage !== undefined){
+let data67 = data59.usage;
+if(Array.isArray(data67)){
+if(data67.length < 1){
+const err132 = {instancePath:instancePath+"/models/" + i1+"/usage",schemaPath:"#/properties/models/items/properties/usage/minItems",keyword:"minItems",params:{limit: 1},message:"must NOT have fewer than 1 items"};
 if(vErrors === null){
 vErrors = [err132];
 }
@@ -1659,10 +1657,11 @@ vErrors.push(err132);
 }
 errors++;
 }
-}
-}
-else {
-const err133 = {instancePath:instancePath+"/models/assistant",schemaPath:"#/properties/models/properties/assistant/type",keyword:"type",params:{type: "object"},message:"must be object"};
+const len2 = data67.length;
+for(let i2=0; i2<len2; i2++){
+let data68 = data67[i2];
+if(typeof data68 !== "string"){
+const err133 = {instancePath:instancePath+"/models/" + i1+"/usage/" + i2,schemaPath:"#/properties/models/items/properties/usage/items/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err133];
 }
@@ -1671,15 +1670,12 @@ vErrors.push(err133);
 }
 errors++;
 }
-}
-if(data58.tools !== undefined){
-let data69 = data58.tools;
-if(data69 && typeof data69 == "object" && !Array.isArray(data69)){
-if(data69.model !== undefined){
-let data70 = data69.model;
-if(data70 && typeof data70 == "object" && !Array.isArray(data70)){
-if(data70.id === undefined){
-const err134 = {instancePath:instancePath+"/models/tools/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+const _errs153 = errors;
+let valid22 = false;
+let passing1 = null;
+const _errs154 = errors;
+if("assistant" !== data68){
+const err134 = {instancePath:instancePath+"/models/" + i1+"/usage/" + i2,schemaPath:"#/properties/models/items/properties/usage/items/oneOf/0/const",keyword:"const",params:{allowedValue: "assistant"},message:"must be equal to constant"};
 if(vErrors === null){
 vErrors = [err134];
 }
@@ -1688,8 +1684,14 @@ vErrors.push(err134);
 }
 errors++;
 }
-if(data70.name === undefined){
-const err135 = {instancePath:instancePath+"/models/tools/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
+var _valid1 = _errs154 === errors;
+if(_valid1){
+valid22 = true;
+passing1 = 0;
+}
+const _errs155 = errors;
+if("tools" !== data68){
+const err135 = {instancePath:instancePath+"/models/" + i1+"/usage/" + i2,schemaPath:"#/properties/models/items/properties/usage/items/oneOf/1/const",keyword:"const",params:{allowedValue: "tools"},message:"must be equal to constant"};
 if(vErrors === null){
 vErrors = [err135];
 }
@@ -1698,8 +1700,19 @@ vErrors.push(err135);
 }
 errors++;
 }
-if(data70.provider === undefined){
-const err136 = {instancePath:instancePath+"/models/tools/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'"};
+var _valid1 = _errs155 === errors;
+if(_valid1 && valid22){
+valid22 = false;
+passing1 = [passing1, 1];
+}
+else {
+if(_valid1){
+valid22 = true;
+passing1 = 1;
+}
+const _errs156 = errors;
+if("summarizer" !== data68){
+const err136 = {instancePath:instancePath+"/models/" + i1+"/usage/" + i2,schemaPath:"#/properties/models/items/properties/usage/items/oneOf/2/const",keyword:"const",params:{allowedValue: "summarizer"},message:"must be equal to constant"};
 if(vErrors === null){
 vErrors = [err136];
 }
@@ -1708,9 +1721,19 @@ vErrors.push(err136);
 }
 errors++;
 }
-if(data70.id !== undefined){
-if(typeof data70.id !== "string"){
-const err137 = {instancePath:instancePath+"/models/tools/model/id",schemaPath:"#/definitions/Model/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+var _valid1 = _errs156 === errors;
+if(_valid1 && valid22){
+valid22 = false;
+passing1 = [passing1, 2];
+}
+else {
+if(_valid1){
+valid22 = true;
+passing1 = 2;
+}
+const _errs157 = errors;
+if("evaluator" !== data68){
+const err137 = {instancePath:instancePath+"/models/" + i1+"/usage/" + i2,schemaPath:"#/properties/models/items/properties/usage/items/oneOf/3/const",keyword:"const",params:{allowedValue: "evaluator"},message:"must be equal to constant"};
 if(vErrors === null){
 vErrors = [err137];
 }
@@ -1719,10 +1742,19 @@ vErrors.push(err137);
 }
 errors++;
 }
+var _valid1 = _errs157 === errors;
+if(_valid1 && valid22){
+valid22 = false;
+passing1 = [passing1, 3];
 }
-if(data70.name !== undefined){
-if(typeof data70.name !== "string"){
-const err138 = {instancePath:instancePath+"/models/tools/model/name",schemaPath:"#/definitions/Model/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
+else {
+if(_valid1){
+valid22 = true;
+passing1 = 3;
+}
+const _errs158 = errors;
+if("moderator" !== data68){
+const err138 = {instancePath:instancePath+"/models/" + i1+"/usage/" + i2,schemaPath:"#/properties/models/items/properties/usage/items/oneOf/4/const",keyword:"const",params:{allowedValue: "moderator"},message:"must be equal to constant"};
 if(vErrors === null){
 vErrors = [err138];
 }
@@ -1731,12 +1763,22 @@ vErrors.push(err138);
 }
 errors++;
 }
+var _valid1 = _errs158 === errors;
+if(_valid1 && valid22){
+valid22 = false;
+passing1 = [passing1, 4];
 }
-if(data70.provider !== undefined){
-let data73 = data70.provider;
-if(data73 && typeof data73 == "object" && !Array.isArray(data73)){
-if(data73.type === undefined){
-const err139 = {instancePath:instancePath+"/models/tools/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'"};
+else {
+if(_valid1){
+valid22 = true;
+passing1 = 4;
+}
+}
+}
+}
+}
+if(!valid22){
+const err139 = {instancePath:instancePath+"/models/" + i1+"/usage/" + i2,schemaPath:"#/properties/models/items/properties/usage/items/oneOf",keyword:"oneOf",params:{passingSchemas: passing1},message:"must match exactly one schema in oneOf"};
 if(vErrors === null){
 vErrors = [err139];
 }
@@ -1745,8 +1787,30 @@ vErrors.push(err139);
 }
 errors++;
 }
-if(data73.name === undefined){
-const err140 = {instancePath:instancePath+"/models/tools/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
+else {
+errors = _errs153;
+if(vErrors !== null){
+if(_errs153){
+vErrors.length = _errs153;
+}
+else {
+vErrors = null;
+}
+}
+}
+}
+let i3 = data67.length;
+let j0;
+if(i3 > 1){
+const indices0 = {};
+for(;i3--;){
+let item0 = data67[i3];
+if(typeof item0 !== "string"){
+continue;
+}
+if(typeof indices0[item0] == "number"){
+j0 = indices0[item0];
+const err140 = {instancePath:instancePath+"/models/" + i1+"/usage",schemaPath:"#/properties/models/items/properties/usage/uniqueItems",keyword:"uniqueItems",params:{i: i3, j: j0},message:"must NOT have duplicate items (items ## "+j0+" and "+i3+" are identical)"};
 if(vErrors === null){
 vErrors = [err140];
 }
@@ -1754,9 +1818,14 @@ else {
 vErrors.push(err140);
 }
 errors++;
+break;
 }
-if(data73.id === undefined){
-const err141 = {instancePath:instancePath+"/models/tools/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+indices0[item0] = i3;
+}
+}
+}
+else {
+const err141 = {instancePath:instancePath+"/models/" + i1+"/usage",schemaPath:"#/properties/models/items/properties/usage/type",keyword:"type",params:{type: "array"},message:"must be array"};
 if(vErrors === null){
 vErrors = [err141];
 }
@@ -1765,9 +1834,12 @@ vErrors.push(err141);
 }
 errors++;
 }
-if(data73.type !== undefined){
-if(typeof data73.type !== "string"){
-const err142 = {instancePath:instancePath+"/models/tools/model/provider/type",schemaPath:"#/definitions/Model/properties/provider/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string"};
+}
+if(data59.multiplier !== undefined){
+let data69 = data59.multiplier;
+if(typeof data69 == "number"){
+if(data69 < 0 || isNaN(data69)){
+const err142 = {instancePath:instancePath+"/models/" + i1+"/multiplier",schemaPath:"#/properties/models/items/properties/multiplier/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
 if(vErrors === null){
 vErrors = [err142];
 }
@@ -1777,9 +1849,8 @@ vErrors.push(err142);
 errors++;
 }
 }
-if(data73.name !== undefined){
-if(typeof data73.name !== "string"){
-const err143 = {instancePath:instancePath+"/models/tools/model/provider/name",schemaPath:"#/definitions/Model/properties/provider/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
+else {
+const err143 = {instancePath:instancePath+"/models/" + i1+"/multiplier",schemaPath:"#/properties/models/items/properties/multiplier/type",keyword:"type",params:{type: "number"},message:"must be number"};
 if(vErrors === null){
 vErrors = [err143];
 }
@@ -1789,9 +1860,9 @@ vErrors.push(err143);
 errors++;
 }
 }
-if(data73.id !== undefined){
-if(typeof data73.id !== "string"){
-const err144 = {instancePath:instancePath+"/models/tools/model/provider/id",schemaPath:"#/definitions/Model/properties/provider/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+}
+else {
+const err144 = {instancePath:instancePath+"/models/" + i1,schemaPath:"#/properties/models/items/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err144];
 }
@@ -1803,7 +1874,7 @@ errors++;
 }
 }
 else {
-const err145 = {instancePath:instancePath+"/models/tools/model/provider",schemaPath:"#/definitions/Model/properties/provider/type",keyword:"type",params:{type: "object"},message:"must be object"};
+const err145 = {instancePath:instancePath+"/models",schemaPath:"#/properties/models/type",keyword:"type",params:{type: "array"},message:"must be array"};
 if(vErrors === null){
 vErrors = [err145];
 }
@@ -1813,9 +1884,12 @@ vErrors.push(err145);
 errors++;
 }
 }
-}
-else {
-const err146 = {instancePath:instancePath+"/models/tools/model",schemaPath:"#/definitions/Model/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(data.modelMapping !== undefined){
+let data70 = data.modelMapping;
+if(data70 && typeof data70 == "object" && !Array.isArray(data70)){
+for(const key3 in data70){
+if(!(((((key3 === "assistant") || (key3 === "tools")) || (key3 === "summarizer")) || (key3 === "evaluator")) || (key3 === "moderator"))){
+const err146 = {instancePath:instancePath+"/modelMapping",schemaPath:"#/properties/modelMapping/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key3},message:"must NOT have additional properties"};
 if(vErrors === null){
 vErrors = [err146];
 }
@@ -1825,11 +1899,11 @@ vErrors.push(err146);
 errors++;
 }
 }
-if(data69.inputPricePerMillion !== undefined){
-let data77 = data69.inputPricePerMillion;
-if(typeof data77 == "number"){
-if(data77 < 0 || isNaN(data77)){
-const err147 = {instancePath:instancePath+"/models/tools/inputPricePerMillion",schemaPath:"#/properties/models/properties/tools/properties/inputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
+if(data70.assistant !== undefined){
+let data71 = data70.assistant;
+if(data71 && typeof data71 == "object" && !Array.isArray(data71)){
+if(data71.provider === undefined){
+const err147 = {instancePath:instancePath+"/modelMapping/assistant",schemaPath:"#/properties/modelMapping/properties/assistant/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'"};
 if(vErrors === null){
 vErrors = [err147];
 }
@@ -1838,9 +1912,8 @@ vErrors.push(err147);
 }
 errors++;
 }
-}
-else {
-const err148 = {instancePath:instancePath+"/models/tools/inputPricePerMillion",schemaPath:"#/properties/models/properties/tools/properties/inputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number"};
+if(data71.id === undefined){
+const err148 = {instancePath:instancePath+"/modelMapping/assistant",schemaPath:"#/properties/modelMapping/properties/assistant/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
 if(vErrors === null){
 vErrors = [err148];
 }
@@ -1849,12 +1922,9 @@ vErrors.push(err148);
 }
 errors++;
 }
-}
-if(data69.outputPricePerMillion !== undefined){
-let data78 = data69.outputPricePerMillion;
-if(typeof data78 == "number"){
-if(data78 < 0 || isNaN(data78)){
-const err149 = {instancePath:instancePath+"/models/tools/outputPricePerMillion",schemaPath:"#/properties/models/properties/tools/properties/outputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
+for(const key4 in data71){
+if(!(((key4 === "provider") || (key4 === "id")) || (key4 === "name"))){
+const err149 = {instancePath:instancePath+"/modelMapping/assistant",schemaPath:"#/properties/modelMapping/properties/assistant/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key4},message:"must NOT have additional properties"};
 if(vErrors === null){
 vErrors = [err149];
 }
@@ -1864,8 +1934,9 @@ vErrors.push(err149);
 errors++;
 }
 }
-else {
-const err150 = {instancePath:instancePath+"/models/tools/outputPricePerMillion",schemaPath:"#/properties/models/properties/tools/properties/outputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number"};
+if(data71.provider !== undefined){
+if(typeof data71.provider !== "string"){
+const err150 = {instancePath:instancePath+"/modelMapping/assistant/provider",schemaPath:"#/properties/modelMapping/properties/assistant/properties/provider/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err150];
 }
@@ -1875,9 +1946,9 @@ vErrors.push(err150);
 errors++;
 }
 }
-}
-else {
-const err151 = {instancePath:instancePath+"/models/tools",schemaPath:"#/properties/models/properties/tools/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(data71.id !== undefined){
+if(typeof data71.id !== "string"){
+const err151 = {instancePath:instancePath+"/modelMapping/assistant/id",schemaPath:"#/properties/modelMapping/properties/assistant/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err151];
 }
@@ -1887,14 +1958,9 @@ vErrors.push(err151);
 errors++;
 }
 }
-if(data58.summarizer !== undefined){
-let data79 = data58.summarizer;
-if(data79 && typeof data79 == "object" && !Array.isArray(data79)){
-if(data79.model !== undefined){
-let data80 = data79.model;
-if(data80 && typeof data80 == "object" && !Array.isArray(data80)){
-if(data80.id === undefined){
-const err152 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+if(data71.name !== undefined){
+if(typeof data71.name !== "string"){
+const err152 = {instancePath:instancePath+"/modelMapping/assistant/name",schemaPath:"#/properties/modelMapping/properties/assistant/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err152];
 }
@@ -1903,8 +1969,10 @@ vErrors.push(err152);
 }
 errors++;
 }
-if(data80.name === undefined){
-const err153 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
+}
+}
+else {
+const err153 = {instancePath:instancePath+"/modelMapping/assistant",schemaPath:"#/properties/modelMapping/properties/assistant/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err153];
 }
@@ -1913,8 +1981,12 @@ vErrors.push(err153);
 }
 errors++;
 }
-if(data80.provider === undefined){
-const err154 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'"};
+}
+if(data70.tools !== undefined){
+let data75 = data70.tools;
+if(data75 && typeof data75 == "object" && !Array.isArray(data75)){
+if(data75.provider === undefined){
+const err154 = {instancePath:instancePath+"/modelMapping/tools",schemaPath:"#/properties/modelMapping/properties/tools/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'"};
 if(vErrors === null){
 vErrors = [err154];
 }
@@ -1923,9 +1995,8 @@ vErrors.push(err154);
 }
 errors++;
 }
-if(data80.id !== undefined){
-if(typeof data80.id !== "string"){
-const err155 = {instancePath:instancePath+"/models/summarizer/model/id",schemaPath:"#/definitions/Model/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data75.id === undefined){
+const err155 = {instancePath:instancePath+"/modelMapping/tools",schemaPath:"#/properties/modelMapping/properties/tools/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
 if(vErrors === null){
 vErrors = [err155];
 }
@@ -1934,10 +2005,9 @@ vErrors.push(err155);
 }
 errors++;
 }
-}
-if(data80.name !== undefined){
-if(typeof data80.name !== "string"){
-const err156 = {instancePath:instancePath+"/models/summarizer/model/name",schemaPath:"#/definitions/Model/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
+for(const key5 in data75){
+if(!(((key5 === "provider") || (key5 === "id")) || (key5 === "name"))){
+const err156 = {instancePath:instancePath+"/modelMapping/tools",schemaPath:"#/properties/modelMapping/properties/tools/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key5},message:"must NOT have additional properties"};
 if(vErrors === null){
 vErrors = [err156];
 }
@@ -1947,11 +2017,9 @@ vErrors.push(err156);
 errors++;
 }
 }
-if(data80.provider !== undefined){
-let data83 = data80.provider;
-if(data83 && typeof data83 == "object" && !Array.isArray(data83)){
-if(data83.type === undefined){
-const err157 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'"};
+if(data75.provider !== undefined){
+if(typeof data75.provider !== "string"){
+const err157 = {instancePath:instancePath+"/modelMapping/tools/provider",schemaPath:"#/properties/modelMapping/properties/tools/properties/provider/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err157];
 }
@@ -1960,8 +2028,10 @@ vErrors.push(err157);
 }
 errors++;
 }
-if(data83.name === undefined){
-const err158 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
+}
+if(data75.id !== undefined){
+if(typeof data75.id !== "string"){
+const err158 = {instancePath:instancePath+"/modelMapping/tools/id",schemaPath:"#/properties/modelMapping/properties/tools/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err158];
 }
@@ -1970,8 +2040,10 @@ vErrors.push(err158);
 }
 errors++;
 }
-if(data83.id === undefined){
-const err159 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+}
+if(data75.name !== undefined){
+if(typeof data75.name !== "string"){
+const err159 = {instancePath:instancePath+"/modelMapping/tools/name",schemaPath:"#/properties/modelMapping/properties/tools/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err159];
 }
@@ -1980,9 +2052,10 @@ vErrors.push(err159);
 }
 errors++;
 }
-if(data83.type !== undefined){
-if(typeof data83.type !== "string"){
-const err160 = {instancePath:instancePath+"/models/summarizer/model/provider/type",schemaPath:"#/definitions/Model/properties/provider/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string"};
+}
+}
+else {
+const err160 = {instancePath:instancePath+"/modelMapping/tools",schemaPath:"#/properties/modelMapping/properties/tools/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err160];
 }
@@ -1992,9 +2065,11 @@ vErrors.push(err160);
 errors++;
 }
 }
-if(data83.name !== undefined){
-if(typeof data83.name !== "string"){
-const err161 = {instancePath:instancePath+"/models/summarizer/model/provider/name",schemaPath:"#/definitions/Model/properties/provider/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data70.summarizer !== undefined){
+let data79 = data70.summarizer;
+if(data79 && typeof data79 == "object" && !Array.isArray(data79)){
+if(data79.provider === undefined){
+const err161 = {instancePath:instancePath+"/modelMapping/summarizer",schemaPath:"#/properties/modelMapping/properties/summarizer/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'"};
 if(vErrors === null){
 vErrors = [err161];
 }
@@ -2003,10 +2078,8 @@ vErrors.push(err161);
 }
 errors++;
 }
-}
-if(data83.id !== undefined){
-if(typeof data83.id !== "string"){
-const err162 = {instancePath:instancePath+"/models/summarizer/model/provider/id",schemaPath:"#/definitions/Model/properties/provider/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data79.id === undefined){
+const err162 = {instancePath:instancePath+"/modelMapping/summarizer",schemaPath:"#/properties/modelMapping/properties/summarizer/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
 if(vErrors === null){
 vErrors = [err162];
 }
@@ -2015,10 +2088,9 @@ vErrors.push(err162);
 }
 errors++;
 }
-}
-}
-else {
-const err163 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/type",keyword:"type",params:{type: "object"},message:"must be object"};
+for(const key6 in data79){
+if(!(((key6 === "provider") || (key6 === "id")) || (key6 === "name"))){
+const err163 = {instancePath:instancePath+"/modelMapping/summarizer",schemaPath:"#/properties/modelMapping/properties/summarizer/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key6},message:"must NOT have additional properties"};
 if(vErrors === null){
 vErrors = [err163];
 }
@@ -2028,9 +2100,9 @@ vErrors.push(err163);
 errors++;
 }
 }
-}
-else {
-const err164 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(data79.provider !== undefined){
+if(typeof data79.provider !== "string"){
+const err164 = {instancePath:instancePath+"/modelMapping/summarizer/provider",schemaPath:"#/properties/modelMapping/properties/summarizer/properties/provider/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err164];
 }
@@ -2040,11 +2112,9 @@ vErrors.push(err164);
 errors++;
 }
 }
-if(data79.inputPricePerMillion !== undefined){
-let data87 = data79.inputPricePerMillion;
-if(typeof data87 == "number"){
-if(data87 < 0 || isNaN(data87)){
-const err165 = {instancePath:instancePath+"/models/summarizer/inputPricePerMillion",schemaPath:"#/properties/models/properties/summarizer/properties/inputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
+if(data79.id !== undefined){
+if(typeof data79.id !== "string"){
+const err165 = {instancePath:instancePath+"/modelMapping/summarizer/id",schemaPath:"#/properties/modelMapping/properties/summarizer/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err165];
 }
@@ -2054,8 +2124,9 @@ vErrors.push(err165);
 errors++;
 }
 }
-else {
-const err166 = {instancePath:instancePath+"/models/summarizer/inputPricePerMillion",schemaPath:"#/properties/models/properties/summarizer/properties/inputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number"};
+if(data79.name !== undefined){
+if(typeof data79.name !== "string"){
+const err166 = {instancePath:instancePath+"/modelMapping/summarizer/name",schemaPath:"#/properties/modelMapping/properties/summarizer/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err166];
 }
@@ -2065,11 +2136,9 @@ vErrors.push(err166);
 errors++;
 }
 }
-if(data79.outputPricePerMillion !== undefined){
-let data88 = data79.outputPricePerMillion;
-if(typeof data88 == "number"){
-if(data88 < 0 || isNaN(data88)){
-const err167 = {instancePath:instancePath+"/models/summarizer/outputPricePerMillion",schemaPath:"#/properties/models/properties/summarizer/properties/outputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
+}
+else {
+const err167 = {instancePath:instancePath+"/modelMapping/summarizer",schemaPath:"#/properties/modelMapping/properties/summarizer/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err167];
 }
@@ -2079,8 +2148,11 @@ vErrors.push(err167);
 errors++;
 }
 }
-else {
-const err168 = {instancePath:instancePath+"/models/summarizer/outputPricePerMillion",schemaPath:"#/properties/models/properties/summarizer/properties/outputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number"};
+if(data70.evaluator !== undefined){
+let data83 = data70.evaluator;
+if(data83 && typeof data83 == "object" && !Array.isArray(data83)){
+if(data83.provider === undefined){
+const err168 = {instancePath:instancePath+"/modelMapping/evaluator",schemaPath:"#/properties/modelMapping/properties/evaluator/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'"};
 if(vErrors === null){
 vErrors = [err168];
 }
@@ -2089,10 +2161,8 @@ vErrors.push(err168);
 }
 errors++;
 }
-}
-}
-else {
-const err169 = {instancePath:instancePath+"/models/summarizer",schemaPath:"#/properties/models/properties/summarizer/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(data83.id === undefined){
+const err169 = {instancePath:instancePath+"/modelMapping/evaluator",schemaPath:"#/properties/modelMapping/properties/evaluator/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
 if(vErrors === null){
 vErrors = [err169];
 }
@@ -2101,15 +2171,9 @@ vErrors.push(err169);
 }
 errors++;
 }
-}
-if(data58.evaluator !== undefined){
-let data89 = data58.evaluator;
-if(data89 && typeof data89 == "object" && !Array.isArray(data89)){
-if(data89.model !== undefined){
-let data90 = data89.model;
-if(data90 && typeof data90 == "object" && !Array.isArray(data90)){
-if(data90.id === undefined){
-const err170 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+for(const key7 in data83){
+if(!(((key7 === "provider") || (key7 === "id")) || (key7 === "name"))){
+const err170 = {instancePath:instancePath+"/modelMapping/evaluator",schemaPath:"#/properties/modelMapping/properties/evaluator/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key7},message:"must NOT have additional properties"};
 if(vErrors === null){
 vErrors = [err170];
 }
@@ -2118,8 +2182,10 @@ vErrors.push(err170);
 }
 errors++;
 }
-if(data90.name === undefined){
-const err171 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
+}
+if(data83.provider !== undefined){
+if(typeof data83.provider !== "string"){
+const err171 = {instancePath:instancePath+"/modelMapping/evaluator/provider",schemaPath:"#/properties/modelMapping/properties/evaluator/properties/provider/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err171];
 }
@@ -2128,8 +2194,10 @@ vErrors.push(err171);
 }
 errors++;
 }
-if(data90.provider === undefined){
-const err172 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'"};
+}
+if(data83.id !== undefined){
+if(typeof data83.id !== "string"){
+const err172 = {instancePath:instancePath+"/modelMapping/evaluator/id",schemaPath:"#/properties/modelMapping/properties/evaluator/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err172];
 }
@@ -2138,9 +2206,10 @@ vErrors.push(err172);
 }
 errors++;
 }
-if(data90.id !== undefined){
-if(typeof data90.id !== "string"){
-const err173 = {instancePath:instancePath+"/models/evaluator/model/id",schemaPath:"#/definitions/Model/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+}
+if(data83.name !== undefined){
+if(typeof data83.name !== "string"){
+const err173 = {instancePath:instancePath+"/modelMapping/evaluator/name",schemaPath:"#/properties/modelMapping/properties/evaluator/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err173];
 }
@@ -2150,9 +2219,9 @@ vErrors.push(err173);
 errors++;
 }
 }
-if(data90.name !== undefined){
-if(typeof data90.name !== "string"){
-const err174 = {instancePath:instancePath+"/models/evaluator/model/name",schemaPath:"#/definitions/Model/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
+}
+else {
+const err174 = {instancePath:instancePath+"/modelMapping/evaluator",schemaPath:"#/properties/modelMapping/properties/evaluator/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err174];
 }
@@ -2162,11 +2231,11 @@ vErrors.push(err174);
 errors++;
 }
 }
-if(data90.provider !== undefined){
-let data93 = data90.provider;
-if(data93 && typeof data93 == "object" && !Array.isArray(data93)){
-if(data93.type === undefined){
-const err175 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'"};
+if(data70.moderator !== undefined){
+let data87 = data70.moderator;
+if(data87 && typeof data87 == "object" && !Array.isArray(data87)){
+if(data87.provider === undefined){
+const err175 = {instancePath:instancePath+"/modelMapping/moderator",schemaPath:"#/properties/modelMapping/properties/moderator/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'"};
 if(vErrors === null){
 vErrors = [err175];
 }
@@ -2175,8 +2244,8 @@ vErrors.push(err175);
 }
 errors++;
 }
-if(data93.name === undefined){
-const err176 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
+if(data87.id === undefined){
+const err176 = {instancePath:instancePath+"/modelMapping/moderator",schemaPath:"#/properties/modelMapping/properties/moderator/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
 if(vErrors === null){
 vErrors = [err176];
 }
@@ -2185,8 +2254,9 @@ vErrors.push(err176);
 }
 errors++;
 }
-if(data93.id === undefined){
-const err177 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+for(const key8 in data87){
+if(!(((key8 === "provider") || (key8 === "id")) || (key8 === "name"))){
+const err177 = {instancePath:instancePath+"/modelMapping/moderator",schemaPath:"#/properties/modelMapping/properties/moderator/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key8},message:"must NOT have additional properties"};
 if(vErrors === null){
 vErrors = [err177];
 }
@@ -2195,9 +2265,10 @@ vErrors.push(err177);
 }
 errors++;
 }
-if(data93.type !== undefined){
-if(typeof data93.type !== "string"){
-const err178 = {instancePath:instancePath+"/models/evaluator/model/provider/type",schemaPath:"#/definitions/Model/properties/provider/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string"};
+}
+if(data87.provider !== undefined){
+if(typeof data87.provider !== "string"){
+const err178 = {instancePath:instancePath+"/modelMapping/moderator/provider",schemaPath:"#/properties/modelMapping/properties/moderator/properties/provider/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err178];
 }
@@ -2207,9 +2278,9 @@ vErrors.push(err178);
 errors++;
 }
 }
-if(data93.name !== undefined){
-if(typeof data93.name !== "string"){
-const err179 = {instancePath:instancePath+"/models/evaluator/model/provider/name",schemaPath:"#/definitions/Model/properties/provider/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data87.id !== undefined){
+if(typeof data87.id !== "string"){
+const err179 = {instancePath:instancePath+"/modelMapping/moderator/id",schemaPath:"#/properties/modelMapping/properties/moderator/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err179];
 }
@@ -2219,9 +2290,9 @@ vErrors.push(err179);
 errors++;
 }
 }
-if(data93.id !== undefined){
-if(typeof data93.id !== "string"){
-const err180 = {instancePath:instancePath+"/models/evaluator/model/provider/id",schemaPath:"#/definitions/Model/properties/provider/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data87.name !== undefined){
+if(typeof data87.name !== "string"){
+const err180 = {instancePath:instancePath+"/modelMapping/moderator/name",schemaPath:"#/properties/modelMapping/properties/moderator/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err180];
 }
@@ -2233,7 +2304,7 @@ errors++;
 }
 }
 else {
-const err181 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/type",keyword:"type",params:{type: "object"},message:"must be object"};
+const err181 = {instancePath:instancePath+"/modelMapping/moderator",schemaPath:"#/properties/modelMapping/properties/moderator/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err181];
 }
@@ -2245,7 +2316,7 @@ errors++;
 }
 }
 else {
-const err182 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/type",keyword:"type",params:{type: "object"},message:"must be object"};
+const err182 = {instancePath:instancePath+"/modelMapping",schemaPath:"#/properties/modelMapping/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err182];
 }
@@ -2255,11 +2326,11 @@ vErrors.push(err182);
 errors++;
 }
 }
-if(data89.inputPricePerMillion !== undefined){
-let data97 = data89.inputPricePerMillion;
-if(typeof data97 == "number"){
-if(data97 < 0 || isNaN(data97)){
-const err183 = {instancePath:instancePath+"/models/evaluator/inputPricePerMillion",schemaPath:"#/properties/models/properties/evaluator/properties/inputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
+if(data.moderation !== undefined){
+let data91 = data.moderation;
+if(data91 && typeof data91 == "object" && !Array.isArray(data91)){
+if(data91.enabled === undefined){
+const err183 = {instancePath:instancePath+"/moderation",schemaPath:"#/properties/moderation/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'"};
 if(vErrors === null){
 vErrors = [err183];
 }
@@ -2268,9 +2339,8 @@ vErrors.push(err183);
 }
 errors++;
 }
-}
-else {
-const err184 = {instancePath:instancePath+"/models/evaluator/inputPricePerMillion",schemaPath:"#/properties/models/properties/evaluator/properties/inputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number"};
+if(data91.categories === undefined){
+const err184 = {instancePath:instancePath+"/moderation",schemaPath:"#/properties/moderation/required",keyword:"required",params:{missingProperty: "categories"},message:"must have required property '"+"categories"+"'"};
 if(vErrors === null){
 vErrors = [err184];
 }
@@ -2279,12 +2349,9 @@ vErrors.push(err184);
 }
 errors++;
 }
-}
-if(data89.outputPricePerMillion !== undefined){
-let data98 = data89.outputPricePerMillion;
-if(typeof data98 == "number"){
-if(data98 < 0 || isNaN(data98)){
-const err185 = {instancePath:instancePath+"/models/evaluator/outputPricePerMillion",schemaPath:"#/properties/models/properties/evaluator/properties/outputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
+for(const key9 in data91){
+if(!((key9 === "enabled") || (key9 === "categories"))){
+const err185 = {instancePath:instancePath+"/moderation",schemaPath:"#/properties/moderation/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key9},message:"must NOT have additional properties"};
 if(vErrors === null){
 vErrors = [err185];
 }
@@ -2294,8 +2361,9 @@ vErrors.push(err185);
 errors++;
 }
 }
-else {
-const err186 = {instancePath:instancePath+"/models/evaluator/outputPricePerMillion",schemaPath:"#/properties/models/properties/evaluator/properties/outputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number"};
+if(data91.enabled !== undefined){
+if(typeof data91.enabled !== "boolean"){
+const err186 = {instancePath:instancePath+"/moderation/enabled",schemaPath:"#/properties/moderation/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean"};
 if(vErrors === null){
 vErrors = [err186];
 }
@@ -2305,9 +2373,14 @@ vErrors.push(err186);
 errors++;
 }
 }
-}
-else {
-const err187 = {instancePath:instancePath+"/models/evaluator",schemaPath:"#/properties/models/properties/evaluator/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(data91.categories !== undefined){
+let data93 = data91.categories;
+if(Array.isArray(data93)){
+const len3 = data93.length;
+for(let i4=0; i4<len3; i4++){
+let data94 = data93[i4];
+if(typeof data94 !== "string"){
+const err187 = {instancePath:instancePath+"/moderation/categories/" + i4,schemaPath:"#/properties/moderation/properties/categories/items/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err187];
 }
@@ -2316,15 +2389,12 @@ vErrors.push(err187);
 }
 errors++;
 }
-}
-if(data58.moderator !== undefined){
-let data99 = data58.moderator;
-if(data99 && typeof data99 == "object" && !Array.isArray(data99)){
-if(data99.model !== undefined){
-let data100 = data99.model;
-if(data100 && typeof data100 == "object" && !Array.isArray(data100)){
-if(data100.id === undefined){
-const err188 = {instancePath:instancePath+"/models/moderator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+const _errs218 = errors;
+let valid33 = false;
+let passing2 = null;
+const _errs219 = errors;
+if("anonymous" !== data94){
+const err188 = {instancePath:instancePath+"/moderation/categories/" + i4,schemaPath:"#/properties/moderation/properties/categories/items/oneOf/0/const",keyword:"const",params:{allowedValue: "anonymous"},message:"must be equal to constant"};
 if(vErrors === null){
 vErrors = [err188];
 }
@@ -2333,8 +2403,14 @@ vErrors.push(err188);
 }
 errors++;
 }
-if(data100.name === undefined){
-const err189 = {instancePath:instancePath+"/models/moderator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
+var _valid2 = _errs219 === errors;
+if(_valid2){
+valid33 = true;
+passing2 = 0;
+}
+const _errs220 = errors;
+if("external" !== data94){
+const err189 = {instancePath:instancePath+"/moderation/categories/" + i4,schemaPath:"#/properties/moderation/properties/categories/items/oneOf/1/const",keyword:"const",params:{allowedValue: "external"},message:"must be equal to constant"};
 if(vErrors === null){
 vErrors = [err189];
 }
@@ -2343,8 +2419,19 @@ vErrors.push(err189);
 }
 errors++;
 }
-if(data100.provider === undefined){
-const err190 = {instancePath:instancePath+"/models/moderator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'"};
+var _valid2 = _errs220 === errors;
+if(_valid2 && valid33){
+valid33 = false;
+passing2 = [passing2, 1];
+}
+else {
+if(_valid2){
+valid33 = true;
+passing2 = 1;
+}
+const _errs221 = errors;
+if("user" !== data94){
+const err190 = {instancePath:instancePath+"/moderation/categories/" + i4,schemaPath:"#/properties/moderation/properties/categories/items/oneOf/2/const",keyword:"const",params:{allowedValue: "user"},message:"must be equal to constant"};
 if(vErrors === null){
 vErrors = [err190];
 }
@@ -2353,9 +2440,19 @@ vErrors.push(err190);
 }
 errors++;
 }
-if(data100.id !== undefined){
-if(typeof data100.id !== "string"){
-const err191 = {instancePath:instancePath+"/models/moderator/model/id",schemaPath:"#/definitions/Model/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+var _valid2 = _errs221 === errors;
+if(_valid2 && valid33){
+valid33 = false;
+passing2 = [passing2, 2];
+}
+else {
+if(_valid2){
+valid33 = true;
+passing2 = 2;
+}
+const _errs222 = errors;
+if("contrib" !== data94){
+const err191 = {instancePath:instancePath+"/moderation/categories/" + i4,schemaPath:"#/properties/moderation/properties/categories/items/oneOf/3/const",keyword:"const",params:{allowedValue: "contrib"},message:"must be equal to constant"};
 if(vErrors === null){
 vErrors = [err191];
 }
@@ -2364,10 +2461,19 @@ vErrors.push(err191);
 }
 errors++;
 }
+var _valid2 = _errs222 === errors;
+if(_valid2 && valid33){
+valid33 = false;
+passing2 = [passing2, 3];
 }
-if(data100.name !== undefined){
-if(typeof data100.name !== "string"){
-const err192 = {instancePath:instancePath+"/models/moderator/model/name",schemaPath:"#/definitions/Model/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
+else {
+if(_valid2){
+valid33 = true;
+passing2 = 3;
+}
+const _errs223 = errors;
+if("admin" !== data94){
+const err192 = {instancePath:instancePath+"/moderation/categories/" + i4,schemaPath:"#/properties/moderation/properties/categories/items/oneOf/4/const",keyword:"const",params:{allowedValue: "admin"},message:"must be equal to constant"};
 if(vErrors === null){
 vErrors = [err192];
 }
@@ -2376,12 +2482,22 @@ vErrors.push(err192);
 }
 errors++;
 }
+var _valid2 = _errs223 === errors;
+if(_valid2 && valid33){
+valid33 = false;
+passing2 = [passing2, 4];
 }
-if(data100.provider !== undefined){
-let data103 = data100.provider;
-if(data103 && typeof data103 == "object" && !Array.isArray(data103)){
-if(data103.type === undefined){
-const err193 = {instancePath:instancePath+"/models/moderator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'"};
+else {
+if(_valid2){
+valid33 = true;
+passing2 = 4;
+}
+}
+}
+}
+}
+if(!valid33){
+const err193 = {instancePath:instancePath+"/moderation/categories/" + i4,schemaPath:"#/properties/moderation/properties/categories/items/oneOf",keyword:"oneOf",params:{passingSchemas: passing2},message:"must match exactly one schema in oneOf"};
 if(vErrors === null){
 vErrors = [err193];
 }
@@ -2390,8 +2506,30 @@ vErrors.push(err193);
 }
 errors++;
 }
-if(data103.name === undefined){
-const err194 = {instancePath:instancePath+"/models/moderator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
+else {
+errors = _errs218;
+if(vErrors !== null){
+if(_errs218){
+vErrors.length = _errs218;
+}
+else {
+vErrors = null;
+}
+}
+}
+}
+let i5 = data93.length;
+let j1;
+if(i5 > 1){
+const indices1 = {};
+for(;i5--;){
+let item1 = data93[i5];
+if(typeof item1 !== "string"){
+continue;
+}
+if(typeof indices1[item1] == "number"){
+j1 = indices1[item1];
+const err194 = {instancePath:instancePath+"/moderation/categories",schemaPath:"#/properties/moderation/properties/categories/uniqueItems",keyword:"uniqueItems",params:{i: i5, j: j1},message:"must NOT have duplicate items (items ## "+j1+" and "+i5+" are identical)"};
 if(vErrors === null){
 vErrors = [err194];
 }
@@ -2399,9 +2537,14 @@ else {
 vErrors.push(err194);
 }
 errors++;
+break;
 }
-if(data103.id === undefined){
-const err195 = {instancePath:instancePath+"/models/moderator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+indices1[item1] = i5;
+}
+}
+}
+else {
+const err195 = {instancePath:instancePath+"/moderation/categories",schemaPath:"#/properties/moderation/properties/categories/type",keyword:"type",params:{type: "array"},message:"must be array"};
 if(vErrors === null){
 vErrors = [err195];
 }
@@ -2410,9 +2553,10 @@ vErrors.push(err195);
 }
 errors++;
 }
-if(data103.type !== undefined){
-if(typeof data103.type !== "string"){
-const err196 = {instancePath:instancePath+"/models/moderator/model/provider/type",schemaPath:"#/definitions/Model/properties/provider/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string"};
+}
+}
+else {
+const err196 = {instancePath:instancePath+"/moderation",schemaPath:"#/properties/moderation/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err196];
 }
@@ -2422,9 +2566,11 @@ vErrors.push(err196);
 errors++;
 }
 }
-if(data103.name !== undefined){
-if(typeof data103.name !== "string"){
-const err197 = {instancePath:instancePath+"/models/moderator/model/provider/name",schemaPath:"#/definitions/Model/properties/provider/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data.quotas !== undefined){
+let data95 = data.quotas;
+if(data95 && typeof data95 == "object" && !Array.isArray(data95)){
+if(data95.admin === undefined){
+const err197 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "admin"},message:"must have required property '"+"admin"+"'"};
 if(vErrors === null){
 vErrors = [err197];
 }
@@ -2433,10 +2579,8 @@ vErrors.push(err197);
 }
 errors++;
 }
-}
-if(data103.id !== undefined){
-if(typeof data103.id !== "string"){
-const err198 = {instancePath:instancePath+"/models/moderator/model/provider/id",schemaPath:"#/definitions/Model/properties/provider/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data95.contrib === undefined){
+const err198 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "contrib"},message:"must have required property '"+"contrib"+"'"};
 if(vErrors === null){
 vErrors = [err198];
 }
@@ -2445,10 +2589,8 @@ vErrors.push(err198);
 }
 errors++;
 }
-}
-}
-else {
-const err199 = {instancePath:instancePath+"/models/moderator/model/provider",schemaPath:"#/definitions/Model/properties/provider/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(data95.user === undefined){
+const err199 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "user"},message:"must have required property '"+"user"+"'"};
 if(vErrors === null){
 vErrors = [err199];
 }
@@ -2457,10 +2599,8 @@ vErrors.push(err199);
 }
 errors++;
 }
-}
-}
-else {
-const err200 = {instancePath:instancePath+"/models/moderator/model",schemaPath:"#/definitions/Model/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(data95.external === undefined){
+const err200 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "external"},message:"must have required property '"+"external"+"'"};
 if(vErrors === null){
 vErrors = [err200];
 }
@@ -2469,12 +2609,8 @@ vErrors.push(err200);
 }
 errors++;
 }
-}
-if(data99.inputPricePerMillion !== undefined){
-let data107 = data99.inputPricePerMillion;
-if(typeof data107 == "number"){
-if(data107 < 0 || isNaN(data107)){
-const err201 = {instancePath:instancePath+"/models/moderator/inputPricePerMillion",schemaPath:"#/properties/models/properties/moderator/properties/inputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
+if(data95.anonymous === undefined){
+const err201 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "anonymous"},message:"must have required property '"+"anonymous"+"'"};
 if(vErrors === null){
 vErrors = [err201];
 }
@@ -2483,9 +2619,11 @@ vErrors.push(err201);
 }
 errors++;
 }
-}
-else {
-const err202 = {instancePath:instancePath+"/models/moderator/inputPricePerMillion",schemaPath:"#/properties/models/properties/moderator/properties/inputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number"};
+if(data95.admin !== undefined){
+let data96 = data95.admin;
+if(data96 && typeof data96 == "object" && !Array.isArray(data96)){
+if(data96.unlimited === undefined){
+const err202 = {instancePath:instancePath+"/quotas/admin",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'"};
 if(vErrors === null){
 vErrors = [err202];
 }
@@ -2494,12 +2632,8 @@ vErrors.push(err202);
 }
 errors++;
 }
-}
-if(data99.outputPricePerMillion !== undefined){
-let data108 = data99.outputPricePerMillion;
-if(typeof data108 == "number"){
-if(data108 < 0 || isNaN(data108)){
-const err203 = {instancePath:instancePath+"/models/moderator/outputPricePerMillion",schemaPath:"#/properties/models/properties/moderator/properties/outputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
+if(data96.monthlyLimit === undefined){
+const err203 = {instancePath:instancePath+"/quotas/admin",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'"};
 if(vErrors === null){
 vErrors = [err203];
 }
@@ -2508,9 +2642,9 @@ vErrors.push(err203);
 }
 errors++;
 }
-}
-else {
-const err204 = {instancePath:instancePath+"/models/moderator/outputPricePerMillion",schemaPath:"#/properties/models/properties/moderator/properties/outputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number"};
+if(data96.unlimited !== undefined){
+if(typeof data96.unlimited !== "boolean"){
+const err204 = {instancePath:instancePath+"/quotas/admin/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean"};
 if(vErrors === null){
 vErrors = [err204];
 }
@@ -2520,9 +2654,11 @@ vErrors.push(err204);
 errors++;
 }
 }
-}
-else {
-const err205 = {instancePath:instancePath+"/models/moderator",schemaPath:"#/properties/models/properties/moderator/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(data96.monthlyLimit !== undefined){
+let data98 = data96.monthlyLimit;
+if(typeof data98 == "number"){
+if(data98 < 0 || isNaN(data98)){
+const err205 = {instancePath:instancePath+"/quotas/admin/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
 if(vErrors === null){
 vErrors = [err205];
 }
@@ -2532,9 +2668,8 @@ vErrors.push(err205);
 errors++;
 }
 }
-}
 else {
-const err206 = {instancePath:instancePath+"/models",schemaPath:"#/properties/models/type",keyword:"type",params:{type: "object"},message:"must be object"};
+const err206 = {instancePath:instancePath+"/quotas/admin/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number"};
 if(vErrors === null){
 vErrors = [err206];
 }
@@ -2544,11 +2679,9 @@ vErrors.push(err206);
 errors++;
 }
 }
-if(data.moderation !== undefined){
-let data109 = data.moderation;
-if(data109 && typeof data109 == "object" && !Array.isArray(data109)){
-if(data109.enabled === undefined){
-const err207 = {instancePath:instancePath+"/moderation",schemaPath:"#/properties/moderation/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'"};
+}
+else {
+const err207 = {instancePath:instancePath+"/quotas/admin",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err207];
 }
@@ -2557,8 +2690,12 @@ vErrors.push(err207);
 }
 errors++;
 }
-if(data109.categories === undefined){
-const err208 = {instancePath:instancePath+"/moderation",schemaPath:"#/properties/moderation/required",keyword:"required",params:{missingProperty: "categories"},message:"must have required property '"+"categories"+"'"};
+}
+if(data95.contrib !== undefined){
+let data99 = data95.contrib;
+if(data99 && typeof data99 == "object" && !Array.isArray(data99)){
+if(data99.unlimited === undefined){
+const err208 = {instancePath:instancePath+"/quotas/contrib",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'"};
 if(vErrors === null){
 vErrors = [err208];
 }
@@ -2567,9 +2704,8 @@ vErrors.push(err208);
 }
 errors++;
 }
-for(const key2 in data109){
-if(!((key2 === "enabled") || (key2 === "categories"))){
-const err209 = {instancePath:instancePath+"/moderation",schemaPath:"#/properties/moderation/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key2},message:"must NOT have additional properties"};
+if(data99.monthlyLimit === undefined){
+const err209 = {instancePath:instancePath+"/quotas/contrib",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'"};
 if(vErrors === null){
 vErrors = [err209];
 }
@@ -2578,10 +2714,9 @@ vErrors.push(err209);
 }
 errors++;
 }
-}
-if(data109.enabled !== undefined){
-if(typeof data109.enabled !== "boolean"){
-const err210 = {instancePath:instancePath+"/moderation/enabled",schemaPath:"#/properties/moderation/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean"};
+if(data99.unlimited !== undefined){
+if(typeof data99.unlimited !== "boolean"){
+const err210 = {instancePath:instancePath+"/quotas/contrib/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean"};
 if(vErrors === null){
 vErrors = [err210];
 }
@@ -2591,14 +2726,11 @@ vErrors.push(err210);
 errors++;
 }
 }
-if(data109.categories !== undefined){
-let data111 = data109.categories;
-if(Array.isArray(data111)){
-const len1 = data111.length;
-for(let i1=0; i1<len1; i1++){
-let data112 = data111[i1];
-if(typeof data112 !== "string"){
-const err211 = {instancePath:instancePath+"/moderation/categories/" + i1,schemaPath:"#/properties/moderation/properties/categories/items/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data99.monthlyLimit !== undefined){
+let data101 = data99.monthlyLimit;
+if(typeof data101 == "number"){
+if(data101 < 0 || isNaN(data101)){
+const err211 = {instancePath:instancePath+"/quotas/contrib/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
 if(vErrors === null){
 vErrors = [err211];
 }
@@ -2607,12 +2739,9 @@ vErrors.push(err211);
 }
 errors++;
 }
-const _errs245 = errors;
-let valid38 = false;
-let passing1 = null;
-const _errs246 = errors;
-if("anonymous" !== data112){
-const err212 = {instancePath:instancePath+"/moderation/categories/" + i1,schemaPath:"#/properties/moderation/properties/categories/items/oneOf/0/const",keyword:"const",params:{allowedValue: "anonymous"},message:"must be equal to constant"};
+}
+else {
+const err212 = {instancePath:instancePath+"/quotas/contrib/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number"};
 if(vErrors === null){
 vErrors = [err212];
 }
@@ -2621,14 +2750,10 @@ vErrors.push(err212);
 }
 errors++;
 }
-var _valid1 = _errs246 === errors;
-if(_valid1){
-valid38 = true;
-passing1 = 0;
 }
-const _errs247 = errors;
-if("external" !== data112){
-const err213 = {instancePath:instancePath+"/moderation/categories/" + i1,schemaPath:"#/properties/moderation/properties/categories/items/oneOf/1/const",keyword:"const",params:{allowedValue: "external"},message:"must be equal to constant"};
+}
+else {
+const err213 = {instancePath:instancePath+"/quotas/contrib",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err213];
 }
@@ -2637,19 +2762,12 @@ vErrors.push(err213);
 }
 errors++;
 }
-var _valid1 = _errs247 === errors;
-if(_valid1 && valid38){
-valid38 = false;
-passing1 = [passing1, 1];
 }
-else {
-if(_valid1){
-valid38 = true;
-passing1 = 1;
-}
-const _errs248 = errors;
-if("user" !== data112){
-const err214 = {instancePath:instancePath+"/moderation/categories/" + i1,schemaPath:"#/properties/moderation/properties/categories/items/oneOf/2/const",keyword:"const",params:{allowedValue: "user"},message:"must be equal to constant"};
+if(data95.user !== undefined){
+let data102 = data95.user;
+if(data102 && typeof data102 == "object" && !Array.isArray(data102)){
+if(data102.unlimited === undefined){
+const err214 = {instancePath:instancePath+"/quotas/user",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'"};
 if(vErrors === null){
 vErrors = [err214];
 }
@@ -2658,19 +2776,8 @@ vErrors.push(err214);
 }
 errors++;
 }
-var _valid1 = _errs248 === errors;
-if(_valid1 && valid38){
-valid38 = false;
-passing1 = [passing1, 2];
-}
-else {
-if(_valid1){
-valid38 = true;
-passing1 = 2;
-}
-const _errs249 = errors;
-if("contrib" !== data112){
-const err215 = {instancePath:instancePath+"/moderation/categories/" + i1,schemaPath:"#/properties/moderation/properties/categories/items/oneOf/3/const",keyword:"const",params:{allowedValue: "contrib"},message:"must be equal to constant"};
+if(data102.monthlyLimit === undefined){
+const err215 = {instancePath:instancePath+"/quotas/user",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'"};
 if(vErrors === null){
 vErrors = [err215];
 }
@@ -2679,19 +2786,9 @@ vErrors.push(err215);
 }
 errors++;
 }
-var _valid1 = _errs249 === errors;
-if(_valid1 && valid38){
-valid38 = false;
-passing1 = [passing1, 3];
-}
-else {
-if(_valid1){
-valid38 = true;
-passing1 = 3;
-}
-const _errs250 = errors;
-if("admin" !== data112){
-const err216 = {instancePath:instancePath+"/moderation/categories/" + i1,schemaPath:"#/properties/moderation/properties/categories/items/oneOf/4/const",keyword:"const",params:{allowedValue: "admin"},message:"must be equal to constant"};
+if(data102.unlimited !== undefined){
+if(typeof data102.unlimited !== "boolean"){
+const err216 = {instancePath:instancePath+"/quotas/user/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean"};
 if(vErrors === null){
 vErrors = [err216];
 }
@@ -2700,22 +2797,12 @@ vErrors.push(err216);
 }
 errors++;
 }
-var _valid1 = _errs250 === errors;
-if(_valid1 && valid38){
-valid38 = false;
-passing1 = [passing1, 4];
 }
-else {
-if(_valid1){
-valid38 = true;
-passing1 = 4;
-}
-}
-}
-}
-}
-if(!valid38){
-const err217 = {instancePath:instancePath+"/moderation/categories/" + i1,schemaPath:"#/properties/moderation/properties/categories/items/oneOf",keyword:"oneOf",params:{passingSchemas: passing1},message:"must match exactly one schema in oneOf"};
+if(data102.monthlyLimit !== undefined){
+let data104 = data102.monthlyLimit;
+if(typeof data104 == "number"){
+if(data104 < 0 || isNaN(data104)){
+const err217 = {instancePath:instancePath+"/quotas/user/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
 if(vErrors === null){
 vErrors = [err217];
 }
@@ -2724,30 +2811,9 @@ vErrors.push(err217);
 }
 errors++;
 }
-else {
-errors = _errs245;
-if(vErrors !== null){
-if(_errs245){
-vErrors.length = _errs245;
 }
 else {
-vErrors = null;
-}
-}
-}
-}
-let i2 = data111.length;
-let j0;
-if(i2 > 1){
-const indices0 = {};
-for(;i2--;){
-let item0 = data111[i2];
-if(typeof item0 !== "string"){
-continue;
-}
-if(typeof indices0[item0] == "number"){
-j0 = indices0[item0];
-const err218 = {instancePath:instancePath+"/moderation/categories",schemaPath:"#/properties/moderation/properties/categories/uniqueItems",keyword:"uniqueItems",params:{i: i2, j: j0},message:"must NOT have duplicate items (items ## "+j0+" and "+i2+" are identical)"};
+const err218 = {instancePath:instancePath+"/quotas/user/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number"};
 if(vErrors === null){
 vErrors = [err218];
 }
@@ -2755,14 +2821,11 @@ else {
 vErrors.push(err218);
 }
 errors++;
-break;
-}
-indices0[item0] = i2;
 }
 }
 }
 else {
-const err219 = {instancePath:instancePath+"/moderation/categories",schemaPath:"#/properties/moderation/properties/categories/type",keyword:"type",params:{type: "array"},message:"must be array"};
+const err219 = {instancePath:instancePath+"/quotas/user",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err219];
 }
@@ -2772,9 +2835,11 @@ vErrors.push(err219);
 errors++;
 }
 }
-}
-else {
-const err220 = {instancePath:instancePath+"/moderation",schemaPath:"#/properties/moderation/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(data95.external !== undefined){
+let data105 = data95.external;
+if(data105 && typeof data105 == "object" && !Array.isArray(data105)){
+if(data105.unlimited === undefined){
+const err220 = {instancePath:instancePath+"/quotas/external",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'"};
 if(vErrors === null){
 vErrors = [err220];
 }
@@ -2783,12 +2848,8 @@ vErrors.push(err220);
 }
 errors++;
 }
-}
-if(data.quotas !== undefined){
-let data113 = data.quotas;
-if(data113 && typeof data113 == "object" && !Array.isArray(data113)){
-if(data113.global === undefined){
-const err221 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "global"},message:"must have required property '"+"global"+"'"};
+if(data105.monthlyLimit === undefined){
+const err221 = {instancePath:instancePath+"/quotas/external",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'"};
 if(vErrors === null){
 vErrors = [err221];
 }
@@ -2797,8 +2858,9 @@ vErrors.push(err221);
 }
 errors++;
 }
-if(data113.admin === undefined){
-const err222 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "admin"},message:"must have required property '"+"admin"+"'"};
+if(data105.unlimited !== undefined){
+if(typeof data105.unlimited !== "boolean"){
+const err222 = {instancePath:instancePath+"/quotas/external/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean"};
 if(vErrors === null){
 vErrors = [err222];
 }
@@ -2807,8 +2869,12 @@ vErrors.push(err222);
 }
 errors++;
 }
-if(data113.contrib === undefined){
-const err223 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "contrib"},message:"must have required property '"+"contrib"+"'"};
+}
+if(data105.monthlyLimit !== undefined){
+let data107 = data105.monthlyLimit;
+if(typeof data107 == "number"){
+if(data107 < 0 || isNaN(data107)){
+const err223 = {instancePath:instancePath+"/quotas/external/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
 if(vErrors === null){
 vErrors = [err223];
 }
@@ -2817,8 +2883,9 @@ vErrors.push(err223);
 }
 errors++;
 }
-if(data113.user === undefined){
-const err224 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "user"},message:"must have required property '"+"user"+"'"};
+}
+else {
+const err224 = {instancePath:instancePath+"/quotas/external/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number"};
 if(vErrors === null){
 vErrors = [err224];
 }
@@ -2827,8 +2894,10 @@ vErrors.push(err224);
 }
 errors++;
 }
-if(data113.external === undefined){
-const err225 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "external"},message:"must have required property '"+"external"+"'"};
+}
+}
+else {
+const err225 = {instancePath:instancePath+"/quotas/external",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err225];
 }
@@ -2837,8 +2906,12 @@ vErrors.push(err225);
 }
 errors++;
 }
-if(data113.anonymous === undefined){
-const err226 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "anonymous"},message:"must have required property '"+"anonymous"+"'"};
+}
+if(data95.anonymous !== undefined){
+let data108 = data95.anonymous;
+if(data108 && typeof data108 == "object" && !Array.isArray(data108)){
+if(data108.unlimited === undefined){
+const err226 = {instancePath:instancePath+"/quotas/anonymous",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'"};
 if(vErrors === null){
 vErrors = [err226];
 }
@@ -2847,11 +2920,8 @@ vErrors.push(err226);
 }
 errors++;
 }
-if(data113.global !== undefined){
-let data114 = data113.global;
-if(data114 && typeof data114 == "object" && !Array.isArray(data114)){
-if(data114.unlimited === undefined){
-const err227 = {instancePath:instancePath+"/quotas/global",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'"};
+if(data108.monthlyLimit === undefined){
+const err227 = {instancePath:instancePath+"/quotas/anonymous",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'"};
 if(vErrors === null){
 vErrors = [err227];
 }
@@ -2860,8 +2930,9 @@ vErrors.push(err227);
 }
 errors++;
 }
-if(data114.monthlyLimit === undefined){
-const err228 = {instancePath:instancePath+"/quotas/global",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'"};
+if(data108.unlimited !== undefined){
+if(typeof data108.unlimited !== "boolean"){
+const err228 = {instancePath:instancePath+"/quotas/anonymous/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean"};
 if(vErrors === null){
 vErrors = [err228];
 }
@@ -2870,9 +2941,12 @@ vErrors.push(err228);
 }
 errors++;
 }
-if(data114.unlimited !== undefined){
-if(typeof data114.unlimited !== "boolean"){
-const err229 = {instancePath:instancePath+"/quotas/global/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean"};
+}
+if(data108.monthlyLimit !== undefined){
+let data110 = data108.monthlyLimit;
+if(typeof data110 == "number"){
+if(data110 < 0 || isNaN(data110)){
+const err229 = {instancePath:instancePath+"/quotas/anonymous/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
 if(vErrors === null){
 vErrors = [err229];
 }
@@ -2882,11 +2956,8 @@ vErrors.push(err229);
 errors++;
 }
 }
-if(data114.monthlyLimit !== undefined){
-let data116 = data114.monthlyLimit;
-if(typeof data116 == "number"){
-if(data116 < 0 || isNaN(data116)){
-const err230 = {instancePath:instancePath+"/quotas/global/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
+else {
+const err230 = {instancePath:instancePath+"/quotas/anonymous/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number"};
 if(vErrors === null){
 vErrors = [err230];
 }
@@ -2896,8 +2967,9 @@ vErrors.push(err230);
 errors++;
 }
 }
+}
 else {
-const err231 = {instancePath:instancePath+"/quotas/global/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number"};
+const err231 = {instancePath:instancePath+"/quotas/anonymous",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err231];
 }
@@ -2907,9 +2979,11 @@ vErrors.push(err231);
 errors++;
 }
 }
-}
-else {
-const err232 = {instancePath:instancePath+"/quotas/global",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(data95.untrusted !== undefined){
+let data111 = data95.untrusted;
+if(data111 && typeof data111 == "object" && !Array.isArray(data111)){
+if(data111.unlimited === undefined){
+const err232 = {instancePath:instancePath+"/quotas/untrusted",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'"};
 if(vErrors === null){
 vErrors = [err232];
 }
@@ -2918,12 +2992,8 @@ vErrors.push(err232);
 }
 errors++;
 }
-}
-if(data113.admin !== undefined){
-let data117 = data113.admin;
-if(data117 && typeof data117 == "object" && !Array.isArray(data117)){
-if(data117.unlimited === undefined){
-const err233 = {instancePath:instancePath+"/quotas/admin",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'"};
+if(data111.monthlyLimit === undefined){
+const err233 = {instancePath:instancePath+"/quotas/untrusted",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'"};
 if(vErrors === null){
 vErrors = [err233];
 }
@@ -2932,8 +3002,9 @@ vErrors.push(err233);
 }
 errors++;
 }
-if(data117.monthlyLimit === undefined){
-const err234 = {instancePath:instancePath+"/quotas/admin",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'"};
+if(data111.unlimited !== undefined){
+if(typeof data111.unlimited !== "boolean"){
+const err234 = {instancePath:instancePath+"/quotas/untrusted/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean"};
 if(vErrors === null){
 vErrors = [err234];
 }
@@ -2942,9 +3013,12 @@ vErrors.push(err234);
 }
 errors++;
 }
-if(data117.unlimited !== undefined){
-if(typeof data117.unlimited !== "boolean"){
-const err235 = {instancePath:instancePath+"/quotas/admin/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean"};
+}
+if(data111.monthlyLimit !== undefined){
+let data113 = data111.monthlyLimit;
+if(typeof data113 == "number"){
+if(data113 < 0 || isNaN(data113)){
+const err235 = {instancePath:instancePath+"/quotas/untrusted/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
 if(vErrors === null){
 vErrors = [err235];
 }
@@ -2954,11 +3028,8 @@ vErrors.push(err235);
 errors++;
 }
 }
-if(data117.monthlyLimit !== undefined){
-let data119 = data117.monthlyLimit;
-if(typeof data119 == "number"){
-if(data119 < 0 || isNaN(data119)){
-const err236 = {instancePath:instancePath+"/quotas/admin/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
+else {
+const err236 = {instancePath:instancePath+"/quotas/untrusted/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number"};
 if(vErrors === null){
 vErrors = [err236];
 }
@@ -2968,8 +3039,9 @@ vErrors.push(err236);
 errors++;
 }
 }
+}
 else {
-const err237 = {instancePath:instancePath+"/quotas/admin/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number"};
+const err237 = {instancePath:instancePath+"/quotas/untrusted",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err237];
 }
@@ -2981,7 +3053,7 @@ errors++;
 }
 }
 else {
-const err238 = {instancePath:instancePath+"/quotas/admin",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object"};
+const err238 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err238];
 }
@@ -2991,386 +3063,14 @@ vErrors.push(err238);
 errors++;
 }
 }
-if(data113.contrib !== undefined){
-let data120 = data113.contrib;
-if(data120 && typeof data120 == "object" && !Array.isArray(data120)){
-if(data120.unlimited === undefined){
-const err239 = {instancePath:instancePath+"/quotas/contrib",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'"};
+}
+else {
+const err239 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err239];
 }
 else {
 vErrors.push(err239);
-}
-errors++;
-}
-if(data120.monthlyLimit === undefined){
-const err240 = {instancePath:instancePath+"/quotas/contrib",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'"};
-if(vErrors === null){
-vErrors = [err240];
-}
-else {
-vErrors.push(err240);
-}
-errors++;
-}
-if(data120.unlimited !== undefined){
-if(typeof data120.unlimited !== "boolean"){
-const err241 = {instancePath:instancePath+"/quotas/contrib/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean"};
-if(vErrors === null){
-vErrors = [err241];
-}
-else {
-vErrors.push(err241);
-}
-errors++;
-}
-}
-if(data120.monthlyLimit !== undefined){
-let data122 = data120.monthlyLimit;
-if(typeof data122 == "number"){
-if(data122 < 0 || isNaN(data122)){
-const err242 = {instancePath:instancePath+"/quotas/contrib/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
-if(vErrors === null){
-vErrors = [err242];
-}
-else {
-vErrors.push(err242);
-}
-errors++;
-}
-}
-else {
-const err243 = {instancePath:instancePath+"/quotas/contrib/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number"};
-if(vErrors === null){
-vErrors = [err243];
-}
-else {
-vErrors.push(err243);
-}
-errors++;
-}
-}
-}
-else {
-const err244 = {instancePath:instancePath+"/quotas/contrib",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object"};
-if(vErrors === null){
-vErrors = [err244];
-}
-else {
-vErrors.push(err244);
-}
-errors++;
-}
-}
-if(data113.user !== undefined){
-let data123 = data113.user;
-if(data123 && typeof data123 == "object" && !Array.isArray(data123)){
-if(data123.unlimited === undefined){
-const err245 = {instancePath:instancePath+"/quotas/user",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'"};
-if(vErrors === null){
-vErrors = [err245];
-}
-else {
-vErrors.push(err245);
-}
-errors++;
-}
-if(data123.monthlyLimit === undefined){
-const err246 = {instancePath:instancePath+"/quotas/user",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'"};
-if(vErrors === null){
-vErrors = [err246];
-}
-else {
-vErrors.push(err246);
-}
-errors++;
-}
-if(data123.unlimited !== undefined){
-if(typeof data123.unlimited !== "boolean"){
-const err247 = {instancePath:instancePath+"/quotas/user/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean"};
-if(vErrors === null){
-vErrors = [err247];
-}
-else {
-vErrors.push(err247);
-}
-errors++;
-}
-}
-if(data123.monthlyLimit !== undefined){
-let data125 = data123.monthlyLimit;
-if(typeof data125 == "number"){
-if(data125 < 0 || isNaN(data125)){
-const err248 = {instancePath:instancePath+"/quotas/user/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
-if(vErrors === null){
-vErrors = [err248];
-}
-else {
-vErrors.push(err248);
-}
-errors++;
-}
-}
-else {
-const err249 = {instancePath:instancePath+"/quotas/user/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number"};
-if(vErrors === null){
-vErrors = [err249];
-}
-else {
-vErrors.push(err249);
-}
-errors++;
-}
-}
-}
-else {
-const err250 = {instancePath:instancePath+"/quotas/user",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object"};
-if(vErrors === null){
-vErrors = [err250];
-}
-else {
-vErrors.push(err250);
-}
-errors++;
-}
-}
-if(data113.external !== undefined){
-let data126 = data113.external;
-if(data126 && typeof data126 == "object" && !Array.isArray(data126)){
-if(data126.unlimited === undefined){
-const err251 = {instancePath:instancePath+"/quotas/external",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'"};
-if(vErrors === null){
-vErrors = [err251];
-}
-else {
-vErrors.push(err251);
-}
-errors++;
-}
-if(data126.monthlyLimit === undefined){
-const err252 = {instancePath:instancePath+"/quotas/external",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'"};
-if(vErrors === null){
-vErrors = [err252];
-}
-else {
-vErrors.push(err252);
-}
-errors++;
-}
-if(data126.unlimited !== undefined){
-if(typeof data126.unlimited !== "boolean"){
-const err253 = {instancePath:instancePath+"/quotas/external/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean"};
-if(vErrors === null){
-vErrors = [err253];
-}
-else {
-vErrors.push(err253);
-}
-errors++;
-}
-}
-if(data126.monthlyLimit !== undefined){
-let data128 = data126.monthlyLimit;
-if(typeof data128 == "number"){
-if(data128 < 0 || isNaN(data128)){
-const err254 = {instancePath:instancePath+"/quotas/external/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
-if(vErrors === null){
-vErrors = [err254];
-}
-else {
-vErrors.push(err254);
-}
-errors++;
-}
-}
-else {
-const err255 = {instancePath:instancePath+"/quotas/external/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number"};
-if(vErrors === null){
-vErrors = [err255];
-}
-else {
-vErrors.push(err255);
-}
-errors++;
-}
-}
-}
-else {
-const err256 = {instancePath:instancePath+"/quotas/external",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object"};
-if(vErrors === null){
-vErrors = [err256];
-}
-else {
-vErrors.push(err256);
-}
-errors++;
-}
-}
-if(data113.anonymous !== undefined){
-let data129 = data113.anonymous;
-if(data129 && typeof data129 == "object" && !Array.isArray(data129)){
-if(data129.unlimited === undefined){
-const err257 = {instancePath:instancePath+"/quotas/anonymous",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'"};
-if(vErrors === null){
-vErrors = [err257];
-}
-else {
-vErrors.push(err257);
-}
-errors++;
-}
-if(data129.monthlyLimit === undefined){
-const err258 = {instancePath:instancePath+"/quotas/anonymous",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'"};
-if(vErrors === null){
-vErrors = [err258];
-}
-else {
-vErrors.push(err258);
-}
-errors++;
-}
-if(data129.unlimited !== undefined){
-if(typeof data129.unlimited !== "boolean"){
-const err259 = {instancePath:instancePath+"/quotas/anonymous/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean"};
-if(vErrors === null){
-vErrors = [err259];
-}
-else {
-vErrors.push(err259);
-}
-errors++;
-}
-}
-if(data129.monthlyLimit !== undefined){
-let data131 = data129.monthlyLimit;
-if(typeof data131 == "number"){
-if(data131 < 0 || isNaN(data131)){
-const err260 = {instancePath:instancePath+"/quotas/anonymous/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
-if(vErrors === null){
-vErrors = [err260];
-}
-else {
-vErrors.push(err260);
-}
-errors++;
-}
-}
-else {
-const err261 = {instancePath:instancePath+"/quotas/anonymous/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number"};
-if(vErrors === null){
-vErrors = [err261];
-}
-else {
-vErrors.push(err261);
-}
-errors++;
-}
-}
-}
-else {
-const err262 = {instancePath:instancePath+"/quotas/anonymous",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object"};
-if(vErrors === null){
-vErrors = [err262];
-}
-else {
-vErrors.push(err262);
-}
-errors++;
-}
-}
-if(data113.untrusted !== undefined){
-let data132 = data113.untrusted;
-if(data132 && typeof data132 == "object" && !Array.isArray(data132)){
-if(data132.unlimited === undefined){
-const err263 = {instancePath:instancePath+"/quotas/untrusted",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'"};
-if(vErrors === null){
-vErrors = [err263];
-}
-else {
-vErrors.push(err263);
-}
-errors++;
-}
-if(data132.monthlyLimit === undefined){
-const err264 = {instancePath:instancePath+"/quotas/untrusted",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'"};
-if(vErrors === null){
-vErrors = [err264];
-}
-else {
-vErrors.push(err264);
-}
-errors++;
-}
-if(data132.unlimited !== undefined){
-if(typeof data132.unlimited !== "boolean"){
-const err265 = {instancePath:instancePath+"/quotas/untrusted/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean"};
-if(vErrors === null){
-vErrors = [err265];
-}
-else {
-vErrors.push(err265);
-}
-errors++;
-}
-}
-if(data132.monthlyLimit !== undefined){
-let data134 = data132.monthlyLimit;
-if(typeof data134 == "number"){
-if(data134 < 0 || isNaN(data134)){
-const err266 = {instancePath:instancePath+"/quotas/untrusted/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
-if(vErrors === null){
-vErrors = [err266];
-}
-else {
-vErrors.push(err266);
-}
-errors++;
-}
-}
-else {
-const err267 = {instancePath:instancePath+"/quotas/untrusted/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number"};
-if(vErrors === null){
-vErrors = [err267];
-}
-else {
-vErrors.push(err267);
-}
-errors++;
-}
-}
-}
-else {
-const err268 = {instancePath:instancePath+"/quotas/untrusted",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object"};
-if(vErrors === null){
-vErrors = [err268];
-}
-else {
-vErrors.push(err268);
-}
-errors++;
-}
-}
-}
-else {
-const err269 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/type",keyword:"type",params:{type: "object"},message:"must be object"};
-if(vErrors === null){
-vErrors = [err269];
-}
-else {
-vErrors.push(err269);
-}
-errors++;
-}
-}
-}
-else {
-const err270 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object"};
-if(vErrors === null){
-vErrors = [err270];
-}
-else {
-vErrors.push(err270);
 }
 errors++;
 }

@@ -3,7 +3,8 @@ import { readFile } from 'node:fs/promises'
 import { Router } from 'express'
 import { session } from '@data-fair/lib-express/index.js'
 import config from '#config'
-import { getRawSettings } from '../settings/service.ts'
+import { getSettings } from '../settings/service.ts'
+import { resolveRoleModel } from '../models/service.ts'
 import { validateGithubSourcePath, buildGithubUrl, truncateGithubBody, githubErrorMessage } from './github-proxy.ts'
 
 const router = Router()
@@ -23,13 +24,19 @@ router.get('/info', async (req, res) => {
   const evaluatorAccount = config.evaluatorAccount ?? null
   let evaluatorAvailable = false
   if (evaluatorAccount) {
-    const settings = await getRawSettings(evaluatorAccount)
-    // The gateway refuses any account without an assistant model ("Agent not
-    // configured"), regardless of the requested role — so the promoted evaluator
-    // is only usable when the source account has BOTH an assistant and an
-    // evaluator model. Advertising availability on evaluator alone would enable
-    // a chat whose every call 404s.
-    evaluatorAvailable = !!settings?.models?.assistant?.model && !!settings?.models?.evaluator?.model
+    const settings = await getSettings(evaluatorAccount)
+    // The gateway refuses any account whose assistant role cannot be resolved
+    // ("Agent not configured"), regardless of the requested role — so the
+    // promoted evaluator is only usable when the source account resolves BOTH
+    // an assistant and an evaluator model. Advertising availability on the
+    // evaluator alone would enable a chat whose every call 404s.
+    const resolves = (role: 'assistant' | 'evaluator') => {
+      try {
+        resolveRoleModel(settings, role)
+        return true
+      } catch { return false }
+    }
+    evaluatorAvailable = resolves('assistant') && resolves('evaluator')
   }
   res.send({ ...info, evaluatorAccount, evaluatorAvailable })
 })

@@ -21,16 +21,19 @@ fr:
   consumption: Consommation
   limit: Limite
   noData: Aucune donnée disponible
+  credits: crédits
 en:
   consumption: Consumption
   limit: Limit
   noData: No data available
+  credits: credits
 </i18n>
 
 <script lang="ts" setup>
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Bar } from 'vue-chartjs'
+import { formatCredits } from '~/utils/credits'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -51,7 +54,6 @@ const props = defineProps<{
   entries: Entry[]
   dailyLimit?: number
   monthlyLimit?: number
-  currency?: string
 }>()
 
 const { t, locale } = useI18n()
@@ -60,8 +62,7 @@ const hasData = computed(() => props.entries.some(e => e.cost > 0))
 
 const limit = computed(() => props.dailyLimit ?? props.monthlyLimit ?? 0)
 
-const currencyCode = computed(() => props.currency || 'EUR')
-const costFormatter = computed(() => new Intl.NumberFormat(locale.value, { style: 'currency', currency: currencyCode.value }))
+const formatCost = (amount: number) => formatCredits(locale.value, amount)
 
 const chartData = computed(() => {
   const labels = props.entries.map(e => e.label)
@@ -102,7 +103,7 @@ const chartOptions = computed(() => ({
         label: (ctx: any) => {
           const val = ctx.raw as number
           if (val == null) return ''
-          return `${ctx.dataset.label}: ${costFormatter.value.format(val)}`
+          return `${ctx.dataset.label}: ${formatCost(val)} ${t('credits')}`
         }
       }
     }
@@ -115,7 +116,7 @@ const chartOptions = computed(() => ({
     y: {
       beginAtZero: true,
       ticks: {
-        callback: (val: string | number) => costFormatter.value.format(Number(val))
+        callback: (val: string | number) => formatCost(Number(val))
       }
     }
   }

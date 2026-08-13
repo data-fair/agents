@@ -73,10 +73,6 @@ export function checkQuota (usage: UsageInfo, limits: UsageLimits, scope: string
   return null
 }
 
-export function computeCost (inputTokens: number, outputTokens: number, inputPricePerMillion: number, outputPricePerMillion: number): number {
-  return (inputTokens * inputPricePerMillion + outputTokens * outputPricePerMillion) / 1_000_000
-}
-
 export function computeCredits (inputTokens: number, outputTokens: number, multiplier: number, outputTokenWeight: number): number {
   return (inputTokens + outputTokens * outputTokenWeight) / 1_000_000 * multiplier
 }
@@ -89,7 +85,7 @@ export interface QuotaCheckInput {
 
 /**
  * Run several quota checks in order and return the first violation, if any.
- * Used to enforce the global → untrusted-pool → per-user precedence in one place.
+ * Used to enforce the untrusted-pool → per-user precedence in one place.
  * Null/undefined entries are skipped so callers can build the list conditionally.
  */
 export function firstQuotaViolation (checks: (QuotaCheckInput | null | undefined)[]): QuotaExceeded | null {

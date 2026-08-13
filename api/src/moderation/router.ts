@@ -7,7 +7,8 @@
 import mongo from '#mongo'
 import { Router } from 'express'
 import { type AccountKeys, assertAccountRole, reqSessionAuthenticated } from '@data-fair/lib-express'
-import { getRawSettings } from '../settings/service.ts'
+import { getSettings } from '../settings/service.ts'
+import { resolveRoleModel } from '../models/service.ts'
 import { runProbe } from './service.ts'
 
 const router = Router()
@@ -73,8 +74,10 @@ router.post('/:type/:id/probe', async (req, res) => {
   const session = reqSessionAuthenticated(req)
   const owner = req.params as unknown as AccountKeys
   assertAccountRole(session, owner, 'admin')
-  const settings = await getRawSettings(owner)
-  if (!settings?.models?.assistant?.model) {
+  const settings = await getSettings(owner)
+  try {
+    resolveRoleModel(settings, 'assistant')
+  } catch {
     res.status(404).json({ error: { message: 'Agent not configured', type: 'invalid_request_error' } })
     return
   }

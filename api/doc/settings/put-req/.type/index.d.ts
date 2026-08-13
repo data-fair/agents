@@ -71,16 +71,33 @@ export type Name = string;
 export type ProviderType9 = string;
 export type ProviderName = string;
 export type ProviderID9 = string;
-export type InputPricePer1MTokens = number;
-export type OutputPricePer1MTokens = number;
-export type InputPricePer1MTokens1 = number;
-export type OutputPricePer1MTokens1 = number;
-export type InputPricePer1MTokens2 = number;
-export type OutputPricePer1MTokens2 = number;
-export type InputPricePer1MTokens3 = number;
-export type OutputPricePer1MTokens3 = number;
-export type InputPricePer1MTokens4 = number;
-export type OutputPricePer1MTokens4 = number;
+/**
+ * @minItems 1
+ */
+export type AppropriateUsages = [
+  (Assistant | Tools | Summarizer | Evaluator | Moderator) &
+    string &
+    (Assistant | Tools | Summarizer | Evaluator | Moderator) &
+    string,
+  ...((Assistant | Tools | Summarizer | Evaluator | Moderator) &
+    string &
+    (Assistant | Tools | Summarizer | Evaluator | Moderator) &
+    string)[]
+];
+export type Assistant = "assistant";
+export type Tools = "tools";
+export type Summarizer = "summarizer";
+export type Evaluator = "evaluator";
+export type Moderator = "moderator";
+/**
+ * credits = (input tokens + output tokens × output weight) / 1M × multiplier
+ */
+export type CreditMultiplier = number;
+export type Models = {
+  model: Model;
+  usage: AppropriateUsages;
+  multiplier?: CreditMultiplier;
+}[];
 /**
  * When enabled, the last user message of each request from a moderated category is classified before the model responds.
  */
@@ -112,6 +129,7 @@ export type SettingsPut = {
   };
   providers: AIProviders;
   models?: Models;
+  modelMapping?: ModelRoles;
   moderation?: InputModeration;
   quotas?: RoleQuotas;
 }
@@ -199,26 +217,6 @@ export type Mock = {
   enabled: Enabled8;
   [k: string]: unknown;
 }
-export type Models = {
-  assistant?: Assistant;
-  tools?: Tools;
-  summarizer?: Summarizer;
-  evaluator?: Evaluator;
-  moderator?: Moderator;
-  [k: string]: unknown;
-}
-/**
- *
- * The primary conversational interface. Balanced for reasoning, instruction-following, and human-like interaction. This model manages the high-level flow and delegates complex tasks to subagents.
- *
- * Recommendations: GPT-5.4, Claude 4.5 Sonnet, Kimi K2, Mistral Large 3, etc.
- */
-export type Assistant = {
-  model?: Model;
-  inputPricePerMillion?: InputPricePer1MTokens;
-  outputPricePerMillion?: OutputPricePer1MTokens;
-  [k: string]: unknown;
-}
 export type Model = {
   id: ModelID;
   name: Name;
@@ -230,115 +228,64 @@ export type Model = {
   };
   [k: string]: unknown;
 }
+export type ModelRoles = {
+  assistant?: Assistant1;
+  tools?: Tools1;
+  summarizer?: Summarizer1;
+  evaluator?: Evaluator1;
+  moderator?: Moderator1;
+}
 /**
- *
+ * The primary conversational interface. Balanced for reasoning, instruction-following, and human-like interaction. This model manages the high-level flow and delegates complex tasks to subagents.
+ */
+export type Assistant1 = {
+  provider: string;
+  id: string;
+  name?: string;
+}
+/**
  * The "technician." Specialized in structured data and API interaction. It excels at chaining multiple tool calls without conversational filler, ensuring high reliability in automated workflows.
- *
- * Recommendations: GPT-5.4 Mini, Mistral DevStral, Claude 4.5 Sonnet (Computer Use), MiMo-V2-Flash, etc.
  */
-export type Tools = {
-  model?: Model1;
-  inputPricePerMillion?: InputPricePer1MTokens1;
-  outputPricePerMillion?: OutputPricePer1MTokens1;
-  [k: string]: unknown;
-}
-export type Model1 = {
-  id: ModelID;
-  name: Name;
-  provider: {
-    type: ProviderType9;
-    name: ProviderName;
-    id: ProviderID9;
-    [k: string]: unknown;
-  };
-  [k: string]: unknown;
+export type Tools1 = {
+  provider: string;
+  id: string;
+  name?: string;
 }
 /**
- *
  * A "shorthand" specialist. Optimized for quickly distilling key points from small-to-medium text blocks. It focuses on high information density and brevity to keep context windows lean and costs low.
- *
- * Recommendations: GPT-5.4 Mini, Claude 4.5 Haiku, Mistral Small 4, Qwen3 (8B), etc.
  */
-export type Summarizer = {
-  model?: Model2;
-  inputPricePerMillion?: InputPricePer1MTokens2;
-  outputPricePerMillion?: OutputPricePer1MTokens2;
-  [k: string]: unknown;
-}
-export type Model2 = {
-  id: ModelID;
-  name: Name;
-  provider: {
-    type: ProviderType9;
-    name: ProviderName;
-    id: ProviderID9;
-    [k: string]: unknown;
-  };
-  [k: string]: unknown;
+export type Summarizer1 = {
+  provider: string;
+  id: string;
+  name?: string;
 }
 /**
- *
  * The "quality controller." Analyzes the assistant's logic and tool outputs for accuracy and safety. It requires the highest reasoning capabilities to act as a reliable ground truth for system performance.
- *
- * Recommendations: Claude Opus 4.6, GPT-5.4 (Reasoning), DeepSeek-R1, Pharia-1-LLM, etc.
  */
-export type Evaluator = {
-  model?: Model3;
-  inputPricePerMillion?: InputPricePer1MTokens3;
-  outputPricePerMillion?: OutputPricePer1MTokens3;
-  [k: string]: unknown;
-}
-export type Model3 = {
-  id: ModelID;
-  name: Name;
-  provider: {
-    type: ProviderType9;
-    name: ProviderName;
-    id: ProviderID9;
-    [k: string]: unknown;
-  };
-  [k: string]: unknown;
+export type Evaluator1 = {
+  provider: string;
+  id: string;
+  name?: string;
 }
 /**
- *
- * The "gatekeeper." Classifies each new user message for profanity, prompt-injection, persona override, and out-of-scope requests. Should be fast and cheap — it sits on the critical path to the first response token.
- *
- * Recommendations: a small/fast general-purpose model with structured (JSON) output support, e.g. Claude 4.5 Haiku, GPT-5.4 Mini, Mistral Small 4, Qwen3 (4B). Dedicated moderation classifiers (Llama Guard, moderation APIs) are not compatible: they use fixed taxonomies and output formats that cannot express this platform's custom policy.
+ * The "gatekeeper." Classifies each new user message for profanity, prompt-injection, persona override, and out-of-scope requests. Should be fast and cheap — it sits on the critical path to the first response token. Dedicated moderation classifiers (Llama Guard, moderation APIs) are not compatible: they use fixed taxonomies and output formats that cannot express this platform's custom policy.
  */
-export type Moderator = {
-  model?: Model4;
-  inputPricePerMillion?: InputPricePer1MTokens4;
-  outputPricePerMillion?: OutputPricePer1MTokens4;
-  [k: string]: unknown;
-}
-export type Model4 = {
-  id: ModelID;
-  name: Name;
-  provider: {
-    type: ProviderType9;
-    name: ProviderName;
-    id: ProviderID9;
-    [k: string]: unknown;
-  };
-  [k: string]: unknown;
+export type Moderator1 = {
+  provider: string;
+  id: string;
+  name?: string;
 }
 export type InputModeration = {
   enabled: EnableInputModeration;
   categories: ModeratedUserCategories;
 }
 export type RoleQuotas = {
-  global: GlobalQuotas;
   admin: AdminQuotas;
   contrib: ContributorQuotas;
   user: SimpleUserQuotas;
   external: ExternalUserQuotas;
   anonymous: AnonymousUserQuotas;
   untrusted?: AnonymousExternalPool;
-  [k: string]: unknown;
-}
-export type GlobalQuotas = {
-  unlimited: Unlimited;
-  monthlyLimit: MonthlyLimit;
   [k: string]: unknown;
 }
 export type AdminQuotas = {
@@ -387,7 +334,7 @@ export type RoleQuota = {
  * This interface was referenced by `SettingsPut`'s JSON-Schema
  * via the `definition` "Model".
  */
-export type Model5 = {
+export type Model1 = {
   id: ModelID;
   name: Name;
   provider: {

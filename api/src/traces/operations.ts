@@ -57,8 +57,8 @@ export interface BuildTraceInput {
   body: any
   response: { content: string, toolCalls: { id: string, name: string, arguments: string }[], finishReason?: string }
   usage: { inputTokens: number, outputTokens: number, cacheReadTokens?: number, cacheWriteTokens?: number }
-  inputPricePerMillion: number
-  outputPricePerMillion: number
+  multiplier: number
+  outputTokenWeight: number
   timing: { durationMs: number, timeToFirstChunkMs?: number }
   moderation?: TraceModeration
   flags?: TraceFlags
@@ -68,8 +68,8 @@ export function buildTraceRequestDoc (input: BuildTraceInput, now: Date): TraceR
   const ctx = parseContextId(input.contextId)
   const messages = Array.isArray(input.body?.messages) ? input.body.messages : []
   const tools = Array.isArray(input.body?.tools) ? input.body.tools : []
-  const inputCost = input.usage.inputTokens * input.inputPricePerMillion / 1_000_000
-  const outputCost = input.usage.outputTokens * input.outputPricePerMillion / 1_000_000
+  const inputCost = input.usage.inputTokens / 1_000_000 * input.multiplier
+  const outputCost = input.usage.outputTokens * input.outputTokenWeight / 1_000_000 * input.multiplier
   const cost = { input: inputCost, output: outputCost, total: inputCost + outputCost }
   return {
     owner: input.owner,

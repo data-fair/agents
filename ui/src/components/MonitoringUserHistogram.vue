@@ -19,17 +19,20 @@
 
 <i18n lang="yaml">
 fr:
-  cost: Coût
+  cost: Consommation
   noData: Aucune donnée pour ce jour
+  credits: crédits
 en:
-  cost: Cost
+  cost: Consumption
   noData: No data for this day
+  credits: credits
 </i18n>
 
 <script lang="ts" setup>
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Bar } from 'vue-chartjs'
+import { formatCredits } from '~/utils/credits'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -48,13 +51,11 @@ interface UserEntry {
 
 const props = defineProps<{
   users: UserEntry[]
-  currency?: string
 }>()
 
 const { t, locale } = useI18n()
 
-const currencyCode = computed(() => props.currency || 'EUR')
-const costFormatter = computed(() => new Intl.NumberFormat(locale.value, { style: 'currency', currency: currencyCode.value }))
+const formatCost = (amount: number) => formatCredits(locale.value, amount)
 
 const chartData = computed(() => ({
   labels: props.users.map(u => u.userLabel),
@@ -74,7 +75,7 @@ const chartOptions = computed(() => ({
     legend: { display: false },
     tooltip: {
       callbacks: {
-        label: (ctx: any) => costFormatter.value.format(ctx.raw as number)
+        label: (ctx: any) => `${formatCost(ctx.raw as number)} ${t('credits')}`
       }
     }
   },
@@ -82,7 +83,7 @@ const chartOptions = computed(() => ({
     x: {
       beginAtZero: true,
       ticks: {
-        callback: (val: string | number) => costFormatter.value.format(Number(val))
+        callback: (val: string | number) => formatCost(Number(val))
       }
     },
     y: {

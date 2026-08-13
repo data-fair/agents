@@ -11,13 +11,11 @@ import eventsLog from '@data-fair/lib-express/events-log.js'
 import * as putReqBody from '#doc/settings/put-req/index.ts'
 import { type Settings } from '#types'
 import { encryptProviderApiKeys, obfuscateProviderApiKeys } from './operations.ts'
-import { defaultQuotas, defaultModeration } from './service.ts'
+import { defaultQuotas, defaultModeration, emptySettings } from './service.ts'
 import { securityKey } from '../cipher/service.ts'
 
 const router = Router()
 export default router
-
-const emptySettings = (owner: AccountKeys): Settings => ({ owner, providers: [], quotas: defaultQuotas, storeTraces: false, moderation: defaultModeration })
 
 router.get('/:type/:id', async (req, res, next) => {
   const session = reqSessionAuthenticated(req)
@@ -46,15 +44,16 @@ router.put('/:type/:id', async (req, res, next) => {
     updatedAt: new Date().toISOString(),
     owner,
     providers: encryptProviderApiKeys(body.providers || [], existing?.providers || [], securityKey),
+    models: body.models ?? [],
     quotas: body.quotas ?? defaultQuotas,
     storeTraces: body.storeTraces ?? false,
     moderation: body.moderation ?? defaultModeration
   }
-  // Persist models exactly as the form represents them: the model-role sections
-  // are hidden until a provider exists, so an empty config legitimately has no
-  // models key. Injecting an empty object here would make the form report a
-  // spurious diff on the next load (it strips the hidden, empty value).
-  if (body.models) settings.models = body.models
+  // The role mapping section is hidden until a provider exists, so an empty
+  // config legitimately has no modelMapping key. Injecting an empty object here
+  // would make the form report a spurious diff on the next load (it strips the
+  // hidden, empty value).
+  if (body.modelMapping) settings.modelMapping = body.modelMapping
   await mongo.settings.replaceOne({ owner }, settings, { upsert: true })
 
   eventsLog.info('agents.settings.update', `settings updated for owner ${owner.type}/${owner.id}`, { req })

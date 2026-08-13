@@ -1,3 +1,41 @@
+// The roles a model can be bound to. Each org may pick, per role, any model of
+// its catalog (global models + its own `models` entries); an unmapped role falls
+// back to the global default, then along the role's fallback chain.
+const MODEL_ROLES = ['assistant', 'tools', 'summarizer', 'evaluator', 'moderator']
+
+/** @type {Record<string, { en: string, fr: string }>} */
+const MODEL_ROLE_TITLES = {
+  assistant: { en: 'Assistant', fr: 'Assistant' },
+  tools: { en: 'Tools', fr: 'Outils' },
+  summarizer: { en: 'Summarizer', fr: 'Résumeur' },
+  evaluator: { en: 'Evaluator', fr: 'Évaluateur' },
+  moderator: { en: 'Moderator', fr: 'Modérateur' }
+}
+
+/** @type {Record<string, { en: string, fr: string }>} */
+const MODEL_ROLE_DESCRIPTIONS = {
+  assistant: {
+    en: 'The primary conversational interface. Balanced for reasoning, instruction-following, and human-like interaction. This model manages the high-level flow and delegates complex tasks to subagents.',
+    fr: "L'interface conversationnelle principale. Équilibré pour le raisonnement, le suivi d'instructions et l'interaction naturelle. Ce modèle gère le flux de haut niveau et délègue les tâches complexes aux sous-agents."
+  },
+  tools: {
+    en: 'The "technician." Specialized in structured data and API interaction. It excels at chaining multiple tool calls without conversational filler, ensuring high reliability in automated workflows.',
+    fr: "Le « technicien ». Spécialisé dans les données structurées et l'interaction avec les API. Il excelle à enchaîner plusieurs appels d'outils sans remplissage conversationnel, garantissant une haute fiabilité dans les workflows automatisés."
+  },
+  summarizer: {
+    en: 'A "shorthand" specialist. Optimized for quickly distilling key points from small-to-medium text blocks. It focuses on high information density and brevity to keep context windows lean and costs low.',
+    fr: "Un spécialiste de la « synthèse ». Optimisé pour extraire rapidement les points clés de blocs de texte petits à moyens. Il privilégie la densité d'information et la concision pour garder les fenêtres de contexte légères et les coûts bas."
+  },
+  evaluator: {
+    en: 'The "quality controller." Analyzes the assistant\'s logic and tool outputs for accuracy and safety. It requires the highest reasoning capabilities to act as a reliable ground truth for system performance.',
+    fr: "Le « contrôleur qualité ». Analyse la logique de l'assistant et les sorties des outils pour vérifier la précision et la sécurité. Il nécessite les capacités de raisonnement les plus élevées pour servir de référence fiable pour les performances du système."
+  },
+  moderator: {
+    en: 'The "gatekeeper." Classifies each new user message for profanity, prompt-injection, persona override, and out-of-scope requests. Should be fast and cheap — it sits on the critical path to the first response token. Dedicated moderation classifiers (Llama Guard, moderation APIs) are not compatible: they use fixed taxonomies and output formats that cannot express this platform\'s custom policy.',
+    fr: 'Le « gardien ». Classe chaque nouveau message utilisateur (grossièretés, injection de prompt, usurpation de persona, demandes hors périmètre). Doit être rapide et peu coûteux — il se trouve sur le chemin critique vers le premier token de réponse. Les classifieurs de modération dédiés (Llama Guard, API de modération) ne sont pas compatibles : leurs taxonomies et formats de sortie fixes ne peuvent pas exprimer la politique spécifique de cette plateforme.'
+  }
+}
+
 export default {
   $id: 'https://github.com/data-fair/agents/settings',
   'x-exports': ['types'],
@@ -48,9 +86,11 @@ export default {
       layout: {
         comp: 'autocomplete',
         getItems: {
-          // expr: 'context.models',
+          // rootData is the whole settings document, so this expression is
+          // independent of how deeply the Model definition is nested (it now
+          // lives inside the `models` array items).
           // eslint-disable-next-line no-template-curly-in-string
-          url: '${context.apiPath}/models/${context.accountType}/${context.accountId}?provider=${parent.parent.parent.data.providers.map(p => p.id).join(",")}',
+          url: '${context.apiPath}/models/${context.accountType}/${context.accountId}?provider=${(rootData.providers || []).map(p => p.id).join(",")}',
           itemsResults: 'data.results',
           // eslint-disable-next-line no-template-curly-in-string
           itemTitle: '`${item.name} (${item.provider.name} - ${item.provider.id.slice(0, 8)})`',
@@ -626,265 +666,86 @@ export default {
       }
     },
     models: {
-      type: 'object',
+      type: 'array',
       title: 'Models',
-      'x-i18n-title': {
-        en: 'Models',
-        fr: 'Modèles'
-      },
+      'x-i18n-title': { en: 'Models', fr: 'Modèles' },
+      default: [],
       layout: {
-        title: null,
-        if: 'parent.data.providers?.length'
+        if: 'parent.data.providers?.length',
+        // eslint-disable-next-line no-template-curly-in-string
+        itemTitle: 'item?.model ? `${item.model.name} (${item.usage?.join(", ")})` : ""',
+        listActions: ['add', 'edit', 'delete']
       },
-      default: {},
-      properties: {
-        assistant: {
-          type: 'object',
-          title: 'Assistant',
-          description: `
-The primary conversational interface. Balanced for reasoning, instruction-following, and human-like interaction. This model manages the high-level flow and delegates complex tasks to subagents.
-          
-Recommendations: GPT-5.4, Claude 4.5 Sonnet, Kimi K2, Mistral Large 3, etc.`,
-          'x-i18n-title': {
-            en: 'Assistant',
-            fr: 'Assistant'
-          },
-          'x-i18n-description': {
-            en: 'The primary conversational interface. Balanced for reasoning, instruction-following, and human-like interaction. This model manages the high-level flow and delegates complex tasks to subagents.\n\nRecommendations: GPT-5.4, Claude 4.5 Sonnet, Kimi K2, Mistral Large 3, etc.',
-            fr: 'L\'interface conversationnelle principale. Équilibré pour le raisonnement, le suivi d\'instructions et l\'interaction naturelle. Ce modèle gère le flux de haut niveau et délègue les tâches complexes aux sous-agents.\n\nRecommandations : GPT-5.4, Claude 4.5 Sonnet, Kimi K2, Mistral Large 3, etc.'
-          },
-          layout: {
-            comp: 'card',
-            children: [{ key: 'model' }, { key: 'inputPricePerMillion', cols: 6 }, { key: 'outputPricePerMillion', cols: 6 }],
-            cols: 6
-          },
-          properties: {
-            model: {
-              $ref: '#/definitions/Model',
-              title: 'Model',
-              'x-i18n-title': {
-                en: 'Model',
-                fr: 'Modèle'
-              },
-            },
-            inputPricePerMillion: {
-              type: 'number',
-              title: 'Input price (per 1M tokens)',
-              'x-i18n-title': {
-                en: 'Input price (per 1M tokens)',
-                fr: "Prix d'entrée (par million de tokens)"
-              },
-              default: 0,
-              minimum: 0
-            },
-            outputPricePerMillion: {
-              type: 'number',
-              title: 'Output price (per 1M tokens)',
-              'x-i18n-title': {
-                en: 'Output price (per 1M tokens)',
-                fr: 'Prix de sortie (par million de tokens)'
-              },
-              default: 0,
-              minimum: 0
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['model', 'usage'],
+        properties: {
+          model: { $ref: '#/definitions/Model', title: 'Model', 'x-i18n-title': { en: 'Model', fr: 'Modèle' } },
+          usage: {
+            type: 'array',
+            uniqueItems: true,
+            minItems: 1,
+            title: 'Appropriate usages',
+            'x-i18n-title': { en: 'Appropriate usages', fr: 'Usages appropriés' },
+            items: {
+              type: 'string',
+              oneOf: [
+                { const: 'assistant', title: 'Assistant' },
+                { const: 'tools', title: 'Tools', 'x-i18n-title': { en: 'Tools', fr: 'Outils' } },
+                { const: 'summarizer', title: 'Summarizer', 'x-i18n-title': { en: 'Summarizer', fr: 'Résumeur' } },
+                { const: 'evaluator', title: 'Evaluator', 'x-i18n-title': { en: 'Evaluator', fr: 'Évaluateur' } },
+                { const: 'moderator', title: 'Moderator', 'x-i18n-title': { en: 'Moderator', fr: 'Modérateur' } }
+              ]
             }
-          }
-        },
-        tools: {
-          type: 'object',
-          title: 'Tools',
-          description: `
-The "technician." Specialized in structured data and API interaction. It excels at chaining multiple tool calls without conversational filler, ensuring high reliability in automated workflows.
-
-Recommendations: GPT-5.4 Mini, Mistral DevStral, Claude 4.5 Sonnet (Computer Use), MiMo-V2-Flash, etc.`,
-          'x-i18n-title': {
-            en: 'Tools',
-            fr: 'Outils'
           },
-          'x-i18n-description': {
-            en: 'The "technician." Specialized in structured data and API interaction. It excels at chaining multiple tool calls without conversational filler, ensuring high reliability in automated workflows.\n\nRecommendations: GPT-5.4 Mini, Mistral DevStral, Claude 4.5 Sonnet (Computer Use), MiMo-V2-Flash, etc.',
-            fr: "Le « technicien ». Spécialisé dans les données structurées et l'interaction avec les API. Il excelle à enchaîner plusieurs appels d'outils sans remplissage conversationnel, garantissant une haute fiabilité dans les workflows automatisés.\n\nRecommandations : GPT-5.4 Mini, Mistral DevStral, Claude 4.5 Sonnet (Computer Use), MiMo-V2-Flash, etc."
-          },
-          layout: {
-            comp: 'card',
-            children: [{ key: 'model' }, { key: 'inputPricePerMillion', cols: 6 }, { key: 'outputPricePerMillion', cols: 6 }],
-            cols: 6
-          },
-          properties: {
-            model: {
-              $ref: '#/definitions/Model',
-              title: 'Model',
-              'x-i18n-title': {
-                en: 'Model',
-                fr: 'Modèle'
-              }
-            },
-            inputPricePerMillion: {
-              type: 'number',
-              title: 'Input price (per 1M tokens)',
-              'x-i18n-title': {
-                en: 'Input price (per 1M tokens)',
-                fr: "Prix d'entrée (par million de tokens)"
-              },
-              default: 0,
-              minimum: 0
-            },
-            outputPricePerMillion: {
-              type: 'number',
-              title: 'Output price (per 1M tokens)',
-              'x-i18n-title': {
-                en: 'Output price (per 1M tokens)',
-                fr: 'Prix de sortie (par million de tokens)'
-              },
-              default: 0,
-              minimum: 0
-            }
-          }
-        },
-        summarizer: {
-          type: 'object',
-          title: 'Summarizer',
-          description: `
-A "shorthand" specialist. Optimized for quickly distilling key points from small-to-medium text blocks. It focuses on high information density and brevity to keep context windows lean and costs low.
-          
-Recommendations: GPT-5.4 Mini, Claude 4.5 Haiku, Mistral Small 4, Qwen3 (8B), etc.`,
-          'x-i18n-title': {
-            en: 'Summarizer',
-            fr: 'Résumeur'
-          },
-          'x-i18n-description': {
-            en: 'A "shorthand" specialist. Optimized for quickly distilling key points from small-to-medium text blocks. It focuses on high information density and brevity to keep context windows lean and costs low.\n\nRecommendations: GPT-5.4 Mini, Claude 4.5 Haiku, Mistral Small 4, Qwen3 (8B), etc.',
-            fr: "Un spécialiste de la « synthèse ». Optimisé pour extraire rapidement les points clés de blocs de texte petits à moyens. Il privilégie la densité d'information et la concision pour garder les fenêtres de contexte légères et les coûts bas.\n\nRecommandations : GPT-5.4 Mini, Claude 4.5 Haiku, Mistral Small 4, Qwen3 (8B), etc."
-          },
-          layout: {
-            comp: 'card',
-            children: [{ key: 'model' }, { key: 'inputPricePerMillion', cols: 6 }, { key: 'outputPricePerMillion', cols: 6 }],
-            cols: 6
-          },
-          properties: {
-            model: {
-              $ref: '#/definitions/Model',
-              title: 'Model',
-              'x-i18n-title': {
-                en: 'Model',
-                fr: 'Modèle'
-              }
-            },
-            inputPricePerMillion: {
-              type: 'number',
-              title: 'Input price (per 1M tokens)',
-              'x-i18n-title': {
-                en: 'Input price (per 1M tokens)',
-                fr: "Prix d'entrée (par million de tokens)"
-              },
-              default: 0,
-              minimum: 0
-            },
-            outputPricePerMillion: {
-              type: 'number',
-              title: 'Output price (per 1M tokens)',
-              'x-i18n-title': {
-                en: 'Output price (per 1M tokens)',
-                fr: 'Prix de sortie (par million de tokens)'
-              },
-              default: 0,
-              minimum: 0
-            }
-          }
-        },
-        evaluator: {
-          type: 'object',
-          title: 'Evaluator',
-          description: `
-The "quality controller." Analyzes the assistant's logic and tool outputs for accuracy and safety. It requires the highest reasoning capabilities to act as a reliable ground truth for system performance.
-
-Recommendations: Claude Opus 4.6, GPT-5.4 (Reasoning), DeepSeek-R1, Pharia-1-LLM, etc.`,
-          'x-i18n-title': {
-            en: 'Evaluator',
-            fr: 'Évaluateur'
-          },
-          'x-i18n-description': {
-            en: 'The "quality controller." Analyzes the assistant\'s logic and tool outputs for accuracy and safety. It requires the highest reasoning capabilities to act as a reliable ground truth for system performance.\n\nRecommendations: Claude Opus 4.6, GPT-5.4 (Reasoning), DeepSeek-R1, Pharia-1-LLM, etc.',
-            fr: "Le « contrôleur qualité ». Analyse la logique de l'assistant et les sorties des outils pour vérifier la précision et la sécurité. Il nécessite les capacités de raisonnement les plus élevées pour servir de référence fiable pour les performances du système.\n\nRecommandations : Claude Opus 4.6, GPT-5.4 (Reasoning), DeepSeek-R1, Pharia-1-LLM, etc."
-          },
-          layout: {
-            comp: 'card',
-            children: [{ key: 'model' }, { key: 'inputPricePerMillion', cols: 6 }, { key: 'outputPricePerMillion', cols: 6 }],
-            cols: 6
-          },
-          properties: {
-            model: {
-              $ref: '#/definitions/Model',
-              title: 'Model',
-              'x-i18n-title': {
-                en: 'Model',
-                fr: 'Modèle'
-              }
-            },
-            inputPricePerMillion: {
-              type: 'number',
-              title: 'Input price (per 1M tokens)',
-              'x-i18n-title': {
-                en: 'Input price (per 1M tokens)',
-                fr: "Prix d'entrée (par million de tokens)"
-              },
-              default: 0,
-              minimum: 0
-            },
-            outputPricePerMillion: {
-              type: 'number',
-              title: 'Output price (per 1M tokens)',
-              'x-i18n-title': {
-                en: 'Output price (per 1M tokens)',
-                fr: 'Prix de sortie (par million de tokens)'
-              },
-              default: 0,
-              minimum: 0
-            }
-          }
-        },
-        moderator: {
-          type: 'object',
-          title: 'Moderator',
-          description: `
-The "gatekeeper." Classifies each new user message for profanity, prompt-injection, persona override, and out-of-scope requests. Should be fast and cheap — it sits on the critical path to the first response token.
-
-Recommendations: a small/fast general-purpose model with structured (JSON) output support, e.g. Claude 4.5 Haiku, GPT-5.4 Mini, Mistral Small 4, Qwen3 (4B). Dedicated moderation classifiers (Llama Guard, moderation APIs) are not compatible: they use fixed taxonomies and output formats that cannot express this platform's custom policy.`,
-          'x-i18n-title': {
-            en: 'Moderator',
-            fr: 'Modérateur'
-          },
-          'x-i18n-description': {
-            en: 'The "gatekeeper." Classifies each new user message for profanity, prompt-injection, persona override, and out-of-scope requests. Should be fast and cheap — it sits on the critical path to the first response token.\n\nRecommendations: a small/fast general-purpose model with structured (JSON) output support, e.g. Claude 4.5 Haiku, GPT-5.4 Mini, Mistral Small 4, Qwen3 (4B). Dedicated moderation classifiers (Llama Guard, moderation APIs) are not compatible: they use fixed taxonomies and output formats that cannot express this platform\'s custom policy.',
-            fr: 'Le « gardien ». Classe chaque nouveau message utilisateur (grossièretés, injection de prompt, usurpation de persona, demandes hors périmètre). Doit être rapide et peu coûteux — il se trouve sur le chemin critique vers le premier token de réponse.\n\nRecommandations : un modèle généraliste petit et rapide avec support de sortie structurée (JSON), par ex. Claude 4.5 Haiku, GPT-5.4 Mini, Mistral Small 4, Qwen3 (4B). Les classifieurs de modération dédiés (Llama Guard, API de modération) ne sont pas compatibles : leurs taxonomies et formats de sortie fixes ne peuvent pas exprimer la politique spécifique de cette plateforme.'
-          },
-          layout: {
-            comp: 'card',
-            children: [{ key: 'model' }, { key: 'inputPricePerMillion', cols: 6 }, { key: 'outputPricePerMillion', cols: 6 }],
-            cols: 6
-          },
-          properties: {
-            model: {
-              $ref: '#/definitions/Model',
-              title: 'Model',
-              'x-i18n-title': { en: 'Model', fr: 'Modèle' }
-            },
-            inputPricePerMillion: {
-              type: 'number',
-              title: 'Input price (per 1M tokens)',
-              'x-i18n-title': { en: 'Input price (per 1M tokens)', fr: "Prix d'entrée (par million de tokens)" },
-              default: 0,
-              minimum: 0
-            },
-            outputPricePerMillion: {
-              type: 'number',
-              title: 'Output price (per 1M tokens)',
-              'x-i18n-title': { en: 'Output price (per 1M tokens)', fr: 'Prix de sortie (par million de tokens)' },
-              default: 0,
-              minimum: 0
-            }
+          multiplier: {
+            type: 'number',
+            minimum: 0,
+            default: 1,
+            title: 'Credit multiplier',
+            'x-i18n-title': { en: 'Credit multiplier', fr: 'Multiplicateur de crédits' },
+            description: 'credits = (input tokens + output tokens × output weight) / 1M × multiplier',
+            'x-i18n-description': { en: 'credits = (input tokens + output tokens × output weight) / 1M × multiplier', fr: 'crédits = (tokens d\'entrée + tokens de sortie × poids de sortie) / 1M × multiplicateur' }
           }
         }
       }
+    },
+    modelMapping: {
+      type: 'object',
+      additionalProperties: false,
+      title: 'Model roles',
+      'x-i18n-title': { en: 'Model roles', fr: 'Rôles de modèles' },
+      layout: { if: 'parent.data.providers?.length' },
+      properties: Object.fromEntries(MODEL_ROLES.map(role => [role, {
+        type: 'object',
+        additionalProperties: false,
+        required: ['provider', 'id'],
+        title: MODEL_ROLE_TITLES[role].en,
+        'x-i18n-title': MODEL_ROLE_TITLES[role],
+        description: MODEL_ROLE_DESCRIPTIONS[role].en,
+        'x-i18n-description': MODEL_ROLE_DESCRIPTIONS[role],
+        layout: {
+          comp: 'autocomplete',
+          cols: { md: 6 },
+          getItems: {
+            // eslint-disable-next-line no-template-curly-in-string
+            url: '${context.apiPath}/catalog/${context.accountType}/${context.accountId}?usage=' + role,
+            itemsResults: 'data.results',
+            // eslint-disable-next-line no-template-curly-in-string
+            itemTitle: '`${item.name} (${item.provider.name})`',
+
+            itemKey: 'item.provider.id + ":" + item.id',
+            // map the catalog entry onto the stored ref shape
+            itemValue: '({ provider: item.provider.id, id: item.id, name: item.name })'
+          }
+        },
+        properties: {
+          provider: { type: 'string' },
+          id: { type: 'string' },
+          name: { type: 'string' }
+        }
+      }]))
     },
     moderation: {
       type: 'object',
@@ -941,7 +802,6 @@ Recommendations: a small/fast general-purpose model with structured (JSON) outpu
         title: null,
         if: 'parent.data.providers?.length',
         children: [
-          { key: 'global', cols: { sm: 6, md: 4 } },
           { key: 'admin', cols: { sm: 6, md: 4 } },
           { key: 'contrib', cols: { sm: 6, md: 4 }, if: 'context.accountType === "organization"' },
           { key: 'user', cols: { sm: 6, md: 4 }, if: 'context.accountType === "organization"' },
@@ -950,9 +810,8 @@ Recommendations: a small/fast general-purpose model with structured (JSON) outpu
           { key: 'untrusted', cols: { sm: 6, md: 4 } }
         ]
       },
-      required: ['global', 'admin', 'contrib', 'user', 'external', 'anonymous'],
+      required: ['admin', 'contrib', 'user', 'external', 'anonymous'],
       default: {
-        global: { unlimited: false, monthlyLimit: 10 },
         admin: { unlimited: true, monthlyLimit: 0 },
         contrib: { unlimited: false, monthlyLimit: 0 },
         user: { unlimited: false, monthlyLimit: 0 },
@@ -961,15 +820,6 @@ Recommendations: a small/fast general-purpose model with structured (JSON) outpu
         untrusted: { unlimited: false, monthlyLimit: 0 }
       },
       properties: {
-        global: {
-          $ref: '#/definitions/RoleQuota',
-          title: 'Global quotas',
-          'x-i18n-title': {
-            en: 'Global quotas',
-            fr: 'Quotas globaux'
-          },
-          default: { unlimited: false, monthlyLimit: 10 }
-        },
         admin: {
           $ref: '#/definitions/RoleQuota',
           title: 'Admin quotas',

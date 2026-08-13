@@ -2,7 +2,6 @@ import { Router } from 'express'
 import { type AccountKeys, assertAccountRole, reqSessionAuthenticated } from '@data-fair/lib-express'
 import { getOwnerUsage, getAccountDailyHistory, getAccountMonthlyHistory, getUsersDailyHistory } from './service.ts'
 import { getRawSettings, defaultQuotas } from '../settings/service.ts'
-import config from '#config'
 
 const router = Router()
 export default router
@@ -22,7 +21,7 @@ router.get('/:type/:id', async (req, res, next) => {
 
     const quotas = settings?.quotas ?? defaultQuotas
 
-    const result: Record<string, unknown> = { quotas, currency: config.currency }
+    const result: Record<string, unknown> = { quotas }
 
     if (!period || period === 'daily') result.daily = usage.daily
     if (!period || period === 'weekly') result.weekly = usage.weekly

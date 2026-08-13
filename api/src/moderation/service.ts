@@ -7,9 +7,11 @@ import { generateObject } from 'ai'
 import type { AccountKeys } from '@data-fair/lib-express'
 import type { Settings } from '#types'
 import type { UsageIdentity } from '../usage/enforce.ts'
-import { getModelConfig, resolveModelForRole, OPENAI_COMPATIBLE_PROVIDER_NAME } from '../models/operations.ts'
+import config from '#config'
+import { OPENAI_COMPATIBLE_PROVIDER_NAME } from '../models/operations.ts'
+import { resolveRoleModel } from '../models/service.ts'
 import { recordUsage } from '../usage/service.ts'
-import { computeCost } from '../usage/operations.ts'
+import { computeCredits } from '../usage/operations.ts'
 import {
   buildModerationSystemPrompt, truncateForModeration, truncateExcerpt, formatModerationInput,
   verdictSchema, isInCooldown, isReasoningEffortRejected,
@@ -157,8 +159,7 @@ export function startModeration (params: {
   }
 
   const verdictPromise: Promise<ModerationVerdict> = (async () => {
-    const { inputPricePerMillion, outputPricePerMillion } = getModelConfig(settings, 'moderator')
-    const model = resolveModelForRole(settings, 'moderator')
+    const { model, entry } = resolveRoleModel(settings, 'moderator')
     // The verdict is one short JSON object and this call is on the critical path to
     // the first token (see MODERATION_TIMEOUT_MS), so the budget is intentionally tiny.
     // A reasoning ("thinking") model would otherwise spend the whole budget on hidden
@@ -178,7 +179,7 @@ export function startModeration (params: {
       abortSignal: AbortSignal.timeout(MODERATION_HARD_TIMEOUT_MS)
     }
     const { object, usage } = await withReasoningDisabled(extra => generateObject({ ...baseArgs, ...extra }))
-    const cost = computeCost(usage?.inputTokens ?? 0, usage?.outputTokens ?? 0, inputPricePerMillion, outputPricePerMillion)
+    const cost = computeCredits(usage?.inputTokens ?? 0, usage?.outputTokens ?? 0, entry.multiplier, config.outputTokenWeight)
     if (cost > 0) await recordUsage(owner, cost, identity.usageUserId, identity.usageUserName, identity.poolId)
     return object
   })()
@@ -240,8 +241,7 @@ export interface ProbeResult {
 // Runs the canned probes against the live moderator config. Metered at account
 // level, NOT written to moderation-events (it would pollute the stats).
 export async function runProbe (settings: Settings, owner: AccountKeys): Promise<ProbeResult[]> {
-  const { inputPricePerMillion, outputPricePerMillion } = getModelConfig(settings, 'moderator')
-  const model = resolveModelForRole(settings, 'moderator')
+  const { model, entry } = resolveRoleModel(settings, 'moderator')
   const results: ProbeResult[] = []
   for (const probe of PROBE_MESSAGES) {
     const startedAt = Date.now()
@@ -256,7 +256,7 @@ export async function runProbe (settings: Settings, owner: AccountKeys): Promise
         abortSignal: AbortSignal.timeout(MODERATION_HARD_TIMEOUT_MS)
       }
       const { object, usage } = await withReasoningDisabled(extra => generateObject({ ...probeArgs, ...extra }))
-      const cost = computeCost(usage?.inputTokens ?? 0, usage?.outputTokens ?? 0, inputPricePerMillion, outputPricePerMillion)
+      const cost = computeCredits(usage?.inputTokens ?? 0, usage?.outputTokens ?? 0, entry.multiplier, config.outputTokenWeight)
       if (cost > 0) await recordUsage(owner, cost)
       results.push({ key: probe.key, message: probe.message, action: object.action, category: object.category, latencyMs: Date.now() - startedAt })
     } catch (err: any) {
