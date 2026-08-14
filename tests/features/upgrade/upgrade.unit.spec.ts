@@ -28,9 +28,14 @@ test.describe('transformSettingsDoc', () => {
     const result = transformSettingsDoc(structuredClone(oldDoc))!
     assert.equal(result.settings.models.length, 2) // gpt-x, gpt-mini (dedup: summarizer+moderator share gpt-mini)
     const mini = result.settings.models.find((m: any) => m.model.id === 'gpt-mini')
-    assert.deepEqual([...mini.usage].sort(), ['moderator', 'summarizer'])
-    assert.equal(mini.multiplier, 1)
-    assert.equal(mini.model.inputPricePerMillion, undefined)
+    // deepEqual on the whole entry (not just a spot-check on inputPricePerMillion): in the
+    // old shape the prices were siblings of `model`, not inside it, so a narrower assertion
+    // would pass even if the transform accidentally carried them over onto the catalog entry.
+    assert.deepEqual(mini, {
+      model: { id: 'gpt-mini', name: 'GPT Mini', provider: { type: 'openai', name: 'OpenAI', id: 'p1' } },
+      usage: ['summarizer', 'moderator'],
+      multiplier: 1
+    })
     assert.deepEqual(result.settings.modelMapping.assistant, { provider: 'p1', id: 'gpt-x', name: 'GPT X' })
   })
   test('quotas.global becomes the credit limit, other entries carried over', () => {
@@ -42,6 +47,14 @@ test.describe('transformSettingsDoc', () => {
   })
   test('unlimited global becomes -1', () => {
     const doc = structuredClone(oldDoc); doc.quotas.global = { unlimited: true, monthlyLimit: 0 }
+    assert.equal(transformSettingsDoc(doc)!.creditLimit, -1)
+  })
+  test('a falsy monthlyLimit (0) also becomes -1: the old enforcement treated 0 as "no cap", not "cap at zero"', () => {
+    const doc = structuredClone(oldDoc); doc.quotas.global = { unlimited: false, monthlyLimit: 0 }
+    assert.equal(transformSettingsDoc(doc)!.creditLimit, -1)
+  })
+  test('a missing monthlyLimit key also becomes -1 (same "falsy = no cap" convention)', () => {
+    const doc: any = structuredClone(oldDoc); doc.quotas.global = { unlimited: false }
     assert.equal(transformSettingsDoc(doc)!.creditLimit, -1)
   })
   test('providers, moderation, storeTraces are untouched', () => {

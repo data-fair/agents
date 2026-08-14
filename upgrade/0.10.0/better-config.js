@@ -76,7 +76,13 @@ export function transformSettingsDoc (doc) {
   if (Object.keys(modelMapping).length) settings.modelMapping = modelMapping
   else delete settings.modelMapping
 
-  const creditLimit = globalQuota ? (globalQuota.unlimited ? -1 : (globalQuota.monthlyLimit ?? 0)) : undefined
+  // Old enforcement (`if (globalLimits && !globalLimits.unlimited && globalLimits.monthlyLimit)`)
+  // treated a falsy monthlyLimit (0, or the key absent) as "no cap", same as the
+  // untrusted-pool convention the schema still documents. The new guard
+  // (`limit >= 0 && consumption >= limit`) has no such carve-out: any concrete
+  // number, including 0, hard-caps at zero. Map both "unlimited" and "falsy
+  // monthlyLimit" to -1 so a migrated org's effective budget is unchanged.
+  const creditLimit = globalQuota ? ((globalQuota.unlimited || !globalQuota.monthlyLimit) ? -1 : globalQuota.monthlyLimit) : undefined
 
   return { settings, creditLimit }
 }
@@ -90,10 +96,12 @@ export default {
       const result = transformSettingsDoc(doc)
       if (!result) continue
 
-      const { _id, ...settingsWithoutId } = result.settings
-      await db.collection('settings').replaceOne({ _id: doc._id }, { ...settingsWithoutId, updatedAt: new Date().toISOString() })
-      debug(`migrated settings for ${doc.owner?.type}/${doc.owner?.id}`)
-
+      // Seed the credit limit BEFORE flipping the settings doc to the new shape.
+      // If the process dies between the two writes, a doc left old-shaped is
+      // re-picked-up (and re-seeded, idempotently) by the resumed run; the
+      // reverse order would let a crash leave the doc new-shaped with no
+      // limits doc ever written, silently falling back to the unlimited
+      // config default.
       if (result.creditLimit !== undefined) {
         await db.collection('limits').updateOne(
           { type: doc.owner.type, id: doc.owner.id },
@@ -105,6 +113,10 @@ export default {
         )
         debug(`seeded credit limit ${result.creditLimit} for ${doc.owner?.type}/${doc.owner?.id}`)
       }
+
+      const { _id, ...settingsWithoutId } = result.settings
+      await db.collection('settings').replaceOne({ _id: doc._id }, { ...settingsWithoutId, updatedAt: new Date().toISOString() })
+      debug(`migrated settings for ${doc.owner?.type}/${doc.owner?.id}`)
     }
   }
 }
