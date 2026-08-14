@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { type AccountKeys, assertAccountRole, reqSessionAuthenticated } from '@data-fair/lib-express'
 import { getOwnerUsage, getAccountDailyHistory, getAccountMonthlyHistory, getUsersDailyHistory } from './service.ts'
 import { getRawSettings, defaultQuotas } from '../settings/service.ts'
+import { getCreditInfo } from '../limits/service.ts'
 
 const router = Router()
 export default router
@@ -14,14 +15,15 @@ router.get('/:type/:id', async (req, res, next) => {
 
     const period = req.query.period as string | undefined
 
-    const [usage, settings] = await Promise.all([
+    const [usage, settings, credits] = await Promise.all([
       getOwnerUsage(owner),
-      getRawSettings(owner)
+      getRawSettings(owner),
+      getCreditInfo(owner)
     ])
 
     const quotas = settings?.quotas ?? defaultQuotas
 
-    const result: Record<string, unknown> = { quotas }
+    const result: Record<string, unknown> = { quotas, credits }
 
     if (!period || period === 'daily') result.daily = usage.daily
     if (!period || period === 'weekly') result.weekly = usage.weekly

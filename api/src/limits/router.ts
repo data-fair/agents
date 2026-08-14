@@ -5,8 +5,9 @@
  *
  * This is the "customers" ecosystem contract: the separate billing service
  * pushes org-wide AI credit allowances here with a shared secret key, and
- * reads back the consumption counter that recordUsage increments. Nothing
- * here enforces the cap — that is a later task.
+ * reads back the consumption counter that recordUsage increments. The cap
+ * itself is enforced from usage/enforce.ts's enforceQuotas, ahead of any
+ * per-profile quota.
  */
 
 import { Router } from 'express'

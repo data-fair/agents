@@ -53,7 +53,7 @@ function getWeeklyResetsAt (): string {
   return nextMonday.toISOString()
 }
 
-function getMonthlyResetsAt (): string {
+export function getMonthlyResetsAt (): string {
   const now = new Date()
   const nextMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1))
   return nextMonth.toISOString()

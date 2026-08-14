@@ -16,7 +16,8 @@ import { reqIp } from '@data-fair/lib-express/req-origin.js'
 import type { Settings } from '#types'
 import { assertCanUseModel, assertRoleQuota, getEffectiveRole, type EffectiveRole } from '../auth.ts'
 import { assertAnonymousActionToken } from '../anonymous-token/service.ts'
-import { getUsage } from './service.ts'
+import { getUsage, getMonthlyResetsAt } from './service.ts'
+import { getCreditInfo } from '../limits/service.ts'
 import { firstQuotaViolation, isUntrustedRole, type QuotaCheckInput, type QuotaExceeded } from './operations.ts'
 
 type Quotas = NonNullable<Settings['quotas']>
@@ -81,12 +82,30 @@ export async function resolveUsageIdentity (req: Request, owner: AccountKeys, qu
 }
 
 /**
- * Enforce the untrusted-pool and per-user quotas, in that order.
- * Returns the first violation (for a 429 response) or null when within all limits.
- * The account-wide cap is not a quota any more: it is enforced from the
- * account's credits limit.
+ * Enforce the org-wide credit cap, then the untrusted-pool and per-user
+ * quotas, in that order. Returns the first violation (for a 429 response) or
+ * null when within all limits.
+ *
+ * The account-wide cap is no longer a quota: it is enforced from the
+ * account's credits limit (customers-pushed, or the configured default) and
+ * checked first, short-circuiting even when the caller's own profile quota
+ * is unlimited.
  */
 export async function enforceQuotas (owner: AccountKeys, quotas: Quotas, identity: UsageIdentity): Promise<QuotaExceeded | null> {
+  // org-wide cap from the limits API (customers-pushed, or the configured default)
+  const { limit, consumption } = await getCreditInfo(owner)
+  if (limit >= 0 && consumption >= limit) {
+    return {
+      allowed: false,
+      reason: 'Account credit limit exceeded',
+      scope: 'account',
+      period: 'monthly',
+      usage: consumption,
+      limit,
+      resetsAt: getMonthlyResetsAt()
+    }
+  }
+
   const checks: (QuotaCheckInput | null)[] = []
 
   // combined anonymous + external pool — caps untrusted traffic as a group
