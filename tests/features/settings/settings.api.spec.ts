@@ -13,9 +13,16 @@ const otherUser = await axiosAuth('test1-user1')
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
 const orgMember = await axiosAuth('test1-user1', { org: 'test1' })
 
+// These provider-CRUD tests each declare their own unrelated providers, so the
+// org model below is deliberately an orphan (its `mock` provider is never in
+// `providers`): it exercises that `models` is stored verbatim, but it is NOT in
+// the catalog — getModelCatalog drops org models whose provider is missing or
+// disabled. The mapping therefore points at the global mock model, which the
+// dev/test global config always provides (same reasoning as `mockOrgSettings`
+// in tests/support/settings.ts).
 const mockModel = { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' } }
 const orgModels = [{ model: mockModel, usage: ['assistant'], multiplier: 0 }]
-const mockModelMapping = { assistant: { provider: 'mock', id: 'mock-model', name: 'Mock Model' } }
+const mockModelMapping = { assistant: { provider: 'global-mock', id: 'mock-model', name: 'Global Mock Model' } }
 
 // API block: test HTTP and stateful database layer with HTTP client querying the dev server
 test.describe('Settings API', () => {

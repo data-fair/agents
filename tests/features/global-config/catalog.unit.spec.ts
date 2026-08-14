@@ -10,26 +10,35 @@ const gModels: GlobalAiModel[] = [
   { id: 'g-model', name: 'G Model', provider: 'global-mock', usage: ['assistant', 'summarizer'], multiplier: 2 },
   { id: 'off-model', name: 'Off', provider: 'global-off', usage: ['assistant'] }
 ]
+const orgProviders = [{ id: 'uuid-1', enabled: true }]
 const orgModels = [
   { model: { id: 'o-model', name: 'O Model', provider: { type: 'mock', name: 'Org Mock', id: 'uuid-1' } }, usage: ['tools'], multiplier: 3 }
 ]
 
 test.describe('getModelCatalog', () => {
   test('merges global and org models with source tags', () => {
-    const catalog = getModelCatalog(gProviders, gModels, orgModels)
+    const catalog = getModelCatalog(gProviders, gModels, orgProviders, orgModels)
     assert.equal(catalog.length, 2) // disabled global provider's model excluded
     assert.deepEqual(catalog.map(c => c.source), ['global', 'org'])
     assert.equal(catalog[0].multiplier, 2)
     assert.equal(catalog[1].provider.id, 'uuid-1')
   })
   test('org model multiplier defaults to 1', () => {
-    const catalog = getModelCatalog([], [], [{ ...orgModels[0], multiplier: undefined }])
+    const catalog = getModelCatalog([], [], orgProviders, [{ ...orgModels[0], multiplier: undefined }])
     assert.equal(catalog[0].multiplier, 1)
+  })
+  test('an org model whose provider is disabled is excluded', () => {
+    const catalog = getModelCatalog([], [], [{ id: 'uuid-1', enabled: false }], orgModels)
+    assert.deepEqual(catalog, [])
+  })
+  test('an org model whose provider was deleted is excluded', () => {
+    const catalog = getModelCatalog([], [], [], orgModels)
+    assert.deepEqual(catalog, [])
   })
 })
 
 test.describe('getRoleModel', () => {
-  const catalog: CatalogModel[] = getModelCatalog(gProviders, gModels, orgModels)
+  const catalog: CatalogModel[] = getModelCatalog(gProviders, gModels, orgProviders, orgModels)
   test('mapping wins over defaults', () => {
     const entry = getRoleModel(catalog, { assistant: { provider: 'uuid-1', id: 'o-model' } }, { assistant: { provider: 'global-mock', id: 'g-model' } }, 'assistant')
     assert.equal(entry.id, 'o-model')
@@ -48,6 +57,14 @@ test.describe('getRoleModel', () => {
   })
   test('unresolvable mapping ref falls through to defaults for the same role', () => {
     const entry = getRoleModel(catalog, { assistant: { provider: 'gone', id: 'gone' } }, { assistant: { provider: 'global-mock', id: 'g-model' } }, 'assistant')
+    assert.equal(entry.id, 'g-model')
+  })
+  test('a mapping pointing at an org model whose provider is disabled falls through to the global default', () => {
+    // the orphan must not even reach the catalog, otherwise getRoleModel commits
+    // to it and resolveRoleModel throws "Provider is disabled" — a blanket
+    // outage for the org instead of the documented log-and-fall-through
+    const orphanedCatalog = getModelCatalog(gProviders, gModels, [{ id: 'uuid-1', enabled: false }], orgModels)
+    const entry = getRoleModel(orphanedCatalog, { tools: { provider: 'uuid-1', id: 'o-model' } }, { assistant: { provider: 'global-mock', id: 'g-model' } }, 'tools')
     assert.equal(entry.id, 'g-model')
   })
   test('throws when nothing resolves', () => {

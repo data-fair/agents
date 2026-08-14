@@ -7,7 +7,7 @@ import type { Provider, Settings } from '#types'
 import { getModelCatalog, getRoleModel, createModel, type CatalogModel, type ModelRole, type GlobalAiProvider, type GlobalAiModel, type DefaultModelRefs } from './operations.ts'
 
 export function getCatalog (settings: Settings | null): CatalogModel[] {
-  return getModelCatalog(config.providers as GlobalAiProvider[], config.models as GlobalAiModel[], settings?.models ?? [])
+  return getModelCatalog(config.providers as GlobalAiProvider[], config.models as GlobalAiModel[], settings?.providers ?? [], settings?.models ?? [])
 }
 
 export interface ResolvedRoleModel { model: LanguageModel, entry: CatalogModel }

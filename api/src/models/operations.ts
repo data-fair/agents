@@ -187,10 +187,15 @@ export interface OrgModelDef {
 }
 
 /** Merge global config models and per-org model definitions into the single
- * catalog all model consumers resolve against. Disabled global providers'
- * models are excluded (org provider enablement is checked at createModel time,
- * where the full provider doc is at hand). */
-export function getModelCatalog (globalProviders: GlobalAiProvider[], globalModels: GlobalAiModel[], orgModels: OrgModelDef[]): CatalogModel[] {
+ * catalog all model consumers resolve against. A model whose provider is
+ * missing or disabled is excluded, on BOTH sides: an org model orphaned by a
+ * provider deletion (or left behind by unticking `enabled`) must drop out of
+ * the catalog here, so that a `modelMapping` still pointing at it is treated as
+ * an unresolvable ref by getRoleModel — logged and fallen through — instead of
+ * being selected and then throwing in resolveRoleModel, which would take the
+ * whole org down (404 "Agent not configured") even though a global default was
+ * available one step further down the chain. */
+export function getModelCatalog (globalProviders: GlobalAiProvider[], globalModels: GlobalAiModel[], orgProviders: { id: string, enabled?: boolean }[], orgModels: OrgModelDef[]): CatalogModel[] {
   const catalog: CatalogModel[] = []
   for (const m of globalModels) {
     const p = globalProviders.find(gp => gp.id === m.provider)
@@ -198,6 +203,8 @@ export function getModelCatalog (globalProviders: GlobalAiProvider[], globalMode
     catalog.push({ id: m.id, name: m.name, provider: { type: p.type, name: p.name, id: p.id }, usage: m.usage, multiplier: m.multiplier ?? 1, source: 'global' })
   }
   for (const om of orgModels) {
+    const p = orgProviders.find(op => op.id === om.model.provider.id)
+    if (!p || p.enabled === false) continue
     catalog.push({ id: om.model.id, name: om.model.name, provider: om.model.provider, usage: om.usage as ModelRole[], multiplier: om.multiplier ?? 1, source: 'org' })
   }
   return catalog
