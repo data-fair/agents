@@ -216,3 +216,15 @@ The `upgrade/0.10.0/better-config.js` migration (only runs once the deployed ser
 Concretely: an org whose old assistant model priced at $10/1M output tokens is capped, post-migration, as if every model it uses costs `1 credit / 1M weighted tokens` — the same numeric cap now buys a completely different amount of usage, and the size of that shift depends entirely on that org's old per-model prices (which are gone and not recoverable from the migration alone).
 
 **Operators must review every migrated org's `ai_credits.limit` after upgrading**, and its models' `multiplier` values, rather than assuming the carried-over number still means what it used to.
+
+## Release note: unconfigured accounts become live consumers on upgrade
+
+Before this refactor, an account with no `settings` document simply did not work: there was no global catalog, so nothing resolved a model for it. After it, three defaults compose into a very different posture:
+
+- `getSettings()` returns `emptySettings` (rather than `null`) for an account with no document, and its `defaultQuotas.admin` is `unlimited`;
+- the global `PROVIDERS`/`MODELS`/`DEFAULT_MODELS` resolve a model for any account, with no per-account configuration;
+- `DEFAULT_CREDITS` defaults to `-1`, so `getLimits()` treats an account with no `limits` document as **unlimited**.
+
+Net effect: on a deployment that configures global providers, **every account — including every user's personal account, and every account no superadmin has ever touched — becomes a working, uncapped consumer of the deployment's own provider API keys**, with no superadmin opt-in step. That is deliberate (a self-hosted instance works out of the box), and the server logs a `[credits]` notice at boot whenever `DEFAULT_CREDITS` is left at `-1` while `PROVIDERS`/`MODELS` are set.
+
+If that is not the posture you want, set `DEFAULT_CREDITS` to a finite number of credits **before** upgrading: accounts then start capped, and only accounts the `customers` service pushes a real limit for (or that an ops admin pushes manually via `POST /api/v1/limits/:type/:id`) get more.

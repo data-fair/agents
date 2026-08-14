@@ -85,6 +85,9 @@ export const start = async () => {
   if (!config.secretKeys?.limits) {
     console.log('[limits] No SECRET_LIMITS configured: the /api/v1/limits routes will reject every ?key= push/read and fall back to session auth only (fail-closed). Set SECRET_LIMITS if this instance is meant to receive credit allowances from the customers service.')
   }
+  if (config.defaultLimits?.credits === -1 && ((config.providers?.length ?? 0) > 0 || (config.models?.length ?? 0) > 0)) {
+    console.log('[credits] DEFAULT_CREDITS is left at its default of -1 (unlimited) while global PROVIDERS/MODELS are configured: EVERY account on this deployment — including every user\'s personal account, and any account no superadmin has ever configured — can consume the deployment\'s own provider API keys with no credit cap. Set DEFAULT_CREDITS to a finite number of credits if accounts should be capped until the customers service pushes them a real limit.')
+  }
   if (!config.github?.token) {
     console.log('[github] No GITHUB_TOKEN configured: the trace evaluator\'s source exploration (explore_github) will use unauthenticated GitHub (60 requests/hour/IP). To raise the limit to 5000/hour, create a fine-grained personal access token with public read-only access at https://github.com/settings/tokens and set the GITHUB_TOKEN environment variable on the container.')
   }

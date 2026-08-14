@@ -71,8 +71,15 @@ type OrgOwnedSettings = Pick<Settings, 'modelMapping' | 'quotas' | 'moderation' 
  * change (see `useSettingsForm`). The org schema strips the
  * `providers?.length` guards the superadmin form carries — an org with no
  * provider of its own still configures roles against the global catalog — so
- * every owned field is always visible here, and the server always returns all
- * of them but `modelMapping`.
+ * every owned field is always visible here.
+ *
+ * `quotas`/`moderation` are expected to be present on every document the server
+ * returns: both PUT routes seed them (`$setOnInsert` / explicit defaults), a
+ * document that does not exist at all comes back as `emptySettings`, and
+ * `upgrade/0.10.0/better-config.js` normalizes them onto every legacy document
+ * it rewrites. A missing one is not fatal — it only makes vjsf materialize its
+ * schema default, which then reads as a permanent unsaved change until the
+ * admin saves once.
  */
 const projectOwned = (settings: Settings): OrgOwnedSettings => {
   const base = {
