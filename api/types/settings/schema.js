@@ -732,10 +732,18 @@ export default {
             // eslint-disable-next-line no-template-curly-in-string
             url: '${context.apiPath}/catalog/${context.accountType}/${context.accountId}?usage=' + role,
             itemsResults: 'data.results',
+            // itemKey/itemTitle are applied both to a catalog entry (whose
+            // `provider` is an object) and to the STORED ref (whose `provider`
+            // is the provider id string): vjsf matches the stored value against
+            // the fetched items by key, and renders the value itself when no
+            // item matches. They must therefore accept both shapes: a key that
+            // only reads the object shape never matches a stored mapping
+            // against the catalog, and the value then falls back to rendering
+            // itself through a title expression that reads `provider.name` off
+            // a string.
             // eslint-disable-next-line no-template-curly-in-string
-            itemTitle: '`${item.name} (${item.provider.name})`',
-
-            itemKey: 'item.provider.id + ":" + item.id',
+            itemTitle: 'item.provider.name ? `${item.name} (${item.provider.name})` : item.name',
+            itemKey: '(item.provider.id || item.provider) + ":" + item.id',
             // map the catalog entry onto the stored ref shape
             itemValue: '({ provider: item.provider.id, id: item.id, name: item.name })'
           }

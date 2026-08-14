@@ -59,9 +59,11 @@ test.describe('Org admin config UI', () => {
     // Reload: everything round-trips and the form is clean again
     await page.reload()
     await expect(page.getByText('Model roles')).toBeVisible({ timeout: 15000 })
-    await expect(page.getByRole('combobox', { name: 'Assistant' })).toHaveValue('Mock Model (Mock Provider)')
+    // The stored ref is matched against the freshly fetched catalog and shown as
+    // the autocomplete's selection (a slot, not the input's value).
+    await expect(page.getByText('Mock Model (Mock Provider)')).toBeVisible()
     await expect(page.getByRole('textbox', { name: 'Monthly Limit' }).first()).toHaveValue('42')
-    await expect(page.getByRole('switch', { name: 'Store conversation traces' })).toBeChecked()
+    await expect(page.getByRole('checkbox', { name: 'Store conversation traces' })).toBeChecked()
     await page.waitForTimeout(800)
     await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
   })

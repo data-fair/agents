@@ -74,12 +74,20 @@ type OrgOwnedSettings = Pick<Settings, 'modelMapping' | 'quotas' | 'moderation' 
  * every owned field is always visible here, and the server always returns all
  * of them but `modelMapping`.
  */
-const projectOwned = (settings: Settings): OrgOwnedSettings => ({
-  modelMapping: structuredClone(settings.modelMapping ?? {}),
-  quotas: structuredClone(settings.quotas),
-  moderation: structuredClone(settings.moderation),
-  storeTraces: settings.storeTraces ?? false
-})
+const projectOwned = (settings: Settings): OrgOwnedSettings => {
+  const base = {
+    quotas: structuredClone(settings.quotas),
+    moderation: structuredClone(settings.moderation),
+    storeTraces: settings.storeTraces ?? false
+  }
+  // vjsf drops empty objects from its model (`defaultOn: 'empty'`), and the
+  // server stores `modelMapping: {}` for an org that maps no role at all, so
+  // keeping the empty object here would show a permanent unsaved change. An
+  // omitted mapping means "no role mapped", which is exactly what the server
+  // writes back for an absent key.
+  const modelMapping = structuredClone(settings.modelMapping ?? {})
+  return Object.keys(modelMapping).length ? { ...base, modelMapping } : base
+}
 
 const { edited: editedSettings, hasDiff, save, valid, vjsfOptions } = useSettingsForm<OrgOwnedSettings>({
   accountType: () => props.accountType,
