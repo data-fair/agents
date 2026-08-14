@@ -8,6 +8,19 @@
       {{ t('title') }}
     </v-card-title>
     <v-card-text>
+      <div
+        v-if="credits"
+        class="mb-3"
+      >
+        <div class="d-flex align-center justify-space-between mb-1">
+          <span class="text-body-medium font-weight-medium">{{ t('creditCap') }}</span>
+          <span class="text-body-medium text-medium-emphasis">
+            {{ formatCost(credits.consumption) }} / {{ credits.limit === -1 ? t('unlimited') : formatCost(credits.limit) }}
+            <template v-if="credits.limit !== -1">{{ t('credits') }}</template>
+          </span>
+        </div>
+      </div>
+
       <template v-if="hasUsage">
         <div
           v-if="usageFetch.data.value.daily"
@@ -70,6 +83,8 @@ fr:
   resets: "Réinitialisation :"
   noUsage: Aucune utilisation enregistrée
   credits: crédits
+  creditCap: Crédits consommés
+  unlimited: illimité
 en:
   title: Usage
   daily: Daily
@@ -78,6 +93,8 @@ en:
   resets: "Resets:"
   noUsage: No usage recorded
   credits: credits
+  creditCap: Credits consumed
+  unlimited: unlimited
 </i18n>
 
 <script lang="ts" setup>
@@ -102,11 +119,21 @@ interface UsageData {
   daily?: UsagePeriod
   weekly?: UsagePeriod
   monthly?: UsagePeriod
+  credits?: { limit: number, consumption: number }
 }
 
 const usageFetch = useFetch<UsageData>(
   () => `${$apiPath}/usage/${props.accountType}/${props.accountId}`
 )
+
+/**
+ * The org-wide credit allowance pushed by the customers service, and the
+ * counter recordUsage increments. Read from the usage endpoint rather than
+ * from GET /api/v1/limits: this card already fetches the former (one request
+ * instead of two), both are admin-readable here, and the usage endpoint serves
+ * the two figures from the same read so they cannot disagree.
+ */
+const credits = computed(() => usageFetch.data.value?.credits)
 
 const hasUsage = computed(() => {
   const d = usageFetch.data.value
