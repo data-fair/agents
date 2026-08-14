@@ -64,4 +64,18 @@ test.describe('transformSettingsDoc', () => {
     assert.equal(result.settings.modelMapping, undefined)
     assert.equal(result.creditLimit, 10)
   })
+  test('an old-shape doc with role-keyed models but no quotas.global (or no quotas at all) still migrates the models to an array', () => {
+    // pre-quotas-feature legacy data: the old top-level schema only required
+    // owner + providers, so quotas (and quotas.global) could be entirely
+    // absent. Without this, models would stay a plain object and crash
+    // getModelCatalog's `for (const om of orgModels)` at request time.
+    const doc: any = structuredClone(oldDoc)
+    delete doc.quotas
+    const result = transformSettingsDoc(doc)!
+    assert.notEqual(result, null)
+    assert.equal(Array.isArray(result.settings.models), true)
+    assert.equal(result.settings.models.length, 2)
+    assert.equal(result.settings.quotas.global, undefined)
+    assert.equal(result.creditLimit, undefined)
+  })
 })

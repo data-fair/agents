@@ -20,27 +20,38 @@ const ROLES = ['assistant', 'tools', 'summarizer', 'evaluator', 'moderator']
  *  - `models` is already an array: either an already-migrated doc, or a
  *    brand-new-format doc revisited by a same-version repeat run — either
  *    way it is already in the target shape, so it's a safe no-op.
- *  - `models` is missing entirely AND `quotas.global` is also missing: this
- *    combination can only occur on a genuinely new-format doc that has
- *    providers configured but no role models chosen yet — the settings PUT
- *    route only writes `models` when the form actually sends it (see
- *    api/src/settings/router.ts), and the new quotas shape never has a
- *    `global` key at all, so its absence is the tell that there is nothing
- *    old-shaped here. Treating this as "nothing to do" (rather than writing
- *    a spurious `models: []`) avoids the settings form reporting a diff it
- *    shouldn't for a key that legitimately never existed.
- *  - Any other doc (has `quotas.global`, `models` absent or an old-style
- *    role-keyed object) is old-format and gets migrated, even if it has no
- *    role models configured — the quotas.global -> credit limit conversion
- *    still applies.
+ *  - `models` is neither an array nor an old-style role-keyed object (i.e.
+ *    absent), AND `quotas.global` is also missing: this combination can only
+ *    occur on a genuinely new-format doc that has providers configured but
+ *    no role models chosen yet — the settings PUT route only writes `models`
+ *    when the form actually sends it (see api/src/settings/router.ts), and
+ *    the new quotas shape never has a `global` key at all, so the absence of
+ *    both is the tell that there is nothing old-shaped here. Treating this
+ *    as "nothing to do" (rather than writing a spurious `models: []`) avoids
+ *    the settings form reporting a diff it shouldn't for a key that
+ *    legitimately never existed.
+ *
+ * Any other doc migrates. Deliberately, `models` being an old-style
+ * role-keyed object is on its own a sufficient (not merely a supporting)
+ * reason to migrate, independent of whether `quotas.global` is present:
+ * the old top-level Settings schema only ever required `['owner',
+ * 'providers']` (`quotas` was never a required key), so historical data
+ * predating today's `quotas: body.quotas ?? defaultQuotas` PUT-route
+ * fallback can plausibly have old-shaped `models` with no `quotas.global` at
+ * all. Skipping such a doc (returning null) would leave `models` as a plain
+ * object forever — Task 3's `getModelCatalog` does `for (const om of
+ * orgModels)` over it and throws on a non-array, so this doc would silently
+ * break model resolution for that org at every request rather than being
+ * fixed once, here. See the "no role models, no quotas.global" unit test.
  *
  * @param {any} doc a raw `settings` collection document
- * @returns {{ settings: any, creditLimit: number } | null}
+ * @returns {{ settings: any, creditLimit: number | undefined } | null}
  */
 export function transformSettingsDoc (doc) {
   if (Array.isArray(doc.models)) return null
+  const hasOldModels = doc.models !== undefined && doc.models !== null && typeof doc.models === 'object'
   const hadGlobalQuota = Object.prototype.hasOwnProperty.call(doc.quotas ?? {}, 'global')
-  if (!hadGlobalQuota) return null
+  if (!hasOldModels && !hadGlobalQuota) return null
 
   /** @type {any[]} */
   const models = []
@@ -58,12 +69,14 @@ export function transformSettingsDoc (doc) {
     modelMapping[role] = { provider: entry.model.provider.id, id: entry.model.id, name: entry.model.name }
   }
 
-  const { global: globalQuota, ...roleQuotas } = doc.quotas
+  // doc.quotas (and within it, .global) may be entirely absent on data old
+  // enough to predate the quotas feature itself — see the doc comment above.
+  const { global: globalQuota, ...roleQuotas } = doc.quotas ?? {}
   const settings = { ...doc, models, quotas: roleQuotas }
   if (Object.keys(modelMapping).length) settings.modelMapping = modelMapping
   else delete settings.modelMapping
 
-  const creditLimit = globalQuota.unlimited ? -1 : (globalQuota.monthlyLimit ?? 0)
+  const creditLimit = globalQuota ? (globalQuota.unlimited ? -1 : (globalQuota.monthlyLimit ?? 0)) : undefined
 
   return { settings, creditLimit }
 }
