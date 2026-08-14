@@ -11,6 +11,7 @@
 import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
+import { putSettings } from '../../support/settings.ts'
 
 const admin = await superAdmin
 
@@ -45,14 +46,14 @@ const settingsData = {
 test.describe('History Compaction', () => {
   test.beforeEach(async () => {
     await clean()
-    await admin.put('/api/settings/user/test-standalone1', settingsData)
+    await putSettings(admin, 'user/test-standalone1', settingsData)
   })
 
   test('Compaction triggers and appears in trace', async ({ page, context, goToWithAuth }) => {
     // Enable trace storage (only this test needs it) + pre-set consent so the chat
     // sends x-trace-consent: yes, the compaction round-trip is stored, and the consent
     // sheet stays hidden (consent already given).
-    await admin.put('/api/settings/user/test-standalone1', { ...settingsData, storeTraces: true })
+    await putSettings(admin, 'user/test-standalone1', { ...settingsData, storeTraces: true })
     await context.addCookies([{
       name: 'agent-chat-trace-consent',
       value: 'yes',

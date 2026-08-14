@@ -7,6 +7,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
+import { putSettings } from '../../support/settings.ts'
 
 // matches api/config/development.js secretKeys.limits
 const SECRET = 'secretlimits'
@@ -57,7 +58,7 @@ const gatewayBody = { model: 'assistant', messages: [{ role: 'user', content: 'h
 test.describe('org credit cap enforcement', () => {
   test.beforeEach(async () => {
     await clean()
-    await admin.put('/api/settings/organization/test1', settingsData)
+    await putSettings(admin, 'organization/test1', settingsData)
   })
 
   test('gateway returns 429 when consumption reaches the pushed limit', async () => {

@@ -7,6 +7,7 @@ import assert from 'node:assert/strict'
 import { generateText } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { axiosAuth, superAdmin, clean, directoryUrl, defaultQuotas } from '../../support/axios.ts'
+import { putSettings } from '../../support/settings.ts'
 
 const admin = await superAdmin                       // superadmin, adminMode: true
 const externalUser = await axiosAuth('test1-user1')  // not a member of test-standalone1
@@ -41,7 +42,7 @@ async function gatewayProvider (ax: any, ownerType: string, ownerId: string) {
 test.describe('Gateway admin-mode cross-account access', () => {
   test.beforeEach(async () => {
     await clean()
-    await admin.put('/api/settings/user/test-standalone1', settingsData)
+    await putSettings(admin, 'user/test-standalone1', settingsData)
   })
 
   test('admin-mode superadmin consumes a non-member account gateway; usage records on that account', async () => {

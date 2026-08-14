@@ -30,7 +30,10 @@ export const mockModelMapping = {
   assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' }
 }
 
-/** Canonical superadmin PUT body (/api/settings/:type/:id). */
+/** Full-shape canonical settings fixture, spanning both write-scoped
+ * endpoints: `providers`/`models` are superadmin-owned (PUT /api/settings/:type/:id),
+ * the rest is org-admin-owned (PUT /api/settings/:type/:id/org). Use `putMockSettings`
+ * / `putSettings` to write it — they split it across the two routes. */
 export const mockSettings = {
   providers: [mockProvider],
   models: mockModels(),
@@ -39,9 +42,8 @@ export const mockSettings = {
   storeTraces: false
 }
 
-/** Canonical org-admin PUT body — the subset an org admin owns. The org-scoped
- * endpoint that accepts it is wired in a later task; until then the superadmin
- * PUT still accepts these fields. */
+/** Canonical org-admin PUT body (/api/settings/:type/:id/org) — the subset an
+ * org admin owns. */
 export const mockOrgSettings = {
   modelMapping: mockModelMapping,
   quotas: defaultQuotas,
@@ -60,6 +62,32 @@ export function deepMerge<T extends Record<string, any>> (base: T, overrides: Re
   return result as T
 }
 
+/** Fields owned by the org-admin PUT (as opposed to the superadmin PUT, which
+ * owns everything else: `providers` and `models`). */
+const ORG_OWNED_KEYS = ['modelMapping', 'quotas', 'moderation', 'storeTraces']
+
+/**
+ * Splits a full-shape settings body across the two write-scoped endpoints and
+ * writes each half through its own PUT. Settings authorship used to be a
+ * single PUT before it was split between superadmin (providers/models) and
+ * org-admin (modelMapping/quotas/moderation/storeTraces); this keeps specs
+ * that still build one full body working unchanged aside from the call site.
+ */
+export async function putSettings (adminAx: AxiosInstance, owner: string, body: Record<string, any>) {
+  const superadminBody: Record<string, any> = {}
+  const orgBody: Record<string, any> = {}
+  for (const [key, value] of Object.entries(body)) {
+    (ORG_OWNED_KEYS.includes(key) ? orgBody : superadminBody)[key] = value
+  }
+  const superadminRes = await adminAx.put(`/api/settings/${owner}`, superadminBody)
+  if (!Object.keys(orgBody).length) return superadminRes
+  return adminAx.put(`/api/settings/${owner}/org`, orgBody)
+}
+
 export async function putMockSettings (adminAx: AxiosInstance, owner: string, overrides: Record<string, any> = {}) {
-  return adminAx.put(`/api/settings/${owner}`, deepMerge(structuredClone(mockSettings), overrides))
+  return putSettings(adminAx, owner, deepMerge(structuredClone(mockSettings), overrides))
+}
+
+export async function putMockOrgSettings (adminAx: AxiosInstance, owner: string, overrides: Record<string, any> = {}) {
+  return adminAx.put(`/api/settings/${owner}/org`, deepMerge(structuredClone(mockOrgSettings), overrides))
 }

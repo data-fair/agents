@@ -7,6 +7,7 @@ import assert from 'node:assert/strict'
 import { generateText } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { axiosAuth, superAdmin, anonymousAx, clean, directoryUrl, getAnonymousActionToken } from '../../support/axios.ts'
+import { putSettings } from '../../support/settings.ts'
 
 const user = await axiosAuth('test-standalone1')
 const admin = await superAdmin
@@ -46,7 +47,7 @@ const settingsData = {
 test.describe('Usage API', () => {
   test.beforeEach(async () => {
     await clean()
-    await admin.put('/api/settings/user/test-standalone1', settingsData)
+    await putSettings(admin, 'user/test-standalone1', settingsData)
   })
 
   test('should return usage with limits after gateway request', async () => {
@@ -124,7 +125,7 @@ test.describe('Anonymous Usage', () => {
         anonymous: { unlimited: false, monthlyLimit: 10 }
       }
     }
-    await admin.put('/api/settings/user/test-standalone1', settingsWithAnonymous)
+    await putSettings(admin, 'user/test-standalone1', settingsWithAnonymous)
 
     const token = await getAnonymousActionToken()
     const provider = createOpenAI({
@@ -141,7 +142,7 @@ test.describe('Anonymous Usage', () => {
   })
 
   test('should deny anonymous gateway access with default quotas (0/0)', async () => {
-    await admin.put('/api/settings/user/test-standalone1', settingsData)
+    await putSettings(admin, 'user/test-standalone1', settingsData)
 
     await assert.rejects(
       anonymousAx.post('/api/gateway/user/test-standalone1/v1/chat/completions', {
@@ -153,7 +154,7 @@ test.describe('Anonymous Usage', () => {
   })
 
   test('should deny anonymous summary access with default quotas', async () => {
-    await admin.put('/api/settings/user/test-standalone1', settingsData)
+    await putSettings(admin, 'user/test-standalone1', settingsData)
 
     await assert.rejects(
       anonymousAx.post('/api/summary/user/test-standalone1', {
@@ -171,7 +172,7 @@ test.describe('Anonymous Usage', () => {
         anonymous: { unlimited: false, monthlyLimit: 10 }
       }
     }
-    await admin.put('/api/settings/user/test-standalone1', settingsWithAnonymous)
+    await putSettings(admin, 'user/test-standalone1', settingsWithAnonymous)
 
     const token = await getAnonymousActionToken()
     const res = await anonymousAx.post('/api/summary/user/test-standalone1', {

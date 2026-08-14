@@ -12,6 +12,7 @@
 import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
+import { putSettings } from '../../support/settings.ts'
 
 const admin = await superAdmin
 
@@ -41,7 +42,7 @@ const settingsWithoutStorage = {
 test.describe('Trace consent sheet', () => {
   test.beforeEach(async () => {
     await clean()
-    await admin.put('/api/settings/user/test-standalone1', settingsWithStorage)
+    await putSettings(admin, 'user/test-standalone1', settingsWithStorage)
   })
 
   test('consent sheet appears after first response and Accept persists cookie', async ({ page, context, goToWithAuth }) => {
@@ -111,7 +112,7 @@ test.describe('Trace consent sheet', () => {
   })
 
   test('consent sheet does not appear when storeTraces is disabled', async ({ page, goToWithAuth }) => {
-    await admin.put('/api/settings/user/test-standalone1', settingsWithoutStorage)
+    await putSettings(admin, 'user/test-standalone1', settingsWithoutStorage)
 
     await goToWithAuth('/agents/user/test-standalone1/chat', 'test-standalone1')
 

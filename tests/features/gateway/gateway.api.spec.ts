@@ -9,6 +9,7 @@ import { generateText, streamText } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { axiosAuth, superAdmin, clean, directoryUrl, defaultQuotas, anonymousAx, getAnonymousActionToken } from '../../support/axios.ts'
+import { putSettings } from '../../support/settings.ts'
 
 const user = await axiosAuth('test-standalone1')
 const admin = await superAdmin
@@ -49,7 +50,7 @@ async function createGatewayProvider (ax: any, ownerType = 'user', ownerId = 'te
 test.describe('Gateway API - OpenAI-compatible proxy', () => {
   test.beforeEach(async () => {
     await clean()
-    await admin.put('/api/settings/user/test-standalone1', settingsData)
+    await putSettings(admin, 'user/test-standalone1', settingsData)
   })
 
   test('generateText through gateway', async () => {
@@ -133,7 +134,7 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
   })
 
   test('external user can use gateway when external quota is positive', async () => {
-    await admin.put('/api/settings/user/test-standalone1', {
+    await putSettings(admin, 'user/test-standalone1', {
       ...settingsData,
       quotas: {
         ...defaultQuotas,
@@ -150,7 +151,7 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
 
   test('untrusted pool cap blocks an external user even when their external quota is not reached', async () => {
     // generous external per-user quota, but the shared untrusted pool is tight: monthly=4 → daily=1
-    await admin.put('/api/settings/user/test-standalone1', {
+    await putSettings(admin, 'user/test-standalone1', {
       ...settingsData,
       quotas: {
         ...defaultQuotas,
@@ -192,7 +193,7 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
 
   test('AI SDK receives quota exceeded error with extractable message', async () => {
     // driven through the untrusted pool: monthly=4 → daily=1, seeded above it
-    await admin.put('/api/settings/user/test-standalone1', {
+    await putSettings(admin, 'user/test-standalone1', {
       ...settingsData,
       quotas: {
         ...defaultQuotas,
@@ -239,7 +240,7 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
 
   test('untrusted pool cap blocks an anonymous request even when its per-IP quota is not reached', async () => {
     // generous per-IP anonymous quota, but a tight shared pool: monthly=4 → daily=1
-    await admin.put('/api/settings/user/test-standalone1', {
+    await putSettings(admin, 'user/test-standalone1', {
       ...settingsData,
       quotas: {
         ...defaultQuotas,
@@ -264,20 +265,20 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
   })
 
   test('anonymous request without token is rejected', async () => {
-    await admin.put('/api/settings/user/test-standalone1', { ...settingsData, quotas: anonQuotas })
+    await putSettings(admin, 'user/test-standalone1', { ...settingsData, quotas: anonQuotas })
     const res = await anonymousAx.post(anonGatewayUrl, anonBody, { headers: { ...anonForwardedFor } }).catch((err: any) => err.response ?? err)
     assert.equal(res.status, 401)
   })
 
   test('anonymous request with invalid token is rejected', async () => {
-    await admin.put('/api/settings/user/test-standalone1', { ...settingsData, quotas: anonQuotas })
+    await putSettings(admin, 'user/test-standalone1', { ...settingsData, quotas: anonQuotas })
     const res = await anonymousAx.post(anonGatewayUrl, anonBody, { headers: { 'x-anonymous-token': 'not-a-real-token', ...anonForwardedFor } })
       .catch((err: any) => err.response ?? err)
     assert.equal(res.status, 401)
   })
 
   test('anonymous request with valid token succeeds', async () => {
-    await admin.put('/api/settings/user/test-standalone1', { ...settingsData, quotas: anonQuotas })
+    await putSettings(admin, 'user/test-standalone1', { ...settingsData, quotas: anonQuotas })
     const token = await getAnonymousActionToken()
     const res = await anonymousAx.post(anonGatewayUrl, anonBody, { headers: { 'x-anonymous-token': token, ...anonForwardedFor } })
     assert.equal(res.status, 200)

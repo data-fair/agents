@@ -15,6 +15,7 @@
 import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin } from '../../support/axios.ts'
+import { putSettings } from '../../support/settings.ts'
 
 const admin = await superAdmin
 
@@ -54,7 +55,7 @@ async function waitForTrace (conversationId: string) {
 test.describe('Activity page', () => {
   test.beforeEach(async () => {
     await clean()
-    await admin.put('/api/settings/organization/test1', settingsData)
+    await putSettings(admin, 'organization/test1', settingsData)
 
     await admin.post('/api/gateway/organization/test1/v1/chat/completions', {
       model: 'assistant',

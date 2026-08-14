@@ -5,7 +5,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean, defaultQuotas } from '../../support/axios.ts'
-import { mockModels, deepMerge, mockSettings } from '../../support/settings.ts'
+import { mockModels, deepMerge, mockSettings, putSettings } from '../../support/settings.ts'
 
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
 const orgMember = await axiosAuth('test1-user1', { org: 'test1' })
@@ -26,7 +26,7 @@ test.describe('Catalog API', () => {
   })
 
   test('org admin GET returns global + org models after a settings PUT', async () => {
-    await admin.put('/api/settings/organization/test1', deepMerge(structuredClone(mockSettings), { models: mockModels() }))
+    await putSettings(admin, 'organization/test1', deepMerge(structuredClone(mockSettings), { models: mockModels() }))
 
     const res = await orgAdmin.get('/api/catalog/organization/test1')
     assert.equal(res.status, 200)
@@ -42,7 +42,7 @@ test.describe('Catalog API', () => {
   test('?usage=tools filters to models flagged for that role', async () => {
     const toolsModel = { id: 'tools-model', name: 'Tools Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } }
     const assistantOnlyModel = { id: 'assistant-only-model', name: 'Assistant Only', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } }
-    await admin.put('/api/settings/organization/test1', {
+    await putSettings(admin, 'organization/test1', {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
       models: [
         { model: toolsModel, usage: ['tools'], multiplier: 0 },

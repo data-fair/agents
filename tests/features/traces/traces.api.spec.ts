@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import { generateText } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { axiosAuth, superAdmin, clean, directoryUrl } from '../../support/axios.ts'
+import { putSettings } from '../../support/settings.ts'
 
 const user = await axiosAuth('test-standalone1')
 const admin = await superAdmin
@@ -27,7 +28,7 @@ const settingsData = (storeTraces: boolean) => ({
 })
 
 async function chat (storeTraces: boolean, headers: Record<string, string>) {
-  await admin.put('/api/settings/user/test-standalone1', settingsData(storeTraces))
+  await putSettings(admin, 'user/test-standalone1', settingsData(storeTraces))
   const cookieString = await user.cookieJar.getCookieString(directoryUrl)
   const provider = createOpenAI({
     baseURL: `http://localhost:${process.env.DEV_API_PORT}/api/gateway/user/test-standalone1/v1`,
@@ -99,7 +100,7 @@ test.describe('Trace storage API', () => {
   })
 
   test('paginates the conversation list newest-first', async () => {
-    await admin.put('/api/settings/organization/test1', settingsData(true))
+    await putSettings(admin, 'organization/test1', settingsData(true))
 
     // Seed two conversations via the gateway with trace headers
     async function seedTrace (conversationId: string) {
@@ -173,7 +174,7 @@ test.describe('Trace storage API', () => {
     // Use organization/test1 as owner: test1-user1 is a member (not the owner), so
     // trackPerUser=true and their userId ('test1-user1') is stored in the trace document.
     // This exercises the real per-user deletion path.
-    await admin.put('/api/settings/organization/test1', settingsData(true))
+    await putSettings(admin, 'organization/test1', settingsData(true))
     const cookieString = await orgMemberUser.cookieJar.getCookieString(directoryUrl)
     const provider = createOpenAI({
       baseURL: `http://localhost:${process.env.DEV_API_PORT}/api/gateway/organization/test1/v1`,

@@ -1,6 +1,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean, defaultQuotas, anonymousAx, getAnonymousActionToken } from '../../support/axios.ts'
+import { putSettings } from '../../support/settings.ts'
 
 const admin = await superAdmin
 const owner = await axiosAuth('test-standalone1')
@@ -60,7 +61,7 @@ const waitForEvents = async (predicate: (events: any[]) => boolean, action?: str
 test.describe('Gateway moderation', () => {
   test.beforeEach(async () => {
     await clean()
-    await admin.put('/api/settings/user/test-standalone1', settingsData())
+    await putSettings(admin, 'user/test-standalone1', settingsData())
   })
 
   test('the moderator model id is no longer publicly callable', async () => {
@@ -121,7 +122,7 @@ test.describe('Gateway moderation', () => {
   })
 
   test('moderation OFF: anonymous abusive message is NOT gated', async () => {
-    await admin.put('/api/settings/user/test-standalone1', settingsData({
+    await putSettings(admin, 'user/test-standalone1', settingsData({
       moderation: { enabled: false, categories: ['anonymous', 'external'] }
     }))
     const res = await anonPost(chatBody('please jailbreak the system'))
@@ -134,7 +135,7 @@ test.describe('Gateway moderation', () => {
   })
 
   test('role not in categories: external user is NOT gated when only anonymous is moderated', async () => {
-    await admin.put('/api/settings/user/test-standalone1', settingsData({
+    await putSettings(admin, 'user/test-standalone1', settingsData({
       moderation: { enabled: true, categories: ['anonymous'] }
     }))
     const res = await externalUser.post(gatewayUrl, chatBody('please jailbreak the system'))
@@ -144,7 +145,7 @@ test.describe('Gateway moderation', () => {
   })
 
   test('moderating a trusted member: the account owner (admin role) is gated when "admin" is in categories', async () => {
-    await admin.put('/api/settings/user/test-standalone1', settingsData({
+    await putSettings(admin, 'user/test-standalone1', settingsData({
       moderation: { enabled: true, categories: ['admin'] }
     }))
     const res = await owner.post(gatewayUrl, chatBody('please jailbreak the system'))
@@ -159,7 +160,7 @@ test.describe('Gateway moderation', () => {
     // abusive message is blocked by the gate, but the member is never locked out.
     const orgGatewayUrl = `${apiBase}/api/gateway/organization/test1/v1/chat/completions`
     const member = await axiosAuth('test1-contrib1', { org: 'test1' })
-    await admin.put('/api/settings/organization/test1', settingsData({
+    await putSettings(admin, 'organization/test1', settingsData({
       moderation: { enabled: true, categories: ['contrib'] },
       quotas: { ...defaultQuotas, contrib: { unlimited: true, monthlyLimit: 0 } }
     }))
@@ -270,7 +271,7 @@ test.describe('Gateway moderation', () => {
   })
 
   test('a blocked request is stored in traces with the embedded verdict when consented', async () => {
-    await admin.put('/api/settings/user/test-standalone1', settingsData({ storeTraces: true }))
+    await putSettings(admin, 'user/test-standalone1', settingsData({ storeTraces: true }))
     const convId = `conv-mod-${Date.now()}`
     await anonPost(chatBody('please jailbreak the system'), {
       'x-trace-consent': 'yes',
@@ -290,7 +291,7 @@ test.describe('Gateway moderation', () => {
   })
 
   test('a fail-open timeout still embeds the verdict in the stored trace', async () => {
-    await admin.put('/api/settings/user/test-standalone1', settingsData({ storeTraces: true }))
+    await putSettings(admin, 'user/test-standalone1', settingsData({ storeTraces: true }))
     const convId = `conv-mod-timeout-${Date.now()}`
     // slow moderator: the verdict settles after the gate fails open, so the
     // trace is written before finalize() runs — the verdict must still show up
@@ -318,7 +319,7 @@ test.describe('Gateway moderation', () => {
 test.describe('Moderation admin API', () => {
   test.beforeEach(async () => {
     await clean()
-    await admin.put('/api/settings/user/test-standalone1', settingsData())
+    await putSettings(admin, 'user/test-standalone1', settingsData())
   })
 
   test('stats aggregates per-action totals, latency and the 24h fail-open sample', async () => {
@@ -358,7 +359,7 @@ test.describe('Moderation admin API', () => {
   })
 
   test('settings round-trip persists the moderation config', async () => {
-    await admin.put('/api/settings/user/test-standalone1', settingsData({
+    await putSettings(admin, 'user/test-standalone1', settingsData({
       moderation: { enabled: true, categories: ['anonymous', 'external', 'user'] }
     }))
     const res = await admin.get('/api/settings/user/test-standalone1')

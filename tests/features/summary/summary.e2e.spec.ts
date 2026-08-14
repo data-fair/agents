@@ -5,6 +5,7 @@
 import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
+import { putSettings } from '../../support/settings.ts'
 
 test.describe('Summary UI', () => {
   test.beforeEach(async () => {
@@ -18,7 +19,7 @@ test.describe('Summary UI', () => {
 
   test('Can submit content and see summary result', async ({ page, goToWithAuth }) => {
     const admin = await superAdmin
-    await admin.put('/api/settings/user/test-standalone1', {
+    await putSettings(admin, 'user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
       models: [
         {

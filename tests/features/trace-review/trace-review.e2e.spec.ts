@@ -21,6 +21,7 @@
 import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
+import { putSettings } from '../../support/settings.ts'
 
 const admin = await superAdmin
 
@@ -51,7 +52,7 @@ const settingsData = {
 test.describe('Trace review flow', () => {
   test.beforeEach(async () => {
     await clean()
-    await admin.put('/api/settings/user/test-standalone1', settingsData)
+    await putSettings(admin, 'user/test-standalone1', settingsData)
   })
 
   test('real chat with consent stores a trace that renders on the review page with a working evaluator', async ({ page, context, goToWithAuth }) => {

@@ -13,6 +13,7 @@
 import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin } from '../../support/axios.ts'
+import { putSettings } from '../../support/settings.ts'
 
 const admin = await superAdmin
 
@@ -68,7 +69,7 @@ async function waitForConversation (conversationId: string) {
 test.describe('Trace comparison (/traces/:id/review?compare=)', () => {
   test.beforeEach(async () => {
     await clean()
-    await admin.put('/api/settings/organization/test1', settingsData)
+    await putSettings(admin, 'organization/test1', settingsData)
     await driveConversation(CONV_A, 'hello trace A')
     await driveConversation(CONV_B, 'hello trace B')
     await waitForConversation(CONV_A)

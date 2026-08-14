@@ -5,6 +5,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { superAdmin, axiosAuth, clean, defaultQuotas } from '../../support/axios.ts'
+import { putSettings } from '../../support/settings.ts'
 
 const admin = await superAdmin
 const plainUser = await axiosAuth('test-standalone1')
@@ -30,7 +31,7 @@ test.describe('Admin info — promoted evaluator', () => {
   // evaluator role still *resolves* (its fallback chain ends on the assistant),
   // so availability must be decided on the resolved model's declared usage.
   test('evaluatorAvailable=false when the resolved model is not flagged for the evaluator usage', async () => {
-    await admin.put('/api/settings/organization/test1', {
+    await putSettings(admin, 'organization/test1', {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
       models: [
         {
@@ -49,7 +50,7 @@ test.describe('Admin info — promoted evaluator', () => {
   })
 
   test('evaluatorAvailable=true when the source account maps its own assistant and evaluator models', async () => {
-    await admin.put('/api/settings/organization/test1', {
+    await putSettings(admin, 'organization/test1', {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
       models: [
         {

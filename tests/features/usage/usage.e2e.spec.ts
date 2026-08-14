@@ -5,6 +5,7 @@
 import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { superAdmin, clean, defaultQuotas } from '../../support/axios.ts'
+import { putSettings } from '../../support/settings.ts'
 
 test.describe('Usage UI', () => {
   test.beforeEach(async () => {
@@ -15,7 +16,7 @@ test.describe('Usage UI', () => {
     const admin = await superAdmin
 
     // Seed settings
-    await admin.put('/api/settings/user/test-standalone1', {
+    await putSettings(admin, 'user/test-standalone1', {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
       models: [
         {
@@ -40,7 +41,7 @@ test.describe('Usage UI', () => {
 
   test('Shows no usage message when no requests made', async ({ page, goToWithAuth }) => {
     const admin = await superAdmin
-    await admin.put('/api/settings/user/test-standalone1', {
+    await putSettings(admin, 'user/test-standalone1', {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
       models: [
         {

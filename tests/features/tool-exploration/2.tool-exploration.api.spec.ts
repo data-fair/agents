@@ -11,6 +11,7 @@ import assert from 'node:assert/strict'
 import { generateText, tool, jsonSchema } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { axiosAuth, superAdmin, clean, directoryUrl, defaultQuotas } from '../../support/axios.ts'
+import { putSettings } from '../../support/settings.ts'
 
 const user = await axiosAuth('test-standalone1')
 const admin = await superAdmin
@@ -42,7 +43,7 @@ async function createGatewayProvider () {
 test.describe('Tool exploration - mock select_tools seam (through gateway)', () => {
   test.beforeEach(async () => {
     await clean()
-    await admin.put('/api/settings/user/test-standalone1', settingsData)
+    await putSettings(admin, 'user/test-standalone1', settingsData)
   })
 
   test('summarizer selects every candidate tool when select_tools is forced', async () => {

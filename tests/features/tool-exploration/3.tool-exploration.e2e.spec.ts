@@ -10,6 +10,7 @@
 import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
+import { putSettings } from '../../support/settings.ts'
 
 const admin = await superAdmin
 
@@ -68,7 +69,7 @@ async function watchForExploreSkeleton (page: import('@playwright/test').Page) {
 test.describe('Tool exploration E2E', () => {
   test.beforeEach(async () => {
     await clean()
-    await admin.put('/api/settings/user/test-standalone1', settingsData)
+    await putSettings(admin, 'user/test-standalone1', settingsData)
   })
 
   test('explore_tools promotes tools then set_display updates the output area', async ({ page, goToWithAuth }) => {

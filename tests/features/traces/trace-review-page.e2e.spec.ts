@@ -12,6 +12,7 @@
 import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin } from '../../support/axios.ts'
+import { putSettings } from '../../support/settings.ts'
 
 const admin = await superAdmin
 
@@ -53,7 +54,7 @@ async function waitForConversation (conversationId: string) {
 test.describe('Trace review page (/organization/test1/traces/:id)', () => {
   test.beforeEach(async () => {
     await clean()
-    await admin.put('/api/settings/organization/test1', settingsData)
+    await putSettings(admin, 'organization/test1', settingsData)
 
     // Drive a gateway request with consent headers to create a stored trace
     await admin.post('/api/gateway/organization/test1/v1/chat/completions', {

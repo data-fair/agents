@@ -8,6 +8,7 @@
 import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin } from '../../support/axios.ts'
+import { putSettings } from '../../support/settings.ts'
 
 const admin = await superAdmin
 const settingsData = {
@@ -29,7 +30,7 @@ const settingsData = {
 test.describe('Chat debug dialog', () => {
   test.beforeEach(async () => {
     await clean()
-    await admin.put('/api/settings/organization/test1', settingsData)
+    await putSettings(admin, 'organization/test1', settingsData)
   })
 
   test('shows exactly two tabs and no trace tab', async ({ page, goToWithAuth }) => {

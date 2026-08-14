@@ -8,6 +8,7 @@
 import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
+import { putSettings } from '../../support/settings.ts'
 
 const admin = await superAdmin
 
@@ -54,8 +55,8 @@ const sourceSettings = {
 test.describe('Promoted evaluator (superadmin review)', () => {
   test.beforeEach(async () => {
     await clean()
-    await admin.put('/api/settings/user/test-standalone1', reviewedSettings)
-    await admin.put('/api/settings/organization/test1', sourceSettings)
+    await putSettings(admin, 'user/test-standalone1', reviewedSettings)
+    await putSettings(admin, 'organization/test1', sourceSettings)
   })
 
   test('evaluator runs against the source account, not the reviewed account', async ({ page, context, goToWithAuth }) => {

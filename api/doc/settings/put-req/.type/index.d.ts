@@ -1,15 +1,11 @@
 
 export const schemaExports: string[]
 
-export declare function validate(data: any): data is SettingsPut
-export declare function assertValid(data: any, options?: import('@data-fair/lib-validation').AssertValidOptions): asserts data is SettingsPut
-export declare function returnValid(data: any, options?: import('@data-fair/lib-validation').AssertValidOptions): SettingsPut
+export declare function validate(data: any): data is Settings
+export declare function assertValid(data: any, options?: import('@data-fair/lib-validation').AssertValidOptions): asserts data is Settings
+export declare function returnValid(data: any, options?: import('@data-fair/lib-validation').AssertValidOptions): Settings
       
 // see https://github.com/bcherny/json-schema-to-typescript/issues/439 if some types are not exported
-/**
- * When enabled, conversations of consenting users are stored on the server for 30 days for admin review. Each user must explicitly accept.
- */
-export type StoreConversationTraces = boolean;
 export type Provider = OpenAI | Anthropic | Google | Mistral | OpenRouter | Ollama | Scaleway | OpenAICompatible | Mock;
 export type ProviderType = "openai";
 export type ProviderID = string;
@@ -98,40 +94,10 @@ export type Models = {
   usage: AppropriateUsages;
   multiplier?: CreditMultiplier;
 }[];
-/**
- * When enabled, the last user message of each request from a moderated category is classified before the model responds.
- */
-export type EnableInputModeration = boolean;
-export type Anonymous = "anonymous";
-export type External = "external";
-export type User = "user";
-export type Contributor = "contrib";
-export type Admin = "admin";
-/**
- * User categories whose requests are checked by the gate when moderation is enabled.
- */
-export type ModeratedUserCategories = ((Anonymous | External | User | Contributor | Admin) & string)[];
-export type Unlimited = boolean;
-/**
- * Weekly limit = monthly / 2, daily limit = monthly / 4
- */
-export type MonthlyLimit = number;
 
-export type SettingsPut = {
-  createdAt?: string;
-  updatedAt?: string;
-  storeTraces?: StoreConversationTraces;
-  owner?: {
-    type: "user" | "organization";
-    id: string;
-    name?: string;
-    department?: string;
-  };
-  providers: AIProviders;
+export type Settings = {
+  providers?: AIProviders;
   models?: Models;
-  modelMapping?: ModelRoles;
-  moderation?: InputModeration;
-  quotas?: RoleQuotas;
 }
 export type OpenAI = {
   type: ProviderType;
@@ -228,110 +194,8 @@ export type Model = {
   };
   [k: string]: unknown;
 }
-export type ModelRoles = {
-  assistant?: Assistant1;
-  tools?: Tools1;
-  summarizer?: Summarizer1;
-  evaluator?: Evaluator1;
-  moderator?: Moderator1;
-}
 /**
- * The primary conversational interface. Balanced for reasoning, instruction-following, and human-like interaction. This model manages the high-level flow and delegates complex tasks to subagents.
- */
-export type Assistant1 = {
-  provider: string;
-  id: string;
-  name?: string;
-}
-/**
- * The "technician." Specialized in structured data and API interaction. It excels at chaining multiple tool calls without conversational filler, ensuring high reliability in automated workflows.
- */
-export type Tools1 = {
-  provider: string;
-  id: string;
-  name?: string;
-}
-/**
- * A "shorthand" specialist. Optimized for quickly distilling key points from small-to-medium text blocks. It focuses on high information density and brevity to keep context windows lean and costs low.
- */
-export type Summarizer1 = {
-  provider: string;
-  id: string;
-  name?: string;
-}
-/**
- * The "quality controller." Analyzes the assistant's logic and tool outputs for accuracy and safety. It requires the highest reasoning capabilities to act as a reliable ground truth for system performance.
- */
-export type Evaluator1 = {
-  provider: string;
-  id: string;
-  name?: string;
-}
-/**
- * The "gatekeeper." Classifies each new user message for profanity, prompt-injection, persona override, and out-of-scope requests. Should be fast and cheap — it sits on the critical path to the first response token. Dedicated moderation classifiers (Llama Guard, moderation APIs) are not compatible: they use fixed taxonomies and output formats that cannot express this platform's custom policy.
- */
-export type Moderator1 = {
-  provider: string;
-  id: string;
-  name?: string;
-}
-export type InputModeration = {
-  enabled: EnableInputModeration;
-  categories: ModeratedUserCategories;
-}
-export type RoleQuotas = {
-  admin: AdminQuotas;
-  contrib: ContributorQuotas;
-  user: SimpleUserQuotas;
-  external: ExternalUserQuotas;
-  anonymous: AnonymousUserQuotas;
-  untrusted?: AnonymousExternalPool;
-  [k: string]: unknown;
-}
-export type AdminQuotas = {
-  unlimited: Unlimited;
-  monthlyLimit: MonthlyLimit;
-  [k: string]: unknown;
-}
-export type ContributorQuotas = {
-  unlimited: Unlimited;
-  monthlyLimit: MonthlyLimit;
-  [k: string]: unknown;
-}
-export type SimpleUserQuotas = {
-  unlimited: Unlimited;
-  monthlyLimit: MonthlyLimit;
-  [k: string]: unknown;
-}
-export type ExternalUserQuotas = {
-  unlimited: Unlimited;
-  monthlyLimit: MonthlyLimit;
-  [k: string]: unknown;
-}
-export type AnonymousUserQuotas = {
-  unlimited: Unlimited;
-  monthlyLimit: MonthlyLimit;
-  [k: string]: unknown;
-}
-/**
- * Aggregate cap shared by all anonymous and external usage combined, so untrusted traffic cannot consume the whole account budget. 0 = no pool cap.
- */
-export type AnonymousExternalPool = {
-  unlimited: Unlimited;
-  monthlyLimit: MonthlyLimit;
-  [k: string]: unknown;
-}
-/**
- * This interface was referenced by `SettingsPut`'s JSON-Schema
- * via the `definition` "RoleQuota".
- */
-export type RoleQuota = {
-  unlimited: Unlimited;
-  monthlyLimit: MonthlyLimit;
-  [k: string]: unknown;
-}
-/**
- * This interface was referenced by `SettingsPut`'s JSON-Schema
+ * This interface was referenced by `Settings`'s JSON-Schema
  * via the `definition` "Model".
  */
 export type Model1 = {

@@ -1,6 +1,7 @@
 import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
+import { putSettings } from '../../support/settings.ts'
 
 const admin = await superAdmin
 
@@ -33,7 +34,7 @@ const settingsData = {
 test.describe('Moderation E2E (gateway-enforced)', () => {
   test.beforeEach(async () => {
     await clean()
-    await admin.put('/api/settings/user/test-standalone1', settingsData)
+    await putSettings(admin, 'user/test-standalone1', settingsData)
   })
 
   test('external user: benign message passes', async ({ page, goToWithAuth }) => {
@@ -86,7 +87,7 @@ test.describe('Moderation E2E (gateway-enforced)', () => {
   })
 
   test('blocked turn appears on the trace review page with the verdict', async ({ page, context, goToWithAuth }) => {
-    await admin.put('/api/settings/user/test-standalone1', { ...settingsData, storeTraces: true })
+    await putSettings(admin, 'user/test-standalone1', { ...settingsData, storeTraces: true })
     await context.addCookies([{ name: 'agent-chat-trace-consent', value: 'yes', domain: 'localhost', path: '/' }])
 
     await goToWithAuth('/agents/user/test-standalone1/chat', 'test1-user1')
