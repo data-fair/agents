@@ -74,8 +74,9 @@ test.describe('Activity page', () => {
   test('lists stored conversations and navigates to review', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/organization/test1', 'superadmin', { adminMode: true })
 
-    // ConfigSummary renders a chip per provider: "{{ p.name }} · {{ p.type }}"
-    await expect(page.getByText('Mock Provider · mock')).toBeVisible({ timeout: 15000 })
+    // The page is up (its read-only config summary was replaced by the editable
+    // org config form, so the traces section heading is the stable landmark).
+    await expect(page.getByRole('heading', { name: 'Stored conversations' })).toBeVisible({ timeout: 15000 })
 
     // The seeded conversation preview should appear in the list
     const convRow = page.getByText('activity hello')

@@ -52,13 +52,11 @@ fr:
   usage: Consommation
   moderation: Modération
   traces: Conversations enregistrées
-  loadError: Erreur de chargement des traces.
 en:
   configuration: Configuration
   usage: Usage
   moderation: Moderation
   traces: Stored conversations
-  loadError: Failed to load traces.
 </i18n>
 
 <script lang="ts" setup>
