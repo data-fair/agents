@@ -25,6 +25,8 @@ export default {
   'x-vjsf-locales': ['en', 'fr'],
   type: 'object',
   additionalProperties: false,
+  // the page that renders this form already titles the section
+  layout: { title: null },
   // the picked `quotas` copy keeps its local $ref to RoleQuota
   definitions: { RoleQuota: JSON.parse(JSON.stringify(SettingsSchema.definitions.RoleQuota)) },
   properties: {
