@@ -22,5 +22,8 @@ export default {
   evaluatorAccount: { type: 'organization', id: 'test1' },
   providers: [{ type: 'mock', id: 'global-mock', name: 'Global Mock', enabled: true }],
   models: [{ id: 'mock-model', name: 'Global Mock Model', provider: 'global-mock', usage: ['assistant', 'tools', 'summarizer', 'evaluator', 'moderator'], multiplier: 0 }],
-  defaultModels: { assistant: { provider: 'global-mock', id: 'mock-model' } }
+  defaultModels: { assistant: { provider: 'global-mock', id: 'mock-model' } },
+  // uncapped in dev/test: the production default of 0 would block every
+  // account that has not been pushed a limit, which most specs never do
+  defaultLimits: { credits: -1 }
 }

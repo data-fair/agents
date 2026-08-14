@@ -113,8 +113,8 @@
     "defaultLimits": {
       "type": "object",
       "additionalProperties": false,
-      "default": { "credits": -1 },
-      "properties": { "credits": { "type": "number", "default": -1 } }
+      "default": { "credits": 0 },
+      "properties": { "credits": { "type": "number", "default": 0 } }
     },
     "observer": {
       "type": "object",

@@ -130,7 +130,16 @@ export function transformSettingsDoc (doc) {
   // (`limit >= 0 && consumption >= limit`) has no such carve-out: any concrete
   // number, including 0, hard-caps at zero. Map both "unlimited" and "falsy
   // monthlyLimit" to -1 so a migrated org's effective budget is unchanged.
-  const creditLimit = globalQuota ? ((globalQuota.unlimited || !globalQuota.monthlyLimit) ? -1 : globalQuota.monthlyLimit) : undefined
+  //
+  // A doc with no `quotas.global` at all (old enough to predate the quotas
+  // feature) also had no account-wide cap, so it maps to -1 too — NOT to
+  // `undefined`. Leaving it unseeded would drop the account through to
+  // `config.defaultLimits.credits`, which defaults to 0 (capped) so that
+  // never-configured accounts cannot spend the deployment's provider keys;
+  // an org that worked before the upgrade must not be refused by it.
+  const creditLimit = globalQuota && !globalQuota.unlimited && globalQuota.monthlyLimit
+    ? globalQuota.monthlyLimit
+    : -1
 
   return { settings, creditLimit }
 }

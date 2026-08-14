@@ -91,7 +91,11 @@ test.describe('transformSettingsDoc', () => {
     assert.equal(Array.isArray(result.settings.models), true)
     assert.equal(result.settings.models.length, 2)
     assert.equal(result.settings.quotas.global, undefined)
-    assert.equal(result.creditLimit, undefined)
+    // such a doc had no account-wide cap before the upgrade, so it must be
+    // seeded unlimited rather than left unseeded: an unseeded account falls
+    // through to config.defaultLimits.credits, which defaults to 0 (capped),
+    // and an org that worked before the upgrade must not be refused by it.
+    assert.equal(result.creditLimit, -1)
   })
   test('a doc with no quotas at all migrates to quotas that still grant admins access', () => {
     // regression: writing the leftovers as-is produced `quotas: {}`, which is

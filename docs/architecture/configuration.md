@@ -103,11 +103,18 @@ OUTPUT_TOKEN_WEIGHT=4
 
 ### `DEFAULT_CREDITS`
 
-Plain number, default `-1` (unlimited). Fallback `ai_credits.limit` used by `getLimits()` (`api/src/limits/service.ts`) for any account that has no `limits` document yet, or whose document has no `ai_credits.limit` set. `-1` means unlimited everywhere this contract is used.
+Plain number, default `0`. Fallback `ai_credits.limit` used by `getLimits()` (`api/src/limits/service.ts`) for any account that has no `limits` document yet, or whose document has no `ai_credits.limit` set.
+
+`0` means **capped at zero**: the account is refused until something pushes it a real allowance — the `customers` service, or an ops admin via `POST /api/v1/limits/:type/:id`. That is the default because the alternative hands the deployment's own provider API keys to every account that has never been configured (see the release note below). Any negative value means unlimited; `-1` is the conventional spelling.
 
 ```
+# a self-hosted instance that wants every account to just work:
+DEFAULT_CREDITS=-1
+# or a free-tier allowance for accounts customers has not priced yet:
 DEFAULT_CREDITS=1000
 ```
+
+A deployment left at `0` with no `SECRET_LIMITS` configured cannot receive allowances at all, so every account stays refused; the server logs a `[credits]` notice at boot for that combination.
 
 ### `SECRET_LIMITS`
 
@@ -218,14 +225,18 @@ Concretely: an org whose old assistant model priced at $10/1M output tokens is c
 
 **Operators must review every migrated org's `ai_credits.limit` after upgrading**, and its models' `multiplier` values, rather than assuming the carried-over number still means what it used to.
 
-## Release note: unconfigured accounts become live consumers on upgrade
+## Release note: every account can now resolve a model, so credits are the gate
 
-Before this refactor, an account with no `settings` document simply did not work: there was no global catalog, so nothing resolved a model for it. After it, three defaults compose into a very different posture:
+Before this refactor, an account with no `settings` document simply did not work: there was no global catalog, so nothing resolved a model for it. Configuration itself was the access gate. After it, two of the three relevant defaults point the other way:
 
 - `getSettings()` returns `emptySettings` (rather than `null`) for an account with no document, and its `defaultQuotas.admin` is `unlimited`;
-- the global `PROVIDERS`/`MODELS`/`DEFAULT_MODELS` resolve a model for any account, with no per-account configuration;
-- `DEFAULT_CREDITS` defaults to `-1`, so `getLimits()` treats an account with no `limits` document as **unlimited**.
+- the global `PROVIDERS`/`MODELS`/`DEFAULT_MODELS` resolve a model for any account, with no per-account configuration.
 
-Net effect: on a deployment that configures global providers, **every account — including every user's personal account, and every account no superadmin has ever touched — becomes a working, uncapped consumer of the deployment's own provider API keys**, with no superadmin opt-in step. That is deliberate (a self-hosted instance works out of the box), and the server logs a `[credits]` notice at boot whenever `DEFAULT_CREDITS` is left at `-1` while `PROVIDERS`/`MODELS` are set.
+So on a deployment with global providers configured, **every account — including every user's personal account, and every account no superadmin has ever touched — can resolve a model and would consume the deployment's own provider API keys.** The credit cap is now the only thing standing in front of that, which is why `DEFAULT_CREDITS` defaults to `0`: an account with no `limits` document is refused until the `customers` service (or an ops admin, via `POST /api/v1/limits/:type/:id` in admin mode) pushes it a real allowance.
 
-If that is not the posture you want, set `DEFAULT_CREDITS` to a finite number of credits **before** upgrading: accounts then start capped, and only accounts the `customers` service pushes a real limit for (or that an ops admin pushes manually via `POST /api/v1/limits/:type/:id`) get more.
+Two consequences to plan for **before** upgrading:
+
+- **A deployment that relies on the `customers` integration needs `SECRET_LIMITS` set**, or nothing can push allowances and every account is refused. The server logs a `[credits]` notice at boot for exactly that combination.
+- **A self-hosted instance that wants accounts to just work must set `DEFAULT_CREDITS=-1`** (or a finite free-tier number). That restores the "works out of the box" posture, at the cost of every account being an uncapped consumer of the deployment's keys — the server logs a `[credits]` notice for that too.
+
+Existing orgs are unaffected by this default: the migration seeds each one an `ai_credits.limit` from its old `quotas.global` (see the previous section), so only accounts that never had a global quota fall through to `DEFAULT_CREDITS`.
