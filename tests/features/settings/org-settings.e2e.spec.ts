@@ -85,6 +85,26 @@ test.describe('Org admin config UI', () => {
     await expect(page.getByRole('button', { name: 'Save' })).toBeEnabled()
   })
 
+  // A personal account is its own admin, and the quotas form hides the two
+  // org-only profiles there (`context.accountType`), which vjsf then prunes
+  // from the body — the endpoint must still accept it.
+  test('a personal account can save its own config', async ({ page, goToWithAuth }) => {
+    await goToWithAuth('/agents/user/test-standalone1', 'test-standalone1')
+    await expect(page.getByText('Model roles')).toBeVisible({ timeout: 15000 })
+    await page.waitForTimeout(500)
+    await expect(page.getByText('Contributor quotas')).not.toBeVisible()
+
+    await page.getByText('Store conversation traces').click()
+    await page.getByRole('button', { name: 'Save' }).click()
+    await expect(page.getByText('Changes have been saved')).toBeVisible()
+
+    await page.reload()
+    await expect(page.getByText('Model roles')).toBeVisible({ timeout: 15000 })
+    await expect(page.getByRole('checkbox', { name: 'Store conversation traces' })).toBeChecked()
+    await page.waitForTimeout(800)
+    await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
+  })
+
   test('a non-admin member is redirected to the chat', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/organization/test1', 'test1-user1', { org: 'test1' })
     await expect(page).toHaveURL(/\/organization\/test1\/chat/, { timeout: 15000 })
