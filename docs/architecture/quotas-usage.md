@@ -1,6 +1,6 @@
 # Quotas & usage
 
-Quota enforcement happens at **three levels**: global (account-wide), an untrusted pool (anonymous + external combined), and per-role (per-user within an account). The flowchart below shows the global and per-role checks; the untrusted pool sits between them and is covered in [its own section](#untrusted-pool-quota).
+Enforcement happens at **three levels**, checked in order: an org-wide **credit cap** (backed by the `limits` collection — see [Configuration](./configuration.md#limits-contract)), an **untrusted pool** (anonymous + external combined), and a **per-profile** quota (per-user within an account, or per-IP for anonymous). The flowchart below shows the credit-cap and per-profile checks; the untrusted pool sits between them and is covered in [its own section](#untrusted-pool-quota).
 
 ```mermaid
 flowchart TD
@@ -13,41 +13,43 @@ flowchart TD
   Same -->|Yes, org member| OrgMember[Role: from session<br/>userId: user.id]
   Same -->|No| External[Role: external<br/>userId: user.id]
 
-  Anon --> GQ[Check global quota<br/>daily + monthly]
-  UserOwner --> GQ
-  OrgMember --> GQ
-  External --> GQ
+  Anon --> CC[Check account credit cap<br/>ai_credits.consumption >= limit]
+  UserOwner --> CC
+  OrgMember --> CC
+  External --> CC
 
-  GQ -->|OK| RQ[Check role quota<br/>daily + monthly]
-  GQ -->|Exceeded| R429[429 rate_limit_error]
+  CC -->|OK| RQ[Check per-profile quota<br/>daily + weekly + monthly]
+  CC -->|Exceeded| R429[429 rate_limit_error]
 
   RQ -->|OK| LLM[Forward to LLM]
   RQ -->|Exceeded| R429
 
-  LLM --> Record[recordUsage<br/>tokens × ratio]
+  LLM --> Record[recordUsage<br/>credits]
 ```
 
-**Cost ratios** let cheaper models (summarizer, tools) consume less quota. A request using the summarizer at ratio 0.5 records half the actual token count.
+Every call is priced in **credits**, not currency — see [Configuration → Credits](./configuration.md#credits) for the exact formula (`(inputTokens + outputTokens × outputTokenWeight) / 1e6 × multiplier`). There is no per-role "cost ratio": each model's own resolved `multiplier` is what makes a cheaper model (e.g. the summarizer's model) consume fewer credits per token than a pricier one.
 
-**Storage:** Two MongoDB documents per user×period — one `daily:YYYY-MM-DD`, one `monthly:YYYY-MM`. Atomic `$inc` upserts for concurrent-safe recording.
+**Storage:** Three MongoDB documents per user×period in the `usage` collection — `daily:YYYY-MM-DD`, `weekly:YYYY-Www`, `monthly:YYYY-MM` — each with a `cost` field (named for historical reasons; the value stored is credits). Atomic `$inc` upserts for concurrent-safe recording. `recordUsage()` also increments the account's `limits.ai_credits.consumption` counter in the same call, so the credit cap check above always reads consumption recorded by this same path.
 
 ## Untrusted pool quota
 
-Per-user role quotas cap each *individual* anonymous IP and external user, and the global quota caps *everyone combined* — but neither caps the *aggregate* of untrusted traffic on its own. With a per-IP cap of e.g. $10 and a thousand IPs, anonymous traffic could grow until it hits the shared global cap and starve the account's real members. The **untrusted pool** closes that gap: a single shared quota covering all `anonymous` and `external` usage combined, sitting between the global and per-user checks.
+Per-profile quotas cap each *individual* anonymous IP and external user, and the account credit cap caps *everyone combined* — but neither caps the *aggregate* of untrusted traffic on its own. With a per-IP cap of e.g. 100 credits and a thousand IPs, anonymous traffic could grow until it hits the account's shared credit cap and starve the account's real members. The **untrusted pool** closes that gap: a single shared quota covering all `anonymous` and `external` usage combined, sitting between the credit cap and per-profile checks.
 
 A caller is "untrusted" when `isUntrustedRole(role)` is true, i.e. `role === 'anonymous' || role === 'external'`. `resolveUsageIdentity()` sets `isUntrusted` and tags the request with `poolId = 'pool:untrusted'` (the `UNTRUSTED_POOL_ID` sentinel) for untrusted callers; trusted callers get no `poolId`.
 
 The same `isUntrusted` flag also gates the [moderation guard](./moderation.md): before any quota check, the gateway refuses untrusted callers under a moderation strike cooldown outright (zero LLM calls, no quota consumed).
 
-**Enforcement order.** The single entry point is `enforceQuotas()` in `api/src/usage/enforce.ts`, called from the gateway router. It builds the checks in this order and returns the first violation via `firstQuotaViolation()`:
+**Enforcement order.** The single entry point is `enforceQuotas()` in `api/src/usage/enforce.ts`, called from the gateway router. It builds the checks in this order and returns the first violation:
 
-1. **Global** (account-wide aggregate, `getOwnerUsage()`), scope `organization`/`user`.
-2. **Untrusted pool** — only when `identity.isUntrusted`; reads the pool aggregate with `getUsage(owner, 'pool:untrusted')`, scope `untrusted`.
-3. **Per-user / per-IP** role cap — only when `trackPerUser`; reads `getUsage(owner, usageUserId)`, scope `user`.
+1. **Account credit cap** — `getCreditInfo(owner)` (`api/src/limits/service.ts`) reads `ai_credits.limit`/`ai_credits.consumption` from the `limits` collection (see [Configuration → Limits contract](./configuration.md#limits-contract)). `limit >= 0 && consumption >= limit` short-circuits with scope `account`, period `monthly`, before any other check — even when the caller's own per-profile quota is unlimited. This is no longer a `RoleQuota`/`quotas` entry; `quotas.global` has been removed from the schema entirely and replaced by this credits-based cap.
+2. **Untrusted pool** — only when `identity.isUntrusted`; reads the pool aggregate with `getUsage(owner, 'pool:untrusted')`, scope `untrusted`, via `quotas.untrusted`.
+3. **Per-profile / per-IP** role cap — only when `trackPerUser`; reads `getUsage(owner, usageUserId)`, scope `user`, via `quotas[role]`.
 
-> Note: the design spec proposed the order per-user → pool → global, but the implemented order is global → pool → per-user. Each check is skipped when its `RoleQuota` is `unlimited` or has `monthlyLimit === 0`, so a pool limit of `0` means "no pool cap" — backwards-compatible for accounts that never configure one.
+Steps 2 and 3 go through `firstQuotaViolation()` (`api/src/usage/operations.ts`), unchanged from before this refactor. Each is skipped when its `RoleQuota` is `unlimited` or has `monthlyLimit === 0`, so a pool limit of `0` means "no pool cap" — backwards-compatible for accounts that never configure one.
 
-**Recording.** `recordUsage()` takes an optional `poolId`; when set it upserts the `pool:untrusted` daily/weekly/monthly aggregates the same way it already upserts the account aggregate, in addition to the per-user record. The gateway passes `identity.poolId` so untrusted requests increment all three (per-user + account + pool).
+**Recording.** `recordUsage()` takes an optional `poolId`; when set it upserts the `pool:untrusted` daily/weekly/monthly aggregates the same way it already upserts the account aggregate, in addition to the per-user record. The gateway passes `identity.poolId` so untrusted requests increment all three (per-user + account + pool) — plus the account's `ai_credits.consumption` counter via `incrementConsumption()`, which step 1 above reads back on the next request.
+
+**`getOwnerUsage()` is display-only now.** `api/src/usage/router.ts`'s account-usage endpoint (admin dashboard) still calls it to show historical account-wide consumption, but `enforceQuotas()` no longer uses it for enforcement — that moved to `getCreditInfo()`/the `limits` collection.
 
 **Configuration.** The limit is a standard `RoleQuota` (`unlimited` + `monthlyLimit`) stored under `quotas.untrusted` in account settings (UI title "Anonymous + external pool"), defaulting to `{ unlimited: false, monthlyLimit: 0 }` in `defaultQuotas`.
 

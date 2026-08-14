@@ -3,6 +3,22 @@
 // quotas.global) introduced by the config refactor, and seeds the org-wide
 // credit limit (Task 4's `limits` collection) from the old quotas.global.
 //
+// IMPORTANT: this folder only runs once the deployed service version is
+// bumped to 0.10.0 or higher (see the upgrade-script runner in
+// api/src/server.ts) — the release that adopts this refactor MUST ship at
+// least 0.10.0, or this migration silently never executes.
+//
+// RELEASE NOTE — the carried-over number changes units. `quotas.global.
+// monthlyLimit` is copied 1:1 into `ai_credits.limit` below, but it used to
+// be a currency budget compared against a cost derived from each model's
+// (now-deleted) inputPricePerMillion/outputPricePerMillion, and is now
+// compared against token-derived credits with a default multiplier of 1.
+// The same number therefore buys a different amount of usage post-upgrade,
+// by a factor that depends on each org's old model prices. See
+// docs/architecture/configuration.md#release-note-caps-shift-units-on-upgrade
+// — operators must review every migrated org's ai_credits.limit (and model
+// multipliers) after upgrading.
+//
 // exec() MUST be idempotent (see @data-fair/lib-node/upgrade-scripts.js's
 // UpgradeScript contract): the runner re-executes every script whose folder
 // version is >= the recorded service version on every deploy of that same
