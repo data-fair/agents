@@ -10,7 +10,7 @@
       <account-selector />
     </v-container>
     <v-container
-      v-if="settingsEditFetch.data.value"
+      v-if="editedSettings"
       data-iframe-height
     >
       <div id="section-configuration">
@@ -37,7 +37,7 @@
           <v-col>
             <v-form v-model="valid">
               <vjsf-put-req
-                v-model="settingsEditFetch.data.value"
+                v-model="editedSettings"
                 :options="vjsfOptions"
                 :locale="locale"
               />
@@ -97,13 +97,13 @@
       </div>
 
       <df-navigation-right>
-        <v-list-item v-if="settingsEditFetch.hasDiff.value">
+        <v-list-item v-if="hasDiff">
           <v-btn
             width="100%"
             color="accent"
             :disabled="!valid"
-            :loading="settingsEditFetch.save.loading.value"
-            @click="settingsEditFetch.save.execute()"
+            :loading="save.loading.value"
+            @click="save.execute()"
           >
             {{ t('save') }}
           </v-btn>
@@ -144,7 +144,9 @@ import { ref, computed, watch, watchEffect } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useSession } from '@data-fair/lib-vue/session.js'
-import { useEditFetch } from '@data-fair/lib-vue/edit-fetch.js'
+import { useFetch } from '@data-fair/lib-vue/fetch.js'
+import { useAsyncAction } from '@data-fair/lib-vue/async-action.js'
+import { ofetch } from 'ofetch'
 import type { Settings } from '#api/types'
 import DfNavigationRight from '@data-fair/lib-vuetify/navigation-right.vue'
 import DfToc from '@data-fair/lib-vuetify/toc.vue'
@@ -175,15 +177,59 @@ watchEffect(() => {
   ])
 })
 
-const settingsEditFetch = useEditFetch<Settings>(
-  () => `${$apiPath}/settings/${accountType.value}/${accountId.value}`,
-  {
-    saveOptions: {
-      success: t('saved')
-    }
-  }
+/**
+ * The subset of the settings document this (superadmin) form owns. The rest —
+ * modelMapping/quotas/moderation/storeTraces — belongs to the org admin and is
+ * written through PUT /api/settings/:type/:id/org.
+ */
+type OwnedSettings = Pick<Settings, 'providers' | 'models'>
+
+/**
+ * GET /api/settings returns the whole document, but the form is generated from
+ * the narrowed PUT schema and vjsf prunes from its model everything that schema
+ * does not declare. Comparing the edited model to the raw fetched document
+ * would therefore report a permanent unsaved change on a populated account (and
+ * trip `useLeaveGuard` on every navigation away), so both sides of the diff are
+ * projected down to the owned fields first.
+ *
+ * The projection mirrors the form's own normalization: `models` is hidden — and
+ * thus pruned by vjsf — until the account has at least one provider, and
+ * materialized to its `[]` default as soon as it has one.
+ */
+const projectOwned = (settings: Settings): OwnedSettings => {
+  const providers = structuredClone(settings.providers ?? [])
+  return providers.length ? { providers, models: structuredClone(settings.models ?? []) } : { providers }
+}
+
+/**
+ * Key-order-insensitive serialization: vjsf rebuilds objects as the user edits
+ * them, so a saved-then-reloaded document routinely comes back with the same
+ * content in a different key order. It also drops `undefined` values, which vjsf
+ * leaves behind on cleared optional fields, on both sides alike.
+ */
+const canonical = (value: any): any => {
+  if (Array.isArray(value)) return value.map(canonical)
+  if (value && typeof value === 'object') return Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])]))
+  return value
+}
+
+const settingsFetch = useFetch<Settings>(() => `${$apiPath}/settings/${accountType.value}/${accountId.value}`)
+const editedSettings = ref<OwnedSettings | null>(null)
+const savedSettings = ref<OwnedSettings | null>(null)
+watch(settingsFetch.data, (settings) => {
+  editedSettings.value = settings ? projectOwned(settings) : null
+  savedSettings.value = settings ? projectOwned(settings) : null
+})
+
+const hasDiff = computed(() => JSON.stringify(canonical(editedSettings.value)) !== JSON.stringify(canonical(savedSettings.value)))
+const save = useAsyncAction(
+  async () => {
+    await ofetch(settingsFetch.fullUrl.value!, { method: 'PUT', body: editedSettings.value })
+    await settingsFetch.refresh()
+  },
+  { success: t('saved') }
 )
-useLeaveGuard(settingsEditFetch.hasDiff, { locale })
+useLeaveGuard(hasDiff, { locale })
 
 const valid = ref(true)
 
@@ -201,8 +247,8 @@ const loadModelErrors = async () => {
 const errorLabel = (err: ProviderModelsError) =>
   `${err.providerName} (${err.providerType}${err.status ? `, HTTP ${err.status}` : ''}): ${err.message}`
 watch(
-  () => [accountType.value, accountId.value, settingsEditFetch.data.value?.updatedAt] as const,
-  () => { if (settingsEditFetch.data.value) loadModelErrors() },
+  () => [accountType.value, accountId.value, settingsFetch.data.value?.updatedAt] as const,
+  () => { if (settingsFetch.data.value) loadModelErrors() },
   { immediate: true }
 )
 

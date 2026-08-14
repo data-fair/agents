@@ -55,14 +55,7 @@ test.describe('Settings UI', () => {
     await expect(page.getByRole('button', { name: 'Save' })).toBeVisible()
   })
 
-  // fixme (task 8 regression, see the dedicated fixme below for the full
-  // explanation): this test seeds a *populated* config (providers + models +
-  // modelMapping + quotas), and the load-time spurious-diff bug means Save is
-  // already visible before any user interaction. The precondition below makes
-  // that failure explicit instead of letting the test pass "by accident" (it
-  // used to just click Add-item then check Save is visible, which was true
-  // even before the click).
-  test.fixme('Can save settings with valid form', async ({ page, goToWithAuth }) => {
+  test('Can save settings with valid form', async ({ page, goToWithAuth }) => {
     // Seed valid settings via API first so form is valid
     const admin = await superAdmin
     await putSettings(admin, 'user/test-standalone1', {
@@ -109,11 +102,11 @@ test.describe('Settings UI', () => {
     await expect(page.getByText('Changes have been saved')).toBeVisible()
   })
 
-  // fixme (task 8 regression): same root cause as above — this seeded,
-  // populated config already shows the Save button on load, so "Save button
-  // should now be visible" after adding a provider used to pass regardless of
-  // that click. The precondition makes the real failure visible.
-  test.fixme('Can edit chat model with valid initial data', async ({ page, goToWithAuth }) => {
+  // Exercises the models array editor end to end: the Model autocomplete (whose
+  // getItems URL walks `rootData.providers` to scope the listing to the account's
+  // providers), the usage multi-select, the credit multiplier, and the array
+  // itemTitle expression.
+  test('Can add a model definition with a usage and a credit multiplier', async ({ page, goToWithAuth }) => {
     // Seed valid settings via API
     const admin = await superAdmin
     await putSettings(admin, 'user/test-standalone1', {
@@ -139,14 +132,34 @@ test.describe('Settings UI', () => {
     // Precondition: this seeded config must load clean (no unsaved change).
     await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
 
-    // Add a provider to create changes
-    // .first(): the models array renders its own "Add item" once a provider exists
-    await page.getByRole('button', { name: 'Add item' }).first().click()
-    await page.locator('.v-form').getByRole('combobox').first().click()
-    await page.getByRole('option', { name: 'Mock' }).click()
+    // The stored model definition is listed through the array itemTitle expression
+    await expect(page.getByText('Mock Model (assistant)')).toBeVisible()
 
-    // Save button should now be visible
-    await expect(page.getByRole('button', { name: 'Save' })).toBeVisible()
+    // .nth(1): the models array's own "Add item" (the providers array owns the first one)
+    await page.getByRole('button', { name: 'Add item' }).nth(1).click()
+
+    // The Model autocomplete opens on the new item and lists the models of the
+    // account's providers — proof the getItems URL resolved the provider ids.
+    await page.getByRole('option', { name: 'Mock Tools Model' }).click()
+
+    // Flag it for the "tools" usage
+    // the outer combobox wrapper, not the input it overlays (which intercepts clicks)
+    await page.getByRole('combobox').filter({ hasText: 'Appropriate usages' }).last().click()
+    await page.getByRole('option', { name: 'Tools', exact: true }).click()
+    await page.keyboard.press('Escape')
+
+    await page.getByRole('textbox', { name: 'Credit multiplier' }).last().fill('3')
+
+    await page.getByRole('button', { name: 'Save' }).click()
+    await expect(page.getByText('Changes have been saved')).toBeVisible()
+
+    // Reload: the new definition is persisted and the form is clean again
+    await page.reload()
+    await expect(page.getByText('AI Providers')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('Mock Tools Model (tools)')).toBeVisible()
+    await expect(page.getByRole('textbox', { name: 'Credit multiplier' }).last()).toHaveValue('3')
+    await page.waitForTimeout(800)
+    await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
   })
 
   test('Can delete a provider', async ({ page, goToWithAuth }) => {
@@ -188,13 +201,16 @@ test.describe('Settings UI', () => {
     await expect(page.getByText('Mock - ')).not.toBeVisible()
   })
 
-  // Regression (obsolete after the settings-authorship split, task 8): models/quotas
-  // were required but their form sections were hidden until a provider exists.
-  // Toggling the always-visible "Store conversation traces" switch on an empty
-  // config used to prune those hidden required props and raise a global "required"
-  // error. `storeTraces` (and `quotas`) moved out of this form to the org-admin
-  // endpoint, so there is no longer any always-visible field to toggle on an empty
-  // config — skipped until task 9/10 give the org-scoped settings their own UI.
+  // Regression (obsolete for THIS form after the settings-authorship split):
+  // models/quotas were required but their form sections were hidden until a
+  // provider exists. Toggling the always-visible "Store conversation traces"
+  // switch on an empty config used to prune those hidden required props and
+  // raise a global "required" error. `storeTraces` moved to the org-admin form
+  // (PUT /api/settings/:type/:id/org), and the superadmin form has no
+  // always-visible field left to toggle on an empty config — the only widget it
+  // renders then is the providers array's "Add item". Nothing here can trigger
+  // the regression anymore, so it stays skipped: the org form (task 10) is where
+  // the store-traces toggle now lives and where this coverage belongs.
   test.skip('Toggling store-traces on an empty config does not raise a required error', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
     await expect(page.getByText('AI Providers')).toBeVisible({ timeout: 10000 })
@@ -208,22 +224,14 @@ test.describe('Settings UI', () => {
     await expect(page.getByRole('button', { name: 'Save' })).toBeEnabled()
   })
 
-  // FIXME regression introduced by task 8 (settings-authorship split), not a
-  // missing-trigger situation like the two tests above: vjsf writes schema
-  // defaults into the model on load and strips properties the schema no
-  // longer declares, which now makes a fully configured account report a
-  // spurious unsaved change on every load. The narrowed superadmin PUT schema
-  // (this form) only declares `providers`/`models`, but GET /api/settings
-  // still returns the full document including the org-owned fields
-  // (modelMapping, quotas, moderation, storeTraces) — so the form strips them
-  // from its model on mount and immediately reports a diff against the full
-  // fetched snapshot. This also means `useLeaveGuard` fires on every
-  // navigation away from a populated account's settings page, even with no
-  // real edit. It is an edit-fetch/vjsf integration concern for the page
-  // itself (task 9/10 own the forms consuming these split endpoints), not
-  // fixable without touching UI code — left as `fixme` (not skipped) so it
-  // stays visible as a known defect rather than silently excluded.
-  test.fixme('A populated config loads clean and stays clean across a save and reload', async ({ page, goToWithAuth }) => {
+  // Regression: GET /api/settings returns the whole document while this form is
+  // generated from the narrowed superadmin PUT schema, so vjsf pruned the
+  // org-owned fields (modelMapping/quotas/moderation/storeTraces) from its model
+  // on mount and the page reported a spurious unsaved change on every load —
+  // which also tripped `useLeaveGuard` on every navigation away. The page now
+  // projects the fetched document down to the fields the form owns before
+  // handing it to the form and to the diff.
+  test('A populated config loads clean and stays clean across a save and reload', async ({ page, goToWithAuth }) => {
     const admin = await superAdmin
     await putSettings(admin, 'organization/test1', {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
@@ -262,24 +270,25 @@ test.describe('Settings UI', () => {
     await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
   })
 
-  // Regression (obsolete after the settings-authorship split, task 8): the Save
-  // button used to reappear on every reload because the server re-injected an
-  // empty `models` object that vjsf strips from the hidden model-role sections
-  // (no providers). Its trigger for an EMPTY config was toggling `storeTraces`,
-  // which moved out of this form to the org-admin endpoint — there is no longer
-  // any field to toggle on a still-empty config, so this is skipped until
-  // task 9/10 give the org-scoped settings their own UI. NOTE: unlike the
-  // comment that used to be here, the populated-config case of this same
-  // regression is NOT covered elsewhere anymore — the test that covered it
-  // ("A populated config loads clean...", above) is itself `fixme` (broken,
-  // not exercised), so real coverage of this regression is currently zero.
-  test.skip('Saving an empty config converges: Save button stays hidden after reload', async ({ page, goToWithAuth }) => {
+  // Regression: the Save button used to reappear on every reload of a config
+  // saved from an empty state, because the server re-injected an empty `models`
+  // value that vjsf then pruned (the models section is hidden until a provider
+  // exists). Its original trigger — toggling `storeTraces` — moved to the
+  // org-admin form, so the change that takes the config out of its empty state
+  // is now adding a provider (which is also what makes the models section
+  // appear, i.e. exactly the transition this regression lived on).
+  test('Saving an empty config converges: Save button stays hidden after reload', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/admin/organization/test1', 'superadmin', { adminMode: true })
     await expect(page.getByText('AI Providers')).toBeVisible({ timeout: 10000 })
     await page.waitForTimeout(500)
 
-    // Make a real change (toggle store-traces) so Save becomes available, then save.
-    await page.getByText('Store conversation traces').click()
+    // An empty config must already be clean, so the Save below is caused by the edit.
+    await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
+
+    // Make a real change (add a provider) so Save becomes available, then save.
+    await page.getByRole('button', { name: 'Add item' }).first().click()
+    await page.locator('.v-form').getByRole('combobox').first().click()
+    await page.getByRole('option', { name: 'Mock' }).click()
     await page.getByRole('button', { name: 'Save' }).click()
     await expect(page.getByText('Changes have been saved')).toBeVisible()
 

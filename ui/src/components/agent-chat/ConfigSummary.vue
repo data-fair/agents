@@ -13,19 +13,9 @@
     </v-chip>
 
     <h4 class="text-title-small mt-4 mb-2">
-      {{ t('models') }}
+      {{ t('assistantModel') }}
     </h4>
-    <v-table density="compact">
-      <tbody>
-        <tr
-          v-for="role in modelRoles"
-          :key="role"
-        >
-          <td>{{ role }}</td>
-          <td>{{ settings.models?.[role]?.model?.name || '—' }}</td>
-        </tr>
-      </tbody>
-    </v-table>
+    <p>{{ settings.modelMapping?.assistant?.name || t('defaultModel') }}</p>
 
     <h4 class="text-title-small mt-4 mb-2">
       {{ t('limits') }}
@@ -47,13 +37,15 @@
 <i18n lang="yaml">
 fr:
   providers: Fournisseurs
-  models: Modèles
+  assistantModel: Modèle de l'assistant
+  defaultModel: Modèle par défaut
   limits: Limites
   unlimited: Illimité
   perMonth: "{n} / mois"
 en:
   providers: Providers
-  models: Models
+  assistantModel: Assistant model
+  defaultModel: Default model
   limits: Limits
   unlimited: Unlimited
   perMonth: "{n} / month"
@@ -63,6 +55,8 @@ en:
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
+// The effective assistant model is resolved server-side: an unmapped role falls
+// back to the global default, so an absent mapping is displayed as such rather
+// than being resolved here.
 defineProps<{ settings: any }>()
-const modelRoles = ['assistant', 'tools', 'summarizer', 'evaluator', 'moderator']
 </script>
