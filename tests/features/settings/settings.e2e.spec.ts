@@ -201,28 +201,11 @@ test.describe('Settings UI', () => {
     await expect(page.getByText('Mock - ')).not.toBeVisible()
   })
 
-  // Regression (obsolete for THIS form after the settings-authorship split):
-  // models/quotas were required but their form sections were hidden until a
-  // provider exists. Toggling the always-visible "Store conversation traces"
-  // switch on an empty config used to prune those hidden required props and
-  // raise a global "required" error. `storeTraces` moved to the org-admin form
-  // (PUT /api/settings/:type/:id/org), and the superadmin form has no
+  // The "toggling store-traces on an empty config does not raise a required
+  // error" regression lives in org-settings.e2e.spec.ts now: `storeTraces` moved
+  // to the org-admin form (PUT /api/settings/:type/:id/org), and this form has no
   // always-visible field left to toggle on an empty config — the only widget it
-  // renders then is the providers array's "Add item". Nothing here can trigger
-  // the regression anymore, so it stays skipped: the org form (task 10) is where
-  // the store-traces toggle now lives and where this coverage belongs.
-  test.skip('Toggling store-traces on an empty config does not raise a required error', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
-    await expect(page.getByText('AI Providers')).toBeVisible({ timeout: 10000 })
-    await page.waitForTimeout(500)
-
-    await page.getByText('Store conversation traces').click()
-    await page.waitForTimeout(500)
-
-    // No validation error must appear and the form must remain valid (Save enabled)
-    await expect(page.getByText('required information')).not.toBeVisible()
-    await expect(page.getByRole('button', { name: 'Save' })).toBeEnabled()
-  })
+  // renders then is the providers array's "Add item".
 
   // Regression: GET /api/settings returns the whole document while this form is
   // generated from the narrowed superadmin PUT schema, so vjsf pruned the
