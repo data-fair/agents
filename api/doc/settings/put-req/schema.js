@@ -12,6 +12,7 @@ export default {
   'x-vjsf-locales': ['en', 'fr'],
   type: 'object',
   additionalProperties: false,
+  required: ['providers'],
   layout: { title: null },
   // the picked `models` copy keeps its per-role $ref to the shared Model definition
   definitions: { Model: JSON.parse(JSON.stringify(SettingsSchema.definitions.Model)) },

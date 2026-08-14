@@ -541,4 +541,19 @@ test.describe('Org-admin settings endpoint', () => {
       quotas: defaultQuotas
     }), { status: 400 })
   })
+
+  // `providers` is destructive to omit: the superadmin PUT is a partial update
+  // (see task 8 fix), so an empty body must not silently wipe the stored
+  // providers (and their encrypted API keys) — it must be rejected outright.
+  test('superadmin PUT with an empty body is rejected (providers is required)', async () => {
+    await admin.put('/api/settings/user/test-standalone1', {
+      providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true, apiKey: 'sk-should-survive' }]
+    })
+
+    await assert.rejects(admin.put('/api/settings/user/test-standalone1', {}), { status: 400 })
+
+    const getRes = await admin.get('/api/settings/user/test-standalone1')
+    assert.equal(getRes.data.providers.length, 1)
+    assert.equal(getRes.data.providers[0].id, 'mock-provider')
+  })
 })

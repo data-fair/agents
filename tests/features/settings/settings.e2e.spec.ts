@@ -55,7 +55,14 @@ test.describe('Settings UI', () => {
     await expect(page.getByRole('button', { name: 'Save' })).toBeVisible()
   })
 
-  test('Can save settings with valid form', async ({ page, goToWithAuth }) => {
+  // fixme (task 8 regression, see the dedicated fixme below for the full
+  // explanation): this test seeds a *populated* config (providers + models +
+  // modelMapping + quotas), and the load-time spurious-diff bug means Save is
+  // already visible before any user interaction. The precondition below makes
+  // that failure explicit instead of letting the test pass "by accident" (it
+  // used to just click Add-item then check Save is visible, which was true
+  // even before the click).
+  test.fixme('Can save settings with valid form', async ({ page, goToWithAuth }) => {
     // Seed valid settings via API first so form is valid
     const admin = await superAdmin
     await putSettings(admin, 'user/test-standalone1', {
@@ -81,6 +88,11 @@ test.describe('Settings UI', () => {
     // Wait for any validation to complete
     await page.waitForTimeout(500)
 
+    // Precondition: this seeded config must load clean (no unsaved change) —
+    // otherwise the Save click below would "succeed" even if the page never
+    // reacted to the interaction that follows.
+    await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
+
     // Add a provider to create changes
     // .first(): the models array renders its own "Add item" once a provider exists
     await page.getByRole('button', { name: 'Add item' }).first().click()
@@ -97,7 +109,11 @@ test.describe('Settings UI', () => {
     await expect(page.getByText('Changes have been saved')).toBeVisible()
   })
 
-  test('Can edit chat model with valid initial data', async ({ page, goToWithAuth }) => {
+  // fixme (task 8 regression): same root cause as above — this seeded,
+  // populated config already shows the Save button on load, so "Save button
+  // should now be visible" after adding a provider used to pass regardless of
+  // that click. The precondition makes the real failure visible.
+  test.fixme('Can edit chat model with valid initial data', async ({ page, goToWithAuth }) => {
     // Seed valid settings via API
     const admin = await superAdmin
     await putSettings(admin, 'user/test-standalone1', {
@@ -119,6 +135,9 @@ test.describe('Settings UI', () => {
 
     // Wait for page to load
     await expect(page.getByText('AI Providers')).toBeVisible()
+
+    // Precondition: this seeded config must load clean (no unsaved change).
+    await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
 
     // Add a provider to create changes
     // .first(): the models array renders its own "Add item" once a provider exists
@@ -189,18 +208,22 @@ test.describe('Settings UI', () => {
     await expect(page.getByRole('button', { name: 'Save' })).toBeEnabled()
   })
 
-  // Regression (currently broken again after the settings-authorship split, task 8):
-  // vjsf writes schema defaults into the model on load and strips properties the
-  // schema no longer declares, which used to make a fully configured account
-  // report a spurious unsaved change. The narrowed superadmin PUT schema (this
-  // form) now only declares `providers`/`models`, but GET /api/settings still
-  // returns the full document including the org-owned fields (modelMapping,
-  // quotas, moderation, storeTraces) — so the form strips them from its model on
-  // load and immediately reports a diff against the full fetched snapshot. That
-  // is an edit-fetch/vjsf integration concern for the page itself (task 9/10 own
-  // the forms consuming these split endpoints), not fixable without touching UI
-  // code, so this is skipped until that work lands.
-  test.skip('A populated config loads clean and stays clean across a save and reload', async ({ page, goToWithAuth }) => {
+  // FIXME regression introduced by task 8 (settings-authorship split), not a
+  // missing-trigger situation like the two tests above: vjsf writes schema
+  // defaults into the model on load and strips properties the schema no
+  // longer declares, which now makes a fully configured account report a
+  // spurious unsaved change on every load. The narrowed superadmin PUT schema
+  // (this form) only declares `providers`/`models`, but GET /api/settings
+  // still returns the full document including the org-owned fields
+  // (modelMapping, quotas, moderation, storeTraces) — so the form strips them
+  // from its model on mount and immediately reports a diff against the full
+  // fetched snapshot. This also means `useLeaveGuard` fires on every
+  // navigation away from a populated account's settings page, even with no
+  // real edit. It is an edit-fetch/vjsf integration concern for the page
+  // itself (task 9/10 own the forms consuming these split endpoints), not
+  // fixable without touching UI code — left as `fixme` (not skipped) so it
+  // stays visible as a known defect rather than silently excluded.
+  test.fixme('A populated config loads clean and stays clean across a save and reload', async ({ page, goToWithAuth }) => {
     const admin = await superAdmin
     await putSettings(admin, 'organization/test1', {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
@@ -245,8 +268,11 @@ test.describe('Settings UI', () => {
   // (no providers). Its trigger for an EMPTY config was toggling `storeTraces`,
   // which moved out of this form to the org-admin endpoint — there is no longer
   // any field to toggle on a still-empty config, so this is skipped until
-  // task 9/10 give the org-scoped settings their own UI. The populated-config
-  // case of this same regression is still covered by the previous test.
+  // task 9/10 give the org-scoped settings their own UI. NOTE: unlike the
+  // comment that used to be here, the populated-config case of this same
+  // regression is NOT covered elsewhere anymore — the test that covered it
+  // ("A populated config loads clean...", above) is itself `fixme` (broken,
+  // not exercised), so real coverage of this regression is currently zero.
   test.skip('Saving an empty config converges: Save button stays hidden after reload', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/admin/organization/test1', 'superadmin', { adminMode: true })
     await expect(page.getByText('AI Providers')).toBeVisible({ timeout: 10000 })

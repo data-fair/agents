@@ -10,7 +10,6 @@ import { type AccountKeys, assertAccountRole, httpError, reqAdminMode, reqSessio
 import eventsLog from '@data-fair/lib-express/events-log.js'
 import * as putReqBody from '#doc/settings/put-req/index.ts'
 import * as orgPutReqBody from '#doc/settings/org-put-req/index.ts'
-import { type Settings } from '#types'
 import { encryptProviderApiKeys, obfuscateProviderApiKeys } from './operations.ts'
 import { defaultQuotas, defaultModeration, emptySettings, getSettings } from './service.ts'
 import { getCatalog } from '../models/service.ts'
@@ -41,33 +40,39 @@ router.put('/:type/:id', async (req, res, next) => {
   assertAccountRole(session, owner, 'admin')
   const body = putReqBody.returnValid(req.body, { name: 'body' })
 
-  const existing = await mongo.settings.findOne({ 'owner.type': owner.type, 'owner.id': owner.id })
-  const settings: Settings = {
-    createdAt: existing?.createdAt || new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    owner,
-    providers: encryptProviderApiKeys(body.providers || [], existing?.providers || [], securityKey),
-    // The org-owned fields are not part of this (superadmin-scoped) body
-    // anymore — carry them over from the existing doc untouched, falling back
-    // to the same defaults as before so a first-ever save still gets a usable
-    // document.
-    quotas: existing?.quotas ?? defaultQuotas,
-    storeTraces: existing?.storeTraces ?? false,
-    moderation: existing?.moderation ?? defaultModeration
-  }
-  if (existing?.modelMapping) settings.modelMapping = existing.modelMapping
-  // Persist the model catalog exactly as the form represents it: it is hidden
-  // until a provider exists, so an empty config legitimately has no `models`
-  // key. Injecting an empty value here would make the form report a spurious
-  // diff on the next load (it strips the hidden, empty value). Readers treat
-  // an absent `models` as an empty catalog contribution.
-  if (body.models) settings.models = body.models
-  await mongo.settings.replaceOne({ owner }, settings, { upsert: true })
+  // Only read the existing providers, to preserve the encrypted API key of a
+  // provider whose apiKey came back as the obfuscated placeholder — this read
+  // is not used to reconstruct the rest of the document (see below).
+  const existing = await mongo.settings.findOne({ 'owner.type': owner.type, 'owner.id': owner.id }, { projection: { providers: 1 } })
+  const providers = encryptProviderApiKeys(body.providers, existing?.providers || [], securityKey)
+  const now = new Date().toISOString()
+
+  // A partial update, not a whole-document replace: this route owns only
+  // providers/models, so it must only ever touch those two fields (plus
+  // updatedAt). Anything else — modelMapping/quotas/moderation/storeTraces —
+  // is owned by the org PUT and must survive untouched here, including one
+  // that lands concurrently between this handler's read and write above.
+  await mongo.settings.updateOne(
+    { 'owner.type': owner.type, 'owner.id': owner.id },
+    {
+      $set: { providers, updatedAt: now, ...(body.models ? { models: body.models } : {}) },
+      // Persist the model catalog exactly as the form represents it: it is
+      // hidden until a provider exists, so an empty config legitimately has
+      // no `models` key. Unsetting it here (rather than writing an empty
+      // value) keeps the form from reporting a spurious diff on the next
+      // load (it strips the hidden, empty value). Readers treat an absent
+      // `models` as an empty catalog contribution.
+      ...(body.models ? {} : { $unset: { models: '' } }),
+      $setOnInsert: { owner, createdAt: now, quotas: defaultQuotas, moderation: defaultModeration, storeTraces: false }
+    },
+    { upsert: true }
+  )
 
   eventsLog.info('agents.settings.update', `settings updated for owner ${owner.type}/${owner.id}`, { req })
 
-  settings.providers = obfuscateProviderApiKeys(settings.providers)
-  res.json(settings)
+  const updated = await getSettings(owner)
+  updated.providers = obfuscateProviderApiKeys(updated.providers)
+  res.json(updated)
 })
 
 router.put('/:type/:id/org', async (req, res, next) => {

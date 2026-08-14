@@ -96,7 +96,7 @@ export type Models = {
 }[];
 
 export type Settings = {
-  providers?: AIProviders;
+  providers: AIProviders;
   models?: Models;
 }
 export type OpenAI = {
