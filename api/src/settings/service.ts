@@ -8,21 +8,11 @@ import type { AccountKeys } from '@data-fair/lib-express'
 import mongo from '#mongo'
 import type { Settings } from '#types'
 import { securityKey } from '../cipher/service.ts'
-import { decryptProviderApiKeys, } from './operations.ts'
+import { decryptProviderApiKeys, defaultQuotas, defaultModeration } from './operations.ts'
 
-export const defaultQuotas: NonNullable<Settings['quotas']> = {
-  admin: { unlimited: true, monthlyLimit: 0 },
-  contrib: { unlimited: false, monthlyLimit: 0 },
-  user: { unlimited: false, monthlyLimit: 0 },
-  external: { unlimited: false, monthlyLimit: 0 },
-  anonymous: { unlimited: false, monthlyLimit: 0 },
-  untrusted: { unlimited: false, monthlyLimit: 0 }
-}
-
-export const defaultModeration: NonNullable<Settings['moderation']> = {
-  enabled: false,
-  categories: ['anonymous', 'external']
-}
+// defined in operations.ts (pure, importable without #mongo/#config), re-exported
+// here because service.ts is where every consumer already reads them from
+export { defaultQuotas, defaultModeration }
 
 export const emptySettings = (owner: AccountKeys): Settings => ({
   owner, providers: [], models: [], quotas: defaultQuotas, storeTraces: false, moderation: defaultModeration

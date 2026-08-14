@@ -28,6 +28,29 @@
 
 const ROLES = ['assistant', 'tools', 'summarizer', 'evaluator', 'moderator']
 
+// Duplicated from api/src/settings/operations.ts (re-exported by
+// api/src/settings/service.ts), WHICH IS THE SOURCE OF TRUTH: this script is
+// plain ESM run against a raw mongo handle by the upgrade-script runner, and
+// resolving api/src's `#config`/`#mongo` import aliases from here is not
+// possible, so it cannot import them. tests/features/upgrade/upgrade.unit.spec.ts
+// asserts these copies stay deep-equal to the exported originals, so drift
+// fails the build rather than silently changing what migrated docs get.
+const DEFAULT_QUOTAS = {
+  admin: { unlimited: true, monthlyLimit: 0 },
+  contrib: { unlimited: false, monthlyLimit: 0 },
+  user: { unlimited: false, monthlyLimit: 0 },
+  external: { unlimited: false, monthlyLimit: 0 },
+  anonymous: { unlimited: false, monthlyLimit: 0 },
+  untrusted: { unlimited: false, monthlyLimit: 0 }
+}
+
+const DEFAULT_MODERATION = {
+  enabled: false,
+  categories: ['anonymous', 'external']
+}
+
+export { DEFAULT_QUOTAS, DEFAULT_MODERATION }
+
 /**
  * Pure transform: old (role-keyed `models` + `quotas.global`) settings doc ->
  * new (`models` array + `modelMapping`, org-wide credit limit) shape.
@@ -87,8 +110,17 @@ export function transformSettingsDoc (doc) {
 
   // doc.quotas (and within it, .global) may be entirely absent on data old
   // enough to predate the quotas feature itself — see the doc comment above.
+  // NORMALIZE rather than copy: writing the raw leftovers would turn a doc with
+  // no quotas at all into `quotas: {}`, and an empty object is truthy, so the
+  // readers' `settings.quotas ?? defaultQuotas` fallback (api/src/gateway/
+  // router.ts, api/src/summary/router.ts) would stop firing and assertRoleQuota
+  // (api/src/auth.ts) would 403 EVERY caller, account admins included, with no
+  // UI affordance to repair it. Same for moderation: a doc predating the
+  // moderation feature must come out of the migration with the default, or the
+  // org config form (ui/src/components/OrgConfigSection.vue) reports a
+  // permanent unsaved change against the schema default vjsf materializes.
   const { global: globalQuota, ...roleQuotas } = doc.quotas ?? {}
-  const settings = { ...doc, models, quotas: roleQuotas }
+  const settings = { ...doc, models, quotas: { ...DEFAULT_QUOTAS, ...roleQuotas }, moderation: doc.moderation ?? DEFAULT_MODERATION }
   if (Object.keys(modelMapping).length) settings.modelMapping = modelMapping
   else delete settings.modelMapping
 

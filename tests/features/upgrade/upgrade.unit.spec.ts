@@ -1,6 +1,8 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { transformSettingsDoc } from '../../../upgrade/0.10.0/better-config.js'
+import { transformSettingsDoc, DEFAULT_QUOTAS, DEFAULT_MODERATION } from '../../../upgrade/0.10.0/better-config.js'
+import { defaultQuotas, defaultModeration } from '../../../api/src/settings/operations.ts'
+import { assertRoleQuota } from '../../../api/src/auth.ts'
 
 const oldDoc = {
   owner: { type: 'organization', id: 'org1' },
@@ -90,5 +92,37 @@ test.describe('transformSettingsDoc', () => {
     assert.equal(result.settings.models.length, 2)
     assert.equal(result.settings.quotas.global, undefined)
     assert.equal(result.creditLimit, undefined)
+  })
+  test('a doc with no quotas at all migrates to quotas that still grant admins access', () => {
+    // regression: writing the leftovers as-is produced `quotas: {}`, which is
+    // truthy, so the readers' `settings.quotas ?? defaultQuotas` fallback never
+    // fired again and assertRoleQuota 403'd every caller — admins included —
+    // with no UI affordance to repair it.
+    const doc: any = structuredClone(oldDoc)
+    delete doc.quotas
+    const result = transformSettingsDoc(doc)!
+    assert.deepEqual(result.settings.quotas, defaultQuotas)
+    assert.doesNotThrow(() => assertRoleQuota('admin', result.settings.quotas))
+  })
+  test('quotas present but partial are completed with the defaults, stored values winning', () => {
+    const doc: any = structuredClone(oldDoc)
+    doc.quotas = { global: { unlimited: true, monthlyLimit: 0 }, contrib: { unlimited: false, monthlyLimit: 5 } }
+    const result = transformSettingsDoc(doc)!
+    assert.equal(result.settings.quotas.global, undefined)
+    assert.deepEqual(result.settings.quotas.contrib, { unlimited: false, monthlyLimit: 5 })
+    assert.deepEqual(result.settings.quotas.admin, defaultQuotas.admin)
+    assert.doesNotThrow(() => assertRoleQuota('admin', result.settings.quotas))
+  })
+  test('a doc predating the moderation feature gains the default moderation', () => {
+    const doc: any = structuredClone(oldDoc)
+    delete doc.moderation
+    const result = transformSettingsDoc(doc)!
+    assert.deepEqual(result.settings.moderation, defaultModeration)
+  })
+  test('the duplicated defaults do not drift from api/src/settings/operations.ts', () => {
+    // this script cannot import from api/src (see its header comment), so the
+    // copies are checked here instead
+    assert.deepEqual(DEFAULT_QUOTAS, defaultQuotas)
+    assert.deepEqual(DEFAULT_MODERATION, defaultModeration)
   })
 })
