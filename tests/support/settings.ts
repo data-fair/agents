@@ -42,10 +42,19 @@ export const mockSettings = {
   storeTraces: false
 }
 
-/** Canonical org-admin PUT body (/api/settings/:type/:id/org) — the subset an
- * org admin owns. */
+/**
+ * Canonical org-admin PUT body (/api/settings/:type/:id/org) — the subset an
+ * org admin owns.
+ *
+ * Unlike `mockSettings`, this body is written on its own, so it cannot map the
+ * org's own `mock-provider/mock-model`: the endpoint validates every mapping
+ * ref against the catalog and rejects an org model that no superadmin PUT has
+ * defined yet (400). It maps the global mock model instead, which is always in
+ * the catalog. A suite that needs the org model mapped should write the
+ * superadmin half first and pass `{ modelMapping: mockModelMapping }` here.
+ */
 export const mockOrgSettings = {
-  modelMapping: mockModelMapping,
+  modelMapping: { assistant: { provider: 'global-mock', id: 'mock-model', name: 'Global Mock Model' } },
   quotas: defaultQuotas,
   moderation: { enabled: false, categories: ['anonymous', 'external'] },
   storeTraces: false
