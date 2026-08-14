@@ -50,7 +50,7 @@ const canonical = (value: any): any => {
   return value
 }
 
-export function useSettingsForm<T> (params: SettingsFormParams<T>) {
+export function useSettingsForm<T extends Record<string, any>> (params: SettingsFormParams<T>) {
   const settingsFetch = useFetch<Settings>(() => `${$apiPath}/settings/${params.accountType()}/${params.accountId()}`)
 
   const edited = ref<T | null>(null) as Ref<T | null>
