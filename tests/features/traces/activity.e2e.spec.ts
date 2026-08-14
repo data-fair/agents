@@ -7,7 +7,9 @@
  *   2. Drive a gateway request with consent headers so a trace gets stored.
  *   3. Poll GET /api/traces/organization/test1 until the conversation appears.
  *   4. Navigate to /agents/organization/test1 as superadmin in adminMode.
- *   5. Assert ConfigSummary chip "Mock Provider · mock" is visible.
+ *   5. Assert the "Stored conversations" heading is visible — the page's
+ *      read-only config summary was replaced by the editable org config form,
+ *      so that heading is the stable landmark that the page rendered.
  *   6. Assert the trace row with preview "activity hello" is listed.
  *   7. Click the row; assert the URL changes to /organization/test1/traces/conv-act.
  */

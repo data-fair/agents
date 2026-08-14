@@ -19,12 +19,10 @@
 <i18n lang="yaml">
 fr:
   consumption: Consommation
-  limit: Limite
   noData: Aucune donnée disponible
   credits: crédits
 en:
   consumption: Consumption
-  limit: Limit
   noData: No data available
   credits: credits
 </i18n>
@@ -52,15 +50,11 @@ interface Entry {
 
 const props = defineProps<{
   entries: Entry[]
-  dailyLimit?: number
-  monthlyLimit?: number
 }>()
 
 const { t, locale } = useI18n()
 
 const hasData = computed(() => props.entries.some(e => e.cost > 0))
-
-const limit = computed(() => props.dailyLimit ?? props.monthlyLimit ?? 0)
 
 const formatCost = (amount: number) => formatCredits(locale.value, amount)
 
@@ -76,20 +70,6 @@ const chartData = computed(() => {
     order: 2
   }]
 
-  // show limit line on the last bar
-  if (limit.value > 0) {
-    const limitData = props.entries.map((_, i) => i === props.entries.length - 1 ? limit.value : null)
-    datasets.push({
-      label: t('limit'),
-      data: limitData,
-      backgroundColor: 'rgba(244, 67, 54, 0.3)',
-      borderColor: 'rgba(244, 67, 54, 0.8)',
-      borderWidth: 1,
-      borderRadius: 2,
-      order: 1
-    })
-  }
-
   return { labels, datasets }
 })
 
@@ -97,7 +77,7 @@ const chartOptions = computed(() => ({
   responsive: true,
   maintainAspectRatio: false,
   plugins: {
-    legend: { display: limit.value > 0 },
+    legend: { display: false },
     tooltip: {
       callbacks: {
         label: (ctx: any) => {
