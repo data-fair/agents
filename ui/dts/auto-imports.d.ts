@@ -203,7 +203,6 @@ declare module 'vue' {
     readonly effectScope: UnwrapRef<typeof import('vue')['effectScope']>
     readonly extractErrorMessage: UnwrapRef<typeof import('../src/utils/error')['extractErrorMessage']>
     readonly formatBytes: UnwrapRef<typeof import('@data-fair/lib-vue/format/bytes.js')['formatBytes']>
-    readonly formatCredits: UnwrapRef<typeof import('../src/utils/credits')['formatCredits']>
     readonly formatMcpToolResult: UnwrapRef<typeof import('../src/utils/tool-result')['formatMcpToolResult']>
     readonly formatMermaidFix: UnwrapRef<typeof import('../src/utils/mermaid-fix')['formatMermaidFix']>
     readonly formatToolsAvailableMessage: UnwrapRef<typeof import('../src/composables/tool-exploration')['formatToolsAvailableMessage']>

@@ -1,20 +1,15 @@
 <template>
   <v-container
-    v-if="!settings && loadError"
-    data-iframe-height
-  >
-    <p class="text-error">
-      {{ loadError }}
-    </p>
-  </v-container>
-  <v-container
-    v-else-if="settings"
+    v-if="isAdmin"
     data-iframe-height
   >
     <h3 class="text-title-large mb-4">
       {{ t('configuration') }}
     </h3>
-    <config-summary :settings="settings" />
+    <org-config-section
+      :account-type="accountType"
+      :account-id="accountId"
+    />
 
     <h3 class="text-title-large mt-6 mb-4">
       {{ t('usage') }}
@@ -67,12 +62,11 @@ en:
 </i18n>
 
 <script lang="ts" setup>
-import { ref, computed, onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { getAccountRole, useSession } from '@data-fair/lib-vue/session.js'
-import { $apiPath } from '~/context'
-import ConfigSummary from '~/components/agent-chat/ConfigSummary.vue'
+import OrgConfigSection from '~/components/OrgConfigSection.vue'
 import UsageCard from '~/components/UsageCard.vue'
 import MonitoringGlobalSection from '~/components/MonitoringGlobalSection.vue'
 import MonitoringIndividualSection from '~/components/MonitoringIndividualSection.vue'
@@ -89,20 +83,15 @@ const accountId = route.params.id as string
 
 setBreadcrumbs([])
 
-const settings = ref<any>(null)
-const loadError = ref('')
-
+// Every section of this page is admin-only (the settings, usage and traces
+// endpoints it consumes are all admin-gated), so a non-admin member is sent
+// back to the chat.
 const isAdmin = computed(() =>
   !!session.state.user?.isAdmin ||
   getAccountRole(session.state, { type: accountType as 'user' | 'organization', id: accountId }) === 'admin'
 )
 
-onMounted(async () => {
-  if (!isAdmin.value) { router.replace(`/${accountType}/${accountId}/chat`); return }
-  try {
-    const sRes = await fetch(`${$apiPath}/settings/${accountType}/${accountId}`, { credentials: 'include' })
-    if (!sRes.ok) { loadError.value = t('loadError'); return }
-    settings.value = await sRes.json()
-  } catch { loadError.value = t('loadError') }
+onMounted(() => {
+  if (!isAdmin.value) router.replace(`/${accountType}/${accountId}/chat`)
 })
 </script>

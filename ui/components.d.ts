@@ -21,6 +21,7 @@ declare module 'vue' {
     MonitoringGlobalSection: typeof import('./src/components/MonitoringGlobalSection.vue')['default']
     MonitoringIndividualSection: typeof import('./src/components/MonitoringIndividualSection.vue')['default']
     MonitoringUserHistogram: typeof import('./src/components/MonitoringUserHistogram.vue')['default']
+    OrgConfigSection: typeof import('./src/components/OrgConfigSection.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     TraceComparePicker: typeof import('./src/components/TraceComparePicker.vue')['default']
