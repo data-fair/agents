@@ -82,6 +82,7 @@ COPY --from=types /app/api/config api/config
 COPY --from=api-installer /app/api/node_modules api/node_modules
 COPY --from=ui /app/ui/dist ui/dist
 ADD package.json README.md LICENSE BUILD.json* ./
+ADD /upgrade upgrade
 
 EXPOSE 8080
 EXPOSE 9090

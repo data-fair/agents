@@ -4,12 +4,52 @@ import { startObserver, stopObserver, internalError } from '@data-fair/lib-node/
 import eventPromise from '@data-fair/lib-utils/event-promise.js'
 import eventsQueue from '@data-fair/lib-node/events-queue.js'
 import locks from '@data-fair/lib-node/locks.js'
-// import upgradeScripts from '@data-fair/lib-node/upgrade-scripts.js'
+import upgradeScripts from '@data-fair/lib-node/upgrade-scripts.js'
 import { createHttpTerminator } from 'http-terminator'
 import { app } from './app.ts'
 import config from '#config'
 import mongo from '#mongo'
 import { cleanupOldUsage } from './usage/cleanup.ts'
+
+/**
+ * Run pending upgrade/<version>/*.js migrations (see @data-fair/lib-node/upgrade-scripts.js).
+ *
+ * IMPORTANT quirk of the vendored lib: when no service version has ever been
+ * recorded (the `services` collection has no doc for this service — true of
+ * every deployment right now, since upgradeScripts was disabled until this
+ * release) it filters the runnable scripts down to folders literally named
+ * `init` BEFORE it even looks at an `isFresh` callback. That filtering
+ * happens unconditionally, so passing `isFresh` cannot make a version-named
+ * folder (like `upgrade/0.10.0`) run on that first invocation — confirmed
+ * empirically: calling upgradeScripts(db, locks, base, async () => false)
+ * against a version-named folder never executes it. It also cannot rely on a
+ * folder named `init`: any folder name that isn't valid semver makes
+ * semver.gte() throw the moment the version becomes truthy, and once this
+ * script's run records a version in `services`, every later restart would
+ * hit that path with `previousPersion` truthy and crash on startup trying to
+ * parse "init" as a version.
+ *
+ * So the fresh-vs-legacy distinction is handled here instead of via
+ * `isFresh`: if this service has never recorded a version AND the `settings`
+ * collection is non-empty (i.e. this is an existing deployment adopting the
+ * mechanism for the first time, not a brand-new install), we pre-seed the
+ * `services` doc with version '0.0.0'. That makes the lib take its normal
+ * "previousPersion is set" path, which does run every folder whose semver is
+ * >= that recorded version — including upgrade/0.10.0 — while a genuinely
+ * fresh install (no settings yet) is left alone and records its version with
+ * nothing to migrate, exactly as intended.
+ */
+const runUpgradeScripts = async () => {
+  const services = mongo.db.collection<{ id: string, version: string }>('services')
+  const alreadyRecorded = await services.findOne({ id: 'agents' })
+  if (!alreadyRecorded) {
+    const hasLegacyData = await mongo.settings.countDocuments({}) > 0
+    if (hasLegacyData) {
+      await services.updateOne({ id: 'agents' }, { $set: { id: 'agents', version: '0.0.0' } }, { upsert: true })
+    }
+  }
+  await upgradeScripts(mongo.db, locks, config.upgradeRoot)
+}
 
 const server = createServer(app)
 const httpTerminator = createHttpTerminator({ server })
@@ -23,7 +63,7 @@ export const start = async () => {
   session.init(config.privateDirectoryUrl)
   await mongo.init()
   await locks.start(mongo.db)
-  // await upgradeScripts(mongo.db, locks, config.upgradeRoot)
+  await runUpgradeScripts()
 
   if (config.privateEventsUrl) {
     if (!config.secretKeys?.events) {
