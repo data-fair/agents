@@ -10,7 +10,7 @@
       class="d-flex align-center flex-wrap ga-2 px-2 py-1 mb-1 bg-background rounded"
     >
       <span class="text-caption font-weight-medium">
-        {{ summary.requestCount }} {{ t('requests') }} · {{ formatDuration(summary.totalDurationMs) }} · {{ formatTokens(summary.inputTokens) }} {{ t('in') }} · {{ formatTokens(summary.outputTokens) }} {{ t('out') }}<template v-if="summary.totalCost != null"> · {{ formatCost(summary.totalCost) }}</template>
+        {{ summary.requestCount }} {{ t('requests') }} · {{ formatDuration(summary.totalDurationMs) }} · {{ formatTokens(summary.inputTokens) }} {{ t('in') }} · {{ formatTokens(summary.outputTokens) }} {{ t('out') }}<template v-if="summary.totalCost != null"> · {{ formatCost(summary.totalCost) }} {{ t('credits') }}</template>
       </span>
       <v-spacer />
       <v-chip
@@ -85,7 +85,7 @@
             v-if="entry.cost != null"
             class="text-medium-emphasis ml-2 flex-shrink-0"
             style="white-space: nowrap;"
-          >{{ formatCost(entry.cost.total) }}</span>
+          >{{ formatCost(entry.cost.total) }} {{ t('credits') }}</span>
           <span
             class="text-medium-emphasis ml-2 flex-shrink-0"
             style="white-space: nowrap;"
@@ -124,7 +124,7 @@
                 {{ traceEntryDetails[entry.index].content.model }}<template v-if="traceEntryDetails[entry.index].content.provider">
                   ({{ traceEntryDetails[entry.index].content.provider.name }})
                 </template><template v-if="traceEntryDetails[entry.index].content.cost">
-                  · {{ formatCost(traceEntryDetails[entry.index].content.cost.total) }} ({{ formatCost(traceEntryDetails[entry.index].content.cost.input) }} {{ t('in') }} + {{ formatCost(traceEntryDetails[entry.index].content.cost.output) }} {{ t('out') }})
+                  · {{ formatCost(traceEntryDetails[entry.index].content.cost.total) }} {{ t('credits') }} ({{ formatCost(traceEntryDetails[entry.index].content.cost.input) }} {{ t('in') }} + {{ formatCost(traceEntryDetails[entry.index].content.cost.output) }} {{ t('out') }})
                 </template>
               </div>
               <div class="text-caption text-medium-emphasis mb-1 mt-2">
@@ -221,6 +221,7 @@ fr:
   requests: requêtes
   in: entrée
   out: sortie
+  credits: crédits
   interpreted: Interprété
   raw: Brut
   both: Les deux
@@ -244,6 +245,7 @@ en:
   requests: requests
   in: in
   out: out
+  credits: credits
   interpreted: Interpreted
   raw: Raw
   both: Both
@@ -256,13 +258,14 @@ en:
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { TraceOverviewEntry, TraceEntryDetail, SessionRecorder } from '~/traces/session-recorder'
+import { formatCredits } from '~/utils/credits'
 
 const props = defineProps<{
   traceOverview: TraceOverviewEntry[]
   recorder: SessionRecorder
 }>()
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 const traceEntryDetails = ref<Record<number, TraceEntryDetail>>({})
 
@@ -335,7 +338,8 @@ const flagChips = computed(() => [
 // Compact token formatting: 1234 -> "1.2k", 999 -> "999".
 const formatTokens = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : `${n}`
 
-const formatCost = (n: number) => `${n.toFixed(4)} €`
+// Usage is accounted in credits, not money — see ui/src/utils/credits.ts.
+const formatCost = (n: number) => formatCredits(locale.value, n)
 
 // Cumulated request time: sub-second stays in ms, otherwise seconds (one decimal
 // under a minute) then minutes+seconds.
