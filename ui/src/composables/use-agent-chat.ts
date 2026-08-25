@@ -10,6 +10,7 @@ import { $apiPath } from '~/context'
 import { useSession } from '@data-fair/lib-vue/session.js'
 import { getAnonymousToken, resetAnonymousToken } from '~/composables/use-anonymous-token'
 import { extractErrorMessage } from '~/utils/error'
+import { redactHistoryMediaToolResults } from '~/utils/tool-result'
 import { readConsent, traceStorageAvailable } from '~/traces/trace-consent'
 import { wrapHiddenContext } from '~/traces/hidden-context'
 import Debug from 'debug'
@@ -436,7 +437,10 @@ export function useAgentChat (options: UseAgentChatOptions) {
       const { text: summary } = await generateText({
         model: provider.chatModel('summarizer'),
         system: prompt,
-        messages: [{ role: 'user' as const, content: JSON.stringify(historyToCompact) }],
+        // Media tool results (base64 images) are redacted to size placeholders: the
+        // summarizer is not necessarily a vision model, and a base64 blob inside the
+        // stringified history is pure token waste.
+        messages: [{ role: 'user' as const, content: JSON.stringify(redactHistoryMediaToolResults(historyToCompact)) }],
         abortSignal: signal,
         headers: traceHeaders(compactionCtxId)
       })

@@ -187,12 +187,25 @@ const aiTool = tool({
 })
 ```
 
-`formatMcpToolResult` keeps only the text `content` parts (and prefixes `isError`
-results) — `structuredContent` is intentionally dropped because the
+`formatMcpToolResult` keeps the text and image `content` parts (and prefixes
+`isError` results) — `structuredContent` is intentionally dropped because the
 OpenAI-compatible wire protocol to the gateway carries tool output as a single
-text string with no structured channel. Because that payload is text-only,
-output-schema validation is bypassed (see above) so it cannot reject a call over
-a value that is never consumed.
+text string with no structured channel. Since `structuredContent` is never
+consumed, output-schema validation is bypassed (see above) so it cannot reject a
+call over a value that is thrown away.
+
+Text-only results stay a plain string. A result carrying MCP `image` parts
+becomes a **media envelope** (`{_agentsMediaResult: true, text?, media: [{data,
+mediaType}]}`): the AI SDK serializes that object as JSON into the same wire
+string, and the gateway (`convertOpenAIMessages`) rebuilds real image parts from
+it. Providers with a native media channel in their tool-result format
+(anthropic, openai via the Responses API, google) receive the images in the tool
+result itself; for text-only tool-result channels (mistral, and the
+chat-completions paths: scaleway, ollama, openrouter, openai-compatible in
+"compatible" mode) the gateway statelessly rewrites the result to a text stub
+and injects the images as a user message after the tool-message run. The role
+model consuming such results must be vision-capable. Compaction prompts and
+stored traces redact the base64 payloads to size placeholders.
 
 Tool annotations (like `title`) are preserved on the wrapper for UI display.
 
@@ -299,7 +312,7 @@ Execution:
     → MCP Client.callTool() → BroadcastChannel (JSON-RPC)
       → FrameServerTransport → BrowserMcpServer
         → registered tool.execute() → CallToolResult
-          → text extraction → tool-result → LLM
+          → text / media-envelope extraction → tool-result → LLM
 ```
 
 ---

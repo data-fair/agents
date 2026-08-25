@@ -6,7 +6,7 @@ import { getModelConfig, resolveModelForRole, streamedToolCallsBroken, OPENAI_CO
 import { recordUsage } from '../usage/service.ts'
 import { computeCost } from '../usage/operations.ts'
 import { resolveUsageIdentity, enforceQuotas } from '../usage/enforce.ts'
-import { convertOpenAITools, convertOpenAIMessages, convertToolChoice, mapFinishReason } from './operations.ts'
+import { convertOpenAITools, convertOpenAIMessages, convertToolChoice, mapFinishReason, supportsMediaToolResults, injectMediaAsUserMessages } from './operations.ts'
 import type { OpenAIMessage, OpenAIToolDefinition, OpenAIToolChoice, FinishReason } from './operations.ts'
 import { recordTraceRequest } from '../traces/service.ts'
 import { parseFlagsCookie } from '../traces/operations.ts'
@@ -223,8 +223,13 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
     const systemMessages = messages.filter(m => m.role === 'system')
     const system = systemMessages.length > 0 ? systemMessages.map(m => m.content).join('\n') : undefined
 
-    // Convert messages and tools
-    const aiMessages = convertOpenAIMessages(messages)
+    // Convert messages and tools. Providers without a media channel in their
+    // tool-result format get tool images re-routed into an injected user message.
+    const provider = modelConfig.provider
+    const converted = convertOpenAIMessages(messages)
+    const aiMessages = supportsMediaToolResults(provider.type, 'compatibility' in provider ? provider.compatibility as string : undefined)
+      ? converted
+      : injectMediaAsUserMessages(converted)
     const tools = openaiTools ? convertOpenAITools(openaiTools) : {}
     const hasTools = Object.keys(tools).length > 0
 
