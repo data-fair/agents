@@ -246,6 +246,41 @@ When the LLM requests a tool call:
 3. The MCP server dispatches to the registered tool's execute function
 4. The result flows back through the same chain
 
+### Mid-turn tool refresh
+
+The tool map is frozen when a request is built, but the aggregate can change *while the turn
+runs* — the standard case is the agent calling the host's `navigate` tool: the new page mounts
+its own components, which register their own tools. Those tools used to become callable only
+on the **next user turn** (measured: the same turn kept sending `toolCount=17` after a
+navigation, the next turn sent 21), and the agent concluded it was stuck.
+
+So `sendMessage` runs a loop of physical `streamText` calls rather than a single one:
+
+```mermaid
+flowchart LR
+  S1[streamText<br/>17 tools] -->|navigate| N[new page registers tools]
+  N -->|watch → flag| SW{stopWhen<br/>tools changed?}
+  SW -->|step boundary| H[history += response.messages]
+  H --> S2[streamText<br/>21 tools, budget 10 − steps used]
+```
+
+- A `watch` on `toolsVersion` compares a **name signature** (`tool-refresh.ts`,
+  `toolsSignature`) against the set the running stream was built with, and raises a flag
+  (object identity is useless — the aggregator rebuilds its wrappers on every re-merge).
+- A second `stopWhen` condition reads that flag, so the stream stops at the next **step
+  boundary** — the step in flight, tool results included, always completes.
+- The run's `response.messages` are folded into `history` (the normal path), the tool set is
+  re-partitioned (`partitionTools` + `resolveSubAgents`, flatten decisions included) and
+  `streamText` is relaunched on the same turn: same abort controller and re-armed watchdog,
+  same `turn:<id>` trace headers, no new user message, nothing removed from the transcript.
+- Guards (`shouldRestartForTools`): only when the stream ended on `tool-calls` (a stream that
+  ended on `stop` delivered a finished answer — relaunching would make the assistant carry on
+  talking unprompted), at most `MAX_TOOL_REFRESHES` (2) restarts per turn against a flickering
+  tool set, and the `stepCountIs` budget stays **global to the turn** — each run gets what is
+  left, never a fresh 10.
+- In exploration mode the restart also announces the newly available tool names as a
+  `<tools-available>` message appended to the history tail.
+
 > By default the full aggregated tool map is sent to the LLM on every request. An opt-in **exploration mode** instead discloses tools on demand — see [Tool exploration](./tool-exploration.md).
 
 ---
