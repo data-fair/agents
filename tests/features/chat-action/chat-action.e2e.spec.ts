@@ -65,8 +65,9 @@ test.describe('Agent Chat Action Button', () => {
     const drawer = page.locator(chatDrawerSelector)
     await expect(drawer).toBeVisible()
 
-    // The visible prompt should appear as a user message
-    const userMessage = frame.locator('.v-card.bg-secondary').first()
+    // The visible (action) prompt renders as an accent-coloured user bubble,
+    // distinct from ordinary typed messages (secondary).
+    const userMessage = frame.locator('.v-card.bg-accent').first()
     await expect(userMessage).toContainText('Help me create a new dataset', { timeout: 10000 })
   })
 

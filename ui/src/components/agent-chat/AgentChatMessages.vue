@@ -35,10 +35,9 @@
               class="d-flex justify-end"
             >
               <v-card
-                class="pa-3 text-body-medium rounded-xl"
-                :class="{ 'bg-surface': !isActionPrompt(message) }"
-                color="secondary"
-                :variant="isActionPrompt(message) ? 'flat' : 'outlined'"
+                class="px-3 py-2 text-body-medium agent-chat__user-bubble"
+                :color="isActionPrompt(message) ? 'accent' : 'secondary'"
+                variant="flat"
               >
                 {{ message.content }}
               </v-card>
@@ -300,6 +299,9 @@ const emit = defineEmits<{
   // Forwarded only for top-level assistant messages, carrying the message index so the
   // parent can confirm it is the latest before firing a bounded automatic fix.
   'mermaid-error': [payload: { index: number, failures: MermaidFailure[] }]
+  // True once the transcript is scrolled down from the very top, so the header can
+  // raise its elevation (mirrors v-app-bar's scroll-behavior="elevate").
+  'update:scrolled': [scrolled: boolean]
 }>()
 
 const props = withDefaults(defineProps<{
@@ -394,9 +396,17 @@ const { following } = useAutoScrollBottom(
 // observer `atBottom` would stay stale-false and show the button with nothing to
 // scroll.
 const atBottom = ref(true)
+// Tracked alongside atBottom (same scroll/resize/growth triggers) so the header can
+// elevate once the transcript is no longer pinned to the very top.
+const scrolledFromTop = ref(false)
 const updateAtBottom = () => {
   const el = messagesContainer.value
   atBottom.value = !el || el.scrollHeight - el.scrollTop - el.clientHeight <= BOTTOM_THRESHOLD
+  const scrolled = !!el && el.scrollTop > 4
+  if (scrolled !== scrolledFromTop.value) {
+    scrolledFromTop.value = scrolled
+    emit('update:scrolled', scrolled)
+  }
 }
 watch(() => streamedLength(props.messages), updateAtBottom, { flush: 'post' })
 
@@ -510,6 +520,16 @@ function onContentClick (e: MouseEvent) {
 
 .agent-chat-message .assistant-content {
   word-break: break-word;
+}
+
+/* User message bubble: strongly rounded, with the corner nearest the sender
+   (bottom-right in LTR) softened for the classic "tail" asymmetry. Constrained
+   width so long messages don't span the whole column, and no border. */
+.agent-chat-message .agent-chat__user-bubble {
+  border-radius: 18px;
+  border-end-end-radius: 4px;
+  max-width: 80%;
+  border: none;
 }
 
 /* Reasoning panel: muted, monospace-ish, preserves the model's line breaks. */

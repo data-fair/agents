@@ -1,5 +1,13 @@
 <template>
-  <v-card-title class="d-flex align-center py-2 px-4">
+  <v-sheet
+    :elevation="elevated ? 3 : 0"
+    class="agent-chat-header d-flex align-center py-2 px-4"
+  >
+    <v-icon
+      :icon="mdiRobotOutline"
+      size="small"
+      class="mr-2 text-secondary flex-shrink-0"
+    />
     <span class="text-title-medium text-truncate text-secondary">
       {{ title }}
     </span>
@@ -20,7 +28,7 @@
       @click="$emit('showDebug')"
     />
     <v-spacer />
-  </v-card-title>
+  </v-sheet>
 </template>
 
 <i18n lang="yaml">
@@ -34,11 +42,14 @@ en:
 
 <script lang="ts" setup>
 import { useI18n } from 'vue-i18n'
-import { mdiCog, mdiRefresh } from '@mdi/js'
+import { mdiCog, mdiRefresh, mdiRobotOutline } from '@mdi/js'
 
 defineProps<{
   isAdmin?: boolean
   title?: string
+  // Raised (box-shadow) when the transcript is scrolled under the header, mirroring
+  // v-app-bar's scroll-behavior="elevate". Driven by the messages container's scroll.
+  elevated?: boolean
 }>()
 
 defineEmits<{
@@ -48,3 +59,13 @@ defineEmits<{
 
 const { t } = useI18n()
 </script>
+
+<style scoped>
+/* Sit above the transcript so the scroll-triggered shadow is cast over it, and
+   ease the elevation in/out like a native app bar. */
+.agent-chat-header {
+  position: relative;
+  z-index: 1;
+  transition: box-shadow 0.2s ease;
+}
+</style>

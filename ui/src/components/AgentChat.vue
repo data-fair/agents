@@ -6,6 +6,7 @@
     <agent-chat-header
       :is-admin="isAdmin"
       :title="chatTitle"
+      :elevated="headerElevated"
       @show-debug="showDebugDialog = true"
       @reset="handleReset"
     />
@@ -26,6 +27,7 @@
         @navigate="url => sendDFrameMessage({ type: 'navigate', url })"
         @fix-mermaid="handleFixMermaid"
         @mermaid-error="handleMermaidError"
+        @update:scrolled="value => headerElevated = value"
       />
 
       <agent-chat-input
@@ -238,6 +240,9 @@ const chatError = computed(() => chat.error.value)
 
 const showDebugDialog = ref(false)
 
+// Raised header shadow, toggled by the messages transcript's scroll position.
+const headerElevated = ref(false)
+
 // Emit status messages to parent d-frame
 const inIframe = window.parent !== window
 const dFrameContent = useVueRouterDFrameContent()
@@ -371,6 +376,8 @@ function handleReset () {
   chat.reset(finalSystemPrompt.value)
   actionVisiblePrompt.value = null
   sessionStarted.value = false
+  // The transcript is gone; drop the scroll-driven header shadow until it scrolls again.
+  headerElevated.value = false
 }
 
 function handleSessionCleared () {
