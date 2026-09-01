@@ -9,6 +9,7 @@ function makeScope () {
     current: null,
     producedText: false,
     stepHadTool: false,
+    lastStepHadTool: false,
     setActivity: (phase, toolName) => { phases.push([phase, toolName]) }
   }
   return { scope, phases }

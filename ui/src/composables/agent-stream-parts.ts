@@ -41,6 +41,13 @@ export interface StreamScope {
   producedText: boolean
   // True when the current step issued a tool call (drives analyzing vs thinking).
   stepHadTool: boolean
+  // Whether the step that just finished issued a tool call. A turn whose LAST step called
+  // a tool is a turn the model meant to continue: it read the result and then said nothing.
+  // `producedText` cannot see this — it latches on the first word of the turn, and the
+  // model usually announces the delegation in the very step that calls the sub-agents, so
+  // a turn that says "let me delegate that" and never comes back reads as one that
+  // answered. This flag is the tell.
+  lastStepHadTool: boolean
   // toolName of the latest tool-call this step, surfaced so the post-step label
   // can name a sub-agent.
   lastToolName?: string
@@ -112,6 +119,7 @@ export function applyStreamPart (part: StreamPart, scope: StreamScope): void {
       // followed by a continuation step reading the result — label that gap.
       scope.current = null
       scope.setActivity(scope.stepHadTool ? 'analyzing' : 'thinking', scope.lastToolName)
+      scope.lastStepHadTool = scope.stepHadTool
       scope.stepHadTool = false
       scope.lastToolName = undefined
       break

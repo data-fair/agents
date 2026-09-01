@@ -511,6 +511,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
       current: null,
       producedText: false,
       stepHadTool: false,
+      lastStepHadTool: false,
       setActivity: (phase, toolName) => {
         switch (phase) {
           case 'streaming':
@@ -631,6 +632,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
               current: null,
               producedText: false,
               stepHadTool: false,
+              lastStepHadTool: false,
               setActivity: (phase) => {
                 const setPhase = (a: ChatActivity | null) => {
                   const next = { ...subAgentActivities.value }
@@ -869,10 +871,15 @@ export function useAgentChat (options: UseAgentChatOptions) {
       const response = await result.response
       history = history.concat(response.messages)
 
-      // A clean finish with no assistant text is a silent drop: empty model
-      // completion, a sub-agent that returned nothing, or the step limit reached on
-      // a tool call. Surface a fallback so the turn is never visibly empty.
-      if (!mainScope.producedText) {
+      // A clean finish with no assistant text is a silent drop: empty model completion, a
+      // sub-agent that returned nothing, or the step limit reached on a tool call.
+      // `producedText` alone is not enough to catch it: it latches on the first word of the
+      // turn, and the model usually announces the delegation in the very step that calls the
+      // sub-agents — so a turn that says "let me delegate that" and never comes back reads as
+      // a turn that answered, leaving the user with settled chips, no answer and no error.
+      // A turn whose LAST step called a tool is the tell: the model meant to read that result
+      // and continue. Surface a fallback so the turn is never visibly empty.
+      if (!mainScope.producedText || mainScope.lastStepHadTool) {
         // An empty turn is anomalous — put it on the same footing as an error and dump
         // the physical request/response to the console for diagnosis (the user only sees
         // the generic fallback bubble). The usage is the tell: a non-zero
