@@ -262,6 +262,12 @@ function processForModel (modelId: string, options: { prompt: string | Array<any
   if (lastMessage.trim().toLowerCase() === 'loop forever') {
     return { type: 'tool-call', toolName: 'get_schema', toolArgs: '{"dataset":"test"}' }
   }
+  // Same looping behaviour on a tool that only the step-budget probe owns. Sharing
+  // get_schema would list it twice in the debug dialog and break the tool-discovery
+  // assertions there, so the budget test gets its own seam.
+  if (lastMessage.trim().toLowerCase() === 'loop probe') {
+    return { type: 'tool-call', toolName: 'probe_step', toolArgs: '{}' }
+  }
   if (/reached your step budget/i.test(lastMessage)) {
     return { type: 'text', text: 'Closed-out best-effort summary from gathered data.' }
   }

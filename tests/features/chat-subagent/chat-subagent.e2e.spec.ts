@@ -141,8 +141,11 @@ test.describe('Chat Sub-Agent UI', () => {
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
     await waitForToolsReady(page, 'data_analyst (2 tools)', true)
 
-    // Task "loop forever" makes the sub-agent call a tool on every step until it hits
-    // the stepCountIs(10) cap (finishReason: tool-calls). The harness then runs ONE
+    // Task "loop forever" makes the sub-agent emit the SAME get_schema call on every
+    // step, so the repeated-call guard stops it (REPEATED_CALL_LIMIT) long before the
+    // step budget would — that separation is the point: the budget is generous so real
+    // work fits, the guard catches the runaway. It still finishes on 'tool-calls', so
+    // the harness then runs ONE
     // no-tools close-out turn that synthesizes a best-effort answer from what it
     // gathered — instead of discarding the run and reporting a bare truncation.
     await page.getByPlaceholder('Type your message...').fill('call tool subagent_data_analyst {"task":"loop forever"}')
@@ -160,5 +163,35 @@ test.describe('Chat Sub-Agent UI', () => {
     const body = panel.getByTestId('subagent-panel-body')
     await expect(body).toBeVisible({ timeout: 5000 })
     await expect(body.getByText('Closed-out best-effort summary from gathered data.')).toBeVisible({ timeout: 5000 })
+
+    // The guard, not the budget, is what stopped it: data_analyst declares no maxSteps,
+    // so an unguarded run would have spun to DEFAULT_SUBAGENT_STEPS instead.
+    await expect(body.locator('.v-chip', { hasText: 'get_schema' })).toHaveCount(5, { timeout: 10000 })
+  })
+
+  test('Sub-agent loop stops at the step budget its page declared', async ({ page, goToWithAuth }) => {
+    await seedFullPanelCookie(page)
+    await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
+    await waitForToolsReady(page, 'budget_probe (1 tools)', true)
+
+    // budget_probe declares maxSteps: 3 (see the dev page). "loop probe" makes the
+    // worker call probe_step on every step, so the number of tool-call chips in its
+    // panel IS the budget that was applied: exactly 3 if the page's declaration was
+    // honoured, DEFAULT_SUBAGENT_STEPS if it was ignored and the host default won.
+    // 3 is below REPEATED_CALL_LIMIT, so the declared budget — not the repeat guard —
+    // is what stops this run, which is what makes the count meaningful.
+    await page.getByPlaceholder('Type your message...').fill('call tool subagent_budget_probe {"task":"loop probe"}')
+    await page.getByRole('button', { name: 'Send' }).click()
+
+    const panel = page.locator('.agent-chat').getByTestId('subagent-panel').first()
+    await expect(panel).toBeVisible({ timeout: 20000 })
+    await expect(page.getByPlaceholder('Type your message...')).toBeEnabled({ timeout: 20000 })
+
+    await panel.getByTestId('subagent-panel-header').click()
+    const body = panel.getByTestId('subagent-panel-body')
+    await expect(body).toBeVisible({ timeout: 5000 })
+
+    const toolChips = body.locator('.v-chip', { hasText: 'probe_step' })
+    await expect(toolChips).toHaveCount(3, { timeout: 10000 })
   })
 })

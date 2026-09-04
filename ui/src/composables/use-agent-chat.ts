@@ -17,6 +17,7 @@ import Debug from 'debug'
 import type { ChatActivity } from './agent-activity.ts'
 import { applyStreamPart, type StreamScope, type StreamPart } from './agent-stream-parts.ts'
 import { SUBAGENT_STEP_LIMIT_NOTICE, subAgentModelOutput } from './agent-subagent-output.ts'
+import { resolveStepBudget, mainStepBudget, repeatedCallGuard } from './agent-step-budget.ts'
 
 const debug = Debug('df-agents:use-agent-chat')
 
@@ -127,6 +128,13 @@ interface SubAgentConfig {
   tools: string[]
   model?: string
   delegateOnly?: boolean
+  /**
+   * Autonomous steps this sub-agent needs, declared by the page (see SubAgentOptions
+   * in lib-vue). Pages with fine-grained tools — a json-layout form filled one field
+   * per call — need far more than the default. Untrusted input: always read through
+   * resolveStepBudget, which clamps it to MAX_DECLARED_STEPS.
+   */
+  maxSteps?: number
 }
 
 /**
@@ -552,10 +560,14 @@ export function useAgentChat (options: UseAgentChatOptions) {
       // Build the tool set for the main LLM:
       // main tools + sub-agent pseudo-tools using ToolLoopAgent + async generators
       const mainLLMTools: Record<string, Tool> = { ...mainTools }
+      // Flattened sub-agents run their tools inside the MAIN loop, so their declared
+      // step budgets have to be honoured there instead (see mainStepBudget).
+      const flattenedMaxSteps: unknown[] = []
       for (const [name, entry] of Object.entries(subAgents)) {
         const config = entry.config
 
         if (willFlatten(config)) {
+          flattenedMaxSteps.push(config.maxSteps)
           // Flattened: register the sub-agent as a no-arg guidance tool that returns its
           // own prompt, under the de-prefixed name so AgentChatMessages renders it as an
           // ordinary chip (not an empty sub-agent panel — panel rendering keys off the
@@ -582,7 +594,9 @@ export function useAgentChat (options: UseAgentChatOptions) {
           model: provider.chatModel(config.model ?? 'tools'),
           instructions: config.prompt,
           tools: subAgentTools,
-          stopWhen: stepCountIs(10)
+          // The page declares what its tools cost; the host clamps it. The repeat guard
+          // is what makes a generous budget safe (see agent-step-budget).
+          stopWhen: [stepCountIs(resolveStepBudget(config.maxSteps)), repeatedCallGuard()]
         })
 
         const displayName = name.replace(/^subagent_/, '')
@@ -822,7 +836,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
         system: options.systemPrompt,
         messages: history,
         tools: Object.keys(mainLLMTools).length > 0 ? mainLLMTools : undefined,
-        stopWhen: stepCountIs(10),
+        stopWhen: [stepCountIs(mainStepBudget(flattenedMaxSteps)), repeatedCallGuard()],
         abortSignal: signal,
         ...(prepareStep ? { prepareStep } : {}),
         headers: traceHeaders(`turn:${turnId}`),
