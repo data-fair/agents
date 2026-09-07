@@ -60,6 +60,7 @@ declare global {
   const getAnonymousToken: typeof import('../src/composables/use-anonymous-token')['getAnonymousToken']
   const getCurrentInstance: typeof import('vue')['getCurrentInstance']
   const getCurrentScope: typeof import('vue')['getCurrentScope']
+  const getCurrentWatcher: typeof import('vue').getCurrentWatcher
   const h: typeof import('vue')['h']
   const inject: typeof import('vue')['inject']
   const injectHead: typeof import('@unhead/vue')['injectHead']
@@ -68,6 +69,7 @@ declare global {
   const isReactive: typeof import('vue')['isReactive']
   const isReadonly: typeof import('vue')['isReadonly']
   const isRef: typeof import('vue')['isRef']
+  const isShallow: typeof import('vue').isShallow
   const looksLikeIncompleteTable: typeof import('../src/utils/markdown')['looksLikeIncompleteTable']
   const markRaw: typeof import('vue')['markRaw']
   const newlyAvailableTools: typeof import('../src/composables/tool-exploration')['newlyAvailableTools']
