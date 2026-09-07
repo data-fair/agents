@@ -19,7 +19,7 @@ import TraceReview from '~/components/TraceReview.vue'
 import { setBreadcrumbs } from '~/utils/breadcrumbs'
 
 const { t } = useI18n()
-const route = useRoute()
+const route = useRoute('/[type]/[id]/traces/[convId]')
 const conversationId = route.params.convId as string
 
 const onLoaded = ({ label }: { label: string }) => {

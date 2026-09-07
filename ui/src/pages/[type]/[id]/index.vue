@@ -81,7 +81,7 @@ import TracesSection from '~/components/TracesSection.vue'
 import { setBreadcrumbs } from '~/utils/breadcrumbs'
 
 const { t } = useI18n()
-const route = useRoute()
+const route = useRoute('/[type]/[id]/')
 const router = useRouter()
 const session = useSession()
 const accountType = route.params.type as string
