@@ -244,28 +244,6 @@ onMounted(() => {
     prompt: 'You are a dataset summarizer. Call summarize_data and return the summary text as your final response.',
     tools: ['summarize_data']
   })
-
-  // Sub-agent declaring its own step budget. Pages with fine-grained tools (a form
-  // filled one field per call) declare a LARGER budget than the host default; this
-  // fixture declares a deliberately tiny one instead, so an e2e test can prove the
-  // declaration is honoured by counting tool calls — a run that ignored maxSteps
-  // would loop all the way to the default instead of stopping at 3.
-  // Tool owned exclusively by budget_probe, so the probe never shares a tool with
-  // another sub-agent (which would list it twice in the debug dialog).
-  useAgentTool({
-    name: 'probe_step',
-    description: 'No-op step used to exercise sub-agent step budgets',
-    inputSchema: { type: 'object', properties: {} },
-    execute: () => ({ ok: true })
-  } as any)
-
-  useAgentSubAgent({
-    name: 'budget_probe',
-    description: 'Test sub-agent with a small declared step budget',
-    prompt: 'You are a test worker. Call probe_step repeatedly as instructed.',
-    tools: ['probe_step'],
-    maxSteps: 3
-  })
 })
 </script>
 

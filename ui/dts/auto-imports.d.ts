@@ -12,17 +12,16 @@ declare global {
   const $sitePath: typeof import('~/context')['$sitePath']
   const $uiConfig: typeof import('~/context')['$uiConfig']
   const DEFAULT_FLAGS: typeof import('../src/utils/agent-flags')['DEFAULT_FLAGS']
-  const DEFAULT_MAIN_STEPS: typeof import('../src/composables/agent-step-budget')['DEFAULT_MAIN_STEPS']
   const DEFAULT_REFUSAL: typeof import('../src/composables/moderation')['DEFAULT_REFUSAL']
-  const DEFAULT_SUBAGENT_STEPS: typeof import('../src/composables/agent-step-budget')['DEFAULT_SUBAGENT_STEPS']
   const EXPLORE_TOOL_NAME: typeof import('../src/composables/tool-exploration')['EXPLORE_TOOL_NAME']
   const EffectScope: typeof import('vue')['EffectScope']
   const FLAGS_COOKIE: typeof import('../src/utils/agent-flags')['FLAGS_COOKIE']
-  const MAX_DECLARED_STEPS: typeof import('../src/composables/agent-step-budget')['MAX_DECLARED_STEPS']
   const MERMAID_AUTO_FIX_BUDGET: typeof import('../src/utils/mermaid-fix')['MERMAID_AUTO_FIX_BUDGET']
   const MODERATION_TASK_MARKER: typeof import('../src/composables/moderation')['MODERATION_TASK_MARKER']
-  const REPEATED_CALL_LIMIT: typeof import('../src/composables/agent-step-budget')['REPEATED_CALL_LIMIT']
+  const REPEATED_CALL_LIMIT: typeof import('../src/composables/agent-loop-guards')['REPEATED_CALL_LIMIT']
+  const REPEATED_CALL_NUDGE_AT: typeof import('../src/composables/agent-loop-guards')['REPEATED_CALL_NUDGE_AT']
   const SELECT_TOOL_NAME: typeof import('../src/composables/tool-exploration')['SELECT_TOOL_NAME']
+  const STEP_LIMIT: typeof import('../src/composables/agent-loop-guards')['STEP_LIMIT']
   const SUBAGENT_DONE_FALLBACK: typeof import('../src/composables/agent-subagent-output')['SUBAGENT_DONE_FALLBACK']
   const SUBAGENT_MODERATION_NOTICE: typeof import('../src/composables/agent-subagent-output')['SUBAGENT_MODERATION_NOTICE']
   const SUBAGENT_PARTIAL_PREFIX: typeof import('../src/composables/agent-subagent-output')['SUBAGENT_PARTIAL_PREFIX']
@@ -72,9 +71,9 @@ declare global {
   const isReactive: typeof import('vue')['isReactive']
   const isReadonly: typeof import('vue')['isReadonly']
   const isRef: typeof import('vue')['isRef']
-  const isRepeatingCalls: typeof import('../src/composables/agent-step-budget')['isRepeatingCalls']
+  const isRepeatingCalls: typeof import('../src/composables/agent-loop-guards')['isRepeatingCalls']
   const looksLikeIncompleteTable: typeof import('../src/utils/markdown')['looksLikeIncompleteTable']
-  const mainStepBudget: typeof import('../src/composables/agent-step-budget')['mainStepBudget']
+  const loopGuardPrepareStep: typeof import('../src/composables/agent-loop-guards')['loopGuardPrepareStep']
   const markRaw: typeof import('vue')['markRaw']
   const newlyAvailableTools: typeof import('../src/composables/tool-exploration')['newlyAvailableTools']
   const nextTick: typeof import('vue')['nextTick']
@@ -107,10 +106,10 @@ declare global {
   const renderMermaidIn: typeof import('../src/utils/mermaid')['renderMermaidIn']
   const renderStreamingMarkdown: typeof import('../src/utils/markdown')['renderStreamingMarkdown']
   const repairInline: typeof import('../src/utils/markdown')['repairInline']
-  const repeatedCallGuard: typeof import('../src/composables/agent-step-budget')['repeatedCallGuard']
+  const repeatedCallGuard: typeof import('../src/composables/agent-loop-guards')['repeatedCallGuard']
+  const repeatedCallNudge: typeof import('../src/composables/agent-loop-guards')['repeatedCallNudge']
   const resetAnonymousToken: typeof import('../src/composables/use-anonymous-token')['resetAnonymousToken']
   const resolveComponent: typeof import('vue')['resolveComponent']
-  const resolveStepBudget: typeof import('../src/composables/agent-step-budget')['resolveStepBudget']
   const selectPromotions: typeof import('../src/composables/tool-exploration')['selectPromotions']
   const serializeFlagsCookie: typeof import('../src/utils/agent-flags')['serializeFlagsCookie']
   const setBreadcrumbs: typeof import('../src/utils/breadcrumbs')['setBreadcrumbs']
@@ -125,6 +124,7 @@ declare global {
   const toRef: typeof import('vue')['toRef']
   const toRefs: typeof import('vue')['toRefs']
   const toValue: typeof import('vue')['toValue']
+  const trailingRepeatCount: typeof import('../src/composables/agent-loop-guards')['trailingRepeatCount']
   const triggerRef: typeof import('vue')['triggerRef']
   const unref: typeof import('vue')['unref']
   const useAgentChat: typeof import('../src/composables/use-agent-chat')['default']
@@ -189,15 +189,14 @@ declare module 'vue' {
     readonly $sitePath: UnwrapRef<typeof import('~/context')['$sitePath']>
     readonly $uiConfig: UnwrapRef<typeof import('~/context')['$uiConfig']>
     readonly DEFAULT_FLAGS: UnwrapRef<typeof import('../src/utils/agent-flags')['DEFAULT_FLAGS']>
-    readonly DEFAULT_MAIN_STEPS: UnwrapRef<typeof import('../src/composables/agent-step-budget')['DEFAULT_MAIN_STEPS']>
-    readonly DEFAULT_SUBAGENT_STEPS: UnwrapRef<typeof import('../src/composables/agent-step-budget')['DEFAULT_SUBAGENT_STEPS']>
     readonly EXPLORE_TOOL_NAME: UnwrapRef<typeof import('../src/composables/tool-exploration')['EXPLORE_TOOL_NAME']>
     readonly EffectScope: UnwrapRef<typeof import('vue')['EffectScope']>
     readonly FLAGS_COOKIE: UnwrapRef<typeof import('../src/utils/agent-flags')['FLAGS_COOKIE']>
-    readonly MAX_DECLARED_STEPS: UnwrapRef<typeof import('../src/composables/agent-step-budget')['MAX_DECLARED_STEPS']>
     readonly MERMAID_AUTO_FIX_BUDGET: UnwrapRef<typeof import('../src/utils/mermaid-fix')['MERMAID_AUTO_FIX_BUDGET']>
-    readonly REPEATED_CALL_LIMIT: UnwrapRef<typeof import('../src/composables/agent-step-budget')['REPEATED_CALL_LIMIT']>
+    readonly REPEATED_CALL_LIMIT: UnwrapRef<typeof import('../src/composables/agent-loop-guards')['REPEATED_CALL_LIMIT']>
+    readonly REPEATED_CALL_NUDGE_AT: UnwrapRef<typeof import('../src/composables/agent-loop-guards')['REPEATED_CALL_NUDGE_AT']>
     readonly SELECT_TOOL_NAME: UnwrapRef<typeof import('../src/composables/tool-exploration')['SELECT_TOOL_NAME']>
+    readonly STEP_LIMIT: UnwrapRef<typeof import('../src/composables/agent-loop-guards')['STEP_LIMIT']>
     readonly SUBAGENT_DONE_FALLBACK: UnwrapRef<typeof import('../src/composables/agent-subagent-output')['SUBAGENT_DONE_FALLBACK']>
     readonly SUBAGENT_MODERATION_NOTICE: UnwrapRef<typeof import('../src/composables/agent-subagent-output')['SUBAGENT_MODERATION_NOTICE']>
     readonly SUBAGENT_PARTIAL_PREFIX: UnwrapRef<typeof import('../src/composables/agent-subagent-output')['SUBAGENT_PARTIAL_PREFIX']>
@@ -231,9 +230,9 @@ declare module 'vue' {
     readonly isReactive: UnwrapRef<typeof import('vue')['isReactive']>
     readonly isReadonly: UnwrapRef<typeof import('vue')['isReadonly']>
     readonly isRef: UnwrapRef<typeof import('vue')['isRef']>
-    readonly isRepeatingCalls: UnwrapRef<typeof import('../src/composables/agent-step-budget')['isRepeatingCalls']>
+    readonly isRepeatingCalls: UnwrapRef<typeof import('../src/composables/agent-loop-guards')['isRepeatingCalls']>
     readonly looksLikeIncompleteTable: UnwrapRef<typeof import('../src/utils/markdown')['looksLikeIncompleteTable']>
-    readonly mainStepBudget: UnwrapRef<typeof import('../src/composables/agent-step-budget')['mainStepBudget']>
+    readonly loopGuardPrepareStep: UnwrapRef<typeof import('../src/composables/agent-loop-guards')['loopGuardPrepareStep']>
     readonly markRaw: UnwrapRef<typeof import('vue')['markRaw']>
     readonly newlyAvailableTools: UnwrapRef<typeof import('../src/composables/tool-exploration')['newlyAvailableTools']>
     readonly nextTick: UnwrapRef<typeof import('vue')['nextTick']>
@@ -263,10 +262,10 @@ declare module 'vue' {
     readonly renderMermaidIn: UnwrapRef<typeof import('../src/utils/mermaid')['renderMermaidIn']>
     readonly renderStreamingMarkdown: UnwrapRef<typeof import('../src/utils/markdown')['renderStreamingMarkdown']>
     readonly repairInline: UnwrapRef<typeof import('../src/utils/markdown')['repairInline']>
-    readonly repeatedCallGuard: UnwrapRef<typeof import('../src/composables/agent-step-budget')['repeatedCallGuard']>
+    readonly repeatedCallGuard: UnwrapRef<typeof import('../src/composables/agent-loop-guards')['repeatedCallGuard']>
+    readonly repeatedCallNudge: UnwrapRef<typeof import('../src/composables/agent-loop-guards')['repeatedCallNudge']>
     readonly resetAnonymousToken: UnwrapRef<typeof import('../src/composables/use-anonymous-token')['resetAnonymousToken']>
     readonly resolveComponent: UnwrapRef<typeof import('vue')['resolveComponent']>
-    readonly resolveStepBudget: UnwrapRef<typeof import('../src/composables/agent-step-budget')['resolveStepBudget']>
     readonly selectPromotions: UnwrapRef<typeof import('../src/composables/tool-exploration')['selectPromotions']>
     readonly serializeFlagsCookie: UnwrapRef<typeof import('../src/utils/agent-flags')['serializeFlagsCookie']>
     readonly setBreadcrumbs: UnwrapRef<typeof import('../src/utils/breadcrumbs')['setBreadcrumbs']>
@@ -281,6 +280,7 @@ declare module 'vue' {
     readonly toRef: UnwrapRef<typeof import('vue')['toRef']>
     readonly toRefs: UnwrapRef<typeof import('vue')['toRefs']>
     readonly toValue: UnwrapRef<typeof import('vue')['toValue']>
+    readonly trailingRepeatCount: UnwrapRef<typeof import('../src/composables/agent-loop-guards')['trailingRepeatCount']>
     readonly triggerRef: UnwrapRef<typeof import('vue')['triggerRef']>
     readonly unref: UnwrapRef<typeof import('vue')['unref']>
     readonly useAgentChat: UnwrapRef<typeof import('../src/composables/use-agent-chat')['default']>

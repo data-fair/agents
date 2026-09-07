@@ -17,7 +17,7 @@ import Debug from 'debug'
 import type { ChatActivity } from './agent-activity.ts'
 import { applyStreamPart, type StreamScope, type StreamPart } from './agent-stream-parts.ts'
 import { SUBAGENT_STEP_LIMIT_NOTICE, subAgentModelOutput } from './agent-subagent-output.ts'
-import { resolveStepBudget, mainStepBudget, repeatedCallGuard } from './agent-step-budget.ts'
+import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep } from './agent-loop-guards.ts'
 
 const debug = Debug('df-agents:use-agent-chat')
 
@@ -40,11 +40,12 @@ const DEFAULT_EMPTY_RESPONSE = "I wasn't able to produce a response. Please try 
 // bubble up as an unhandled tool error that stalls the turn.
 const DEFAULT_SUBAGENT_ERROR = 'The sub-agent could not complete this task.'
 
-// Final-turn prompt used when a sub-agent exhausts its step budget while still calling
-// tools. Run once with NO tools available, so the model cannot loop and must synthesize a
-// best-effort answer from what it already gathered (recovers the result a looping worker
-// had in hand). See the step-cap branch in the sub-agent execute().
-const SUBAGENT_CLOSEOUT_PROMPT = 'You have reached your step budget and can no longer call tools. Using only what you have already gathered, write your final answer now. If part of the task is incomplete, state explicitly what is missing — but still report everything you did obtain. Do not ask to continue.'
+// Final-turn prompt used when a sub-agent's loop is cut off (step limit or repeated-call
+// guard, see agent-loop-guards) while still calling tools. Run once with NO tools
+// available, so the model cannot loop and must synthesize a best-effort answer from what
+// it already gathered (recovers the result a looping worker had in hand). See the
+// step-cap branch in the sub-agent execute().
+const SUBAGENT_CLOSEOUT_PROMPT = 'You have reached your step budget (or kept repeating the same tool call) and can no longer call tools. Using only what you have already gathered, write your final answer now. If part of the task is incomplete, state explicitly what is missing — but still report everything you did obtain. Do not ask to continue.'
 
 // Shown when a turn is aborted because the stream went silent for too long
 // (a provider/gateway stall holding the socket open, or a compaction call that
@@ -128,13 +129,6 @@ interface SubAgentConfig {
   tools: string[]
   model?: string
   delegateOnly?: boolean
-  /**
-   * Autonomous steps this sub-agent needs, declared by the page (see SubAgentOptions
-   * in lib-vue). Pages with fine-grained tools — a json-layout form filled one field
-   * per call — need far more than the default. Untrusted input: always read through
-   * resolveStepBudget, which clamps it to MAX_DECLARED_STEPS.
-   */
-  maxSteps?: number
 }
 
 /**
@@ -218,7 +212,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
   // callers flip it via setFlattenSubAgents + reset.
   const flatteningEnabled = () => !!options.flattenSubAgents
   // Tools promoted to the callable set via explore_tools; persists across turns,
-  // cleared on compaction and reset. Read live by prepareStep.
+  // cleared on compaction and reset. Read live by explorationPrepareStep.
   let promotedTools = new Set<string>()
   // Tool names already surfaced to the model via <tools-available> messages.
   // Persists across turns; pruned to live tools each turn; cleared on compaction and reset.
@@ -560,14 +554,10 @@ export function useAgentChat (options: UseAgentChatOptions) {
       // Build the tool set for the main LLM:
       // main tools + sub-agent pseudo-tools using ToolLoopAgent + async generators
       const mainLLMTools: Record<string, Tool> = { ...mainTools }
-      // Flattened sub-agents run their tools inside the MAIN loop, so their declared
-      // step budgets have to be honoured there instead (see mainStepBudget).
-      const flattenedMaxSteps: unknown[] = []
       for (const [name, entry] of Object.entries(subAgents)) {
         const config = entry.config
 
         if (willFlatten(config)) {
-          flattenedMaxSteps.push(config.maxSteps)
           // Flattened: register the sub-agent as a no-arg guidance tool that returns its
           // own prompt, under the de-prefixed name so AgentChatMessages renders it as an
           // ordinary chip (not an empty sub-agent panel — panel rendering keys off the
@@ -594,9 +584,10 @@ export function useAgentChat (options: UseAgentChatOptions) {
           model: provider.chatModel(config.model ?? 'tools'),
           instructions: config.prompt,
           tools: subAgentTools,
-          // The page declares what its tools cost; the host clamps it. The repeat guard
-          // is what makes a generous budget safe (see agent-step-budget).
-          stopWhen: [stepCountIs(resolveStepBudget(config.maxSteps)), repeatedCallGuard()]
+          // Generous flat step backstop + repeated-call guard, with a reminder injected
+          // before the guard fires (see agent-loop-guards).
+          stopWhen: [stepCountIs(STEP_LIMIT), repeatedCallGuard()],
+          prepareStep: loopGuardPrepareStep
         })
 
         const displayName = name.replace(/^subagent_/, '')
@@ -794,7 +785,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
       // Names announced via a <tools-available> message this turn; used to roll back
       // the push (and the announcement) if the turn is blocked by moderation.
       let announcedThisTurn: string[] = []
-      let prepareStep: undefined | (() => { activeTools: string[] })
+      let explorationPrepareStep: undefined | (() => { activeTools: string[] })
       if (explorationEnabled()) {
         const subAgentNames = Object.keys(subAgents)
         const plainTools = { ...mainTools }
@@ -824,7 +815,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
           announcedThisTurn = delta
         }
 
-        prepareStep = () => ({
+        explorationPrepareStep = () => ({
           activeTools: [EXPLORE_TOOL_NAME, ...subAgentNames, ...promotedTools]
             .filter(n => n in mainLLMTools)
         })
@@ -836,9 +827,10 @@ export function useAgentChat (options: UseAgentChatOptions) {
         system: options.systemPrompt,
         messages: history,
         tools: Object.keys(mainLLMTools).length > 0 ? mainLLMTools : undefined,
-        stopWhen: [stepCountIs(mainStepBudget(flattenedMaxSteps)), repeatedCallGuard()],
+        stopWhen: [stepCountIs(STEP_LIMIT), repeatedCallGuard()],
         abortSignal: signal,
-        ...(prepareStep ? { prepareStep } : {}),
+        // Loop-guard nudge composed with the exploration tool gating (when active).
+        prepareStep: (opts) => ({ ...loopGuardPrepareStep(opts), ...(explorationPrepareStep ? explorationPrepareStep() : {}) }),
         headers: traceHeaders(`turn:${turnId}`),
         onError: ({ error: err }) => {
           streamError = err

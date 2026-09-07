@@ -238,7 +238,7 @@ flowchart LR
 
 1. `tools.value` is updated reactively when `onToolsChanged` fires
 2. Before each `sendMessage()`, tools are partitioned (see [Sub-Agent Orchestration](./sub-agents.md))
-3. `streamText()` receives the tool map — the AI SDK handles tool-call/tool-result cycling up to 10 steps
+3. `streamText()` receives the tool map — the AI SDK handles tool-call/tool-result cycling until a [loop guard](./loop-guards.md) fires
 
 When the LLM requests a tool call:
 1. AI SDK invokes the tool's `execute()` function
