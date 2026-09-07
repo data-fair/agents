@@ -63,6 +63,7 @@ declare global {
   const h: typeof import('vue')['h']
   const inject: typeof import('vue')['inject']
   const injectHead: typeof import('@unhead/vue')['injectHead']
+  const isMediaToolResult: typeof import('../src/utils/tool-result')['isMediaToolResult']
   const isProxy: typeof import('vue')['isProxy']
   const isReactive: typeof import('vue')['isReactive']
   const isReadonly: typeof import('vue')['isReadonly']
@@ -93,6 +94,8 @@ declare global {
   const reactiveSearchParamsKey: typeof import('../src/composables/use-webmcp')['reactiveSearchParamsKey']
   const readFlags: typeof import('../src/utils/agent-flags')['readFlags']
   const readonly: typeof import('vue')['readonly']
+  const redactHistoryMediaToolResults: typeof import('../src/utils/tool-result')['redactHistoryMediaToolResults']
+  const redactMediaToolResult: typeof import('../src/utils/tool-result')['redactMediaToolResult']
   const ref: typeof import('vue')['ref']
   const renderMarkdown: typeof import('../src/utils/markdown')['renderMarkdown']
   const renderMermaidIn: typeof import('../src/utils/mermaid')['renderMermaidIn']
@@ -211,6 +214,7 @@ declare module 'vue' {
     readonly h: UnwrapRef<typeof import('vue')['h']>
     readonly inject: UnwrapRef<typeof import('vue')['inject']>
     readonly injectHead: UnwrapRef<typeof import('@unhead/vue')['injectHead']>
+    readonly isMediaToolResult: UnwrapRef<typeof import('../src/utils/tool-result')['isMediaToolResult']>
     readonly isProxy: UnwrapRef<typeof import('vue')['isProxy']>
     readonly isReactive: UnwrapRef<typeof import('vue')['isReactive']>
     readonly isReadonly: UnwrapRef<typeof import('vue')['isReadonly']>
@@ -238,6 +242,8 @@ declare module 'vue' {
     readonly provide: UnwrapRef<typeof import('vue')['provide']>
     readonly reactive: UnwrapRef<typeof import('vue')['reactive']>
     readonly readonly: UnwrapRef<typeof import('vue')['readonly']>
+    readonly redactHistoryMediaToolResults: UnwrapRef<typeof import('../src/utils/tool-result')['redactHistoryMediaToolResults']>
+    readonly redactMediaToolResult: UnwrapRef<typeof import('../src/utils/tool-result')['redactMediaToolResult']>
     readonly ref: UnwrapRef<typeof import('vue')['ref']>
     readonly renderMarkdown: UnwrapRef<typeof import('../src/utils/markdown')['renderMarkdown']>
     readonly renderMermaidIn: UnwrapRef<typeof import('../src/utils/mermaid')['renderMermaidIn']>
