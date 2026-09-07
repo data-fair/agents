@@ -1,13 +1,19 @@
 ##########################
-FROM node:24.13.0-alpine3.23 AS base
+FROM node:24.20.0-alpine3.24 AS base
 
 WORKDIR /app
 ENV NODE_ENV=production
 
 ##########################
+# runtime base: patched OS, and stripped of the build tooling the service
+# never invokes (npm/corepack/yarn ship their own CVEs and `node index.ts`
+# does not need them)
 FROM base AS native-deps
 
-RUN apk add --no-cache openssl
+RUN apk upgrade --no-cache && apk add --no-cache openssl
+RUN rm -rf /usr/local/lib/node_modules /opt/yarn-* \
+    && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+             /usr/local/bin/yarn /usr/local/bin/yarnpkg
 
 ##########################
 FROM base AS package-strip
