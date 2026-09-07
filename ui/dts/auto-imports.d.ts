@@ -18,7 +18,10 @@ declare global {
   const FLAGS_COOKIE: typeof import('../src/utils/agent-flags')['FLAGS_COOKIE']
   const MERMAID_AUTO_FIX_BUDGET: typeof import('../src/utils/mermaid-fix')['MERMAID_AUTO_FIX_BUDGET']
   const MODERATION_TASK_MARKER: typeof import('../src/composables/moderation')['MODERATION_TASK_MARKER']
+  const REPEATED_CALL_LIMIT: typeof import('../src/composables/agent-loop-guards')['REPEATED_CALL_LIMIT']
+  const REPEATED_CALL_NUDGE_AT: typeof import('../src/composables/agent-loop-guards')['REPEATED_CALL_NUDGE_AT']
   const SELECT_TOOL_NAME: typeof import('../src/composables/tool-exploration')['SELECT_TOOL_NAME']
+  const STEP_LIMIT: typeof import('../src/composables/agent-loop-guards')['STEP_LIMIT']
   const SUBAGENT_DONE_FALLBACK: typeof import('../src/composables/agent-subagent-output')['SUBAGENT_DONE_FALLBACK']
   const SUBAGENT_MODERATION_NOTICE: typeof import('../src/composables/agent-subagent-output')['SUBAGENT_MODERATION_NOTICE']
   const SUBAGENT_PARTIAL_PREFIX: typeof import('../src/composables/agent-subagent-output')['SUBAGENT_PARTIAL_PREFIX']
@@ -63,11 +66,14 @@ declare global {
   const h: typeof import('vue')['h']
   const inject: typeof import('vue')['inject']
   const injectHead: typeof import('@unhead/vue')['injectHead']
+  const isMediaToolResult: typeof import('../src/utils/tool-result')['isMediaToolResult']
   const isProxy: typeof import('vue')['isProxy']
   const isReactive: typeof import('vue')['isReactive']
   const isReadonly: typeof import('vue')['isReadonly']
   const isRef: typeof import('vue')['isRef']
+  const isRepeatingCalls: typeof import('../src/composables/agent-loop-guards')['isRepeatingCalls']
   const looksLikeIncompleteTable: typeof import('../src/utils/markdown')['looksLikeIncompleteTable']
+  const loopGuardPrepareStep: typeof import('../src/composables/agent-loop-guards')['loopGuardPrepareStep']
   const markRaw: typeof import('vue')['markRaw']
   const newlyAvailableTools: typeof import('../src/composables/tool-exploration')['newlyAvailableTools']
   const nextTick: typeof import('vue')['nextTick']
@@ -93,11 +99,15 @@ declare global {
   const reactiveSearchParamsKey: typeof import('../src/composables/use-webmcp')['reactiveSearchParamsKey']
   const readFlags: typeof import('../src/utils/agent-flags')['readFlags']
   const readonly: typeof import('vue')['readonly']
+  const redactHistoryMediaToolResults: typeof import('../src/utils/tool-result')['redactHistoryMediaToolResults']
+  const redactMediaToolResult: typeof import('../src/utils/tool-result')['redactMediaToolResult']
   const ref: typeof import('vue')['ref']
   const renderMarkdown: typeof import('../src/utils/markdown')['renderMarkdown']
   const renderMermaidIn: typeof import('../src/utils/mermaid')['renderMermaidIn']
   const renderStreamingMarkdown: typeof import('../src/utils/markdown')['renderStreamingMarkdown']
   const repairInline: typeof import('../src/utils/markdown')['repairInline']
+  const repeatedCallGuard: typeof import('../src/composables/agent-loop-guards')['repeatedCallGuard']
+  const repeatedCallNudge: typeof import('../src/composables/agent-loop-guards')['repeatedCallNudge']
   const resetAnonymousToken: typeof import('../src/composables/use-anonymous-token')['resetAnonymousToken']
   const resolveComponent: typeof import('vue')['resolveComponent']
   const selectPromotions: typeof import('../src/composables/tool-exploration')['selectPromotions']
@@ -114,6 +124,7 @@ declare global {
   const toRef: typeof import('vue')['toRef']
   const toRefs: typeof import('vue')['toRefs']
   const toValue: typeof import('vue')['toValue']
+  const trailingRepeatCount: typeof import('../src/composables/agent-loop-guards')['trailingRepeatCount']
   const triggerRef: typeof import('vue')['triggerRef']
   const unref: typeof import('vue')['unref']
   const useAgentChat: typeof import('../src/composables/use-agent-chat')['default']
@@ -182,7 +193,10 @@ declare module 'vue' {
     readonly EffectScope: UnwrapRef<typeof import('vue')['EffectScope']>
     readonly FLAGS_COOKIE: UnwrapRef<typeof import('../src/utils/agent-flags')['FLAGS_COOKIE']>
     readonly MERMAID_AUTO_FIX_BUDGET: UnwrapRef<typeof import('../src/utils/mermaid-fix')['MERMAID_AUTO_FIX_BUDGET']>
+    readonly REPEATED_CALL_LIMIT: UnwrapRef<typeof import('../src/composables/agent-loop-guards')['REPEATED_CALL_LIMIT']>
+    readonly REPEATED_CALL_NUDGE_AT: UnwrapRef<typeof import('../src/composables/agent-loop-guards')['REPEATED_CALL_NUDGE_AT']>
     readonly SELECT_TOOL_NAME: UnwrapRef<typeof import('../src/composables/tool-exploration')['SELECT_TOOL_NAME']>
+    readonly STEP_LIMIT: UnwrapRef<typeof import('../src/composables/agent-loop-guards')['STEP_LIMIT']>
     readonly SUBAGENT_DONE_FALLBACK: UnwrapRef<typeof import('../src/composables/agent-subagent-output')['SUBAGENT_DONE_FALLBACK']>
     readonly SUBAGENT_MODERATION_NOTICE: UnwrapRef<typeof import('../src/composables/agent-subagent-output')['SUBAGENT_MODERATION_NOTICE']>
     readonly SUBAGENT_PARTIAL_PREFIX: UnwrapRef<typeof import('../src/composables/agent-subagent-output')['SUBAGENT_PARTIAL_PREFIX']>
@@ -211,11 +225,14 @@ declare module 'vue' {
     readonly h: UnwrapRef<typeof import('vue')['h']>
     readonly inject: UnwrapRef<typeof import('vue')['inject']>
     readonly injectHead: UnwrapRef<typeof import('@unhead/vue')['injectHead']>
+    readonly isMediaToolResult: UnwrapRef<typeof import('../src/utils/tool-result')['isMediaToolResult']>
     readonly isProxy: UnwrapRef<typeof import('vue')['isProxy']>
     readonly isReactive: UnwrapRef<typeof import('vue')['isReactive']>
     readonly isReadonly: UnwrapRef<typeof import('vue')['isReadonly']>
     readonly isRef: UnwrapRef<typeof import('vue')['isRef']>
+    readonly isRepeatingCalls: UnwrapRef<typeof import('../src/composables/agent-loop-guards')['isRepeatingCalls']>
     readonly looksLikeIncompleteTable: UnwrapRef<typeof import('../src/utils/markdown')['looksLikeIncompleteTable']>
+    readonly loopGuardPrepareStep: UnwrapRef<typeof import('../src/composables/agent-loop-guards')['loopGuardPrepareStep']>
     readonly markRaw: UnwrapRef<typeof import('vue')['markRaw']>
     readonly newlyAvailableTools: UnwrapRef<typeof import('../src/composables/tool-exploration')['newlyAvailableTools']>
     readonly nextTick: UnwrapRef<typeof import('vue')['nextTick']>
@@ -238,11 +255,15 @@ declare module 'vue' {
     readonly provide: UnwrapRef<typeof import('vue')['provide']>
     readonly reactive: UnwrapRef<typeof import('vue')['reactive']>
     readonly readonly: UnwrapRef<typeof import('vue')['readonly']>
+    readonly redactHistoryMediaToolResults: UnwrapRef<typeof import('../src/utils/tool-result')['redactHistoryMediaToolResults']>
+    readonly redactMediaToolResult: UnwrapRef<typeof import('../src/utils/tool-result')['redactMediaToolResult']>
     readonly ref: UnwrapRef<typeof import('vue')['ref']>
     readonly renderMarkdown: UnwrapRef<typeof import('../src/utils/markdown')['renderMarkdown']>
     readonly renderMermaidIn: UnwrapRef<typeof import('../src/utils/mermaid')['renderMermaidIn']>
     readonly renderStreamingMarkdown: UnwrapRef<typeof import('../src/utils/markdown')['renderStreamingMarkdown']>
     readonly repairInline: UnwrapRef<typeof import('../src/utils/markdown')['repairInline']>
+    readonly repeatedCallGuard: UnwrapRef<typeof import('../src/composables/agent-loop-guards')['repeatedCallGuard']>
+    readonly repeatedCallNudge: UnwrapRef<typeof import('../src/composables/agent-loop-guards')['repeatedCallNudge']>
     readonly resetAnonymousToken: UnwrapRef<typeof import('../src/composables/use-anonymous-token')['resetAnonymousToken']>
     readonly resolveComponent: UnwrapRef<typeof import('vue')['resolveComponent']>
     readonly selectPromotions: UnwrapRef<typeof import('../src/composables/tool-exploration')['selectPromotions']>
@@ -259,6 +280,7 @@ declare module 'vue' {
     readonly toRef: UnwrapRef<typeof import('vue')['toRef']>
     readonly toRefs: UnwrapRef<typeof import('vue')['toRefs']>
     readonly toValue: UnwrapRef<typeof import('vue')['toValue']>
+    readonly trailingRepeatCount: UnwrapRef<typeof import('../src/composables/agent-loop-guards')['trailingRepeatCount']>
     readonly triggerRef: UnwrapRef<typeof import('vue')['triggerRef']>
     readonly unref: UnwrapRef<typeof import('vue')['unref']>
     readonly useAgentChat: UnwrapRef<typeof import('../src/composables/use-agent-chat')['default']>
