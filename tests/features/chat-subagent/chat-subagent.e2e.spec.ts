@@ -141,10 +141,14 @@ test.describe('Chat Sub-Agent UI', () => {
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
     await waitForToolsReady(page, 'data_analyst (2 tools)', true)
 
-    // Task "loop forever" makes the sub-agent call a tool on every step until it hits
-    // the stepCountIs(10) cap (finishReason: tool-calls). The harness then runs ONE
-    // no-tools close-out turn that synthesizes a best-effort answer from what it
-    // gathered — instead of discarding the run and reporting a bare truncation.
+    // Task "loop forever" makes the sub-agent emit the SAME get_schema call on every
+    // step (the mock also ignores the reminder injected at REPEATED_CALL_NUDGE_AT), so
+    // the repeated-call guard stops it at REPEATED_CALL_LIMIT long before STEP_LIMIT
+    // would — that separation is the point: the step limit is generous so real work
+    // fits, the guard catches the runaway. It still finishes on 'tool-calls', so the
+    // harness then runs ONE no-tools close-out turn that synthesizes a best-effort
+    // answer from what it gathered — instead of discarding the run and reporting a
+    // bare truncation.
     await page.getByPlaceholder('Type your message...').fill('call tool subagent_data_analyst {"task":"loop forever"}')
     await page.getByRole('button', { name: 'Send' }).click()
 
@@ -160,5 +164,9 @@ test.describe('Chat Sub-Agent UI', () => {
     const body = panel.getByTestId('subagent-panel-body')
     await expect(body).toBeVisible({ timeout: 5000 })
     await expect(body.getByText('Closed-out best-effort summary from gathered data.')).toBeVisible({ timeout: 5000 })
+
+    // The guard, not the step limit, is what stopped it: an unguarded run would have
+    // spun all the way to STEP_LIMIT (100) instead of REPEATED_CALL_LIMIT (5).
+    await expect(body.locator('.v-chip', { hasText: 'get_schema' })).toHaveCount(5, { timeout: 10000 })
   })
 })

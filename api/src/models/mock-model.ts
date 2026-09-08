@@ -35,12 +35,23 @@ function buildUsage (promptText: string, outputText: string): LanguageModelV3Usa
   }
 }
 
+function isLoopGuardNudge (content: unknown): boolean {
+  const text = typeof content === 'string'
+    ? content
+    : Array.isArray(content) ? (content.find((c: any) => c.type === 'text') as any)?.text ?? '' : ''
+  return /with the same arguments \d+ times in a row/i.test(text)
+}
+
 function getLastUserMessage (options: { prompt: string | Array<any> }): string {
   if (typeof options.prompt === 'string') {
     return options.prompt
   }
   if (Array.isArray(options.prompt)) {
-    const userMessages = options.prompt.filter((p: any) => p.role === 'user')
+    // The client's loop guard injects a per-step "you have called X with the same
+    // arguments N times in a row" user message before it stops a runaway. The mock
+    // deliberately ignores it (a runaway model would too), so the seams below keep
+    // reading the real user message and the guard's stop + close-out path is exercised.
+    const userMessages = options.prompt.filter((p: any) => p.role === 'user' && !isLoopGuardNudge(p.content))
     const lastUserMsg = userMessages[userMessages.length - 1]
     if (lastUserMsg) {
       const content = lastUserMsg.content
@@ -253,12 +264,13 @@ function processForModel (modelId: string, options: { prompt: string | Array<any
   // Reasoning seam: emit reasoning tokens before the answer (exercises the gateway's
   // reasoning_content forwarding and the client's reasoning capture).
   if (lastMessage.toLowerCase() === 'reason') return { type: 'text', text: 'world', reasoning: 'Let me think about it.' }
-  // Step-budget close-out seams (exercise the sub-agent loop → close-out path).
-  // A task of exactly "loop forever" makes the model emit a tool call on EVERY step
-  // (ignoring prior tool results), so a sub-agent's ToolLoopAgent runs to its
-  // stepCountIs cap and finishes on 'tool-calls'. The harness then issues a no-tools
-  // close-out turn; the second seam recognizes that prompt and returns a distinctive
-  // best-effort answer the test asserts was recovered (not a bare truncation notice).
+  // Loop-guard close-out seams (exercise the sub-agent loop → close-out path).
+  // A task of exactly "loop forever" makes the model emit the SAME tool call on EVERY
+  // step (ignoring prior tool results and the injected nudge), so a sub-agent's
+  // ToolLoopAgent is stopped by the repeated-call guard and finishes on 'tool-calls'.
+  // The harness then issues a no-tools close-out turn; the second seam recognizes that
+  // prompt and returns a distinctive best-effort answer the test asserts was recovered
+  // (not a bare truncation notice).
   if (lastMessage.trim().toLowerCase() === 'loop forever') {
     return { type: 'tool-call', toolName: 'get_schema', toolArgs: '{"dataset":"test"}' }
   }
