@@ -26,7 +26,7 @@ import { getAccountRole, useSession } from '@data-fair/lib-vue/session.js'
 import AgentChat from '~/components/AgentChat.vue'
 
 const { t } = useI18n()
-const route = useRoute()
+const route = useRoute('/[type]/[id]/chat')
 const session = useSession()
 
 const accountType = computed(() => route.params.type as string)

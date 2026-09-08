@@ -158,7 +158,7 @@ import TracesSection from '~/components/TracesSection.vue'
 import { setBreadcrumbs } from '~/utils/breadcrumbs'
 
 const { t, locale } = useI18n()
-const route = useRoute()
+const route = useRoute('/admin/[type]/[id]/')
 const router = useRouter()
 const session = useSession()
 
