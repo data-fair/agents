@@ -38,6 +38,21 @@ async function sendMessage (page: import('@playwright/test').Page, text: string)
   await page.getByRole('button', { name: 'Send' }).click()
 }
 
+// The page registers its tools over the MCP bridge asynchronously, after the chat
+// input is already enabled. Sending before that lands is not just early — under
+// exploration it is unrecoverable: explore_tools snapshots the plain-tool registry
+// when it is built, so an empty registry means no candidates, nothing promoted, and
+// a later turn that calls the tool by name finds it inactive. Wait for the tool to
+// show up in the debug dialog, the same guard chat-subagent.e2e.spec.ts uses.
+async function waitForToolsReady (page: import('@playwright/test').Page, toolName: string) {
+  await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
+  await page.getByRole('tab', { name: 'Info' }).click()
+  await expect(
+    page.locator('.v-dialog .v-window-item--active').getByRole('button', { name: toolName })
+  ).toBeVisible({ timeout: 10000 })
+  await page.getByRole('button', { name: /Close|Fermer/ }).click()
+}
+
 // The explore-skeleton chip lives in the DOM only between the explore_tools
 // tool-call and its tool-result — i.e. for the single mock round-trip of
 // explore_tools.execute, which on localhost can be a few milliseconds. Polling
@@ -83,6 +98,7 @@ test.describe('Tool exploration E2E', () => {
 
     // Wait for the input to be ready
     await expect(page.getByPlaceholder('Type your message...')).toBeEnabled({ timeout: 10000 })
+    await waitForToolsReady(page, 'set_display')
 
     // Record the transient skeleton via a MutationObserver before triggering the
     // turn, so a fast mock round-trip can't slip the chip in and out between polls.
@@ -120,14 +136,7 @@ test.describe('Tool exploration E2E', () => {
 
     // Exploration mode is NOT enabled (no agent-chat-flags cookie, so toolExploration defaults off)
 
-    // Wait for tools to be registered via MCP before sending – mirrors the waitForToolsReady
-    // pattern from chat-subagent.e2e.spec.ts (avoids the race between MCP setup and sendMessage)
-    await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
-    await page.getByRole('tab', { name: 'Info' }).click()
-    await expect(
-      page.locator('.v-dialog .v-window-item--active').getByRole('button', { name: 'set_display' })
-    ).toBeVisible({ timeout: 10000 })
-    await page.getByRole('button', { name: /Close/ }).click()
+    await waitForToolsReady(page, 'set_display')
 
     // Call set_display directly – no explore_tools involved
     await sendMessage(page, 'call tool set_display {"text":"direct-no-explore"}')

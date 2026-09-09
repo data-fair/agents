@@ -15009,6 +15009,7 @@ const compiledLayout = {
     confirm: "Confirmer",
     close: "Fermer",
     duplicate: "Dupliquer",
+    insertAfter: "Insérer après",
     copy: "Copier",
     paste: "Coller",
     sort: "Trier",
@@ -15089,7 +15090,7 @@ const compiledLayout = {
 
             items: {
               type: "string",
-              enum: ["add", "edit", "delete", "sort", "duplicate", "copy", "paste"]
+              enum: ["add", "edit", "delete", "sort", "duplicate", "insertAfter", "copy", "paste"]
             }
           },
 
@@ -15135,6 +15136,10 @@ const compiledLayout = {
               },
 
               duplicate: {
+                type: "string"
+              },
+
+              insertAfter: {
                 type: "string"
               },
 
@@ -15421,6 +15426,10 @@ const compiledLayout = {
 
         properties: {
           emptyData: {
+            type: "boolean"
+          },
+
+          autocomplete: {
             type: "boolean"
           },
 
