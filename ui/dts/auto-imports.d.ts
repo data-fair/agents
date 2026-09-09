@@ -16,6 +16,7 @@ declare global {
   const EXPLORE_TOOL_NAME: typeof import('../src/composables/tool-exploration')['EXPLORE_TOOL_NAME']
   const EffectScope: typeof import('vue')['EffectScope']
   const FLAGS_COOKIE: typeof import('../src/utils/agent-flags')['FLAGS_COOKIE']
+  const MAX_TOOL_REFRESHES: typeof import('../src/composables/tool-refresh')['MAX_TOOL_REFRESHES']
   const MERMAID_AUTO_FIX_BUDGET: typeof import('../src/utils/mermaid-fix')['MERMAID_AUTO_FIX_BUDGET']
   const MODERATION_TASK_MARKER: typeof import('../src/composables/moderation')['MODERATION_TASK_MARKER']
   const REPEATED_CALL_LIMIT: typeof import('../src/composables/agent-loop-guards')['REPEATED_CALL_LIMIT']
@@ -26,6 +27,7 @@ declare global {
   const SUBAGENT_MODERATION_NOTICE: typeof import('../src/composables/agent-subagent-output')['SUBAGENT_MODERATION_NOTICE']
   const SUBAGENT_PARTIAL_PREFIX: typeof import('../src/composables/agent-subagent-output')['SUBAGENT_PARTIAL_PREFIX']
   const SUBAGENT_STEP_LIMIT_NOTICE: typeof import('../src/composables/agent-subagent-output')['SUBAGENT_STEP_LIMIT_NOTICE']
+  const TURN_STEP_BUDGET: typeof import('../src/composables/tool-refresh')['TURN_STEP_BUDGET']
   const activityLabelKey: typeof import('../src/composables/agent-activity')['activityLabelKey']
   const appendStreamingCaret: typeof import('../src/utils/markdown')['appendStreamingCaret']
   const applyStreamPart: typeof import('../src/composables/agent-stream-parts')['applyStreamPart']
@@ -99,9 +101,11 @@ declare global {
   const reactiveSearchParamsKey: typeof import('../src/composables/use-webmcp')['reactiveSearchParamsKey']
   const readFlags: typeof import('../src/utils/agent-flags')['readFlags']
   const readonly: typeof import('vue')['readonly']
+  const reconcileTools: typeof import('../src/composables/live-tools')['reconcileTools']
   const redactHistoryMediaToolResults: typeof import('../src/utils/tool-result')['redactHistoryMediaToolResults']
   const redactMediaToolResult: typeof import('../src/utils/tool-result')['redactMediaToolResult']
   const ref: typeof import('vue')['ref']
+  const remainingStepBudget: typeof import('../src/composables/tool-refresh')['remainingStepBudget']
   const renderMarkdown: typeof import('../src/utils/markdown')['renderMarkdown']
   const renderMermaidIn: typeof import('../src/utils/mermaid')['renderMermaidIn']
   const renderStreamingMarkdown: typeof import('../src/utils/markdown')['renderStreamingMarkdown']
@@ -118,12 +122,15 @@ declare global {
   const shallowRef: typeof import('vue')['shallowRef']
   const shouldAutoFixMermaid: typeof import('../src/utils/mermaid-fix')['shouldAutoFixMermaid']
   const shouldFlattenSubAgent: typeof import('../src/composables/sub-agent-flatten')['shouldFlattenSubAgent']
+  const shouldRestartForTools: typeof import('../src/composables/tool-refresh')['shouldRestartForTools']
+  const signatureSize: typeof import('../src/composables/tool-refresh')['signatureSize']
   const streamingSafeBuffer: typeof import('../src/utils/markdown')['streamingSafeBuffer']
   const subAgentModelOutput: typeof import('../src/composables/agent-subagent-output')['subAgentModelOutput']
   const toRaw: typeof import('vue')['toRaw']
   const toRef: typeof import('vue')['toRef']
   const toRefs: typeof import('vue')['toRefs']
   const toValue: typeof import('vue')['toValue']
+  const toolsSignature: typeof import('../src/composables/tool-refresh')['toolsSignature']
   const trailingRepeatCount: typeof import('../src/composables/agent-loop-guards')['trailingRepeatCount']
   const triggerRef: typeof import('vue')['triggerRef']
   const unref: typeof import('vue')['unref']
@@ -255,6 +262,7 @@ declare module 'vue' {
     readonly provide: UnwrapRef<typeof import('vue')['provide']>
     readonly reactive: UnwrapRef<typeof import('vue')['reactive']>
     readonly readonly: UnwrapRef<typeof import('vue')['readonly']>
+    readonly reconcileTools: UnwrapRef<typeof import('../src/composables/live-tools')['reconcileTools']>
     readonly redactHistoryMediaToolResults: UnwrapRef<typeof import('../src/utils/tool-result')['redactHistoryMediaToolResults']>
     readonly redactMediaToolResult: UnwrapRef<typeof import('../src/utils/tool-result')['redactMediaToolResult']>
     readonly ref: UnwrapRef<typeof import('vue')['ref']>
