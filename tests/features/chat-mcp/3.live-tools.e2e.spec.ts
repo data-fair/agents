@@ -97,7 +97,16 @@ test.describe('Live tool set (mid-turn refresh)', () => {
       document.cookie = `agent-chat-flags=${encodeURIComponent(JSON.stringify(flags))}; path=/`
     })
     await goToWithAuth('/agents/_dev/chat-live-tools', 'test-standalone1')
-    await expect(page.getByPlaceholder('Type your message...')).toBeEnabled({ timeout: 10000 })
+
+    // Under exploration this wait is not just politeness: explore_tools has no candidates
+    // if the registry is still empty when it runs, so nothing is promoted and the next
+    // turn finds the tool inactive (same guard as 3.tool-exploration.e2e.spec.ts).
+    await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
+    await page.getByRole('tab', { name: 'Info' }).click()
+    await expect(
+      page.locator('.v-dialog .v-window-item--active').getByRole('button', { name: 'open_panel' })
+    ).toBeVisible({ timeout: 10000 })
+    await page.getByRole('button', { name: /Close|Fermer/ }).click()
 
     // Turn 1: promote open_panel so it is callable at all under exploration gating.
     await page.getByPlaceholder('Type your message...').fill('call tool explore_tools {"intent":"open the panel"}')

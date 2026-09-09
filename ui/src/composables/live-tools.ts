@@ -9,9 +9,14 @@
  * building a new one per turn.
  *
  * That is the whole mechanism: no stopping the stream, no relaunching it on the
- * accumulated history, no step-budget accounting across restarts. `2.sdk-live-tools`
- * pins the SDK behaviour this relies on, so an `ai` upgrade that started snapshotting
- * `tools` fails loudly here instead of silently reinstating the bug.
+ * accumulated history, no step-budget accounting across restarts.
+ *
+ * The SDK behaviour this relies on is guarded by `3.live-tools.e2e.spec.ts`, which drives
+ * the real provider path: an `ai` upgrade that started snapshotting `tools` would silently
+ * reinstate the bug, and that test is what fails. (A unit-level pin was tried and dropped:
+ * asserting it needs a two-step tool-calling run, and the V3 stream-part sequence that
+ * produces one is an internal contract which churns between SDK releases — the test broke
+ * on upgrade for reasons unrelated to the property it was pinning.)
  */
 
 import type { Tool } from 'ai'
