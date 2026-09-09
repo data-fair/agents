@@ -1,4 +1,4 @@
-import { ref, watch, onScopeDispose } from 'vue'
+import { ref, watch, onScopeDispose, type WatchStopHandle } from 'vue'
 import { streamText, generateText, stepCountIs, tool, jsonSchema, ToolLoopAgent } from 'ai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import type { ModelMessage, Tool } from 'ai'
@@ -6,6 +6,7 @@ import { getTabChannelId } from '@data-fair/lib-vue-agents'
 import { FrameClientAggregator } from '~/transports/frame-client-aggregator'
 import { createExploreTool, formatToolsAvailableMessage, newlyAvailableTools, EXPLORE_TOOL_NAME } from '~/composables/tool-exploration'
 import { shouldFlattenSubAgent } from '~/composables/sub-agent-flatten'
+import { reconcileTools } from '~/composables/live-tools'
 import { $apiPath } from '~/context'
 import { useSession } from '@data-fair/lib-vue/session.js'
 import { getAnonymousToken, resetAnonymousToken } from '~/composables/use-anonymous-token'
@@ -489,6 +490,10 @@ export function useAgentChat (options: UseAgentChatOptions) {
     const hiddenContext = sendOptions?.hiddenContext
     history.push({ role: 'user', content: hiddenContext ? wrapHiddenContext(hiddenContext, msg) : msg })
 
+    // Stops the mid-turn tool-set rebuild; declared here so `finally` can always
+    // release it, whichever way the turn ends.
+    let stopToolsWatch: WatchStopHandle | null = null
+
     // Create the abort controller before compaction so the Stop button (and the idle
     // watchdog) can cancel the summarizer call too — previously compaction ran with
     // no controller, leaving a slow/stalled summarize unkillable and invisible.
@@ -540,286 +545,378 @@ export function useAgentChat (options: UseAgentChatOptions) {
       activity.value = { kind: 'thinking' }
       armWatchdog()
 
-      const currentTools = tools.value
-      const { mainTools, subAgents } = partitionTools(currentTools)
-      debug('partitioned tools: main=%o subAgents=%o', Object.keys(mainTools), Object.keys(subAgents))
+      // Index of this turn's user message, taken AFTER compaction (which rebuilds history
+      // around that message). A moderation block rolls the whole turn back to here — the
+      // user message and every <tools-available> notice the turn added, however many.
+      // Counting pops instead, as the previous code did, only works for exactly one notice.
+      const turnHistoryStart = history.length - 1
 
-      // Flat mode keeps reserved tools in the main set and turns sub-agents into
-      // no-arg guidance tools (experimental flatten toggle). The decision is per sub-agent:
-      // model-pinned or delegateOnly sub-agents stay delegated even when flatten is on.
-      const flatten = flatteningEnabled()
-      const willFlatten = (config: SubAgentConfig) => shouldFlattenSubAgent(config, flatten)
-      await resolveSubAgents(mainTools, subAgents, { willFlatten })
-
-      // Build the tool set for the main LLM:
-      // main tools + sub-agent pseudo-tools using ToolLoopAgent + async generators
-      const mainLLMTools: Record<string, Tool> = { ...mainTools }
-      for (const [name, entry] of Object.entries(subAgents)) {
-        const config = entry.config
-
-        if (willFlatten(config)) {
-          // Flattened: register the sub-agent as a no-arg guidance tool that returns its
-          // own prompt, under the de-prefixed name so AgentChatMessages renders it as an
-          // ordinary chip (not an empty sub-agent panel — panel rendering keys off the
-          // `subagent_` prefix). Reserved tools are already exposed flat, so the main agent
-          // reads the brief and then drives them itself in the same loop.
-          // Assumes sub-agent names don't collide with real tool names; in flat mode a
-          // colliding flatName would overwrite that tool in mainLLMTools.
-          const flatName = name.replace(/^subagent_/, '')
-          mainLLMTools[flatName] = tool({
-            description: (entry.tool as any).description || '',
-            inputSchema: jsonSchema({ type: 'object', properties: {}, additionalProperties: false }),
-            execute: async () => config.prompt
-          })
-          continue
-        }
-
-        // Collect the sub-agent's tools from the full tool set
-        const subAgentTools: Record<string, Tool> = {}
-        for (const toolName of config.tools) {
-          if (currentTools[toolName]) subAgentTools[toolName] = currentTools[toolName]
-        }
-
-        const subAgent = new ToolLoopAgent({
-          model: provider.chatModel(config.model ?? 'tools'),
-          instructions: config.prompt,
-          tools: subAgentTools,
-          // Generous flat step backstop + repeated-call guard, with a reminder injected
-          // before the guard fires (see agent-loop-guards).
-          stopWhen: [stepCountIs(STEP_LIMIT), repeatedCallGuard()],
-          prepareStep: loopGuardPrepareStep
-        })
-
-        const displayName = name.replace(/^subagent_/, '')
-        // Colons are the field separator in the sub-agent trace ctx
-        // (sub:<name>:<index>:<uid>); sanitize so a colon in the name can't
-        // misalign the server-side parseContextId fields.
-        const ctxName = displayName.replace(/:/g, '_')
-
-        mainLLMTools[name] = tool({
-          description: (entry.tool as any).description || '',
-          inputSchema: jsonSchema({
-            type: 'object',
-            properties: {
-              task: { type: 'string', description: 'The task to delegate to this sub-agent. Include all relevant context from the conversation that the sub-agent needs to accomplish the task (user preferences, constraints, data references, etc.).' }
-            },
-            required: ['task']
-          }),
-          execute: async function * (args: any, { abortSignal, toolCallId: sdkToolCallId }: { abortSignal?: AbortSignal, toolCallId?: string }) {
-            // The parent assistant message hosting this sub-agent's panel. The SDK invokes
-            // this tool's execute BEFORE the main loop processes the `subagent_` tool-call
-            // part, so mainScope.current is still null on entry; it is set during the first
-            // `await` below. So we read it LIVE (via liveParent) at each write site rather
-            // than capturing it once. mainScope.current is the structural StreamMessage
-            // minimum; here we need the ChatMessage fields (subAgentPanels),
-            // and at these call sites it always IS a ChatMessage (applyStreamPart pushed it
-            // into messages.value, a ChatMessage[]).
-            const liveParent = () => mainScope.current as ChatMessage | null
-            // Use the SDK-provided toolCallId directly — it matches invocation.toolCallId
-            // in the component's subAgentPanels lookup. The previous approach searched
-            // liveParent()?.toolInvocations but mainScope.current is null at execute-start
-            // (the main loop hasn't processed the tool-call stream part yet), causing the
-            // fallback to `name` and a key mismatch that left all panels empty.
-            const parentToolCallId = sdkToolCallId ?? liveParent()?.toolInvocations?.find(
-              ti => ti.toolName === name && ti.state === 'pending'
-            )?.toolCallId ?? name
-
-            // Same shared builder as the main loop, but its activity writes the per-toolCallId
-            // `subAgentActivities` map keyed by parentToolCallId, so each concurrent panel
-            // shows its own phase line independently. Unlike the main line, the 'tool' phase
-            // shows (sub-agent chips don't spin, so the panel line carries it).
-            // The builder writes into this scratch array; each yield we copy a fresh
-            // snapshot onto the reactive parent's subAgentPanels[parentToolCallId]. Reassigning
-            // a new array (rather than mutating in place) is what reliably triggers Vue to
-            // re-render the panel — the same approach the previous snapshot path used.
-            const subScope: StreamScope = {
-              messages: [],
-              current: null,
-              producedText: false,
-              stepHadTool: false,
-              lastStepHadTool: false,
-              setActivity: (phase) => {
-                const setPhase = (a: ChatActivity | null) => {
-                  const next = { ...subAgentActivities.value }
-                  if (a) next[parentToolCallId] = a
-                  else delete next[parentToolCallId]
-                  subAgentActivities.value = next
-                }
-                switch (phase) {
-                  case 'streaming': setPhase(null); break
-                  case 'tool': setPhase({ kind: 'subagent', name, phase: 'tool' }); break
-                  case 'analyzing': setPhase({ kind: 'subagent', name, phase: 'analyzing' }); break
-                  case 'thinking': setPhase({ kind: 'subagent', name, phase: 'thinking' }); break
-                }
-              }
-            }
-
-            // Enter gap: name the spin-up before the first token arrives.
-            subAgentActivities.value = { ...subAgentActivities.value, [parentToolCallId]: { kind: 'subagent', name, phase: 'starting' } }
-
-            let subStreamError: unknown = null
-            try {
-              // Stateless worker: each delegation is a fresh, single-shot run. The lead
-              // holds the conversation state and re-states all needed context in `task`
-              // (see the input schema), so the worker keeps no history across calls — this
-              // matches SOTA orchestrator-worker design and bounds the worker window by
-              // construction. The trace ctx keeps a fixed `0` index slot for wire-format
-              // compatibility with parseContextId; the unique `parentToolCallId` already
-              // distinguishes concurrent and repeated delegations.
-              // `headers` is a construction-time setting in the AI SDK's agent types, not a
-              // call-time param, so we widen only for it while keeping the rest type-checked.
-              const subResult = await subAgent.stream({ prompt: args.task, abortSignal, headers: traceHeaders(`sub:${ctxName}:0:${parentToolCallId}`) } as Parameters<typeof subAgent.stream>[0] & { headers: Record<string, string> })
-
-              // Build the panel transcript from the same delta parts the main loop uses,
-              // yielding a snapshot each part so the SDK gets streaming preliminary results.
-              for await (const part of subResult.fullStream) {
-                // In-band provider error (the #38 silent-drop class): the SDK does not
-                // throw it, so capture and stop instead of finishing as a blank sub-agent.
-                if (part.type === 'error') { subStreamError = (part as any).error; break }
-                applyStreamPart(part as unknown as StreamPart, subScope)
-                // Publish a fresh snapshot onto the (now-live) parent each part so Vue
-                // re-renders the panel; reassigning a new array is what triggers it.
-                const parent = liveParent()
-                if (parent) {
-                  parent.subAgentPanels = {
-                    ...(parent.subAgentPanels ?? {}),
-                    [parentToolCallId]: { messages: [...subScope.messages] }
-                  }
-                }
-                yield [...subScope.messages]
-              }
-              if (subStreamError) throw subStreamError
-
-              const finishReason = await subResult.finishReason
-              // A content_filter on the sub-agent's own gateway call (untrusted callers)
-              // surfaces as a refusal output instead of aborting the whole turn.
-              if (finishReason === 'content-filter') {
-                // User-facing refusal for the panel; moderationBlocked tells
-                // toModelOutput to hand the main agent SUBAGENT_MODERATION_NOTICE
-                // instead of this generic text so it can react appropriately.
-                const refusal: ChatMessage = { role: 'assistant', content: options.refusalMessage || DEFAULT_REFUSAL, moderationBlocked: true }
-                const parent = liveParent()
-                if (parent) {
-                  const prev = parent.subAgentPanels?.[parentToolCallId]?.messages ?? subScope.messages
-                  parent.subAgentPanels = {
-                    ...(parent.subAgentPanels ?? {}),
-                    [parentToolCallId]: { messages: [...prev, refusal] }
-                  }
-                }
-                yield [refusal]
-              } else if (finishReason === 'tool-calls') {
-                // The worker hit the stepCountIs cap while still wanting to call tools.
-                // Rather than discard what it gathered and report a bare truncation, force
-                // ONE final close-out turn with NO tools: the model cannot loop, so it must
-                // synthesize a best-effort answer from the transcript. This recovers the
-                // (often already-complete) result a looping worker produced; subAgentModelOutput
-                // hands the lead that answer flagged as partial. Only when nothing is recovered
-                // (the close-out call itself failed) does it fall back to the standalone notice.
-                let closeout = ''
-                try {
-                  const transcript = (await subResult.response).messages
-                  const { text } = await generateText({
-                    model: provider.chatModel(config.model ?? 'tools'),
-                    system: config.prompt,
-                    // tools omitted ⇒ the model cannot loop ⇒ finishReason will be 'stop'
-                    messages: [...transcript, { role: 'user' as const, content: SUBAGENT_CLOSEOUT_PROMPT }],
-                    abortSignal,
-                    headers: traceHeaders(`sub:${ctxName}:0:${parentToolCallId}`)
-                  })
-                  closeout = text.trim()
-                } catch (closeoutErr: any) {
-                  // An abort still tears down the whole turn; any other failure just leaves
-                  // closeout empty and falls through to the standalone notice below.
-                  if (closeoutErr?.name === 'AbortError') throw closeoutErr
-                  debug('sub-agent %s close-out failed: %O', name, closeoutErr)
-                }
-                // Recovered answer → real data carried as content (flagged partial via
-                // stepLimitReached). Nothing recovered → the standalone step-limit notice.
-                const truncated: ChatMessage = { role: 'assistant', content: closeout || SUBAGENT_STEP_LIMIT_NOTICE, stepLimitReached: true }
-                const parent = liveParent()
-                if (parent) {
-                  const prev = parent.subAgentPanels?.[parentToolCallId]?.messages ?? subScope.messages
-                  parent.subAgentPanels = {
-                    ...(parent.subAgentPanels ?? {}),
-                    [parentToolCallId]: { messages: [...prev, truncated] }
-                  }
-                }
-                yield [truncated]
-              }
-            } catch (subErr: any) {
-              // Let an abort tear down the whole turn (handled by sendMessage's catch).
-              if (subErr?.name === 'AbortError') throw subErr
-              // Any other sub-agent failure (its own gateway/provider error) would
-              // otherwise surface as an unhandled tool-error: the model gets no result,
-              // the panel keeps spinning, and the turn can end with no visible output.
-              // Yield a final error message instead so the failure is shown and becomes
-              // this tool's output (via toModelOutput) for the main agent to react to.
-              debug('sub-agent %s failed: %O', name, subErr)
-              const errorMsg: ChatMessage = { role: 'assistant', content: DEFAULT_SUBAGENT_ERROR }
-              const parent = liveParent()
-              if (parent) {
-                const prev = parent.subAgentPanels?.[parentToolCallId]?.messages ?? subScope.messages
-                parent.subAgentPanels = {
-                  ...(parent.subAgentPanels ?? {}),
-                  [parentToolCallId]: { messages: [...prev, errorMsg] }
-                }
-              }
-              yield [errorMsg]
-            } finally {
-              const next = { ...subAgentActivities.value }
-              delete next[parentToolCallId]
-              subAgentActivities.value = next
-            }
-          },
-          // Main agent sees only this single text summary, not the full sub-agent
-          // trace. Trailing-message flags (moderationBlocked / stepLimitReached) change
-          // what the lead is told; see subAgentModelOutput for the decision.
-          toModelOutput: ({ output }: { output: any }) => ({ type: 'text' as const, value: subAgentModelOutput(output) })
-        })
-      }
-
-      // Exploration mode: hide plain tools behind explore_tools, expose only
-      // explore_tools + sub-agent pseudo-tools + already-promoted tools per step.
-      // The plain tool names are surfaced to the model as <tools-available> messages
-      // (names only); the system prompt is left untouched.
+      // ---- the live tool set ---------------------------------------------------------
+      // `mainLLMTools` keeps ONE object identity for the whole turn. streamText does not
+      // snapshot `tools`: it dereferences that object at every step boundary, both to
+      // advertise tools to the model and to look up the tool to execute. So reconciling
+      // into it in place is what makes a tool the host registers mid-turn — the page the
+      // agent just navigated to mounting its own components — callable on the next step
+      // of the SAME turn, with no need to stop and relaunch the stream.
+      // See live-tools.ts; 2.sdk-live-tools.unit.spec.ts pins the SDK behaviour.
+      const mainLLMTools: Record<string, Tool> = {}
+      // Live for the same reason: explore_tools must search the current set, not a copy
+      // taken at turn start.
+      const plainTools: Record<string, Tool> = {}
+      let subAgentNames: string[] = []
       // Names announced via a <tools-available> message this turn; used to roll back
       // the push (and the announcement) if the turn is blocked by moderation.
-      let announcedThisTurn: string[] = []
+      const announcedThisTurn: string[] = []
       let explorationPrepareStep: undefined | (() => { activeTools: string[] })
-      if (explorationEnabled()) {
-        const subAgentNames = Object.keys(subAgents)
-        const plainTools = { ...mainTools }
-        mainLLMTools[EXPLORE_TOOL_NAME] = createExploreTool({
-          plainTools,
-          promote: (names) => names.forEach(n => promotedTools.add(n)),
-          summarizer: provider.chatModel('summarizer'),
-          headers: traceHeaders(`turn:${turnId}`)
-        })
+      let buildGeneration = 0
+      // A rebuild currently in flight, awaited by the barrier below.
+      let rebuildInFlight: Promise<void> | null = null
 
-        // Prune announced/promoted sets in place to the tools still live, so a tool
-        // that disappears (server disconnect) un-announces and un-promotes; if it
-        // returns later it re-announces. Mutate in place — the promote and prepareStep
-        // closures capture these set objects.
-        const liveNames = new Set(Object.keys(plainTools))
-        for (const n of [...announcedTools]) if (!liveNames.has(n)) announcedTools.delete(n)
-        for (const n of [...promotedTools]) if (!liveNames.has(n)) promotedTools.delete(n)
+      // A host tool that registers new tools (opening a panel, navigating) does so
+      // asynchronously: the WebMCP notification, the aggregator's re-list and our rebuild
+      // all land AFTER the tool's own result. The SDK starts the next step as soon as it
+      // has that result — measured at ~4ms before the rebuild lands — so without a barrier
+      // the step is built with the stale set and the new tools miss the turn by a hair.
+      // Holding the result for one macrotask (long enough for the notification to be
+      // dispatched) plus any rebuild it triggers makes the ordering deterministic.
+      const TOOL_SETTLE_TIMEOUT_MS = 500
+      const settleTools = async () => {
+        const deadline = Date.now() + TOOL_SETTLE_TIMEOUT_MS
+        // A rebuild can be superseded by a newer one while we wait, so re-read each pass.
+        // The deadline is a backstop only: a rebuild that never settles must not wedge the
+        // tool result (and with it the whole turn).
+        let pending = rebuildInFlight
+        while (pending && Date.now() < deadline) {
+          await pending
+          pending = rebuildInFlight
+        }
+      }
+      // Only plain host tools get the barrier: sub-agent pseudo-tools run their own loop
+      // and never change the aggregate themselves.
+      const withSettleBarrier = (t: Tool): Tool => {
+        const execute = (t as any).execute
+        if (typeof execute !== 'function') return t
+        return {
+          ...t,
+          execute: async (args: any, opts: any) => {
+            const output = await execute(args, opts)
+            await settleTools()
+            return output
+          }
+        } as Tool
+      }
 
-        // Announce newly-available tool names (delta) as one <tools-available> message.
-        const delta = newlyAvailableTools(Object.keys(plainTools), announcedTools)
-        if (delta.length) {
-          // Insert the availability notice just before this turn's user message (the
-          // history tail) so the user message stays last — models (and the mock) act on
-          // the final user message.
-          history.splice(history.length - 1, 0, { role: 'user' as const, content: formatToolsAvailableMessage(delta) })
-          for (const n of delta) announcedTools.add(n)
-          announcedThisTurn = delta
+      async function buildToolSet (): Promise<void> {
+        const generation = ++buildGeneration
+        const currentTools = tools.value
+        const { mainTools, subAgents } = partitionTools(currentTools)
+        debug('partitioned tools: main=%o subAgents=%o', Object.keys(mainTools), Object.keys(subAgents))
+
+        // Flat mode keeps reserved tools in the main set and turns sub-agents into
+        // no-arg guidance tools (experimental flatten toggle). The decision is per sub-agent:
+        // model-pinned or delegateOnly sub-agents stay delegated even when flatten is on.
+        const flatten = flatteningEnabled()
+        const willFlatten = (config: SubAgentConfig) => shouldFlattenSubAgent(config, flatten)
+        await resolveSubAgents(mainTools, subAgents, { willFlatten })
+        // resolveSubAgents round-trips to the host, so a newer rebuild may have overtaken
+        // this one. Bail rather than reconcile a stale set into the live object.
+        if (generation !== buildGeneration) return
+
+        // Build the tool set for the main LLM:
+        // main tools + sub-agent pseudo-tools using ToolLoopAgent + async generators
+        const nextTools: Record<string, Tool> = {}
+        for (const [name, t] of Object.entries(mainTools)) nextTools[name] = withSettleBarrier(t)
+        for (const [name, entry] of Object.entries(subAgents)) {
+          const config = entry.config
+
+          if (willFlatten(config)) {
+            // Flattened: register the sub-agent as a no-arg guidance tool that returns its
+            // own prompt, under the de-prefixed name so AgentChatMessages renders it as an
+            // ordinary chip (not an empty sub-agent panel — panel rendering keys off the
+            // `subagent_` prefix). Reserved tools are already exposed flat, so the main agent
+            // reads the brief and then drives them itself in the same loop.
+            // Assumes sub-agent names don't collide with real tool names; in flat mode a
+            // colliding flatName would overwrite that tool in nextTools.
+            const flatName = name.replace(/^subagent_/, '')
+            nextTools[flatName] = tool({
+              description: (entry.tool as any).description || '',
+              inputSchema: jsonSchema({ type: 'object', properties: {}, additionalProperties: false }),
+              execute: async () => config.prompt
+            })
+            continue
+          }
+
+          // Collect the sub-agent's tools from the full tool set
+          const subAgentTools: Record<string, Tool> = {}
+          for (const toolName of config.tools) {
+            if (currentTools[toolName]) subAgentTools[toolName] = currentTools[toolName]
+          }
+
+          const subAgent = new ToolLoopAgent({
+            model: provider.chatModel(config.model ?? 'tools'),
+            instructions: config.prompt,
+            tools: subAgentTools,
+            // Generous flat step backstop + repeated-call guard, with a reminder injected
+            // before the guard fires (see agent-loop-guards).
+            stopWhen: [stepCountIs(STEP_LIMIT), repeatedCallGuard()],
+            prepareStep: loopGuardPrepareStep
+          })
+
+          const displayName = name.replace(/^subagent_/, '')
+          // Colons are the field separator in the sub-agent trace ctx
+          // (sub:<name>:<index>:<uid>); sanitize so a colon in the name can't
+          // misalign the server-side parseContextId fields.
+          const ctxName = displayName.replace(/:/g, '_')
+
+          nextTools[name] = tool({
+            description: (entry.tool as any).description || '',
+            inputSchema: jsonSchema({
+              type: 'object',
+              properties: {
+                task: { type: 'string', description: 'The task to delegate to this sub-agent. Include all relevant context from the conversation that the sub-agent needs to accomplish the task (user preferences, constraints, data references, etc.).' }
+              },
+              required: ['task']
+            }),
+            execute: async function * (args: any, { abortSignal, toolCallId: sdkToolCallId }: { abortSignal?: AbortSignal, toolCallId?: string }) {
+              // The parent assistant message hosting this sub-agent's panel. The SDK invokes
+              // this tool's execute BEFORE the main loop processes the `subagent_` tool-call
+              // part, so mainScope.current is still null on entry; it is set during the first
+              // `await` below. So we read it LIVE (via liveParent) at each write site rather
+              // than capturing it once. mainScope.current is the structural StreamMessage
+              // minimum; here we need the ChatMessage fields (subAgentPanels),
+              // and at these call sites it always IS a ChatMessage (applyStreamPart pushed it
+              // into messages.value, a ChatMessage[]).
+              const liveParent = () => mainScope.current as ChatMessage | null
+              // Use the SDK-provided toolCallId directly — it matches invocation.toolCallId
+              // in the component's subAgentPanels lookup. The previous approach searched
+              // liveParent()?.toolInvocations but mainScope.current is null at execute-start
+              // (the main loop hasn't processed the tool-call stream part yet), causing the
+              // fallback to `name` and a key mismatch that left all panels empty.
+              const parentToolCallId = sdkToolCallId ?? liveParent()?.toolInvocations?.find(
+                ti => ti.toolName === name && ti.state === 'pending'
+              )?.toolCallId ?? name
+
+              // Same shared builder as the main loop, but its activity writes the per-toolCallId
+              // `subAgentActivities` map keyed by parentToolCallId, so each concurrent panel
+              // shows its own phase line independently. Unlike the main line, the 'tool' phase
+              // shows (sub-agent chips don't spin, so the panel line carries it).
+              // The builder writes into this scratch array; each yield we copy a fresh
+              // snapshot onto the reactive parent's subAgentPanels[parentToolCallId]. Reassigning
+              // a new array (rather than mutating in place) is what reliably triggers Vue to
+              // re-render the panel — the same approach the previous snapshot path used.
+              const subScope: StreamScope = {
+                messages: [],
+                current: null,
+                producedText: false,
+                stepHadTool: false,
+                lastStepHadTool: false,
+                setActivity: (phase) => {
+                  const setPhase = (a: ChatActivity | null) => {
+                    const next = { ...subAgentActivities.value }
+                    if (a) next[parentToolCallId] = a
+                    else delete next[parentToolCallId]
+                    subAgentActivities.value = next
+                  }
+                  switch (phase) {
+                    case 'streaming': setPhase(null); break
+                    case 'tool': setPhase({ kind: 'subagent', name, phase: 'tool' }); break
+                    case 'analyzing': setPhase({ kind: 'subagent', name, phase: 'analyzing' }); break
+                    case 'thinking': setPhase({ kind: 'subagent', name, phase: 'thinking' }); break
+                  }
+                }
+              }
+
+              // Enter gap: name the spin-up before the first token arrives.
+              subAgentActivities.value = { ...subAgentActivities.value, [parentToolCallId]: { kind: 'subagent', name, phase: 'starting' } }
+
+              let subStreamError: unknown = null
+              try {
+                // Stateless worker: each delegation is a fresh, single-shot run. The lead
+                // holds the conversation state and re-states all needed context in `task`
+                // (see the input schema), so the worker keeps no history across calls — this
+                // matches SOTA orchestrator-worker design and bounds the worker window by
+                // construction. The trace ctx keeps a fixed `0` index slot for wire-format
+                // compatibility with parseContextId; the unique `parentToolCallId` already
+                // distinguishes concurrent and repeated delegations.
+                // `headers` is a construction-time setting in the AI SDK's agent types, not a
+                // call-time param, so we widen only for it while keeping the rest type-checked.
+                const subResult = await subAgent.stream({ prompt: args.task, abortSignal, headers: traceHeaders(`sub:${ctxName}:0:${parentToolCallId}`) } as Parameters<typeof subAgent.stream>[0] & { headers: Record<string, string> })
+
+                // Build the panel transcript from the same delta parts the main loop uses,
+                // yielding a snapshot each part so the SDK gets streaming preliminary results.
+                for await (const part of subResult.fullStream) {
+                  // In-band provider error (the #38 silent-drop class): the SDK does not
+                  // throw it, so capture and stop instead of finishing as a blank sub-agent.
+                  if (part.type === 'error') { subStreamError = (part as any).error; break }
+                  applyStreamPart(part as unknown as StreamPart, subScope)
+                  // Publish a fresh snapshot onto the (now-live) parent each part so Vue
+                  // re-renders the panel; reassigning a new array is what triggers it.
+                  const parent = liveParent()
+                  if (parent) {
+                    parent.subAgentPanels = {
+                      ...(parent.subAgentPanels ?? {}),
+                      [parentToolCallId]: { messages: [...subScope.messages] }
+                    }
+                  }
+                  yield [...subScope.messages]
+                }
+                if (subStreamError) throw subStreamError
+
+                const finishReason = await subResult.finishReason
+                // A content_filter on the sub-agent's own gateway call (untrusted callers)
+                // surfaces as a refusal output instead of aborting the whole turn.
+                if (finishReason === 'content-filter') {
+                  // User-facing refusal for the panel; moderationBlocked tells
+                  // toModelOutput to hand the main agent SUBAGENT_MODERATION_NOTICE
+                  // instead of this generic text so it can react appropriately.
+                  const refusal: ChatMessage = { role: 'assistant', content: options.refusalMessage || DEFAULT_REFUSAL, moderationBlocked: true }
+                  const parent = liveParent()
+                  if (parent) {
+                    const prev = parent.subAgentPanels?.[parentToolCallId]?.messages ?? subScope.messages
+                    parent.subAgentPanels = {
+                      ...(parent.subAgentPanels ?? {}),
+                      [parentToolCallId]: { messages: [...prev, refusal] }
+                    }
+                  }
+                  yield [refusal]
+                } else if (finishReason === 'tool-calls') {
+                  // The worker hit the stepCountIs cap while still wanting to call tools.
+                  // Rather than discard what it gathered and report a bare truncation, force
+                  // ONE final close-out turn with NO tools: the model cannot loop, so it must
+                  // synthesize a best-effort answer from the transcript. This recovers the
+                  // (often already-complete) result a looping worker produced; subAgentModelOutput
+                  // hands the lead that answer flagged as partial. Only when nothing is recovered
+                  // (the close-out call itself failed) does it fall back to the standalone notice.
+                  let closeout = ''
+                  try {
+                    const transcript = (await subResult.response).messages
+                    const { text } = await generateText({
+                      model: provider.chatModel(config.model ?? 'tools'),
+                      system: config.prompt,
+                      // tools omitted ⇒ the model cannot loop ⇒ finishReason will be 'stop'
+                      messages: [...transcript, { role: 'user' as const, content: SUBAGENT_CLOSEOUT_PROMPT }],
+                      abortSignal,
+                      headers: traceHeaders(`sub:${ctxName}:0:${parentToolCallId}`)
+                    })
+                    closeout = text.trim()
+                  } catch (closeoutErr: any) {
+                    // An abort still tears down the whole turn; any other failure just leaves
+                    // closeout empty and falls through to the standalone notice below.
+                    if (closeoutErr?.name === 'AbortError') throw closeoutErr
+                    debug('sub-agent %s close-out failed: %O', name, closeoutErr)
+                  }
+                  // Recovered answer → real data carried as content (flagged partial via
+                  // stepLimitReached). Nothing recovered → the standalone step-limit notice.
+                  const truncated: ChatMessage = { role: 'assistant', content: closeout || SUBAGENT_STEP_LIMIT_NOTICE, stepLimitReached: true }
+                  const parent = liveParent()
+                  if (parent) {
+                    const prev = parent.subAgentPanels?.[parentToolCallId]?.messages ?? subScope.messages
+                    parent.subAgentPanels = {
+                      ...(parent.subAgentPanels ?? {}),
+                      [parentToolCallId]: { messages: [...prev, truncated] }
+                    }
+                  }
+                  yield [truncated]
+                }
+              } catch (subErr: any) {
+                // Let an abort tear down the whole turn (handled by sendMessage's catch).
+                if (subErr?.name === 'AbortError') throw subErr
+                // Any other sub-agent failure (its own gateway/provider error) would
+                // otherwise surface as an unhandled tool-error: the model gets no result,
+                // the panel keeps spinning, and the turn can end with no visible output.
+                // Yield a final error message instead so the failure is shown and becomes
+                // this tool's output (via toModelOutput) for the main agent to react to.
+                debug('sub-agent %s failed: %O', name, subErr)
+                const errorMsg: ChatMessage = { role: 'assistant', content: DEFAULT_SUBAGENT_ERROR }
+                const parent = liveParent()
+                if (parent) {
+                  const prev = parent.subAgentPanels?.[parentToolCallId]?.messages ?? subScope.messages
+                  parent.subAgentPanels = {
+                    ...(parent.subAgentPanels ?? {}),
+                    [parentToolCallId]: { messages: [...prev, errorMsg] }
+                  }
+                }
+                yield [errorMsg]
+              } finally {
+                const next = { ...subAgentActivities.value }
+                delete next[parentToolCallId]
+                subAgentActivities.value = next
+              }
+            },
+            // Main agent sees only this single text summary, not the full sub-agent
+            // trace. Trailing-message flags (moderationBlocked / stepLimitReached) change
+            // what the lead is told; see subAgentModelOutput for the decision.
+            toModelOutput: ({ output }: { output: any }) => ({ type: 'text' as const, value: subAgentModelOutput(output) })
+          })
+        }
+        subAgentNames = Object.keys(subAgents)
+
+        // Exploration mode: hide plain tools behind explore_tools, expose only
+        // explore_tools + sub-agent pseudo-tools + already-promoted tools per step.
+        // The plain tool names are surfaced to the model as <tools-available> messages
+        // (names only); the system prompt is left untouched.
+        if (explorationEnabled()) {
+          reconcileTools(plainTools, mainTools)
+          // One explore_tools instance for the turn: it closes over the live `plainTools`,
+          // so rebuilding it would churn identity without changing what it can find.
+          nextTools[EXPLORE_TOOL_NAME] = mainLLMTools[EXPLORE_TOOL_NAME] ?? createExploreTool({
+            plainTools,
+            promote: (names) => names.forEach(n => promotedTools.add(n)),
+            summarizer: provider.chatModel('summarizer'),
+            headers: traceHeaders(`turn:${turnId}`)
+          })
+
+          // Prune announced/promoted sets in place to the tools still live, so a tool
+          // that disappears (server disconnect) un-announces and un-promotes; if it
+          // returns later it re-announces. Mutate in place — the promote and prepareStep
+          // closures capture these set objects.
+          const liveNames = new Set(Object.keys(plainTools))
+          for (const n of [...announcedTools]) if (!liveNames.has(n)) announcedTools.delete(n)
+          for (const n of [...promotedTools]) if (!liveNames.has(n)) promotedTools.delete(n)
+
+          // Announce newly-available tool names (delta) as one <tools-available> message.
+          const delta = newlyAvailableTools(Object.keys(plainTools), announcedTools)
+          if (delta.length) {
+            // Insert just before this turn's user message so the user message stays last
+            // — models (and the mock) act on the final user message. This works for a
+            // rebuild that happens MID-TURN too: `history` stays the array streamText was
+            // given, response messages are only folded in when the turn ends, and the SDK
+            // rebuilds each step's prompt as [...initialMessages, ...responseMessages] —
+            // re-reading that array every step. So the notice reaches the model on the
+            // next step, correctly placed before the work already done.
+            history.splice(history.length - 1, 0, { role: 'user' as const, content: formatToolsAvailableMessage(delta) })
+            for (const n of delta) announcedTools.add(n)
+            // Tracked for rollback either way: announcedTools is what suppresses a repeat
+            // announcement, so a blocked turn must un-announce mid-turn names too or those
+            // tools are never mentioned to the model again.
+            announcedThisTurn.push(...delta)
+          }
+
+          explorationPrepareStep = () => ({
+            activeTools: [EXPLORE_TOOL_NAME, ...subAgentNames, ...promotedTools]
+              .filter(n => n in mainLLMTools)
+          })
         }
 
-        explorationPrepareStep = () => ({
-          activeTools: [EXPLORE_TOOL_NAME, ...subAgentNames, ...promotedTools]
-            .filter(n => n in mainLLMTools)
-        })
+        const { added, removed } = reconcileTools(mainLLMTools, nextTools)
+        if (added.length || removed.length) {
+          debug('tool set reconciled mid-turn: +%o -%o', added, removed)
+        }
       }
+
+      await buildToolSet()
+      // Rebuild on every aggregate change for the rest of the turn. A running stream picks
+      // the result up at its next step boundary; there is nothing to restart.
+      // Rebuild failures must not escape into the watcher (an unhandled rejection
+      // would surface nowhere): the turn simply keeps the set it has.
+      // flush 'sync' so the rebuild is registered as in-flight inside onToolsChanged
+      // itself — the settle barrier on the tool result runs right after and must see it.
+      stopToolsWatch = watch(toolsVersion, () => {
+        const run = buildToolSet()
+          .catch(err => debug('mid-turn tool rebuild failed: %O', err))
+          .finally(() => { if (rebuildInFlight === run) rebuildInFlight = null })
+        rebuildInFlight = run
+      }, { flush: 'sync' })
 
       debug('streaming with model=%s tools=%o exploration=%s', chatModelName, Object.keys(mainLLMTools), explorationEnabled())
       const result = streamText({
@@ -842,14 +939,11 @@ export function useAgentChat (options: UseAgentChatOptions) {
         // stall (a gap longer than idleMs between parts), not on a slow-but-live stream.
         armWatchdog()
         if (part.type === 'finish' && part.finishReason === 'content-filter') {
-          // The gateway blocked this turn (moderation). Drop it from model context;
-          // the blocked user message is the history tail; if exploration announced
-          // tools this turn, a <tools-available> notice sits just before it.
-          history.pop()
-          if (announcedThisTurn.length) {
-            history.pop()
-            for (const n of announcedThisTurn) announcedTools.delete(n)
-          }
+          // The gateway blocked this turn (moderation). Drop it from model context:
+          // truncate back to this turn's user message, which also removes any
+          // <tools-available> notice inserted just before it.
+          history.splice(turnHistoryStart)
+          for (const n of announcedThisTurn) announcedTools.delete(n)
           // Discard partial assistant output (late blocks cut mid-stream)
           messages.value.splice(turnMessagesStart)
           messages.value.push({ role: 'assistant', content: options.refusalMessage || DEFAULT_REFUSAL })
@@ -929,6 +1023,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
       error.value = message
       status.value = 'error'
     } finally {
+      stopToolsWatch?.()
       if (watchdog) clearTimeout(watchdog)
       activity.value = null
       subAgentActivities.value = {}

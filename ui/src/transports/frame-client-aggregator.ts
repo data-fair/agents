@@ -37,6 +37,8 @@ export class FrameClientAggregator {
   private _channel: BroadcastChannel | null = null
   private _servers = new Map<string, ConnectedServer>()
   private _onToolsChanged?: (tools: Record<string, Tool>) => void
+  /** tools/list_changed refreshes still in flight; see settled(). */
+  private _pendingRefreshes = new Set<Promise<void>>()
   private _started = false
 
   constructor (options: FrameClientAggregatorOptions = {}) {
@@ -78,10 +80,11 @@ export class FrameClientAggregator {
       { capabilities: {}, jsonSchemaValidator: new PolyfillJsonSchemaValidator() }
     )
 
-    // Set up tools/list_changed notification handler
+    // Set up tools/list_changed notification handler. The refresh is tracked so a tool
+    // call that CAUSED the change can wait for it — see settled().
     client.setNotificationHandler(ToolListChangedNotificationSchema, async () => {
       debug('tools/list_changed from server=%s', serverId)
-      await this.refreshServerTools(serverId)
+      await this.trackRefresh(serverId)
     })
 
     const server: ConnectedServer = { client, transport, tools: {} }
@@ -97,6 +100,30 @@ export class FrameClientAggregator {
       console.error(`Failed to connect to frame server "${serverId}":`, err)
       this._servers.delete(serverId)
     }
+  }
+
+  /**
+   * Run a refresh while making it awaitable by {@link settled}.
+   */
+  private trackRefresh (serverId: string): Promise<void> {
+    const refresh = this.refreshServerTools(serverId)
+      .finally(() => { this._pendingRefreshes.delete(refresh) })
+    this._pendingRefreshes.add(refresh)
+    return refresh
+  }
+
+  /**
+   * Resolves once every tools/list_changed refresh currently in flight has been folded
+   * into the aggregate (and `onToolsChanged` fired for it).
+   *
+   * A host tool that registers new tools does so DURING its own execution, so the
+   * notification is put on the channel before the tool's result. BroadcastChannel delivery
+   * is FIFO per channel, so by the time a tools/call response resolves, the matching
+   * notification has already been dispatched and its refresh is in this set — which is why
+   * awaiting here is deterministic rather than a timing guess.
+   */
+  async settled (): Promise<void> {
+    while (this._pendingRefreshes.size) await Promise.all([...this._pendingRefreshes])
   }
 
   private async refreshServerTools (serverId: string): Promise<void> {
@@ -125,6 +152,12 @@ export class FrameClientAggregator {
             // leaving validation coherent with the payload we actually consume.
             const callResult = await server.client.request({ method: 'tools/call', params: { name: t.name, arguments: args } }, CallToolResultSchema)
             debug('tool result=%s via server=%s result=%o', t.name, serverId, callResult)
+            // If this call registered or dropped tools (opening a panel, navigating), the
+            // notification is already in flight. Fold it in BEFORE handing the result back:
+            // the caller starts its next model step the moment it has this value, and a
+            // step built a few milliseconds too early misses the new tools for the whole
+            // turn — the bug this ordering exists to prevent.
+            await this.settled()
             return formatMcpToolResult(callResult as McpCallResult)
           }
         })

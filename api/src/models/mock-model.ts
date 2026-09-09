@@ -35,11 +35,25 @@ function buildUsage (promptText: string, outputText: string): LanguageModelV3Usa
   }
 }
 
-function isLoopGuardNudge (content: unknown): boolean {
-  const text = typeof content === 'string'
+function messageText (content: unknown): string {
+  return typeof content === 'string'
     ? content
     : Array.isArray(content) ? (content.find((c: any) => c.type === 'text') as any)?.text ?? '' : ''
-  return /with the same arguments \d+ times in a row/i.test(text)
+}
+
+function isLoopGuardNudge (content: unknown): boolean {
+  return /with the same arguments \d+ times in a row/i.test(messageText(content))
+}
+
+/** The client's exploration mode injects <tools-available> notices as user messages. */
+function isToolsAvailableNotice (content: unknown): boolean {
+  return /<tools-available>/.test(messageText(content))
+}
+
+/** Whether the prompt carries a <tools-available> notice naming this tool. */
+function wasAnnounced (prompt: string | Array<any>, toolName: string): boolean {
+  if (!Array.isArray(prompt)) return false
+  return prompt.some((p: any) => isToolsAvailableNotice(p.content) && messageText(p.content).includes(toolName))
 }
 
 function getLastUserMessage (options: { prompt: string | Array<any> }): string {
@@ -51,7 +65,8 @@ function getLastUserMessage (options: { prompt: string | Array<any> }): string {
     // arguments N times in a row" user message before it stops a runaway. The mock
     // deliberately ignores it (a runaway model would too), so the seams below keep
     // reading the real user message and the guard's stop + close-out path is exercised.
-    const userMessages = options.prompt.filter((p: any) => p.role === 'user' && !isLoopGuardNudge(p.content))
+    const userMessages = options.prompt.filter((p: any) => p.role === 'user' &&
+      !isLoopGuardNudge(p.content) && !isToolsAvailableNotice(p.content))
     const lastUserMsg = userMessages[userMessages.length - 1]
     if (lastUserMsg) {
       const content = lastUserMsg.content
@@ -248,10 +263,38 @@ function processSelectToolsSeam (lastMessage: string, tools: Array<any> | undefi
   }
 }
 
+/**
+ * Mid-turn tool refresh seam: "chain <first> <then>" calls <first>, then <then> — but only
+ * if <then> was actually advertised on that later step. The point is that <first> is a tool
+ * whose execution registers <then> (a page mounting components), so the second call is
+ * possible only when the tool set handed to the running stream is live rather than frozen
+ * at request time. When <then> is missing the mock says so in plain text, which is exactly
+ * what the pre-fix behaviour looks like.
+ */
+function processChainSeam (lastMessage: string, prompt: string | Array<any>, tools: Array<any> | undefined): MockPromptResult | null {
+  const match = lastMessage.match(/^chain (\w+) (\w+)$/i)
+  if (!match) return null
+  const [, first, then] = match
+  const called = getCalledToolNames(prompt)
+  if (!called.has(first)) return { type: 'tool-call', toolName: first, toolArgs: '{}' }
+  if (called.has(then)) return { type: 'text', text: `chained ${first} then ${then}` }
+  const advertised = Array.isArray(tools) &&
+    tools.some((t: any) => (t?.name ?? t?.function?.name) === then)
+  if (!advertised) {
+    // Exploration mode gates tools behind explore_tools, so a tool that appeared mid-turn
+    // is announced before it is callable. Report both facts so a test can tell "the model
+    // was never told" apart from "the model was told but has not promoted it yet".
+    return { type: 'text', text: `tool ${then} is not available (announced: ${wasAnnounced(prompt, then) ? 'yes' : 'no'})` }
+  }
+  return { type: 'tool-call', toolName: then, toolArgs: '{}' }
+}
+
 function processForModel (modelId: string, options: { prompt: string | Array<any>, tools?: Array<any> }): MockPromptResult {
   const lastMessage = getLastUserMessage(options)
   const seam = processSelectToolsSeam(lastMessage, options.tools)
   if (seam) return seam
+  const chained = processChainSeam(lastMessage, options.prompt, options.tools)
+  if (chained) return chained
   // Silent-drop test seams (apply to every model role): "empty" makes the model
   // return an empty completion (no text, no tool call), "stream error" makes the
   // stream fail mid-flight. Both previously ended the conversation silently.

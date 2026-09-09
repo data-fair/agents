@@ -101,6 +101,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/_dev/chat-live-tools': RouteRecordInfo<
+      '/_dev/chat-live-tools',
+      '/_dev/chat-live-tools',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/_dev/chat-mcp': RouteRecordInfo<
       '/_dev/chat-mcp',
       '/_dev/chat-mcp',
@@ -266,6 +273,14 @@ declare module 'vue-router/auto-routes' {
     'src/pages/_dev/chat-iframe-tools.vue': {
       routes:
         | '/_dev/chat-iframe-tools'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/_dev/chat-live-tools.vue': {
+      routes:
+        | '/_dev/chat-live-tools'
       views:
         | never
       pathParamNames:

@@ -103,6 +103,7 @@ declare global {
   const reactiveSearchParamsKey: typeof import('../src/composables/use-webmcp')['reactiveSearchParamsKey']
   const readFlags: typeof import('../src/utils/agent-flags')['readFlags']
   const readonly: typeof import('vue').readonly
+  const reconcileTools: typeof import('../src/composables/live-tools').reconcileTools
   const redactHistoryMediaToolResults: typeof import('../src/utils/tool-result').redactHistoryMediaToolResults
   const redactMediaToolResult: typeof import('../src/utils/tool-result').redactMediaToolResult
   const ref: typeof import('vue').ref
@@ -199,6 +200,9 @@ declare global {
   export type { StreamMessage, StreamPart, ActivityPhase, StreamScope } from '../src/composables/agent-stream-parts'
   import('../src/composables/agent-stream-parts')
   // @ts-ignore
+  export type { ToolsDelta } from '../src/composables/live-tools'
+  import('../src/composables/live-tools')
+  // @ts-ignore
   export type { SubAgentFlattenConfig } from '../src/composables/sub-agent-flatten'
   import('../src/composables/sub-agent-flatten')
   // @ts-ignore
@@ -285,6 +289,7 @@ declare module 'vue' {
     readonly provide: UnwrapRef<typeof import('vue')['provide']>
     readonly reactive: UnwrapRef<typeof import('vue')['reactive']>
     readonly readonly: UnwrapRef<typeof import('vue')['readonly']>
+    readonly reconcileTools: UnwrapRef<typeof import('../src/composables/live-tools')['reconcileTools']>
     readonly redactHistoryMediaToolResults: UnwrapRef<typeof import('../src/utils/tool-result')['redactHistoryMediaToolResults']>
     readonly redactMediaToolResult: UnwrapRef<typeof import('../src/utils/tool-result')['redactMediaToolResult']>
     readonly ref: UnwrapRef<typeof import('vue')['ref']>
