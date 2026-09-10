@@ -6,7 +6,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { generateText } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
-import { axiosAuth, superAdmin, clean, directoryUrl, defaultQuotas } from '../../support/axios.ts'
+import { axiosAuth, superAdmin, clean, directoryUrl, defaultQuotas, proxyHeaders } from '../../support/axios.ts'
 
 const admin = await superAdmin                       // superadmin, adminMode: true
 const externalUser = await axiosAuth('test1-user1')  // not a member of test-standalone1
@@ -28,7 +28,7 @@ async function gatewayProvider (ax: any, ownerType: string, ownerId: string) {
   return createOpenAI({
     baseURL: `http://localhost:${process.env.DEV_API_PORT}/api/gateway/${ownerType}/${ownerId}/v1`,
     apiKey: 'unused',
-    headers: { cookie },
+    headers: { ...proxyHeaders, cookie },
     name: 'data-fair-gateway'
   })
 }

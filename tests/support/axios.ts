@@ -4,7 +4,20 @@ import { axiosAuth as _axiosAuth } from '@data-fair/lib-node/axios-auth.js'
 export const directoryUrl = `http://localhost:${process.env.NGINX_PORT}/simple-directory`
 export const baseURL = `http://localhost:${process.env.DEV_API_PORT}`
 
-const axiosOpts = { baseURL }
+// API tests address the server directly on DEV_API_PORT, so unlike every real client
+// (and unlike the e2e tests) nothing sits in front of it to set the x-forwarded-*
+// headers. The server needs the client IP for two things and has no fallback for a
+// missing header: per-IP anonymous quota tracking, and the hard IP binding that
+// simple-directory stamps into sensitive sessions (superadmins get boundIp in their
+// token, and a mismatch or missing header rejects the request). So the test client
+// stands in for the reverse proxy here.
+// 127.0.0.1 is the address simple-directory itself records as boundIp at login: it is
+// reached through nginx, which resolves this same loopback client. The two must agree.
+// Exported because the gateway specs drive the API through the AI SDK rather than these
+// axios instances, and those clients have to set the header for themselves.
+export const proxyHeaders = { 'x-forwarded-for': '127.0.0.1' }
+
+const axiosOpts = { baseURL, headers: proxyHeaders }
 
 export const axios = (opts = {}) => axiosBuilder({ ...axiosOpts, ...opts })
 export const anonymousAx = axios()

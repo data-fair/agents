@@ -3,7 +3,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { generateText } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
-import { axiosAuth, superAdmin, clean, directoryUrl } from '../../support/axios.ts'
+import { axiosAuth, superAdmin, clean, directoryUrl, proxyHeaders } from '../../support/axios.ts'
 
 const user = await axiosAuth('test-standalone1')
 const admin = await superAdmin
@@ -23,7 +23,7 @@ async function chat (storeTraces: boolean, headers: Record<string, string>) {
   const provider = createOpenAI({
     baseURL: `http://localhost:${process.env.DEV_API_PORT}/api/gateway/user/test-standalone1/v1`,
     apiKey: 'unused',
-    headers: { ...headers, cookie: [cookieString, (headers as any).cookie].filter(Boolean).join('; ') },
+    headers: { ...proxyHeaders, ...headers, cookie: [cookieString, (headers as any).cookie].filter(Boolean).join('; ') },
     name: 'data-fair-gateway'
   })
   await generateText({ model: provider.chat('assistant'), messages: [{ role: 'user', content: 'hello' }] })
@@ -169,7 +169,7 @@ test.describe('Trace storage API', () => {
     const provider = createOpenAI({
       baseURL: `http://localhost:${process.env.DEV_API_PORT}/api/gateway/organization/test1/v1`,
       apiKey: 'unused',
-      headers: { cookie: cookieString, 'x-trace-consent': 'yes', 'x-trace-conversation': 'conv-gdpr', 'x-trace-ctx': 'turn:t1' },
+      headers: { ...proxyHeaders, cookie: cookieString, 'x-trace-consent': 'yes', 'x-trace-conversation': 'conv-gdpr', 'x-trace-ctx': 'turn:t1' },
       name: 'data-fair-gateway'
     })
     await generateText({ model: provider.chat('assistant'), messages: [{ role: 'user', content: 'hello' }] })

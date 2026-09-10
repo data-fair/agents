@@ -6,7 +6,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { generateText } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
-import { axiosAuth, superAdmin, anonymousAx, clean, directoryUrl, getAnonymousActionToken } from '../../support/axios.ts'
+import { axiosAuth, superAdmin, anonymousAx, clean, directoryUrl, getAnonymousActionToken, proxyHeaders } from '../../support/axios.ts'
 
 const user = await axiosAuth('test-standalone1')
 const admin = await superAdmin
@@ -58,7 +58,7 @@ test.describe('Usage API', () => {
     const provider = createOpenAI({
       baseURL: `http://localhost:${process.env.DEV_API_PORT}/api/gateway/user/test-standalone1/v1`,
       apiKey: 'unused',
-      headers: { cookie: cookieString },
+      headers: { ...proxyHeaders, cookie: cookieString },
       name: 'data-fair-gateway'
     })
     await generateText({

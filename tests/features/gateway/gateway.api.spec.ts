@@ -8,7 +8,7 @@ import assert from 'node:assert/strict'
 import { generateText, streamText } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
-import { axiosAuth, superAdmin, clean, directoryUrl, defaultQuotas, anonymousAx, getAnonymousActionToken } from '../../support/axios.ts'
+import { axiosAuth, superAdmin, clean, directoryUrl, defaultQuotas, anonymousAx, getAnonymousActionToken, proxyHeaders } from '../../support/axios.ts'
 
 const user = await axiosAuth('test-standalone1')
 const admin = await superAdmin
@@ -46,7 +46,7 @@ async function createGatewayProvider (ax: any, ownerType = 'user', ownerId = 'te
   return createOpenAI({
     baseURL: `http://localhost:${process.env.DEV_API_PORT}/api/gateway/${ownerType}/${ownerId}/v1`,
     apiKey: 'unused',
-    headers: { cookie: cookieString },
+    headers: { ...proxyHeaders, cookie: cookieString },
     name: 'data-fair-gateway'
   })
 }
@@ -102,7 +102,7 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
       name: 'data-fair-gateway',
       baseURL: `http://localhost:${process.env.DEV_API_PORT}/api/gateway/user/test-standalone1/v1`,
       apiKey: 'unused',
-      headers: { cookie: cookieString }
+      headers: { ...proxyHeaders, cookie: cookieString }
     })
     const result = streamText({ model: provider.chatModel('assistant'), messages: [{ role: 'user', content: 'reason' }] })
     let text = ''; let reasoning = ''
@@ -120,7 +120,7 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
       name: 'data-fair-gateway',
       baseURL: `http://localhost:${process.env.DEV_API_PORT}/api/gateway/user/test-standalone1/v1`,
       apiKey: 'unused',
-      headers: { cookie: cookieString }
+      headers: { ...proxyHeaders, cookie: cookieString }
     })
     const result = await generateText({ model: provider.chatModel('assistant'), messages: [{ role: 'user', content: 'reason' }] })
     assert.equal(result.text, 'world')
