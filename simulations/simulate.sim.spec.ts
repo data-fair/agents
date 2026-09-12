@@ -24,26 +24,41 @@ for (const simCase of selected) {
     let turns = 0
     let error: string | undefined
 
-    await assertBridgeUp()
-    await clean()
-    await seedSettings(ASSISTANT_MODEL)
-
     page.on('console', m => { if (m.type() === 'error') consoleErrors.push(m.text()) })
     const gateway = captureGateway(page)
 
     const conversation: Array<{ role: string, text: string }> = []
     try {
+      // Setup lives inside the try too: a case that fails to dispatch (bridge
+      // down, seeding rejected) must still write an invalid sidecar naming the
+      // error, rather than leaving a previous run's evidence on disk to be
+      // mistaken for this run's result.
+      await assertBridgeUp()
+      await clean()
+      await seedSettings(ASSISTANT_MODEL)
+
       await goToWithAuth(simCase.route, 'test-standalone1')
       await page.getByPlaceholder('Type your message...').waitFor({ state: 'visible', timeout: 30000 })
 
       for (let i = 0; i < simCase.maxTurns; i++) {
         const message = await nextUserMessage(simCase, conversation, simCase.maxTurns - i)
-        if (isDone(message) || message === '') break
-        turns++
+        if (isDone(message)) break
+        if (message === '') {
+          // Distinct from a real stop: the persona subprocess produced no text
+          // at all (refusal, swallowed error, empty completion). Recording this
+          // as a clean stop would let a judge reason about why the person "left
+          // satisfied" when nothing of the sort happened.
+          error = `simulated user returned no message (empty completion) on turn ${i + 1}`
+          break
+        }
         await sendMessage(page, message)
         await waitForTurn(page)
         conversation.length = 0
         conversation.push(...await readConversation(page))
+        // Counted only once the turn is actually reflected in the transcript,
+        // so a throw from sendMessage/waitForTurn/readConversation does not
+        // inflate the sidecar's turn count past what the transcript shows.
+        turns++
       }
     } catch (err) {
       error = err instanceof Error ? err.message : String(err)
