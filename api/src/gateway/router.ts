@@ -137,6 +137,12 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
       }
     }
 
+    // Advertise the assistant budget on every response regardless of the role
+    // called: the client compacts the main history, whichever role it just used.
+    // Set before any early-return refusal path (strike cooldown, quota) below, so
+    // a refused caller still learns its budget and can compact on its next turn.
+    res.setHeader('x-context-budget', String(contextBudget(settings, 'assistant')))
+
     // Strikes & the cooldown are an anti-abuse measure for untrusted callers
     // only. Moderated trusted members get individual messages blocked by the
     // gate below, but are never locked out.
@@ -181,9 +187,6 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
 
     const storeTraces = settings.storeTraces === true
     if (storeTraces) res.setHeader('x-trace-storage', 'available')
-    // Advertise the assistant budget on every response regardless of the role
-    // called: the client compacts the main history, whichever role it just used.
-    res.setHeader('x-context-budget', String(contextBudget(settings, 'assistant')))
     const consented = req.get('x-trace-consent') === 'yes'
     const shouldStoreTrace = storeTraces && consented
 
