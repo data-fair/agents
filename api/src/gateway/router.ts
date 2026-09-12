@@ -360,12 +360,19 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
           }
           const inputTokens = gen.usage?.inputTokens ?? 0
           const outputTokens = gen.usage?.outputTokens ?? 0
-          const cost = computeCost(inputTokens, outputTokens, inputPricePerMillion, outputPricePerMillion)
+          const details = gen.usage?.inputTokenDetails
+          const cost = computeCost({
+            inputTokens,
+            outputTokens,
+            noCacheTokens: details?.noCacheTokens,
+            cacheReadTokens: details?.cacheReadTokens,
+            cacheWriteTokens: details?.cacheWriteTokens
+          }, { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion: undefined, cacheWritePricePerMillion: undefined })
           if (cost > 0) await recordUsage(owner, cost, usageUserId, usageUserName, poolId)
           sseWrite(`data: ${JSON.stringify({ id: completionId, object: 'chat.completion.chunk', created, model: modelId, choices: [{ index: 0, delta: {}, finish_reason: mapFinishReason(gen.finishReason as FinishReason) }], usage: buildUsage(gen.usage) })}\n\n`)
           const recordFinishTrace = () => recordTrace(
             { content: streamedText, toolCalls: [...streamedToolCalls.values()], finishReason: mapFinishReason(gen.finishReason as FinishReason) },
-            { inputTokens, outputTokens, cacheReadTokens: gen.usage?.inputTokenDetails?.cacheReadTokens, cacheWriteTokens: gen.usage?.inputTokenDetails?.cacheWriteTokens },
+            { inputTokens, outputTokens, cacheReadTokens: details?.cacheReadTokens, cacheWriteTokens: details?.cacheWriteTokens },
             ttfc
           )
           if (gateState === 'pending') deferredFinishTrace = recordFinishTrace
@@ -443,7 +450,14 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
             // Record usage for streaming responses (money cost)
               const inputTokens = part.totalUsage?.inputTokens ?? 0
               const outputTokens = part.totalUsage?.outputTokens ?? 0
-              const cost = computeCost(inputTokens, outputTokens, inputPricePerMillion, outputPricePerMillion)
+              const details = part.totalUsage?.inputTokenDetails
+              const cost = computeCost({
+                inputTokens,
+                outputTokens,
+                noCacheTokens: details?.noCacheTokens,
+                cacheReadTokens: details?.cacheReadTokens,
+                cacheWriteTokens: details?.cacheWriteTokens
+              }, { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion: undefined, cacheWritePricePerMillion: undefined })
               if (cost > 0) {
                 await recordUsage(owner, cost, usageUserId, usageUserName, poolId)
               }
@@ -459,7 +473,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
 
               const recordFinishTrace = () => recordTrace(
                 { content: streamedText, toolCalls: [...streamedToolCalls.values()], finishReason: mapFinishReason(part.finishReason as FinishReason) },
-                { inputTokens, outputTokens, cacheReadTokens: part.totalUsage?.inputTokenDetails?.cacheReadTokens, cacheWriteTokens: part.totalUsage?.inputTokenDetails?.cacheWriteTokens },
+                { inputTokens, outputTokens, cacheReadTokens: details?.cacheReadTokens, cacheWriteTokens: details?.cacheWriteTokens },
                 ttfc
               )
               // While the gate is pending the content must not reach trace storage:
@@ -553,7 +567,14 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
       // Record usage (money cost)
       const inputTokens = result.usage?.inputTokens ?? 0
       const outputTokens = result.usage?.outputTokens ?? 0
-      const cost = computeCost(inputTokens, outputTokens, inputPricePerMillion, outputPricePerMillion)
+      const details = result.usage?.inputTokenDetails
+      const cost = computeCost({
+        inputTokens,
+        outputTokens,
+        noCacheTokens: details?.noCacheTokens,
+        cacheReadTokens: details?.cacheReadTokens,
+        cacheWriteTokens: details?.cacheWriteTokens
+      }, { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion: undefined, cacheWritePricePerMillion: undefined })
       if (cost > 0) {
         await recordUsage(owner, cost, usageUserId, usageUserName, poolId)
       }
@@ -596,7 +617,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
           toolCalls: (result.toolCalls ?? []).map((tc: { toolCallId: string, toolName: string, input?: unknown }) => ({ id: tc.toolCallId, name: tc.toolName, arguments: JSON.stringify(tc.input ?? {}) })),
           finishReason: mapFinishReason(result.finishReason as FinishReason)
         },
-        { inputTokens, outputTokens, cacheReadTokens: result.usage?.inputTokenDetails?.cacheReadTokens, cacheWriteTokens: result.usage?.inputTokenDetails?.cacheWriteTokens }
+        { inputTokens, outputTokens, cacheReadTokens: details?.cacheReadTokens, cacheWriteTokens: details?.cacheWriteTokens }
       )
     }
   } catch (err) {

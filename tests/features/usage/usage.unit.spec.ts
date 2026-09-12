@@ -89,14 +89,75 @@ test.describe('isUntrustedRole', () => {
 test.describe('computeCost', () => {
   test('computes cost from tokens and prices per million', () => {
     // 500k input @ $2/M + 100k output @ $6/M = 1 + 0.6 = 1.6
-    assert.equal(computeCost(500_000, 100_000, 2, 6), 1.6)
+    assert.equal(computeCost({ inputTokens: 500_000, outputTokens: 100_000 }, { inputPricePerMillion: 2, outputPricePerMillion: 6 }), 1.6)
   })
 
   test('zero tokens → zero cost', () => {
-    assert.equal(computeCost(0, 0, 10, 20), 0)
+    assert.equal(computeCost({ inputTokens: 0, outputTokens: 0 }, { inputPricePerMillion: 10, outputPricePerMillion: 20 }), 0)
   })
 
   test('zero prices → zero cost', () => {
-    assert.equal(computeCost(1_000_000, 1_000_000, 0, 0), 0)
+    assert.equal(computeCost({ inputTokens: 1_000_000, outputTokens: 1_000_000 }, { inputPricePerMillion: 0, outputPricePerMillion: 0 }), 0)
+  })
+})
+
+test.describe('computeCost with cache tokens', () => {
+  const prices = {
+    inputPricePerMillion: 3,
+    outputPricePerMillion: 15,
+    cachedInputPricePerMillion: 0.3,
+    cacheWritePricePerMillion: 3.75
+  }
+
+  test('no cache details → whole input billed at input price', () => {
+    const cost = computeCost({ inputTokens: 1_000_000, outputTokens: 0 }, prices)
+    assert.equal(cost, 3)
+  })
+
+  test('noCacheTokens is taken verbatim, never recomputed', () => {
+    // total 1M of which 900k were cache reads
+    const cost = computeCost(
+      { inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 100_000, cacheReadTokens: 900_000 },
+      prices
+    )
+    // 100k * 3/1M + 900k * 0.3/1M
+    assert.equal(cost, 0.3 + 0.27)
+  })
+
+  test('falls back to subtraction when noCacheTokens is absent', () => {
+    const cost = computeCost(
+      { inputTokens: 1_000_000, outputTokens: 0, cacheReadTokens: 900_000 },
+      prices
+    )
+    assert.equal(cost, 0.3 + 0.27)
+  })
+
+  test('cache writes are billed at the write price', () => {
+    const cost = computeCost(
+      { inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 0, cacheWriteTokens: 1_000_000 },
+      prices
+    )
+    assert.equal(cost, 3.75)
+  })
+
+  test('subtraction fallback never goes negative', () => {
+    const cost = computeCost(
+      { inputTokens: 100, outputTokens: 0, cacheReadTokens: 900 },
+      prices
+    )
+    assert.equal(cost, 900 * 0.3 / 1_000_000)
+  })
+
+  test('missing cache prices default to 0, not to the input price', () => {
+    const cost = computeCost(
+      { inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 0, cacheReadTokens: 1_000_000 },
+      { inputPricePerMillion: 3, outputPricePerMillion: 15 }
+    )
+    assert.equal(cost, 0)
+  })
+
+  test('output tokens still billed', () => {
+    const cost = computeCost({ inputTokens: 0, outputTokens: 1_000_000 }, prices)
+    assert.equal(cost, 15)
   })
 })

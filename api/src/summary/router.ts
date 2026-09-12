@@ -92,7 +92,14 @@ router.post('/:type/:id', async (req, res, next) => {
     // Record usage after completion (money cost)
     const inputTokens = usage?.inputTokens ?? 0
     const outputTokens = usage?.outputTokens ?? 0
-    const cost = computeCost(inputTokens, outputTokens, inputPricePerMillion, outputPricePerMillion)
+    const details = usage?.inputTokenDetails
+    const cost = computeCost({
+      inputTokens,
+      outputTokens,
+      noCacheTokens: details?.noCacheTokens,
+      cacheReadTokens: details?.cacheReadTokens,
+      cacheWriteTokens: details?.cacheWriteTokens
+    }, { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion: undefined, cacheWritePricePerMillion: undefined })
     if (cost > 0) {
       await recordUsage(owner, cost, usageUserId, usageUserName, poolId)
     }

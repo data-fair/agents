@@ -73,8 +73,42 @@ export function checkQuota (usage: UsageInfo, limits: UsageLimits, scope: string
   return null
 }
 
-export function computeCost (inputTokens: number, outputTokens: number, inputPricePerMillion: number, outputPricePerMillion: number): number {
-  return (inputTokens * inputPricePerMillion + outputTokens * outputPricePerMillion) / 1_000_000
+export interface TokenPrices {
+  inputPricePerMillion: number
+  outputPricePerMillion: number
+  cachedInputPricePerMillion?: number
+  cacheWritePricePerMillion?: number
+}
+
+export interface TokenCounts {
+  /** TOTAL input tokens, inclusive of cache reads (ai@6 `usage.inputTokens`). */
+  inputTokens: number
+  outputTokens: number
+  /** Non-cached portion (ai@6 `usage.inputTokenDetails.noCacheTokens`). */
+  noCacheTokens?: number
+  cacheReadTokens?: number
+  cacheWriteTokens?: number
+}
+
+/**
+ * ai@6 normalizes the provider disagreement about whether `inputTokens` includes
+ * cache reads: `inputTokens` is always the total and `noCacheTokens` the billable
+ * remainder. Take `noCacheTokens` verbatim when present; the subtraction is only a
+ * fallback for providers/mocks that omit the detail.
+ */
+export function computeCost (counts: TokenCounts, prices: TokenPrices): number {
+  const cacheRead = counts.cacheReadTokens ?? 0
+  const cacheWrite = counts.cacheWriteTokens ?? 0
+  const noCache = counts.noCacheTokens ?? Math.max(counts.inputTokens - cacheRead - cacheWrite, 0)
+  // Divide each term individually rather than summing first and dividing once: the two
+  // are not equivalent in floating point, and per-term division is what test expectations
+  // (and every other cost computation in this codebase) are built from.
+  return (
+    (noCache * prices.inputPricePerMillion) / 1_000_000 +
+    (cacheRead * (prices.cachedInputPricePerMillion ?? 0)) / 1_000_000 +
+    (cacheWrite * (prices.cacheWritePricePerMillion ?? 0)) / 1_000_000 +
+    (counts.outputTokens * prices.outputPricePerMillion) / 1_000_000
+  )
 }
 
 export interface QuotaCheckInput {
