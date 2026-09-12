@@ -31,5 +31,13 @@ graph LR
 | `evaluator` | Quality control / reasoning | 1.0 |
 | `moderator` | Input moderation guard (internal, gateway-side) | 0.5 |
 
+Each role also carries an optional **context-window override** (tokens) and
+optional **cached input** / **cache write** prices per million tokens. Left empty,
+they fall back to whatever the provider's model listing reported when the model
+was picked (only OpenRouter and the mock provider report a context length today;
+everything else, Ollama included, falls back to a conservative 32000-token
+default). See [Conversation history compaction](./compaction.md) for how the
+context window feeds the compaction budget.
+
 Each owner (user or organization) configures their own providers and model assignments. API keys are **encrypted at rest** (AES-256-CBC) and obfuscated in API responses. Model lists are fetched from provider APIs with **5-minute memoized caching**.
 
