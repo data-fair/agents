@@ -1003,267 +1003,80 @@ git commit -m "feat(dev): live session continuity for the claude-bridge"
 
 ### Task 6: Wire up `POST /v1/chat/completions`
 
-The only I/O-bearing task. It is deliberately last: every decision it depends on is already tested.
+> **Corrected during execution.** The design first drafted here deadlocked, and the
+> correction is the substance of this task — see `dev/claude-bridge/conversation.ts`
+> for the implementation and `tests/features/claude-bridge/conversation.unit.spec.ts`
+> for the regression test.
+>
+> **The hazard.** The SDK yields the assistant message and *then* invokes the MCP tool
+> handler. A consumer that checks for tool calls inside its own `for await` body looks
+> before the handler has run, finds nothing, loops, and blocks forever on an iterator
+> the SDK is no longer feeding — because the SDK is itself blocked on the suspended
+> handler. Every conversation would hang on its first tool call.
+>
+> **The correction.** Because the query outlives a single HTTP request, the stream
+> consumer must outlive it too. `Conversation` runs **one** consumer for the whole
+> conversation, writing into whichever HTTP response is currently attached as its
+> sink. A turn ends on whichever happens first:
+>   - the tool handlers suspending (debounced by `SETTLE_MS = 50` so parallel calls in
+>     one assistant message are handed back together), or
+>   - the query finishing, or erroring.
+>
+> `SessionStore` holds `Conversation`s directly; the `iterator`/`collected` fields the
+> draft bolted onto `LiveSession` are gone, since the conversation owns that state.
 
 **Files:**
-- Modify: `dev/claude-bridge/server.ts`
+- Create: `dev/claude-bridge/conversation.ts` — the turn machine
+- Create: `tests/features/claude-bridge/conversation.unit.spec.ts` — 8 tests
+- Modify: `dev/claude-bridge/server.ts` — routes, SSE, the fast/replay paths
+- Modify: `dev/claude-bridge/sessions.ts` — drop the unused optional fields
 
-**Interfaces:**
-- Consumes: everything produced by Tasks 2-5.
-- Produces: `createServer` gains a `store: SessionStore` internally; adds `GET /_bridge/status`.
+- [ ] **Step 1: Write the regression test first**
 
-- [ ] **Step 1: Replace `dev/claude-bridge/server.ts`**
-
-Keep the `MODELS` constant and the models route from Task 1; add the rest:
-
-```ts
-/**
- * HTTP layer for the Claude Code bridge. Dev-only: presents the Claude Agent SDK
- * as an OpenAI-compatible provider so the dev workspace can run on subscription
- * models. Never imported by api/, ui/ or the published libs.
- */
-import http from 'node:http'
-import crypto from 'node:crypto'
-import { query } from '@anthropic-ai/claude-agent-sdk'
-import { createNeutralCwd, isolationOptions } from './isolation.ts'
-import { createToolServer } from './tool-server.ts'
-import { SessionStore, continuationOf, hashMessages, type LiveSession } from './sessions.ts'
-import {
-  extractSystemPrompt, renderTranscript, mcpNameToTool, textChunk, toolCallsChunk,
-  finalChunk, mapUsage, errorBody, MCP_SERVER_NAME,
-  type OpenAIMessage, type OpenAIToolCall, type OpenAIToolDef
-} from './openai.ts'
-
-export const MODELS = [
-  { id: 'opus', name: 'Claude Opus (Claude Code default alias)' },
-  { id: 'sonnet', name: 'Claude Sonnet (Claude Code default alias)' },
-  { id: 'haiku', name: 'Claude Haiku (Claude Code default alias)' },
-  { id: 'claude-haiku-4-5-20251001', name: 'Claude Haiku 4.5' }
-]
-
-const NEUTRAL_CWD = createNeutralCwd()
-
-type CompletionRequest = {
-  model?: string
-  messages?: OpenAIMessage[]
-  tools?: OpenAIToolDef[]
-}
-
-function readBody (req: http.IncomingMessage): Promise<string> {
-  return new Promise((resolve, reject) => {
-    let raw = ''
-    req.on('data', c => { raw += c })
-    req.on('end', () => { resolve(raw) })
-    req.on('error', reject)
-  })
-}
-
-export function createServer (opts: { port: number }) {
-  const store = new SessionStore()
-  const sweeper = setInterval(() => { store.sweep() }, 60000)
-  sweeper.unref()
-
-  const server = http.createServer((req, res) => {
-    if (req.method === 'GET' && req.url === '/v1/models') {
-      res.writeHead(200, { 'content-type': 'application/json' })
-      res.end(JSON.stringify({ object: 'list', data: MODELS }))
-      return
-    }
-    if (req.method === 'GET' && req.url === '/_bridge/status') {
-      res.writeHead(200, { 'content-type': 'application/json' })
-      res.end(JSON.stringify({ liveSessions: store.size, cwd: NEUTRAL_CWD }))
-      return
-    }
-    if (req.method === 'POST' && req.url === '/v1/chat/completions') {
-      handleCompletion(req, res, store).catch((err: unknown) => {
-        const message = err instanceof Error ? err.message : String(err)
-        if (!res.headersSent) {
-          res.writeHead(500, { 'content-type': 'application/json' })
-          res.end(JSON.stringify(errorBody(message)))
-        } else {
-          res.write(`data: ${JSON.stringify(errorBody(message))}\n\n`)
-          res.end()
-        }
-      })
-      return
-    }
-    res.writeHead(404, { 'content-type': 'application/json' })
-    res.end(JSON.stringify(errorBody('not found', 'invalid_request_error')))
-  })
-  server.listen(opts.port)
-  return server
-}
-
-async function handleCompletion (req: http.IncomingMessage, res: http.ServerResponse, store: SessionStore) {
-  const body = JSON.parse(await readBody(req)) as CompletionRequest
-  const messages = body.messages ?? []
-  const tools = body.tools ?? []
-  const model = body.model ?? 'sonnet'
-  const id = `chatcmpl-${crypto.randomUUID()}`
-
-  res.writeHead(200, {
-    'content-type': 'text/event-stream',
-    'cache-control': 'no-cache',
-    connection: 'keep-alive'
-  })
-  const send = (payload: object) => { res.write(`data: ${JSON.stringify(payload)}\n\n`) }
-
-  // --- fast path: resume a suspended query with the tool results it awaits ---
-  const continuation = continuationOf(messages)
-  if (continuation) {
-    const live = store.get(continuation.key)
-    const awaited = live && continuation.toolResults.every(r => live.pending.has(r.id))
-    if (live && awaited) {
-      live.lastSeen = Date.now()
-      const turn = nextTurn(live, id, model, send, res, store, messages)
-      for (const r of continuation.toolResults) {
-        const resolve = live.pending.get(r.id)!
-        live.pending.delete(r.id)
-        resolve(r.content)
-      }
-      await turn
-      return
-    }
-    // Diverged, expired, or answering calls this session never made: drop it.
-    if (live) store.delete(continuation.key)
-  }
-
-  await freshTurn(messages, tools, model, id, send, res, store)
-}
-
-/**
- * Start a new SDK query for this conversation and stream its first turn.
- */
-async function freshTurn (
-  messages: OpenAIMessage[], tools: OpenAIToolDef[], model: string, id: string,
-  send: (payload: object) => void, res: http.ServerResponse, store: SessionStore
-) {
-  const key = hashMessages(messages)
-  const pending = new Map<string, (result: string) => void>()
-  const collected: OpenAIToolCall[] = []
-
-  const toolServer = createToolServer(tools, async (name, args) => {
-    const callId = `call_${crypto.randomUUID()}`
-    collected.push({ id: callId, type: 'function', function: { name: mcpNameToTool(name), arguments: JSON.stringify(args) } })
-    return await new Promise<string>(resolve => { pending.set(callId, resolve) })
-  })
-
-  const controller = new AbortController()
-  const q = query({
-    prompt: renderTranscript(messages),
-    options: {
-      ...isolationOptions(NEUTRAL_CWD),
-      model,
-      systemPrompt: extractSystemPrompt(messages),
-      mcpServers: { [MCP_SERVER_NAME]: toolServer },
-      allowedTools: tools.map(t => `mcp__${MCP_SERVER_NAME}__${t.function.name}`),
-      abortController: controller
-    }
-  })
-
-  const session: LiveSession = { key, pending, abort: () => { controller.abort() }, lastSeen: Date.now() }
-  store.set(session)
-  await streamTurn(q, session, id, model, send, res, store, collected)
-}
-
-/**
- * Continue an already-running query: its handlers are about to be resolved, so all
- * that is left is to stream whatever the model does next.
- */
-function nextTurn (
-  live: LiveSession, id: string, model: string, send: (payload: object) => void,
-  res: http.ServerResponse, store: SessionStore, messages: OpenAIMessage[]
-) {
-  // The key advances to the full history the client just sent, so the NEXT
-  // continuation hashes against this turn rather than the previous one. rekey,
-  // never delete+set: delete aborts the query we are about to continue.
-  store.rekey(live.key, hashMessages(messages))
-  return streamTurn(live.iterator!, live, id, model, send, res, store, live.collected!)
-}
-
-async function streamTurn (
-  q: AsyncIterable<any>, session: LiveSession, id: string, model: string,
-  send: (payload: object) => void, res: http.ServerResponse, store: SessionStore,
-  collected: OpenAIToolCall[]
-) {
-  const before = collected.length
-  let usage: object | undefined
-  for await (const msg of q) {
-    if (msg.type === 'assistant') {
-      for (const block of msg.message.content ?? []) {
-        if (block.type === 'text' && block.text) send(textChunk(id, model, block.text))
-      }
-    }
-    if (msg.type === 'result') {
-      usage = mapUsage(msg.usage)
-      if (msg.subtype !== 'success') {
-        send(errorBody(String(msg.result ?? msg.subtype), 'api_error'))
-      }
-    }
-    // A suspended handler means the model asked for tools: hand them back and
-    // close the response, leaving the query alive.
-    if (collected.length > before && session.pending.size > 0) {
-      send(toolCallsChunk(id, model, collected.slice(before)))
-      send(finalChunk(id, model, 'tool_calls', usage))
-      res.write('data: [DONE]\n\n')
-      res.end()
-      return
-    }
-  }
-  send(finalChunk(id, model, 'stop', usage))
-  res.write('data: [DONE]\n\n')
-  res.end()
-  store.delete(session.key)
-}
-```
-
-> **Implementer's note.** `nextTurn` above references `live.iterator` and
-> `live.collected`, which `LiveSession` does not yet carry. Extend the type in
-> `dev/claude-bridge/sessions.ts` with two optional fields — `iterator?: AsyncIterable<unknown>`
-> and `collected?: OpenAIToolCall[]` — and set them in `freshTurn` when the session is
-> created. They are optional so the Task 5 tests, which build sessions by hand, keep
-> compiling unchanged.
-
-- [ ] **Step 2: Extend `LiveSession` in `sessions.ts`**
+The test that matters uses a stream which yields an assistant message and then
+*never closes*, exactly as the SDK behaves while a tool is pending:
 
 ```ts
-export type LiveSession = {
-  key: string
-  pending: Map<string, (result: string) => void>
-  abort: () => void
-  lastSeen: number
-  // Set by the HTTP layer when the query is created; absent in unit tests that
-  // construct sessions by hand.
-  iterator?: AsyncIterable<unknown>
-  collected?: unknown[]
-}
+const conv = new Conversation('k')
+const never = new Promise<void>(() => {})
+const turn = conv.beginTurn(() => {}, openStream([...], never))
+conv.handleToolCall('mcp__bridge__get_weather', { city: 'Paris' }).catch(() => {})
+const outcome = await turn      // must resolve; the draft design hangs here
+assert.equal(outcome.type, 'tools')
 ```
 
-and in `freshTurn`, after building `q`, set `session.iterator = q` and `session.collected = collected` before `store.set(session)`.
+- [ ] **Step 2: Implement `Conversation`, then wire `server.ts`**
 
-- [ ] **Step 3: Verify the existing unit tests still pass**
+`server.ts` keeps `MODELS` and the models route, adds `GET /_bridge/status`, and
+`POST /v1/chat/completions` with two paths:
+- **fast path** — `continuationOf(messages)` matches and the live conversation
+  `awaits()` exactly those tool_call ids: `rekey` to the grown history's hash, attach
+  the new sink, `deliverToolResults`, await the turn.
+- **replay path** — anything else: a fresh `Conversation`, a tool server bound to its
+  `handleToolCall`, and a `query()` built from `isolationOptions(NEUTRAL_CWD)`.
+
+- [ ] **Step 3: Run every bridge unit test**
 
 Run: `npm run test-unit tests/features/claude-bridge/`
-Expected: all 33 pass — the `LiveSession` change is additive and optional.
+Expected: 41 passed (3 isolation + 13 mapping + 5 tool-server + 12 sessions + 8 conversation)
 
-- [ ] **Step 4: Verify against the real dev stack, end to end**
+- [ ] **Step 4: Smoke-test the bridge directly against a real model**
 
-This is the acceptance test for the whole plan; it needs a model, so it is manual.
+Two POSTs to `/v1/chat/completions` with a tool declared: the first must come back
+`finish_reason: tool_calls` with `/_bridge/status` reporting `liveSessions: 1` (the
+query suspended, not aborted); the second, replaying that call plus a `tool` result,
+must return final text citing the result and drop back to `liveSessions: 0`.
 
-1. Confirm services are up: `bash dev/status.sh`
-2. Start the bridge: `npm run dev-bridge` (leave running)
-3. In the agents settings UI (`/agents/admin/user/test-standalone1` as `superadmin` in admin mode), add an **OpenAI Compatible** provider:
-   - Base URL: `http://localhost:3194/v1`
-   - **Compatibility Mode: `compatible`** — mandatory. Left at `default`, `createModel` (`api/src/models/operations.ts:62`) targets `/v1/responses`, which the bridge does not implement.
-   - API Key: leave empty.
-4. Assign `haiku` to the assistant role and save.
-5. Open `/agents/_dev/chat-mcp`, send a message that needs a tool.
-6. Confirm: the assistant answers; the tool is actually called; a follow-up question works.
-7. Confirm caching and session reuse: `curl -s localhost:3194/_bridge/status` shows `liveSessions: 1` mid-conversation.
+- [ ] **Step 5: Verify the agents gateway can drive it**
 
-Record what happened. If a turn hangs, check `dev/logs/dev-bridge.log` first.
+Configure settings for `test-standalone1` with the bridge as an `openai-compatible`
+provider (`compatibility: 'compatible'`), then POST to
+`/api/gateway/user/test-standalone1/v1/chat/completions`. Authenticate as the
+**account owner**, not superadmin — a superadmin cookie against another account's
+gateway is rejected by `assertRoleQuota` with a 403 "You do not have permission to
+use this model".
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 npm run lint-fix && npm run check-types
