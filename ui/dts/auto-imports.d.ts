@@ -13,15 +13,18 @@ declare global {
   const $fetch: typeof import('~/context').$fetch
   const $sitePath: typeof import('~/context').$sitePath
   const $uiConfig: typeof import('~/context').$uiConfig
+  const CHARS_PER_TOKEN: typeof import('../src/utils/compaction-policy').CHARS_PER_TOKEN
   const DEFAULT_FLAGS: typeof import('../src/utils/agent-flags').DEFAULT_FLAGS
   const DEFAULT_REFUSAL: typeof import('../src/composables/moderation')['DEFAULT_REFUSAL']
   const EXPLORE_TOOL_NAME: typeof import('../src/composables/tool-exploration').EXPLORE_TOOL_NAME
   const EffectScope: typeof import('vue').EffectScope
   const FLAGS_COOKIE: typeof import('../src/utils/agent-flags').FLAGS_COOKIE
+  const FLOOR_SHARE: typeof import('../src/utils/compaction-policy').FLOOR_SHARE
   const MERMAID_AUTO_FIX_BUDGET: typeof import('../src/utils/mermaid-fix').MERMAID_AUTO_FIX_BUDGET
   const MODERATION_TASK_MARKER: typeof import('../src/composables/moderation')['MODERATION_TASK_MARKER']
   const REPEATED_CALL_LIMIT: typeof import('../src/composables/agent-loop-guards').REPEATED_CALL_LIMIT
   const REPEATED_CALL_NUDGE_AT: typeof import('../src/composables/agent-loop-guards').REPEATED_CALL_NUDGE_AT
+  const RETENTION_SHARE: typeof import('../src/utils/compaction-policy').RETENTION_SHARE
   const SELECT_TOOL_NAME: typeof import('../src/composables/tool-exploration').SELECT_TOOL_NAME
   const STEP_LIMIT: typeof import('../src/composables/agent-loop-guards').STEP_LIMIT
   const SUBAGENT_DONE_FALLBACK: typeof import('../src/composables/agent-subagent-output').SUBAGENT_DONE_FALLBACK
@@ -42,6 +45,7 @@ declare global {
   const createRouter: typeof import('vue-router').createRouter
   const createWebHistory: typeof import('vue-router').createWebHistory
   const customRef: typeof import('vue').customRef
+  const decideCompaction: typeof import('../src/utils/compaction-policy').decideCompaction
   const defineAsyncComponent: typeof import('vue').defineAsyncComponent
   const defineComponent: typeof import('vue').defineComponent
   const dfDateMatchFilter: typeof import('@data-fair/lib-vuetify/date-match-filter.vue')['default']
@@ -57,6 +61,8 @@ declare global {
   const dfUiNotifAlert: typeof import('@data-fair/lib-vuetify/ui-notif-alert.vue')['default']
   const dfUserAvatar: typeof import('@data-fair/lib-vuetify/ui-user-avatar.vue')['default']
   const effectScope: typeof import('vue').effectScope
+  const estimateMessageTokens: typeof import('../src/utils/compaction-policy').estimateMessageTokens
+  const estimateTokens: typeof import('../src/utils/compaction-policy').estimateTokens
   const extractErrorMessage: typeof import('../src/utils/error').extractErrorMessage
   const formatBytes: typeof import('@data-fair/lib-vue/format/bytes.js').formatBytes
   const formatMcpToolResult: typeof import('../src/utils/tool-result').formatMcpToolResult
@@ -76,6 +82,7 @@ declare global {
   const isRef: typeof import('vue').isRef
   const isRepeatingCalls: typeof import('../src/composables/agent-loop-guards').isRepeatingCalls
   const isShallow: typeof import('vue').isShallow
+  const isTurnBoundary: typeof import('../src/utils/compaction-policy').isTurnBoundary
   const looksLikeIncompleteTable: typeof import('../src/utils/markdown').looksLikeIncompleteTable
   const loopGuardPrepareStep: typeof import('../src/composables/agent-loop-guards').loopGuardPrepareStep
   const markRaw: typeof import('vue').markRaw
@@ -185,6 +192,9 @@ declare global {
   export type { AgentFlags } from '../src/utils/agent-flags'
   import('../src/utils/agent-flags')
   // @ts-ignore
+  export type { CompactionInput, CompactionDecision } from '../src/utils/compaction-policy'
+  import('../src/utils/compaction-policy')
+  // @ts-ignore
   export type { MermaidAutoFixState } from '../src/utils/mermaid-fix'
   import('../src/utils/mermaid-fix')
   // @ts-ignore
@@ -220,13 +230,16 @@ declare module 'vue' {
     readonly $fetch: UnwrapRef<typeof import('~/context')['$fetch']>
     readonly $sitePath: UnwrapRef<typeof import('~/context')['$sitePath']>
     readonly $uiConfig: UnwrapRef<typeof import('~/context')['$uiConfig']>
+    readonly CHARS_PER_TOKEN: UnwrapRef<typeof import('../src/utils/compaction-policy')['CHARS_PER_TOKEN']>
     readonly DEFAULT_FLAGS: UnwrapRef<typeof import('../src/utils/agent-flags')['DEFAULT_FLAGS']>
     readonly EXPLORE_TOOL_NAME: UnwrapRef<typeof import('../src/composables/tool-exploration')['EXPLORE_TOOL_NAME']>
     readonly EffectScope: UnwrapRef<typeof import('vue')['EffectScope']>
     readonly FLAGS_COOKIE: UnwrapRef<typeof import('../src/utils/agent-flags')['FLAGS_COOKIE']>
+    readonly FLOOR_SHARE: UnwrapRef<typeof import('../src/utils/compaction-policy')['FLOOR_SHARE']>
     readonly MERMAID_AUTO_FIX_BUDGET: UnwrapRef<typeof import('../src/utils/mermaid-fix')['MERMAID_AUTO_FIX_BUDGET']>
     readonly REPEATED_CALL_LIMIT: UnwrapRef<typeof import('../src/composables/agent-loop-guards')['REPEATED_CALL_LIMIT']>
     readonly REPEATED_CALL_NUDGE_AT: UnwrapRef<typeof import('../src/composables/agent-loop-guards')['REPEATED_CALL_NUDGE_AT']>
+    readonly RETENTION_SHARE: UnwrapRef<typeof import('../src/utils/compaction-policy')['RETENTION_SHARE']>
     readonly SELECT_TOOL_NAME: UnwrapRef<typeof import('../src/composables/tool-exploration')['SELECT_TOOL_NAME']>
     readonly STEP_LIMIT: UnwrapRef<typeof import('../src/composables/agent-loop-guards')['STEP_LIMIT']>
     readonly SUBAGENT_DONE_FALLBACK: UnwrapRef<typeof import('../src/composables/agent-subagent-output')['SUBAGENT_DONE_FALLBACK']>
@@ -243,9 +256,12 @@ declare module 'vue' {
     readonly createApp: UnwrapRef<typeof import('vue')['createApp']>
     readonly createExploreTool: UnwrapRef<typeof import('../src/composables/tool-exploration')['createExploreTool']>
     readonly customRef: UnwrapRef<typeof import('vue')['customRef']>
+    readonly decideCompaction: UnwrapRef<typeof import('../src/utils/compaction-policy')['decideCompaction']>
     readonly defineAsyncComponent: UnwrapRef<typeof import('vue')['defineAsyncComponent']>
     readonly defineComponent: UnwrapRef<typeof import('vue')['defineComponent']>
     readonly effectScope: UnwrapRef<typeof import('vue')['effectScope']>
+    readonly estimateMessageTokens: UnwrapRef<typeof import('../src/utils/compaction-policy')['estimateMessageTokens']>
+    readonly estimateTokens: UnwrapRef<typeof import('../src/utils/compaction-policy')['estimateTokens']>
     readonly extractErrorMessage: UnwrapRef<typeof import('../src/utils/error')['extractErrorMessage']>
     readonly formatBytes: UnwrapRef<typeof import('@data-fair/lib-vue/format/bytes.js')['formatBytes']>
     readonly formatMcpToolResult: UnwrapRef<typeof import('../src/utils/tool-result')['formatMcpToolResult']>
@@ -265,6 +281,7 @@ declare module 'vue' {
     readonly isRef: UnwrapRef<typeof import('vue')['isRef']>
     readonly isRepeatingCalls: UnwrapRef<typeof import('../src/composables/agent-loop-guards')['isRepeatingCalls']>
     readonly isShallow: UnwrapRef<typeof import('vue')['isShallow']>
+    readonly isTurnBoundary: UnwrapRef<typeof import('../src/utils/compaction-policy')['isTurnBoundary']>
     readonly looksLikeIncompleteTable: UnwrapRef<typeof import('../src/utils/markdown')['looksLikeIncompleteTable']>
     readonly loopGuardPrepareStep: UnwrapRef<typeof import('../src/composables/agent-loop-guards')['loopGuardPrepareStep']>
     readonly markRaw: UnwrapRef<typeof import('vue')['markRaw']>

@@ -14,6 +14,7 @@ import { extractErrorMessage } from '~/utils/error'
 import { redactHistoryMediaToolResults } from '~/utils/tool-result'
 import { readConsent, traceStorageAvailable } from '~/traces/trace-consent'
 import { wrapHiddenContext } from '~/traces/hidden-context'
+import { decideCompaction } from '~/utils/compaction-policy'
 import Debug from 'debug'
 import type { ChatActivity } from './agent-activity.ts'
 import { applyStreamPart, type StreamScope, type StreamPart } from './agent-stream-parts.ts'
@@ -203,9 +204,22 @@ export function useAgentChat (options: UseAgentChatOptions) {
   const tools = ref<Record<string, Tool>>({})
   const toolsVersion = ref(0)
   let history: ModelMessage[] = []
-  // characters of serialized history before compaction
-  // 24000 is roughly equivalent to a 8k tokens context with 10-15 turns of dialogue an 2-3 tool calls
-  const COMPACTION_THRESHOLD = 24_000
+  // Token budget above which history is compacted. Advertised by the gateway
+  // (x-context-budget) as contextWindow × compaction.percent, so it follows the
+  // configured assistant model. Until the first response arrives it is null and
+  // no compaction can be needed — history is at most one user message.
+  const contextBudget = ref<number | null>(null)
+  // Provider-reported TOTAL input tokens for the previous turn. Counts the system
+  // prompt and tool schemas, which a serialized-history measure misses entirely.
+  let lastInputTokens = 0
+  // Serialized history length at the moment lastInputTokens was measured. The
+  // delta against the current length is the estimate for what was appended since —
+  // one snapshot instead of accounting at every history.push site, which would
+  // silently undercount the day someone adds a new push.
+  let measuredChars = 0
+  // How many times this history has already been compacted. Carried so the
+  // summarizer is told it is merging an existing recap, not digesting raw dialogue.
+  let compactionGeneration = 0
   // Read live from `options` (like systemPrompt) so toggling exploration takes
   // effect on the next turn; callers flip it via setToolExploration + reset.
   const explorationEnabled = () => !!options.toolExploration
@@ -310,9 +324,12 @@ export function useAgentChat (options: UseAgentChatOptions) {
     }
   }
 
-  // Surface server-advertised trace storage availability (drives the consent sheet).
+  // Surface server-advertised trace storage availability (drives the consent sheet)
+  // and the account's compaction budget.
   const noteStorageHeader = (res: Response): Response => {
     if (res.headers.get('x-trace-storage') === 'available') traceStorageAvailable.value = true
+    const budget = Number(res.headers.get('x-context-budget'))
+    if (Number.isFinite(budget) && budget > 0) contextBudget.value = budget
     return res
   }
 
@@ -369,6 +386,9 @@ export function useAgentChat (options: UseAgentChatOptions) {
     // abort() above guarantees no in-flight prepareStep will read the old Set
     promotedTools = new Set<string>()
     announcedTools.clear()
+    lastInputTokens = 0
+    measuredChars = 0
+    compactionGeneration = 0
     subAgentActivities.value = {}
     if (newSystemPrompt !== undefined) {
       options.systemPrompt = newSystemPrompt
@@ -414,27 +434,42 @@ export function useAgentChat (options: UseAgentChatOptions) {
   }
 
   async function compactHistory (compactionCtxId: string, signal: AbortSignal): Promise<void> {
-    const threshold = Number(sessionStorage.getItem('agent-chat-compaction-threshold')) || COMPACTION_THRESHOLD
-    const serialized = JSON.stringify(history)
-    if (serialized.length < threshold) return
+    const override = Number(sessionStorage.getItem('agent-chat-compaction-threshold'))
+    const budget = (Number.isFinite(override) && override > 0) ? override : contextBudget.value
+    if (!budget) return
 
-    // Summarize all messages except the latest user message, which we preserve verbatim
-    const lastMessage = history[history.length - 1]
-    const historyToCompact = history.slice(0, -1)
-    if (historyToCompact.length === 0) return
+    const decision = decideCompaction({
+      history,
+      lastInputTokens,
+      appendedChars: Math.max(JSON.stringify(history).length - measuredChars, 0),
+      budget,
+      generation: compactionGeneration
+    })
+    if (!decision.compact) {
+      debug('no compaction: %s', decision.reason)
+      return
+    }
+    const { prefixToSummarize, retained } = decision
 
     // Compaction is otherwise an invisible, multi-second blank gap (a separate
-    // summarizer call over the whole history before the real turn even starts);
-    // name it so the user sees what's happening instead of a mute spinner.
+    // summarizer call before the real turn even starts); name it so the user sees
+    // what's happening instead of a mute spinner. Set only AFTER the decision — the
+    // existing line sits above the old threshold check and would now flash on every turn.
     activity.value = { kind: 'compacting' }
 
-    // The summary becomes the assistant's only memory of everything before the last
-    // user message, so it must stay *actionable*: keep the open task and its next
+    // The summary becomes the assistant's only memory of everything before the
+    // retained window, so it must stay *actionable*: keep the open task and its next
     // step, the user's goals/constraints, decisions, and — verbatim — the identifiers
     // the assistant needs to keep acting (ids, indices, paths, URLs, names, figures).
     // Detailed tool payloads can be dropped (tools remain callable to re-fetch them)
     // but the references to re-fetch them must survive.
-    const prompt = 'You are compacting the earlier part of a conversation between a user and a tool-using AI assistant so it can continue within a smaller context window. Write a dense recap that preserves everything needed to continue seamlessly: any task still in progress and the concrete next step; the user\'s stated goals, preferences and constraints; key decisions and conclusions; and important results from tool calls. Keep identifiers and references verbatim — dataset/resource ids, entry indices, file paths, URLs, names, exact figures — since the assistant may need them to act again. Omit pleasantries and redundant back-and-forth. Be concise, but lossless on actionable details.'
+    const basePrompt = 'You are compacting the earlier part of a conversation between a user and a tool-using AI assistant so it can continue within a smaller context window. Write a dense recap that preserves everything needed to continue seamlessly: any task still in progress and the concrete next step; the user\'s stated goals, preferences and constraints; key decisions and conclusions; and important results from tool calls. Keep identifiers and references verbatim — dataset/resource ids, entry indices, file paths, URLs, names, exact figures — since the assistant may need them to act again. Omit pleasantries and redundant back-and-forth. Be concise, but lossless on actionable details.'
+    // Re-summarizing a summary compounds loss. When a recap is already present it
+    // heads the content below; say so, so the model merges rather than re-digests.
+    const mergeNote = compactionGeneration > 0
+      ? ' The content below BEGINS with a recap produced by an earlier compaction. Merge it with the newer exchanges that follow it into a single recap; preserve every still-relevant detail from that earlier recap verbatim rather than re-summarizing it.'
+      : ''
+    const prompt = basePrompt + mergeNote
 
     try {
       const { text: summary } = await generateText({
@@ -443,27 +478,37 @@ export function useAgentChat (options: UseAgentChatOptions) {
         // Media tool results (base64 images) are redacted to size placeholders: the
         // summarizer is not necessarily a vision model, and a base64 blob inside the
         // stringified history is pure token waste.
-        messages: [{ role: 'user' as const, content: JSON.stringify(redactHistoryMediaToolResults(historyToCompact)) }],
+        messages: [{ role: 'user' as const, content: JSON.stringify(redactHistoryMediaToolResults(prefixToSummarize)) }],
         abortSignal: signal,
         headers: traceHeaders(compactionCtxId)
       })
 
-      const originalLength = serialized.length
+      const originalLength = JSON.stringify(history).length
 
       // Framed as a user turn (not assistant): providers like Anthropic require the
-      // history to start with a user message, and the SDK coalesces it with the
-      // verbatim last user message that follows. The preamble tells the model this is
-      // a condensed record of the earlier exchange — including its own actions — so it
-      // doesn't mistake the recap for a fresh user request.
+      // history to start with a user message, and the SDK coalesces it with whatever
+      // follows. The preamble tells the model this is a condensed record of the earlier
+      // exchange — including its own actions — so it doesn't mistake the recap for a
+      // fresh user request. Recent turns follow it verbatim.
       history = [
         { role: 'user' as const, content: `[Automatic recap of our earlier conversation, condensed to save context — continue as if you remember it]\n${summary}` },
-        lastMessage
+        ...retained
       ]
+      compactionGeneration = decision.generation
 
-      promotedTools.clear()
-      announcedTools.clear()
+      // The retained window keeps the tools it actually references callable; only
+      // prune what no longer appears. Clearing wholesale (the previous behaviour)
+      // forced the model to re-explore tools it had just used.
+      const retainedJson = JSON.stringify(retained)
+      for (const name of [...promotedTools]) if (!retainedJson.includes(name)) promotedTools.delete(name)
+      for (const name of [...announcedTools]) if (!retainedJson.includes(name)) announcedTools.delete(name)
 
-      debug('compacted history from %d chars to %d chars', originalLength, JSON.stringify(history).length)
+      // The next turn re-measures against the real prompt; until then the whole
+      // rebuilt history counts as un-measured.
+      lastInputTokens = 0
+      measuredChars = 0
+
+      debug('compacted history from %d chars to %d chars (generation %d)', originalLength, JSON.stringify(history).length, compactionGeneration)
     } catch (err) {
       // An abort (the user pressed Stop, or the idle watchdog fired) must stop the
       // whole turn — rethrow so sendMessage's catch handles it. Any other failure is
@@ -999,6 +1044,17 @@ export function useAgentChat (options: UseAgentChatOptions) {
         }
         messages.value.push({ role: 'assistant', content: options.emptyResponseMessage || DEFAULT_EMPTY_RESPONSE })
       }
+
+      // Provider-reported total for the prompt we just sent: the honest fill measure,
+      // counting the system prompt and tool schemas too. Snapshot the serialized length
+      // alongside it so the next turn can estimate only the delta.
+      try {
+        const usage = await result.usage
+        if (usage?.inputTokens) {
+          lastInputTokens = usage.inputTokens
+          measuredChars = JSON.stringify(history).length
+        }
+      } catch { /* usage is best-effort; the estimate carries until the next turn */ }
 
       status.value = 'ready'
     } catch (err: any) {
