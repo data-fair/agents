@@ -17,7 +17,7 @@
 - Quality gates, run before every commit: `npm run lint-fix`, then `npm run check-types`.
 - Never start, stop, restart or kill any dev process or container. If a test fails with a connection error, run `bash dev/status.sh`, check `dev/logs/`, and stop to ask the user.
 - `lib-vuetify` and `lib-vue` must be built before e2e tests: `cd lib-vuetify && npm run build`, `cd lib-vue && npm run build`.
-- Do not add `required` entries for the new optional schema fields, and do not change any existing `default`. The settings form reports spurious Save-button diffs when hidden sections and schema defaults disagree.
+- Do not add the new fields to the settings object's top-level `required` array, and do not change any existing `default`. The `compaction` object's own `required: ['percent']` is intentional — it mirrors the proven `moderation` block. The settings form reports spurious Save-button diffs when hidden sections and schema defaults disagree.
 - Default values, exact: compaction percent `70`, unknown-window fallback `32000`, retention share of budget `0.3`, compaction floor share of budget `0.2`, character-to-token divisor `4`.
 - Do not implement Anthropic `cache_control` breakpoints. Explicitly out of scope.
 
@@ -251,7 +251,7 @@ Schema, generated types, and the persistence path. No behavior change yet; this 
 - Produces:
   - `Settings['compaction']` of shape `{ percent: number }`.
   - Each `Settings['models'][role]` gains optional `contextWindow`, `cachedInputPricePerMillion`, `cacheWritePricePerMillion` (all `number`).
-  - `Settings['models'][role]['model']` (i.e. `definitions.Model`) gains optional `contextWindow: number`.
+  - `Settings['models'][role]['model']` (i.e. `definitions.Model`) gains optional `contextWindow`, `cachedInputPricePerMillion`, `cacheWritePricePerMillion` (all `number`), snapshotted from the provider listing when the model is picked.
   - `export const defaultCompaction: NonNullable<Settings['compaction']>` from `api/src/settings/service.ts`.
 
 - [ ] **Step 1: Write the failing API test**
@@ -306,7 +306,10 @@ Expected: FAIL — the PUT body validator rejects the unknown `compaction` key, 
 
 In `api/types/settings/schema.js`:
 
-(a) In `definitions.Model.properties`, after `provider`, add:
+(a) In `definitions.Model.properties`, after `provider`, add all three reported
+fields. Task 4 returns these on every listed model, and the autocomplete stores the
+picked item verbatim, so all three must exist here or `check-types` rejects the
+listing's extra keys:
 
 ```js
         contextWindow: {
@@ -317,6 +320,26 @@ In `api/types/settings/schema.js`:
           'x-i18n-description': {
             en: 'Total context size in tokens, as reported by the provider when the model was selected.',
             fr: 'Taille totale du contexte en tokens, telle que rapportée par le fournisseur lors de la sélection du modèle.'
+          }
+        },
+        cachedInputPricePerMillion: {
+          type: 'number',
+          title: 'Cached input price (per 1M tokens)',
+          readOnly: true,
+          description: 'Reported by the provider when the model was selected.',
+          'x-i18n-description': {
+            en: 'Reported by the provider when the model was selected.',
+            fr: 'Rapporté par le fournisseur lors de la sélection du modèle.'
+          }
+        },
+        cacheWritePricePerMillion: {
+          type: 'number',
+          title: 'Cache write price (per 1M tokens)',
+          readOnly: true,
+          description: 'Reported by the provider when the model was selected.',
+          'x-i18n-description': {
+            en: 'Reported by the provider when the model was selected.',
+            fr: 'Rapporté par le fournisseur lors de la sélection du modèle.'
           }
         }
 ```
@@ -512,6 +535,14 @@ test.describe('context window resolution', () => {
     assert.equal(c.cachedInputPricePerMillion, 0)
     assert.equal(c.cacheWritePricePerMillion, 0)
   })
+
+  test('cache prices fall back to the model snapshot, and the role overrides it', () => {
+    const snap = { ...mockModel, cachedInputPricePerMillion: 0.3, cacheWritePricePerMillion: 3.75 }
+    assert.equal(getModelConfig(settingsWith({ model: snap }), 'assistant').cachedInputPricePerMillion, 0.3)
+    assert.equal(getModelConfig(settingsWith({ model: snap }), 'assistant').cacheWritePricePerMillion, 3.75)
+    const overridden = settingsWith({ model: snap, cachedInputPricePerMillion: 0.1 })
+    assert.equal(getModelConfig(overridden, 'assistant').cachedInputPricePerMillion, 0.1)
+  })
 })
 
 test.describe('contextBudget', () => {
@@ -559,8 +590,10 @@ Inside `getModelConfig`, after `if (!source?.model) throw ...`:
     modelConfig: source.model,
     inputPricePerMillion: source.inputPricePerMillion ?? 0,
     outputPricePerMillion: source.outputPricePerMillion ?? 0,
-    cachedInputPricePerMillion: source.cachedInputPricePerMillion ?? 0,
-    cacheWritePricePerMillion: source.cacheWritePricePerMillion ?? 0,
+    // Same resolution order as contextWindow: role override, then the snapshot
+    // taken from the provider listing when the model was picked, then 0.
+    cachedInputPricePerMillion: source.cachedInputPricePerMillion ?? source.model.cachedInputPricePerMillion ?? 0,
+    cacheWritePricePerMillion: source.cacheWritePricePerMillion ?? source.model.cacheWritePricePerMillion ?? 0,
     // A 0 override means "unset" (the form emits 0 for an untouched number
     // field), not a zero-token window — fall through to the snapshot.
     contextWindow: source.contextWindow || source.model.contextWindow || UNKNOWN_CONTEXT_WINDOW
@@ -1191,7 +1224,7 @@ Replace the 24k character cliff with the budget-driven policy, and stop nuking t
 
 **Interfaces:**
 - Consumes: `decideCompaction`, `estimateTokens` from Task 5; the `x-context-budget` header from Task 3.
-- Produces: no new exports. Internal state: `contextBudget` (ref, seeded from the header), `lastInputTokens`, `appendedChars`, `compactionGeneration`.
+- Produces: no new exports. Internal state: `contextBudget` (ref, seeded from the header), `lastInputTokens`, `measuredChars`, `compactionGeneration`.
 
 - [ ] **Step 1: Read the current implementation**
 
@@ -1218,9 +1251,11 @@ and add in their place:
   // Provider-reported TOTAL input tokens for the previous turn. Counts the system
   // prompt and tool schemas, which a serialized-history measure misses entirely.
   let lastInputTokens = 0
-  // Characters appended to history since that measurement; estimation error is
-  // wiped out by the next real number rather than accumulating.
-  let appendedChars = 0
+  // Serialized history length at the moment lastInputTokens was measured. The
+  // delta against the current length is the estimate for what was appended since —
+  // one snapshot instead of accounting at every history.push site, which would
+  // silently undercount the day someone adds a new push.
+  let measuredChars = 0
   // How many times this history has already been compacted. Carried so the
   // summarizer is told it is merging an existing recap, not digesting raw dialogue.
   let compactionGeneration = 0
@@ -1260,7 +1295,7 @@ Replace the body of `compactHistory` down to (but not including) its `try {`:
     const decision = decideCompaction({
       history,
       lastInputTokens,
-      appendedChars,
+      appendedChars: Math.max(JSON.stringify(history).length - measuredChars, 0),
       budget,
       generation: compactionGeneration
     })
@@ -1327,45 +1362,40 @@ and:
       for (const name of [...promotedTools]) if (!retainedJson.includes(name)) promotedTools.delete(name)
       for (const name of [...announcedTools]) if (!retainedJson.includes(name)) announcedTools.delete(name)
 
-      // The next turn re-measures against the real prompt; until then the recap
-      // plus retained window is all there is.
-      appendedChars = JSON.stringify(history).length
+      // The next turn re-measures against the real prompt; until then the whole
+      // rebuilt history counts as un-measured.
       lastInputTokens = 0
+      measuredChars = 0
 
       debug('compacted history from %d chars to %d chars (generation %d)', originalLength, JSON.stringify(history).length, compactionGeneration)
 ```
 
 Note `promotedTools` is currently declared with `let promotedTools = new Set<string>()`; the pruning above mutates it in place, which is fine. Leave the `reset()` path clearing both sets as it is.
 
-- [ ] **Step 5: Track appended characters and the measured prompt**
+- [ ] **Step 5: Capture the measured prompt size**
 
-In `sendMessage`, immediately after the existing `history.push({ role: 'user', ... })`:
-
-```ts
-    appendedChars += JSON.stringify(history[history.length - 1]).length
-```
-
-At the end of a successful turn, next to the existing `status.value = 'ready'` in the try block (and after the empty-response handling so `result.usage` is already awaited on that path), capture the real number:
+There is deliberately no per-`history.push` accounting. At the end of a successful
+turn, in `sendMessage`'s try block next to the existing `status.value = 'ready'` (and
+after the empty-response handling, so `result.usage` is already awaited on that path):
 
 ```ts
-      // Provider-reported total for the prompt we just sent: the honest fill
-      // measure, counting the system prompt and tool schemas too.
+      // Provider-reported total for the prompt we just sent: the honest fill measure,
+      // counting the system prompt and tool schemas too. Snapshot the serialized length
+      // alongside it so the next turn can estimate only the delta.
       try {
         const usage = await result.usage
         if (usage?.inputTokens) {
           lastInputTokens = usage.inputTokens
-          appendedChars = 0
+          measuredChars = JSON.stringify(history).length
         }
       } catch { /* usage is best-effort; the estimate carries until the next turn */ }
 ```
-
-Then, for every message appended to `history` after that point in the turn (tool results, assistant steps, `<tools-available>` notices), add the same `appendedChars += ...` accounting. Search the function for `history.push(` and `history = [...history` and cover each site.
 
 In `reset()`, alongside the existing state clearing, add:
 
 ```ts
     lastInputTokens = 0
-    appendedChars = 0
+    measuredChars = 0
     compactionGeneration = 0
 ```
 
