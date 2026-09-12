@@ -110,8 +110,7 @@ async function fetchOllamaModels (baseURL: string): Promise<CoreModelInfo[]> {
   const models = await ollama.list()
   return models.models.map((model: any) => ({
     id: model.name,
-    name: model.name,
-    contextWindow: model.details?.context_length ?? undefined
+    name: model.name
   }))
 }
 
