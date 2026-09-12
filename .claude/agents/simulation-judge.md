@@ -56,3 +56,10 @@ Return ONLY raw JSON, no code fence, in exactly this shape:
 
 `satisfied` is true only if the person's goal was actually met and visibly so.
 An empty `frictions` array is a real answer when a run went cleanly.
+
+A friction's `turn` is the 1-based index of the USER turn it occurred on — the
+Nth message the person sent, counting only the person's messages in
+`conversation` and not the assistant's. So a friction caused by the
+assistant's reply to the person's 3rd message is still `"turn": 3`. Count
+consistently this way so that two judges reading the same transcript would
+agree on the number.
