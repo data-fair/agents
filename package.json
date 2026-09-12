@@ -13,6 +13,8 @@
     "dev-api": "npm -w api run dev",
     "dev-ui": "npm -w ui run dev",
     "dev-bridge": "mkdir -p dev/logs && node dev/claude-bridge/index.ts 2>&1 | tee dev/logs/dev-bridge.log",
+    "simulate": "playwright test -c playwright.sim.config.ts --project=simulate",
+    "simulate:report": "node simulations/report.ts",
     "dev-deps": "mkdir -p dev/logs && docker compose up 2>&1 | tee dev/logs/docker-compose.log",
     "dev-zellij": "dotenv -- zellij --layout .zellij.kdl",
     "dev-fixtures": "dotenv -- node dev/fixtures.ts",
