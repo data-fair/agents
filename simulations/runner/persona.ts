@@ -14,6 +14,29 @@ import type { SimulationCase } from '../cases/index.ts'
 export const DONE = 'DONE'
 let neutralCwd: string | undefined
 
+export function isDone (message: string): boolean {
+  if (!message) return false
+
+  // Normalize the message: trim, strip quotes/backticks, strip trailing punctuation, uppercase
+  let normalized = message.trim()
+
+  // Strip surrounding quotes or backticks
+  if ((normalized.startsWith('"') && normalized.endsWith('"')) ||
+      (normalized.startsWith("'") && normalized.endsWith("'")) ||
+      (normalized.startsWith('`') && normalized.endsWith('`'))) {
+    normalized = normalized.slice(1, -1)
+  }
+
+  // Strip trailing punctuation
+  normalized = normalized.replace(/[.!,:]+$/, '')
+
+  // Uppercase and check if exactly DONE
+  normalized = normalized.toUpperCase().trim()
+
+  // Only true if it is exactly DONE, not a sentence containing the word
+  return normalized === DONE
+}
+
 export function personaSystemPrompt (c: SimulationCase): string {
   return [
     c.persona,

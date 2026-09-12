@@ -1,8 +1,8 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
-import { personaSystemPrompt, personaPrompt, DONE } from '../../../simulations/runner/persona.ts'
+import { readdirSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { personaSystemPrompt, personaPrompt, DONE, isDone } from '../../../simulations/runner/persona.ts'
 import { cases } from '../../../simulations/cases/index.ts'
 
 const c = cases[0]
@@ -36,42 +36,50 @@ test.describe('persona prompting', () => {
     assert.ok(personaPrompt([{ role: 'assistant', text: 'x' }], 1).includes('last'))
   })
 
-  test('importing the module has no side effects (no filesystem I/O at module scope)', () => {
-    // Reading the module source to verify createNeutralCwd is not called at module scope.
-    // If the module calls createNeutralCwd outside of a function body (at module load time),
-    // it creates a temporary directory leak every time npm test runs.
-    const sourceFile = resolve('simulations/runner/persona.ts')
-    const source = readFileSync(sourceFile, 'utf-8')
+  test('importing the module has no side effects (no temp dir created at import time)', async () => {
+    // Count temp dirs with "bridge-" prefix before import
+    const beforeCount = readdirSync(tmpdir()).filter(name => name.startsWith('bridge-')).length
 
-    // Extract the code at module scope (lines before first function/export function)
-    // Look for any direct call to createNeutralCwd() outside of function bodies
-    const lines = source.split('\n')
-    let inFunctionBody = false
-    let functionDepth = 0
+    // Force a fresh module evaluation with cache-busting query parameter
+    // Node.js treats the same module path with different query strings as different entries
+    await import('../../../simulations/runner/persona.ts?fresh=' + Date.now())
 
-    for (const line of lines) {
-      // Track function boundaries
-      if (line.match(/^\s*(export\s+)?(async\s+)?function|^\s*(export\s+)?const.*=\s*\(|^\s*for\s*await/)) {
-        inFunctionBody = true
-        functionDepth++
-      }
-      if (line.includes('{') && inFunctionBody) functionDepth++
-      if (line.includes('}') && inFunctionBody) functionDepth--
-      if (functionDepth === 0 && inFunctionBody) inFunctionBody = false
+    // Count again — should be unchanged
+    const afterCount = readdirSync(tmpdir()).filter(name => name.startsWith('bridge-')).length
 
-      // At module scope (not in function), createNeutralCwd() must not be called
-      if (!inFunctionBody && line.includes('createNeutralCwd()')) {
-        assert.fail(
-          'createNeutralCwd is called at module scope. This leaks a temporary directory at import time. ' +
-          'Move the call inside nextUserMessage using lazy initialization (neutralCwd ??= createNeutralCwd()).'
-        )
-      }
-    }
-
-    // Verify the lazy pattern exists in nextUserMessage
-    assert.ok(
-      source.includes('neutralCwd ??= createNeutralCwd()'),
-      'nextUserMessage must use lazy initialization: neutralCwd ??= createNeutralCwd()'
+    assert.equal(
+      afterCount,
+      beforeCount,
+      'Importing persona.ts must not create a temp directory. ' +
+      'The unit suite imports this module, so any import-time side effect would leak a directory per test run. ' +
+      'Use lazy initialization: neutralCwd ??= createNeutralCwd() inside nextUserMessage().'
     )
+  })
+})
+
+test.describe('isDone', () => {
+  test('matches exact DONE', () => {
+    assert.ok(isDone('DONE'))
+  })
+
+  test('matches DONE with trailing period', () => {
+    assert.ok(isDone('DONE.'))
+  })
+
+  test('matches quoted DONE', () => {
+    assert.ok(isDone('"DONE"'))
+  })
+
+  test('matches done in lowercase (case-insensitive)', () => {
+    assert.ok(isDone('done'))
+  })
+
+  test('returns false for a sentence containing done (not the terminator)', () => {
+    assert.ok(!isDone('I am done looking, but this is not the terminator'))
+    assert.ok(!isDone("That's done, but the panel is still empty"))
+  })
+
+  test('returns false for empty string', () => {
+    assert.ok(!isDone(''))
   })
 })
