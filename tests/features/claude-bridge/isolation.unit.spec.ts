@@ -5,14 +5,29 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import os from 'node:os'
+import fs from 'node:fs'
 import { createNeutralCwd, scrubEnv, isolationOptions } from '../../../dev/claude-bridge/isolation.ts'
+
+// Every directory this file creates, removed afterwards: the suite otherwise left
+// two bridge-* dirs in the temp dir per run — the very leak persona.unit.spec.ts
+// has a guard test against.
+const created: string[] = []
+const neutralCwd = () => {
+  const cwd = createNeutralCwd()
+  created.push(cwd)
+  return cwd
+}
+
+test.afterAll(() => {
+  for (const cwd of created) fs.rmSync(cwd, { recursive: true, force: true })
+})
 
 test.describe('claude-bridge isolation', () => {
   test('the neutral cwd is a fresh temp dir, not the repo', () => {
-    const cwd = createNeutralCwd()
+    const cwd = neutralCwd()
     assert.ok(cwd.startsWith(os.tmpdir()), `${cwd} should be under ${os.tmpdir()}`)
     assert.ok(!cwd.includes('data-fair'), 'cwd must not leak a project name')
-    assert.notEqual(cwd, createNeutralCwd())
+    assert.notEqual(cwd, neutralCwd())
   })
 
   test('scrubEnv removes every CLAUDE_CODE_ variable and keeps the rest', () => {

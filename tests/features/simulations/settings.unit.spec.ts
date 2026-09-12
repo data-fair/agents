@@ -29,11 +29,39 @@ test.describe('bridge settings', () => {
     // which would cause authentication (network I/O) before any test runs. Dynamic
     // imports inside functions (await import(...)) are allowed.
     const source = readFileSync('simulations/runner/settings.ts', 'utf8')
-    const hasStaticTestSupport = /^import\s+.*from\s+['"].*tests\/support/m.test(source)
     assert.equal(
-      hasStaticTestSupport,
+      staticTestSupportImport(source),
       false,
       'settings.ts must not statically import from tests/support (causes network I/O at module load, violating the constraint that unit tests must not hit the network)'
     )
   })
+
+  test('the guard catches every static import form, and only those', () => {
+    // The guard is only worth its line count if it fires on the forms a regression
+    // would actually take. All three below authenticate at module load.
+    assert.equal(staticTestSupportImport("import { superAdmin } from '../../tests/support/axios.ts'"), true, 'named import')
+    assert.equal(staticTestSupportImport("import '../../tests/support/axios.ts'"), true, 'bare side-effect import')
+    assert.equal(staticTestSupportImport("import {\n  superAdmin,\n  clean\n} from '../../tests/support/axios.ts'"), true, 'multi-line named import')
+    assert.equal(staticTestSupportImport("import ax from 'axios'"), false, 'unrelated static import')
+    assert.equal(
+      staticTestSupportImport("export async function seed () {\n  const { superAdmin } = await import('../../tests/support/axios.ts')\n}"),
+      false,
+      'a dynamic import inside a function body is the sanctioned pattern and must stay allowed'
+    )
+    assert.equal(staticTestSupportImport("import('../../tests/support/axios.ts')"), false, 'a bare dynamic import is still lazy')
+  })
 })
+
+/**
+ * True when the source statically imports anything from tests/support.
+ * Line-anchored and `(` -excluded so `await import(...)` — the sanctioned lazy
+ * form — is not mistaken for a static one; the specifier is matched across
+ * newlines so a multi-line named import cannot slip past.
+ */
+function staticTestSupportImport (source: string): boolean {
+  const statements = source.matchAll(/^[ \t]*import\b(?!\s*\()[^'"]*?['"]([^'"]*)['"]/gm)
+  for (const m of statements) {
+    if (m[1].includes('tests/support')) return true
+  }
+  return false
+}
