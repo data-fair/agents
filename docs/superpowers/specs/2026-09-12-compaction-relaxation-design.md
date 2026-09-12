@@ -214,7 +214,7 @@ what each provider reports.
 
 - OpenRouter → `context_length` / `top_provider.context_length`,
   `pricing.input_cache_read`, `pricing.input_cache_write`
-- Ollama → model details
+- Ollama → nothing usable. Its `list()` response carries only `parent_model`/`format`/`family`/`parameter_size`/`quantization_level`; the context length lives solely in `show()`'s `model_info` map, one extra HTTP call per model. Not worth it — and the advertised value is the model's maximum, whereas an Ollama server actually serves `num_ctx` (commonly 4096), so the number would mislead the budget. Ollama falls back to the 32000 default plus the admin override.
 - OpenAI, Anthropic, Google, Mistral → report nothing; leave `undefined`
 
 **Getting the budget to the client.** Compaction runs in

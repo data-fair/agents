@@ -762,19 +762,14 @@ async function fetchOpenRouterModels (apiKey: string): Promise<CoreModelInfo[]> 
 }
 ```
 
-Ollama reports a window in the model details:
-
-```ts
-async function fetchOllamaModels (baseURL: string): Promise<CoreModelInfo[]> {
-  const ollama = new Ollama({ host: baseURL })
-  const models = await ollama.list()
-  return models.models.map((model: any) => ({
-    id: model.name,
-    name: model.name,
-    contextWindow: model.details?.context_length ?? undefined
-  }))
-}
-```
+Ollama reports **nothing usable** — leave `fetchOllamaModels` unchanged. Its
+`list()` response carries only `parent_model` / `format` / `family` /
+`parameter_size` / `quantization_level` (`node_modules/ollama/dist/shared/ollama.1bfa89da.d.ts:219`);
+the context length lives solely in `show()`'s `model_info` map, which would cost one
+extra HTTP call per model on an admin page. And the advertised value is the model's
+maximum, whereas an Ollama server actually serves `num_ctx` (commonly 4096) — so the
+number would mislead the budget. Ollama falls back to the 32000 default plus the
+admin override, like OpenAI and Anthropic.
 
 Give the mock provider a window so it is testable end to end:
 
