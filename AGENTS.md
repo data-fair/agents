@@ -30,6 +30,22 @@ Log files are in `dev/logs/`:
 
 Use `tail -n 50 dev/logs/<file>` to see recent output, or `grep -i error dev/logs/<file>` to find errors.
 
+### Running on Claude Code models
+
+`npm run dev-bridge` starts a local OpenAI-compatible server (default port 3194, override
+with `BRIDGE_PORT`) backed by your Claude Code subscription, so the dev workspace can run
+on real models without an API key. Logs go to `dev/logs/dev-bridge.log`. It is optional —
+`dev/status.sh` reporting it DOWN is normal unless you use it.
+
+Configure it in the settings UI as an **OpenAI Compatible** provider with base URL
+`http://localhost:3194/v1` and **Compatibility Mode `compatible`** (the default mode
+targets `/v1/responses`, which the bridge does not implement). Leave the API key empty.
+
+`GET /_bridge/status` reports how many conversations are holding a live `claude` session.
+
+Design, measurements and the isolation guarantee:
+`docs/superpowers/specs/2026-09-12-claude-code-bridge-and-simulation-harness-design.md`.
+
 ### When something is down
 
 If a service is down, do not try to fix the infrastructure. Instead:
