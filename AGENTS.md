@@ -42,6 +42,12 @@ Configure it in the settings UI as an **OpenAI Compatible** provider with base U
 targets `/v1/responses`, which the bridge does not implement). Leave the API key empty.
 
 `GET /_bridge/status` reports how many conversations are holding a live `claude` session.
+It binds `127.0.0.1` only: it is unauthenticated and spends your subscription.
+
+Root `package.json` pins `@anthropic-ai/claude-agent-sdk`'s zod to `3.25.76` via `overrides`.
+The SDK asks for zod ^4, and a second zod major in the tree makes `api`'s inference blow the
+instantiation depth limit (TS2589 in `api/src/moderation/service.ts`). The override is scoped
+to the SDK so a legitimate bump of `api`'s own zod is not silently clamped.
 
 Design, measurements and the isolation guarantee:
 `docs/superpowers/specs/2026-09-12-claude-code-bridge-and-simulation-harness-design.md`.
