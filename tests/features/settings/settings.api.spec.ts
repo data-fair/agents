@@ -393,4 +393,41 @@ test.describe('Settings API', () => {
     const res2 = await admin.get('/api/settings/user/test-standalone1')
     assert.equal(res2.data.storeTraces, false)
   })
+
+  test('should persist compaction percent and per-role context window and cache prices', async () => {
+    const res = await admin.put('/api/settings/user/test-standalone1', {
+      providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
+      models: {
+        assistant: {
+          model: { ...mockModel, contextWindow: 200000 },
+          inputPricePerMillion: 3,
+          outputPricePerMillion: 15,
+          cachedInputPricePerMillion: 0.3,
+          cacheWritePricePerMillion: 3.75,
+          contextWindow: 128000
+        }
+      },
+      quotas: defaultQuotas,
+      compaction: { percent: 55 }
+    })
+    assert.equal(res.status, 200)
+    assert.equal(res.data.compaction.percent, 55)
+    assert.equal(res.data.models.assistant.contextWindow, 128000)
+    assert.equal(res.data.models.assistant.model.contextWindow, 200000)
+    assert.equal(res.data.models.assistant.cachedInputPricePerMillion, 0.3)
+    assert.equal(res.data.models.assistant.cacheWritePricePerMillion, 3.75)
+
+    const getRes = await admin.get('/api/settings/user/test-standalone1')
+    assert.equal(getRes.data.compaction.percent, 55)
+    assert.equal(getRes.data.models.assistant.model.contextWindow, 200000)
+  })
+
+  test('settings without compaction get the default percent', async () => {
+    const res = await admin.put('/api/settings/user/test-standalone1', {
+      providers: [],
+      quotas: defaultQuotas
+    })
+    assert.equal(res.status, 200)
+    assert.equal(res.data.compaction.percent, 70)
+  })
 })

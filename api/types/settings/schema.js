@@ -68,6 +68,36 @@ export default {
             name: { type: 'string', title: 'Provider Name' },
             id: { type: 'string', title: 'Provider ID' }
           }
+        },
+        contextWindow: {
+          type: 'number',
+          title: 'Context window',
+          readOnly: true,
+          description: 'Total context size in tokens, as reported by the provider when the model was selected.',
+          'x-i18n-description': {
+            en: 'Total context size in tokens, as reported by the provider when the model was selected.',
+            fr: 'Taille totale du contexte en tokens, telle que rapportée par le fournisseur lors de la sélection du modèle.'
+          }
+        },
+        cachedInputPricePerMillion: {
+          type: 'number',
+          title: 'Cached input price (per 1M tokens)',
+          readOnly: true,
+          description: 'Reported by the provider when the model was selected.',
+          'x-i18n-description': {
+            en: 'Reported by the provider when the model was selected.',
+            fr: 'Rapporté par le fournisseur lors de la sélection du modèle.'
+          }
+        },
+        cacheWritePricePerMillion: {
+          type: 'number',
+          title: 'Cache write price (per 1M tokens)',
+          readOnly: true,
+          description: 'Reported by the provider when the model was selected.',
+          'x-i18n-description': {
+            en: 'Reported by the provider when the model was selected.',
+            fr: 'Rapporté par le fournisseur lors de la sélection du modèle.'
+          }
         }
       }
     }
@@ -655,7 +685,14 @@ Recommendations: GPT-5.4, Claude 4.5 Sonnet, Kimi K2, Mistral Large 3, etc.`,
           },
           layout: {
             comp: 'card',
-            children: [{ key: 'model' }, { key: 'inputPricePerMillion', cols: 6 }, { key: 'outputPricePerMillion', cols: 6 }],
+            children: [
+              { key: 'model' },
+              { key: 'contextWindow', cols: 6 },
+              { key: 'inputPricePerMillion', cols: 4 },
+              { key: 'cachedInputPricePerMillion', cols: 4 },
+              { key: 'cacheWritePricePerMillion', cols: 4 },
+              { key: 'outputPricePerMillion', cols: 6 }
+            ],
             cols: 6
           },
           properties: {
@@ -667,12 +704,46 @@ Recommendations: GPT-5.4, Claude 4.5 Sonnet, Kimi K2, Mistral Large 3, etc.`,
                 fr: 'Modèle'
               },
             },
+            contextWindow: {
+              type: 'number',
+              title: 'Context window override (tokens)',
+              'x-i18n-title': {
+                en: 'Context window override (tokens)',
+                fr: 'Taille de contexte (tokens, surcharge)'
+              },
+              description: 'Leave empty to use the value reported by the provider, or 32000 when the provider reports none.',
+              'x-i18n-description': {
+                en: 'Leave empty to use the value reported by the provider, or 32000 when the provider reports none.',
+                fr: 'Laissez vide pour utiliser la valeur rapportée par le fournisseur, ou 32000 si le fournisseur ne rapporte rien.'
+              },
+              minimum: 0
+            },
             inputPricePerMillion: {
               type: 'number',
               title: 'Input price (per 1M tokens)',
               'x-i18n-title': {
                 en: 'Input price (per 1M tokens)',
                 fr: "Prix d'entrée (par million de tokens)"
+              },
+              default: 0,
+              minimum: 0
+            },
+            cachedInputPricePerMillion: {
+              type: 'number',
+              title: 'Cached input price (per 1M tokens)',
+              'x-i18n-title': {
+                en: 'Cached input price (per 1M tokens)',
+                fr: "Prix d'entrée en cache (par million de tokens)"
+              },
+              default: 0,
+              minimum: 0
+            },
+            cacheWritePricePerMillion: {
+              type: 'number',
+              title: 'Cache write price (per 1M tokens)',
+              'x-i18n-title': {
+                en: 'Cache write price (per 1M tokens)',
+                fr: "Prix d'écriture en cache (par million de tokens)"
               },
               default: 0,
               minimum: 0
@@ -706,7 +777,14 @@ Recommendations: GPT-5.4 Mini, Mistral DevStral, Claude 4.5 Sonnet (Computer Use
           },
           layout: {
             comp: 'card',
-            children: [{ key: 'model' }, { key: 'inputPricePerMillion', cols: 6 }, { key: 'outputPricePerMillion', cols: 6 }],
+            children: [
+              { key: 'model' },
+              { key: 'contextWindow', cols: 6 },
+              { key: 'inputPricePerMillion', cols: 4 },
+              { key: 'cachedInputPricePerMillion', cols: 4 },
+              { key: 'cacheWritePricePerMillion', cols: 4 },
+              { key: 'outputPricePerMillion', cols: 6 }
+            ],
             cols: 6
           },
           properties: {
@@ -718,12 +796,46 @@ Recommendations: GPT-5.4 Mini, Mistral DevStral, Claude 4.5 Sonnet (Computer Use
                 fr: 'Modèle'
               }
             },
+            contextWindow: {
+              type: 'number',
+              title: 'Context window override (tokens)',
+              'x-i18n-title': {
+                en: 'Context window override (tokens)',
+                fr: 'Taille de contexte (tokens, surcharge)'
+              },
+              description: 'Leave empty to use the value reported by the provider, or 32000 when the provider reports none.',
+              'x-i18n-description': {
+                en: 'Leave empty to use the value reported by the provider, or 32000 when the provider reports none.',
+                fr: 'Laissez vide pour utiliser la valeur rapportée par le fournisseur, ou 32000 si le fournisseur ne rapporte rien.'
+              },
+              minimum: 0
+            },
             inputPricePerMillion: {
               type: 'number',
               title: 'Input price (per 1M tokens)',
               'x-i18n-title': {
                 en: 'Input price (per 1M tokens)',
                 fr: "Prix d'entrée (par million de tokens)"
+              },
+              default: 0,
+              minimum: 0
+            },
+            cachedInputPricePerMillion: {
+              type: 'number',
+              title: 'Cached input price (per 1M tokens)',
+              'x-i18n-title': {
+                en: 'Cached input price (per 1M tokens)',
+                fr: "Prix d'entrée en cache (par million de tokens)"
+              },
+              default: 0,
+              minimum: 0
+            },
+            cacheWritePricePerMillion: {
+              type: 'number',
+              title: 'Cache write price (per 1M tokens)',
+              'x-i18n-title': {
+                en: 'Cache write price (per 1M tokens)',
+                fr: "Prix d'écriture en cache (par million de tokens)"
               },
               default: 0,
               minimum: 0
@@ -757,7 +869,14 @@ Recommendations: GPT-5.4 Mini, Claude 4.5 Haiku, Mistral Small 4, Qwen3 (8B), et
           },
           layout: {
             comp: 'card',
-            children: [{ key: 'model' }, { key: 'inputPricePerMillion', cols: 6 }, { key: 'outputPricePerMillion', cols: 6 }],
+            children: [
+              { key: 'model' },
+              { key: 'contextWindow', cols: 6 },
+              { key: 'inputPricePerMillion', cols: 4 },
+              { key: 'cachedInputPricePerMillion', cols: 4 },
+              { key: 'cacheWritePricePerMillion', cols: 4 },
+              { key: 'outputPricePerMillion', cols: 6 }
+            ],
             cols: 6
           },
           properties: {
@@ -769,12 +888,46 @@ Recommendations: GPT-5.4 Mini, Claude 4.5 Haiku, Mistral Small 4, Qwen3 (8B), et
                 fr: 'Modèle'
               }
             },
+            contextWindow: {
+              type: 'number',
+              title: 'Context window override (tokens)',
+              'x-i18n-title': {
+                en: 'Context window override (tokens)',
+                fr: 'Taille de contexte (tokens, surcharge)'
+              },
+              description: 'Leave empty to use the value reported by the provider, or 32000 when the provider reports none.',
+              'x-i18n-description': {
+                en: 'Leave empty to use the value reported by the provider, or 32000 when the provider reports none.',
+                fr: 'Laissez vide pour utiliser la valeur rapportée par le fournisseur, ou 32000 si le fournisseur ne rapporte rien.'
+              },
+              minimum: 0
+            },
             inputPricePerMillion: {
               type: 'number',
               title: 'Input price (per 1M tokens)',
               'x-i18n-title': {
                 en: 'Input price (per 1M tokens)',
                 fr: "Prix d'entrée (par million de tokens)"
+              },
+              default: 0,
+              minimum: 0
+            },
+            cachedInputPricePerMillion: {
+              type: 'number',
+              title: 'Cached input price (per 1M tokens)',
+              'x-i18n-title': {
+                en: 'Cached input price (per 1M tokens)',
+                fr: "Prix d'entrée en cache (par million de tokens)"
+              },
+              default: 0,
+              minimum: 0
+            },
+            cacheWritePricePerMillion: {
+              type: 'number',
+              title: 'Cache write price (per 1M tokens)',
+              'x-i18n-title': {
+                en: 'Cache write price (per 1M tokens)',
+                fr: "Prix d'écriture en cache (par million de tokens)"
               },
               default: 0,
               minimum: 0
@@ -808,7 +961,14 @@ Recommendations: Claude Opus 4.6, GPT-5.4 (Reasoning), DeepSeek-R1, Pharia-1-LLM
           },
           layout: {
             comp: 'card',
-            children: [{ key: 'model' }, { key: 'inputPricePerMillion', cols: 6 }, { key: 'outputPricePerMillion', cols: 6 }],
+            children: [
+              { key: 'model' },
+              { key: 'contextWindow', cols: 6 },
+              { key: 'inputPricePerMillion', cols: 4 },
+              { key: 'cachedInputPricePerMillion', cols: 4 },
+              { key: 'cacheWritePricePerMillion', cols: 4 },
+              { key: 'outputPricePerMillion', cols: 6 }
+            ],
             cols: 6
           },
           properties: {
@@ -820,12 +980,46 @@ Recommendations: Claude Opus 4.6, GPT-5.4 (Reasoning), DeepSeek-R1, Pharia-1-LLM
                 fr: 'Modèle'
               }
             },
+            contextWindow: {
+              type: 'number',
+              title: 'Context window override (tokens)',
+              'x-i18n-title': {
+                en: 'Context window override (tokens)',
+                fr: 'Taille de contexte (tokens, surcharge)'
+              },
+              description: 'Leave empty to use the value reported by the provider, or 32000 when the provider reports none.',
+              'x-i18n-description': {
+                en: 'Leave empty to use the value reported by the provider, or 32000 when the provider reports none.',
+                fr: 'Laissez vide pour utiliser la valeur rapportée par le fournisseur, ou 32000 si le fournisseur ne rapporte rien.'
+              },
+              minimum: 0
+            },
             inputPricePerMillion: {
               type: 'number',
               title: 'Input price (per 1M tokens)',
               'x-i18n-title': {
                 en: 'Input price (per 1M tokens)',
                 fr: "Prix d'entrée (par million de tokens)"
+              },
+              default: 0,
+              minimum: 0
+            },
+            cachedInputPricePerMillion: {
+              type: 'number',
+              title: 'Cached input price (per 1M tokens)',
+              'x-i18n-title': {
+                en: 'Cached input price (per 1M tokens)',
+                fr: "Prix d'entrée en cache (par million de tokens)"
+              },
+              default: 0,
+              minimum: 0
+            },
+            cacheWritePricePerMillion: {
+              type: 'number',
+              title: 'Cache write price (per 1M tokens)',
+              'x-i18n-title': {
+                en: 'Cache write price (per 1M tokens)',
+                fr: "Prix d'écriture en cache (par million de tokens)"
               },
               default: 0,
               minimum: 0
@@ -859,7 +1053,14 @@ Recommendations: a small/fast general-purpose model with structured (JSON) outpu
           },
           layout: {
             comp: 'card',
-            children: [{ key: 'model' }, { key: 'inputPricePerMillion', cols: 6 }, { key: 'outputPricePerMillion', cols: 6 }],
+            children: [
+              { key: 'model' },
+              { key: 'contextWindow', cols: 6 },
+              { key: 'inputPricePerMillion', cols: 4 },
+              { key: 'cachedInputPricePerMillion', cols: 4 },
+              { key: 'cacheWritePricePerMillion', cols: 4 },
+              { key: 'outputPricePerMillion', cols: 6 }
+            ],
             cols: 6
           },
           properties: {
@@ -868,10 +1069,44 @@ Recommendations: a small/fast general-purpose model with structured (JSON) outpu
               title: 'Model',
               'x-i18n-title': { en: 'Model', fr: 'Modèle' }
             },
+            contextWindow: {
+              type: 'number',
+              title: 'Context window override (tokens)',
+              'x-i18n-title': {
+                en: 'Context window override (tokens)',
+                fr: 'Taille de contexte (tokens, surcharge)'
+              },
+              description: 'Leave empty to use the value reported by the provider, or 32000 when the provider reports none.',
+              'x-i18n-description': {
+                en: 'Leave empty to use the value reported by the provider, or 32000 when the provider reports none.',
+                fr: 'Laissez vide pour utiliser la valeur rapportée par le fournisseur, ou 32000 si le fournisseur ne rapporte rien.'
+              },
+              minimum: 0
+            },
             inputPricePerMillion: {
               type: 'number',
               title: 'Input price (per 1M tokens)',
               'x-i18n-title': { en: 'Input price (per 1M tokens)', fr: "Prix d'entrée (par million de tokens)" },
+              default: 0,
+              minimum: 0
+            },
+            cachedInputPricePerMillion: {
+              type: 'number',
+              title: 'Cached input price (per 1M tokens)',
+              'x-i18n-title': {
+                en: 'Cached input price (per 1M tokens)',
+                fr: "Prix d'entrée en cache (par million de tokens)"
+              },
+              default: 0,
+              minimum: 0
+            },
+            cacheWritePricePerMillion: {
+              type: 'number',
+              title: 'Cache write price (per 1M tokens)',
+              'x-i18n-title': {
+                en: 'Cache write price (per 1M tokens)',
+                fr: "Prix d'écriture en cache (par million de tokens)"
+              },
               default: 0,
               minimum: 0
             },
@@ -927,6 +1162,33 @@ Recommendations: a small/fast general-purpose model with structured (JSON) outpu
               { const: 'admin', title: 'Admin', 'x-i18n-title': { en: 'Admin', fr: 'Administrateur' } }
             ]
           }
+        }
+      }
+    },
+    compaction: {
+      type: 'object',
+      title: 'History compaction',
+      'x-i18n-title': { en: 'History compaction', fr: 'Compaction de l\'historique' },
+      layout: { if: 'parent.data.providers?.length' },
+      default: { percent: 70 },
+      required: ['percent'],
+      additionalProperties: false,
+      properties: {
+        percent: {
+          type: 'number',
+          title: 'Compact above this share of the context window (%)',
+          'x-i18n-title': {
+            en: 'Compact above this share of the context window (%)',
+            fr: 'Compacter au-delà de cette part de la fenêtre de contexte (%)'
+          },
+          description: 'Conversation history is summarized once it exceeds this percentage of the assistant model context window. Higher means rarer compaction, better prompt-cache reuse, and more context kept.',
+          'x-i18n-description': {
+            en: 'Conversation history is summarized once it exceeds this percentage of the assistant model context window. Higher means rarer compaction, better prompt-cache reuse, and more context kept.',
+            fr: "L'historique de conversation est résumé dès qu'il dépasse ce pourcentage de la fenêtre de contexte du modèle assistant. Plus la valeur est élevée, plus la compaction est rare, meilleure est la réutilisation du cache, et plus de contexte est conservé."
+          },
+          default: 70,
+          minimum: 10,
+          maximum: 100
         }
       }
     },

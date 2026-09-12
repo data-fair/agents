@@ -71,15 +71,57 @@ export type Name = string;
 export type ProviderType9 = string;
 export type ProviderName = string;
 export type ProviderID9 = string;
+/**
+ * Total context size in tokens, as reported by the provider when the model was selected.
+ */
+export type ContextWindow = number;
+/**
+ * Reported by the provider when the model was selected.
+ */
+export type CachedInputPricePer1MTokens = number;
+/**
+ * Reported by the provider when the model was selected.
+ */
+export type CacheWritePricePer1MTokens = number;
+/**
+ * Leave empty to use the value reported by the provider, or 32000 when the provider reports none.
+ */
+export type ContextWindowOverrideTokens = number;
 export type InputPricePer1MTokens = number;
+export type CachedInputPricePer1MTokens1 = number;
+export type CacheWritePricePer1MTokens1 = number;
 export type OutputPricePer1MTokens = number;
+/**
+ * Leave empty to use the value reported by the provider, or 32000 when the provider reports none.
+ */
+export type ContextWindowOverrideTokens1 = number;
 export type InputPricePer1MTokens1 = number;
+export type CachedInputPricePer1MTokens2 = number;
+export type CacheWritePricePer1MTokens2 = number;
 export type OutputPricePer1MTokens1 = number;
+/**
+ * Leave empty to use the value reported by the provider, or 32000 when the provider reports none.
+ */
+export type ContextWindowOverrideTokens2 = number;
 export type InputPricePer1MTokens2 = number;
+export type CachedInputPricePer1MTokens3 = number;
+export type CacheWritePricePer1MTokens3 = number;
 export type OutputPricePer1MTokens2 = number;
+/**
+ * Leave empty to use the value reported by the provider, or 32000 when the provider reports none.
+ */
+export type ContextWindowOverrideTokens3 = number;
 export type InputPricePer1MTokens3 = number;
+export type CachedInputPricePer1MTokens4 = number;
+export type CacheWritePricePer1MTokens4 = number;
 export type OutputPricePer1MTokens3 = number;
+/**
+ * Leave empty to use the value reported by the provider, or 32000 when the provider reports none.
+ */
+export type ContextWindowOverrideTokens4 = number;
 export type InputPricePer1MTokens4 = number;
+export type CachedInputPricePer1MTokens5 = number;
+export type CacheWritePricePer1MTokens5 = number;
 export type OutputPricePer1MTokens4 = number;
 /**
  * When enabled, the last user message of each request from a moderated category is classified before the model responds.
@@ -94,6 +136,10 @@ export type Admin = "admin";
  * User categories whose requests are checked by the gate when moderation is enabled.
  */
 export type ModeratedUserCategories = ((Anonymous | External | User | Contributor | Admin) & string)[];
+/**
+ * Conversation history is summarized once it exceeds this percentage of the assistant model context window. Higher means rarer compaction, better prompt-cache reuse, and more context kept.
+ */
+export type CompactAboveThisShareOfTheContextWindow = number;
 export type Unlimited = boolean;
 /**
  * Weekly limit = monthly / 2, daily limit = monthly / 4
@@ -113,6 +159,7 @@ export type SettingsPut = {
   providers: AIProviders;
   models?: Models;
   moderation?: InputModeration;
+  compaction?: HistoryCompaction;
   quotas?: RoleQuotas;
 }
 export type OpenAI = {
@@ -215,7 +262,10 @@ export type Models = {
  */
 export type Assistant = {
   model?: Model;
+  contextWindow?: ContextWindowOverrideTokens;
   inputPricePerMillion?: InputPricePer1MTokens;
+  cachedInputPricePerMillion?: CachedInputPricePer1MTokens1;
+  cacheWritePricePerMillion?: CacheWritePricePer1MTokens1;
   outputPricePerMillion?: OutputPricePer1MTokens;
   [k: string]: unknown;
 }
@@ -228,6 +278,9 @@ export type Model = {
     id: ProviderID9;
     [k: string]: unknown;
   };
+  contextWindow?: ContextWindow;
+  cachedInputPricePerMillion?: CachedInputPricePer1MTokens;
+  cacheWritePricePerMillion?: CacheWritePricePer1MTokens;
   [k: string]: unknown;
 }
 /**
@@ -238,7 +291,10 @@ export type Model = {
  */
 export type Tools = {
   model?: Model1;
+  contextWindow?: ContextWindowOverrideTokens1;
   inputPricePerMillion?: InputPricePer1MTokens1;
+  cachedInputPricePerMillion?: CachedInputPricePer1MTokens2;
+  cacheWritePricePerMillion?: CacheWritePricePer1MTokens2;
   outputPricePerMillion?: OutputPricePer1MTokens1;
   [k: string]: unknown;
 }
@@ -251,6 +307,9 @@ export type Model1 = {
     id: ProviderID9;
     [k: string]: unknown;
   };
+  contextWindow?: ContextWindow;
+  cachedInputPricePerMillion?: CachedInputPricePer1MTokens;
+  cacheWritePricePerMillion?: CacheWritePricePer1MTokens;
   [k: string]: unknown;
 }
 /**
@@ -261,7 +320,10 @@ export type Model1 = {
  */
 export type Summarizer = {
   model?: Model2;
+  contextWindow?: ContextWindowOverrideTokens2;
   inputPricePerMillion?: InputPricePer1MTokens2;
+  cachedInputPricePerMillion?: CachedInputPricePer1MTokens3;
+  cacheWritePricePerMillion?: CacheWritePricePer1MTokens3;
   outputPricePerMillion?: OutputPricePer1MTokens2;
   [k: string]: unknown;
 }
@@ -274,6 +336,9 @@ export type Model2 = {
     id: ProviderID9;
     [k: string]: unknown;
   };
+  contextWindow?: ContextWindow;
+  cachedInputPricePerMillion?: CachedInputPricePer1MTokens;
+  cacheWritePricePerMillion?: CacheWritePricePer1MTokens;
   [k: string]: unknown;
 }
 /**
@@ -284,7 +349,10 @@ export type Model2 = {
  */
 export type Evaluator = {
   model?: Model3;
+  contextWindow?: ContextWindowOverrideTokens3;
   inputPricePerMillion?: InputPricePer1MTokens3;
+  cachedInputPricePerMillion?: CachedInputPricePer1MTokens4;
+  cacheWritePricePerMillion?: CacheWritePricePer1MTokens4;
   outputPricePerMillion?: OutputPricePer1MTokens3;
   [k: string]: unknown;
 }
@@ -297,6 +365,9 @@ export type Model3 = {
     id: ProviderID9;
     [k: string]: unknown;
   };
+  contextWindow?: ContextWindow;
+  cachedInputPricePerMillion?: CachedInputPricePer1MTokens;
+  cacheWritePricePerMillion?: CacheWritePricePer1MTokens;
   [k: string]: unknown;
 }
 /**
@@ -307,7 +378,10 @@ export type Model3 = {
  */
 export type Moderator = {
   model?: Model4;
+  contextWindow?: ContextWindowOverrideTokens4;
   inputPricePerMillion?: InputPricePer1MTokens4;
+  cachedInputPricePerMillion?: CachedInputPricePer1MTokens5;
+  cacheWritePricePerMillion?: CacheWritePricePer1MTokens5;
   outputPricePerMillion?: OutputPricePer1MTokens4;
   [k: string]: unknown;
 }
@@ -320,11 +394,17 @@ export type Model4 = {
     id: ProviderID9;
     [k: string]: unknown;
   };
+  contextWindow?: ContextWindow;
+  cachedInputPricePerMillion?: CachedInputPricePer1MTokens;
+  cacheWritePricePerMillion?: CacheWritePricePer1MTokens;
   [k: string]: unknown;
 }
 export type InputModeration = {
   enabled: EnableInputModeration;
   categories: ModeratedUserCategories;
+}
+export type HistoryCompaction = {
+  percent: CompactAboveThisShareOfTheContextWindow;
 }
 export type RoleQuotas = {
   global: GlobalQuotas;
@@ -396,6 +476,9 @@ export type Model5 = {
     id: ProviderID9;
     [k: string]: unknown;
   };
+  contextWindow?: ContextWindow;
+  cachedInputPricePerMillion?: CachedInputPricePer1MTokens;
+  cacheWritePricePerMillion?: CacheWritePricePer1MTokens;
   [k: string]: unknown;
 }
 
