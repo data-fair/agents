@@ -1,5 +1,6 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { bridgeSettings } from '../../../simulations/runner/settings.ts'
 
 test.describe('bridge settings', () => {
@@ -21,5 +22,18 @@ test.describe('bridge settings', () => {
   test('gives the admin role unlimited quota so a long scenario is not cut off', () => {
     const s = bridgeSettings('sonnet') as any
     assert.equal(s.quotas.admin.unlimited, true)
+  })
+
+  test('does not perform network I/O at module load', () => {
+    // Guard against regression: settings.ts must not statically import test helpers,
+    // which would cause authentication (network I/O) before any test runs. Dynamic
+    // imports inside functions (await import(...)) are allowed.
+    const source = readFileSync('simulations/runner/settings.ts', 'utf8')
+    const hasStaticTestSupport = /^import\s+.*from\s+['"].*tests\/support/m.test(source)
+    assert.equal(
+      hasStaticTestSupport,
+      false,
+      'settings.ts must not statically import from tests/support (causes network I/O at module load, violating the constraint that unit tests must not hit the network)'
+    )
   })
 })

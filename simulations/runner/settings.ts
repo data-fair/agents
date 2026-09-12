@@ -2,7 +2,6 @@
  * Point an owner's settings at the Claude Code bridge, so the assistant under
  * test runs on a real model.
  */
-import { superAdmin, defaultQuotas } from '../../tests/support/axios.ts'
 
 export const BRIDGE_URL = process.env.BRIDGE_URL ?? 'http://localhost:3194/v1'
 export const OWNER = { type: 'user', id: 'test-standalone1' } as const
@@ -21,17 +20,28 @@ const provider = {
 export function bridgeSettings (modelId: string) {
   const model = { id: modelId, name: modelId, provider: { type: 'openai-compatible', id: 'bridge', name: 'Claude Code Bridge' } }
   const role = { model, inputPricePerMillion: 0, outputPricePerMillion: 0 }
+  // Quotas defined inline rather than imported: a static import of test helpers
+  // would authenticate at module load, causing unit tests to perform network I/O
+  // before any test runs.
+  const quotas = {
+    global: { unlimited: false, monthlyLimit: 10 },
+    admin: { unlimited: true, monthlyLimit: 0 },
+    contrib: { unlimited: false, monthlyLimit: 0 },
+    user: { unlimited: false, monthlyLimit: 0 },
+    external: { unlimited: false, monthlyLimit: 0 },
+    anonymous: { unlimited: false, monthlyLimit: 0 },
+    untrusted: { unlimited: false, monthlyLimit: 0 }
+  }
   return {
     providers: [provider],
     models: { assistant: role, tools: role, summarizer: role, evaluator: role, moderator: role },
-    // The scenario user is an account admin; unlimited keeps a long conversation
-    // from being cut short by quota rather than by the product.
-    quotas: { ...defaultQuotas, admin: { unlimited: true, monthlyLimit: 0 } },
+    quotas,
     storeTraces: false
   }
 }
 
 export async function seedSettings (modelId: string) {
+  const { superAdmin } = await import('../../tests/support/axios.ts')
   const admin = await superAdmin
   await admin.put(`/api/settings/${OWNER.type}/${OWNER.id}`, bridgeSettings(modelId))
 }
