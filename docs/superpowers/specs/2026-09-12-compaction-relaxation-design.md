@@ -145,8 +145,10 @@ existing recap with newer history rather than digesting raw dialogue. A
 `compactionGeneration` counter makes the depth visible in traces.
 
 **Do not compact for nothing.** If the prefix that would be summarized is under
-2 full turns or under 20% of budget, skip. Paying a blocking summarizer call and
-a full cache invalidation to reclaim a sliver is a straight loss.
+20% of budget, skip. Paying a blocking summarizer call and a full cache
+invalidation to reclaim a sliver is a straight loss. The floor is measured in
+tokens only — a message-count clause would refuse to compact a prefix consisting
+of one enormous tool result, which is the case that most needs it.
 
 ### Tool exploration state
 
@@ -231,13 +233,30 @@ cache-write terms. Both token counts are already extracted at all three gateway
 call sites and in `api/src/summary/router.ts`, so this is wiring, not new
 capture. `getSummaryPricing` gets the same treatment.
 
-**Open item requiring a probe before implementation.** Providers disagree on
-whether `inputTokens` *includes* cache reads: OpenAI's `prompt_tokens` includes
-`cached_tokens`; Anthropic's `input_tokens` **excludes**
-`cache_read_input_tokens`. Whether `ai@6` normalizes this away is not known.
-Guessing wrong double-bills or under-bills by ~90% of the prefix. Probe each
-shipped provider, record the answer in this document, and lock it with a unit
-test per provider usage shape. Do not pick a formula by assumption.
+**Resolved: `ai@6` normalizes the provider difference away.** Providers do
+disagree natively (OpenAI's `prompt_tokens` includes `cached_tokens`, Anthropic's
+`input_tokens` excludes `cache_read_input_tokens`), but `LanguageModelUsage` in
+`node_modules/ai/dist/index.d.ts:266` exposes the split directly, so no probe is
+needed:
+
+- `usage.inputTokens` — **total** input tokens, inclusive of cache reads. This is
+  also the fill measure used by the compaction trigger.
+- `usage.inputTokenDetails.noCacheTokens` — the non-cached portion; bill this at
+  the full input price.
+- `usage.inputTokenDetails.cacheReadTokens` / `cacheWriteTokens`.
+
+```
+cost = (noCache × input + cacheRead × cachedInput
+        + cacheWrite × cacheWritePrice + output × output) / 1e6
+```
+
+When `noCacheTokens` is undefined (older provider versions, the mock model),
+fall back to `max(inputTokens − cacheRead − cacheWrite, 0)`. Never subtract when
+`noCacheTokens` is present — take it verbatim.
+
+Note `api/src/gateway/router.ts:24` currently reads `usage.inputTokens` as the
+billable input. That is the *total*, so once cached pricing exists it would
+double-count the cached portion; it must switch to `noCacheTokens`.
 
 ## Refactor
 
@@ -261,7 +280,7 @@ update trace state.
 - under budget → no compaction
 - over budget → cut lands on a turn boundary
 - **never splits a tool call from its tool result**
-- floor guard: prefix under 2 turns / 20% of budget → skip
+- floor guard: prefix under 20% of budget → skip
 - recap carry-forward: `generation` increments, the old recap is not re-digested
 - unknown window → 32k fallback
 - `computeCost` with cached-read and cache-write tokens
