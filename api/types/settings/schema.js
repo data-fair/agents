@@ -725,7 +725,6 @@ Recommendations: GPT-5.4, Claude 4.5 Sonnet, Kimi K2, Mistral Large 3, etc.`,
                 en: 'Input price (per 1M tokens)',
                 fr: "Prix d'entrée (par million de tokens)"
               },
-              default: 0,
               minimum: 0
             },
             cachedInputPricePerMillion: {
@@ -735,7 +734,6 @@ Recommendations: GPT-5.4, Claude 4.5 Sonnet, Kimi K2, Mistral Large 3, etc.`,
                 en: 'Cached input price (per 1M tokens)',
                 fr: "Prix d'entrée en cache (par million de tokens)"
               },
-              default: 0,
               minimum: 0
             },
             cacheWritePricePerMillion: {
@@ -745,7 +743,6 @@ Recommendations: GPT-5.4, Claude 4.5 Sonnet, Kimi K2, Mistral Large 3, etc.`,
                 en: 'Cache write price (per 1M tokens)',
                 fr: "Prix d'écriture en cache (par million de tokens)"
               },
-              default: 0,
               minimum: 0
             },
             outputPricePerMillion: {
@@ -755,7 +752,6 @@ Recommendations: GPT-5.4, Claude 4.5 Sonnet, Kimi K2, Mistral Large 3, etc.`,
                 en: 'Output price (per 1M tokens)',
                 fr: 'Prix de sortie (par million de tokens)'
               },
-              default: 0,
               minimum: 0
             }
           }
@@ -817,7 +813,6 @@ Recommendations: GPT-5.4 Mini, Mistral DevStral, Claude 4.5 Sonnet (Computer Use
                 en: 'Input price (per 1M tokens)',
                 fr: "Prix d'entrée (par million de tokens)"
               },
-              default: 0,
               minimum: 0
             },
             cachedInputPricePerMillion: {
@@ -827,7 +822,6 @@ Recommendations: GPT-5.4 Mini, Mistral DevStral, Claude 4.5 Sonnet (Computer Use
                 en: 'Cached input price (per 1M tokens)',
                 fr: "Prix d'entrée en cache (par million de tokens)"
               },
-              default: 0,
               minimum: 0
             },
             cacheWritePricePerMillion: {
@@ -837,7 +831,6 @@ Recommendations: GPT-5.4 Mini, Mistral DevStral, Claude 4.5 Sonnet (Computer Use
                 en: 'Cache write price (per 1M tokens)',
                 fr: "Prix d'écriture en cache (par million de tokens)"
               },
-              default: 0,
               minimum: 0
             },
             outputPricePerMillion: {
@@ -847,7 +840,6 @@ Recommendations: GPT-5.4 Mini, Mistral DevStral, Claude 4.5 Sonnet (Computer Use
                 en: 'Output price (per 1M tokens)',
                 fr: 'Prix de sortie (par million de tokens)'
               },
-              default: 0,
               minimum: 0
             }
           }
@@ -909,7 +901,6 @@ Recommendations: GPT-5.4 Mini, Claude 4.5 Haiku, Mistral Small 4, Qwen3 (8B), et
                 en: 'Input price (per 1M tokens)',
                 fr: "Prix d'entrée (par million de tokens)"
               },
-              default: 0,
               minimum: 0
             },
             cachedInputPricePerMillion: {
@@ -919,7 +910,6 @@ Recommendations: GPT-5.4 Mini, Claude 4.5 Haiku, Mistral Small 4, Qwen3 (8B), et
                 en: 'Cached input price (per 1M tokens)',
                 fr: "Prix d'entrée en cache (par million de tokens)"
               },
-              default: 0,
               minimum: 0
             },
             cacheWritePricePerMillion: {
@@ -929,7 +919,6 @@ Recommendations: GPT-5.4 Mini, Claude 4.5 Haiku, Mistral Small 4, Qwen3 (8B), et
                 en: 'Cache write price (per 1M tokens)',
                 fr: "Prix d'écriture en cache (par million de tokens)"
               },
-              default: 0,
               minimum: 0
             },
             outputPricePerMillion: {
@@ -939,7 +928,6 @@ Recommendations: GPT-5.4 Mini, Claude 4.5 Haiku, Mistral Small 4, Qwen3 (8B), et
                 en: 'Output price (per 1M tokens)',
                 fr: 'Prix de sortie (par million de tokens)'
               },
-              default: 0,
               minimum: 0
             }
           }
@@ -1001,7 +989,6 @@ Recommendations: Claude Opus 4.6, GPT-5.4 (Reasoning), DeepSeek-R1, Pharia-1-LLM
                 en: 'Input price (per 1M tokens)',
                 fr: "Prix d'entrée (par million de tokens)"
               },
-              default: 0,
               minimum: 0
             },
             cachedInputPricePerMillion: {
@@ -1011,7 +998,6 @@ Recommendations: Claude Opus 4.6, GPT-5.4 (Reasoning), DeepSeek-R1, Pharia-1-LLM
                 en: 'Cached input price (per 1M tokens)',
                 fr: "Prix d'entrée en cache (par million de tokens)"
               },
-              default: 0,
               minimum: 0
             },
             cacheWritePricePerMillion: {
@@ -1021,7 +1007,6 @@ Recommendations: Claude Opus 4.6, GPT-5.4 (Reasoning), DeepSeek-R1, Pharia-1-LLM
                 en: 'Cache write price (per 1M tokens)',
                 fr: "Prix d'écriture en cache (par million de tokens)"
               },
-              default: 0,
               minimum: 0
             },
             outputPricePerMillion: {
@@ -1031,7 +1016,6 @@ Recommendations: Claude Opus 4.6, GPT-5.4 (Reasoning), DeepSeek-R1, Pharia-1-LLM
                 en: 'Output price (per 1M tokens)',
                 fr: 'Prix de sortie (par million de tokens)'
               },
-              default: 0,
               minimum: 0
             }
           }
@@ -1087,7 +1071,6 @@ Recommendations: a small/fast general-purpose model with structured (JSON) outpu
               type: 'number',
               title: 'Input price (per 1M tokens)',
               'x-i18n-title': { en: 'Input price (per 1M tokens)', fr: "Prix d'entrée (par million de tokens)" },
-              default: 0,
               minimum: 0
             },
             cachedInputPricePerMillion: {
@@ -1097,7 +1080,6 @@ Recommendations: a small/fast general-purpose model with structured (JSON) outpu
                 en: 'Cached input price (per 1M tokens)',
                 fr: "Prix d'entrée en cache (par million de tokens)"
               },
-              default: 0,
               minimum: 0
             },
             cacheWritePricePerMillion: {
@@ -1107,14 +1089,12 @@ Recommendations: a small/fast general-purpose model with structured (JSON) outpu
                 en: 'Cache write price (per 1M tokens)',
                 fr: "Prix d'écriture en cache (par million de tokens)"
               },
-              default: 0,
               minimum: 0
             },
             outputPricePerMillion: {
               type: 'number',
               title: 'Output price (per 1M tokens)',
               'x-i18n-title': { en: 'Output price (per 1M tokens)', fr: 'Prix de sortie (par million de tokens)' },
-              default: 0,
               minimum: 0
             }
           }

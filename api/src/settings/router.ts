@@ -48,14 +48,15 @@ router.put('/:type/:id', async (req, res, next) => {
     providers: encryptProviderApiKeys(body.providers || [], existing?.providers || [], securityKey),
     quotas: body.quotas ?? defaultQuotas,
     storeTraces: body.storeTraces ?? false,
-    moderation: body.moderation ?? defaultModeration,
-    compaction: body.compaction ?? defaultCompaction
+    moderation: body.moderation ?? defaultModeration
   }
-  // Persist models exactly as the form represents them: the model-role sections
-  // are hidden until a provider exists, so an empty config legitimately has no
-  // models key. Injecting an empty object here would make the form report a
-  // spurious diff on the next load (it strips the hidden, empty value).
+  // Persist models and compaction exactly as the form represents them: these
+  // sections are hidden until a provider exists, so an empty config legitimately
+  // has no models/compaction key. Injecting a default object here would make the
+  // form report a spurious diff on the next load (it strips the hidden, empty
+  // value).
   if (body.models) settings.models = body.models
+  if (body.compaction) settings.compaction = body.compaction
   await mongo.settings.replaceOne({ owner }, settings, { upsert: true })
 
   eventsLog.info('agents.settings.update', `settings updated for owner ${owner.type}/${owner.id}`, { req })

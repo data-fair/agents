@@ -210,4 +210,49 @@ test.describe('Settings UI', () => {
       await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
     }
   })
+
+  test('loading saved settings reports no pending change', async ({ page, goToWithAuth }) => {
+    // The compaction block and the per-role context/cache fields are hidden until a
+    // provider exists, and carry schema defaults. If the form strips a hidden empty
+    // value that the server re-injects, the round-trip reports a diff and Save
+    // re-enables with nothing edited.
+    const admin = await superAdmin
+    await admin.put('/api/settings/user/test-standalone1', {
+      providers: [{ id: 'seed-provider', type: 'mock', name: 'Mock Seed', enabled: true }],
+      models: {
+        assistant: {
+          model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Seed', id: 'seed-provider' } }
+        }
+      },
+      quotas: defaultQuotas,
+      compaction: { percent: 70 }
+    })
+
+    await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
+    await expect(page.getByText('AI Providers')).toBeVisible({ timeout: 10000 })
+    // Let vjsf finish its initial validation/normalisation pass.
+    await page.waitForTimeout(500)
+
+    await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
+  })
+
+  test('the compaction percent is editable and round-trips', async ({ page, goToWithAuth }) => {
+    const admin = await superAdmin
+    await admin.put('/api/settings/user/test-standalone1', {
+      providers: [{ id: 'seed-provider', type: 'mock', name: 'Mock Seed', enabled: true }],
+      models: {
+        assistant: {
+          model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Seed', id: 'seed-provider' } }
+        }
+      },
+      quotas: defaultQuotas,
+      compaction: { percent: 55 }
+    })
+
+    await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
+    await expect(page.getByText('AI Providers')).toBeVisible({ timeout: 10000 })
+
+    const field = page.getByRole('textbox', { name: /Compact above this share/ })
+    await expect(field).toHaveValue('55')
+  })
 })

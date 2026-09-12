@@ -422,12 +422,20 @@ test.describe('Settings API', () => {
     assert.equal(getRes.data.models.assistant.model.contextWindow, 200000)
   })
 
-  test('settings without compaction get the default percent', async () => {
+  test('settings without compaction persist no compaction key', async () => {
+    // The compaction section is hidden until a provider exists and carries a
+    // schema default, so the server must not inject one on write: doing so would
+    // make the settings form report a spurious diff on the next load. contextBudget
+    // already falls back to the 70% default when the key is absent (see
+    // models.unit.spec.ts).
     const res = await admin.put('/api/settings/user/test-standalone1', {
       providers: [],
       quotas: defaultQuotas
     })
     assert.equal(res.status, 200)
-    assert.equal(res.data.compaction.percent, 70)
+    assert.equal(res.data.compaction, undefined)
+
+    const getRes = await admin.get('/api/settings/user/test-standalone1')
+    assert.equal(getRes.data.compaction, undefined)
   })
 })
