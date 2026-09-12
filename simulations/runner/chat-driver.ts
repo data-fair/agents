@@ -9,7 +9,12 @@
 import { expect, type Page } from '@playwright/test'
 
 const INPUT = 'Type your message...'
-const TURN_TIMEOUT_MS = 4 * 60 * 1000
+// Above any turn the app itself considers alive: the app's watchdog is a 90s IDLE
+// timer that re-arms on every stream part, so a legitimate multi-step sub-agent
+// turn can run far longer than its wall-clock look. Four minutes recorded such
+// turns as invalid runs; the sim config allows 15 minutes per test, so 10 leaves
+// room for the sidecar to be written.
+const TURN_TIMEOUT_MS = 10 * 60 * 1000
 
 export async function sendMessage (page: Page, text: string) {
   await page.getByPlaceholder(INPUT).fill(text)

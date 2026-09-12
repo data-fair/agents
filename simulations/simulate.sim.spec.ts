@@ -6,7 +6,7 @@
  */
 import { test } from '../tests/fixtures/login.ts'
 import { findCases } from './cases/index.ts'
-import { seedSettings, assertBridgeUp } from './runner/settings.ts'
+import { seedSettings, assertBridgeUp, OWNER } from './runner/settings.ts'
 import { sendMessage, waitForTurn, readConversation } from './runner/chat-driver.ts'
 import { captureGateway } from './runner/gateway-capture.ts'
 import { nextUserMessage, isDone } from './runner/persona.ts'
@@ -37,7 +37,9 @@ for (const simCase of selected) {
       await clean()
       await seedSettings(ASSISTANT_MODEL)
 
-      await goToWithAuth(simCase.route, 'test-standalone1')
+      // OWNER, not a literal: seedSettings configures that account, and logging in
+      // as anyone else would fail every case with "no provider configured".
+      await goToWithAuth(simCase.route, OWNER.id)
       await page.getByPlaceholder('Type your message...').waitFor({ state: 'visible', timeout: 30000 })
 
       for (let i = 0; i < simCase.maxTurns; i++) {
@@ -53,8 +55,11 @@ for (const simCase of selected) {
         }
         await sendMessage(page, message)
         await waitForTurn(page)
+        // Read first, then replace: clearing up front meant a throw from
+        // readConversation left the transcript empty, losing every prior turn.
+        const read = await readConversation(page)
         conversation.length = 0
-        conversation.push(...await readConversation(page))
+        conversation.push(...read)
         // Counted only once the turn is actually reflected in the transcript,
         // so a throw from sendMessage/waitForTurn/readConversation does not
         // inflate the sidecar's turn count past what the transcript shows.
