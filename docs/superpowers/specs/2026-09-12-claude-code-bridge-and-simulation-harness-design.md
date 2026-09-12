@@ -195,9 +195,11 @@ key   = sha256 of the incoming messages[] prefix, excluding the new suffix
 value = { query, pendingToolCalls: Map<tool_call_id, resolve>, lastSeen }
 ```
 
-On each request the bridge hashes candidate prefixes of `messages[]` (the delta since the
-last turn is normally one or two messages, so a handful of split points are tried) and
-looks for a live entry.
+The split point is derived, not guessed. A continuation request always ends in exactly one
+shape: an assistant message carrying `tool_calls`, followed by the `tool` messages
+answering them. Stripping that suffix reproduces the array the bridge saw when it
+suspended, so its hash is the key. Any other shape — a trailing user message, a missing
+answer — is not a continuation and takes the replay path.
 
 - **Hit, and the request supplies exactly the `tool_call_id`s that entry is waiting on** —
   resolve those promises; the live query continues. This is the fast path.
