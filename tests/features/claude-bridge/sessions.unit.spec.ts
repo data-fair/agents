@@ -6,7 +6,8 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { hashMessages, continuationOf, SessionStore, type LiveSession } from '../../../dev/claude-bridge/sessions.ts'
+import { hashMessages, continuationOf, sameToolSet, SessionStore, type LiveSession } from '../../../dev/claude-bridge/sessions.ts'
+import { Conversation } from '../../../dev/claude-bridge/conversation.ts'
 import type { OpenAIMessage } from '../../../dev/claude-bridge/openai.ts'
 
 const opening: OpenAIMessage[] = [
@@ -110,13 +111,35 @@ test.describe('session store lifecycle', () => {
     assert.deepEqual(aborted, ['a'])
   })
 
-  test('delete aborts the live query', () => {
+  test('delete calls the session abort hook', () => {
+    // Store-level contract only: that delete invokes abort(). The test below
+    // checks the guarantee that actually matters — a real Conversation's signal.
     const aborted: string[] = []
     const store = new SessionStore()
     store.set(make('a', aborted))
     store.delete('a')
     assert.deepEqual(aborted, ['a'])
     assert.equal(store.size, 0)
+  })
+
+  test('delete really aborts a real Conversation, so the SDK query is cancelled', () => {
+    // Regression: Conversation carried an AbortController nothing was wired to,
+    // so eviction dropped the map entry and left the claude subprocess running.
+    const store = new SessionStore()
+    const conv = new Conversation('a')
+    assert.equal(conv.signal.aborted, false)
+    store.set(conv)
+    store.delete('a')
+    assert.equal(conv.signal.aborted, true, 'the controller handed to query() must be aborted by eviction')
+    assert.equal(conv.isDead, true)
+  })
+
+  test('a real Conversation satisfies the LiveSession contract the store needs', () => {
+    // The store is typed on LiveSession; the server stores Conversations. If they
+    // ever drift, eviction silently stops aborting anything.
+    const conv: LiveSession = new Conversation('a')
+    assert.equal(conv.key, 'a')
+    assert.ok(typeof conv.abort === 'function')
   })
 
   test('rekey re-files a surviving session WITHOUT aborting it', () => {
@@ -127,5 +150,20 @@ test.describe('session store lifecycle', () => {
     assert.deepEqual(aborted, [], 'a continuing session must not be aborted')
     assert.equal(store.get('old'), undefined)
     assert.equal(store.get('new')?.key, 'new')
+  })
+})
+
+test.describe('tool set comparison', () => {
+  test('same names in any order match', () => {
+    assert.equal(sameToolSet(['a', 'b'], ['b', 'a']), true)
+    assert.equal(sameToolSet([], []), true)
+  })
+
+  test('a newly registered tool is a mismatch, so the live session is not adopted', () => {
+    // The product registers tools mid-turn; adopting the live query would offer
+    // the model the stale set and make the new tool uncallable.
+    assert.equal(sameToolSet(['a'], ['a', 'b']), false)
+    assert.equal(sameToolSet(['a', 'b'], ['a']), false)
+    assert.equal(sameToolSet(['a', 'b'], ['a', 'c']), false)
   })
 })

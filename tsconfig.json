@@ -10,5 +10,7 @@
     "checkJs": true,
     "skipLibCheck": true
   },
-  "exclude": ["node_modules", ".type", "ui", "dev", "test-it", "eslint.config.mjs"]
+  // dev/ is excluded, but the claude-bridge is real code with real complexity:
+  // list dev/ subtrees explicitly so dev/claude-bridge stays in the program.
+  "exclude": ["node_modules", ".type", "ui", "dev/fixtures.ts", "dev/logs", "dev/resources", "dev/scripts", "test-it", "eslint.config.mjs"]
 }

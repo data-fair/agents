@@ -19,6 +19,12 @@ import { mcpNameToTool, mapUsage, type OpenAIToolCall } from './openai.ts'
 // turn, so they are handed back together as OpenAI expects.
 const SETTLE_MS = 50
 
+// What a suspended tool handler returns when the conversation is aborted. It
+// MUST read as a failure: the model receives it as the tool's result, and a
+// bare word like "aborted" would be taken for a successful answer.
+export const ABORTED_TOOL_RESULT =
+  'ERROR: the conversation was aborted before this tool call could be answered. No result is available.'
+
 export type TurnOutcome =
   | { type: 'tools', calls: OpenAIToolCall[] }
   | { type: 'done', usage?: object }
@@ -36,6 +42,12 @@ export class Conversation {
   key: string
   lastSeen = Date.now()
   pending = new Map<string, (result: string) => void>()
+  /**
+   * The tool names the live MCP tool server was built with. A continuation
+   * request declaring a different set cannot be served by this query — the model
+   * would be offered the stale set — so the server compares before adopting it.
+   */
+  toolNames: string[]
 
   #collected: OpenAIToolCall[] = []
   #handedBack = 0
@@ -44,17 +56,29 @@ export class Conversation {
   #settle: NodeJS.Timeout | null = null
   #controller = new AbortController()
   #consuming = false
+  #terminal: TurnOutcome | null = null
 
-  constructor (key: string) {
+  constructor (key: string, toolNames: string[] = []) {
     this.key = key
+    this.toolNames = toolNames
   }
 
+  /** Handed to the SDK as `options.abortController`, so abort() really cancels the query. */
+  get controller () { return this.#controller }
   get signal () { return this.#controller.signal }
 
+  /**
+   * True once the upstream query has ended (done, error or abort). A dead
+   * conversation must never be adopted as a continuation: nothing would ever
+   * resolve the turn it was handed.
+   */
+  get isDead () { return this.#terminal !== null }
+
   abort () {
+    this.#terminal ??= { type: 'error', message: 'conversation aborted' }
     this.#controller.abort()
     // Unblock anything still waiting on a tool result.
-    for (const resolve of this.pending.values()) resolve('aborted')
+    for (const resolve of this.pending.values()) resolve(ABORTED_TOOL_RESULT)
     this.pending.clear()
   }
 
@@ -86,6 +110,7 @@ export class Conversation {
 
   /** True when every tool call handed back has been answered by this request. */
   awaits (ids: string[]) {
+    if (this.#terminal) return false
     return ids.length > 0 && ids.every(id => this.pending.has(id))
   }
 
@@ -94,12 +119,26 @@ export class Conversation {
    * Start the consumer loop on first use.
    */
   beginTurn (sink: (text: string) => void, iterator?: AsyncIterable<SdkMessage>): Promise<TurnOutcome> {
+    if (this.#terminal) {
+      // The query ended between turns (rate limit, crash) with no response
+      // attached, so its outcome was recorded rather than dropped. Replay it:
+      // without this the request would await a promise nothing can settle.
+      return Promise.resolve(this.#terminal)
+    }
     this.#sink = sink
     const turn = new Promise<TurnOutcome>(resolve => { this.#resolveTurn = resolve })
     if (iterator && !this.#consuming) {
       this.#consuming = true
       // #consume reports every failure through #endTurn, so nothing escapes here.
       this.#consume(iterator).catch(() => {})
+    }
+    // A tool call can land after the previous turn's settle window closed: #endTurn
+    // was then a no-op and no timer stays armed, so the call would sit here forever
+    // while the SDK waits for a tool_result. Hand any such stragglers back now.
+    // A still-armed timer is left alone: it is about to close the turn properly,
+    // with the parallel siblings it is waiting for.
+    if (!this.#settle && this.#collected.length > this.#handedBack) {
+      this.#endTurn({ type: 'tools', calls: this.#collected.slice(this.#handedBack) })
     }
     return turn
   }
@@ -137,6 +176,10 @@ export class Conversation {
     const resolve = this.#resolveTurn
     this.#resolveTurn = null
     this.#sink = null
+    // Anything but a hand-back means the query is over. Remember it: between two
+    // HTTP requests there is no resolver, and dropping the outcome here is what
+    // left the next request awaiting a promise that could never settle.
+    if (outcome.type !== 'tools') this.#terminal ??= outcome
     resolve?.(outcome)
   }
 }

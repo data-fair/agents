@@ -47,6 +47,19 @@ export function continuationOf (messages: OpenAIMessage[]) {
   return { key: hashMessages(messages.slice(0, i - 1)), toolResults: results }
 }
 
+/**
+ * The live query keeps the MCP tool server it was built with on the FIRST request
+ * of the turn, but the product registers tools mid-turn (use-agent-chat.ts
+ * reconciles the set as panels open). Adopting a live session whose tool set no
+ * longer matches would offer the model a stale set and make a freshly registered
+ * tool uncallable — so a mismatch forfeits the cache and replays instead.
+ */
+export function sameToolSet (a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false
+  const set = new Set(a)
+  return b.every(name => set.has(name))
+}
+
 export class SessionStore {
   #sessions = new Map<string, LiveSession>()
   #ttlMs: number
