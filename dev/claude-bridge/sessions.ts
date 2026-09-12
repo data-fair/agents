@@ -9,17 +9,13 @@
  * There is no path by which a superseded history is silently answered.
  */
 import crypto from 'node:crypto'
-import type { OpenAIMessage, OpenAIToolCall } from './openai.ts'
+import type { OpenAIMessage } from './openai.ts'
 
 export type LiveSession = {
   key: string
   pending: Map<string, (result: string) => void>
   abort: () => void
   lastSeen: number
-  // Set by the HTTP layer when the query is created; absent in unit tests that
-  // construct sessions by hand.
-  iterator?: AsyncIterable<unknown>
-  collected?: OpenAIToolCall[]
 }
 
 export function hashMessages (messages: OpenAIMessage[]): string {
