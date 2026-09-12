@@ -12,6 +12,7 @@
     "lint-fix": "eslint --fix . && npm -w ui run lint-fix",
     "dev-api": "npm -w api run dev",
     "dev-ui": "npm -w ui run dev",
+    "dev-bridge": "mkdir -p dev/logs && node dev/claude-bridge/index.ts 2>&1 | tee dev/logs/dev-bridge.log",
     "dev-deps": "mkdir -p dev/logs && docker compose up 2>&1 | tee dev/logs/docker-compose.log",
     "dev-zellij": "dotenv -- zellij --layout .zellij.kdl",
     "dev-fixtures": "dotenv -- node dev/fixtures.ts",
@@ -23,6 +24,9 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/data-fair/agents.git"
+  },
+  "overrides": {
+    "zod": "3.25.76"
   },
   "workspaces": [
     "ui",
@@ -38,10 +42,12 @@
   },
   "homepage": "https://github.com/data-fair/agents#readme",
   "devDependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.269",
     "@commitlint/config-conventional": "^19.2.2",
     "@data-fair/lib-express": "^1.19.0",
     "@data-fair/lib-node": "^2.8.1",
     "@koumoul/vjsf-compiler": "^1.2.3",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@playwright/test": "^1.58.2",
     "@types/config": "^3.3.5",
     "@types/express": "^5.0.6",
