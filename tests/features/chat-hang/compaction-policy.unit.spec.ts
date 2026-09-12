@@ -10,6 +10,7 @@ import {
   decideCompaction,
   isTurnBoundary,
   estimateTokens,
+  retainedToolNames,
   RETENTION_SHARE
 } from '../../../ui/src/utils/compaction-policy.ts'
 
@@ -151,6 +152,36 @@ test.describe('decideCompaction — what survives', () => {
     assert.equal(d.compact, true)
     if (!d.compact) return
     assert.equal(d.generation, 3)
+  })
+})
+
+test.describe('retainedToolNames — exact match only, drop when unsure', () => {
+  test('extracts a name from a tool-call part', () => {
+    const retained = [userMsg('q'), toolCall('c1'), toolResult('c1')]
+    const names = retainedToolNames(retained)
+    assert.ok(names.has('search'))
+  })
+
+  test('extracts names listed inside a <tools-available> notice', () => {
+    const notice = userMsg(
+      '<tools-available>\n' +
+      'Not yet callable — pass your intent to explore_tools to activate the ones you need:\n' +
+      'browse_web, fetch_page\n' +
+      '</tools-available>'
+    )
+    const names = retainedToolNames([notice])
+    assert.ok(names.has('browse_web'))
+    assert.ok(names.has('fetch_page'))
+  })
+
+  test('a tool name that only appears as an ordinary word in recap prose is NOT retained (false-positive guard)', () => {
+    // "search" is a real tool name elsewhere, but here it shows up only inside the
+    // summarizer's recap text — never as a toolName on a tool-call/tool-result part,
+    // and never inside a <tools-available> notice. A substring scan over the
+    // serialized window would wrongly keep it; the exact-match extraction must not.
+    const recap = userMsg('[Automatic recap] The user asked us to search for a restaurant and we did a quick search of the area.')
+    const names = retainedToolNames([recap])
+    assert.equal(names.has('search'), false)
   })
 })
 

@@ -74,6 +74,53 @@ export function isTurnBoundary (history: ModelMessage[], index: number): boolean
   return true
 }
 
+function textOf (content: ModelMessage['content']): string {
+  if (typeof content === 'string') return content
+  if (Array.isArray(content)) {
+    const textPart = (content as { type?: string, text?: string }[]).find(p => p?.type === 'text')
+    if (textPart && typeof textPart.text === 'string') return textPart.text
+  }
+  return ''
+}
+
+/**
+ * Exact tool names a retained window still references — the set that must stay
+ * promoted/announced after a compaction. Two sources, both exact matches (never a
+ * substring scan over the serialized window, which false-positives on any tool
+ * name that happens to also be an ordinary word in the recap prose):
+ *  - `toolName` on a `tool-call`/`tool-result` part of a retained message;
+ *  - names listed inside a retained `<tools-available>` notice (see
+ *    formatToolsAvailableMessage), read from the last non-empty line of the block
+ *    and split on `,` so the notice's own wording can't affect the match.
+ */
+export function retainedToolNames (retained: ModelMessage[]): Set<string> {
+  const names = new Set<string>()
+  for (const message of retained) {
+    if (Array.isArray(message.content)) {
+      for (const part of message.content as { type?: string, toolName?: string }[]) {
+        if ((part?.type === 'tool-call' || part?.type === 'tool-result') && part.toolName) {
+          names.add(part.toolName)
+        }
+      }
+    }
+
+    const text = textOf(message.content)
+    if (!text) continue
+    const blockRe = /<tools-available>([\s\S]*?)<\/tools-available>/g
+    let block: RegExpExecArray | null
+    while ((block = blockRe.exec(text))) {
+      const lines = block[1].split('\n').map(l => l.trim()).filter(Boolean)
+      const namesLine = lines[lines.length - 1]
+      if (!namesLine) continue
+      for (const name of namesLine.split(',')) {
+        const trimmed = name.trim()
+        if (trimmed) names.add(trimmed)
+      }
+    }
+  }
+  return names
+}
+
 export function decideCompaction (input: CompactionInput): CompactionDecision {
   const { history, lastInputTokens, appendedChars, budget, generation } = input
 

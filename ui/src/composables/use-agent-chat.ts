@@ -14,7 +14,7 @@ import { extractErrorMessage } from '~/utils/error'
 import { redactHistoryMediaToolResults } from '~/utils/tool-result'
 import { readConsent, traceStorageAvailable } from '~/traces/trace-consent'
 import { wrapHiddenContext } from '~/traces/hidden-context'
-import { decideCompaction } from '~/utils/compaction-policy'
+import { decideCompaction, retainedToolNames } from '~/utils/compaction-policy'
 import Debug from 'debug'
 import type { ChatActivity } from './agent-activity.ts'
 import { applyStreamPart, type StreamScope, type StreamPart } from './agent-stream-parts.ts'
@@ -498,10 +498,15 @@ export function useAgentChat (options: UseAgentChatOptions) {
 
       // The retained window keeps the tools it actually references callable; only
       // prune what no longer appears. Clearing wholesale (the previous behaviour)
-      // forced the model to re-explore tools it had just used.
-      const retainedJson = JSON.stringify(retained)
-      for (const name of [...promotedTools]) if (!retainedJson.includes(name)) promotedTools.delete(name)
-      for (const name of [...announcedTools]) if (!retainedJson.includes(name)) announcedTools.delete(name)
+      // forced the model to re-explore tools it had just used. Matched by exact
+      // name (tool-call/tool-result parts, <tools-available> notices) — never a
+      // substring scan, which would false-positive on a tool name that also reads
+      // as an ordinary word in the recap prose. When a name isn't provably still
+      // referenced, drop it: re-announcing costs a few tokens, silently failing to
+      // announce costs the model a capability for the rest of the conversation.
+      const retainedNames = retainedToolNames(retained)
+      for (const name of [...promotedTools]) if (!retainedNames.has(name)) promotedTools.delete(name)
+      for (const name of [...announcedTools]) if (!retainedNames.has(name)) announcedTools.delete(name)
 
       // The next turn re-measures against the real prompt; until then the whole
       // rebuilt history counts as un-measured.
