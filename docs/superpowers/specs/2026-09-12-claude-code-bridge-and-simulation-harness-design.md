@@ -29,6 +29,9 @@ The second depends on the first: a simulation needs a real model driving the ass
 - `agents`, running in the dev workspace, answers with Claude Code subscription models,
   in both this repo and `~/data-fair/data-fair`, with no product code changes and nothing
   subscription-specific shipping in the Docker image.
+- Conversations stay cheap as they grow: the bridge keeps prompt-cache continuity across
+  turns rather than re-paying for the whole history each time. Treated as a requirement,
+  not an optimisation — see §1.4 for what that does and does not buy.
 - A repeatable suite of judged scenario simulations: a persona with a goal drives a real
   browser against a real page with real tools, and a judge reads the transcript and
   reports where the product misled the user.
@@ -37,8 +40,8 @@ The second depends on the first: a simulation needs a real model driving the ass
 
 - A first-class `claude-code` provider type in the settings schema. Deferred until daily
   use proves the dev proxy insufficient.
-- Session-resume / prompt-cache optimisation in the bridge. A seam is left; the
-  implementation is deferred (see §2.4).
+- Persisting live sessions across bridge restarts. A restart drops to full replay, which
+  is correct, only slower.
 - Running simulations in CI. They need an authenticated `claude` and consume plan quota.
 - Replacing the existing Playwright suite. This measures a different thing.
 
@@ -56,8 +59,10 @@ driving the native `claude` 2.1.269 binary, before this spec was written.
 | Does stateless replay of history produce the right continuation? | yes |
 | Does it run on the subscription? | yes — `apiKeySource: 'none'`, OAuth credentials |
 | Can raw JSON Schema tool definitions be used? | yes, via the low-level MCP `Server` |
+| Can a tool handler suspend across the HTTP boundary and the turn continue? | yes |
+| Does resuming a session produce prompt-cache hits? | yes, above a size threshold |
 
-Three findings constrain the design rather than merely confirming it:
+Four findings constrain the design rather than merely confirming it:
 
 **1.1 `canUseTool` is not the interception point.** A bare `allowedTools` entry
 auto-approves before the callback runs — the SDK emits
@@ -91,6 +96,26 @@ unattainable in principle. What is attainable, and what this design guarantees, 
 **no role knows the product exists beyond what the product itself told it**. The temp
 directory is given a meaningless name so the leaked path carries no signal.
 
+**1.4 Caching is real, but only session continuity captures the part that grows.**
+Measured with a ~9k-token system prompt on `claude-haiku-4-5`:
+
+| configuration | cache behaviour |
+|---|---|
+| custom system prompt ≲ 4k tokens | no caching at all, in any configuration |
+| fresh session, identical system prompt | reads 9039 — **system-prompt caching is free** |
+| full replay, identical history, fresh session per turn | reads 9039, **re-writes 1250 every turn** |
+| resumed session | reads the full 9382 prefix, **writes only the 201-token delta** |
+
+Two consequences. First, prompt caching is content-addressed at the API level, so a
+stateless replay already reuses the system prompt without any session bookkeeping —
+the naive "no caching without resume" assumption is wrong. Second, the *conversation
+history* is never read back under replay: it is re-written on every turn, so the cost
+grows with the conversation exactly where it hurts. Session continuity is what removes
+that, which is why it is in v1 rather than deferred.
+
+Below roughly 4k tokens nothing caches regardless. Short dev conversations will
+therefore show no cache activity at all; this is expected, not a fault.
+
 ### 2. The bridge — `dev/claude-bridge/`
 
 A standalone Node process, started by the user like the other dev processes
@@ -120,19 +145,36 @@ implement. `apiKey` is optional for this provider type, so none is needed.
    returning the JSON Schemas verbatim, `alwaysLoad: true` so they are never deferred
    behind tool search. The high-level `McpServer` helper is unusable: it rejects raw
    JSON Schema, demanding Zod.
-3. `messages[]` → one rendered transcript prompt.
+3. `messages[]` → resolved against the live-session map (§2.4). On the fast path only the
+   new tool results are delivered into the running query; on a miss the whole array is
+   rendered into a single transcript prompt for a fresh session.
 4. Isolation, fixed and not caller-overridable: `tools: []`, `strictMcpConfig: true`,
    `settingSources: []`, freshly-created neutral temp cwd, `CLAUDE_CODE_*` scrubbed from
    the child env. Without `tools: []` the first probe run had 27 built-in tools in scope
    and the model reached for `ToolSearch` instead of the tool it was given.
 
-#### 2.3 Response mapping
+#### 2.3 Response mapping and the suspended tool call
 
 Stream assistant text as `delta.content` chunks. On reaching a `tool_use` block, collect
 **every** `tool_use` in that assistant message (OpenAI permits parallel calls), strip the
-`mcp__<server>__` prefix to recover the original tool name, emit as `delta.tool_calls`,
-finish with `tool_calls`, and break the iterator — the tool never executes locally.
-Otherwise finish with `stop`.
+`mcp__<server>__` prefix to recover the original tool name, and emit them as
+`delta.tool_calls` with `finish_reason: 'tool_calls'`. Otherwise finish with `stop`.
+
+The turn is **not** aborted at that point. Each MCP tool handler returns a promise that
+stays unresolved; the bridge closes the HTTP response while the SDK query remains alive
+with its handlers suspended. When the client's next request arrives carrying the
+`tool_result`s, those promises resolve with the client-supplied content and the *same*
+query continues.
+
+This is what makes §1.4's caching work, and it is also the only way the `tool_use` is
+answered by a real `tool_result` block. The alternative — abort, then resume and deliver
+the tool result as user text — was probed and does produce a correct-looking answer, but
+it leaves the `tool_use` permanently unanswered and relies on the model tolerating a
+malformed exchange. Rejected as a foundation.
+
+The per-server MCP `timeout` is raised (10 min) so a handler suspended across a slow
+client turn is not killed; the default would abort a tool call waiting on a human-driven
+action button.
 
 Map the `result` message's usage into the OpenAI `usage` object so existing cost and
 quota accounting keeps functioning. The reported `total_cost_usd` is list-price
@@ -144,14 +186,40 @@ OpenAI-shaped errors. Otherwise they surface as the silent-drop and hang classes
 recorded in this project's memory, which would be a self-inflicted repeat of bugs already
 fixed.
 
-#### 2.4 Deferred: session resume
+#### 2.4 Session continuity, and why it cannot go stale
 
-Every request replays full history, so a long conversation re-sends everything and loses
-prompt caching. A `CLAUDE_BRIDGE_RESUME=1` seam is left for a prefix-hash → `sessionId`
-map using the SDK's `resume`. Not implemented: it puts real state into a shim whose
-correctness depends on `agents` being stateless, and the failure mode (a stale session
-silently answering from a superseded history) is worse than slow. Revisit only if
-long-conversation latency is what stops the tooling being used.
+The bridge keeps a map of live conversations:
+
+```
+key   = sha256 of the incoming messages[] prefix, excluding the new suffix
+value = { query, pendingToolCalls: Map<tool_call_id, resolve>, lastSeen }
+```
+
+On each request the bridge hashes candidate prefixes of `messages[]` (the delta since the
+last turn is normally one or two messages, so a handful of split points are tried) and
+looks for a live entry.
+
+- **Hit, and the request supplies exactly the `tool_call_id`s that entry is waiting on** —
+  resolve those promises; the live query continues. This is the fast path.
+- **Miss, divergence, or a suffix that is a new user message rather than the awaited tool
+  results** — abort any live query for that key and start fresh with a full replay.
+
+**Staleness is structurally impossible, not merely guarded against.** The key is a content
+hash of the exact prefix, so any edit to history — compaction replacing turns with a
+summary (`docs/architecture/compaction.md`), `redactHistoryMediaToolResults` rewriting
+tool results, a user retrying a turn — changes the hash and becomes a cache *miss*, which
+degrades to replay. There is no path by which a superseded history is silently answered;
+the worst case is the performance of the no-cache design.
+
+**Lifecycle.** Entries carry a TTL (idle 15 min) and are swept; abandoned conversations —
+a closed browser tab — have their queries aborted rather than leaking a `claude`
+subprocess. A bounded number of live sessions is enforced, evicting least-recently-used,
+so a long dev session cannot accumulate processes without limit. The count of live
+sessions is exposed on a `GET /_bridge/status` endpoint, because "why is my machine
+slow" needs an answer that is not `ps`.
+
+**Restart drops everything**, by design (see non-goals): the map is in memory, and a
+restarted bridge simply replays.
 
 ### 3. The simulation harness — `simulations/`
 
@@ -257,6 +325,12 @@ opt-in. The runner must recognise a rate-limit result and report it as an **inva
 - **Bridge, isolation invariant** — a test asserting the options handed to the SDK carry a
   neutral cwd, empty `settingSources`, empty `tools` and `strictMcpConfig`. This is the
   §1.2 guarantee; it must fail loudly if someone "simplifies" the cwd handling.
+- **Bridge, session continuity** — the §2.4 state machine, with the SDK faked so it runs
+  deterministically and offline: a matching prefix plus awaited `tool_call_id`s resolves
+  the pending handlers; a diverged prefix, a compacted history, and an unexpected suffix
+  each fall back to replay and abort the live query; TTL and LRU eviction abort rather
+  than leak. The staleness claim is the one most worth a test, since its failure mode is
+  silent and wrong answers rather than an error.
 - **Harness, deterministic** — case registry validation (every case names a reachable
   route, unique names, required fields) with no model involved, so it runs in `npm run test`.
 - **Judged runs** — the harness itself, run manually via `/simulate`.
@@ -268,6 +342,10 @@ opt-in. The runner must recognise a rate-limit result and report it as an **inva
 - **Fidelity:** the assistant under test carries a ~367-token Claude/SDK preamble that a
   production provider would not send (§1.3). Stated, not hidden; it carries no product
   knowledge.
+- **Live sessions:** the bridge now holds `claude` subprocesses open between requests
+  (§2.4). Mismanaged, this leaks processes. Bounded by TTL, an LRU cap and explicit aborts
+  on divergence, and observable via `/_bridge/status`. This is the main complexity the
+  caching requirement buys, and it is contained in one module.
 - **Non-determinism:** three models per run means no two runs are identical. This is why
   verdicts are judged and baselines are dated rather than asserted equal.
 - **Plan quota:** the main practical limit. Sequential by default, and `npm run test` is
