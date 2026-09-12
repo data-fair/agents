@@ -32,6 +32,35 @@ test.describe('gateway capture', () => {
     assert.equal(ex?.messageCount, 3)
   })
 
+  test('extracts text from multi-part user message content arrays', () => {
+    const ex = summariseRequest({
+      model: 'assistant',
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'text', text: 'find' },
+          { type: 'image_url', image_url: { url: 'http://example.com/img.jpg' } },
+          { type: 'text', text: 'by schema' }
+        ]
+      }]
+    })
+    assert.equal(ex?.lastUserMessage, 'find by schema')
+  })
+
+  test('falls back to JSON stringified content when array has no text parts', () => {
+    const ex = summariseRequest({
+      model: 'assistant',
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image_url', image_url: { url: 'http://example.com/img.jpg' } }
+        ]
+      }]
+    })
+    assert(ex?.lastUserMessage.startsWith('['))
+    assert(ex?.lastUserMessage.includes('image_url'))
+  })
+
   test('ignores a body that is not a chat completion request', () => {
     assert.equal(summariseRequest({ nope: true }), null)
     assert.equal(summariseRequest('not json'), null)
