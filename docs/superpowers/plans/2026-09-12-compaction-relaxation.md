@@ -481,6 +481,7 @@ Teach `getModelConfig` about the new fields, feed the real cache prices into Tas
 - Modify: `api/src/models/operations.ts:82-96`
 - Modify: `api/src/gateway/router.ts:183-187`
 - Modify: `api/src/gateway/router.ts` (the three `computeCost` call sites from Task 1)
+- Modify: `api/src/moderation/service.ts:160,182,250,267` (two more `computeCost` sites, both already destructuring `getModelConfig(settings, 'moderator')`)
 - Test: `tests/features/models/models.unit.spec.ts`
 - Test: `tests/features/gateway/gateway.api.spec.ts`
 
@@ -663,6 +664,14 @@ Then widen the destructuring at line ~187:
 and at the three `computeCost` call sites, replace the `undefined` placeholders left by Task 1 with the real `cachedInputPricePerMillion` and `cacheWritePricePerMillion`.
 
 Do the same in `api/src/summary/router.ts`: extend `getSummaryPricing` to return `cachedInputPricePerMillion: source?.cachedInputPricePerMillion ?? 0` and `cacheWritePricePerMillion: source?.cacheWritePricePerMillion ?? 0`, and pass them into `computeCost`.
+
+And in `api/src/moderation/service.ts`, at both sites (lines ~160 and ~250) widen the existing destructuring:
+
+```ts
+  const { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion, cacheWritePricePerMillion } = getModelConfig(settings, 'moderator')
+```
+
+then replace the two `cachedInputPricePerMillion: undefined, cacheWritePricePerMillion: undefined` placeholders (lines ~188 and ~273) with the destructured values. These two sites were missing from the original plan's file list; Task 1 converted them to the object form to keep `tsc` passing.
 
 - [ ] **Step 8: Run tests to verify they pass**
 
@@ -1692,4 +1701,4 @@ After Task 8, before claiming the work complete:
 - [ ] `npm run test` — all three projects pass
 - [ ] `docker build -t agents .` — succeeds
 - [ ] Confirm by grep that `COMPACTION_THRESHOLD` and the literal `24_000` are gone from `ui/src/composables/use-agent-chat.ts`
-- [ ] Confirm `computeCost` has exactly four call sites, all passing the object form
+- [ ] Confirm `computeCost` has exactly six call sites (3 in `gateway/router.ts`, 2 in `moderation/service.ts`, 1 in `summary/router.ts`), all passing the object form and all passing real cache prices
