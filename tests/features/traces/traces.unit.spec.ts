@@ -84,4 +84,32 @@ test.describe('traces operations (unit)', () => {
     }, now)
     assert.deepEqual(doc.cost, { input: 0, output: 0, total: 0 })
   })
+
+  test('buildTraceRequestDoc bills cache reads/writes at their own price, not the plain input price', () => {
+    // Regression for the missed cost site: inputTokens is the TOTAL including cache
+    // reads, so before routing this through computeCost, a cached turn showed a
+    // trace input cost higher than what was actually billed.
+    const now = new Date('2026-06-08T00:00:00.000Z')
+    const doc = buildTraceRequestDoc({
+      owner: { type: 'user', id: 'u1' },
+      conversationId: 'c1',
+      contextId: 'turn:t1',
+      modelRole: 'assistant',
+      providerName: 'OpenAI',
+      providerType: 'openai',
+      resolvedModel: 'gpt-5',
+      body: { messages: [], tools: [] },
+      response: { content: 'hi', toolCalls: [] },
+      // 1M total input tokens, 900k of which were cache reads and 100k freshly written
+      usage: { inputTokens: 1_000_000, outputTokens: 0, cacheReadTokens: 900_000, cacheWriteTokens: 100_000 },
+      timing: { durationMs: 10 },
+      inputPricePerMillion: 3,
+      outputPricePerMillion: 6,
+      cachedInputPricePerMillion: 0.3,
+      cacheWritePricePerMillion: 3.75
+    }, now)
+    // noCache = 1M - 900k - 100k = 0, so input cost is purely cache read + cache write
+    const expectedInput = (900_000 * 0.3 / 1_000_000) + (100_000 * 3.75 / 1_000_000)
+    assert.deepEqual(doc.cost, { input: expectedInput, output: 0, total: expectedInput })
+  })
 })

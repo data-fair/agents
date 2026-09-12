@@ -102,9 +102,17 @@ export function getModelConfig (settings: Settings, modelRole: ModelRole) {
     inputPricePerMillion: source.inputPricePerMillion ?? 0,
     outputPricePerMillion: source.outputPricePerMillion ?? 0,
     // Same resolution order as contextWindow: role override, then the snapshot
-    // taken from the provider listing when the model was picked, then 0.
-    cachedInputPricePerMillion: source.cachedInputPricePerMillion ?? source.model.cachedInputPricePerMillion ?? 0,
-    cacheWritePricePerMillion: source.cacheWritePricePerMillion ?? source.model.cacheWritePricePerMillion ?? 0,
+    // taken from the provider listing when the model was picked, then... NOT 0.
+    // An unset cache price means "unknown", not "free": OpenAI, Scaleway, LiteLLM
+    // and vLLM report no pricing in their model listings, yet their SDKs still
+    // report a cache-read/write split (they cache implicitly above ~1024 prompt
+    // tokens). Defaulting to 0 would bill those cache-read tokens for free,
+    // under-billing cost and silently loosening every dollar-denominated quota
+    // (including the untrusted anonymous+external pool). Fall back to the full
+    // input price instead, which is what this codebase billed before the split
+    // was introduced.
+    cachedInputPricePerMillion: source.cachedInputPricePerMillion ?? source.model.cachedInputPricePerMillion ?? (source.inputPricePerMillion ?? 0),
+    cacheWritePricePerMillion: source.cacheWritePricePerMillion ?? source.model.cacheWritePricePerMillion ?? (source.inputPricePerMillion ?? 0),
     // A 0 override means "unset" (the form emits 0 for an untouched number
     // field), not a zero-token window — fall through to the snapshot.
     contextWindow: source.contextWindow || source.model.contextWindow || UNKNOWN_CONTEXT_WINDOW

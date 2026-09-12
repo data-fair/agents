@@ -160,3 +160,18 @@ under the old character-based trigger.
 
 See `ui/src/utils/compaction-policy.ts` for the decision logic and
 `tests/features/chat-hang/compaction-policy.unit.spec.ts` for its unit tests.
+
+## Known limitations
+
+- **The evaluator chat compacts against the assistant's budget, not its own.** The
+  budget is always computed for the `assistant` role and advertised as
+  `x-context-budget` on every gateway response, regardless of which model role the
+  request actually used (see "The budget" above). `ui/src/components/EvaluatorChat.vue`
+  passes `modelName: 'evaluator'`, but the header it reads back was still sized off
+  `contextBudget(settings, 'assistant')`, so the evaluator chat's history is
+  compacted against the assistant model's context window rather than the
+  evaluator model's. This is the correct default behavior, not a bug to fix:
+  computing the budget per-request-role would let the summarizer's own turn (which
+  also goes through the gateway) overwrite the assistant's budget with the
+  summarizer's, corrupting the value the main chat relies on. Left as-is until the
+  budget is tracked per-role on the client.

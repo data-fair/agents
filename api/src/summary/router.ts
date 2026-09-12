@@ -24,12 +24,16 @@ const SUMMARY_SYSTEM_PROMPT = 'Summarize the following content concisely:'
 
 function getSummaryPricing (settings: Settings) {
   const source = settings.models?.summarizer?.model ? settings.models.summarizer : settings.models?.assistant
+  const inputPricePerMillion = source?.inputPricePerMillion ?? 0
   return {
     modelConfig: source?.model,
-    inputPricePerMillion: source?.inputPricePerMillion ?? 0,
+    inputPricePerMillion,
     outputPricePerMillion: source?.outputPricePerMillion ?? 0,
-    cachedInputPricePerMillion: source?.cachedInputPricePerMillion ?? 0,
-    cacheWritePricePerMillion: source?.cacheWritePricePerMillion ?? 0
+    // Same resolution chain as getModelConfig: role override, then the model
+    // snapshot, then the input price — an unset cache price means "unknown", not
+    // "free" (see getModelConfig for the full rationale).
+    cachedInputPricePerMillion: source?.cachedInputPricePerMillion ?? source?.model?.cachedInputPricePerMillion ?? inputPricePerMillion,
+    cacheWritePricePerMillion: source?.cacheWritePricePerMillion ?? source?.model?.cacheWritePricePerMillion ?? inputPricePerMillion
   }
 }
 

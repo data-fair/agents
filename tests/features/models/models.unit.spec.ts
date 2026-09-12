@@ -147,7 +147,17 @@ test.describe('context window resolution', () => {
     assert.equal(getModelConfig(s, 'assistant').contextWindow, 200000)
   })
 
-  test('cache prices default to 0', () => {
+  test('cache prices fall back to the input price when unset', () => {
+    // An unset cache price means "unknown", not "free": several providers (OpenAI,
+    // Scaleway, LiteLLM, vLLM) report no pricing in their listings yet still cache
+    // implicitly, so falling back to 0 would bill cache reads for free. The
+    // fallback must land on the input price, not on 0.
+    const c = getModelConfig(settingsWith({ model: mockModel, inputPricePerMillion: 5 }), 'assistant')
+    assert.equal(c.cachedInputPricePerMillion, 5)
+    assert.equal(c.cacheWritePricePerMillion, 5)
+  })
+
+  test('cache prices default to 0 only when the input price is also unset', () => {
     const c = getModelConfig(settingsWith({ model: mockModel }), 'assistant')
     assert.equal(c.cachedInputPricePerMillion, 0)
     assert.equal(c.cacheWritePricePerMillion, 0)

@@ -5,6 +5,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { checkQuota, computeCost, firstQuotaViolation, isUntrustedRole, type UsageInfo, type UsageLimits } from '../../../api/src/usage/operations.ts'
+import { getModelConfig } from '../../../api/src/models/operations.ts'
 
 function mkUsage (daily: number, weekly: number, monthly: number): UsageInfo {
   return {
@@ -148,12 +149,33 @@ test.describe('computeCost with cache tokens', () => {
     assert.equal(cost, 900 * 0.3 / 1_000_000)
   })
 
-  test('missing cache prices default to 0, not to the input price', () => {
+  test('an unset cache price (as resolved by getModelConfig) bills cache reads at the input price', () => {
+    // computeCost itself still bills a genuinely absent cache price at 0 (see
+    // 'falls back to subtraction when noCacheTokens is absent' etc. above, all of
+    // which pass a full `prices` object) — that pure-function contract is
+    // unchanged. What changed is the resolver: getModelConfig no longer hands
+    // computeCost an unset cache price at all, it falls back to the input price
+    // first. Go through the real resolver here to prove the system-level fix.
+    const settings: any = {
+      owner: { type: 'user', id: 'u' },
+      providers: [],
+      models: {
+        assistant: {
+          model: { id: 'm', name: 'M', provider: { type: 'mock', id: 'mock', name: 'Mock' } },
+          inputPricePerMillion: 3,
+          outputPricePerMillion: 15
+        }
+      }
+    }
+    const { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion, cacheWritePricePerMillion } = getModelConfig(settings, 'assistant')
+    assert.equal(cachedInputPricePerMillion, 3)
+    assert.equal(cacheWritePricePerMillion, 3)
+
     const cost = computeCost(
       { inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 0, cacheReadTokens: 1_000_000 },
-      { inputPricePerMillion: 3, outputPricePerMillion: 15 }
+      { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion, cacheWritePricePerMillion }
     )
-    assert.equal(cost, 0)
+    assert.equal(cost, 3)
   })
 
   test('output tokens still billed', () => {

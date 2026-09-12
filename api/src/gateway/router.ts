@@ -219,6 +219,8 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
         usage,
         inputPricePerMillion,
         outputPricePerMillion,
+        cachedInputPricePerMillion,
+        cacheWritePricePerMillion,
         timing: { durationMs: Date.now() - traceStart, ...(timeToFirstChunkMs != null ? { timeToFirstChunkMs } : {}) },
         ...(moderation?.traceInfo() ? { moderation: moderation.traceInfo() } : {}),
         ...(traceFlags ? { flags: traceFlags } : {})
