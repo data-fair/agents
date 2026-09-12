@@ -27,7 +27,9 @@ function getSummaryPricing (settings: Settings) {
   return {
     modelConfig: source?.model,
     inputPricePerMillion: source?.inputPricePerMillion ?? 0,
-    outputPricePerMillion: source?.outputPricePerMillion ?? 0
+    outputPricePerMillion: source?.outputPricePerMillion ?? 0,
+    cachedInputPricePerMillion: source?.cachedInputPricePerMillion ?? 0,
+    cacheWritePricePerMillion: source?.cacheWritePricePerMillion ?? 0
   }
 }
 
@@ -81,7 +83,7 @@ router.post('/:type/:id', async (req, res, next) => {
     }
 
     const model = await getSummaryModel(settings)
-    const { inputPricePerMillion, outputPricePerMillion } = getSummaryPricing(settings)
+    const { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion, cacheWritePricePerMillion } = getSummaryPricing(settings)
 
     const { text, usage } = await generateText({
       model,
@@ -99,7 +101,7 @@ router.post('/:type/:id', async (req, res, next) => {
       noCacheTokens: details?.noCacheTokens,
       cacheReadTokens: details?.cacheReadTokens,
       cacheWriteTokens: details?.cacheWriteTokens
-    }, { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion: undefined, cacheWritePricePerMillion: undefined })
+    }, { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion, cacheWritePricePerMillion })
     if (cost > 0) {
       await recordUsage(owner, cost, usageUserId, usageUserName, poolId)
     }

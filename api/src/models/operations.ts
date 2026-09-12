@@ -79,6 +79,15 @@ export function createModel (provider: Provider, modelId: string): LanguageModel
 
 export type ModelRole = 'assistant' | 'evaluator' | 'summarizer' | 'tools' | 'moderator'
 
+/**
+ * Used when neither the admin nor the provider listing supplies a window.
+ * Deliberately conservative: it is the case of a local or self-hosted
+ * openai-compatible model that may genuinely be small.
+ */
+export const UNKNOWN_CONTEXT_WINDOW = 32_000
+
+const DEFAULT_COMPACTION_PERCENT = 70
+
 export function getModelConfig (settings: Settings, modelRole: ModelRole) {
   // moderator prefers a cheap dedicated model, then the summarizer, then the
   // assistant as a guaranteed last resort; every other role falls back straight
@@ -91,8 +100,25 @@ export function getModelConfig (settings: Settings, modelRole: ModelRole) {
   return {
     modelConfig: source.model,
     inputPricePerMillion: source.inputPricePerMillion ?? 0,
-    outputPricePerMillion: source.outputPricePerMillion ?? 0
+    outputPricePerMillion: source.outputPricePerMillion ?? 0,
+    // Same resolution order as contextWindow: role override, then the snapshot
+    // taken from the provider listing when the model was picked, then 0.
+    cachedInputPricePerMillion: source.cachedInputPricePerMillion ?? source.model.cachedInputPricePerMillion ?? 0,
+    cacheWritePricePerMillion: source.cacheWritePricePerMillion ?? source.model.cacheWritePricePerMillion ?? 0,
+    // A 0 override means "unset" (the form emits 0 for an untouched number
+    // field), not a zero-token window — fall through to the snapshot.
+    contextWindow: source.contextWindow || source.model.contextWindow || UNKNOWN_CONTEXT_WINDOW
   }
+}
+
+/**
+ * Token budget above which the client compacts history. Always resolved for the
+ * role whose history is actually compacted.
+ */
+export function contextBudget (settings: Settings, modelRole: ModelRole): number {
+  const { contextWindow } = getModelConfig(settings, modelRole)
+  const percent = settings.compaction?.percent ?? DEFAULT_COMPACTION_PERCENT
+  return Math.floor(contextWindow * percent / 100)
 }
 
 export function resolveModelForRole (settings: Settings, modelRole: ModelRole): LanguageModel {

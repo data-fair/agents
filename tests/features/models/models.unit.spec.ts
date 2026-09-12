@@ -4,7 +4,7 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { scalewayBaseURL, streamedToolCallsBroken, errorMessage, describeFetchError } from '../../../api/src/models/operations.ts'
+import { scalewayBaseURL, streamedToolCallsBroken, errorMessage, describeFetchError, getModelConfig, contextBudget, UNKNOWN_CONTEXT_WINDOW } from '../../../api/src/models/operations.ts'
 
 test.describe('Scaleway base URL', () => {
   test('uses the bare /v1 endpoint when no project is set', () => {
@@ -116,5 +116,65 @@ test.describe('errorMessage / describeFetchError', () => {
     const { status, message } = describeFetchError(errorContext)
     assert.equal(status, 403)
     assert.equal(message, 'insufficient permissions to access the resource')
+  })
+})
+
+const mockModel = { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' } }
+
+function settingsWith (assistant: any, compaction?: any): any {
+  return { owner: { type: 'user', id: 'u' }, providers: [], models: { assistant }, compaction }
+}
+
+test.describe('context window resolution', () => {
+  test('role override wins over the model snapshot', () => {
+    const s = settingsWith({ model: { ...mockModel, contextWindow: 200000 }, contextWindow: 128000 })
+    assert.equal(getModelConfig(s, 'assistant').contextWindow, 128000)
+  })
+
+  test('falls back to the model snapshot', () => {
+    const s = settingsWith({ model: { ...mockModel, contextWindow: 200000 } })
+    assert.equal(getModelConfig(s, 'assistant').contextWindow, 200000)
+  })
+
+  test('falls back to 32000 when nothing is known', () => {
+    const s = settingsWith({ model: mockModel })
+    assert.equal(getModelConfig(s, 'assistant').contextWindow, UNKNOWN_CONTEXT_WINDOW)
+    assert.equal(UNKNOWN_CONTEXT_WINDOW, 32000)
+  })
+
+  test('a zero override is ignored, not treated as a window of zero', () => {
+    const s = settingsWith({ model: { ...mockModel, contextWindow: 200000 }, contextWindow: 0 })
+    assert.equal(getModelConfig(s, 'assistant').contextWindow, 200000)
+  })
+
+  test('cache prices default to 0', () => {
+    const c = getModelConfig(settingsWith({ model: mockModel }), 'assistant')
+    assert.equal(c.cachedInputPricePerMillion, 0)
+    assert.equal(c.cacheWritePricePerMillion, 0)
+  })
+
+  test('cache prices fall back to the model snapshot, and the role overrides it', () => {
+    const snap = { ...mockModel, cachedInputPricePerMillion: 0.3, cacheWritePricePerMillion: 3.75 }
+    assert.equal(getModelConfig(settingsWith({ model: snap }), 'assistant').cachedInputPricePerMillion, 0.3)
+    assert.equal(getModelConfig(settingsWith({ model: snap }), 'assistant').cacheWritePricePerMillion, 3.75)
+    const overridden = settingsWith({ model: snap, cachedInputPricePerMillion: 0.1 })
+    assert.equal(getModelConfig(overridden, 'assistant').cachedInputPricePerMillion, 0.1)
+  })
+})
+
+test.describe('contextBudget', () => {
+  test('applies the configured percent', () => {
+    const s = settingsWith({ model: { ...mockModel, contextWindow: 200000 } }, { percent: 70 })
+    assert.equal(contextBudget(s, 'assistant'), 140000)
+  })
+
+  test('defaults to 70 percent when compaction is unset', () => {
+    const s = settingsWith({ model: { ...mockModel, contextWindow: 200000 } })
+    assert.equal(contextBudget(s, 'assistant'), 140000)
+  })
+
+  test('rounds down to an integer', () => {
+    const s = settingsWith({ model: { ...mockModel, contextWindow: 32001 } }, { percent: 55 })
+    assert.equal(contextBudget(s, 'assistant'), Math.floor(32001 * 0.55))
   })
 })

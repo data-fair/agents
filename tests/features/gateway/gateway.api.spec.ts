@@ -306,4 +306,20 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
     assert.equal(res.status, 200)
     assert.equal(res.data.choices[0].message.content, 'world')
   })
+
+  test('gateway advertises the context budget', async () => {
+    await admin.put('/api/settings/user/test-standalone1', {
+      providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
+      models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' }, contextWindow: 200000 } } },
+      quotas: defaultQuotas,
+      compaction: { percent: 70 }
+    })
+
+    const res = await user.post('/api/gateway/user/test-standalone1/v1/chat/completions', {
+      model: 'assistant',
+      messages: [{ role: 'user', content: 'hello' }]
+    })
+    assert.equal(res.status, 200)
+    assert.equal(res.headers['x-context-budget'], '140000')
+  })
 })

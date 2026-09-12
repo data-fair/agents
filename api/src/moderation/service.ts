@@ -157,7 +157,7 @@ export function startModeration (params: {
   }
 
   const verdictPromise: Promise<ModerationVerdict> = (async () => {
-    const { inputPricePerMillion, outputPricePerMillion } = getModelConfig(settings, 'moderator')
+    const { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion, cacheWritePricePerMillion } = getModelConfig(settings, 'moderator')
     const model = resolveModelForRole(settings, 'moderator')
     // The verdict is one short JSON object and this call is on the critical path to
     // the first token (see MODERATION_TIMEOUT_MS), so the budget is intentionally tiny.
@@ -185,7 +185,7 @@ export function startModeration (params: {
       noCacheTokens: details?.noCacheTokens,
       cacheReadTokens: details?.cacheReadTokens,
       cacheWriteTokens: details?.cacheWriteTokens
-    }, { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion: undefined, cacheWritePricePerMillion: undefined })
+    }, { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion, cacheWritePricePerMillion })
     if (cost > 0) await recordUsage(owner, cost, identity.usageUserId, identity.usageUserName, identity.poolId)
     return object
   })()
@@ -247,7 +247,7 @@ export interface ProbeResult {
 // Runs the canned probes against the live moderator config. Metered at account
 // level, NOT written to moderation-events (it would pollute the stats).
 export async function runProbe (settings: Settings, owner: AccountKeys): Promise<ProbeResult[]> {
-  const { inputPricePerMillion, outputPricePerMillion } = getModelConfig(settings, 'moderator')
+  const { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion, cacheWritePricePerMillion } = getModelConfig(settings, 'moderator')
   const model = resolveModelForRole(settings, 'moderator')
   const results: ProbeResult[] = []
   for (const probe of PROBE_MESSAGES) {
@@ -270,7 +270,7 @@ export async function runProbe (settings: Settings, owner: AccountKeys): Promise
         noCacheTokens: details?.noCacheTokens,
         cacheReadTokens: details?.cacheReadTokens,
         cacheWriteTokens: details?.cacheWriteTokens
-      }, { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion: undefined, cacheWritePricePerMillion: undefined })
+      }, { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion, cacheWritePricePerMillion })
       if (cost > 0) await recordUsage(owner, cost)
       results.push({ key: probe.key, message: probe.message, action: object.action, category: object.category, latencyMs: Date.now() - startedAt })
     } catch (err: any) {

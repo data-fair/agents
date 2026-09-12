@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { generateText, streamText, type LanguageModelUsage } from 'ai'
 import { type AccountKeys, reqSession, isAuthenticated } from '@data-fair/lib-express'
 import { getRawSettings, defaultQuotas } from '../settings/service.ts'
-import { getModelConfig, resolveModelForRole, streamedToolCallsBroken, OPENAI_COMPATIBLE_PROVIDER_NAME } from '../models/operations.ts'
+import { getModelConfig, resolveModelForRole, streamedToolCallsBroken, contextBudget, OPENAI_COMPATIBLE_PROVIDER_NAME } from '../models/operations.ts'
 import { recordUsage } from '../usage/service.ts'
 import { computeCost } from '../usage/operations.ts'
 import { resolveUsageIdentity, enforceQuotas } from '../usage/enforce.ts'
@@ -181,10 +181,13 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
 
     const storeTraces = settings.storeTraces === true
     if (storeTraces) res.setHeader('x-trace-storage', 'available')
+    // Advertise the assistant budget on every response regardless of the role
+    // called: the client compacts the main history, whichever role it just used.
+    res.setHeader('x-context-budget', String(contextBudget(settings, 'assistant')))
     const consented = req.get('x-trace-consent') === 'yes'
     const shouldStoreTrace = storeTraces && consented
 
-    const { modelConfig, inputPricePerMillion, outputPricePerMillion } = getModelConfig(settings, modelId)
+    const { modelConfig, inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion, cacheWritePricePerMillion } = getModelConfig(settings, modelId)
     const model = resolveModelForRole(settings, modelId)
     // Downstream debug logging (client→gateway OpenAI exchange), scoped per provider
     // so it can be restricted to one provider: DEBUG=agents:downstream:<type>:<id>.
@@ -367,7 +370,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
             noCacheTokens: details?.noCacheTokens,
             cacheReadTokens: details?.cacheReadTokens,
             cacheWriteTokens: details?.cacheWriteTokens
-          }, { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion: undefined, cacheWritePricePerMillion: undefined })
+          }, { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion, cacheWritePricePerMillion })
           if (cost > 0) await recordUsage(owner, cost, usageUserId, usageUserName, poolId)
           sseWrite(`data: ${JSON.stringify({ id: completionId, object: 'chat.completion.chunk', created, model: modelId, choices: [{ index: 0, delta: {}, finish_reason: mapFinishReason(gen.finishReason as FinishReason) }], usage: buildUsage(gen.usage) })}\n\n`)
           const recordFinishTrace = () => recordTrace(
@@ -457,7 +460,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
                 noCacheTokens: details?.noCacheTokens,
                 cacheReadTokens: details?.cacheReadTokens,
                 cacheWriteTokens: details?.cacheWriteTokens
-              }, { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion: undefined, cacheWritePricePerMillion: undefined })
+              }, { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion, cacheWritePricePerMillion })
               if (cost > 0) {
                 await recordUsage(owner, cost, usageUserId, usageUserName, poolId)
               }
@@ -574,7 +577,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
         noCacheTokens: details?.noCacheTokens,
         cacheReadTokens: details?.cacheReadTokens,
         cacheWriteTokens: details?.cacheWriteTokens
-      }, { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion: undefined, cacheWritePricePerMillion: undefined })
+      }, { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion, cacheWritePricePerMillion })
       if (cost > 0) {
         await recordUsage(owner, cost, usageUserId, usageUserName, poolId)
       }
