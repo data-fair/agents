@@ -165,12 +165,26 @@ Consequential follow-ons:
 - **The extraction's integration test is the harness itself**: `npm run simulate`
   against the three existing cases, which must still produce valid runs. A failure
   here means the boundary is wrong.
-- **The root-agnostic driver needs a real frame test.** Unit-testing `createChatDriver`
-  against a `FrameLocator` asserts a mock. Instead, add a fourth case, or a variant of
-  an existing one, that drives the chat through `lib-vuetify`'s embedded widget on one
-  of the `_dev` iframe pages (`chat-iframe.vue`, `chat-iframe-tools.vue` already
-  exist). Without this, the iframe path ships untested and the first consumer
-  discovers the bug.
+- **The root-agnostic driver needs a real frame test, and the page for it already
+  exists.** Unit-testing `createChatDriver` against a `FrameLocator` would assert a
+  mock. Instead add a fourth case pointing at `/agents/_dev/chat-iframe`, which
+  already reproduces the host pattern: the parent page registers `set_data` through
+  `navigator.modelContext`, embeds `/_dev/chat-iframe-child` (which renders
+  `AgentChat`) in a real `<iframe>`, and the tool crosses the boundary over
+  BroadcastChannel — structurally what data-fair and portals do. The case's runner
+  passes `page.frameLocator(...)` as the driver root.
+
+  **Nothing in this repo currently drives a chat through an iframe** — `frameLocator`
+  appears nowhere under `tests/`. So this case is also the first exercise of those
+  pages, and three assumptions become load-bearing and must be confirmed rather than
+  asserted:
+  1. `waitForTurn`'s Stop/Send detection behaves the same through a `FrameLocator`.
+  2. The BroadcastChannel tool registration is established before the first message
+     is sent, or the runner needs an explicit wait — the same class of race that
+     `tests/features/chat-mcp/` guards on the non-iframe path.
+  3. `page.on('request')` really does capture subframe requests, so `captureGateway`
+     needs no change. If it does not, the evidence layer silently records nothing for
+     every host repo, which would be the worst failure available here.
 - **The bin must fail well without the SDK.** A test asserting the absent-SDK path
   prints an actionable message, since that is the first thing a consumer will hit.
 
