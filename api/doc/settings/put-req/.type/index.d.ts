@@ -84,41 +84,25 @@ export type CachedInputPricePer1MTokens = number;
  */
 export type CacheWritePricePer1MTokens = number;
 /**
- * Leave empty to use the value reported by the provider, or 32000 when the provider reports none.
+ * Used to size history compaction. Leave empty to use the value reported by the provider; only OpenRouter reports one, so for other providers set it here or the conservative 32000 default applies.
  */
-export type ContextWindowOverrideTokens = number;
+export type ContextWindowTokens = number;
 export type InputPricePer1MTokens = number;
 export type CachedInputPricePer1MTokens1 = number;
 export type CacheWritePricePer1MTokens1 = number;
 export type OutputPricePer1MTokens = number;
-/**
- * Leave empty to use the value reported by the provider, or 32000 when the provider reports none.
- */
-export type ContextWindowOverrideTokens1 = number;
 export type InputPricePer1MTokens1 = number;
 export type CachedInputPricePer1MTokens2 = number;
 export type CacheWritePricePer1MTokens2 = number;
 export type OutputPricePer1MTokens1 = number;
-/**
- * Leave empty to use the value reported by the provider, or 32000 when the provider reports none.
- */
-export type ContextWindowOverrideTokens2 = number;
 export type InputPricePer1MTokens2 = number;
 export type CachedInputPricePer1MTokens3 = number;
 export type CacheWritePricePer1MTokens3 = number;
 export type OutputPricePer1MTokens2 = number;
-/**
- * Leave empty to use the value reported by the provider, or 32000 when the provider reports none.
- */
-export type ContextWindowOverrideTokens3 = number;
 export type InputPricePer1MTokens3 = number;
 export type CachedInputPricePer1MTokens4 = number;
 export type CacheWritePricePer1MTokens4 = number;
 export type OutputPricePer1MTokens3 = number;
-/**
- * Leave empty to use the value reported by the provider, or 32000 when the provider reports none.
- */
-export type ContextWindowOverrideTokens4 = number;
 export type InputPricePer1MTokens4 = number;
 export type CachedInputPricePer1MTokens5 = number;
 export type CacheWritePricePer1MTokens5 = number;
@@ -262,7 +246,7 @@ export type Models = {
  */
 export type Assistant = {
   model?: Model;
-  contextWindow?: ContextWindowOverrideTokens;
+  contextWindow?: ContextWindowTokens;
   inputPricePerMillion?: InputPricePer1MTokens;
   cachedInputPricePerMillion?: CachedInputPricePer1MTokens1;
   cacheWritePricePerMillion?: CacheWritePricePer1MTokens1;
@@ -291,7 +275,6 @@ export type Model = {
  */
 export type Tools = {
   model?: Model1;
-  contextWindow?: ContextWindowOverrideTokens1;
   inputPricePerMillion?: InputPricePer1MTokens1;
   cachedInputPricePerMillion?: CachedInputPricePer1MTokens2;
   cacheWritePricePerMillion?: CacheWritePricePer1MTokens2;
@@ -320,7 +303,6 @@ export type Model1 = {
  */
 export type Summarizer = {
   model?: Model2;
-  contextWindow?: ContextWindowOverrideTokens2;
   inputPricePerMillion?: InputPricePer1MTokens2;
   cachedInputPricePerMillion?: CachedInputPricePer1MTokens3;
   cacheWritePricePerMillion?: CacheWritePricePer1MTokens3;
@@ -349,7 +331,6 @@ export type Model2 = {
  */
 export type Evaluator = {
   model?: Model3;
-  contextWindow?: ContextWindowOverrideTokens3;
   inputPricePerMillion?: InputPricePer1MTokens3;
   cachedInputPricePerMillion?: CachedInputPricePer1MTokens4;
   cacheWritePricePerMillion?: CacheWritePricePer1MTokens4;
@@ -378,7 +359,6 @@ export type Model3 = {
  */
 export type Moderator = {
   model?: Model4;
-  contextWindow?: ContextWindowOverrideTokens4;
   inputPricePerMillion?: InputPricePer1MTokens4;
   cachedInputPricePerMillion?: CachedInputPricePer1MTokens5;
   cacheWritePricePerMillion?: CacheWritePricePer1MTokens5;

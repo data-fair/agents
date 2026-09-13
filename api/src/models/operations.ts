@@ -88,6 +88,16 @@ export const UNKNOWN_CONTEXT_WINDOW = 32_000
 
 const DEFAULT_COMPACTION_PERCENT = 70
 
+/**
+ * The hand-entered context window, which the schema declares on the assistant role
+ * only. Read structurally so the other four role shapes — which legitimately lack
+ * the key — do not need a cast at every use.
+ */
+function roleContextWindow (source: object): number | undefined {
+  const value = (source as { contextWindow?: unknown }).contextWindow
+  return typeof value === 'number' ? value : undefined
+}
+
 export function getModelConfig (settings: Settings, modelRole: ModelRole) {
   // moderator prefers a cheap dedicated model, then the summarizer, then the
   // assistant as a guaranteed last resort; every other role falls back straight
@@ -113,9 +123,12 @@ export function getModelConfig (settings: Settings, modelRole: ModelRole) {
     // was introduced.
     cachedInputPricePerMillion: source.cachedInputPricePerMillion ?? source.model.cachedInputPricePerMillion ?? (source.inputPricePerMillion ?? 0),
     cacheWritePricePerMillion: source.cacheWritePricePerMillion ?? source.model.cacheWritePricePerMillion ?? (source.inputPricePerMillion ?? 0),
-    // A 0 override means "unset" (the form emits 0 for an untouched number
-    // field), not a zero-token window — fall through to the snapshot.
-    contextWindow: source.contextWindow || source.model.contextWindow || UNKNOWN_CONTEXT_WINDOW
+    // Only the assistant role carries a hand-entered window: it is the sole role
+    // whose history is compacted, so contextBudget() is always resolved for
+    // 'assistant'. Every other role has just the listing snapshot. A 0 means
+    // "unset" (the form emits 0 for an untouched number field), not a zero-token
+    // window — fall through.
+    contextWindow: roleContextWindow(source) || source.model.contextWindow || UNKNOWN_CONTEXT_WINDOW
   }
 }
 

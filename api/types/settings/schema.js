@@ -706,15 +706,19 @@ Recommendations: GPT-5.4, Claude 4.5 Sonnet, Kimi K2, Mistral Large 3, etc.`,
             },
             contextWindow: {
               type: 'number',
-              title: 'Context window override (tokens)',
+              title: 'Context window (tokens)',
               'x-i18n-title': {
-                en: 'Context window override (tokens)',
-                fr: 'Taille de contexte (tokens, surcharge)'
+                en: 'Context window (tokens)',
+                fr: 'Taille de contexte (tokens)'
               },
-              description: 'Leave empty to use the value reported by the provider, or 32000 when the provider reports none.',
+              // Only the assistant carries this: it is the only role whose history is
+              // compacted, so contextBudget() is always resolved for 'assistant'.
+              // Most providers do not report a window, so for them this field is the
+              // only way to set one — it is not merely an override.
+              description: 'Used to size history compaction. Leave empty to use the value reported by the provider; only OpenRouter reports one, so for other providers set it here or the conservative 32000 default applies.',
               'x-i18n-description': {
-                en: 'Leave empty to use the value reported by the provider, or 32000 when the provider reports none.',
-                fr: 'Laissez vide pour utiliser la valeur rapportée par le fournisseur, ou 32000 si le fournisseur ne rapporte rien.'
+                en: 'Used to size history compaction. Leave empty to use the value reported by the provider; only OpenRouter reports one, so for other providers set it here or the conservative 32000 default applies.',
+                fr: "Utilisé pour dimensionner la compaction de l'historique. Laissez vide pour utiliser la valeur rapportée par le fournisseur ; seul OpenRouter en rapporte une, pour les autres renseignez-la ici sinon la valeur par défaut prudente de 32000 s'applique."
               },
               minimum: 0
             },
@@ -775,7 +779,6 @@ Recommendations: GPT-5.4 Mini, Mistral DevStral, Claude 4.5 Sonnet (Computer Use
             comp: 'card',
             children: [
               { key: 'model' },
-              { key: 'contextWindow', cols: 6 },
               { key: 'inputPricePerMillion', cols: 4 },
               { key: 'cachedInputPricePerMillion', cols: 4 },
               { key: 'cacheWritePricePerMillion', cols: 4 },
@@ -791,20 +794,6 @@ Recommendations: GPT-5.4 Mini, Mistral DevStral, Claude 4.5 Sonnet (Computer Use
                 en: 'Model',
                 fr: 'Modèle'
               }
-            },
-            contextWindow: {
-              type: 'number',
-              title: 'Context window override (tokens)',
-              'x-i18n-title': {
-                en: 'Context window override (tokens)',
-                fr: 'Taille de contexte (tokens, surcharge)'
-              },
-              description: 'Leave empty to use the value reported by the provider, or 32000 when the provider reports none.',
-              'x-i18n-description': {
-                en: 'Leave empty to use the value reported by the provider, or 32000 when the provider reports none.',
-                fr: 'Laissez vide pour utiliser la valeur rapportée par le fournisseur, ou 32000 si le fournisseur ne rapporte rien.'
-              },
-              minimum: 0
             },
             inputPricePerMillion: {
               type: 'number',
@@ -863,7 +852,6 @@ Recommendations: GPT-5.4 Mini, Claude 4.5 Haiku, Mistral Small 4, Qwen3 (8B), et
             comp: 'card',
             children: [
               { key: 'model' },
-              { key: 'contextWindow', cols: 6 },
               { key: 'inputPricePerMillion', cols: 4 },
               { key: 'cachedInputPricePerMillion', cols: 4 },
               { key: 'cacheWritePricePerMillion', cols: 4 },
@@ -879,20 +867,6 @@ Recommendations: GPT-5.4 Mini, Claude 4.5 Haiku, Mistral Small 4, Qwen3 (8B), et
                 en: 'Model',
                 fr: 'Modèle'
               }
-            },
-            contextWindow: {
-              type: 'number',
-              title: 'Context window override (tokens)',
-              'x-i18n-title': {
-                en: 'Context window override (tokens)',
-                fr: 'Taille de contexte (tokens, surcharge)'
-              },
-              description: 'Leave empty to use the value reported by the provider, or 32000 when the provider reports none.',
-              'x-i18n-description': {
-                en: 'Leave empty to use the value reported by the provider, or 32000 when the provider reports none.',
-                fr: 'Laissez vide pour utiliser la valeur rapportée par le fournisseur, ou 32000 si le fournisseur ne rapporte rien.'
-              },
-              minimum: 0
             },
             inputPricePerMillion: {
               type: 'number',
@@ -951,7 +925,6 @@ Recommendations: Claude Opus 4.6, GPT-5.4 (Reasoning), DeepSeek-R1, Pharia-1-LLM
             comp: 'card',
             children: [
               { key: 'model' },
-              { key: 'contextWindow', cols: 6 },
               { key: 'inputPricePerMillion', cols: 4 },
               { key: 'cachedInputPricePerMillion', cols: 4 },
               { key: 'cacheWritePricePerMillion', cols: 4 },
@@ -967,20 +940,6 @@ Recommendations: Claude Opus 4.6, GPT-5.4 (Reasoning), DeepSeek-R1, Pharia-1-LLM
                 en: 'Model',
                 fr: 'Modèle'
               }
-            },
-            contextWindow: {
-              type: 'number',
-              title: 'Context window override (tokens)',
-              'x-i18n-title': {
-                en: 'Context window override (tokens)',
-                fr: 'Taille de contexte (tokens, surcharge)'
-              },
-              description: 'Leave empty to use the value reported by the provider, or 32000 when the provider reports none.',
-              'x-i18n-description': {
-                en: 'Leave empty to use the value reported by the provider, or 32000 when the provider reports none.',
-                fr: 'Laissez vide pour utiliser la valeur rapportée par le fournisseur, ou 32000 si le fournisseur ne rapporte rien.'
-              },
-              minimum: 0
             },
             inputPricePerMillion: {
               type: 'number',
@@ -1039,7 +998,6 @@ Recommendations: a small/fast general-purpose model with structured (JSON) outpu
             comp: 'card',
             children: [
               { key: 'model' },
-              { key: 'contextWindow', cols: 6 },
               { key: 'inputPricePerMillion', cols: 4 },
               { key: 'cachedInputPricePerMillion', cols: 4 },
               { key: 'cacheWritePricePerMillion', cols: 4 },
@@ -1052,20 +1010,6 @@ Recommendations: a small/fast general-purpose model with structured (JSON) outpu
               $ref: '#/definitions/Model',
               title: 'Model',
               'x-i18n-title': { en: 'Model', fr: 'Modèle' }
-            },
-            contextWindow: {
-              type: 'number',
-              title: 'Context window override (tokens)',
-              'x-i18n-title': {
-                en: 'Context window override (tokens)',
-                fr: 'Taille de contexte (tokens, surcharge)'
-              },
-              description: 'Leave empty to use the value reported by the provider, or 32000 when the provider reports none.',
-              'x-i18n-description': {
-                en: 'Leave empty to use the value reported by the provider, or 32000 when the provider reports none.',
-                fr: 'Laissez vide pour utiliser la valeur rapportée par le fournisseur, ou 32000 si le fournisseur ne rapporte rien.'
-              },
-              minimum: 0
             },
             inputPricePerMillion: {
               type: 'number',

@@ -4804,7 +4804,7 @@ validate33.evaluated = {"dynamicProps":false,"dynamicItems":false};
 
 const export11 = validate34;
 const schema61 = {"$id":"export11","$ref":"https://github.com/data-fair/agents/settings-put#"};
-const schema27 = {"$id":"https://github.com/data-fair/agents/settings-put","x-exports":["validate","types","vjsf"],"title":"Settings","layout":{"title":null},"definitions":{"RoleQuota":{"type":"object","layout":"card","required":["unlimited","monthlyLimit"],"properties":{"unlimited":{"type":"boolean","title":"Unlimited","default":false,"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/unlimited","errorMessage":{}},"monthlyLimit":{"layout":{"if":"!parent.data.unlimited"},"type":"number","title":"Monthly Limit","description":"Weekly limit = monthly / 2, daily limit = monthly / 4","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyLimit","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota","errorMessage":{"required":{"unlimited":"required information","monthlyLimit":"required information"}}},"Model":{"type":"object","required":["id","name","provider"],"layout":{"comp":"autocomplete","getItems":{"url":{"pure":false,"type":"js-tpl","dataAlias":"value","expr":"${context.apiPath}/models/${context.accountType}/${context.accountId}?provider=${parent.parent.parent.data.providers.map(p => p.id).join(\",\")}","ref":18},"itemsResults":{"pure":true,"type":"js-eval","dataAlias":"body","expr":"data.results","ref":21},"itemTitle":{"pure":true,"type":"js-eval","dataAlias":"item","expr":"`${item.name} (${item.provider.name} - ${item.provider.id.slice(0, 8)})`","ref":19},"itemKey":{"pure":true,"type":"js-eval","dataAlias":"item","expr":"item.id","ref":20},"returnObjects":true}},"properties":{"id":{"type":"string","title":"Model ID","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/id","errorMessage":{}},"name":{"type":"string","title":"Name","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/name","errorMessage":{}},"provider":{"type":"object","required":["type","name","id"],"properties":{"type":{"type":"string","title":"Provider Type","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider/properties/type","errorMessage":{}},"name":{"type":"string","title":"Provider Name","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider/properties/name","errorMessage":{}},"id":{"type":"string","title":"Provider ID","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider/properties/id","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider","errorMessage":{"required":{"type":"required information","name":"required information","id":"required information"}}},"contextWindow":{"type":"number","title":"Context window","readOnly":true,"description":"Total context size in tokens, as reported by the provider when the model was selected.","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/contextWindow","errorMessage":{}},"cachedInputPricePerMillion":{"type":"number","title":"Cached input price (per 1M tokens)","readOnly":true,"description":"Reported by the provider when the model was selected.","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/cachedInputPricePerMillion","errorMessage":{}},"cacheWritePricePerMillion":{"type":"number","title":"Cache write price (per 1M tokens)","readOnly":true,"description":"Reported by the provider when the model was selected.","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/cacheWritePricePerMillion","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model","errorMessage":{"required":{"id":"required information","name":"required information","provider":"required information"}}}},"type":"object","additionalProperties":false,"required":["providers"],"properties":{"createdAt":{"type":"string","format":"date-time","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/createdAt","errorMessage":{}},"updatedAt":{"type":"string","format":"date-time","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/updatedAt","errorMessage":{}},"storeTraces":{"type":"boolean","title":"Store conversation traces","description":"When enabled, conversations of consenting users are stored on the server for 30 days for admin review. Each user must explicitly accept.","default":false,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/storeTraces","errorMessage":{}},"owner":{"type":"object","additionalProperties":false,"required":["type","id"],"readOnly":true,"properties":{"type":{"type":"string","enum":["user","organization"],"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/type","errorMessage":{}},"id":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/id","errorMessage":{}},"name":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/name","errorMessage":{}},"department":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/department","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner","errorMessage":{"required":{"type":"required information","id":"required information"}}},"providers":{"type":"array","title":"AI Providers","layout":{"itemTitle":"item ? `${item.name || \"\"} - ${item.id.slice(0, 8)}` : \"\"","listActions":["add","edit","delete"]},"items":{"type":"object","title":"Provider","unevaluatedProperties":false,"oneOfLayout":{"emptyData":true},"discriminator":{"propertyName":"type"},"layout":{"getDefaultData":"{ id: crypto.randomUUID() }","switch":[{"if":"summary","children":[]}]},"oneOf":[{"required":["type","name","id","enabled"],"title":"Open AI","properties":{"type":{"type":"string","title":"Provider Type","const":"openai","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Open AI\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}},{"required":["type","name","id","enabled"],"title":"Anthropic","properties":{"type":{"type":"string","title":"Provider Type","const":"anthropic","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Anthropic\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}},{"required":["type","name","id","enabled"],"title":"Google","properties":{"type":{"type":"string","title":"Provider Type","const":"google","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Google\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}},{"required":["type","name","id","enabled"],"title":"Mistral","properties":{"type":{"type":"string","title":"Provider Type","const":"mistral","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Mistral\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}},{"required":["type","name","id","enabled"],"title":"OpenRouter","properties":{"type":{"type":"string","title":"Provider Type","const":"openrouter","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"OpenRouter\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}},{"required":["type","name","id","enabled","baseURL"],"title":"Ollama","properties":{"type":{"type":"string","title":"Provider Type","const":"ollama","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Ollama\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/apiKey","errorMessage":{}},"baseURL":{"type":"string","title":"Base URL","default":"http://localhost:11434","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/baseURL","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information","baseURL":"required information"}}},{"required":["type","name","id","enabled","apiKey"],"title":"Scaleway","description":"For an API key scoped to a specific Scaleway Project, set the Project ID so requests target that project. Leave it empty to use the organization default project.","properties":{"type":{"type":"string","title":"Provider Type","const":"scaleway","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Scaleway\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/apiKey","errorMessage":{}},"projectId":{"type":"string","title":"Project ID","description":"Optional. The Scaleway Project ID (UUID) the API key is scoped to. Required when the key only has access to a specific project, otherwise model listing and inference return 403.","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/projectId","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information","apiKey":"required information"}}},{"required":["type","name","id","enabled","baseURL"],"title":"OpenAI Compatible","description":"Generic provider for any OpenAI-compatible endpoint (Together, Fireworks, Groq, DeepInfra, vLLM, LM Studio, etc.). API Key is optional for unauthenticated local servers.","properties":{"type":{"type":"string","title":"Provider Type","const":"openai-compatible","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"OpenAI Compatible\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/enabled","errorMessage":{}},"baseURL":{"type":"string","title":"Base URL","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/baseURL","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/apiKey","errorMessage":{}},"compatibility":{"type":"string","title":"Compatibility Mode","description":"Utilisez \"compatible\" pour les fournisseurs qui ne supportent pas le nouveau endpoint /v1/responses (ex: LiteLLM, anciennes APIs compatibles OpenAI). Laissez vide pour le comportement OpenAI standard.","enum":["default","compatible"],"default":"default","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/compatibility","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information","baseURL":"required information"}}},{"required":["type","name","id","enabled"],"title":"Mock","description":"To a message \"hello\" respond \"world\", to a message \"call tool ARG1 ARG2\" respond with a tool call, to anything else respond \"what do you mean ?\"","properties":{"type":{"type":"string","title":"Provider Type","const":"mock","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Mock\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/enabled","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}}],"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items","errorMessage":{"oneOf":"chose one"}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers","errorMessage":{}},"models":{"type":"object","title":"Models","layout":{"title":null,"if":"parent.data.providers?.length"},"default":{},"properties":{"assistant":{"type":"object","title":"Assistant","description":"The primary conversational interface. Balanced for reasoning, instruction-following, and human-like interaction. This model manages the high-level flow and delegates complex tasks to subagents.\n\nRecommendations: GPT-5.4, Claude 4.5 Sonnet, Kimi K2, Mistral Large 3, etc.","layout":{"comp":"card","children":[{"key":"model"},{"key":"contextWindow","cols":6},{"key":"inputPricePerMillion","cols":4},{"key":"cachedInputPricePerMillion","cols":4},{"key":"cacheWritePricePerMillion","cols":4},{"key":"outputPricePerMillion","cols":6}],"cols":6},"properties":{"model":{"$ref":"#/definitions/Model","title":"Model","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/model","errorMessage":{"required":{"id":"required information","name":"required information","provider":"required information"}}},"contextWindow":{"type":"number","title":"Context window override (tokens)","description":"Leave empty to use the value reported by the provider, or 32000 when the provider reports none.","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/contextWindow","errorMessage":{}},"inputPricePerMillion":{"type":"number","title":"Input price (per 1M tokens)","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/inputPricePerMillion","errorMessage":{}},"cachedInputPricePerMillion":{"type":"number","title":"Cached input price (per 1M tokens)","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/cachedInputPricePerMillion","errorMessage":{}},"cacheWritePricePerMillion":{"type":"number","title":"Cache write price (per 1M tokens)","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/cacheWritePricePerMillion","errorMessage":{}},"outputPricePerMillion":{"type":"number","title":"Output price (per 1M tokens)","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/outputPricePerMillion","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant","errorMessage":{}},"tools":{"type":"object","title":"Tools","description":"The \"technician.\" Specialized in structured data and API interaction. It excels at chaining multiple tool calls without conversational filler, ensuring high reliability in automated workflows.\n\nRecommendations: GPT-5.4 Mini, Mistral DevStral, Claude 4.5 Sonnet (Computer Use), MiMo-V2-Flash, etc.","layout":{"comp":"card","children":[{"key":"model"},{"key":"contextWindow","cols":6},{"key":"inputPricePerMillion","cols":4},{"key":"cachedInputPricePerMillion","cols":4},{"key":"cacheWritePricePerMillion","cols":4},{"key":"outputPricePerMillion","cols":6}],"cols":6},"properties":{"model":{"$ref":"#/definitions/Model","title":"Model","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/model","errorMessage":{"required":{"id":"required information","name":"required information","provider":"required information"}}},"contextWindow":{"type":"number","title":"Context window override (tokens)","description":"Leave empty to use the value reported by the provider, or 32000 when the provider reports none.","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/contextWindow","errorMessage":{}},"inputPricePerMillion":{"type":"number","title":"Input price (per 1M tokens)","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/inputPricePerMillion","errorMessage":{}},"cachedInputPricePerMillion":{"type":"number","title":"Cached input price (per 1M tokens)","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/cachedInputPricePerMillion","errorMessage":{}},"cacheWritePricePerMillion":{"type":"number","title":"Cache write price (per 1M tokens)","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/cacheWritePricePerMillion","errorMessage":{}},"outputPricePerMillion":{"type":"number","title":"Output price (per 1M tokens)","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/outputPricePerMillion","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools","errorMessage":{}},"summarizer":{"type":"object","title":"Summarizer","description":"A \"shorthand\" specialist. Optimized for quickly distilling key points from small-to-medium text blocks. It focuses on high information density and brevity to keep context windows lean and costs low.\n\nRecommendations: GPT-5.4 Mini, Claude 4.5 Haiku, Mistral Small 4, Qwen3 (8B), etc.","layout":{"comp":"card","children":[{"key":"model"},{"key":"contextWindow","cols":6},{"key":"inputPricePerMillion","cols":4},{"key":"cachedInputPricePerMillion","cols":4},{"key":"cacheWritePricePerMillion","cols":4},{"key":"outputPricePerMillion","cols":6}],"cols":6},"properties":{"model":{"$ref":"#/definitions/Model","title":"Model","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/model","errorMessage":{"required":{"id":"required information","name":"required information","provider":"required information"}}},"contextWindow":{"type":"number","title":"Context window override (tokens)","description":"Leave empty to use the value reported by the provider, or 32000 when the provider reports none.","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/contextWindow","errorMessage":{}},"inputPricePerMillion":{"type":"number","title":"Input price (per 1M tokens)","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/inputPricePerMillion","errorMessage":{}},"cachedInputPricePerMillion":{"type":"number","title":"Cached input price (per 1M tokens)","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/cachedInputPricePerMillion","errorMessage":{}},"cacheWritePricePerMillion":{"type":"number","title":"Cache write price (per 1M tokens)","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/cacheWritePricePerMillion","errorMessage":{}},"outputPricePerMillion":{"type":"number","title":"Output price (per 1M tokens)","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/outputPricePerMillion","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer","errorMessage":{}},"evaluator":{"type":"object","title":"Evaluator","description":"The \"quality controller.\" Analyzes the assistant's logic and tool outputs for accuracy and safety. It requires the highest reasoning capabilities to act as a reliable ground truth for system performance.\n\nRecommendations: Claude Opus 4.6, GPT-5.4 (Reasoning), DeepSeek-R1, Pharia-1-LLM, etc.","layout":{"comp":"card","children":[{"key":"model"},{"key":"contextWindow","cols":6},{"key":"inputPricePerMillion","cols":4},{"key":"cachedInputPricePerMillion","cols":4},{"key":"cacheWritePricePerMillion","cols":4},{"key":"outputPricePerMillion","cols":6}],"cols":6},"properties":{"model":{"$ref":"#/definitions/Model","title":"Model","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/model","errorMessage":{"required":{"id":"required information","name":"required information","provider":"required information"}}},"contextWindow":{"type":"number","title":"Context window override (tokens)","description":"Leave empty to use the value reported by the provider, or 32000 when the provider reports none.","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/contextWindow","errorMessage":{}},"inputPricePerMillion":{"type":"number","title":"Input price (per 1M tokens)","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/inputPricePerMillion","errorMessage":{}},"cachedInputPricePerMillion":{"type":"number","title":"Cached input price (per 1M tokens)","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/cachedInputPricePerMillion","errorMessage":{}},"cacheWritePricePerMillion":{"type":"number","title":"Cache write price (per 1M tokens)","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/cacheWritePricePerMillion","errorMessage":{}},"outputPricePerMillion":{"type":"number","title":"Output price (per 1M tokens)","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/outputPricePerMillion","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator","errorMessage":{}},"moderator":{"type":"object","title":"Moderator","description":"The \"gatekeeper.\" Classifies each new user message for profanity, prompt-injection, persona override, and out-of-scope requests. Should be fast and cheap — it sits on the critical path to the first response token.\n\nRecommendations: a small/fast general-purpose model with structured (JSON) output support, e.g. Claude 4.5 Haiku, GPT-5.4 Mini, Mistral Small 4, Qwen3 (4B). Dedicated moderation classifiers (Llama Guard, moderation APIs) are not compatible: they use fixed taxonomies and output formats that cannot express this platform's custom policy.","layout":{"comp":"card","children":[{"key":"model"},{"key":"contextWindow","cols":6},{"key":"inputPricePerMillion","cols":4},{"key":"cachedInputPricePerMillion","cols":4},{"key":"cacheWritePricePerMillion","cols":4},{"key":"outputPricePerMillion","cols":6}],"cols":6},"properties":{"model":{"$ref":"#/definitions/Model","title":"Model","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator/properties/model","errorMessage":{"required":{"id":"required information","name":"required information","provider":"required information"}}},"contextWindow":{"type":"number","title":"Context window override (tokens)","description":"Leave empty to use the value reported by the provider, or 32000 when the provider reports none.","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator/properties/contextWindow","errorMessage":{}},"inputPricePerMillion":{"type":"number","title":"Input price (per 1M tokens)","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator/properties/inputPricePerMillion","errorMessage":{}},"cachedInputPricePerMillion":{"type":"number","title":"Cached input price (per 1M tokens)","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator/properties/cachedInputPricePerMillion","errorMessage":{}},"cacheWritePricePerMillion":{"type":"number","title":"Cache write price (per 1M tokens)","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator/properties/cacheWritePricePerMillion","errorMessage":{}},"outputPricePerMillion":{"type":"number","title":"Output price (per 1M tokens)","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator/properties/outputPricePerMillion","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models","errorMessage":{}},"moderation":{"type":"object","title":"Input moderation","layout":{"if":"parent.data.providers?.length"},"default":{"enabled":false,"categories":["anonymous","external"]},"required":["enabled","categories"],"additionalProperties":false,"properties":{"enabled":{"type":"boolean","title":"Enable input moderation","description":"When enabled, the last user message of each request from a moderated category is classified before the model responds.","default":false,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/moderation/properties/enabled","errorMessage":{}},"categories":{"type":"array","uniqueItems":true,"default":["anonymous","external"],"title":"Moderated user categories","description":"User categories whose requests are checked by the gate when moderation is enabled.","items":{"type":"string","oneOf":[{"const":"anonymous","title":"Anonymous"},{"const":"external","title":"External"},{"const":"user","title":"User"},{"const":"contrib","title":"Contributor"},{"const":"admin","title":"Admin"}],"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/moderation/properties/categories/items","errorMessage":{"oneOf":"chose one"}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/moderation/properties/categories","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/moderation","errorMessage":{"required":{"enabled":"required information","categories":"required information"}}},"compaction":{"type":"object","title":"History compaction","layout":{"if":"parent.data.providers?.length"},"default":{"percent":70},"required":["percent"],"additionalProperties":false,"properties":{"percent":{"type":"number","title":"Compact above this share of the context window (%)","description":"Conversation history is summarized once it exceeds this percentage of the assistant model context window. Higher means rarer compaction, better prompt-cache reuse, and more context kept.","default":70,"minimum":10,"maximum":100,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/compaction/properties/percent","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/compaction","errorMessage":{"required":{"percent":"required information"}}},"quotas":{"type":"object","title":"Role Quotas","layout":{"title":null,"if":"parent.data.providers?.length","children":[{"key":"global","cols":{"sm":6,"md":4}},{"key":"admin","cols":{"sm":6,"md":4}},{"key":"contrib","cols":{"sm":6,"md":4},"if":"context.accountType === \"organization\""},{"key":"user","cols":{"sm":6,"md":4},"if":"context.accountType === \"organization\""},{"key":"external","cols":{"sm":6,"md":4}},{"key":"anonymous","cols":{"sm":6,"md":4}},{"key":"untrusted","cols":{"sm":6,"md":4}}]},"required":["global","admin","contrib","user","external","anonymous"],"default":{"global":{"unlimited":false,"monthlyLimit":10},"admin":{"unlimited":true,"monthlyLimit":0},"contrib":{"unlimited":false,"monthlyLimit":0},"user":{"unlimited":false,"monthlyLimit":0},"external":{"unlimited":false,"monthlyLimit":0},"anonymous":{"unlimited":false,"monthlyLimit":0},"untrusted":{"unlimited":false,"monthlyLimit":0}},"properties":{"global":{"$ref":"#/definitions/RoleQuota","title":"Global quotas","default":{"unlimited":false,"monthlyLimit":10},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/global","errorMessage":{"required":{"unlimited":"required information","monthlyLimit":"required information"}}},"admin":{"$ref":"#/definitions/RoleQuota","title":"Admin quotas","default":{"unlimited":true,"monthlyLimit":0},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/admin","errorMessage":{"required":{"unlimited":"required information","monthlyLimit":"required information"}}},"contrib":{"$ref":"#/definitions/RoleQuota","title":"Contributor quotas","default":{"unlimited":false,"monthlyLimit":0},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/contrib","errorMessage":{"required":{"unlimited":"required information","monthlyLimit":"required information"}}},"user":{"$ref":"#/definitions/RoleQuota","title":"Simple user Quotas","default":{"unlimited":false,"monthlyLimit":0},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/user","errorMessage":{"required":{"unlimited":"required information","monthlyLimit":"required information"}}},"external":{"$ref":"#/definitions/RoleQuota","title":"External user quotas","default":{"unlimited":false,"monthlyLimit":0},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/external","errorMessage":{"required":{"unlimited":"required information","monthlyLimit":"required information"}}},"anonymous":{"$ref":"#/definitions/RoleQuota","title":"Anonymous user quotas","default":{"unlimited":false,"monthlyLimit":0},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/anonymous","errorMessage":{"required":{"unlimited":"required information","monthlyLimit":"required information"}}},"untrusted":{"$ref":"#/definitions/RoleQuota","title":"Anonymous + external pool","description":"Aggregate cap shared by all anonymous and external usage combined, so untrusted traffic cannot consume the whole account budget. 0 = no pool cap.","default":{"unlimited":false,"monthlyLimit":0},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/untrusted","errorMessage":{"required":{"unlimited":"required information","monthlyLimit":"required information"}}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas","errorMessage":{"required":{"global":"required information","admin":"required information","contrib":"required information","user":"required information","external":"required information","anonymous":"required information"}}}},"x-vjsf":{"xI18n":true,"pluginsImports":["@koumoul/vjsf-markdown"]},"x-vjsf-locales":["en","fr"],"__pointer":"https://github.com/data-fair/agents/settings-put#","errorMessage":{"required":{"providers":"required information"}}};
+const schema27 = {"$id":"https://github.com/data-fair/agents/settings-put","x-exports":["validate","types","vjsf"],"title":"Settings","layout":{"title":null},"definitions":{"RoleQuota":{"type":"object","layout":"card","required":["unlimited","monthlyLimit"],"properties":{"unlimited":{"type":"boolean","title":"Unlimited","default":false,"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/unlimited","errorMessage":{}},"monthlyLimit":{"layout":{"if":"!parent.data.unlimited"},"type":"number","title":"Monthly Limit","description":"Weekly limit = monthly / 2, daily limit = monthly / 4","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyLimit","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota","errorMessage":{"required":{"unlimited":"required information","monthlyLimit":"required information"}}},"Model":{"type":"object","required":["id","name","provider"],"layout":{"comp":"autocomplete","getItems":{"url":{"pure":false,"type":"js-tpl","dataAlias":"value","expr":"${context.apiPath}/models/${context.accountType}/${context.accountId}?provider=${parent.parent.parent.data.providers.map(p => p.id).join(\",\")}","ref":18},"itemsResults":{"pure":true,"type":"js-eval","dataAlias":"body","expr":"data.results","ref":21},"itemTitle":{"pure":true,"type":"js-eval","dataAlias":"item","expr":"`${item.name} (${item.provider.name} - ${item.provider.id.slice(0, 8)})`","ref":19},"itemKey":{"pure":true,"type":"js-eval","dataAlias":"item","expr":"item.id","ref":20},"returnObjects":true}},"properties":{"id":{"type":"string","title":"Model ID","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/id","errorMessage":{}},"name":{"type":"string","title":"Name","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/name","errorMessage":{}},"provider":{"type":"object","required":["type","name","id"],"properties":{"type":{"type":"string","title":"Provider Type","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider/properties/type","errorMessage":{}},"name":{"type":"string","title":"Provider Name","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider/properties/name","errorMessage":{}},"id":{"type":"string","title":"Provider ID","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider/properties/id","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider","errorMessage":{"required":{"type":"required information","name":"required information","id":"required information"}}},"contextWindow":{"type":"number","title":"Context window","readOnly":true,"description":"Total context size in tokens, as reported by the provider when the model was selected.","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/contextWindow","errorMessage":{}},"cachedInputPricePerMillion":{"type":"number","title":"Cached input price (per 1M tokens)","readOnly":true,"description":"Reported by the provider when the model was selected.","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/cachedInputPricePerMillion","errorMessage":{}},"cacheWritePricePerMillion":{"type":"number","title":"Cache write price (per 1M tokens)","readOnly":true,"description":"Reported by the provider when the model was selected.","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/cacheWritePricePerMillion","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model","errorMessage":{"required":{"id":"required information","name":"required information","provider":"required information"}}}},"type":"object","additionalProperties":false,"required":["providers"],"properties":{"createdAt":{"type":"string","format":"date-time","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/createdAt","errorMessage":{}},"updatedAt":{"type":"string","format":"date-time","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/updatedAt","errorMessage":{}},"storeTraces":{"type":"boolean","title":"Store conversation traces","description":"When enabled, conversations of consenting users are stored on the server for 30 days for admin review. Each user must explicitly accept.","default":false,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/storeTraces","errorMessage":{}},"owner":{"type":"object","additionalProperties":false,"required":["type","id"],"readOnly":true,"properties":{"type":{"type":"string","enum":["user","organization"],"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/type","errorMessage":{}},"id":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/id","errorMessage":{}},"name":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/name","errorMessage":{}},"department":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/department","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner","errorMessage":{"required":{"type":"required information","id":"required information"}}},"providers":{"type":"array","title":"AI Providers","layout":{"itemTitle":"item ? `${item.name || \"\"} - ${item.id.slice(0, 8)}` : \"\"","listActions":["add","edit","delete"]},"items":{"type":"object","title":"Provider","unevaluatedProperties":false,"oneOfLayout":{"emptyData":true},"discriminator":{"propertyName":"type"},"layout":{"getDefaultData":"{ id: crypto.randomUUID() }","switch":[{"if":"summary","children":[]}]},"oneOf":[{"required":["type","name","id","enabled"],"title":"Open AI","properties":{"type":{"type":"string","title":"Provider Type","const":"openai","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Open AI\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}},{"required":["type","name","id","enabled"],"title":"Anthropic","properties":{"type":{"type":"string","title":"Provider Type","const":"anthropic","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Anthropic\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}},{"required":["type","name","id","enabled"],"title":"Google","properties":{"type":{"type":"string","title":"Provider Type","const":"google","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Google\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}},{"required":["type","name","id","enabled"],"title":"Mistral","properties":{"type":{"type":"string","title":"Provider Type","const":"mistral","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Mistral\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}},{"required":["type","name","id","enabled"],"title":"OpenRouter","properties":{"type":{"type":"string","title":"Provider Type","const":"openrouter","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"OpenRouter\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}},{"required":["type","name","id","enabled","baseURL"],"title":"Ollama","properties":{"type":{"type":"string","title":"Provider Type","const":"ollama","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Ollama\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/apiKey","errorMessage":{}},"baseURL":{"type":"string","title":"Base URL","default":"http://localhost:11434","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/baseURL","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information","baseURL":"required information"}}},{"required":["type","name","id","enabled","apiKey"],"title":"Scaleway","description":"For an API key scoped to a specific Scaleway Project, set the Project ID so requests target that project. Leave it empty to use the organization default project.","properties":{"type":{"type":"string","title":"Provider Type","const":"scaleway","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Scaleway\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/apiKey","errorMessage":{}},"projectId":{"type":"string","title":"Project ID","description":"Optional. The Scaleway Project ID (UUID) the API key is scoped to. Required when the key only has access to a specific project, otherwise model listing and inference return 403.","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/projectId","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information","apiKey":"required information"}}},{"required":["type","name","id","enabled","baseURL"],"title":"OpenAI Compatible","description":"Generic provider for any OpenAI-compatible endpoint (Together, Fireworks, Groq, DeepInfra, vLLM, LM Studio, etc.). API Key is optional for unauthenticated local servers.","properties":{"type":{"type":"string","title":"Provider Type","const":"openai-compatible","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"OpenAI Compatible\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/enabled","errorMessage":{}},"baseURL":{"type":"string","title":"Base URL","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/baseURL","errorMessage":{}},"apiKey":{"type":"string","title":"API Key","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/apiKey","errorMessage":{}},"compatibility":{"type":"string","title":"Compatibility Mode","description":"Utilisez \"compatible\" pour les fournisseurs qui ne supportent pas le nouveau endpoint /v1/responses (ex: LiteLLM, anciennes APIs compatibles OpenAI). Laissez vide pour le comportement OpenAI standard.","enum":["default","compatible"],"default":"default","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/compatibility","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information","baseURL":"required information"}}},{"required":["type","name","id","enabled"],"title":"Mock","description":"To a message \"hello\" respond \"world\", to a message \"call tool ARG1 ARG2\" respond with a tool call, to anything else respond \"what do you mean ?\"","properties":{"type":{"type":"string","title":"Provider Type","const":"mock","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/type","errorMessage":{}},"id":{"type":"string","title":"Provider ID","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/id","errorMessage":{}},"name":{"type":"string","title":"Display Name","layout":{"getDefaultData":"\"Mock\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Enabled","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/enabled","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8","errorMessage":{"required":{"type":"required information","id":"required information","name":"required information","enabled":"required information"}}}],"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items","errorMessage":{"oneOf":"chose one"}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers","errorMessage":{}},"models":{"type":"object","title":"Models","layout":{"title":null,"if":"parent.data.providers?.length"},"default":{},"properties":{"assistant":{"type":"object","title":"Assistant","description":"The primary conversational interface. Balanced for reasoning, instruction-following, and human-like interaction. This model manages the high-level flow and delegates complex tasks to subagents.\n\nRecommendations: GPT-5.4, Claude 4.5 Sonnet, Kimi K2, Mistral Large 3, etc.","layout":{"comp":"card","children":[{"key":"model"},{"key":"contextWindow","cols":6},{"key":"inputPricePerMillion","cols":4},{"key":"cachedInputPricePerMillion","cols":4},{"key":"cacheWritePricePerMillion","cols":4},{"key":"outputPricePerMillion","cols":6}],"cols":6},"properties":{"model":{"$ref":"#/definitions/Model","title":"Model","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/model","errorMessage":{"required":{"id":"required information","name":"required information","provider":"required information"}}},"contextWindow":{"type":"number","title":"Context window (tokens)","description":"Used to size history compaction. Leave empty to use the value reported by the provider; only OpenRouter reports one, so for other providers set it here or the conservative 32000 default applies.","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/contextWindow","errorMessage":{}},"inputPricePerMillion":{"type":"number","title":"Input price (per 1M tokens)","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/inputPricePerMillion","errorMessage":{}},"cachedInputPricePerMillion":{"type":"number","title":"Cached input price (per 1M tokens)","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/cachedInputPricePerMillion","errorMessage":{}},"cacheWritePricePerMillion":{"type":"number","title":"Cache write price (per 1M tokens)","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/cacheWritePricePerMillion","errorMessage":{}},"outputPricePerMillion":{"type":"number","title":"Output price (per 1M tokens)","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/outputPricePerMillion","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant","errorMessage":{}},"tools":{"type":"object","title":"Tools","description":"The \"technician.\" Specialized in structured data and API interaction. It excels at chaining multiple tool calls without conversational filler, ensuring high reliability in automated workflows.\n\nRecommendations: GPT-5.4 Mini, Mistral DevStral, Claude 4.5 Sonnet (Computer Use), MiMo-V2-Flash, etc.","layout":{"comp":"card","children":[{"key":"model"},{"key":"inputPricePerMillion","cols":4},{"key":"cachedInputPricePerMillion","cols":4},{"key":"cacheWritePricePerMillion","cols":4},{"key":"outputPricePerMillion","cols":6}],"cols":6},"properties":{"model":{"$ref":"#/definitions/Model","title":"Model","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/model","errorMessage":{"required":{"id":"required information","name":"required information","provider":"required information"}}},"inputPricePerMillion":{"type":"number","title":"Input price (per 1M tokens)","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/inputPricePerMillion","errorMessage":{}},"cachedInputPricePerMillion":{"type":"number","title":"Cached input price (per 1M tokens)","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/cachedInputPricePerMillion","errorMessage":{}},"cacheWritePricePerMillion":{"type":"number","title":"Cache write price (per 1M tokens)","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/cacheWritePricePerMillion","errorMessage":{}},"outputPricePerMillion":{"type":"number","title":"Output price (per 1M tokens)","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/outputPricePerMillion","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools","errorMessage":{}},"summarizer":{"type":"object","title":"Summarizer","description":"A \"shorthand\" specialist. Optimized for quickly distilling key points from small-to-medium text blocks. It focuses on high information density and brevity to keep context windows lean and costs low.\n\nRecommendations: GPT-5.4 Mini, Claude 4.5 Haiku, Mistral Small 4, Qwen3 (8B), etc.","layout":{"comp":"card","children":[{"key":"model"},{"key":"inputPricePerMillion","cols":4},{"key":"cachedInputPricePerMillion","cols":4},{"key":"cacheWritePricePerMillion","cols":4},{"key":"outputPricePerMillion","cols":6}],"cols":6},"properties":{"model":{"$ref":"#/definitions/Model","title":"Model","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/model","errorMessage":{"required":{"id":"required information","name":"required information","provider":"required information"}}},"inputPricePerMillion":{"type":"number","title":"Input price (per 1M tokens)","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/inputPricePerMillion","errorMessage":{}},"cachedInputPricePerMillion":{"type":"number","title":"Cached input price (per 1M tokens)","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/cachedInputPricePerMillion","errorMessage":{}},"cacheWritePricePerMillion":{"type":"number","title":"Cache write price (per 1M tokens)","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/cacheWritePricePerMillion","errorMessage":{}},"outputPricePerMillion":{"type":"number","title":"Output price (per 1M tokens)","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/outputPricePerMillion","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer","errorMessage":{}},"evaluator":{"type":"object","title":"Evaluator","description":"The \"quality controller.\" Analyzes the assistant's logic and tool outputs for accuracy and safety. It requires the highest reasoning capabilities to act as a reliable ground truth for system performance.\n\nRecommendations: Claude Opus 4.6, GPT-5.4 (Reasoning), DeepSeek-R1, Pharia-1-LLM, etc.","layout":{"comp":"card","children":[{"key":"model"},{"key":"inputPricePerMillion","cols":4},{"key":"cachedInputPricePerMillion","cols":4},{"key":"cacheWritePricePerMillion","cols":4},{"key":"outputPricePerMillion","cols":6}],"cols":6},"properties":{"model":{"$ref":"#/definitions/Model","title":"Model","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/model","errorMessage":{"required":{"id":"required information","name":"required information","provider":"required information"}}},"inputPricePerMillion":{"type":"number","title":"Input price (per 1M tokens)","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/inputPricePerMillion","errorMessage":{}},"cachedInputPricePerMillion":{"type":"number","title":"Cached input price (per 1M tokens)","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/cachedInputPricePerMillion","errorMessage":{}},"cacheWritePricePerMillion":{"type":"number","title":"Cache write price (per 1M tokens)","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/cacheWritePricePerMillion","errorMessage":{}},"outputPricePerMillion":{"type":"number","title":"Output price (per 1M tokens)","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/outputPricePerMillion","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator","errorMessage":{}},"moderator":{"type":"object","title":"Moderator","description":"The \"gatekeeper.\" Classifies each new user message for profanity, prompt-injection, persona override, and out-of-scope requests. Should be fast and cheap — it sits on the critical path to the first response token.\n\nRecommendations: a small/fast general-purpose model with structured (JSON) output support, e.g. Claude 4.5 Haiku, GPT-5.4 Mini, Mistral Small 4, Qwen3 (4B). Dedicated moderation classifiers (Llama Guard, moderation APIs) are not compatible: they use fixed taxonomies and output formats that cannot express this platform's custom policy.","layout":{"comp":"card","children":[{"key":"model"},{"key":"inputPricePerMillion","cols":4},{"key":"cachedInputPricePerMillion","cols":4},{"key":"cacheWritePricePerMillion","cols":4},{"key":"outputPricePerMillion","cols":6}],"cols":6},"properties":{"model":{"$ref":"#/definitions/Model","title":"Model","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator/properties/model","errorMessage":{"required":{"id":"required information","name":"required information","provider":"required information"}}},"inputPricePerMillion":{"type":"number","title":"Input price (per 1M tokens)","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator/properties/inputPricePerMillion","errorMessage":{}},"cachedInputPricePerMillion":{"type":"number","title":"Cached input price (per 1M tokens)","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator/properties/cachedInputPricePerMillion","errorMessage":{}},"cacheWritePricePerMillion":{"type":"number","title":"Cache write price (per 1M tokens)","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator/properties/cacheWritePricePerMillion","errorMessage":{}},"outputPricePerMillion":{"type":"number","title":"Output price (per 1M tokens)","minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator/properties/outputPricePerMillion","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models","errorMessage":{}},"moderation":{"type":"object","title":"Input moderation","layout":{"if":"parent.data.providers?.length"},"default":{"enabled":false,"categories":["anonymous","external"]},"required":["enabled","categories"],"additionalProperties":false,"properties":{"enabled":{"type":"boolean","title":"Enable input moderation","description":"When enabled, the last user message of each request from a moderated category is classified before the model responds.","default":false,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/moderation/properties/enabled","errorMessage":{}},"categories":{"type":"array","uniqueItems":true,"default":["anonymous","external"],"title":"Moderated user categories","description":"User categories whose requests are checked by the gate when moderation is enabled.","items":{"type":"string","oneOf":[{"const":"anonymous","title":"Anonymous"},{"const":"external","title":"External"},{"const":"user","title":"User"},{"const":"contrib","title":"Contributor"},{"const":"admin","title":"Admin"}],"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/moderation/properties/categories/items","errorMessage":{"oneOf":"chose one"}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/moderation/properties/categories","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/moderation","errorMessage":{"required":{"enabled":"required information","categories":"required information"}}},"compaction":{"type":"object","title":"History compaction","layout":{"if":"parent.data.providers?.length"},"default":{"percent":70},"required":["percent"],"additionalProperties":false,"properties":{"percent":{"type":"number","title":"Compact above this share of the context window (%)","description":"Conversation history is summarized once it exceeds this percentage of the assistant model context window. Higher means rarer compaction, better prompt-cache reuse, and more context kept.","default":70,"minimum":10,"maximum":100,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/compaction/properties/percent","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/compaction","errorMessage":{"required":{"percent":"required information"}}},"quotas":{"type":"object","title":"Role Quotas","layout":{"title":null,"if":"parent.data.providers?.length","children":[{"key":"global","cols":{"sm":6,"md":4}},{"key":"admin","cols":{"sm":6,"md":4}},{"key":"contrib","cols":{"sm":6,"md":4},"if":"context.accountType === \"organization\""},{"key":"user","cols":{"sm":6,"md":4},"if":"context.accountType === \"organization\""},{"key":"external","cols":{"sm":6,"md":4}},{"key":"anonymous","cols":{"sm":6,"md":4}},{"key":"untrusted","cols":{"sm":6,"md":4}}]},"required":["global","admin","contrib","user","external","anonymous"],"default":{"global":{"unlimited":false,"monthlyLimit":10},"admin":{"unlimited":true,"monthlyLimit":0},"contrib":{"unlimited":false,"monthlyLimit":0},"user":{"unlimited":false,"monthlyLimit":0},"external":{"unlimited":false,"monthlyLimit":0},"anonymous":{"unlimited":false,"monthlyLimit":0},"untrusted":{"unlimited":false,"monthlyLimit":0}},"properties":{"global":{"$ref":"#/definitions/RoleQuota","title":"Global quotas","default":{"unlimited":false,"monthlyLimit":10},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/global","errorMessage":{"required":{"unlimited":"required information","monthlyLimit":"required information"}}},"admin":{"$ref":"#/definitions/RoleQuota","title":"Admin quotas","default":{"unlimited":true,"monthlyLimit":0},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/admin","errorMessage":{"required":{"unlimited":"required information","monthlyLimit":"required information"}}},"contrib":{"$ref":"#/definitions/RoleQuota","title":"Contributor quotas","default":{"unlimited":false,"monthlyLimit":0},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/contrib","errorMessage":{"required":{"unlimited":"required information","monthlyLimit":"required information"}}},"user":{"$ref":"#/definitions/RoleQuota","title":"Simple user Quotas","default":{"unlimited":false,"monthlyLimit":0},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/user","errorMessage":{"required":{"unlimited":"required information","monthlyLimit":"required information"}}},"external":{"$ref":"#/definitions/RoleQuota","title":"External user quotas","default":{"unlimited":false,"monthlyLimit":0},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/external","errorMessage":{"required":{"unlimited":"required information","monthlyLimit":"required information"}}},"anonymous":{"$ref":"#/definitions/RoleQuota","title":"Anonymous user quotas","default":{"unlimited":false,"monthlyLimit":0},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/anonymous","errorMessage":{"required":{"unlimited":"required information","monthlyLimit":"required information"}}},"untrusted":{"$ref":"#/definitions/RoleQuota","title":"Anonymous + external pool","description":"Aggregate cap shared by all anonymous and external usage combined, so untrusted traffic cannot consume the whole account budget. 0 = no pool cap.","default":{"unlimited":false,"monthlyLimit":0},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/untrusted","errorMessage":{"required":{"unlimited":"required information","monthlyLimit":"required information"}}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas","errorMessage":{"required":{"global":"required information","admin":"required information","contrib":"required information","user":"required information","external":"required information","anonymous":"required information"}}}},"x-vjsf":{"xI18n":true,"pluginsImports":["@koumoul/vjsf-markdown"]},"x-vjsf-locales":["en","fr"],"__pointer":"https://github.com/data-fair/agents/settings-put#","errorMessage":{"required":{"providers":"required information"}}};
 const schema28 = {"type":"object","required":["id","name","provider"],"layout":{"comp":"autocomplete","getItems":{"url":{"pure":false,"type":"js-tpl","dataAlias":"value","expr":"${context.apiPath}/models/${context.accountType}/${context.accountId}?provider=${parent.parent.parent.data.providers.map(p => p.id).join(\",\")}","ref":18},"itemsResults":{"pure":true,"type":"js-eval","dataAlias":"body","expr":"data.results","ref":21},"itemTitle":{"pure":true,"type":"js-eval","dataAlias":"item","expr":"`${item.name} (${item.provider.name} - ${item.provider.id.slice(0, 8)})`","ref":19},"itemKey":{"pure":true,"type":"js-eval","dataAlias":"item","expr":"item.id","ref":20},"returnObjects":true}},"properties":{"id":{"type":"string","title":"Model ID","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/id","errorMessage":{}},"name":{"type":"string","title":"Name","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/name","errorMessage":{}},"provider":{"type":"object","required":["type","name","id"],"properties":{"type":{"type":"string","title":"Provider Type","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider/properties/type","errorMessage":{}},"name":{"type":"string","title":"Provider Name","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider/properties/name","errorMessage":{}},"id":{"type":"string","title":"Provider ID","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider/properties/id","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider","errorMessage":{"required":{"type":"required information","name":"required information","id":"required information"}}},"contextWindow":{"type":"number","title":"Context window","readOnly":true,"description":"Total context size in tokens, as reported by the provider when the model was selected.","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/contextWindow","errorMessage":{}},"cachedInputPricePerMillion":{"type":"number","title":"Cached input price (per 1M tokens)","readOnly":true,"description":"Reported by the provider when the model was selected.","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/cachedInputPricePerMillion","errorMessage":{}},"cacheWritePricePerMillion":{"type":"number","title":"Cache write price (per 1M tokens)","readOnly":true,"description":"Reported by the provider when the model was selected.","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/cacheWritePricePerMillion","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model","errorMessage":{"required":{"id":"required information","name":"required information","provider":"required information"}}};
 const schema33 = {"type":"object","layout":"card","required":["unlimited","monthlyLimit"],"properties":{"unlimited":{"type":"boolean","title":"Unlimited","default":false,"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/unlimited","errorMessage":{}},"monthlyLimit":{"layout":{"if":"!parent.data.unlimited"},"type":"number","title":"Monthly Limit","description":"Weekly limit = monthly / 2, daily limit = monthly / 4","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyLimit","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota","errorMessage":{"required":{"unlimited":"required information","monthlyLimit":"required information"}}};
 const func1 = Object.prototype.hasOwnProperty;
@@ -8466,11 +8466,11 @@ vErrors = emErrs94;
 errors = emErrs94.length;
 }
 }
-if(data75.contextWindow !== undefined){
-let data86 = data75.contextWindow;
+if(data75.inputPricePerMillion !== undefined){
+let data86 = data75.inputPricePerMillion;
 if(typeof data86 == "number"){
 if(data86 < 0 || isNaN(data86)){
-const err298 = {instancePath:instancePath+"/models/tools/contextWindow",schemaPath:"#/properties/models/properties/tools/properties/contextWindow/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.tools.properties.contextWindow,data:data86};
+const err298 = {instancePath:instancePath+"/models/tools/inputPricePerMillion",schemaPath:"#/properties/models/properties/tools/properties/inputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.tools.properties.inputPricePerMillion,data:data86};
 if(vErrors === null){
 vErrors = [err298];
 }
@@ -8481,7 +8481,7 @@ errors++;
 }
 }
 else {
-const err299 = {instancePath:instancePath+"/models/tools/contextWindow",schemaPath:"#/properties/models/properties/tools/properties/contextWindow/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.tools.properties.contextWindow.type,parentSchema:schema27.properties.models.properties.tools.properties.contextWindow,data:data86};
+const err299 = {instancePath:instancePath+"/models/tools/inputPricePerMillion",schemaPath:"#/properties/models/properties/tools/properties/inputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.tools.properties.inputPricePerMillion.type,parentSchema:schema27.properties.models.properties.tools.properties.inputPricePerMillion,data:data86};
 if(vErrors === null){
 vErrors = [err299];
 }
@@ -8501,11 +8501,11 @@ vErrors = emErrs95;
 errors = emErrs95.length;
 }
 }
-if(data75.inputPricePerMillion !== undefined){
-let data87 = data75.inputPricePerMillion;
+if(data75.cachedInputPricePerMillion !== undefined){
+let data87 = data75.cachedInputPricePerMillion;
 if(typeof data87 == "number"){
 if(data87 < 0 || isNaN(data87)){
-const err301 = {instancePath:instancePath+"/models/tools/inputPricePerMillion",schemaPath:"#/properties/models/properties/tools/properties/inputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.tools.properties.inputPricePerMillion,data:data87};
+const err301 = {instancePath:instancePath+"/models/tools/cachedInputPricePerMillion",schemaPath:"#/properties/models/properties/tools/properties/cachedInputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.tools.properties.cachedInputPricePerMillion,data:data87};
 if(vErrors === null){
 vErrors = [err301];
 }
@@ -8516,7 +8516,7 @@ errors++;
 }
 }
 else {
-const err302 = {instancePath:instancePath+"/models/tools/inputPricePerMillion",schemaPath:"#/properties/models/properties/tools/properties/inputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.tools.properties.inputPricePerMillion.type,parentSchema:schema27.properties.models.properties.tools.properties.inputPricePerMillion,data:data87};
+const err302 = {instancePath:instancePath+"/models/tools/cachedInputPricePerMillion",schemaPath:"#/properties/models/properties/tools/properties/cachedInputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.tools.properties.cachedInputPricePerMillion.type,parentSchema:schema27.properties.models.properties.tools.properties.cachedInputPricePerMillion,data:data87};
 if(vErrors === null){
 vErrors = [err302];
 }
@@ -8536,11 +8536,11 @@ vErrors = emErrs96;
 errors = emErrs96.length;
 }
 }
-if(data75.cachedInputPricePerMillion !== undefined){
-let data88 = data75.cachedInputPricePerMillion;
+if(data75.cacheWritePricePerMillion !== undefined){
+let data88 = data75.cacheWritePricePerMillion;
 if(typeof data88 == "number"){
 if(data88 < 0 || isNaN(data88)){
-const err304 = {instancePath:instancePath+"/models/tools/cachedInputPricePerMillion",schemaPath:"#/properties/models/properties/tools/properties/cachedInputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.tools.properties.cachedInputPricePerMillion,data:data88};
+const err304 = {instancePath:instancePath+"/models/tools/cacheWritePricePerMillion",schemaPath:"#/properties/models/properties/tools/properties/cacheWritePricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.tools.properties.cacheWritePricePerMillion,data:data88};
 if(vErrors === null){
 vErrors = [err304];
 }
@@ -8551,7 +8551,7 @@ errors++;
 }
 }
 else {
-const err305 = {instancePath:instancePath+"/models/tools/cachedInputPricePerMillion",schemaPath:"#/properties/models/properties/tools/properties/cachedInputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.tools.properties.cachedInputPricePerMillion.type,parentSchema:schema27.properties.models.properties.tools.properties.cachedInputPricePerMillion,data:data88};
+const err305 = {instancePath:instancePath+"/models/tools/cacheWritePricePerMillion",schemaPath:"#/properties/models/properties/tools/properties/cacheWritePricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.tools.properties.cacheWritePricePerMillion.type,parentSchema:schema27.properties.models.properties.tools.properties.cacheWritePricePerMillion,data:data88};
 if(vErrors === null){
 vErrors = [err305];
 }
@@ -8571,11 +8571,11 @@ vErrors = emErrs97;
 errors = emErrs97.length;
 }
 }
-if(data75.cacheWritePricePerMillion !== undefined){
-let data89 = data75.cacheWritePricePerMillion;
+if(data75.outputPricePerMillion !== undefined){
+let data89 = data75.outputPricePerMillion;
 if(typeof data89 == "number"){
 if(data89 < 0 || isNaN(data89)){
-const err307 = {instancePath:instancePath+"/models/tools/cacheWritePricePerMillion",schemaPath:"#/properties/models/properties/tools/properties/cacheWritePricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.tools.properties.cacheWritePricePerMillion,data:data89};
+const err307 = {instancePath:instancePath+"/models/tools/outputPricePerMillion",schemaPath:"#/properties/models/properties/tools/properties/outputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.tools.properties.outputPricePerMillion,data:data89};
 if(vErrors === null){
 vErrors = [err307];
 }
@@ -8586,7 +8586,7 @@ errors++;
 }
 }
 else {
-const err308 = {instancePath:instancePath+"/models/tools/cacheWritePricePerMillion",schemaPath:"#/properties/models/properties/tools/properties/cacheWritePricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.tools.properties.cacheWritePricePerMillion.type,parentSchema:schema27.properties.models.properties.tools.properties.cacheWritePricePerMillion,data:data89};
+const err308 = {instancePath:instancePath+"/models/tools/outputPricePerMillion",schemaPath:"#/properties/models/properties/tools/properties/outputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.tools.properties.outputPricePerMillion.type,parentSchema:schema27.properties.models.properties.tools.properties.outputPricePerMillion,data:data89};
 if(vErrors === null){
 vErrors = [err308];
 }
@@ -8606,11 +8606,9 @@ vErrors = emErrs98;
 errors = emErrs98.length;
 }
 }
-if(data75.outputPricePerMillion !== undefined){
-let data90 = data75.outputPricePerMillion;
-if(typeof data90 == "number"){
-if(data90 < 0 || isNaN(data90)){
-const err310 = {instancePath:instancePath+"/models/tools/outputPricePerMillion",schemaPath:"#/properties/models/properties/tools/properties/outputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.tools.properties.outputPricePerMillion,data:data90};
+}
+else {
+const err310 = {instancePath:instancePath+"/models/tools",schemaPath:"#/properties/models/properties/tools/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.models.properties.tools.type,parentSchema:schema27.properties.models.properties.tools,data:data75};
 if(vErrors === null){
 vErrors = [err310];
 }
@@ -8619,31 +8617,35 @@ vErrors.push(err310);
 }
 errors++;
 }
-}
-else {
-const err311 = {instancePath:instancePath+"/models/tools/outputPricePerMillion",schemaPath:"#/properties/models/properties/tools/properties/outputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.tools.properties.outputPricePerMillion.type,parentSchema:schema27.properties.models.properties.tools.properties.outputPricePerMillion,data:data90};
-if(vErrors === null){
-vErrors = [err311];
-}
-else {
-vErrors.push(err311);
-}
-errors++;
-}
 if(errors > 0){
 const emErrs99 = [];
-for(const err312 of vErrors){
-if(!err312.emUsed){
-emErrs99.push(err312);
+for(const err311 of vErrors){
+if(!err311.emUsed){
+emErrs99.push(err311);
 }
 }
 vErrors = emErrs99;
 errors = emErrs99.length;
 }
 }
+if(data58.summarizer !== undefined){
+let data90 = data58.summarizer;
+if(data90 && typeof data90 == "object" && !Array.isArray(data90)){
+if(data90.model !== undefined){
+let data91 = data90.model;
+if(data91 && typeof data91 == "object" && !Array.isArray(data91)){
+if(data91.id === undefined){
+const err312 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.required,parentSchema:schema28,data:data91};
+if(vErrors === null){
+vErrors = [err312];
 }
 else {
-const err313 = {instancePath:instancePath+"/models/tools",schemaPath:"#/properties/models/properties/tools/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.models.properties.tools.type,parentSchema:schema27.properties.models.properties.tools,data:data75};
+vErrors.push(err312);
+}
+errors++;
+}
+if(data91.name === undefined){
+const err313 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.required,parentSchema:schema28,data:data91};
 if(vErrors === null){
 vErrors = [err313];
 }
@@ -8652,25 +8654,20 @@ vErrors.push(err313);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs100 = [];
-for(const err314 of vErrors){
-if(!err314.emUsed){
-emErrs100.push(err314);
+if(data91.provider === undefined){
+const err314 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'",schema:schema28.required,parentSchema:schema28,data:data91};
+if(vErrors === null){
+vErrors = [err314];
 }
+else {
+vErrors.push(err314);
 }
-vErrors = emErrs100;
-errors = emErrs100.length;
+errors++;
 }
-}
-if(data58.summarizer !== undefined){
-let data91 = data58.summarizer;
-if(data91 && typeof data91 == "object" && !Array.isArray(data91)){
-if(data91.model !== undefined){
-let data92 = data91.model;
-if(data92 && typeof data92 == "object" && !Array.isArray(data92)){
-if(data92.id === undefined){
-const err315 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.required,parentSchema:schema28,data:data92};
+if(data91.id !== undefined){
+let data92 = data91.id;
+if(typeof data92 !== "string"){
+const err315 = {instancePath:instancePath+"/models/summarizer/model/id",schemaPath:"#/definitions/Model/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.id.type,parentSchema:schema28.properties.id,data:data92};
 if(vErrors === null){
 vErrors = [err315];
 }
@@ -8679,18 +8676,21 @@ vErrors.push(err315);
 }
 errors++;
 }
-if(data92.name === undefined){
-const err316 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.required,parentSchema:schema28,data:data92};
-if(vErrors === null){
-vErrors = [err316];
+if(errors > 0){
+const emErrs100 = [];
+for(const err316 of vErrors){
+if(!err316.emUsed){
+emErrs100.push(err316);
 }
-else {
-vErrors.push(err316);
 }
-errors++;
+vErrors = emErrs100;
+errors = emErrs100.length;
 }
-if(data92.provider === undefined){
-const err317 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'",schema:schema28.required,parentSchema:schema28,data:data92};
+}
+if(data91.name !== undefined){
+let data93 = data91.name;
+if(typeof data93 !== "string"){
+const err317 = {instancePath:instancePath+"/models/summarizer/model/name",schemaPath:"#/definitions/Model/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.name.type,parentSchema:schema28.properties.name,data:data93};
 if(vErrors === null){
 vErrors = [err317];
 }
@@ -8699,33 +8699,32 @@ vErrors.push(err317);
 }
 errors++;
 }
-if(data92.id !== undefined){
-let data93 = data92.id;
-if(typeof data93 !== "string"){
-const err318 = {instancePath:instancePath+"/models/summarizer/model/id",schemaPath:"#/definitions/Model/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.id.type,parentSchema:schema28.properties.id,data:data93};
-if(vErrors === null){
-vErrors = [err318];
-}
-else {
-vErrors.push(err318);
-}
-errors++;
-}
 if(errors > 0){
 const emErrs101 = [];
-for(const err319 of vErrors){
-if(!err319.emUsed){
-emErrs101.push(err319);
+for(const err318 of vErrors){
+if(!err318.emUsed){
+emErrs101.push(err318);
 }
 }
 vErrors = emErrs101;
 errors = emErrs101.length;
 }
 }
-if(data92.name !== undefined){
-let data94 = data92.name;
-if(typeof data94 !== "string"){
-const err320 = {instancePath:instancePath+"/models/summarizer/model/name",schemaPath:"#/definitions/Model/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.name.type,parentSchema:schema28.properties.name,data:data94};
+if(data91.provider !== undefined){
+let data94 = data91.provider;
+if(data94 && typeof data94 == "object" && !Array.isArray(data94)){
+if(data94.type === undefined){
+const err319 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data94};
+if(vErrors === null){
+vErrors = [err319];
+}
+else {
+vErrors.push(err319);
+}
+errors++;
+}
+if(data94.name === undefined){
+const err320 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data94};
 if(vErrors === null){
 vErrors = [err320];
 }
@@ -8734,22 +8733,20 @@ vErrors.push(err320);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs102 = [];
-for(const err321 of vErrors){
-if(!err321.emUsed){
-emErrs102.push(err321);
+if(data94.id === undefined){
+const err321 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data94};
+if(vErrors === null){
+vErrors = [err321];
 }
+else {
+vErrors.push(err321);
 }
-vErrors = emErrs102;
-errors = emErrs102.length;
+errors++;
 }
-}
-if(data92.provider !== undefined){
-let data95 = data92.provider;
-if(data95 && typeof data95 == "object" && !Array.isArray(data95)){
-if(data95.type === undefined){
-const err322 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data95};
+if(data94.type !== undefined){
+let data95 = data94.type;
+if(typeof data95 !== "string"){
+const err322 = {instancePath:instancePath+"/models/summarizer/model/provider/type",schemaPath:"#/definitions/Model/properties/provider/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.type.type,parentSchema:schema28.properties.provider.properties.type,data:data95};
 if(vErrors === null){
 vErrors = [err322];
 }
@@ -8758,18 +8755,21 @@ vErrors.push(err322);
 }
 errors++;
 }
-if(data95.name === undefined){
-const err323 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data95};
-if(vErrors === null){
-vErrors = [err323];
+if(errors > 0){
+const emErrs102 = [];
+for(const err323 of vErrors){
+if(!err323.emUsed){
+emErrs102.push(err323);
 }
-else {
-vErrors.push(err323);
 }
-errors++;
+vErrors = emErrs102;
+errors = emErrs102.length;
 }
-if(data95.id === undefined){
-const err324 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data95};
+}
+if(data94.name !== undefined){
+let data96 = data94.name;
+if(typeof data96 !== "string"){
+const err324 = {instancePath:instancePath+"/models/summarizer/model/provider/name",schemaPath:"#/definitions/Model/properties/provider/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.name.type,parentSchema:schema28.properties.provider.properties.name,data:data96};
 if(vErrors === null){
 vErrors = [err324];
 }
@@ -8778,83 +8778,48 @@ vErrors.push(err324);
 }
 errors++;
 }
-if(data95.type !== undefined){
-let data96 = data95.type;
-if(typeof data96 !== "string"){
-const err325 = {instancePath:instancePath+"/models/summarizer/model/provider/type",schemaPath:"#/definitions/Model/properties/provider/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.type.type,parentSchema:schema28.properties.provider.properties.type,data:data96};
-if(vErrors === null){
-vErrors = [err325];
-}
-else {
-vErrors.push(err325);
-}
-errors++;
-}
 if(errors > 0){
 const emErrs103 = [];
-for(const err326 of vErrors){
-if(!err326.emUsed){
-emErrs103.push(err326);
+for(const err325 of vErrors){
+if(!err325.emUsed){
+emErrs103.push(err325);
 }
 }
 vErrors = emErrs103;
 errors = emErrs103.length;
 }
 }
-if(data95.name !== undefined){
-let data97 = data95.name;
+if(data94.id !== undefined){
+let data97 = data94.id;
 if(typeof data97 !== "string"){
-const err327 = {instancePath:instancePath+"/models/summarizer/model/provider/name",schemaPath:"#/definitions/Model/properties/provider/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.name.type,parentSchema:schema28.properties.provider.properties.name,data:data97};
+const err326 = {instancePath:instancePath+"/models/summarizer/model/provider/id",schemaPath:"#/definitions/Model/properties/provider/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.id.type,parentSchema:schema28.properties.provider.properties.id,data:data97};
 if(vErrors === null){
-vErrors = [err327];
+vErrors = [err326];
 }
 else {
-vErrors.push(err327);
+vErrors.push(err326);
 }
 errors++;
 }
 if(errors > 0){
 const emErrs104 = [];
-for(const err328 of vErrors){
-if(!err328.emUsed){
-emErrs104.push(err328);
+for(const err327 of vErrors){
+if(!err327.emUsed){
+emErrs104.push(err327);
 }
 }
 vErrors = emErrs104;
 errors = emErrs104.length;
 }
 }
-if(data95.id !== undefined){
-let data98 = data95.id;
-if(typeof data98 !== "string"){
-const err329 = {instancePath:instancePath+"/models/summarizer/model/provider/id",schemaPath:"#/definitions/Model/properties/provider/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.id.type,parentSchema:schema28.properties.provider.properties.id,data:data98};
+}
+else {
+const err328 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.properties.provider.type,parentSchema:schema28.properties.provider,data:data94};
 if(vErrors === null){
-vErrors = [err329];
+vErrors = [err328];
 }
 else {
-vErrors.push(err329);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs105 = [];
-for(const err330 of vErrors){
-if(!err330.emUsed){
-emErrs105.push(err330);
-}
-}
-vErrors = emErrs105;
-errors = emErrs105.length;
-}
-}
-}
-else {
-const err331 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.properties.provider.type,parentSchema:schema28.properties.provider,data:data95};
-if(vErrors === null){
-vErrors = [err331];
-}
-else {
-vErrors.push(err331);
+vErrors.push(err328);
 }
 errors++;
 }
@@ -8863,13 +8828,13 @@ const emErrors17 = {"required":{"type":[],"name":[],"id":[]}};
 const templates17 = {required:{}};
 let emPropParams16;
 let emParamsErrors16;
-for(const err332 of vErrors){
-if((((((err332.keyword !== "errorMessage") && (!err332.emUsed)) && (err332.instancePath === instancePath+"/models/summarizer/model/provider")) && (err332.keyword in emErrors17)) && (err332.schemaPath.indexOf("#/definitions/Model/properties/provider") === 0)) && (/^\/[^\/]*$/.test(err332.schemaPath.slice(39)))){
-emPropParams16 = obj0[err332.keyword];
-emParamsErrors16 = emErrors17[err332.keyword][err332.params[emPropParams16]];
+for(const err329 of vErrors){
+if((((((err329.keyword !== "errorMessage") && (!err329.emUsed)) && (err329.instancePath === instancePath+"/models/summarizer/model/provider")) && (err329.keyword in emErrors17)) && (err329.schemaPath.indexOf("#/definitions/Model/properties/provider") === 0)) && (/^\/[^\/]*$/.test(err329.schemaPath.slice(39)))){
+emPropParams16 = obj0[err329.keyword];
+emParamsErrors16 = emErrors17[err329.keyword][err329.params[emPropParams16]];
 if(emParamsErrors16){
-emParamsErrors16.push(err332);
-err332.emUsed = true;
+emParamsErrors16.push(err329);
+err329.emUsed = true;
 }
 }
 }
@@ -8878,104 +8843,104 @@ for(const keyProp16 in emErrors17[key20]){
 emParamsErrors16 = emErrors17[key20][keyProp16];
 if(emParamsErrors16.length){
 const tmpl16 = templates17[key20] && templates17[key20][keyProp16];
-const err333 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors16},message:tmpl16 ? tmpl16() : schema28.properties.provider.errorMessage[key20][keyProp16],schema:schema28.properties.provider.errorMessage,parentSchema:schema28.properties.provider,data:data95};
+const err330 = {instancePath:instancePath+"/models/summarizer/model/provider",schemaPath:"#/definitions/Model/properties/provider/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors16},message:tmpl16 ? tmpl16() : schema28.properties.provider.errorMessage[key20][keyProp16],schema:schema28.properties.provider.errorMessage,parentSchema:schema28.properties.provider,data:data94};
 if(vErrors === null){
-vErrors = [err333];
+vErrors = [err330];
 }
 else {
-vErrors.push(err333);
+vErrors.push(err330);
 }
 errors++;
 }
 }
 }
+const emErrs105 = [];
+for(const err331 of vErrors){
+if(!err331.emUsed){
+emErrs105.push(err331);
+}
+}
+vErrors = emErrs105;
+errors = emErrs105.length;
+}
+}
+if(data91.contextWindow !== undefined){
+let data98 = data91.contextWindow;
+if(!(typeof data98 == "number")){
+const err332 = {instancePath:instancePath+"/models/summarizer/model/contextWindow",schemaPath:"#/definitions/Model/properties/contextWindow/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema28.properties.contextWindow.type,parentSchema:schema28.properties.contextWindow,data:data98};
+if(vErrors === null){
+vErrors = [err332];
+}
+else {
+vErrors.push(err332);
+}
+errors++;
+}
+if(errors > 0){
 const emErrs106 = [];
-for(const err334 of vErrors){
-if(!err334.emUsed){
-emErrs106.push(err334);
+for(const err333 of vErrors){
+if(!err333.emUsed){
+emErrs106.push(err333);
 }
 }
 vErrors = emErrs106;
 errors = emErrs106.length;
 }
 }
-if(data92.contextWindow !== undefined){
-let data99 = data92.contextWindow;
+if(data91.cachedInputPricePerMillion !== undefined){
+let data99 = data91.cachedInputPricePerMillion;
 if(!(typeof data99 == "number")){
-const err335 = {instancePath:instancePath+"/models/summarizer/model/contextWindow",schemaPath:"#/definitions/Model/properties/contextWindow/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema28.properties.contextWindow.type,parentSchema:schema28.properties.contextWindow,data:data99};
+const err334 = {instancePath:instancePath+"/models/summarizer/model/cachedInputPricePerMillion",schemaPath:"#/definitions/Model/properties/cachedInputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema28.properties.cachedInputPricePerMillion.type,parentSchema:schema28.properties.cachedInputPricePerMillion,data:data99};
 if(vErrors === null){
-vErrors = [err335];
+vErrors = [err334];
 }
 else {
-vErrors.push(err335);
+vErrors.push(err334);
 }
 errors++;
 }
 if(errors > 0){
 const emErrs107 = [];
-for(const err336 of vErrors){
-if(!err336.emUsed){
-emErrs107.push(err336);
+for(const err335 of vErrors){
+if(!err335.emUsed){
+emErrs107.push(err335);
 }
 }
 vErrors = emErrs107;
 errors = emErrs107.length;
 }
 }
-if(data92.cachedInputPricePerMillion !== undefined){
-let data100 = data92.cachedInputPricePerMillion;
+if(data91.cacheWritePricePerMillion !== undefined){
+let data100 = data91.cacheWritePricePerMillion;
 if(!(typeof data100 == "number")){
-const err337 = {instancePath:instancePath+"/models/summarizer/model/cachedInputPricePerMillion",schemaPath:"#/definitions/Model/properties/cachedInputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema28.properties.cachedInputPricePerMillion.type,parentSchema:schema28.properties.cachedInputPricePerMillion,data:data100};
+const err336 = {instancePath:instancePath+"/models/summarizer/model/cacheWritePricePerMillion",schemaPath:"#/definitions/Model/properties/cacheWritePricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema28.properties.cacheWritePricePerMillion.type,parentSchema:schema28.properties.cacheWritePricePerMillion,data:data100};
 if(vErrors === null){
-vErrors = [err337];
+vErrors = [err336];
 }
 else {
-vErrors.push(err337);
+vErrors.push(err336);
 }
 errors++;
 }
 if(errors > 0){
 const emErrs108 = [];
-for(const err338 of vErrors){
-if(!err338.emUsed){
-emErrs108.push(err338);
+for(const err337 of vErrors){
+if(!err337.emUsed){
+emErrs108.push(err337);
 }
 }
 vErrors = emErrs108;
 errors = emErrs108.length;
 }
 }
-if(data92.cacheWritePricePerMillion !== undefined){
-let data101 = data92.cacheWritePricePerMillion;
-if(!(typeof data101 == "number")){
-const err339 = {instancePath:instancePath+"/models/summarizer/model/cacheWritePricePerMillion",schemaPath:"#/definitions/Model/properties/cacheWritePricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema28.properties.cacheWritePricePerMillion.type,parentSchema:schema28.properties.cacheWritePricePerMillion,data:data101};
+}
+else {
+const err338 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.type,parentSchema:schema28,data:data91};
 if(vErrors === null){
-vErrors = [err339];
+vErrors = [err338];
 }
 else {
-vErrors.push(err339);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs109 = [];
-for(const err340 of vErrors){
-if(!err340.emUsed){
-emErrs109.push(err340);
-}
-}
-vErrors = emErrs109;
-errors = emErrs109.length;
-}
-}
-}
-else {
-const err341 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.type,parentSchema:schema28,data:data92};
-if(vErrors === null){
-vErrors = [err341];
-}
-else {
-vErrors.push(err341);
+vErrors.push(err338);
 }
 errors++;
 }
@@ -8984,13 +8949,13 @@ const emErrors18 = {"required":{"id":[],"name":[],"provider":[]}};
 const templates18 = {required:{}};
 let emPropParams17;
 let emParamsErrors17;
-for(const err342 of vErrors){
-if((((((err342.keyword !== "errorMessage") && (!err342.emUsed)) && (err342.instancePath === instancePath+"/models/summarizer/model")) && (err342.keyword in emErrors18)) && (err342.schemaPath.indexOf("#/definitions/Model") === 0)) && (/^\/[^\/]*$/.test(err342.schemaPath.slice(19)))){
-emPropParams17 = obj0[err342.keyword];
-emParamsErrors17 = emErrors18[err342.keyword][err342.params[emPropParams17]];
+for(const err339 of vErrors){
+if((((((err339.keyword !== "errorMessage") && (!err339.emUsed)) && (err339.instancePath === instancePath+"/models/summarizer/model")) && (err339.keyword in emErrors18)) && (err339.schemaPath.indexOf("#/definitions/Model") === 0)) && (/^\/[^\/]*$/.test(err339.schemaPath.slice(19)))){
+emPropParams17 = obj0[err339.keyword];
+emParamsErrors17 = emErrors18[err339.keyword][err339.params[emPropParams17]];
 if(emParamsErrors17){
-emParamsErrors17.push(err342);
-err342.emUsed = true;
+emParamsErrors17.push(err339);
+err339.emUsed = true;
 }
 }
 }
@@ -8999,7 +8964,47 @@ for(const keyProp17 in emErrors18[key21]){
 emParamsErrors17 = emErrors18[key21][keyProp17];
 if(emParamsErrors17.length){
 const tmpl17 = templates18[key21] && templates18[key21][keyProp17];
-const err343 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors17},message:tmpl17 ? tmpl17() : schema28.errorMessage[key21][keyProp17],schema:schema28.errorMessage,parentSchema:schema28,data:data92};
+const err340 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/definitions/Model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors17},message:tmpl17 ? tmpl17() : schema28.errorMessage[key21][keyProp17],schema:schema28.errorMessage,parentSchema:schema28,data:data91};
+if(vErrors === null){
+vErrors = [err340];
+}
+else {
+vErrors.push(err340);
+}
+errors++;
+}
+}
+}
+const emErrs109 = [];
+for(const err341 of vErrors){
+if(!err341.emUsed){
+emErrs109.push(err341);
+}
+}
+vErrors = emErrs109;
+errors = emErrs109.length;
+}
+if(errors > 0){
+const emErrors19 = {"required":{"id":[],"name":[],"provider":[]}};
+const templates19 = {required:{}};
+let emPropParams18;
+let emParamsErrors18;
+for(const err342 of vErrors){
+if((((((err342.keyword !== "errorMessage") && (!err342.emUsed)) && (err342.instancePath === instancePath+"/models/summarizer/model")) && (err342.keyword in emErrors19)) && (err342.schemaPath.indexOf("#/properties/models/properties/summarizer/properties/model") === 0)) && (/^\/[^\/]*$/.test(err342.schemaPath.slice(58)))){
+emPropParams18 = obj0[err342.keyword];
+emParamsErrors18 = emErrors19[err342.keyword][err342.params[emPropParams18]];
+if(emParamsErrors18){
+emParamsErrors18.push(err342);
+err342.emUsed = true;
+}
+}
+}
+for(const key22 in emErrors19){
+for(const keyProp18 in emErrors19[key22]){
+emParamsErrors18 = emErrors19[key22][keyProp18];
+if(emParamsErrors18.length){
+const tmpl18 = templates19[key22] && templates19[key22][keyProp18];
+const err343 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/properties/models/properties/summarizer/properties/model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors18},message:tmpl18 ? tmpl18() : schema27.properties.models.properties.summarizer.properties.model.errorMessage[key22][keyProp18],schema:schema27.properties.models.properties.summarizer.properties.model.errorMessage,parentSchema:schema27.properties.models.properties.summarizer.properties.model,data:data91};
 if(vErrors === null){
 vErrors = [err343];
 }
@@ -9019,27 +9024,23 @@ emErrs110.push(err344);
 vErrors = emErrs110;
 errors = emErrs110.length;
 }
-if(errors > 0){
-const emErrors19 = {"required":{"id":[],"name":[],"provider":[]}};
-const templates19 = {required:{}};
-let emPropParams18;
-let emParamsErrors18;
-for(const err345 of vErrors){
-if((((((err345.keyword !== "errorMessage") && (!err345.emUsed)) && (err345.instancePath === instancePath+"/models/summarizer/model")) && (err345.keyword in emErrors19)) && (err345.schemaPath.indexOf("#/properties/models/properties/summarizer/properties/model") === 0)) && (/^\/[^\/]*$/.test(err345.schemaPath.slice(58)))){
-emPropParams18 = obj0[err345.keyword];
-emParamsErrors18 = emErrors19[err345.keyword][err345.params[emPropParams18]];
-if(emParamsErrors18){
-emParamsErrors18.push(err345);
-err345.emUsed = true;
+}
+if(data90.inputPricePerMillion !== undefined){
+let data101 = data90.inputPricePerMillion;
+if(typeof data101 == "number"){
+if(data101 < 0 || isNaN(data101)){
+const err345 = {instancePath:instancePath+"/models/summarizer/inputPricePerMillion",schemaPath:"#/properties/models/properties/summarizer/properties/inputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.summarizer.properties.inputPricePerMillion,data:data101};
+if(vErrors === null){
+vErrors = [err345];
+}
+else {
+vErrors.push(err345);
+}
+errors++;
 }
 }
-}
-for(const key22 in emErrors19){
-for(const keyProp18 in emErrors19[key22]){
-emParamsErrors18 = emErrors19[key22][keyProp18];
-if(emParamsErrors18.length){
-const tmpl18 = templates19[key22] && templates19[key22][keyProp18];
-const err346 = {instancePath:instancePath+"/models/summarizer/model",schemaPath:"#/properties/models/properties/summarizer/properties/model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors18},message:tmpl18 ? tmpl18() : schema27.properties.models.properties.summarizer.properties.model.errorMessage[key22][keyProp18],schema:schema27.properties.models.properties.summarizer.properties.model.errorMessage,parentSchema:schema27.properties.models.properties.summarizer.properties.model,data:data92};
+else {
+const err346 = {instancePath:instancePath+"/models/summarizer/inputPricePerMillion",schemaPath:"#/properties/models/properties/summarizer/properties/inputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.summarizer.properties.inputPricePerMillion.type,parentSchema:schema27.properties.models.properties.summarizer.properties.inputPricePerMillion,data:data101};
 if(vErrors === null){
 vErrors = [err346];
 }
@@ -9048,8 +9049,7 @@ vErrors.push(err346);
 }
 errors++;
 }
-}
-}
+if(errors > 0){
 const emErrs111 = [];
 for(const err347 of vErrors){
 if(!err347.emUsed){
@@ -9060,11 +9060,11 @@ vErrors = emErrs111;
 errors = emErrs111.length;
 }
 }
-if(data91.contextWindow !== undefined){
-let data102 = data91.contextWindow;
+if(data90.cachedInputPricePerMillion !== undefined){
+let data102 = data90.cachedInputPricePerMillion;
 if(typeof data102 == "number"){
 if(data102 < 0 || isNaN(data102)){
-const err348 = {instancePath:instancePath+"/models/summarizer/contextWindow",schemaPath:"#/properties/models/properties/summarizer/properties/contextWindow/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.summarizer.properties.contextWindow,data:data102};
+const err348 = {instancePath:instancePath+"/models/summarizer/cachedInputPricePerMillion",schemaPath:"#/properties/models/properties/summarizer/properties/cachedInputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.summarizer.properties.cachedInputPricePerMillion,data:data102};
 if(vErrors === null){
 vErrors = [err348];
 }
@@ -9075,7 +9075,7 @@ errors++;
 }
 }
 else {
-const err349 = {instancePath:instancePath+"/models/summarizer/contextWindow",schemaPath:"#/properties/models/properties/summarizer/properties/contextWindow/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.summarizer.properties.contextWindow.type,parentSchema:schema27.properties.models.properties.summarizer.properties.contextWindow,data:data102};
+const err349 = {instancePath:instancePath+"/models/summarizer/cachedInputPricePerMillion",schemaPath:"#/properties/models/properties/summarizer/properties/cachedInputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.summarizer.properties.cachedInputPricePerMillion.type,parentSchema:schema27.properties.models.properties.summarizer.properties.cachedInputPricePerMillion,data:data102};
 if(vErrors === null){
 vErrors = [err349];
 }
@@ -9095,11 +9095,11 @@ vErrors = emErrs112;
 errors = emErrs112.length;
 }
 }
-if(data91.inputPricePerMillion !== undefined){
-let data103 = data91.inputPricePerMillion;
+if(data90.cacheWritePricePerMillion !== undefined){
+let data103 = data90.cacheWritePricePerMillion;
 if(typeof data103 == "number"){
 if(data103 < 0 || isNaN(data103)){
-const err351 = {instancePath:instancePath+"/models/summarizer/inputPricePerMillion",schemaPath:"#/properties/models/properties/summarizer/properties/inputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.summarizer.properties.inputPricePerMillion,data:data103};
+const err351 = {instancePath:instancePath+"/models/summarizer/cacheWritePricePerMillion",schemaPath:"#/properties/models/properties/summarizer/properties/cacheWritePricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.summarizer.properties.cacheWritePricePerMillion,data:data103};
 if(vErrors === null){
 vErrors = [err351];
 }
@@ -9110,7 +9110,7 @@ errors++;
 }
 }
 else {
-const err352 = {instancePath:instancePath+"/models/summarizer/inputPricePerMillion",schemaPath:"#/properties/models/properties/summarizer/properties/inputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.summarizer.properties.inputPricePerMillion.type,parentSchema:schema27.properties.models.properties.summarizer.properties.inputPricePerMillion,data:data103};
+const err352 = {instancePath:instancePath+"/models/summarizer/cacheWritePricePerMillion",schemaPath:"#/properties/models/properties/summarizer/properties/cacheWritePricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.summarizer.properties.cacheWritePricePerMillion.type,parentSchema:schema27.properties.models.properties.summarizer.properties.cacheWritePricePerMillion,data:data103};
 if(vErrors === null){
 vErrors = [err352];
 }
@@ -9130,11 +9130,11 @@ vErrors = emErrs113;
 errors = emErrs113.length;
 }
 }
-if(data91.cachedInputPricePerMillion !== undefined){
-let data104 = data91.cachedInputPricePerMillion;
+if(data90.outputPricePerMillion !== undefined){
+let data104 = data90.outputPricePerMillion;
 if(typeof data104 == "number"){
 if(data104 < 0 || isNaN(data104)){
-const err354 = {instancePath:instancePath+"/models/summarizer/cachedInputPricePerMillion",schemaPath:"#/properties/models/properties/summarizer/properties/cachedInputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.summarizer.properties.cachedInputPricePerMillion,data:data104};
+const err354 = {instancePath:instancePath+"/models/summarizer/outputPricePerMillion",schemaPath:"#/properties/models/properties/summarizer/properties/outputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.summarizer.properties.outputPricePerMillion,data:data104};
 if(vErrors === null){
 vErrors = [err354];
 }
@@ -9145,7 +9145,7 @@ errors++;
 }
 }
 else {
-const err355 = {instancePath:instancePath+"/models/summarizer/cachedInputPricePerMillion",schemaPath:"#/properties/models/properties/summarizer/properties/cachedInputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.summarizer.properties.cachedInputPricePerMillion.type,parentSchema:schema27.properties.models.properties.summarizer.properties.cachedInputPricePerMillion,data:data104};
+const err355 = {instancePath:instancePath+"/models/summarizer/outputPricePerMillion",schemaPath:"#/properties/models/properties/summarizer/properties/outputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.summarizer.properties.outputPricePerMillion.type,parentSchema:schema27.properties.models.properties.summarizer.properties.outputPricePerMillion,data:data104};
 if(vErrors === null){
 vErrors = [err355];
 }
@@ -9165,11 +9165,9 @@ vErrors = emErrs114;
 errors = emErrs114.length;
 }
 }
-if(data91.cacheWritePricePerMillion !== undefined){
-let data105 = data91.cacheWritePricePerMillion;
-if(typeof data105 == "number"){
-if(data105 < 0 || isNaN(data105)){
-const err357 = {instancePath:instancePath+"/models/summarizer/cacheWritePricePerMillion",schemaPath:"#/properties/models/properties/summarizer/properties/cacheWritePricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.summarizer.properties.cacheWritePricePerMillion,data:data105};
+}
+else {
+const err357 = {instancePath:instancePath+"/models/summarizer",schemaPath:"#/properties/models/properties/summarizer/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.models.properties.summarizer.type,parentSchema:schema27.properties.models.properties.summarizer,data:data90};
 if(vErrors === null){
 vErrors = [err357];
 }
@@ -9178,33 +9176,35 @@ vErrors.push(err357);
 }
 errors++;
 }
-}
-else {
-const err358 = {instancePath:instancePath+"/models/summarizer/cacheWritePricePerMillion",schemaPath:"#/properties/models/properties/summarizer/properties/cacheWritePricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.summarizer.properties.cacheWritePricePerMillion.type,parentSchema:schema27.properties.models.properties.summarizer.properties.cacheWritePricePerMillion,data:data105};
-if(vErrors === null){
-vErrors = [err358];
-}
-else {
-vErrors.push(err358);
-}
-errors++;
-}
 if(errors > 0){
 const emErrs115 = [];
-for(const err359 of vErrors){
-if(!err359.emUsed){
-emErrs115.push(err359);
+for(const err358 of vErrors){
+if(!err358.emUsed){
+emErrs115.push(err358);
 }
 }
 vErrors = emErrs115;
 errors = emErrs115.length;
 }
 }
-if(data91.outputPricePerMillion !== undefined){
-let data106 = data91.outputPricePerMillion;
-if(typeof data106 == "number"){
-if(data106 < 0 || isNaN(data106)){
-const err360 = {instancePath:instancePath+"/models/summarizer/outputPricePerMillion",schemaPath:"#/properties/models/properties/summarizer/properties/outputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.summarizer.properties.outputPricePerMillion,data:data106};
+if(data58.evaluator !== undefined){
+let data105 = data58.evaluator;
+if(data105 && typeof data105 == "object" && !Array.isArray(data105)){
+if(data105.model !== undefined){
+let data106 = data105.model;
+if(data106 && typeof data106 == "object" && !Array.isArray(data106)){
+if(data106.id === undefined){
+const err359 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.required,parentSchema:schema28,data:data106};
+if(vErrors === null){
+vErrors = [err359];
+}
+else {
+vErrors.push(err359);
+}
+errors++;
+}
+if(data106.name === undefined){
+const err360 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.required,parentSchema:schema28,data:data106};
 if(vErrors === null){
 vErrors = [err360];
 }
@@ -9213,9 +9213,8 @@ vErrors.push(err360);
 }
 errors++;
 }
-}
-else {
-const err361 = {instancePath:instancePath+"/models/summarizer/outputPricePerMillion",schemaPath:"#/properties/models/properties/summarizer/properties/outputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.summarizer.properties.outputPricePerMillion.type,parentSchema:schema27.properties.models.properties.summarizer.properties.outputPricePerMillion,data:data106};
+if(data106.provider === undefined){
+const err361 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'",schema:schema28.required,parentSchema:schema28,data:data106};
 if(vErrors === null){
 vErrors = [err361];
 }
@@ -9224,57 +9223,57 @@ vErrors.push(err361);
 }
 errors++;
 }
+if(data106.id !== undefined){
+let data107 = data106.id;
+if(typeof data107 !== "string"){
+const err362 = {instancePath:instancePath+"/models/evaluator/model/id",schemaPath:"#/definitions/Model/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.id.type,parentSchema:schema28.properties.id,data:data107};
+if(vErrors === null){
+vErrors = [err362];
+}
+else {
+vErrors.push(err362);
+}
+errors++;
+}
 if(errors > 0){
 const emErrs116 = [];
-for(const err362 of vErrors){
-if(!err362.emUsed){
-emErrs116.push(err362);
+for(const err363 of vErrors){
+if(!err363.emUsed){
+emErrs116.push(err363);
 }
 }
 vErrors = emErrs116;
 errors = emErrs116.length;
 }
 }
-}
-else {
-const err363 = {instancePath:instancePath+"/models/summarizer",schemaPath:"#/properties/models/properties/summarizer/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.models.properties.summarizer.type,parentSchema:schema27.properties.models.properties.summarizer,data:data91};
+if(data106.name !== undefined){
+let data108 = data106.name;
+if(typeof data108 !== "string"){
+const err364 = {instancePath:instancePath+"/models/evaluator/model/name",schemaPath:"#/definitions/Model/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.name.type,parentSchema:schema28.properties.name,data:data108};
 if(vErrors === null){
-vErrors = [err363];
+vErrors = [err364];
 }
 else {
-vErrors.push(err363);
+vErrors.push(err364);
 }
 errors++;
 }
 if(errors > 0){
 const emErrs117 = [];
-for(const err364 of vErrors){
-if(!err364.emUsed){
-emErrs117.push(err364);
+for(const err365 of vErrors){
+if(!err365.emUsed){
+emErrs117.push(err365);
 }
 }
 vErrors = emErrs117;
 errors = emErrs117.length;
 }
 }
-if(data58.evaluator !== undefined){
-let data107 = data58.evaluator;
-if(data107 && typeof data107 == "object" && !Array.isArray(data107)){
-if(data107.model !== undefined){
-let data108 = data107.model;
-if(data108 && typeof data108 == "object" && !Array.isArray(data108)){
-if(data108.id === undefined){
-const err365 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.required,parentSchema:schema28,data:data108};
-if(vErrors === null){
-vErrors = [err365];
-}
-else {
-vErrors.push(err365);
-}
-errors++;
-}
-if(data108.name === undefined){
-const err366 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.required,parentSchema:schema28,data:data108};
+if(data106.provider !== undefined){
+let data109 = data106.provider;
+if(data109 && typeof data109 == "object" && !Array.isArray(data109)){
+if(data109.type === undefined){
+const err366 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data109};
 if(vErrors === null){
 vErrors = [err366];
 }
@@ -9283,8 +9282,8 @@ vErrors.push(err366);
 }
 errors++;
 }
-if(data108.provider === undefined){
-const err367 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'",schema:schema28.required,parentSchema:schema28,data:data108};
+if(data109.name === undefined){
+const err367 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data109};
 if(vErrors === null){
 vErrors = [err367];
 }
@@ -9293,10 +9292,8 @@ vErrors.push(err367);
 }
 errors++;
 }
-if(data108.id !== undefined){
-let data109 = data108.id;
-if(typeof data109 !== "string"){
-const err368 = {instancePath:instancePath+"/models/evaluator/model/id",schemaPath:"#/definitions/Model/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.id.type,parentSchema:schema28.properties.id,data:data109};
+if(data109.id === undefined){
+const err368 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data109};
 if(vErrors === null){
 vErrors = [err368];
 }
@@ -9305,55 +9302,56 @@ vErrors.push(err368);
 }
 errors++;
 }
+if(data109.type !== undefined){
+let data110 = data109.type;
+if(typeof data110 !== "string"){
+const err369 = {instancePath:instancePath+"/models/evaluator/model/provider/type",schemaPath:"#/definitions/Model/properties/provider/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.type.type,parentSchema:schema28.properties.provider.properties.type,data:data110};
+if(vErrors === null){
+vErrors = [err369];
+}
+else {
+vErrors.push(err369);
+}
+errors++;
+}
 if(errors > 0){
 const emErrs118 = [];
-for(const err369 of vErrors){
-if(!err369.emUsed){
-emErrs118.push(err369);
+for(const err370 of vErrors){
+if(!err370.emUsed){
+emErrs118.push(err370);
 }
 }
 vErrors = emErrs118;
 errors = emErrs118.length;
 }
 }
-if(data108.name !== undefined){
-let data110 = data108.name;
-if(typeof data110 !== "string"){
-const err370 = {instancePath:instancePath+"/models/evaluator/model/name",schemaPath:"#/definitions/Model/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.name.type,parentSchema:schema28.properties.name,data:data110};
+if(data109.name !== undefined){
+let data111 = data109.name;
+if(typeof data111 !== "string"){
+const err371 = {instancePath:instancePath+"/models/evaluator/model/provider/name",schemaPath:"#/definitions/Model/properties/provider/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.name.type,parentSchema:schema28.properties.provider.properties.name,data:data111};
 if(vErrors === null){
-vErrors = [err370];
+vErrors = [err371];
 }
 else {
-vErrors.push(err370);
+vErrors.push(err371);
 }
 errors++;
 }
 if(errors > 0){
 const emErrs119 = [];
-for(const err371 of vErrors){
-if(!err371.emUsed){
-emErrs119.push(err371);
+for(const err372 of vErrors){
+if(!err372.emUsed){
+emErrs119.push(err372);
 }
 }
 vErrors = emErrs119;
 errors = emErrs119.length;
 }
 }
-if(data108.provider !== undefined){
-let data111 = data108.provider;
-if(data111 && typeof data111 == "object" && !Array.isArray(data111)){
-if(data111.type === undefined){
-const err372 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data111};
-if(vErrors === null){
-vErrors = [err372];
-}
-else {
-vErrors.push(err372);
-}
-errors++;
-}
-if(data111.name === undefined){
-const err373 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data111};
+if(data109.id !== undefined){
+let data112 = data109.id;
+if(typeof data112 !== "string"){
+const err373 = {instancePath:instancePath+"/models/evaluator/model/provider/id",schemaPath:"#/definitions/Model/properties/provider/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.id.type,parentSchema:schema28.properties.provider.properties.id,data:data112};
 if(vErrors === null){
 vErrors = [err373];
 }
@@ -9362,20 +9360,20 @@ vErrors.push(err373);
 }
 errors++;
 }
-if(data111.id === undefined){
-const err374 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data111};
-if(vErrors === null){
-vErrors = [err374];
+if(errors > 0){
+const emErrs120 = [];
+for(const err374 of vErrors){
+if(!err374.emUsed){
+emErrs120.push(err374);
+}
+}
+vErrors = emErrs120;
+errors = emErrs120.length;
+}
+}
 }
 else {
-vErrors.push(err374);
-}
-errors++;
-}
-if(data111.type !== undefined){
-let data112 = data111.type;
-if(typeof data112 !== "string"){
-const err375 = {instancePath:instancePath+"/models/evaluator/model/provider/type",schemaPath:"#/definitions/Model/properties/provider/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.type.type,parentSchema:schema28.properties.provider.properties.type,data:data112};
+const err375 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.properties.provider.type,parentSchema:schema28.properties.provider,data:data109};
 if(vErrors === null){
 vErrors = [err375];
 }
@@ -9385,20 +9383,26 @@ vErrors.push(err375);
 errors++;
 }
 if(errors > 0){
-const emErrs120 = [];
+const emErrors20 = {"required":{"type":[],"name":[],"id":[]}};
+const templates20 = {required:{}};
+let emPropParams19;
+let emParamsErrors19;
 for(const err376 of vErrors){
-if(!err376.emUsed){
-emErrs120.push(err376);
+if((((((err376.keyword !== "errorMessage") && (!err376.emUsed)) && (err376.instancePath === instancePath+"/models/evaluator/model/provider")) && (err376.keyword in emErrors20)) && (err376.schemaPath.indexOf("#/definitions/Model/properties/provider") === 0)) && (/^\/[^\/]*$/.test(err376.schemaPath.slice(39)))){
+emPropParams19 = obj0[err376.keyword];
+emParamsErrors19 = emErrors20[err376.keyword][err376.params[emPropParams19]];
+if(emParamsErrors19){
+emParamsErrors19.push(err376);
+err376.emUsed = true;
 }
 }
-vErrors = emErrs120;
-errors = emErrs120.length;
 }
-}
-if(data111.name !== undefined){
-let data113 = data111.name;
-if(typeof data113 !== "string"){
-const err377 = {instancePath:instancePath+"/models/evaluator/model/provider/name",schemaPath:"#/definitions/Model/properties/provider/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.name.type,parentSchema:schema28.properties.provider.properties.name,data:data113};
+for(const key23 in emErrors20){
+for(const keyProp19 in emErrors20[key23]){
+emParamsErrors19 = emErrors20[key23][keyProp19];
+if(emParamsErrors19.length){
+const tmpl19 = templates20[key23] && templates20[key23][keyProp19];
+const err377 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors19},message:tmpl19 ? tmpl19() : schema28.properties.provider.errorMessage[key23][keyProp19],schema:schema28.properties.provider.errorMessage,parentSchema:schema28.properties.provider,data:data109};
 if(vErrors === null){
 vErrors = [err377];
 }
@@ -9407,7 +9411,8 @@ vErrors.push(err377);
 }
 errors++;
 }
-if(errors > 0){
+}
+}
 const emErrs121 = [];
 for(const err378 of vErrors){
 if(!err378.emUsed){
@@ -9418,10 +9423,10 @@ vErrors = emErrs121;
 errors = emErrs121.length;
 }
 }
-if(data111.id !== undefined){
-let data114 = data111.id;
-if(typeof data114 !== "string"){
-const err379 = {instancePath:instancePath+"/models/evaluator/model/provider/id",schemaPath:"#/definitions/Model/properties/provider/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.id.type,parentSchema:schema28.properties.provider.properties.id,data:data114};
+if(data106.contextWindow !== undefined){
+let data113 = data106.contextWindow;
+if(!(typeof data113 == "number")){
+const err379 = {instancePath:instancePath+"/models/evaluator/model/contextWindow",schemaPath:"#/definitions/Model/properties/contextWindow/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema28.properties.contextWindow.type,parentSchema:schema28.properties.contextWindow,data:data113};
 if(vErrors === null){
 vErrors = [err379];
 }
@@ -9441,9 +9446,10 @@ vErrors = emErrs122;
 errors = emErrs122.length;
 }
 }
-}
-else {
-const err381 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.properties.provider.type,parentSchema:schema28.properties.provider,data:data111};
+if(data106.cachedInputPricePerMillion !== undefined){
+let data114 = data106.cachedInputPricePerMillion;
+if(!(typeof data114 == "number")){
+const err381 = {instancePath:instancePath+"/models/evaluator/model/cachedInputPricePerMillion",schemaPath:"#/definitions/Model/properties/cachedInputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema28.properties.cachedInputPricePerMillion.type,parentSchema:schema28.properties.cachedInputPricePerMillion,data:data114};
 if(vErrors === null){
 vErrors = [err381];
 }
@@ -9453,26 +9459,20 @@ vErrors.push(err381);
 errors++;
 }
 if(errors > 0){
-const emErrors20 = {"required":{"type":[],"name":[],"id":[]}};
-const templates20 = {required:{}};
-let emPropParams19;
-let emParamsErrors19;
+const emErrs123 = [];
 for(const err382 of vErrors){
-if((((((err382.keyword !== "errorMessage") && (!err382.emUsed)) && (err382.instancePath === instancePath+"/models/evaluator/model/provider")) && (err382.keyword in emErrors20)) && (err382.schemaPath.indexOf("#/definitions/Model/properties/provider") === 0)) && (/^\/[^\/]*$/.test(err382.schemaPath.slice(39)))){
-emPropParams19 = obj0[err382.keyword];
-emParamsErrors19 = emErrors20[err382.keyword][err382.params[emPropParams19]];
-if(emParamsErrors19){
-emParamsErrors19.push(err382);
-err382.emUsed = true;
+if(!err382.emUsed){
+emErrs123.push(err382);
 }
 }
+vErrors = emErrs123;
+errors = emErrs123.length;
 }
-for(const key23 in emErrors20){
-for(const keyProp19 in emErrors20[key23]){
-emParamsErrors19 = emErrors20[key23][keyProp19];
-if(emParamsErrors19.length){
-const tmpl19 = templates20[key23] && templates20[key23][keyProp19];
-const err383 = {instancePath:instancePath+"/models/evaluator/model/provider",schemaPath:"#/definitions/Model/properties/provider/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors19},message:tmpl19 ? tmpl19() : schema28.properties.provider.errorMessage[key23][keyProp19],schema:schema28.properties.provider.errorMessage,parentSchema:schema28.properties.provider,data:data111};
+}
+if(data106.cacheWritePricePerMillion !== undefined){
+let data115 = data106.cacheWritePricePerMillion;
+if(!(typeof data115 == "number")){
+const err383 = {instancePath:instancePath+"/models/evaluator/model/cacheWritePricePerMillion",schemaPath:"#/definitions/Model/properties/cacheWritePricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema28.properties.cacheWritePricePerMillion.type,parentSchema:schema28.properties.cacheWritePricePerMillion,data:data115};
 if(vErrors === null){
 vErrors = [err383];
 }
@@ -9481,22 +9481,20 @@ vErrors.push(err383);
 }
 errors++;
 }
-}
-}
-const emErrs123 = [];
+if(errors > 0){
+const emErrs124 = [];
 for(const err384 of vErrors){
 if(!err384.emUsed){
-emErrs123.push(err384);
+emErrs124.push(err384);
 }
 }
-vErrors = emErrs123;
-errors = emErrs123.length;
+vErrors = emErrs124;
+errors = emErrs124.length;
 }
 }
-if(data108.contextWindow !== undefined){
-let data115 = data108.contextWindow;
-if(!(typeof data115 == "number")){
-const err385 = {instancePath:instancePath+"/models/evaluator/model/contextWindow",schemaPath:"#/definitions/Model/properties/contextWindow/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema28.properties.contextWindow.type,parentSchema:schema28.properties.contextWindow,data:data115};
+}
+else {
+const err385 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.type,parentSchema:schema28,data:data106};
 if(vErrors === null){
 vErrors = [err385];
 }
@@ -9506,20 +9504,26 @@ vErrors.push(err385);
 errors++;
 }
 if(errors > 0){
-const emErrs124 = [];
+const emErrors21 = {"required":{"id":[],"name":[],"provider":[]}};
+const templates21 = {required:{}};
+let emPropParams20;
+let emParamsErrors20;
 for(const err386 of vErrors){
-if(!err386.emUsed){
-emErrs124.push(err386);
+if((((((err386.keyword !== "errorMessage") && (!err386.emUsed)) && (err386.instancePath === instancePath+"/models/evaluator/model")) && (err386.keyword in emErrors21)) && (err386.schemaPath.indexOf("#/definitions/Model") === 0)) && (/^\/[^\/]*$/.test(err386.schemaPath.slice(19)))){
+emPropParams20 = obj0[err386.keyword];
+emParamsErrors20 = emErrors21[err386.keyword][err386.params[emPropParams20]];
+if(emParamsErrors20){
+emParamsErrors20.push(err386);
+err386.emUsed = true;
 }
 }
-vErrors = emErrs124;
-errors = emErrs124.length;
 }
-}
-if(data108.cachedInputPricePerMillion !== undefined){
-let data116 = data108.cachedInputPricePerMillion;
-if(!(typeof data116 == "number")){
-const err387 = {instancePath:instancePath+"/models/evaluator/model/cachedInputPricePerMillion",schemaPath:"#/definitions/Model/properties/cachedInputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema28.properties.cachedInputPricePerMillion.type,parentSchema:schema28.properties.cachedInputPricePerMillion,data:data116};
+for(const key24 in emErrors21){
+for(const keyProp20 in emErrors21[key24]){
+emParamsErrors20 = emErrors21[key24][keyProp20];
+if(emParamsErrors20.length){
+const tmpl20 = templates21[key24] && templates21[key24][keyProp20];
+const err387 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors20},message:tmpl20 ? tmpl20() : schema28.errorMessage[key24][keyProp20],schema:schema28.errorMessage,parentSchema:schema28,data:data106};
 if(vErrors === null){
 vErrors = [err387];
 }
@@ -9528,7 +9532,8 @@ vErrors.push(err387);
 }
 errors++;
 }
-if(errors > 0){
+}
+}
 const emErrs125 = [];
 for(const err388 of vErrors){
 if(!err388.emUsed){
@@ -9538,62 +9543,63 @@ emErrs125.push(err388);
 vErrors = emErrs125;
 errors = emErrs125.length;
 }
+if(errors > 0){
+const emErrors22 = {"required":{"id":[],"name":[],"provider":[]}};
+const templates22 = {required:{}};
+let emPropParams21;
+let emParamsErrors21;
+for(const err389 of vErrors){
+if((((((err389.keyword !== "errorMessage") && (!err389.emUsed)) && (err389.instancePath === instancePath+"/models/evaluator/model")) && (err389.keyword in emErrors22)) && (err389.schemaPath.indexOf("#/properties/models/properties/evaluator/properties/model") === 0)) && (/^\/[^\/]*$/.test(err389.schemaPath.slice(57)))){
+emPropParams21 = obj0[err389.keyword];
+emParamsErrors21 = emErrors22[err389.keyword][err389.params[emPropParams21]];
+if(emParamsErrors21){
+emParamsErrors21.push(err389);
+err389.emUsed = true;
 }
-if(data108.cacheWritePricePerMillion !== undefined){
-let data117 = data108.cacheWritePricePerMillion;
-if(!(typeof data117 == "number")){
-const err389 = {instancePath:instancePath+"/models/evaluator/model/cacheWritePricePerMillion",schemaPath:"#/definitions/Model/properties/cacheWritePricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema28.properties.cacheWritePricePerMillion.type,parentSchema:schema28.properties.cacheWritePricePerMillion,data:data117};
+}
+}
+for(const key25 in emErrors22){
+for(const keyProp21 in emErrors22[key25]){
+emParamsErrors21 = emErrors22[key25][keyProp21];
+if(emParamsErrors21.length){
+const tmpl21 = templates22[key25] && templates22[key25][keyProp21];
+const err390 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/properties/models/properties/evaluator/properties/model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors21},message:tmpl21 ? tmpl21() : schema27.properties.models.properties.evaluator.properties.model.errorMessage[key25][keyProp21],schema:schema27.properties.models.properties.evaluator.properties.model.errorMessage,parentSchema:schema27.properties.models.properties.evaluator.properties.model,data:data106};
 if(vErrors === null){
-vErrors = [err389];
+vErrors = [err390];
 }
 else {
-vErrors.push(err389);
+vErrors.push(err390);
 }
 errors++;
 }
-if(errors > 0){
+}
+}
 const emErrs126 = [];
-for(const err390 of vErrors){
-if(!err390.emUsed){
-emErrs126.push(err390);
+for(const err391 of vErrors){
+if(!err391.emUsed){
+emErrs126.push(err391);
 }
 }
 vErrors = emErrs126;
 errors = emErrs126.length;
 }
 }
-}
-else {
-const err391 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.type,parentSchema:schema28,data:data108};
+if(data105.inputPricePerMillion !== undefined){
+let data116 = data105.inputPricePerMillion;
+if(typeof data116 == "number"){
+if(data116 < 0 || isNaN(data116)){
+const err392 = {instancePath:instancePath+"/models/evaluator/inputPricePerMillion",schemaPath:"#/properties/models/properties/evaluator/properties/inputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.evaluator.properties.inputPricePerMillion,data:data116};
 if(vErrors === null){
-vErrors = [err391];
+vErrors = [err392];
 }
 else {
-vErrors.push(err391);
+vErrors.push(err392);
 }
 errors++;
 }
-if(errors > 0){
-const emErrors21 = {"required":{"id":[],"name":[],"provider":[]}};
-const templates21 = {required:{}};
-let emPropParams20;
-let emParamsErrors20;
-for(const err392 of vErrors){
-if((((((err392.keyword !== "errorMessage") && (!err392.emUsed)) && (err392.instancePath === instancePath+"/models/evaluator/model")) && (err392.keyword in emErrors21)) && (err392.schemaPath.indexOf("#/definitions/Model") === 0)) && (/^\/[^\/]*$/.test(err392.schemaPath.slice(19)))){
-emPropParams20 = obj0[err392.keyword];
-emParamsErrors20 = emErrors21[err392.keyword][err392.params[emPropParams20]];
-if(emParamsErrors20){
-emParamsErrors20.push(err392);
-err392.emUsed = true;
 }
-}
-}
-for(const key24 in emErrors21){
-for(const keyProp20 in emErrors21[key24]){
-emParamsErrors20 = emErrors21[key24][keyProp20];
-if(emParamsErrors20.length){
-const tmpl20 = templates21[key24] && templates21[key24][keyProp20];
-const err393 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/definitions/Model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors20},message:tmpl20 ? tmpl20() : schema28.errorMessage[key24][keyProp20],schema:schema28.errorMessage,parentSchema:schema28,data:data108};
+else {
+const err393 = {instancePath:instancePath+"/models/evaluator/inputPricePerMillion",schemaPath:"#/properties/models/properties/evaluator/properties/inputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.evaluator.properties.inputPricePerMillion.type,parentSchema:schema27.properties.models.properties.evaluator.properties.inputPricePerMillion,data:data116};
 if(vErrors === null){
 vErrors = [err393];
 }
@@ -9602,8 +9608,7 @@ vErrors.push(err393);
 }
 errors++;
 }
-}
-}
+if(errors > 0){
 const emErrs127 = [];
 for(const err394 of vErrors){
 if(!err394.emUsed){
@@ -9613,27 +9618,23 @@ emErrs127.push(err394);
 vErrors = emErrs127;
 errors = emErrs127.length;
 }
-if(errors > 0){
-const emErrors22 = {"required":{"id":[],"name":[],"provider":[]}};
-const templates22 = {required:{}};
-let emPropParams21;
-let emParamsErrors21;
-for(const err395 of vErrors){
-if((((((err395.keyword !== "errorMessage") && (!err395.emUsed)) && (err395.instancePath === instancePath+"/models/evaluator/model")) && (err395.keyword in emErrors22)) && (err395.schemaPath.indexOf("#/properties/models/properties/evaluator/properties/model") === 0)) && (/^\/[^\/]*$/.test(err395.schemaPath.slice(57)))){
-emPropParams21 = obj0[err395.keyword];
-emParamsErrors21 = emErrors22[err395.keyword][err395.params[emPropParams21]];
-if(emParamsErrors21){
-emParamsErrors21.push(err395);
-err395.emUsed = true;
+}
+if(data105.cachedInputPricePerMillion !== undefined){
+let data117 = data105.cachedInputPricePerMillion;
+if(typeof data117 == "number"){
+if(data117 < 0 || isNaN(data117)){
+const err395 = {instancePath:instancePath+"/models/evaluator/cachedInputPricePerMillion",schemaPath:"#/properties/models/properties/evaluator/properties/cachedInputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.evaluator.properties.cachedInputPricePerMillion,data:data117};
+if(vErrors === null){
+vErrors = [err395];
+}
+else {
+vErrors.push(err395);
+}
+errors++;
 }
 }
-}
-for(const key25 in emErrors22){
-for(const keyProp21 in emErrors22[key25]){
-emParamsErrors21 = emErrors22[key25][keyProp21];
-if(emParamsErrors21.length){
-const tmpl21 = templates22[key25] && templates22[key25][keyProp21];
-const err396 = {instancePath:instancePath+"/models/evaluator/model",schemaPath:"#/properties/models/properties/evaluator/properties/model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors21},message:tmpl21 ? tmpl21() : schema27.properties.models.properties.evaluator.properties.model.errorMessage[key25][keyProp21],schema:schema27.properties.models.properties.evaluator.properties.model.errorMessage,parentSchema:schema27.properties.models.properties.evaluator.properties.model,data:data108};
+else {
+const err396 = {instancePath:instancePath+"/models/evaluator/cachedInputPricePerMillion",schemaPath:"#/properties/models/properties/evaluator/properties/cachedInputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.evaluator.properties.cachedInputPricePerMillion.type,parentSchema:schema27.properties.models.properties.evaluator.properties.cachedInputPricePerMillion,data:data117};
 if(vErrors === null){
 vErrors = [err396];
 }
@@ -9642,8 +9643,7 @@ vErrors.push(err396);
 }
 errors++;
 }
-}
-}
+if(errors > 0){
 const emErrs128 = [];
 for(const err397 of vErrors){
 if(!err397.emUsed){
@@ -9654,11 +9654,11 @@ vErrors = emErrs128;
 errors = emErrs128.length;
 }
 }
-if(data107.contextWindow !== undefined){
-let data118 = data107.contextWindow;
+if(data105.cacheWritePricePerMillion !== undefined){
+let data118 = data105.cacheWritePricePerMillion;
 if(typeof data118 == "number"){
 if(data118 < 0 || isNaN(data118)){
-const err398 = {instancePath:instancePath+"/models/evaluator/contextWindow",schemaPath:"#/properties/models/properties/evaluator/properties/contextWindow/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.evaluator.properties.contextWindow,data:data118};
+const err398 = {instancePath:instancePath+"/models/evaluator/cacheWritePricePerMillion",schemaPath:"#/properties/models/properties/evaluator/properties/cacheWritePricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.evaluator.properties.cacheWritePricePerMillion,data:data118};
 if(vErrors === null){
 vErrors = [err398];
 }
@@ -9669,7 +9669,7 @@ errors++;
 }
 }
 else {
-const err399 = {instancePath:instancePath+"/models/evaluator/contextWindow",schemaPath:"#/properties/models/properties/evaluator/properties/contextWindow/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.evaluator.properties.contextWindow.type,parentSchema:schema27.properties.models.properties.evaluator.properties.contextWindow,data:data118};
+const err399 = {instancePath:instancePath+"/models/evaluator/cacheWritePricePerMillion",schemaPath:"#/properties/models/properties/evaluator/properties/cacheWritePricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.evaluator.properties.cacheWritePricePerMillion.type,parentSchema:schema27.properties.models.properties.evaluator.properties.cacheWritePricePerMillion,data:data118};
 if(vErrors === null){
 vErrors = [err399];
 }
@@ -9689,11 +9689,11 @@ vErrors = emErrs129;
 errors = emErrs129.length;
 }
 }
-if(data107.inputPricePerMillion !== undefined){
-let data119 = data107.inputPricePerMillion;
+if(data105.outputPricePerMillion !== undefined){
+let data119 = data105.outputPricePerMillion;
 if(typeof data119 == "number"){
 if(data119 < 0 || isNaN(data119)){
-const err401 = {instancePath:instancePath+"/models/evaluator/inputPricePerMillion",schemaPath:"#/properties/models/properties/evaluator/properties/inputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.evaluator.properties.inputPricePerMillion,data:data119};
+const err401 = {instancePath:instancePath+"/models/evaluator/outputPricePerMillion",schemaPath:"#/properties/models/properties/evaluator/properties/outputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.evaluator.properties.outputPricePerMillion,data:data119};
 if(vErrors === null){
 vErrors = [err401];
 }
@@ -9704,7 +9704,7 @@ errors++;
 }
 }
 else {
-const err402 = {instancePath:instancePath+"/models/evaluator/inputPricePerMillion",schemaPath:"#/properties/models/properties/evaluator/properties/inputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.evaluator.properties.inputPricePerMillion.type,parentSchema:schema27.properties.models.properties.evaluator.properties.inputPricePerMillion,data:data119};
+const err402 = {instancePath:instancePath+"/models/evaluator/outputPricePerMillion",schemaPath:"#/properties/models/properties/evaluator/properties/outputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.evaluator.properties.outputPricePerMillion.type,parentSchema:schema27.properties.models.properties.evaluator.properties.outputPricePerMillion,data:data119};
 if(vErrors === null){
 vErrors = [err402];
 }
@@ -9724,11 +9724,9 @@ vErrors = emErrs130;
 errors = emErrs130.length;
 }
 }
-if(data107.cachedInputPricePerMillion !== undefined){
-let data120 = data107.cachedInputPricePerMillion;
-if(typeof data120 == "number"){
-if(data120 < 0 || isNaN(data120)){
-const err404 = {instancePath:instancePath+"/models/evaluator/cachedInputPricePerMillion",schemaPath:"#/properties/models/properties/evaluator/properties/cachedInputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.evaluator.properties.cachedInputPricePerMillion,data:data120};
+}
+else {
+const err404 = {instancePath:instancePath+"/models/evaluator",schemaPath:"#/properties/models/properties/evaluator/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.models.properties.evaluator.type,parentSchema:schema27.properties.models.properties.evaluator,data:data105};
 if(vErrors === null){
 vErrors = [err404];
 }
@@ -9737,33 +9735,35 @@ vErrors.push(err404);
 }
 errors++;
 }
-}
-else {
-const err405 = {instancePath:instancePath+"/models/evaluator/cachedInputPricePerMillion",schemaPath:"#/properties/models/properties/evaluator/properties/cachedInputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.evaluator.properties.cachedInputPricePerMillion.type,parentSchema:schema27.properties.models.properties.evaluator.properties.cachedInputPricePerMillion,data:data120};
-if(vErrors === null){
-vErrors = [err405];
-}
-else {
-vErrors.push(err405);
-}
-errors++;
-}
 if(errors > 0){
 const emErrs131 = [];
-for(const err406 of vErrors){
-if(!err406.emUsed){
-emErrs131.push(err406);
+for(const err405 of vErrors){
+if(!err405.emUsed){
+emErrs131.push(err405);
 }
 }
 vErrors = emErrs131;
 errors = emErrs131.length;
 }
 }
-if(data107.cacheWritePricePerMillion !== undefined){
-let data121 = data107.cacheWritePricePerMillion;
-if(typeof data121 == "number"){
-if(data121 < 0 || isNaN(data121)){
-const err407 = {instancePath:instancePath+"/models/evaluator/cacheWritePricePerMillion",schemaPath:"#/properties/models/properties/evaluator/properties/cacheWritePricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.evaluator.properties.cacheWritePricePerMillion,data:data121};
+if(data58.moderator !== undefined){
+let data120 = data58.moderator;
+if(data120 && typeof data120 == "object" && !Array.isArray(data120)){
+if(data120.model !== undefined){
+let data121 = data120.model;
+if(data121 && typeof data121 == "object" && !Array.isArray(data121)){
+if(data121.id === undefined){
+const err406 = {instancePath:instancePath+"/models/moderator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.required,parentSchema:schema28,data:data121};
+if(vErrors === null){
+vErrors = [err406];
+}
+else {
+vErrors.push(err406);
+}
+errors++;
+}
+if(data121.name === undefined){
+const err407 = {instancePath:instancePath+"/models/moderator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.required,parentSchema:schema28,data:data121};
 if(vErrors === null){
 vErrors = [err407];
 }
@@ -9772,9 +9772,8 @@ vErrors.push(err407);
 }
 errors++;
 }
-}
-else {
-const err408 = {instancePath:instancePath+"/models/evaluator/cacheWritePricePerMillion",schemaPath:"#/properties/models/properties/evaluator/properties/cacheWritePricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.evaluator.properties.cacheWritePricePerMillion.type,parentSchema:schema27.properties.models.properties.evaluator.properties.cacheWritePricePerMillion,data:data121};
+if(data121.provider === undefined){
+const err408 = {instancePath:instancePath+"/models/moderator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'",schema:schema28.required,parentSchema:schema28,data:data121};
 if(vErrors === null){
 vErrors = [err408];
 }
@@ -9783,33 +9782,33 @@ vErrors.push(err408);
 }
 errors++;
 }
+if(data121.id !== undefined){
+let data122 = data121.id;
+if(typeof data122 !== "string"){
+const err409 = {instancePath:instancePath+"/models/moderator/model/id",schemaPath:"#/definitions/Model/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.id.type,parentSchema:schema28.properties.id,data:data122};
+if(vErrors === null){
+vErrors = [err409];
+}
+else {
+vErrors.push(err409);
+}
+errors++;
+}
 if(errors > 0){
 const emErrs132 = [];
-for(const err409 of vErrors){
-if(!err409.emUsed){
-emErrs132.push(err409);
+for(const err410 of vErrors){
+if(!err410.emUsed){
+emErrs132.push(err410);
 }
 }
 vErrors = emErrs132;
 errors = emErrs132.length;
 }
 }
-if(data107.outputPricePerMillion !== undefined){
-let data122 = data107.outputPricePerMillion;
-if(typeof data122 == "number"){
-if(data122 < 0 || isNaN(data122)){
-const err410 = {instancePath:instancePath+"/models/evaluator/outputPricePerMillion",schemaPath:"#/properties/models/properties/evaluator/properties/outputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.evaluator.properties.outputPricePerMillion,data:data122};
-if(vErrors === null){
-vErrors = [err410];
-}
-else {
-vErrors.push(err410);
-}
-errors++;
-}
-}
-else {
-const err411 = {instancePath:instancePath+"/models/evaluator/outputPricePerMillion",schemaPath:"#/properties/models/properties/evaluator/properties/outputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.evaluator.properties.outputPricePerMillion.type,parentSchema:schema27.properties.models.properties.evaluator.properties.outputPricePerMillion,data:data122};
+if(data121.name !== undefined){
+let data123 = data121.name;
+if(typeof data123 !== "string"){
+const err411 = {instancePath:instancePath+"/models/moderator/model/name",schemaPath:"#/definitions/Model/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.name.type,parentSchema:schema28.properties.name,data:data123};
 if(vErrors === null){
 vErrors = [err411];
 }
@@ -9829,9 +9828,11 @@ vErrors = emErrs133;
 errors = emErrs133.length;
 }
 }
-}
-else {
-const err413 = {instancePath:instancePath+"/models/evaluator",schemaPath:"#/properties/models/properties/evaluator/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.models.properties.evaluator.type,parentSchema:schema27.properties.models.properties.evaluator,data:data107};
+if(data121.provider !== undefined){
+let data124 = data121.provider;
+if(data124 && typeof data124 == "object" && !Array.isArray(data124)){
+if(data124.type === undefined){
+const err413 = {instancePath:instancePath+"/models/moderator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data124};
 if(vErrors === null){
 vErrors = [err413];
 }
@@ -9840,25 +9841,18 @@ vErrors.push(err413);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs134 = [];
-for(const err414 of vErrors){
-if(!err414.emUsed){
-emErrs134.push(err414);
+if(data124.name === undefined){
+const err414 = {instancePath:instancePath+"/models/moderator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data124};
+if(vErrors === null){
+vErrors = [err414];
 }
+else {
+vErrors.push(err414);
 }
-vErrors = emErrs134;
-errors = emErrs134.length;
+errors++;
 }
-}
-if(data58.moderator !== undefined){
-let data123 = data58.moderator;
-if(data123 && typeof data123 == "object" && !Array.isArray(data123)){
-if(data123.model !== undefined){
-let data124 = data123.model;
-if(data124 && typeof data124 == "object" && !Array.isArray(data124)){
 if(data124.id === undefined){
-const err415 = {instancePath:instancePath+"/models/moderator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.required,parentSchema:schema28,data:data124};
+const err415 = {instancePath:instancePath+"/models/moderator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data124};
 if(vErrors === null){
 vErrors = [err415];
 }
@@ -9867,8 +9861,10 @@ vErrors.push(err415);
 }
 errors++;
 }
-if(data124.name === undefined){
-const err416 = {instancePath:instancePath+"/models/moderator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.required,parentSchema:schema28,data:data124};
+if(data124.type !== undefined){
+let data125 = data124.type;
+if(typeof data125 !== "string"){
+const err416 = {instancePath:instancePath+"/models/moderator/model/provider/type",schemaPath:"#/definitions/Model/properties/provider/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.type.type,parentSchema:schema28.properties.provider.properties.type,data:data125};
 if(vErrors === null){
 vErrors = [err416];
 }
@@ -9877,20 +9873,21 @@ vErrors.push(err416);
 }
 errors++;
 }
-if(data124.provider === undefined){
-const err417 = {instancePath:instancePath+"/models/moderator/model",schemaPath:"#/definitions/Model/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'",schema:schema28.required,parentSchema:schema28,data:data124};
-if(vErrors === null){
-vErrors = [err417];
+if(errors > 0){
+const emErrs134 = [];
+for(const err417 of vErrors){
+if(!err417.emUsed){
+emErrs134.push(err417);
 }
-else {
-vErrors.push(err417);
 }
-errors++;
+vErrors = emErrs134;
+errors = emErrs134.length;
 }
-if(data124.id !== undefined){
-let data125 = data124.id;
-if(typeof data125 !== "string"){
-const err418 = {instancePath:instancePath+"/models/moderator/model/id",schemaPath:"#/definitions/Model/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.id.type,parentSchema:schema28.properties.id,data:data125};
+}
+if(data124.name !== undefined){
+let data126 = data124.name;
+if(typeof data126 !== "string"){
+const err418 = {instancePath:instancePath+"/models/moderator/model/provider/name",schemaPath:"#/definitions/Model/properties/provider/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.name.type,parentSchema:schema28.properties.provider.properties.name,data:data126};
 if(vErrors === null){
 vErrors = [err418];
 }
@@ -9910,10 +9907,10 @@ vErrors = emErrs135;
 errors = emErrs135.length;
 }
 }
-if(data124.name !== undefined){
-let data126 = data124.name;
-if(typeof data126 !== "string"){
-const err420 = {instancePath:instancePath+"/models/moderator/model/name",schemaPath:"#/definitions/Model/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.name.type,parentSchema:schema28.properties.name,data:data126};
+if(data124.id !== undefined){
+let data127 = data124.id;
+if(typeof data127 !== "string"){
+const err420 = {instancePath:instancePath+"/models/moderator/model/provider/id",schemaPath:"#/definitions/Model/properties/provider/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.id.type,parentSchema:schema28.properties.provider.properties.id,data:data127};
 if(vErrors === null){
 vErrors = [err420];
 }
@@ -9933,11 +9930,9 @@ vErrors = emErrs136;
 errors = emErrs136.length;
 }
 }
-if(data124.provider !== undefined){
-let data127 = data124.provider;
-if(data127 && typeof data127 == "object" && !Array.isArray(data127)){
-if(data127.type === undefined){
-const err422 = {instancePath:instancePath+"/models/moderator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data127};
+}
+else {
+const err422 = {instancePath:instancePath+"/models/moderator/model/provider",schemaPath:"#/definitions/Model/properties/provider/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.properties.provider.type,parentSchema:schema28.properties.provider,data:data124};
 if(vErrors === null){
 vErrors = [err422];
 }
@@ -9946,118 +9941,18 @@ vErrors.push(err422);
 }
 errors++;
 }
-if(data127.name === undefined){
-const err423 = {instancePath:instancePath+"/models/moderator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data127};
-if(vErrors === null){
-vErrors = [err423];
-}
-else {
-vErrors.push(err423);
-}
-errors++;
-}
-if(data127.id === undefined){
-const err424 = {instancePath:instancePath+"/models/moderator/model/provider",schemaPath:"#/definitions/Model/properties/provider/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.properties.provider.required,parentSchema:schema28.properties.provider,data:data127};
-if(vErrors === null){
-vErrors = [err424];
-}
-else {
-vErrors.push(err424);
-}
-errors++;
-}
-if(data127.type !== undefined){
-let data128 = data127.type;
-if(typeof data128 !== "string"){
-const err425 = {instancePath:instancePath+"/models/moderator/model/provider/type",schemaPath:"#/definitions/Model/properties/provider/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.type.type,parentSchema:schema28.properties.provider.properties.type,data:data128};
-if(vErrors === null){
-vErrors = [err425];
-}
-else {
-vErrors.push(err425);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs137 = [];
-for(const err426 of vErrors){
-if(!err426.emUsed){
-emErrs137.push(err426);
-}
-}
-vErrors = emErrs137;
-errors = emErrs137.length;
-}
-}
-if(data127.name !== undefined){
-let data129 = data127.name;
-if(typeof data129 !== "string"){
-const err427 = {instancePath:instancePath+"/models/moderator/model/provider/name",schemaPath:"#/definitions/Model/properties/provider/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.name.type,parentSchema:schema28.properties.provider.properties.name,data:data129};
-if(vErrors === null){
-vErrors = [err427];
-}
-else {
-vErrors.push(err427);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs138 = [];
-for(const err428 of vErrors){
-if(!err428.emUsed){
-emErrs138.push(err428);
-}
-}
-vErrors = emErrs138;
-errors = emErrs138.length;
-}
-}
-if(data127.id !== undefined){
-let data130 = data127.id;
-if(typeof data130 !== "string"){
-const err429 = {instancePath:instancePath+"/models/moderator/model/provider/id",schemaPath:"#/definitions/Model/properties/provider/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.properties.provider.properties.id.type,parentSchema:schema28.properties.provider.properties.id,data:data130};
-if(vErrors === null){
-vErrors = [err429];
-}
-else {
-vErrors.push(err429);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs139 = [];
-for(const err430 of vErrors){
-if(!err430.emUsed){
-emErrs139.push(err430);
-}
-}
-vErrors = emErrs139;
-errors = emErrs139.length;
-}
-}
-}
-else {
-const err431 = {instancePath:instancePath+"/models/moderator/model/provider",schemaPath:"#/definitions/Model/properties/provider/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.properties.provider.type,parentSchema:schema28.properties.provider,data:data127};
-if(vErrors === null){
-vErrors = [err431];
-}
-else {
-vErrors.push(err431);
-}
-errors++;
-}
 if(errors > 0){
 const emErrors23 = {"required":{"type":[],"name":[],"id":[]}};
 const templates23 = {required:{}};
 let emPropParams22;
 let emParamsErrors22;
-for(const err432 of vErrors){
-if((((((err432.keyword !== "errorMessage") && (!err432.emUsed)) && (err432.instancePath === instancePath+"/models/moderator/model/provider")) && (err432.keyword in emErrors23)) && (err432.schemaPath.indexOf("#/definitions/Model/properties/provider") === 0)) && (/^\/[^\/]*$/.test(err432.schemaPath.slice(39)))){
-emPropParams22 = obj0[err432.keyword];
-emParamsErrors22 = emErrors23[err432.keyword][err432.params[emPropParams22]];
+for(const err423 of vErrors){
+if((((((err423.keyword !== "errorMessage") && (!err423.emUsed)) && (err423.instancePath === instancePath+"/models/moderator/model/provider")) && (err423.keyword in emErrors23)) && (err423.schemaPath.indexOf("#/definitions/Model/properties/provider") === 0)) && (/^\/[^\/]*$/.test(err423.schemaPath.slice(39)))){
+emPropParams22 = obj0[err423.keyword];
+emParamsErrors22 = emErrors23[err423.keyword][err423.params[emPropParams22]];
 if(emParamsErrors22){
-emParamsErrors22.push(err432);
-err432.emUsed = true;
+emParamsErrors22.push(err423);
+err423.emUsed = true;
 }
 }
 }
@@ -10066,54 +9961,168 @@ for(const keyProp22 in emErrors23[key26]){
 emParamsErrors22 = emErrors23[key26][keyProp22];
 if(emParamsErrors22.length){
 const tmpl22 = templates23[key26] && templates23[key26][keyProp22];
-const err433 = {instancePath:instancePath+"/models/moderator/model/provider",schemaPath:"#/definitions/Model/properties/provider/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors22},message:tmpl22 ? tmpl22() : schema28.properties.provider.errorMessage[key26][keyProp22],schema:schema28.properties.provider.errorMessage,parentSchema:schema28.properties.provider,data:data127};
+const err424 = {instancePath:instancePath+"/models/moderator/model/provider",schemaPath:"#/definitions/Model/properties/provider/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors22},message:tmpl22 ? tmpl22() : schema28.properties.provider.errorMessage[key26][keyProp22],schema:schema28.properties.provider.errorMessage,parentSchema:schema28.properties.provider,data:data124};
 if(vErrors === null){
-vErrors = [err433];
+vErrors = [err424];
 }
 else {
-vErrors.push(err433);
+vErrors.push(err424);
 }
 errors++;
 }
 }
 }
+const emErrs137 = [];
+for(const err425 of vErrors){
+if(!err425.emUsed){
+emErrs137.push(err425);
+}
+}
+vErrors = emErrs137;
+errors = emErrs137.length;
+}
+}
+if(data121.contextWindow !== undefined){
+let data128 = data121.contextWindow;
+if(!(typeof data128 == "number")){
+const err426 = {instancePath:instancePath+"/models/moderator/model/contextWindow",schemaPath:"#/definitions/Model/properties/contextWindow/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema28.properties.contextWindow.type,parentSchema:schema28.properties.contextWindow,data:data128};
+if(vErrors === null){
+vErrors = [err426];
+}
+else {
+vErrors.push(err426);
+}
+errors++;
+}
+if(errors > 0){
+const emErrs138 = [];
+for(const err427 of vErrors){
+if(!err427.emUsed){
+emErrs138.push(err427);
+}
+}
+vErrors = emErrs138;
+errors = emErrs138.length;
+}
+}
+if(data121.cachedInputPricePerMillion !== undefined){
+let data129 = data121.cachedInputPricePerMillion;
+if(!(typeof data129 == "number")){
+const err428 = {instancePath:instancePath+"/models/moderator/model/cachedInputPricePerMillion",schemaPath:"#/definitions/Model/properties/cachedInputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema28.properties.cachedInputPricePerMillion.type,parentSchema:schema28.properties.cachedInputPricePerMillion,data:data129};
+if(vErrors === null){
+vErrors = [err428];
+}
+else {
+vErrors.push(err428);
+}
+errors++;
+}
+if(errors > 0){
+const emErrs139 = [];
+for(const err429 of vErrors){
+if(!err429.emUsed){
+emErrs139.push(err429);
+}
+}
+vErrors = emErrs139;
+errors = emErrs139.length;
+}
+}
+if(data121.cacheWritePricePerMillion !== undefined){
+let data130 = data121.cacheWritePricePerMillion;
+if(!(typeof data130 == "number")){
+const err430 = {instancePath:instancePath+"/models/moderator/model/cacheWritePricePerMillion",schemaPath:"#/definitions/Model/properties/cacheWritePricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema28.properties.cacheWritePricePerMillion.type,parentSchema:schema28.properties.cacheWritePricePerMillion,data:data130};
+if(vErrors === null){
+vErrors = [err430];
+}
+else {
+vErrors.push(err430);
+}
+errors++;
+}
+if(errors > 0){
 const emErrs140 = [];
-for(const err434 of vErrors){
-if(!err434.emUsed){
-emErrs140.push(err434);
+for(const err431 of vErrors){
+if(!err431.emUsed){
+emErrs140.push(err431);
 }
 }
 vErrors = emErrs140;
 errors = emErrs140.length;
 }
 }
-if(data124.contextWindow !== undefined){
-let data131 = data124.contextWindow;
-if(!(typeof data131 == "number")){
-const err435 = {instancePath:instancePath+"/models/moderator/model/contextWindow",schemaPath:"#/definitions/Model/properties/contextWindow/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema28.properties.contextWindow.type,parentSchema:schema28.properties.contextWindow,data:data131};
-if(vErrors === null){
-vErrors = [err435];
 }
 else {
-vErrors.push(err435);
+const err432 = {instancePath:instancePath+"/models/moderator/model",schemaPath:"#/definitions/Model/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.type,parentSchema:schema28,data:data121};
+if(vErrors === null){
+vErrors = [err432];
+}
+else {
+vErrors.push(err432);
 }
 errors++;
 }
 if(errors > 0){
+const emErrors24 = {"required":{"id":[],"name":[],"provider":[]}};
+const templates24 = {required:{}};
+let emPropParams23;
+let emParamsErrors23;
+for(const err433 of vErrors){
+if((((((err433.keyword !== "errorMessage") && (!err433.emUsed)) && (err433.instancePath === instancePath+"/models/moderator/model")) && (err433.keyword in emErrors24)) && (err433.schemaPath.indexOf("#/definitions/Model") === 0)) && (/^\/[^\/]*$/.test(err433.schemaPath.slice(19)))){
+emPropParams23 = obj0[err433.keyword];
+emParamsErrors23 = emErrors24[err433.keyword][err433.params[emPropParams23]];
+if(emParamsErrors23){
+emParamsErrors23.push(err433);
+err433.emUsed = true;
+}
+}
+}
+for(const key27 in emErrors24){
+for(const keyProp23 in emErrors24[key27]){
+emParamsErrors23 = emErrors24[key27][keyProp23];
+if(emParamsErrors23.length){
+const tmpl23 = templates24[key27] && templates24[key27][keyProp23];
+const err434 = {instancePath:instancePath+"/models/moderator/model",schemaPath:"#/definitions/Model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors23},message:tmpl23 ? tmpl23() : schema28.errorMessage[key27][keyProp23],schema:schema28.errorMessage,parentSchema:schema28,data:data121};
+if(vErrors === null){
+vErrors = [err434];
+}
+else {
+vErrors.push(err434);
+}
+errors++;
+}
+}
+}
 const emErrs141 = [];
-for(const err436 of vErrors){
-if(!err436.emUsed){
-emErrs141.push(err436);
+for(const err435 of vErrors){
+if(!err435.emUsed){
+emErrs141.push(err435);
 }
 }
 vErrors = emErrs141;
 errors = emErrs141.length;
 }
+if(errors > 0){
+const emErrors25 = {"required":{"id":[],"name":[],"provider":[]}};
+const templates25 = {required:{}};
+let emPropParams24;
+let emParamsErrors24;
+for(const err436 of vErrors){
+if((((((err436.keyword !== "errorMessage") && (!err436.emUsed)) && (err436.instancePath === instancePath+"/models/moderator/model")) && (err436.keyword in emErrors25)) && (err436.schemaPath.indexOf("#/properties/models/properties/moderator/properties/model") === 0)) && (/^\/[^\/]*$/.test(err436.schemaPath.slice(57)))){
+emPropParams24 = obj0[err436.keyword];
+emParamsErrors24 = emErrors25[err436.keyword][err436.params[emPropParams24]];
+if(emParamsErrors24){
+emParamsErrors24.push(err436);
+err436.emUsed = true;
 }
-if(data124.cachedInputPricePerMillion !== undefined){
-let data132 = data124.cachedInputPricePerMillion;
-if(!(typeof data132 == "number")){
-const err437 = {instancePath:instancePath+"/models/moderator/model/cachedInputPricePerMillion",schemaPath:"#/definitions/Model/properties/cachedInputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema28.properties.cachedInputPricePerMillion.type,parentSchema:schema28.properties.cachedInputPricePerMillion,data:data132};
+}
+}
+for(const key28 in emErrors25){
+for(const keyProp24 in emErrors25[key28]){
+emParamsErrors24 = emErrors25[key28][keyProp24];
+if(emParamsErrors24.length){
+const tmpl24 = templates25[key28] && templates25[key28][keyProp24];
+const err437 = {instancePath:instancePath+"/models/moderator/model",schemaPath:"#/properties/models/properties/moderator/properties/model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors24},message:tmpl24 ? tmpl24() : schema27.properties.models.properties.moderator.properties.model.errorMessage[key28][keyProp24],schema:schema27.properties.models.properties.moderator.properties.model.errorMessage,parentSchema:schema27.properties.models.properties.moderator.properties.model,data:data121};
 if(vErrors === null){
 vErrors = [err437];
 }
@@ -10122,7 +10131,8 @@ vErrors.push(err437);
 }
 errors++;
 }
-if(errors > 0){
+}
+}
 const emErrs142 = [];
 for(const err438 of vErrors){
 if(!err438.emUsed){
@@ -10133,10 +10143,11 @@ vErrors = emErrs142;
 errors = emErrs142.length;
 }
 }
-if(data124.cacheWritePricePerMillion !== undefined){
-let data133 = data124.cacheWritePricePerMillion;
-if(!(typeof data133 == "number")){
-const err439 = {instancePath:instancePath+"/models/moderator/model/cacheWritePricePerMillion",schemaPath:"#/definitions/Model/properties/cacheWritePricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema28.properties.cacheWritePricePerMillion.type,parentSchema:schema28.properties.cacheWritePricePerMillion,data:data133};
+if(data120.inputPricePerMillion !== undefined){
+let data131 = data120.inputPricePerMillion;
+if(typeof data131 == "number"){
+if(data131 < 0 || isNaN(data131)){
+const err439 = {instancePath:instancePath+"/models/moderator/inputPricePerMillion",schemaPath:"#/properties/models/properties/moderator/properties/inputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.moderator.properties.inputPricePerMillion,data:data131};
 if(vErrors === null){
 vErrors = [err439];
 }
@@ -10145,49 +10156,44 @@ vErrors.push(err439);
 }
 errors++;
 }
+}
+else {
+const err440 = {instancePath:instancePath+"/models/moderator/inputPricePerMillion",schemaPath:"#/properties/models/properties/moderator/properties/inputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.moderator.properties.inputPricePerMillion.type,parentSchema:schema27.properties.models.properties.moderator.properties.inputPricePerMillion,data:data131};
+if(vErrors === null){
+vErrors = [err440];
+}
+else {
+vErrors.push(err440);
+}
+errors++;
+}
 if(errors > 0){
 const emErrs143 = [];
-for(const err440 of vErrors){
-if(!err440.emUsed){
-emErrs143.push(err440);
+for(const err441 of vErrors){
+if(!err441.emUsed){
+emErrs143.push(err441);
 }
 }
 vErrors = emErrs143;
 errors = emErrs143.length;
 }
 }
-}
-else {
-const err441 = {instancePath:instancePath+"/models/moderator/model",schemaPath:"#/definitions/Model/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.type,parentSchema:schema28,data:data124};
+if(data120.cachedInputPricePerMillion !== undefined){
+let data132 = data120.cachedInputPricePerMillion;
+if(typeof data132 == "number"){
+if(data132 < 0 || isNaN(data132)){
+const err442 = {instancePath:instancePath+"/models/moderator/cachedInputPricePerMillion",schemaPath:"#/properties/models/properties/moderator/properties/cachedInputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.moderator.properties.cachedInputPricePerMillion,data:data132};
 if(vErrors === null){
-vErrors = [err441];
+vErrors = [err442];
 }
 else {
-vErrors.push(err441);
+vErrors.push(err442);
 }
 errors++;
 }
-if(errors > 0){
-const emErrors24 = {"required":{"id":[],"name":[],"provider":[]}};
-const templates24 = {required:{}};
-let emPropParams23;
-let emParamsErrors23;
-for(const err442 of vErrors){
-if((((((err442.keyword !== "errorMessage") && (!err442.emUsed)) && (err442.instancePath === instancePath+"/models/moderator/model")) && (err442.keyword in emErrors24)) && (err442.schemaPath.indexOf("#/definitions/Model") === 0)) && (/^\/[^\/]*$/.test(err442.schemaPath.slice(19)))){
-emPropParams23 = obj0[err442.keyword];
-emParamsErrors23 = emErrors24[err442.keyword][err442.params[emPropParams23]];
-if(emParamsErrors23){
-emParamsErrors23.push(err442);
-err442.emUsed = true;
 }
-}
-}
-for(const key27 in emErrors24){
-for(const keyProp23 in emErrors24[key27]){
-emParamsErrors23 = emErrors24[key27][keyProp23];
-if(emParamsErrors23.length){
-const tmpl23 = templates24[key27] && templates24[key27][keyProp23];
-const err443 = {instancePath:instancePath+"/models/moderator/model",schemaPath:"#/definitions/Model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors23},message:tmpl23 ? tmpl23() : schema28.errorMessage[key27][keyProp23],schema:schema28.errorMessage,parentSchema:schema28,data:data124};
+else {
+const err443 = {instancePath:instancePath+"/models/moderator/cachedInputPricePerMillion",schemaPath:"#/properties/models/properties/moderator/properties/cachedInputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.moderator.properties.cachedInputPricePerMillion.type,parentSchema:schema27.properties.models.properties.moderator.properties.cachedInputPricePerMillion,data:data132};
 if(vErrors === null){
 vErrors = [err443];
 }
@@ -10196,8 +10202,7 @@ vErrors.push(err443);
 }
 errors++;
 }
-}
-}
+if(errors > 0){
 const emErrs144 = [];
 for(const err444 of vErrors){
 if(!err444.emUsed){
@@ -10207,27 +10212,23 @@ emErrs144.push(err444);
 vErrors = emErrs144;
 errors = emErrs144.length;
 }
-if(errors > 0){
-const emErrors25 = {"required":{"id":[],"name":[],"provider":[]}};
-const templates25 = {required:{}};
-let emPropParams24;
-let emParamsErrors24;
-for(const err445 of vErrors){
-if((((((err445.keyword !== "errorMessage") && (!err445.emUsed)) && (err445.instancePath === instancePath+"/models/moderator/model")) && (err445.keyword in emErrors25)) && (err445.schemaPath.indexOf("#/properties/models/properties/moderator/properties/model") === 0)) && (/^\/[^\/]*$/.test(err445.schemaPath.slice(57)))){
-emPropParams24 = obj0[err445.keyword];
-emParamsErrors24 = emErrors25[err445.keyword][err445.params[emPropParams24]];
-if(emParamsErrors24){
-emParamsErrors24.push(err445);
-err445.emUsed = true;
+}
+if(data120.cacheWritePricePerMillion !== undefined){
+let data133 = data120.cacheWritePricePerMillion;
+if(typeof data133 == "number"){
+if(data133 < 0 || isNaN(data133)){
+const err445 = {instancePath:instancePath+"/models/moderator/cacheWritePricePerMillion",schemaPath:"#/properties/models/properties/moderator/properties/cacheWritePricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.moderator.properties.cacheWritePricePerMillion,data:data133};
+if(vErrors === null){
+vErrors = [err445];
+}
+else {
+vErrors.push(err445);
+}
+errors++;
 }
 }
-}
-for(const key28 in emErrors25){
-for(const keyProp24 in emErrors25[key28]){
-emParamsErrors24 = emErrors25[key28][keyProp24];
-if(emParamsErrors24.length){
-const tmpl24 = templates25[key28] && templates25[key28][keyProp24];
-const err446 = {instancePath:instancePath+"/models/moderator/model",schemaPath:"#/properties/models/properties/moderator/properties/model/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors24},message:tmpl24 ? tmpl24() : schema27.properties.models.properties.moderator.properties.model.errorMessage[key28][keyProp24],schema:schema27.properties.models.properties.moderator.properties.model.errorMessage,parentSchema:schema27.properties.models.properties.moderator.properties.model,data:data124};
+else {
+const err446 = {instancePath:instancePath+"/models/moderator/cacheWritePricePerMillion",schemaPath:"#/properties/models/properties/moderator/properties/cacheWritePricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.moderator.properties.cacheWritePricePerMillion.type,parentSchema:schema27.properties.models.properties.moderator.properties.cacheWritePricePerMillion,data:data133};
 if(vErrors === null){
 vErrors = [err446];
 }
@@ -10236,8 +10237,7 @@ vErrors.push(err446);
 }
 errors++;
 }
-}
-}
+if(errors > 0){
 const emErrs145 = [];
 for(const err447 of vErrors){
 if(!err447.emUsed){
@@ -10248,11 +10248,11 @@ vErrors = emErrs145;
 errors = emErrs145.length;
 }
 }
-if(data123.contextWindow !== undefined){
-let data134 = data123.contextWindow;
+if(data120.outputPricePerMillion !== undefined){
+let data134 = data120.outputPricePerMillion;
 if(typeof data134 == "number"){
 if(data134 < 0 || isNaN(data134)){
-const err448 = {instancePath:instancePath+"/models/moderator/contextWindow",schemaPath:"#/properties/models/properties/moderator/properties/contextWindow/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.moderator.properties.contextWindow,data:data134};
+const err448 = {instancePath:instancePath+"/models/moderator/outputPricePerMillion",schemaPath:"#/properties/models/properties/moderator/properties/outputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.moderator.properties.outputPricePerMillion,data:data134};
 if(vErrors === null){
 vErrors = [err448];
 }
@@ -10263,7 +10263,7 @@ errors++;
 }
 }
 else {
-const err449 = {instancePath:instancePath+"/models/moderator/contextWindow",schemaPath:"#/properties/models/properties/moderator/properties/contextWindow/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.moderator.properties.contextWindow.type,parentSchema:schema27.properties.models.properties.moderator.properties.contextWindow,data:data134};
+const err449 = {instancePath:instancePath+"/models/moderator/outputPricePerMillion",schemaPath:"#/properties/models/properties/moderator/properties/outputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.moderator.properties.outputPricePerMillion.type,parentSchema:schema27.properties.models.properties.moderator.properties.outputPricePerMillion,data:data134};
 if(vErrors === null){
 vErrors = [err449];
 }
@@ -10283,11 +10283,9 @@ vErrors = emErrs146;
 errors = emErrs146.length;
 }
 }
-if(data123.inputPricePerMillion !== undefined){
-let data135 = data123.inputPricePerMillion;
-if(typeof data135 == "number"){
-if(data135 < 0 || isNaN(data135)){
-const err451 = {instancePath:instancePath+"/models/moderator/inputPricePerMillion",schemaPath:"#/properties/models/properties/moderator/properties/inputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.moderator.properties.inputPricePerMillion,data:data135};
+}
+else {
+const err451 = {instancePath:instancePath+"/models/moderator",schemaPath:"#/properties/models/properties/moderator/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.models.properties.moderator.type,parentSchema:schema27.properties.models.properties.moderator,data:data120};
 if(vErrors === null){
 vErrors = [err451];
 }
@@ -10296,44 +10294,44 @@ vErrors.push(err451);
 }
 errors++;
 }
-}
-else {
-const err452 = {instancePath:instancePath+"/models/moderator/inputPricePerMillion",schemaPath:"#/properties/models/properties/moderator/properties/inputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.moderator.properties.inputPricePerMillion.type,parentSchema:schema27.properties.models.properties.moderator.properties.inputPricePerMillion,data:data135};
-if(vErrors === null){
-vErrors = [err452];
-}
-else {
-vErrors.push(err452);
-}
-errors++;
-}
 if(errors > 0){
 const emErrs147 = [];
-for(const err453 of vErrors){
-if(!err453.emUsed){
-emErrs147.push(err453);
+for(const err452 of vErrors){
+if(!err452.emUsed){
+emErrs147.push(err452);
 }
 }
 vErrors = emErrs147;
 errors = emErrs147.length;
 }
 }
-if(data123.cachedInputPricePerMillion !== undefined){
-let data136 = data123.cachedInputPricePerMillion;
-if(typeof data136 == "number"){
-if(data136 < 0 || isNaN(data136)){
-const err454 = {instancePath:instancePath+"/models/moderator/cachedInputPricePerMillion",schemaPath:"#/properties/models/properties/moderator/properties/cachedInputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.moderator.properties.cachedInputPricePerMillion,data:data136};
-if(vErrors === null){
-vErrors = [err454];
 }
 else {
-vErrors.push(err454);
+const err453 = {instancePath:instancePath+"/models",schemaPath:"#/properties/models/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.models.type,parentSchema:schema27.properties.models,data:data58};
+if(vErrors === null){
+vErrors = [err453];
+}
+else {
+vErrors.push(err453);
 }
 errors++;
 }
+if(errors > 0){
+const emErrs148 = [];
+for(const err454 of vErrors){
+if(!err454.emUsed){
+emErrs148.push(err454);
 }
-else {
-const err455 = {instancePath:instancePath+"/models/moderator/cachedInputPricePerMillion",schemaPath:"#/properties/models/properties/moderator/properties/cachedInputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.moderator.properties.cachedInputPricePerMillion.type,parentSchema:schema27.properties.models.properties.moderator.properties.cachedInputPricePerMillion,data:data136};
+}
+vErrors = emErrs148;
+errors = emErrs148.length;
+}
+}
+if(data.moderation !== undefined){
+let data135 = data.moderation;
+if(data135 && typeof data135 == "object" && !Array.isArray(data135)){
+if(data135.enabled === undefined){
+const err455 = {instancePath:instancePath+"/moderation",schemaPath:"#/properties/moderation/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema27.properties.moderation.required,parentSchema:schema27.properties.moderation,data:data135};
 if(vErrors === null){
 vErrors = [err455];
 }
@@ -10342,22 +10340,19 @@ vErrors.push(err455);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs148 = [];
-for(const err456 of vErrors){
-if(!err456.emUsed){
-emErrs148.push(err456);
+if(data135.categories === undefined){
+const err456 = {instancePath:instancePath+"/moderation",schemaPath:"#/properties/moderation/required",keyword:"required",params:{missingProperty: "categories"},message:"must have required property '"+"categories"+"'",schema:schema27.properties.moderation.required,parentSchema:schema27.properties.moderation,data:data135};
+if(vErrors === null){
+vErrors = [err456];
 }
+else {
+vErrors.push(err456);
 }
-vErrors = emErrs148;
-errors = emErrs148.length;
+errors++;
 }
-}
-if(data123.cacheWritePricePerMillion !== undefined){
-let data137 = data123.cacheWritePricePerMillion;
-if(typeof data137 == "number"){
-if(data137 < 0 || isNaN(data137)){
-const err457 = {instancePath:instancePath+"/models/moderator/cacheWritePricePerMillion",schemaPath:"#/properties/models/properties/moderator/properties/cacheWritePricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.moderator.properties.cacheWritePricePerMillion,data:data137};
+for(const key29 in data135){
+if(!((key29 === "enabled") || (key29 === "categories"))){
+const err457 = {instancePath:instancePath+"/moderation",schemaPath:"#/properties/moderation/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key29},message:"must NOT have additional properties",schema:false,parentSchema:schema27.properties.moderation,data:data135};
 if(vErrors === null){
 vErrors = [err457];
 }
@@ -10367,8 +10362,10 @@ vErrors.push(err457);
 errors++;
 }
 }
-else {
-const err458 = {instancePath:instancePath+"/models/moderator/cacheWritePricePerMillion",schemaPath:"#/properties/models/properties/moderator/properties/cacheWritePricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.moderator.properties.cacheWritePricePerMillion.type,parentSchema:schema27.properties.models.properties.moderator.properties.cacheWritePricePerMillion,data:data137};
+if(data135.enabled !== undefined){
+let data136 = data135.enabled;
+if(typeof data136 !== "boolean"){
+const err458 = {instancePath:instancePath+"/moderation/enabled",schemaPath:"#/properties/moderation/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema27.properties.moderation.properties.enabled.type,parentSchema:schema27.properties.moderation.properties.enabled,data:data136};
 if(vErrors === null){
 vErrors = [err458];
 }
@@ -10388,11 +10385,14 @@ vErrors = emErrs149;
 errors = emErrs149.length;
 }
 }
-if(data123.outputPricePerMillion !== undefined){
-let data138 = data123.outputPricePerMillion;
-if(typeof data138 == "number"){
-if(data138 < 0 || isNaN(data138)){
-const err460 = {instancePath:instancePath+"/models/moderator/outputPricePerMillion",schemaPath:"#/properties/models/properties/moderator/properties/outputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema27.properties.models.properties.moderator.properties.outputPricePerMillion,data:data138};
+if(data135.categories !== undefined){
+let data137 = data135.categories;
+if(Array.isArray(data137)){
+const len1 = data137.length;
+for(let i1=0; i1<len1; i1++){
+let data138 = data137[i1];
+if(typeof data138 !== "string"){
+const err460 = {instancePath:instancePath+"/moderation/categories/" + i1,schemaPath:"#/properties/moderation/properties/categories/items/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.moderation.properties.categories.items.type,parentSchema:schema27.properties.moderation.properties.categories.items,data:data138};
 if(vErrors === null){
 vErrors = [err460];
 }
@@ -10401,9 +10401,12 @@ vErrors.push(err460);
 }
 errors++;
 }
-}
-else {
-const err461 = {instancePath:instancePath+"/models/moderator/outputPricePerMillion",schemaPath:"#/properties/models/properties/moderator/properties/outputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.models.properties.moderator.properties.outputPricePerMillion.type,parentSchema:schema27.properties.models.properties.moderator.properties.outputPricePerMillion,data:data138};
+const _errs307 = errors;
+let valid38 = false;
+let passing1 = null;
+const _errs308 = errors;
+if("anonymous" !== data138){
+const err461 = {instancePath:instancePath+"/moderation/categories/" + i1,schemaPath:"#/properties/moderation/properties/categories/items/oneOf/0/const",keyword:"const",params:{allowedValue: "anonymous"},message:"must be equal to constant",schema:"anonymous",parentSchema:schema27.properties.moderation.properties.categories.items.oneOf[0],data:data138};
 if(vErrors === null){
 vErrors = [err461];
 }
@@ -10412,166 +10415,23 @@ vErrors.push(err461);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs150 = [];
-for(const err462 of vErrors){
-if(!err462.emUsed){
-emErrs150.push(err462);
-}
-}
-vErrors = emErrs150;
-errors = emErrs150.length;
-}
-}
-}
-else {
-const err463 = {instancePath:instancePath+"/models/moderator",schemaPath:"#/properties/models/properties/moderator/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.models.properties.moderator.type,parentSchema:schema27.properties.models.properties.moderator,data:data123};
-if(vErrors === null){
-vErrors = [err463];
-}
-else {
-vErrors.push(err463);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs151 = [];
-for(const err464 of vErrors){
-if(!err464.emUsed){
-emErrs151.push(err464);
-}
-}
-vErrors = emErrs151;
-errors = emErrs151.length;
-}
-}
-}
-else {
-const err465 = {instancePath:instancePath+"/models",schemaPath:"#/properties/models/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.models.type,parentSchema:schema27.properties.models,data:data58};
-if(vErrors === null){
-vErrors = [err465];
-}
-else {
-vErrors.push(err465);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs152 = [];
-for(const err466 of vErrors){
-if(!err466.emUsed){
-emErrs152.push(err466);
-}
-}
-vErrors = emErrs152;
-errors = emErrs152.length;
-}
-}
-if(data.moderation !== undefined){
-let data139 = data.moderation;
-if(data139 && typeof data139 == "object" && !Array.isArray(data139)){
-if(data139.enabled === undefined){
-const err467 = {instancePath:instancePath+"/moderation",schemaPath:"#/properties/moderation/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema27.properties.moderation.required,parentSchema:schema27.properties.moderation,data:data139};
-if(vErrors === null){
-vErrors = [err467];
-}
-else {
-vErrors.push(err467);
-}
-errors++;
-}
-if(data139.categories === undefined){
-const err468 = {instancePath:instancePath+"/moderation",schemaPath:"#/properties/moderation/required",keyword:"required",params:{missingProperty: "categories"},message:"must have required property '"+"categories"+"'",schema:schema27.properties.moderation.required,parentSchema:schema27.properties.moderation,data:data139};
-if(vErrors === null){
-vErrors = [err468];
-}
-else {
-vErrors.push(err468);
-}
-errors++;
-}
-for(const key29 in data139){
-if(!((key29 === "enabled") || (key29 === "categories"))){
-const err469 = {instancePath:instancePath+"/moderation",schemaPath:"#/properties/moderation/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key29},message:"must NOT have additional properties",schema:false,parentSchema:schema27.properties.moderation,data:data139};
-if(vErrors === null){
-vErrors = [err469];
-}
-else {
-vErrors.push(err469);
-}
-errors++;
-}
-}
-if(data139.enabled !== undefined){
-let data140 = data139.enabled;
-if(typeof data140 !== "boolean"){
-const err470 = {instancePath:instancePath+"/moderation/enabled",schemaPath:"#/properties/moderation/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema27.properties.moderation.properties.enabled.type,parentSchema:schema27.properties.moderation.properties.enabled,data:data140};
-if(vErrors === null){
-vErrors = [err470];
-}
-else {
-vErrors.push(err470);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs153 = [];
-for(const err471 of vErrors){
-if(!err471.emUsed){
-emErrs153.push(err471);
-}
-}
-vErrors = emErrs153;
-errors = emErrs153.length;
-}
-}
-if(data139.categories !== undefined){
-let data141 = data139.categories;
-if(Array.isArray(data141)){
-const len1 = data141.length;
-for(let i1=0; i1<len1; i1++){
-let data142 = data141[i1];
-if(typeof data142 !== "string"){
-const err472 = {instancePath:instancePath+"/moderation/categories/" + i1,schemaPath:"#/properties/moderation/properties/categories/items/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.moderation.properties.categories.items.type,parentSchema:schema27.properties.moderation.properties.categories.items,data:data142};
-if(vErrors === null){
-vErrors = [err472];
-}
-else {
-vErrors.push(err472);
-}
-errors++;
-}
-const _errs315 = errors;
-let valid38 = false;
-let passing1 = null;
-const _errs316 = errors;
-if("anonymous" !== data142){
-const err473 = {instancePath:instancePath+"/moderation/categories/" + i1,schemaPath:"#/properties/moderation/properties/categories/items/oneOf/0/const",keyword:"const",params:{allowedValue: "anonymous"},message:"must be equal to constant",schema:"anonymous",parentSchema:schema27.properties.moderation.properties.categories.items.oneOf[0],data:data142};
-if(vErrors === null){
-vErrors = [err473];
-}
-else {
-vErrors.push(err473);
-}
-errors++;
-}
-var _valid1 = _errs316 === errors;
+var _valid1 = _errs308 === errors;
 if(_valid1){
 valid38 = true;
 passing1 = 0;
 }
-const _errs317 = errors;
-if("external" !== data142){
-const err474 = {instancePath:instancePath+"/moderation/categories/" + i1,schemaPath:"#/properties/moderation/properties/categories/items/oneOf/1/const",keyword:"const",params:{allowedValue: "external"},message:"must be equal to constant",schema:"external",parentSchema:schema27.properties.moderation.properties.categories.items.oneOf[1],data:data142};
+const _errs309 = errors;
+if("external" !== data138){
+const err462 = {instancePath:instancePath+"/moderation/categories/" + i1,schemaPath:"#/properties/moderation/properties/categories/items/oneOf/1/const",keyword:"const",params:{allowedValue: "external"},message:"must be equal to constant",schema:"external",parentSchema:schema27.properties.moderation.properties.categories.items.oneOf[1],data:data138};
 if(vErrors === null){
-vErrors = [err474];
+vErrors = [err462];
 }
 else {
-vErrors.push(err474);
+vErrors.push(err462);
 }
 errors++;
 }
-var _valid1 = _errs317 === errors;
+var _valid1 = _errs309 === errors;
 if(_valid1 && valid38){
 valid38 = false;
 passing1 = [passing1, 1];
@@ -10581,18 +10441,18 @@ if(_valid1){
 valid38 = true;
 passing1 = 1;
 }
-const _errs318 = errors;
-if("user" !== data142){
-const err475 = {instancePath:instancePath+"/moderation/categories/" + i1,schemaPath:"#/properties/moderation/properties/categories/items/oneOf/2/const",keyword:"const",params:{allowedValue: "user"},message:"must be equal to constant",schema:"user",parentSchema:schema27.properties.moderation.properties.categories.items.oneOf[2],data:data142};
+const _errs310 = errors;
+if("user" !== data138){
+const err463 = {instancePath:instancePath+"/moderation/categories/" + i1,schemaPath:"#/properties/moderation/properties/categories/items/oneOf/2/const",keyword:"const",params:{allowedValue: "user"},message:"must be equal to constant",schema:"user",parentSchema:schema27.properties.moderation.properties.categories.items.oneOf[2],data:data138};
 if(vErrors === null){
-vErrors = [err475];
+vErrors = [err463];
 }
 else {
-vErrors.push(err475);
+vErrors.push(err463);
 }
 errors++;
 }
-var _valid1 = _errs318 === errors;
+var _valid1 = _errs310 === errors;
 if(_valid1 && valid38){
 valid38 = false;
 passing1 = [passing1, 2];
@@ -10602,18 +10462,18 @@ if(_valid1){
 valid38 = true;
 passing1 = 2;
 }
-const _errs319 = errors;
-if("contrib" !== data142){
-const err476 = {instancePath:instancePath+"/moderation/categories/" + i1,schemaPath:"#/properties/moderation/properties/categories/items/oneOf/3/const",keyword:"const",params:{allowedValue: "contrib"},message:"must be equal to constant",schema:"contrib",parentSchema:schema27.properties.moderation.properties.categories.items.oneOf[3],data:data142};
+const _errs311 = errors;
+if("contrib" !== data138){
+const err464 = {instancePath:instancePath+"/moderation/categories/" + i1,schemaPath:"#/properties/moderation/properties/categories/items/oneOf/3/const",keyword:"const",params:{allowedValue: "contrib"},message:"must be equal to constant",schema:"contrib",parentSchema:schema27.properties.moderation.properties.categories.items.oneOf[3],data:data138};
 if(vErrors === null){
-vErrors = [err476];
+vErrors = [err464];
 }
 else {
-vErrors.push(err476);
+vErrors.push(err464);
 }
 errors++;
 }
-var _valid1 = _errs319 === errors;
+var _valid1 = _errs311 === errors;
 if(_valid1 && valid38){
 valid38 = false;
 passing1 = [passing1, 3];
@@ -10623,18 +10483,18 @@ if(_valid1){
 valid38 = true;
 passing1 = 3;
 }
-const _errs320 = errors;
-if("admin" !== data142){
-const err477 = {instancePath:instancePath+"/moderation/categories/" + i1,schemaPath:"#/properties/moderation/properties/categories/items/oneOf/4/const",keyword:"const",params:{allowedValue: "admin"},message:"must be equal to constant",schema:"admin",parentSchema:schema27.properties.moderation.properties.categories.items.oneOf[4],data:data142};
+const _errs312 = errors;
+if("admin" !== data138){
+const err465 = {instancePath:instancePath+"/moderation/categories/" + i1,schemaPath:"#/properties/moderation/properties/categories/items/oneOf/4/const",keyword:"const",params:{allowedValue: "admin"},message:"must be equal to constant",schema:"admin",parentSchema:schema27.properties.moderation.properties.categories.items.oneOf[4],data:data138};
 if(vErrors === null){
-vErrors = [err477];
+vErrors = [err465];
 }
 else {
-vErrors.push(err477);
+vErrors.push(err465);
 }
 errors++;
 }
-var _valid1 = _errs320 === errors;
+var _valid1 = _errs312 === errors;
 if(_valid1 && valid38){
 valid38 = false;
 passing1 = [passing1, 4];
@@ -10649,20 +10509,20 @@ passing1 = 4;
 }
 }
 if(!valid38){
-const err478 = {instancePath:instancePath+"/moderation/categories/" + i1,schemaPath:"#/properties/moderation/properties/categories/items/oneOf",keyword:"oneOf",params:{passingSchemas: passing1},message:"must match exactly one schema in oneOf",schema:schema27.properties.moderation.properties.categories.items.oneOf,parentSchema:schema27.properties.moderation.properties.categories.items,data:data142};
+const err466 = {instancePath:instancePath+"/moderation/categories/" + i1,schemaPath:"#/properties/moderation/properties/categories/items/oneOf",keyword:"oneOf",params:{passingSchemas: passing1},message:"must match exactly one schema in oneOf",schema:schema27.properties.moderation.properties.categories.items.oneOf,parentSchema:schema27.properties.moderation.properties.categories.items,data:data138};
 if(vErrors === null){
-vErrors = [err478];
+vErrors = [err466];
 }
 else {
-vErrors.push(err478);
+vErrors.push(err466);
 }
 errors++;
 }
 else {
-errors = _errs315;
+errors = _errs307;
 if(vErrors !== null){
-if(_errs315){
-vErrors.length = _errs315;
+if(_errs307){
+vErrors.length = _errs307;
 }
 else {
 vErrors = null;
@@ -10672,51 +10532,51 @@ vErrors = null;
 if(errors > 0){
 const emErrors26 = {"oneOf":[]};
 const templates26 = {};
-for(const err479 of vErrors){
-if((((((err479.keyword !== "errorMessage") && (!err479.emUsed)) && (err479.instancePath === instancePath+"/moderation/categories/" + i1)) && (err479.keyword in emErrors26)) && (err479.schemaPath.indexOf("#/properties/moderation/properties/categories/items") === 0)) && (/^\/[^\/]*$/.test(err479.schemaPath.slice(51)))){
-emErrors26[err479.keyword].push(err479);
-err479.emUsed = true;
+for(const err467 of vErrors){
+if((((((err467.keyword !== "errorMessage") && (!err467.emUsed)) && (err467.instancePath === instancePath+"/moderation/categories/" + i1)) && (err467.keyword in emErrors26)) && (err467.schemaPath.indexOf("#/properties/moderation/properties/categories/items") === 0)) && (/^\/[^\/]*$/.test(err467.schemaPath.slice(51)))){
+emErrors26[err467.keyword].push(err467);
+err467.emUsed = true;
 }
 }
 for(const key30 in emErrors26){
 if(emErrors26[key30].length){
-const err480 = {instancePath:instancePath+"/moderation/categories/" + i1,schemaPath:"#/properties/moderation/properties/categories/items/errorMessage",keyword:"errorMessage",params:{errors: emErrors26[key30]},message:key30 in templates26 ? templates26[key30]() : schema27.properties.moderation.properties.categories.items.errorMessage[key30],schema:schema27.properties.moderation.properties.categories.items.errorMessage,parentSchema:schema27.properties.moderation.properties.categories.items,data:data142};
+const err468 = {instancePath:instancePath+"/moderation/categories/" + i1,schemaPath:"#/properties/moderation/properties/categories/items/errorMessage",keyword:"errorMessage",params:{errors: emErrors26[key30]},message:key30 in templates26 ? templates26[key30]() : schema27.properties.moderation.properties.categories.items.errorMessage[key30],schema:schema27.properties.moderation.properties.categories.items.errorMessage,parentSchema:schema27.properties.moderation.properties.categories.items,data:data138};
 if(vErrors === null){
-vErrors = [err480];
+vErrors = [err468];
 }
 else {
-vErrors.push(err480);
+vErrors.push(err468);
 }
 errors++;
 }
 }
-const emErrs154 = [];
-for(const err481 of vErrors){
-if(!err481.emUsed){
-emErrs154.push(err481);
+const emErrs150 = [];
+for(const err469 of vErrors){
+if(!err469.emUsed){
+emErrs150.push(err469);
 }
 }
-vErrors = emErrs154;
-errors = emErrs154.length;
+vErrors = emErrs150;
+errors = emErrs150.length;
 }
 }
-let i2 = data141.length;
+let i2 = data137.length;
 let j0;
 if(i2 > 1){
 const indices0 = {};
 for(;i2--;){
-let item0 = data141[i2];
+let item0 = data137[i2];
 if(typeof item0 !== "string"){
 continue;
 }
 if(typeof indices0[item0] == "number"){
 j0 = indices0[item0];
-const err482 = {instancePath:instancePath+"/moderation/categories",schemaPath:"#/properties/moderation/properties/categories/uniqueItems",keyword:"uniqueItems",params:{i: i2, j: j0},message:"must NOT have duplicate items (items ## "+j0+" and "+i2+" are identical)",schema:true,parentSchema:schema27.properties.moderation.properties.categories,data:data141};
+const err470 = {instancePath:instancePath+"/moderation/categories",schemaPath:"#/properties/moderation/properties/categories/uniqueItems",keyword:"uniqueItems",params:{i: i2, j: j0},message:"must NOT have duplicate items (items ## "+j0+" and "+i2+" are identical)",schema:true,parentSchema:schema27.properties.moderation.properties.categories,data:data137};
 if(vErrors === null){
-vErrors = [err482];
+vErrors = [err470];
 }
 else {
-vErrors.push(err482);
+vErrors.push(err470);
 }
 errors++;
 break;
@@ -10726,7 +10586,151 @@ indices0[item0] = i2;
 }
 }
 else {
-const err483 = {instancePath:instancePath+"/moderation/categories",schemaPath:"#/properties/moderation/properties/categories/type",keyword:"type",params:{type: "array"},message:"must be array",schema:schema27.properties.moderation.properties.categories.type,parentSchema:schema27.properties.moderation.properties.categories,data:data141};
+const err471 = {instancePath:instancePath+"/moderation/categories",schemaPath:"#/properties/moderation/properties/categories/type",keyword:"type",params:{type: "array"},message:"must be array",schema:schema27.properties.moderation.properties.categories.type,parentSchema:schema27.properties.moderation.properties.categories,data:data137};
+if(vErrors === null){
+vErrors = [err471];
+}
+else {
+vErrors.push(err471);
+}
+errors++;
+}
+if(errors > 0){
+const emErrs151 = [];
+for(const err472 of vErrors){
+if(!err472.emUsed){
+emErrs151.push(err472);
+}
+}
+vErrors = emErrs151;
+errors = emErrs151.length;
+}
+}
+}
+else {
+const err473 = {instancePath:instancePath+"/moderation",schemaPath:"#/properties/moderation/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.moderation.type,parentSchema:schema27.properties.moderation,data:data135};
+if(vErrors === null){
+vErrors = [err473];
+}
+else {
+vErrors.push(err473);
+}
+errors++;
+}
+if(errors > 0){
+const emErrors27 = {"required":{"enabled":[],"categories":[]}};
+const templates27 = {required:{}};
+let emPropParams25;
+let emParamsErrors25;
+for(const err474 of vErrors){
+if((((((err474.keyword !== "errorMessage") && (!err474.emUsed)) && (err474.instancePath === instancePath+"/moderation")) && (err474.keyword in emErrors27)) && (err474.schemaPath.indexOf("#/properties/moderation") === 0)) && (/^\/[^\/]*$/.test(err474.schemaPath.slice(23)))){
+emPropParams25 = obj0[err474.keyword];
+emParamsErrors25 = emErrors27[err474.keyword][err474.params[emPropParams25]];
+if(emParamsErrors25){
+emParamsErrors25.push(err474);
+err474.emUsed = true;
+}
+}
+}
+for(const key31 in emErrors27){
+for(const keyProp25 in emErrors27[key31]){
+emParamsErrors25 = emErrors27[key31][keyProp25];
+if(emParamsErrors25.length){
+const tmpl25 = templates27[key31] && templates27[key31][keyProp25];
+const err475 = {instancePath:instancePath+"/moderation",schemaPath:"#/properties/moderation/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors25},message:tmpl25 ? tmpl25() : schema27.properties.moderation.errorMessage[key31][keyProp25],schema:schema27.properties.moderation.errorMessage,parentSchema:schema27.properties.moderation,data:data135};
+if(vErrors === null){
+vErrors = [err475];
+}
+else {
+vErrors.push(err475);
+}
+errors++;
+}
+}
+}
+const emErrs152 = [];
+for(const err476 of vErrors){
+if(!err476.emUsed){
+emErrs152.push(err476);
+}
+}
+vErrors = emErrs152;
+errors = emErrs152.length;
+}
+}
+if(data.compaction !== undefined){
+let data139 = data.compaction;
+if(data139 && typeof data139 == "object" && !Array.isArray(data139)){
+if(data139.percent === undefined){
+const err477 = {instancePath:instancePath+"/compaction",schemaPath:"#/properties/compaction/required",keyword:"required",params:{missingProperty: "percent"},message:"must have required property '"+"percent"+"'",schema:schema27.properties.compaction.required,parentSchema:schema27.properties.compaction,data:data139};
+if(vErrors === null){
+vErrors = [err477];
+}
+else {
+vErrors.push(err477);
+}
+errors++;
+}
+for(const key32 in data139){
+if(!(key32 === "percent")){
+const err478 = {instancePath:instancePath+"/compaction",schemaPath:"#/properties/compaction/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key32},message:"must NOT have additional properties",schema:false,parentSchema:schema27.properties.compaction,data:data139};
+if(vErrors === null){
+vErrors = [err478];
+}
+else {
+vErrors.push(err478);
+}
+errors++;
+}
+}
+if(data139.percent !== undefined){
+let data140 = data139.percent;
+if(typeof data140 == "number"){
+if(data140 > 100 || isNaN(data140)){
+const err479 = {instancePath:instancePath+"/compaction/percent",schemaPath:"#/properties/compaction/properties/percent/maximum",keyword:"maximum",params:{comparison: "<=", limit: 100},message:"must be <= 100",schema:100,parentSchema:schema27.properties.compaction.properties.percent,data:data140};
+if(vErrors === null){
+vErrors = [err479];
+}
+else {
+vErrors.push(err479);
+}
+errors++;
+}
+if(data140 < 10 || isNaN(data140)){
+const err480 = {instancePath:instancePath+"/compaction/percent",schemaPath:"#/properties/compaction/properties/percent/minimum",keyword:"minimum",params:{comparison: ">=", limit: 10},message:"must be >= 10",schema:10,parentSchema:schema27.properties.compaction.properties.percent,data:data140};
+if(vErrors === null){
+vErrors = [err480];
+}
+else {
+vErrors.push(err480);
+}
+errors++;
+}
+}
+else {
+const err481 = {instancePath:instancePath+"/compaction/percent",schemaPath:"#/properties/compaction/properties/percent/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.compaction.properties.percent.type,parentSchema:schema27.properties.compaction.properties.percent,data:data140};
+if(vErrors === null){
+vErrors = [err481];
+}
+else {
+vErrors.push(err481);
+}
+errors++;
+}
+if(errors > 0){
+const emErrs153 = [];
+for(const err482 of vErrors){
+if(!err482.emUsed){
+emErrs153.push(err482);
+}
+}
+vErrors = emErrs153;
+errors = emErrs153.length;
+}
+}
+}
+else {
+const err483 = {instancePath:instancePath+"/compaction",schemaPath:"#/properties/compaction/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.compaction.type,parentSchema:schema27.properties.compaction,data:data139};
 if(vErrors === null){
 vErrors = [err483];
 }
@@ -10736,19 +10740,26 @@ vErrors.push(err483);
 errors++;
 }
 if(errors > 0){
-const emErrs155 = [];
+const emErrors28 = {"required":{"percent":[]}};
+const templates28 = {required:{}};
+let emPropParams26;
+let emParamsErrors26;
 for(const err484 of vErrors){
-if(!err484.emUsed){
-emErrs155.push(err484);
+if((((((err484.keyword !== "errorMessage") && (!err484.emUsed)) && (err484.instancePath === instancePath+"/compaction")) && (err484.keyword in emErrors28)) && (err484.schemaPath.indexOf("#/properties/compaction") === 0)) && (/^\/[^\/]*$/.test(err484.schemaPath.slice(23)))){
+emPropParams26 = obj0[err484.keyword];
+emParamsErrors26 = emErrors28[err484.keyword][err484.params[emPropParams26]];
+if(emParamsErrors26){
+emParamsErrors26.push(err484);
+err484.emUsed = true;
 }
 }
-vErrors = emErrs155;
-errors = emErrs155.length;
 }
-}
-}
-else {
-const err485 = {instancePath:instancePath+"/moderation",schemaPath:"#/properties/moderation/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.moderation.type,parentSchema:schema27.properties.moderation,data:data139};
+for(const key33 in emErrors28){
+for(const keyProp26 in emErrors28[key33]){
+emParamsErrors26 = emErrors28[key33][keyProp26];
+if(emParamsErrors26.length){
+const tmpl26 = templates28[key33] && templates28[key33][keyProp26];
+const err485 = {instancePath:instancePath+"/compaction",schemaPath:"#/properties/compaction/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors26},message:tmpl26 ? tmpl26() : schema27.properties.compaction.errorMessage[key33][keyProp26],schema:schema27.properties.compaction.errorMessage,parentSchema:schema27.properties.compaction,data:data139};
 if(vErrors === null){
 vErrors = [err485];
 }
@@ -10757,27 +10768,23 @@ vErrors.push(err485);
 }
 errors++;
 }
-if(errors > 0){
-const emErrors27 = {"required":{"enabled":[],"categories":[]}};
-const templates27 = {required:{}};
-let emPropParams25;
-let emParamsErrors25;
+}
+}
+const emErrs154 = [];
 for(const err486 of vErrors){
-if((((((err486.keyword !== "errorMessage") && (!err486.emUsed)) && (err486.instancePath === instancePath+"/moderation")) && (err486.keyword in emErrors27)) && (err486.schemaPath.indexOf("#/properties/moderation") === 0)) && (/^\/[^\/]*$/.test(err486.schemaPath.slice(23)))){
-emPropParams25 = obj0[err486.keyword];
-emParamsErrors25 = emErrors27[err486.keyword][err486.params[emPropParams25]];
-if(emParamsErrors25){
-emParamsErrors25.push(err486);
-err486.emUsed = true;
+if(!err486.emUsed){
+emErrs154.push(err486);
 }
 }
+vErrors = emErrs154;
+errors = emErrs154.length;
 }
-for(const key31 in emErrors27){
-for(const keyProp25 in emErrors27[key31]){
-emParamsErrors25 = emErrors27[key31][keyProp25];
-if(emParamsErrors25.length){
-const tmpl25 = templates27[key31] && templates27[key31][keyProp25];
-const err487 = {instancePath:instancePath+"/moderation",schemaPath:"#/properties/moderation/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors25},message:tmpl25 ? tmpl25() : schema27.properties.moderation.errorMessage[key31][keyProp25],schema:schema27.properties.moderation.errorMessage,parentSchema:schema27.properties.moderation,data:data139};
+}
+if(data.quotas !== undefined){
+let data141 = data.quotas;
+if(data141 && typeof data141 == "object" && !Array.isArray(data141)){
+if(data141.global === undefined){
+const err487 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "global"},message:"must have required property '"+"global"+"'",schema:schema27.properties.quotas.required,parentSchema:schema27.properties.quotas,data:data141};
 if(vErrors === null){
 vErrors = [err487];
 }
@@ -10786,23 +10793,18 @@ vErrors.push(err487);
 }
 errors++;
 }
+if(data141.admin === undefined){
+const err488 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "admin"},message:"must have required property '"+"admin"+"'",schema:schema27.properties.quotas.required,parentSchema:schema27.properties.quotas,data:data141};
+if(vErrors === null){
+vErrors = [err488];
 }
+else {
+vErrors.push(err488);
 }
-const emErrs156 = [];
-for(const err488 of vErrors){
-if(!err488.emUsed){
-emErrs156.push(err488);
+errors++;
 }
-}
-vErrors = emErrs156;
-errors = emErrs156.length;
-}
-}
-if(data.compaction !== undefined){
-let data143 = data.compaction;
-if(data143 && typeof data143 == "object" && !Array.isArray(data143)){
-if(data143.percent === undefined){
-const err489 = {instancePath:instancePath+"/compaction",schemaPath:"#/properties/compaction/required",keyword:"required",params:{missingProperty: "percent"},message:"must have required property '"+"percent"+"'",schema:schema27.properties.compaction.required,parentSchema:schema27.properties.compaction,data:data143};
+if(data141.contrib === undefined){
+const err489 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "contrib"},message:"must have required property '"+"contrib"+"'",schema:schema27.properties.quotas.required,parentSchema:schema27.properties.quotas,data:data141};
 if(vErrors === null){
 vErrors = [err489];
 }
@@ -10811,9 +10813,8 @@ vErrors.push(err489);
 }
 errors++;
 }
-for(const key32 in data143){
-if(!(key32 === "percent")){
-const err490 = {instancePath:instancePath+"/compaction",schemaPath:"#/properties/compaction/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key32},message:"must NOT have additional properties",schema:false,parentSchema:schema27.properties.compaction,data:data143};
+if(data141.user === undefined){
+const err490 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "user"},message:"must have required property '"+"user"+"'",schema:schema27.properties.quotas.required,parentSchema:schema27.properties.quotas,data:data141};
 if(vErrors === null){
 vErrors = [err490];
 }
@@ -10822,12 +10823,8 @@ vErrors.push(err490);
 }
 errors++;
 }
-}
-if(data143.percent !== undefined){
-let data144 = data143.percent;
-if(typeof data144 == "number"){
-if(data144 > 100 || isNaN(data144)){
-const err491 = {instancePath:instancePath+"/compaction/percent",schemaPath:"#/properties/compaction/properties/percent/maximum",keyword:"maximum",params:{comparison: "<=", limit: 100},message:"must be <= 100",schema:100,parentSchema:schema27.properties.compaction.properties.percent,data:data144};
+if(data141.external === undefined){
+const err491 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "external"},message:"must have required property '"+"external"+"'",schema:schema27.properties.quotas.required,parentSchema:schema27.properties.quotas,data:data141};
 if(vErrors === null){
 vErrors = [err491];
 }
@@ -10836,8 +10833,8 @@ vErrors.push(err491);
 }
 errors++;
 }
-if(data144 < 10 || isNaN(data144)){
-const err492 = {instancePath:instancePath+"/compaction/percent",schemaPath:"#/properties/compaction/properties/percent/minimum",keyword:"minimum",params:{comparison: ">=", limit: 10},message:"must be >= 10",schema:10,parentSchema:schema27.properties.compaction.properties.percent,data:data144};
+if(data141.anonymous === undefined){
+const err492 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "anonymous"},message:"must have required property '"+"anonymous"+"'",schema:schema27.properties.quotas.required,parentSchema:schema27.properties.quotas,data:data141};
 if(vErrors === null){
 vErrors = [err492];
 }
@@ -10846,9 +10843,11 @@ vErrors.push(err492);
 }
 errors++;
 }
-}
-else {
-const err493 = {instancePath:instancePath+"/compaction/percent",schemaPath:"#/properties/compaction/properties/percent/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema27.properties.compaction.properties.percent.type,parentSchema:schema27.properties.compaction.properties.percent,data:data144};
+if(data141.global !== undefined){
+let data142 = data141.global;
+if(data142 && typeof data142 == "object" && !Array.isArray(data142)){
+if(data142.unlimited === undefined){
+const err493 = {instancePath:instancePath+"/quotas/global",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'",schema:schema33.required,parentSchema:schema33,data:data142};
 if(vErrors === null){
 vErrors = [err493];
 }
@@ -10857,20 +10856,20 @@ vErrors.push(err493);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs157 = [];
-for(const err494 of vErrors){
-if(!err494.emUsed){
-emErrs157.push(err494);
-}
-}
-vErrors = emErrs157;
-errors = emErrs157.length;
-}
-}
+if(data142.monthlyLimit === undefined){
+const err494 = {instancePath:instancePath+"/quotas/global",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'",schema:schema33.required,parentSchema:schema33,data:data142};
+if(vErrors === null){
+vErrors = [err494];
 }
 else {
-const err495 = {instancePath:instancePath+"/compaction",schemaPath:"#/properties/compaction/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.compaction.type,parentSchema:schema27.properties.compaction,data:data143};
+vErrors.push(err494);
+}
+errors++;
+}
+if(data142.unlimited !== undefined){
+let data143 = data142.unlimited;
+if(typeof data143 !== "boolean"){
+const err495 = {instancePath:instancePath+"/quotas/global/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema33.properties.unlimited.type,parentSchema:schema33.properties.unlimited,data:data143};
 if(vErrors === null){
 vErrors = [err495];
 }
@@ -10880,26 +10879,21 @@ vErrors.push(err495);
 errors++;
 }
 if(errors > 0){
-const emErrors28 = {"required":{"percent":[]}};
-const templates28 = {required:{}};
-let emPropParams26;
-let emParamsErrors26;
+const emErrs155 = [];
 for(const err496 of vErrors){
-if((((((err496.keyword !== "errorMessage") && (!err496.emUsed)) && (err496.instancePath === instancePath+"/compaction")) && (err496.keyword in emErrors28)) && (err496.schemaPath.indexOf("#/properties/compaction") === 0)) && (/^\/[^\/]*$/.test(err496.schemaPath.slice(23)))){
-emPropParams26 = obj0[err496.keyword];
-emParamsErrors26 = emErrors28[err496.keyword][err496.params[emPropParams26]];
-if(emParamsErrors26){
-emParamsErrors26.push(err496);
-err496.emUsed = true;
+if(!err496.emUsed){
+emErrs155.push(err496);
 }
 }
+vErrors = emErrs155;
+errors = emErrs155.length;
 }
-for(const key33 in emErrors28){
-for(const keyProp26 in emErrors28[key33]){
-emParamsErrors26 = emErrors28[key33][keyProp26];
-if(emParamsErrors26.length){
-const tmpl26 = templates28[key33] && templates28[key33][keyProp26];
-const err497 = {instancePath:instancePath+"/compaction",schemaPath:"#/properties/compaction/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors26},message:tmpl26 ? tmpl26() : schema27.properties.compaction.errorMessage[key33][keyProp26],schema:schema27.properties.compaction.errorMessage,parentSchema:schema27.properties.compaction,data:data143};
+}
+if(data142.monthlyLimit !== undefined){
+let data144 = data142.monthlyLimit;
+if(typeof data144 == "number"){
+if(data144 < 0 || isNaN(data144)){
+const err497 = {instancePath:instancePath+"/quotas/global/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema33.properties.monthlyLimit,data:data144};
 if(vErrors === null){
 vErrors = [err497];
 }
@@ -10909,32 +10903,30 @@ vErrors.push(err497);
 errors++;
 }
 }
-}
-const emErrs158 = [];
-for(const err498 of vErrors){
-if(!err498.emUsed){
-emErrs158.push(err498);
-}
-}
-vErrors = emErrs158;
-errors = emErrs158.length;
-}
-}
-if(data.quotas !== undefined){
-let data145 = data.quotas;
-if(data145 && typeof data145 == "object" && !Array.isArray(data145)){
-if(data145.global === undefined){
-const err499 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "global"},message:"must have required property '"+"global"+"'",schema:schema27.properties.quotas.required,parentSchema:schema27.properties.quotas,data:data145};
+else {
+const err498 = {instancePath:instancePath+"/quotas/global/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema33.properties.monthlyLimit.type,parentSchema:schema33.properties.monthlyLimit,data:data144};
 if(vErrors === null){
-vErrors = [err499];
+vErrors = [err498];
 }
 else {
-vErrors.push(err499);
+vErrors.push(err498);
 }
 errors++;
 }
-if(data145.admin === undefined){
-const err500 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "admin"},message:"must have required property '"+"admin"+"'",schema:schema27.properties.quotas.required,parentSchema:schema27.properties.quotas,data:data145};
+if(errors > 0){
+const emErrs156 = [];
+for(const err499 of vErrors){
+if(!err499.emUsed){
+emErrs156.push(err499);
+}
+}
+vErrors = emErrs156;
+errors = emErrs156.length;
+}
+}
+}
+else {
+const err500 = {instancePath:instancePath+"/quotas/global",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema33.type,parentSchema:schema33,data:data142};
 if(vErrors === null){
 vErrors = [err500];
 }
@@ -10943,18 +10935,27 @@ vErrors.push(err500);
 }
 errors++;
 }
-if(data145.contrib === undefined){
-const err501 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "contrib"},message:"must have required property '"+"contrib"+"'",schema:schema27.properties.quotas.required,parentSchema:schema27.properties.quotas,data:data145};
-if(vErrors === null){
-vErrors = [err501];
+if(errors > 0){
+const emErrors29 = {"required":{"unlimited":[],"monthlyLimit":[]}};
+const templates29 = {required:{}};
+let emPropParams27;
+let emParamsErrors27;
+for(const err501 of vErrors){
+if((((((err501.keyword !== "errorMessage") && (!err501.emUsed)) && (err501.instancePath === instancePath+"/quotas/global")) && (err501.keyword in emErrors29)) && (err501.schemaPath.indexOf("#/definitions/RoleQuota") === 0)) && (/^\/[^\/]*$/.test(err501.schemaPath.slice(23)))){
+emPropParams27 = obj0[err501.keyword];
+emParamsErrors27 = emErrors29[err501.keyword][err501.params[emPropParams27]];
+if(emParamsErrors27){
+emParamsErrors27.push(err501);
+err501.emUsed = true;
 }
-else {
-vErrors.push(err501);
 }
-errors++;
 }
-if(data145.user === undefined){
-const err502 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "user"},message:"must have required property '"+"user"+"'",schema:schema27.properties.quotas.required,parentSchema:schema27.properties.quotas,data:data145};
+for(const key34 in emErrors29){
+for(const keyProp27 in emErrors29[key34]){
+emParamsErrors27 = emErrors29[key34][keyProp27];
+if(emParamsErrors27.length){
+const tmpl27 = templates29[key34] && templates29[key34][keyProp27];
+const err502 = {instancePath:instancePath+"/quotas/global",schemaPath:"#/definitions/RoleQuota/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors27},message:tmpl27 ? tmpl27() : schema33.errorMessage[key34][keyProp27],schema:schema33.errorMessage,parentSchema:schema33,data:data142};
 if(vErrors === null){
 vErrors = [err502];
 }
@@ -10963,31 +10964,38 @@ vErrors.push(err502);
 }
 errors++;
 }
-if(data145.external === undefined){
-const err503 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "external"},message:"must have required property '"+"external"+"'",schema:schema27.properties.quotas.required,parentSchema:schema27.properties.quotas,data:data145};
-if(vErrors === null){
-vErrors = [err503];
 }
-else {
-vErrors.push(err503);
 }
-errors++;
+const emErrs157 = [];
+for(const err503 of vErrors){
+if(!err503.emUsed){
+emErrs157.push(err503);
 }
-if(data145.anonymous === undefined){
-const err504 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/required",keyword:"required",params:{missingProperty: "anonymous"},message:"must have required property '"+"anonymous"+"'",schema:schema27.properties.quotas.required,parentSchema:schema27.properties.quotas,data:data145};
-if(vErrors === null){
-vErrors = [err504];
 }
-else {
-vErrors.push(err504);
+vErrors = emErrs157;
+errors = emErrs157.length;
 }
-errors++;
+if(errors > 0){
+const emErrors30 = {"required":{"unlimited":[],"monthlyLimit":[]}};
+const templates30 = {required:{}};
+let emPropParams28;
+let emParamsErrors28;
+for(const err504 of vErrors){
+if((((((err504.keyword !== "errorMessage") && (!err504.emUsed)) && (err504.instancePath === instancePath+"/quotas/global")) && (err504.keyword in emErrors30)) && (err504.schemaPath.indexOf("#/properties/quotas/properties/global") === 0)) && (/^\/[^\/]*$/.test(err504.schemaPath.slice(37)))){
+emPropParams28 = obj0[err504.keyword];
+emParamsErrors28 = emErrors30[err504.keyword][err504.params[emPropParams28]];
+if(emParamsErrors28){
+emParamsErrors28.push(err504);
+err504.emUsed = true;
 }
-if(data145.global !== undefined){
-let data146 = data145.global;
-if(data146 && typeof data146 == "object" && !Array.isArray(data146)){
-if(data146.unlimited === undefined){
-const err505 = {instancePath:instancePath+"/quotas/global",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'",schema:schema33.required,parentSchema:schema33,data:data146};
+}
+}
+for(const key35 in emErrors30){
+for(const keyProp28 in emErrors30[key35]){
+emParamsErrors28 = emErrors30[key35][keyProp28];
+if(emParamsErrors28.length){
+const tmpl28 = templates30[key35] && templates30[key35][keyProp28];
+const err505 = {instancePath:instancePath+"/quotas/global",schemaPath:"#/properties/quotas/properties/global/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors28},message:tmpl28 ? tmpl28() : schema27.properties.quotas.properties.global.errorMessage[key35][keyProp28],schema:schema27.properties.quotas.properties.global.errorMessage,parentSchema:schema27.properties.quotas.properties.global,data:data142};
 if(vErrors === null){
 vErrors = [err505];
 }
@@ -10996,20 +11004,23 @@ vErrors.push(err505);
 }
 errors++;
 }
-if(data146.monthlyLimit === undefined){
-const err506 = {instancePath:instancePath+"/quotas/global",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'",schema:schema33.required,parentSchema:schema33,data:data146};
-if(vErrors === null){
-vErrors = [err506];
 }
-else {
-vErrors.push(err506);
 }
-errors++;
+const emErrs158 = [];
+for(const err506 of vErrors){
+if(!err506.emUsed){
+emErrs158.push(err506);
 }
-if(data146.unlimited !== undefined){
-let data147 = data146.unlimited;
-if(typeof data147 !== "boolean"){
-const err507 = {instancePath:instancePath+"/quotas/global/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema33.properties.unlimited.type,parentSchema:schema33.properties.unlimited,data:data147};
+}
+vErrors = emErrs158;
+errors = emErrs158.length;
+}
+}
+if(data141.admin !== undefined){
+let data145 = data141.admin;
+if(data145 && typeof data145 == "object" && !Array.isArray(data145)){
+if(data145.unlimited === undefined){
+const err507 = {instancePath:instancePath+"/quotas/admin",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'",schema:schema33.required,parentSchema:schema33,data:data145};
 if(vErrors === null){
 vErrors = [err507];
 }
@@ -11018,22 +11029,20 @@ vErrors.push(err507);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs159 = [];
-for(const err508 of vErrors){
-if(!err508.emUsed){
-emErrs159.push(err508);
+if(data145.monthlyLimit === undefined){
+const err508 = {instancePath:instancePath+"/quotas/admin",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'",schema:schema33.required,parentSchema:schema33,data:data145};
+if(vErrors === null){
+vErrors = [err508];
 }
+else {
+vErrors.push(err508);
 }
-vErrors = emErrs159;
-errors = emErrs159.length;
+errors++;
 }
-}
-if(data146.monthlyLimit !== undefined){
-let data148 = data146.monthlyLimit;
-if(typeof data148 == "number"){
-if(data148 < 0 || isNaN(data148)){
-const err509 = {instancePath:instancePath+"/quotas/global/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema33.properties.monthlyLimit,data:data148};
+if(data145.unlimited !== undefined){
+let data146 = data145.unlimited;
+if(typeof data146 !== "boolean"){
+const err509 = {instancePath:instancePath+"/quotas/admin/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema33.properties.unlimited.type,parentSchema:schema33.properties.unlimited,data:data146};
 if(vErrors === null){
 vErrors = [err509];
 }
@@ -11042,31 +11051,33 @@ vErrors.push(err509);
 }
 errors++;
 }
+if(errors > 0){
+const emErrs159 = [];
+for(const err510 of vErrors){
+if(!err510.emUsed){
+emErrs159.push(err510);
 }
-else {
-const err510 = {instancePath:instancePath+"/quotas/global/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema33.properties.monthlyLimit.type,parentSchema:schema33.properties.monthlyLimit,data:data148};
+}
+vErrors = emErrs159;
+errors = emErrs159.length;
+}
+}
+if(data145.monthlyLimit !== undefined){
+let data147 = data145.monthlyLimit;
+if(typeof data147 == "number"){
+if(data147 < 0 || isNaN(data147)){
+const err511 = {instancePath:instancePath+"/quotas/admin/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema33.properties.monthlyLimit,data:data147};
 if(vErrors === null){
-vErrors = [err510];
+vErrors = [err511];
 }
 else {
-vErrors.push(err510);
+vErrors.push(err511);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs160 = [];
-for(const err511 of vErrors){
-if(!err511.emUsed){
-emErrs160.push(err511);
-}
-}
-vErrors = emErrs160;
-errors = emErrs160.length;
-}
-}
 }
 else {
-const err512 = {instancePath:instancePath+"/quotas/global",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema33.type,parentSchema:schema33,data:data146};
+const err512 = {instancePath:instancePath+"/quotas/admin/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema33.properties.monthlyLimit.type,parentSchema:schema33.properties.monthlyLimit,data:data147};
 if(vErrors === null){
 vErrors = [err512];
 }
@@ -11076,26 +11087,19 @@ vErrors.push(err512);
 errors++;
 }
 if(errors > 0){
-const emErrors29 = {"required":{"unlimited":[],"monthlyLimit":[]}};
-const templates29 = {required:{}};
-let emPropParams27;
-let emParamsErrors27;
+const emErrs160 = [];
 for(const err513 of vErrors){
-if((((((err513.keyword !== "errorMessage") && (!err513.emUsed)) && (err513.instancePath === instancePath+"/quotas/global")) && (err513.keyword in emErrors29)) && (err513.schemaPath.indexOf("#/definitions/RoleQuota") === 0)) && (/^\/[^\/]*$/.test(err513.schemaPath.slice(23)))){
-emPropParams27 = obj0[err513.keyword];
-emParamsErrors27 = emErrors29[err513.keyword][err513.params[emPropParams27]];
-if(emParamsErrors27){
-emParamsErrors27.push(err513);
-err513.emUsed = true;
+if(!err513.emUsed){
+emErrs160.push(err513);
+}
+}
+vErrors = emErrs160;
+errors = emErrs160.length;
 }
 }
 }
-for(const key34 in emErrors29){
-for(const keyProp27 in emErrors29[key34]){
-emParamsErrors27 = emErrors29[key34][keyProp27];
-if(emParamsErrors27.length){
-const tmpl27 = templates29[key34] && templates29[key34][keyProp27];
-const err514 = {instancePath:instancePath+"/quotas/global",schemaPath:"#/definitions/RoleQuota/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors27},message:tmpl27 ? tmpl27() : schema33.errorMessage[key34][keyProp27],schema:schema33.errorMessage,parentSchema:schema33,data:data146};
+else {
+const err514 = {instancePath:instancePath+"/quotas/admin",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema33.type,parentSchema:schema33,data:data145};
 if(vErrors === null){
 vErrors = [err514];
 }
@@ -11104,63 +11108,67 @@ vErrors.push(err514);
 }
 errors++;
 }
+if(errors > 0){
+const emErrors31 = {"required":{"unlimited":[],"monthlyLimit":[]}};
+const templates31 = {required:{}};
+let emPropParams29;
+let emParamsErrors29;
+for(const err515 of vErrors){
+if((((((err515.keyword !== "errorMessage") && (!err515.emUsed)) && (err515.instancePath === instancePath+"/quotas/admin")) && (err515.keyword in emErrors31)) && (err515.schemaPath.indexOf("#/definitions/RoleQuota") === 0)) && (/^\/[^\/]*$/.test(err515.schemaPath.slice(23)))){
+emPropParams29 = obj0[err515.keyword];
+emParamsErrors29 = emErrors31[err515.keyword][err515.params[emPropParams29]];
+if(emParamsErrors29){
+emParamsErrors29.push(err515);
+err515.emUsed = true;
+}
+}
+}
+for(const key36 in emErrors31){
+for(const keyProp29 in emErrors31[key36]){
+emParamsErrors29 = emErrors31[key36][keyProp29];
+if(emParamsErrors29.length){
+const tmpl29 = templates31[key36] && templates31[key36][keyProp29];
+const err516 = {instancePath:instancePath+"/quotas/admin",schemaPath:"#/definitions/RoleQuota/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors29},message:tmpl29 ? tmpl29() : schema33.errorMessage[key36][keyProp29],schema:schema33.errorMessage,parentSchema:schema33,data:data145};
+if(vErrors === null){
+vErrors = [err516];
+}
+else {
+vErrors.push(err516);
+}
+errors++;
+}
 }
 }
 const emErrs161 = [];
-for(const err515 of vErrors){
-if(!err515.emUsed){
-emErrs161.push(err515);
+for(const err517 of vErrors){
+if(!err517.emUsed){
+emErrs161.push(err517);
 }
 }
 vErrors = emErrs161;
 errors = emErrs161.length;
 }
 if(errors > 0){
-const emErrors30 = {"required":{"unlimited":[],"monthlyLimit":[]}};
-const templates30 = {required:{}};
-let emPropParams28;
-let emParamsErrors28;
-for(const err516 of vErrors){
-if((((((err516.keyword !== "errorMessage") && (!err516.emUsed)) && (err516.instancePath === instancePath+"/quotas/global")) && (err516.keyword in emErrors30)) && (err516.schemaPath.indexOf("#/properties/quotas/properties/global") === 0)) && (/^\/[^\/]*$/.test(err516.schemaPath.slice(37)))){
-emPropParams28 = obj0[err516.keyword];
-emParamsErrors28 = emErrors30[err516.keyword][err516.params[emPropParams28]];
-if(emParamsErrors28){
-emParamsErrors28.push(err516);
-err516.emUsed = true;
-}
-}
-}
-for(const key35 in emErrors30){
-for(const keyProp28 in emErrors30[key35]){
-emParamsErrors28 = emErrors30[key35][keyProp28];
-if(emParamsErrors28.length){
-const tmpl28 = templates30[key35] && templates30[key35][keyProp28];
-const err517 = {instancePath:instancePath+"/quotas/global",schemaPath:"#/properties/quotas/properties/global/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors28},message:tmpl28 ? tmpl28() : schema27.properties.quotas.properties.global.errorMessage[key35][keyProp28],schema:schema27.properties.quotas.properties.global.errorMessage,parentSchema:schema27.properties.quotas.properties.global,data:data146};
-if(vErrors === null){
-vErrors = [err517];
-}
-else {
-vErrors.push(err517);
-}
-errors++;
-}
-}
-}
-const emErrs162 = [];
+const emErrors32 = {"required":{"unlimited":[],"monthlyLimit":[]}};
+const templates32 = {required:{}};
+let emPropParams30;
+let emParamsErrors30;
 for(const err518 of vErrors){
-if(!err518.emUsed){
-emErrs162.push(err518);
+if((((((err518.keyword !== "errorMessage") && (!err518.emUsed)) && (err518.instancePath === instancePath+"/quotas/admin")) && (err518.keyword in emErrors32)) && (err518.schemaPath.indexOf("#/properties/quotas/properties/admin") === 0)) && (/^\/[^\/]*$/.test(err518.schemaPath.slice(36)))){
+emPropParams30 = obj0[err518.keyword];
+emParamsErrors30 = emErrors32[err518.keyword][err518.params[emPropParams30]];
+if(emParamsErrors30){
+emParamsErrors30.push(err518);
+err518.emUsed = true;
 }
 }
-vErrors = emErrs162;
-errors = emErrs162.length;
 }
-}
-if(data145.admin !== undefined){
-let data149 = data145.admin;
-if(data149 && typeof data149 == "object" && !Array.isArray(data149)){
-if(data149.unlimited === undefined){
-const err519 = {instancePath:instancePath+"/quotas/admin",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'",schema:schema33.required,parentSchema:schema33,data:data149};
+for(const key37 in emErrors32){
+for(const keyProp30 in emErrors32[key37]){
+emParamsErrors30 = emErrors32[key37][keyProp30];
+if(emParamsErrors30.length){
+const tmpl30 = templates32[key37] && templates32[key37][keyProp30];
+const err519 = {instancePath:instancePath+"/quotas/admin",schemaPath:"#/properties/quotas/properties/admin/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors30},message:tmpl30 ? tmpl30() : schema27.properties.quotas.properties.admin.errorMessage[key37][keyProp30],schema:schema27.properties.quotas.properties.admin.errorMessage,parentSchema:schema27.properties.quotas.properties.admin,data:data145};
 if(vErrors === null){
 vErrors = [err519];
 }
@@ -11169,20 +11177,23 @@ vErrors.push(err519);
 }
 errors++;
 }
-if(data149.monthlyLimit === undefined){
-const err520 = {instancePath:instancePath+"/quotas/admin",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'",schema:schema33.required,parentSchema:schema33,data:data149};
-if(vErrors === null){
-vErrors = [err520];
 }
-else {
-vErrors.push(err520);
 }
-errors++;
+const emErrs162 = [];
+for(const err520 of vErrors){
+if(!err520.emUsed){
+emErrs162.push(err520);
 }
-if(data149.unlimited !== undefined){
-let data150 = data149.unlimited;
-if(typeof data150 !== "boolean"){
-const err521 = {instancePath:instancePath+"/quotas/admin/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema33.properties.unlimited.type,parentSchema:schema33.properties.unlimited,data:data150};
+}
+vErrors = emErrs162;
+errors = emErrs162.length;
+}
+}
+if(data141.contrib !== undefined){
+let data148 = data141.contrib;
+if(data148 && typeof data148 == "object" && !Array.isArray(data148)){
+if(data148.unlimited === undefined){
+const err521 = {instancePath:instancePath+"/quotas/contrib",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'",schema:schema33.required,parentSchema:schema33,data:data148};
 if(vErrors === null){
 vErrors = [err521];
 }
@@ -11191,22 +11202,20 @@ vErrors.push(err521);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs163 = [];
-for(const err522 of vErrors){
-if(!err522.emUsed){
-emErrs163.push(err522);
+if(data148.monthlyLimit === undefined){
+const err522 = {instancePath:instancePath+"/quotas/contrib",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'",schema:schema33.required,parentSchema:schema33,data:data148};
+if(vErrors === null){
+vErrors = [err522];
 }
+else {
+vErrors.push(err522);
 }
-vErrors = emErrs163;
-errors = emErrs163.length;
+errors++;
 }
-}
-if(data149.monthlyLimit !== undefined){
-let data151 = data149.monthlyLimit;
-if(typeof data151 == "number"){
-if(data151 < 0 || isNaN(data151)){
-const err523 = {instancePath:instancePath+"/quotas/admin/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema33.properties.monthlyLimit,data:data151};
+if(data148.unlimited !== undefined){
+let data149 = data148.unlimited;
+if(typeof data149 !== "boolean"){
+const err523 = {instancePath:instancePath+"/quotas/contrib/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema33.properties.unlimited.type,parentSchema:schema33.properties.unlimited,data:data149};
 if(vErrors === null){
 vErrors = [err523];
 }
@@ -11215,31 +11224,33 @@ vErrors.push(err523);
 }
 errors++;
 }
+if(errors > 0){
+const emErrs163 = [];
+for(const err524 of vErrors){
+if(!err524.emUsed){
+emErrs163.push(err524);
 }
-else {
-const err524 = {instancePath:instancePath+"/quotas/admin/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema33.properties.monthlyLimit.type,parentSchema:schema33.properties.monthlyLimit,data:data151};
+}
+vErrors = emErrs163;
+errors = emErrs163.length;
+}
+}
+if(data148.monthlyLimit !== undefined){
+let data150 = data148.monthlyLimit;
+if(typeof data150 == "number"){
+if(data150 < 0 || isNaN(data150)){
+const err525 = {instancePath:instancePath+"/quotas/contrib/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema33.properties.monthlyLimit,data:data150};
 if(vErrors === null){
-vErrors = [err524];
+vErrors = [err525];
 }
 else {
-vErrors.push(err524);
+vErrors.push(err525);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs164 = [];
-for(const err525 of vErrors){
-if(!err525.emUsed){
-emErrs164.push(err525);
-}
-}
-vErrors = emErrs164;
-errors = emErrs164.length;
-}
-}
 }
 else {
-const err526 = {instancePath:instancePath+"/quotas/admin",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema33.type,parentSchema:schema33,data:data149};
+const err526 = {instancePath:instancePath+"/quotas/contrib/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema33.properties.monthlyLimit.type,parentSchema:schema33.properties.monthlyLimit,data:data150};
 if(vErrors === null){
 vErrors = [err526];
 }
@@ -11249,26 +11260,19 @@ vErrors.push(err526);
 errors++;
 }
 if(errors > 0){
-const emErrors31 = {"required":{"unlimited":[],"monthlyLimit":[]}};
-const templates31 = {required:{}};
-let emPropParams29;
-let emParamsErrors29;
+const emErrs164 = [];
 for(const err527 of vErrors){
-if((((((err527.keyword !== "errorMessage") && (!err527.emUsed)) && (err527.instancePath === instancePath+"/quotas/admin")) && (err527.keyword in emErrors31)) && (err527.schemaPath.indexOf("#/definitions/RoleQuota") === 0)) && (/^\/[^\/]*$/.test(err527.schemaPath.slice(23)))){
-emPropParams29 = obj0[err527.keyword];
-emParamsErrors29 = emErrors31[err527.keyword][err527.params[emPropParams29]];
-if(emParamsErrors29){
-emParamsErrors29.push(err527);
-err527.emUsed = true;
+if(!err527.emUsed){
+emErrs164.push(err527);
+}
+}
+vErrors = emErrs164;
+errors = emErrs164.length;
 }
 }
 }
-for(const key36 in emErrors31){
-for(const keyProp29 in emErrors31[key36]){
-emParamsErrors29 = emErrors31[key36][keyProp29];
-if(emParamsErrors29.length){
-const tmpl29 = templates31[key36] && templates31[key36][keyProp29];
-const err528 = {instancePath:instancePath+"/quotas/admin",schemaPath:"#/definitions/RoleQuota/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors29},message:tmpl29 ? tmpl29() : schema33.errorMessage[key36][keyProp29],schema:schema33.errorMessage,parentSchema:schema33,data:data149};
+else {
+const err528 = {instancePath:instancePath+"/quotas/contrib",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema33.type,parentSchema:schema33,data:data148};
 if(vErrors === null){
 vErrors = [err528];
 }
@@ -11277,63 +11281,67 @@ vErrors.push(err528);
 }
 errors++;
 }
+if(errors > 0){
+const emErrors33 = {"required":{"unlimited":[],"monthlyLimit":[]}};
+const templates33 = {required:{}};
+let emPropParams31;
+let emParamsErrors31;
+for(const err529 of vErrors){
+if((((((err529.keyword !== "errorMessage") && (!err529.emUsed)) && (err529.instancePath === instancePath+"/quotas/contrib")) && (err529.keyword in emErrors33)) && (err529.schemaPath.indexOf("#/definitions/RoleQuota") === 0)) && (/^\/[^\/]*$/.test(err529.schemaPath.slice(23)))){
+emPropParams31 = obj0[err529.keyword];
+emParamsErrors31 = emErrors33[err529.keyword][err529.params[emPropParams31]];
+if(emParamsErrors31){
+emParamsErrors31.push(err529);
+err529.emUsed = true;
+}
+}
+}
+for(const key38 in emErrors33){
+for(const keyProp31 in emErrors33[key38]){
+emParamsErrors31 = emErrors33[key38][keyProp31];
+if(emParamsErrors31.length){
+const tmpl31 = templates33[key38] && templates33[key38][keyProp31];
+const err530 = {instancePath:instancePath+"/quotas/contrib",schemaPath:"#/definitions/RoleQuota/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors31},message:tmpl31 ? tmpl31() : schema33.errorMessage[key38][keyProp31],schema:schema33.errorMessage,parentSchema:schema33,data:data148};
+if(vErrors === null){
+vErrors = [err530];
+}
+else {
+vErrors.push(err530);
+}
+errors++;
+}
 }
 }
 const emErrs165 = [];
-for(const err529 of vErrors){
-if(!err529.emUsed){
-emErrs165.push(err529);
+for(const err531 of vErrors){
+if(!err531.emUsed){
+emErrs165.push(err531);
 }
 }
 vErrors = emErrs165;
 errors = emErrs165.length;
 }
 if(errors > 0){
-const emErrors32 = {"required":{"unlimited":[],"monthlyLimit":[]}};
-const templates32 = {required:{}};
-let emPropParams30;
-let emParamsErrors30;
-for(const err530 of vErrors){
-if((((((err530.keyword !== "errorMessage") && (!err530.emUsed)) && (err530.instancePath === instancePath+"/quotas/admin")) && (err530.keyword in emErrors32)) && (err530.schemaPath.indexOf("#/properties/quotas/properties/admin") === 0)) && (/^\/[^\/]*$/.test(err530.schemaPath.slice(36)))){
-emPropParams30 = obj0[err530.keyword];
-emParamsErrors30 = emErrors32[err530.keyword][err530.params[emPropParams30]];
-if(emParamsErrors30){
-emParamsErrors30.push(err530);
-err530.emUsed = true;
-}
-}
-}
-for(const key37 in emErrors32){
-for(const keyProp30 in emErrors32[key37]){
-emParamsErrors30 = emErrors32[key37][keyProp30];
-if(emParamsErrors30.length){
-const tmpl30 = templates32[key37] && templates32[key37][keyProp30];
-const err531 = {instancePath:instancePath+"/quotas/admin",schemaPath:"#/properties/quotas/properties/admin/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors30},message:tmpl30 ? tmpl30() : schema27.properties.quotas.properties.admin.errorMessage[key37][keyProp30],schema:schema27.properties.quotas.properties.admin.errorMessage,parentSchema:schema27.properties.quotas.properties.admin,data:data149};
-if(vErrors === null){
-vErrors = [err531];
-}
-else {
-vErrors.push(err531);
-}
-errors++;
-}
-}
-}
-const emErrs166 = [];
+const emErrors34 = {"required":{"unlimited":[],"monthlyLimit":[]}};
+const templates34 = {required:{}};
+let emPropParams32;
+let emParamsErrors32;
 for(const err532 of vErrors){
-if(!err532.emUsed){
-emErrs166.push(err532);
+if((((((err532.keyword !== "errorMessage") && (!err532.emUsed)) && (err532.instancePath === instancePath+"/quotas/contrib")) && (err532.keyword in emErrors34)) && (err532.schemaPath.indexOf("#/properties/quotas/properties/contrib") === 0)) && (/^\/[^\/]*$/.test(err532.schemaPath.slice(38)))){
+emPropParams32 = obj0[err532.keyword];
+emParamsErrors32 = emErrors34[err532.keyword][err532.params[emPropParams32]];
+if(emParamsErrors32){
+emParamsErrors32.push(err532);
+err532.emUsed = true;
 }
 }
-vErrors = emErrs166;
-errors = emErrs166.length;
 }
-}
-if(data145.contrib !== undefined){
-let data152 = data145.contrib;
-if(data152 && typeof data152 == "object" && !Array.isArray(data152)){
-if(data152.unlimited === undefined){
-const err533 = {instancePath:instancePath+"/quotas/contrib",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'",schema:schema33.required,parentSchema:schema33,data:data152};
+for(const key39 in emErrors34){
+for(const keyProp32 in emErrors34[key39]){
+emParamsErrors32 = emErrors34[key39][keyProp32];
+if(emParamsErrors32.length){
+const tmpl32 = templates34[key39] && templates34[key39][keyProp32];
+const err533 = {instancePath:instancePath+"/quotas/contrib",schemaPath:"#/properties/quotas/properties/contrib/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors32},message:tmpl32 ? tmpl32() : schema27.properties.quotas.properties.contrib.errorMessage[key39][keyProp32],schema:schema27.properties.quotas.properties.contrib.errorMessage,parentSchema:schema27.properties.quotas.properties.contrib,data:data148};
 if(vErrors === null){
 vErrors = [err533];
 }
@@ -11342,20 +11350,23 @@ vErrors.push(err533);
 }
 errors++;
 }
-if(data152.monthlyLimit === undefined){
-const err534 = {instancePath:instancePath+"/quotas/contrib",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'",schema:schema33.required,parentSchema:schema33,data:data152};
-if(vErrors === null){
-vErrors = [err534];
 }
-else {
-vErrors.push(err534);
 }
-errors++;
+const emErrs166 = [];
+for(const err534 of vErrors){
+if(!err534.emUsed){
+emErrs166.push(err534);
 }
-if(data152.unlimited !== undefined){
-let data153 = data152.unlimited;
-if(typeof data153 !== "boolean"){
-const err535 = {instancePath:instancePath+"/quotas/contrib/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema33.properties.unlimited.type,parentSchema:schema33.properties.unlimited,data:data153};
+}
+vErrors = emErrs166;
+errors = emErrs166.length;
+}
+}
+if(data141.user !== undefined){
+let data151 = data141.user;
+if(data151 && typeof data151 == "object" && !Array.isArray(data151)){
+if(data151.unlimited === undefined){
+const err535 = {instancePath:instancePath+"/quotas/user",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'",schema:schema33.required,parentSchema:schema33,data:data151};
 if(vErrors === null){
 vErrors = [err535];
 }
@@ -11364,22 +11375,20 @@ vErrors.push(err535);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs167 = [];
-for(const err536 of vErrors){
-if(!err536.emUsed){
-emErrs167.push(err536);
+if(data151.monthlyLimit === undefined){
+const err536 = {instancePath:instancePath+"/quotas/user",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'",schema:schema33.required,parentSchema:schema33,data:data151};
+if(vErrors === null){
+vErrors = [err536];
 }
+else {
+vErrors.push(err536);
 }
-vErrors = emErrs167;
-errors = emErrs167.length;
+errors++;
 }
-}
-if(data152.monthlyLimit !== undefined){
-let data154 = data152.monthlyLimit;
-if(typeof data154 == "number"){
-if(data154 < 0 || isNaN(data154)){
-const err537 = {instancePath:instancePath+"/quotas/contrib/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema33.properties.monthlyLimit,data:data154};
+if(data151.unlimited !== undefined){
+let data152 = data151.unlimited;
+if(typeof data152 !== "boolean"){
+const err537 = {instancePath:instancePath+"/quotas/user/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema33.properties.unlimited.type,parentSchema:schema33.properties.unlimited,data:data152};
 if(vErrors === null){
 vErrors = [err537];
 }
@@ -11388,31 +11397,33 @@ vErrors.push(err537);
 }
 errors++;
 }
+if(errors > 0){
+const emErrs167 = [];
+for(const err538 of vErrors){
+if(!err538.emUsed){
+emErrs167.push(err538);
 }
-else {
-const err538 = {instancePath:instancePath+"/quotas/contrib/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema33.properties.monthlyLimit.type,parentSchema:schema33.properties.monthlyLimit,data:data154};
+}
+vErrors = emErrs167;
+errors = emErrs167.length;
+}
+}
+if(data151.monthlyLimit !== undefined){
+let data153 = data151.monthlyLimit;
+if(typeof data153 == "number"){
+if(data153 < 0 || isNaN(data153)){
+const err539 = {instancePath:instancePath+"/quotas/user/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema33.properties.monthlyLimit,data:data153};
 if(vErrors === null){
-vErrors = [err538];
+vErrors = [err539];
 }
 else {
-vErrors.push(err538);
+vErrors.push(err539);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs168 = [];
-for(const err539 of vErrors){
-if(!err539.emUsed){
-emErrs168.push(err539);
-}
-}
-vErrors = emErrs168;
-errors = emErrs168.length;
-}
-}
 }
 else {
-const err540 = {instancePath:instancePath+"/quotas/contrib",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema33.type,parentSchema:schema33,data:data152};
+const err540 = {instancePath:instancePath+"/quotas/user/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema33.properties.monthlyLimit.type,parentSchema:schema33.properties.monthlyLimit,data:data153};
 if(vErrors === null){
 vErrors = [err540];
 }
@@ -11422,26 +11433,19 @@ vErrors.push(err540);
 errors++;
 }
 if(errors > 0){
-const emErrors33 = {"required":{"unlimited":[],"monthlyLimit":[]}};
-const templates33 = {required:{}};
-let emPropParams31;
-let emParamsErrors31;
+const emErrs168 = [];
 for(const err541 of vErrors){
-if((((((err541.keyword !== "errorMessage") && (!err541.emUsed)) && (err541.instancePath === instancePath+"/quotas/contrib")) && (err541.keyword in emErrors33)) && (err541.schemaPath.indexOf("#/definitions/RoleQuota") === 0)) && (/^\/[^\/]*$/.test(err541.schemaPath.slice(23)))){
-emPropParams31 = obj0[err541.keyword];
-emParamsErrors31 = emErrors33[err541.keyword][err541.params[emPropParams31]];
-if(emParamsErrors31){
-emParamsErrors31.push(err541);
-err541.emUsed = true;
+if(!err541.emUsed){
+emErrs168.push(err541);
+}
+}
+vErrors = emErrs168;
+errors = emErrs168.length;
 }
 }
 }
-for(const key38 in emErrors33){
-for(const keyProp31 in emErrors33[key38]){
-emParamsErrors31 = emErrors33[key38][keyProp31];
-if(emParamsErrors31.length){
-const tmpl31 = templates33[key38] && templates33[key38][keyProp31];
-const err542 = {instancePath:instancePath+"/quotas/contrib",schemaPath:"#/definitions/RoleQuota/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors31},message:tmpl31 ? tmpl31() : schema33.errorMessage[key38][keyProp31],schema:schema33.errorMessage,parentSchema:schema33,data:data152};
+else {
+const err542 = {instancePath:instancePath+"/quotas/user",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema33.type,parentSchema:schema33,data:data151};
 if(vErrors === null){
 vErrors = [err542];
 }
@@ -11450,63 +11454,67 @@ vErrors.push(err542);
 }
 errors++;
 }
+if(errors > 0){
+const emErrors35 = {"required":{"unlimited":[],"monthlyLimit":[]}};
+const templates35 = {required:{}};
+let emPropParams33;
+let emParamsErrors33;
+for(const err543 of vErrors){
+if((((((err543.keyword !== "errorMessage") && (!err543.emUsed)) && (err543.instancePath === instancePath+"/quotas/user")) && (err543.keyword in emErrors35)) && (err543.schemaPath.indexOf("#/definitions/RoleQuota") === 0)) && (/^\/[^\/]*$/.test(err543.schemaPath.slice(23)))){
+emPropParams33 = obj0[err543.keyword];
+emParamsErrors33 = emErrors35[err543.keyword][err543.params[emPropParams33]];
+if(emParamsErrors33){
+emParamsErrors33.push(err543);
+err543.emUsed = true;
+}
+}
+}
+for(const key40 in emErrors35){
+for(const keyProp33 in emErrors35[key40]){
+emParamsErrors33 = emErrors35[key40][keyProp33];
+if(emParamsErrors33.length){
+const tmpl33 = templates35[key40] && templates35[key40][keyProp33];
+const err544 = {instancePath:instancePath+"/quotas/user",schemaPath:"#/definitions/RoleQuota/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors33},message:tmpl33 ? tmpl33() : schema33.errorMessage[key40][keyProp33],schema:schema33.errorMessage,parentSchema:schema33,data:data151};
+if(vErrors === null){
+vErrors = [err544];
+}
+else {
+vErrors.push(err544);
+}
+errors++;
+}
 }
 }
 const emErrs169 = [];
-for(const err543 of vErrors){
-if(!err543.emUsed){
-emErrs169.push(err543);
+for(const err545 of vErrors){
+if(!err545.emUsed){
+emErrs169.push(err545);
 }
 }
 vErrors = emErrs169;
 errors = emErrs169.length;
 }
 if(errors > 0){
-const emErrors34 = {"required":{"unlimited":[],"monthlyLimit":[]}};
-const templates34 = {required:{}};
-let emPropParams32;
-let emParamsErrors32;
-for(const err544 of vErrors){
-if((((((err544.keyword !== "errorMessage") && (!err544.emUsed)) && (err544.instancePath === instancePath+"/quotas/contrib")) && (err544.keyword in emErrors34)) && (err544.schemaPath.indexOf("#/properties/quotas/properties/contrib") === 0)) && (/^\/[^\/]*$/.test(err544.schemaPath.slice(38)))){
-emPropParams32 = obj0[err544.keyword];
-emParamsErrors32 = emErrors34[err544.keyword][err544.params[emPropParams32]];
-if(emParamsErrors32){
-emParamsErrors32.push(err544);
-err544.emUsed = true;
-}
-}
-}
-for(const key39 in emErrors34){
-for(const keyProp32 in emErrors34[key39]){
-emParamsErrors32 = emErrors34[key39][keyProp32];
-if(emParamsErrors32.length){
-const tmpl32 = templates34[key39] && templates34[key39][keyProp32];
-const err545 = {instancePath:instancePath+"/quotas/contrib",schemaPath:"#/properties/quotas/properties/contrib/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors32},message:tmpl32 ? tmpl32() : schema27.properties.quotas.properties.contrib.errorMessage[key39][keyProp32],schema:schema27.properties.quotas.properties.contrib.errorMessage,parentSchema:schema27.properties.quotas.properties.contrib,data:data152};
-if(vErrors === null){
-vErrors = [err545];
-}
-else {
-vErrors.push(err545);
-}
-errors++;
-}
-}
-}
-const emErrs170 = [];
+const emErrors36 = {"required":{"unlimited":[],"monthlyLimit":[]}};
+const templates36 = {required:{}};
+let emPropParams34;
+let emParamsErrors34;
 for(const err546 of vErrors){
-if(!err546.emUsed){
-emErrs170.push(err546);
+if((((((err546.keyword !== "errorMessage") && (!err546.emUsed)) && (err546.instancePath === instancePath+"/quotas/user")) && (err546.keyword in emErrors36)) && (err546.schemaPath.indexOf("#/properties/quotas/properties/user") === 0)) && (/^\/[^\/]*$/.test(err546.schemaPath.slice(35)))){
+emPropParams34 = obj0[err546.keyword];
+emParamsErrors34 = emErrors36[err546.keyword][err546.params[emPropParams34]];
+if(emParamsErrors34){
+emParamsErrors34.push(err546);
+err546.emUsed = true;
 }
 }
-vErrors = emErrs170;
-errors = emErrs170.length;
 }
-}
-if(data145.user !== undefined){
-let data155 = data145.user;
-if(data155 && typeof data155 == "object" && !Array.isArray(data155)){
-if(data155.unlimited === undefined){
-const err547 = {instancePath:instancePath+"/quotas/user",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'",schema:schema33.required,parentSchema:schema33,data:data155};
+for(const key41 in emErrors36){
+for(const keyProp34 in emErrors36[key41]){
+emParamsErrors34 = emErrors36[key41][keyProp34];
+if(emParamsErrors34.length){
+const tmpl34 = templates36[key41] && templates36[key41][keyProp34];
+const err547 = {instancePath:instancePath+"/quotas/user",schemaPath:"#/properties/quotas/properties/user/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors34},message:tmpl34 ? tmpl34() : schema27.properties.quotas.properties.user.errorMessage[key41][keyProp34],schema:schema27.properties.quotas.properties.user.errorMessage,parentSchema:schema27.properties.quotas.properties.user,data:data151};
 if(vErrors === null){
 vErrors = [err547];
 }
@@ -11515,20 +11523,23 @@ vErrors.push(err547);
 }
 errors++;
 }
-if(data155.monthlyLimit === undefined){
-const err548 = {instancePath:instancePath+"/quotas/user",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'",schema:schema33.required,parentSchema:schema33,data:data155};
-if(vErrors === null){
-vErrors = [err548];
 }
-else {
-vErrors.push(err548);
 }
-errors++;
+const emErrs170 = [];
+for(const err548 of vErrors){
+if(!err548.emUsed){
+emErrs170.push(err548);
 }
-if(data155.unlimited !== undefined){
-let data156 = data155.unlimited;
-if(typeof data156 !== "boolean"){
-const err549 = {instancePath:instancePath+"/quotas/user/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema33.properties.unlimited.type,parentSchema:schema33.properties.unlimited,data:data156};
+}
+vErrors = emErrs170;
+errors = emErrs170.length;
+}
+}
+if(data141.external !== undefined){
+let data154 = data141.external;
+if(data154 && typeof data154 == "object" && !Array.isArray(data154)){
+if(data154.unlimited === undefined){
+const err549 = {instancePath:instancePath+"/quotas/external",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'",schema:schema33.required,parentSchema:schema33,data:data154};
 if(vErrors === null){
 vErrors = [err549];
 }
@@ -11537,22 +11548,20 @@ vErrors.push(err549);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs171 = [];
-for(const err550 of vErrors){
-if(!err550.emUsed){
-emErrs171.push(err550);
+if(data154.monthlyLimit === undefined){
+const err550 = {instancePath:instancePath+"/quotas/external",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'",schema:schema33.required,parentSchema:schema33,data:data154};
+if(vErrors === null){
+vErrors = [err550];
 }
+else {
+vErrors.push(err550);
 }
-vErrors = emErrs171;
-errors = emErrs171.length;
+errors++;
 }
-}
-if(data155.monthlyLimit !== undefined){
-let data157 = data155.monthlyLimit;
-if(typeof data157 == "number"){
-if(data157 < 0 || isNaN(data157)){
-const err551 = {instancePath:instancePath+"/quotas/user/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema33.properties.monthlyLimit,data:data157};
+if(data154.unlimited !== undefined){
+let data155 = data154.unlimited;
+if(typeof data155 !== "boolean"){
+const err551 = {instancePath:instancePath+"/quotas/external/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema33.properties.unlimited.type,parentSchema:schema33.properties.unlimited,data:data155};
 if(vErrors === null){
 vErrors = [err551];
 }
@@ -11561,31 +11570,33 @@ vErrors.push(err551);
 }
 errors++;
 }
+if(errors > 0){
+const emErrs171 = [];
+for(const err552 of vErrors){
+if(!err552.emUsed){
+emErrs171.push(err552);
 }
-else {
-const err552 = {instancePath:instancePath+"/quotas/user/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema33.properties.monthlyLimit.type,parentSchema:schema33.properties.monthlyLimit,data:data157};
+}
+vErrors = emErrs171;
+errors = emErrs171.length;
+}
+}
+if(data154.monthlyLimit !== undefined){
+let data156 = data154.monthlyLimit;
+if(typeof data156 == "number"){
+if(data156 < 0 || isNaN(data156)){
+const err553 = {instancePath:instancePath+"/quotas/external/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema33.properties.monthlyLimit,data:data156};
 if(vErrors === null){
-vErrors = [err552];
+vErrors = [err553];
 }
 else {
-vErrors.push(err552);
+vErrors.push(err553);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs172 = [];
-for(const err553 of vErrors){
-if(!err553.emUsed){
-emErrs172.push(err553);
-}
-}
-vErrors = emErrs172;
-errors = emErrs172.length;
-}
-}
 }
 else {
-const err554 = {instancePath:instancePath+"/quotas/user",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema33.type,parentSchema:schema33,data:data155};
+const err554 = {instancePath:instancePath+"/quotas/external/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema33.properties.monthlyLimit.type,parentSchema:schema33.properties.monthlyLimit,data:data156};
 if(vErrors === null){
 vErrors = [err554];
 }
@@ -11595,26 +11606,19 @@ vErrors.push(err554);
 errors++;
 }
 if(errors > 0){
-const emErrors35 = {"required":{"unlimited":[],"monthlyLimit":[]}};
-const templates35 = {required:{}};
-let emPropParams33;
-let emParamsErrors33;
+const emErrs172 = [];
 for(const err555 of vErrors){
-if((((((err555.keyword !== "errorMessage") && (!err555.emUsed)) && (err555.instancePath === instancePath+"/quotas/user")) && (err555.keyword in emErrors35)) && (err555.schemaPath.indexOf("#/definitions/RoleQuota") === 0)) && (/^\/[^\/]*$/.test(err555.schemaPath.slice(23)))){
-emPropParams33 = obj0[err555.keyword];
-emParamsErrors33 = emErrors35[err555.keyword][err555.params[emPropParams33]];
-if(emParamsErrors33){
-emParamsErrors33.push(err555);
-err555.emUsed = true;
+if(!err555.emUsed){
+emErrs172.push(err555);
+}
+}
+vErrors = emErrs172;
+errors = emErrs172.length;
 }
 }
 }
-for(const key40 in emErrors35){
-for(const keyProp33 in emErrors35[key40]){
-emParamsErrors33 = emErrors35[key40][keyProp33];
-if(emParamsErrors33.length){
-const tmpl33 = templates35[key40] && templates35[key40][keyProp33];
-const err556 = {instancePath:instancePath+"/quotas/user",schemaPath:"#/definitions/RoleQuota/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors33},message:tmpl33 ? tmpl33() : schema33.errorMessage[key40][keyProp33],schema:schema33.errorMessage,parentSchema:schema33,data:data155};
+else {
+const err556 = {instancePath:instancePath+"/quotas/external",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema33.type,parentSchema:schema33,data:data154};
 if(vErrors === null){
 vErrors = [err556];
 }
@@ -11623,63 +11627,67 @@ vErrors.push(err556);
 }
 errors++;
 }
+if(errors > 0){
+const emErrors37 = {"required":{"unlimited":[],"monthlyLimit":[]}};
+const templates37 = {required:{}};
+let emPropParams35;
+let emParamsErrors35;
+for(const err557 of vErrors){
+if((((((err557.keyword !== "errorMessage") && (!err557.emUsed)) && (err557.instancePath === instancePath+"/quotas/external")) && (err557.keyword in emErrors37)) && (err557.schemaPath.indexOf("#/definitions/RoleQuota") === 0)) && (/^\/[^\/]*$/.test(err557.schemaPath.slice(23)))){
+emPropParams35 = obj0[err557.keyword];
+emParamsErrors35 = emErrors37[err557.keyword][err557.params[emPropParams35]];
+if(emParamsErrors35){
+emParamsErrors35.push(err557);
+err557.emUsed = true;
+}
+}
+}
+for(const key42 in emErrors37){
+for(const keyProp35 in emErrors37[key42]){
+emParamsErrors35 = emErrors37[key42][keyProp35];
+if(emParamsErrors35.length){
+const tmpl35 = templates37[key42] && templates37[key42][keyProp35];
+const err558 = {instancePath:instancePath+"/quotas/external",schemaPath:"#/definitions/RoleQuota/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors35},message:tmpl35 ? tmpl35() : schema33.errorMessage[key42][keyProp35],schema:schema33.errorMessage,parentSchema:schema33,data:data154};
+if(vErrors === null){
+vErrors = [err558];
+}
+else {
+vErrors.push(err558);
+}
+errors++;
+}
 }
 }
 const emErrs173 = [];
-for(const err557 of vErrors){
-if(!err557.emUsed){
-emErrs173.push(err557);
+for(const err559 of vErrors){
+if(!err559.emUsed){
+emErrs173.push(err559);
 }
 }
 vErrors = emErrs173;
 errors = emErrs173.length;
 }
 if(errors > 0){
-const emErrors36 = {"required":{"unlimited":[],"monthlyLimit":[]}};
-const templates36 = {required:{}};
-let emPropParams34;
-let emParamsErrors34;
-for(const err558 of vErrors){
-if((((((err558.keyword !== "errorMessage") && (!err558.emUsed)) && (err558.instancePath === instancePath+"/quotas/user")) && (err558.keyword in emErrors36)) && (err558.schemaPath.indexOf("#/properties/quotas/properties/user") === 0)) && (/^\/[^\/]*$/.test(err558.schemaPath.slice(35)))){
-emPropParams34 = obj0[err558.keyword];
-emParamsErrors34 = emErrors36[err558.keyword][err558.params[emPropParams34]];
-if(emParamsErrors34){
-emParamsErrors34.push(err558);
-err558.emUsed = true;
-}
-}
-}
-for(const key41 in emErrors36){
-for(const keyProp34 in emErrors36[key41]){
-emParamsErrors34 = emErrors36[key41][keyProp34];
-if(emParamsErrors34.length){
-const tmpl34 = templates36[key41] && templates36[key41][keyProp34];
-const err559 = {instancePath:instancePath+"/quotas/user",schemaPath:"#/properties/quotas/properties/user/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors34},message:tmpl34 ? tmpl34() : schema27.properties.quotas.properties.user.errorMessage[key41][keyProp34],schema:schema27.properties.quotas.properties.user.errorMessage,parentSchema:schema27.properties.quotas.properties.user,data:data155};
-if(vErrors === null){
-vErrors = [err559];
-}
-else {
-vErrors.push(err559);
-}
-errors++;
-}
-}
-}
-const emErrs174 = [];
+const emErrors38 = {"required":{"unlimited":[],"monthlyLimit":[]}};
+const templates38 = {required:{}};
+let emPropParams36;
+let emParamsErrors36;
 for(const err560 of vErrors){
-if(!err560.emUsed){
-emErrs174.push(err560);
+if((((((err560.keyword !== "errorMessage") && (!err560.emUsed)) && (err560.instancePath === instancePath+"/quotas/external")) && (err560.keyword in emErrors38)) && (err560.schemaPath.indexOf("#/properties/quotas/properties/external") === 0)) && (/^\/[^\/]*$/.test(err560.schemaPath.slice(39)))){
+emPropParams36 = obj0[err560.keyword];
+emParamsErrors36 = emErrors38[err560.keyword][err560.params[emPropParams36]];
+if(emParamsErrors36){
+emParamsErrors36.push(err560);
+err560.emUsed = true;
 }
 }
-vErrors = emErrs174;
-errors = emErrs174.length;
 }
-}
-if(data145.external !== undefined){
-let data158 = data145.external;
-if(data158 && typeof data158 == "object" && !Array.isArray(data158)){
-if(data158.unlimited === undefined){
-const err561 = {instancePath:instancePath+"/quotas/external",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'",schema:schema33.required,parentSchema:schema33,data:data158};
+for(const key43 in emErrors38){
+for(const keyProp36 in emErrors38[key43]){
+emParamsErrors36 = emErrors38[key43][keyProp36];
+if(emParamsErrors36.length){
+const tmpl36 = templates38[key43] && templates38[key43][keyProp36];
+const err561 = {instancePath:instancePath+"/quotas/external",schemaPath:"#/properties/quotas/properties/external/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors36},message:tmpl36 ? tmpl36() : schema27.properties.quotas.properties.external.errorMessage[key43][keyProp36],schema:schema27.properties.quotas.properties.external.errorMessage,parentSchema:schema27.properties.quotas.properties.external,data:data154};
 if(vErrors === null){
 vErrors = [err561];
 }
@@ -11688,20 +11696,23 @@ vErrors.push(err561);
 }
 errors++;
 }
-if(data158.monthlyLimit === undefined){
-const err562 = {instancePath:instancePath+"/quotas/external",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'",schema:schema33.required,parentSchema:schema33,data:data158};
-if(vErrors === null){
-vErrors = [err562];
 }
-else {
-vErrors.push(err562);
 }
-errors++;
+const emErrs174 = [];
+for(const err562 of vErrors){
+if(!err562.emUsed){
+emErrs174.push(err562);
 }
-if(data158.unlimited !== undefined){
-let data159 = data158.unlimited;
-if(typeof data159 !== "boolean"){
-const err563 = {instancePath:instancePath+"/quotas/external/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema33.properties.unlimited.type,parentSchema:schema33.properties.unlimited,data:data159};
+}
+vErrors = emErrs174;
+errors = emErrs174.length;
+}
+}
+if(data141.anonymous !== undefined){
+let data157 = data141.anonymous;
+if(data157 && typeof data157 == "object" && !Array.isArray(data157)){
+if(data157.unlimited === undefined){
+const err563 = {instancePath:instancePath+"/quotas/anonymous",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'",schema:schema33.required,parentSchema:schema33,data:data157};
 if(vErrors === null){
 vErrors = [err563];
 }
@@ -11710,22 +11721,20 @@ vErrors.push(err563);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs175 = [];
-for(const err564 of vErrors){
-if(!err564.emUsed){
-emErrs175.push(err564);
+if(data157.monthlyLimit === undefined){
+const err564 = {instancePath:instancePath+"/quotas/anonymous",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'",schema:schema33.required,parentSchema:schema33,data:data157};
+if(vErrors === null){
+vErrors = [err564];
 }
+else {
+vErrors.push(err564);
 }
-vErrors = emErrs175;
-errors = emErrs175.length;
+errors++;
 }
-}
-if(data158.monthlyLimit !== undefined){
-let data160 = data158.monthlyLimit;
-if(typeof data160 == "number"){
-if(data160 < 0 || isNaN(data160)){
-const err565 = {instancePath:instancePath+"/quotas/external/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema33.properties.monthlyLimit,data:data160};
+if(data157.unlimited !== undefined){
+let data158 = data157.unlimited;
+if(typeof data158 !== "boolean"){
+const err565 = {instancePath:instancePath+"/quotas/anonymous/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema33.properties.unlimited.type,parentSchema:schema33.properties.unlimited,data:data158};
 if(vErrors === null){
 vErrors = [err565];
 }
@@ -11734,31 +11743,33 @@ vErrors.push(err565);
 }
 errors++;
 }
+if(errors > 0){
+const emErrs175 = [];
+for(const err566 of vErrors){
+if(!err566.emUsed){
+emErrs175.push(err566);
 }
-else {
-const err566 = {instancePath:instancePath+"/quotas/external/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema33.properties.monthlyLimit.type,parentSchema:schema33.properties.monthlyLimit,data:data160};
+}
+vErrors = emErrs175;
+errors = emErrs175.length;
+}
+}
+if(data157.monthlyLimit !== undefined){
+let data159 = data157.monthlyLimit;
+if(typeof data159 == "number"){
+if(data159 < 0 || isNaN(data159)){
+const err567 = {instancePath:instancePath+"/quotas/anonymous/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema33.properties.monthlyLimit,data:data159};
 if(vErrors === null){
-vErrors = [err566];
+vErrors = [err567];
 }
 else {
-vErrors.push(err566);
+vErrors.push(err567);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs176 = [];
-for(const err567 of vErrors){
-if(!err567.emUsed){
-emErrs176.push(err567);
-}
-}
-vErrors = emErrs176;
-errors = emErrs176.length;
-}
-}
 }
 else {
-const err568 = {instancePath:instancePath+"/quotas/external",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema33.type,parentSchema:schema33,data:data158};
+const err568 = {instancePath:instancePath+"/quotas/anonymous/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema33.properties.monthlyLimit.type,parentSchema:schema33.properties.monthlyLimit,data:data159};
 if(vErrors === null){
 vErrors = [err568];
 }
@@ -11768,26 +11779,19 @@ vErrors.push(err568);
 errors++;
 }
 if(errors > 0){
-const emErrors37 = {"required":{"unlimited":[],"monthlyLimit":[]}};
-const templates37 = {required:{}};
-let emPropParams35;
-let emParamsErrors35;
+const emErrs176 = [];
 for(const err569 of vErrors){
-if((((((err569.keyword !== "errorMessage") && (!err569.emUsed)) && (err569.instancePath === instancePath+"/quotas/external")) && (err569.keyword in emErrors37)) && (err569.schemaPath.indexOf("#/definitions/RoleQuota") === 0)) && (/^\/[^\/]*$/.test(err569.schemaPath.slice(23)))){
-emPropParams35 = obj0[err569.keyword];
-emParamsErrors35 = emErrors37[err569.keyword][err569.params[emPropParams35]];
-if(emParamsErrors35){
-emParamsErrors35.push(err569);
-err569.emUsed = true;
+if(!err569.emUsed){
+emErrs176.push(err569);
+}
+}
+vErrors = emErrs176;
+errors = emErrs176.length;
 }
 }
 }
-for(const key42 in emErrors37){
-for(const keyProp35 in emErrors37[key42]){
-emParamsErrors35 = emErrors37[key42][keyProp35];
-if(emParamsErrors35.length){
-const tmpl35 = templates37[key42] && templates37[key42][keyProp35];
-const err570 = {instancePath:instancePath+"/quotas/external",schemaPath:"#/definitions/RoleQuota/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors35},message:tmpl35 ? tmpl35() : schema33.errorMessage[key42][keyProp35],schema:schema33.errorMessage,parentSchema:schema33,data:data158};
+else {
+const err570 = {instancePath:instancePath+"/quotas/anonymous",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema33.type,parentSchema:schema33,data:data157};
 if(vErrors === null){
 vErrors = [err570];
 }
@@ -11796,63 +11800,67 @@ vErrors.push(err570);
 }
 errors++;
 }
+if(errors > 0){
+const emErrors39 = {"required":{"unlimited":[],"monthlyLimit":[]}};
+const templates39 = {required:{}};
+let emPropParams37;
+let emParamsErrors37;
+for(const err571 of vErrors){
+if((((((err571.keyword !== "errorMessage") && (!err571.emUsed)) && (err571.instancePath === instancePath+"/quotas/anonymous")) && (err571.keyword in emErrors39)) && (err571.schemaPath.indexOf("#/definitions/RoleQuota") === 0)) && (/^\/[^\/]*$/.test(err571.schemaPath.slice(23)))){
+emPropParams37 = obj0[err571.keyword];
+emParamsErrors37 = emErrors39[err571.keyword][err571.params[emPropParams37]];
+if(emParamsErrors37){
+emParamsErrors37.push(err571);
+err571.emUsed = true;
+}
+}
+}
+for(const key44 in emErrors39){
+for(const keyProp37 in emErrors39[key44]){
+emParamsErrors37 = emErrors39[key44][keyProp37];
+if(emParamsErrors37.length){
+const tmpl37 = templates39[key44] && templates39[key44][keyProp37];
+const err572 = {instancePath:instancePath+"/quotas/anonymous",schemaPath:"#/definitions/RoleQuota/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors37},message:tmpl37 ? tmpl37() : schema33.errorMessage[key44][keyProp37],schema:schema33.errorMessage,parentSchema:schema33,data:data157};
+if(vErrors === null){
+vErrors = [err572];
+}
+else {
+vErrors.push(err572);
+}
+errors++;
+}
 }
 }
 const emErrs177 = [];
-for(const err571 of vErrors){
-if(!err571.emUsed){
-emErrs177.push(err571);
+for(const err573 of vErrors){
+if(!err573.emUsed){
+emErrs177.push(err573);
 }
 }
 vErrors = emErrs177;
 errors = emErrs177.length;
 }
 if(errors > 0){
-const emErrors38 = {"required":{"unlimited":[],"monthlyLimit":[]}};
-const templates38 = {required:{}};
-let emPropParams36;
-let emParamsErrors36;
-for(const err572 of vErrors){
-if((((((err572.keyword !== "errorMessage") && (!err572.emUsed)) && (err572.instancePath === instancePath+"/quotas/external")) && (err572.keyword in emErrors38)) && (err572.schemaPath.indexOf("#/properties/quotas/properties/external") === 0)) && (/^\/[^\/]*$/.test(err572.schemaPath.slice(39)))){
-emPropParams36 = obj0[err572.keyword];
-emParamsErrors36 = emErrors38[err572.keyword][err572.params[emPropParams36]];
-if(emParamsErrors36){
-emParamsErrors36.push(err572);
-err572.emUsed = true;
-}
-}
-}
-for(const key43 in emErrors38){
-for(const keyProp36 in emErrors38[key43]){
-emParamsErrors36 = emErrors38[key43][keyProp36];
-if(emParamsErrors36.length){
-const tmpl36 = templates38[key43] && templates38[key43][keyProp36];
-const err573 = {instancePath:instancePath+"/quotas/external",schemaPath:"#/properties/quotas/properties/external/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors36},message:tmpl36 ? tmpl36() : schema27.properties.quotas.properties.external.errorMessage[key43][keyProp36],schema:schema27.properties.quotas.properties.external.errorMessage,parentSchema:schema27.properties.quotas.properties.external,data:data158};
-if(vErrors === null){
-vErrors = [err573];
-}
-else {
-vErrors.push(err573);
-}
-errors++;
-}
-}
-}
-const emErrs178 = [];
+const emErrors40 = {"required":{"unlimited":[],"monthlyLimit":[]}};
+const templates40 = {required:{}};
+let emPropParams38;
+let emParamsErrors38;
 for(const err574 of vErrors){
-if(!err574.emUsed){
-emErrs178.push(err574);
+if((((((err574.keyword !== "errorMessage") && (!err574.emUsed)) && (err574.instancePath === instancePath+"/quotas/anonymous")) && (err574.keyword in emErrors40)) && (err574.schemaPath.indexOf("#/properties/quotas/properties/anonymous") === 0)) && (/^\/[^\/]*$/.test(err574.schemaPath.slice(40)))){
+emPropParams38 = obj0[err574.keyword];
+emParamsErrors38 = emErrors40[err574.keyword][err574.params[emPropParams38]];
+if(emParamsErrors38){
+emParamsErrors38.push(err574);
+err574.emUsed = true;
 }
 }
-vErrors = emErrs178;
-errors = emErrs178.length;
 }
-}
-if(data145.anonymous !== undefined){
-let data161 = data145.anonymous;
-if(data161 && typeof data161 == "object" && !Array.isArray(data161)){
-if(data161.unlimited === undefined){
-const err575 = {instancePath:instancePath+"/quotas/anonymous",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'",schema:schema33.required,parentSchema:schema33,data:data161};
+for(const key45 in emErrors40){
+for(const keyProp38 in emErrors40[key45]){
+emParamsErrors38 = emErrors40[key45][keyProp38];
+if(emParamsErrors38.length){
+const tmpl38 = templates40[key45] && templates40[key45][keyProp38];
+const err575 = {instancePath:instancePath+"/quotas/anonymous",schemaPath:"#/properties/quotas/properties/anonymous/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors38},message:tmpl38 ? tmpl38() : schema27.properties.quotas.properties.anonymous.errorMessage[key45][keyProp38],schema:schema27.properties.quotas.properties.anonymous.errorMessage,parentSchema:schema27.properties.quotas.properties.anonymous,data:data157};
 if(vErrors === null){
 vErrors = [err575];
 }
@@ -11861,20 +11869,23 @@ vErrors.push(err575);
 }
 errors++;
 }
-if(data161.monthlyLimit === undefined){
-const err576 = {instancePath:instancePath+"/quotas/anonymous",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'",schema:schema33.required,parentSchema:schema33,data:data161};
-if(vErrors === null){
-vErrors = [err576];
 }
-else {
-vErrors.push(err576);
 }
-errors++;
+const emErrs178 = [];
+for(const err576 of vErrors){
+if(!err576.emUsed){
+emErrs178.push(err576);
 }
-if(data161.unlimited !== undefined){
-let data162 = data161.unlimited;
-if(typeof data162 !== "boolean"){
-const err577 = {instancePath:instancePath+"/quotas/anonymous/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema33.properties.unlimited.type,parentSchema:schema33.properties.unlimited,data:data162};
+}
+vErrors = emErrs178;
+errors = emErrs178.length;
+}
+}
+if(data141.untrusted !== undefined){
+let data160 = data141.untrusted;
+if(data160 && typeof data160 == "object" && !Array.isArray(data160)){
+if(data160.unlimited === undefined){
+const err577 = {instancePath:instancePath+"/quotas/untrusted",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'",schema:schema33.required,parentSchema:schema33,data:data160};
 if(vErrors === null){
 vErrors = [err577];
 }
@@ -11883,22 +11894,20 @@ vErrors.push(err577);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs179 = [];
-for(const err578 of vErrors){
-if(!err578.emUsed){
-emErrs179.push(err578);
+if(data160.monthlyLimit === undefined){
+const err578 = {instancePath:instancePath+"/quotas/untrusted",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'",schema:schema33.required,parentSchema:schema33,data:data160};
+if(vErrors === null){
+vErrors = [err578];
 }
+else {
+vErrors.push(err578);
 }
-vErrors = emErrs179;
-errors = emErrs179.length;
+errors++;
 }
-}
-if(data161.monthlyLimit !== undefined){
-let data163 = data161.monthlyLimit;
-if(typeof data163 == "number"){
-if(data163 < 0 || isNaN(data163)){
-const err579 = {instancePath:instancePath+"/quotas/anonymous/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema33.properties.monthlyLimit,data:data163};
+if(data160.unlimited !== undefined){
+let data161 = data160.unlimited;
+if(typeof data161 !== "boolean"){
+const err579 = {instancePath:instancePath+"/quotas/untrusted/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema33.properties.unlimited.type,parentSchema:schema33.properties.unlimited,data:data161};
 if(vErrors === null){
 vErrors = [err579];
 }
@@ -11907,31 +11916,33 @@ vErrors.push(err579);
 }
 errors++;
 }
+if(errors > 0){
+const emErrs179 = [];
+for(const err580 of vErrors){
+if(!err580.emUsed){
+emErrs179.push(err580);
 }
-else {
-const err580 = {instancePath:instancePath+"/quotas/anonymous/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema33.properties.monthlyLimit.type,parentSchema:schema33.properties.monthlyLimit,data:data163};
+}
+vErrors = emErrs179;
+errors = emErrs179.length;
+}
+}
+if(data160.monthlyLimit !== undefined){
+let data162 = data160.monthlyLimit;
+if(typeof data162 == "number"){
+if(data162 < 0 || isNaN(data162)){
+const err581 = {instancePath:instancePath+"/quotas/untrusted/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema33.properties.monthlyLimit,data:data162};
 if(vErrors === null){
-vErrors = [err580];
+vErrors = [err581];
 }
 else {
-vErrors.push(err580);
+vErrors.push(err581);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs180 = [];
-for(const err581 of vErrors){
-if(!err581.emUsed){
-emErrs180.push(err581);
-}
-}
-vErrors = emErrs180;
-errors = emErrs180.length;
-}
-}
 }
 else {
-const err582 = {instancePath:instancePath+"/quotas/anonymous",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema33.type,parentSchema:schema33,data:data161};
+const err582 = {instancePath:instancePath+"/quotas/untrusted/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema33.properties.monthlyLimit.type,parentSchema:schema33.properties.monthlyLimit,data:data162};
 if(vErrors === null){
 vErrors = [err582];
 }
@@ -11941,26 +11952,19 @@ vErrors.push(err582);
 errors++;
 }
 if(errors > 0){
-const emErrors39 = {"required":{"unlimited":[],"monthlyLimit":[]}};
-const templates39 = {required:{}};
-let emPropParams37;
-let emParamsErrors37;
+const emErrs180 = [];
 for(const err583 of vErrors){
-if((((((err583.keyword !== "errorMessage") && (!err583.emUsed)) && (err583.instancePath === instancePath+"/quotas/anonymous")) && (err583.keyword in emErrors39)) && (err583.schemaPath.indexOf("#/definitions/RoleQuota") === 0)) && (/^\/[^\/]*$/.test(err583.schemaPath.slice(23)))){
-emPropParams37 = obj0[err583.keyword];
-emParamsErrors37 = emErrors39[err583.keyword][err583.params[emPropParams37]];
-if(emParamsErrors37){
-emParamsErrors37.push(err583);
-err583.emUsed = true;
+if(!err583.emUsed){
+emErrs180.push(err583);
+}
+}
+vErrors = emErrs180;
+errors = emErrs180.length;
 }
 }
 }
-for(const key44 in emErrors39){
-for(const keyProp37 in emErrors39[key44]){
-emParamsErrors37 = emErrors39[key44][keyProp37];
-if(emParamsErrors37.length){
-const tmpl37 = templates39[key44] && templates39[key44][keyProp37];
-const err584 = {instancePath:instancePath+"/quotas/anonymous",schemaPath:"#/definitions/RoleQuota/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors37},message:tmpl37 ? tmpl37() : schema33.errorMessage[key44][keyProp37],schema:schema33.errorMessage,parentSchema:schema33,data:data161};
+else {
+const err584 = {instancePath:instancePath+"/quotas/untrusted",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema33.type,parentSchema:schema33,data:data160};
 if(vErrors === null){
 vErrors = [err584];
 }
@@ -11969,63 +11973,67 @@ vErrors.push(err584);
 }
 errors++;
 }
+if(errors > 0){
+const emErrors41 = {"required":{"unlimited":[],"monthlyLimit":[]}};
+const templates41 = {required:{}};
+let emPropParams39;
+let emParamsErrors39;
+for(const err585 of vErrors){
+if((((((err585.keyword !== "errorMessage") && (!err585.emUsed)) && (err585.instancePath === instancePath+"/quotas/untrusted")) && (err585.keyword in emErrors41)) && (err585.schemaPath.indexOf("#/definitions/RoleQuota") === 0)) && (/^\/[^\/]*$/.test(err585.schemaPath.slice(23)))){
+emPropParams39 = obj0[err585.keyword];
+emParamsErrors39 = emErrors41[err585.keyword][err585.params[emPropParams39]];
+if(emParamsErrors39){
+emParamsErrors39.push(err585);
+err585.emUsed = true;
+}
+}
+}
+for(const key46 in emErrors41){
+for(const keyProp39 in emErrors41[key46]){
+emParamsErrors39 = emErrors41[key46][keyProp39];
+if(emParamsErrors39.length){
+const tmpl39 = templates41[key46] && templates41[key46][keyProp39];
+const err586 = {instancePath:instancePath+"/quotas/untrusted",schemaPath:"#/definitions/RoleQuota/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors39},message:tmpl39 ? tmpl39() : schema33.errorMessage[key46][keyProp39],schema:schema33.errorMessage,parentSchema:schema33,data:data160};
+if(vErrors === null){
+vErrors = [err586];
+}
+else {
+vErrors.push(err586);
+}
+errors++;
+}
 }
 }
 const emErrs181 = [];
-for(const err585 of vErrors){
-if(!err585.emUsed){
-emErrs181.push(err585);
+for(const err587 of vErrors){
+if(!err587.emUsed){
+emErrs181.push(err587);
 }
 }
 vErrors = emErrs181;
 errors = emErrs181.length;
 }
 if(errors > 0){
-const emErrors40 = {"required":{"unlimited":[],"monthlyLimit":[]}};
-const templates40 = {required:{}};
-let emPropParams38;
-let emParamsErrors38;
-for(const err586 of vErrors){
-if((((((err586.keyword !== "errorMessage") && (!err586.emUsed)) && (err586.instancePath === instancePath+"/quotas/anonymous")) && (err586.keyword in emErrors40)) && (err586.schemaPath.indexOf("#/properties/quotas/properties/anonymous") === 0)) && (/^\/[^\/]*$/.test(err586.schemaPath.slice(40)))){
-emPropParams38 = obj0[err586.keyword];
-emParamsErrors38 = emErrors40[err586.keyword][err586.params[emPropParams38]];
-if(emParamsErrors38){
-emParamsErrors38.push(err586);
-err586.emUsed = true;
-}
-}
-}
-for(const key45 in emErrors40){
-for(const keyProp38 in emErrors40[key45]){
-emParamsErrors38 = emErrors40[key45][keyProp38];
-if(emParamsErrors38.length){
-const tmpl38 = templates40[key45] && templates40[key45][keyProp38];
-const err587 = {instancePath:instancePath+"/quotas/anonymous",schemaPath:"#/properties/quotas/properties/anonymous/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors38},message:tmpl38 ? tmpl38() : schema27.properties.quotas.properties.anonymous.errorMessage[key45][keyProp38],schema:schema27.properties.quotas.properties.anonymous.errorMessage,parentSchema:schema27.properties.quotas.properties.anonymous,data:data161};
-if(vErrors === null){
-vErrors = [err587];
-}
-else {
-vErrors.push(err587);
-}
-errors++;
-}
-}
-}
-const emErrs182 = [];
+const emErrors42 = {"required":{"unlimited":[],"monthlyLimit":[]}};
+const templates42 = {required:{}};
+let emPropParams40;
+let emParamsErrors40;
 for(const err588 of vErrors){
-if(!err588.emUsed){
-emErrs182.push(err588);
+if((((((err588.keyword !== "errorMessage") && (!err588.emUsed)) && (err588.instancePath === instancePath+"/quotas/untrusted")) && (err588.keyword in emErrors42)) && (err588.schemaPath.indexOf("#/properties/quotas/properties/untrusted") === 0)) && (/^\/[^\/]*$/.test(err588.schemaPath.slice(40)))){
+emPropParams40 = obj0[err588.keyword];
+emParamsErrors40 = emErrors42[err588.keyword][err588.params[emPropParams40]];
+if(emParamsErrors40){
+emParamsErrors40.push(err588);
+err588.emUsed = true;
 }
 }
-vErrors = emErrs182;
-errors = emErrs182.length;
 }
-}
-if(data145.untrusted !== undefined){
-let data164 = data145.untrusted;
-if(data164 && typeof data164 == "object" && !Array.isArray(data164)){
-if(data164.unlimited === undefined){
-const err589 = {instancePath:instancePath+"/quotas/untrusted",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "unlimited"},message:"must have required property '"+"unlimited"+"'",schema:schema33.required,parentSchema:schema33,data:data164};
+for(const key47 in emErrors42){
+for(const keyProp40 in emErrors42[key47]){
+emParamsErrors40 = emErrors42[key47][keyProp40];
+if(emParamsErrors40.length){
+const tmpl40 = templates42[key47] && templates42[key47][keyProp40];
+const err589 = {instancePath:instancePath+"/quotas/untrusted",schemaPath:"#/properties/quotas/properties/untrusted/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors40},message:tmpl40 ? tmpl40() : schema27.properties.quotas.properties.untrusted.errorMessage[key47][keyProp40],schema:schema27.properties.quotas.properties.untrusted.errorMessage,parentSchema:schema27.properties.quotas.properties.untrusted,data:data160};
 if(vErrors === null){
 vErrors = [err589];
 }
@@ -12034,20 +12042,21 @@ vErrors.push(err589);
 }
 errors++;
 }
-if(data164.monthlyLimit === undefined){
-const err590 = {instancePath:instancePath+"/quotas/untrusted",schemaPath:"#/definitions/RoleQuota/required",keyword:"required",params:{missingProperty: "monthlyLimit"},message:"must have required property '"+"monthlyLimit"+"'",schema:schema33.required,parentSchema:schema33,data:data164};
-if(vErrors === null){
-vErrors = [err590];
+}
+}
+const emErrs182 = [];
+for(const err590 of vErrors){
+if(!err590.emUsed){
+emErrs182.push(err590);
+}
+}
+vErrors = emErrs182;
+errors = emErrs182.length;
+}
+}
 }
 else {
-vErrors.push(err590);
-}
-errors++;
-}
-if(data164.unlimited !== undefined){
-let data165 = data164.unlimited;
-if(typeof data165 !== "boolean"){
-const err591 = {instancePath:instancePath+"/quotas/untrusted/unlimited",schemaPath:"#/definitions/RoleQuota/properties/unlimited/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema33.properties.unlimited.type,parentSchema:schema33.properties.unlimited,data:data165};
+const err591 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.quotas.type,parentSchema:schema27.properties.quotas,data:data141};
 if(vErrors === null){
 vErrors = [err591];
 }
@@ -12057,21 +12066,26 @@ vErrors.push(err591);
 errors++;
 }
 if(errors > 0){
-const emErrs183 = [];
+const emErrors43 = {"required":{"global":[],"admin":[],"contrib":[],"user":[],"external":[],"anonymous":[]}};
+const templates43 = {required:{}};
+let emPropParams41;
+let emParamsErrors41;
 for(const err592 of vErrors){
-if(!err592.emUsed){
-emErrs183.push(err592);
+if((((((err592.keyword !== "errorMessage") && (!err592.emUsed)) && (err592.instancePath === instancePath+"/quotas")) && (err592.keyword in emErrors43)) && (err592.schemaPath.indexOf("#/properties/quotas") === 0)) && (/^\/[^\/]*$/.test(err592.schemaPath.slice(19)))){
+emPropParams41 = obj0[err592.keyword];
+emParamsErrors41 = emErrors43[err592.keyword][err592.params[emPropParams41]];
+if(emParamsErrors41){
+emParamsErrors41.push(err592);
+err592.emUsed = true;
 }
 }
-vErrors = emErrs183;
-errors = emErrs183.length;
 }
-}
-if(data164.monthlyLimit !== undefined){
-let data166 = data164.monthlyLimit;
-if(typeof data166 == "number"){
-if(data166 < 0 || isNaN(data166)){
-const err593 = {instancePath:instancePath+"/quotas/untrusted/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0",schema:0,parentSchema:schema33.properties.monthlyLimit,data:data166};
+for(const key48 in emErrors43){
+for(const keyProp41 in emErrors43[key48]){
+emParamsErrors41 = emErrors43[key48][keyProp41];
+if(emParamsErrors41.length){
+const tmpl41 = templates43[key48] && templates43[key48][keyProp41];
+const err593 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors41},message:tmpl41 ? tmpl41() : schema27.properties.quotas.errorMessage[key48][keyProp41],schema:schema27.properties.quotas.errorMessage,parentSchema:schema27.properties.quotas,data:data141};
 if(vErrors === null){
 vErrors = [err593];
 }
@@ -12081,179 +12095,25 @@ vErrors.push(err593);
 errors++;
 }
 }
+}
+const emErrs183 = [];
+for(const err594 of vErrors){
+if(!err594.emUsed){
+emErrs183.push(err594);
+}
+}
+vErrors = emErrs183;
+errors = emErrs183.length;
+}
+}
+}
 else {
-const err594 = {instancePath:instancePath+"/quotas/untrusted/monthlyLimit",schemaPath:"#/definitions/RoleQuota/properties/monthlyLimit/type",keyword:"type",params:{type: "number"},message:"must be number",schema:schema33.properties.monthlyLimit.type,parentSchema:schema33.properties.monthlyLimit,data:data166};
+const err595 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.type,parentSchema:schema27,data};
 if(vErrors === null){
-vErrors = [err594];
+vErrors = [err595];
 }
 else {
-vErrors.push(err594);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs184 = [];
-for(const err595 of vErrors){
-if(!err595.emUsed){
-emErrs184.push(err595);
-}
-}
-vErrors = emErrs184;
-errors = emErrs184.length;
-}
-}
-}
-else {
-const err596 = {instancePath:instancePath+"/quotas/untrusted",schemaPath:"#/definitions/RoleQuota/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema33.type,parentSchema:schema33,data:data164};
-if(vErrors === null){
-vErrors = [err596];
-}
-else {
-vErrors.push(err596);
-}
-errors++;
-}
-if(errors > 0){
-const emErrors41 = {"required":{"unlimited":[],"monthlyLimit":[]}};
-const templates41 = {required:{}};
-let emPropParams39;
-let emParamsErrors39;
-for(const err597 of vErrors){
-if((((((err597.keyword !== "errorMessage") && (!err597.emUsed)) && (err597.instancePath === instancePath+"/quotas/untrusted")) && (err597.keyword in emErrors41)) && (err597.schemaPath.indexOf("#/definitions/RoleQuota") === 0)) && (/^\/[^\/]*$/.test(err597.schemaPath.slice(23)))){
-emPropParams39 = obj0[err597.keyword];
-emParamsErrors39 = emErrors41[err597.keyword][err597.params[emPropParams39]];
-if(emParamsErrors39){
-emParamsErrors39.push(err597);
-err597.emUsed = true;
-}
-}
-}
-for(const key46 in emErrors41){
-for(const keyProp39 in emErrors41[key46]){
-emParamsErrors39 = emErrors41[key46][keyProp39];
-if(emParamsErrors39.length){
-const tmpl39 = templates41[key46] && templates41[key46][keyProp39];
-const err598 = {instancePath:instancePath+"/quotas/untrusted",schemaPath:"#/definitions/RoleQuota/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors39},message:tmpl39 ? tmpl39() : schema33.errorMessage[key46][keyProp39],schema:schema33.errorMessage,parentSchema:schema33,data:data164};
-if(vErrors === null){
-vErrors = [err598];
-}
-else {
-vErrors.push(err598);
-}
-errors++;
-}
-}
-}
-const emErrs185 = [];
-for(const err599 of vErrors){
-if(!err599.emUsed){
-emErrs185.push(err599);
-}
-}
-vErrors = emErrs185;
-errors = emErrs185.length;
-}
-if(errors > 0){
-const emErrors42 = {"required":{"unlimited":[],"monthlyLimit":[]}};
-const templates42 = {required:{}};
-let emPropParams40;
-let emParamsErrors40;
-for(const err600 of vErrors){
-if((((((err600.keyword !== "errorMessage") && (!err600.emUsed)) && (err600.instancePath === instancePath+"/quotas/untrusted")) && (err600.keyword in emErrors42)) && (err600.schemaPath.indexOf("#/properties/quotas/properties/untrusted") === 0)) && (/^\/[^\/]*$/.test(err600.schemaPath.slice(40)))){
-emPropParams40 = obj0[err600.keyword];
-emParamsErrors40 = emErrors42[err600.keyword][err600.params[emPropParams40]];
-if(emParamsErrors40){
-emParamsErrors40.push(err600);
-err600.emUsed = true;
-}
-}
-}
-for(const key47 in emErrors42){
-for(const keyProp40 in emErrors42[key47]){
-emParamsErrors40 = emErrors42[key47][keyProp40];
-if(emParamsErrors40.length){
-const tmpl40 = templates42[key47] && templates42[key47][keyProp40];
-const err601 = {instancePath:instancePath+"/quotas/untrusted",schemaPath:"#/properties/quotas/properties/untrusted/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors40},message:tmpl40 ? tmpl40() : schema27.properties.quotas.properties.untrusted.errorMessage[key47][keyProp40],schema:schema27.properties.quotas.properties.untrusted.errorMessage,parentSchema:schema27.properties.quotas.properties.untrusted,data:data164};
-if(vErrors === null){
-vErrors = [err601];
-}
-else {
-vErrors.push(err601);
-}
-errors++;
-}
-}
-}
-const emErrs186 = [];
-for(const err602 of vErrors){
-if(!err602.emUsed){
-emErrs186.push(err602);
-}
-}
-vErrors = emErrs186;
-errors = emErrs186.length;
-}
-}
-}
-else {
-const err603 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.quotas.type,parentSchema:schema27.properties.quotas,data:data145};
-if(vErrors === null){
-vErrors = [err603];
-}
-else {
-vErrors.push(err603);
-}
-errors++;
-}
-if(errors > 0){
-const emErrors43 = {"required":{"global":[],"admin":[],"contrib":[],"user":[],"external":[],"anonymous":[]}};
-const templates43 = {required:{}};
-let emPropParams41;
-let emParamsErrors41;
-for(const err604 of vErrors){
-if((((((err604.keyword !== "errorMessage") && (!err604.emUsed)) && (err604.instancePath === instancePath+"/quotas")) && (err604.keyword in emErrors43)) && (err604.schemaPath.indexOf("#/properties/quotas") === 0)) && (/^\/[^\/]*$/.test(err604.schemaPath.slice(19)))){
-emPropParams41 = obj0[err604.keyword];
-emParamsErrors41 = emErrors43[err604.keyword][err604.params[emPropParams41]];
-if(emParamsErrors41){
-emParamsErrors41.push(err604);
-err604.emUsed = true;
-}
-}
-}
-for(const key48 in emErrors43){
-for(const keyProp41 in emErrors43[key48]){
-emParamsErrors41 = emErrors43[key48][keyProp41];
-if(emParamsErrors41.length){
-const tmpl41 = templates43[key48] && templates43[key48][keyProp41];
-const err605 = {instancePath:instancePath+"/quotas",schemaPath:"#/properties/quotas/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors41},message:tmpl41 ? tmpl41() : schema27.properties.quotas.errorMessage[key48][keyProp41],schema:schema27.properties.quotas.errorMessage,parentSchema:schema27.properties.quotas,data:data145};
-if(vErrors === null){
-vErrors = [err605];
-}
-else {
-vErrors.push(err605);
-}
-errors++;
-}
-}
-}
-const emErrs187 = [];
-for(const err606 of vErrors){
-if(!err606.emUsed){
-emErrs187.push(err606);
-}
-}
-vErrors = emErrs187;
-errors = emErrs187.length;
-}
-}
-}
-else {
-const err607 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.type,parentSchema:schema27,data};
-if(vErrors === null){
-vErrors = [err607];
-}
-else {
-vErrors.push(err607);
+vErrors.push(err595);
 }
 errors++;
 }
@@ -12262,13 +12122,13 @@ const emErrors44 = {"required":{"providers":[]}};
 const templates44 = {required:{}};
 let emPropParams42;
 let emParamsErrors42;
-for(const err608 of vErrors){
-if((((((err608.keyword !== "errorMessage") && (!err608.emUsed)) && (err608.instancePath === instancePath)) && (err608.keyword in emErrors44)) && (err608.schemaPath.indexOf("#") === 0)) && (/^\/[^\/]*$/.test(err608.schemaPath.slice(1)))){
-emPropParams42 = obj0[err608.keyword];
-emParamsErrors42 = emErrors44[err608.keyword][err608.params[emPropParams42]];
+for(const err596 of vErrors){
+if((((((err596.keyword !== "errorMessage") && (!err596.emUsed)) && (err596.instancePath === instancePath)) && (err596.keyword in emErrors44)) && (err596.schemaPath.indexOf("#") === 0)) && (/^\/[^\/]*$/.test(err596.schemaPath.slice(1)))){
+emPropParams42 = obj0[err596.keyword];
+emParamsErrors42 = emErrors44[err596.keyword][err596.params[emPropParams42]];
 if(emParamsErrors42){
-emParamsErrors42.push(err608);
-err608.emUsed = true;
+emParamsErrors42.push(err596);
+err596.emUsed = true;
 }
 }
 }
@@ -12277,25 +12137,25 @@ for(const keyProp42 in emErrors44[key49]){
 emParamsErrors42 = emErrors44[key49][keyProp42];
 if(emParamsErrors42.length){
 const tmpl42 = templates44[key49] && templates44[key49][keyProp42];
-const err609 = {instancePath,schemaPath:"#/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors42},message:tmpl42 ? tmpl42() : schema27.errorMessage[key49][keyProp42],schema:schema27.errorMessage,parentSchema:schema27,data};
+const err597 = {instancePath,schemaPath:"#/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors42},message:tmpl42 ? tmpl42() : schema27.errorMessage[key49][keyProp42],schema:schema27.errorMessage,parentSchema:schema27,data};
 if(vErrors === null){
-vErrors = [err609];
+vErrors = [err597];
 }
 else {
-vErrors.push(err609);
+vErrors.push(err597);
 }
 errors++;
 }
 }
 }
-const emErrs188 = [];
-for(const err610 of vErrors){
-if(!err610.emUsed){
-emErrs188.push(err610);
+const emErrs184 = [];
+for(const err598 of vErrors){
+if(!err598.emUsed){
+emErrs184.push(err598);
 }
 }
-vErrors = emErrs188;
-errors = emErrs188.length;
+vErrors = emErrs184;
+errors = emErrs184.length;
 }
 validate23.errors = vErrors;
 return errors === 0;
@@ -13742,7 +13602,7 @@ const compiledLayout = {
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/contextWindow": {
-      title: "Context window override (tokens)",
+      title: "Context window (tokens)",
       key: "contextWindow",
       pointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/contextWindow",
       refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/contextWindow",
@@ -13810,7 +13670,6 @@ const compiledLayout = {
 
       propertyKeys: [
         "model",
-        "contextWindow",
         "inputPricePerMillion",
         "cachedInputPricePerMillion",
         "cacheWritePricePerMillion",
@@ -13823,7 +13682,6 @@ const compiledLayout = {
 
       children: [
         "https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/model",
-        "https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/contextWindow",
         "https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/inputPricePerMillion",
         "https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/cachedInputPricePerMillion",
         "https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/cacheWritePricePerMillion",
@@ -13864,18 +13722,6 @@ const compiledLayout = {
         "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/cachedInputPricePerMillion",
         "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/cacheWritePricePerMillion"
       ]
-    },
-
-    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/contextWindow": {
-      title: "Context window override (tokens)",
-      key: "contextWindow",
-      pointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/contextWindow",
-      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/contextWindow",
-      pure: true,
-      propertyKeys: [],
-      roPropertyKeys: [],
-      nullable: false,
-      required: undefined
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/inputPricePerMillion": {
@@ -13935,7 +13781,6 @@ const compiledLayout = {
 
       propertyKeys: [
         "model",
-        "contextWindow",
         "inputPricePerMillion",
         "cachedInputPricePerMillion",
         "cacheWritePricePerMillion",
@@ -13948,7 +13793,6 @@ const compiledLayout = {
 
       children: [
         "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/model",
-        "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/contextWindow",
         "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/inputPricePerMillion",
         "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/cachedInputPricePerMillion",
         "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/cacheWritePricePerMillion",
@@ -13989,18 +13833,6 @@ const compiledLayout = {
         "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/cachedInputPricePerMillion",
         "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/cacheWritePricePerMillion"
       ]
-    },
-
-    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/contextWindow": {
-      title: "Context window override (tokens)",
-      key: "contextWindow",
-      pointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/contextWindow",
-      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/contextWindow",
-      pure: true,
-      propertyKeys: [],
-      roPropertyKeys: [],
-      nullable: false,
-      required: undefined
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/inputPricePerMillion": {
@@ -14060,7 +13892,6 @@ const compiledLayout = {
 
       propertyKeys: [
         "model",
-        "contextWindow",
         "inputPricePerMillion",
         "cachedInputPricePerMillion",
         "cacheWritePricePerMillion",
@@ -14073,7 +13904,6 @@ const compiledLayout = {
 
       children: [
         "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/model",
-        "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/contextWindow",
         "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/inputPricePerMillion",
         "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/cachedInputPricePerMillion",
         "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/cacheWritePricePerMillion",
@@ -14114,18 +13944,6 @@ const compiledLayout = {
         "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/cachedInputPricePerMillion",
         "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/cacheWritePricePerMillion"
       ]
-    },
-
-    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/contextWindow": {
-      title: "Context window override (tokens)",
-      key: "contextWindow",
-      pointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/contextWindow",
-      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/contextWindow",
-      pure: true,
-      propertyKeys: [],
-      roPropertyKeys: [],
-      nullable: false,
-      required: undefined
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/inputPricePerMillion": {
@@ -14185,7 +14003,6 @@ const compiledLayout = {
 
       propertyKeys: [
         "model",
-        "contextWindow",
         "inputPricePerMillion",
         "cachedInputPricePerMillion",
         "cacheWritePricePerMillion",
@@ -14198,7 +14015,6 @@ const compiledLayout = {
 
       children: [
         "https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator/properties/model",
-        "https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator/properties/contextWindow",
         "https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator/properties/inputPricePerMillion",
         "https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator/properties/cachedInputPricePerMillion",
         "https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator/properties/cacheWritePricePerMillion",
@@ -14239,18 +14055,6 @@ const compiledLayout = {
         "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/cachedInputPricePerMillion",
         "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/cacheWritePricePerMillion"
       ]
-    },
-
-    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator/properties/contextWindow": {
-      title: "Context window override (tokens)",
-      key: "contextWindow",
-      pointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator/properties/contextWindow",
-      refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator/properties/contextWindow",
-      pure: true,
-      propertyKeys: [],
-      roPropertyKeys: [],
-      nullable: false,
-      required: undefined
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator/properties/inputPricePerMillion": {
@@ -15920,8 +15724,8 @@ const compiledLayout = {
     "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/contextWindow": {
       comp: "number-field",
       min: 0,
-      label: "Context window override (tokens)",
-      help: "<p>Leave empty to use the value reported by the provider, or 32000 when the provider reports none.</p>"
+      label: "Context window (tokens)",
+      help: "<p>Used to size history compaction. Leave empty to use the value reported by the provider; only OpenRouter reports one, so for other providers set it here or the conservative 32000 default applies.</p>"
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/inputPricePerMillion": {
@@ -15953,13 +15757,6 @@ const compiledLayout = {
 
       children: [{
         key: "model"
-      }, {
-        key: "contextWindow",
-
-        cols: {
-          xs: 12,
-          sm: 6
-        }
       }, {
         key: "inputPricePerMillion",
 
@@ -16041,13 +15838,6 @@ const compiledLayout = {
       label: "Model"
     },
 
-    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/contextWindow": {
-      comp: "number-field",
-      min: 0,
-      label: "Context window override (tokens)",
-      help: "<p>Leave empty to use the value reported by the provider, or 32000 when the provider reports none.</p>"
-    },
-
     "https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/inputPricePerMillion": {
       comp: "number-field",
       min: 0,
@@ -16077,13 +15867,6 @@ const compiledLayout = {
 
       children: [{
         key: "model"
-      }, {
-        key: "contextWindow",
-
-        cols: {
-          xs: 12,
-          sm: 6
-        }
       }, {
         key: "inputPricePerMillion",
 
@@ -16165,13 +15948,6 @@ const compiledLayout = {
       label: "Model"
     },
 
-    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/contextWindow": {
-      comp: "number-field",
-      min: 0,
-      label: "Context window override (tokens)",
-      help: "<p>Leave empty to use the value reported by the provider, or 32000 when the provider reports none.</p>"
-    },
-
     "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/inputPricePerMillion": {
       comp: "number-field",
       min: 0,
@@ -16201,13 +15977,6 @@ const compiledLayout = {
 
       children: [{
         key: "model"
-      }, {
-        key: "contextWindow",
-
-        cols: {
-          xs: 12,
-          sm: 6
-        }
       }, {
         key: "inputPricePerMillion",
 
@@ -16289,13 +16058,6 @@ const compiledLayout = {
       label: "Model"
     },
 
-    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/contextWindow": {
-      comp: "number-field",
-      min: 0,
-      label: "Context window override (tokens)",
-      help: "<p>Leave empty to use the value reported by the provider, or 32000 when the provider reports none.</p>"
-    },
-
     "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/inputPricePerMillion": {
       comp: "number-field",
       min: 0,
@@ -16325,13 +16087,6 @@ const compiledLayout = {
 
       children: [{
         key: "model"
-      }, {
-        key: "contextWindow",
-
-        cols: {
-          xs: 12,
-          sm: 6
-        }
       }, {
         key: "inputPricePerMillion",
 
@@ -16411,13 +16166,6 @@ const compiledLayout = {
       },
 
       label: "Model"
-    },
-
-    "https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator/properties/contextWindow": {
-      comp: "number-field",
-      min: 0,
-      label: "Context window override (tokens)",
-      help: "<p>Leave empty to use the value reported by the provider, or 32000 when the provider reports none.</p>"
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator/properties/inputPricePerMillion": {

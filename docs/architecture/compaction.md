@@ -14,10 +14,15 @@ budget = floor(contextWindow × compaction.percent / 100)
 
 - `compaction.percent` is an admin setting (`settings.compaction.percent`, default **70**).
   Higher means rarer compaction, better prompt-cache reuse, and more context kept.
-- `contextWindow` resolves in this order: a per-role override in settings, then the
-  context length snapshotted on the model when it was picked from the provider's
-  listing, then a conservative fallback of **32000** tokens
-  (`UNKNOWN_CONTEXT_WINDOW`) when neither is available.
+- `contextWindow` resolves in this order: the **assistant role's** `contextWindow`
+  field in settings, then the context length snapshotted on the model when it was
+  picked from the provider's listing, then a conservative fallback of **32000**
+  tokens (`UNKNOWN_CONTEXT_WINDOW`) when neither is available.
+- That field exists on the assistant role only, because the assistant is the sole
+  role whose history is compacted — `contextBudget()` is always resolved for
+  `'assistant'`. It is not merely an override: the snapshot on the model object is
+  `readOnly` and populated by the autocomplete, so for every provider that reports
+  no context length this field is the only way to supply one.
 - Only **OpenRouter** and the mock provider report a context length in their model
   listing today (`api/src/models/router.ts`, `fetchOpenRouterModels`). Every other
   provider — including **Ollama** — falls through to the override-or-32000 path:
