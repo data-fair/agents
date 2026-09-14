@@ -7,8 +7,8 @@
  * launched from this repo it would inherit the auto-memory index and know the
  * bugs the scenario exists to find (spec §1.2).
  */
-import { query } from '@anthropic-ai/claude-agent-sdk'
 import { createNeutralCwd, isolationOptions } from './isolation.ts'
+import { MISSING_SDK_MESSAGE, isMissingSdkError } from './missing-sdk.ts'
 import type { SimulationCase } from './types.ts'
 
 export const DONE = 'DONE'
@@ -74,6 +74,18 @@ export async function nextUserMessage (
   conversation: Array<{ role: string, text: string }>,
   turnsLeft: number
 ): Promise<string> {
+  // Loaded here, not at module top level, so importing the package barrel
+  // never requires the Agent SDK — it is an optional peer, and a consumer who
+  // only wants the harness primitives must not pay for it. This is the only
+  // place in the exported surface that reaches for it at runtime.
+  let query: (typeof import('@anthropic-ai/claude-agent-sdk'))['query']
+  try {
+    ({ query } = await import('@anthropic-ai/claude-agent-sdk'))
+  } catch (err) {
+    if (isMissingSdkError(err)) throw new Error(MISSING_SDK_MESSAGE)
+    throw err
+  }
+
   neutralCwd ??= createNeutralCwd()
   let text = ''
   for await (const msg of query({
