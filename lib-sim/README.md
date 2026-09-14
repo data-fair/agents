@@ -15,23 +15,31 @@ under test on a Claude subscription instead of a metered API key.
 npm i -D @data-fair/lib-agents-sim
 ```
 
-`@playwright/test` is a **peer dependency**: bring your own version, the
-harness primitives are built against its `Page` / `FrameLocator` types and run
-inside your own Playwright project.
+## Which half needs which peer
 
-## The bridge's optional peers
+Every peer is **optional**, because the package has two independent halves and
+few consumers want both. Install only what the half you use needs.
 
-The bridge (`df-agents-bridge`) needs two more packages that are **optional
-peers**, not regular dependencies, so that a consumer who only wants the
-harness primitives (`createChatDriver`, `captureGateway`, `selectCases`,
-`reportCases`, …) is not forced to install them:
+| You want | Install |
+| --- | --- |
+| The **harness** primitives (`createChatDriver`, `captureGateway`, `selectCases`, `reportCases`, `writeEvidence`, …) | `@playwright/test` |
+| The **bridge** (`df-agents-bridge`) | `@anthropic-ai/claude-agent-sdk` and `@modelcontextprotocol/sdk` |
 
 ```bash
+# harness only
+npm i -D @playwright/test
+# bridge only
 npm i -D @anthropic-ai/claude-agent-sdk @modelcontextprotocol/sdk
 ```
 
-Run `df-agents-bridge` without them and it exits with an actionable message
-instead of a raw `ERR_MODULE_NOT_FOUND`, naming this same install command.
+The harness primitives are built against Playwright's `Page` / `FrameLocator`
+types and run inside your own Playwright project, so bring your own version.
+The bridge needs nothing from Playwright, which is why a bridge-only consumer
+is not forced into a browser install.
+
+Run `df-agents-bridge` without the two SDKs and it exits with an actionable
+message instead of a raw `ERR_MODULE_NOT_FOUND`, naming the install command
+above.
 
 **zod warning.** If your tree also contains the `ai` package, installing the
 Agent SDK may hoist zod 4 and break `ai`'s type inference. Add
@@ -78,18 +86,35 @@ for (const simCase of selectCases(cases, [])) {
 
     const chat = createChatDriver(page.frameLocator('iframe'))
     const conversation: Array<{ role: string, text: string }> = []
+    let error: string | undefined
 
-    for (let i = 0; i < simCase.maxTurns; i++) {
-      const message = await nextUserMessage(simCase, conversation, simCase.maxTurns - i)
-      if (isDone(message)) break
-      await chat.sendMessage(message)
-      await chat.waitForTurn()
-      conversation.length = 0
-      conversation.push(...await chat.readConversation())
+    try {
+      for (let i = 0; i < simCase.maxTurns; i++) {
+        const message = await nextUserMessage(simCase, conversation, simCase.maxTurns - i)
+        if (isDone(message)) break
+        await chat.sendMessage(message)
+        await chat.waitForTurn()
+        // Read into a local FIRST, then replace: clearing up front means a throw
+        // from readConversation leaves the transcript empty, losing every prior
+        // turn — and an empty transcript is the one thing a judge cannot judge.
+        const read = await chat.readConversation()
+        conversation.length = 0
+        conversation.push(...read)
+      }
+    } catch (err) {
+      error = err instanceof Error ? err.message : String(err)
     }
 
     const transcript: Transcript = { case: simCase.name, goal: simCase.goal, persona: simCase.persona, route: simCase.route, conversation, gateway, consoleErrors: [] }
-    writeEvidence(simCase.name, transcript, { case: simCase.name, valid: true, assistantModel: 'sonnet', userModel: 'haiku', turns: conversation.length / 2, durationMs: 0, finishedAt: new Date().toISOString() })
+    // `valid` is derived, never hardcoded: the sidecar exists to tell a run that
+    // really happened apart from one that fell over, so that `reportCases` says
+    // "invalid (…)" instead of re-reporting the previous run's verdict.
+    writeEvidence(simCase.name, transcript, {
+      case: simCase.name, valid: !error, error,
+      assistantModel: 'sonnet', userModel: 'haiku',
+      turns: conversation.length / 2, durationMs: 0, finishedAt: new Date().toISOString()
+    })
+    if (error) throw new Error(`run invalid: ${error}`)
   })
 }
 ```
@@ -99,3 +124,42 @@ the copied `/simulate` skill), and turn the evidence directory into a pass/fail
 summary with `reportCases(cases, evidenceDir)` — the host repo's own report
 script decides where cases live and what to do with the failure count it
 returns.
+
+### Where the evidence goes
+
+`writeEvidence(name, transcript, sidecar, dir?)` writes `sim-<name>.json` (the
+transcript the judge reads) and `sim-<name>.run.json` (the validity sidecar).
+`dir` defaults to the exported `evidenceDir`, which is
+`path.join(process.cwd(), 'simulations', 'tmp')` — resolved against the host
+repo's working directory, so the default only makes sense if you run your suite
+from the repository root. Pass `dir` explicitly to put evidence anywhere else,
+and hand the same directory to `reportCases(cases, dir)` so the reader and the
+writer agree.
+
+## Scripts the copied `/simulate` skill expects
+
+`df-agents-sim-init` copies the skill **verbatim**, and the skill refers to npm
+scripts by the names the origin repository uses. It cannot know yours, so define
+these three in your `package.json` (adjust the paths to your layout):
+
+```json
+{
+  "scripts": {
+    "dev-bridge": "df-agents-bridge",
+    "simulate": "playwright test -c playwright.sim.config.ts --project=simulate",
+    "simulate:report": "node simulations/report.ts"
+  }
+}
+```
+
+- `dev-bridge` — starts the bridge the simulated user and the assistant both
+  talk to. Must be running before `simulate`.
+- `simulate` — runs your Playwright project containing the scenario specs. Keep
+  it out of your default `test` script: a bare `npm test` would otherwise spend
+  plan quota.
+- `simulate:report` — calls `reportCases(cases, evidenceDir)` and exits non-zero
+  on the failure count it returns.
+
+If you prefer different names, edit the copied
+`.claude/skills/simulate/SKILL.md` to match — but remember that a later
+`df-agents-sim-init --force` overwrites it.
