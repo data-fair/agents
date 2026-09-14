@@ -58,12 +58,18 @@ import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 
+// import.meta.env.BASE_URL carries the app's configured base path (e.g.
+// '/agents/') with a trailing slash: strip it before joining so we don't
+// produce a double slash, and don't drop it either (the dev server serves
+// these routes only under the base, not at the bare origin).
+const base = import.meta.env.BASE_URL.replace(/\/$/, '')
+
 const toolsIframeSrc = computed(() => {
-  return `${window.location.origin}/_dev/chat-iframe-tools`
+  return `${window.location.origin}${base}/_dev/chat-iframe-tools`
 })
 
 const chatIframeSrc = computed(() => {
-  return `${window.location.origin}/_dev/chat-iframe-child`
+  return `${window.location.origin}${base}/_dev/chat-iframe-child`
 })
 </script>
 
