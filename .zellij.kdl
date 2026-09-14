@@ -20,6 +20,12 @@ layout {
         command "bash"
         args "-ic" "nvm use > /dev/null 2>&1 && npm -w api run dev"
       }
+      // Optional: only needed to run the workspace on Claude Code subscription
+      // models, and for npm run simulate. Idle it costs nothing.
+      pane name="bridge" {
+        command "bash"
+        args "-ic" "nvm use > /dev/null 2>&1 && npm run dev-bridge"
+      }
     }
     pane size=2 borderless=true {
         command "bash"

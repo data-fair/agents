@@ -34,7 +34,8 @@ Use `tail -n 50 dev/logs/<file>` to see recent output, or `grep -i error dev/log
 
 `npm run dev-bridge` starts a local OpenAI-compatible server (default port 3194, override
 with `BRIDGE_PORT`) backed by your Claude Code subscription, so the dev workspace can run
-on real models without an API key. Logs go to `dev/logs/dev-bridge.log`. It is optional —
+on real models without an API key. It is part of the `npm run dev-zellij` layout, so a
+normal dev session already has it. Logs go to `dev/logs/dev-bridge.log`. It is optional —
 `dev/status.sh` reporting it DOWN is normal unless you use it.
 
 Configure it in the settings UI as an **OpenAI Compatible** provider with base URL
