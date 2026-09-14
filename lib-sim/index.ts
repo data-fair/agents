@@ -5,4 +5,4 @@ export { nextUserMessage, personaSystemPrompt, personaPrompt, isDone, DONE } fro
 export { writeEvidence, evidenceDir } from './transcript.ts'
 export { selectCases } from './cases.ts'
 export { reportCases } from './report.ts'
-export { sendMessage, waitForTurn, readConversation, TURN_TIMEOUT_MS } from './chat-driver.ts'
+export { createChatDriver, type ChatRoot, TURN_TIMEOUT_MS } from './chat-driver.ts'

@@ -8,7 +8,7 @@ import { test } from '../tests/fixtures/login.ts'
 import { cases } from './cases/index.ts'
 import { seedSettings, assertBridgeUp, OWNER } from './runner/settings.ts'
 import {
-  sendMessage, waitForTurn, readConversation,
+  createChatDriver,
   captureGateway,
   nextUserMessage, isDone,
   writeEvidence, type Transcript,
@@ -44,6 +44,7 @@ for (const simCase of selected) {
       // as anyone else would fail every case with "no provider configured".
       await goToWithAuth(simCase.route, OWNER.id)
       await page.getByPlaceholder('Type your message...').waitFor({ state: 'visible', timeout: 30000 })
+      const chat = createChatDriver(page)
 
       for (let i = 0; i < simCase.maxTurns; i++) {
         const message = await nextUserMessage(simCase, conversation, simCase.maxTurns - i)
@@ -56,11 +57,11 @@ for (const simCase of selected) {
           error = `simulated user returned no message (empty completion) on turn ${i + 1}`
           break
         }
-        await sendMessage(page, message)
-        await waitForTurn(page)
+        await chat.sendMessage(message)
+        await chat.waitForTurn()
         // Read first, then replace: clearing up front meant a throw from
         // readConversation left the transcript empty, losing every prior turn.
-        const read = await readConversation(page)
+        const read = await chat.readConversation()
         conversation.length = 0
         conversation.push(...read)
         // Counted only once the turn is actually reflected in the transcript,

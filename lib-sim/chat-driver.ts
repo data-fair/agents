@@ -1,42 +1,50 @@
 /**
  * Browser-side interaction with the agents chat.
  *
+ * The root is a Page when the chat IS the page (this repo's _dev pages) and a
+ * FrameLocator when it is embedded (data-fair, portals — lib-vuetify renders
+ * agents' own UI in an iframe, so the selectors are identical either way).
+ *
  * Turn completion is detected from the composer button, not from message text:
- * AgentChatInput renders a Stop button while `isStreaming` and a Send button
+ * AgentChatInput renders a Stop button while streaming and a Send button
  * otherwise. Waiting for text would end the turn at the first token of a
  * multi-step tool conversation.
  */
-import { expect, type Page } from '@playwright/test'
+import { expect, type Page, type FrameLocator } from '@playwright/test'
+
+export type ChatRoot = Page | FrameLocator
 
 const INPUT = 'Type your message...'
-// Above any turn the app itself considers alive: the app's watchdog is a 90s IDLE
-// timer that re-arms on every stream part, so a legitimate multi-step sub-agent
-// turn can run far longer than its wall-clock look. Four minutes recorded such
-// turns as invalid runs; the sim config allows 15 minutes per test, so 10 leaves
-// room for the sidecar to be written.
+
+// The app's own watchdog is a 90s IDLE timer that re-arms per stream part, so a
+// legitimate multi-step turn has no fixed ceiling on total time. This bounds the
+// harness generously rather than recording a slow-but-working turn as a failure.
 export const TURN_TIMEOUT_MS = 10 * 60 * 1000
 
-export async function sendMessage (page: Page, text: string) {
-  await page.getByPlaceholder(INPUT).fill(text)
-  await page.getByRole('button', { name: 'Send' }).click()
-}
+export function createChatDriver (root: ChatRoot) {
+  return {
+    async sendMessage (text: string) {
+      await root.getByPlaceholder(INPUT).fill(text)
+      await root.getByRole('button', { name: 'Send' }).click()
+    },
 
-export async function waitForTurn (page: Page, timeoutMs = TURN_TIMEOUT_MS) {
-  const stop = page.getByRole('button', { name: 'Stop' })
-  // The turn may already be finished by the time we look (a refusal, a cached
-  // answer), so a missing Stop button is not an error — only a Stop button that
-  // never goes away is.
-  await stop.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {})
-  await expect(stop).toHaveCount(0, { timeout: timeoutMs })
-}
+    async waitForTurn (timeoutMs = TURN_TIMEOUT_MS) {
+      const stop = root.getByRole('button', { name: 'Stop' })
+      // The turn may already be finished by the time we look, so a missing Stop
+      // button is not an error — only one that never goes away is.
+      await stop.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {})
+      await expect(stop).toHaveCount(0, { timeout: timeoutMs })
+    },
 
-export async function readConversation (page: Page) {
-  return await page.evaluate(() => {
-    const out: Array<{ role: 'user' | 'assistant', text: string }> = []
-    for (const el of document.querySelectorAll('.agent-chat__user-bubble, .assistant-content')) {
-      const role = el.classList.contains('agent-chat__user-bubble') ? 'user' as const : 'assistant' as const
-      out.push({ role, text: (el.textContent ?? '').trim() })
+    async readConversation () {
+      // evaluateAll, not page.evaluate: FrameLocator has no evaluate, and this
+      // runs in the right frame's context either way while preserving document order.
+      return await root.locator('.agent-chat__user-bubble, .assistant-content').evaluateAll(els =>
+        els.map(el => ({
+          role: el.classList.contains('agent-chat__user-bubble') ? 'user' as const : 'assistant' as const,
+          text: (el.textContent ?? '').trim()
+        }))
+      )
     }
-    return out
-  })
+  }
 }
