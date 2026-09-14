@@ -5,6 +5,6 @@ export { nextUserMessage, personaSystemPrompt, personaPrompt, isDone, DONE, PERS
 export { writeEvidence, evidenceDir } from './transcript.ts'
 export { selectCases } from './cases.ts'
 export { reportCases } from './report.ts'
-export { createChatDriver, chatDriverStrings, type ChatRoot, type ChatDriverLocale, TURN_TIMEOUT_MS } from './chat-driver.ts'
-export { createPagePerception, truncate, SNAPSHOT_CAP, MCP_SERVER_NAME as PAGE_MCP_SERVER_NAME } from './page-perception.ts'
+export { createChatDriver, chatDriverStrings, type ChatRoot, type ChatDriverLocale, TURN_TIMEOUT_MS, SEND_TIMEOUT_MS } from './chat-driver.ts'
+export { createPagePerception, truncate, SNAPSHOT_CAP, ACTION_TIMEOUT_MS, MCP_SERVER_NAME as PAGE_MCP_SERVER_NAME } from './page-perception.ts'
 export type { PerceptionRoot, Observation, PagePerception } from './page-perception.ts'

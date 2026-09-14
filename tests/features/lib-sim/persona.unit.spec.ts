@@ -2,7 +2,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { readdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { personaSystemPrompt, personaPrompt, DONE, isDone, PERSONA_MAX_TURNS, nextUserMessage, type PersonaQuery } from '../../../lib-sim/persona.ts'
+import { personaSystemPrompt, personaPrompt, DONE, isDone, nextUserMessage, type PersonaQuery } from '../../../lib-sim/persona.ts'
 import type { PagePerception } from '../../../lib-sim/page-perception.ts'
 import { cases } from '../../../simulations/cases/index.ts'
 
@@ -48,8 +48,17 @@ test.describe('persona prompting', () => {
     assert.equal(personaSystemPrompt(cases[0], false), personaSystemPrompt(cases[0]))
   })
 
-  test('the turn budget is documented where the number lives', () => {
-    assert.equal(PERSONA_MAX_TURNS, 6)
+  test('with perception but no offLimits, the prompt does not promise a composer refusal', () => {
+    // createPagePerception(roots) with no offLimits refuses nothing — a prompt
+    // claiming otherwise sends the persona straight at the composer, which then
+    // double-sends its message. See lib-sim/README.md, "Give the persona eyes".
+    const p = personaSystemPrompt(cases[0], true, false)
+    assert.ok(!/refuse you/i.test(p), 'no offLimits configured, so no refusal is real')
+  })
+
+  test('with perception and offLimits, the prompt promises the composer refusal', () => {
+    const p = personaSystemPrompt(cases[0], true, true)
+    assert.ok(/refuse you/i.test(p))
   })
 
   test('importing the module has no side effects (no temp dir created at import time)', async () => {
@@ -81,7 +90,8 @@ test.describe('nextUserMessage MCP wiring', () => {
     observations: [],
     setTurn: () => {},
     toolNames: ['look', 'click', 'type'],
-    call: async () => ''
+    call: async () => '',
+    offLimits: []
   }
 
   async function * fakeReply (text: string) {
@@ -117,6 +127,18 @@ test.describe('nextUserMessage MCP wiring', () => {
 
     assert.equal(options.mcpServers, undefined)
     assert.equal(options.allowedTools, undefined)
+  })
+
+  test('the system prompt promises the composer refusal only when offLimits is non-empty', async () => {
+    const { query, captured } = captureOptions()
+    await nextUserMessage(c, [], 5, { perception: { ...fakePerception, offLimits: ['Send'] }, query })
+    assert.ok(/refuse you/i.test(captured().systemPrompt))
+  })
+
+  test('the system prompt does not promise a composer refusal when offLimits is empty', async () => {
+    const { query, captured } = captureOptions()
+    await nextUserMessage(c, [], 5, { perception: fakePerception, query })
+    assert.ok(!/refuse you/i.test(captured().systemPrompt))
   })
 })
 

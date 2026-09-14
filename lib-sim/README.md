@@ -73,10 +73,17 @@ session's locale. Pass the locale your application runs in — `createChatDriver
 { locale: 'fr' })` — or the run dies as a 15-minute "element not found" with
 nothing pointing at the cause. The default is `'en'`.
 
+**Send recovery.** `sendMessage` bounds its fill/click at `SEND_TIMEOUT_MS`
+(15s) rather than waiting indefinitely. If the first attempt fails — typically
+an overlay left open over the composer — it presses Escape (the ordinary way a
+person dismisses something in their way) and retries once before throwing. It
+never passes `{ force: true }`: punching through an overlay a real user could
+not reach would report a success a person could never have had.
+
 ```ts
 import { test } from '@playwright/test'
 import {
-  createChatDriver, captureGateway, nextUserMessage, isDone,
+  createChatDriver, chatDriverStrings, captureGateway, nextUserMessage, isDone,
   writeEvidence, selectCases, createPagePerception, type Transcript, type SimulationCase
 } from '@data-fair/lib-agents-sim'
 
@@ -89,11 +96,19 @@ for (const simCase of selectCases(cases, [])) {
     const gateway = captureGateway(page)
     await page.goto(simCase.route)
 
-    const chat = createChatDriver(page.frameLocator('iframe'))
+    const locale = 'en' as const
+    const strings = chatDriverStrings(locale)
+    const chat = createChatDriver(page.frameLocator('iframe'), { locale })
     const conversation: Array<{ role: string, text: string }> = []
     // Lets the persona look at, click and type into the real page instead of
     // guessing at what is on screen — see "Give the persona eyes" below.
-    const perception = createPagePerception([{ label: 'page', root: page }])
+    // offLimits is not optional in practice: without it the persona can (and
+    // will) click into the composer and press Send itself, double-sending its
+    // message on top of the runner's own send below.
+    const perception = createPagePerception(
+      [{ label: 'page', root: page }],
+      { offLimits: [strings.input, strings.send, strings.stop, strings.reset] }
+    )
     let error: string | undefined
 
     try {
@@ -136,17 +151,32 @@ returns.
 
 ### Give the persona eyes
 
-`createPagePerception(roots)` gives the simulated user a `look`/`click`/`type`
-MCP tool set over the real Playwright page(s), so it can check what is actually
-on screen instead of guessing. Pass one root per visible surface — a chat
-embedded in an iframe has both the host page and the frame:
+`createPagePerception(roots, opts?)` gives the simulated user a
+`look`/`click`/`type` MCP tool set over the real Playwright page(s), so it can
+check what is actually on screen instead of guessing. Pass one root per
+visible surface — a chat embedded in an iframe has both the host page and the
+frame:
 
 ```ts
-const perception = createPagePerception([
-  { label: 'page', root: page },
-  { label: 'chat panel', root: page.frameLocator('iframe') }
-])
+const perception = createPagePerception(
+  [
+    { label: 'page', root: page },
+    { label: 'chat panel', root: page.frameLocator('iframe') }
+  ],
+  { offLimits: [strings.input, strings.send, strings.stop, strings.reset] }
+)
 ```
+
+**Pass `offLimits`.** It is the second argument's only option, and it is not
+optional in practice: it is the list of accessible names — typically the
+composer's input, send, stop and reset controls, from `chatDriverStrings` — that
+`click`/`type` refuse before even looking the element up. The persona's system
+prompt is told *"the composer will refuse you"* only when this list is
+non-empty (an empty or omitted `offLimits` refuses nothing, silently). Without
+it, the persona can and will type its own message into the composer and press
+Send itself — double-sending on top of the runner's own `chat.sendMessage`
+below, and usually invalidating the run. A `reset` control is worth including
+too: a mid-run click erases the transcript the run exists to produce.
 
 Before each turn, tell it which turn is starting — this stamps every
 observation the persona records during that turn — then pass it through
@@ -170,6 +200,14 @@ and the copied version now includes the instruction to check visual claims
 against `observations`. If you already ran `df-agents-sim-init` before this
 was added, re-run `npx df-agents-sim-init --force` to pick it up — otherwise
 your judge keeps trusting unverified visual claims.
+
+**Breaking change in 0.3.0.** `Transcript.observations` is a required field,
+not an optional one — deliberately: an optional field would let a host wire up
+`perception` and forget to add `observations` to its transcript object, and
+ship runs that look valid while the judge sees no evidence at all. Upgrading
+from 0.2.0 means adding `observations: perception?.observations ?? []` (or
+`[]` where perception is not used) to the transcript you build; a TypeScript
+compile error will name the field for you.
 
 ### Where the evidence goes
 

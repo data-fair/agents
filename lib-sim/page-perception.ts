@@ -10,7 +10,10 @@
  *
  * The handlers run in-process against the runner's live Playwright roots, so
  * there is one browser and one page. Every call is recorded as an observation,
- * because a judge cannot otherwise tell a real complaint from an invented one.
+ * because a judge cannot otherwise tell a real complaint from an invented one —
+ * including a failed one: `look`/`click`/`type` are all bounded by
+ * `ACTION_TIMEOUT_MS`, so a stuck element is caught and recorded rather than
+ * hanging the case with no evidence ever written.
  *
  * `click` and `type` also accept an `offLimits` list of names (e.g. the chat
  * composer's own input/send/stop): a request naming one is refused, structurally,
@@ -20,11 +23,22 @@
  */
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js'
+import type { ChatRoot } from './chat-driver.ts'
 
 export const MCP_SERVER_NAME = 'page'
 export const SNAPSHOT_CAP = 4000
 
-export type PerceptionRoot = { label: string, root: any }
+// Bounds every Playwright call the persona itself makes (look/click/type).
+// Without this, an element Playwright calls visible/enabled/stable but stuck
+// outside the viewport — the exact case a live run hit — waits with no ceiling
+// of its own, wedging the case until the test runner's 15-minute timeout kills
+// it with no diagnosis. 15s mirrors chat-driver.ts's SEND_TIMEOUT_MS: a person
+// does not wait minutes for something to become clickable, and a timeout here
+// must surface through the existing try/catch as a recorded observation
+// instead of an unrecorded hang.
+export const ACTION_TIMEOUT_MS = 15000
+
+export type PerceptionRoot = { label: string, root: ChatRoot }
 export type Observation = { turn: number, tool: string, args: unknown, result: string }
 
 export type PagePerception = {
@@ -33,6 +47,13 @@ export type PagePerception = {
   setTurn: (turn: number) => void
   toolNames: string[]
   call: (tool: string, args: Record<string, unknown>) => Promise<string>
+  /**
+   * The names passed as `opts.offLimits`, verbatim (empty when none were).
+   * `persona.ts` reads this to decide whether the composer-refusal sentence in
+   * its system prompt is a true statement — with no offLimits, nothing refuses
+   * anything, so the prompt must not claim otherwise.
+   */
+  offLimits: string[]
 }
 
 export function truncate (text: string): string {
@@ -73,12 +94,16 @@ export function createPagePerception (roots: PerceptionRoot[], opts: { offLimits
     const parts: string[] = []
     for (const { label, root } of roots) {
       let snap = ''
-      try { snap = await root.locator('body').ariaSnapshot() } catch (err) {
+      try { snap = await root.locator('body').ariaSnapshot({ timeout: ACTION_TIMEOUT_MS }) } catch (err) {
         snap = `(could not read: ${err instanceof Error ? err.message : String(err)})`
       }
-      parts.push(`## ${label}\n${snap}`)
+      // Capped per root, not on the joined result: otherwise a large first
+      // root can consume the whole budget and a second root (e.g. an embedded
+      // `## chat panel`) disappears from the log entirely, with no marker
+      // hinting it was ever there.
+      parts.push(truncate(`## ${label}\n${snap}`))
     }
-    return truncate(parts.join('\n\n'))
+    return parts.join('\n\n')
   }
 
   const firstMatch = async (finders: Array<() => any>) => {
@@ -101,7 +126,7 @@ export function createPagePerception (roots: PerceptionRoot[], opts: { offLimits
       ])
       if (loc) {
         try {
-          await loc.click()
+          await loc.click({ timeout: ACTION_TIMEOUT_MS })
           return `clicked "${name}"`
         } catch (err) {
           return `could not click "${name}": ${err instanceof Error ? err.message : String(err)}`
@@ -120,7 +145,7 @@ export function createPagePerception (roots: PerceptionRoot[], opts: { offLimits
       ])
       if (loc) {
         try {
-          await loc.fill(text)
+          await loc.fill(text, { timeout: ACTION_TIMEOUT_MS })
           return `typed into "${name}"`
         } catch (err) {
           return `could not type into "${name}": ${err instanceof Error ? err.message : String(err)}`
@@ -151,6 +176,7 @@ export function createPagePerception (roots: PerceptionRoot[], opts: { offLimits
     observations,
     setTurn: (n: number) => { turn = n },
     toolNames: TOOLS.map(t => t.name),
-    call
+    call,
+    offLimits: opts.offLimits ?? []
   }
 }

@@ -7,7 +7,7 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { createPagePerception, truncate, SNAPSHOT_CAP, MCP_SERVER_NAME } from '../../../lib-sim/page-perception.ts'
+import { createPagePerception, truncate, SNAPSHOT_CAP, ACTION_TIMEOUT_MS, MCP_SERVER_NAME } from '../../../lib-sim/page-perception.ts'
 
 const fakeRoot = (snapshot: string, log: string[] = []) => ({
   locator: (sel: string) => ({ ariaSnapshot: async () => snapshot, click: async () => { log.push('click ' + sel) }, fill: async (t: string) => { log.push('fill ' + t) } }),
@@ -63,6 +63,22 @@ test.describe('observations', () => {
     assert.ok(out.includes('Host'))
     assert.ok(out.includes('Send'))
     assert.ok(out.includes('chat frame'), 'each root is labelled so the persona knows what it is looking at')
+  })
+
+  test('the cap applies per root, not to the joined result, so a large first root cannot crowd out a second', async () => {
+    // On a large host page the first root alone can exceed SNAPSHOT_CAP; a cap
+    // on the joined string would then truncate the second root (e.g. an
+    // embedded `## chat panel`) away entirely, with no marker hinting it was
+    // ever there.
+    const long = 'x'.repeat(SNAPSHOT_CAP + 500)
+    const p = createPagePerception([
+      { label: 'page', root: fakeRoot(long) as any },
+      { label: 'chat panel', root: fakeRoot('- button "Send"') as any }
+    ])
+    const out = await p.call('look', {})
+    assert.ok(out.includes('…[truncated]'), 'the oversized first root is marked as cut')
+    assert.ok(out.includes('## chat panel'), 'the second root is not crowded out')
+    assert.ok(out.includes('button "Send"'), 'the second root is fully present')
   })
 
   test('look continues when one root fails, marking it unreadable', async () => {
@@ -132,6 +148,70 @@ test.describe('observations', () => {
     assert.ok(out.includes('attached'), 'the failure reason is included')
     assert.equal(p.observations.length, 1)
     assert.equal(p.observations[0].tool, 'type')
+    assert.equal(p.observations[0].result, out)
+  })
+})
+
+test.describe('action timeouts', () => {
+  // The design's own failure mode: an element Playwright calls stable-but-
+  // unreachable hung a real run for 15 minutes because none of these three
+  // calls had a timeout. These tests check the option is actually passed, not
+  // just that the constant exists — a call that quietly omits `timeout` would
+  // pass every other test here and still hang for real.
+
+  test('look passes ACTION_TIMEOUT_MS to ariaSnapshot', async () => {
+    let seenOpts: any
+    const root = { locator: () => ({ ariaSnapshot: async (opts: any) => { seenOpts = opts; return 'ok' } }) }
+    const p = createPagePerception([{ label: 'page', root: root as any }])
+    await p.call('look', {})
+    assert.deepEqual(seenOpts, { timeout: ACTION_TIMEOUT_MS })
+  })
+
+  test('click passes ACTION_TIMEOUT_MS to the element click', async () => {
+    let seenOpts: any
+    const root = {
+      locator: () => ({ ariaSnapshot: async () => '' }),
+      getByRole: () => ({ first: () => ({ count: async () => 1, click: async (opts: any) => { seenOpts = opts } }) }),
+      getByText: () => ({ first: () => ({ count: async () => 0 }) })
+    }
+    const p = createPagePerception([{ label: 'page', root: root as any }])
+    await p.call('click', { name: 'Send' })
+    assert.deepEqual(seenOpts, { timeout: ACTION_TIMEOUT_MS })
+  })
+
+  test('type passes ACTION_TIMEOUT_MS to the element fill', async () => {
+    let seenOpts: any
+    const root = {
+      locator: () => ({ ariaSnapshot: async () => '' }),
+      getByRole: () => ({ first: () => ({ count: async () => 1, fill: async (_t: string, opts: any) => { seenOpts = opts } }) }),
+      getByLabel: () => ({ first: () => ({ count: async () => 0 }) })
+    }
+    const p = createPagePerception([{ label: 'page', root: root as any }])
+    await p.call('type', { name: 'Search', text: 'query' })
+    assert.deepEqual(seenOpts, { timeout: ACTION_TIMEOUT_MS })
+  })
+
+  test('a timed-out click is recorded as an observation, not thrown', async () => {
+    // Playwright reports an actionability timeout as a rejected promise whose
+    // message names the timeout — this is what a real ACTION_TIMEOUT_MS trip
+    // looks like from the caller's side.
+    const root = {
+      locator: () => ({ ariaSnapshot: async () => '' }),
+      getByRole: () => ({
+        first: () => ({
+          count: async () => 1,
+          click: async () => { throw new Error(`locator.click: Timeout ${ACTION_TIMEOUT_MS}ms exceeded.`) }
+        })
+      }),
+      getByText: () => ({ first: () => ({ count: async () => 0 }) })
+    }
+    const p = createPagePerception([{ label: 'page', root: root as any }])
+    // The call resolves — it does not reject — which is the point: a hang or a
+    // throw here would never reach writeEvidence, leaving stale evidence on
+    // disk to be mistaken for this run's result.
+    const out = await p.call('click', { name: 'Send' })
+    assert.match(out, /Timeout/)
+    assert.equal(p.observations.length, 1)
     assert.equal(p.observations[0].result, out)
   })
 })
@@ -207,5 +287,11 @@ test.describe('off-limits names', () => {
     const out = await p.call('click', { name: 'Send' })
     assert.equal(out, 'clicked "Send"')
     assert.ok(calls.length > 0, 'with no offLimits list, click looks the element up as before')
+  })
+
+  test('offLimits is exposed so the persona prompt can tell whether a refusal is real', () => {
+    const { root } = spyRoot()
+    assert.deepEqual(createPagePerception([{ label: 'page', root: root as any }]).offLimits, [])
+    assert.deepEqual(createPagePerception([{ label: 'page', root: root as any }], { offLimits: ['Send'] }).offLimits, ['Send'])
   })
 })

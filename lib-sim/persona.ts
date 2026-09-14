@@ -25,8 +25,13 @@ export const PERSONA_MAX_TURNS = 6
 
 export const PERCEPTION_INSTRUCTIONS = `You can look at the screen yourself with the look tool, and you can click and type
 on the page. Before you say anything about what is or is not on the screen, look.
-Never claim you cannot see something you have not looked for.
-The message box and its Send button will refuse you if you try to click or type into
+Never claim you cannot see something you have not looked for.`
+
+// Appended only when the caller actually configured createPagePerception's
+// offLimits — otherwise nothing refuses the composer and this sentence would be
+// a promise the harness does not keep (the persona types its message in itself,
+// double-sending). See lib-sim/README.md, "Give the persona eyes".
+const COMPOSER_OFF_LIMITS_INSTRUCTIONS = `The message box and its Send button will refuse you if you try to click or type into
 them — that part of the page is not yours to operate. To talk to the assistant, just
 reply with your message; the runner types and sends it for you.`
 
@@ -53,7 +58,7 @@ export function isDone (message: string): boolean {
   return normalized === DONE
 }
 
-export function personaSystemPrompt (c: SimulationCase, perceptionEnabled = false): string {
+export function personaSystemPrompt (c: SimulationCase, perceptionEnabled = false, offLimitsActive = false): string {
   const lines = [
     c.persona,
     '',
@@ -70,6 +75,7 @@ export function personaSystemPrompt (c: SimulationCase, perceptionEnabled = fals
   ]
   if (perceptionEnabled) {
     lines.push('', PERCEPTION_INSTRUCTIONS)
+    if (offLimitsActive) lines.push('', COMPOSER_OFF_LIMITS_INSTRUCTIONS)
   }
   return lines.join('\n')
 }
@@ -126,7 +132,7 @@ export async function nextUserMessage (
     options: {
       ...isolationOptions(neutralCwd),
       model: process.env.SIM_USER_MODEL ?? 'haiku',
-      systemPrompt: personaSystemPrompt(c, !!opts?.perception),
+      systemPrompt: personaSystemPrompt(c, !!opts?.perception, !!opts?.perception?.offLimits.length),
       // Unconditional: a caller with no perception registers no mcpServers, so
       // the persona has no tool to call and the loop still ends after the one
       // assistant turn a blind persona always took — the higher cap only ever
