@@ -1,5 +1,5 @@
 export type { SimulationCase, Transcript, RunSidecar } from './types.ts'
-export { createNeutralCwd, scrubEnv, isolationOptions } from './isolation.ts'
+export { createNeutralCwd, scrubEnv, isolationOptions, type Env } from './isolation.ts'
 export { captureGateway, summariseRequest, type GatewayExchange } from './gateway-capture.ts'
 export { nextUserMessage, personaSystemPrompt, personaPrompt, isDone, DONE } from './persona.ts'
 export { writeEvidence, evidenceDir } from './transcript.ts'
