@@ -2,7 +2,8 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { readdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { personaSystemPrompt, personaPrompt, DONE, isDone, PERSONA_MAX_TURNS } from '../../../lib-sim/persona.ts'
+import { personaSystemPrompt, personaPrompt, DONE, isDone, PERSONA_MAX_TURNS, nextUserMessage, type PersonaQuery } from '../../../lib-sim/persona.ts'
+import type { PagePerception } from '../../../lib-sim/page-perception.ts'
 import { cases } from '../../../simulations/cases/index.ts'
 
 const c = cases[0]
@@ -69,6 +70,53 @@ test.describe('persona prompting', () => {
       'The unit suite imports this module, so any import-time side effect would leak a directory per test run. ' +
       'Use lazy initialization: neutralCwd ??= createNeutralCwd() inside nextUserMessage().'
     )
+  })
+})
+
+test.describe('nextUserMessage MCP wiring', () => {
+  // A minimal fake of what createPagePerception(...) returns — only the shape
+  // nextUserMessage actually reads.
+  const fakePerception: PagePerception = {
+    server: { type: 'sdk', name: 'page', instance: {}, alwaysLoad: true },
+    observations: [],
+    setTurn: () => {},
+    toolNames: ['look', 'click', 'type'],
+    call: async () => ''
+  }
+
+  async function * fakeReply (text: string) {
+    yield { type: 'assistant', message: { content: [{ type: 'text', text }] } } as any
+  }
+
+  function captureOptions (): { query: PersonaQuery, captured: () => any } {
+    let captured: any
+    const query: PersonaQuery = ((args: any) => {
+      captured = args.options
+      return fakeReply('ok')
+    }) as unknown as PersonaQuery
+    return { query, captured: () => captured }
+  }
+
+  test('wires mcpServers, allowedTools, maxTurns and isolation when perception is given', async () => {
+    const { query, captured } = captureOptions()
+    await nextUserMessage(c, [], 5, { perception: fakePerception, query })
+    const options = captured()
+
+    assert.deepEqual(Object.keys(options.mcpServers), ['page'])
+    assert.deepEqual(options.allowedTools, ['mcp__page__look', 'mcp__page__click', 'mcp__page__type'])
+    assert.equal(options.maxTurns, 6)
+    assert.deepEqual(options.tools, [])
+    assert.deepEqual(options.settingSources, [])
+    assert.equal(options.strictMcpConfig, true)
+  })
+
+  test('without perception there is no mcp wiring', async () => {
+    const { query, captured } = captureOptions()
+    await nextUserMessage(c, [], 5, { query })
+    const options = captured()
+
+    assert.equal(options.mcpServers, undefined)
+    assert.equal(options.allowedTools, undefined)
   })
 })
 

@@ -12,6 +12,7 @@ import { MISSING_SDK_MESSAGE, isMissingSdkError } from './missing-sdk.ts'
 import type { SimulationCase } from './types.ts'
 import type { PagePerception } from './page-perception.ts'
 import { MCP_SERVER_NAME } from './page-perception.ts'
+import type { McpServerConfig } from '@anthropic-ai/claude-agent-sdk'
 
 export const DONE = 'DONE'
 let neutralCwd: string | undefined
@@ -71,6 +72,14 @@ export function personaSystemPrompt (c: SimulationCase, perceptionEnabled = fals
   return lines.join('\n')
 }
 
+/**
+ * The SDK's `query`, narrowed to what the persona uses. Injectable (mirrors
+ * `BridgeQuery` in bridge/server.ts) so a test can observe the options actually
+ * handed over — including the perception wiring — without a network call or a
+ * live model.
+ */
+export type PersonaQuery = (typeof import('@anthropic-ai/claude-agent-sdk'))['query']
+
 export function personaPrompt (conversation: Array<{ role: string, text: string }>, turnsLeft: number): string {
   if (conversation.length === 0) return 'Write your first message to the assistant.'
   const transcript = conversation.map(m => `${m.role === 'user' ? 'you' : 'assistant'}: ${m.text}`).join('\n\n')
@@ -90,36 +99,47 @@ export async function nextUserMessage (
   c: SimulationCase,
   conversation: Array<{ role: string, text: string }>,
   turnsLeft: number,
-  opts?: { perception?: PagePerception }
+  opts?: { perception?: PagePerception, query?: PersonaQuery }
 ): Promise<string> {
-  // Loaded here, not at module top level, so importing the package barrel
-  // never requires the Agent SDK — it is an optional peer, and a consumer who
-  // only wants the harness primitives must not pay for it. This is the only
-  // place in the exported surface that reaches for it at runtime.
-  let query: (typeof import('@anthropic-ai/claude-agent-sdk'))['query']
-  try {
-    ({ query } = await import('@anthropic-ai/claude-agent-sdk'))
-  } catch (err) {
-    if (isMissingSdkError(err)) throw new Error(MISSING_SDK_MESSAGE)
-    throw err
+  let runQuery: PersonaQuery
+  if (opts?.query) {
+    runQuery = opts.query
+  } else {
+    // Loaded here, not at module top level, so importing the package barrel
+    // never requires the Agent SDK — it is an optional peer, and a consumer who
+    // only wants the harness primitives must not pay for it. This is the only
+    // place in the exported surface that reaches for it at runtime.
+    try {
+      ({ query: runQuery } = await import('@anthropic-ai/claude-agent-sdk'))
+    } catch (err) {
+      if (isMissingSdkError(err)) throw new Error(MISSING_SDK_MESSAGE)
+      throw err
+    }
   }
 
   neutralCwd ??= createNeutralCwd()
   let text = ''
-  for await (const msg of query({
+  for await (const msg of runQuery({
     prompt: personaPrompt(conversation, turnsLeft),
     options: {
       ...isolationOptions(neutralCwd),
       model: process.env.SIM_USER_MODEL ?? 'haiku',
       systemPrompt: personaSystemPrompt(c, !!opts?.perception),
+      // Unconditional: a caller with no perception registers no mcpServers, so
+      // the persona has no tool to call and the loop still ends after the one
+      // assistant turn a blind persona always took — the higher cap only ever
+      // matters once look/click/type are actually wired in below.
       maxTurns: PERSONA_MAX_TURNS,
       ...(opts?.perception
         ? {
-            // The perception server's `instance` is typed `unknown` in page-perception.ts
-            // (it stays an MCP SDK Server without pulling the Agent SDK's own MCP types
-            // into that module's public surface), so the Agent SDK's stricter
-            // McpSdkServerConfigWithInstance shape needs a cast here at the boundary.
-            mcpServers: { [MCP_SERVER_NAME]: opts.perception.server as any },
+            // page-perception.ts deliberately builds the LOW-LEVEL MCP `Server`
+            // (server/index.js), not the high-level `McpServer` helper the SDK's
+            // `McpServerConfig` type expects — the low-level API accepts raw JSON
+            // Schema for tool inputs, while `McpServer` demands Zod (the same
+            // choice bridge/tool-server.ts makes, cast at the same boundary in
+            // bridge/server.ts). The two classes are structurally unrelated, so
+            // no tighter typing of `instance` would remove this cast.
+            mcpServers: { [MCP_SERVER_NAME]: opts.perception.server as unknown as McpServerConfig },
             allowedTools: opts.perception.toolNames.map(n => `mcp__${MCP_SERVER_NAME}__${n}`)
           }
         : {})
