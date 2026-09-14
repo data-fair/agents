@@ -39,7 +39,13 @@ const HOST = '127.0.0.1'
 
 // One neutral cwd for the process: the isolation guarantee only needs it to be
 // outside any project, and re-creating it per request would litter /tmp.
-const NEUTRAL_CWD = createNeutralCwd()
+// Created lazily, on first use, not at module load: importing this module
+// (e.g. from a test) must not have the side effect of creating a temp dir.
+let neutralCwd: string | undefined
+function getNeutralCwd (): string {
+  neutralCwd ??= createNeutralCwd()
+  return neutralCwd
+}
 
 type CompletionRequest = {
   model?: string
@@ -93,7 +99,7 @@ export function createServer (opts: { port: number, query?: BridgeQuery }) {
     }
     if (req.method === 'GET' && req.url === '/_bridge/status') {
       res.writeHead(200, { 'content-type': 'application/json' })
-      res.end(JSON.stringify({ liveSessions: store.size, cwd: NEUTRAL_CWD }))
+      res.end(JSON.stringify({ liveSessions: store.size, cwd: getNeutralCwd() }))
       return
     }
     if (req.method === 'POST' && req.url === '/v1/chat/completions') {
@@ -193,7 +199,7 @@ async function handleCompletion (
   const iterator = runQuery({
     prompt: renderTranscript(messages),
     options: {
-      ...isolationOptions(NEUTRAL_CWD),
+      ...isolationOptions(getNeutralCwd()),
       model,
       systemPrompt: extractSystemPrompt(messages),
       // The tool server deliberately holds the LOW-LEVEL MCP `Server` (see
