@@ -12,7 +12,8 @@ import {
   captureGateway,
   nextUserMessage, isDone,
   writeEvidence, type Transcript,
-  selectCases
+  selectCases,
+  createPagePerception
 } from '@data-fair/lib-agents-sim'
 import { clean } from '../tests/support/axios.ts'
 
@@ -31,6 +32,7 @@ for (const simCase of selected) {
     const gateway = captureGateway(page)
 
     const conversation: Array<{ role: string, text: string }> = []
+    let perception: ReturnType<typeof createPagePerception> | undefined
     try {
       // Setup lives inside the try too: a case that fails to dispatch (bridge
       // down, seeding rejected) must still write an invalid sidecar naming the
@@ -47,8 +49,17 @@ for (const simCase of selected) {
       const chat = createChatDriver(root)
       await root.getByPlaceholder('Type your message...').waitFor({ state: 'visible', timeout: 30000 })
 
+      // A person sees the whole viewport, not one frame: when the chat is embedded,
+      // the persona looks at both the host page and the frame.
+      perception = createPagePerception(
+        simCase.embedded
+          ? [{ label: 'page', root: page }, { label: 'chat panel', root: page.frameLocator('iframe') }]
+          : [{ label: 'page', root: page }]
+      )
+
       for (let i = 0; i < simCase.maxTurns; i++) {
-        const message = await nextUserMessage(simCase, conversation, simCase.maxTurns - i)
+        perception.setTurn(i + 1)
+        const message = await nextUserMessage(simCase, conversation, simCase.maxTurns - i, { perception })
         if (isDone(message)) break
         if (message === '') {
           // Distinct from a real stop: the persona subprocess produced no text
@@ -81,7 +92,8 @@ for (const simCase of selected) {
       route: simCase.route,
       conversation,
       gateway,
-      consoleErrors
+      consoleErrors,
+      observations: perception?.observations ?? []
     }
     writeEvidence(simCase.name, transcript, {
       case: simCase.name,

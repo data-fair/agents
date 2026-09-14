@@ -3,6 +3,7 @@
  */
 
 import type { GatewayExchange } from './gateway-capture.ts'
+import type { Observation } from './page-perception.ts'
 
 export type SimulationCase = {
   /** Evidence files are named after this; keep it filesystem-safe. */
@@ -24,6 +25,7 @@ export type Transcript = {
   conversation: Array<{ role: string, text: string }>
   gateway: GatewayExchange[]
   consoleErrors: string[]
+  observations: Observation[]
 }
 
 export type RunSidecar = {
