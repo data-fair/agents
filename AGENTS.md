@@ -76,9 +76,10 @@ In case of failures you might find error contexts in @test-results.
 
 ### Workspace packages must be built before running tests
 
-This project has workspace packages (`lib-vue/`, `lib-vuetify/`) whose compiled `.js` files are gitignored. They must be built before e2e tests can work:
+This project has workspace packages (`lib-vue/`, `lib-vuetify/`, `lib-sim/`) whose compiled `.js` files are gitignored. They must be built before e2e tests can work:
 - `cd lib-vuetify && npm run build`
 - `cd lib-vue && npm run build`
+- `cd lib-sim && npm run build`
 
 If e2e tests fail with "element(s) not found", check that these packages are built before investigating further.
 

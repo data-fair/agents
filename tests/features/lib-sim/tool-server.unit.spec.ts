@@ -4,8 +4,8 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { listToolsFor, createToolServer, TOOL_TIMEOUT_MS } from '../../../dev/claude-bridge/tool-server.ts'
-import type { OpenAIToolDef } from '../../../dev/claude-bridge/openai.ts'
+import { listToolsFor, createToolServer, TOOL_TIMEOUT_MS } from '../../../lib-sim/bridge/tool-server.ts'
+import type { OpenAIToolDef } from '../../../lib-sim/bridge/openai.ts'
 
 const TOOLS: OpenAIToolDef[] = [{
   type: 'function',

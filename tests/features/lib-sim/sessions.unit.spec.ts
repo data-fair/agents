@@ -6,9 +6,9 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { hashMessages, continuationOf, sameToolSet, SessionStore, type LiveSession } from '../../../dev/claude-bridge/sessions.ts'
-import { Conversation } from '../../../dev/claude-bridge/conversation.ts'
-import type { OpenAIMessage } from '../../../dev/claude-bridge/openai.ts'
+import { hashMessages, continuationOf, sameToolSet, SessionStore, type LiveSession } from '../../../lib-sim/bridge/sessions.ts'
+import { Conversation } from '../../../lib-sim/bridge/conversation.ts'
+import type { OpenAIMessage } from '../../../lib-sim/bridge/openai.ts'
 
 const opening: OpenAIMessage[] = [
   { role: 'system', content: 'be brief' },

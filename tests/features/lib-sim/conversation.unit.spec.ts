@@ -8,7 +8,7 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { Conversation, ABORTED_TOOL_RESULT, type SdkMessage } from '../../../dev/claude-bridge/conversation.ts'
+import { Conversation, ABORTED_TOOL_RESULT, type SdkMessage } from '../../../lib-sim/bridge/conversation.ts'
 
 /** A stream that yields what it is given, then stays open like the SDK does while a tool is pending. */
 function openStream (messages: SdkMessage[], hold: Promise<void>): AsyncIterable<SdkMessage> {

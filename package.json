@@ -12,7 +12,7 @@
     "lint-fix": "eslint --fix . && npm -w ui run lint-fix",
     "dev-api": "npm -w api run dev",
     "dev-ui": "npm -w ui run dev",
-    "dev-bridge": "mkdir -p dev/logs && node dev/claude-bridge/index.ts 2>&1 | tee dev/logs/dev-bridge.log",
+    "dev-bridge": "mkdir -p dev/logs && node lib-sim/bridge/index.ts 2>&1 | tee dev/logs/dev-bridge.log",
     "simulate": "playwright test -c playwright.sim.config.ts --project=simulate",
     "simulate:report": "node simulations/report.ts",
     "dev-deps": "mkdir -p dev/logs && docker compose up 2>&1 | tee dev/logs/docker-compose.log",

@@ -6,7 +6,7 @@
 import http from 'node:http'
 import crypto from 'node:crypto'
 import { query, type McpServerConfig } from '@anthropic-ai/claude-agent-sdk'
-import { createNeutralCwd, isolationOptions } from './isolation.ts'
+import { createNeutralCwd, isolationOptions } from '../isolation.ts'
 import { createToolServer, TOOL_TIMEOUT_MS } from './tool-server.ts'
 import { SessionStore, continuationOf, hashMessages, sameToolSet } from './sessions.ts'
 import { Conversation, type TurnOutcome, type SdkMessage } from './conversation.ts'

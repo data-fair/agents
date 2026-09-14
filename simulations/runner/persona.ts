@@ -8,7 +8,7 @@
  * bugs the scenario exists to find (spec §1.2).
  */
 import { query } from '@anthropic-ai/claude-agent-sdk'
-import { createNeutralCwd, isolationOptions } from '../../dev/claude-bridge/isolation.ts'
+import { createNeutralCwd, isolationOptions } from '../../lib-sim/isolation.ts'
 import type { SimulationCase } from '../cases/index.ts'
 
 export const DONE = 'DONE'

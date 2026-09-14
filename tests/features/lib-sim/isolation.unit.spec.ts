@@ -6,7 +6,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import os from 'node:os'
 import fs from 'node:fs'
-import { createNeutralCwd, scrubEnv, isolationOptions } from '../../../dev/claude-bridge/isolation.ts'
+import { createNeutralCwd, scrubEnv, isolationOptions } from '../../../lib-sim/isolation.ts'
 
 // Every directory this file creates, removed afterwards: the suite otherwise left
 // two bridge-* dirs in the temp dir per run — the very leak persona.unit.spec.ts

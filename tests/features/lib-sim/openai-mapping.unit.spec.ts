@@ -7,8 +7,8 @@ import assert from 'node:assert/strict'
 import {
   toolNameToMcp, mcpNameToTool, extractSystemPrompt, renderTranscript,
   textChunk, toolCallsChunk, finalChunk, mapUsage, errorBody
-} from '../../../dev/claude-bridge/openai.ts'
-import type { OpenAIMessage } from '../../../dev/claude-bridge/openai.ts'
+} from '../../../lib-sim/bridge/openai.ts'
+import type { OpenAIMessage } from '../../../lib-sim/bridge/openai.ts'
 
 test.describe('tool name mapping', () => {
   test('round-trips through the mcp prefix', () => {
