@@ -20,15 +20,23 @@ export function createNeutralCwd (): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'bridge-'))
 }
 
-export function scrubEnv (env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  const scrubbed: NodeJS.ProcessEnv = { ...env }
+/**
+ * Spelled structurally rather than as `NodeJS.ProcessEnv`, which would make
+ * `@types/node` an undeclared type dependency of this package: a consumer
+ * without it hits `TS2503: Cannot find namespace 'NodeJS'` on this .d.ts.
+ * `process.env` satisfies it, so nothing is lost at the call sites.
+ */
+export type Env = Record<string, string | undefined>
+
+export function scrubEnv (env: Env): Env {
+  const scrubbed: Env = { ...env }
   for (const key of Object.keys(scrubbed)) {
     if (key.startsWith('CLAUDE_CODE_')) delete scrubbed[key]
   }
   return scrubbed
 }
 
-export function isolationOptions (cwd: string, env: NodeJS.ProcessEnv = process.env) {
+export function isolationOptions (cwd: string, env: Env = process.env) {
   return {
     cwd,
     env: scrubEnv(env),
