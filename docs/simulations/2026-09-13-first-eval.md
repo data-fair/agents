@@ -58,6 +58,26 @@ This half is the more serious one. Every tool call succeeded; no unit or e2e tes
 in this repo can catch it. What failed was the assistant's account of what had
 happened.
 
+> **Correction, 2026-09-14.** Half of the paragraph above did not happen. The
+> simulated user of this run could not see the page at all — it received only the
+> chat transcript — so "the person went looking, found nothing" was never observed,
+> and neither was her giving up on finding the form. That was the persona inventing
+> a complaint it had been instructed to make ("if a reply does not actually show you
+> the result, say so") with no way to check. A later run with a persona that *can*
+> look found the form correctly filled — `textbox "Name": Marie Dupont`,
+> `textbox "Age": "34"`, `checkbox "Active" [checked]` — and was satisfied in one
+> turn. See `2026-09-14-perception-run.md`.
+>
+> What survives unchanged is the first half, and it is the part that mattered: the
+> assistant wrote "the form is now fully filled in and showing on screen" while its
+> tool result confirmed only a write. That claim is real, is in the transcript, and
+> is still a product defect.
+>
+> The original text below is left as written. It is a record of what was believed at
+> the time, and of the fact that a harness can manufacture the failures it claims to
+> detect — a risk this document named three sections further down while being caught
+> by it.
+
 ## What is *not* a product finding
 
 Roughly half of `air-quality`'s friction is the dev page, not the product, and
