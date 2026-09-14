@@ -18,17 +18,11 @@ const fakeRoot = (snapshot: string, log: string[] = []) => ({
 
 test.describe('the tool set', () => {
   test('exposes exactly look, click and type', () => {
+    // This is the guard on the design's core exclusion. Any new tool must be a
+    // deliberate edit here, and evaluate/raw-selector/DOM access must never be
+    // added. This exact assertion already catches any addition or rename.
     const p = createPagePerception([{ label: 'page', root: fakeRoot('- button "Send"') as any }])
     assert.deepEqual(p.toolNames.sort(), ['click', 'look', 'type'])
-  })
-
-  test('exposes no escape hatch that a person would not have', () => {
-    // Guard on the design's core exclusion. If someone adds `evaluate`, a raw
-    // selector tool, or DOM access as a convenience, this must fail.
-    const p = createPagePerception([{ label: 'page', root: fakeRoot('') as any }])
-    for (const banned of ['evaluate', 'eval', 'query', 'querySelector', 'selector', 'dom', 'html', 'script']) {
-      assert.ok(!p.toolNames.some(n => n.toLowerCase().includes(banned)), `tool set must not expose "${banned}"`)
-    }
   })
 
   test('names the mcp server so allowedTools can be derived', () => {
@@ -71,6 +65,23 @@ test.describe('observations', () => {
     assert.ok(out.includes('chat frame'), 'each root is labelled so the persona knows what it is looking at')
   })
 
+  test('look continues when one root fails, marking it unreadable', async () => {
+    // A detached frame is a realistic failure. one root's snapshot fails, but
+    // the persona still sees the other.
+    const failingRoot = {
+      locator: () => ({ ariaSnapshot: async () => { throw new Error('frame detached') } })
+    }
+    const p = createPagePerception([
+      { label: 'broken', root: failingRoot as any },
+      { label: 'working', root: fakeRoot('- button "Continue"') as any }
+    ])
+    const out = await p.call('look', {})
+    assert.ok(out.includes('could not read'), 'the persona is told the first root is unreadable')
+    assert.ok(out.includes('frame detached'), 'the error message explains why')
+    assert.ok(out.includes('Continue'), 'the working root is still visible')
+    assert.ok(out.includes('working'), 'the working root is labelled')
+  })
+
   test('a failed action is recorded, not thrown, so the persona can react', async () => {
     const empty = {
       ...fakeRoot(''),
@@ -81,5 +92,46 @@ test.describe('observations', () => {
     const out = await p.call('click', { name: 'Nothing' })
     assert.ok(/not find|no element/i.test(out), 'the persona is told it could not click, in words it can act on')
     assert.equal(p.observations.at(-1)?.tool, 'click')
+  })
+
+  test('click records actionability failures as observations, not exceptions', async () => {
+    // The element is found (count: 1) but clicking fails (actionability timeout,
+    // overlay, etc). This must be recorded and returned as a message, not thrown.
+    const clickFails = {
+      ...fakeRoot(''),
+      getByRole: () => ({
+        first: () => ({
+          count: async () => 1,
+          click: async () => { throw new Error('element is covered by another') }
+        })
+      })
+    }
+    const p = createPagePerception([{ label: 'page', root: clickFails as any }])
+    const out = await p.call('click', { name: 'Send' })
+    assert.ok(/could not click.*Send/i.test(out), 'failure is returned as a message')
+    assert.ok(out.includes('covered'), 'the failure reason is included')
+    assert.equal(p.observations.length, 1)
+    assert.equal(p.observations[0].tool, 'click')
+    assert.equal(p.observations[0].result, out)
+  })
+
+  test('type records fill failures as observations, not exceptions', async () => {
+    // Similar to click: element found but fill fails (detached, covered, etc).
+    const fillFails = {
+      ...fakeRoot(''),
+      getByRole: () => ({
+        first: () => ({
+          count: async () => 1,
+          fill: async () => { throw new Error('element is no longer attached to the DOM') }
+        })
+      })
+    }
+    const p = createPagePerception([{ label: 'page', root: fillFails as any }])
+    const out = await p.call('type', { name: 'Search', text: 'query' })
+    assert.ok(/could not type.*Search/i.test(out), 'failure is returned as a message')
+    assert.ok(out.includes('attached'), 'the failure reason is included')
+    assert.equal(p.observations.length, 1)
+    assert.equal(p.observations[0].tool, 'type')
+    assert.equal(p.observations[0].result, out)
   })
 })

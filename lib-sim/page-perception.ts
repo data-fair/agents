@@ -84,7 +84,14 @@ export function createPagePerception (roots: PerceptionRoot[]): PagePerception {
         () => root.getByRole('link', { name }).first(),
         () => root.getByText(name).first()
       ])
-      if (loc) { await loc.click(); return `clicked "${name}"` }
+      if (loc) {
+        try {
+          await loc.click()
+          return `clicked "${name}"`
+        } catch (err) {
+          return `could not click "${name}": ${err instanceof Error ? err.message : String(err)}`
+        }
+      }
     }
     return `could not find anything called "${name}" to click`
   }
@@ -95,7 +102,14 @@ export function createPagePerception (roots: PerceptionRoot[]): PagePerception {
         () => root.getByRole('textbox', { name }).first(),
         () => root.getByLabel(name).first()
       ])
-      if (loc) { await loc.fill(text); return `typed into "${name}"` }
+      if (loc) {
+        try {
+          await loc.fill(text)
+          return `typed into "${name}"`
+        } catch (err) {
+          return `could not type into "${name}": ${err instanceof Error ? err.message : String(err)}`
+        }
+      }
     }
     return `could not find a field called "${name}"`
   }
