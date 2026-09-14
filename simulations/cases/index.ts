@@ -10,7 +10,12 @@
 
 import type { SimulationCase } from '@data-fair/lib-agents-sim'
 
-export const cases: SimulationCase[] = [
+// The package's SimulationCase stays primitives-only; embedded is host-specific
+// wiring (whether the chat runs inside an iframe) that only this repo's runner
+// needs to know about.
+export type LocalCase = SimulationCase & { embedded?: boolean }
+
+export const cases: LocalCase[] = [
   {
     name: 'air-quality',
     route: '/agents/_dev/chat-subagent',
@@ -31,5 +36,13 @@ export const cases: SimulationCase[] = [
     persona: 'You are a product manager poking at an internal tool. You are impatient, you describe outcomes rather than steps, and if something does not visibly happen you say so.',
     goal: 'You want some text of your choosing displayed in the panel on the page. The panel starts closed, so it has to be opened before anything can be shown there.',
     maxTurns: 6
+  },
+  {
+    name: 'iframe-set-data',
+    route: '/agents/_dev/chat-iframe',
+    persona: 'You are an office worker who has been given a link to an internal tool and told it can fill things in for you. You have no idea how it works underneath and no interest in finding out. You say what you want in plain words and you expect to see it happen.',
+    goal: 'You want the text "Hello from the iframe" put into the data box on the page. You want to see it actually appear there, not just be told it was done.',
+    maxTurns: 5,
+    embedded: true
   }
 ]

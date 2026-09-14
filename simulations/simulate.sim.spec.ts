@@ -43,8 +43,9 @@ for (const simCase of selected) {
       // OWNER, not a literal: seedSettings configures that account, and logging in
       // as anyone else would fail every case with "no provider configured".
       await goToWithAuth(simCase.route, OWNER.id)
-      await page.getByPlaceholder('Type your message...').waitFor({ state: 'visible', timeout: 30000 })
-      const chat = createChatDriver(page)
+      const root = simCase.embedded ? page.frameLocator('iframe') : page
+      const chat = createChatDriver(root)
+      await root.getByPlaceholder('Type your message...').waitFor({ state: 'visible', timeout: 30000 })
 
       for (let i = 0; i < simCase.maxTurns; i++) {
         const message = await nextUserMessage(simCase, conversation, simCase.maxTurns - i)
