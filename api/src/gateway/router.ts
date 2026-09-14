@@ -190,7 +190,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
     const consented = req.get('x-trace-consent') === 'yes'
     const shouldStoreTrace = storeTraces && consented
 
-    const { modelConfig, inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion, cacheWritePricePerMillion } = getModelConfig(settings, modelId)
+    const { modelConfig, inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion } = getModelConfig(settings, modelId)
     const model = resolveModelForRole(settings, modelId)
     // Downstream debug logging (client→gateway OpenAI exchange), scoped per provider
     // so it can be restricted to one provider: DEBUG=agents:downstream:<type>:<id>.
@@ -220,7 +220,6 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
         inputPricePerMillion,
         outputPricePerMillion,
         cachedInputPricePerMillion,
-        cacheWritePricePerMillion,
         timing: { durationMs: Date.now() - traceStart, ...(timeToFirstChunkMs != null ? { timeToFirstChunkMs } : {}) },
         ...(moderation?.traceInfo() ? { moderation: moderation.traceInfo() } : {}),
         ...(traceFlags ? { flags: traceFlags } : {})
@@ -375,7 +374,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
             noCacheTokens: details?.noCacheTokens,
             cacheReadTokens: details?.cacheReadTokens,
             cacheWriteTokens: details?.cacheWriteTokens
-          }, { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion, cacheWritePricePerMillion })
+          }, { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion })
           if (cost > 0) await recordUsage(owner, cost, usageUserId, usageUserName, poolId)
           sseWrite(`data: ${JSON.stringify({ id: completionId, object: 'chat.completion.chunk', created, model: modelId, choices: [{ index: 0, delta: {}, finish_reason: mapFinishReason(gen.finishReason as FinishReason) }], usage: buildUsage(gen.usage) })}\n\n`)
           const recordFinishTrace = () => recordTrace(
@@ -465,7 +464,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
                 noCacheTokens: details?.noCacheTokens,
                 cacheReadTokens: details?.cacheReadTokens,
                 cacheWriteTokens: details?.cacheWriteTokens
-              }, { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion, cacheWritePricePerMillion })
+              }, { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion })
               if (cost > 0) {
                 await recordUsage(owner, cost, usageUserId, usageUserName, poolId)
               }
@@ -582,7 +581,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
         noCacheTokens: details?.noCacheTokens,
         cacheReadTokens: details?.cacheReadTokens,
         cacheWriteTokens: details?.cacheWriteTokens
-      }, { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion, cacheWritePricePerMillion })
+      }, { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion })
       if (cost > 0) {
         await recordUsage(owner, cost, usageUserId, usageUserName, poolId)
       }

@@ -154,19 +154,16 @@ test.describe('context window resolution', () => {
     // fallback must land on the input price, not on 0.
     const c = getModelConfig(settingsWith({ model: mockModel, inputPricePerMillion: 5 }), 'assistant')
     assert.equal(c.cachedInputPricePerMillion, 5)
-    assert.equal(c.cacheWritePricePerMillion, 5)
   })
 
   test('cache prices default to 0 only when the input price is also unset', () => {
     const c = getModelConfig(settingsWith({ model: mockModel }), 'assistant')
     assert.equal(c.cachedInputPricePerMillion, 0)
-    assert.equal(c.cacheWritePricePerMillion, 0)
   })
 
   test('cache prices fall back to the model snapshot, and the role overrides it', () => {
-    const snap = { ...mockModel, cachedInputPricePerMillion: 0.3, cacheWritePricePerMillion: 3.75 }
+    const snap = { ...mockModel, cachedInputPricePerMillion: 0.3 }
     assert.equal(getModelConfig(settingsWith({ model: snap }), 'assistant').cachedInputPricePerMillion, 0.3)
-    assert.equal(getModelConfig(settingsWith({ model: snap }), 'assistant').cacheWritePricePerMillion, 3.75)
     const overridden = settingsWith({ model: snap, cachedInputPricePerMillion: 0.1 })
     assert.equal(getModelConfig(overridden, 'assistant').cachedInputPricePerMillion, 0.1)
   })

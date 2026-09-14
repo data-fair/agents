@@ -122,7 +122,6 @@ export function getModelConfig (settings: Settings, modelRole: ModelRole) {
     // input price instead, which is what this codebase billed before the split
     // was introduced.
     cachedInputPricePerMillion: source.cachedInputPricePerMillion ?? source.model.cachedInputPricePerMillion ?? (source.inputPricePerMillion ?? 0),
-    cacheWritePricePerMillion: source.cacheWritePricePerMillion ?? source.model.cacheWritePricePerMillion ?? (source.inputPricePerMillion ?? 0),
     // Only the assistant role carries a hand-entered window: it is the sole role
     // whose history is compacted, so contextBudget() is always resolved for
     // 'assistant'. Every other role has just the listing snapshot. A 0 means

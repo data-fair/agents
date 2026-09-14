@@ -85,7 +85,7 @@ test.describe('traces operations (unit)', () => {
     assert.deepEqual(doc.cost, { input: 0, output: 0, total: 0 })
   })
 
-  test('buildTraceRequestDoc bills cache reads/writes at their own price, not the plain input price', () => {
+  test('buildTraceRequestDoc bills cache reads at the cached price, not the plain input price', () => {
     // Regression for the missed cost site: inputTokens is the TOTAL including cache
     // reads, so before routing this through computeCost, a cached turn showed a
     // trace input cost higher than what was actually billed.
@@ -105,11 +105,11 @@ test.describe('traces operations (unit)', () => {
       timing: { durationMs: 10 },
       inputPricePerMillion: 3,
       outputPricePerMillion: 6,
-      cachedInputPricePerMillion: 0.3,
-      cacheWritePricePerMillion: 3.75
+      cachedInputPricePerMillion: 0.3
     }, now)
-    // noCache = 1M - 900k - 100k = 0, so input cost is purely cache read + cache write
-    const expectedInput = (900_000 * 0.3 / 1_000_000) + (100_000 * 3.75 / 1_000_000)
+    // noCache = 1M - 900k - 100k = 0, so input cost is purely cache read + cache write.
+    // Writes have no separate tariff and bill at the plain input price.
+    const expectedInput = (900_000 * 0.3 / 1_000_000) + (100_000 * 3 / 1_000_000)
     assert.deepEqual(doc.cost, { input: expectedInput, output: 0, total: expectedInput })
   })
 })

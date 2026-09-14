@@ -61,7 +61,6 @@ export interface BuildTraceInput {
   inputPricePerMillion: number
   outputPricePerMillion: number
   cachedInputPricePerMillion?: number
-  cacheWritePricePerMillion?: number
   timing: { durationMs: number, timeToFirstChunkMs?: number }
   moderation?: TraceModeration
   flags?: TraceFlags
@@ -80,7 +79,7 @@ export function buildTraceRequestDoc (input: BuildTraceInput, now: Date): TraceR
   // (inputTokens - cacheReadTokens - cacheWriteTokens).
   const inputCost = computeCost(
     { inputTokens: input.usage.inputTokens, outputTokens: 0, cacheReadTokens: input.usage.cacheReadTokens, cacheWriteTokens: input.usage.cacheWriteTokens },
-    { inputPricePerMillion: input.inputPricePerMillion, outputPricePerMillion: 0, cachedInputPricePerMillion: input.cachedInputPricePerMillion, cacheWritePricePerMillion: input.cacheWritePricePerMillion }
+    { inputPricePerMillion: input.inputPricePerMillion, outputPricePerMillion: 0, cachedInputPricePerMillion: input.cachedInputPricePerMillion }
   )
   const outputCost = input.usage.outputTokens * input.outputPricePerMillion / 1_000_000
   const cost = { input: inputCost, output: outputCost, total: inputCost + outputCost }

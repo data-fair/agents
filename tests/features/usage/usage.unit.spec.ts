@@ -106,8 +106,7 @@ test.describe('computeCost with cache tokens', () => {
   const prices = {
     inputPricePerMillion: 3,
     outputPricePerMillion: 15,
-    cachedInputPricePerMillion: 0.3,
-    cacheWritePricePerMillion: 3.75
+    cachedInputPricePerMillion: 0.3
   }
 
   test('no cache details → whole input billed at input price', () => {
@@ -133,12 +132,24 @@ test.describe('computeCost with cache tokens', () => {
     assert.equal(cost, 0.3 + 0.27)
   })
 
-  test('cache writes are billed at the write price', () => {
+  test('cache writes are billed at the input price, never free', () => {
+    // There is no separate write tariff to configure. Both @ai-sdk/anthropic and
+    // @ai-sdk/openai exclude cacheWrite from noCache, so dropping the term would
+    // make write tokens cost nothing — this asserts they do not.
     const cost = computeCost(
       { inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 0, cacheWriteTokens: 1_000_000 },
       prices
     )
-    assert.equal(cost, 3.75)
+    assert.equal(cost, 3)
+  })
+
+  test('cache writes are added to the non-cached portion, not substituted for it', () => {
+    const cost = computeCost(
+      { inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 400_000, cacheReadTokens: 200_000, cacheWriteTokens: 400_000 },
+      prices
+    )
+    // (400k + 400k) * 3/1M + 200k * 0.3/1M
+    assert.equal(cost, 2.4 + 0.06)
   })
 
   test('subtraction fallback never goes negative', () => {
@@ -167,13 +178,12 @@ test.describe('computeCost with cache tokens', () => {
         }
       }
     }
-    const { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion, cacheWritePricePerMillion } = getModelConfig(settings, 'assistant')
+    const { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion } = getModelConfig(settings, 'assistant')
     assert.equal(cachedInputPricePerMillion, 3)
-    assert.equal(cacheWritePricePerMillion, 3)
 
     const cost = computeCost(
       { inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 0, cacheReadTokens: 1_000_000 },
-      { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion, cacheWritePricePerMillion }
+      { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion }
     )
     assert.equal(cost, 3)
   })

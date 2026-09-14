@@ -191,6 +191,11 @@ Each of the five role objects (`assistant`, `tools`, `summarizer`, `evaluator`,
 
 - `contextWindow` — override; empty means "use what the provider reported".
 - `cachedInputPricePerMillion` — default 0.
+- ~~`cacheWritePricePerMillion`~~ — **removed after implementation** (2026-09-14).
+  It was inert: nothing sets `cache_control`, so no provider reports write tokens.
+  Cache-write tokens are billed at the plain input price instead of being dropped,
+  since both `@ai-sdk/anthropic` and `@ai-sdk/openai` exclude them from `noCache`.
+  Re-add the tariff when breakpoints land. Original rationale below.
 - `cacheWritePricePerMillion` — default 0. Anthropic charges **1.25×** for cache
   writes, so omitting this under-bills. Inert until breakpoints land, but
   included now to avoid reopening the schema later.

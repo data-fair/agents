@@ -80,32 +80,23 @@ export type ContextWindow = number;
  */
 export type CachedInputPricePer1MTokens = number;
 /**
- * Reported by the provider when the model was selected.
- */
-export type CacheWritePricePer1MTokens = number;
-/**
  * Used to size history compaction. Leave empty to use the value reported by the provider; only OpenRouter reports one, so for other providers set it here or the conservative 32000 default applies.
  */
 export type ContextWindowTokens = number;
 export type InputPricePer1MTokens = number;
 export type CachedInputPricePer1MTokens1 = number;
-export type CacheWritePricePer1MTokens1 = number;
 export type OutputPricePer1MTokens = number;
 export type InputPricePer1MTokens1 = number;
 export type CachedInputPricePer1MTokens2 = number;
-export type CacheWritePricePer1MTokens2 = number;
 export type OutputPricePer1MTokens1 = number;
 export type InputPricePer1MTokens2 = number;
 export type CachedInputPricePer1MTokens3 = number;
-export type CacheWritePricePer1MTokens3 = number;
 export type OutputPricePer1MTokens2 = number;
 export type InputPricePer1MTokens3 = number;
 export type CachedInputPricePer1MTokens4 = number;
-export type CacheWritePricePer1MTokens4 = number;
 export type OutputPricePer1MTokens3 = number;
 export type InputPricePer1MTokens4 = number;
 export type CachedInputPricePer1MTokens5 = number;
-export type CacheWritePricePer1MTokens5 = number;
 export type OutputPricePer1MTokens4 = number;
 /**
  * When enabled, the last user message of each request from a moderated category is classified before the model responds.
@@ -249,7 +240,6 @@ export type Assistant = {
   contextWindow?: ContextWindowTokens;
   inputPricePerMillion?: InputPricePer1MTokens;
   cachedInputPricePerMillion?: CachedInputPricePer1MTokens1;
-  cacheWritePricePerMillion?: CacheWritePricePer1MTokens1;
   outputPricePerMillion?: OutputPricePer1MTokens;
   [k: string]: unknown;
 }
@@ -264,7 +254,6 @@ export type Model = {
   };
   contextWindow?: ContextWindow;
   cachedInputPricePerMillion?: CachedInputPricePer1MTokens;
-  cacheWritePricePerMillion?: CacheWritePricePer1MTokens;
   [k: string]: unknown;
 }
 /**
@@ -277,7 +266,6 @@ export type Tools = {
   model?: Model1;
   inputPricePerMillion?: InputPricePer1MTokens1;
   cachedInputPricePerMillion?: CachedInputPricePer1MTokens2;
-  cacheWritePricePerMillion?: CacheWritePricePer1MTokens2;
   outputPricePerMillion?: OutputPricePer1MTokens1;
   [k: string]: unknown;
 }
@@ -292,7 +280,6 @@ export type Model1 = {
   };
   contextWindow?: ContextWindow;
   cachedInputPricePerMillion?: CachedInputPricePer1MTokens;
-  cacheWritePricePerMillion?: CacheWritePricePer1MTokens;
   [k: string]: unknown;
 }
 /**
@@ -305,7 +292,6 @@ export type Summarizer = {
   model?: Model2;
   inputPricePerMillion?: InputPricePer1MTokens2;
   cachedInputPricePerMillion?: CachedInputPricePer1MTokens3;
-  cacheWritePricePerMillion?: CacheWritePricePer1MTokens3;
   outputPricePerMillion?: OutputPricePer1MTokens2;
   [k: string]: unknown;
 }
@@ -320,7 +306,6 @@ export type Model2 = {
   };
   contextWindow?: ContextWindow;
   cachedInputPricePerMillion?: CachedInputPricePer1MTokens;
-  cacheWritePricePerMillion?: CacheWritePricePer1MTokens;
   [k: string]: unknown;
 }
 /**
@@ -333,7 +318,6 @@ export type Evaluator = {
   model?: Model3;
   inputPricePerMillion?: InputPricePer1MTokens3;
   cachedInputPricePerMillion?: CachedInputPricePer1MTokens4;
-  cacheWritePricePerMillion?: CacheWritePricePer1MTokens4;
   outputPricePerMillion?: OutputPricePer1MTokens3;
   [k: string]: unknown;
 }
@@ -348,7 +332,6 @@ export type Model3 = {
   };
   contextWindow?: ContextWindow;
   cachedInputPricePerMillion?: CachedInputPricePer1MTokens;
-  cacheWritePricePerMillion?: CacheWritePricePer1MTokens;
   [k: string]: unknown;
 }
 /**
@@ -361,7 +344,6 @@ export type Moderator = {
   model?: Model4;
   inputPricePerMillion?: InputPricePer1MTokens4;
   cachedInputPricePerMillion?: CachedInputPricePer1MTokens5;
-  cacheWritePricePerMillion?: CacheWritePricePer1MTokens5;
   outputPricePerMillion?: OutputPricePer1MTokens4;
   [k: string]: unknown;
 }
@@ -376,7 +358,6 @@ export type Model4 = {
   };
   contextWindow?: ContextWindow;
   cachedInputPricePerMillion?: CachedInputPricePer1MTokens;
-  cacheWritePricePerMillion?: CacheWritePricePer1MTokens;
   [k: string]: unknown;
 }
 export type InputModeration = {
@@ -458,7 +439,6 @@ export type Model5 = {
   };
   contextWindow?: ContextWindow;
   cachedInputPricePerMillion?: CachedInputPricePer1MTokens;
-  cacheWritePricePerMillion?: CacheWritePricePer1MTokens;
   [k: string]: unknown;
 }
 

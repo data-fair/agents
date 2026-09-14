@@ -77,7 +77,6 @@ export interface TokenPrices {
   inputPricePerMillion: number
   outputPricePerMillion: number
   cachedInputPricePerMillion?: number
-  cacheWritePricePerMillion?: number
 }
 
 export interface TokenCounts {
@@ -100,13 +99,20 @@ export function computeCost (counts: TokenCounts, prices: TokenPrices): number {
   const cacheRead = counts.cacheReadTokens ?? 0
   const cacheWrite = counts.cacheWriteTokens ?? 0
   const noCache = counts.noCacheTokens ?? Math.max(counts.inputTokens - cacheRead - cacheWrite, 0)
+  // Cache WRITES are billed at the plain input price. There is no separate write
+  // tariff to configure: this codebase never sets `cache_control`, so no provider
+  // reports write tokens today. They are still billed rather than dropped — both
+  // @ai-sdk/anthropic and @ai-sdk/openai exclude cacheWrite from `noCache`, so
+  // omitting the term would silently make them free if a provider ever did report
+  // them. Anthropic's real rate is 1.25x input; billing at 1x under-bills slightly
+  // rather than not at all, and a tariff can be added when breakpoints land.
+  const atInputPrice = noCache + cacheWrite
   // Divide each term individually rather than summing first and dividing once: the two
   // are not equivalent in floating point, and per-term division is what test expectations
   // (and every other cost computation in this codebase) are built from.
   return (
-    (noCache * prices.inputPricePerMillion) / 1_000_000 +
+    (atInputPrice * prices.inputPricePerMillion) / 1_000_000 +
     (cacheRead * (prices.cachedInputPricePerMillion ?? 0)) / 1_000_000 +
-    (cacheWrite * (prices.cacheWritePricePerMillion ?? 0)) / 1_000_000 +
     (counts.outputTokens * prices.outputPricePerMillion) / 1_000_000
   )
 }

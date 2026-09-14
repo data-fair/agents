@@ -32,8 +32,7 @@ function getSummaryPricing (settings: Settings) {
     // Same resolution chain as getModelConfig: role override, then the model
     // snapshot, then the input price — an unset cache price means "unknown", not
     // "free" (see getModelConfig for the full rationale).
-    cachedInputPricePerMillion: source?.cachedInputPricePerMillion ?? source?.model?.cachedInputPricePerMillion ?? inputPricePerMillion,
-    cacheWritePricePerMillion: source?.cacheWritePricePerMillion ?? source?.model?.cacheWritePricePerMillion ?? inputPricePerMillion
+    cachedInputPricePerMillion: source?.cachedInputPricePerMillion ?? source?.model?.cachedInputPricePerMillion ?? inputPricePerMillion
   }
 }
 
@@ -87,7 +86,7 @@ router.post('/:type/:id', async (req, res, next) => {
     }
 
     const model = await getSummaryModel(settings)
-    const { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion, cacheWritePricePerMillion } = getSummaryPricing(settings)
+    const { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion } = getSummaryPricing(settings)
 
     const { text, usage } = await generateText({
       model,
@@ -105,7 +104,7 @@ router.post('/:type/:id', async (req, res, next) => {
       noCacheTokens: details?.noCacheTokens,
       cacheReadTokens: details?.cacheReadTokens,
       cacheWriteTokens: details?.cacheWriteTokens
-    }, { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion, cacheWritePricePerMillion })
+    }, { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion })
     if (cost > 0) {
       await recordUsage(owner, cost, usageUserId, usageUserName, poolId)
     }

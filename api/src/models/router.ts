@@ -17,7 +17,6 @@ type CoreModelInfo = {
   name: string
   contextWindow?: number
   cachedInputPricePerMillion?: number
-  cacheWritePricePerMillion?: number
 }
 
 /**
@@ -100,8 +99,7 @@ async function fetchOpenRouterModels (apiKey: string): Promise<CoreModelInfo[]> 
     id: model.id,
     name: model.name || model.id,
     contextWindow: model.top_provider?.context_length ?? model.context_length ?? undefined,
-    cachedInputPricePerMillion: perMillion(model.pricing?.input_cache_read),
-    cacheWritePricePerMillion: perMillion(model.pricing?.input_cache_write)
+    cachedInputPricePerMillion: perMillion(model.pricing?.input_cache_read)
   }))
 }
 
@@ -171,7 +169,6 @@ export const getModelsForOwner = memoize(
           name: m.name,
           ...(m.contextWindow ? { contextWindow: m.contextWindow } : {}),
           ...(m.cachedInputPricePerMillion ? { cachedInputPricePerMillion: m.cachedInputPricePerMillion } : {}),
-          ...(m.cacheWritePricePerMillion ? { cacheWritePricePerMillion: m.cacheWritePricePerMillion } : {}),
           provider: { type: provider.type, name: provider.name, id: provider.id }
         })))
       } catch (err) {

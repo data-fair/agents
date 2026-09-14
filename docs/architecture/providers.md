@@ -31,9 +31,13 @@ graph LR
 | `evaluator` | Quality control / reasoning | 1.0 |
 | `moderator` | Input moderation guard (internal, gateway-side) | 0.5 |
 
-Each role carries optional **cached input** / **cache write** prices per million
-tokens; left empty they fall back to the listing snapshot, then to the role's
-plain input price (an unset cache price means *unknown*, never *free*).
+Each role carries an optional **cached input** price per million tokens; left
+empty it falls back to the listing snapshot, then to the role's plain input price
+(an unset cache price means *unknown*, never *free*). There is no cache-**write**
+tariff: this codebase never sets `cache_control`, so no provider reports write
+tokens today. Should any appear they are billed at the plain input price rather
+than dropped — Anthropic's real rate is 1.25x input, so that under-bills slightly
+instead of not at all, and a tariff can be added when breakpoints land.
 
 The **assistant role alone** carries a **context window** (tokens), because the
 assistant is the only role whose history is compacted. Left empty it falls back to

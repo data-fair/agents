@@ -403,7 +403,6 @@ test.describe('Settings API', () => {
           inputPricePerMillion: 3,
           outputPricePerMillion: 15,
           cachedInputPricePerMillion: 0.3,
-          cacheWritePricePerMillion: 3.75,
           contextWindow: 128000
         }
       },
@@ -415,7 +414,6 @@ test.describe('Settings API', () => {
     assert.equal(res.data.models.assistant.contextWindow, 128000)
     assert.equal(res.data.models.assistant.model.contextWindow, 200000)
     assert.equal(res.data.models.assistant.cachedInputPricePerMillion, 0.3)
-    assert.equal(res.data.models.assistant.cacheWritePricePerMillion, 3.75)
 
     const getRes = await admin.get('/api/settings/user/test-standalone1')
     assert.equal(getRes.data.compaction.percent, 55)
