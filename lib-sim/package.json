@@ -5,7 +5,8 @@
   "main": "index.js",
   "type": "module",
   "bin": {
-    "df-agents-bridge": "bridge/index.js"
+    "df-agents-bridge": "bridge/index.js",
+    "df-agents-sim-init": "bin/init.js"
   },
   "files": [
     "**/*.js",
