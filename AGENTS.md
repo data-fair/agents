@@ -101,7 +101,7 @@ When e2e tests fail, follow this order:
 `npm run simulate` drives judged browser conversations: a simulated user with a
 persona and a goal talks to the real chat on a `_dev` page, and a judge subagent
 reads the transcript. Needs the dev stack, built workspace packages, and
-`npm run dev-bridge`. Orchestrated by the `/simulate` skill; cases live in
+`npm run dev-bridge`. Orchestrated by the `/agents-sim` skill; cases live in
 `simulations/cases/index.ts`. Never added to `playwright.config.ts` — a bare
 `npm run test` would otherwise spend plan quota.
 

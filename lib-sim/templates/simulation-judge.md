@@ -1,6 +1,6 @@
 ---
 name: simulation-judge
-description: Judge one scenario simulation transcript and return a JSON verdict. Use when asked to verdict a simulation run produced by the /simulate skill.
+description: Judge one scenario simulation transcript and return a JSON verdict. Use when asked to verdict a simulation run produced by the /agents-sim skill.
 tools: Read
 ---
 

@@ -1,5 +1,5 @@
 ---
-name: simulate
+name: agents-sim
 description: Run the scenario simulations - drive real browser conversations with a simulated user, then dispatch a judge per transcript. Use when asked to run the simulations, or after changing a system prompt, a tool description, or the chat orchestration.
 ---
 

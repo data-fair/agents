@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Copies the judge definition and the /simulate skill into the consuming repo's
+ * Copies the judge definition and the /agents-sim skill into the consuming repo's
  * .claude/ directory. They cannot be loaded from node_modules — Claude Code reads
  * them from the repository — so they are copied and can drift. The version is
  * printed so drift is at least detectable.
@@ -16,7 +16,7 @@ const cwd = process.cwd()
 
 const targets = [
   { from: 'simulation-judge.md', to: path.join(cwd, '.claude', 'agents', 'simulation-judge.md') },
-  { from: 'simulate-skill.md', to: path.join(cwd, '.claude', 'skills', 'simulate', 'SKILL.md') }
+  { from: 'agents-sim-skill.md', to: path.join(cwd, '.claude', 'skills', 'agents-sim', 'SKILL.md') }
 ]
 
 for (const { from, to } of targets) {

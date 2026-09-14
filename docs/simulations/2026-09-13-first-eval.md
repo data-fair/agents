@@ -135,7 +135,7 @@ mechanism before knowing that spends the larger budget on an unproven diagnosis.
 npm run dev-bridge          # separate terminal; the runner checks it is up
 rm -f simulations/tmp/sim-*
 npm run simulate            # or SIM_CASES=register-person npm run simulate
-# then follow .claude/skills/simulate/SKILL.md to dispatch a judge per valid case
+# then follow .claude/skills/agents-sim/SKILL.md to dispatch a judge per valid case
 npm run simulate:report
 ```
 

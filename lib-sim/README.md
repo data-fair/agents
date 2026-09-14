@@ -51,8 +51,8 @@ Agent SDK may hoist zod 4 and break `ai`'s type inference. Add
 npx df-agents-sim-init [--force]
 ```
 
-Copies the `/simulate` skill and the `simulation-judge` sub-agent definition
-into your repo's `.claude/skills/simulate/SKILL.md` and
+Copies the `/agents-sim` skill and the `simulation-judge` sub-agent definition
+into your repo's `.claude/skills/agents-sim/SKILL.md` and
 `.claude/agents/simulation-judge.md`. These cannot be loaded from
 `node_modules` — Claude Code reads them from the repository — so they are
 copied, not referenced, and **can drift** from the version in this package.
@@ -125,7 +125,7 @@ for (const simCase of selectCases(cases, [])) {
 ```
 
 Then judge each written transcript with the `simulation-judge` sub-agent (via
-the copied `/simulate` skill), and turn the evidence directory into a pass/fail
+the copied `/agents-sim` skill), and turn the evidence directory into a pass/fail
 summary with `reportCases(cases, evidenceDir)` — the host repo's own report
 script decides where cases live and what to do with the failure count it
 returns.
@@ -141,7 +141,7 @@ from the repository root. Pass `dir` explicitly to put evidence anywhere else,
 and hand the same directory to `reportCases(cases, dir)` so the reader and the
 writer agree.
 
-## Scripts the copied `/simulate` skill expects
+## Scripts the copied `/agents-sim` skill expects
 
 `df-agents-sim-init` copies the skill **verbatim**, and the skill refers to npm
 scripts by the names the origin repository uses. It cannot know yours, so define
@@ -166,5 +166,5 @@ these three in your `package.json` (adjust the paths to your layout):
   on the failure count it returns.
 
 If you prefer different names, edit the copied
-`.claude/skills/simulate/SKILL.md` to match — but remember that a later
+`.claude/skills/agents-sim/SKILL.md` to match — but remember that a later
 `df-agents-sim-init --force` overwrites it.

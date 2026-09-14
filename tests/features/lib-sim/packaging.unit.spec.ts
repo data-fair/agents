@@ -56,7 +56,7 @@ test.describe('published package', () => {
  */
 const SYNCED = [
   { template: 'lib-sim/templates/simulation-judge.md', live: '.claude/agents/simulation-judge.md' },
-  { template: 'lib-sim/templates/simulate-skill.md', live: '.claude/skills/simulate/SKILL.md' }
+  { template: 'lib-sim/templates/agents-sim-skill.md', live: '.claude/skills/agents-sim/SKILL.md' }
 ]
 
 test.describe('shipped templates', () => {
