@@ -47,3 +47,42 @@ test.describe('published package', () => {
     }
   })
 })
+
+/**
+ * `df-agents-sim-init` copies these into a consumer's .claude/ directory, and
+ * this repo uses the live .claude/ copies directly — so the two can drift with
+ * nothing to notice. Editing the working copy would silently ship a stale
+ * template to both consumer repositories.
+ */
+const SYNCED = [
+  { template: 'lib-sim/templates/simulation-judge.md', live: '.claude/agents/simulation-judge.md' },
+  { template: 'lib-sim/templates/simulate-skill.md', live: '.claude/skills/simulate/SKILL.md' }
+]
+
+test.describe('shipped templates', () => {
+  for (const { template, live } of SYNCED) {
+    test(`${template} is identical to ${live}`, () => {
+      assert.equal(
+        readFileSync(template, 'utf8'),
+        readFileSync(live, 'utf8'),
+        `${template} and ${live} have drifted. This repo edits ${live}; the package ships ` +
+        `${template}. Copy ${live} over ${template} (or the other way round if the template ` +
+        'is the corrected one), so consumers of df-agents-sim-init do not get a stale copy.'
+      )
+    })
+  }
+
+  test('every template the init bin copies is covered above', () => {
+    // Guards the guard: a third template added to bin/init.ts would otherwise
+    // ship unchecked.
+    const init = readFileSync('lib-sim/bin/init.ts', 'utf8')
+    const copied = [...init.matchAll(/from: '([^']+)'/g)].map(m => m[1])
+    assert.ok(copied.length > 0, 'could not read the template list out of bin/init.ts')
+    for (const name of copied) {
+      assert.ok(
+        SYNCED.some(s => s.template.endsWith(`/${name}`)),
+        `bin/init.ts copies templates/${name}, but no sync assertion covers it`
+      )
+    }
+  })
+})
