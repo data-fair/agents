@@ -5,7 +5,7 @@
  */
 import http from 'node:http'
 import crypto from 'node:crypto'
-import { query, type McpServerConfig } from '@anthropic-ai/claude-agent-sdk'
+import { query, type McpServerConfig, type Options } from '@anthropic-ai/claude-agent-sdk'
 import { createNeutralCwd, isolationOptions } from '../isolation.ts'
 import { createToolServer, TOOL_TIMEOUT_MS } from './tool-server.ts'
 import { SessionStore, continuationOf, hashMessages, sameToolSet } from './sessions.ts'
@@ -47,6 +47,29 @@ type CompletionRequest = {
   tools?: OpenAIToolDef[]
 }
 
+/**
+ * The SDK's own `Options`, with every key the bridge depends on made REQUIRED.
+ *
+ * Every one of these is optional upstream, and the call site builds them by
+ * spreading `isolationOptions(...)` — so dropping the spread, or deleting the
+ * `abortController` line, used to leave tsc, eslint and the whole suite green
+ * while silently handing the model the repository's own settings, memory and
+ * 27 built-in tools. Naming the keys through `Pick` also makes an upstream
+ * RENAME fail closed: `Pick<Options, 'settingSources'>` stops compiling if the
+ * key goes away, where a spread would just have dropped it.
+ */
+type BridgeQueryOptions = Options & Required<Pick<Options,
+  'cwd' | 'env' | 'settingSources' | 'tools' | 'strictMcpConfig' |
+  'model' | 'systemPrompt' | 'mcpServers' | 'allowedTools' | 'abortController'
+>>
+
+/**
+ * The SDK's `query`, narrowed to what the bridge uses. Injectable so a test can
+ * observe the options actually handed over without a network or a model — the
+ * isolation guarantee is a property of this call site, not only of the factory.
+ */
+export type BridgeQuery = (args: { prompt: string, options: BridgeQueryOptions }) => AsyncIterable<SdkMessage>
+
 function readBody (req: http.IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
     let raw = ''
@@ -56,7 +79,8 @@ function readBody (req: http.IncomingMessage): Promise<string> {
   })
 }
 
-export function createServer (opts: { port: number }) {
+export function createServer (opts: { port: number, query?: BridgeQuery }) {
+  const runQuery = opts.query ?? (query as unknown as BridgeQuery)
   const store = new SessionStore()
   const sweeper = setInterval(() => { store.sweep() }, 60000)
   sweeper.unref()
@@ -73,7 +97,7 @@ export function createServer (opts: { port: number }) {
       return
     }
     if (req.method === 'POST' && req.url === '/v1/chat/completions') {
-      handleCompletion(req, res, store).catch((err: unknown) => {
+      handleCompletion(req, res, store, runQuery).catch((err: unknown) => {
         const message = err instanceof Error ? err.message : String(err)
         console.error('claude-bridge request failed:', message)
         if (res.writableEnded) return
@@ -110,7 +134,9 @@ function withCeiling (turn: Promise<TurnOutcome>): Promise<TurnOutcome> {
   return Promise.race([turn, ceiling]).finally(() => { if (timer) clearTimeout(timer) })
 }
 
-async function handleCompletion (req: http.IncomingMessage, res: http.ServerResponse, store: SessionStore) {
+async function handleCompletion (
+  req: http.IncomingMessage, res: http.ServerResponse, store: SessionStore, runQuery: BridgeQuery
+) {
   const body = JSON.parse(await readBody(req)) as CompletionRequest
   const messages = body.messages ?? []
   const tools = body.tools ?? []
@@ -164,7 +190,7 @@ async function handleCompletion (req: http.IncomingMessage, res: http.ServerResp
   const conv = new Conversation(key, toolNames)
   active = conv
   const toolServer = createToolServer(tools, (name, args) => conv.handleToolCall(name, args))
-  const iterator = query({
+  const iterator = runQuery({
     prompt: renderTranscript(messages),
     options: {
       ...isolationOptions(NEUTRAL_CWD),
@@ -182,7 +208,7 @@ async function handleCompletion (req: http.IncomingMessage, res: http.ServerResp
       // claude subprocess running.
       abortController: conv.controller
     }
-  }) as AsyncIterable<SdkMessage>
+  })
   store.set(conv)
   finish(await withCeiling(conv.beginTurn(sink, iterator)), conv, store, res, send, id, model)
 }
