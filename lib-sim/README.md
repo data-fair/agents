@@ -68,6 +68,11 @@ chat embedded in an iframe (the common case for a host application), pass
 *is* the page, pass `page` itself — the driver's selectors are identical
 either way.
 
+The driver matches the composer's visible strings, which the chat renders in the
+session's locale. Pass the locale your application runs in — `createChatDriver(root,
+{ locale: 'fr' })` — or the run dies as a 15-minute "element not found" with
+nothing pointing at the cause. The default is `'en'`.
+
 ```ts
 import { test } from '@playwright/test'
 import {
