@@ -77,7 +77,7 @@ nothing pointing at the cause. The default is `'en'`.
 import { test } from '@playwright/test'
 import {
   createChatDriver, captureGateway, nextUserMessage, isDone,
-  writeEvidence, selectCases, type Transcript, type SimulationCase
+  writeEvidence, selectCases, createPagePerception, type Transcript, type SimulationCase
 } from '@data-fair/lib-agents-sim'
 
 const cases: SimulationCase[] = [
@@ -91,11 +91,15 @@ for (const simCase of selectCases(cases, [])) {
 
     const chat = createChatDriver(page.frameLocator('iframe'))
     const conversation: Array<{ role: string, text: string }> = []
+    // Lets the persona look at, click and type into the real page instead of
+    // guessing at what is on screen — see "Give the persona eyes" below.
+    const perception = createPagePerception([{ label: 'page', root: page }])
     let error: string | undefined
 
     try {
       for (let i = 0; i < simCase.maxTurns; i++) {
-        const message = await nextUserMessage(simCase, conversation, simCase.maxTurns - i)
+        perception.setTurn(i + 1)
+        const message = await nextUserMessage(simCase, conversation, simCase.maxTurns - i, { perception })
         if (isDone(message)) break
         await chat.sendMessage(message)
         await chat.waitForTurn()
@@ -110,7 +114,7 @@ for (const simCase of selectCases(cases, [])) {
       error = err instanceof Error ? err.message : String(err)
     }
 
-    const transcript: Transcript = { case: simCase.name, goal: simCase.goal, persona: simCase.persona, route: simCase.route, conversation, gateway, consoleErrors: [] }
+    const transcript: Transcript = { case: simCase.name, goal: simCase.goal, persona: simCase.persona, route: simCase.route, conversation, gateway, consoleErrors: [], observations: perception.observations }
     // `valid` is derived, never hardcoded: the sidecar exists to tell a run that
     // really happened apart from one that fell over, so that `reportCases` says
     // "invalid (…)" instead of re-reporting the previous run's verdict.
@@ -129,6 +133,43 @@ the copied `/agents-sim` skill), and turn the evidence directory into a pass/fai
 summary with `reportCases(cases, evidenceDir)` — the host repo's own report
 script decides where cases live and what to do with the failure count it
 returns.
+
+### Give the persona eyes
+
+`createPagePerception(roots)` gives the simulated user a `look`/`click`/`type`
+MCP tool set over the real Playwright page(s), so it can check what is actually
+on screen instead of guessing. Pass one root per visible surface — a chat
+embedded in an iframe has both the host page and the frame:
+
+```ts
+const perception = createPagePerception([
+  { label: 'page', root: page },
+  { label: 'chat panel', root: page.frameLocator('iframe') }
+])
+```
+
+Before each turn, tell it which turn is starting — this stamps every
+observation the persona records during that turn — then pass it through
+`nextUserMessage`'s options so the persona's query gets the tool set:
+
+```ts
+perception.setTurn(i + 1)
+const message = await nextUserMessage(simCase, conversation, simCase.maxTurns - i, { perception })
+```
+
+Every `look`/`click`/`type` call is recorded into `perception.observations` as
+`{ turn, tool, args, result }`; put that array into the transcript's
+`observations` field so the judge can check a visual claim against what was
+actually seen. **Without `perception`, the persona cannot see the page at
+all** — do not write a case or a judge prompt that expects it to notice or
+react to anything visual (a panel opening, a chart rendering, a result
+appearing) unless perception is wired in.
+
+`df-agents-sim-init` copies the `simulation-judge` definition into your repo,
+and the copied version now includes the instruction to check visual claims
+against `observations`. If you already ran `df-agents-sim-init` before this
+was added, re-run `npx df-agents-sim-init --force` to pick it up — otherwise
+your judge keeps trusting unverified visual claims.
 
 ### Where the evidence goes
 
