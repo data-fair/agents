@@ -15,19 +15,33 @@ const cases: SimulationCase[] = [
 ]
 
 test.describe('selectCases', () => {
-  test('selects by name, defaults to all when no names given, rejects unknown names, and preserves extra fields on a host-specific case type', () => {
-    assert.equal(selectCases(cases, [cases[0].name]).length, 1)
-    assert.equal(selectCases(cases, [cases[0].name])[0].name, cases[0].name)
-    assert.equal(selectCases(cases, []).length, cases.length)
-    assert.throws(() => selectCases(cases, ['no-such-case']), /no-such-case/)
+  test('selects by name', () => {
+    const selected = selectCases(cases, [cases[0].name])
+    assert.equal(selected.length, 1)
+    assert.equal(selected[0].name, cases[0].name)
+  })
 
-    // A plain, non-generic `selectCases(all: SimulationCase[], ...)` signature would
-    // widen the return type to SimulationCase and lose a host-specific field at the
-    // type level, even though the runtime object is unchanged. This is what
-    // Correction B guards against.
-    type HostCase = SimulationCase & { expectedTool: string }
-    const hostCases: HostCase[] = [{ ...cases[0], expectedTool: 'get_schema' }]
-    const [selected] = selectCases(hostCases, ['a'])
-    assert.equal(selected.expectedTool, 'get_schema')
+  test('an empty names array returns all cases', () => {
+    assert.equal(selectCases(cases, []).length, cases.length)
+  })
+
+  test('an unknown name throws, naming it in the message', () => {
+    assert.throws(() => selectCases(cases, ['no-such-case']), /no-such-case/)
+  })
+
+  test('a richer case type survives selection (type-level guard on the generic)', () => {
+    type CaseWithExtra = SimulationCase & { expectedTool: string }
+    const withExtra: CaseWithExtra[] = [{ ...cases[0], expectedTool: 'get_schema' }]
+
+    // The guarantee is type-level, so `npm run check-types` is what enforces it —
+    // not this file's runtime asserts. If selectCases loses its generic (reverts
+    // to `(all: SimulationCase[], names: string[]): SimulationCase[]`), this
+    // assignment stops compiling: TS2322 (SimulationCase[] not assignable to
+    // CaseWithExtra[]) at the `const preserved` line. The runtime assert below
+    // would still pass either way, since Node erases types and .find() returns
+    // the whole object regardless of the declared return type — it is not what
+    // catches a regression here.
+    const preserved: CaseWithExtra[] = selectCases(withExtra, ['a'])
+    assert.equal(preserved[0].expectedTool, 'get_schema')
   })
 })
