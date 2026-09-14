@@ -37,7 +37,8 @@
     "api",
     "shared",
     "lib-vue",
-    "lib-vuetify"
+    "lib-vuetify",
+    "lib-sim"
   ],
   "author": "",
   "license": "AGPL-3.0-only",
