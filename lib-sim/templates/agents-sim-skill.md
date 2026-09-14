@@ -11,12 +11,16 @@ transcript.
 
 ## Before you start
 
-Three things must be true, and each fails confusingly if it is not:
+Four things must be true, and each fails confusingly if it is not:
 
 1. The dev stack is up — `bash dev/status.sh`.
 2. The workspace packages are built — `ls lib-vue/*.js lib-vuetify/*.js`. If they
    are missing, e2e-style runs fail with "element not found".
-3. The bridge is running — `npm run dev-bridge`. The runner checks this and says so.
+3. `lib-sim` is built — `npm -w @data-fair/lib-agents-sim run build`.
+   `simulations/` imports it by package name, not by relative path, so a stale
+   build silently runs the OLD code and still reports the run valid — the exact
+   failure mode this subsystem exists to catch.
+4. The bridge is running — `npm run dev-bridge`. The runner checks this and says so.
 
 Ask the user to start anything that is down. Never start or stop dev processes yourself.
 
