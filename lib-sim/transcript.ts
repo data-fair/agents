@@ -8,30 +8,11 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
-import type { GatewayExchange } from './gateway-capture.ts'
+import type { Transcript, RunSidecar } from './types.ts'
 
 export const evidenceDir = path.join(process.cwd(), 'simulations', 'tmp')
 
-export type Transcript = {
-  case: string
-  goal: string
-  persona: string
-  route: string
-  conversation: Array<{ role: string, text: string }>
-  gateway: GatewayExchange[]
-  consoleErrors: string[]
-}
-
-export type RunSidecar = {
-  case: string
-  valid: boolean
-  error?: string
-  assistantModel: string
-  userModel: string
-  turns: number
-  durationMs: number
-  finishedAt: string
-}
+export type { Transcript, RunSidecar }
 
 export function writeEvidence (name: string, transcript: Transcript, sidecar: RunSidecar) {
   fs.mkdirSync(evidenceDir, { recursive: true })

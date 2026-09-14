@@ -2,6 +2,8 @@
  * The shapes a host repo needs to write cases and read evidence.
  */
 
+import type { GatewayExchange } from './gateway-capture.ts'
+
 export type SimulationCase = {
   /** Evidence files are named after this; keep it filesystem-safe. */
   name: string
@@ -12,4 +14,25 @@ export type SimulationCase = {
   goal: string
   /** Give up after this many user turns; the judge sees how far it got. */
   maxTurns: number
+}
+
+export type Transcript = {
+  case: string
+  goal: string
+  persona: string
+  route: string
+  conversation: Array<{ role: string, text: string }>
+  gateway: GatewayExchange[]
+  consoleErrors: string[]
+}
+
+export type RunSidecar = {
+  case: string
+  valid: boolean
+  error?: string
+  assistantModel: string
+  userModel: string
+  turns: number
+  durationMs: number
+  finishedAt: string
 }

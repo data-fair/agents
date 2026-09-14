@@ -8,17 +8,7 @@
  * the same WebMCP path a host application uses.
  */
 
-export type SimulationCase = {
-  /** Evidence files are named after this; keep it filesystem-safe. */
-  name: string
-  route: string
-  /** Who the simulated user is. Becomes its system prompt. */
-  persona: string
-  /** What they came for, in their own words. */
-  goal: string
-  /** Give up after this many user turns; the judge sees how far it got. */
-  maxTurns: number
-}
+import type { SimulationCase } from '@data-fair/lib-agents-sim'
 
 export const cases: SimulationCase[] = [
   {
@@ -43,12 +33,3 @@ export const cases: SimulationCase[] = [
     maxTurns: 6
   }
 ]
-
-export function findCases (names: string[]): SimulationCase[] {
-  if (names.length === 0) return cases
-  return names.map(name => {
-    const found = cases.find(c => c.name === name)
-    if (!found) throw new Error(`unknown simulation case: ${name} (have: ${cases.map(c => c.name).join(', ')})`)
-    return found
-  })
-}

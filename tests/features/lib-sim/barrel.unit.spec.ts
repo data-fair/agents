@@ -12,7 +12,15 @@ test.describe('package barrel', () => {
     // Types erase at runtime, so only VALUE exports appear here. Update this
     // list deliberately: an unlisted addition is an accidental public API, and
     // a disappearance is a breaking change for two other repositories.
-    const expected: string[] = []
+    const expected: string[] = [
+      'createNeutralCwd', 'scrubEnv', 'isolationOptions',
+      'captureGateway', 'summariseRequest',
+      'nextUserMessage', 'personaSystemPrompt', 'personaPrompt', 'isDone', 'DONE',
+      'writeEvidence', 'evidenceDir',
+      'selectCases',
+      'reportCases',
+      'sendMessage', 'waitForTurn', 'readConversation', 'TURN_TIMEOUT_MS'
+    ]
     assert.deepEqual(Object.keys(pkg).sort(), expected.sort())
   })
 })

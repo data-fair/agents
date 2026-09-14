@@ -1,6 +1,6 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { summariseRequest } from '../../../simulations/runner/gateway-capture.ts'
+import { summariseRequest } from '../../../lib-sim/gateway-capture.ts'
 
 test.describe('gateway capture', () => {
   test('records the tools the page actually registered', () => {

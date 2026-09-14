@@ -1,11 +1,14 @@
 /**
  * Deterministic checks on the simulation case registry. No model involved, so
  * these run in the normal suite; they prove each case is the case it claims to be.
+ *
+ * Selection logic itself (`selectCases`) is tested against the package in
+ * tests/features/lib-sim/cases.unit.spec.ts.
  */
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { cases, findCases } from '../../../simulations/cases/index.ts'
+import { cases } from '../../../simulations/cases/index.ts'
 
 test.describe('case registry', () => {
   test('is not empty', () => {
@@ -29,11 +32,5 @@ test.describe('case registry', () => {
     for (const c of cases) {
       assert.equal((c as Record<string, unknown>).expected, undefined)
     }
-  })
-
-  test('findCases selects by name and rejects unknown names', () => {
-    assert.equal(findCases([cases[0].name]).length, 1)
-    assert.equal(findCases([]).length, cases.length)
-    assert.throws(() => findCases(['no-such-case']), /no-such-case/)
   })
 })

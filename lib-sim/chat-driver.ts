@@ -14,7 +14,7 @@ const INPUT = 'Type your message...'
 // turn can run far longer than its wall-clock look. Four minutes recorded such
 // turns as invalid runs; the sim config allows 15 minutes per test, so 10 leaves
 // room for the sidecar to be written.
-const TURN_TIMEOUT_MS = 10 * 60 * 1000
+export const TURN_TIMEOUT_MS = 10 * 60 * 1000
 
 export async function sendMessage (page: Page, text: string) {
   await page.getByPlaceholder(INPUT).fill(text)

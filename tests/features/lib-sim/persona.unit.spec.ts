@@ -2,7 +2,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { readdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { personaSystemPrompt, personaPrompt, DONE, isDone } from '../../../simulations/runner/persona.ts'
+import { personaSystemPrompt, personaPrompt, DONE, isDone } from '../../../lib-sim/persona.ts'
 import { cases } from '../../../simulations/cases/index.ts'
 
 const c = cases[0]
@@ -42,7 +42,7 @@ test.describe('persona prompting', () => {
 
     // Force a fresh module evaluation with cache-busting query parameter
     // Node.js treats the same module path with different query strings as different entries
-    await import('../../../simulations/runner/persona.ts?fresh=' + Date.now())
+    await import('../../../lib-sim/persona.ts?fresh=' + Date.now())
 
     // Count again — should be unchanged
     const afterCount = readdirSync(tmpdir()).filter(name => name.startsWith('bridge-')).length

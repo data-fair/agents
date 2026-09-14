@@ -5,17 +5,20 @@
  * Whether the product served the user is the judge's call, from the transcript.
  */
 import { test } from '../tests/fixtures/login.ts'
-import { findCases } from './cases/index.ts'
+import { cases } from './cases/index.ts'
 import { seedSettings, assertBridgeUp, OWNER } from './runner/settings.ts'
-import { sendMessage, waitForTurn, readConversation } from './runner/chat-driver.ts'
-import { captureGateway } from './runner/gateway-capture.ts'
-import { nextUserMessage, isDone } from './runner/persona.ts'
-import { writeEvidence, type Transcript } from './runner/transcript.ts'
+import {
+  sendMessage, waitForTurn, readConversation,
+  captureGateway,
+  nextUserMessage, isDone,
+  writeEvidence, type Transcript,
+  selectCases
+} from '@data-fair/lib-agents-sim'
 import { clean } from '../tests/support/axios.ts'
 
 const ASSISTANT_MODEL = process.env.SIM_ASSISTANT_MODEL ?? 'sonnet'
 const USER_MODEL = process.env.SIM_USER_MODEL ?? 'haiku'
-const selected = findCases((process.env.SIM_CASES ?? '').split(',').map(s => s.trim()).filter(Boolean))
+const selected = selectCases(cases, (process.env.SIM_CASES ?? '').split(',').map(s => s.trim()).filter(Boolean))
 
 for (const simCase of selected) {
   test(`simulation: ${simCase.name}`, async ({ page, goToWithAuth }) => {
