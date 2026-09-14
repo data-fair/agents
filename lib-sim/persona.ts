@@ -10,9 +10,22 @@
 import { createNeutralCwd, isolationOptions } from './isolation.ts'
 import { MISSING_SDK_MESSAGE, isMissingSdkError } from './missing-sdk.ts'
 import type { SimulationCase } from './types.ts'
+import type { PagePerception } from './page-perception.ts'
+import { MCP_SERVER_NAME } from './page-perception.ts'
 
 export const DONE = 'DONE'
 let neutralCwd: string | undefined
+
+// The persona now looks and acts before replying, so one turn is not enough:
+// look → act → look → reply, with room to spare. Low enough that a confused
+// persona cannot spend the run clicking around. A starting point, to be revisited
+// from a real run rather than guessed at twice.
+export const PERSONA_MAX_TURNS = 6
+
+export const PERCEPTION_INSTRUCTIONS = `You can look at the screen yourself with the look tool, and you can click and type
+on the page. Before you say anything about what is or is not on the screen, look.
+Never claim you cannot see something you have not looked for.
+To talk to the assistant, just reply with your message — do not type it into the page.`
 
 export function isDone (message: string): boolean {
   if (!message) return false
@@ -37,8 +50,8 @@ export function isDone (message: string): boolean {
   return normalized === DONE
 }
 
-export function personaSystemPrompt (c: SimulationCase): string {
-  return [
+export function personaSystemPrompt (c: SimulationCase, perceptionEnabled = false): string {
+  const lines = [
     c.persona,
     '',
     `What you want: ${c.goal}`,
@@ -51,7 +64,11 @@ export function personaSystemPrompt (c: SimulationCase): string {
     '',
     'Reply with ONLY the message you would type next — no quotes, no narration, no stage directions.',
     `When you have what you wanted, or you are convinced you will not get it, reply with exactly ${DONE} and nothing else.`
-  ].join('\n')
+  ]
+  if (perceptionEnabled) {
+    lines.push('', PERCEPTION_INSTRUCTIONS)
+  }
+  return lines.join('\n')
 }
 
 export function personaPrompt (conversation: Array<{ role: string, text: string }>, turnsLeft: number): string {
@@ -72,7 +89,8 @@ export function personaPrompt (conversation: Array<{ role: string, text: string 
 export async function nextUserMessage (
   c: SimulationCase,
   conversation: Array<{ role: string, text: string }>,
-  turnsLeft: number
+  turnsLeft: number,
+  opts?: { perception?: PagePerception }
 ): Promise<string> {
   // Loaded here, not at module top level, so importing the package barrel
   // never requires the Agent SDK — it is an optional peer, and a consumer who
@@ -93,8 +111,18 @@ export async function nextUserMessage (
     options: {
       ...isolationOptions(neutralCwd),
       model: process.env.SIM_USER_MODEL ?? 'haiku',
-      systemPrompt: personaSystemPrompt(c),
-      maxTurns: 1
+      systemPrompt: personaSystemPrompt(c, !!opts?.perception),
+      maxTurns: PERSONA_MAX_TURNS,
+      ...(opts?.perception
+        ? {
+            // The perception server's `instance` is typed `unknown` in page-perception.ts
+            // (it stays an MCP SDK Server without pulling the Agent SDK's own MCP types
+            // into that module's public surface), so the Agent SDK's stricter
+            // McpSdkServerConfigWithInstance shape needs a cast here at the boundary.
+            mcpServers: { [MCP_SERVER_NAME]: opts.perception.server as any },
+            allowedTools: opts.perception.toolNames.map(n => `mcp__${MCP_SERVER_NAME}__${n}`)
+          }
+        : {})
     }
   })) {
     if (msg.type === 'assistant') {

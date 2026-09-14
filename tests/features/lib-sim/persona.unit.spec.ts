@@ -2,7 +2,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { readdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { personaSystemPrompt, personaPrompt, DONE, isDone } from '../../../lib-sim/persona.ts'
+import { personaSystemPrompt, personaPrompt, DONE, isDone, PERSONA_MAX_TURNS } from '../../../lib-sim/persona.ts'
 import { cases } from '../../../simulations/cases/index.ts'
 
 const c = cases[0]
@@ -34,6 +34,21 @@ test.describe('persona prompting', () => {
 
   test('warns the persona when it is nearly out of turns', () => {
     assert.ok(personaPrompt([{ role: 'assistant', text: 'x' }], 1).includes('last'))
+  })
+
+  test('the perception instructions tell it to look before claiming', () => {
+    const p = personaSystemPrompt(cases[0], true)
+    assert.ok(p.includes('look'), 'the persona must be told it can look')
+    assert.ok(/never claim you cannot see/i.test(p))
+  })
+
+  test('a blind persona keeps its original prompt', () => {
+    // Consumers on 0.2.0 must behave exactly as before.
+    assert.equal(personaSystemPrompt(cases[0], false), personaSystemPrompt(cases[0]))
+  })
+
+  test('the turn budget is documented where the number lives', () => {
+    assert.equal(PERSONA_MAX_TURNS, 6)
   })
 
   test('importing the module has no side effects (no temp dir created at import time)', async () => {

@@ -16,10 +16,12 @@ test.describe('package barrel', () => {
       'createNeutralCwd', 'scrubEnv', 'isolationOptions',
       'captureGateway', 'summariseRequest',
       'nextUserMessage', 'personaSystemPrompt', 'personaPrompt', 'isDone', 'DONE',
+      'PERSONA_MAX_TURNS', 'PERCEPTION_INSTRUCTIONS',
       'writeEvidence', 'evidenceDir',
       'selectCases',
       'reportCases',
-      'createChatDriver', 'TURN_TIMEOUT_MS'
+      'createChatDriver', 'TURN_TIMEOUT_MS',
+      'createPagePerception', 'truncate', 'SNAPSHOT_CAP', 'PAGE_MCP_SERVER_NAME'
     ]
     assert.deepEqual(Object.keys(pkg).sort(), expected.sort())
   })
