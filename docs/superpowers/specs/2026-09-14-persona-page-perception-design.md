@@ -117,10 +117,13 @@ are told that these exist and that:
 That instruction is what would have caught today's three false verdicts.
 
 **Snapshot sizing.** An aria snapshot is large and `air-quality`'s transcript is
-already 137 KB. Stored snapshots are truncated to **4000 characters**, with an
-explicit `…[truncated]` marker: enough for a judge to verify what was visible,
-without transcripts too expensive to judge or too large to read. The number is a
-starting point, not a measured optimum — revisit it once real transcripts exist.
+already 137 KB. Each root's stored snapshot is truncated to **4000 characters**,
+with an explicit `…[truncated]` marker: enough for a judge to verify what was
+visible, without transcripts too expensive to judge or too large to read. The
+cap applies per root, not to the joined result, so a large host page can never
+crowd a second root (e.g. `## chat panel`) out of the log entirely. The number
+is a starting point, not a measured optimum — revisit it once real transcripts
+exist.
 
 ### 5. Package surface
 
@@ -133,6 +136,12 @@ working:
   `perception`. Omitted, the persona behaves exactly as it does today.
 - `Transcript.observations`.
 - The barrel and its guard test.
+
+**Correction (post-review).** `Transcript.observations` is a **required** field,
+not additive in the strict sense — this is the one deliberate breaking change
+for 0.3.0 consumers. It stays required on purpose: optional would let a host
+wire `perception` in, forget the transcript field, and ship a blind run that
+still reports `valid`. See `lib-sim/README.md` for the one-line upgrade.
 
 ### 6. Isolation is unchanged, and still load-bearing
 

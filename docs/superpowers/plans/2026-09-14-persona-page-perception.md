@@ -18,6 +18,7 @@
 - **`maxTurns` for the persona query rises from `1` to `6`** — enough for look → act → look → reply, low enough to bound a confused persona. A starting point to revisit from a real run, not a measured value.
 - **Stored snapshots are truncated to 4000 characters** with an explicit `…[truncated]` marker. Also a starting point.
 - **Package changes are additive**, so the published `0.2.0` contract keeps working and the version moves to `0.3.0`.
+  *(Post-review correction: `Transcript.observations` shipped required, not optional — see spec §5 and `lib-sim/README.md`. Kept required deliberately, as the one intentional breaking change.)*
 - **Code style:** neostandard — no semicolons, single quotes, 2-space indent. `npm run lint-fix` before every commit.
 - **Repo-internal tests import `lib-sim` source by relative path**; only `simulations/` imports by package name and therefore needs `npm -w @data-fair/lib-agents-sim run build` first.
 
