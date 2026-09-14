@@ -60,11 +60,18 @@ for (const simCase of selected) {
       // offLimits: the composer belongs to the runner, not the persona — see
       // spec §3. Refusing these names structurally is what stops the persona
       // from typing its message into the page and pressing Send itself.
+      // `strings.reset` is off-limits for a different reason: it is not the
+      // product surface under test, it is this harness's own recording — a
+      // mid-run click erases the transcript the run exists to produce, and no
+      // verdict could survive that. That is unlike an ordinary control such as
+      // Settings, which a real user can open and which chat-driver.ts's
+      // Escape-and-retry is what makes survivable — Settings (and every other
+      // ordinary product control) stays reachable to the persona.
       perception = createPagePerception(
         simCase.embedded
           ? [{ label: 'page', root: page }, { label: 'chat panel', root: page.frameLocator('iframe') }]
           : [{ label: 'page', root: page }],
-        { offLimits: [strings.input, strings.send, strings.stop] }
+        { offLimits: [strings.input, strings.send, strings.stop, strings.reset] }
       )
 
       for (let i = 0; i < simCase.maxTurns; i++) {
