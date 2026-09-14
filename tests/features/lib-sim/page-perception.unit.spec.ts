@@ -135,3 +135,77 @@ test.describe('observations', () => {
     assert.equal(p.observations[0].result, out)
   })
 })
+
+test.describe('off-limits names', () => {
+  // A spy root that records every finder call, so a test can assert a refusal
+  // happens before any lookup — the point of the guard, not a side effect of it.
+  const spyRoot = () => {
+    const calls: string[] = []
+    const root = {
+      locator: (sel: string) => { calls.push('locator:' + sel); return { ariaSnapshot: async () => '' } },
+      getByRole: (role: string, opts: { name: string }) => {
+        calls.push(`getByRole:${role}:${opts.name}`)
+        return { first: () => ({ count: async () => 1, click: async () => {}, fill: async () => {} }) }
+      },
+      getByText: (name: string) => {
+        calls.push('getByText:' + name)
+        return { first: () => ({ count: async () => 1, click: async () => {} }) }
+      },
+      getByLabel: (name: string) => {
+        calls.push('getByLabel:' + name)
+        return { first: () => ({ count: async () => 1, fill: async () => {} }) }
+      }
+    }
+    return { root, calls }
+  }
+
+  test('click refuses an off-limits name, without ever looking the element up, and records the refusal', async () => {
+    const { root, calls } = spyRoot()
+    const p = createPagePerception([{ label: 'page', root: root as any }], { offLimits: ['Send'] })
+    const out = await p.call('click', { name: 'Send' })
+    assert.match(out, /not yours to operate/)
+    assert.match(out, /reply with your message/)
+    assert.deepEqual(calls, [], 'no finder was ever called — the refusal happens before lookup')
+    assert.equal(p.observations.length, 1)
+    assert.equal(p.observations[0].tool, 'click')
+    assert.equal(p.observations[0].result, out)
+  })
+
+  test('type refuses an off-limits name, without ever looking the field up, and records the refusal', async () => {
+    const { root, calls } = spyRoot()
+    const p = createPagePerception([{ label: 'page', root: root as any }], { offLimits: ['Type your message...'] })
+    const out = await p.call('type', { name: 'Type your message...', text: 'hello there' })
+    assert.match(out, /not yours to operate/)
+    assert.deepEqual(calls, [], 'no finder was ever called — the refusal happens before lookup')
+    assert.equal(p.observations.length, 1)
+    assert.equal(p.observations[0].tool, 'type')
+    assert.equal(p.observations[0].result, out)
+  })
+
+  test('matching is case-insensitive and trimmed', async () => {
+    const { root, calls } = spyRoot()
+    const p = createPagePerception([{ label: 'page', root: root as any }], { offLimits: ['send'] })
+    const out = await p.call('click', { name: '  SEND  ' })
+    assert.match(out, /not yours to operate/)
+    assert.deepEqual(calls, [])
+  })
+
+  test('a name that merely contains an off-limits word is still allowed through', async () => {
+    // "Send" is off-limits; "Send report" is a different, legitimate button and
+    // must not be caught by a substring match.
+    const { root, calls } = spyRoot()
+    const p = createPagePerception([{ label: 'page', root: root as any }], { offLimits: ['Send'] })
+    const out = await p.call('click', { name: 'Send report' })
+    assert.ok(!/not yours to operate/.test(out), 'a merely-containing name is not refused')
+    assert.equal(out, 'clicked "Send report"')
+    assert.ok(calls.length > 0, 'the click actually looked the element up')
+  })
+
+  test('with no offLimits, behaviour is unchanged', async () => {
+    const { root, calls } = spyRoot()
+    const p = createPagePerception([{ label: 'page', root: root as any }])
+    const out = await p.call('click', { name: 'Send' })
+    assert.equal(out, 'clicked "Send"')
+    assert.ok(calls.length > 0, 'with no offLimits list, click looks the element up as before')
+  })
+})

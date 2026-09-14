@@ -9,6 +9,7 @@ import { cases } from './cases/index.ts'
 import { seedSettings, assertBridgeUp, OWNER } from './runner/settings.ts'
 import {
   createChatDriver,
+  chatDriverStrings,
   captureGateway,
   nextUserMessage, isDone,
   writeEvidence, type Transcript,
@@ -46,15 +47,24 @@ for (const simCase of selected) {
       // as anyone else would fail every case with "no provider configured".
       await goToWithAuth(simCase.route, OWNER.id)
       const root = simCase.embedded ? page.frameLocator('iframe') : page
-      const chat = createChatDriver(root)
-      await root.getByPlaceholder('Type your message...').waitFor({ state: 'visible', timeout: 30000 })
+      // Single source of truth for the composer's locale-dependent strings: the
+      // chat driver and the perception's off-limits list must agree on exactly
+      // what "the composer" is called, or the guard could miss it.
+      const locale = 'en' as const
+      const strings = chatDriverStrings(locale)
+      const chat = createChatDriver(root, { locale })
+      await root.getByPlaceholder(strings.input).waitFor({ state: 'visible', timeout: 30000 })
 
       // A person sees the whole viewport, not one frame: when the chat is embedded,
       // the persona looks at both the host page and the frame.
+      // offLimits: the composer belongs to the runner, not the persona — see
+      // spec §3. Refusing these names structurally is what stops the persona
+      // from typing its message into the page and pressing Send itself.
       perception = createPagePerception(
         simCase.embedded
           ? [{ label: 'page', root: page }, { label: 'chat panel', root: page.frameLocator('iframe') }]
-          : [{ label: 'page', root: page }]
+          : [{ label: 'page', root: page }],
+        { offLimits: [strings.input, strings.send, strings.stop] }
       )
 
       for (let i = 0; i < simCase.maxTurns; i++) {

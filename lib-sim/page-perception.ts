@@ -11,6 +11,12 @@
  * The handlers run in-process against the runner's live Playwright roots, so
  * there is one browser and one page. Every call is recorded as an observation,
  * because a judge cannot otherwise tell a real complaint from an invented one.
+ *
+ * `click` and `type` also accept an `offLimits` list of names (e.g. the chat
+ * composer's own input/send/stop): a request naming one is refused, structurally,
+ * before the element is even looked up, instead of relying on an instruction the
+ * persona is free to ignore. This is what keeps "look and act freely, but talk by
+ * replying" (spec §3) an invariant rather than a suggestion.
  */
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js'
@@ -51,9 +57,17 @@ const TOOLS = [
   }
 ]
 
-export function createPagePerception (roots: PerceptionRoot[]): PagePerception {
+export function createPagePerception (roots: PerceptionRoot[], opts: { offLimits?: string[] } = {}): PagePerception {
   const observations: Observation[] = []
   let turn = 0
+
+  // Equality, not substring: the persona copies names verbatim out of the aria
+  // snapshot it just looked at, so an exact (trimmed, case-insensitive) match is
+  // enough to catch it — while substring matching on a short off-limits word
+  // like "Send" would also block an unrelated "Send report" button.
+  const offLimits = new Set((opts.offLimits ?? []).map(n => n.trim().toLowerCase()))
+  const isOffLimits = (name: string) => offLimits.has(name.trim().toLowerCase())
+  const OFF_LIMITS_RESULT = 'the composer is not yours to operate — reply with your message and the runner will send it for you'
 
   const look = async () => {
     const parts: string[] = []
@@ -78,6 +92,7 @@ export function createPagePerception (roots: PerceptionRoot[]): PagePerception {
   }
 
   const click = async (name: string) => {
+    if (isOffLimits(name)) return OFF_LIMITS_RESULT
     for (const { root } of roots) {
       const loc = await firstMatch([
         () => root.getByRole('button', { name }).first(),
@@ -97,6 +112,7 @@ export function createPagePerception (roots: PerceptionRoot[]): PagePerception {
   }
 
   const type = async (name: string, text: string) => {
+    if (isOffLimits(name)) return OFF_LIMITS_RESULT
     for (const { root } of roots) {
       const loc = await firstMatch([
         () => root.getByRole('textbox', { name }).first(),

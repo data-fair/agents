@@ -20,7 +20,7 @@ test.describe('package barrel', () => {
       'writeEvidence', 'evidenceDir',
       'selectCases',
       'reportCases',
-      'createChatDriver', 'TURN_TIMEOUT_MS',
+      'createChatDriver', 'chatDriverStrings', 'TURN_TIMEOUT_MS',
       'createPagePerception', 'truncate', 'SNAPSHOT_CAP', 'PAGE_MCP_SERVER_NAME'
     ]
     assert.deepEqual(Object.keys(pkg).sort(), expected.sort())

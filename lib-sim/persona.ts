@@ -26,7 +26,9 @@ export const PERSONA_MAX_TURNS = 6
 export const PERCEPTION_INSTRUCTIONS = `You can look at the screen yourself with the look tool, and you can click and type
 on the page. Before you say anything about what is or is not on the screen, look.
 Never claim you cannot see something you have not looked for.
-To talk to the assistant, just reply with your message — do not type it into the page.`
+The message box and its Send button will refuse you if you try to click or type into
+them — that part of the page is not yours to operate. To talk to the assistant, just
+reply with your message; the runner types and sends it for you.`
 
 export function isDone (message: string): boolean {
   if (!message) return false
