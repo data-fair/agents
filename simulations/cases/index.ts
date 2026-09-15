@@ -44,5 +44,18 @@ export const cases: LocalCase[] = [
     goal: 'You want the text "Hello from the iframe" put into the data box on the page. You want to see it actually appear there, not just be told it was done.',
     maxTurns: 5,
     embedded: true
+  },
+  // The hand-back: the assistant prepares everything, the PERSON presses Create, and the
+  // assistant is expected to carry on without being prompted. What is under test is
+  // wait_for_user_action resuming the turn on the item-created event, and the assistant
+  // then reading the page's `detail` state rather than asking. Evidence lands in the
+  // observations (the created view on screen) and in the gateway record (a request whose
+  // messages carry the wait tool's result), whether or not the persona spends a last turn.
+  {
+    name: 'workflow-hand-back',
+    route: '/agents/_dev/chat-workflow',
+    persona: 'You are an office worker using an internal tool for the first time. You are not technical, you describe what you want in plain words, and you press buttons yourself when someone tells you which one. You expect to be told what happened without having to ask.',
+    goal: 'You want a "list" item called "Weekly groceries" created. You will press the Create button yourself once the assistant says everything is ready, and you expect the assistant to confirm what was created and what the page now shows without you asking again.',
+    maxTurns: 6
   }
 ]
