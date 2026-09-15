@@ -125,8 +125,10 @@ export interface UseAgentChatOptions {
   // requests. Used by the evaluator, whose own LLM calls reviewing a stored
   // trace would otherwise be stored as a confusing "meta" trace.
   disableTraceStorage?: boolean
-  // Test seam: a pre-built store (bypasses the BroadcastChannel listener), the way
-  // localTools bypasses the aggregator. Ignored when localTools is not set.
+  // A caller-supplied store is used either way. In local-tools mode it is used as-is
+  // (a test seam, the way localTools bypasses the aggregator); otherwise it is the
+  // base store handed to useHostEvents, which attaches a live BroadcastChannel
+  // listener to it.
   hostEvents?: HostEventStore
 }
 
@@ -628,13 +630,15 @@ export function useAgentChat (options: UseAgentChatOptions) {
           pending = rebuildInFlight
         }
       }
-      // Only plain host tools get the barrier: sub-agent pseudo-tools run their own loop
-      // and never change the aggregate themselves.
-      // Host tools get two things after they return: the settle barrier (their
-      // tools/list_changed consequences folded in) and the host events they caused,
-      // appended to the result so they land in history exactly where they happened.
-      // One macrotask after settling: the page posts its events before returning and
-      // BroadcastChannel delivery is a task, so by then they are in the store.
+      // Applied to real host tools, both the main agent's and each sub-agent's own —
+      // the `subagent_*` pseudo-tool exposed to the main model is the one thing that
+      // stays unwrapped, since it runs its own ToolLoopAgent loop rather than calling
+      // into the host directly. Host tools get two things after they return: the
+      // settle barrier (their tools/list_changed consequences folded in) and the host
+      // events they caused, appended to the result so they land in history exactly
+      // where they happened. One macrotask after settling: the page posts its events
+      // before returning and BroadcastChannel delivery is a task, so by then they are
+      // in the store.
       const withHostConsequences = (t: Tool): Tool => {
         const execute = (t as any).execute
         if (typeof execute !== 'function') return t
