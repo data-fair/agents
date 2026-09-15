@@ -60,6 +60,26 @@ test.describe('Host events', () => {
     await expect(lastAnswer(page)).toContainText('wizard: {"step":"type","type":"none","title":""}')
   })
 
+  test('activation sends host-state once and does not also drain the same keyed facts into host-events', async ({ page, goToWithAuth }) => {
+    await open(page, goToWithAuth)
+    const bodies: string[] = []
+    page.on('request', (r: any) => { if (r.url().includes('/chat/completions')) bodies.push(r.postData() ?? '') })
+    await send(page, 'where am i')
+    await expect(lastAnswer(page)).toContainText('state:', { timeout: 15000 })
+    // 'where am i' never triggers a tool call, so the activation turn is one request.
+    expect(bodies).toHaveLength(1)
+    const body = bodies[0]
+    // The mock model echoes <host-state> in preference to <host-events> when both are
+    // present, so it cannot tell duplication apart from the fix — assert on the request
+    // the browser actually sent instead. Without the activation dedupe, `location` and
+    // `wizard` (both keyed, both already in retention from mount) would still be sitting
+    // in the pending buffer and would ride along a second time in a <host-events> block.
+    expect(body).toContain('<host-state>')
+    expect(body).not.toContain('<host-events>')
+    expect(body.match(/\blocation:/g) ?? []).toHaveLength(1)
+    expect(body.match(/\bwizard:/g) ?? []).toHaveLength(1)
+  })
+
   test('a user action between turns arrives coalesced in the next turn, without any tool call', async ({ page, goToWithAuth }) => {
     await open(page, goToWithAuth)
     await send(page, 'hello')

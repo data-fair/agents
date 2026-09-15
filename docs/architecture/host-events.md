@@ -83,6 +83,18 @@ abort signal, so this is the backstop for whichever one gets there first.
    [compaction](./compaction.md) ran, a `<host-state>` block (retained keys, then recent
    unkeyed events) is placed in that wrapper ahead of the events.
 
+On an activation turn only, the events drained in step 4 are first filtered against that
+same `<host-state>` snapshot: a keyed event whose key the snapshot already reports is
+dropped, because otherwise the model would see the same fact twice in one turn — once as
+retained state, once as a drained event (this is exactly what happens on mount, where
+`useAgentState`'s `immediate: true` watcher both seeds retention and leaves a pending
+event behind). Unkeyed events are never represented in the state list, so they are never
+filtered — a transition like `item-created` still has to be told, activation or not. Off
+activation there is no state block to duplicate against, so nothing is filtered and every
+pending event is drained as usual. This asymmetry is deliberate, not an oversight: "only
+on activation" and "only keyed" both have to hold, or the fix either stops working
+(non-activation turns already had nothing to duplicate) or starts eating real transitions.
+
 Both blocks say they are reported by the application, not written by the user; the
 [moderation](./moderation.md) gate and trace reconstruction see them as ordinary hidden
 context — the same `<hidden-context>` sentinel an action button's context rides in, so
@@ -108,6 +120,28 @@ the embedded host receives `agent-status: waiting-user`.
 It is chat-built-in rather than a page tool because a page-side pending call dies with
 the page on the navigation that follows Create — the exact moment that matters.
 
+A pending wait also suspends the chat's own idle watchdog. `use-agent-chat.ts` arms a
+`STREAM_IDLE_TIMEOUT_MS` (90s) timer on every stream part to catch a provider that holds
+the socket open while emitting nothing; a declared wait emits no stream parts by design
+and has its own default timeout of `WAIT_DEFAULT_SECONDS` (120s, `WAIT_MAX_SECONDS` 600
+max), so before this was fixed the watchdog killed every realistic wait — a real run made
+four gateway requests and then the turn simply died, the person's click never seen. The
+fix suspends the watchdog rather than capping the wait: a declared wait is an intentional,
+bounded pause that already has its own timeout and the user's own Stop button, and it
+exists precisely to outlast a human deciding, so capping it under 90 seconds would also
+make the documented 600-second maximum meaningless. Clearing the pending timer in
+`onWaiting` was not enough by itself — `armWatchdog()` is called unconditionally for every
+stream part, including the `finish-step` of the very step that announced the wait, which
+arrives after the tool's `execute()` has already started — so it was re-arming the
+watchdog underneath the wait it had just suspended. What actually holds is an independent
+`waitSuspended` flag that `armWatchdog()` consults and short-circuits on; `onDone` clears
+it and re-arms the watchdog, whichever way the wait ends. The same race threatened the UI
+label: that same trailing `finish-step` also drives `setActivity`, which would otherwise
+reset the chat's activity from `{ kind: 'waiting' }` back to `analyzing` mid-wait. A sticky
+guard at the top of `setActivity` — once the current activity is `'waiting'`, only the
+wait's own `onDone` may clear it — keeps the "Waiting for: …" line and chip up for the
+whole pause.
+
 ## Cost
 
 Context costs tokens, not turns. Every delivery here is a persisted message that becomes
@@ -124,10 +158,22 @@ publishes keyed `location` itself and embeds `WorkflowWizard.vue` (keyed `wizard
 (keyed `detail`); the wizard emits unkeyed `item-created` and a "Leave page" button is the
 departure a pending wait must survive. Mock seams (`api/src/models/mock-model.ts`):
 `where am i`, `what happened`, `select note`, `wait for me`, `wait briefly`. Tests:
-`tests/features/host-events/` (unit specs for the store and the state emitter, plus an
-eight-case e2e spec covering activation, coalesced delivery, tool-call delivery, a
-resumed wait, a wait resolved by leaving the page, a timeout, Stop cancelling a wait, and
-reset re-activating). Simulation case: `workflow-hand-back`.
+`tests/features/host-events/` (unit specs for the store and the state emitter, plus a
+ten-case e2e spec covering activation (twice — once for the retained-state content, once
+pinning that its keyed facts are not also duplicated into a `<host-events>` block),
+coalesced delivery, tool-call delivery, a resumed wait, a wait resolved by leaving the
+page, a timeout, the idle watchdog staying quiet through a wait, Stop cancelling a wait,
+and reset re-activating. Simulation case: `workflow-hand-back`.
+
+The judged simulation harness drives its persona only *between* runner turns, never while
+an assistant turn is open, so `wait_for_user_action` in that case always runs out to its
+own timeout rather than being resumed mid-turn by a click — a simulation transcript cannot
+exercise the same-turn resume at all. Read the assistant's resulting "press Create
+whenever you're ready" wrap-up as the intended hand-back, not a stall. The same-turn path
+— clicking while the turn is still open — is instead pinned by
+`tests/features/host-events/3.host-events.e2e.spec.ts`, which clicks Create mid-wait and
+asserts exactly two gateway requests for the turn (the call that started the wait, then
+the continuation after it resolves).
 
 ## Rejected alternatives
 
