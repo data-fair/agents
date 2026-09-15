@@ -512,8 +512,20 @@ export function useAgentChat (options: UseAgentChatOptions) {
       return snapshot && hasHostState(snapshot) ? formatHostState(snapshot) : null
     }
     const pendingEvents = hostEvents?.takePending() ?? []
+    // On the activation turn only: the state block above already reports the current
+    // value for every keyed event, so drop those from what we drain here — otherwise
+    // the model sees the same fact twice in the same turn (once as retained state,
+    // once as a drained event). Unkeyed events (transitions, e.g. item-created) are
+    // never represented in the state block, so they always pass through untouched.
+    // Non-activation turns have no state block to duplicate against, so they are
+    // unaffected.
+    const dedupeAgainstState = (events: typeof pendingEvents) => {
+      const stateKeys = new Set((hostEvents?.snapshot().state ?? []).map(e => e.key))
+      return events.filter(e => !e.key || !stateKeys.has(e.key))
+    }
+    const relevantEvents = activation ? dedupeAgainstState(pendingEvents) : pendingEvents
     const turnHidden = [
-      pendingEvents.length ? formatHostEvents(pendingEvents) : null,
+      relevantEvents.length ? formatHostEvents(relevantEvents) : null,
       sendOptions?.hiddenContext ?? null
     ].filter((p): p is string => !!p)
     const withState = (parts: string[]) => {
@@ -536,7 +548,16 @@ export function useAgentChat (options: UseAgentChatOptions) {
     let timedOut = false
     let watchdog: ReturnType<typeof setTimeout> | undefined
     const idleMs = Number(sessionStorage.getItem('agent-chat-idle-timeout')) || STREAM_IDLE_TIMEOUT_MS
+    // Set for the duration of a declared wait_for_user_action (see the wait tool's
+    // onWaiting/onDone below). A pending wait produces no stream parts by design, but
+    // the step that announced it still emits its own trailing parts (finish-step and
+    // the like) while the tool's execute() is already running — armWatchdog is called
+    // unconditionally for every part, so a flag independent of those parts (rather than
+    // reading `activity.value`, which those same trailing parts also touch) is what
+    // makes the suspension hold regardless of arrival order.
+    let waitSuspended = false
     const armWatchdog = () => {
+      if (waitSuspended) return
       if (watchdog) clearTimeout(watchdog)
       watchdog = setTimeout(() => { timedOut = true; abortController?.abort() }, idleMs)
     }
@@ -553,14 +574,16 @@ export function useAgentChat (options: UseAgentChatOptions) {
       stepHadTool: false,
       lastStepHadTool: false,
       setActivity: (phase, toolName) => {
+        // A declared wait outlives the tool-call part that announced it: the SDK starts
+        // the tool's execute() — which sets the 'waiting' activity — before this loop
+        // finishes draining that step's parts (finish-step included, which would
+        // otherwise relabel the line 'analyzing' and leave it stuck there for the rest
+        // of the pending wait). Only the wait's own onDone may clear 'waiting'.
+        if (activity.value?.kind === 'waiting') return
         switch (phase) {
           case 'streaming':
           case 'tool':
-            // A declared wait outlives the tool-call part that announced it: the SDK starts the
-            // tool's execute() — which sets the 'waiting' activity — before this loop drains the
-            // buffered tool-call part, so clearing unconditionally would erase the line the wait
-            // just put up. The wait clears itself through onDone when it resolves.
-            if (activity.value?.kind !== 'waiting') activity.value = null
+            activity.value = null
             break
           case 'analyzing':
             activity.value = { kind: 'analyzing', subAgent: toolName?.startsWith('subagent_') ? toolName : undefined }
@@ -910,8 +933,27 @@ export function useAgentChat (options: UseAgentChatOptions) {
         if (hostEvents) {
           nextTools[WAIT_TOOL_NAME] = mainLLMTools[WAIT_TOOL_NAME] ?? createWaitTool({
             store: hostEvents,
-            onWaiting: (expecting) => { activity.value = { kind: 'waiting', expecting } },
-            onDone: () => { activity.value = null }
+            onWaiting: (expecting) => {
+              activity.value = { kind: 'waiting', expecting }
+              // A declared wait produces no stream parts by design — that's the whole
+              // point of it — so nothing would re-arm the idle watchdog while it's
+              // pending. Suspend it for the duration: unlike a stalled provider (what
+              // the watchdog exists to catch), a declared wait is an intentional,
+              // bounded pause with its own timeout (up to WAIT_MAX_SECONDS) and its
+              // own Stop button, and it exists precisely to outlast a human.
+              // `waitSuspended` (not just clearing the timer here) also blocks the
+              // trailing stream parts of this same step — finish-step in particular —
+              // from re-arming it before the tool truly resolves. Lifted in onDone
+              // below, whichever way the wait ends.
+              waitSuspended = true
+              if (watchdog) clearTimeout(watchdog)
+              watchdog = undefined
+            },
+            onDone: () => {
+              activity.value = null
+              waitSuspended = false
+              armWatchdog()
+            }
           })
         }
 

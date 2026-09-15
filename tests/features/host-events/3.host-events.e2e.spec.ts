@@ -121,6 +121,27 @@ test.describe('Host events', () => {
     await expect(page.getByTestId('chat-activity')).toHaveCount(0)
   })
 
+  test('the idle watchdog does not fire while a wait is pending', async ({ page, goToWithAuth }) => {
+    await open(page, goToWithAuth)
+    await reachConfirmation(page)
+    // Shrink the idle watchdog well below how long we're about to sit in the wait
+    // (the default wait timeout is two minutes). A pending wait produces no stream
+    // parts by design, so if the watchdog were still armed during it — the bug this
+    // guards against — it would fire during the pause below and abort the whole
+    // turn with the generic timeout error instead of leaving the wait pending.
+    await page.evaluate(() => sessionStorage.setItem('agent-chat-idle-timeout', '1000'))
+    await send(page, 'wait for me')
+    await expect(page.getByTestId('chat-activity')).toContainText('Waiting for: you to click Create', { timeout: 15000 })
+    // Sit well past the shrunk idle timeout while the wait is still pending.
+    await page.waitForTimeout(2500)
+    // Still waiting, no timeout error alert: the watchdog did not fire during the pause.
+    await expect(page.getByTestId('chat-activity')).toContainText('Waiting for: you to click Create')
+    await expect(page.locator('.v-alert')).toHaveCount(0)
+    // The wait still resolves normally afterwards.
+    await page.getByRole('button', { name: 'Create' }).click()
+    await expect(lastAnswer(page)).toContainText('You did:', { timeout: 15000 })
+  })
+
   test('Stop cancels a pending wait', async ({ page, goToWithAuth }) => {
     await open(page, goToWithAuth)
     await reachConfirmation(page)
