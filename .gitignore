@@ -16,3 +16,4 @@ coverage/
 test-results
 docs/superpowers/
 docs/presentation-fr/*.pdf
+simulations/tmp

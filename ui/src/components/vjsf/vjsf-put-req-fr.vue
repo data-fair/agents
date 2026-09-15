@@ -34,6 +34,7 @@ import numberfieldNode from '@koumoul/vjsf/components/nodes/number-field.vue'
 import localizeErrors from "ajv-i18n/localize/fr/index.js";
 import { fullFormats } from "ajv-formats/dist/formats.js";
 
+const export0 = validate22;
 const schema26 = {"$id":"export0","$ref":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0"};
 const schema40 = {"required":["type","name","id","enabled"],"title":"Open AI","properties":{"type":{"type":"string","title":"Provider Type","const":"openai","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Open AI\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}};
 const obj0 = {"required":"missingProperty","dependencies":"property","dependentRequired":"property"};
@@ -271,6 +272,7 @@ return errors === 0;
 }
 validate22.evaluated = {"props":{"type":true,"id":true,"name":true,"enabled":true,"apiKey":true},"dynamicProps":false,"dynamicItems":false};
 
+const export1 = validate24;
 const schema41 = {"$id":"export1","$ref":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1"};
 const schema42 = {"required":["type","name","id","enabled"],"title":"Anthropic","properties":{"type":{"type":"string","title":"Provider Type","const":"anthropic","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Anthropic\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}};
 
@@ -507,6 +509,7 @@ return errors === 0;
 }
 validate24.evaluated = {"props":{"type":true,"id":true,"name":true,"enabled":true,"apiKey":true},"dynamicProps":false,"dynamicItems":false};
 
+const export2 = validate25;
 const schema43 = {"$id":"export2","$ref":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2"};
 const schema44 = {"required":["type","name","id","enabled"],"title":"Google","properties":{"type":{"type":"string","title":"Provider Type","const":"google","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Google\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}};
 
@@ -743,6 +746,7 @@ return errors === 0;
 }
 validate25.evaluated = {"props":{"type":true,"id":true,"name":true,"enabled":true,"apiKey":true},"dynamicProps":false,"dynamicItems":false};
 
+const export3 = validate26;
 const schema45 = {"$id":"export3","$ref":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3"};
 const schema46 = {"required":["type","name","id","enabled"],"title":"Mistral","properties":{"type":{"type":"string","title":"Provider Type","const":"mistral","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Mistral\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}};
 
@@ -979,6 +983,7 @@ return errors === 0;
 }
 validate26.evaluated = {"props":{"type":true,"id":true,"name":true,"enabled":true,"apiKey":true},"dynamicProps":false,"dynamicItems":false};
 
+const export4 = validate27;
 const schema47 = {"$id":"export4","$ref":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4"};
 const schema48 = {"required":["type","name","id","enabled"],"title":"OpenRouter","properties":{"type":{"type":"string","title":"Provider Type","const":"openrouter","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"OpenRouter\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}};
 
@@ -1215,6 +1220,7 @@ return errors === 0;
 }
 validate27.evaluated = {"props":{"type":true,"id":true,"name":true,"enabled":true,"apiKey":true},"dynamicProps":false,"dynamicItems":false};
 
+const export5 = validate28;
 const schema49 = {"$id":"export5","$ref":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5"};
 const schema50 = {"required":["type","name","id","enabled","baseURL"],"title":"Ollama","properties":{"type":{"type":"string","title":"Provider Type","const":"ollama","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Ollama\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/apiKey","errorMessage":{}},"baseURL":{"type":"string","title":"URL de base","default":"http://localhost:11434","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/baseURL","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire","baseURL":"information obligatoire"}}};
 
@@ -1484,6 +1490,7 @@ return errors === 0;
 }
 validate28.evaluated = {"props":{"type":true,"id":true,"name":true,"enabled":true,"apiKey":true,"baseURL":true},"dynamicProps":false,"dynamicItems":false};
 
+const export6 = validate29;
 const schema51 = {"$id":"export6","$ref":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6"};
 const schema52 = {"required":["type","name","id","enabled","apiKey"],"title":"Scaleway","description":"Pour une clé API liée à un Projet Scaleway spécifique, renseignez l'ID du projet afin que les requêtes ciblent ce projet. Laissez vide pour utiliser le projet par défaut de l'organisation.","properties":{"type":{"type":"string","title":"Provider Type","const":"scaleway","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Scaleway\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/apiKey","errorMessage":{}},"projectId":{"type":"string","title":"ID du projet","description":"Optionnel. L'ID du Projet Scaleway (UUID) auquel la clé API est liée. Requis lorsque la clé n'a accès qu'à un projet spécifique, sinon le listing des modèles et l'inférence renvoient une erreur 403.","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/projectId","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire","apiKey":"information obligatoire"}}};
 
@@ -1753,6 +1760,7 @@ return errors === 0;
 }
 validate29.evaluated = {"props":{"type":true,"id":true,"name":true,"enabled":true,"apiKey":true,"projectId":true},"dynamicProps":false,"dynamicItems":false};
 
+const export7 = validate30;
 const schema53 = {"$id":"export7","$ref":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7"};
 const schema54 = {"required":["type","name","id","enabled","baseURL"],"title":"Compatible OpenAI","description":"Fournisseur générique pour tout endpoint compatible OpenAI (Together, Fireworks, Groq, DeepInfra, vLLM, LM Studio, etc.). La clé API est optionnelle pour les serveurs locaux sans authentification.","properties":{"type":{"type":"string","title":"Provider Type","const":"openai-compatible","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"OpenAI Compatible\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/enabled","errorMessage":{}},"baseURL":{"type":"string","title":"URL de base","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/baseURL","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/apiKey","errorMessage":{}},"compatibility":{"type":"string","title":"Mode de compatibilité","description":"Utilisez \"compatible\" pour les fournisseurs qui ne supportent pas le nouveau endpoint /v1/responses (ex: LiteLLM, anciennes APIs compatibles OpenAI). Laissez vide pour le comportement OpenAI standard.","enum":["default","compatible"],"default":"default","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/compatibility","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire","baseURL":"information obligatoire"}}};
 
@@ -2055,6 +2063,7 @@ return errors === 0;
 }
 validate30.evaluated = {"props":{"type":true,"id":true,"name":true,"enabled":true,"baseURL":true,"apiKey":true,"compatibility":true},"dynamicProps":false,"dynamicItems":false};
 
+const export8 = validate31;
 const schema55 = {"$id":"export8","$ref":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8"};
 const schema56 = {"required":["type","name","id","enabled"],"title":"Mock","description":"To a message \"hello\" respond \"world\", to a message \"call tool ARG1 ARG2\" respond with a tool call, to anything else respond \"what do you mean ?\"","properties":{"type":{"type":"string","title":"Provider Type","const":"mock","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Mock\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/enabled","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}};
 
@@ -2268,6 +2277,7 @@ return errors === 0;
 }
 validate31.evaluated = {"props":{"type":true,"id":true,"name":true,"enabled":true},"dynamicProps":false,"dynamicItems":false};
 
+const export9 = validate32;
 const schema57 = {"$id":"export9","$ref":"https://github.com/data-fair/agents/settings-put#/properties/providers/items"};
 const schema58 = {"type":"object","title":"Fournisseur","unevaluatedProperties":false,"oneOfLayout":{"emptyData":true},"discriminator":{"propertyName":"type"},"layout":{"getDefaultData":"{ id: crypto.randomUUID() }","switch":[{"if":"summary","children":[]}]},"oneOf":[{"required":["type","name","id","enabled"],"title":"Open AI","properties":{"type":{"type":"string","title":"Provider Type","const":"openai","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Open AI\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}},{"required":["type","name","id","enabled"],"title":"Anthropic","properties":{"type":{"type":"string","title":"Provider Type","const":"anthropic","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Anthropic\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}},{"required":["type","name","id","enabled"],"title":"Google","properties":{"type":{"type":"string","title":"Provider Type","const":"google","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Google\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}},{"required":["type","name","id","enabled"],"title":"Mistral","properties":{"type":{"type":"string","title":"Provider Type","const":"mistral","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Mistral\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}},{"required":["type","name","id","enabled"],"title":"OpenRouter","properties":{"type":{"type":"string","title":"Provider Type","const":"openrouter","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"OpenRouter\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}},{"required":["type","name","id","enabled","baseURL"],"title":"Ollama","properties":{"type":{"type":"string","title":"Provider Type","const":"ollama","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Ollama\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/apiKey","errorMessage":{}},"baseURL":{"type":"string","title":"URL de base","default":"http://localhost:11434","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/baseURL","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire","baseURL":"information obligatoire"}}},{"required":["type","name","id","enabled","apiKey"],"title":"Scaleway","description":"Pour une clé API liée à un Projet Scaleway spécifique, renseignez l'ID du projet afin que les requêtes ciblent ce projet. Laissez vide pour utiliser le projet par défaut de l'organisation.","properties":{"type":{"type":"string","title":"Provider Type","const":"scaleway","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Scaleway\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/apiKey","errorMessage":{}},"projectId":{"type":"string","title":"ID du projet","description":"Optionnel. L'ID du Projet Scaleway (UUID) auquel la clé API est liée. Requis lorsque la clé n'a accès qu'à un projet spécifique, sinon le listing des modèles et l'inférence renvoient une erreur 403.","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/projectId","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire","apiKey":"information obligatoire"}}},{"required":["type","name","id","enabled","baseURL"],"title":"Compatible OpenAI","description":"Fournisseur générique pour tout endpoint compatible OpenAI (Together, Fireworks, Groq, DeepInfra, vLLM, LM Studio, etc.). La clé API est optionnelle pour les serveurs locaux sans authentification.","properties":{"type":{"type":"string","title":"Provider Type","const":"openai-compatible","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"OpenAI Compatible\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/enabled","errorMessage":{}},"baseURL":{"type":"string","title":"URL de base","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/baseURL","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/apiKey","errorMessage":{}},"compatibility":{"type":"string","title":"Mode de compatibilité","description":"Utilisez \"compatible\" pour les fournisseurs qui ne supportent pas le nouveau endpoint /v1/responses (ex: LiteLLM, anciennes APIs compatibles OpenAI). Laissez vide pour le comportement OpenAI standard.","enum":["default","compatible"],"default":"default","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/compatibility","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire","baseURL":"information obligatoire"}}},{"required":["type","name","id","enabled"],"title":"Mock","description":"To a message \"hello\" respond \"world\", to a message \"call tool ARG1 ARG2\" respond with a tool call, to anything else respond \"what do you mean ?\"","properties":{"type":{"type":"string","title":"Provider Type","const":"mock","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Mock\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/enabled","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}}],"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items","errorMessage":{"oneOf":"choisissez une valeur"}};
 
@@ -4604,6 +4614,7 @@ return errors === 0;
 }
 validate32.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
+const export10 = validate33;
 const schema59 = {"$id":"export10","$ref":"https://github.com/data-fair/agents/settings-put#/properties/moderation/properties/categories/items"};
 const schema60 = {"type":"string","oneOf":[{"const":"anonymous","title":"Anonyme"},{"const":"external","title":"Externe"},{"const":"user","title":"Utilisateur"},{"const":"contrib","title":"Contributeur"},{"const":"admin","title":"Administrateur"}],"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/moderation/properties/categories/items","errorMessage":{"oneOf":"choisissez une valeur"}};
 
@@ -4791,6 +4802,7 @@ return errors === 0;
 }
 validate33.evaluated = {"dynamicProps":false,"dynamicItems":false};
 
+const export11 = validate34;
 const schema61 = {"$id":"export11","$ref":"https://github.com/data-fair/agents/settings-put#"};
 const schema27 = {"$id":"https://github.com/data-fair/agents/settings-put","x-exports":["validate","types","vjsf"],"title":"Paramètres","layout":{"title":null},"definitions":{"RoleQuota":{"type":"object","layout":"card","required":["unlimited","monthlyLimit"],"properties":{"unlimited":{"type":"boolean","title":"Illimité","default":false,"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/unlimited","errorMessage":{}},"monthlyLimit":{"layout":{"if":"!parent.data.unlimited"},"type":"number","title":"Limite mensuelle","description":"Limite hebdomadaire = mensuelle / 2, limite journalière = mensuelle / 4","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyLimit","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota","errorMessage":{"required":{"unlimited":"information obligatoire","monthlyLimit":"information obligatoire"}}},"Model":{"type":"object","required":["id","name","provider"],"layout":{"comp":"autocomplete","getItems":{"url":{"pure":false,"type":"js-tpl","dataAlias":"value","expr":"${context.apiPath}/models/${context.accountType}/${context.accountId}?provider=${parent.parent.parent.data.providers.map(p => p.id).join(\",\")}","ref":18},"itemsResults":{"pure":true,"type":"js-eval","dataAlias":"body","expr":"data.results","ref":21},"itemTitle":{"pure":true,"type":"js-eval","dataAlias":"item","expr":"`${item.name} (${item.provider.name} - ${item.provider.id.slice(0, 8)})`","ref":19},"itemKey":{"pure":true,"type":"js-eval","dataAlias":"item","expr":"item.id","ref":20},"returnObjects":true}},"properties":{"id":{"type":"string","title":"Model ID","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/id","errorMessage":{}},"name":{"type":"string","title":"Name","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/name","errorMessage":{}},"provider":{"type":"object","required":["type","name","id"],"properties":{"type":{"type":"string","title":"Provider Type","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider/properties/type","errorMessage":{}},"name":{"type":"string","title":"Provider Name","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider/properties/name","errorMessage":{}},"id":{"type":"string","title":"Provider ID","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider/properties/id","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider","errorMessage":{"required":{"type":"information obligatoire","name":"information obligatoire","id":"information obligatoire"}}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model","errorMessage":{"required":{"id":"information obligatoire","name":"information obligatoire","provider":"information obligatoire"}}}},"type":"object","additionalProperties":false,"required":["providers"],"properties":{"createdAt":{"type":"string","format":"date-time","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/createdAt","errorMessage":{}},"updatedAt":{"type":"string","format":"date-time","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/updatedAt","errorMessage":{}},"storeTraces":{"type":"boolean","title":"Enregistrer les traces de conversation","description":"Si activé, les conversations des utilisateurs consentants sont enregistrées sur le serveur pendant 30 jours pour relecture par un administrateur. Chaque utilisateur doit explicitement accepter.","default":false,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/storeTraces","errorMessage":{}},"owner":{"type":"object","additionalProperties":false,"required":["type","id"],"readOnly":true,"properties":{"type":{"type":"string","enum":["user","organization"],"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/type","errorMessage":{}},"id":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/id","errorMessage":{}},"name":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/name","errorMessage":{}},"department":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner/properties/department","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/owner","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire"}}},"providers":{"type":"array","title":"Fournisseurs IA","layout":{"itemTitle":"item ? `${item.name || \"\"} - ${item.id.slice(0, 8)}` : \"\"","listActions":["add","edit","delete"]},"items":{"type":"object","title":"Fournisseur","unevaluatedProperties":false,"oneOfLayout":{"emptyData":true},"discriminator":{"propertyName":"type"},"layout":{"getDefaultData":"{ id: crypto.randomUUID() }","switch":[{"if":"summary","children":[]}]},"oneOf":[{"required":["type","name","id","enabled"],"title":"Open AI","properties":{"type":{"type":"string","title":"Provider Type","const":"openai","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Open AI\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}},{"required":["type","name","id","enabled"],"title":"Anthropic","properties":{"type":{"type":"string","title":"Provider Type","const":"anthropic","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Anthropic\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}},{"required":["type","name","id","enabled"],"title":"Google","properties":{"type":{"type":"string","title":"Provider Type","const":"google","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Google\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}},{"required":["type","name","id","enabled"],"title":"Mistral","properties":{"type":{"type":"string","title":"Provider Type","const":"mistral","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Mistral\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}},{"required":["type","name","id","enabled"],"title":"OpenRouter","properties":{"type":{"type":"string","title":"Provider Type","const":"openrouter","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"OpenRouter\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/apiKey","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}},{"required":["type","name","id","enabled","baseURL"],"title":"Ollama","properties":{"type":{"type":"string","title":"Provider Type","const":"ollama","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Ollama\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/apiKey","errorMessage":{}},"baseURL":{"type":"string","title":"URL de base","default":"http://localhost:11434","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/baseURL","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire","baseURL":"information obligatoire"}}},{"required":["type","name","id","enabled","apiKey"],"title":"Scaleway","description":"Pour une clé API liée à un Projet Scaleway spécifique, renseignez l'ID du projet afin que les requêtes ciblent ce projet. Laissez vide pour utiliser le projet par défaut de l'organisation.","properties":{"type":{"type":"string","title":"Provider Type","const":"scaleway","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Scaleway\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/enabled","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/apiKey","errorMessage":{}},"projectId":{"type":"string","title":"ID du projet","description":"Optionnel. L'ID du Projet Scaleway (UUID) auquel la clé API est liée. Requis lorsque la clé n'a accès qu'à un projet spécifique, sinon le listing des modèles et l'inférence renvoient une erreur 403.","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/projectId","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire","apiKey":"information obligatoire"}}},{"required":["type","name","id","enabled","baseURL"],"title":"Compatible OpenAI","description":"Fournisseur générique pour tout endpoint compatible OpenAI (Together, Fireworks, Groq, DeepInfra, vLLM, LM Studio, etc.). La clé API est optionnelle pour les serveurs locaux sans authentification.","properties":{"type":{"type":"string","title":"Provider Type","const":"openai-compatible","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"OpenAI Compatible\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/enabled","errorMessage":{}},"baseURL":{"type":"string","title":"URL de base","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/baseURL","errorMessage":{}},"apiKey":{"type":"string","title":"Clé API","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/apiKey","errorMessage":{}},"compatibility":{"type":"string","title":"Mode de compatibilité","description":"Utilisez \"compatible\" pour les fournisseurs qui ne supportent pas le nouveau endpoint /v1/responses (ex: LiteLLM, anciennes APIs compatibles OpenAI). Laissez vide pour le comportement OpenAI standard.","enum":["default","compatible"],"default":"default","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/compatibility","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire","baseURL":"information obligatoire"}}},{"required":["type","name","id","enabled"],"title":"Mock","description":"To a message \"hello\" respond \"world\", to a message \"call tool ARG1 ARG2\" respond with a tool call, to anything else respond \"what do you mean ?\"","properties":{"type":{"type":"string","title":"Provider Type","const":"mock","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/type","errorMessage":{}},"id":{"type":"string","title":"ID du fournisseur","readOnly":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/id","errorMessage":{}},"name":{"type":"string","title":"Nom d'affichage","layout":{"getDefaultData":"\"Mock\""},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/name","errorMessage":{}},"enabled":{"type":"boolean","title":"Activé","default":true,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/enabled","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8","errorMessage":{"required":{"type":"information obligatoire","id":"information obligatoire","name":"information obligatoire","enabled":"information obligatoire"}}}],"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers/items","errorMessage":{"oneOf":"choisissez une valeur"}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/providers","errorMessage":{}},"models":{"type":"object","title":"Modèles","layout":{"title":null,"if":"parent.data.providers?.length"},"default":{},"properties":{"assistant":{"type":"object","title":"Assistant","description":"L'interface conversationnelle principale. Équilibré pour le raisonnement, le suivi d'instructions et l'interaction naturelle. Ce modèle gère le flux de haut niveau et délègue les tâches complexes aux sous-agents.\n\nRecommandations : GPT-5.4, Claude 4.5 Sonnet, Kimi K2, Mistral Large 3, etc.","layout":{"comp":"card","children":[{"key":"model"},{"key":"inputPricePerMillion","cols":6},{"key":"outputPricePerMillion","cols":6}],"cols":6},"properties":{"model":{"$ref":"#/definitions/Model","title":"Modèle","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/model","errorMessage":{"required":{"id":"information obligatoire","name":"information obligatoire","provider":"information obligatoire"}}},"inputPricePerMillion":{"type":"number","title":"Prix d'entrée (par million de tokens)","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/inputPricePerMillion","errorMessage":{}},"outputPricePerMillion":{"type":"number","title":"Prix de sortie (par million de tokens)","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/outputPricePerMillion","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant","errorMessage":{}},"tools":{"type":"object","title":"Outils","description":"Le « technicien ». Spécialisé dans les données structurées et l'interaction avec les API. Il excelle à enchaîner plusieurs appels d'outils sans remplissage conversationnel, garantissant une haute fiabilité dans les workflows automatisés.\n\nRecommandations : GPT-5.4 Mini, Mistral DevStral, Claude 4.5 Sonnet (Computer Use), MiMo-V2-Flash, etc.","layout":{"comp":"card","children":[{"key":"model"},{"key":"inputPricePerMillion","cols":6},{"key":"outputPricePerMillion","cols":6}],"cols":6},"properties":{"model":{"$ref":"#/definitions/Model","title":"Modèle","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/model","errorMessage":{"required":{"id":"information obligatoire","name":"information obligatoire","provider":"information obligatoire"}}},"inputPricePerMillion":{"type":"number","title":"Prix d'entrée (par million de tokens)","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/inputPricePerMillion","errorMessage":{}},"outputPricePerMillion":{"type":"number","title":"Prix de sortie (par million de tokens)","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/outputPricePerMillion","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools","errorMessage":{}},"summarizer":{"type":"object","title":"Résumeur","description":"Un spécialiste de la « synthèse ». Optimisé pour extraire rapidement les points clés de blocs de texte petits à moyens. Il privilégie la densité d'information et la concision pour garder les fenêtres de contexte légères et les coûts bas.\n\nRecommandations : GPT-5.4 Mini, Claude 4.5 Haiku, Mistral Small 4, Qwen3 (8B), etc.","layout":{"comp":"card","children":[{"key":"model"},{"key":"inputPricePerMillion","cols":6},{"key":"outputPricePerMillion","cols":6}],"cols":6},"properties":{"model":{"$ref":"#/definitions/Model","title":"Modèle","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/model","errorMessage":{"required":{"id":"information obligatoire","name":"information obligatoire","provider":"information obligatoire"}}},"inputPricePerMillion":{"type":"number","title":"Prix d'entrée (par million de tokens)","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/inputPricePerMillion","errorMessage":{}},"outputPricePerMillion":{"type":"number","title":"Prix de sortie (par million de tokens)","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/outputPricePerMillion","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer","errorMessage":{}},"evaluator":{"type":"object","title":"Évaluateur","description":"Le « contrôleur qualité ». Analyse la logique de l'assistant et les sorties des outils pour vérifier la précision et la sécurité. Il nécessite les capacités de raisonnement les plus élevées pour servir de référence fiable pour les performances du système.\n\nRecommandations : Claude Opus 4.6, GPT-5.4 (Reasoning), DeepSeek-R1, Pharia-1-LLM, etc.","layout":{"comp":"card","children":[{"key":"model"},{"key":"inputPricePerMillion","cols":6},{"key":"outputPricePerMillion","cols":6}],"cols":6},"properties":{"model":{"$ref":"#/definitions/Model","title":"Modèle","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/model","errorMessage":{"required":{"id":"information obligatoire","name":"information obligatoire","provider":"information obligatoire"}}},"inputPricePerMillion":{"type":"number","title":"Prix d'entrée (par million de tokens)","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/inputPricePerMillion","errorMessage":{}},"outputPricePerMillion":{"type":"number","title":"Prix de sortie (par million de tokens)","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/outputPricePerMillion","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator","errorMessage":{}},"moderator":{"type":"object","title":"Modérateur","description":"Le « gardien ». Classe chaque nouveau message utilisateur (grossièretés, injection de prompt, usurpation de persona, demandes hors périmètre). Doit être rapide et peu coûteux — il se trouve sur le chemin critique vers le premier token de réponse.\n\nRecommandations : un modèle généraliste petit et rapide avec support de sortie structurée (JSON), par ex. Claude 4.5 Haiku, GPT-5.4 Mini, Mistral Small 4, Qwen3 (4B). Les classifieurs de modération dédiés (Llama Guard, API de modération) ne sont pas compatibles : leurs taxonomies et formats de sortie fixes ne peuvent pas exprimer la politique spécifique de cette plateforme.","layout":{"comp":"card","children":[{"key":"model"},{"key":"inputPricePerMillion","cols":6},{"key":"outputPricePerMillion","cols":6}],"cols":6},"properties":{"model":{"$ref":"#/definitions/Model","title":"Modèle","__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator/properties/model","errorMessage":{"required":{"id":"information obligatoire","name":"information obligatoire","provider":"information obligatoire"}}},"inputPricePerMillion":{"type":"number","title":"Prix d'entrée (par million de tokens)","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator/properties/inputPricePerMillion","errorMessage":{}},"outputPricePerMillion":{"type":"number","title":"Prix de sortie (par million de tokens)","default":0,"minimum":0,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator/properties/outputPricePerMillion","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/models","errorMessage":{}},"moderation":{"type":"object","title":"Modération des entrées","layout":{"if":"parent.data.providers?.length"},"default":{"enabled":false,"categories":["anonymous","external"]},"required":["enabled","categories"],"additionalProperties":false,"properties":{"enabled":{"type":"boolean","title":"Activer la modération des entrées","description":"Si activé, le dernier message utilisateur de chaque requête provenant d'une catégorie modérée est classé avant la réponse du modèle.","default":false,"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/moderation/properties/enabled","errorMessage":{}},"categories":{"type":"array","uniqueItems":true,"default":["anonymous","external"],"title":"Catégories d'utilisateurs modérées","description":"Catégories d'utilisateurs dont les requêtes sont vérifiées par le filtre lorsque la modération est activée.","items":{"type":"string","oneOf":[{"const":"anonymous","title":"Anonyme"},{"const":"external","title":"Externe"},{"const":"user","title":"Utilisateur"},{"const":"contrib","title":"Contributeur"},{"const":"admin","title":"Administrateur"}],"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/moderation/properties/categories/items","errorMessage":{"oneOf":"choisissez une valeur"}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/moderation/properties/categories","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/moderation","errorMessage":{"required":{"enabled":"information obligatoire","categories":"information obligatoire"}}},"quotas":{"type":"object","title":"Quotas par rôle","layout":{"title":null,"if":"parent.data.providers?.length","children":[{"key":"global","cols":{"sm":6,"md":4}},{"key":"admin","cols":{"sm":6,"md":4}},{"key":"contrib","cols":{"sm":6,"md":4},"if":"context.accountType === \"organization\""},{"key":"user","cols":{"sm":6,"md":4},"if":"context.accountType === \"organization\""},{"key":"external","cols":{"sm":6,"md":4}},{"key":"anonymous","cols":{"sm":6,"md":4}},{"key":"untrusted","cols":{"sm":6,"md":4}}]},"required":["global","admin","contrib","user","external","anonymous"],"default":{"global":{"unlimited":false,"monthlyLimit":10},"admin":{"unlimited":true,"monthlyLimit":0},"contrib":{"unlimited":false,"monthlyLimit":0},"user":{"unlimited":false,"monthlyLimit":0},"external":{"unlimited":false,"monthlyLimit":0},"anonymous":{"unlimited":false,"monthlyLimit":0},"untrusted":{"unlimited":false,"monthlyLimit":0}},"properties":{"global":{"$ref":"#/definitions/RoleQuota","title":"Quotas globaux","default":{"unlimited":false,"monthlyLimit":10},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/global","errorMessage":{"required":{"unlimited":"information obligatoire","monthlyLimit":"information obligatoire"}}},"admin":{"$ref":"#/definitions/RoleQuota","title":"Quotas administrateur","default":{"unlimited":true,"monthlyLimit":0},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/admin","errorMessage":{"required":{"unlimited":"information obligatoire","monthlyLimit":"information obligatoire"}}},"contrib":{"$ref":"#/definitions/RoleQuota","title":"Quotas contributeur","default":{"unlimited":false,"monthlyLimit":0},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/contrib","errorMessage":{"required":{"unlimited":"information obligatoire","monthlyLimit":"information obligatoire"}}},"user":{"$ref":"#/definitions/RoleQuota","title":"Quotas utilisateur simple","default":{"unlimited":false,"monthlyLimit":0},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/user","errorMessage":{"required":{"unlimited":"information obligatoire","monthlyLimit":"information obligatoire"}}},"external":{"$ref":"#/definitions/RoleQuota","title":"Quotas utilisateur externe","default":{"unlimited":false,"monthlyLimit":0},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/external","errorMessage":{"required":{"unlimited":"information obligatoire","monthlyLimit":"information obligatoire"}}},"anonymous":{"$ref":"#/definitions/RoleQuota","title":"Quotas utilisateur anonyme","default":{"unlimited":false,"monthlyLimit":0},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/anonymous","errorMessage":{"required":{"unlimited":"information obligatoire","monthlyLimit":"information obligatoire"}}},"untrusted":{"$ref":"#/definitions/RoleQuota","title":"Réserve anonyme + externe","description":"Plafond agrégé partagé par l'ensemble des usages anonymes et externes, afin que le trafic non fiable ne puisse pas consommer tout le budget du compte. 0 = pas de plafond de réserve.","default":{"unlimited":false,"monthlyLimit":0},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/untrusted","errorMessage":{"required":{"unlimited":"information obligatoire","monthlyLimit":"information obligatoire"}}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/properties/quotas","errorMessage":{"required":{"global":"information obligatoire","admin":"information obligatoire","contrib":"information obligatoire","user":"information obligatoire","external":"information obligatoire","anonymous":"information obligatoire"}}}},"x-vjsf":{"xI18n":true,"pluginsImports":["@koumoul/vjsf-markdown"]},"x-vjsf-locales":["en","fr"],"__pointer":"https://github.com/data-fair/agents/settings-put#","errorMessage":{"required":{"providers":"information obligatoire"}}};
 const schema28 = {"type":"object","required":["id","name","provider"],"layout":{"comp":"autocomplete","getItems":{"url":{"pure":false,"type":"js-tpl","dataAlias":"value","expr":"${context.apiPath}/models/${context.accountType}/${context.accountId}?provider=${parent.parent.parent.data.providers.map(p => p.id).join(\",\")}","ref":18},"itemsResults":{"pure":true,"type":"js-eval","dataAlias":"body","expr":"data.results","ref":21},"itemTitle":{"pure":true,"type":"js-eval","dataAlias":"item","expr":"`${item.name} (${item.provider.name} - ${item.provider.id.slice(0, 8)})`","ref":19},"itemKey":{"pure":true,"type":"js-eval","dataAlias":"item","expr":"item.id","ref":20},"returnObjects":true}},"properties":{"id":{"type":"string","title":"Model ID","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/id","errorMessage":{}},"name":{"type":"string","title":"Name","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/name","errorMessage":{}},"provider":{"type":"object","required":["type","name","id"],"properties":{"type":{"type":"string","title":"Provider Type","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider/properties/type","errorMessage":{}},"name":{"type":"string","title":"Provider Name","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider/properties/name","errorMessage":{}},"id":{"type":"string","title":"Provider ID","__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider/properties/id","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider","errorMessage":{"required":{"type":"information obligatoire","name":"information obligatoire","id":"information obligatoire"}}}},"__pointer":"https://github.com/data-fair/agents/settings-put#/definitions/Model","errorMessage":{"required":{"id":"information obligatoire","name":"information obligatoire","provider":"information obligatoire"}}};
@@ -11393,7 +11405,6 @@ return (context.accountType === "organization")
 ) {
 return (!parent.data.unlimited)
 }
-
 const compiledLayout = {
   mainTree: "https://github.com/data-fair/agents/settings-put#",
 
@@ -11490,11 +11501,37 @@ const compiledLayout = {
       pointer: "https://github.com/data-fair/agents/settings-put#",
       refPointer: "https://github.com/data-fair/agents/settings-put#",
       pure: false,
-      propertyKeys: ["createdAt", "updatedAt", "storeTraces", "owner", "providers", "models", "moderation", "quotas"],
-      roPropertyKeys: ["createdAt", "updatedAt", "owner"],
+
+      propertyKeys: [
+        "createdAt",
+        "updatedAt",
+        "storeTraces",
+        "owner",
+        "providers",
+        "models",
+        "moderation",
+        "quotas"
+      ],
+
+      roPropertyKeys: [
+        "createdAt",
+        "updatedAt",
+        "owner"
+      ],
+
       nullable: false,
       required: true,
-      children: ["https://github.com/data-fair/agents/settings-put#/properties/createdAt", "https://github.com/data-fair/agents/settings-put#/properties/updatedAt", "https://github.com/data-fair/agents/settings-put#/properties/storeTraces", "https://github.com/data-fair/agents/settings-put#/properties/owner", "https://github.com/data-fair/agents/settings-put#/properties/providers", "https://github.com/data-fair/agents/settings-put#/properties/models", "https://github.com/data-fair/agents/settings-put#/properties/moderation", "https://github.com/data-fair/agents/settings-put#/properties/quotas"]
+
+      children: [
+        "https://github.com/data-fair/agents/settings-put#/properties/createdAt",
+        "https://github.com/data-fair/agents/settings-put#/properties/updatedAt",
+        "https://github.com/data-fair/agents/settings-put#/properties/storeTraces",
+        "https://github.com/data-fair/agents/settings-put#/properties/owner",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers",
+        "https://github.com/data-fair/agents/settings-put#/properties/models",
+        "https://github.com/data-fair/agents/settings-put#/properties/moderation",
+        "https://github.com/data-fair/agents/settings-put#/properties/quotas"
+      ]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/createdAt": {
@@ -11539,11 +11576,24 @@ const compiledLayout = {
       pointer: "https://github.com/data-fair/agents/settings-put#/properties/owner",
       refPointer: "https://github.com/data-fair/agents/settings-put#/properties/owner",
       pure: true,
-      propertyKeys: ["type", "id", "name", "department"],
+
+      propertyKeys: [
+        "type",
+        "id",
+        "name",
+        "department"
+      ],
+
       roPropertyKeys: [],
       nullable: false,
       required: false,
-      children: ["https://github.com/data-fair/agents/settings-put#/properties/owner/properties/type", "https://github.com/data-fair/agents/settings-put#/properties/owner/properties/id", "https://github.com/data-fair/agents/settings-put#/properties/owner/properties/name", "https://github.com/data-fair/agents/settings-put#/properties/owner/properties/department"]
+
+      children: [
+        "https://github.com/data-fair/agents/settings-put#/properties/owner/properties/type",
+        "https://github.com/data-fair/agents/settings-put#/properties/owner/properties/id",
+        "https://github.com/data-fair/agents/settings-put#/properties/owner/properties/name",
+        "https://github.com/data-fair/agents/settings-put#/properties/owner/properties/department"
+      ]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/owner/properties/type": {
@@ -11604,7 +11654,10 @@ const compiledLayout = {
       roPropertyKeys: [],
       nullable: false,
       required: true,
-      childrenTrees: ["https://github.com/data-fair/agents/settings-put#/properties/providers/items"]
+
+      childrenTrees: [
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items"
+      ]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/providers/items": {
@@ -11613,11 +11666,25 @@ const compiledLayout = {
       pointer: "https://github.com/data-fair/agents/settings-put#/properties/providers/items",
       refPointer: "https://github.com/data-fair/agents/settings-put#/properties/providers/items",
       pure: true,
-      propertyKeys: ["type", "id", "name", "enabled", "apiKey", "baseURL", "projectId", "compatibility"],
+
+      propertyKeys: [
+        "type",
+        "id",
+        "name",
+        "enabled",
+        "apiKey",
+        "baseURL",
+        "projectId",
+        "compatibility"
+      ],
+
       roPropertyKeys: ["id"],
       nullable: false,
       required: true,
-      children: ["https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf"]
+
+      children: [
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf"
+      ]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0": {
@@ -11625,11 +11692,26 @@ const compiledLayout = {
       pointer: "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0",
       refPointer: "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0",
       pure: true,
-      propertyKeys: ["type", "id", "name", "enabled", "apiKey"],
+
+      propertyKeys: [
+        "type",
+        "id",
+        "name",
+        "enabled",
+        "apiKey"
+      ],
+
       roPropertyKeys: ["id"],
       nullable: false,
       required: true,
-      children: ["https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/id", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/name", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/enabled", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/apiKey"]
+
+      children: [
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/id",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/name",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/enabled",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/apiKey"
+      ]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0/properties/type": {
@@ -11697,11 +11779,26 @@ const compiledLayout = {
       pointer: "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1",
       refPointer: "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1",
       pure: true,
-      propertyKeys: ["type", "id", "name", "enabled", "apiKey"],
+
+      propertyKeys: [
+        "type",
+        "id",
+        "name",
+        "enabled",
+        "apiKey"
+      ],
+
       roPropertyKeys: ["id"],
       nullable: false,
       required: true,
-      children: ["https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/type", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/id", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/name", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/enabled", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/apiKey"]
+
+      children: [
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/type",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/id",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/name",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/enabled",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/apiKey"
+      ]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1/properties/type": {
@@ -11769,11 +11866,26 @@ const compiledLayout = {
       pointer: "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2",
       refPointer: "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2",
       pure: true,
-      propertyKeys: ["type", "id", "name", "enabled", "apiKey"],
+
+      propertyKeys: [
+        "type",
+        "id",
+        "name",
+        "enabled",
+        "apiKey"
+      ],
+
       roPropertyKeys: ["id"],
       nullable: false,
       required: true,
-      children: ["https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/type", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/id", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/name", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/enabled", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/apiKey"]
+
+      children: [
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/type",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/id",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/name",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/enabled",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/apiKey"
+      ]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2/properties/type": {
@@ -11841,11 +11953,26 @@ const compiledLayout = {
       pointer: "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3",
       refPointer: "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3",
       pure: true,
-      propertyKeys: ["type", "id", "name", "enabled", "apiKey"],
+
+      propertyKeys: [
+        "type",
+        "id",
+        "name",
+        "enabled",
+        "apiKey"
+      ],
+
       roPropertyKeys: ["id"],
       nullable: false,
       required: true,
-      children: ["https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/type", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/id", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/name", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/enabled", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/apiKey"]
+
+      children: [
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/type",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/id",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/name",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/enabled",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/apiKey"
+      ]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3/properties/type": {
@@ -11913,11 +12040,26 @@ const compiledLayout = {
       pointer: "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4",
       refPointer: "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4",
       pure: true,
-      propertyKeys: ["type", "id", "name", "enabled", "apiKey"],
+
+      propertyKeys: [
+        "type",
+        "id",
+        "name",
+        "enabled",
+        "apiKey"
+      ],
+
       roPropertyKeys: ["id"],
       nullable: false,
       required: true,
-      children: ["https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/type", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/id", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/name", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/enabled", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/apiKey"]
+
+      children: [
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/type",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/id",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/name",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/enabled",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/apiKey"
+      ]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4/properties/type": {
@@ -11985,11 +12127,28 @@ const compiledLayout = {
       pointer: "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5",
       refPointer: "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5",
       pure: true,
-      propertyKeys: ["type", "id", "name", "enabled", "apiKey", "baseURL"],
+
+      propertyKeys: [
+        "type",
+        "id",
+        "name",
+        "enabled",
+        "apiKey",
+        "baseURL"
+      ],
+
       roPropertyKeys: ["id"],
       nullable: false,
       required: true,
-      children: ["https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/type", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/id", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/name", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/enabled", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/apiKey", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/baseURL"]
+
+      children: [
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/type",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/id",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/name",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/enabled",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/apiKey",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/baseURL"
+      ]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5/properties/type": {
@@ -12069,11 +12228,28 @@ const compiledLayout = {
       pointer: "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6",
       refPointer: "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6",
       pure: true,
-      propertyKeys: ["type", "id", "name", "enabled", "apiKey", "projectId"],
+
+      propertyKeys: [
+        "type",
+        "id",
+        "name",
+        "enabled",
+        "apiKey",
+        "projectId"
+      ],
+
       roPropertyKeys: ["id"],
       nullable: false,
       required: true,
-      children: ["https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/type", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/id", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/name", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/enabled", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/apiKey", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/projectId"]
+
+      children: [
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/type",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/id",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/name",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/enabled",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/apiKey",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/projectId"
+      ]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6/properties/type": {
@@ -12153,11 +12329,30 @@ const compiledLayout = {
       pointer: "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7",
       refPointer: "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7",
       pure: true,
-      propertyKeys: ["type", "id", "name", "enabled", "baseURL", "apiKey", "compatibility"],
+
+      propertyKeys: [
+        "type",
+        "id",
+        "name",
+        "enabled",
+        "baseURL",
+        "apiKey",
+        "compatibility"
+      ],
+
       roPropertyKeys: ["id"],
       nullable: false,
       required: true,
-      children: ["https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/type", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/id", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/name", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/enabled", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/baseURL", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/apiKey", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/compatibility"]
+
+      children: [
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/type",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/id",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/name",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/enabled",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/baseURL",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/apiKey",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/compatibility"
+      ]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7/properties/type": {
@@ -12253,7 +12448,13 @@ const compiledLayout = {
       roPropertyKeys: ["id"],
       nullable: false,
       required: true,
-      children: ["https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/type", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/id", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/name", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/enabled"]
+
+      children: [
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/type",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/id",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/name",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/enabled"
+      ]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8/properties/type": {
@@ -12308,10 +12509,33 @@ const compiledLayout = {
       key: "$oneOf",
       pointer: "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf",
       refPointer: "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf",
-      childrenTrees: ["https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7", "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8"],
+
+      childrenTrees: [
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7",
+        "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8"
+      ],
+
       discriminator: "type",
       pure: true,
-      propertyKeys: ["type", "id", "name", "enabled", "apiKey", "baseURL", "projectId", "compatibility"],
+
+      propertyKeys: [
+        "type",
+        "id",
+        "name",
+        "enabled",
+        "apiKey",
+        "baseURL",
+        "projectId",
+        "compatibility"
+      ],
+
       roPropertyKeys: ["id"]
     },
 
@@ -12321,11 +12545,26 @@ const compiledLayout = {
       pointer: "https://github.com/data-fair/agents/settings-put#/properties/models",
       refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models",
       pure: false,
-      propertyKeys: ["assistant", "tools", "summarizer", "evaluator", "moderator"],
+
+      propertyKeys: [
+        "assistant",
+        "tools",
+        "summarizer",
+        "evaluator",
+        "moderator"
+      ],
+
       roPropertyKeys: [],
       nullable: false,
       required: false,
-      children: ["https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant", "https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools", "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer", "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator", "https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator"]
+
+      children: [
+        "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant",
+        "https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools",
+        "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer",
+        "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator",
+        "https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator"
+      ]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant": {
@@ -12334,11 +12573,22 @@ const compiledLayout = {
       pointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant",
       refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant",
       pure: false,
-      propertyKeys: ["model", "inputPricePerMillion", "outputPricePerMillion"],
+
+      propertyKeys: [
+        "model",
+        "inputPricePerMillion",
+        "outputPricePerMillion"
+      ],
+
       roPropertyKeys: [],
       nullable: false,
       required: undefined,
-      children: ["https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/model", "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/inputPricePerMillion", "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/outputPricePerMillion"]
+
+      children: [
+        "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/model",
+        "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/inputPricePerMillion",
+        "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/outputPricePerMillion"
+      ]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/models/properties/assistant/properties/model": {
@@ -12351,7 +12601,12 @@ const compiledLayout = {
       roPropertyKeys: [],
       nullable: false,
       required: undefined,
-      children: ["https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/id", "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/name", "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider"]
+
+      children: [
+        "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/id",
+        "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/name",
+        "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider"
+      ]
     },
 
     "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/id": {
@@ -12388,7 +12643,12 @@ const compiledLayout = {
       roPropertyKeys: [],
       nullable: false,
       required: true,
-      children: ["https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider/properties/type", "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider/properties/name", "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider/properties/id"]
+
+      children: [
+        "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider/properties/type",
+        "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider/properties/name",
+        "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider/properties/id"
+      ]
     },
 
     "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider/properties/type": {
@@ -12457,11 +12717,22 @@ const compiledLayout = {
       pointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools",
       refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools",
       pure: false,
-      propertyKeys: ["model", "inputPricePerMillion", "outputPricePerMillion"],
+
+      propertyKeys: [
+        "model",
+        "inputPricePerMillion",
+        "outputPricePerMillion"
+      ],
+
       roPropertyKeys: [],
       nullable: false,
       required: undefined,
-      children: ["https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/model", "https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/inputPricePerMillion", "https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/outputPricePerMillion"]
+
+      children: [
+        "https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/model",
+        "https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/inputPricePerMillion",
+        "https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/outputPricePerMillion"
+      ]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/model": {
@@ -12474,7 +12745,12 @@ const compiledLayout = {
       roPropertyKeys: [],
       nullable: false,
       required: undefined,
-      children: ["https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/id", "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/name", "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider"]
+
+      children: [
+        "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/id",
+        "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/name",
+        "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider"
+      ]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/models/properties/tools/properties/inputPricePerMillion": {
@@ -12507,11 +12783,22 @@ const compiledLayout = {
       pointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer",
       refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer",
       pure: false,
-      propertyKeys: ["model", "inputPricePerMillion", "outputPricePerMillion"],
+
+      propertyKeys: [
+        "model",
+        "inputPricePerMillion",
+        "outputPricePerMillion"
+      ],
+
       roPropertyKeys: [],
       nullable: false,
       required: undefined,
-      children: ["https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/model", "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/inputPricePerMillion", "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/outputPricePerMillion"]
+
+      children: [
+        "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/model",
+        "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/inputPricePerMillion",
+        "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/outputPricePerMillion"
+      ]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/model": {
@@ -12524,7 +12811,12 @@ const compiledLayout = {
       roPropertyKeys: [],
       nullable: false,
       required: undefined,
-      children: ["https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/id", "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/name", "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider"]
+
+      children: [
+        "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/id",
+        "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/name",
+        "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider"
+      ]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/models/properties/summarizer/properties/inputPricePerMillion": {
@@ -12557,11 +12849,22 @@ const compiledLayout = {
       pointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator",
       refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator",
       pure: false,
-      propertyKeys: ["model", "inputPricePerMillion", "outputPricePerMillion"],
+
+      propertyKeys: [
+        "model",
+        "inputPricePerMillion",
+        "outputPricePerMillion"
+      ],
+
       roPropertyKeys: [],
       nullable: false,
       required: undefined,
-      children: ["https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/model", "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/inputPricePerMillion", "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/outputPricePerMillion"]
+
+      children: [
+        "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/model",
+        "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/inputPricePerMillion",
+        "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/outputPricePerMillion"
+      ]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/model": {
@@ -12574,7 +12877,12 @@ const compiledLayout = {
       roPropertyKeys: [],
       nullable: false,
       required: undefined,
-      children: ["https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/id", "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/name", "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider"]
+
+      children: [
+        "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/id",
+        "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/name",
+        "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider"
+      ]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/models/properties/evaluator/properties/inputPricePerMillion": {
@@ -12607,11 +12915,22 @@ const compiledLayout = {
       pointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator",
       refPointer: "https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator",
       pure: false,
-      propertyKeys: ["model", "inputPricePerMillion", "outputPricePerMillion"],
+
+      propertyKeys: [
+        "model",
+        "inputPricePerMillion",
+        "outputPricePerMillion"
+      ],
+
       roPropertyKeys: [],
       nullable: false,
       required: undefined,
-      children: ["https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator/properties/model", "https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator/properties/inputPricePerMillion", "https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator/properties/outputPricePerMillion"]
+
+      children: [
+        "https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator/properties/model",
+        "https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator/properties/inputPricePerMillion",
+        "https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator/properties/outputPricePerMillion"
+      ]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator/properties/model": {
@@ -12624,7 +12943,12 @@ const compiledLayout = {
       roPropertyKeys: [],
       nullable: false,
       required: undefined,
-      children: ["https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/id", "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/name", "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider"]
+
+      children: [
+        "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/id",
+        "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/name",
+        "https://github.com/data-fair/agents/settings-put#/definitions/Model/properties/provider"
+      ]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/models/properties/moderator/properties/inputPricePerMillion": {
@@ -12661,7 +12985,11 @@ const compiledLayout = {
       roPropertyKeys: [],
       nullable: false,
       required: false,
-      children: ["https://github.com/data-fair/agents/settings-put#/properties/moderation/properties/enabled", "https://github.com/data-fair/agents/settings-put#/properties/moderation/properties/categories"]
+
+      children: [
+        "https://github.com/data-fair/agents/settings-put#/properties/moderation/properties/enabled",
+        "https://github.com/data-fair/agents/settings-put#/properties/moderation/properties/categories"
+      ]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/moderation/properties/enabled": {
@@ -12686,7 +13014,10 @@ const compiledLayout = {
       roPropertyKeys: [],
       nullable: false,
       required: true,
-      childrenTrees: ["https://github.com/data-fair/agents/settings-put#/properties/moderation/properties/categories/items"]
+
+      childrenTrees: [
+        "https://github.com/data-fair/agents/settings-put#/properties/moderation/properties/categories/items"
+      ]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/moderation/properties/categories/items": {
@@ -12707,11 +13038,30 @@ const compiledLayout = {
       pointer: "https://github.com/data-fair/agents/settings-put#/properties/quotas",
       refPointer: "https://github.com/data-fair/agents/settings-put#/properties/quotas",
       pure: false,
-      propertyKeys: ["global", "admin", "contrib", "user", "external", "anonymous", "untrusted"],
+
+      propertyKeys: [
+        "global",
+        "admin",
+        "contrib",
+        "user",
+        "external",
+        "anonymous",
+        "untrusted"
+      ],
+
       roPropertyKeys: [],
       nullable: false,
       required: false,
-      children: ["https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/global", "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/admin", "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/contrib", "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/user", "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/external", "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/anonymous", "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/untrusted"]
+
+      children: [
+        "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/global",
+        "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/admin",
+        "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/contrib",
+        "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/user",
+        "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/external",
+        "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/anonymous",
+        "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/untrusted"
+      ]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/global": {
@@ -12724,7 +13074,11 @@ const compiledLayout = {
       roPropertyKeys: [],
       nullable: false,
       required: true,
-      children: ["https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/unlimited", "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyLimit"]
+
+      children: [
+        "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/unlimited",
+        "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyLimit"
+      ]
     },
 
     "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/unlimited": {
@@ -12761,7 +13115,11 @@ const compiledLayout = {
       roPropertyKeys: [],
       nullable: false,
       required: true,
-      children: ["https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/unlimited", "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyLimit"]
+
+      children: [
+        "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/unlimited",
+        "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyLimit"
+      ]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/contrib": {
@@ -12774,7 +13132,11 @@ const compiledLayout = {
       roPropertyKeys: [],
       nullable: false,
       required: true,
-      children: ["https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/unlimited", "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyLimit"]
+
+      children: [
+        "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/unlimited",
+        "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyLimit"
+      ]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/user": {
@@ -12787,7 +13149,11 @@ const compiledLayout = {
       roPropertyKeys: [],
       nullable: false,
       required: true,
-      children: ["https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/unlimited", "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyLimit"]
+
+      children: [
+        "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/unlimited",
+        "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyLimit"
+      ]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/external": {
@@ -12800,7 +13166,11 @@ const compiledLayout = {
       roPropertyKeys: [],
       nullable: false,
       required: true,
-      children: ["https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/unlimited", "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyLimit"]
+
+      children: [
+        "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/unlimited",
+        "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyLimit"
+      ]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/anonymous": {
@@ -12813,7 +13183,11 @@ const compiledLayout = {
       roPropertyKeys: [],
       nullable: false,
       required: true,
-      children: ["https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/unlimited", "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyLimit"]
+
+      children: [
+        "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/unlimited",
+        "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyLimit"
+      ]
     },
 
     "https://github.com/data-fair/agents/settings-put#/properties/quotas/properties/untrusted": {
@@ -12826,7 +13200,11 @@ const compiledLayout = {
       roPropertyKeys: [],
       nullable: false,
       required: false,
-      children: ["https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/unlimited", "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyLimit"]
+
+      children: [
+        "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/unlimited",
+        "https://github.com/data-fair/agents/settings-put#/definitions/RoleQuota/properties/monthlyLimit"
+      ]
     }
   },
 
@@ -14982,22 +15360,50 @@ const compiledLayout = {
   },
 
   validates: {
-    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0": validate22,
-    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1": validate24,
-    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2": validate25,
-    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3": validate26,
-    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4": validate27,
-    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5": validate28,
-    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6": validate29,
-    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7": validate30,
-    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8": validate31,
-    "https://github.com/data-fair/agents/settings-put#/properties/providers/items": validate32,
-    "https://github.com/data-fair/agents/settings-put#/properties/moderation/properties/categories/items": validate33,
-    "https://github.com/data-fair/agents/settings-put#": validate34
+    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/0": export0,
+    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/1": export1,
+    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/2": export2,
+    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/3": export3,
+    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/4": export4,
+    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/5": export5,
+    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/6": export6,
+    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/7": export7,
+    "https://github.com/data-fair/agents/settings-put#/properties/providers/items/oneOf/8": export8,
+    "https://github.com/data-fair/agents/settings-put#/properties/providers/items": export9,
+    "https://github.com/data-fair/agents/settings-put#/properties/moderation/properties/categories/items": export10,
+    "https://github.com/data-fair/agents/settings-put#": export11
   },
 
   validationErrors: {},
-  expressions: [expression0, expression1, expression2, expression3, expression4, expression5, expression6, expression7, expression8, expression9, expression10, expression11, expression12, expression13, expression14, expression15, expression16, expression17, expression18, expression19, expression20, expression21, expression22, expression23, expression24],
+
+  expressions: [
+    expression0,
+    expression1,
+    expression2,
+    expression3,
+    expression4,
+    expression5,
+    expression6,
+    expression7,
+    expression8,
+    expression9,
+    expression10,
+    expression11,
+    expression12,
+    expression13,
+    expression14,
+    expression15,
+    expression16,
+    expression17,
+    expression18,
+    expression19,
+    expression20,
+    expression21,
+    expression22,
+    expression23,
+    expression24
+  ],
+
   locale: "fr",
 
   messages: {
@@ -15082,7 +15488,13 @@ const compiledLayout = {
 
           listEditMode: {
             type: "string",
-            enum: ["inline", "inline-single", "menu", "dialog"]
+
+            enum: [
+              "inline",
+              "inline-single",
+              "menu",
+              "dialog"
+            ]
           },
 
           listActions: {
@@ -15090,7 +15502,17 @@ const compiledLayout = {
 
             items: {
               type: "string",
-              enum: ["add", "edit", "delete", "sort", "duplicate", "insertAfter", "copy", "paste"]
+
+              enum: [
+                "add",
+                "edit",
+                "delete",
+                "sort",
+                "duplicate",
+                "insertAfter",
+                "copy",
+                "paste"
+              ]
             }
           },
 
@@ -15453,7 +15875,7 @@ const compiledLayout = {
   },
 
   localizeErrors: localizeErrors
-};
+}
 
 const nodeComponents = {
   
@@ -15503,6 +15925,7 @@ const { el, statefulLayout, stateTree } = useVjsf(
   null,
   computed(() => compiledLayout)
 )
+
 </script>
 
 <template>
