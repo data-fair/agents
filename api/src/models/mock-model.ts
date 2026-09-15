@@ -82,13 +82,34 @@ function getLastUserMessage (options: { prompt: string | Array<any> }): string {
   return ''
 }
 
+/** Body of a sentinel block (`<tag>\n…\n</tag>`) inside a message, or undefined. */
+function sentinelBody (text: string, tag: string): string | undefined {
+  return new RegExp(`<${tag}>\\n([\\s\\S]*?)\\n</${tag}>`).exec(text)?.[1]
+}
+
+/** Text of the tool result that ended the prompt, when the last message is a tool message. */
+function lastToolResultText (prompt: string | Array<any>): string | undefined {
+  if (!Array.isArray(prompt) || !prompt.length) return undefined
+  const last = prompt[prompt.length - 1]
+  if (last.role !== 'tool' || !Array.isArray(last.content)) return undefined
+  const part = last.content.find((c: any) => c.type === 'tool-result')
+  const output = part?.output
+  if (!output) return undefined
+  return typeof output.value === 'string' ? output.value : JSON.stringify(output.value)
+}
+
+/** The visible prompt ends the user message; hidden context (if any) precedes it. */
+function endsWithCommand (lastMessage: string, command: string): boolean {
+  return new RegExp(`(^|\\n)${command}\\s*$`, 'i').test(lastMessage.trim())
+}
+
 function processMockPrompt (lastMessage: string, prompt: string | Array<any>): MockPromptResult {
   if (!lastMessage) {
     return { type: 'text', text: 'what do you mean ?' }
   }
 
   if (lastMessage.toLowerCase() === 'help' || lastMessage === '?') {
-    return { type: 'text', text: 'I respond to:\n- "hello" → returns "world"\n- "call tool <name> <args>" → triggers a tool call\n- Any other text → "what do you mean?"' }
+    return { type: 'text', text: 'I respond to:\n- "hello" → returns "world"\n- "call tool <name> <args>" → triggers a tool call\n- Any other text → "what do you mean?"\n- "where am i" / "what happened" → echoes host state/events\n- "select note", "wait for me", "wait briefly" → host-events tool seams' }
   }
 
   if (lastMessage.toLowerCase() === 'hello') {
@@ -107,6 +128,34 @@ function processMockPrompt (lastMessage: string, prompt: string | Array<any>): M
   }
   if (lastMessage.toLowerCase().includes('broken mermaid')) {
     return { type: 'text', text: 'Here is the chart:\n\n```mermaid\nthisisnotavaliddiagram\n```' }
+  }
+
+  // Host-events seams (tests/features/host-events). Answers echo the sentinel BODIES,
+  // not the tags, so the assertion text survives markdown rendering.
+  if (endsWithCommand(lastMessage, 'where am i')) {
+    const state = sentinelBody(lastMessage, 'host-state')
+    const events = sentinelBody(lastMessage, 'host-events')
+    return { type: 'text', text: state ? `state:\n${state}` : events ? `events:\n${events}` : 'nothing' }
+  }
+  if (endsWithCommand(lastMessage, 'what happened')) {
+    const events = sentinelBody(lastMessage, 'host-events')
+    return { type: 'text', text: events ? `events:\n${events}` : 'nothing' }
+  }
+  const toolResult = lastToolResultText(prompt)
+  if (toolResult !== undefined && endsWithCommand(lastMessage, 'select note')) {
+    return { type: 'text', text: `Tool said: ${toolResult}` }
+  }
+  if (toolResult !== undefined && (endsWithCommand(lastMessage, 'wait for me') || endsWithCommand(lastMessage, 'wait briefly'))) {
+    return { type: 'text', text: `You did: ${toolResult}` }
+  }
+  if (endsWithCommand(lastMessage, 'select note')) {
+    return { type: 'tool-call', toolName: 'select_type', toolArgs: JSON.stringify({ type: 'note' }) }
+  }
+  if (endsWithCommand(lastMessage, 'wait for me')) {
+    return { type: 'tool-call', toolName: 'wait_for_user_action', toolArgs: JSON.stringify({ expecting: 'you to click Create' }) }
+  }
+  if (endsWithCommand(lastMessage, 'wait briefly')) {
+    return { type: 'tool-call', toolName: 'wait_for_user_action', toolArgs: JSON.stringify({ expecting: 'you to click Create', timeoutSeconds: 1 }) }
   }
 
   // If the most recent message in the prompt is a tool result, we already called a tool
