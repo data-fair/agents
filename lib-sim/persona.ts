@@ -17,11 +17,22 @@ import type { McpServerConfig } from '@anthropic-ai/claude-agent-sdk'
 export const DONE = 'DONE'
 let neutralCwd: string | undefined
 
-// The persona now looks and acts before replying, so one turn is not enough:
-// look → act → look → reply, with room to spare. Low enough that a confused
-// persona cannot spend the run clicking around. A starting point, to be revisited
-// from a real run rather than guessed at twice.
-export const PERSONA_MAX_TURNS = 6
+// The persona looks and acts before replying, so one turn is not enough:
+// look → act → look → reply, with room to spare.
+//
+// Revisited from real runs, as the original note asked for. 6 turned out to be
+// exactly the cost of the most ordinary thing a person does on a multi-step
+// page — look, click, look, click, look — leaving nothing for the reply, so the
+// whole run was discarded as invalid at the moment it got interesting. It
+// happened twice, both times on a creation wizard, and both times the persona
+// was VERIFYING rather than wandering: a product that confuses someone makes
+// them check more, so the cap was punishing precisely the runs worth reading.
+//
+// 12 leaves room for that while still bounding a genuinely lost persona. Note
+// this is not the scenario's budget: the per-case `maxTurns` (how many messages
+// the person sends) is what shapes a case; this only stops one message costing
+// the earth.
+export const PERSONA_MAX_TURNS = 12
 
 export const PERCEPTION_INSTRUCTIONS = `You can look at the screen yourself with the look tool, and you can click and type
 on the page. Before you say anything about what is or is not on the screen, look.
