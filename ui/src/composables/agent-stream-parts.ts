@@ -90,11 +90,14 @@ export function applyStreamPart (part: StreamPart, scope: StreamScope): void {
         scope.current = scope.messages[scope.messages.length - 1]
       }
       if (!scope.current.toolInvocations) scope.current.toolInvocations = []
+      // Only carry `input` when the part actually has one: a recorded invocation
+      // shouldn't gain a key whose value is nothing, and most callers never read it.
+      const input = (part as any).input
       scope.current.toolInvocations.push({
         toolCallId: part.toolCallId ?? '',
         toolName: part.toolName ?? '',
         state: 'pending',
-        input: (part as any).input
+        ...(input !== undefined ? { input } : {})
       })
       break
     }

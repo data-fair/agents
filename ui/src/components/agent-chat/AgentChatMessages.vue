@@ -369,7 +369,11 @@ const activityLabel = computed(() => {
   if (!a || a.kind === 'subagent') return ''
   const label = activityLabelKey(a)
   if (!label) return ''
-  return t(label.key, label.name ? { name: subAgentTitle(label.name) } : {})
+  // label.name is a subagent_* tool name for 'analyzing' (prettify it into a title) but
+  // the model's own free-text words for 'waiting' (show verbatim, don't title-case it).
+  return t(label.key, label.name
+    ? { name: a.kind === 'waiting' ? label.name : subAgentTitle(label.name) }
+    : {})
 })
 
 const messagesContainer = ref<HTMLElement | null>(null)
