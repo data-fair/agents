@@ -15,7 +15,7 @@ export interface StreamMessage {
   // Reasoning ("thinking") tokens captured from reasoning models, accumulated
   // before the visible content/tool calls of the same assistant step.
   reasoning?: string
-  toolInvocations?: { toolCallId: string, toolName: string, state: 'pending' | 'done' }[]
+  toolInvocations?: { toolCallId: string, toolName: string, state: 'pending' | 'done', input?: unknown }[]
 }
 
 // Structural subset of the AI SDK's TextStreamPart covering the parts we build
@@ -93,7 +93,8 @@ export function applyStreamPart (part: StreamPart, scope: StreamScope): void {
       scope.current.toolInvocations.push({
         toolCallId: part.toolCallId ?? '',
         toolName: part.toolName ?? '',
-        state: 'pending'
+        state: 'pending',
+        input: (part as any).input
       })
       break
     }

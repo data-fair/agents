@@ -403,6 +403,13 @@ watch(() => chat.status.value, (status) => {
   }
 })
 
+// A declared wait is the user's turn even though the stream is still open: tell the
+// host so its FAB shows the same "your move" colour as a finished turn.
+watch(() => chat.activity.value?.kind === 'waiting', (waiting) => {
+  if (chat.status.value !== 'streaming') return
+  sendDFrameMessage({ type: 'agent-status', status: waiting ? 'waiting-user' : 'working' })
+})
+
 watch(() => chat.toolsVersion.value, () => {
   sendDFrameMessage({ type: 'tools-changed' })
 })

@@ -31,7 +31,7 @@ test.describe('applyStreamPart', () => {
     applyStreamPart({ type: 'tool-call', toolCallId: 'c1', toolName: 'subagent_explorer' }, scope)
     assert.equal(scope.stepHadTool, true)
     assert.equal(scope.lastToolName, 'subagent_explorer')
-    assert.deepEqual(scope.messages[0].toolInvocations, [{ toolCallId: 'c1', toolName: 'subagent_explorer', state: 'pending' }])
+    assert.deepEqual(scope.messages[0].toolInvocations, [{ toolCallId: 'c1', toolName: 'subagent_explorer', state: 'pending', input: undefined }])
     assert.deepEqual(phases.at(-1), ['tool', 'subagent_explorer'])
   })
 
@@ -99,6 +99,6 @@ test.describe('applyStreamPart', () => {
     assert.equal(scope.messages.length, 1)
     assert.equal(scope.messages[0].reasoning, 'plan')
     assert.equal(scope.messages[0].content, 'answer')
-    assert.deepEqual(scope.messages[0].toolInvocations, [{ toolCallId: 'c1', toolName: 't', state: 'pending' }])
+    assert.deepEqual(scope.messages[0].toolInvocations, [{ toolCallId: 'c1', toolName: 't', state: 'pending', input: undefined }])
   })
 })
