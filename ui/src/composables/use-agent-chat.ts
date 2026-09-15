@@ -19,6 +19,8 @@ import type { ChatActivity } from './agent-activity.ts'
 import { applyStreamPart, type StreamScope, type StreamPart } from './agent-stream-parts.ts'
 import { SUBAGENT_STEP_LIMIT_NOTICE, subAgentModelOutput } from './agent-subagent-output.ts'
 import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep } from './agent-loop-guards.ts'
+import { HostEventStore, createWaitTool, appendHostEvents, formatHostEvents, formatHostState, hasHostState, WAIT_TOOL_NAME } from './host-events'
+import { useHostEvents } from './use-host-events'
 
 const debug = Debug('df-agents:use-agent-chat')
 
@@ -123,6 +125,9 @@ export interface UseAgentChatOptions {
   // requests. Used by the evaluator, whose own LLM calls reviewing a stored
   // trace would otherwise be stored as a confusing "meta" trace.
   disableTraceStorage?: boolean
+  // Test seam: a pre-built store (bypasses the BroadcastChannel listener), the way
+  // localTools bypasses the aggregator. Ignored when localTools is not set.
+  hostEvents?: HostEventStore
 }
 
 interface SubAgentConfig {
@@ -239,6 +244,10 @@ export function useAgentChat (options: UseAgentChatOptions) {
     })
     aggregator.start()
   }
+
+  // Host events: what pages report, delivered to the model once and persisted (see
+  // host-events.ts). Absent only in local-tools mode, where no host exists.
+  const hostEvents: HostEventStore | null = localTools ? (options.hostEvents ?? null) : useHostEvents(options.hostEvents)
 
   const resolvedPartition = ref<DebugToolsPartition>({ mainTools: [], subAgents: [] })
   let resolveGeneration = 0
@@ -369,6 +378,8 @@ export function useAgentChat (options: UseAgentChatOptions) {
     // abort() above guarantees no in-flight prepareStep will read the old Set
     promotedTools = new Set<string>()
     announcedTools.clear()
+    // abort() already resolved any pending wait as 'aborted'; the buffer is what remains.
+    hostEvents?.clearPending()
     subAgentActivities.value = {}
     if (newSystemPrompt !== undefined) {
       options.systemPrompt = newSystemPrompt
@@ -413,15 +424,15 @@ export function useAgentChat (options: UseAgentChatOptions) {
     }
   }
 
-  async function compactHistory (compactionCtxId: string, signal: AbortSignal): Promise<void> {
+  async function compactHistory (compactionCtxId: string, signal: AbortSignal): Promise<boolean> {
     const threshold = Number(sessionStorage.getItem('agent-chat-compaction-threshold')) || COMPACTION_THRESHOLD
     const serialized = JSON.stringify(history)
-    if (serialized.length < threshold) return
+    if (serialized.length < threshold) return false
 
     // Summarize all messages except the latest user message, which we preserve verbatim
     const lastMessage = history[history.length - 1]
     const historyToCompact = history.slice(0, -1)
-    if (historyToCompact.length === 0) return
+    if (historyToCompact.length === 0) return false
 
     // Compaction is otherwise an invisible, multi-second blank gap (a separate
     // summarizer call over the whole history before the real turn even starts);
@@ -464,12 +475,14 @@ export function useAgentChat (options: UseAgentChatOptions) {
       announcedTools.clear()
 
       debug('compacted history from %d chars to %d chars', originalLength, JSON.stringify(history).length)
+      return true
     } catch (err) {
       // An abort (the user pressed Stop, or the idle watchdog fired) must stop the
       // whole turn — rethrow so sendMessage's catch handles it. Any other failure is
       // non-fatal: fall through and continue with the un-compacted history.
       if (signal.aborted) throw err
       debug('compaction error, continuing with full history: %O', err)
+      return false
     }
   }
 
@@ -487,8 +500,26 @@ export function useAgentChat (options: UseAgentChatOptions) {
     // Add user message to history. When an action button supplied hidden context,
     // wrap it into this same user turn so the model sees it as turn-scoped context
     // (not a permanent system-prompt mutation); the chat UI above shows only `msg`.
-    const hiddenContext = sendOptions?.hiddenContext
-    history.push({ role: 'user', content: hiddenContext ? wrapHiddenContext(hiddenContext, msg) : msg })
+    // Host events owed to the model ride inside this turn's hidden context: a retained
+    // state snapshot when the model has no history to integrate from (first turn, after
+    // reset — both leave `history` empty — and after compaction, patched in below), then
+    // the events since the last delivery, then any action-button context.
+    const activation = history.length === 0
+    const hostStateBlock = () => {
+      const snapshot = hostEvents?.snapshot()
+      return snapshot && hasHostState(snapshot) ? formatHostState(snapshot) : null
+    }
+    const pendingEvents = hostEvents?.takePending() ?? []
+    const turnHidden = [
+      pendingEvents.length ? formatHostEvents(pendingEvents) : null,
+      sendOptions?.hiddenContext ?? null
+    ].filter((p): p is string => !!p)
+    const withState = (parts: string[]) => {
+      const block = hostStateBlock()
+      return block ? [block, ...parts] : parts
+    }
+    const joinHidden = (parts: string[]) => parts.length ? wrapHiddenContext(parts.join('\n\n'), msg) : msg
+    history.push({ role: 'user', content: joinHidden(activation ? withState(turnHidden) : turnHidden) })
 
     // Stops the mid-turn tool-set rebuild; declared here so `finally` can always
     // release it, whichever way the turn ends.
@@ -541,7 +572,13 @@ export function useAgentChat (options: UseAgentChatOptions) {
     try {
       // Compact history if it exceeds the threshold (abortable, watchdog-covered).
       const compactionCtxId = `compaction:${turnId}`
-      await compactHistory(compactionCtxId, signal)
+      const compacted = await compactHistory(compactionCtxId, signal)
+      // Compaction just replaced everything before this message with a recap; the model
+      // is re-activated, so it gets the retained state too. The message is the last one
+      // in the rebuilt history (compactHistory preserves it verbatim).
+      if (compacted && !activation) {
+        history[history.length - 1] = { role: 'user', content: joinHidden(withState(turnHidden)) }
+      }
       activity.value = { kind: 'thinking' }
       armWatchdog()
 
@@ -593,14 +630,23 @@ export function useAgentChat (options: UseAgentChatOptions) {
       }
       // Only plain host tools get the barrier: sub-agent pseudo-tools run their own loop
       // and never change the aggregate themselves.
-      const withSettleBarrier = (t: Tool): Tool => {
+      // Host tools get two things after they return: the settle barrier (their
+      // tools/list_changed consequences folded in) and the host events they caused,
+      // appended to the result so they land in history exactly where they happened.
+      // One macrotask after settling: the page posts its events before returning and
+      // BroadcastChannel delivery is a task, so by then they are in the store.
+      const withHostConsequences = (t: Tool): Tool => {
         const execute = (t as any).execute
         if (typeof execute !== 'function') return t
         return {
           ...t,
           execute: async (args: any, opts: any) => {
-            const output = await execute(args, opts)
+            let output = await execute(args, opts)
             await settleTools()
+            if (hostEvents) {
+              await new Promise(resolve => setTimeout(resolve, 0))
+              output = appendHostEvents(output, hostEvents.takePending())
+            }
             return output
           }
         } as Tool
@@ -625,7 +671,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
         // Build the tool set for the main LLM:
         // main tools + sub-agent pseudo-tools using ToolLoopAgent + async generators
         const nextTools: Record<string, Tool> = {}
-        for (const [name, t] of Object.entries(mainTools)) nextTools[name] = withSettleBarrier(t)
+        for (const [name, t] of Object.entries(mainTools)) nextTools[name] = withHostConsequences(t)
         for (const [name, entry] of Object.entries(subAgents)) {
           const config = entry.config
 
@@ -649,7 +695,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
           // Collect the sub-agent's tools from the full tool set
           const subAgentTools: Record<string, Tool> = {}
           for (const toolName of config.tools) {
-            if (currentTools[toolName]) subAgentTools[toolName] = currentTools[toolName]
+            if (currentTools[toolName]) subAgentTools[toolName] = withHostConsequences(currentTools[toolName])
           }
 
           const subAgent = new ToolLoopAgent({
@@ -851,6 +897,16 @@ export function useAgentChat (options: UseAgentChatOptions) {
         }
         subAgentNames = Object.keys(subAgents)
 
+        // Chat-built-in: never a page tool, so it survives the page unmounting on the
+        // navigation that follows the action it waits for. One instance per turn.
+        if (hostEvents) {
+          nextTools[WAIT_TOOL_NAME] = mainLLMTools[WAIT_TOOL_NAME] ?? createWaitTool({
+            store: hostEvents,
+            onWaiting: (expecting) => { activity.value = { kind: 'waiting', expecting } },
+            onDone: () => { activity.value = null }
+          })
+        }
+
         // Exploration mode: hide plain tools behind explore_tools, expose only
         // explore_tools + sub-agent pseudo-tools + already-promoted tools per step.
         // The plain tool names are surfaced to the model as <tools-available> messages
@@ -893,7 +949,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
           }
 
           explorationPrepareStep = () => ({
-            activeTools: [EXPLORE_TOOL_NAME, ...subAgentNames, ...promotedTools]
+            activeTools: [EXPLORE_TOOL_NAME, WAIT_TOOL_NAME, ...subAgentNames, ...promotedTools]
               .filter(n => n in mainLLMTools)
           })
         }

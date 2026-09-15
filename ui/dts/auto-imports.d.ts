@@ -160,6 +160,7 @@ declare global {
   const useFrameTools: typeof import('../src/composables/use-frame-tools').useFrameTools
   const useHead: typeof import('@unhead/vue').useHead
   const useHeadSafe: typeof import('@unhead/vue').useHeadSafe
+  const useHostEvents: typeof import('../src/composables/use-host-events').useHostEvents
   const useI18n: typeof import('vue-i18n').useI18n
   const useId: typeof import('vue').useId
   const useLeaveGuard: typeof import('@data-fair/lib-vue/leave-guard.js').useLeaveGuard
@@ -361,6 +362,7 @@ declare module 'vue' {
     readonly useFrameTools: UnwrapRef<typeof import('../src/composables/use-frame-tools')['useFrameTools']>
     readonly useHead: UnwrapRef<typeof import('@unhead/vue')['useHead']>
     readonly useHeadSafe: UnwrapRef<typeof import('@unhead/vue')['useHeadSafe']>
+    readonly useHostEvents: UnwrapRef<typeof import('../src/composables/use-host-events')['useHostEvents']>
     readonly useI18n: UnwrapRef<typeof import('vue-i18n')['useI18n']>
     readonly useId: UnwrapRef<typeof import('vue')['useId']>
     readonly useLeaveGuard: UnwrapRef<typeof import('@data-fair/lib-vue/leave-guard.js')['useLeaveGuard']>
