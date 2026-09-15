@@ -29,6 +29,15 @@ export interface AgentStateWithdrawnMessage { channel: string, type: 'agent-stat
 export interface AgentStateRequestMessage { channel: string, type: 'agent-state-request' }
 export type HostEventMessage = AgentEventMessage | AgentStateWithdrawnMessage | AgentStateRequestMessage
 
+/**
+ * `Omit<T, K>` does not distribute over a union — it collapses the three message
+ * shapes into their common `type` field, losing `event` and `key`. This does.
+ */
+type DistributiveOmit<T, K extends keyof any> = T extends any ? Omit<T, K> : never
+
+/** The channel a publisher posts on, with the channel id filled in by the caller. */
+export type HostEventPost = (msg: DistributiveOmit<HostEventMessage, 'channel'>) => void
+
 export type AgentEventDetail = string | Record<string, unknown> | undefined | null
 
 export function serializeDetail (detail: AgentEventDetail): string | undefined {
@@ -57,10 +66,10 @@ export interface StateEmitter {
  * re-emits on request, withdraws on dispose. `post` is the channel; injected so the
  * behaviour is unit-testable without a BroadcastChannel.
  */
-export function createStateEmitter (key: string, post: (msg: Omit<HostEventMessage, 'channel'>) => void): StateEmitter {
+export function createStateEmitter (key: string, post: HostEventPost): StateEmitter {
   let last: string | undefined
   const emit = (detail: string) => {
-    post({ type: 'agent-event', event: { name: key, detail, key, at: Date.now() } } as Omit<HostEventMessage, 'channel'>)
+    post({ type: 'agent-event', event: { name: key, detail, key, at: Date.now() } })
   }
   return {
     update (value) {
@@ -73,26 +82,26 @@ export function createStateEmitter (key: string, post: (msg: Omit<HostEventMessa
       if (last !== undefined) emit(last)
     },
     dispose () {
-      post({ type: 'agent-state-withdrawn', key } as Omit<HostEventMessage, 'channel'>)
+      post({ type: 'agent-state-withdrawn', key })
     }
   }
 }
 
-// ---- Vue-facing API (Task 2 fills these in) --------------------------------------------
+// ---- Vue-facing API: the real BroadcastChannel wiring ----
 
 let channel: BroadcastChannel | null = null
 function getChannel (): BroadcastChannel {
   if (!channel) channel = new BroadcastChannel(getTabChannelId())
   return channel
 }
-function post (msg: Omit<HostEventMessage, 'channel'>): void {
+function post (msg: DistributiveOmit<HostEventMessage, 'channel'>): void {
   debug('post %o', msg)
   getChannel().postMessage({ channel: getTabChannelId(), ...msg })
 }
 
 export function emitAgentEvent (name: string, detail?: AgentEventDetail, options?: { key?: string }): void {
   if (typeof window === 'undefined') return
-  post({ type: 'agent-event', event: buildAgentEvent(name, detail, options?.key) } as Omit<HostEventMessage, 'channel'>)
+  post({ type: 'agent-event', event: buildAgentEvent(name, detail, options?.key) })
 }
 
 export function useAgentState (key: string, source: MaybeRefOrGetter<AgentEventDetail>): void {
