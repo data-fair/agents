@@ -25,10 +25,12 @@ declare global {
   const HostEventStore: typeof import('../src/composables/host-events').HostEventStore
   const MERMAID_AUTO_FIX_BUDGET: typeof import('../src/utils/mermaid-fix').MERMAID_AUTO_FIX_BUDGET
   const MODERATION_TASK_MARKER: typeof import('../src/composables/moderation')['MODERATION_TASK_MARKER']
+  const PENDING_MAX: typeof import('../src/composables/host-events').PENDING_MAX
   const RECENT_MAX: typeof import('../src/composables/host-events').RECENT_MAX
   const REPEATED_CALL_LIMIT: typeof import('../src/composables/agent-loop-guards').REPEATED_CALL_LIMIT
   const REPEATED_CALL_NUDGE_AT: typeof import('../src/composables/agent-loop-guards').REPEATED_CALL_NUDGE_AT
   const SELECT_TOOL_NAME: typeof import('../src/composables/tool-exploration').SELECT_TOOL_NAME
+  const STATE_MAX_KEYS: typeof import('../src/composables/host-events').STATE_MAX_KEYS
   const STEP_LIMIT: typeof import('../src/composables/agent-loop-guards').STEP_LIMIT
   const SUBAGENT_DONE_FALLBACK: typeof import('../src/composables/agent-subagent-output').SUBAGENT_DONE_FALLBACK
   const SUBAGENT_MODERATION_NOTICE: typeof import('../src/composables/agent-subagent-output').SUBAGENT_MODERATION_NOTICE
@@ -248,10 +250,12 @@ declare module 'vue' {
     readonly HOST_STATE_OPEN: UnwrapRef<typeof import('../src/composables/host-events')['HOST_STATE_OPEN']>
     readonly HostEventStore: UnwrapRef<typeof import('../src/composables/host-events')['HostEventStore']>
     readonly MERMAID_AUTO_FIX_BUDGET: UnwrapRef<typeof import('../src/utils/mermaid-fix')['MERMAID_AUTO_FIX_BUDGET']>
+    readonly PENDING_MAX: UnwrapRef<typeof import('../src/composables/host-events')['PENDING_MAX']>
     readonly RECENT_MAX: UnwrapRef<typeof import('../src/composables/host-events')['RECENT_MAX']>
     readonly REPEATED_CALL_LIMIT: UnwrapRef<typeof import('../src/composables/agent-loop-guards')['REPEATED_CALL_LIMIT']>
     readonly REPEATED_CALL_NUDGE_AT: UnwrapRef<typeof import('../src/composables/agent-loop-guards')['REPEATED_CALL_NUDGE_AT']>
     readonly SELECT_TOOL_NAME: UnwrapRef<typeof import('../src/composables/tool-exploration')['SELECT_TOOL_NAME']>
+    readonly STATE_MAX_KEYS: UnwrapRef<typeof import('../src/composables/host-events')['STATE_MAX_KEYS']>
     readonly STEP_LIMIT: UnwrapRef<typeof import('../src/composables/agent-loop-guards')['STEP_LIMIT']>
     readonly SUBAGENT_DONE_FALLBACK: UnwrapRef<typeof import('../src/composables/agent-subagent-output')['SUBAGENT_DONE_FALLBACK']>
     readonly SUBAGENT_MODERATION_NOTICE: UnwrapRef<typeof import('../src/composables/agent-subagent-output')['SUBAGENT_MODERATION_NOTICE']>

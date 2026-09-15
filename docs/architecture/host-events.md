@@ -21,8 +21,12 @@ Create is a transition (`item-created`); leaving the page is both (`navigated`, 
 
 Retention is consulted only when a conversation *activates* — first turn, after reset,
 after compaction — the moments the model has no history to integrate from. After that
-the model receives events only, each exactly once, persisted, in chronological order.
-Nothing is re-sent, nothing is ephemeral, and the host never starts a turn.
+the model receives events only, each exactly once **per model**, persisted, in
+chronological order. Nothing is re-sent, nothing is ephemeral, and the host never starts
+a turn. "Per model" matters when a sub-agent is involved: a sub-agent's own tool calls
+get their own copy of pending events (appended to that tool's result, inside the
+sub-agent's private history) without draining the shared buffer, so the same events also
+reach the lead — once — on its own next turn. See point 2 under Consuming below.
 
 ```mermaid
 flowchart LR
@@ -40,7 +44,13 @@ flowchart LR
 - `emitAgentEvent(name, detail?, { key? })` posts `{ type: 'agent-event', event }` on the
   tab BroadcastChannel (`getTabChannelId()`). `detail` is serialised (JSON for objects)
   and capped at 1000 chars (`EVENT_DETAIL_MAX_CHARS`), suffixed `… [truncated]` when it
-  overflows.
+  overflows. A raw string `detail` also has its real newlines escaped (mirroring what
+  `JSON.stringify` already does for the object branch) and the wrapper sentinels
+  (`</hidden-context>`, `</host-events>`, `</host-state>`) neutralised, before the cap —
+  otherwise a host mirroring free user text (a wizard title, a description field) could
+  break the line-oriented `<host-events>`/`<host-state>` block format or, worse, forge an
+  early close of the `<hidden-context>` wrapper and have the rest reconstructed and
+  rendered as the user's own message in the trace viewer.
 - `useAgentState(key, source)` watches a ref/getter (`immediate: true, deep: true`) and
   emits a keyed event when the serialised value changes; on scope dispose it posts
   `agent-state-withdrawn`, which only removes the key from retention (the model is not
@@ -59,16 +69,25 @@ flowchart LR
 ## Consuming (`ui/src/composables/host-events.ts`, `use-host-events.ts`)
 
 `HostEventStore` holds retention (a `Map` of last event per key, iteration order doubling
-as first-seen key order for `snapshot()`; plus a ring of the last 10 unkeyed events), the
-pending buffer (undelivered, coalesced per key) and at most one pending wait
-(`waitForEvent`/`isWaiting`). `push()` feeds a waiter if one is outstanding instead of
-buffering — an event never both resolves a wait and sits in the pending buffer.
-`clearPending()` drops the buffer *and* settles an outstanding wait as `'aborted'`
-(retention is untouched: the pages are still there); `reset()` in `use-agent-chat.ts`
-calls it after `abort()`, which has usually already resolved the wait through the same
-abort signal, so this is the backstop for whichever one gets there first.
+as first-seen key order for `snapshot()`, capped at `STATE_MAX_KEYS` distinct keys —
+oldest dropped first; plus a ring of the last `RECENT_MAX` unkeyed events), the pending
+buffer (undelivered, coalesced per key; unkeyed events additionally ringed at
+`PENDING_MAX` — keyed ones already self-limit to one slot per key) and at most one
+pending wait (`waitForEvent`/`isWaiting`). `push()` feeds a waiter if one is outstanding
+instead of buffering — an event never both resolves a wait and sits in the pending
+buffer. `clearPending()` drops the buffer *and* settles an outstanding wait as
+`'aborted'` (retention is untouched: the pages are still there); `reset()` in
+`use-agent-chat.ts` calls it after `abort()`, which has usually already resolved the wait
+through the same abort signal, so this is the backstop for whichever one gets there
+first. `cancelWait()` is the narrower, idempotent sibling used at the end of every turn
+(`sendMessage`'s `finally`): it settles an outstanding wait as `'aborted'` without
+touching the pending buffer or retention — a structural backstop for a waiter whose only
+other exit is `options.abortSignal`, which the AI SDK types as optional.
 `useHostEvents` feeds the store from the channel and, on creation, posts one
-`agent-state-request` so pages that mounted earlier re-emit their keyed state.
+`agent-state-request` so pages that mounted earlier re-emit their keyed state; it also
+shape-guards each raw `agent-event` payload at the channel boundary (a string `name`, a
+finite `at` falling back to `Date.now()`, a non-string `key` dropped rather than
+coerced) since a buggy host can post anything on a BroadcastChannel.
 `use-agent-chat.ts` delivers:
 
 1. **Pending wait** — the event is the result of `wait_for_user_action`.
@@ -76,7 +95,16 @@ abort signal, so this is the backstop for whichever one gets there first.
    [MCP tool integration](./mcp-tools.md)) and one macrotask, pending events are appended to the
    tool's result as a `<host-events>` block: the event lands in history exactly where it
    happened (the Playwright "action returns the resulting page" shape). Sub-agent tools
-   get the same wrapper.
+   get the same wrapper (`withHostConsequences` in `use-agent-chat.ts`), but with one
+   difference: the main agent's own tools **drain** the shared buffer (the main agent's
+   history is the shared history the buffer is owed to), while a sub-agent's tools only
+   **peek** it (`HostEventStore.peekPending`, non-destructive) — the sub-agent gets its
+   own copy appended to its own (private) tool result, but the events stay pending in the
+   shared buffer. Draining there would tell only the sub-agent: the lead never sees more
+   than a one-shot text summary of the sub-agent's transcript (`toModelOutput`), and
+   retention doesn't help either, since it's only consulted at activation. Leaving them
+   pending means the lead's own next turn (or its own host tool call) delivers them
+   normally — this is the intended shape of "exactly once per model", not a leak.
 3. **Otherwise** — at the next `sendMessage`, pending events are drained into the
    `<hidden-context>` wrapper of that user turn (before any action-button context).
 4. **Activation** — when `history` is empty (first turn, after reset) or
@@ -100,10 +128,34 @@ Both blocks say they are reported by the application, not written by the user; t
 context — the same `<hidden-context>` sentinel an action button's context rides in, so
 nothing new has to be taught to either.
 
+This has a sharp edge worth writing down: the moderation gate classifies the *whole*
+user message, hidden context included, as the user's. So a wizard title the user typed —
+mirrored through `useAgentState` into a `<host-events>`/`<host-state>` block riding in
+that same turn — can get a turn blocked that the user did not author the offending
+content on directly (they typed it into a form field, not the chat). And because the
+drain (`takePending()`) happens before the gateway call returns its verdict, a blocked
+turn loses those events with it — they are not re-buffered. This is correct per the
+design (a direct API caller could otherwise forge the sentinels to dodge the gate by
+claiming host-authorship — see [moderation](./moderation.md)), but nobody had written it
+down, and it is the kind of thing a first integrator hits and has to puzzle out from
+scratch.
+
+Sub-agent tools crossing the settle barrier (see point 2 above) is a behaviour change
+that reaches beyond host events: before, only the main agent's own tool calls paid the
+`settleTools()` wait; now every sub-agent tool call does too, whether or not it caused
+any host events. The cost is zero when no rebuild is in flight (the common case — it
+resolves immediately), but a sub-agent tool call can now wait on a rebuild the main
+agent's own tool calls provoked, where it previously would not have.
+
 ## `wait_for_user_action`
 
 A chat-built-in tool (`WAIT_TOOL_NAME`) merged into the main tool set only — never into
-sub-agents — present whenever a host store exists. `{ expecting, timeoutSeconds? }`
+sub-agents — present once the store has actually heard from the host (retained state or
+a pending event — not merely "a host store exists"): the tool's own description invites
+the model to call it, so advertising it to a page that has never published anything
+would only ever end in a bounded, pointless dead turn. Re-checked on every tool-set
+rebuild (turn start and every mid-turn rebuild), so a page that starts publishing
+mid-conversation gains the tool at the next one. `{ expecting, timeoutSeconds? }`
 (default 120s, max 600s). It resolves on the **next event, whatever it is**: if one is
 already sitting in the pending buffer when the tool is called, that one settles the wait
 immediately; otherwise it waits for the next `push()`. Either way the chat knows nothing
@@ -159,11 +211,12 @@ publishes keyed `location` itself and embeds `WorkflowWizard.vue` (keyed `wizard
 departure a pending wait must survive. Mock seams (`api/src/models/mock-model.ts`):
 `where am i`, `what happened`, `select note`, `wait for me`, `wait briefly`. Tests:
 `tests/features/host-events/` (unit specs for the store and the state emitter, plus a
-ten-case e2e spec covering activation (twice — once for the retained-state content, once
+twelve-case e2e spec covering activation (twice — once for the retained-state content, once
 pinning that its keyed facts are not also duplicated into a `<host-events>` block),
 coalesced delivery, tool-call delivery, a resumed wait, a wait resolved by leaving the
-page, a timeout, the idle watchdog staying quiet through a wait, Stop cancelling a wait,
-and reset re-activating. Simulation case: `workflow-hand-back`.
+page, a timeout, the idle watchdog staying quiet through a wait, the waiting activity
+clearing the instant the wait resolves (the host's `waiting-user`/`working` signal), Stop
+cancelling a wait, and reset re-activating. Simulation case: `workflow-hand-back`.
 
 The judged simulation harness drives its persona only *between* runner turns, never while
 an assistant turn is open, so `wait_for_user_action` in that case always runs out to its

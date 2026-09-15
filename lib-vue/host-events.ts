@@ -7,7 +7,7 @@
  * starts a model turn: the chat folds events into the next request, or into a wait the
  * agent itself declared. See docs/architecture/host-events.md.
  */
-import { watch, onScopeDispose, toValue, type MaybeRefOrGetter } from 'vue'
+import { watch, onScopeDispose, getCurrentScope, toValue, type MaybeRefOrGetter } from 'vue'
 import { getTabChannelId } from './get-tab-channel-id.js'
 import Debug from './debug.js'
 
@@ -40,9 +40,33 @@ export type HostEventPost = (msg: DistributiveOmit<HostEventMessage, 'channel'>)
 
 export type AgentEventDetail = string | Record<string, unknown> | undefined | null
 
+// Sentinels the chat's hidden-context/host-events/host-state wrappers use to find their
+// own boundaries (ui/src/traces/hidden-context.ts, ui/src/composables/host-events.ts). A
+// raw string detail is placed verbatim into a line-oriented block inside one of these
+// wrappers; without neutralising them here, a host mirroring free user text (a wizard
+// title, a description field — exactly what a real integration carries) could smuggle a
+// closing sentinel through and terminate the wrapper early, causing whatever follows to
+// be reconstructed and rendered as the user's own message. The JSON-object branch below
+// is already safe: JSON.stringify escapes real newlines, so a closing tag it contains
+// can never be flanked by the real newline characters the wrapper regex requires.
+const CLOSING_SENTINELS = ['</hidden-context>', '</host-events>', '</host-state>']
+
+function neutralizeSentinels (text: string): string {
+  return CLOSING_SENTINELS.reduce(
+    (acc, sentinel) => acc.split(sentinel).join(sentinel.replace('</', '<\\/')),
+    text
+  )
+}
+
 export function serializeDetail (detail: AgentEventDetail): string | undefined {
   if (detail === undefined || detail === null) return undefined
-  const text = typeof detail === 'string' ? detail : JSON.stringify(detail)
+  let text = typeof detail === 'string' ? detail : JSON.stringify(detail)
+  if (typeof detail === 'string') {
+    // Mirror what JSON.stringify already does for the object branch (escape real
+    // newlines to a literal `\n`) so a raw string detail can't break the line-oriented
+    // block format, then neutralise the sentinels themselves as defense in depth.
+    text = neutralizeSentinels(text.replace(/\r\n|\r|\n/g, '\\n'))
+  }
   if (text.length <= EVENT_DETAIL_MAX_CHARS) return text
   return text.slice(0, EVENT_DETAIL_MAX_CHARS - TRUNCATED_MARKER.length) + TRUNCATED_MARKER
 }
@@ -116,9 +140,14 @@ export function useAgentState (key: string, source: MaybeRefOrGetter<AgentEventD
     if (data.type === 'agent-state-request') emitter.resend()
   }
   ch.addEventListener('message', onMessage)
-  onScopeDispose(() => {
-    stop()
-    ch.removeEventListener('message', onMessage)
-    emitter.dispose()
-  })
+  // Guarded like useHostEvents: called outside an effect scope (a plain function, not
+  // component setup), onScopeDispose logs a Vue warning and silently never registers —
+  // the key would then never be withdrawn from retention.
+  if (getCurrentScope()) {
+    onScopeDispose(() => {
+      stop()
+      ch.removeEventListener('message', onMessage)
+      emitter.dispose()
+    })
+  }
 }

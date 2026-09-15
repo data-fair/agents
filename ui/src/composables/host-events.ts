@@ -10,8 +10,18 @@ import { tool, jsonSchema } from 'ai'
 import type { Tool } from 'ai'
 import type { AgentEvent } from '@data-fair/lib-vue-agents'
 import { isMediaToolResult } from '../utils/tool-result.ts'
+import Debug from 'debug'
+
+const debug = Debug('df-agents:host-events')
 
 export const RECENT_MAX = 10
+// Caps against an unbounded host: a page can emit an unkeyed event per interaction
+// (each detail is capped at 1000 chars, but nothing capped the *count* before this) and
+// `useAgentState` retention keys are open-ended (`useAgentState(\`row-${id}\`, …)`).
+// Put here, not left to a page author, so nobody has to remember them. Both drop the
+// OLDEST entry once full — same FIFO discipline as RECENT_MAX's ring.
+export const PENDING_MAX = 50
+export const STATE_MAX_KEYS = 50
 export const HOST_EVENTS_OPEN = '<host-events>'
 export const HOST_EVENTS_CLOSE = '</host-events>'
 export const HOST_STATE_OPEN = '<host-state>'
@@ -34,6 +44,12 @@ export class HostEventStore {
   push (event: AgentEvent): void {
     if (event.key) {
       this.state.set(event.key, event)
+      // Map.set keeps an existing key's position, so the first entry is always the
+      // oldest surviving key — evict it once a genuinely new key pushes past the cap.
+      if (this.state.size > STATE_MAX_KEYS) {
+        const oldest = this.state.keys().next().value
+        if (oldest !== undefined) this.state.delete(oldest)
+      }
     } else {
       this.recent.push(event)
       if (this.recent.length > RECENT_MAX) this.recent.shift()
@@ -47,8 +63,19 @@ export class HostEventStore {
     if (event.key) {
       const i = this.pending.findIndex(p => p.key === event.key)
       if (i >= 0) { this.pending[i] = event; return }
+      this.pending.push(event)
+      return
     }
+    // Unkeyed events don't coalesce, so ring them the same way `recent` is ringed:
+    // drop the oldest UNKEYED entry once the count exceeds the cap. Keyed entries in
+    // `pending` are left alone — they already self-limit to one slot per key.
     this.pending.push(event)
+    let unkeyedCount = 0
+    for (const p of this.pending) if (!p.key) unkeyedCount++
+    if (unkeyedCount > PENDING_MAX) {
+      const i = this.pending.findIndex(p => !p.key)
+      if (i >= 0) this.pending.splice(i, 1)
+    }
   }
 
   withdraw (key: string): void {
@@ -67,10 +94,18 @@ export class HostEventStore {
     return pending
   }
 
+  /** Read the pending buffer without draining it — see `withHostConsequences` in use-agent-chat.ts. */
+  peekPending (): AgentEvent[] {
+    return [...this.pending]
+  }
+
   isWaiting (): boolean { return this.waiter !== null }
 
   waitForEvent (opts: { timeoutMs: number, signal?: AbortSignal }): Promise<WaitOutcome> {
     if (this.waiter) return Promise.reject(new Error('already-waiting'))
+    // Checked before the pending buffer: a wait declared on an already-aborted turn
+    // must not silently consume an event that is still owed to the model.
+    if (opts.signal?.aborted) return Promise.resolve('aborted' as WaitOutcome)
     if (this.pending.length) return Promise.resolve(this.pending.shift() as AgentEvent)
     return new Promise<WaitOutcome>(resolve => {
       // `timer` is armed first so `finish` can reference it as a `const`; the callback
@@ -84,7 +119,6 @@ export class HostEventStore {
         resolve(outcome)
       }
       const onAbort = () => finish('aborted')
-      if (opts.signal?.aborted) { finish('aborted'); return }
       opts.signal?.addEventListener('abort', onAbort, { once: true })
       this.waiter = finish
     })
@@ -97,6 +131,18 @@ export class HostEventStore {
    */
   clearPending (): void {
     this.pending = []
+    this.waiter?.('aborted')
+  }
+
+  /**
+   * Idempotent: settles an outstanding wait as `'aborted'` (a no-op when nothing is
+   * waiting). Unlike `clearPending`, the pending buffer and retention are untouched —
+   * this is a turn-ending backstop for a waiter whose only other exit is
+   * `options.abortSignal`, which the AI SDK types as optional. Call from the turn's
+   * `finally` so a waiter never outlives its turn even if a future SDK version (or a
+   * bug) stops passing the signal.
+   */
+  cancelWait (): void {
     this.waiter?.('aborted')
   }
 }
@@ -142,7 +188,15 @@ export function appendHostEvents (output: unknown, events: AgentEvent[]): unknow
   const block = formatHostEvents(events)
   if (typeof output === 'string') return `${output}\n\n${block}`
   if (isMediaToolResult(output)) return { ...output, text: output.text ? `${output.text}\n\n${block}` : block }
-  return `${JSON.stringify(output)}\n\n${block}`
+  try {
+    return `${JSON.stringify(output)}\n\n${block}`
+  } catch (err) {
+    // A throw here would take down the whole turn from inside a tool result (a
+    // circular structure, a BigInt, …). The events themselves still matter more than
+    // the original payload, so fall back to just the block rather than losing both.
+    debug('appendHostEvents: failed to stringify tool output: %O', err)
+    return block
+  }
 }
 
 export function createWaitTool (opts: {

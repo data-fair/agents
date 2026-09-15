@@ -548,7 +548,13 @@ export function useAgentChat (options: UseAgentChatOptions) {
     // watchdog) can cancel the summarizer call too — previously compaction ran with
     // no controller, leaving a slow/stalled summarize unkillable and invisible.
     abortController = new AbortController()
-    const signal = abortController.signal
+    // Captured once as a local: the watchdog closure below must abort THIS turn's
+    // controller specifically, never whatever `abortController` happens to point to by
+    // the time a stale timer fires. Today ordering makes that safe by accident (this
+    // turn's own `finally` always clears its own `watchdog` first) — this makes it
+    // structural instead of incidental.
+    const controller = abortController
+    const signal = controller.signal
     let streamError: unknown = null
     let timedOut = false
     let watchdog: ReturnType<typeof setTimeout> | undefined
@@ -564,7 +570,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
     const armWatchdog = () => {
       if (waitSuspended) return
       if (watchdog) clearTimeout(watchdog)
-      watchdog = setTimeout(() => { timedOut = true; abortController?.abort() }, idleMs)
+      watchdog = setTimeout(() => { timedOut = true; controller.abort() }, idleMs)
     }
 
     // The main assistant transcript is built by the shared applyStreamPart, the same
@@ -677,17 +683,28 @@ export function useAgentChat (options: UseAgentChatOptions) {
       // where they happened. One macrotask after settling: the page posts its events
       // before returning and BroadcastChannel delivery is a task, so by then they are
       // in the store.
-      const withHostConsequences = (t: Tool): Tool => {
+      //
+      // `drain` distinguishes the two call sites below: the main agent's own tools
+      // drain the shared buffer (`true`, the default) because the main agent's history
+      // IS the shared history the buffer is owed to. A sub-agent's tools must NOT drain
+      // it (`false`): the sub-agent's own transcript is private (the lead only ever
+      // sees a one-shot text summary via toModelOutput), so draining here would tell
+      // the sub-agent and nobody else — the lead would never learn, and retention
+      // doesn't help since it is only consulted at activation. Instead the sub-agent
+      // gets its own COPY of whatever is pending (peekPending, non-destructive) while
+      // the events themselves stay in the shared buffer for the lead's next turn.
+      const withHostConsequences = (t: Tool, opts: { drain: boolean } = { drain: true }): Tool => {
         const execute = (t as any).execute
         if (typeof execute !== 'function') return t
         return {
           ...t,
-          execute: async (args: any, opts: any) => {
-            let output = await execute(args, opts)
+          execute: async (args: any, execOpts: any) => {
+            let output = await execute(args, execOpts)
             await settleTools()
             if (hostEvents) {
               await new Promise(resolve => setTimeout(resolve, 0))
-              output = appendHostEvents(output, hostEvents.takePending())
+              const events = opts.drain ? hostEvents.takePending() : hostEvents.peekPending()
+              output = appendHostEvents(output, events)
             }
             return output
           }
@@ -734,10 +751,12 @@ export function useAgentChat (options: UseAgentChatOptions) {
             continue
           }
 
-          // Collect the sub-agent's tools from the full tool set
+          // Collect the sub-agent's tools from the full tool set. `drain: false`: see
+          // the comment on withHostConsequences above — a sub-agent's own tool calls
+          // must not empty the shared buffer the lead is owed.
           const subAgentTools: Record<string, Tool> = {}
           for (const toolName of config.tools) {
-            if (currentTools[toolName]) subAgentTools[toolName] = withHostConsequences(currentTools[toolName])
+            if (currentTools[toolName]) subAgentTools[toolName] = withHostConsequences(currentTools[toolName], { drain: false })
           }
 
           const subAgent = new ToolLoopAgent({
@@ -941,7 +960,14 @@ export function useAgentChat (options: UseAgentChatOptions) {
 
         // Chat-built-in: never a page tool, so it survives the page unmounting on the
         // navigation that follows the action it waits for. One instance per turn.
-        if (hostEvents) {
+        // Gated on the store having actually heard from a host — not just "a host
+        // exists" — otherwise the tool is advertised (and its own description invites
+        // the model to call it) to a page that has never published anything, where it
+        // can only end in a bounded but pointless dead turn. Re-checked on every
+        // buildToolSet() call (turn start and every mid-turn rebuild), so a page that
+        // starts publishing mid-conversation gains the tool at the next call — no
+        // extra wiring needed, since host events don't bump toolsVersion themselves.
+        if (hostEvents && (hasHostState(hostEvents.snapshot()) || hostEvents.hasPending())) {
           nextTools[WAIT_TOOL_NAME] = mainLLMTools[WAIT_TOOL_NAME] ?? createWaitTool({
             store: hostEvents,
             onWaiting: (expecting) => {
@@ -1142,6 +1168,13 @@ export function useAgentChat (options: UseAgentChatOptions) {
     } finally {
       stopToolsWatch?.()
       if (watchdog) clearTimeout(watchdog)
+      // Backstop: the only other exit for a pending wait is `options.abortSignal`,
+      // which the AI SDK types as optional. If a future SDK version (or a bug) ever
+      // stopped passing it, a wait would otherwise stay armed past the end of this
+      // turn and the first host event after that would silently resolve a dead wait
+      // instead of being buffered for the next one. Idempotent: a no-op once the wait
+      // has already settled through the signal, as it does today.
+      hostEvents?.cancelWait()
       activity.value = null
       subAgentActivities.value = {}
       abortController = null

@@ -1,7 +1,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import {
-  HostEventStore, RECENT_MAX,
+  HostEventStore, RECENT_MAX, PENDING_MAX, STATE_MAX_KEYS,
   formatHostEvents, formatHostState, hasHostState, appendHostEvents,
   HOST_EVENTS_OPEN, HOST_EVENTS_CLOSE, HOST_STATE_OPEN, HOST_STATE_CLOSE, createWaitTool
 } from '../../../ui/src/composables/host-events.ts'
@@ -33,6 +33,24 @@ test.describe('HostEventStore retention', () => {
     assert.deepEqual(s.snapshot().state, [])
     assert.equal(s.hasPending(), true) // the event is still owed to the model
   })
+
+  test('caps distinct retention keys, dropping the oldest', () => {
+    const s = new HostEventStore()
+    for (let i = 0; i < STATE_MAX_KEYS + 3; i++) s.push(ev(`row-${i}`, String(i), `row-${i}`))
+    const state = s.snapshot().state
+    assert.equal(state.length, STATE_MAX_KEYS)
+    // The first 3 keys (row-0..row-2) were evicted to make room for the last 3.
+    assert.equal(state[0].key, 'row-3')
+    assert.ok(!state.some(e => e.key === 'row-0'))
+    assert.ok(state.some(e => e.key === `row-${STATE_MAX_KEYS + 2}`))
+  })
+
+  test('updating an existing key never evicts it, however many times it changes', () => {
+    const s = new HostEventStore()
+    for (let i = 0; i < STATE_MAX_KEYS * 2; i++) s.push(ev('wizard', String(i), 'wizard'))
+    assert.equal(s.snapshot().state.length, 1)
+    assert.equal(s.snapshot().state[0].detail, String(STATE_MAX_KEYS * 2 - 1))
+  })
 })
 
 test.describe('HostEventStore pending buffer', () => {
@@ -43,6 +61,38 @@ test.describe('HostEventStore pending buffer', () => {
     s.push(ev('wizard', 'b', 'wizard'))
     const pending = s.takePending()
     assert.deepEqual(pending.map(e => e.detail), ['b', '1'])
+    assert.equal(s.hasPending(), false)
+  })
+
+  test('caps undelivered unkeyed events, dropping the oldest', () => {
+    const s = new HostEventStore()
+    for (let i = 0; i < PENDING_MAX + 3; i++) s.push(ev('saved', String(i)))
+    const pending = s.takePending()
+    assert.equal(pending.length, PENDING_MAX)
+    assert.equal(pending[0].detail, '3')
+    assert.equal(pending[pending.length - 1].detail, String(PENDING_MAX + 2))
+  })
+
+  test('the unkeyed ring does not touch coalesced keyed entries', () => {
+    const s = new HostEventStore()
+    s.push(ev('wizard', 'initial', 'wizard'))
+    for (let i = 0; i < PENDING_MAX + 3; i++) s.push(ev('saved', String(i)))
+    const pending = s.takePending()
+    // One keyed slot (last value) plus the capped unkeyed ring, not evicted by it.
+    assert.equal(pending.filter(e => e.key === 'wizard').length, 1)
+    assert.equal(pending.filter(e => !e.key).length, PENDING_MAX)
+  })
+
+  test('peekPending reads the buffer without draining it', () => {
+    const s = new HostEventStore()
+    s.push(ev('item-created', '1'))
+    s.push(ev('wizard', 'a', 'wizard'))
+    const peeked = s.peekPending()
+    assert.deepEqual(peeked.map(e => e.name), ['item-created', 'wizard'])
+    // Still there afterwards, and still there for a real drain.
+    assert.equal(s.hasPending(), true)
+    assert.deepEqual(s.peekPending().map(e => e.name), ['item-created', 'wizard'])
+    assert.deepEqual(s.takePending().map(e => e.name), ['item-created', 'wizard'])
     assert.equal(s.hasPending(), false)
   })
 })
@@ -88,6 +138,42 @@ test.describe('HostEventStore waits', () => {
     const p = s.waitForEvent({ timeoutMs: 50 })
     await assert.rejects(s.waitForEvent({ timeoutMs: 50 }), /already-waiting/)
     await p
+  })
+
+  test('a wait declared on an already-aborted signal resolves aborted without consuming a pending event', async () => {
+    const s = new HostEventStore()
+    s.push(ev('item-created', '1'))
+    const ac = new AbortController()
+    ac.abort()
+    const out = await s.waitForEvent({ timeoutMs: 1000, signal: ac.signal })
+    assert.equal(out, 'aborted')
+    // The immediate-resolution path (a pending event ready to hand back) must not run
+    // ahead of the abort check, or the event would be silently consumed here instead
+    // of staying owed to the model.
+    assert.equal(s.hasPending(), true)
+    assert.deepEqual(s.takePending().map(e => e.name), ['item-created'])
+  })
+
+  test('cancelWait settles an outstanding wait as aborted and is idempotent', async () => {
+    const s = new HostEventStore()
+    // A no-op when nothing is waiting.
+    s.cancelWait()
+    const p = s.waitForEvent({ timeoutMs: 1000 })
+    s.cancelWait()
+    assert.equal(await p, 'aborted')
+    assert.equal(s.isWaiting(), false)
+    // Calling it again afterwards, and with no wait ever having started, must not throw.
+    s.cancelWait()
+    s.cancelWait()
+  })
+
+  test('cancelWait leaves the pending buffer and retention untouched', () => {
+    const s = new HostEventStore()
+    s.push(ev('wizard', 'a', 'wizard'))
+    s.push(ev('item-created', '1'))
+    s.cancelWait()
+    assert.equal(s.hasPending(), true)
+    assert.equal(s.snapshot().state.length, 1)
   })
 
   test('clearPending drops the buffer and keeps retention', () => {
@@ -142,6 +228,28 @@ test.describe('formatting', () => {
     assert.equal(media._agentsMediaResult, true)
     const obj = appendHostEvents({ success: true }, [ev('saved')]) as string
     assert.ok(obj.startsWith('{"success":true}\n\n' + HOST_EVENTS_OPEN))
+  })
+})
+
+test.describe('wait_for_user_action advertising gate', () => {
+  // use-agent-chat.ts registers the tool only when
+  // `hasHostState(hostEvents.snapshot()) || hostEvents.hasPending()` — this pins that
+  // predicate's truth table directly against the store, since the registration site
+  // itself lives inside a large closure that isn't practical to unit-test in isolation.
+  const gate = (s: HostEventStore) => hasHostState(s.snapshot()) || s.hasPending()
+
+  test('false for a host that has never published anything', () => {
+    assert.equal(gate(new HostEventStore()), false)
+  })
+
+  test('true once any event has been heard — keyed, unkeyed, or merely pending', () => {
+    const keyed = new HostEventStore()
+    keyed.push(ev('wizard', 'a', 'wizard'))
+    assert.equal(gate(keyed), true)
+
+    const unkeyed = new HostEventStore()
+    unkeyed.push(ev('item-created', '1'))
+    assert.equal(gate(unkeyed), true) // lands in `recent`, which counts as host state too
   })
 })
 
