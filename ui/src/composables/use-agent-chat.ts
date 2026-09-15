@@ -556,7 +556,11 @@ export function useAgentChat (options: UseAgentChatOptions) {
         switch (phase) {
           case 'streaming':
           case 'tool':
-            activity.value = null
+            // A declared wait outlives the tool-call part that announced it: the SDK starts the
+            // tool's execute() — which sets the 'waiting' activity — before this loop drains the
+            // buffered tool-call part, so clearing unconditionally would erase the line the wait
+            // just put up. The wait clears itself through onDone when it resolves.
+            if (activity.value?.kind !== 'waiting') activity.value = null
             break
           case 'analyzing':
             activity.value = { kind: 'analyzing', subAgent: toolName?.startsWith('subagent_') ? toolName : undefined }
