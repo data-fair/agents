@@ -512,22 +512,27 @@ export function useAgentChat (options: UseAgentChatOptions) {
       return snapshot && hasHostState(snapshot) ? formatHostState(snapshot) : null
     }
     const pendingEvents = hostEvents?.takePending() ?? []
-    // On the activation turn only: the state block above already reports the current
-    // value for every keyed event, so drop those from what we drain here — otherwise
-    // the model sees the same fact twice in the same turn (once as retained state,
-    // once as a drained event). Unkeyed events (transitions, e.g. item-created) are
-    // never represented in the state block, so they always pass through untouched.
-    // Non-activation turns have no state block to duplicate against, so they are
-    // unaffected.
+    // On an activation turn — the first turn, after reset, or (patched in below) the
+    // turn compaction ran on — the state block above already reports the current value
+    // for every keyed event, so drop those from what we format here: otherwise the
+    // model sees the same fact twice in the same turn (once as retained state, once as
+    // a drained event). Unkeyed events (transitions, e.g. item-created) are never
+    // represented in the state block, so they always pass through untouched.
+    // Non-activation turns have no state block to duplicate against, so they pass
+    // `pendingEvents` through unfiltered.
+    // A helper — not just a value computed once — is what lets a turn that becomes an
+    // activation turn only AFTER this point (compaction firing below) apply the exact
+    // same dedupe, against the state as it stands at THAT point, without re-draining
+    // `pendingEvents` (already taken once, above).
     const dedupeAgainstState = (events: typeof pendingEvents) => {
       const stateKeys = new Set((hostEvents?.snapshot().state ?? []).map(e => e.key))
       return events.filter(e => !e.key || !stateKeys.has(e.key))
     }
-    const relevantEvents = activation ? dedupeAgainstState(pendingEvents) : pendingEvents
-    const turnHidden = [
-      relevantEvents.length ? formatHostEvents(relevantEvents) : null,
+    const buildTurnHidden = (events: typeof pendingEvents) => [
+      events.length ? formatHostEvents(events) : null,
       sendOptions?.hiddenContext ?? null
     ].filter((p): p is string => !!p)
+    const turnHidden = buildTurnHidden(activation ? dedupeAgainstState(pendingEvents) : pendingEvents)
     const withState = (parts: string[]) => {
       const block = hostStateBlock()
       return block ? [block, ...parts] : parts
@@ -604,9 +609,15 @@ export function useAgentChat (options: UseAgentChatOptions) {
       const compacted = await compactHistory(compactionCtxId, signal)
       // Compaction just replaced everything before this message with a recap; the model
       // is re-activated, so it gets the retained state too. The message is the last one
-      // in the rebuilt history (compactHistory preserves it verbatim).
+      // in the rebuilt history (compactHistory preserves it verbatim). Re-dedupe here
+      // rather than reusing the (possibly undeduped) `turnHidden` computed above: this
+      // turn wasn't an activation turn when `turnHidden` was built, so events pending at
+      // that point rode through unfiltered — but it is one now, so those same keyed
+      // events would otherwise be sent twice (once in the state snapshot just added,
+      // once in an undeduped <host-events> block). This re-formats `pendingEvents`, the
+      // same array taken once above — it does not drain the store again.
       if (compacted && !activation) {
-        history[history.length - 1] = { role: 'user', content: joinHidden(withState(turnHidden)) }
+        history[history.length - 1] = { role: 'user', content: joinHidden(withState(buildTurnHidden(dedupeAgainstState(pendingEvents)))) }
       }
       activity.value = { kind: 'thinking' }
       armWatchdog()

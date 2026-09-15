@@ -9,7 +9,12 @@ import { clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
 
 const mockSettings = {
   providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
-  models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' } } } },
+  models: {
+    assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' } } },
+    // Configured so the compaction round-trip (used by the compaction-dedupe test
+    // below) actually runs instead of failing for want of a summarizer model.
+    summarizer: { model: { id: 'mock-summarizer', name: 'Mock Summarizer', provider: { type: 'mock', id: 'mock', name: 'Mock' } } }
+  },
   quotas: defaultQuotas
 }
 
@@ -77,6 +82,47 @@ test.describe('Host events', () => {
     expect(body).toContain('<host-state>')
     expect(body).not.toContain('<host-events>')
     expect(body.match(/\blocation:/g) ?? []).toHaveLength(1)
+    expect(body.match(/\bwizard:/g) ?? []).toHaveLength(1)
+  })
+
+  test('compaction re-activates and dedupes the same keyed facts as the first-turn path', async ({ page, goToWithAuth }) => {
+    // Force compaction on an ordinary conversation: sendMessage reads this key live
+    // each turn (see COMPACTION_THRESHOLD's test seam in use-agent-chat.ts), falling
+    // back to the 24000-char default otherwise. addInitScript sets it before the
+    // page's own scripts run, so it's already in place for the very first navigation
+    // — no reload needed (unlike the evaluate()+reload() pattern other compaction
+    // tests use).
+    await page.addInitScript(() => sessionStorage.setItem('agent-chat-compaction-threshold', '50'))
+    await open(page, goToWithAuth)
+    await send(page, 'hello')
+    await expect(lastAnswer(page)).toContainText('world', { timeout: 15000 })
+
+    // A keyed event lands between turns — the fact that must not be duplicated once
+    // compaction re-activates the next turn (this turn is NOT an activation turn when
+    // it's sent, only becomes one once compaction fires inside it).
+    await page.getByRole('button', { name: 'Note', exact: true }).click()
+    await page.getByLabel('Title').fill('Weekly groceries')
+
+    const turnBodies: string[] = []
+    page.on('request', (r: any) => {
+      if (!r.url().includes('/chat/completions')) return
+      // Exclude the compaction round-trip itself (a separate summarizer call, tagged
+      // 'compaction:' in its trace header) — only the actual turn's request matters here.
+      if ((r.headers()['x-trace-ctx'] ?? '').startsWith('compaction:')) return
+      turnBodies.push(r.postData() ?? '')
+    })
+    // History is now well past the 50-char threshold, so this turn triggers compaction.
+    await send(page, 'hello')
+    await expect(lastAnswer(page)).toContainText('world', { timeout: 15000 })
+    expect(turnBodies).toHaveLength(1)
+    const body = turnBodies[0]
+    // Same property as the first-turn activation test: a state snapshot, no
+    // undeduped events block, and the keyed fact appearing exactly once. Without the
+    // compaction-branch dedupe, `wizard` (pending when this turn was sent, before it
+    // became an activation turn) would ride a second time in an undeduped
+    // <host-events> block alongside the freshly-added <host-state> snapshot.
+    expect(body).toContain('<host-state>')
+    expect(body).not.toContain('<host-events>')
     expect(body.match(/\bwizard:/g) ?? []).toHaveLength(1)
   })
 
