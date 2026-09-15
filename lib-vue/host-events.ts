@@ -38,7 +38,17 @@ type DistributiveOmit<T, K extends keyof any> = T extends any ? Omit<T, K> : nev
 /** The channel a publisher posts on, with the channel id filled in by the caller. */
 export type HostEventPost = (msg: DistributiveOmit<HostEventMessage, 'channel'>) => void
 
-export type AgentEventDetail = string | Record<string, unknown> | undefined | null
+/**
+ * A string, or anything JSON-serialisable.
+ *
+ * `object` rather than `Record<string, unknown>`: TypeScript gives implicit
+ * index signatures to type ALIASES only, so a host declaring its payload as an
+ * `interface` — the natural way to write it — finds it is not assignable to an
+ * index-signature type. Making every host restate its types as aliases, or
+ * carry a `[key: string]: unknown` nothing ever reads, is a tax with nothing
+ * behind it. Found by the first real integration (data-fair).
+ */
+export type AgentEventDetail = string | object | undefined | null
 
 // Sentinels the chat's hidden-context/host-events/host-state wrappers use to find their
 // own boundaries (ui/src/traces/hidden-context.ts, ui/src/composables/host-events.ts). A
