@@ -239,6 +239,29 @@ The main agent will delegate to `subagent_analyst` rather than calling `query_da
 
 ---
 
+## Reporting State and User Actions
+
+Pages can tell the chat what is true now and what the user did, so the assistant does
+not have to ask (`get_current_location`-style) and can hand a step back to the user and
+resume when they act. Full mechanism in [Host events](./host-events.md).
+
+```typescript
+import { useAgentState, emitAgentEvent } from '@data-fair/lib-vue-agents'
+
+// Keyed state: the last value per key is retained; changes are coalesced.
+useAgentState('location', () => ({ path: route.path, name: route.name }))
+useAgentState('wizard', () => ({ step: step.value, type: type.value, title: title.value }))
+
+// Transitions: emitted once, delivered once.
+router.afterEach((to, from) => emitAgentEvent('navigated', { from: from.path, to: to.path }, { key: 'location' }))
+emitAgentEvent('dataset-created', { id: dataset.id, title: dataset.title })
+```
+
+Emit an event when the assistant should be told even if it was not looking; give it a
+key when a later occurrence supersedes it. Nothing here starts a model turn.
+
+---
+
 ## Starting Sessions Programmatically
 
 Action buttons or host-app logic can trigger a chat session via BroadcastChannel:
