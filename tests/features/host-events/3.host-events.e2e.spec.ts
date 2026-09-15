@@ -68,9 +68,14 @@ test.describe('Host events', () => {
     await page.getByLabel('Title').fill('Weekly groceries')
     await send(page, 'what happened')
     await expect(lastAnswer(page)).toContainText('events:', { timeout: 15000 })
-    // One coalesced wizard line, carrying the LAST value, not one line per keystroke.
-    await expect(lastAnswer(page)).toContainText('wizard: {"step":"title","type":"note","title":"Weekly groceries"}')
-    expect(await lastAnswer(page).innerText()).not.toContain('"title":"W"')
+    // Clicking Note and filling the title each push a keyed `wizard` event; coalescing
+    // must collapse them into ONE line carrying the LAST value, not one line per event —
+    // so assert the collapse itself (exactly one `wizard:` line) and the stale
+    // intermediate value's absence, not just that the final value is present somewhere.
+    await expect(lastAnswer(page)).toContainText('wizard: {"step":"title","type":"note","title":"Weekly groceries"}', { timeout: 15000 })
+    const answerText = await lastAnswer(page).innerText()
+    expect(answerText.match(/wizard:/g)).toHaveLength(1)
+    expect(answerText).not.toContain('wizard: {"step":"title","type":"note","title":""}')
     await expect(page.getByTestId('tool-chip')).toHaveCount(0)
   })
 
@@ -87,7 +92,7 @@ test.describe('Host events', () => {
     const requests = countGatewayRequests(page)
     await send(page, 'wait for me')
     await expect(page.getByTestId('chat-activity')).toContainText('Waiting for: you to click Create', { timeout: 15000 })
-    await expect(page.getByTestId('tool-chip').last()).toContainText('Waiting for: you to click Create')
+    await expect(page.getByTestId('tool-chip')).toContainText('Waiting for: you to click Create')
     await page.getByRole('button', { name: 'Create' }).click()
     await expect(lastAnswer(page)).toContainText('You did:', { timeout: 15000 })
     await expect(lastAnswer(page)).toContainText('item-created: {"id":"item-')
