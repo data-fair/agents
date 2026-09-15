@@ -112,7 +112,10 @@ function processMockPrompt (lastMessage: string, prompt: string | Array<any>): M
     return { type: 'text', text: 'I respond to:\n- "hello" → returns "world"\n- "call tool <name> <args>" → triggers a tool call\n- Any other text → "what do you mean?"\n- "where am i" / "what happened" → echoes host state/events\n- "select note", "wait for me", "wait briefly" → host-events tool seams' }
   }
 
-  if (lastMessage.toLowerCase() === 'hello') {
+  // endsWithCommand (not exact equality): an activation turn on a page that publishes
+  // host state (tests/features/host-events) prepends a hidden-context block ahead of
+  // the visible "hello" — same reason the host-events seams below use endsWithCommand.
+  if (endsWithCommand(lastMessage, 'hello')) {
     return { type: 'text', text: 'world' }
   }
 
