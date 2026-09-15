@@ -158,7 +158,7 @@ function eventLine (e: AgentEvent): string {
 export function formatHostEvents (events: AgentEvent[]): string {
   return [
     HOST_EVENTS_OPEN,
-    'Reported by the application, not written by the user:',
+    'Reported by the application, not written by the user. You are told this automatically; never ask the user to describe what is on their screen:',
     ...events.map(eventLine),
     HOST_EVENTS_CLOSE
   ].join('\n')
@@ -169,7 +169,7 @@ export function hasHostState (snapshot: HostStateSnapshot): boolean {
 }
 
 export function formatHostState (snapshot: HostStateSnapshot): string {
-  const lines = [HOST_STATE_OPEN, 'Current state of the application, as reported by the application (not written by the user):']
+  const lines = [HOST_STATE_OPEN, 'Current state of the application, as reported by the application (not written by the user). You are kept up to date automatically; never ask the user to describe what is on their screen:']
   for (const e of snapshot.state) lines.push(`- ${e.key}: ${e.detail ?? ''}`)
   if (snapshot.recent.length) {
     lines.push('Recent actions:')
