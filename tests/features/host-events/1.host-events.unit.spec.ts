@@ -97,6 +97,14 @@ test.describe('HostEventStore waits', () => {
     assert.equal(s.hasPending(), false)
     assert.equal(s.snapshot().state.length, 1)
   })
+
+  test('clearPending settles an outstanding wait as aborted', async () => {
+    const s = new HostEventStore()
+    const p = s.waitForEvent({ timeoutMs: 1000 })
+    s.clearPending()
+    assert.equal(await p, 'aborted')
+    assert.equal(s.isWaiting(), false)
+  })
 })
 
 test.describe('formatting', () => {

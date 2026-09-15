@@ -29,7 +29,7 @@ export class HostEventStore {
   private state = new Map<string, AgentEvent>()
   private recent: AgentEvent[] = []
   private pending: AgentEvent[] = []
-  private waiter: ((event: AgentEvent) => void) | null = null
+  private waiter: ((outcome: WaitOutcome) => void) | null = null
 
   push (event: AgentEvent): void {
     if (event.key) {
@@ -39,9 +39,9 @@ export class HostEventStore {
       if (this.recent.length > RECENT_MAX) this.recent.shift()
     }
     if (this.waiter) {
-      const resolve = this.waiter
+      const finish = this.waiter
       this.waiter = null
-      resolve(event)
+      finish(event)
       return
     }
     if (event.key) {
@@ -73,28 +73,31 @@ export class HostEventStore {
     if (this.waiter) return Promise.reject(new Error('already-waiting'))
     if (this.pending.length) return Promise.resolve(this.pending.shift() as AgentEvent)
     return new Promise<WaitOutcome>(resolve => {
-      // `timer` is assigned once, but only after `finish` (which reads it) is already
-      // defined, and not at all on the early-abort path below; a `const` declared at the
-      // assignment site would leave it in the temporal dead zone for that path instead.
-      // eslint-disable-next-line prefer-const
-      let timer: ReturnType<typeof setTimeout> | undefined
+      // `timer` is armed first so `finish` can reference it as a `const`; the callback
+      // that reads `finish` back only runs once the timer actually fires, by which time
+      // `finish` is already defined — so neither binding is read before it is set.
+      const timer = setTimeout(() => finish('timeout'), opts.timeoutMs)
       const finish = (outcome: WaitOutcome) => {
-        if (timer) clearTimeout(timer)
+        clearTimeout(timer)
         opts.signal?.removeEventListener('abort', onAbort)
         this.waiter = null
         resolve(outcome)
       }
       const onAbort = () => finish('aborted')
       if (opts.signal?.aborted) { finish('aborted'); return }
-      timer = setTimeout(() => finish('timeout'), opts.timeoutMs)
       opts.signal?.addEventListener('abort', onAbort, { once: true })
-      this.waiter = event => finish(event)
+      this.waiter = finish
     })
   }
 
-  /** Reset: the model owes nothing from before; retention stays (the pages are still there). */
+  /**
+   * Reset: the model owes nothing from before, so the buffer is dropped; an outstanding
+   * wait is dropped with it, settled as `'aborted'` rather than left dangling. Retention
+   * stays (the pages are still there).
+   */
   clearPending (): void {
     this.pending = []
+    this.waiter?.('aborted')
   }
 }
 
