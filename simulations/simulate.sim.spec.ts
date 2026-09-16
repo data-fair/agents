@@ -11,7 +11,7 @@ import {
   createChatDriver,
   chatDriverStrings,
   captureGateway,
-  nextUserMessage, isDone,
+  nextUserMessage, isDone, resolveUserModel,
   writeEvidence, type Transcript,
   selectCases,
   createPagePerception
@@ -23,7 +23,7 @@ const ASSISTANT_MODEL = process.env.SIM_ASSISTANT_MODEL ?? 'sonnet'
 // that is where a deployment puts a small model, so that is where the product
 // has to work.
 const TOOLS_MODEL = process.env.SIM_TOOLS_MODEL ?? 'haiku'
-const USER_MODEL = process.env.SIM_USER_MODEL ?? 'sonnet'
+const USER_MODEL = resolveUserModel()
 const selected = selectCases(cases, (process.env.SIM_CASES ?? '').split(',').map(s => s.trim()).filter(Boolean))
 
 for (const simCase of selected) {

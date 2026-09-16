@@ -15,6 +15,28 @@ import { MCP_SERVER_NAME } from './page-perception.ts'
 import type { McpServerConfig } from '@anthropic-ai/claude-agent-sdk'
 
 export const DONE = 'DONE'
+
+/**
+ * The model the simulated person runs on unless the caller overrides it.
+ *
+ * Exported because hosts record which model ran, in a sidecar whose whole point
+ * is that verdicts from different tiers are never compared silently — and a host
+ * that re-derived this with its own literal recorded `haiku` for a run that
+ * actually used `sonnet`, the moment this default changed. One value, read by
+ * both the runner and the recorder.
+ *
+ * Sonnet, not haiku: on haiku the persona stopped enforcing its own goal —
+ * accepting a chat-only answer for a goal that demanded the result on screen,
+ * and asserting it could see nothing but the chat while its own look had just
+ * returned the page. A persona that lets the product off the hook produces green
+ * runs that prove nothing.
+ */
+export const DEFAULT_USER_MODEL = 'sonnet'
+
+/** What `nextUserMessage` will actually run on, given an environment. */
+export function resolveUserModel (env: { SIM_USER_MODEL?: string } = process.env): string {
+  return env.SIM_USER_MODEL || DEFAULT_USER_MODEL
+}
 let neutralCwd: string | undefined
 
 // The persona looks and acts before replying, so one turn is not enough:
@@ -155,7 +177,7 @@ export async function nextUserMessage (
     prompt: personaPrompt(conversation, turnsLeft),
     options: {
       ...isolationOptions(neutralCwd),
-      model: process.env.SIM_USER_MODEL ?? 'sonnet',
+      model: resolveUserModel(),
       systemPrompt: personaSystemPrompt(c, !!opts?.perception, !!opts?.perception?.offLimits.length),
       // Unconditional: a caller with no perception registers no mcpServers, so
       // the persona has no tool to call and the loop still ends after the one

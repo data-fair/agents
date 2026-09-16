@@ -2,7 +2,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { readdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { personaSystemPrompt, personaPrompt, DONE, isDone, nextUserMessage, PERSONA_MAX_TURNS, type PersonaQuery } from '../../../lib-sim/persona.ts'
+import { personaSystemPrompt, personaPrompt, DONE, isDone, nextUserMessage, PERSONA_MAX_TURNS, DEFAULT_USER_MODEL, resolveUserModel, type PersonaQuery } from '../../../lib-sim/persona.ts'
 import type { PagePerception } from '../../../lib-sim/page-perception.ts'
 import { cases } from '../../../simulations/cases/index.ts'
 
@@ -240,5 +240,23 @@ test.describe('isDone accepts a sign-off before the sentinel', () => {
 
   test('ignores trailing blank lines around the sentinel', () => {
     assert.equal(isDone('ok\n\nDONE\n\n'), true)
+  })
+})
+
+test.describe('the persona model has one source of truth', () => {
+  // Hosts record which model ran, in a sidecar whose whole purpose is that
+  // verdicts from different tiers are never compared silently. They used to
+  // re-derive the default with their own literal; when this package changed its
+  // default to sonnet, a data-fair run used sonnet and recorded haiku. A
+  // comment in that host had predicted exactly this. Export the value instead.
+  test('exports the default the persona actually uses', () => {
+    assert.equal(typeof DEFAULT_USER_MODEL, 'string')
+    assert.ok(DEFAULT_USER_MODEL.length > 0)
+  })
+
+  test('resolveUserModel reports what nextUserMessage would run', () => {
+    assert.equal(resolveUserModel({}), DEFAULT_USER_MODEL)
+    assert.equal(resolveUserModel({ SIM_USER_MODEL: 'haiku' }), 'haiku')
+    assert.equal(resolveUserModel({ SIM_USER_MODEL: '' }), DEFAULT_USER_MODEL)
   })
 })

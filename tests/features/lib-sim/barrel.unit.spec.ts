@@ -16,7 +16,7 @@ test.describe('package barrel', () => {
       'createNeutralCwd', 'scrubEnv', 'isolationOptions',
       'captureGateway', 'summariseRequest',
       'nextUserMessage', 'personaSystemPrompt', 'personaPrompt', 'isDone', 'DONE',
-      'PERSONA_MAX_TURNS', 'PERCEPTION_INSTRUCTIONS',
+      'PERSONA_MAX_TURNS', 'PERCEPTION_INSTRUCTIONS', 'DEFAULT_USER_MODEL', 'resolveUserModel',
       'writeEvidence', 'evidenceDir',
       'computeMetrics',
       'selectCases',

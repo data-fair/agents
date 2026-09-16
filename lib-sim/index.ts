@@ -1,7 +1,7 @@
 export type { SimulationCase, Transcript, RunSidecar } from './types.ts'
 export { createNeutralCwd, scrubEnv, isolationOptions, type Env } from './isolation.ts'
 export { captureGateway, summariseRequest, type GatewayExchange } from './gateway-capture.ts'
-export { nextUserMessage, personaSystemPrompt, personaPrompt, isDone, DONE, PERSONA_MAX_TURNS, PERCEPTION_INSTRUCTIONS } from './persona.ts'
+export { nextUserMessage, personaSystemPrompt, personaPrompt, isDone, DONE, PERSONA_MAX_TURNS, PERCEPTION_INSTRUCTIONS, DEFAULT_USER_MODEL, resolveUserModel } from './persona.ts'
 export { writeEvidence, evidenceDir } from './transcript.ts'
 export { computeMetrics, type RunMetrics } from './metrics.ts'
 export { selectCases } from './cases.ts'
