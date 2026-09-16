@@ -59,15 +59,21 @@ Ask the user to start anything that is down. Never start or stop dev processes y
    not by default.
 
    **Confirm it started.** A suite takes minutes, so you will want to background
-   it — and a run that never launched looks exactly like a run still going. The
-   sidecar is written BEFORE each case begins, so within a minute of starting:
+   it — and a run that never launched looks exactly like a run still going. Check
+   the runner's own log first, and the sidecar as the stronger signal:
 
    ```bash
+   tail -5 sim.log                    # state-setup passing means it is going
    ls simulations/tmp/*.run.json      # a file here means a case really started
    ```
 
-   An empty `simulations/tmp/` after a minute means the run is not going; find
-   out why rather than waiting longer.
+   The sidecar is written before each case's body, but AFTER the login fixture,
+   which can take more than a minute on a cold page — so an empty
+   `simulations/tmp/` on its own is not proof of a stall. A log with no progress
+   at all is. Check the directory you are looking in, too: a backgrounded
+   `cd X && … &` runs the `cd` in a subshell, so a later `ls` reads whatever
+   directory you started from. One session read another repo's stale evidence
+   that way and called a dead run healthy.
 
    **Wait on the process id, never on a text pattern.** `pgrep -f` matches full
    command lines, including the command line of the waiter you are writing — so
