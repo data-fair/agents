@@ -164,6 +164,13 @@ test.describe('Host events', () => {
     await expect(lastAnswer(page)).toContainText('item-created: {"id":"item-')
     await expect(lastAnswer(page)).toContainText('"title":"Weekly groceries"')
     await expect(page.getByTestId('workflow-detail')).toBeVisible()
+    // The chip stays in history as a record of the step, so it must stop reading
+    // as a live instruction the moment the wait settles. A judged run watched a
+    // person read a resolved "Waiting for: User clicks Create" as current page
+    // state, decide the assistant had lied about creating their list, and spend
+    // four turns hunting a button that no longer existed.
+    await expect(page.getByTestId('tool-chip')).toContainText('Waited for: you to click Create')
+    await expect(page.getByTestId('tool-chip')).not.toContainText('Waiting for')
     // One user message, two model requests: the tool call, then the continuation.
     expect(requests()).toBe(2)
   })
