@@ -147,6 +147,22 @@ any host events. The cost is zero when no rebuild is in flight (the common case 
 resolves immediately), but a sub-agent tool call can now wait on a rebuild the main
 agent's own tool calls provoked, where it previously would not have.
 
+## `useAgentLocation`
+
+Nothing here tracks navigation on its own: a host publishes what it knows, and
+retention puts it in the activation snapshot. Every host with a router wants the
+same thing, so `useAgentLocation(() => ({ path, name?, params?, query?,
+breadcrumbs? }))` is that code once, publishing under the canonical `location`
+key.
+
+Its job beyond `useAgentState` is the absolute `url`, derived from `path` against
+the current origin unless the host supplies its own (a path prefix, a different
+public origin). A judged run had the assistant hand the person a relative path
+that the chat rendered as inert plain text — not even a broken link — while the
+absolute URL sat unused in the host-state block of the very same request.
+`buildAgentLocation` is exported separately so a host can unit-test what it
+publishes without a browser.
+
 ## `wait_for_user_action`
 
 A chat-built-in tool (`WAIT_TOOL_NAME`) merged into the main tool set only — never into
