@@ -18,6 +18,7 @@ test.describe('package barrel', () => {
       'nextUserMessage', 'personaSystemPrompt', 'personaPrompt', 'isDone', 'DONE',
       'PERSONA_MAX_TURNS', 'PERCEPTION_INSTRUCTIONS',
       'writeEvidence', 'evidenceDir',
+      'computeMetrics',
       'selectCases',
       'reportCases',
       'createChatDriver', 'chatDriverStrings', 'TURN_TIMEOUT_MS', 'SEND_TIMEOUT_MS',

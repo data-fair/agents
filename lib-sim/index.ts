@@ -3,6 +3,7 @@ export { createNeutralCwd, scrubEnv, isolationOptions, type Env } from './isolat
 export { captureGateway, summariseRequest, type GatewayExchange } from './gateway-capture.ts'
 export { nextUserMessage, personaSystemPrompt, personaPrompt, isDone, DONE, PERSONA_MAX_TURNS, PERCEPTION_INSTRUCTIONS } from './persona.ts'
 export { writeEvidence, evidenceDir } from './transcript.ts'
+export { computeMetrics, type RunMetrics } from './metrics.ts'
 export { selectCases } from './cases.ts'
 export { reportCases } from './report.ts'
 export { createChatDriver, chatDriverStrings, type ChatRoot, type ChatDriverLocale, TURN_TIMEOUT_MS, SEND_TIMEOUT_MS } from './chat-driver.ts'

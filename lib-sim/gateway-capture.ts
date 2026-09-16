@@ -20,10 +20,43 @@ export type GatewayExchange = {
    * shows the complete instruction context the assistant saw.
    */
   toolCalls: Array<{ name: string, arguments: string }>
+  /** Characters the application injected as `<host-state>` / `<host-events>` /
+   * `<hidden-context>` blocks, across every message of this request. They land in
+   * tool results and hidden context, neither of which survives into this summary,
+   * so the size of what the host reports can only be measured here. Cumulative
+   * like the history, so the last request of a conversation carries its total.
+   */
+  hostBlockChars: number
   /** When true, this exchange was received but postData could not be parsed. Evidence of
    * a failed capture rather than an absent request.
    */
   unparsed?: true
+}
+
+const HOST_BLOCKS = ['host-state', 'host-events', 'hidden-context']
+
+/** Only closed blocks count: an unterminated open tag would otherwise swallow
+ *  the whole rest of the message and report it as host overhead. */
+export function countHostBlockChars (messages: unknown[]): number {
+  let total = 0
+  for (const message of messages) {
+    const content = (message as { content?: unknown })?.content
+    const text = typeof content === 'string' ? content : JSON.stringify(content ?? '')
+    for (const name of HOST_BLOCKS) {
+      const open = `<${name}>`
+      const close = `</${name}>`
+      let from = 0
+      for (;;) {
+        const start = text.indexOf(open, from)
+        if (start === -1) break
+        const end = text.indexOf(close, start)
+        if (end === -1) break
+        total += end + close.length - start
+        from = end + close.length
+      }
+    }
+  }
+  return total
 }
 
 type Body = {
@@ -59,6 +92,7 @@ export function summariseRequest (body: unknown): GatewayExchange | null {
     toolNames: (b.tools ?? []).map(t => t.function?.name ?? '').filter(Boolean),
     messageCount: b.messages.length,
     lastUserMessage: extractUserMessageText(last?.content),
+    hostBlockChars: countHostBlockChars(b.messages),
     toolCalls: b.messages.flatMap(m => (m.tool_calls ?? []).map(c => ({
       name: c.function?.name ?? '',
       arguments: c.function?.arguments ?? ''
@@ -79,6 +113,7 @@ export function captureGateway (page: Page): GatewayExchange[] {
         messageCount: 0,
         lastUserMessage: '',
         toolCalls: [],
+        hostBlockChars: 0,
         unparsed: true
       })
       return

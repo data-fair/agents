@@ -66,3 +66,37 @@ test.describe('gateway capture', () => {
     assert.equal(summariseRequest('not json'), null)
   })
 })
+
+test.describe('host blocks', () => {
+  // The blocks the application injects land in tool results and in the hidden
+  // context of a user message, neither of which the summary keeps. Measuring
+  // them here, where the whole body is still in hand, is the only chance: this
+  // is what the new host-events mechanism costs the conversation.
+  test('counts the characters of every host block in the request', () => {
+    const ex = summariseRequest({
+      model: 'assistant',
+      messages: [
+        { role: 'user', content: '<host-state>\nlocation: /datasets\n</host-state>\n\nbonjour' },
+        { role: 'tool', content: '{"ok":true}\n\n<host-events>\n- wizard: step 2\n</host-events>' }
+      ]
+    })
+    assert.equal(
+      ex?.hostBlockChars,
+      '<host-state>\nlocation: /datasets\n</host-state>'.length +
+      '<host-events>\n- wizard: step 2\n</host-events>'.length
+    )
+  })
+
+  test('is zero for a conversation the application never annotated', () => {
+    const ex = summariseRequest({ model: 'assistant', messages: [{ role: 'user', content: 'bonjour' }] })
+    assert.equal(ex?.hostBlockChars, 0)
+  })
+
+  test('ignores an unterminated block rather than swallowing the rest of the message', () => {
+    const ex = summariseRequest({
+      model: 'assistant',
+      messages: [{ role: 'user', content: '<host-state>\ntruncated, no close tag, then a long tail' }]
+    })
+    assert.equal(ex?.hostBlockChars, 0)
+  })
+})

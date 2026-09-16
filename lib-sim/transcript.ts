@@ -9,6 +9,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import type { Transcript, RunSidecar } from './types.ts'
+import { computeMetrics } from './metrics.ts'
 
 /**
  * Default evidence location, resolved against the host repo's cwd. Kept as the
@@ -22,5 +23,9 @@ export type { Transcript, RunSidecar }
 export function writeEvidence (name: string, transcript: Transcript, sidecar: RunSidecar, dir: string = evidenceDir) {
   fs.mkdirSync(dir, { recursive: true })
   fs.writeFileSync(path.join(dir, `sim-${name}.json`), JSON.stringify(transcript, null, 2))
-  fs.writeFileSync(path.join(dir, `sim-${name}.run.json`), JSON.stringify(sidecar, null, 2))
+  // Derived here rather than asked of the host: every host would compute the
+  // same thing from the same transcript, and two of these counts are easy to
+  // get wrong (see metrics.ts).
+  const withMetrics: RunSidecar = { ...sidecar, metrics: computeMetrics(transcript) }
+  fs.writeFileSync(path.join(dir, `sim-${name}.run.json`), JSON.stringify(withMetrics, null, 2))
 }
