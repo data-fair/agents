@@ -5,22 +5,34 @@ import { bridgeSettings } from '../../../simulations/runner/settings.ts'
 
 test.describe('bridge settings', () => {
   test('points every model role at the bridge provider', () => {
-    const s = bridgeSettings('sonnet') as any
+    const s = bridgeSettings('sonnet', 'haiku') as any
     for (const role of ['assistant', 'tools', 'summarizer', 'evaluator', 'moderator']) {
-      assert.equal(s.models[role].model.id, 'sonnet', `${role} model`)
+      assert.ok(s.models[role].model.id, `${role} model`)
       assert.equal(s.models[role].model.provider.id, 'bridge', `${role} provider`)
     }
   })
 
+  test('runs the background roles on the cheaper model, as a deployment would', () => {
+    // Sub-agents, compaction and the moderation guard are where a deployment
+    // puts a small model, so a case that only works on the assistant's tier is
+    // a case that does not work.
+    const s = bridgeSettings('sonnet', 'haiku') as any
+    assert.equal(s.models.assistant.model.id, 'sonnet')
+    assert.equal(s.models.evaluator.model.id, 'sonnet')
+    assert.equal(s.models.tools.model.id, 'haiku')
+    assert.equal(s.models.summarizer.model.id, 'haiku')
+    assert.equal(s.models.moderator.model.id, 'haiku')
+  })
+
   test('uses openai-compatible in compatible mode', () => {
     // The default mode targets /v1/responses, which the bridge does not implement.
-    const s = bridgeSettings('sonnet') as any
+    const s = bridgeSettings('sonnet', 'haiku') as any
     assert.equal(s.providers[0].type, 'openai-compatible')
     assert.equal(s.providers[0].compatibility, 'compatible')
   })
 
   test('gives the admin role unlimited quota so a long scenario is not cut off', () => {
-    const s = bridgeSettings('sonnet') as any
+    const s = bridgeSettings('sonnet', 'haiku') as any
     assert.equal(s.quotas.admin.unlimited, true)
   })
 
