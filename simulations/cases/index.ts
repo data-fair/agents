@@ -44,5 +44,21 @@ export const cases: LocalCase[] = [
     goal: 'You want the text "Hello from the iframe" put into the data box on the page. You want to see it actually appear there, not just be told it was done.',
     maxTurns: 5,
     embedded: true
+  },
+  // The hand-back: the assistant guides the person to Create, they press it themselves,
+  // and then they ask what the page shows now. What is under test is the assistant
+  // answering from events the person caused, without having to be asked what changed.
+  // Events are folded into the next user turn's hidden context; the assistant reads them
+  // from the page's state rather than the person telling it again. The persona acts only
+  // between runner turns (not during an assistant turn), so wait_for_user_action always
+  // times out to "press Create whenever you're ready" — the same-turn resume is the job of
+  // tests/features/host-events/3.host-events.e2e.spec.ts. Handing back is the intended
+  // behaviour, not a stall.
+  {
+    name: 'workflow-hand-back',
+    route: '/agents/_dev/chat-workflow',
+    persona: 'You are an office worker using an internal tool for the first time. You are not technical, you describe what you want in plain words, and you press buttons yourself when someone tells you which one. You expect to be told what happened without having to ask.',
+    goal: 'You want a list called "Weekly groceries" set up. You will press the Create button yourself when the assistant says it is ready. Once you have, you want to ask the assistant what you are looking at now, and you expect it to already know what was created rather than asking you.',
+    maxTurns: 6
   }
 ]

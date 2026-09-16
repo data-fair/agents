@@ -19,6 +19,8 @@ import type { ChatActivity } from './agent-activity.ts'
 import { applyStreamPart, type StreamScope, type StreamPart } from './agent-stream-parts.ts'
 import { SUBAGENT_STEP_LIMIT_NOTICE, subAgentModelOutput } from './agent-subagent-output.ts'
 import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep } from './agent-loop-guards.ts'
+import { HostEventStore, createWaitTool, appendHostEvents, formatHostEvents, formatHostState, hasHostState, WAIT_TOOL_NAME } from './host-events'
+import { useHostEvents } from './use-host-events'
 
 const debug = Debug('df-agents:use-agent-chat')
 
@@ -123,6 +125,11 @@ export interface UseAgentChatOptions {
   // requests. Used by the evaluator, whose own LLM calls reviewing a stored
   // trace would otherwise be stored as a confusing "meta" trace.
   disableTraceStorage?: boolean
+  // A caller-supplied store is used either way. In local-tools mode it is used as-is
+  // (a test seam, the way localTools bypasses the aggregator); otherwise it is the
+  // base store handed to useHostEvents, which attaches a live BroadcastChannel
+  // listener to it.
+  hostEvents?: HostEventStore
 }
 
 interface SubAgentConfig {
@@ -220,6 +227,13 @@ export function useAgentChat (options: UseAgentChatOptions) {
   const announcedTools = new Set<string>()
   let abortController: AbortController | null = null
   let turnSeq = 0
+  // Which turn currently owns the shared state (status, activity, abortController).
+  // A turn can now be superseded before it finishes unwinding — a person speaking
+  // during a wait aborts it and starts the next one in the same tick — and the
+  // aborted turn's catch/finally would otherwise clobber its successor's status,
+  // clear its activity and null its abort controller, leaving the Stop button
+  // inert on a turn that is genuinely running.
+  let currentTurnId: number | null = null
 
   let aggregator: FrameClientAggregator | null = null
 
@@ -239,6 +253,10 @@ export function useAgentChat (options: UseAgentChatOptions) {
     })
     aggregator.start()
   }
+
+  // Host events: what pages report, delivered to the model once and persisted (see
+  // host-events.ts). Absent only in local-tools mode, where no host exists.
+  const hostEvents: HostEventStore | null = localTools ? (options.hostEvents ?? null) : useHostEvents(options.hostEvents)
 
   const resolvedPartition = ref<DebugToolsPartition>({ mainTools: [], subAgents: [] })
   let resolveGeneration = 0
@@ -369,6 +387,8 @@ export function useAgentChat (options: UseAgentChatOptions) {
     // abort() above guarantees no in-flight prepareStep will read the old Set
     promotedTools = new Set<string>()
     announcedTools.clear()
+    // abort() already resolved any pending wait as 'aborted'; the buffer is what remains.
+    hostEvents?.clearPending()
     subAgentActivities.value = {}
     if (newSystemPrompt !== undefined) {
       options.systemPrompt = newSystemPrompt
@@ -413,15 +433,15 @@ export function useAgentChat (options: UseAgentChatOptions) {
     }
   }
 
-  async function compactHistory (compactionCtxId: string, signal: AbortSignal): Promise<void> {
+  async function compactHistory (compactionCtxId: string, signal: AbortSignal): Promise<boolean> {
     const threshold = Number(sessionStorage.getItem('agent-chat-compaction-threshold')) || COMPACTION_THRESHOLD
     const serialized = JSON.stringify(history)
-    if (serialized.length < threshold) return
+    if (serialized.length < threshold) return false
 
     // Summarize all messages except the latest user message, which we preserve verbatim
     const lastMessage = history[history.length - 1]
     const historyToCompact = history.slice(0, -1)
-    if (historyToCompact.length === 0) return
+    if (historyToCompact.length === 0) return false
 
     // Compaction is otherwise an invisible, multi-second blank gap (a separate
     // summarizer call over the whole history before the real turn even starts);
@@ -464,20 +484,31 @@ export function useAgentChat (options: UseAgentChatOptions) {
       announcedTools.clear()
 
       debug('compacted history from %d chars to %d chars', originalLength, JSON.stringify(history).length)
+      return true
     } catch (err) {
       // An abort (the user pressed Stop, or the idle watchdog fired) must stop the
       // whole turn — rethrow so sendMessage's catch handles it. Any other failure is
       // non-fatal: fall through and continue with the un-compacted history.
       if (signal.aborted) throw err
       debug('compaction error, continuing with full history: %O', err)
+      return false
     }
   }
 
   const sendMessage = async (msg: string, sendOptions?: { hiddenContext?: string }) => {
-    if (status.value === 'streaming') return
+    if (status.value === 'streaming') {
+      // A pending wait is the assistant standing still by its own choice, not
+      // working — so the composer stays live and this message is how the person
+      // takes their turn back. Aborting settles the wait through its signal and
+      // ends the turn; anything else still in flight is a turn that IS working,
+      // and those are left alone.
+      if (activity.value?.kind !== 'waiting') return
+      abort()
+    }
 
     status.value = 'streaming'
     const turnId = turnSeq++
+    currentTurnId = turnId
     error.value = null
     messages.value.push({ role: 'user', content: msg })
     // Index of the first message added after the user message this turn — used to
@@ -487,8 +518,43 @@ export function useAgentChat (options: UseAgentChatOptions) {
     // Add user message to history. When an action button supplied hidden context,
     // wrap it into this same user turn so the model sees it as turn-scoped context
     // (not a permanent system-prompt mutation); the chat UI above shows only `msg`.
-    const hiddenContext = sendOptions?.hiddenContext
-    history.push({ role: 'user', content: hiddenContext ? wrapHiddenContext(hiddenContext, msg) : msg })
+    // Host events owed to the model ride inside this turn's hidden context: a retained
+    // state snapshot when the model has no history to integrate from (first turn, after
+    // reset — both leave `history` empty — and after compaction, patched in below), then
+    // the events since the last delivery, then any action-button context.
+    const activation = history.length === 0
+    const hostStateBlock = () => {
+      const snapshot = hostEvents?.snapshot()
+      return snapshot && hasHostState(snapshot) ? formatHostState(snapshot) : null
+    }
+    const pendingEvents = hostEvents?.takePending() ?? []
+    // On an activation turn — the first turn, after reset, or (patched in below) the
+    // turn compaction ran on — the state block above already reports the current value
+    // for every keyed event, so drop those from what we format here: otherwise the
+    // model sees the same fact twice in the same turn (once as retained state, once as
+    // a drained event). Unkeyed events (transitions, e.g. item-created) are never
+    // represented in the state block, so they always pass through untouched.
+    // Non-activation turns have no state block to duplicate against, so they pass
+    // `pendingEvents` through unfiltered.
+    // A helper — not just a value computed once — is what lets a turn that becomes an
+    // activation turn only AFTER this point (compaction firing below) apply the exact
+    // same dedupe, against the state as it stands at THAT point, without re-draining
+    // `pendingEvents` (already taken once, above).
+    const dedupeAgainstState = (events: typeof pendingEvents) => {
+      const stateKeys = new Set((hostEvents?.snapshot().state ?? []).map(e => e.key))
+      return events.filter(e => !e.key || !stateKeys.has(e.key))
+    }
+    const buildTurnHidden = (events: typeof pendingEvents) => [
+      events.length ? formatHostEvents(events) : null,
+      sendOptions?.hiddenContext ?? null
+    ].filter((p): p is string => !!p)
+    const turnHidden = buildTurnHidden(activation ? dedupeAgainstState(pendingEvents) : pendingEvents)
+    const withState = (parts: string[]) => {
+      const block = hostStateBlock()
+      return block ? [block, ...parts] : parts
+    }
+    const joinHidden = (parts: string[]) => parts.length ? wrapHiddenContext(parts.join('\n\n'), msg) : msg
+    history.push({ role: 'user', content: joinHidden(activation ? withState(turnHidden) : turnHidden) })
 
     // Stops the mid-turn tool-set rebuild; declared here so `finally` can always
     // release it, whichever way the turn ends.
@@ -498,14 +564,29 @@ export function useAgentChat (options: UseAgentChatOptions) {
     // watchdog) can cancel the summarizer call too — previously compaction ran with
     // no controller, leaving a slow/stalled summarize unkillable and invisible.
     abortController = new AbortController()
-    const signal = abortController.signal
+    // Captured once as a local: the watchdog closure below must abort THIS turn's
+    // controller specifically, never whatever `abortController` happens to point to by
+    // the time a stale timer fires. Today ordering makes that safe by accident (this
+    // turn's own `finally` always clears its own `watchdog` first) — this makes it
+    // structural instead of incidental.
+    const controller = abortController
+    const signal = controller.signal
     let streamError: unknown = null
     let timedOut = false
     let watchdog: ReturnType<typeof setTimeout> | undefined
     const idleMs = Number(sessionStorage.getItem('agent-chat-idle-timeout')) || STREAM_IDLE_TIMEOUT_MS
+    // Set for the duration of a declared wait_for_user_action (see the wait tool's
+    // onWaiting/onDone below). A pending wait produces no stream parts by design, but
+    // the step that announced it still emits its own trailing parts (finish-step and
+    // the like) while the tool's execute() is already running — armWatchdog is called
+    // unconditionally for every part, so a flag independent of those parts (rather than
+    // reading `activity.value`, which those same trailing parts also touch) is what
+    // makes the suspension hold regardless of arrival order.
+    let waitSuspended = false
     const armWatchdog = () => {
+      if (waitSuspended) return
       if (watchdog) clearTimeout(watchdog)
-      watchdog = setTimeout(() => { timedOut = true; abortController?.abort() }, idleMs)
+      watchdog = setTimeout(() => { timedOut = true; controller.abort() }, idleMs)
     }
 
     // The main assistant transcript is built by the shared applyStreamPart, the same
@@ -520,6 +601,12 @@ export function useAgentChat (options: UseAgentChatOptions) {
       stepHadTool: false,
       lastStepHadTool: false,
       setActivity: (phase, toolName) => {
+        // A declared wait outlives the tool-call part that announced it: the SDK starts
+        // the tool's execute() — which sets the 'waiting' activity — before this loop
+        // finishes draining that step's parts (finish-step included, which would
+        // otherwise relabel the line 'analyzing' and leave it stuck there for the rest
+        // of the pending wait). Only the wait's own onDone may clear 'waiting'.
+        if (activity.value?.kind === 'waiting') return
         switch (phase) {
           case 'streaming':
           case 'tool':
@@ -541,7 +628,19 @@ export function useAgentChat (options: UseAgentChatOptions) {
     try {
       // Compact history if it exceeds the threshold (abortable, watchdog-covered).
       const compactionCtxId = `compaction:${turnId}`
-      await compactHistory(compactionCtxId, signal)
+      const compacted = await compactHistory(compactionCtxId, signal)
+      // Compaction just replaced everything before this message with a recap; the model
+      // is re-activated, so it gets the retained state too. The message is the last one
+      // in the rebuilt history (compactHistory preserves it verbatim). Re-dedupe here
+      // rather than reusing the (possibly undeduped) `turnHidden` computed above: this
+      // turn wasn't an activation turn when `turnHidden` was built, so events pending at
+      // that point rode through unfiltered — but it is one now, so those same keyed
+      // events would otherwise be sent twice (once in the state snapshot just added,
+      // once in an undeduped <host-events> block). This re-formats `pendingEvents`, the
+      // same array taken once above — it does not drain the store again.
+      if (compacted && !activation) {
+        history[history.length - 1] = { role: 'user', content: joinHidden(withState(buildTurnHidden(dedupeAgainstState(pendingEvents)))) }
+      }
       activity.value = { kind: 'thinking' }
       armWatchdog()
 
@@ -591,16 +690,38 @@ export function useAgentChat (options: UseAgentChatOptions) {
           pending = rebuildInFlight
         }
       }
-      // Only plain host tools get the barrier: sub-agent pseudo-tools run their own loop
-      // and never change the aggregate themselves.
-      const withSettleBarrier = (t: Tool): Tool => {
+      // Applied to real host tools, both the main agent's and each sub-agent's own —
+      // the `subagent_*` pseudo-tool exposed to the main model is the one thing that
+      // stays unwrapped, since it runs its own ToolLoopAgent loop rather than calling
+      // into the host directly. Host tools get two things after they return: the
+      // settle barrier (their tools/list_changed consequences folded in) and the host
+      // events they caused, appended to the result so they land in history exactly
+      // where they happened. One macrotask after settling: the page posts its events
+      // before returning and BroadcastChannel delivery is a task, so by then they are
+      // in the store.
+      //
+      // `drain` distinguishes the two call sites below: the main agent's own tools
+      // drain the shared buffer (`true`, the default) because the main agent's history
+      // IS the shared history the buffer is owed to. A sub-agent's tools must NOT drain
+      // it (`false`): the sub-agent's own transcript is private (the lead only ever
+      // sees a one-shot text summary via toModelOutput), so draining here would tell
+      // the sub-agent and nobody else — the lead would never learn, and retention
+      // doesn't help since it is only consulted at activation. Instead the sub-agent
+      // gets its own COPY of whatever is pending (peekPending, non-destructive) while
+      // the events themselves stay in the shared buffer for the lead's next turn.
+      const withHostConsequences = (t: Tool, opts: { drain: boolean } = { drain: true }): Tool => {
         const execute = (t as any).execute
         if (typeof execute !== 'function') return t
         return {
           ...t,
-          execute: async (args: any, opts: any) => {
-            const output = await execute(args, opts)
+          execute: async (args: any, execOpts: any) => {
+            let output = await execute(args, execOpts)
             await settleTools()
+            if (hostEvents) {
+              await new Promise(resolve => setTimeout(resolve, 0))
+              const events = opts.drain ? hostEvents.takePending() : hostEvents.peekPending()
+              output = appendHostEvents(output, events)
+            }
             return output
           }
         } as Tool
@@ -625,7 +746,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
         // Build the tool set for the main LLM:
         // main tools + sub-agent pseudo-tools using ToolLoopAgent + async generators
         const nextTools: Record<string, Tool> = {}
-        for (const [name, t] of Object.entries(mainTools)) nextTools[name] = withSettleBarrier(t)
+        for (const [name, t] of Object.entries(mainTools)) nextTools[name] = withHostConsequences(t)
         for (const [name, entry] of Object.entries(subAgents)) {
           const config = entry.config
 
@@ -646,10 +767,12 @@ export function useAgentChat (options: UseAgentChatOptions) {
             continue
           }
 
-          // Collect the sub-agent's tools from the full tool set
+          // Collect the sub-agent's tools from the full tool set. `drain: false`: see
+          // the comment on withHostConsequences above — a sub-agent's own tool calls
+          // must not empty the shared buffer the lead is owed.
           const subAgentTools: Record<string, Tool> = {}
           for (const toolName of config.tools) {
-            if (currentTools[toolName]) subAgentTools[toolName] = currentTools[toolName]
+            if (currentTools[toolName]) subAgentTools[toolName] = withHostConsequences(currentTools[toolName], { drain: false })
           }
 
           const subAgent = new ToolLoopAgent({
@@ -851,6 +974,42 @@ export function useAgentChat (options: UseAgentChatOptions) {
         }
         subAgentNames = Object.keys(subAgents)
 
+        // Chat-built-in: never a page tool, so it survives the page unmounting on the
+        // navigation that follows the action it waits for. One instance per turn.
+        // Gated on the store having actually heard from a host — not just "a host
+        // exists" — otherwise the tool is advertised (and its own description invites
+        // the model to call it) to a page that has never published anything, where it
+        // can only end in a bounded but pointless dead turn. Re-checked on every
+        // buildToolSet() call (turn start and every mid-turn rebuild), so a page that
+        // starts publishing mid-conversation gains the tool at the next call — no
+        // extra wiring needed, since host events don't bump toolsVersion themselves.
+        if (hostEvents && (hasHostState(hostEvents.snapshot()) || hostEvents.hasPending())) {
+          nextTools[WAIT_TOOL_NAME] = mainLLMTools[WAIT_TOOL_NAME] ?? createWaitTool({
+            store: hostEvents,
+            onWaiting: (expecting) => {
+              activity.value = { kind: 'waiting', expecting }
+              // A declared wait produces no stream parts by design — that's the whole
+              // point of it — so nothing would re-arm the idle watchdog while it's
+              // pending. Suspend it for the duration: unlike a stalled provider (what
+              // the watchdog exists to catch), a declared wait is an intentional,
+              // bounded pause with its own timeout (up to WAIT_MAX_SECONDS) and its
+              // own Stop button, and it exists precisely to outlast a human.
+              // `waitSuspended` (not just clearing the timer here) also blocks the
+              // trailing stream parts of this same step — finish-step in particular —
+              // from re-arming it before the tool truly resolves. Lifted in onDone
+              // below, whichever way the wait ends.
+              waitSuspended = true
+              if (watchdog) clearTimeout(watchdog)
+              watchdog = undefined
+            },
+            onDone: () => {
+              activity.value = null
+              waitSuspended = false
+              armWatchdog()
+            }
+          })
+        }
+
         // Exploration mode: hide plain tools behind explore_tools, expose only
         // explore_tools + sub-agent pseudo-tools + already-promoted tools per step.
         // The plain tool names are surfaced to the model as <tools-available> messages
@@ -893,7 +1052,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
           }
 
           explorationPrepareStep = () => ({
-            activeTools: [EXPLORE_TOOL_NAME, ...subAgentNames, ...promotedTools]
+            activeTools: [EXPLORE_TOOL_NAME, WAIT_TOOL_NAME, ...subAgentNames, ...promotedTools]
               .filter(n => n in mainLLMTools)
           })
         }
@@ -1002,6 +1161,9 @@ export function useAgentChat (options: UseAgentChatOptions) {
 
       status.value = 'ready'
     } catch (err: any) {
+      // Superseded: a later turn owns the shared state now, so this one unwinds
+      // quietly rather than reporting its own abort over the top of it.
+      if (currentTurnId !== turnId) return
       if (err.name === 'AbortError') {
         // The watchdog aborts the same controller as the Stop button; distinguish
         // them so a genuine hang surfaces a recoverable timeout error, while a user
@@ -1025,9 +1187,21 @@ export function useAgentChat (options: UseAgentChatOptions) {
     } finally {
       stopToolsWatch?.()
       if (watchdog) clearTimeout(watchdog)
-      activity.value = null
-      subAgentActivities.value = {}
-      abortController = null
+      // Its own resources are released above and below regardless; the shared
+      // state below belongs to whichever turn is current.
+      const owns = currentTurnId === turnId
+      // Backstop: the only other exit for a pending wait is `options.abortSignal`,
+      // which the AI SDK types as optional. If a future SDK version (or a bug) ever
+      // stopped passing it, a wait would otherwise stay armed past the end of this
+      // turn and the first host event after that would silently resolve a dead wait
+      // instead of being buffered for the next one. Idempotent: a no-op once the wait
+      // has already settled through the signal, as it does today.
+      hostEvents?.cancelWait()
+      if (owns) {
+        activity.value = null
+        subAgentActivities.value = {}
+        abortController = null
+      }
     }
   }
 
@@ -1043,7 +1217,10 @@ export function useAgentChat (options: UseAgentChatOptions) {
     options.flattenSubAgents = enabled
   }
 
-  return { messages, status, error, activity, subAgentActivities, tools, toolsVersion, resolvedPartition, conversationId, sendMessage, abort, reset, setSystemPrompt, setToolExploration, setFlattenSubAgents }
+  /** The assistant is paused on a declared wait: idle, and interruptible by a message. */
+  const isWaitingForUser = computed(() => activity.value?.kind === 'waiting')
+
+  return { messages, status, error, activity, isWaitingForUser, subAgentActivities, tools, toolsVersion, resolvedPartition, conversationId, sendMessage, abort, reset, setSystemPrompt, setToolExploration, setFlattenSubAgents }
 }
 
 export default useAgentChat

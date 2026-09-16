@@ -18,17 +18,29 @@ declare global {
   const EXPLORE_TOOL_NAME: typeof import('../src/composables/tool-exploration').EXPLORE_TOOL_NAME
   const EffectScope: typeof import('vue').EffectScope
   const FLAGS_COOKIE: typeof import('../src/utils/agent-flags').FLAGS_COOKIE
+  const HOST_EVENTS_CLOSE: typeof import('../src/composables/host-events').HOST_EVENTS_CLOSE
+  const HOST_EVENTS_OPEN: typeof import('../src/composables/host-events').HOST_EVENTS_OPEN
+  const HOST_STATE_CLOSE: typeof import('../src/composables/host-events').HOST_STATE_CLOSE
+  const HOST_STATE_OPEN: typeof import('../src/composables/host-events').HOST_STATE_OPEN
+  const HostEventStore: typeof import('../src/composables/host-events').HostEventStore
   const MERMAID_AUTO_FIX_BUDGET: typeof import('../src/utils/mermaid-fix').MERMAID_AUTO_FIX_BUDGET
   const MODERATION_TASK_MARKER: typeof import('../src/composables/moderation')['MODERATION_TASK_MARKER']
+  const PENDING_MAX: typeof import('../src/composables/host-events').PENDING_MAX
+  const RECENT_MAX: typeof import('../src/composables/host-events').RECENT_MAX
   const REPEATED_CALL_LIMIT: typeof import('../src/composables/agent-loop-guards').REPEATED_CALL_LIMIT
   const REPEATED_CALL_NUDGE_AT: typeof import('../src/composables/agent-loop-guards').REPEATED_CALL_NUDGE_AT
   const SELECT_TOOL_NAME: typeof import('../src/composables/tool-exploration').SELECT_TOOL_NAME
+  const STATE_MAX_KEYS: typeof import('../src/composables/host-events').STATE_MAX_KEYS
   const STEP_LIMIT: typeof import('../src/composables/agent-loop-guards').STEP_LIMIT
   const SUBAGENT_DONE_FALLBACK: typeof import('../src/composables/agent-subagent-output').SUBAGENT_DONE_FALLBACK
   const SUBAGENT_MODERATION_NOTICE: typeof import('../src/composables/agent-subagent-output').SUBAGENT_MODERATION_NOTICE
   const SUBAGENT_PARTIAL_PREFIX: typeof import('../src/composables/agent-subagent-output').SUBAGENT_PARTIAL_PREFIX
   const SUBAGENT_STEP_LIMIT_NOTICE: typeof import('../src/composables/agent-subagent-output').SUBAGENT_STEP_LIMIT_NOTICE
+  const WAIT_DEFAULT_SECONDS: typeof import('../src/composables/host-events').WAIT_DEFAULT_SECONDS
+  const WAIT_MAX_SECONDS: typeof import('../src/composables/host-events').WAIT_MAX_SECONDS
+  const WAIT_TOOL_NAME: typeof import('../src/composables/host-events').WAIT_TOOL_NAME
   const activityLabelKey: typeof import('../src/composables/agent-activity').activityLabelKey
+  const appendHostEvents: typeof import('../src/composables/host-events').appendHostEvents
   const appendStreamingCaret: typeof import('../src/utils/markdown').appendStreamingCaret
   const applyStreamPart: typeof import('../src/composables/agent-stream-parts').applyStreamPart
   const breadcrumbs: typeof import('../src/utils/breadcrumbs').default
@@ -40,6 +52,7 @@ declare global {
   const createExploreTool: typeof import('../src/composables/tool-exploration').createExploreTool
   const createReactiveSearchParams: typeof import('../src/composables/use-webmcp')['createReactiveSearchParams']
   const createRouter: typeof import('vue-router').createRouter
+  const createWaitTool: typeof import('../src/composables/host-events').createWaitTool
   const createWebHistory: typeof import('vue-router').createWebHistory
   const customRef: typeof import('vue').customRef
   const defineAsyncComponent: typeof import('vue').defineAsyncComponent
@@ -59,6 +72,8 @@ declare global {
   const effectScope: typeof import('vue').effectScope
   const extractErrorMessage: typeof import('../src/utils/error').extractErrorMessage
   const formatBytes: typeof import('@data-fair/lib-vue/format/bytes.js').formatBytes
+  const formatHostEvents: typeof import('../src/composables/host-events').formatHostEvents
+  const formatHostState: typeof import('../src/composables/host-events').formatHostState
   const formatMcpToolResult: typeof import('../src/utils/tool-result').formatMcpToolResult
   const formatMermaidFix: typeof import('../src/utils/mermaid-fix').formatMermaidFix
   const formatToolsAvailableMessage: typeof import('../src/composables/tool-exploration').formatToolsAvailableMessage
@@ -67,6 +82,7 @@ declare global {
   const getCurrentScope: typeof import('vue').getCurrentScope
   const getCurrentWatcher: typeof import('vue').getCurrentWatcher
   const h: typeof import('vue').h
+  const hasHostState: typeof import('../src/composables/host-events').hasHostState
   const inject: typeof import('vue').inject
   const injectHead: typeof import('@unhead/vue').injectHead
   const isMediaToolResult: typeof import('../src/utils/tool-result').isMediaToolResult
@@ -146,6 +162,7 @@ declare global {
   const useFrameTools: typeof import('../src/composables/use-frame-tools').useFrameTools
   const useHead: typeof import('@unhead/vue').useHead
   const useHeadSafe: typeof import('@unhead/vue').useHeadSafe
+  const useHostEvents: typeof import('../src/composables/use-host-events').useHostEvents
   const useI18n: typeof import('vue-i18n').useI18n
   const useId: typeof import('vue').useId
   const useLeaveGuard: typeof import('@data-fair/lib-vue/leave-guard.js').useLeaveGuard
@@ -200,6 +217,9 @@ declare global {
   export type { StreamMessage, StreamPart, ActivityPhase, StreamScope } from '../src/composables/agent-stream-parts'
   import('../src/composables/agent-stream-parts')
   // @ts-ignore
+  export type { HostEventStore, WaitOutcome, HostStateSnapshot } from '../src/composables/host-events'
+  import('../src/composables/host-events')
+  // @ts-ignore
   export type { ToolsDelta } from '../src/composables/live-tools'
   import('../src/composables/live-tools')
   // @ts-ignore
@@ -224,16 +244,28 @@ declare module 'vue' {
     readonly EXPLORE_TOOL_NAME: UnwrapRef<typeof import('../src/composables/tool-exploration')['EXPLORE_TOOL_NAME']>
     readonly EffectScope: UnwrapRef<typeof import('vue')['EffectScope']>
     readonly FLAGS_COOKIE: UnwrapRef<typeof import('../src/utils/agent-flags')['FLAGS_COOKIE']>
+    readonly HOST_EVENTS_CLOSE: UnwrapRef<typeof import('../src/composables/host-events')['HOST_EVENTS_CLOSE']>
+    readonly HOST_EVENTS_OPEN: UnwrapRef<typeof import('../src/composables/host-events')['HOST_EVENTS_OPEN']>
+    readonly HOST_STATE_CLOSE: UnwrapRef<typeof import('../src/composables/host-events')['HOST_STATE_CLOSE']>
+    readonly HOST_STATE_OPEN: UnwrapRef<typeof import('../src/composables/host-events')['HOST_STATE_OPEN']>
+    readonly HostEventStore: UnwrapRef<typeof import('../src/composables/host-events')['HostEventStore']>
     readonly MERMAID_AUTO_FIX_BUDGET: UnwrapRef<typeof import('../src/utils/mermaid-fix')['MERMAID_AUTO_FIX_BUDGET']>
+    readonly PENDING_MAX: UnwrapRef<typeof import('../src/composables/host-events')['PENDING_MAX']>
+    readonly RECENT_MAX: UnwrapRef<typeof import('../src/composables/host-events')['RECENT_MAX']>
     readonly REPEATED_CALL_LIMIT: UnwrapRef<typeof import('../src/composables/agent-loop-guards')['REPEATED_CALL_LIMIT']>
     readonly REPEATED_CALL_NUDGE_AT: UnwrapRef<typeof import('../src/composables/agent-loop-guards')['REPEATED_CALL_NUDGE_AT']>
     readonly SELECT_TOOL_NAME: UnwrapRef<typeof import('../src/composables/tool-exploration')['SELECT_TOOL_NAME']>
+    readonly STATE_MAX_KEYS: UnwrapRef<typeof import('../src/composables/host-events')['STATE_MAX_KEYS']>
     readonly STEP_LIMIT: UnwrapRef<typeof import('../src/composables/agent-loop-guards')['STEP_LIMIT']>
     readonly SUBAGENT_DONE_FALLBACK: UnwrapRef<typeof import('../src/composables/agent-subagent-output')['SUBAGENT_DONE_FALLBACK']>
     readonly SUBAGENT_MODERATION_NOTICE: UnwrapRef<typeof import('../src/composables/agent-subagent-output')['SUBAGENT_MODERATION_NOTICE']>
     readonly SUBAGENT_PARTIAL_PREFIX: UnwrapRef<typeof import('../src/composables/agent-subagent-output')['SUBAGENT_PARTIAL_PREFIX']>
     readonly SUBAGENT_STEP_LIMIT_NOTICE: UnwrapRef<typeof import('../src/composables/agent-subagent-output')['SUBAGENT_STEP_LIMIT_NOTICE']>
+    readonly WAIT_DEFAULT_SECONDS: UnwrapRef<typeof import('../src/composables/host-events')['WAIT_DEFAULT_SECONDS']>
+    readonly WAIT_MAX_SECONDS: UnwrapRef<typeof import('../src/composables/host-events')['WAIT_MAX_SECONDS']>
+    readonly WAIT_TOOL_NAME: UnwrapRef<typeof import('../src/composables/host-events')['WAIT_TOOL_NAME']>
     readonly activityLabelKey: UnwrapRef<typeof import('../src/composables/agent-activity')['activityLabelKey']>
+    readonly appendHostEvents: UnwrapRef<typeof import('../src/composables/host-events')['appendHostEvents']>
     readonly appendStreamingCaret: UnwrapRef<typeof import('../src/utils/markdown')['appendStreamingCaret']>
     readonly applyStreamPart: UnwrapRef<typeof import('../src/composables/agent-stream-parts')['applyStreamPart']>
     readonly breadcrumbs: UnwrapRef<typeof import('../src/utils/breadcrumbs')['default']>
@@ -242,12 +274,15 @@ declare module 'vue' {
     readonly computedDeepDiff: UnwrapRef<typeof import('@data-fair/lib-vue/deep-diff.js')['computedDeepDiff']>
     readonly createApp: UnwrapRef<typeof import('vue')['createApp']>
     readonly createExploreTool: UnwrapRef<typeof import('../src/composables/tool-exploration')['createExploreTool']>
+    readonly createWaitTool: UnwrapRef<typeof import('../src/composables/host-events')['createWaitTool']>
     readonly customRef: UnwrapRef<typeof import('vue')['customRef']>
     readonly defineAsyncComponent: UnwrapRef<typeof import('vue')['defineAsyncComponent']>
     readonly defineComponent: UnwrapRef<typeof import('vue')['defineComponent']>
     readonly effectScope: UnwrapRef<typeof import('vue')['effectScope']>
     readonly extractErrorMessage: UnwrapRef<typeof import('../src/utils/error')['extractErrorMessage']>
     readonly formatBytes: UnwrapRef<typeof import('@data-fair/lib-vue/format/bytes.js')['formatBytes']>
+    readonly formatHostEvents: UnwrapRef<typeof import('../src/composables/host-events')['formatHostEvents']>
+    readonly formatHostState: UnwrapRef<typeof import('../src/composables/host-events')['formatHostState']>
     readonly formatMcpToolResult: UnwrapRef<typeof import('../src/utils/tool-result')['formatMcpToolResult']>
     readonly formatMermaidFix: UnwrapRef<typeof import('../src/utils/mermaid-fix')['formatMermaidFix']>
     readonly formatToolsAvailableMessage: UnwrapRef<typeof import('../src/composables/tool-exploration')['formatToolsAvailableMessage']>
@@ -256,6 +291,7 @@ declare module 'vue' {
     readonly getCurrentScope: UnwrapRef<typeof import('vue')['getCurrentScope']>
     readonly getCurrentWatcher: UnwrapRef<typeof import('vue')['getCurrentWatcher']>
     readonly h: UnwrapRef<typeof import('vue')['h']>
+    readonly hasHostState: UnwrapRef<typeof import('../src/composables/host-events')['hasHostState']>
     readonly inject: UnwrapRef<typeof import('vue')['inject']>
     readonly injectHead: UnwrapRef<typeof import('@unhead/vue')['injectHead']>
     readonly isMediaToolResult: UnwrapRef<typeof import('../src/utils/tool-result')['isMediaToolResult']>
@@ -330,6 +366,7 @@ declare module 'vue' {
     readonly useFrameTools: UnwrapRef<typeof import('../src/composables/use-frame-tools')['useFrameTools']>
     readonly useHead: UnwrapRef<typeof import('@unhead/vue')['useHead']>
     readonly useHeadSafe: UnwrapRef<typeof import('@unhead/vue')['useHeadSafe']>
+    readonly useHostEvents: UnwrapRef<typeof import('../src/composables/use-host-events')['useHostEvents']>
     readonly useI18n: UnwrapRef<typeof import('vue-i18n')['useI18n']>
     readonly useId: UnwrapRef<typeof import('vue')['useId']>
     readonly useLeaveGuard: UnwrapRef<typeof import('@data-fair/lib-vue/leave-guard.js')['useLeaveGuard']>

@@ -17,6 +17,9 @@ export type ChatActivity =
   // A sub-agent is active; rendered inside its panel (`name` is its `subagent_*`
   // tool name, used to match the panel — not shown in the label).
   | { kind: 'subagent', name: string, phase: 'starting' | 'thinking' | 'tool' | 'analyzing' }
+  // The main agent declared a wait for the user (wait_for_user_action); `expecting`
+  // is its own words for what it is waiting for.
+  | { kind: 'waiting', expecting: string }
 
 export interface ActivityLabel {
   key: string
@@ -32,6 +35,7 @@ export function activityLabelKey (activity: ChatActivity | null | undefined): Ac
     case 'analyzing': return activity.subAgent
       ? { key: 'activityAnalyzingSubAgent', name: activity.subAgent }
       : { key: 'activityAnalyzing' }
+    case 'waiting': return { key: 'activityWaiting', name: activity.expecting }
     case 'subagent':
       switch (activity.phase) {
         case 'starting': return { key: 'activitySubAgentStarting' }

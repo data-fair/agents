@@ -17,11 +17,28 @@ import type { McpServerConfig } from '@anthropic-ai/claude-agent-sdk'
 export const DONE = 'DONE'
 let neutralCwd: string | undefined
 
-// The persona now looks and acts before replying, so one turn is not enough:
-// look → act → look → reply, with room to spare. Low enough that a confused
-// persona cannot spend the run clicking around. A starting point, to be revisited
-// from a real run rather than guessed at twice.
-export const PERSONA_MAX_TURNS = 6
+// The persona looks and acts before replying, so one turn is not enough:
+// look → act → look → reply, with room to spare.
+//
+// Tuned from real runs, three times, and the number follows the shape of the
+// work rather than a guess. It is the budget for ONE message: how many tool
+// calls the person may make before answering.
+//
+// 6 was the cost of look/click/look/click/look — the most ordinary thing a
+// person does on a multi-step page — leaving nothing for the reply.
+//
+// 12 was exactly the length of a guided workflow. In a run of the dataset
+// creation case the assistant handed over the whole procedure in one message
+// and the person executed it in one turn: click Create, choose the type, skip
+// the init step, type a title, tick an option, continue — with a look between
+// each, twelve calls of purposeful work and nothing wasted. The reply then had
+// no budget left and the run was discarded.
+//
+// So a guided scenario costs roughly (steps × 2) + 1, and the assistant decides
+// how many steps it hands over at once. 25 covers a full wizard driven in a
+// single message, with the verification looks and the reply, and still stops a
+// genuinely lost persona long before it could wander for minutes.
+export const PERSONA_MAX_TURNS = 25
 
 export const PERCEPTION_INSTRUCTIONS = `You can look at the screen yourself with the look tool, and you can click and type
 on the page. Before you say anything about what is or is not on the screen, look.

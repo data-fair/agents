@@ -2,7 +2,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { readdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { personaSystemPrompt, personaPrompt, DONE, isDone, nextUserMessage, type PersonaQuery } from '../../../lib-sim/persona.ts'
+import { personaSystemPrompt, personaPrompt, DONE, isDone, nextUserMessage, PERSONA_MAX_TURNS, type PersonaQuery } from '../../../lib-sim/persona.ts'
 import type { PagePerception } from '../../../lib-sim/page-perception.ts'
 import { cases } from '../../../simulations/cases/index.ts'
 
@@ -114,7 +114,7 @@ test.describe('nextUserMessage MCP wiring', () => {
 
     assert.deepEqual(Object.keys(options.mcpServers), ['page'])
     assert.deepEqual(options.allowedTools, ['mcp__page__look', 'mcp__page__click', 'mcp__page__type'])
-    assert.equal(options.maxTurns, 6)
+    assert.equal(options.maxTurns, PERSONA_MAX_TURNS)
     assert.deepEqual(options.tools, [])
     assert.deepEqual(options.settingSources, [])
     assert.equal(options.strictMcpConfig, true)
