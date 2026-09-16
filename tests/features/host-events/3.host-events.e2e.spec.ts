@@ -61,7 +61,10 @@ test.describe('Host events', () => {
     await open(page, goToWithAuth)
     await send(page, 'where am i')
     await expect(lastAnswer(page)).toContainText('state:', { timeout: 15000 })
-    await expect(lastAnswer(page)).toContainText('location: {"path":"/workflow"}')
+    // useAgentLocation derives the absolute url alongside the path — that is the
+    // whole reason the helper exists over a bare useAgentState, so assert both.
+    await expect(lastAnswer(page)).toContainText('"path":"/workflow"')
+    await expect(lastAnswer(page)).toContainText('"url":"http://localhost:')
     await expect(lastAnswer(page)).toContainText('wizard: {"step":"type","type":"none","title":""}')
   })
 
@@ -182,7 +185,7 @@ test.describe('Host events', () => {
     await expect(page.getByTestId('chat-activity')).toContainText('Waiting for', { timeout: 15000 })
     await page.getByRole('button', { name: 'Leave page' }).click()
     await expect(lastAnswer(page)).toContainText('You did:', { timeout: 15000 })
-    await expect(lastAnswer(page)).toContainText('location: {"path":"/elsewhere"}')
+    await expect(lastAnswer(page)).toContainText('"path":"/elsewhere"')
     await expect(page.getByPlaceholder('Type your message...')).toBeEditable()
   })
 
@@ -280,6 +283,9 @@ test.describe('Host events', () => {
     await page.getByRole('button', { name: 'Reset conversation' }).click()
     await send(page, 'where am i')
     await expect(lastAnswer(page)).toContainText('state:', { timeout: 15000 })
-    await expect(lastAnswer(page)).toContainText('location: {"path":"/workflow"}')
+    // useAgentLocation derives the absolute url alongside the path — that is the
+    // whole reason the helper exists over a bare useAgentState, so assert both.
+    await expect(lastAnswer(page)).toContainText('"path":"/workflow"')
+    await expect(lastAnswer(page)).toContainText('"url":"http://localhost:')
   })
 })
