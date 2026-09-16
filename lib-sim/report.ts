@@ -26,8 +26,12 @@ function metricsLine (run: RunSidecar | null): string {
     run?.toolsModel ? `[${run.assistantModel} / tools ${run.toolsModel}]` : '',
     `${m.modelRequests} model requests for ${m.userMessages} user messages`,
     m.requestsPerUserMessage === null ? '' : `(${m.requestsPerUserMessage}/message)`,
-    m.subAgentRequests ? `· ${m.subAgentRequests} sub-agent` : '',
-    m.largestSubAgentTaskChars ? `(largest task ${m.largestSubAgentTaskChars} chars)` : '',
+    m.requestsByModel
+      ? `(${Object.entries(m.requestsByModel).map(([role, n]) => `${role} ${n}`).join(', ')})`
+      : (m.nonLeadRequests ? `· ${m.nonLeadRequests} non-lead` : ''),
+    m.largestNonLeadPromptChars
+      ? `· largest ${m.largestNonLeadPromptModel ?? 'non-lead'} prompt ${m.largestNonLeadPromptChars} chars`
+      : '',
     `· ${m.textlessAssistantBubbles}/${m.assistantBubbles} bubbles tool-chips only`,
     m.avgVisibleReplyChars === null ? '' : `· avg reply ${m.avgVisibleReplyChars} chars`,
     m.duplicateToolCalls ? `· ${m.duplicateToolCalls} repeated tool calls` : '',

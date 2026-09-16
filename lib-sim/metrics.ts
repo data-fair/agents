@@ -26,12 +26,25 @@ export type RunMetrics = {
   avgVisibleReplyChars: number | null
   /** Requests to the gateway, every conversation included. */
   modelRequests: number
-  mainRequests: number
-  subAgentRequests: number
+  /** The role that served the person's own conversation (the first request's). */
+  leadModel: string
+  leadRequests: number
+  nonLeadRequests: number
+  /**
+   * Requests per model role, when the record names one. This is the authority:
+   * inferring roles from message counts reported three `summarizer` compaction
+   * calls as sub-agent dispatches in a run that made no sub-agent call at all.
+   * Null when no request carries a role, where the interleaving split is all
+   * there is.
+   */
+  requestsByModel: Record<string, number> | null
   /** `modelRequests / userMessages`, to one decimal; null when nobody spoke. */
   requestsPerUserMessage: number | null
-  /** The biggest task prompt handed to a sub-agent; null when none ran. */
-  largestSubAgentTaskChars: number | null
+  /** The biggest prompt handed to a role other than the lead's, and which role
+   *  took it; null when every request was the lead's. A summarizer legitimately
+   *  carries the conversation, so read the role before reading the size. */
+  largestNonLeadPromptChars: number | null
+  largestNonLeadPromptModel: string | null
   /** Tool calls issued twice with identical arguments, across every conversation. */
   duplicateToolCalls: number
   /** Characters the host injected as `<host-state>` / `<host-events>` blocks;
@@ -91,11 +104,28 @@ export function computeMetrics (transcript: Transcript): RunMetrics {
   const assistant = transcript.conversation.filter(m => m.role === 'assistant')
   const visible = assistant.filter(m => m.text.trim().length > 0)
 
+  // Prefer what the record says over what the shape implies.
+  const roled = transcript.gateway.filter(e => e.model)
+  const leadModel = transcript.gateway[0]?.model ?? ''
+  const requestsByModel = roled.length
+    ? roled.reduce<Record<string, number>>((acc, e) => { acc[e.model] = (acc[e.model] ?? 0) + 1; return acc }, {})
+    : null
+
   const conversations = splitConversations(transcript.gateway)
-  // The first request of a run answers the person's first message, so the
-  // conversation it opened is the lead's; every other one is a sub-agent.
-  const [main = [], ...subAgents] = conversations
-  const subAgentExchanges = subAgents.flat()
+  let lead: GatewayExchange[]
+  let nonLead: GatewayExchange[]
+  if (requestsByModel && leadModel) {
+    lead = transcript.gateway.filter(e => e.model === leadModel)
+    nonLead = transcript.gateway.filter(e => e.model !== leadModel)
+  } else {
+    // No role in the record: the first request answers the person's first
+    // message, so the conversation it opened is the lead's.
+    const [first = [], ...rest] = conversations
+    lead = first
+    nonLead = rest.flat()
+  }
+  const biggest = nonLead.reduce<GatewayExchange | null>(
+    (best, e) => (!best || e.lastUserMessage.length > best.lastUserMessage.length ? e : best), null)
 
   const measuredHostBlocks = transcript.gateway.some(e => typeof e.hostBlockChars === 'number')
 
@@ -107,14 +137,15 @@ export function computeMetrics (transcript: Transcript): RunMetrics {
       ? Math.round(visible.reduce((sum, m) => sum + m.text.trim().length, 0) / visible.length)
       : null,
     modelRequests: transcript.gateway.length,
-    mainRequests: main.length,
-    subAgentRequests: subAgentExchanges.length,
+    leadModel,
+    leadRequests: lead.length,
+    nonLeadRequests: nonLead.length,
+    requestsByModel,
     requestsPerUserMessage: userMessages
       ? Math.round((transcript.gateway.length / userMessages) * 10) / 10
       : null,
-    largestSubAgentTaskChars: subAgentExchanges.length
-      ? Math.max(...subAgentExchanges.map(e => e.lastUserMessage.length))
-      : null,
+    largestNonLeadPromptChars: biggest ? biggest.lastUserMessage.length : null,
+    largestNonLeadPromptModel: biggest ? (biggest.model || null) : null,
     duplicateToolCalls: conversations.reduce((sum, s) => sum + countDuplicates(finalToolCalls(s)), 0),
     hostBlockChars: measuredHostBlocks
       // Cumulative like the history, so a conversation's last request holds its total.

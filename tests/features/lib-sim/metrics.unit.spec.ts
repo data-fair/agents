@@ -39,6 +39,59 @@ const transcript = (over: Partial<Transcript> = {}): Transcript => ({
 const stream = (count: number, over: Partial<GatewayExchange> = {}) =>
   Array.from({ length: count }, (_, i) => exchange({ ...over, messageCount: 2 + i * 2 }))
 
+test.describe('computeMetrics — model roles', () => {
+  // The gateway records which ROLE served each request. Inferring roles from
+  // message counts instead got three `summarizer` compaction calls reported as
+  // sub-agent dispatches, and a judge caught it: the run made no sub-agent call
+  // at all. When the record says which role it was, believe the record.
+  test('separates roles by what the request says it ran on', () => {
+    const m = computeMetrics(transcript({
+      conversation: [{ role: 'user', text: 'a' }],
+      gateway: [
+        exchange({ model: 'assistant', messageCount: 2 }),
+        exchange({ model: 'assistant', messageCount: 4 }),
+        exchange({ model: 'summarizer', messageCount: 2, lastUserMessage: 'x'.repeat(31518) }),
+        exchange({ model: 'tools', messageCount: 2, lastUserMessage: 'sub task' })
+      ]
+    }))
+    assert.equal(m.leadModel, 'assistant')
+    assert.equal(m.leadRequests, 2)
+    assert.deepEqual(m.requestsByModel, { assistant: 2, summarizer: 1, tools: 1 })
+  })
+
+  test('reports the largest prompt handed to a non-lead role, and which role took it', () => {
+    const m = computeMetrics(transcript({
+      conversation: [{ role: 'user', text: 'a' }],
+      gateway: [
+        exchange({ model: 'assistant', messageCount: 2 }),
+        exchange({ model: 'summarizer', messageCount: 2, lastUserMessage: 'x'.repeat(31518) })
+      ]
+    }))
+    assert.equal(m.largestNonLeadPromptChars, 31518)
+    assert.equal(m.largestNonLeadPromptModel, 'summarizer')
+  })
+
+  test('reports no non-lead prompt when every request was the lead', () => {
+    const m = computeMetrics(transcript({ gateway: stream(3) }))
+    assert.equal(m.largestNonLeadPromptChars, null)
+    assert.equal(m.largestNonLeadPromptModel, null)
+  })
+
+  test('falls back to the interleaving split when the record names no role', () => {
+    // Older transcripts, and any host that does not echo a model id.
+    const m = computeMetrics(transcript({
+      conversation: [{ role: 'user', text: 'a' }],
+      gateway: [
+        exchange({ model: '', messageCount: 2, toolNames: ['navigate'] }),
+        exchange({ model: '', messageCount: 4, toolNames: ['navigate'] }),
+        exchange({ model: '', messageCount: 2, toolNames: ['query'] })
+      ]
+    }))
+    assert.equal(m.leadRequests, 2)
+    assert.equal(m.requestsByModel, null)
+  })
+})
+
 test.describe('computeMetrics — the loop', () => {
   test('counts model requests against the messages the person actually sent', () => {
     const m = computeMetrics(transcript({
@@ -50,7 +103,7 @@ test.describe('computeMetrics — the loop', () => {
     }))
     assert.equal(m.userMessages, 2)
     assert.equal(m.modelRequests, 6)
-    assert.equal(m.mainRequests, 6)
+    assert.equal(m.leadRequests, 6)
     assert.equal(m.requestsPerUserMessage, 3)
   })
 
@@ -60,7 +113,7 @@ test.describe('computeMetrics — the loop', () => {
     assert.equal(m.requestsPerUserMessage, null)
   })
 
-  test('separates a sub-agent interleaved with the lead, by its own restarted history', () => {
+  test('separates an interleaved second conversation by its own restarted history', () => {
     // The real shape, from a recorded run: the lead is three requests in, a
     // sub-agent runs a fresh two-request conversation of its own, then the lead
     // resumes where it left off. Counting them as one conversation misreports
@@ -68,16 +121,16 @@ test.describe('computeMetrics — the loop', () => {
     const m = computeMetrics(transcript({
       conversation: [{ role: 'user', text: 'a' }],
       gateway: [
-        exchange({ messageCount: 2, toolNames: ['navigate', 'describe_dataset'] }),
-        exchange({ messageCount: 4, toolNames: ['navigate', 'describe_dataset'] }),
-        exchange({ messageCount: 6, toolNames: ['navigate', 'describe_dataset'] }),
-        exchange({ messageCount: 2, toolNames: ['query'], lastUserMessage: 'sub task' }),
-        exchange({ messageCount: 4, toolNames: ['query'], lastUserMessage: 'sub task' }),
-        exchange({ messageCount: 8, toolNames: ['navigate', 'describe_dataset'] })
+        exchange({ model: '', messageCount: 2, toolNames: ['navigate', 'describe_dataset'] }),
+        exchange({ model: '', messageCount: 4, toolNames: ['navigate', 'describe_dataset'] }),
+        exchange({ model: '', messageCount: 6, toolNames: ['navigate', 'describe_dataset'] }),
+        exchange({ model: '', messageCount: 2, toolNames: ['query'], lastUserMessage: 'sub task' }),
+        exchange({ model: '', messageCount: 4, toolNames: ['query'], lastUserMessage: 'sub task' }),
+        exchange({ model: '', messageCount: 8, toolNames: ['navigate', 'describe_dataset'] })
       ]
     }))
-    assert.equal(m.mainRequests, 4)
-    assert.equal(m.subAgentRequests, 2)
+    assert.equal(m.leadRequests, 4)
+    assert.equal(m.nonLeadRequests, 2)
   })
 
   test('keeps the lead as one conversation when navigation changes its tool set', () => {
@@ -92,25 +145,25 @@ test.describe('computeMetrics — the loop', () => {
         exchange({ messageCount: 6, toolNames: ['a', 'b', 'c'] })
       ]
     }))
-    assert.equal(m.mainRequests, 3)
-    assert.equal(m.subAgentRequests, 0)
+    assert.equal(m.leadRequests, 3)
+    assert.equal(m.nonLeadRequests, 0)
   })
 
-  test('reports the largest single payload handed to a sub-agent', () => {
+  test('reports the largest single payload handed to another role', () => {
     const big = 'x'.repeat(32488)
     const m = computeMetrics(transcript({
       conversation: [{ role: 'user', text: 'a' }],
       gateway: [
         exchange({ messageCount: 2, toolNames: ['navigate'] }),
-        exchange({ messageCount: 2, toolNames: ['query'], lastUserMessage: big })
+        exchange({ model: 'tools', messageCount: 2, toolNames: ['query'], lastUserMessage: big })
       ]
     }))
-    assert.equal(m.largestSubAgentTaskChars, 32488)
+    assert.equal(m.largestNonLeadPromptChars, 32488)
   })
 
-  test('reports no sub-agent payload when none ran', () => {
+  test('reports no non-lead payload when none ran', () => {
     const m = computeMetrics(transcript({ gateway: stream(3) }))
-    assert.equal(m.largestSubAgentTaskChars, null)
+    assert.equal(m.largestNonLeadPromptChars, null)
   })
 })
 

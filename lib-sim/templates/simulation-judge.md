@@ -56,9 +56,13 @@ because no later request carries it. Read the last assistant turn from
 accounts for this; if you count repetition yourself, compare across exchanges
 first.
 
-A sub-agent's requests are interleaved with the lead's, restarting a short
-history of their own while the lead's keeps growing. `metrics.mainRequests` and
-`metrics.subAgentRequests` separate them.
+Not every request is the assistant answering the person. Compaction, moderation
+and sub-agents each run on their own model role, with their own short history
+interleaved among the lead's. `metrics.requestsByModel` says which role served
+how many — read it before attributing spend, and never call a request a
+sub-agent dispatch unless a `subagent_*` call appears in `toolCalls`. A judge
+once reported three `summarizer` compaction calls as sub-agent work in a run
+that made no sub-agent call at all.
 
 A claim about what is on screen must be supported by a preceding `look` in
 `observations`. A persona asserting a visual fact it never observed is a
@@ -96,9 +100,11 @@ Separate from friction, because these are for whoever maintains the system
 rather than about what the person lived through. Anything the record supports:
 
 - **cost** — how much work the run took for what it delivered. `metrics` gives
-  you requests per user message, the lead against its sub-agents, the largest
-  task prompt handed to a sub-agent, and how many characters the application
-  injected into the conversation. Then go look: which turns spent the requests,
+  you requests per user message, the split by model role, the largest prompt
+  handed to a role other than the lead's, and how many characters the
+  application injected into the conversation. A summarizer legitimately carries
+  the whole conversation, so read which role took a big prompt before calling
+  it waste. Then go look: which turns spent the requests,
   and was the spending doing anything?
 - **conversation** — what the person had to read. Length, repetition, hedging,
   restating what is already on their screen, silence where a word was owed.
