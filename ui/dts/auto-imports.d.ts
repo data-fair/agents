@@ -52,6 +52,7 @@ declare global {
   const createExploreTool: typeof import('../src/composables/tool-exploration').createExploreTool
   const createReactiveSearchParams: typeof import('../src/composables/use-webmcp')['createReactiveSearchParams']
   const createRouter: typeof import('vue-router').createRouter
+  const createToolTitleMemo: typeof import('../src/composables/tool-titles').createToolTitleMemo
   const createWaitTool: typeof import('../src/composables/host-events').createWaitTool
   const createWebHistory: typeof import('vue-router').createWebHistory
   const customRef: typeof import('vue').customRef
@@ -274,6 +275,7 @@ declare module 'vue' {
     readonly computedDeepDiff: UnwrapRef<typeof import('@data-fair/lib-vue/deep-diff.js')['computedDeepDiff']>
     readonly createApp: UnwrapRef<typeof import('vue')['createApp']>
     readonly createExploreTool: UnwrapRef<typeof import('../src/composables/tool-exploration')['createExploreTool']>
+    readonly createToolTitleMemo: UnwrapRef<typeof import('../src/composables/tool-titles')['createToolTitleMemo']>
     readonly createWaitTool: UnwrapRef<typeof import('../src/composables/host-events')['createWaitTool']>
     readonly customRef: UnwrapRef<typeof import('vue')['customRef']>
     readonly defineAsyncComponent: UnwrapRef<typeof import('vue')['defineAsyncComponent']>

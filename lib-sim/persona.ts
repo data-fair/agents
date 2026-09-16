@@ -148,7 +148,7 @@ export async function nextUserMessage (
     prompt: personaPrompt(conversation, turnsLeft),
     options: {
       ...isolationOptions(neutralCwd),
-      model: process.env.SIM_USER_MODEL ?? 'haiku',
+      model: process.env.SIM_USER_MODEL ?? 'sonnet',
       systemPrompt: personaSystemPrompt(c, !!opts?.perception, !!opts?.perception?.offLimits.length),
       // Unconditional: a caller with no perception registers no mcpServers, so
       // the persona has no tool to call and the loop still ends after the one

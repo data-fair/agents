@@ -47,8 +47,16 @@ Ask the user to start anything that is down. Never start or stop dev processes y
 
    Models are pinned by `SIM_ASSISTANT_MODEL` (default `sonnet`),
    `SIM_TOOLS_MODEL` (default `haiku`, for sub-agents, compaction and the
-   moderation guard) and `SIM_USER_MODEL` (default `haiku`), and recorded per
+   moderation guard) and `SIM_USER_MODEL` (default `sonnet`), and recorded per
    run, so verdicts from different tiers are never compared silently.
+
+   The persona is on `sonnet` deliberately. On `haiku` it stopped enforcing its
+   own goal: a case whose goal said the answer had to be shown on screen was
+   ended with a chat-only reply and marked done, and another persona asserted it
+   could see nothing but the chat while its own `look` had just returned the
+   page. A persona that lets the product off the hook produces green runs that
+   prove nothing. It is the most expensive knob here, so lower it deliberately,
+   not by default.
 
    **Confirm it started.** A suite takes minutes, so you will want to background
    it — and a run that never launched looks exactly like a run still going. The
