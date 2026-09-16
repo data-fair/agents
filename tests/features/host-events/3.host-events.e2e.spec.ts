@@ -218,6 +218,29 @@ test.describe('Host events', () => {
     await expect(page.getByRole('button', { name: 'Send' })).toBeVisible()
   })
 
+  test('the person can speak during a wait, and their message takes the turn back', async ({ page, goToWithAuth }) => {
+    // A pending wait is the assistant standing still by its own choice. Before
+    // this, the composer refused input for the whole turn — up to 120 seconds —
+    // so someone who wanted to say "actually, never mind" had no way to, short
+    // of finding the Stop button. The wait is what made that reachable in normal
+    // use: an ordinary turn is genuinely working and still refuses input.
+    await open(page, goToWithAuth)
+    await reachConfirmation(page)
+    await send(page, 'wait for me')
+    await expect(page.getByTestId('chat-activity')).toContainText('Waiting for', { timeout: 15000 })
+
+    // Typing turns the Stop button back into Send: both gestures stay reachable,
+    // Stop while there is nothing to say, Send the moment there is.
+    await page.getByPlaceholder('Type your message...').fill('hello')
+    await expect(page.getByRole('button', { name: 'Send' })).toBeVisible()
+    await page.getByRole('button', { name: 'Send' }).click()
+
+    // The message is delivered and answered, rather than swallowed.
+    await expect(page.locator('.assistant-content').last()).toContainText('world', { timeout: 15000 })
+    // And the wait it interrupted is gone, not still armed behind the new turn.
+    await expect(page.getByTestId('chat-activity')).toHaveCount(0)
+  })
+
   test('the waiting activity clears once the wait resolves (drives the host\'s waiting-user/working signal)', async ({ page, goToWithAuth }) => {
     // AgentChat.vue posts `agent-status: waiting-user` / `working` to the embedding host
     // purely off `chat.activity.value?.kind === 'waiting'` — but `sendDFrameMessage` only

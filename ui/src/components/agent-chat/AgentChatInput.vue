@@ -25,7 +25,7 @@
 
         <template #append-inner>
           <v-btn
-            v-if="isStreaming"
+            v-if="isStreaming && !(waitingForUser && localInput.trim())"
             :icon="mdiStop"
             variant="flat"
             size="x-small"
@@ -69,6 +69,12 @@ import { mdiSend, mdiStop, mdiCreation } from '@mdi/js'
 
 const props = defineProps<{
   isStreaming: boolean
+  /**
+   * The assistant is paused on a declared wait. It is streaming, but it is not
+   * working — it is the person's move — so the composer stays usable and a
+   * message takes the turn back.
+   */
+  waitingForUser?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -82,7 +88,7 @@ const localInput = ref('')
 
 const handleSend = () => {
   const userMessage = localInput.value.trim()
-  if (!userMessage || props.isStreaming) return
+  if (!userMessage || (props.isStreaming && !props.waitingForUser)) return
   emit('send', userMessage)
   localInput.value = ''
 }

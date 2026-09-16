@@ -227,6 +227,13 @@ export function useAgentChat (options: UseAgentChatOptions) {
   const announcedTools = new Set<string>()
   let abortController: AbortController | null = null
   let turnSeq = 0
+  // Which turn currently owns the shared state (status, activity, abortController).
+  // A turn can now be superseded before it finishes unwinding — a person speaking
+  // during a wait aborts it and starts the next one in the same tick — and the
+  // aborted turn's catch/finally would otherwise clobber its successor's status,
+  // clear its activity and null its abort controller, leaving the Stop button
+  // inert on a turn that is genuinely running.
+  let currentTurnId: number | null = null
 
   let aggregator: FrameClientAggregator | null = null
 
@@ -489,10 +496,19 @@ export function useAgentChat (options: UseAgentChatOptions) {
   }
 
   const sendMessage = async (msg: string, sendOptions?: { hiddenContext?: string }) => {
-    if (status.value === 'streaming') return
+    if (status.value === 'streaming') {
+      // A pending wait is the assistant standing still by its own choice, not
+      // working — so the composer stays live and this message is how the person
+      // takes their turn back. Aborting settles the wait through its signal and
+      // ends the turn; anything else still in flight is a turn that IS working,
+      // and those are left alone.
+      if (activity.value?.kind !== 'waiting') return
+      abort()
+    }
 
     status.value = 'streaming'
     const turnId = turnSeq++
+    currentTurnId = turnId
     error.value = null
     messages.value.push({ role: 'user', content: msg })
     // Index of the first message added after the user message this turn — used to
@@ -1145,6 +1161,9 @@ export function useAgentChat (options: UseAgentChatOptions) {
 
       status.value = 'ready'
     } catch (err: any) {
+      // Superseded: a later turn owns the shared state now, so this one unwinds
+      // quietly rather than reporting its own abort over the top of it.
+      if (currentTurnId !== turnId) return
       if (err.name === 'AbortError') {
         // The watchdog aborts the same controller as the Stop button; distinguish
         // them so a genuine hang surfaces a recoverable timeout error, while a user
@@ -1168,6 +1187,9 @@ export function useAgentChat (options: UseAgentChatOptions) {
     } finally {
       stopToolsWatch?.()
       if (watchdog) clearTimeout(watchdog)
+      // Its own resources are released above and below regardless; the shared
+      // state below belongs to whichever turn is current.
+      const owns = currentTurnId === turnId
       // Backstop: the only other exit for a pending wait is `options.abortSignal`,
       // which the AI SDK types as optional. If a future SDK version (or a bug) ever
       // stopped passing it, a wait would otherwise stay armed past the end of this
@@ -1175,9 +1197,11 @@ export function useAgentChat (options: UseAgentChatOptions) {
       // instead of being buffered for the next one. Idempotent: a no-op once the wait
       // has already settled through the signal, as it does today.
       hostEvents?.cancelWait()
-      activity.value = null
-      subAgentActivities.value = {}
-      abortController = null
+      if (owns) {
+        activity.value = null
+        subAgentActivities.value = {}
+        abortController = null
+      }
     }
   }
 
@@ -1193,7 +1217,10 @@ export function useAgentChat (options: UseAgentChatOptions) {
     options.flattenSubAgents = enabled
   }
 
-  return { messages, status, error, activity, subAgentActivities, tools, toolsVersion, resolvedPartition, conversationId, sendMessage, abort, reset, setSystemPrompt, setToolExploration, setFlattenSubAgents }
+  /** The assistant is paused on a declared wait: idle, and interruptible by a message. */
+  const isWaitingForUser = computed(() => activity.value?.kind === 'waiting')
+
+  return { messages, status, error, activity, isWaitingForUser, subAgentActivities, tools, toolsVersion, resolvedPartition, conversationId, sendMessage, abort, reset, setSystemPrompt, setToolExploration, setFlattenSubAgents }
 }
 
 export default useAgentChat

@@ -32,6 +32,7 @@
 
       <agent-chat-input
         :is-streaming="isStreaming"
+        :waiting-for-user="isWaitingForUser"
         @send="handleSend"
         @abort="handleAbort"
       />
@@ -235,6 +236,7 @@ const mermaidAutoFixBudget = ref(MERMAID_AUTO_FIX_BUDGET)
 const messages = computed(() => chat.messages.value)
 const isStreaming = computed(() => chat.status.value === 'streaming')
 const activity = computed(() => chat.activity.value)
+const isWaitingForUser = computed(() => chat.isWaitingForUser.value)
 const subAgentActivities = computed(() => chat.subAgentActivities.value)
 const chatError = computed(() => chat.error.value)
 
@@ -430,7 +432,10 @@ const toolTitle = (toolName: string) => {
 }
 
 const handleSend = (userMessage: string) => {
-  if (isStreaming.value) return
+  // A turn paused on a declared wait is interruptible: sendMessage settles the
+  // wait and takes the turn back. Any other streaming turn is genuinely working
+  // and still refuses input.
+  if (isStreaming.value && !isWaitingForUser.value) return
   mermaidAutoFixBudget.value = MERMAID_AUTO_FIX_BUDGET
   chat.sendMessage(userMessage)
 }
