@@ -163,11 +163,26 @@ about expectations — the model judges whether "user navigated to /elsewhere" i
 waited for. Timeout and abort return plain text (`No user action within N seconds…`,
 `Wait cancelled.`); a second call while pending returns `Already waiting for the user.`
 (the store itself would reject a concurrent `waitForEvent`, but the tool checks
-`isWaiting()` first so the model gets a sentence instead of a thrown error). The
-repeated-call [loop guard](./loop-guards.md) bounds wait→wait loops the same way it bounds
-any other repeated call. Key withdrawal never resolves a wait (a `v-if` toggling a panel
+`isWaiting()` first so the model gets a sentence instead of a thrown error). **It blocks at most once per turn.** A second call in the same reply returns immediately
+(`You already waited in this reply…`) instead of arming another timeout: the person cannot
+act while the turn is still open, so a second block can only run out the clock. The
+repeated-call [loop guard](./loop-guards.md) does not catch this, because the model rewords
+`expecting` each time and the guard keys on arguments. Two judged runs paid for its
+absence — one where a keyed state re-emission caused by the assistant's own tool call
+settled the wait instantly and it re-issued the identical call, one where three waits with
+reworded `expecting` strings cost six minutes and produced two "take your time" bubbles.
+`use-agent-chat.ts` supplies the turn identity; a host that wires no `turnId` keeps the
+old unbounded behaviour. Key withdrawal never resolves a wait (a `v-if` toggling a panel
 must not cancel one). While pending the chat shows a "Waiting for: …" line and chip and
-the embedded host receives `agent-status: waiting-user`.
+the embedded host receives `agent-status: waiting-user`. Once it settles the chip reads
+"Waited for: …": it stays in the transcript as a record of the step, and a judged run
+watched a person read a resolved present-tense chip as live page state, conclude the
+assistant had lied about creating their list, and spend four turns hunting a button that
+no longer existed. Once it settles, the chip reads
+"Waited for: …" — it stays in the transcript as a record of the step, and a judged run
+watched a person read a resolved present-tense chip as live page state, decide the
+assistant had lied about creating their list, and spend four turns hunting a button that
+no longer existed.
 
 It is chat-built-in rather than a page tool because a page-side pending call dies with
 the page on the navigation that follows Create — the exact moment that matters.

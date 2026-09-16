@@ -56,8 +56,21 @@ export type PagePerception = {
   offLimits: string[]
 }
 
+/**
+ * Head AND tail, because overlays live at the end.
+ *
+ * A dialog is teleported to the end of the DOM, so a head-only cut removes
+ * precisely what a person is being asked to look at. A judged run turned on it:
+ * the persona clicked "Ajouter une colonne", its snapshot was cut at the same
+ * point before and after the click, and whether the dialog ever opened was not
+ * decidable from the record — the judge had to say so instead of ruling.
+ */
 export function truncate (text: string): string {
-  return text.length <= SNAPSHOT_CAP ? text : text.slice(0, SNAPSHOT_CAP) + '…[truncated]'
+  if (text.length <= SNAPSHOT_CAP) return text
+  const marker = '\n…[truncated]\n'
+  const head = Math.floor(SNAPSHOT_CAP * 0.6)
+  const tail = SNAPSHOT_CAP - head
+  return text.slice(0, head) + marker + text.slice(-tail)
 }
 
 const TOOLS = [

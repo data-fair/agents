@@ -125,6 +125,7 @@ en:
 </i18n>
 
 <script lang="ts" setup>
+import { createToolTitleMemo } from '../composables/tool-titles'
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSession } from '@data-fair/lib-vue/session.js'
@@ -426,10 +427,10 @@ watch(() => chat.messages.value.length, () => {
 
 const debugToolsPartition = computed(() => chat.resolvedPartition.value)
 
-const toolTitle = (toolName: string) => {
-  const t = chat.tools.value[toolName] as any
-  return t?.title || toolName
-}
+// Memoised: a page's tools are unregistered when it unmounts, and without this
+// a chip already in the scrollback would turn back into its raw snake_case name,
+// rewriting what the person read minutes ago.
+const toolTitle = createToolTitleMemo((toolName: string) => (chat.tools.value[toolName] as any)?.title)
 
 const handleSend = (userMessage: string) => {
   // A turn paused on a declared wait is interruptible: sendMessage settles the
