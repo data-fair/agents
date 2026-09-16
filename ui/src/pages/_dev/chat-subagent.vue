@@ -146,6 +146,18 @@ onMounted(() => {
   // instead of finding and displaying the worst station.
   const measuredAt = (hoursAgo: number) => new Date(Date.now() - hoursAgo * 3600_000).toISOString().slice(0, 16)
 
+  // The one table every tool answers from, so the fixture cannot contradict itself.
+  const ROWS = [
+    { date: measuredAt(3), station: 'ST-001', pollutant: 'PM2.5', value: 14.2, quality: 'Good' },
+    { date: measuredAt(3), station: 'ST-002', pollutant: 'PM2.5', value: 22.1, quality: 'Medium' },
+    { date: measuredAt(3), station: 'ST-003', pollutant: 'PM2.5', value: 9.1, quality: 'Good' },
+    { date: measuredAt(3), station: 'ST-004', pollutant: 'PM2.5', value: 15.4, quality: 'Medium' },
+    { date: measuredAt(2), station: 'ST-001', pollutant: 'PM2.5', value: 10.4, quality: 'Good' },
+    { date: measuredAt(2), station: 'ST-002', pollutant: 'PM2.5', value: 19.8, quality: 'Medium' },
+    { date: measuredAt(2), station: 'ST-001', pollutant: 'NO2', value: 35.8, quality: 'Medium' },
+    { date: measuredAt(2), station: 'ST-003', pollutant: 'NO2', value: 28.1, quality: 'Good' }
+  ]
+
   useAgentState('dataset', () => DEMO_DATASET)
 
   useAgentTool({
@@ -186,27 +198,37 @@ onMounted(() => {
       },
       required: ['dataset']
     },
-    execute: (args: { dataset?: string, aggregation?: string, groupBy?: string }) => {
-      // Return mock data
-      if (args.aggregation === 'avg' && args.groupBy === 'station') {
-        return {
-          results: [
-            { station: 'ST-001', avg_value: 12.3 },
-            { station: 'ST-002', avg_value: 18.7 },
-            { station: 'ST-003', avg_value: 9.1 },
-            { station: 'ST-004', avg_value: 15.4 }
-          ],
-          count: 4
+    execute: (args: { dataset?: string, filter?: string, aggregation?: string, groupBy?: string }) => {
+      // One coherent table, actually queried. The mock used to answer every
+      // argument set with the same three raw rows EXCEPT a hard-coded
+      // avg-by-station branch reporting four stations, so the fixture said both
+      // "two stations" and "four stations". A judged run had the worker make a
+      // confident six-call "definitively only 2 stations" claim the page's own
+      // data contradicted — the case could not tell a worker that verified
+      // something from one that guessed, which is the only thing it exists to
+      // test.
+      let rows = ROWS
+      const filter = args.filter ?? ''
+      const pollutant = /pollutant\s*=\s*'([^']+)'/.exec(filter)?.[1]
+      if (pollutant) rows = rows.filter(r => r.pollutant === pollutant)
+      const station = /station\s*=\s*'([^']+)'/.exec(filter)?.[1]
+      if (station) rows = rows.filter(r => r.station === station)
+
+      if (args.groupBy === 'station' && args.aggregation) {
+        const by = new Map<string, number[]>()
+        for (const r of rows) by.set(r.station, [...(by.get(r.station) ?? []), r.value])
+        const reduce = (vs: number[]) => {
+          if (args.aggregation === 'avg') return Math.round((vs.reduce((a, b) => a + b, 0) / vs.length) * 10) / 10
+          if (args.aggregation === 'max') return Math.max(...vs)
+          if (args.aggregation === 'min') return Math.min(...vs)
+          if (args.aggregation === 'sum') return Math.round(vs.reduce((a, b) => a + b, 0) * 10) / 10
+          return vs.length
         }
+        const results = [...by.entries()].map(([st, vs]) => ({ station: st, [`${args.aggregation}_value`]: reduce(vs) }))
+        return { results, count: results.length }
       }
-      return {
-        results: [
-          { date: measuredAt(3), station: 'ST-001', pollutant: 'PM2.5', value: 14.2, quality: 'Good' },
-          { date: measuredAt(3), station: 'ST-002', pollutant: 'PM2.5', value: 22.1, quality: 'Medium' },
-          { date: measuredAt(2), station: 'ST-001', pollutant: 'NO2', value: 35.8, quality: 'Medium' }
-        ],
-        count: 3
-      }
+      if (args.aggregation === 'count') return { results: [{ count: rows.length }], count: 1 }
+      return { results: rows, count: rows.length }
     }
   } as any)
 

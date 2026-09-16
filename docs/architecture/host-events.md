@@ -194,10 +194,6 @@ the embedded host receives `agent-status: waiting-user`. Once it settles the chi
 "Waited for: …": it stays in the transcript as a record of the step, and a judged run
 watched a person read a resolved present-tense chip as live page state, conclude the
 assistant had lied about creating their list, and spend four turns hunting a button that
-no longer existed. Once it settles, the chip reads
-"Waited for: …" — it stays in the transcript as a record of the step, and a judged run
-watched a person read a resolved present-tense chip as live page state, decide the
-assistant had lied about creating their list, and spend four turns hunting a button that
 no longer existed.
 
 It is chat-built-in rather than a page tool because a page-side pending call dies with

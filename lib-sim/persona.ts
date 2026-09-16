@@ -55,8 +55,15 @@ reply with your message; the runner types and sends it for you.`
 export function isDone (message: string): boolean {
   if (!message) return false
 
-  // Normalize the message: trim, strip quotes/backticks, strip trailing punctuation, uppercase
-  let normalized = message.trim()
+  // The LAST line, not the whole message. The persona is asked for DONE and
+  // nothing else, and a capable one still signs off first ("That matches what
+  // I'm seeing — good.\n\nDONE"). Strict equality on the whole message missed
+  // that, so the runner sent the sign-off to the assistant and paid a full model
+  // request for a pleasantry nobody reads — once per case, every suite. It still
+  // has to be a line of its own, or "let me know when it is DONE" would end the
+  // run on the person's own words.
+  const lines = message.trim().split('\n').map(l => l.trim()).filter(Boolean)
+  let normalized = lines[lines.length - 1] ?? ''
 
   // Strip surrounding quotes or backticks
   if ((normalized.startsWith('"') && normalized.endsWith('"')) ||

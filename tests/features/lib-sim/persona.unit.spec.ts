@@ -213,3 +213,32 @@ test.describe('nextUserMessage assembles the reply', () => {
     assert.equal(await nextUserMessage(cases[0], [], 3, { query }), 'Where is the list?')
   })
 })
+
+test.describe('isDone accepts a sign-off before the sentinel', () => {
+  // The persona is asked for DONE and nothing else, and a capable one still
+  // writes a courtesy line first: "That matches what I'm seeing — good.\n\nDONE".
+  // Strict equality missed it, so the runner sent the sign-off to the assistant
+  // and paid a full model request for a pleasantry nobody reads — once per case,
+  // every suite. Three judged runs flagged the waste.
+  test('takes DONE on its own final line', () => {
+    assert.equal(isDone("That matches what I'm seeing — good.\n\nDONE"), true)
+    assert.equal(isDone('Great, thanks!\nDONE'), true)
+  })
+
+  test('still takes a bare DONE, however it is dressed', () => {
+    assert.equal(isDone('DONE'), true)
+    assert.equal(isDone('  done.  '), true)
+    assert.equal(isDone('"DONE"'), true)
+  })
+
+  test('leaves a sentence that merely mentions being done alone', () => {
+    // The sentinel has to be the last line by itself, or a person saying
+    // "let me know when it is done" would end their own run.
+    assert.equal(isDone('let me know when it is DONE please'), false)
+    assert.equal(isDone('I think we are done here, but one more thing'), false)
+  })
+
+  test('ignores trailing blank lines around the sentinel', () => {
+    assert.equal(isDone('ok\n\nDONE\n\n'), true)
+  })
+})
