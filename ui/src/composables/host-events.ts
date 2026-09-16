@@ -40,6 +40,8 @@ export class HostEventStore {
   private recent: AgentEvent[] = []
   private pending: AgentEvent[] = []
   private waiter: ((outcome: WaitOutcome) => void) | null = null
+  /** Whether the most recent `waitForEvent` had to block, rather than being answered from the buffer. */
+  lastWaitBlocked = false
 
   push (event: AgentEvent): void {
     if (event.key) {
@@ -106,7 +108,15 @@ export class HostEventStore {
     // Checked before the pending buffer: a wait declared on an already-aborted turn
     // must not silently consume an event that is still owed to the model.
     if (opts.signal?.aborted) return Promise.resolve('aborted' as WaitOutcome)
-    if (this.pending.length) return Promise.resolve(this.pending.shift() as AgentEvent)
+    // Answered from the buffer: the event predates the declaration, so this wait
+    // never actually waited for anything. `createWaitTool` needs to know, because
+    // such a call must not consume the turn's one allowed block — it is routinely
+    // a keyed state re-emission the assistant's own tool call produced.
+    if (this.pending.length) {
+      this.lastWaitBlocked = false
+      return Promise.resolve(this.pending.shift() as AgentEvent)
+    }
+    this.lastWaitBlocked = true
     return new Promise<WaitOutcome>(resolve => {
       // `timer` is armed first so `finish` can reference it as a `const`; the callback
       // that reads `finish` back only runs once the timer actually fires, by which time
@@ -240,10 +250,14 @@ export function createWaitTool (opts: {
         return 'You already waited in this reply and were told what happened. End your reply now and let the user act; ' +
           'the application reports their next action when the conversation continues.'
       }
-      if (turn !== undefined) blockedInTurn = turn
       opts.onWaiting?.(String(args?.expecting ?? ''))
       try {
         const outcome = await store.waitForEvent({ timeoutMs: seconds * 1000, signal: options?.abortSignal })
+        // Only a wait that genuinely blocked spends the turn's allowance. One
+        // answered instantly from the buffer never waited for the user at all,
+        // and refusing the follow-up left a judged run's assistant unable to
+        // observe the click it had just asked for.
+        if (turn !== undefined && store.lastWaitBlocked) blockedInTurn = turn
         if (outcome === 'timeout') return `No user action within ${seconds} seconds. End your reply now and let the user act; you will be told what they did when the conversation continues.`
         if (outcome === 'aborted') return 'Wait cancelled.'
         // One macrotask so the followers of the same user gesture (a keyed location event

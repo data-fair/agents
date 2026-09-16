@@ -187,8 +187,13 @@ repeated-call [loop guard](./loop-guards.md) does not catch this, because the mo
 absence — one where a keyed state re-emission caused by the assistant's own tool call
 settled the wait instantly and it re-issued the identical call, one where three waits with
 reworded `expecting` strings cost six minutes and produced two "take your time" bubbles.
-`use-agent-chat.ts` supplies the turn identity; a host that wires no `turnId` keeps the
-old unbounded behaviour. Key withdrawal never resolves a wait (a `v-if` toggling a panel
+Only a wait that genuinely BLOCKED spends the allowance. One answered straight from the
+pending buffer never waited for the user at all — routinely a keyed state re-emission the
+assistant's own tool call produced — and counting it refused the follow-up: a judged run
+had the decisive wait for a Create click eaten by a `wizard ready:true` transition, the
+real wait refused, and the person told three times to press a button the assistant had no
+way to observe. `use-agent-chat.ts` supplies the turn identity; a host that wires no
+`turnId` keeps the old unbounded behaviour. Key withdrawal never resolves a wait (a `v-if` toggling a panel
 must not cancel one). While pending the chat shows a "Waiting for: …" line and chip and
 the embedded host receives `agent-status: waiting-user`. Once it settles the chip reads
 "Waited for: …": it stays in the transcript as a record of the step, and a judged run

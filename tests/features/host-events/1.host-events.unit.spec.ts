@@ -380,3 +380,49 @@ test.describe('the host blocks admit what they do not cover', () => {
     assert.ok(!/never ask/i.test(out))
   })
 })
+
+test.describe('the per-turn cap only counts a wait that really blocked', () => {
+  // The cap exists to stop wait->wait loops. But a wait is also satisfied
+  // instantly by an event already in the pending buffer — including a keyed
+  // state re-emission caused by the assistant's OWN tool call. Counting that
+  // against the allowance meant the first "wait" was eaten by a wizard
+  // ready:true transition and the real wait for the user's click was then
+  // REFUSED: a judged run showed the person told three times to click a button
+  // the assistant had no way to observe, through two 120s timeouts.
+  const exec = (t: any, args: any, options?: any) => t.execute(args, options ?? {})
+
+  test('a wait answered from the pending buffer leaves the allowance intact', async () => {
+    const store = new HostEventStore()
+    const t = createWaitTool({ store, turnId: () => 'turn-1' })
+    // An event the assistant's own tool call produced, already pending.
+    store.push(ev('wizard', '{"ready":true}', 'wizard'))
+    const first = await exec(t, { expecting: 'the user clicks Create' }) as string
+    assert.match(first, /wizard/)
+
+    // The real wait must still be available, and must actually block.
+    const second = exec(t, { expecting: 'the user clicks Create' })
+    store.push(ev('item-created', '{"id":"1"}'))
+    assert.match(await second as string, /item-created/)
+  })
+
+  test('a wait that blocked still consumes the allowance', async () => {
+    const store = new HostEventStore()
+    const t = createWaitTool({ store, turnId: () => 'turn-1' })
+    const first = exec(t, { expecting: 'a click' })
+    store.push(ev('item-created', '{"id":"1"}'))
+    await first
+    const started = Date.now()
+    const out = await exec(t, { expecting: 'reworded', timeoutSeconds: 30 }) as string
+    assert.ok(Date.now() - started < 1000)
+    assert.match(out, /already/i)
+  })
+
+  test('a timed-out wait consumes it too', async () => {
+    const store = new HostEventStore()
+    const t = createWaitTool({ store, turnId: () => 'turn-1' })
+    await exec(t, { expecting: 'x', timeoutSeconds: 1 })
+    const started = Date.now()
+    await exec(t, { expecting: 'x again', timeoutSeconds: 30 })
+    assert.ok(Date.now() - started < 1000)
+  })
+})
