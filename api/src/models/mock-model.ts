@@ -103,6 +103,20 @@ function endsWithCommand (lastMessage: string, command: string): boolean {
   return new RegExp(`(^|\\n)${command}\\s*$`, 'i').test(lastMessage.trim())
 }
 
+/**
+ * The directive the test actually typed, without anything the chat prepended.
+ *
+ * A page that publishes host state puts a `<host-state>` block ahead of the
+ * visible message on the activation turn, so a directive anchored on the whole
+ * message stops matching the moment its dev page starts publishing — which is
+ * how `hello` came to use endsWithCommand. Adding one `useAgentState` call to
+ * the sub-agent dev page broke its chaining test exactly that way.
+ */
+export function commandLine (lastMessage: string): string {
+  const lines = lastMessage.trim().split('\n').map(l => l.trim()).filter(Boolean)
+  return lines[lines.length - 1] ?? ''
+}
+
 function processMockPrompt (lastMessage: string, prompt: string | Array<any>): MockPromptResult {
   if (!lastMessage) {
     return { type: 'text', text: 'what do you mean ?' }
@@ -168,7 +182,7 @@ function processMockPrompt (lastMessage: string, prompt: string | Array<any>): M
   }
 
   // "call tools <name> <name> ..." → several parallel tool calls in one step
-  const callToolsMatch = lastMessage.match(/^call tools (.+)$/i)
+  const callToolsMatch = commandLine(lastMessage).match(/^call tools (.+)$/i)
   if (callToolsMatch) {
     return {
       type: 'tool-call',
@@ -179,7 +193,7 @@ function processMockPrompt (lastMessage: string, prompt: string | Array<any>): M
   // "parallel subagents" → delegate to two DIFFERENT sub-agents in one step, each with a
   // task its own reserved tools handle, to exercise concurrent sub-agent panels. The two
   // tasks diverge so the rendered panels are distinguishable (no-clobber regression).
-  if (/^parallel subagents$/i.test(lastMessage)) {
+  if (/^parallel subagents$/i.test(commandLine(lastMessage))) {
     return {
       type: 'tool-call',
       toolCalls: [
@@ -190,7 +204,7 @@ function processMockPrompt (lastMessage: string, prompt: string | Array<any>): M
     }
   }
 
-  const callToolMatch = lastMessage.match(/^call tool (\w+)(.*)$/i)
+  const callToolMatch = commandLine(lastMessage).match(/^call tool (\w+)(.*)$/i)
   if (callToolMatch) {
     return {
       type: 'tool-call',
@@ -231,7 +245,7 @@ function processMockToolsPrompt (lastMessage: string, prompt: string | Array<any
     return { type: 'text', text: 'world' }
   }
 
-  const callToolMatch = lastMessage.match(/^call tool (\w+)(.*)$/i)
+  const callToolMatch = commandLine(lastMessage).match(/^call tool (\w+)(.*)$/i)
   if (callToolMatch) {
     return {
       type: 'tool-call',

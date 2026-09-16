@@ -15,6 +15,28 @@ import { MCP_SERVER_NAME } from './page-perception.ts'
 import type { McpServerConfig } from '@anthropic-ai/claude-agent-sdk'
 
 export const DONE = 'DONE'
+
+/**
+ * The model the simulated person runs on unless the caller overrides it.
+ *
+ * Exported because hosts record which model ran, in a sidecar whose whole point
+ * is that verdicts from different tiers are never compared silently — and a host
+ * that re-derived this with its own literal recorded `haiku` for a run that
+ * actually used `sonnet`, the moment this default changed. One value, read by
+ * both the runner and the recorder.
+ *
+ * Sonnet, not haiku: on haiku the persona stopped enforcing its own goal —
+ * accepting a chat-only answer for a goal that demanded the result on screen,
+ * and asserting it could see nothing but the chat while its own look had just
+ * returned the page. A persona that lets the product off the hook produces green
+ * runs that prove nothing.
+ */
+export const DEFAULT_USER_MODEL = 'sonnet'
+
+/** What `nextUserMessage` will actually run on, given an environment. */
+export function resolveUserModel (env: { SIM_USER_MODEL?: string } = process.env): string {
+  return env.SIM_USER_MODEL || DEFAULT_USER_MODEL
+}
 let neutralCwd: string | undefined
 
 // The persona looks and acts before replying, so one turn is not enough:
@@ -55,8 +77,15 @@ reply with your message; the runner types and sends it for you.`
 export function isDone (message: string): boolean {
   if (!message) return false
 
-  // Normalize the message: trim, strip quotes/backticks, strip trailing punctuation, uppercase
-  let normalized = message.trim()
+  // The LAST line, not the whole message. The persona is asked for DONE and
+  // nothing else, and a capable one still signs off first ("That matches what
+  // I'm seeing — good.\n\nDONE"). Strict equality on the whole message missed
+  // that, so the runner sent the sign-off to the assistant and paid a full model
+  // request for a pleasantry nobody reads — once per case, every suite. It still
+  // has to be a line of its own, or "let me know when it is DONE" would end the
+  // run on the person's own words.
+  const lines = message.trim().split('\n').map(l => l.trim()).filter(Boolean)
+  let normalized = lines[lines.length - 1] ?? ''
 
   // Strip surrounding quotes or backticks
   if ((normalized.startsWith('"') && normalized.endsWith('"')) ||
@@ -148,7 +177,7 @@ export async function nextUserMessage (
     prompt: personaPrompt(conversation, turnsLeft),
     options: {
       ...isolationOptions(neutralCwd),
-      model: process.env.SIM_USER_MODEL ?? 'haiku',
+      model: resolveUserModel(),
       systemPrompt: personaSystemPrompt(c, !!opts?.perception, !!opts?.perception?.offLimits.length),
       // Unconditional: a caller with no perception registers no mcpServers, so
       // the persona has no tool to call and the loop still ends after the one
@@ -170,10 +199,17 @@ export async function nextUserMessage (
         : {})
     }
   })) {
+    // The LAST assistant message that carried text, not every one of them. With
+    // perception wired in the SDK emits an assistant message per reasoning step
+    // between tool calls, and appending them all sent the persona's inner
+    // monologue to the assistant as the person's own words — in one recorded run
+    // naming the tool the assistant should call, in another welding DONE onto the
+    // end of a sentence so isDone() missed it and the run ran on for an extra turn.
     if (msg.type === 'assistant') {
-      for (const block of (msg as any).message?.content ?? []) {
-        if (block.type === 'text' && block.text) text += block.text
-      }
+      const said = ((msg as any).message?.content ?? [])
+        .filter((block: any) => block.type === 'text' && block.text)
+        .map((block: any) => block.text)
+      if (said.length) text = said.join('')
     }
   }
   return text.trim()

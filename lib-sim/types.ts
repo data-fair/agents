@@ -4,6 +4,7 @@
 
 import type { GatewayExchange } from './gateway-capture.ts'
 import type { Observation } from './page-perception.ts'
+import type { RunMetrics } from './metrics.ts'
 
 export type SimulationCase = {
   /** Evidence files are named after this; keep it filesystem-safe. */
@@ -33,8 +34,14 @@ export type RunSidecar = {
   valid: boolean
   error?: string
   assistantModel: string
+  /** The tier the background roles ran on (sub-agents, compaction, moderation),
+   *  when the host pins it separately from the assistant's. */
+  toolsModel?: string
   userModel: string
   turns: number
   durationMs: number
   finishedAt: string
+  /** Derived from the transcript by `writeEvidence`, so a host gets them without
+   *  asking. Evidence for the judge, never a score. */
+  metrics?: RunMetrics
 }

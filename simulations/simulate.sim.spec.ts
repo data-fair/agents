@@ -11,7 +11,7 @@ import {
   createChatDriver,
   chatDriverStrings,
   captureGateway,
-  nextUserMessage, isDone,
+  nextUserMessage, isDone, resolveUserModel,
   writeEvidence, type Transcript,
   selectCases,
   createPagePerception
@@ -19,7 +19,11 @@ import {
 import { clean } from '../tests/support/axios.ts'
 
 const ASSISTANT_MODEL = process.env.SIM_ASSISTANT_MODEL ?? 'sonnet'
-const USER_MODEL = process.env.SIM_USER_MODEL ?? 'haiku'
+// The sub-agent, compaction and moderation roles, pinned separately and lower:
+// that is where a deployment puts a small model, so that is where the product
+// has to work.
+const TOOLS_MODEL = process.env.SIM_TOOLS_MODEL ?? 'haiku'
+const USER_MODEL = resolveUserModel()
 const selected = selectCases(cases, (process.env.SIM_CASES ?? '').split(',').map(s => s.trim()).filter(Boolean))
 
 for (const simCase of selected) {
@@ -41,7 +45,7 @@ for (const simCase of selected) {
       // mistaken for this run's result.
       await assertBridgeUp()
       await clean()
-      await seedSettings(ASSISTANT_MODEL)
+      await seedSettings(ASSISTANT_MODEL, TOOLS_MODEL)
 
       // OWNER, not a literal: seedSettings configures that account, and logging in
       // as anyone else would fail every case with "no provider configured".
@@ -117,6 +121,7 @@ for (const simCase of selected) {
       valid: !error,
       error,
       assistantModel: ASSISTANT_MODEL,
+      toolsModel: TOOLS_MODEL,
       userModel: USER_MODEL,
       turns,
       durationMs: Date.now() - started,

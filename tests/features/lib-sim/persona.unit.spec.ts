@@ -2,7 +2,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { readdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { personaSystemPrompt, personaPrompt, DONE, isDone, nextUserMessage, PERSONA_MAX_TURNS, type PersonaQuery } from '../../../lib-sim/persona.ts'
+import { personaSystemPrompt, personaPrompt, DONE, isDone, nextUserMessage, PERSONA_MAX_TURNS, DEFAULT_USER_MODEL, resolveUserModel, type PersonaQuery } from '../../../lib-sim/persona.ts'
 import type { PagePerception } from '../../../lib-sim/page-perception.ts'
 import { cases } from '../../../simulations/cases/index.ts'
 
@@ -166,5 +166,97 @@ test.describe('isDone', () => {
 
   test('returns false for empty string', () => {
     assert.ok(!isDone(''))
+  })
+})
+
+test.describe('nextUserMessage assembles the reply', () => {
+  // With perception wired in, the SDK emits one assistant message per reasoning
+  // step between tool calls and then the real reply. Concatenating them all sent
+  // the persona's inner monologue to the assistant as if it were what the person
+  // typed — including, in one recorded run, the name of the tool the assistant
+  // should call, and in another the DONE sentinel welded onto a sentence, which
+  // made isDone() miss it and cost the run an extra turn and a 124s wait.
+  const stream = (...messages: Array<string[]>) => (async function * () {
+    for (const texts of messages) {
+      yield { type: 'assistant', message: { content: texts.map(text => ({ type: 'text', text })) } } as any
+    }
+  })()
+
+  test('keeps only the last assistant message, not the thinking that preceded it', async () => {
+    const query = (() => stream(
+      ['I can see the panel is open. Let me put some text in there.'],
+      ['The Display textbox is readonly, so the assistant must do it.'],
+      ['Put "Welcome to the panel!" in the display.']
+    )) as unknown as PersonaQuery
+    const out = await nextUserMessage(cases[0], [], 3, { query })
+    assert.equal(out, 'Put "Welcome to the panel!" in the display.')
+  })
+
+  test('leaves a lone DONE recognisable, so the run actually stops', async () => {
+    const query = (() => stream(
+      ['I clicked the path and nothing happened. I am not getting the list.'],
+      [DONE]
+    )) as unknown as PersonaQuery
+    assert.equal(isDone(await nextUserMessage(cases[0], [], 3, { query })), true)
+  })
+
+  test('joins several text blocks within one message, which are one utterance', async () => {
+    const query = (() => stream(['Hello. ', 'Can you help?'])) as unknown as PersonaQuery
+    assert.equal(await nextUserMessage(cases[0], [], 3, { query }), 'Hello. Can you help?')
+  })
+
+  test('falls back to the last message that had text when the final one is tool-only', async () => {
+    const query = (() => (async function * () {
+      yield { type: 'assistant', message: { content: [{ type: 'text', text: 'Where is the list?' }] } } as any
+      yield { type: 'assistant', message: { content: [{ type: 'tool_use', name: 'look' }] } } as any
+    })()) as unknown as PersonaQuery
+    assert.equal(await nextUserMessage(cases[0], [], 3, { query }), 'Where is the list?')
+  })
+})
+
+test.describe('isDone accepts a sign-off before the sentinel', () => {
+  // The persona is asked for DONE and nothing else, and a capable one still
+  // writes a courtesy line first: "That matches what I'm seeing — good.\n\nDONE".
+  // Strict equality missed it, so the runner sent the sign-off to the assistant
+  // and paid a full model request for a pleasantry nobody reads — once per case,
+  // every suite. Three judged runs flagged the waste.
+  test('takes DONE on its own final line', () => {
+    assert.equal(isDone("That matches what I'm seeing — good.\n\nDONE"), true)
+    assert.equal(isDone('Great, thanks!\nDONE'), true)
+  })
+
+  test('still takes a bare DONE, however it is dressed', () => {
+    assert.equal(isDone('DONE'), true)
+    assert.equal(isDone('  done.  '), true)
+    assert.equal(isDone('"DONE"'), true)
+  })
+
+  test('leaves a sentence that merely mentions being done alone', () => {
+    // The sentinel has to be the last line by itself, or a person saying
+    // "let me know when it is done" would end their own run.
+    assert.equal(isDone('let me know when it is DONE please'), false)
+    assert.equal(isDone('I think we are done here, but one more thing'), false)
+  })
+
+  test('ignores trailing blank lines around the sentinel', () => {
+    assert.equal(isDone('ok\n\nDONE\n\n'), true)
+  })
+})
+
+test.describe('the persona model has one source of truth', () => {
+  // Hosts record which model ran, in a sidecar whose whole purpose is that
+  // verdicts from different tiers are never compared silently. They used to
+  // re-derive the default with their own literal; when this package changed its
+  // default to sonnet, a data-fair run used sonnet and recorded haiku. A
+  // comment in that host had predicted exactly this. Export the value instead.
+  test('exports the default the persona actually uses', () => {
+    assert.equal(typeof DEFAULT_USER_MODEL, 'string')
+    assert.ok(DEFAULT_USER_MODEL.length > 0)
+  })
+
+  test('resolveUserModel reports what nextUserMessage would run', () => {
+    assert.equal(resolveUserModel({}), DEFAULT_USER_MODEL)
+    assert.equal(resolveUserModel({ SIM_USER_MODEL: 'haiku' }), 'haiku')
+    assert.equal(resolveUserModel({ SIM_USER_MODEL: '' }), DEFAULT_USER_MODEL)
   })
 })

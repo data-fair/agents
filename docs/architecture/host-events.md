@@ -147,6 +147,22 @@ any host events. The cost is zero when no rebuild is in flight (the common case 
 resolves immediately), but a sub-agent tool call can now wait on a rebuild the main
 agent's own tool calls provoked, where it previously would not have.
 
+## `useAgentLocation`
+
+Nothing here tracks navigation on its own: a host publishes what it knows, and
+retention puts it in the activation snapshot. Every host with a router wants the
+same thing, so `useAgentLocation(() => ({ path, name?, params?, query?,
+breadcrumbs? }))` is that code once, publishing under the canonical `location`
+key.
+
+Its job beyond `useAgentState` is the absolute `url`, derived from `path` against
+the current origin unless the host supplies its own (a path prefix, a different
+public origin). A judged run had the assistant hand the person a relative path
+that the chat rendered as inert plain text — not even a broken link — while the
+absolute URL sat unused in the host-state block of the very same request.
+`buildAgentLocation` is exported separately so a host can unit-test what it
+publishes without a browser.
+
 ## `wait_for_user_action`
 
 A chat-built-in tool (`WAIT_TOOL_NAME`) merged into the main tool set only — never into
@@ -163,11 +179,27 @@ about expectations — the model judges whether "user navigated to /elsewhere" i
 waited for. Timeout and abort return plain text (`No user action within N seconds…`,
 `Wait cancelled.`); a second call while pending returns `Already waiting for the user.`
 (the store itself would reject a concurrent `waitForEvent`, but the tool checks
-`isWaiting()` first so the model gets a sentence instead of a thrown error). The
-repeated-call [loop guard](./loop-guards.md) bounds wait→wait loops the same way it bounds
-any other repeated call. Key withdrawal never resolves a wait (a `v-if` toggling a panel
+`isWaiting()` first so the model gets a sentence instead of a thrown error). **It blocks at most once per turn.** A second call in the same reply returns immediately
+(`You already waited in this reply…`) instead of arming another timeout: the person cannot
+act while the turn is still open, so a second block can only run out the clock. The
+repeated-call [loop guard](./loop-guards.md) does not catch this, because the model rewords
+`expecting` each time and the guard keys on arguments. Two judged runs paid for its
+absence — one where a keyed state re-emission caused by the assistant's own tool call
+settled the wait instantly and it re-issued the identical call, one where three waits with
+reworded `expecting` strings cost six minutes and produced two "take your time" bubbles.
+Only a wait that genuinely BLOCKED spends the allowance. One answered straight from the
+pending buffer never waited for the user at all — routinely a keyed state re-emission the
+assistant's own tool call produced — and counting it refused the follow-up: a judged run
+had the decisive wait for a Create click eaten by a `wizard ready:true` transition, the
+real wait refused, and the person told three times to press a button the assistant had no
+way to observe. `use-agent-chat.ts` supplies the turn identity; a host that wires no
+`turnId` keeps the old unbounded behaviour. Key withdrawal never resolves a wait (a `v-if` toggling a panel
 must not cancel one). While pending the chat shows a "Waiting for: …" line and chip and
-the embedded host receives `agent-status: waiting-user`.
+the embedded host receives `agent-status: waiting-user`. Once it settles the chip reads
+"Waited for: …": it stays in the transcript as a record of the step, and a judged run
+watched a person read a resolved present-tense chip as live page state, conclude the
+assistant had lied about creating their list, and spend four turns hunting a button that
+no longer existed.
 
 It is chat-built-in rather than a page tool because a page-side pending call dies with
 the page on the navigation that follows Create — the exact moment that matters.

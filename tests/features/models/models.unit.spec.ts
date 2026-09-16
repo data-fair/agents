@@ -5,6 +5,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { scalewayBaseURL, streamedToolCallsBroken, errorMessage, describeFetchError } from '../../../api/src/models/operations.ts'
+import { commandLine } from '../../../api/src/models/mock-model.ts'
 
 test.describe('Scaleway base URL', () => {
   test('uses the bare /v1 endpoint when no project is set', () => {
@@ -116,5 +117,33 @@ test.describe('errorMessage / describeFetchError', () => {
     const { status, message } = describeFetchError(errorContext)
     assert.equal(status, 403)
     assert.equal(message, 'insufficient permissions to access the resource')
+  })
+})
+
+test.describe('mock directives survive a prepended host block', () => {
+  // A page that publishes host state puts a <host-state> block ahead of the
+  // visible message on the activation turn. Directives anchored on the whole
+  // message stop matching the moment their dev page starts publishing — adding
+  // one useAgentState call to the sub-agent dev page made its chaining test fail
+  // with "what do you mean ?" instead of calling the sub-agent. `hello` had
+  // already been fixed this way; the tool directives had not.
+  const withHostState = (command: string) =>
+    `<host-state>\nCurrent state of the application…\n- dataset: {"id":"air-quality"}\n</host-state>\n\n${command}`
+
+  test('reads the directive the test typed, not the block above it', () => {
+    assert.equal(commandLine(withHostState('call tool subagent_data_analyst {"task":"x"}')),
+      'call tool subagent_data_analyst {"task":"x"}')
+  })
+
+  test('is unchanged for a plain single-line message', () => {
+    assert.equal(commandLine('call tools a b'), 'call tools a b')
+  })
+
+  test('tolerates trailing blank lines', () => {
+    assert.equal(commandLine('parallel subagents\n\n'), 'parallel subagents')
+  })
+
+  test('is empty for a message that is only a host block', () => {
+    assert.equal(commandLine('   \n\n  '), '')
   })
 })

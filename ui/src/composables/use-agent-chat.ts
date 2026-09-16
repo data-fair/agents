@@ -986,6 +986,10 @@ export function useAgentChat (options: UseAgentChatOptions) {
         if (hostEvents && (hasHostState(hostEvents.snapshot()) || hostEvents.hasPending())) {
           nextTools[WAIT_TOOL_NAME] = mainLLMTools[WAIT_TOOL_NAME] ?? createWaitTool({
             store: hostEvents,
+            // The tool instance is reused across turns, so it needs to be told
+            // where one ends: it blocks at most once per turn, and the person
+            // cannot act until the turn closes.
+            turnId: () => String(currentTurnId),
             onWaiting: (expecting) => {
               activity.value = { kind: 'waiting', expecting }
               // A declared wait produces no stream parts by design — that's the whole

@@ -296,3 +296,133 @@ test.describe('createWaitTool', () => {
     await p
   })
 })
+
+test.describe('createWaitTool blocks at most once per turn', () => {
+  // Two judged runs burned minutes on this. In one, a keyed state re-emission
+  // caused by the assistant's OWN tool call resolved the wait instantly, so the
+  // assistant re-issued the identical wait and sat through the full timeout. In
+  // another it declared three waits in a row with reworded `expecting` strings,
+  // costing six minutes and producing two "take your time" bubbles. The person
+  // cannot act while the turn is still open, so a second block in one turn can
+  // only ever time out.
+  const exec = (t: any, args: any, options?: any) => t.execute(args, options ?? {})
+
+  test('the second wait of a turn returns at once instead of blocking', async () => {
+    const store = new HostEventStore()
+    const turn = 'turn-1'
+    const t = createWaitTool({ store, turnId: () => turn })
+    const first = exec(t, { expecting: 'a click' })
+    store.push(ev('item-created', '{"id":"1"}'))
+    await first
+    const started = Date.now()
+    const out = await exec(t, { expecting: 'the same click, reworded', timeoutSeconds: 30 }) as string
+    assert.ok(Date.now() - started < 1000, 'must not block')
+    assert.match(out, /already/i)
+  })
+
+  test('a new turn may wait again', async () => {
+    const store = new HostEventStore()
+    let turn = 'turn-1'
+    const t = createWaitTool({ store, turnId: () => turn })
+    const first = exec(t, { expecting: 'a click' })
+    store.push(ev('item-created', '{"id":"1"}'))
+    await first
+    turn = 'turn-2'
+    const second = exec(t, { expecting: 'another click' })
+    store.push(ev('navigated', '/x', 'location'))
+    assert.match(await second as string, /navigated/)
+  })
+
+  test('a timed-out wait also counts, so it cannot be retried in the same turn', async () => {
+    const store = new HostEventStore()
+    const t = createWaitTool({ store, turnId: () => 'turn-1' })
+    await exec(t, { expecting: 'x', timeoutSeconds: 1 })
+    const started = Date.now()
+    await exec(t, { expecting: 'x again', timeoutSeconds: 30 })
+    assert.ok(Date.now() - started < 1000, 'must not block twice')
+  })
+
+  test('without a turnId the tool keeps its old unlimited behaviour', async () => {
+    // Hosts that never wired turnId must not silently lose the ability to wait.
+    const store = new HostEventStore()
+    const t = createWaitTool({ store })
+    const first = exec(t, { expecting: 'a' })
+    store.push(ev('item-created', '{"id":"1"}'))
+    await first
+    const second = exec(t, { expecting: 'b' })
+    store.push(ev('navigated', '/x', 'location'))
+    assert.match(await second as string, /navigated/)
+  })
+})
+
+test.describe('the host blocks admit what they do not cover', () => {
+  // The blocks used to claim the model was kept up to date and must never ask
+  // what is on screen. Event coverage is partial by construction — a page
+  // publishes what it chose to publish, and nothing reports dialogs or
+  // overlays — so on a screen the events do not describe, the only ways out
+  // were to break the instruction or to invent. A judged run did both, guessing
+  // "scroll to the bottom" and "press F5" at a person who could see neither.
+  // Inventing is the harm; saying "I cannot see that" has to be allowed.
+  test('state tells the model to say what it cannot see rather than guess', () => {
+    const out = formatHostState({ state: [ev('wizard', 'step 2', 'wizard')], recent: [] })
+    assert.match(out, /cannot see/i)
+    assert.ok(!/never ask/i.test(out), 'an absolute ban leaves inventing as the only way out')
+  })
+
+  test('it still says the reports arrive on their own, so nothing invites a needless question', () => {
+    const out = formatHostState({ state: [ev('wizard', 'step 2', 'wizard')], recent: [] })
+    assert.match(out, /automatic/i)
+  })
+
+  test('the events block carries the same footing', () => {
+    const out = formatHostEvents([ev('item-created', '{"id":"1"}')])
+    assert.match(out, /cannot see/i)
+    assert.ok(!/never ask/i.test(out))
+  })
+})
+
+test.describe('the per-turn cap only counts a wait that really blocked', () => {
+  // The cap exists to stop wait->wait loops. But a wait is also satisfied
+  // instantly by an event already in the pending buffer — including a keyed
+  // state re-emission caused by the assistant's OWN tool call. Counting that
+  // against the allowance meant the first "wait" was eaten by a wizard
+  // ready:true transition and the real wait for the user's click was then
+  // REFUSED: a judged run showed the person told three times to click a button
+  // the assistant had no way to observe, through two 120s timeouts.
+  const exec = (t: any, args: any, options?: any) => t.execute(args, options ?? {})
+
+  test('a wait answered from the pending buffer leaves the allowance intact', async () => {
+    const store = new HostEventStore()
+    const t = createWaitTool({ store, turnId: () => 'turn-1' })
+    // An event the assistant's own tool call produced, already pending.
+    store.push(ev('wizard', '{"ready":true}', 'wizard'))
+    const first = await exec(t, { expecting: 'the user clicks Create' }) as string
+    assert.match(first, /wizard/)
+
+    // The real wait must still be available, and must actually block.
+    const second = exec(t, { expecting: 'the user clicks Create' })
+    store.push(ev('item-created', '{"id":"1"}'))
+    assert.match(await second as string, /item-created/)
+  })
+
+  test('a wait that blocked still consumes the allowance', async () => {
+    const store = new HostEventStore()
+    const t = createWaitTool({ store, turnId: () => 'turn-1' })
+    const first = exec(t, { expecting: 'a click' })
+    store.push(ev('item-created', '{"id":"1"}'))
+    await first
+    const started = Date.now()
+    const out = await exec(t, { expecting: 'reworded', timeoutSeconds: 30 }) as string
+    assert.ok(Date.now() - started < 1000)
+    assert.match(out, /already/i)
+  })
+
+  test('a timed-out wait consumes it too', async () => {
+    const store = new HostEventStore()
+    const t = createWaitTool({ store, turnId: () => 'turn-1' })
+    await exec(t, { expecting: 'x', timeoutSeconds: 1 })
+    const started = Date.now()
+    await exec(t, { expecting: 'x again', timeoutSeconds: 30 })
+    assert.ok(Date.now() - started < 1000)
+  })
+})

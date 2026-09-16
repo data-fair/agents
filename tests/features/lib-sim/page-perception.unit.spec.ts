@@ -39,7 +39,24 @@ test.describe('snapshot truncation', () => {
     const long = 'x'.repeat(SNAPSHOT_CAP + 500)
     const out = truncate(long)
     assert.ok(out.length < long.length)
-    assert.ok(out.endsWith('…[truncated]'), 'a reader must be able to tell the snapshot was cut')
+    assert.ok(/\[truncated/.test(out), 'a reader must be able to tell the snapshot was cut')
+  })
+
+  test('keeps the end of the page, where dialogs are', () => {
+    // Overlays are teleported to the end of the DOM, so a head-only cut hides
+    // exactly the thing a person is being asked about. A judged run turned on
+    // this: the persona clicked "Ajouter une colonne", its look was cut at the
+    // same point before and after, and whether the dialog ever opened could not
+    // be decided from the record at all.
+    const body = 'a'.repeat(SNAPSHOT_CAP * 2)
+    const out = truncate(`${body}\n- dialog "Ajouter une colonne"`)
+    assert.ok(out.includes('dialog "Ajouter une colonne"'), 'the overlay at the end must survive')
+    assert.ok(out.startsWith('aaa'), 'the top of the page must survive too')
+  })
+
+  test('stays within a bounded budget', () => {
+    const out = truncate('x'.repeat(SNAPSHOT_CAP * 5))
+    assert.ok(out.length <= SNAPSHOT_CAP + 60, `budget exceeded: ${out.length}`)
   })
 })
 
@@ -293,5 +310,39 @@ test.describe('off-limits names', () => {
     const { root } = spyRoot()
     assert.deepEqual(createPagePerception([{ label: 'page', root: root as any }]).offLimits, [])
     assert.deepEqual(createPagePerception([{ label: 'page', root: root as any }], { offLimits: ['Send'] }).offLimits, ['Send'])
+  })
+})
+
+test.describe('click says what it actually hit', () => {
+  // Playwright clicks any visible element, so the getByText fallback "succeeds"
+  // on a paragraph. A recorded run had the persona click a path label twice,
+  // get `clicked "..."` both times, and conclude the product was broken — and
+  // the judge reported it as a product failure. The click is still allowed (a
+  // person can click text, and text is often inside a clickable div); the result
+  // just has to stop claiming a control was activated.
+  const rootWith = (kind: 'button' | 'link' | 'text', log: string[] = []) => ({
+    locator: () => ({ ariaSnapshot: async () => '' }),
+    getByRole: (role: string) => ({
+      first: () => ({ count: async () => (role === kind ? 1 : 0), click: async () => { log.push(`click ${role}`) } })
+    }),
+    getByText: () => ({ first: () => ({ count: async () => (kind === 'text' ? 1 : 0), click: async () => { log.push('click text') } }) }),
+    getByLabel: () => ({ first: () => ({ count: async () => 0 }) })
+  })
+
+  test('reports a plain click for a real button', async () => {
+    const p = createPagePerception([{ label: 'page', root: rootWith('button') as any }])
+    assert.equal(await p.call('click', { name: 'Create' }), 'clicked "Create"')
+  })
+
+  test('reports a plain click for a real link', async () => {
+    const p = createPagePerception([{ label: 'page', root: rootWith('link') as any }])
+    assert.equal(await p.call('click', { name: 'Back' }), 'clicked "Back"')
+  })
+
+  test('says so when all it found was text, not a control', async () => {
+    const p = createPagePerception([{ label: 'page', root: rootWith('text') as any }])
+    const result = await p.call('click', { name: '/workflow/item-1' })
+    assert.ok(/not a button or a link/.test(result), result)
+    assert.ok(result.includes('/workflow/item-1'), result)
   })
 })

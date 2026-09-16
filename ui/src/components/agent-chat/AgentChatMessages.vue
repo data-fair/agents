@@ -268,6 +268,7 @@ fr:
   activitySubAgentAnalyzing: Analyse du résultat de l'outil…
   activityWaiting: "En attente : {name}"
   waitingChip: "En attente : {name}"
+  waitedChip: "A attendu : {name}"
 en:
   reasoning: Reasoning
   subAgentDone: Sub-agent finished.
@@ -283,6 +284,7 @@ en:
   activitySubAgentAnalyzing: Analyzing tool result…
   activityWaiting: "Waiting for: {name}"
   waitingChip: "Waiting for: {name}"
+  waitedChip: "Waited for: {name}"
 </i18n>
 
 <script lang="ts" setup>
@@ -479,9 +481,15 @@ const subAgentTitle = (toolName: string) => {
 // Chip label for the simplified tool-chip row: sub-agents use their display title,
 // plain tools the host-provided tool title, and the built-in wait shows what the
 // agent said it is waiting for.
-const chipLabel = (invocation: { toolName: string, input?: unknown }) => {
+const chipLabel = (invocation: { toolName: string, input?: unknown, state?: string }) => {
   if (invocation.toolName === WAIT_TOOL_NAME) {
-    return t('waitingChip', { name: (invocation.input as any)?.expecting ?? '' })
+    // Past tense once it settles. Every other chip is a noun, so this is the only
+    // label that reads as a live instruction — and it stays in history forever. A
+    // judged run watched a person read a resolved "Waiting for: User clicks
+    // Create" as current page state, conclude the assistant had lied about
+    // creating their list, and spend four turns hunting a button that was gone.
+    const name = (invocation.input as any)?.expecting ?? ''
+    return invocation.state === 'done' ? t('waitedChip', { name }) : t('waitingChip', { name })
   }
   return invocation.toolName.startsWith('subagent_') ? subAgentTitle(invocation.toolName) : props.toolTitle(invocation.toolName)
 }

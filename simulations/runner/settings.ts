@@ -17,9 +17,22 @@ const provider = {
   compatibility: 'compatible'
 }
 
-export function bridgeSettings (modelId: string) {
-  const model = { id: modelId, name: modelId, provider: { type: 'openai-compatible', id: 'bridge', name: 'Claude Code Bridge' } }
-  const role = { model, inputPricePerMillion: 0, outputPricePerMillion: 0 }
+/**
+ * Roles a deployment puts on a small model: sub-agents, compaction, the
+ * moderation guard. Running them on the assistant's model costs more per case
+ * and flatters the product — a sub-agent prompt only a large model can follow
+ * reads as working until a real deployment runs it on the cheap tier. The
+ * evaluator is a trace-review role no case exercises, so it follows the
+ * assistant rather than earning a third setting.
+ */
+export function bridgeSettings (assistantModelId: string, toolsModelId: string) {
+  const asRole = (id: string) => ({
+    model: { id, name: id, provider: { type: 'openai-compatible', id: 'bridge', name: 'Claude Code Bridge' } },
+    inputPricePerMillion: 0,
+    outputPricePerMillion: 0
+  })
+  const role = asRole(assistantModelId)
+  const background = asRole(toolsModelId)
   // Quotas defined inline rather than imported: a static import of test helpers
   // would authenticate at module load, causing unit tests to perform network I/O
   // before any test runs.
@@ -34,16 +47,16 @@ export function bridgeSettings (modelId: string) {
   }
   return {
     providers: [provider],
-    models: { assistant: role, tools: role, summarizer: role, evaluator: role, moderator: role },
+    models: { assistant: role, tools: background, summarizer: background, evaluator: role, moderator: background },
     quotas,
     storeTraces: false
   }
 }
 
-export async function seedSettings (modelId: string) {
+export async function seedSettings (assistantModelId: string, toolsModelId: string) {
   const { superAdmin } = await import('../../tests/support/axios.ts')
   const admin = await superAdmin
-  await admin.put(`/api/settings/${OWNER.type}/${OWNER.id}`, bridgeSettings(modelId))
+  await admin.put(`/api/settings/${OWNER.type}/${OWNER.id}`, bridgeSettings(assistantModelId, toolsModelId))
 }
 
 /** Fail loudly and early: without the bridge every case dies as an opaque timeout. */

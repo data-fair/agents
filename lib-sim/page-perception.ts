@@ -56,8 +56,21 @@ export type PagePerception = {
   offLimits: string[]
 }
 
+/**
+ * Head AND tail, because overlays live at the end.
+ *
+ * A dialog is teleported to the end of the DOM, so a head-only cut removes
+ * precisely what a person is being asked to look at. A judged run turned on it:
+ * the persona clicked "Ajouter une colonne", its snapshot was cut at the same
+ * point before and after the click, and whether the dialog ever opened was not
+ * decidable from the record — the judge had to say so instead of ruling.
+ */
 export function truncate (text: string): string {
-  return text.length <= SNAPSHOT_CAP ? text : text.slice(0, SNAPSHOT_CAP) + '…[truncated]'
+  if (text.length <= SNAPSHOT_CAP) return text
+  const marker = '\n…[truncated]\n'
+  const head = Math.floor(SNAPSHOT_CAP * 0.6)
+  const tail = SNAPSHOT_CAP - head
+  return text.slice(0, head) + marker + text.slice(-tail)
 }
 
 const TOOLS = [
@@ -116,18 +129,36 @@ export function createPagePerception (roots: PerceptionRoot[], opts: { offLimits
     return null
   }
 
+  /** As above, but says WHICH finder matched — `click` reports it. */
+  const firstMatchKind = async <K extends string>(finders: Array<[K, () => any]>) => {
+    for (const [kind, find] of finders) {
+      try {
+        const loc = find()
+        if (await loc.count() > 0) return { kind, loc }
+      } catch { /* a finder that throws simply does not match */ }
+    }
+    return null
+  }
+
   const click = async (name: string) => {
     if (isOffLimits(name)) return OFF_LIMITS_RESULT
     for (const { root } of roots) {
-      const loc = await firstMatch([
-        () => root.getByRole('button', { name }).first(),
-        () => root.getByRole('link', { name }).first(),
-        () => root.getByText(name).first()
+      const match = await firstMatchKind([
+        ['control', () => root.getByRole('button', { name }).first()],
+        ['control', () => root.getByRole('link', { name }).first()],
+        ['text', () => root.getByText(name).first()]
       ])
-      if (loc) {
+      if (match) {
         try {
-          await loc.click({ timeout: ACTION_TIMEOUT_MS })
-          return `clicked "${name}"`
+          await match.loc.click({ timeout: ACTION_TIMEOUT_MS })
+          // Playwright clicks whatever is visible, so the text fallback succeeds
+          // on a paragraph as readily as on a button. Saying which one it was is
+          // the difference between a person learning nothing happened and a
+          // person concluding the product is broken — a recorded run did exactly
+          // that, and the judge filed it as a product failure.
+          return match.kind === 'control'
+            ? `clicked "${name}"`
+            : `clicked the text "${name}", which is not a button or a link — nothing may happen`
         } catch (err) {
           return `could not click "${name}": ${err instanceof Error ? err.message : String(err)}`
         }

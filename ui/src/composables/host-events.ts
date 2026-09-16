@@ -40,6 +40,8 @@ export class HostEventStore {
   private recent: AgentEvent[] = []
   private pending: AgentEvent[] = []
   private waiter: ((outcome: WaitOutcome) => void) | null = null
+  /** Whether the most recent `waitForEvent` had to block, rather than being answered from the buffer. */
+  lastWaitBlocked = false
 
   push (event: AgentEvent): void {
     if (event.key) {
@@ -106,7 +108,15 @@ export class HostEventStore {
     // Checked before the pending buffer: a wait declared on an already-aborted turn
     // must not silently consume an event that is still owed to the model.
     if (opts.signal?.aborted) return Promise.resolve('aborted' as WaitOutcome)
-    if (this.pending.length) return Promise.resolve(this.pending.shift() as AgentEvent)
+    // Answered from the buffer: the event predates the declaration, so this wait
+    // never actually waited for anything. `createWaitTool` needs to know, because
+    // such a call must not consume the turn's one allowed block — it is routinely
+    // a keyed state re-emission the assistant's own tool call produced.
+    if (this.pending.length) {
+      this.lastWaitBlocked = false
+      return Promise.resolve(this.pending.shift() as AgentEvent)
+    }
+    this.lastWaitBlocked = true
     return new Promise<WaitOutcome>(resolve => {
       // `timer` is armed first so `finish` can reference it as a `const`; the callback
       // that reads `finish` back only runs once the timer actually fires, by which time
@@ -158,7 +168,7 @@ function eventLine (e: AgentEvent): string {
 export function formatHostEvents (events: AgentEvent[]): string {
   return [
     HOST_EVENTS_OPEN,
-    'Reported by the application, not written by the user. You are told this automatically; never ask the user to describe what is on their screen:',
+    'Reported by the application, not written by the user. These arrive automatically, and cover what the application chose to publish — dialogs and overlays usually are not in it. Work from what is here; where it does not say, tell the user plainly you cannot see that part of their screen:',
     ...events.map(eventLine),
     HOST_EVENTS_CLOSE
   ].join('\n')
@@ -169,7 +179,7 @@ export function hasHostState (snapshot: HostStateSnapshot): boolean {
 }
 
 export function formatHostState (snapshot: HostStateSnapshot): string {
-  const lines = [HOST_STATE_OPEN, 'Current state of the application, as reported by the application (not written by the user). You are kept up to date automatically; never ask the user to describe what is on their screen:']
+  const lines = [HOST_STATE_OPEN, 'Current state of the application, as reported by the application (not written by the user). These arrive automatically, and cover what the application chose to publish — dialogs and overlays usually are not in it. Work from what is here; where it does not say, tell the user plainly you cannot see that part of their screen:']
   for (const e of snapshot.state) lines.push(`- ${e.key}: ${e.detail ?? ''}`)
   if (snapshot.recent.length) {
     lines.push('Recent actions:')
@@ -201,10 +211,22 @@ export function appendHostEvents (output: unknown, events: AgentEvent[]): unknow
 
 export function createWaitTool (opts: {
   store: HostEventStore
+  /**
+   * Identifies the turn in progress. With it, the tool blocks at most once per
+   * turn: the person cannot act while the turn is still open, so a second block
+   * can only ever run out the clock. Two judged runs paid for its absence — one
+   * where a keyed state re-emission caused by the assistant's own tool call
+   * resolved the wait instantly and it re-issued the identical call, one where
+   * it declared three waits with reworded `expecting` strings and spent six
+   * minutes producing two "take your time" bubbles. Omit it and the tool keeps
+   * its unlimited behaviour, so a host that never wired it loses nothing.
+   */
+  turnId?: () => string
   onWaiting?: (expecting: string) => void
   onDone?: () => void
 }): Tool {
   const { store } = opts
+  let blockedInTurn: string | null = null
   return tool({
     description: 'Pause and wait for the user to act in the application (click a button, submit a form, navigate…). ' +
       'Resolves with the next action the application reports, whatever it is — check it is what you expected before continuing; ' +
@@ -223,9 +245,19 @@ export function createWaitTool (opts: {
       if (store.isWaiting()) return 'Already waiting for the user.'
       const requested = Number(args?.timeoutSeconds)
       const seconds = Number.isFinite(requested) && requested > 0 ? Math.min(WAIT_MAX_SECONDS, Math.floor(requested)) : WAIT_DEFAULT_SECONDS
+      const turn = opts.turnId?.()
+      if (turn !== undefined && turn === blockedInTurn) {
+        return 'You already waited in this reply and were told what happened. End your reply now and let the user act; ' +
+          'the application reports their next action when the conversation continues.'
+      }
       opts.onWaiting?.(String(args?.expecting ?? ''))
       try {
         const outcome = await store.waitForEvent({ timeoutMs: seconds * 1000, signal: options?.abortSignal })
+        // Only a wait that genuinely blocked spends the turn's allowance. One
+        // answered instantly from the buffer never waited for the user at all,
+        // and refusing the follow-up left a judged run's assistant unable to
+        // observe the click it had just asked for.
+        if (turn !== undefined && store.lastWaitBlocked) blockedInTurn = turn
         if (outcome === 'timeout') return `No user action within ${seconds} seconds. End your reply now and let the user act; you will be told what they did when the conversation continues.`
         if (outcome === 'aborted') return 'Wait cancelled.'
         // One macrotask so the followers of the same user gesture (a keyed location event

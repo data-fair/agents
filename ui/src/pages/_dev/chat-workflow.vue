@@ -80,7 +80,7 @@ en:
  */
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useFrameServer, useAgentState, emitAgentEvent } from '@data-fair/lib-vue-agents'
+import { useFrameServer, useAgentLocation, emitAgentEvent } from '@data-fair/lib-vue-agents'
 import AgentChat from '~/components/AgentChat.vue'
 import WorkflowWizard from '~/components/dev/WorkflowWizard.vue'
 import WorkflowDetail from '~/components/dev/WorkflowDetail.vue'
@@ -95,7 +95,7 @@ const location = ref('/workflow')
 const created = ref<{ id: string, title: string } | null>(null)
 const left = ref(false)
 
-useAgentState('location', () => ({ path: location.value }))
+useAgentLocation(() => ({ path: location.value }))
 
 function onCreated (item: { id: string, title: string }) {
   emitAgentEvent('item-created', item)
