@@ -16,8 +16,13 @@ export type RunMetrics = {
   /** Messages the person actually sent. */
   userMessages: number
   assistantBubbles: number
-  /** Bubbles that rendered no text — the assistant used tools and said nothing. */
-  emptyAssistantBubbles: number
+  /**
+   * Bubbles that rendered no prose. Almost always a tool-call bubble, which DOES
+   * render a chip naming the tool on screen — so this is not a count of silence,
+   * and three judges in a row misread it as one. What it measures is how much of
+   * a run the person watched as tool names rather than sentences.
+   */
+  textlessAssistantBubbles: number
   avgVisibleReplyChars: number | null
   /** Requests to the gateway, every conversation included. */
   modelRequests: number
@@ -97,7 +102,7 @@ export function computeMetrics (transcript: Transcript): RunMetrics {
   return {
     userMessages,
     assistantBubbles: assistant.length,
-    emptyAssistantBubbles: assistant.length - visible.length,
+    textlessAssistantBubbles: assistant.length - visible.length,
     avgVisibleReplyChars: visible.length
       ? Math.round(visible.reduce((sum, m) => sum + m.text.trim().length, 0) / visible.length)
       : null,

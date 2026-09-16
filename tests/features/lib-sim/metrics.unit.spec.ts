@@ -19,6 +19,7 @@ const exchange = (over: Partial<GatewayExchange> = {}): GatewayExchange => ({
   lastUserMessage: 'hello',
   toolCalls: [],
   hostBlockChars: 0,
+  toolResults: [],
   ...over
 })
 
@@ -114,7 +115,7 @@ test.describe('computeMetrics — the loop', () => {
 })
 
 test.describe('computeMetrics — what the person saw', () => {
-  test('separates empty tool-only bubbles from replies with text', () => {
+  test('separates textless (tool-chip) bubbles from replies with prose', () => {
     const m = computeMetrics(transcript({
       conversation: [
         { role: 'user', text: 'a' },
@@ -124,7 +125,7 @@ test.describe('computeMetrics — what the person saw', () => {
       ]
     }))
     assert.equal(m.assistantBubbles, 3)
-    assert.equal(m.emptyAssistantBubbles, 2)
+    assert.equal(m.textlessAssistantBubbles, 2)
     assert.equal(m.avgVisibleReplyChars, 'a real reply'.length)
   })
 

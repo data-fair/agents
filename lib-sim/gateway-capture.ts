@@ -27,11 +27,20 @@ export type GatewayExchange = {
    * like the history, so the last request of a conversation carries its total.
    */
   hostBlockChars: number
+  /** What each tool ANSWERED, paired with the call that asked. Cumulative like
+   * `toolCalls`. Without these a judge sees only what the assistant asked a tool
+   * and can never check a claim about the answer against it — "the form data is
+   * valid and saved" was unfalsifiable in a recorded run for exactly this reason.
+   * Each result is capped: one large payload must not swallow the evidence file.
+   */
+  toolResults: Array<{ id: string, name: string, result: string }>
   /** When true, this exchange was received but postData could not be parsed. Evidence of
    * a failed capture rather than an absent request.
    */
   unparsed?: true
 }
+
+export const TOOL_RESULT_MAX_CHARS = 2000
 
 const HOST_BLOCKS = ['host-state', 'host-events', 'hidden-context']
 
@@ -61,8 +70,37 @@ export function countHostBlockChars (messages: unknown[]): number {
 
 type Body = {
   model?: string
-  messages?: Array<{ role?: string, content?: unknown, tool_calls?: Array<{ function?: { name?: string, arguments?: string } }> }>
+  messages?: Array<{
+    role?: string
+    content?: unknown
+    tool_call_id?: string
+    tool_calls?: Array<{ id?: string, function?: { name?: string, arguments?: string } }>
+  }>
   tools?: Array<{ function?: { name?: string } }>
+}
+
+function renderToolResult (content: unknown): string {
+  const text = typeof content === 'string' ? content : JSON.stringify(content ?? '')
+  return text.length <= TOOL_RESULT_MAX_CHARS ? text : text.slice(0, TOOL_RESULT_MAX_CHARS) + '…[truncated]'
+}
+
+export function extractToolResults (messages: NonNullable<Body['messages']>) {
+  // The call that asked may live in any earlier message, so the name is looked
+  // up by id across the whole history rather than by adjacency.
+  const names = new Map<string, string>()
+  for (const m of messages) {
+    for (const call of m.tool_calls ?? []) {
+      if (call.id) names.set(call.id, call.function?.name ?? '')
+    }
+  }
+  return messages
+    .filter(m => m.role === 'tool')
+    .map(m => ({
+      id: m.tool_call_id ?? '',
+      // An unpaired result is still evidence; recording it nameless beats dropping it.
+      name: names.get(m.tool_call_id ?? '') ?? '',
+      result: renderToolResult(m.content)
+    }))
 }
 
 function extractUserMessageText (content: unknown): string {
@@ -93,6 +131,7 @@ export function summariseRequest (body: unknown): GatewayExchange | null {
     messageCount: b.messages.length,
     lastUserMessage: extractUserMessageText(last?.content),
     hostBlockChars: countHostBlockChars(b.messages),
+    toolResults: extractToolResults(b.messages),
     toolCalls: b.messages.flatMap(m => (m.tool_calls ?? []).map(c => ({
       name: c.function?.name ?? '',
       arguments: c.function?.arguments ?? ''
@@ -114,6 +153,7 @@ export function captureGateway (page: Page): GatewayExchange[] {
         lastUserMessage: '',
         toolCalls: [],
         hostBlockChars: 0,
+        toolResults: [],
         unparsed: true
       })
       return

@@ -23,8 +23,11 @@ A case name, the person's goal, and paths to the evidence. Read the files with
 
 - `simulations/tmp/sim-<case>.json` — the transcript:
   - `conversation` — what the person and the assistant said, as rendered on screen
-  - `gateway` — every request the page made, carrying the tools it offered and the
-    tool calls the assistant actually made
+  - `gateway` — every request the page made, carrying the tools it offered, the
+    tool calls the assistant actually made, and in `toolResults` what each of
+    those calls answered. Use `toolResults` to check an assistant's claim against
+    what the tool really returned; large results are truncated, and both lists are
+    cumulative.
   - `consoleErrors` — browser errors during the run
   - `observations` — what the person actually looked at and did, per turn:
     `{ turn, tool, args, result }`. `look` returns the accessibility outline of
@@ -99,9 +102,11 @@ rather than about what the person lived through. Anything the record supports:
   and was the spending doing anything?
 - **conversation** — what the person had to read. Length, repetition, hedging,
   restating what is already on their screen, silence where a word was owed.
-  `metrics.emptyAssistantBubbles` counts bubbles that rendered no text at all;
-  whether that reads as quiet competence or as an assistant gone dark is yours
-  to judge from the transcript.
+  `metrics.textlessAssistantBubbles` counts bubbles with no prose in them. These
+  are almost always tool-call bubbles, and the page DOES render a chip naming the
+  tool — so the count is not evidence of silence, and the `observations` outlines
+  will show you the chips. What it tells you is how much of the run the person
+  watched as tool names rather than sentences.
 - **tools** — a description that invites the wrong call, a result the model
   visibly misread, a required argument the model had no way to know, an error
   the assistant swallowed.

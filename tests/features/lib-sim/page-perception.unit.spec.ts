@@ -295,3 +295,37 @@ test.describe('off-limits names', () => {
     assert.deepEqual(createPagePerception([{ label: 'page', root: root as any }], { offLimits: ['Send'] }).offLimits, ['Send'])
   })
 })
+
+test.describe('click says what it actually hit', () => {
+  // Playwright clicks any visible element, so the getByText fallback "succeeds"
+  // on a paragraph. A recorded run had the persona click a path label twice,
+  // get `clicked "..."` both times, and conclude the product was broken — and
+  // the judge reported it as a product failure. The click is still allowed (a
+  // person can click text, and text is often inside a clickable div); the result
+  // just has to stop claiming a control was activated.
+  const rootWith = (kind: 'button' | 'link' | 'text', log: string[] = []) => ({
+    locator: () => ({ ariaSnapshot: async () => '' }),
+    getByRole: (role: string) => ({
+      first: () => ({ count: async () => (role === kind ? 1 : 0), click: async () => { log.push(`click ${role}`) } })
+    }),
+    getByText: () => ({ first: () => ({ count: async () => (kind === 'text' ? 1 : 0), click: async () => { log.push('click text') } }) }),
+    getByLabel: () => ({ first: () => ({ count: async () => 0 }) })
+  })
+
+  test('reports a plain click for a real button', async () => {
+    const p = createPagePerception([{ label: 'page', root: rootWith('button') as any }])
+    assert.equal(await p.call('click', { name: 'Create' }), 'clicked "Create"')
+  })
+
+  test('reports a plain click for a real link', async () => {
+    const p = createPagePerception([{ label: 'page', root: rootWith('link') as any }])
+    assert.equal(await p.call('click', { name: 'Back' }), 'clicked "Back"')
+  })
+
+  test('says so when all it found was text, not a control', async () => {
+    const p = createPagePerception([{ label: 'page', root: rootWith('text') as any }])
+    const result = await p.call('click', { name: '/workflow/item-1' })
+    assert.ok(/not a button or a link/.test(result), result)
+    assert.ok(result.includes('/workflow/item-1'), result)
+  })
+})

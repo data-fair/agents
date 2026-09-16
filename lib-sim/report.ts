@@ -23,11 +23,12 @@ function metricsLine (run: RunSidecar | null): string {
   const m = run?.metrics
   if (!m) return ''
   const parts = [
+    run?.toolsModel ? `[${run.assistantModel} / tools ${run.toolsModel}]` : '',
     `${m.modelRequests} model requests for ${m.userMessages} user messages`,
     m.requestsPerUserMessage === null ? '' : `(${m.requestsPerUserMessage}/message)`,
     m.subAgentRequests ? `· ${m.subAgentRequests} sub-agent` : '',
     m.largestSubAgentTaskChars ? `(largest task ${m.largestSubAgentTaskChars} chars)` : '',
-    `· ${m.emptyAssistantBubbles}/${m.assistantBubbles} bubbles empty`,
+    `· ${m.textlessAssistantBubbles}/${m.assistantBubbles} bubbles tool-chips only`,
     m.avgVisibleReplyChars === null ? '' : `· avg reply ${m.avgVisibleReplyChars} chars`,
     m.duplicateToolCalls ? `· ${m.duplicateToolCalls} repeated tool calls` : '',
     m.hostBlockChars === null ? '' : `· ${m.hostBlockChars} chars of host blocks`

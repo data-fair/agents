@@ -100,3 +100,51 @@ test.describe('host blocks', () => {
     assert.equal(ex?.hostBlockChars, 0)
   })
 })
+
+test.describe('tool results', () => {
+  // Without these a judge can only see what the assistant ASKED a tool, never
+  // what came back — so "the form data is valid and saved" was unfalsifiable in
+  // a recorded run. They live in the request body as role:"tool" messages and
+  // were simply being discarded.
+  test('records what each tool returned, paired with the call that asked', () => {
+    const ex = summariseRequest({
+      model: 'assistant',
+      messages: [
+        { role: 'user', content: 'fill the form' },
+        { role: 'assistant', tool_calls: [{ id: 'c1', function: { name: 'setData', arguments: '{"name":"Marie"}' } }] },
+        { role: 'tool', tool_call_id: 'c1', content: '{"ok":true,"saved":false}' }
+      ]
+    })
+    assert.deepEqual(ex?.toolResults, [{ id: 'c1', name: 'setData', result: '{"ok":true,"saved":false}' }])
+  })
+
+  test('still records a result whose call it cannot pair, rather than dropping it', () => {
+    const ex = summariseRequest({
+      model: 'assistant',
+      messages: [{ role: 'tool', tool_call_id: 'orphan', content: 'done' }]
+    })
+    assert.deepEqual(ex?.toolResults, [{ id: 'orphan', name: '', result: 'done' }])
+  })
+
+  test('caps a large result so one tool cannot swallow the evidence file', () => {
+    const ex = summariseRequest({
+      model: 'assistant',
+      messages: [{ role: 'tool', tool_call_id: 'c1', content: 'x'.repeat(5000) }]
+    })
+    assert.ok(ex!.toolResults[0].result.length < 5000)
+    assert.ok(ex!.toolResults[0].result.endsWith('…[truncated]'))
+  })
+
+  test('renders a structured result rather than recording [object Object]', () => {
+    const ex = summariseRequest({
+      model: 'assistant',
+      messages: [{ role: 'tool', tool_call_id: 'c1', content: [{ type: 'text', text: 'ST-002 18.7' }] }]
+    })
+    assert.ok(ex!.toolResults[0].result.includes('ST-002 18.7'))
+  })
+
+  test('is empty for a request in which no tool has answered yet', () => {
+    const ex = summariseRequest({ model: 'assistant', messages: [{ role: 'user', content: 'hi' }] })
+    assert.deepEqual(ex?.toolResults, [])
+  })
+})

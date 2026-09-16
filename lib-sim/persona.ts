@@ -170,10 +170,17 @@ export async function nextUserMessage (
         : {})
     }
   })) {
+    // The LAST assistant message that carried text, not every one of them. With
+    // perception wired in the SDK emits an assistant message per reasoning step
+    // between tool calls, and appending them all sent the persona's inner
+    // monologue to the assistant as the person's own words — in one recorded run
+    // naming the tool the assistant should call, in another welding DONE onto the
+    // end of a sentence so isDone() missed it and the run ran on for an extra turn.
     if (msg.type === 'assistant') {
-      for (const block of (msg as any).message?.content ?? []) {
-        if (block.type === 'text' && block.text) text += block.text
-      }
+      const said = ((msg as any).message?.content ?? [])
+        .filter((block: any) => block.type === 'text' && block.text)
+        .map((block: any) => block.text)
+      if (said.length) text = said.join('')
     }
   }
   return text.trim()

@@ -168,3 +168,48 @@ test.describe('isDone', () => {
     assert.ok(!isDone(''))
   })
 })
+
+test.describe('nextUserMessage assembles the reply', () => {
+  // With perception wired in, the SDK emits one assistant message per reasoning
+  // step between tool calls and then the real reply. Concatenating them all sent
+  // the persona's inner monologue to the assistant as if it were what the person
+  // typed — including, in one recorded run, the name of the tool the assistant
+  // should call, and in another the DONE sentinel welded onto a sentence, which
+  // made isDone() miss it and cost the run an extra turn and a 124s wait.
+  const stream = (...messages: Array<string[]>) => (async function * () {
+    for (const texts of messages) {
+      yield { type: 'assistant', message: { content: texts.map(text => ({ type: 'text', text })) } } as any
+    }
+  })()
+
+  test('keeps only the last assistant message, not the thinking that preceded it', async () => {
+    const query = (() => stream(
+      ['I can see the panel is open. Let me put some text in there.'],
+      ['The Display textbox is readonly, so the assistant must do it.'],
+      ['Put "Welcome to the panel!" in the display.']
+    )) as unknown as PersonaQuery
+    const out = await nextUserMessage(cases[0], [], 3, { query })
+    assert.equal(out, 'Put "Welcome to the panel!" in the display.')
+  })
+
+  test('leaves a lone DONE recognisable, so the run actually stops', async () => {
+    const query = (() => stream(
+      ['I clicked the path and nothing happened. I am not getting the list.'],
+      [DONE]
+    )) as unknown as PersonaQuery
+    assert.equal(isDone(await nextUserMessage(cases[0], [], 3, { query })), true)
+  })
+
+  test('joins several text blocks within one message, which are one utterance', async () => {
+    const query = (() => stream(['Hello. ', 'Can you help?'])) as unknown as PersonaQuery
+    assert.equal(await nextUserMessage(cases[0], [], 3, { query }), 'Hello. Can you help?')
+  })
+
+  test('falls back to the last message that had text when the final one is tool-only', async () => {
+    const query = (() => (async function * () {
+      yield { type: 'assistant', message: { content: [{ type: 'text', text: 'Where is the list?' }] } } as any
+      yield { type: 'assistant', message: { content: [{ type: 'tool_use', name: 'look' }] } } as any
+    })()) as unknown as PersonaQuery
+    assert.equal(await nextUserMessage(cases[0], [], 3, { query }), 'Where is the list?')
+  })
+})
