@@ -166,7 +166,13 @@ test.describe('Settings UI', () => {
   // a config whose stored shape predates them shows a diff once. Because the
   // server persists exactly what the form submits, saving normalises the document
   // and a subsequent reload must converge to a clean, diff-free state.
-  test('A saved config converges after one save: no diff on reload', async ({ page, goToWithAuth }) => {
+  // Was: "converges after one save". A seeded config used to open dirty — the form
+  // strips hidden empty values that the schema then re-supplied through `default: 0`
+  // on the per-role price fields, so the first load always showed a phantom diff and
+  // needed one normalising save. Those defaults are gone, so it now opens clean and
+  // that save is never needed. Asserting the stronger property: no diff, ever, without
+  // the user touching anything.
+  test('A saved config shows no diff: clean on first load and after reload', async ({ page, goToWithAuth }) => {
     const admin = await superAdmin
     await admin.put('/api/settings/organization/test1', {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
@@ -178,10 +184,11 @@ test.describe('Settings UI', () => {
     await expect(page.getByText('AI Providers')).toBeVisible({ timeout: 10000 })
     await page.waitForTimeout(800)
 
-    // Persist the form-normalised shape, then reload: the form must be clean.
-    await page.getByRole('button', { name: 'Save' }).click()
-    await expect(page.getByText('Changes have been saved')).toBeVisible()
+    // Nothing was edited, so there is nothing to save.
+    await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
 
+    // And it stays that way across a reload — the original regression was the Save
+    // button reappearing on every load.
     await page.reload()
     await expect(page.getByText('AI Providers')).toBeVisible({ timeout: 10000 })
     await page.waitForTimeout(800)
