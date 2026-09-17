@@ -309,7 +309,14 @@ export function createWaitTool (opts: {
         // Remember where the event stream stood, so a repeat before the person
         // has done anything returns instead of blocking; any event clears it.
         timedOutAtSeq = outcome === 'timeout' ? store.eventSeq : null
-        if (outcome === 'timeout') return `No user action within ${seconds} seconds. End your reply now and let the user act; you will be told what they did when the conversation continues.`
+        if (outcome === 'timeout') {
+          const text = `No user action within ${seconds} seconds. End your reply now and let the user act; you will be told what they did when the conversation continues.`
+          // What the page reported meanwhile is owed to the model now, not on the
+          // next carrier: a keyed refresh that arrived during the wait (correctly
+          // not the answer) used to sit here until the person's next message.
+          const followers = store.takePending()
+          return followers.length ? `${text}\n\n${formatHostEvents(followers)}` : text
+        }
         if (outcome === 'aborted') return 'Wait cancelled.'
         // One macrotask so the followers of the same user gesture (a keyed location event
         // posted right after a creation event) ride in the same result.

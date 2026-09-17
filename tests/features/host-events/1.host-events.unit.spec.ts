@@ -569,3 +569,32 @@ test.describe('the location key is one string on both sides of the channel', () 
     assert.equal(resolvesWait({ name: 'item-created', at: 1 }), true)
   })
 })
+
+test.describe('a timed-out wait carries what the application reported meanwhile', () => {
+  // A keyed refresh arriving during a wait is context, not the answer, so it
+  // stays pending. If the wait then times out, the tool used to return bare
+  // text and leave that refresh in the buffer for the next carrier — in a judged
+  // run the wizard's ready:true, emitted one second after the wait was armed,
+  // reached the model two minutes later, folded into the person's next message.
+  // The timeout is a carrier too.
+  const exec = (t: any, args: any, options?: any) => t.execute(args, options ?? {})
+
+  test('delivers pending refreshes with the timeout, and empties the buffer', async () => {
+    const store = new HostEventStore()
+    const t = createWaitTool({ store })
+    const p = exec(t, { expecting: 'a click', timeoutSeconds: 1 })
+    store.push(ev('wizard', '{"ready":true}', 'wizard'))
+    const out = await p as string
+    assert.match(out, /No user action within 1 seconds/)
+    assert.match(out, /wizard/)
+    assert.match(out, /ready/)
+    assert.equal(store.hasPending(), false)
+  })
+
+  test('a bare timeout is unchanged when nothing arrived', async () => {
+    const store = new HostEventStore()
+    const t = createWaitTool({ store })
+    const out = await exec(t, { expecting: 'x', timeoutSeconds: 1 })
+    assert.equal(out, 'No user action within 1 seconds. End your reply now and let the user act; you will be told what they did when the conversation continues.')
+  })
+})
