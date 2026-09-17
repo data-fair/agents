@@ -42,8 +42,15 @@ export class HostEventStore {
   private waiter: ((outcome: WaitOutcome) => void) | null = null
   /** Whether the most recent `waitForEvent` had to block, rather than being answered from the buffer. */
   lastWaitBlocked = false
+  /**
+   * Advances on every event the host reports. A waiter compares it against the
+   * value it saw when it last timed out, to tell "has the person done anything
+   * at all since?" without holding on to the events themselves.
+   */
+  eventSeq = 0
 
   push (event: AgentEvent): void {
+    this.eventSeq++
     if (event.key) {
       this.state.set(event.key, event)
       // Map.set keeps an existing key's position, so the first entry is always the
@@ -227,6 +234,15 @@ export function createWaitTool (opts: {
 }): Tool {
   const { store } = opts
   let blockedInTurn: string | null = null
+  /**
+   * The event count when the last wait timed out, or null if none has. While it
+   * is unchanged the person has done nothing at all, so blocking again can only
+   * run out another timeout — the per-turn cap cannot catch this, because each
+   * new turn hands out a fresh allowance. A judged run spent 480s of 567s in
+   * four such timeouts, writing a fresh "I'm still waiting" line after each one
+   * while the timeout result was already telling it to end its reply.
+   */
+  let timedOutAtSeq: number | null = null
   return tool({
     description: 'Pause and wait for the user to act in the application (click a button, submit a form, navigate…). ' +
       'Resolves with the next action the application reports, whatever it is — check it is what you expected before continuing; ' +
@@ -250,6 +266,10 @@ export function createWaitTool (opts: {
         return 'You already waited in this reply and were told what happened. End your reply now and let the user act; ' +
           'the application reports their next action when the conversation continues.'
       }
+      if (turn !== undefined && timedOutAtSeq !== null && store.eventSeq === timedOutAtSeq) {
+        return 'Your last wait timed out and the application has reported nothing since, so the user has not acted yet. ' +
+          'End your reply now and let them act; you will be told what they did when the conversation continues.'
+      }
       opts.onWaiting?.(String(args?.expecting ?? ''))
       try {
         const outcome = await store.waitForEvent({ timeoutMs: seconds * 1000, signal: options?.abortSignal })
@@ -258,6 +278,9 @@ export function createWaitTool (opts: {
         // and refusing the follow-up left a judged run's assistant unable to
         // observe the click it had just asked for.
         if (turn !== undefined && store.lastWaitBlocked) blockedInTurn = turn
+        // Remember where the event stream stood, so a repeat before the person
+        // has done anything returns instead of blocking; any event clears it.
+        timedOutAtSeq = outcome === 'timeout' ? store.eventSeq : null
         if (outcome === 'timeout') return `No user action within ${seconds} seconds. End your reply now and let the user act; you will be told what they did when the conversation continues.`
         if (outcome === 'aborted') return 'Wait cancelled.'
         // One macrotask so the followers of the same user gesture (a keyed location event

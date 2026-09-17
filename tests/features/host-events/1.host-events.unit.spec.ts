@@ -426,3 +426,59 @@ test.describe('the per-turn cap only counts a wait that really blocked', () => {
     assert.ok(Date.now() - started < 1000)
   })
 })
+
+test.describe('a timed-out wait does not block again until something happens', () => {
+  // The per-turn cap cannot reach this: each new turn gets a fresh allowance, so
+  // an assistant that waits, times out, and waits again on the next turn blocks
+  // for the full timeout every time. A judged data-fair run spent 480s of a 567s
+  // run in four such timeouts, writing a new "I'm still waiting" line after each
+  // — while the timeout result already told it to end its reply and let the user
+  // act. Blocking again before the person has done ANYTHING cannot help.
+  const exec = (t: any, args: any, options?: any) => t.execute(args, options ?? {})
+
+  test('refuses to block again while the application has reported nothing', async () => {
+    const store = new HostEventStore()
+    let turn = 1
+    const t = createWaitTool({ store, turnId: () => `turn-${turn}` })
+    await exec(t, { expecting: 'the user clicks Create', timeoutSeconds: 1 })
+
+    turn = 2
+    const started = Date.now()
+    const out = await exec(t, { expecting: 'the user clicks Create', timeoutSeconds: 30 }) as string
+    assert.ok(Date.now() - started < 1000, 'must not block a second time')
+    assert.match(out, /nothing|still|no action/i)
+  })
+
+  test('waits again once the person has actually done something', async () => {
+    const store = new HostEventStore()
+    let turn = 1
+    const t = createWaitTool({ store, turnId: () => `turn-${turn}` })
+    await exec(t, { expecting: 'a click', timeoutSeconds: 1 })
+
+    // The person acts; that event is delivered by the normal path.
+    store.push(ev('item-created', '{"id":"1"}'))
+    store.takePending()
+
+    turn = 2
+    const second = exec(t, { expecting: 'the next step', timeoutSeconds: 30 })
+    store.push(ev('navigated', '/detail', 'location'))
+    assert.match(await second as string, /navigated/)
+  })
+
+  test('the very first wait of a conversation still blocks', async () => {
+    const store = new HostEventStore()
+    const t = createWaitTool({ store, turnId: () => 'turn-1' })
+    const first = exec(t, { expecting: 'a click' })
+    store.push(ev('item-created', '{"id":"1"}'))
+    assert.match(await first as string, /item-created/)
+  })
+
+  test('a host that wires no turnId is unaffected', async () => {
+    const store = new HostEventStore()
+    const t = createWaitTool({ store })
+    await exec(t, { expecting: 'x', timeoutSeconds: 1 })
+    const second = exec(t, { expecting: 'y', timeoutSeconds: 30 })
+    store.push(ev('item-created', '{"id":"1"}'))
+    assert.match(await second as string, /item-created/)
+  })
+})

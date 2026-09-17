@@ -187,6 +187,16 @@ repeated-call [loop guard](./loop-guards.md) does not catch this, because the mo
 absence — one where a keyed state re-emission caused by the assistant's own tool call
 settled the wait instantly and it re-issued the identical call, one where three waits with
 reworded `expecting` strings cost six minutes and produced two "take your time" bubbles.
+**A wait that timed out does not block again until the host reports something.**
+The per-turn cap cannot reach this: each new turn hands out a fresh allowance, so an
+assistant that waits, times out and waits again next turn blocks for the full timeout
+every time. A judged data-fair run spent 480s of a 567s run in four such timeouts,
+writing a new "I'm still waiting" line after each one — while the timeout result was
+already telling it to end its reply and let the user act. The store counts events
+(`eventSeq`); while that count has not moved since the timeout, the person has done
+nothing at all and blocking again can only run out another clock, so the tool returns
+immediately instead. Any event clears it.
+
 Only a wait that genuinely BLOCKED spends the allowance. One answered straight from the
 pending buffer never waited for the user at all — routinely a keyed state re-emission the
 assistant's own tool call produced — and counting it refused the follow-up: a judged run
