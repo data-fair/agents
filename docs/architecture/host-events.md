@@ -172,11 +172,23 @@ the model to call it, so advertising it to a page that has never published anyth
 would only ever end in a bounded, pointless dead turn. Re-checked on every tool-set
 rebuild (turn start and every mid-turn rebuild), so a page that starts publishing
 mid-conversation gains the tool at the next one. `{ expecting, timeoutSeconds? }`
-(default 120s, max 600s). It resolves on the **next event, whatever it is**: if one is
-already sitting in the pending buffer when the tool is called, that one settles the wait
-immediately; otherwise it waits for the next `push()`. Either way the chat knows nothing
-about expectations — the model judges whether "user navigated to /elsewhere" is what it
-waited for. Timeout and abort return plain text (`No user action within N seconds…`,
+(default 120s, max 600s). It resolves on **what the person did, not on the next event whatever it
+is**. The store already separates two kinds of event: an unkeyed transition is something
+that happened, keyed state is what is true now — and state refreshes for many reasons,
+including the assistant's own action finishing late. A wait resolves on a transition, or on
+a `location` change (the one keyed change that means the person left), whenever either
+arrives — already pending when the tool is called, or later. Other keyed state never
+resolves a wait: it stays pending and is delivered as a follower when the wait completes.
+The chat still knows nothing about expectations — the model judges whether "user navigated
+to /elsewhere" is what it waited for.
+
+Why by kind and not by time: a judged run had `advance_to_confirmation` report
+`{ready:false}` on its result and `{ready:true}` once a title-conflict API check came back.
+That refresh landed before the wait was armed, the wait took it as the person acting, the
+model retried, and the retry blocked for the full timeout. Had the API been a little slower
+the refresh would have landed after the wait and resolved it just the same — so "only events
+after the wait started" moves the failure around with network latency rather than removing
+it. What distinguishes the refresh from a click is what it is, not when it came. Timeout and abort return plain text (`No user action within N seconds…`,
 `Wait cancelled.`); a second call while pending returns `Already waiting for the user.`
 (the store itself would reject a concurrent `waitForEvent`, but the tool checks
 `isWaiting()` first so the model gets a sentence instead of a thrown error). **It blocks at most once per turn.** A second call in the same reply returns immediately

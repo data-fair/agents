@@ -23,6 +23,7 @@ declare global {
   const HOST_STATE_CLOSE: typeof import('../src/composables/host-events').HOST_STATE_CLOSE
   const HOST_STATE_OPEN: typeof import('../src/composables/host-events').HOST_STATE_OPEN
   const HostEventStore: typeof import('../src/composables/host-events').HostEventStore
+  const LOCATION_KEY: typeof import('../src/composables/host-events').LOCATION_KEY
   const MERMAID_AUTO_FIX_BUDGET: typeof import('../src/utils/mermaid-fix').MERMAID_AUTO_FIX_BUDGET
   const MODERATION_TASK_MARKER: typeof import('../src/composables/moderation')['MODERATION_TASK_MARKER']
   const PENDING_MAX: typeof import('../src/composables/host-events').PENDING_MAX
@@ -132,6 +133,7 @@ declare global {
   const repeatedCallNudge: typeof import('../src/composables/agent-loop-guards').repeatedCallNudge
   const resetAnonymousToken: typeof import('../src/composables/use-anonymous-token').resetAnonymousToken
   const resolveComponent: typeof import('vue').resolveComponent
+  const resolvesWait: typeof import('../src/composables/host-events').resolvesWait
   const selectPromotions: typeof import('../src/composables/tool-exploration').selectPromotions
   const serializeFlagsCookie: typeof import('../src/utils/agent-flags').serializeFlagsCookie
   const setBreadcrumbs: typeof import('../src/utils/breadcrumbs').setBreadcrumbs
@@ -250,6 +252,7 @@ declare module 'vue' {
     readonly HOST_STATE_CLOSE: UnwrapRef<typeof import('../src/composables/host-events')['HOST_STATE_CLOSE']>
     readonly HOST_STATE_OPEN: UnwrapRef<typeof import('../src/composables/host-events')['HOST_STATE_OPEN']>
     readonly HostEventStore: UnwrapRef<typeof import('../src/composables/host-events')['HostEventStore']>
+    readonly LOCATION_KEY: UnwrapRef<typeof import('../src/composables/host-events')['LOCATION_KEY']>
     readonly MERMAID_AUTO_FIX_BUDGET: UnwrapRef<typeof import('../src/utils/mermaid-fix')['MERMAID_AUTO_FIX_BUDGET']>
     readonly PENDING_MAX: UnwrapRef<typeof import('../src/composables/host-events')['PENDING_MAX']>
     readonly RECENT_MAX: UnwrapRef<typeof import('../src/composables/host-events')['RECENT_MAX']>
@@ -339,6 +342,7 @@ declare module 'vue' {
     readonly repeatedCallNudge: UnwrapRef<typeof import('../src/composables/agent-loop-guards')['repeatedCallNudge']>
     readonly resetAnonymousToken: UnwrapRef<typeof import('../src/composables/use-anonymous-token')['resetAnonymousToken']>
     readonly resolveComponent: UnwrapRef<typeof import('vue')['resolveComponent']>
+    readonly resolvesWait: UnwrapRef<typeof import('../src/composables/host-events')['resolvesWait']>
     readonly selectPromotions: UnwrapRef<typeof import('../src/composables/tool-exploration')['selectPromotions']>
     readonly serializeFlagsCookie: UnwrapRef<typeof import('../src/utils/agent-flags')['serializeFlagsCookie']>
     readonly setBreadcrumbs: UnwrapRef<typeof import('../src/utils/breadcrumbs')['setBreadcrumbs']>

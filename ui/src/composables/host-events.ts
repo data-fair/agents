@@ -33,6 +33,30 @@ export const WAIT_MAX_SECONDS = 600
 export type WaitOutcome = AgentEvent | 'timeout' | 'aborted'
 export interface HostStateSnapshot { state: AgentEvent[], recent: AgentEvent[] }
 
+/**
+ * What a wait is for. A transition is something that happened; keyed state is
+ * what is true now, and it refreshes for many reasons — including the
+ * assistant's own action finishing late. A judged run had
+ * advance_to_confirmation report {ready:false} on its result and {ready:true}
+ * once a title-conflict API check came back; the wait took that refresh as the
+ * person acting, the model retried, and the retry blocked for the full timeout.
+ * Timing cannot separate that from an early click — the same refresh lands
+ * before or after the wait depending on network latency — so the rule is by
+ * kind. `location` is the one keyed change that means the person left, and it
+ * cancels a wait whatever the wait expected.
+ */
+/**
+ * The key a host publishes its location under — the same string as lib-vue's
+ * AGENT_LOCATION_KEY. Repeated here rather than imported because this module is
+ * kept loadable by the node unit runner, which cannot resolve the workspace
+ * package's built entry; a unit test pins the two together so they cannot drift.
+ */
+export const LOCATION_KEY = 'location'
+
+export function resolvesWait (event: AgentEvent): boolean {
+  return !event.key || event.key === LOCATION_KEY
+}
+
 export class HostEventStore {
   // Map keeps a key's original insertion position when its value is replaced, which is
   // the "first-seen key order" the snapshot relies on.
@@ -63,12 +87,13 @@ export class HostEventStore {
       this.recent.push(event)
       if (this.recent.length > RECENT_MAX) this.recent.shift()
     }
-    if (this.waiter) {
+    if (this.waiter && resolvesWait(event)) {
       const finish = this.waiter
       this.waiter = null
       finish(event)
       return
     }
+    // A refresh arriving mid-wait is owed to the model as a follower, not as the answer.
     if (event.key) {
       const i = this.pending.findIndex(p => p.key === event.key)
       if (i >= 0) { this.pending[i] = event; return }
@@ -119,9 +144,12 @@ export class HostEventStore {
     // never actually waited for anything. `createWaitTool` needs to know, because
     // such a call must not consume the turn's one allowed block — it is routinely
     // a keyed state re-emission the assistant's own tool call produced.
-    if (this.pending.length) {
+    // Only something the person did settles a wait from the buffer; a refresh that
+    // was already true when the wait started stays pending, delivered as a follower.
+    const i = this.pending.findIndex(resolvesWait)
+    if (i >= 0) {
       this.lastWaitBlocked = false
-      return Promise.resolve(this.pending.shift() as AgentEvent)
+      return Promise.resolve(this.pending.splice(i, 1)[0] as AgentEvent)
     }
     this.lastWaitBlocked = true
     return new Promise<WaitOutcome>(resolve => {
