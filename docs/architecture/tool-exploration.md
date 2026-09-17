@@ -23,7 +23,11 @@ sequenceDiagram
 1. The full tool registry is still passed to `streamText`, but `activeTools` (returned from `prepareStep` each step) gates which tools are exposed to the model. It starts as `[explore_tools, …subAgentNames]`.
 2. `explore_tools.execute` runs the **summarizer** model over the full registry, forcing a `select_tools` tool call to get structured `{ summary, toolNames }`. Selected names are validated against the live registry and added to a `promotedTools` set.
 3. `prepareStep` reads `promotedTools` live, so a tool promoted at step *N* is callable at step *N+1* — within the same turn, no re-issue.
-4. Promotions **clear on history compaction** (and on reset); the name catalog is always present, so re-exploration is cheap.
+4. Promotions **survive history compaction**: they are pruned to the tools the
+   retained (post-compaction) window still references — see
+   `retainedToolNames` in [Conversation history compaction](./compaction.md) —
+   rather than cleared wholesale. They are still cleared on reset. The name
+   catalog is always present, so re-exploration of a pruned tool is cheap.
 
 **Catalog placement.** The tool-name catalog is folded into the **system text** at stream time (not a separate "tail" message) because the gateway hoists all `system`-role messages into the top-level system block and no provider prompt cache is active today. Revisit tail placement if caching is introduced.
 

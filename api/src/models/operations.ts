@@ -79,6 +79,25 @@ export function createModel (provider: Provider, modelId: string): LanguageModel
 
 export type ModelRole = 'assistant' | 'evaluator' | 'summarizer' | 'tools' | 'moderator'
 
+/**
+ * Used when neither the admin nor the provider listing supplies a window. Sized
+ * for the models actually put in the assistant seat — Claude Opus/Sonnet (200k),
+ * DeepSeek V4 Flash (1M), GLM 5.2 Flash — while staying at or below the floor of
+ * that class, so it under-states rather than over-states. A genuinely small local
+ * model needs its window set explicitly on the assistant role.
+ */
+export const UNKNOWN_CONTEXT_WINDOW = 128_000
+
+/**
+ * The hand-entered context window, which the schema declares on the assistant role
+ * only. Read structurally so the other four role shapes — which legitimately lack
+ * the key — do not need a cast at every use.
+ */
+function roleContextWindow (source: object): number | undefined {
+  const value = (source as { contextWindow?: unknown }).contextWindow
+  return typeof value === 'number' ? value : undefined
+}
+
 export function getModelConfig (settings: Settings, modelRole: ModelRole) {
   // moderator prefers a cheap dedicated model, then the summarizer, then the
   // assistant as a guaranteed last resort; every other role falls back straight
@@ -91,8 +110,35 @@ export function getModelConfig (settings: Settings, modelRole: ModelRole) {
   return {
     modelConfig: source.model,
     inputPricePerMillion: source.inputPricePerMillion ?? 0,
-    outputPricePerMillion: source.outputPricePerMillion ?? 0
+    outputPricePerMillion: source.outputPricePerMillion ?? 0,
+    // Same resolution order as contextWindow: role override, then the snapshot
+    // taken from the provider listing when the model was picked, then... NOT 0.
+    // An unset cache price means "unknown", not "free": OpenAI, Scaleway, LiteLLM
+    // and vLLM report no pricing in their model listings, yet their SDKs still
+    // report a cache-read/write split (they cache implicitly above ~1024 prompt
+    // tokens). Defaulting to 0 would bill those cache-read tokens for free,
+    // under-billing cost and silently loosening every dollar-denominated quota
+    // (including the untrusted anonymous+external pool). Fall back to the full
+    // input price instead, which is what this codebase billed before the split
+    // was introduced.
+    cachedInputPricePerMillion: source.cachedInputPricePerMillion ?? source.model.cachedInputPricePerMillion ?? (source.inputPricePerMillion ?? 0),
+    // Only the assistant role carries a hand-entered window: it is the sole role
+    // whose history is compacted, so contextBudget() is always resolved for
+    // 'assistant'. Every other role has just the listing snapshot. A 0 means
+    // "unset" (the form emits 0 for an untouched number field), not a zero-token
+    // window — fall through.
+    contextWindow: roleContextWindow(source) || source.model.contextWindow || UNKNOWN_CONTEXT_WINDOW
   }
+}
+
+/**
+ * Token budget above which the client compacts history. Always resolved for the
+ * role whose history is actually compacted. `percent` is deployment-global config
+ * (`compactionPercent`), passed in rather than read here so this module stays pure.
+ */
+export function contextBudget (settings: Settings, modelRole: ModelRole, percent: number): number {
+  const { contextWindow } = getModelConfig(settings, modelRole)
+  return Math.floor(contextWindow * percent / 100)
 }
 
 export function resolveModelForRole (settings: Settings, modelRole: ModelRole): LanguageModel {

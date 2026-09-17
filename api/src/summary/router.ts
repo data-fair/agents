@@ -24,10 +24,15 @@ const SUMMARY_SYSTEM_PROMPT = 'Summarize the following content concisely:'
 
 function getSummaryPricing (settings: Settings) {
   const source = settings.models?.summarizer?.model ? settings.models.summarizer : settings.models?.assistant
+  const inputPricePerMillion = source?.inputPricePerMillion ?? 0
   return {
     modelConfig: source?.model,
-    inputPricePerMillion: source?.inputPricePerMillion ?? 0,
-    outputPricePerMillion: source?.outputPricePerMillion ?? 0
+    inputPricePerMillion,
+    outputPricePerMillion: source?.outputPricePerMillion ?? 0,
+    // Same resolution chain as getModelConfig: role override, then the model
+    // snapshot, then the input price — an unset cache price means "unknown", not
+    // "free" (see getModelConfig for the full rationale).
+    cachedInputPricePerMillion: source?.cachedInputPricePerMillion ?? source?.model?.cachedInputPricePerMillion ?? inputPricePerMillion
   }
 }
 
@@ -81,7 +86,7 @@ router.post('/:type/:id', async (req, res, next) => {
     }
 
     const model = await getSummaryModel(settings)
-    const { inputPricePerMillion, outputPricePerMillion } = getSummaryPricing(settings)
+    const { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion } = getSummaryPricing(settings)
 
     const { text, usage } = await generateText({
       model,
@@ -92,7 +97,14 @@ router.post('/:type/:id', async (req, res, next) => {
     // Record usage after completion (money cost)
     const inputTokens = usage?.inputTokens ?? 0
     const outputTokens = usage?.outputTokens ?? 0
-    const cost = computeCost(inputTokens, outputTokens, inputPricePerMillion, outputPricePerMillion)
+    const details = usage?.inputTokenDetails
+    const cost = computeCost({
+      inputTokens,
+      outputTokens,
+      noCacheTokens: details?.noCacheTokens,
+      cacheReadTokens: details?.cacheReadTokens,
+      cacheWriteTokens: details?.cacheWriteTokens
+    }, { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion })
     if (cost > 0) {
       await recordUsage(owner, cost, usageUserId, usageUserName, poolId)
     }

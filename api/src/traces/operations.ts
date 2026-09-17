@@ -3,6 +3,7 @@
  * should not reference #mongo, #config, store state in memory or import anything else than other operations.ts
  */
 import type { TraceRequest, TraceModeration, TraceFlags } from './types.ts'
+import { computeCost } from '../usage/operations.ts'
 
 // Stored traces are kept for 30 days, enforced by a TTL index on `createdAt`.
 export const RETENTION_SECONDS = 30 * 24 * 60 * 60
@@ -59,6 +60,7 @@ export interface BuildTraceInput {
   usage: { inputTokens: number, outputTokens: number, cacheReadTokens?: number, cacheWriteTokens?: number }
   inputPricePerMillion: number
   outputPricePerMillion: number
+  cachedInputPricePerMillion?: number
   timing: { durationMs: number, timeToFirstChunkMs?: number }
   moderation?: TraceModeration
   flags?: TraceFlags
@@ -68,7 +70,17 @@ export function buildTraceRequestDoc (input: BuildTraceInput, now: Date): TraceR
   const ctx = parseContextId(input.contextId)
   const messages = Array.isArray(input.body?.messages) ? input.body.messages : []
   const tools = Array.isArray(input.body?.tools) ? input.body.tools : []
-  const inputCost = input.usage.inputTokens * input.inputPricePerMillion / 1_000_000
+  // Route through the same computeCost formula as billing/quotas, rather than
+  // re-deriving it here: `inputTokens` is the TOTAL including cache reads, so
+  // multiplying it by the plain input price (as before this cache-price split)
+  // would show a trace input cost higher than what was actually billed on any
+  // cached turn. `noCacheTokens` isn't threaded through from the gateway call
+  // site, so this relies on computeCost's documented subtraction fallback
+  // (inputTokens - cacheReadTokens - cacheWriteTokens).
+  const inputCost = computeCost(
+    { inputTokens: input.usage.inputTokens, outputTokens: 0, cacheReadTokens: input.usage.cacheReadTokens, cacheWriteTokens: input.usage.cacheWriteTokens },
+    { inputPricePerMillion: input.inputPricePerMillion, outputPricePerMillion: 0, cachedInputPricePerMillion: input.cachedInputPricePerMillion }
+  )
   const outputCost = input.usage.outputTokens * input.outputPricePerMillion / 1_000_000
   const cost = { input: inputCost, output: outputCost, total: inputCost + outputCost }
   return {

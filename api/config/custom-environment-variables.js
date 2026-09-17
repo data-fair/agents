@@ -18,5 +18,9 @@ export default {
     type: 'EVALUATOR_ACCOUNT_TYPE',
     id: 'EVALUATOR_ACCOUNT_ID'
   },
-  github: { token: 'GITHUB_TOKEN' }
+  github: { token: 'GITHUB_TOKEN' },
+  compactionPercent: {
+    __name: 'COMPACTION_PERCENT',
+    __format: 'json'
+  }
 }

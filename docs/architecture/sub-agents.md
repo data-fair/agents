@@ -234,7 +234,7 @@ This mirrors OpenAI's `as_tool(custom_output_extractor=…)` hook: the deliverab
 from the run rather than blindly taken as the raw last token. It keeps the main agent's
 context window lean — a sub-agent that made 8 tool calls across 5 steps produces a single paragraph of text in the main conversation. The full trace is visible in the UI via `ChatMessage.subAgentPanels`, rendered per delegating tool-call as a bordered, state-colored panel that is **collapsed by default** and expanded on demand (its live activity shows in the header even while collapsed). A per-user **"Simplify sub-agent display"** flag (`simpleSubAgents`, on by default) instead renders each delegation as a plain status chip, like any other tool call; the full-panel view is the opt-in. Panels never auto-open.
 
-This also reduces pressure on the 24,000-character compaction threshold (see [Conversation history compaction](./compaction.md)).
+This also reduces pressure on the token budget that triggers history compaction (see [Conversation history compaction](./compaction.md)).
 
 ---
 

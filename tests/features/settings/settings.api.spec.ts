@@ -393,4 +393,27 @@ test.describe('Settings API', () => {
     const res2 = await admin.get('/api/settings/user/test-standalone1')
     assert.equal(res2.data.storeTraces, false)
   })
+
+  test('should persist the assistant context window and per-role cache prices', async () => {
+    const res = await admin.put('/api/settings/user/test-standalone1', {
+      providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
+      models: {
+        assistant: {
+          model: { ...mockModel, contextWindow: 200000 },
+          inputPricePerMillion: 3,
+          outputPricePerMillion: 15,
+          cachedInputPricePerMillion: 0.3,
+          contextWindow: 128000
+        }
+      },
+      quotas: defaultQuotas
+    })
+    assert.equal(res.status, 200)
+    assert.equal(res.data.models.assistant.contextWindow, 128000)
+    assert.equal(res.data.models.assistant.model.contextWindow, 200000)
+    assert.equal(res.data.models.assistant.cachedInputPricePerMillion, 0.3)
+
+    const getRes = await admin.get('/api/settings/user/test-standalone1')
+    assert.equal(getRes.data.models.assistant.model.contextWindow, 200000)
+  })
 })

@@ -1,8 +1,9 @@
 import { Router } from 'express'
+import config from '#config'
 import { generateText, streamText, type LanguageModelUsage } from 'ai'
 import { type AccountKeys, reqSession, isAuthenticated } from '@data-fair/lib-express'
 import { getRawSettings, defaultQuotas } from '../settings/service.ts'
-import { getModelConfig, resolveModelForRole, streamedToolCallsBroken, OPENAI_COMPATIBLE_PROVIDER_NAME } from '../models/operations.ts'
+import { getModelConfig, resolveModelForRole, streamedToolCallsBroken, contextBudget, OPENAI_COMPATIBLE_PROVIDER_NAME } from '../models/operations.ts'
 import { recordUsage } from '../usage/service.ts'
 import { computeCost } from '../usage/operations.ts'
 import { resolveUsageIdentity, enforceQuotas } from '../usage/enforce.ts'
@@ -137,6 +138,12 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
       }
     }
 
+    // Advertise the assistant budget on every response regardless of the role
+    // called: the client compacts the main history, whichever role it just used.
+    // Set before any early-return refusal path (strike cooldown, quota) below, so
+    // a refused caller still learns its budget and can compact on its next turn.
+    res.setHeader('x-context-budget', String(contextBudget(settings, 'assistant', config.compactionPercent)))
+
     // Strikes & the cooldown are an anti-abuse measure for untrusted callers
     // only. Moderated trusted members get individual messages blocked by the
     // gate below, but are never locked out.
@@ -184,7 +191,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
     const consented = req.get('x-trace-consent') === 'yes'
     const shouldStoreTrace = storeTraces && consented
 
-    const { modelConfig, inputPricePerMillion, outputPricePerMillion } = getModelConfig(settings, modelId)
+    const { modelConfig, inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion } = getModelConfig(settings, modelId)
     const model = resolveModelForRole(settings, modelId)
     // Downstream debug logging (client→gateway OpenAI exchange), scoped per provider
     // so it can be restricted to one provider: DEBUG=agents:downstream:<type>:<id>.
@@ -213,6 +220,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
         usage,
         inputPricePerMillion,
         outputPricePerMillion,
+        cachedInputPricePerMillion,
         timing: { durationMs: Date.now() - traceStart, ...(timeToFirstChunkMs != null ? { timeToFirstChunkMs } : {}) },
         ...(moderation?.traceInfo() ? { moderation: moderation.traceInfo() } : {}),
         ...(traceFlags ? { flags: traceFlags } : {})
@@ -360,12 +368,19 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
           }
           const inputTokens = gen.usage?.inputTokens ?? 0
           const outputTokens = gen.usage?.outputTokens ?? 0
-          const cost = computeCost(inputTokens, outputTokens, inputPricePerMillion, outputPricePerMillion)
+          const details = gen.usage?.inputTokenDetails
+          const cost = computeCost({
+            inputTokens,
+            outputTokens,
+            noCacheTokens: details?.noCacheTokens,
+            cacheReadTokens: details?.cacheReadTokens,
+            cacheWriteTokens: details?.cacheWriteTokens
+          }, { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion })
           if (cost > 0) await recordUsage(owner, cost, usageUserId, usageUserName, poolId)
           sseWrite(`data: ${JSON.stringify({ id: completionId, object: 'chat.completion.chunk', created, model: modelId, choices: [{ index: 0, delta: {}, finish_reason: mapFinishReason(gen.finishReason as FinishReason) }], usage: buildUsage(gen.usage) })}\n\n`)
           const recordFinishTrace = () => recordTrace(
             { content: streamedText, toolCalls: [...streamedToolCalls.values()], finishReason: mapFinishReason(gen.finishReason as FinishReason) },
-            { inputTokens, outputTokens, cacheReadTokens: gen.usage?.inputTokenDetails?.cacheReadTokens, cacheWriteTokens: gen.usage?.inputTokenDetails?.cacheWriteTokens },
+            { inputTokens, outputTokens, cacheReadTokens: details?.cacheReadTokens, cacheWriteTokens: details?.cacheWriteTokens },
             ttfc
           )
           if (gateState === 'pending') deferredFinishTrace = recordFinishTrace
@@ -443,7 +458,14 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
             // Record usage for streaming responses (money cost)
               const inputTokens = part.totalUsage?.inputTokens ?? 0
               const outputTokens = part.totalUsage?.outputTokens ?? 0
-              const cost = computeCost(inputTokens, outputTokens, inputPricePerMillion, outputPricePerMillion)
+              const details = part.totalUsage?.inputTokenDetails
+              const cost = computeCost({
+                inputTokens,
+                outputTokens,
+                noCacheTokens: details?.noCacheTokens,
+                cacheReadTokens: details?.cacheReadTokens,
+                cacheWriteTokens: details?.cacheWriteTokens
+              }, { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion })
               if (cost > 0) {
                 await recordUsage(owner, cost, usageUserId, usageUserName, poolId)
               }
@@ -459,7 +481,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
 
               const recordFinishTrace = () => recordTrace(
                 { content: streamedText, toolCalls: [...streamedToolCalls.values()], finishReason: mapFinishReason(part.finishReason as FinishReason) },
-                { inputTokens, outputTokens, cacheReadTokens: part.totalUsage?.inputTokenDetails?.cacheReadTokens, cacheWriteTokens: part.totalUsage?.inputTokenDetails?.cacheWriteTokens },
+                { inputTokens, outputTokens, cacheReadTokens: details?.cacheReadTokens, cacheWriteTokens: details?.cacheWriteTokens },
                 ttfc
               )
               // While the gate is pending the content must not reach trace storage:
@@ -553,7 +575,14 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
       // Record usage (money cost)
       const inputTokens = result.usage?.inputTokens ?? 0
       const outputTokens = result.usage?.outputTokens ?? 0
-      const cost = computeCost(inputTokens, outputTokens, inputPricePerMillion, outputPricePerMillion)
+      const details = result.usage?.inputTokenDetails
+      const cost = computeCost({
+        inputTokens,
+        outputTokens,
+        noCacheTokens: details?.noCacheTokens,
+        cacheReadTokens: details?.cacheReadTokens,
+        cacheWriteTokens: details?.cacheWriteTokens
+      }, { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion })
       if (cost > 0) {
         await recordUsage(owner, cost, usageUserId, usageUserName, poolId)
       }
@@ -596,7 +625,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
           toolCalls: (result.toolCalls ?? []).map((tc: { toolCallId: string, toolName: string, input?: unknown }) => ({ id: tc.toolCallId, name: tc.toolName, arguments: JSON.stringify(tc.input ?? {}) })),
           finishReason: mapFinishReason(result.finishReason as FinishReason)
         },
-        { inputTokens, outputTokens, cacheReadTokens: result.usage?.inputTokenDetails?.cacheReadTokens, cacheWriteTokens: result.usage?.inputTokenDetails?.cacheWriteTokens }
+        { inputTokens, outputTokens, cacheReadTokens: details?.cacheReadTokens, cacheWriteTokens: details?.cacheWriteTokens }
       )
     }
   } catch (err) {

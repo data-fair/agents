@@ -5,6 +5,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { checkQuota, computeCost, firstQuotaViolation, isUntrustedRole, type UsageInfo, type UsageLimits } from '../../../api/src/usage/operations.ts'
+import { getModelConfig } from '../../../api/src/models/operations.ts'
 
 function mkUsage (daily: number, weekly: number, monthly: number): UsageInfo {
   return {
@@ -89,14 +90,106 @@ test.describe('isUntrustedRole', () => {
 test.describe('computeCost', () => {
   test('computes cost from tokens and prices per million', () => {
     // 500k input @ $2/M + 100k output @ $6/M = 1 + 0.6 = 1.6
-    assert.equal(computeCost(500_000, 100_000, 2, 6), 1.6)
+    assert.equal(computeCost({ inputTokens: 500_000, outputTokens: 100_000 }, { inputPricePerMillion: 2, outputPricePerMillion: 6 }), 1.6)
   })
 
   test('zero tokens → zero cost', () => {
-    assert.equal(computeCost(0, 0, 10, 20), 0)
+    assert.equal(computeCost({ inputTokens: 0, outputTokens: 0 }, { inputPricePerMillion: 10, outputPricePerMillion: 20 }), 0)
   })
 
   test('zero prices → zero cost', () => {
-    assert.equal(computeCost(1_000_000, 1_000_000, 0, 0), 0)
+    assert.equal(computeCost({ inputTokens: 1_000_000, outputTokens: 1_000_000 }, { inputPricePerMillion: 0, outputPricePerMillion: 0 }), 0)
+  })
+})
+
+test.describe('computeCost with cache tokens', () => {
+  const prices = {
+    inputPricePerMillion: 3,
+    outputPricePerMillion: 15,
+    cachedInputPricePerMillion: 0.3
+  }
+
+  test('no cache details → whole input billed at input price', () => {
+    const cost = computeCost({ inputTokens: 1_000_000, outputTokens: 0 }, prices)
+    assert.equal(cost, 3)
+  })
+
+  test('noCacheTokens is taken verbatim, never recomputed', () => {
+    // total 1M of which 900k were cache reads
+    const cost = computeCost(
+      { inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 100_000, cacheReadTokens: 900_000 },
+      prices
+    )
+    // 100k * 3/1M + 900k * 0.3/1M
+    assert.equal(cost, 0.3 + 0.27)
+  })
+
+  test('falls back to subtraction when noCacheTokens is absent', () => {
+    const cost = computeCost(
+      { inputTokens: 1_000_000, outputTokens: 0, cacheReadTokens: 900_000 },
+      prices
+    )
+    assert.equal(cost, 0.3 + 0.27)
+  })
+
+  test('cache writes are billed at the input price, never free', () => {
+    // There is no separate write tariff to configure. Both @ai-sdk/anthropic and
+    // @ai-sdk/openai exclude cacheWrite from noCache, so dropping the term would
+    // make write tokens cost nothing — this asserts they do not.
+    const cost = computeCost(
+      { inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 0, cacheWriteTokens: 1_000_000 },
+      prices
+    )
+    assert.equal(cost, 3)
+  })
+
+  test('cache writes are added to the non-cached portion, not substituted for it', () => {
+    const cost = computeCost(
+      { inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 400_000, cacheReadTokens: 200_000, cacheWriteTokens: 400_000 },
+      prices
+    )
+    // (400k + 400k) * 3/1M + 200k * 0.3/1M
+    assert.equal(cost, 2.4 + 0.06)
+  })
+
+  test('subtraction fallback never goes negative', () => {
+    const cost = computeCost(
+      { inputTokens: 100, outputTokens: 0, cacheReadTokens: 900 },
+      prices
+    )
+    assert.equal(cost, 900 * 0.3 / 1_000_000)
+  })
+
+  test('an unset cache price (as resolved by getModelConfig) bills cache reads at the input price', () => {
+    // computeCost itself still bills a genuinely absent cache price at 0 (see
+    // 'falls back to subtraction when noCacheTokens is absent' etc. above, all of
+    // which pass a full `prices` object) — that pure-function contract is
+    // unchanged. What changed is the resolver: getModelConfig no longer hands
+    // computeCost an unset cache price at all, it falls back to the input price
+    // first. Go through the real resolver here to prove the system-level fix.
+    const settings: any = {
+      owner: { type: 'user', id: 'u' },
+      providers: [],
+      models: {
+        assistant: {
+          model: { id: 'm', name: 'M', provider: { type: 'mock', id: 'mock', name: 'Mock' } },
+          inputPricePerMillion: 3,
+          outputPricePerMillion: 15
+        }
+      }
+    }
+    const { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion } = getModelConfig(settings, 'assistant')
+    assert.equal(cachedInputPricePerMillion, 3)
+
+    const cost = computeCost(
+      { inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 0, cacheReadTokens: 1_000_000 },
+      { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion }
+    )
+    assert.equal(cost, 3)
+  })
+
+  test('output tokens still billed', () => {
+    const cost = computeCost({ inputTokens: 0, outputTokens: 1_000_000 }, prices)
+    assert.equal(cost, 15)
   })
 })
