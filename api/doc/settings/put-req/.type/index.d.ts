@@ -80,7 +80,7 @@ export type ContextWindow = number;
  */
 export type CachedInputPricePer1MTokens = number;
 /**
- * Used to size history compaction. Leave empty to use the value reported by the provider; only OpenRouter reports one, so for other providers set it here or the conservative 32000 default applies.
+ * Used to size history compaction. Leave empty to use the value reported by the provider; only OpenRouter reports one, so for other providers set it here or the 128000 default applies. Set it explicitly for small self-hosted models, which would otherwise overflow.
  */
 export type ContextWindowTokens = number;
 export type InputPricePer1MTokens = number;
@@ -111,10 +111,6 @@ export type Admin = "admin";
  * User categories whose requests are checked by the gate when moderation is enabled.
  */
 export type ModeratedUserCategories = ((Anonymous | External | User | Contributor | Admin) & string)[];
-/**
- * Conversation history is summarized once it exceeds this percentage of the assistant model context window. Higher means rarer compaction, better prompt-cache reuse, and more context kept.
- */
-export type CompactAboveThisShareOfTheContextWindow = number;
 export type Unlimited = boolean;
 /**
  * Weekly limit = monthly / 2, daily limit = monthly / 4
@@ -134,7 +130,6 @@ export type SettingsPut = {
   providers: AIProviders;
   models?: Models;
   moderation?: InputModeration;
-  compaction?: HistoryCompaction;
   quotas?: RoleQuotas;
 }
 export type OpenAI = {
@@ -363,9 +358,6 @@ export type Model4 = {
 export type InputModeration = {
   enabled: EnableInputModeration;
   categories: ModeratedUserCategories;
-}
-export type HistoryCompaction = {
-  percent: CompactAboveThisShareOfTheContextWindow;
 }
 export type RoleQuotas = {
   global: GlobalQuotas;

@@ -9,15 +9,26 @@ The gateway computes the budget and advertises it to the client on every respons
 via `contextBudget()` (`api/src/models/operations.ts`):
 
 ```
-budget = floor(contextWindow × compaction.percent / 100)
+budget = floor(contextWindow × compactionPercent / 100)
 ```
 
-- `compaction.percent` is an admin setting (`settings.compaction.percent`, default **70**).
-  Higher means rarer compaction, better prompt-cache reuse, and more context kept.
+- `compactionPercent` is **deployment-global config**, not a per-account setting
+  (`api/config/default.js`, env `COMPACTION_PERCENT`, default **70**). It is a
+  tuning knob for operators — higher means rarer compaction, better prompt-cache
+  reuse and more context kept — not something an org admin should have to reason
+  about, so it is deliberately absent from the settings form. `contextBudget()`
+  takes it as an argument so `models/operations.ts` stays pure.
 - `contextWindow` resolves in this order: the **assistant role's** `contextWindow`
   field in settings, then the context length snapshotted on the model when it was
-  picked from the provider's listing, then a conservative fallback of **32000**
-  tokens (`UNKNOWN_CONTEXT_WINDOW`) when neither is available.
+  picked from the provider's listing, then **128000** tokens
+  (`UNKNOWN_CONTEXT_WINDOW`) when neither is available.
+- The 128000 fallback is sized for the models actually put in the assistant seat —
+  Claude Opus/Sonnet (200k), DeepSeek V4 Flash (1M), GLM 5.2 Flash — while sitting
+  at or below the floor of that class, so it under-states rather than over-states.
+  The trade-off is deliberate: a genuinely small self-hosted model that is never
+  given an explicit window will now overflow its context and have the request
+  rejected by the provider, rather than compacting early and silently. Set the
+  assistant's `contextWindow` for those deployments.
 - That field exists on the assistant role only, because the assistant is the sole
   role whose history is compacted — `contextBudget()` is always resolved for
   `'assistant'`. It is not merely an override: the snapshot on the model object is
@@ -25,7 +36,7 @@ budget = floor(contextWindow × compaction.percent / 100)
   no context length this field is the only way to supply one.
 - Only **OpenRouter** and the mock provider report a context length in their model
   listing today (`api/src/models/router.ts`, `fetchOpenRouterModels`). Every other
-  provider — including **Ollama** — falls through to the override-or-32000 path:
+  provider — including **Ollama** — falls through to the field-or-128000 path:
   Ollama's `list()` response carries no `context_length` (that only lives in
   `show()`'s `model_info`, which is never called), so an Ollama-backed role always
   needs an explicit override to get a larger budget.

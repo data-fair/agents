@@ -80,13 +80,13 @@ export function createModel (provider: Provider, modelId: string): LanguageModel
 export type ModelRole = 'assistant' | 'evaluator' | 'summarizer' | 'tools' | 'moderator'
 
 /**
- * Used when neither the admin nor the provider listing supplies a window.
- * Deliberately conservative: it is the case of a local or self-hosted
- * openai-compatible model that may genuinely be small.
+ * Used when neither the admin nor the provider listing supplies a window. Sized
+ * for the models actually put in the assistant seat — Claude Opus/Sonnet (200k),
+ * DeepSeek V4 Flash (1M), GLM 5.2 Flash — while staying at or below the floor of
+ * that class, so it under-states rather than over-states. A genuinely small local
+ * model needs its window set explicitly on the assistant role.
  */
-export const UNKNOWN_CONTEXT_WINDOW = 32_000
-
-const DEFAULT_COMPACTION_PERCENT = 70
+export const UNKNOWN_CONTEXT_WINDOW = 128_000
 
 /**
  * The hand-entered context window, which the schema declares on the assistant role
@@ -133,11 +133,11 @@ export function getModelConfig (settings: Settings, modelRole: ModelRole) {
 
 /**
  * Token budget above which the client compacts history. Always resolved for the
- * role whose history is actually compacted.
+ * role whose history is actually compacted. `percent` is deployment-global config
+ * (`compactionPercent`), passed in rather than read here so this module stays pure.
  */
-export function contextBudget (settings: Settings, modelRole: ModelRole): number {
+export function contextBudget (settings: Settings, modelRole: ModelRole, percent: number): number {
   const { contextWindow } = getModelConfig(settings, modelRole)
-  const percent = settings.compaction?.percent ?? DEFAULT_COMPACTION_PERCENT
   return Math.floor(contextWindow * percent / 100)
 }
 

@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import config from '#config'
 import { generateText, streamText, type LanguageModelUsage } from 'ai'
 import { type AccountKeys, reqSession, isAuthenticated } from '@data-fair/lib-express'
 import { getRawSettings, defaultQuotas } from '../settings/service.ts'
@@ -141,7 +142,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
     // called: the client compacts the main history, whichever role it just used.
     // Set before any early-return refusal path (strike cooldown, quota) below, so
     // a refused caller still learns its budget and can compact on its next turn.
-    res.setHeader('x-context-budget', String(contextBudget(settings, 'assistant')))
+    res.setHeader('x-context-budget', String(contextBudget(settings, 'assistant', config.compactionPercent)))
 
     // Strikes & the cooldown are an anti-abuse measure for untrusted callers
     // only. Moderated trusted members get individual messages blocked by the

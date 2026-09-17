@@ -121,8 +121,8 @@ test.describe('errorMessage / describeFetchError', () => {
 
 const mockModel = { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' } }
 
-function settingsWith (assistant: any, compaction?: any): any {
-  return { owner: { type: 'user', id: 'u' }, providers: [], models: { assistant }, compaction }
+function settingsWith (assistant: any): any {
+  return { owner: { type: 'user', id: 'u' }, providers: [], models: { assistant } }
 }
 
 test.describe('context window resolution', () => {
@@ -139,7 +139,7 @@ test.describe('context window resolution', () => {
   test('falls back to 32000 when nothing is known', () => {
     const s = settingsWith({ model: mockModel })
     assert.equal(getModelConfig(s, 'assistant').contextWindow, UNKNOWN_CONTEXT_WINDOW)
-    assert.equal(UNKNOWN_CONTEXT_WINDOW, 32000)
+    assert.equal(UNKNOWN_CONTEXT_WINDOW, 128000)
   })
 
   test('a zero override is ignored, not treated as a window of zero', () => {
@@ -171,17 +171,18 @@ test.describe('context window resolution', () => {
 
 test.describe('contextBudget', () => {
   test('applies the configured percent', () => {
-    const s = settingsWith({ model: { ...mockModel, contextWindow: 200000 } }, { percent: 70 })
-    assert.equal(contextBudget(s, 'assistant'), 140000)
+    const s = settingsWith({ model: { ...mockModel, contextWindow: 200000 } })
+    assert.equal(contextBudget(s, 'assistant', 70), 140000)
   })
 
-  test('defaults to 70 percent when compaction is unset', () => {
+  test('the percent is supplied by the caller, not read from settings', () => {
     const s = settingsWith({ model: { ...mockModel, contextWindow: 200000 } })
-    assert.equal(contextBudget(s, 'assistant'), 140000)
+    assert.equal(contextBudget(s, 'assistant', 50), 100000)
+    assert.equal(contextBudget(s, 'assistant', 100), 200000)
   })
 
   test('rounds down to an integer', () => {
-    const s = settingsWith({ model: { ...mockModel, contextWindow: 32001 } }, { percent: 55 })
-    assert.equal(contextBudget(s, 'assistant'), Math.floor(32001 * 0.55))
+    const s = settingsWith({ model: { ...mockModel, contextWindow: 32001 } })
+    assert.equal(contextBudget(s, 'assistant', 55), Math.floor(32001 * 0.55))
   })
 })

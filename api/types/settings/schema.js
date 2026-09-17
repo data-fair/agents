@@ -704,10 +704,10 @@ Recommendations: GPT-5.4, Claude 4.5 Sonnet, Kimi K2, Mistral Large 3, etc.`,
               // compacted, so contextBudget() is always resolved for 'assistant'.
               // Most providers do not report a window, so for them this field is the
               // only way to set one — it is not merely an override.
-              description: 'Used to size history compaction. Leave empty to use the value reported by the provider; only OpenRouter reports one, so for other providers set it here or the conservative 32000 default applies.',
+              description: 'Used to size history compaction. Leave empty to use the value reported by the provider; only OpenRouter reports one, so for other providers set it here or the 128000 default applies. Set it explicitly for small self-hosted models, which would otherwise overflow.',
               'x-i18n-description': {
-                en: 'Used to size history compaction. Leave empty to use the value reported by the provider; only OpenRouter reports one, so for other providers set it here or the conservative 32000 default applies.',
-                fr: "Utilisé pour dimensionner la compaction de l'historique. Laissez vide pour utiliser la valeur rapportée par le fournisseur ; seul OpenRouter en rapporte une, pour les autres renseignez-la ici sinon la valeur par défaut prudente de 32000 s'applique."
+                en: 'Used to size history compaction. Leave empty to use the value reported by the provider; only OpenRouter reports one, so for other providers set it here or the 128000 default applies. Set it explicitly for small self-hosted models, which would otherwise overflow.',
+                fr: "Utilisé pour dimensionner la compaction de l'historique. Laissez vide pour utiliser la valeur rapportée par le fournisseur ; seul OpenRouter en rapporte une, pour les autres renseignez-la ici sinon la valeur par défaut de 128000 s'applique. Renseignez-la explicitement pour les petits modèles auto-hébergés, qui déborderaient sinon."
               },
               minimum: 0
             },
@@ -1026,33 +1026,6 @@ Recommendations: a small/fast general-purpose model with structured (JSON) outpu
               { const: 'admin', title: 'Admin', 'x-i18n-title': { en: 'Admin', fr: 'Administrateur' } }
             ]
           }
-        }
-      }
-    },
-    compaction: {
-      type: 'object',
-      title: 'History compaction',
-      'x-i18n-title': { en: 'History compaction', fr: 'Compaction de l\'historique' },
-      layout: { if: 'parent.data.providers?.length' },
-      default: { percent: 70 },
-      required: ['percent'],
-      additionalProperties: false,
-      properties: {
-        percent: {
-          type: 'number',
-          title: 'Compact above this share of the context window (%)',
-          'x-i18n-title': {
-            en: 'Compact above this share of the context window (%)',
-            fr: 'Compacter au-delà de cette part de la fenêtre de contexte (%)'
-          },
-          description: 'Conversation history is summarized once it exceeds this percentage of the assistant model context window. Higher means rarer compaction, better prompt-cache reuse, and more context kept.',
-          'x-i18n-description': {
-            en: 'Conversation history is summarized once it exceeds this percentage of the assistant model context window. Higher means rarer compaction, better prompt-cache reuse, and more context kept.',
-            fr: "L'historique de conversation est résumé dès qu'il dépasse ce pourcentage de la fenêtre de contexte du modèle assistant. Plus la valeur est élevée, plus la compaction est rare, meilleure est la réutilisation du cache, et plus de contexte est conservé."
-          },
-          default: 70,
-          minimum: 10,
-          maximum: 100
         }
       }
     },

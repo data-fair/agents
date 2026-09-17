@@ -394,7 +394,7 @@ test.describe('Settings API', () => {
     assert.equal(res2.data.storeTraces, false)
   })
 
-  test('should persist compaction percent and per-role context window and cache prices', async () => {
+  test('should persist the assistant context window and per-role cache prices', async () => {
     const res = await admin.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
       models: {
@@ -406,34 +406,14 @@ test.describe('Settings API', () => {
           contextWindow: 128000
         }
       },
-      quotas: defaultQuotas,
-      compaction: { percent: 55 }
+      quotas: defaultQuotas
     })
     assert.equal(res.status, 200)
-    assert.equal(res.data.compaction.percent, 55)
     assert.equal(res.data.models.assistant.contextWindow, 128000)
     assert.equal(res.data.models.assistant.model.contextWindow, 200000)
     assert.equal(res.data.models.assistant.cachedInputPricePerMillion, 0.3)
 
     const getRes = await admin.get('/api/settings/user/test-standalone1')
-    assert.equal(getRes.data.compaction.percent, 55)
     assert.equal(getRes.data.models.assistant.model.contextWindow, 200000)
-  })
-
-  test('settings without compaction persist no compaction key', async () => {
-    // The compaction section is hidden until a provider exists and carries a
-    // schema default, so the server must not inject one on write: doing so would
-    // make the settings form report a spurious diff on the next load. contextBudget
-    // already falls back to the 70% default when the key is absent (see
-    // models.unit.spec.ts).
-    const res = await admin.put('/api/settings/user/test-standalone1', {
-      providers: [],
-      quotas: defaultQuotas
-    })
-    assert.equal(res.status, 200)
-    assert.equal(res.data.compaction, undefined)
-
-    const getRes = await admin.get('/api/settings/user/test-standalone1')
-    assert.equal(getRes.data.compaction, undefined)
   })
 })

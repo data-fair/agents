@@ -36,8 +36,7 @@ const settingsData = {
       }
     }
   },
-  quotas: defaultQuotas,
-  compaction: { percent: 70 }
+  quotas: defaultQuotas
 }
 
 function isChatFrameUrl (url: string): boolean {

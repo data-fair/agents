@@ -43,7 +43,8 @@ The **assistant role alone** carries a **context window** (tokens), because the
 assistant is the only role whose history is compacted. Left empty it falls back to
 whatever the model listing reported when the model was picked — only OpenRouter
 and the mock provider report a context length today; everything else, Ollama
-included, falls back to a conservative 32000-token default. See
+included, falls back to a 128000-token default sized for frontier assistant
+models. See
 [Conversation history compaction](./compaction.md) for how it feeds the budget.
 
 Each owner (user or organization) configures their own providers and model assignments. API keys are **encrypted at rest** (AES-256-CBC) and obfuscated in API responses. Model lists are fetched from provider APIs with **5-minute memoized caching**.

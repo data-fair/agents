@@ -311,8 +311,7 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
     await admin.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
       models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' }, contextWindow: 200000 } } },
-      quotas: defaultQuotas,
-      compaction: { percent: 70 }
+      quotas: defaultQuotas
     })
 
     const res = await user.post('/api/gateway/user/test-standalone1/v1/chat/completions', {
@@ -333,8 +332,7 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
       quotas: {
         ...defaultQuotas,
         global: { unlimited: false, monthlyLimit: 4 }
-      },
-      compaction: { percent: 70 }
+      }
     })
     const anonymousAx = (await import('../../support/axios.ts')).anonymousAx
     await anonymousAx.post('http://localhost:' + process.env.DEV_API_PORT + '/api/test-env/usage', {
