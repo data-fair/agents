@@ -178,6 +178,32 @@ test.describe('Host events', () => {
     expect(requests()).toBe(2)
   })
 
+  test('a keyed refresh during a wait is context, not the answer', async ({ page, goToWithAuth }) => {
+    // The wizard publishes keyed state (step, type, title). Typing in its Title field
+    // changes that state — the page catching up, not the person doing the thing the
+    // wait is for. Before the rule, the first such refresh resolved the wait ("You did:
+    // wizard: …"), the model retried, and the retry ate the full timeout: a judged run
+    // spent two thirds of itself that way. Only the transition may resolve it, with the
+    // refreshes riding along as followers.
+    await open(page, goToWithAuth)
+    await page.getByRole('button', { name: 'Note', exact: true }).click()
+    await send(page, 'wait for me')
+    await expect(page.getByTestId('chat-activity')).toContainText('Waiting for', { timeout: 15000 })
+
+    await page.getByLabel('Title').fill('Weekly groceries')
+    await page.getByRole('button', { name: 'Continue' }).click()
+    await expect(page.getByRole('button', { name: 'Create' })).toBeVisible()
+    // Two keyed refreshes have arrived (title, then step) and the wait is still armed.
+    await expect(page.getByTestId('chat-activity')).toContainText('Waiting for')
+    await expect(lastAnswer(page)).not.toContainText('You did:')
+
+    await page.getByRole('button', { name: 'Create' }).click()
+    await expect(lastAnswer(page)).toContainText('You did:', { timeout: 15000 })
+    await expect(lastAnswer(page)).toContainText('item-created')
+    // …and the state the page reached meanwhile is delivered with it, not lost.
+    await expect(lastAnswer(page)).toContainText('"title":"Weekly groceries"')
+  })
+
   test('a wait resolves with the departure when the user leaves the page', async ({ page, goToWithAuth }) => {
     await open(page, goToWithAuth)
     await reachConfirmation(page)
