@@ -97,7 +97,7 @@
                     class="mr-1 mb-1"
                     :data-testid="invocation.toolName.startsWith('subagent_') ? 'subagent-chip' : 'tool-chip'"
                   >
-                    {{ chipLabel(invocation.toolName) }}
+                    {{ chipLabel(invocation) }}
                   </v-chip>
                 </template>
                 <!-- explore_tools is an internal step (deciding which tool to use): show a
@@ -266,6 +266,9 @@ fr:
   activitySubAgentThinking: Réflexion…
   activitySubAgentTool: Exécution d'un outil…
   activitySubAgentAnalyzing: Analyse du résultat de l'outil…
+  activityWaiting: "En attente : {name}"
+  waitingChip: "En attente : {name}"
+  waitedChip: "A attendu : {name}"
 en:
   reasoning: Reasoning
   subAgentDone: Sub-agent finished.
@@ -279,6 +282,9 @@ en:
   activitySubAgentThinking: Thinking…
   activitySubAgentTool: Running a tool…
   activitySubAgentAnalyzing: Analyzing tool result…
+  activityWaiting: "Waiting for: {name}"
+  waitingChip: "Waiting for: {name}"
+  waitedChip: "Waited for: {name}"
 </i18n>
 
 <script lang="ts" setup>
@@ -289,6 +295,7 @@ import { mdiLoading, mdiArrowDown, mdiSubdirectoryArrowRight, mdiChevronDown, md
 import { streamedLength } from './auto-scroll'
 import MarkdownContent from './MarkdownContent.vue'
 import { EXPLORE_TOOL_NAME } from '~/composables/tool-exploration'
+import { WAIT_TOOL_NAME } from '~/composables/host-events'
 import type { MermaidFailure } from '~/utils/mermaid'
 import type { ChatMessage } from '~/composables/use-agent-chat'
 import { activityLabelKey, type ChatActivity } from '~/composables/agent-activity'
@@ -364,7 +371,11 @@ const activityLabel = computed(() => {
   if (!a || a.kind === 'subagent') return ''
   const label = activityLabelKey(a)
   if (!label) return ''
-  return t(label.key, label.name ? { name: subAgentTitle(label.name) } : {})
+  // label.name is a subagent_* tool name for 'analyzing' (prettify it into a title) but
+  // the model's own free-text words for 'waiting' (show verbatim, don't title-case it).
+  return t(label.key, label.name
+    ? { name: a.kind === 'waiting' ? label.name : subAgentTitle(label.name) }
+    : {})
 })
 
 const messagesContainer = ref<HTMLElement | null>(null)
@@ -467,10 +478,21 @@ const subAgentTitle = (toolName: string) => {
   return name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 
-// Chip label for the simplified tool-chip row: sub-agents use their display
-// title, plain tools use the host-provided tool title.
-const chipLabel = (toolName: string) =>
-  toolName.startsWith('subagent_') ? subAgentTitle(toolName) : props.toolTitle(toolName)
+// Chip label for the simplified tool-chip row: sub-agents use their display title,
+// plain tools the host-provided tool title, and the built-in wait shows what the
+// agent said it is waiting for.
+const chipLabel = (invocation: { toolName: string, input?: unknown, state?: string }) => {
+  if (invocation.toolName === WAIT_TOOL_NAME) {
+    // Past tense once it settles. Every other chip is a noun, so this is the only
+    // label that reads as a live instruction — and it stays in history forever. A
+    // judged run watched a person read a resolved "Waiting for: User clicks
+    // Create" as current page state, conclude the assistant had lied about
+    // creating their list, and spend four turns hunting a button that was gone.
+    const name = (invocation.input as any)?.expecting ?? ''
+    return invocation.state === 'done' ? t('waitedChip', { name }) : t('waitingChip', { name })
+  }
+  return invocation.toolName.startsWith('subagent_') ? subAgentTitle(invocation.toolName) : props.toolTitle(invocation.toolName)
+}
 
 // In-panel label for the sub-agent running under `toolCallId`. Reads the
 // per-call activity map so concurrent panels each show their own live phase.

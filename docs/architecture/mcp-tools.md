@@ -356,6 +356,16 @@ By default every aggregated tool is sent on every request. An opt-in **explorati
 
 ---
 
+## Beyond tools: host events
+
+Tools are how the model acts on the page; host events are how the page tells the model
+what happened and what is true now, on the same tab BroadcastChannel but outside MCP.
+Events caused by a tool call are appended to that tool's result (after the settle barrier
+above), so the model sees the consequence of its action where it happened. See
+[Host events](./host-events.md).
+
+---
+
 ## Execution context & safety
 
 Tool `execute()` runs **client-side only**, inside the user's own browser session and with exactly the user's permissions — the gateway never runs tools (it forwards schema-only definitions and sees only tool-calls/results in the message history). A tool therefore can do nothing the user could not already do: a prompt injection or a compromised tool descriptor cannot escalate privileges or reach resources the session isn't entitled to. The blast radius of any injection is bounded to the same restricted tool surface already available to the user.

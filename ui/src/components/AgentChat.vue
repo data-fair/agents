@@ -32,6 +32,7 @@
 
       <agent-chat-input
         :is-streaming="isStreaming"
+        :waiting-for-user="isWaitingForUser"
         @send="handleSend"
         @abort="handleAbort"
       />
@@ -124,6 +125,7 @@ en:
 </i18n>
 
 <script lang="ts" setup>
+import { createToolTitleMemo } from '../composables/tool-titles'
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSession } from '@data-fair/lib-vue/session.js'
@@ -235,6 +237,7 @@ const mermaidAutoFixBudget = ref(MERMAID_AUTO_FIX_BUDGET)
 const messages = computed(() => chat.messages.value)
 const isStreaming = computed(() => chat.status.value === 'streaming')
 const activity = computed(() => chat.activity.value)
+const isWaitingForUser = computed(() => chat.isWaitingForUser.value)
 const subAgentActivities = computed(() => chat.subAgentActivities.value)
 const chatError = computed(() => chat.error.value)
 
@@ -403,6 +406,13 @@ watch(() => chat.status.value, (status) => {
   }
 })
 
+// A declared wait is the user's turn even though the stream is still open: tell the
+// host so its FAB shows the same "your move" colour as a finished turn.
+watch(() => chat.activity.value?.kind === 'waiting', (waiting) => {
+  if (chat.status.value !== 'streaming') return
+  sendDFrameMessage({ type: 'agent-status', status: waiting ? 'waiting-user' : 'working' })
+})
+
 watch(() => chat.toolsVersion.value, () => {
   sendDFrameMessage({ type: 'tools-changed' })
 })
@@ -417,13 +427,16 @@ watch(() => chat.messages.value.length, () => {
 
 const debugToolsPartition = computed(() => chat.resolvedPartition.value)
 
-const toolTitle = (toolName: string) => {
-  const t = chat.tools.value[toolName] as any
-  return t?.title || toolName
-}
+// Memoised: a page's tools are unregistered when it unmounts, and without this
+// a chip already in the scrollback would turn back into its raw snake_case name,
+// rewriting what the person read minutes ago.
+const toolTitle = createToolTitleMemo((toolName: string) => (chat.tools.value[toolName] as any)?.title)
 
 const handleSend = (userMessage: string) => {
-  if (isStreaming.value) return
+  // A turn paused on a declared wait is interruptible: sendMessage settles the
+  // wait and takes the turn back. Any other streaming turn is genuinely working
+  // and still refuses input.
+  if (isStreaming.value && !isWaitingForUser.value) return
   mermaidAutoFixBudget.value = MERMAID_AUTO_FIX_BUDGET
   chat.sendMessage(userMessage)
 }

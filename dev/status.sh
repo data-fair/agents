@@ -65,6 +65,9 @@ echo ""
 echo -e "${BOLD}Dev processes:${RESET}"
 check_http "dev-api" "$NGINX/agents/api/ping"
 check_http "dev-ui" "$NGINX/agents"
+# Optional: only needed to run the workspace on Claude Code subscription models
+# (npm run dev-bridge). DOWN here is normal unless you configured that provider.
+check_http "claude-bridge" "http://localhost:${BRIDGE_PORT:-3194}/_bridge/status"
 echo ""
 
 # --- Docker compose services (probed through nginx where possible) ---

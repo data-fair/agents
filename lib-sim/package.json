@@ -1,0 +1,44 @@
+{
+  "name": "@data-fair/lib-agents-sim",
+  "version": "0.5.0",
+  "description": "Primitives for judged browser simulations of the data-fair agents chat, plus a Claude Code bridge exposing the Agent SDK as an OpenAI-compatible provider.",
+  "main": "index.js",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "df-agents-bridge": "bridge/index.js",
+    "df-agents-sim-init": "bin/init.js"
+  },
+  "files": [
+    "**/*.js",
+    "**/*.d.ts",
+    "templates/**"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "tsc"
+  },
+  "license": "MIT",
+  "peerDependencies": {
+    "@playwright/test": "^1.58.0",
+    "@anthropic-ai/claude-agent-sdk": "^0.3.269",
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@playwright/test": {
+      "optional": true
+    },
+    "@anthropic-ai/claude-agent-sdk": {
+      "optional": true
+    },
+    "@modelcontextprotocol/sdk": {
+      "optional": true
+    }
+  }
+}

@@ -82,16 +82,54 @@ function getLastUserMessage (options: { prompt: string | Array<any> }): string {
   return ''
 }
 
+/** Body of a sentinel block (`<tag>\n…\n</tag>`) inside a message, or undefined. */
+function sentinelBody (text: string, tag: string): string | undefined {
+  return new RegExp(`<${tag}>\\n([\\s\\S]*?)\\n</${tag}>`).exec(text)?.[1]
+}
+
+/** Text of the tool result that ended the prompt, when the last message is a tool message. */
+function lastToolResultText (prompt: string | Array<any>): string | undefined {
+  if (!Array.isArray(prompt) || !prompt.length) return undefined
+  const last = prompt[prompt.length - 1]
+  if (last.role !== 'tool' || !Array.isArray(last.content)) return undefined
+  const part = last.content.find((c: any) => c.type === 'tool-result')
+  const output = part?.output
+  if (!output) return undefined
+  return typeof output.value === 'string' ? output.value : JSON.stringify(output.value)
+}
+
+/** The visible prompt ends the user message; hidden context (if any) precedes it. */
+function endsWithCommand (lastMessage: string, command: string): boolean {
+  return new RegExp(`(^|\\n)${command}\\s*$`, 'i').test(lastMessage.trim())
+}
+
+/**
+ * The directive the test actually typed, without anything the chat prepended.
+ *
+ * A page that publishes host state puts a `<host-state>` block ahead of the
+ * visible message on the activation turn, so a directive anchored on the whole
+ * message stops matching the moment its dev page starts publishing — which is
+ * how `hello` came to use endsWithCommand. Adding one `useAgentState` call to
+ * the sub-agent dev page broke its chaining test exactly that way.
+ */
+export function commandLine (lastMessage: string): string {
+  const lines = lastMessage.trim().split('\n').map(l => l.trim()).filter(Boolean)
+  return lines[lines.length - 1] ?? ''
+}
+
 function processMockPrompt (lastMessage: string, prompt: string | Array<any>): MockPromptResult {
   if (!lastMessage) {
     return { type: 'text', text: 'what do you mean ?' }
   }
 
   if (lastMessage.toLowerCase() === 'help' || lastMessage === '?') {
-    return { type: 'text', text: 'I respond to:\n- "hello" → returns "world"\n- "call tool <name> <args>" → triggers a tool call\n- Any other text → "what do you mean?"' }
+    return { type: 'text', text: 'I respond to:\n- "hello" → returns "world"\n- "call tool <name> <args>" → triggers a tool call\n- Any other text → "what do you mean?"\n- "where am i" / "what happened" → echoes host state/events\n- "select note", "wait for me", "wait briefly" → host-events tool seams' }
   }
 
-  if (lastMessage.toLowerCase() === 'hello') {
+  // endsWithCommand (not exact equality): an activation turn on a page that publishes
+  // host state (tests/features/host-events) prepends a hidden-context block ahead of
+  // the visible "hello" — same reason the host-events seams below use endsWithCommand.
+  if (endsWithCommand(lastMessage, 'hello')) {
     return { type: 'text', text: 'world' }
   }
 
@@ -109,6 +147,34 @@ function processMockPrompt (lastMessage: string, prompt: string | Array<any>): M
     return { type: 'text', text: 'Here is the chart:\n\n```mermaid\nthisisnotavaliddiagram\n```' }
   }
 
+  // Host-events seams (tests/features/host-events). Answers echo the sentinel BODIES,
+  // not the tags, so the assertion text survives markdown rendering.
+  if (endsWithCommand(lastMessage, 'where am i')) {
+    const state = sentinelBody(lastMessage, 'host-state')
+    const events = sentinelBody(lastMessage, 'host-events')
+    return { type: 'text', text: state ? `state:\n${state}` : events ? `events:\n${events}` : 'nothing' }
+  }
+  if (endsWithCommand(lastMessage, 'what happened')) {
+    const events = sentinelBody(lastMessage, 'host-events')
+    return { type: 'text', text: events ? `events:\n${events}` : 'nothing' }
+  }
+  const toolResult = lastToolResultText(prompt)
+  if (toolResult !== undefined && endsWithCommand(lastMessage, 'select note')) {
+    return { type: 'text', text: `Tool said: ${toolResult}` }
+  }
+  if (toolResult !== undefined && (endsWithCommand(lastMessage, 'wait for me') || endsWithCommand(lastMessage, 'wait briefly'))) {
+    return { type: 'text', text: `You did: ${toolResult}` }
+  }
+  if (endsWithCommand(lastMessage, 'select note')) {
+    return { type: 'tool-call', toolName: 'select_type', toolArgs: JSON.stringify({ type: 'note' }) }
+  }
+  if (endsWithCommand(lastMessage, 'wait for me')) {
+    return { type: 'tool-call', toolName: 'wait_for_user_action', toolArgs: JSON.stringify({ expecting: 'you to click Create' }) }
+  }
+  if (endsWithCommand(lastMessage, 'wait briefly')) {
+    return { type: 'tool-call', toolName: 'wait_for_user_action', toolArgs: JSON.stringify({ expecting: 'you to click Create', timeoutSeconds: 1 }) }
+  }
+
   // If the most recent message in the prompt is a tool result, we already called a tool
   // in this step — respond with text instead of calling another tool
   if (Array.isArray(prompt) && prompt.length > 0 && prompt[prompt.length - 1].role === 'tool') {
@@ -116,7 +182,7 @@ function processMockPrompt (lastMessage: string, prompt: string | Array<any>): M
   }
 
   // "call tools <name> <name> ..." → several parallel tool calls in one step
-  const callToolsMatch = lastMessage.match(/^call tools (.+)$/i)
+  const callToolsMatch = commandLine(lastMessage).match(/^call tools (.+)$/i)
   if (callToolsMatch) {
     return {
       type: 'tool-call',
@@ -127,7 +193,7 @@ function processMockPrompt (lastMessage: string, prompt: string | Array<any>): M
   // "parallel subagents" → delegate to two DIFFERENT sub-agents in one step, each with a
   // task its own reserved tools handle, to exercise concurrent sub-agent panels. The two
   // tasks diverge so the rendered panels are distinguishable (no-clobber regression).
-  if (/^parallel subagents$/i.test(lastMessage)) {
+  if (/^parallel subagents$/i.test(commandLine(lastMessage))) {
     return {
       type: 'tool-call',
       toolCalls: [
@@ -138,7 +204,7 @@ function processMockPrompt (lastMessage: string, prompt: string | Array<any>): M
     }
   }
 
-  const callToolMatch = lastMessage.match(/^call tool (\w+)(.*)$/i)
+  const callToolMatch = commandLine(lastMessage).match(/^call tool (\w+)(.*)$/i)
   if (callToolMatch) {
     return {
       type: 'tool-call',
@@ -179,7 +245,7 @@ function processMockToolsPrompt (lastMessage: string, prompt: string | Array<any
     return { type: 'text', text: 'world' }
   }
 
-  const callToolMatch = lastMessage.match(/^call tool (\w+)(.*)$/i)
+  const callToolMatch = commandLine(lastMessage).match(/^call tool (\w+)(.*)$/i)
   if (callToolMatch) {
     return {
       type: 'tool-call',
