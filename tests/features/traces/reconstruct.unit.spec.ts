@@ -267,6 +267,28 @@ test.describe('reconstructTrace (unit)', () => {
     assert.deepEqual(trace.summary.flags, { toolExploration: true, subAgents: false, mermaid: true })
   })
 
+  test('summary totals cached input tokens so cache effectiveness is visible', () => {
+    // Every physical request already carries cacheReadTokens end to end; without
+    // summing it here the top-level trace bar cannot answer "is caching working
+    // on this conversation?", which is the whole point of pricing cache reads
+    // separately.
+    const reqs = [
+      req({ usage: { inputTokens: 100, outputTokens: 10, cacheReadTokens: 80 }, timing: { durationMs: 120 } }),
+      req({ createdAt: '2026-06-08T00:00:01.000Z', usage: { inputTokens: 50, outputTokens: 5, cacheReadTokens: 20 }, timing: { durationMs: 80 } })
+    ]
+    const trace = reconstructTrace(reqs as any)
+    assert.equal(trace.summary.inputTokens, 150)
+    assert.equal(trace.summary.cachedInputTokens, 100)
+  })
+
+  test('summary omits cached input tokens entirely when no request reports any', () => {
+    // Providers that do not report a cache split (Scaleway may be one) must not
+    // get a misleading "0 cached" in the bar — absent means unknown, not zero.
+    const reqs = [req({ usage: { inputTokens: 100, outputTokens: 10 }, timing: { durationMs: 120 } })]
+    const trace = reconstructTrace(reqs as any)
+    assert.equal(trace.summary.cachedInputTokens, undefined)
+  })
+
   test('summary flags fall back to defaults when no request carries flags', () => {
     const trace = reconstructTrace([req({})] as any)
     assert.deepEqual(trace.summary.flags, { toolExploration: false, subAgents: true, mermaid: false, simpleSubAgents: true, showReasoning: false })
