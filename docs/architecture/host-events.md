@@ -205,9 +205,12 @@ assistant that waits, times out and waits again next turn blocks for the full ti
 every time. A judged data-fair run spent 480s of a 567s run in four such timeouts,
 writing a new "I'm still waiting" line after each one — while the timeout result was
 already telling it to end its reply and let the user act. The store counts events
-(`eventSeq`); while that count has not moved since the timeout, the person has done
-nothing at all and blocking again can only run out another clock, so the tool returns
-immediately instead. Any event clears it.
+(`eventSeq`); while that count has not moved since the timeout, the person has not acted
+and blocking again can only run out another clock, so the tool returns immediately
+instead. It counts by the same rule `resolvesWait` uses, and for the same reason: a
+refresh that clears the guard re-arms a full timeout on someone who is still away, and
+whether that refresh lands just before or just after the timeout is a matter of network
+latency. Only something the person did clears it.
 
 Only a wait that genuinely BLOCKED spends the allowance. One answered straight from the
 pending buffer never waited for the user at all — routinely a keyed state re-emission the

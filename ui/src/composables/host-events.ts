@@ -74,14 +74,21 @@ export class HostEventStore {
   /** Whether the most recent `waitForEvent` had to block, rather than being answered from the buffer. */
   lastWaitBlocked = false
   /**
-   * Advances on every event the host reports. A waiter compares it against the
-   * value it saw when it last timed out, to tell "has the person done anything
-   * at all since?" without holding on to the events themselves.
+   * Advances on every event that could have settled a wait — the same rule, by
+   * kind, that `resolvesWait` applies. A waiter compares it against the value it
+   * saw when it last timed out, to tell "has the person acted since?" without
+   * holding on to the events themselves.
+   *
+   * Counting refreshes here would undo the rule at the one boundary the guard
+   * cares about: a late `{ready:true}` landing after a timeout would say the
+   * person had acted, re-arm the wait, and spend another full timeout on someone
+   * who is still away. Timing cannot tell that refresh from a click — it lands
+   * before or after the timeout with the network — so this counts by kind too.
    */
   eventSeq = 0
 
   push (event: AgentEvent): void {
-    this.eventSeq++
+    if (resolvesWait(event)) this.eventSeq++
     if (event.key) {
       this.state.set(event.key, event)
       // Map.set keeps an existing key's position, so the first entry is always the
@@ -276,6 +283,9 @@ export function createWaitTool (opts: {
    * new turn hands out a fresh allowance. A judged run spent 480s of 567s in
    * four such timeouts, writing a fresh "I'm still waiting" line after each one
    * while the timeout result was already telling it to end its reply.
+   *
+   * It counts only what could have settled a wait, so a refresh arriving between
+   * two turns cannot quietly re-arm the blocking.
    */
   let timedOutAtSeq: number | null = null
   return tool({
@@ -302,7 +312,7 @@ export function createWaitTool (opts: {
           'the application reports their next action when the conversation continues.'
       }
       if (turn !== undefined && timedOutAtSeq !== null && store.eventSeq === timedOutAtSeq) {
-        return 'Your last wait timed out and the application has reported nothing since, so the user has not acted yet. ' +
+        return 'Your last wait timed out and the user has not acted since, so waiting again would only run out another clock. ' +
           'End your reply now and let them act; you will be told what they did when the conversation continues.'
       }
       opts.onWaiting?.(String(args?.expecting ?? ''))

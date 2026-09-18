@@ -453,7 +453,7 @@ test.describe('a timed-out wait does not block again until something happens', (
     const started = Date.now()
     const out = await exec(t, { expecting: 'the user clicks Create', timeoutSeconds: 30 }) as string
     assert.ok(Date.now() - started < 1000, 'must not block a second time')
-    assert.match(out, /nothing|still|no action/i)
+    assert.match(out, /not acted|nothing|no action/i)
   })
 
   test('waits again once the person has actually done something', async () => {
@@ -470,6 +470,27 @@ test.describe('a timed-out wait does not block again until something happens', (
     const second = exec(t, { expecting: 'the next step', timeoutSeconds: 30 })
     store.push(ev('navigated', '/detail', 'location'))
     assert.match(await second as string, /navigated/)
+  })
+
+  test('a keyed refresh between turns does not re-arm the blocking', async () => {
+    // The guard counts by kind, like the wait itself. A late async refresh with
+    // nobody involved — advance_to_confirmation flipping ready:false to true when
+    // a title-conflict check comes back — would otherwise say the person had acted
+    // and buy the next wait a full timeout on someone who is still away. Whether
+    // that refresh lands just before or just after the timeout is network latency,
+    // so it cannot be what decides.
+    const store = new HostEventStore()
+    let turn = 1
+    const t = createWaitTool({ store, turnId: () => `turn-${turn}` })
+    await exec(t, { expecting: 'the user clicks Create', timeoutSeconds: 1 })
+
+    store.push(ev('wizard', '{"ready":true}', 'wizard'))
+
+    turn = 2
+    const started = Date.now()
+    const out = await exec(t, { expecting: 'the user clicks Create', timeoutSeconds: 30 }) as string
+    assert.ok(Date.now() - started < 1000, 'a refresh is not the person acting')
+    assert.match(out, /not acted/i)
   })
 
   test('the very first wait of a conversation still blocks', async () => {
