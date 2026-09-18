@@ -35,10 +35,9 @@
               class="d-flex justify-end"
             >
               <v-card
-                class="pa-3 text-body-medium rounded-xl"
-                :class="{ 'bg-surface': !isActionPrompt(message) }"
-                color="secondary"
-                :variant="isActionPrompt(message) ? 'flat' : 'outlined'"
+                class="px-3 py-2 text-body-medium agent-chat__user-bubble"
+                :color="isActionPrompt(message) ? 'accent' : 'secondary'"
+                variant="flat"
               >
                 {{ message.content }}
               </v-card>
@@ -98,7 +97,7 @@
                     class="mr-1 mb-1"
                     :data-testid="invocation.toolName.startsWith('subagent_') ? 'subagent-chip' : 'tool-chip'"
                   >
-                    {{ chipLabel(invocation.toolName) }}
+                    {{ chipLabel(invocation) }}
                   </v-chip>
                 </template>
                 <!-- explore_tools is an internal step (deciding which tool to use): show a
@@ -267,6 +266,9 @@ fr:
   activitySubAgentThinking: Réflexion…
   activitySubAgentTool: Exécution d'un outil…
   activitySubAgentAnalyzing: Analyse du résultat de l'outil…
+  activityWaiting: "En attente : {name}"
+  waitingChip: "En attente : {name}"
+  waitedChip: "A attendu : {name}"
 en:
   reasoning: Reasoning
   subAgentDone: Sub-agent finished.
@@ -280,6 +282,9 @@ en:
   activitySubAgentThinking: Thinking…
   activitySubAgentTool: Running a tool…
   activitySubAgentAnalyzing: Analyzing tool result…
+  activityWaiting: "Waiting for: {name}"
+  waitingChip: "Waiting for: {name}"
+  waitedChip: "Waited for: {name}"
 </i18n>
 
 <script lang="ts" setup>
@@ -290,6 +295,7 @@ import { mdiLoading, mdiArrowDown, mdiSubdirectoryArrowRight, mdiChevronDown, md
 import { streamedLength } from './auto-scroll'
 import MarkdownContent from './MarkdownContent.vue'
 import { EXPLORE_TOOL_NAME } from '~/composables/tool-exploration'
+import { WAIT_TOOL_NAME } from '~/composables/host-events'
 import type { MermaidFailure } from '~/utils/mermaid'
 import type { ChatMessage } from '~/composables/use-agent-chat'
 import { activityLabelKey, type ChatActivity } from '~/composables/agent-activity'
@@ -300,6 +306,9 @@ const emit = defineEmits<{
   // Forwarded only for top-level assistant messages, carrying the message index so the
   // parent can confirm it is the latest before firing a bounded automatic fix.
   'mermaid-error': [payload: { index: number, failures: MermaidFailure[] }]
+  // True once the transcript is scrolled down from the very top, so the header can
+  // raise its elevation (mirrors v-app-bar's scroll-behavior="elevate").
+  'update:scrolled': [scrolled: boolean]
 }>()
 
 const props = withDefaults(defineProps<{
@@ -362,7 +371,11 @@ const activityLabel = computed(() => {
   if (!a || a.kind === 'subagent') return ''
   const label = activityLabelKey(a)
   if (!label) return ''
-  return t(label.key, label.name ? { name: subAgentTitle(label.name) } : {})
+  // label.name is a subagent_* tool name for 'analyzing' (prettify it into a title) but
+  // the model's own free-text words for 'waiting' (show verbatim, don't title-case it).
+  return t(label.key, label.name
+    ? { name: a.kind === 'waiting' ? label.name : subAgentTitle(label.name) }
+    : {})
 })
 
 const messagesContainer = ref<HTMLElement | null>(null)
@@ -394,9 +407,17 @@ const { following } = useAutoScrollBottom(
 // observer `atBottom` would stay stale-false and show the button with nothing to
 // scroll.
 const atBottom = ref(true)
+// Tracked alongside atBottom (same scroll/resize/growth triggers) so the header can
+// elevate once the transcript is no longer pinned to the very top.
+const scrolledFromTop = ref(false)
 const updateAtBottom = () => {
   const el = messagesContainer.value
   atBottom.value = !el || el.scrollHeight - el.scrollTop - el.clientHeight <= BOTTOM_THRESHOLD
+  const scrolled = !!el && el.scrollTop > 4
+  if (scrolled !== scrolledFromTop.value) {
+    scrolledFromTop.value = scrolled
+    emit('update:scrolled', scrolled)
+  }
 }
 watch(() => streamedLength(props.messages), updateAtBottom, { flush: 'post' })
 
@@ -457,10 +478,21 @@ const subAgentTitle = (toolName: string) => {
   return name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 
-// Chip label for the simplified tool-chip row: sub-agents use their display
-// title, plain tools use the host-provided tool title.
-const chipLabel = (toolName: string) =>
-  toolName.startsWith('subagent_') ? subAgentTitle(toolName) : props.toolTitle(toolName)
+// Chip label for the simplified tool-chip row: sub-agents use their display title,
+// plain tools the host-provided tool title, and the built-in wait shows what the
+// agent said it is waiting for.
+const chipLabel = (invocation: { toolName: string, input?: unknown, state?: string }) => {
+  if (invocation.toolName === WAIT_TOOL_NAME) {
+    // Past tense once it settles. Every other chip is a noun, so this is the only
+    // label that reads as a live instruction — and it stays in history forever. A
+    // judged run watched a person read a resolved "Waiting for: User clicks
+    // Create" as current page state, conclude the assistant had lied about
+    // creating their list, and spend four turns hunting a button that was gone.
+    const name = (invocation.input as any)?.expecting ?? ''
+    return invocation.state === 'done' ? t('waitedChip', { name }) : t('waitingChip', { name })
+  }
+  return invocation.toolName.startsWith('subagent_') ? subAgentTitle(invocation.toolName) : props.toolTitle(invocation.toolName)
+}
 
 // In-panel label for the sub-agent running under `toolCallId`. Reads the
 // per-call activity map so concurrent panels each show their own live phase.
@@ -510,6 +542,16 @@ function onContentClick (e: MouseEvent) {
 
 .agent-chat-message .assistant-content {
   word-break: break-word;
+}
+
+/* User message bubble: strongly rounded, with the corner nearest the sender
+   (bottom-right in LTR) softened for the classic "tail" asymmetry. Constrained
+   width so long messages don't span the whole column, and no border. */
+.agent-chat-message .agent-chat__user-bubble {
+  border-radius: 18px;
+  border-end-end-radius: 4px;
+  max-width: 80%;
+  border: none;
 }
 
 /* Reasoning panel: muted, monospace-ish, preserves the model's line breaks. */

@@ -48,9 +48,13 @@ const router = useRouter()
 
 const selectedOwner = ref<Owner | null>(null)
 
+// this component is mounted on several routes, so route.params is a union of
+// their param shapes; narrow it once rather than naming a single route
+const routeParams = computed(() => route.params as { type?: string, id?: string })
+
 const syncFromRoute = () => {
-  const type = route.params.type as string | undefined
-  const id = route.params.id as string | undefined
+  const type = routeParams.value.type
+  const id = routeParams.value.id
   if (type && id) {
     if (!selectedOwner.value || selectedOwner.value.type !== type || selectedOwner.value.id !== id) {
       selectedOwner.value = { type, id, name: id }
@@ -60,7 +64,7 @@ const syncFromRoute = () => {
   }
 }
 syncFromRoute()
-watch(() => [route.params.type, route.params.id], syncFromRoute)
+watch(() => [routeParams.value.type, routeParams.value.id], syncFromRoute)
 
 const search = ref('')
 const query = () => ({ type: 'organization', q: search.value, size: 20 })

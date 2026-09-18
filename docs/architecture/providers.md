@@ -42,3 +42,17 @@ Each owner (user or organization) may add its own providers and models on top of
 
 `GET /api/models/:type/:id` (`api/src/models/router.ts`) lists the *raw* models each of the org's own `settings.providers` actually offers upstream (used by the superadmin form's model-picker when adding an entry to `settings.models`) — it only queries an org's own providers, not the global `PROVIDERS`. Results are memoized for **5 minutes**, keyed by `owner:updatedAt` so a settings change busts the cache.
 
+Each catalog entry may carry a **context window** (tokens). It sizes history
+compaction, which only ever applies to the assistant seat, but it describes the
+model rather than the role, so any entry may set it. Left empty it falls back to
+whatever the model listing reported when the model was picked — only OpenRouter
+and the mock provider report a context length today; everything else, Ollama
+included, falls back to a 128000-token default sized for frontier assistant
+models. See [Conversation history compaction](./compaction.md) for how it feeds
+the budget.
+
+Credits are charged on **total** input tokens, cache reads included: there is no
+cache-read discount and no cache-write tariff in the formula. The multiplier is
+set per model by whoever adds it to the catalog, so a provider's cache pricing is
+folded into that one number rather than tracked per token class.
+

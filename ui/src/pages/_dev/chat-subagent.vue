@@ -119,7 +119,7 @@ en:
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAgentTool, useAgentSubAgent, useFrameServer } from '@data-fair/lib-vue-agents'
+import { useAgentTool, useAgentSubAgent, useFrameServer, useAgentState } from '@data-fair/lib-vue-agents'
 import AgentChat from '~/components/AgentChat.vue'
 import { useSessionAuthenticated } from '@data-fair/lib-vue/session.js'
 
@@ -132,19 +132,47 @@ useFrameServer('self')
 
 onMounted(() => {
   // Tool reserved for the sub-agent
+  // The dataset this page is showing, published as state rather than left for the
+  // agent to guess. A judged run had the worker invent four dataset names, then
+  // refuse to guess at all and ask the caller for one — a name nothing on the page
+  // could have told it. Retention puts this in the activation snapshot, so the
+  // agent is told what it is looking at before its first tool call.
+  const DEMO_DATASET = { id: 'air-quality', slug: 'air-quality', title: 'Air quality measurements' }
+
+  // Measurements are dated relative to now. Hardcoded 2024 dates aged into a
+  // guaranteed derailment: a judged run had the persona — an officer needing a
+  // figure for a meeting that afternoon — quite correctly refuse two-year-old
+  // readings, and six of its seven turns went to arguing about freshness
+  // instead of finding and displaying the worst station.
+  const measuredAt = (hoursAgo: number) => new Date(Date.now() - hoursAgo * 3600_000).toISOString().slice(0, 16)
+
+  // The one table every tool answers from, so the fixture cannot contradict itself.
+  const ROWS = [
+    { date: measuredAt(3), station: 'ST-001', pollutant: 'PM2.5', value: 14.2, quality: 'Good' },
+    { date: measuredAt(3), station: 'ST-002', pollutant: 'PM2.5', value: 22.1, quality: 'Medium' },
+    { date: measuredAt(3), station: 'ST-003', pollutant: 'PM2.5', value: 9.1, quality: 'Good' },
+    { date: measuredAt(3), station: 'ST-004', pollutant: 'PM2.5', value: 15.4, quality: 'Medium' },
+    { date: measuredAt(2), station: 'ST-001', pollutant: 'PM2.5', value: 10.4, quality: 'Good' },
+    { date: measuredAt(2), station: 'ST-002', pollutant: 'PM2.5', value: 19.8, quality: 'Medium' },
+    { date: measuredAt(2), station: 'ST-001', pollutant: 'NO2', value: 35.8, quality: 'Medium' },
+    { date: measuredAt(2), station: 'ST-003', pollutant: 'NO2', value: 28.1, quality: 'Good' }
+  ]
+
+  useAgentState('dataset', () => DEMO_DATASET)
+
   useAgentTool({
     name: 'get_schema',
     description: 'Returns the schema of the demo dataset with column names and types',
     inputSchema: {
       type: 'object',
       properties: {
-        dataset: { type: 'string', description: 'Name of the dataset' }
+        dataset: { type: 'string', description: 'Dataset id, as reported in the page state' }
       },
       required: ['dataset']
     },
-    execute: (args: { dataset: string }) => {
+    execute: (args: { dataset?: string }) => {
       return {
-        dataset: args.dataset || 'air_quality_2024',
+        dataset: args.dataset || DEMO_DATASET.id,
         columns: [
           { name: 'date', type: 'datetime', description: 'Measurement date and time' },
           { name: 'station', type: 'string', description: 'Station identifier' },
@@ -163,34 +191,44 @@ onMounted(() => {
     inputSchema: {
       type: 'object',
       properties: {
-        dataset: { type: 'string', description: 'Name of the dataset' },
+        dataset: { type: 'string', description: 'Dataset id, as reported in the page state' },
         filter: { type: 'string', description: 'Filter expression' },
         aggregation: { type: 'string', description: 'Aggregation type: avg, sum, count, min, max' },
         groupBy: { type: 'string', description: 'Column to group by' }
       },
       required: ['dataset']
     },
-    execute: (args: { dataset: string, aggregation?: string, groupBy?: string }) => {
-      // Return mock data
-      if (args.aggregation === 'avg' && args.groupBy === 'station') {
-        return {
-          results: [
-            { station: 'ST-001', avg_value: 12.3 },
-            { station: 'ST-002', avg_value: 18.7 },
-            { station: 'ST-003', avg_value: 9.1 },
-            { station: 'ST-004', avg_value: 15.4 }
-          ],
-          count: 4
+    execute: (args: { dataset?: string, filter?: string, aggregation?: string, groupBy?: string }) => {
+      // One coherent table, actually queried. The mock used to answer every
+      // argument set with the same three raw rows EXCEPT a hard-coded
+      // avg-by-station branch reporting four stations, so the fixture said both
+      // "two stations" and "four stations". A judged run had the worker make a
+      // confident six-call "definitively only 2 stations" claim the page's own
+      // data contradicted — the case could not tell a worker that verified
+      // something from one that guessed, which is the only thing it exists to
+      // test.
+      let rows = ROWS
+      const filter = args.filter ?? ''
+      const pollutant = /pollutant\s*=\s*'([^']+)'/.exec(filter)?.[1]
+      if (pollutant) rows = rows.filter(r => r.pollutant === pollutant)
+      const station = /station\s*=\s*'([^']+)'/.exec(filter)?.[1]
+      if (station) rows = rows.filter(r => r.station === station)
+
+      if (args.groupBy === 'station' && args.aggregation) {
+        const by = new Map<string, number[]>()
+        for (const r of rows) by.set(r.station, [...(by.get(r.station) ?? []), r.value])
+        const reduce = (vs: number[]) => {
+          if (args.aggregation === 'avg') return Math.round((vs.reduce((a, b) => a + b, 0) / vs.length) * 10) / 10
+          if (args.aggregation === 'max') return Math.max(...vs)
+          if (args.aggregation === 'min') return Math.min(...vs)
+          if (args.aggregation === 'sum') return Math.round(vs.reduce((a, b) => a + b, 0) * 10) / 10
+          return vs.length
         }
+        const results = [...by.entries()].map(([st, vs]) => ({ station: st, [`${args.aggregation}_value`]: reduce(vs) }))
+        return { results, count: results.length }
       }
-      return {
-        results: [
-          { date: '2024-01-15T08:00', station: 'ST-001', pollutant: 'PM2.5', value: 14.2, quality: 'Good' },
-          { date: '2024-01-15T08:00', station: 'ST-002', pollutant: 'PM2.5', value: 22.1, quality: 'Medium' },
-          { date: '2024-01-15T09:00', station: 'ST-001', pollutant: 'NO2', value: 35.8, quality: 'Medium' }
-        ],
-        count: 3
-      }
+      if (args.aggregation === 'count') return { results: [{ count: rows.length }], count: 1 }
+      return { results: rows, count: rows.length }
     }
   } as any)
 
@@ -226,12 +264,12 @@ onMounted(() => {
     inputSchema: {
       type: 'object',
       properties: {
-        dataset: { type: 'string', description: 'Name of the dataset' }
+        dataset: { type: 'string', description: 'Dataset id, as reported in the page state' }
       },
       required: ['dataset']
     },
-    execute: (args: { dataset: string }) => {
-      return { summary: `Air quality measurements for ${args.dataset || 'air_quality_2024'}` }
+    execute: (args: { dataset?: string }) => {
+      return { summary: `Air quality measurements for ${args.dataset || DEMO_DATASET.id}` }
     }
   } as any)
 

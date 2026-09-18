@@ -187,12 +187,25 @@ const aiTool = tool({
 })
 ```
 
-`formatMcpToolResult` keeps only the text `content` parts (and prefixes `isError`
-results) — `structuredContent` is intentionally dropped because the
+`formatMcpToolResult` keeps the text and image `content` parts (and prefixes
+`isError` results) — `structuredContent` is intentionally dropped because the
 OpenAI-compatible wire protocol to the gateway carries tool output as a single
-text string with no structured channel. Because that payload is text-only,
-output-schema validation is bypassed (see above) so it cannot reject a call over
-a value that is never consumed.
+text string with no structured channel. Since `structuredContent` is never
+consumed, output-schema validation is bypassed (see above) so it cannot reject a
+call over a value that is thrown away.
+
+Text-only results stay a plain string. A result carrying MCP `image` parts
+becomes a **media envelope** (`{_agentsMediaResult: true, text?, media: [{data,
+mediaType}]}`): the AI SDK serializes that object as JSON into the same wire
+string, and the gateway (`convertOpenAIMessages`) rebuilds real image parts from
+it. Providers with a native media channel in their tool-result format
+(anthropic, openai via the Responses API, google) receive the images in the tool
+result itself; for text-only tool-result channels (mistral, and the
+chat-completions paths: scaleway, ollama, openrouter, openai-compatible in
+"compatible" mode) the gateway statelessly rewrites the result to a text stub
+and injects the images as a user message after the tool-message run. The role
+model consuming such results must be vision-capable. Compaction prompts and
+stored traces redact the base64 payloads to size placeholders.
 
 Tool annotations (like `title`) are preserved on the wrapper for UI display.
 
@@ -225,13 +238,84 @@ flowchart LR
 
 1. `tools.value` is updated reactively when `onToolsChanged` fires
 2. Before each `sendMessage()`, tools are partitioned (see [Sub-Agent Orchestration](./sub-agents.md))
-3. `streamText()` receives the tool map — the AI SDK handles tool-call/tool-result cycling up to 10 steps
+3. `streamText()` receives the tool map — the AI SDK handles tool-call/tool-result cycling until a [loop guard](./loop-guards.md) fires
 
 When the LLM requests a tool call:
 1. AI SDK invokes the tool's `execute()` function
 2. The aggregator's wrapped execute calls `client.callTool()` over BroadcastChannel
 3. The MCP server dispatches to the registered tool's execute function
 4. The result flows back through the same chain
+
+### Mid-turn tool changes
+
+The aggregate can change *while a turn runs* — the standard case is the agent calling a
+tool that brings up new UI (a panel, a navigation), whose components register their own
+tools. Those tools used to become callable only on the **next user turn** (measured: the
+same turn kept sending `toolCount=17` after a navigation, the next turn sent 21), and the
+agent concluded it was stuck.
+
+Two facts make the fix small:
+
+1. **`streamText` does not snapshot `tools`.** It dereferences the object it was given at
+   every step boundary — once via `prepareToolsAndToolChoice` to build the list advertised
+   to the model, and again as `tools[name]` to dispatch a call. So a tool map that is
+   *reconciled in place* is picked up on the next step, with no need to stop and relaunch
+   the stream. `composables/live-tools.ts` holds that reconciliation;
+   `2.sdk-live-tools.unit.spec.ts` pins the SDK behaviour so an `ai` upgrade that started
+   snapshotting fails loudly instead of silently reinstating the bug.
+
+2. **The update has to land before the next step is built.** It does not, on its own: the
+   registration, the `tools/list_changed` notification, the aggregator's re-list and the
+   client rebuild all complete *after* the tool's own result — measured at ~4ms after, and
+   the SDK starts the next step the moment it has that result. A few milliseconds late is
+   as bad as a whole turn late.
+
+So the tool result is held until the aggregate has caught up:
+
+```mermaid
+sequenceDiagram
+  participant SDK as streamText
+  participant Agg as FrameClientAggregator
+  participant Host as Host frame
+
+  SDK->>Agg: call open_panel
+  Agg->>Host: tools/call
+  Host->>Host: panel mounts, registers set_display
+  Host--)Agg: notifications/tools/list_changed
+  Host-->>Agg: tools/call result
+  Note over Agg: settled() — fold the re-list in FIRST
+  Agg-->>SDK: result
+  SDK->>SDK: next step built with the refreshed set
+```
+
+- `FrameClientAggregator.settled()` resolves once every in-flight `tools/list_changed`
+  refresh has been folded into the aggregate. The tool wrapper awaits it before returning
+  the result. This is ordering, not a timing guess: the host registers its tools *during*
+  its own execution, so the notification is put on the channel before the result, and
+  BroadcastChannel delivery is FIFO per channel.
+- On the client side the `toolsVersion` watch runs with `flush: 'sync'`, so the rebuild is
+  registered as in-flight inside `onToolsChanged` itself; a second barrier waits for that
+  rebuild (it is async — `resolveSubAgents` round-trips to the host) before the tool result
+  is handed back. A 500ms deadline keeps a rebuild that never settles from wedging the turn.
+- Rebuilds carry a generation counter, so a slow rebuild overtaken by a newer one bails
+  instead of reconciling a stale set.
+- In exploration mode the rebuild also announces the new names as a `<tools-available>`
+  message, inserted before this turn's user message. That reaches the model mid-turn for
+  the same reason the tool map does: `history` stays the array `streamText` was given
+  (response messages are folded in only when the turn ends) and each step's prompt is
+  rebuilt as `[...initialMessages, ...responseMessages]`. Announced names are tracked so a
+  moderation block un-announces them along with the history it rolls back.
+- Cross-frame changes that no tool call caused (a frame appearing on its own) are still
+  picked up, just without the ordering guarantee — they land on whichever step comes next.
+
+**Why there is no stream restart.** The obvious alternative is to stop the stream when the
+tool set changes and relaunch it on the accumulated history. It is not needed: the tools
+*and* the messages are both live, so the next step already sees the change. It also does
+not work on its own — the change lands a few milliseconds after the step boundary, so the
+step the restart is supposed to catch has already been built with the stale set, and the
+model answers "I cannot do that" and finishes on `stop`, which any sane restart guard
+refuses to relaunch. Ordering the update ahead of the tool result is what actually fixes
+it; a restart on top would only ever re-run a stream it stopped itself.
 
 > By default the full aggregated tool map is sent to the LLM on every request. An opt-in **exploration mode** instead discloses tools on demand — see [Tool exploration](./tool-exploration.md).
 
@@ -272,6 +356,16 @@ By default every aggregated tool is sent on every request. An opt-in **explorati
 
 ---
 
+## Beyond tools: host events
+
+Tools are how the model acts on the page; host events are how the page tells the model
+what happened and what is true now, on the same tab BroadcastChannel but outside MCP.
+Events caused by a tool call are appended to that tool's result (after the settle barrier
+above), so the model sees the consequence of its action where it happened. See
+[Host events](./host-events.md).
+
+---
+
 ## Execution context & safety
 
 Tool `execute()` runs **client-side only**, inside the user's own browser session and with exactly the user's permissions — the gateway never runs tools (it forwards schema-only definitions and sees only tool-calls/results in the message history). A tool therefore can do nothing the user could not already do: a prompt injection or a compromised tool descriptor cannot escalate privileges or reach resources the session isn't entitled to. The blast radius of any injection is bounded to the same restricted tool surface already available to the user.
@@ -299,7 +393,7 @@ Execution:
     → MCP Client.callTool() → BroadcastChannel (JSON-RPC)
       → FrameServerTransport → BrowserMcpServer
         → registered tool.execute() → CallToolResult
-          → text extraction → tool-result → LLM
+          → text / media-envelope extraction → tool-result → LLM
 ```
 
 ---

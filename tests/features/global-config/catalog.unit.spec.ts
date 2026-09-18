@@ -1,6 +1,6 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { getModelCatalog, getRoleModel, type GlobalAiProvider, type GlobalAiModel, type CatalogModel } from '../../../api/src/models/operations.ts'
+import { getModelCatalog, getRoleModel, UNKNOWN_CONTEXT_WINDOW, type GlobalAiProvider, type GlobalAiModel, type CatalogModel } from '../../../api/src/models/operations.ts'
 
 const gProviders: GlobalAiProvider[] = [
   { type: 'mock', id: 'global-mock', name: 'Global Mock' },
@@ -34,6 +34,41 @@ test.describe('getModelCatalog', () => {
   test('an org model whose provider was deleted is excluded', () => {
     const catalog = getModelCatalog([], [], [], orgModels)
     assert.deepEqual(catalog, [])
+  })
+})
+
+test.describe('context window resolution', () => {
+  const mockProvider = { type: 'mock', name: 'Org Mock', id: 'uuid-1' }
+  const orgModel = (extra: any) => [{ model: { id: 'o-model', name: 'O Model', provider: mockProvider, ...extra.model }, usage: ['assistant'], ...extra.entry }]
+
+  test('the hand-entered window wins over the provider snapshot', () => {
+    const catalog = getModelCatalog([], [], orgProviders, orgModel({ model: { contextWindow: 200000 }, entry: { contextWindow: 128000 } }))
+    assert.equal(catalog[0].contextWindow, 128000)
+  })
+
+  test('falls back to the snapshot the provider listing reported', () => {
+    const catalog = getModelCatalog([], [], orgProviders, orgModel({ model: { contextWindow: 200000 }, entry: {} }))
+    assert.equal(catalog[0].contextWindow, 200000)
+  })
+
+  test('falls back to UNKNOWN_CONTEXT_WINDOW when nothing is known', () => {
+    const catalog = getModelCatalog([], [], orgProviders, orgModel({ model: {}, entry: {} }))
+    assert.equal(catalog[0].contextWindow, UNKNOWN_CONTEXT_WINDOW)
+    assert.equal(UNKNOWN_CONTEXT_WINDOW, 128000)
+  })
+
+  test('a zero is ignored, not treated as a window of zero', () => {
+    // The form emits 0 for an untouched number field, so 0 means "unset".
+    const catalog = getModelCatalog([], [], orgProviders, orgModel({ model: { contextWindow: 200000 }, entry: { contextWindow: 0 } }))
+    assert.equal(catalog[0].contextWindow, 200000)
+  })
+
+  test('a global model carries its configured window, else the default', () => {
+    const catalog = getModelCatalog(gProviders, [
+      { id: 'sized', name: 'Sized', provider: 'global-mock', usage: ['assistant'], contextWindow: 32000 },
+      { id: 'unsized', name: 'Unsized', provider: 'global-mock', usage: ['assistant'] }
+    ], [], [])
+    assert.deepEqual(catalog.map(c => c.contextWindow), [32000, UNKNOWN_CONTEXT_WINDOW])
   })
 })
 

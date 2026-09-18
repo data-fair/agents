@@ -6,6 +6,12 @@
       "sourceType": "github",
       "computedHash": "58ce68f628890c3925aea2b5435a649251ac182057541045c68fc19a27aaa0ec"
     },
+    "deps-refresh": {
+      "source": "data-fair/lib",
+      "sourceType": "github",
+      "skillPath": "skills/deps-refresh/SKILL.md",
+      "computedHash": "6ebc07f0683f503621e6aa9383aa847323fef77ce0a05957ed212a455cfa663f"
+    },
     "pr-ready": {
       "source": "data-fair/lib",
       "sourceType": "github",

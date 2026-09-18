@@ -65,3 +65,9 @@ mutations. The user still reviews and saves the form.
   `set_dataset_summary`, `set_expression`, and `set_property_config` populate the
   host's client-side form; the user must still Save/Publish. The agent cannot
   commit changes autonomously, so "nothing was saved" can be expected behaviour.
+- **`<host-state>` and `<host-events>` blocks are host-reported, not user-written.** They
+  appear inside a user turn's hidden context or appended to a tool result, and say so.
+  An assistant acting on them ("I see you created the dataset") is reading the
+  application, not inventing; an assistant calling `wait_for_user_action` and resuming
+  on the user's click is the intended hand-back, not a stall. See
+  [Host events](./host-events.md).

@@ -23,5 +23,9 @@ export default {
   models: { __name: 'MODELS', __format: 'json' },
   defaultModels: { __name: 'DEFAULT_MODELS', __format: 'json' },
   outputTokenWeight: 'OUTPUT_TOKEN_WEIGHT',
-  defaultLimits: { credits: 'DEFAULT_CREDITS' }
+  defaultLimits: { credits: 'DEFAULT_CREDITS' },
+  compactionPercent: {
+    __name: 'COMPACTION_PERCENT',
+    __format: 'json'
+  }
 }

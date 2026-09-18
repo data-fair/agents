@@ -63,8 +63,9 @@ test.describe('History Compaction', () => {
 
     await goToWithAuth('/agents/user/test-standalone1/chat', 'test-standalone1')
     await page.evaluate(() => {
-      // Set a very low threshold so compaction triggers after just one round-trip
-      sessionStorage.setItem('agent-chat-compaction-threshold', '100')
+      // Set a very low token budget (the override feeds decideCompaction's `budget`
+      // directly, in tokens) so compaction triggers after just one round-trip.
+      sessionStorage.setItem('agent-chat-compaction-threshold', '10')
     })
     await page.reload()
 
@@ -76,7 +77,8 @@ test.describe('History Compaction', () => {
     await page.getByRole('button', { name: 'Send' }).click()
     await expect(page.locator('.assistant-content').last()).toContainText('world', { timeout: 10000 })
 
-    // Send second message — history should now exceed 100 chars and trigger compaction.
+    // Send second message — the first turn's real usage.inputTokens already exceeds
+    // the 10-token budget, so this turn triggers compaction.
     // After compaction, the latest "hello" message is preserved verbatim so mock responds "world"
     await input.fill('hello')
     await page.getByRole('button', { name: 'Send' }).click()
@@ -120,7 +122,7 @@ test.describe('History Compaction', () => {
   test('Conversation remains functional after compaction', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/user/test-standalone1/chat', 'test-standalone1')
     await page.evaluate(() => {
-      sessionStorage.setItem('agent-chat-compaction-threshold', '100')
+      sessionStorage.setItem('agent-chat-compaction-threshold', '10')
     })
     await page.reload()
 

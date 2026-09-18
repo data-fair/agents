@@ -80,6 +80,15 @@ export function createModel (provider: Provider, modelId: string): LanguageModel
 export type ModelRole = 'assistant' | 'evaluator' | 'summarizer' | 'tools' | 'moderator'
 
 /**
+ * Used when neither the admin nor the provider listing supplies a window. Sized
+ * for the models actually put in the assistant seat — Claude Opus/Sonnet (200k),
+ * DeepSeek V4 Flash (1M), GLM 5.2 Flash — while staying at or below the floor of
+ * that class, so it under-states rather than over-states. A genuinely small local
+ * model needs its window set explicitly on its catalog entry.
+ */
+export const UNKNOWN_CONTEXT_WINDOW = 128_000
+
+/**
  * Scaleway's glm-5.2 deployment silently drops tool calls in STREAMING mode: a
  * `stream:true` request returns `finish_reason:"stop"` with no tool-call deltas,
  * while the identical `stream:false` request returns the tool call correctly. Every
@@ -135,6 +144,7 @@ export interface GlobalAiModel {
   provider: string
   usage: ModelRole[]
   multiplier?: number
+  contextWindow?: number
 }
 
 export type DefaultModelRefs = Partial<Record<ModelRole, { provider: string, id: string }>>
@@ -174,6 +184,13 @@ export interface CatalogModel {
   provider: { type: string, name: string, id: string }
   usage: ModelRole[]
   multiplier: number
+  /**
+   * Always resolved, never undefined: the hand-entered value, then the snapshot
+   * the provider listing gave when the model was picked, then
+   * UNKNOWN_CONTEXT_WINDOW. A 0 means "unset" (the form emits 0 for an untouched
+   * number field), not a zero-token window, so it falls through.
+   */
+  contextWindow: number
   source: 'global' | 'org'
 }
 
@@ -181,9 +198,10 @@ export interface ModelRef { provider: string, id: string, name?: string }
 export type ModelMapping = Partial<Record<ModelRole, ModelRef>>
 
 export interface OrgModelDef {
-  model: { id: string, name: string, provider: { type: string, name: string, id: string } }
+  model: { id: string, name: string, provider: { type: string, name: string, id: string }, contextWindow?: number }
   usage: string[]
   multiplier?: number
+  contextWindow?: number
 }
 
 /** Merge global config models and per-org model definitions into the single
@@ -200,14 +218,25 @@ export function getModelCatalog (globalProviders: GlobalAiProvider[], globalMode
   for (const m of globalModels) {
     const p = globalProviders.find(gp => gp.id === m.provider)
     if (!p || p.enabled === false) continue
-    catalog.push({ id: m.id, name: m.name, provider: { type: p.type, name: p.name, id: p.id }, usage: m.usage, multiplier: m.multiplier ?? 1, source: 'global' })
+    catalog.push({ id: m.id, name: m.name, provider: { type: p.type, name: p.name, id: p.id }, usage: m.usage, multiplier: m.multiplier ?? 1, contextWindow: m.contextWindow || UNKNOWN_CONTEXT_WINDOW, source: 'global' })
   }
   for (const om of orgModels) {
     const p = orgProviders.find(op => op.id === om.model.provider.id)
     if (!p || p.enabled === false) continue
-    catalog.push({ id: om.model.id, name: om.model.name, provider: om.model.provider, usage: om.usage as ModelRole[], multiplier: om.multiplier ?? 1, source: 'org' })
+    catalog.push({ id: om.model.id, name: om.model.name, provider: om.model.provider, usage: om.usage as ModelRole[], multiplier: om.multiplier ?? 1, contextWindow: om.contextWindow || om.model.contextWindow || UNKNOWN_CONTEXT_WINDOW, source: 'org' })
   }
   return catalog
+}
+
+/**
+ * Token budget above which the chat client compacts history. Callers resolve the
+ * seat whose history is actually compacted (the assistant) and pass its entry, so
+ * the window is the one of the model that will have to swallow it. `percent` is
+ * deployment-global config (`compactionPercent`), passed in rather than read here
+ * so this module stays pure.
+ */
+export function contextBudget (entry: CatalogModel, percent: number): number {
+  return Math.floor(entry.contextWindow * percent / 100)
 }
 
 const FALLBACK_CHAINS: Record<ModelRole, ModelRole[]> = {

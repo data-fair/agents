@@ -59,8 +59,13 @@ const { t } = useI18n()
 
 const toolData = ref('')
 
+// import.meta.env.BASE_URL carries the app's configured base path (e.g.
+// '/agents/') with a trailing slash: strip it before joining so we don't
+// produce a double slash, and don't drop it either (the dev server serves
+// this route only under the base, not at the bare origin).
 const iframeSrc = computed(() => {
-  return `${window.location.origin}/_dev/chat-iframe-child`
+  const base = import.meta.env.BASE_URL.replace(/\/$/, '')
+  return `${window.location.origin}${base}/_dev/chat-iframe-child`
 })
 
 useFrameServer('parent')

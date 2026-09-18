@@ -68,6 +68,14 @@ export type ProviderType9 = string;
 export type ProviderName = string;
 export type ProviderID9 = string;
 /**
+ * Total context size in tokens, as reported by the provider when the model was selected.
+ */
+export type ContextWindow = number;
+/**
+ * Reported by the provider when the model was selected.
+ */
+export type CachedInputPricePer1MTokens = number;
+/**
  * @minItems 1
  */
 export type AppropriateUsages = [
@@ -86,12 +94,17 @@ export type Summarizer = "summarizer";
 export type Evaluator = "evaluator";
 export type Moderator = "moderator";
 /**
+ * Used to size history compaction. Leave empty to use the value reported by the provider; only OpenRouter reports one, so for other providers set it here or the 128000 default applies. Set it explicitly for small self-hosted models, which would otherwise overflow.
+ */
+export type ContextWindowTokens = number;
+/**
  * credits = (input tokens + output tokens × output weight) / 1M × multiplier
  */
 export type CreditMultiplier = number;
 export type Models = {
   model: Model;
   usage: AppropriateUsages;
+  contextWindow?: ContextWindowTokens;
   multiplier?: CreditMultiplier;
 }[];
 
@@ -192,6 +205,8 @@ export type Model = {
     id: ProviderID9;
     [k: string]: unknown;
   };
+  contextWindow?: ContextWindow;
+  cachedInputPricePerMillion?: CachedInputPricePer1MTokens;
   [k: string]: unknown;
 }
 /**
@@ -207,6 +222,8 @@ export type Model1 = {
     id: ProviderID9;
     [k: string]: unknown;
   };
+  contextWindow?: ContextWindow;
+  cachedInputPricePerMillion?: CachedInputPricePer1MTokens;
   [k: string]: unknown;
 }
 

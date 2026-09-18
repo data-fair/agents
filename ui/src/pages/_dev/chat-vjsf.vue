@@ -80,7 +80,11 @@ onMounted(() => {
       },
       required: ['data']
     } as any,
-    execute: ({ args }: { args: { data: Record<string, any> } }) => {
+    // (args) directly, like every other tool here: useAgentTool forwards to
+    // navigator.modelContext.registerTool, which calls execute with the arguments
+    // object itself. Destructuring `{ args }` wrote undefined into the form; the
+    // model happened to prefer vjsf's own setData, so it never fired.
+    execute: (args: { data: Record<string, any> }) => {
       toolData.value = args.data
       return { success: true, message: t('toolResult') }
     }

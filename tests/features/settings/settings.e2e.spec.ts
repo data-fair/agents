@@ -247,6 +247,8 @@ test.describe('Settings UI', () => {
     await page.getByRole('button', { name: 'Save' }).click()
     await expect(page.getByText('Changes have been saved')).toBeVisible()
 
+    // And it stays that way across a reload — the original regression was the Save
+    // button reappearing on every load.
     await page.reload()
     await expect(page.getByText('AI Providers')).toBeVisible({ timeout: 10000 })
     await page.waitForTimeout(800)

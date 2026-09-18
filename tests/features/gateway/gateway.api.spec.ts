@@ -8,7 +8,7 @@ import assert from 'node:assert/strict'
 import { generateText, streamText } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
-import { axiosAuth, superAdmin, clean, directoryUrl, defaultQuotas, anonymousAx, getAnonymousActionToken } from '../../support/axios.ts'
+import { axiosAuth, superAdmin, clean, directoryUrl, defaultQuotas, anonymousAx, getAnonymousActionToken, proxyHeaders } from '../../support/axios.ts'
 import { putSettings } from '../../support/settings.ts'
 
 const user = await axiosAuth('test-standalone1')
@@ -42,7 +42,7 @@ async function createGatewayProvider (ax: any, ownerType = 'user', ownerId = 'te
   return createOpenAI({
     baseURL: `http://localhost:${process.env.DEV_API_PORT}/api/gateway/${ownerType}/${ownerId}/v1`,
     apiKey: 'unused',
-    headers: { cookie: cookieString },
+    headers: { ...proxyHeaders, cookie: cookieString },
     name: 'data-fair-gateway'
   })
 }
@@ -98,7 +98,7 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
       name: 'data-fair-gateway',
       baseURL: `http://localhost:${process.env.DEV_API_PORT}/api/gateway/user/test-standalone1/v1`,
       apiKey: 'unused',
-      headers: { cookie: cookieString }
+      headers: { ...proxyHeaders, cookie: cookieString }
     })
     const result = streamText({ model: provider.chatModel('assistant'), messages: [{ role: 'user', content: 'reason' }] })
     let text = ''; let reasoning = ''
@@ -116,7 +116,7 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
       name: 'data-fair-gateway',
       baseURL: `http://localhost:${process.env.DEV_API_PORT}/api/gateway/user/test-standalone1/v1`,
       apiKey: 'unused',
-      headers: { cookie: cookieString }
+      headers: { ...proxyHeaders, cookie: cookieString }
     })
     const result = await generateText({ model: provider.chatModel('assistant'), messages: [{ role: 'user', content: 'reason' }] })
     assert.equal(result.text, 'world')
@@ -283,5 +283,51 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
     const res = await anonymousAx.post(anonGatewayUrl, anonBody, { headers: { 'x-anonymous-token': token, ...anonForwardedFor } })
     assert.equal(res.status, 200)
     assert.equal(res.data.choices[0].message.content, 'world')
+  })
+
+  // The window is a property of the catalog entry the assistant role resolves to,
+  // so it is set on the org's `models` entry, not on a role.
+  const sizedSettings = {
+    ...settingsData,
+    models: [{ ...settingsData.models[0], contextWindow: 200000 }]
+  }
+
+  test('gateway advertises the context budget', async () => {
+    await putSettings(admin, 'user/test-standalone1', sizedSettings)
+
+    const res = await user.post('/api/gateway/user/test-standalone1/v1/chat/completions', {
+      model: 'assistant',
+      messages: [{ role: 'user', content: 'hello' }]
+    })
+    assert.equal(res.status, 200)
+    assert.equal(res.headers['x-context-budget'], '140000')
+  })
+
+  // The header must survive early-return refusal paths too: a client refused on its
+  // very first turn (e.g. quota already exhausted) still needs to learn its budget so
+  // it can compact history correctly on a later, successful turn. Refused here through
+  // the untrusted pool, the cheapest refusal path to set up.
+  test('gateway advertises the context budget even on a quota-exceeded refusal', async () => {
+    await putSettings(admin, 'user/test-standalone1', {
+      ...sizedSettings,
+      quotas: {
+        ...defaultQuotas,
+        external: { unlimited: false, monthlyLimit: 1000 },
+        untrusted: { unlimited: false, monthlyLimit: 4 }
+      }
+    })
+    await anonymousAx.post('http://localhost:' + process.env.DEV_API_PORT + '/api/test-env/usage', {
+      owner: { type: 'user', id: 'test-standalone1' },
+      userId: 'pool:untrusted',
+      cost: 2
+    })
+
+    const res = await externalUser.post('/api/gateway/user/test-standalone1/v1/chat/completions', {
+      model: 'assistant',
+      messages: [{ role: 'user', content: 'hello' }]
+    }).catch((err: any) => err.response ?? err)
+
+    assert.equal(res.status, 429)
+    assert.equal(res.headers['x-context-budget'], '140000')
   })
 })

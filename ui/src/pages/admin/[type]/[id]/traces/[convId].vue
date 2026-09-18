@@ -24,7 +24,7 @@ import { setBreadcrumbs } from '~/utils/breadcrumbs'
 import { $fetch } from '~/context'
 
 const { t } = useI18n()
-const route = useRoute()
+const route = useRoute('/admin/[type]/[id]/traces/[convId]')
 const router = useRouter()
 const session = useSession()
 

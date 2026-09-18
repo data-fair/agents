@@ -85,4 +85,29 @@ test.describe('traces operations (unit)', () => {
     }, now)
     assert.deepEqual(doc.cost, { input: 0, output: 0, total: 0 })
   })
+
+  test('buildTraceRequestDoc bills cache reads like any other input token', () => {
+    // Credits are charged on TOTAL input tokens: there is no cache-read discount
+    // and no cache-write tariff, the multiplier folds a provider's cache pricing
+    // into one number. So the trace breakdown and what was actually billed cannot
+    // diverge on a cached turn — this pins that they don't.
+    const now = new Date('2026-06-08T00:00:00.000Z')
+    const doc = buildTraceRequestDoc({
+      owner: { type: 'user', id: 'u1' },
+      conversationId: 'c1',
+      contextId: 'turn:t1',
+      modelRole: 'assistant',
+      providerName: 'OpenAI',
+      providerType: 'openai',
+      resolvedModel: 'gpt-5',
+      body: { messages: [], tools: [] },
+      response: { content: 'hi', toolCalls: [] },
+      // 1M total input tokens, 900k of which were cache reads and 100k freshly written
+      usage: { inputTokens: 1_000_000, outputTokens: 0, cacheReadTokens: 900_000, cacheWriteTokens: 100_000 },
+      timing: { durationMs: 10 },
+      multiplier: 3,
+      outputTokenWeight: 4
+    }, now)
+    assert.deepEqual(doc.cost, { input: 3, output: 0, total: 3 })
+  })
 })

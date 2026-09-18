@@ -24,5 +24,10 @@ export default {
   // 0 = accounts start capped until the customers service (or an ops admin)
   // pushes them a real limit. Set DEFAULT_CREDITS to -1 for an uncapped
   // deployment, e.g. a self-hosted instance using its own provider keys.
-  defaultLimits: { credits: 0 }
+  defaultLimits: { credits: 0 },
+  // Share of the assistant model's context window above which the chat client
+  // compacts conversation history. Global rather than per-account: it is a
+  // safety/efficiency tuning knob, not something an org should have to reason
+  // about. See docs/architecture/compaction.md.
+  compactionPercent: 70
 }

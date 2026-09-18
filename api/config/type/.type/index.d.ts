@@ -2,6 +2,11 @@
 export const schemaExports: string[]
 
 // see https://github.com/bcherny/json-schema-to-typescript/issues/439 if some types are not exported
+/**
+ * Share of the assistant model's context window above which conversation history is compacted.
+ */
+export type CompactionPercent = number;
+
 export type ApiConfig = {
   mongoUrl: string;
   port: number;
@@ -43,6 +48,7 @@ export type ApiConfig = {
       ...("assistant" | "tools" | "summarizer" | "evaluator" | "moderator")[]
     ];
     multiplier?: number;
+    contextWindow?: number;
   }[];
   defaultModels?: {
     assistant?: ModelRef;
@@ -73,6 +79,7 @@ export type ApiConfig = {
   util?: unknown;
   get?: unknown;
   has?: unknown;
+  compactionPercent: CompactionPercent;
 }
 /**
  * This interface was referenced by `ApiConfig`'s JSON-Schema

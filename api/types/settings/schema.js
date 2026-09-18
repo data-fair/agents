@@ -108,6 +108,26 @@ export default {
             name: { type: 'string', title: 'Provider Name' },
             id: { type: 'string', title: 'Provider ID' }
           }
+        },
+        contextWindow: {
+          type: 'number',
+          title: 'Context window',
+          readOnly: true,
+          description: 'Total context size in tokens, as reported by the provider when the model was selected.',
+          'x-i18n-description': {
+            en: 'Total context size in tokens, as reported by the provider when the model was selected.',
+            fr: 'Taille totale du contexte en tokens, telle que rapportée par le fournisseur lors de la sélection du modèle.'
+          }
+        },
+        cachedInputPricePerMillion: {
+          type: 'number',
+          title: 'Cached input price (per 1M tokens)',
+          readOnly: true,
+          description: 'Reported by the provider when the model was selected.',
+          'x-i18n-description': {
+            en: 'Reported by the provider when the model was selected.',
+            fr: 'Rapporté par le fournisseur lors de la sélection du modèle.'
+          }
         }
       }
     }
@@ -697,6 +717,21 @@ export default {
                 { const: 'evaluator', title: 'Evaluator', 'x-i18n-title': { en: 'Evaluator', fr: 'Évaluateur' } },
                 { const: 'moderator', title: 'Moderator', 'x-i18n-title': { en: 'Moderator', fr: 'Modérateur' } }
               ]
+            }
+          },
+          contextWindow: {
+            type: 'number',
+            minimum: 0,
+            title: 'Context window (tokens)',
+            'x-i18n-title': { en: 'Context window (tokens)', fr: 'Taille de contexte (tokens)' },
+            // Sizes history compaction, which only ever applies to the assistant
+            // seat — but it belongs to the model, not the role, so any entry may
+            // carry it. Most providers report no window, so for them this field is
+            // the only way to set one, not merely an override.
+            description: 'Used to size history compaction. Leave empty to use the value reported by the provider; only OpenRouter reports one, so for other providers set it here or the 128000 default applies. Set it explicitly for small self-hosted models, which would otherwise overflow.',
+            'x-i18n-description': {
+              en: 'Used to size history compaction. Leave empty to use the value reported by the provider; only OpenRouter reports one, so for other providers set it here or the 128000 default applies. Set it explicitly for small self-hosted models, which would otherwise overflow.',
+              fr: "Utilisé pour dimensionner la compaction de l'historique. Laissez vide pour utiliser la valeur rapportée par le fournisseur ; seul OpenRouter en rapporte une, pour les autres renseignez-la ici sinon la valeur par défaut de 128000 s'applique. Renseignez-la explicitement pour les petits modèles auto-hébergés, qui déborderaient sinon."
             }
           },
           multiplier: {

@@ -23,7 +23,7 @@ At a glance:
 
 1. **Registration** — Child components call `useAgentSubAgent()` which registers a `subagent_*` MCP tool with a JSON config (prompt, tool list, model).
 2. **Partitioning** — `use-agent-chat.ts` splits tools: sub-agent reserved tools are removed from the main set.
-3. **Execution** — Each sub-agent gets a `ToolLoopAgent` instance with its own tool set and system prompt. It runs up to 10 steps autonomously. Sub-agents run **concurrently** when the main agent requests several in one step — the AI SDK dispatches each tool call without awaiting the previous (`executeToolCall` is fired and tracked, not awaited). Each call streams into its own panel, keyed by the delegating `toolCallId`. There is no special-casing for repeated or same-name calls: every delegation is independent, so concurrent calls to the same sub-agent run in parallel just like calls to different ones.
+3. **Execution** — Each sub-agent gets a `ToolLoopAgent` instance with its own tool set and system prompt. It runs autonomously under the [loop guards](./loop-guards.md): a flat 100-step backstop plus a repeated-call guard that nudges at 3 identical steps and stops at 5. Sub-agents run **concurrently** when the main agent requests several in one step — the AI SDK dispatches each tool call without awaiting the previous (`executeToolCall` is fired and tracked, not awaited). Each call streams into its own panel, keyed by the delegating `toolCallId`. There is no special-casing for repeated or same-name calls: every delegation is independent, so concurrent calls to the same sub-agent run in parallel just like calls to different ones.
 4. **Stateless workers** — Each delegation is a fresh, single-shot run: the worker keeps no conversation history across calls. The lead holds the state and re-states all needed context in the `task` field.
 5. **Context reduction** — The main agent sees only a compact text summary via `toModelOutput()`. The UI renders the full sub-agent trace in collapsible panels.
 
@@ -105,7 +105,7 @@ sequenceDiagram
   activate Tool
   
   Tool->>TLA: stream({prompt: task})
-  loop Up to 10 steps
+  loop Until a loop guard fires
     TLA->>MCP: query_data({sql: "..."})
     MCP-->>TLA: result rows
     TLA->>MCP: get_schema({table: "sales"})
@@ -125,13 +125,14 @@ Each `ToolLoopAgent` is configured with:
 - **model** — resolved from `provider.chat(config.model ?? 'tools')`
 - **instructions** — the sub-agent's system prompt (the host-provided prompt verbatim)
 - **tools** — the reserved tool set (only tools listed in `config.tools`)
-- **stopWhen** — `stepCountIs(10)` (max 10 autonomous steps)
+- **stopWhen** — `[stepCountIs(STEP_LIMIT), repeatedCallGuard()]`, with `prepareStep: loopGuardPrepareStep` injecting the repeat reminder (see [loop guards](./loop-guards.md))
 
-### Step-budget close-out
+### Loop-guard close-out
 
-A weak worker can keep calling tools after it already has the answer, exhausting the 10-step
-cap with `finishReason: 'tool-calls'`. Killing it there would discard a result it already
-produced and report a bare truncation. Instead, on that finish reason the orchestrator runs
+A weak worker can keep calling tools after it already has the answer, or spin on one call,
+until a loop guard ends the run with `finishReason: 'tool-calls'`. Killing it there would
+discard a result it already produced and report a bare truncation. Instead, on that finish
+reason the orchestrator runs
 **one final close-out turn with no tools** (`SUBAGENT_CLOSEOUT_PROMPT` via `generateText`):
 the model cannot loop, so it must synthesize a best-effort answer from its own transcript.
 That recovered answer is carried as the trailing message content (flagged `stepLimitReached`)
@@ -207,7 +208,8 @@ Every call is `subAgent.stream({ prompt: args.task })` — there is no per-sub-a
   self-contained in, deliverable out.
 
 Multi-step work *within* a single delegation still happens — that is the `ToolLoopAgent`'s
-internal step loop (`stepCountIs(10)`), which is orthogonal to cross-call statelessness.
+internal step loop (bounded by the [loop guards](./loop-guards.md)), which is orthogonal to
+cross-call statelessness.
 
 ---
 
@@ -232,7 +234,7 @@ This mirrors OpenAI's `as_tool(custom_output_extractor=…)` hook: the deliverab
 from the run rather than blindly taken as the raw last token. It keeps the main agent's
 context window lean — a sub-agent that made 8 tool calls across 5 steps produces a single paragraph of text in the main conversation. The full trace is visible in the UI via `ChatMessage.subAgentPanels`, rendered per delegating tool-call as a bordered, state-colored panel that is **collapsed by default** and expanded on demand (its live activity shows in the header even while collapsed). A per-user **"Simplify sub-agent display"** flag (`simpleSubAgents`, on by default) instead renders each delegation as a plain status chip, like any other tool call; the full-panel view is the opt-in. Panels never auto-open.
 
-This also reduces pressure on the 24,000-character compaction threshold (see [Conversation history compaction](./compaction.md)).
+This also reduces pressure on the token budget that triggers history compaction (see [Conversation history compaction](./compaction.md)).
 
 ---
 

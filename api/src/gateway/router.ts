@@ -3,12 +3,12 @@ import { generateText, streamText, type LanguageModelUsage } from 'ai'
 import { type AccountKeys, reqSession, isAuthenticated } from '@data-fair/lib-express'
 import config from '#config'
 import { getSettings, defaultQuotas } from '../settings/service.ts'
-import { streamedToolCallsBroken, OPENAI_COMPATIBLE_PROVIDER_NAME } from '../models/operations.ts'
-import { resolveRoleModel, type ResolvedRoleModel } from '../models/service.ts'
+import { streamedToolCallsBroken, contextBudget, OPENAI_COMPATIBLE_PROVIDER_NAME } from '../models/operations.ts'
+import { resolveRoleModel, resolveRoleEntry, type ResolvedRoleModel } from '../models/service.ts'
 import { recordUsage } from '../usage/service.ts'
 import { computeCredits } from '../usage/operations.ts'
 import { resolveUsageIdentity, enforceQuotas } from '../usage/enforce.ts'
-import { convertOpenAITools, convertOpenAIMessages, convertToolChoice, mapFinishReason } from './operations.ts'
+import { convertOpenAITools, convertOpenAIMessages, convertToolChoice, mapFinishReason, supportsMediaToolResults, injectMediaAsUserMessages } from './operations.ts'
 import type { OpenAIMessage, OpenAIToolDefinition, OpenAIToolChoice, FinishReason } from './operations.ts'
 import { recordTraceRequest } from '../traces/service.ts'
 import { parseFlagsCookie } from '../traces/operations.ts'
@@ -144,6 +144,12 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
       }
     }
 
+    // Advertise the assistant budget on every response regardless of the role
+    // called: the client compacts the main history, whichever role it just used.
+    // Set before any early-return refusal path (strike cooldown, quota) below, so
+    // a refused caller still learns its budget and can compact on its next turn.
+    res.setHeader('x-context-budget', String(contextBudget(resolveRoleEntry(settings, 'assistant'), config.compactionPercent)))
+
     // Strikes & the cooldown are an anti-abuse measure for untrusted callers
     // only. Moderated trusted members get individual messages blocked by the
     // gate below, but are never locked out.
@@ -228,8 +234,13 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
     const systemMessages = messages.filter(m => m.role === 'system')
     const system = systemMessages.length > 0 ? systemMessages.map(m => m.content).join('\n') : undefined
 
-    // Convert messages and tools
-    const aiMessages = convertOpenAIMessages(messages)
+    // Convert messages and tools. Providers without a media channel in their
+    // tool-result format get tool images re-routed into an injected user message.
+    const provider = resolved.provider
+    const converted = convertOpenAIMessages(messages)
+    const aiMessages = supportsMediaToolResults(provider.type, 'compatibility' in provider ? provider.compatibility as string : undefined)
+      ? converted
+      : injectMediaAsUserMessages(converted)
     const tools = openaiTools ? convertOpenAITools(openaiTools) : {}
     const hasTools = Object.keys(tools).length > 0
 
@@ -360,12 +371,13 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
           }
           const inputTokens = gen.usage?.inputTokens ?? 0
           const outputTokens = gen.usage?.outputTokens ?? 0
+          const details = gen.usage?.inputTokenDetails
           const cost = computeCredits(inputTokens, outputTokens, entry.multiplier, config.outputTokenWeight)
           if (cost > 0) await recordUsage(owner, cost, usageUserId, usageUserName, poolId)
           sseWrite(`data: ${JSON.stringify({ id: completionId, object: 'chat.completion.chunk', created, model: modelId, choices: [{ index: 0, delta: {}, finish_reason: mapFinishReason(gen.finishReason as FinishReason) }], usage: buildUsage(gen.usage) })}\n\n`)
           const recordFinishTrace = () => recordTrace(
             { content: streamedText, toolCalls: [...streamedToolCalls.values()], finishReason: mapFinishReason(gen.finishReason as FinishReason) },
-            { inputTokens, outputTokens, cacheReadTokens: gen.usage?.inputTokenDetails?.cacheReadTokens, cacheWriteTokens: gen.usage?.inputTokenDetails?.cacheWriteTokens },
+            { inputTokens, outputTokens, cacheReadTokens: details?.cacheReadTokens, cacheWriteTokens: details?.cacheWriteTokens },
             ttfc
           )
           if (gateState === 'pending') deferredFinishTrace = recordFinishTrace
@@ -443,6 +455,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
             // Record usage for streaming responses (credits)
               const inputTokens = part.totalUsage?.inputTokens ?? 0
               const outputTokens = part.totalUsage?.outputTokens ?? 0
+              const details = part.totalUsage?.inputTokenDetails
               const cost = computeCredits(inputTokens, outputTokens, entry.multiplier, config.outputTokenWeight)
               if (cost > 0) {
                 await recordUsage(owner, cost, usageUserId, usageUserName, poolId)
@@ -459,7 +472,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
 
               const recordFinishTrace = () => recordTrace(
                 { content: streamedText, toolCalls: [...streamedToolCalls.values()], finishReason: mapFinishReason(part.finishReason as FinishReason) },
-                { inputTokens, outputTokens, cacheReadTokens: part.totalUsage?.inputTokenDetails?.cacheReadTokens, cacheWriteTokens: part.totalUsage?.inputTokenDetails?.cacheWriteTokens },
+                { inputTokens, outputTokens, cacheReadTokens: details?.cacheReadTokens, cacheWriteTokens: details?.cacheWriteTokens },
                 ttfc
               )
               // While the gate is pending the content must not reach trace storage:
@@ -553,6 +566,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
       // Record usage (credits)
       const inputTokens = result.usage?.inputTokens ?? 0
       const outputTokens = result.usage?.outputTokens ?? 0
+      const details = result.usage?.inputTokenDetails
       const cost = computeCredits(inputTokens, outputTokens, entry.multiplier, config.outputTokenWeight)
       if (cost > 0) {
         await recordUsage(owner, cost, usageUserId, usageUserName, poolId)
@@ -596,7 +610,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
           toolCalls: (result.toolCalls ?? []).map((tc: { toolCallId: string, toolName: string, input?: unknown }) => ({ id: tc.toolCallId, name: tc.toolName, arguments: JSON.stringify(tc.input ?? {}) })),
           finishReason: mapFinishReason(result.finishReason as FinishReason)
         },
-        { inputTokens, outputTokens, cacheReadTokens: result.usage?.inputTokenDetails?.cacheReadTokens, cacheWriteTokens: result.usage?.inputTokenDetails?.cacheWriteTokens }
+        { inputTokens, outputTokens, cacheReadTokens: details?.cacheReadTokens, cacheWriteTokens: details?.cacheWriteTokens }
       )
     }
   } catch (err) {

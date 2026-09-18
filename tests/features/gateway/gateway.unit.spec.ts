@@ -4,9 +4,11 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { convertOpenAITools, convertOpenAIMessages, convertToolChoice, mapFinishReason } from '../../../api/src/gateway/operations.ts'
+import { convertOpenAITools, convertOpenAIMessages, convertToolChoice, mapFinishReason, supportsMediaToolResults, injectMediaAsUserMessages } from '../../../api/src/gateway/operations.ts'
 import type { OpenAIMessage, OpenAIToolDefinition } from '../../../api/src/gateway/operations.ts'
 import { extractErrorMessage } from '../../../ui/src/utils/error.ts'
+
+const PNG = 'iVBORw0KGgoAAAANSUhEUg=='
 
 test.describe('Gateway operations - mapFinishReason', () => {
   test('maps tool-calls to tool_calls', () => {
@@ -154,6 +156,127 @@ test.describe('Gateway operations - convertOpenAIMessages', () => {
     const output = (result[0].content as any)[0].output
     assert.equal(output.type, 'text')
     assert.equal(output.value, 'plain text result')
+  })
+
+  test('decodes a media envelope tool result into content output with image parts', () => {
+    const envelope = { _agentsMediaResult: true, text: 'a chart', media: [{ data: PNG, mediaType: 'image/png' }] }
+    const messages: OpenAIMessage[] = [{
+      role: 'tool',
+      content: JSON.stringify(envelope),
+      tool_call_id: 'call_1'
+    }]
+    const result = convertOpenAIMessages(messages)
+    const output = (result[0].content as any)[0].output
+    assert.equal(output.type, 'content')
+    assert.deepEqual(output.value, [
+      { type: 'text', text: 'a chart' },
+      { type: 'image-data', data: PNG, mediaType: 'image/png' }
+    ])
+  })
+
+  test('decodes a text-less media envelope into image parts only', () => {
+    const envelope = { _agentsMediaResult: true, media: [{ data: PNG, mediaType: 'image/jpeg' }] }
+    const messages: OpenAIMessage[] = [{ role: 'tool', content: JSON.stringify(envelope), tool_call_id: 'call_1' }]
+    const output = (convertOpenAIMessages(messages)[0].content as any)[0].output
+    assert.equal(output.type, 'content')
+    assert.deepEqual(output.value, [{ type: 'image-data', data: PNG, mediaType: 'image/jpeg' }])
+  })
+
+  test('a near-miss envelope (marker without media array) stays plain json output', () => {
+    const messages: OpenAIMessage[] = [{ role: 'tool', content: '{"_agentsMediaResult":true}', tool_call_id: 'call_1' }]
+    const output = (convertOpenAIMessages(messages)[0].content as any)[0].output
+    assert.equal(output.type, 'json')
+  })
+})
+
+test.describe('Gateway operations - supportsMediaToolResults', () => {
+  test('native providers support media tool results', () => {
+    assert.equal(supportsMediaToolResults('openai'), true)
+    assert.equal(supportsMediaToolResults('anthropic'), true)
+    assert.equal(supportsMediaToolResults('google'), true)
+    assert.equal(supportsMediaToolResults('mock'), true)
+    assert.equal(supportsMediaToolResults('openai-compatible'), true)
+  })
+
+  test('chat-completions-only providers need the user-message fallback', () => {
+    assert.equal(supportsMediaToolResults('scaleway'), false)
+    assert.equal(supportsMediaToolResults('mistral'), false)
+    assert.equal(supportsMediaToolResults('openrouter'), false)
+    assert.equal(supportsMediaToolResults('ollama'), false)
+    assert.equal(supportsMediaToolResults('openai-compatible', 'compatible'), false)
+  })
+})
+
+test.describe('Gateway operations - injectMediaAsUserMessages', () => {
+  const mediaOutput = {
+    type: 'content',
+    value: [
+      { type: 'text', text: 'a chart' },
+      { type: 'image-data', data: PNG, mediaType: 'image/png' }
+    ]
+  }
+  const toolCallMsg = (id: string, name: string) => ({
+    role: 'assistant' as const,
+    content: [{ type: 'tool-call', toolCallId: id, toolName: name, input: {} }]
+  })
+  const toolResultMsg = (id: string, name: string, output: unknown) => ({
+    role: 'tool' as const,
+    content: [{ type: 'tool-result', toolCallId: id, toolName: name, output }]
+  })
+
+  test('returns messages unchanged when no media tool results are present', () => {
+    const messages = [
+      { role: 'user' as const, content: 'hello' },
+      toolCallMsg('c1', 'get_weather'),
+      toolResultMsg('c1', 'get_weather', { type: 'json', value: { temp: 20 } })
+    ] as any[]
+    assert.deepEqual(injectMediaAsUserMessages(messages), messages)
+  })
+
+  test('rewrites a media tool result to text and appends a user message with the image', () => {
+    const messages = [
+      toolCallMsg('c1', 'snapshot'),
+      toolResultMsg('c1', 'snapshot', mediaOutput),
+      { role: 'assistant' as const, content: 'done' }
+    ] as any[]
+    const result = injectMediaAsUserMessages(messages)
+    assert.equal(result.length, 4)
+    // tool result downgraded to text, keeping the text and signaling the attachment
+    const output = (result[1].content as any)[0].output
+    assert.equal(output.type, 'text')
+    assert.match(output.value, /a chart/)
+    assert.match(output.value, /image/i)
+    // injected user message right after the tool run, before the next assistant message
+    assert.equal(result[2].role, 'user')
+    const parts = result[2].content as any[]
+    assert.ok(parts.some(p => p.type === 'image' && p.image === PNG && p.mediaType === 'image/png'))
+    assert.ok(parts.some(p => p.type === 'text' && /snapshot/.test(p.text)))
+    assert.equal(result[3].role, 'assistant')
+  })
+
+  test('keeps parallel tool results of one group contiguous, injecting after the run', () => {
+    const messages = [
+      {
+        role: 'assistant' as const,
+        content: [
+          { type: 'tool-call', toolCallId: 'c1', toolName: 'snapshot', input: {} },
+          { type: 'tool-call', toolCallId: 'c2', toolName: 'get_weather', input: {} }
+        ]
+      },
+      toolResultMsg('c1', 'snapshot', mediaOutput),
+      toolResultMsg('c2', 'get_weather', { type: 'json', value: { temp: 20 } })
+    ] as any[]
+    const result = injectMediaAsUserMessages(messages)
+    assert.equal(result.length, 4)
+    assert.equal(result[1].role, 'tool')
+    assert.equal(result[2].role, 'tool')
+    assert.equal(result[3].role, 'user')
+  })
+
+  test('a media output without any image parts is left untouched', () => {
+    const textOnlyContent = { type: 'content', value: [{ type: 'text', text: 'just text' }] }
+    const messages = [toolResultMsg('c1', 'snap', textOnlyContent)] as any[]
+    assert.deepEqual(injectMediaAsUserMessages(messages), messages)
   })
 })
 

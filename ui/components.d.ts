@@ -14,6 +14,7 @@ declare module 'vue' {
     AgentChatInput: typeof import('./src/components/agent-chat/AgentChatInput.vue')['default']
     AgentChatMessages: typeof import('./src/components/agent-chat/AgentChatMessages.vue')['default']
     EvaluatorChat: typeof import('./src/components/EvaluatorChat.vue')['default']
+    LiveToolsPanel: typeof import('./src/components/dev/LiveToolsPanel.vue')['default']
     MarkdownContent: typeof import('./src/components/agent-chat/MarkdownContent.vue')['default']
     ModerationSection: typeof import('./src/components/ModerationSection.vue')['default']
     MonitoringAccountHistogram: typeof import('./src/components/MonitoringAccountHistogram.vue')['default']
@@ -35,5 +36,7 @@ declare module 'vue' {
     VjsfPutReq: typeof import('./src/components/vjsf/vjsf-put-req.vue')['default']
     VjsfPutReqEn: typeof import('./src/components/vjsf/vjsf-put-req-en.vue')['default']
     VjsfPutReqFr: typeof import('./src/components/vjsf/vjsf-put-req-fr.vue')['default']
+    WorkflowDetail: typeof import('./src/components/dev/WorkflowDetail.vue')['default']
+    WorkflowWizard: typeof import('./src/components/dev/WorkflowWizard.vue')['default']
   }
 }

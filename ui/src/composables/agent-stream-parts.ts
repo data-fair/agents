@@ -15,7 +15,7 @@ export interface StreamMessage {
   // Reasoning ("thinking") tokens captured from reasoning models, accumulated
   // before the visible content/tool calls of the same assistant step.
   reasoning?: string
-  toolInvocations?: { toolCallId: string, toolName: string, state: 'pending' | 'done' }[]
+  toolInvocations?: { toolCallId: string, toolName: string, state: 'pending' | 'done', input?: unknown }[]
 }
 
 // Structural subset of the AI SDK's TextStreamPart covering the parts we build
@@ -41,6 +41,13 @@ export interface StreamScope {
   producedText: boolean
   // True when the current step issued a tool call (drives analyzing vs thinking).
   stepHadTool: boolean
+  // Whether the step that just finished issued a tool call. A turn whose LAST step called
+  // a tool is a turn the model meant to continue: it read the result and then said nothing.
+  // `producedText` cannot see this — it latches on the first word of the turn, and the
+  // model usually announces the delegation in the very step that calls the sub-agents, so
+  // a turn that says "let me delegate that" and never comes back reads as one that
+  // answered. This flag is the tell.
+  lastStepHadTool: boolean
   // toolName of the latest tool-call this step, surfaced so the post-step label
   // can name a sub-agent.
   lastToolName?: string
@@ -83,10 +90,14 @@ export function applyStreamPart (part: StreamPart, scope: StreamScope): void {
         scope.current = scope.messages[scope.messages.length - 1]
       }
       if (!scope.current.toolInvocations) scope.current.toolInvocations = []
+      // Only carry `input` when the part actually has one: a recorded invocation
+      // shouldn't gain a key whose value is nothing, and most callers never read it.
+      const input = (part as any).input
       scope.current.toolInvocations.push({
         toolCallId: part.toolCallId ?? '',
         toolName: part.toolName ?? '',
-        state: 'pending'
+        state: 'pending',
+        ...(input !== undefined ? { input } : {})
       })
       break
     }
@@ -112,6 +123,7 @@ export function applyStreamPart (part: StreamPart, scope: StreamScope): void {
       // followed by a continuation step reading the result — label that gap.
       scope.current = null
       scope.setActivity(scope.stepHadTool ? 'analyzing' : 'thinking', scope.lastToolName)
+      scope.lastStepHadTool = scope.stepHadTool
       scope.stepHadTool = false
       scope.lastToolName = undefined
       break

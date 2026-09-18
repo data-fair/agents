@@ -30,6 +30,29 @@ Log files are in `dev/logs/`:
 
 Use `tail -n 50 dev/logs/<file>` to see recent output, or `grep -i error dev/logs/<file>` to find errors.
 
+### Running on Claude Code models
+
+`npm run dev-bridge` starts a local OpenAI-compatible server (default port 3194, override
+with `BRIDGE_PORT`) backed by your Claude Code subscription, so the dev workspace can run
+on real models without an API key. It is part of the `npm run dev-zellij` layout, so a
+normal dev session already has it. Logs go to `dev/logs/dev-bridge.log`. It is optional —
+`dev/status.sh` reporting it DOWN is normal unless you use it.
+
+Configure it in the settings UI as an **OpenAI Compatible** provider with base URL
+`http://localhost:3194/v1` and **Compatibility Mode `compatible`** (the default mode
+targets `/v1/responses`, which the bridge does not implement). Leave the API key empty.
+
+`GET /_bridge/status` reports how many conversations are holding a live `claude` session.
+It binds `127.0.0.1` only: it is unauthenticated and spends your subscription.
+
+Root `package.json` pins `@anthropic-ai/claude-agent-sdk`'s zod to `3.25.76` via `overrides`.
+The SDK asks for zod ^4, and a second zod major in the tree makes `api`'s inference blow the
+instantiation depth limit (TS2589 in `api/src/moderation/service.ts`). The override is scoped
+to the SDK so a legitimate bump of `api`'s own zod is not silently clamped.
+
+Design, measurements and the isolation guarantee:
+`docs/superpowers/specs/2026-09-12-claude-code-bridge-and-simulation-harness-design.md`.
+
 ### When something is down
 
 If a service is down, do not try to fix the infrastructure. Instead:
@@ -54,11 +77,16 @@ In case of failures you might find error contexts in @test-results.
 
 ### Workspace packages must be built before running tests
 
-This project has workspace packages (`lib-vue/`, `lib-vuetify/`) whose compiled `.js` files are gitignored. They must be built before e2e tests can work:
+This project has workspace packages whose compiled `.js` files are gitignored, so they must be built before the code that imports them will run.
+
+`lib-vuetify/` and `lib-vue/` are needed for **e2e** tests:
 - `cd lib-vuetify && npm run build`
 - `cd lib-vue && npm run build`
 
-If e2e tests fail with "element(s) not found", check that these packages are built before investigating further.
+`lib-sim/` is needed for **`npm run simulate`**, not for e2e — nothing under `tests/` imports the built package (the unit specs import its `.ts` sources directly):
+- `cd lib-sim && npm run build`
+
+If e2e tests fail with "element(s) not found", check that `lib-vuetify` and `lib-vue` are built before investigating further.
 
 ### Debugging e2e failures
 
@@ -68,9 +96,23 @@ When e2e tests fail, follow this order:
 3. Check `test-results/` for traces and screenshots
 4. Only then dig into component code
 
+### Scenario simulations
+
+`npm run simulate` drives judged browser conversations: a simulated user with a
+persona and a goal talks to the real chat on a `_dev` page. The persona can also
+look at, click and type on the page itself (not the composer), so a claim like
+"I don't see it" is checkable against what it actually observed, not invented.
+A judge subagent then reads the transcript, observations included. Needs the
+dev stack and built workspace packages — `lib-sim` included: `simulations/`
+imports it by package name, so a stale build silently runs the old code and
+still reports the run valid — and `npm run dev-bridge`. Orchestrated by the
+`/agents-sim` skill; cases live in `simulations/cases/index.ts`. Never added to
+`playwright.config.ts` — a bare `npm run test` would otherwise spend plan
+quota.
+
 ## Code patterns
 
-Topical architecture docs (for understanding the service) live in `docs/architecture/` — one file per concern (gateway, sub-agents, mcp-tools, providers, quotas-usage, compaction, embedding, moderation, tool-exploration, tracing) plus `overview.md`. Read on a need-to-know basis.
+Topical architecture docs (for understanding the service) live in `docs/architecture/` — one file per concern (gateway, sub-agents, loop-guards, mcp-tools, host-events, providers, quotas-usage, compaction, embedding, moderation, tool-exploration, tracing) plus `overview.md`. Read on a need-to-know basis.
 
 When working on this project, read the following files on a need-to-know basis to understand conventions:
 

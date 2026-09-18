@@ -442,6 +442,27 @@ test.describe('Settings API', () => {
     const res2 = await admin.get('/api/settings/user/test-standalone1')
     assert.equal(res2.data.storeTraces, false)
   })
+
+  test('should persist a model context window, both the snapshot and the hand-entered one', async () => {
+    const res = await admin.put('/api/settings/user/test-standalone1', {
+      providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
+      models: [{
+        // the snapshot the provider listing gave when the model was picked, and the
+        // hand-entered window that overrides it
+        model: { ...mockModel, contextWindow: 200000 },
+        usage: ['assistant'],
+        multiplier: 0,
+        contextWindow: 128000
+      }]
+    })
+    assert.equal(res.status, 200)
+    assert.equal(res.data.models[0].contextWindow, 128000)
+    assert.equal(res.data.models[0].model.contextWindow, 200000)
+
+    const getRes = await admin.get('/api/settings/user/test-standalone1')
+    assert.equal(getRes.data.models[0].contextWindow, 128000)
+    assert.equal(getRes.data.models[0].model.contextWindow, 200000)
+  })
 })
 
 // The org admin owns modelMapping/quotas/moderation/storeTraces via PUT /api/settings/:type/:id/org.

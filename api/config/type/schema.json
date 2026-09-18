@@ -20,7 +20,8 @@
     "cipherPassword",
     "requireAnonymousActionToken",
     "outputTokenWeight",
-    "defaultLimits"
+    "defaultLimits",
+    "compactionPercent"
   ],
   "$defs": {
     "modelRef": {
@@ -93,7 +94,8 @@
           "name": { "type": "string" },
           "provider": { "type": "string" },
           "usage": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "enum": ["assistant", "tools", "summarizer", "evaluator", "moderator"] } },
-          "multiplier": { "type": "number", "minimum": 0, "default": 1 }
+          "multiplier": { "type": "number", "minimum": 0, "default": 1 },
+          "contextWindow": { "type": "number", "minimum": 0 }
         }
       }
     },
@@ -138,24 +140,48 @@
       "default": true
     },
     "evaluatorAccount": {
-      "type": ["object", "null"],
+      "type": [
+        "object",
+        "null"
+      ],
       "default": null,
       "additionalProperties": false,
-      "required": ["type", "id"],
+      "required": [
+        "type",
+        "id"
+      ],
       "properties": {
-        "type": { "type": "string", "enum": ["user", "organization"] },
-        "id": { "type": "string" }
+        "type": {
+          "type": "string",
+          "enum": [
+            "user",
+            "organization"
+          ]
+        },
+        "id": {
+          "type": "string"
+        }
       }
     },
     "github": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "token": { "type": "string" }
+        "token": {
+          "type": "string"
+        }
       }
     },
     "util": {},
     "get": {},
-    "has": {}
+    "has": {},
+    "compactionPercent": {
+      "type": "number",
+      "title": "Compaction percent",
+      "description": "Share of the assistant model's context window above which conversation history is compacted.",
+      "default": 70,
+      "minimum": 10,
+      "maximum": 100
+    }
   }
 }

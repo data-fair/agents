@@ -10,7 +10,7 @@
       class="d-flex align-center flex-wrap ga-2 px-2 py-1 mb-1 bg-background rounded"
     >
       <span class="text-caption font-weight-medium">
-        {{ summary.requestCount }} {{ t('requests') }} · {{ formatDuration(summary.totalDurationMs) }} · {{ formatTokens(summary.inputTokens) }} {{ t('in') }} · {{ formatTokens(summary.outputTokens) }} {{ t('out') }}<template v-if="summary.totalCost != null"> · {{ formatCost(summary.totalCost) }} {{ t('credits') }}</template>
+        {{ summary.requestCount }} {{ t('requests') }} · {{ formatDuration(summary.totalDurationMs) }} · {{ formatTokens(summary.inputTokens) }} {{ t('in') }}<template v-if="summary.cachedInputTokens != null"> ({{ formatTokens(summary.cachedInputTokens) }} {{ t('cached') }})</template> · {{ formatTokens(summary.outputTokens) }} {{ t('out') }}<template v-if="summary.totalCost != null"> · {{ formatCost(summary.totalCost) }} {{ t('credits') }}</template>
       </span>
       <v-spacer />
       <v-chip
@@ -220,6 +220,7 @@ fr:
   moderationSkipped: Ignoré (fail-open)
   requests: requêtes
   in: entrée
+  cached: en cache
   out: sortie
   credits: crédits
   interpreted: Interprété
@@ -244,6 +245,7 @@ en:
   moderationSkipped: Skipped (fail-open)
   requests: requests
   in: in
+  cached: cached
   out: out
   credits: credits
   interpreted: Interpreted

@@ -15,7 +15,13 @@ export function useAgentTool<
   if (typeof window === 'undefined') return
 
   debug('register tool %s', agentTool.name)
-  navigator.modelContext.registerTool(agentTool)
+  try {
+    navigator.modelContext.registerTool(agentTool)
+  } catch (err) {
+    // Warn instead of letting the throw (e.g. a duplicate tool name) abort the caller's setup().
+    console.warn(`[df-agents] could not register agent tool "${agentTool.name}":`, err)
+    return
+  }
 
   onScopeDispose(() => {
     debug('unregister tool %s', agentTool.name)
