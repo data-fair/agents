@@ -172,11 +172,23 @@ the model to call it, so advertising it to a page that has never published anyth
 would only ever end in a bounded, pointless dead turn. Re-checked on every tool-set
 rebuild (turn start and every mid-turn rebuild), so a page that starts publishing
 mid-conversation gains the tool at the next one. `{ expecting, timeoutSeconds? }`
-(default 120s, max 600s). It resolves on the **next event, whatever it is**: if one is
-already sitting in the pending buffer when the tool is called, that one settles the wait
-immediately; otherwise it waits for the next `push()`. Either way the chat knows nothing
-about expectations — the model judges whether "user navigated to /elsewhere" is what it
-waited for. Timeout and abort return plain text (`No user action within N seconds…`,
+(default 300s, max 600s). It resolves on **what the person did, not on the next event whatever it
+is**. The store already separates two kinds of event: an unkeyed transition is something
+that happened, keyed state is what is true now — and state refreshes for many reasons,
+including the assistant's own action finishing late. A wait resolves on a transition, or on
+a `location` change (the one keyed change that means the person left), whenever either
+arrives — already pending when the tool is called, or later. Other keyed state never
+resolves a wait: it stays pending and is delivered as a follower when the wait completes.
+The chat still knows nothing about expectations — the model judges whether "user navigated
+to /elsewhere" is what it waited for.
+
+Why by kind and not by time: a judged run had `advance_to_confirmation` report
+`{ready:false}` on its result and `{ready:true}` once a title-conflict API check came back.
+That refresh landed before the wait was armed, the wait took it as the person acting, the
+model retried, and the retry blocked for the full timeout. Had the API been a little slower
+the refresh would have landed after the wait and resolved it just the same — so "only events
+after the wait started" moves the failure around with network latency rather than removing
+it. What distinguishes the refresh from a click is what it is, not when it came. Timeout and abort return plain text (`No user action within N seconds…`,
 `Wait cancelled.`); a second call while pending returns `Already waiting for the user.`
 (the store itself would reject a concurrent `waitForEvent`, but the tool checks
 `isWaiting()` first so the model gets a sentence instead of a thrown error). **It blocks at most once per turn.** A second call in the same reply returns immediately
@@ -187,6 +199,19 @@ repeated-call [loop guard](./loop-guards.md) does not catch this, because the mo
 absence — one where a keyed state re-emission caused by the assistant's own tool call
 settled the wait instantly and it re-issued the identical call, one where three waits with
 reworded `expecting` strings cost six minutes and produced two "take your time" bubbles.
+**A wait that timed out does not block again until the host reports something.**
+The per-turn cap cannot reach this: each new turn hands out a fresh allowance, so an
+assistant that waits, times out and waits again next turn blocks for the full timeout
+every time. A judged data-fair run spent 480s of a 567s run in four such timeouts,
+writing a new "I'm still waiting" line after each one — while the timeout result was
+already telling it to end its reply and let the user act. The store counts events
+(`eventSeq`); while that count has not moved since the timeout, the person has not acted
+and blocking again can only run out another clock, so the tool returns immediately
+instead. It counts by the same rule `resolvesWait` uses, and for the same reason: a
+refresh that clears the guard re-arms a full timeout on someone who is still away, and
+whether that refresh lands just before or just after the timeout is a matter of network
+latency. Only something the person did clears it.
+
 Only a wait that genuinely BLOCKED spends the allowance. One answered straight from the
 pending buffer never waited for the user at all — routinely a keyed state re-emission the
 assistant's own tool call produced — and counting it refused the follow-up: a judged run
@@ -207,7 +232,7 @@ the page on the navigation that follows Create — the exact moment that matters
 A pending wait also suspends the chat's own idle watchdog. `use-agent-chat.ts` arms a
 `STREAM_IDLE_TIMEOUT_MS` (90s) timer on every stream part to catch a provider that holds
 the socket open while emitting nothing; a declared wait emits no stream parts by design
-and has its own default timeout of `WAIT_DEFAULT_SECONDS` (120s, `WAIT_MAX_SECONDS` 600
+and has its own default timeout of `WAIT_DEFAULT_SECONDS` (300s, `WAIT_MAX_SECONDS` 600
 max), so before this was fixed the watchdog killed every realistic wait — a real run made
 four gateway requests and then the turn simply died, the person's click never seen. The
 fix suspends the watchdog rather than capping the wait: a declared wait is an intentional,
