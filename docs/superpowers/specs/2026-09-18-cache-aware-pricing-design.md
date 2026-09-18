@@ -247,11 +247,21 @@ doc comment in `credits.ts` changes, since the formula it describes no longer ex
   "cache reads bill like any other input token") with its opposite: cache reads bill
   at the cache price, and the trace breakdown equals what was billed.
 
+- **Gateway, end to end.** The mock model hardcodes `cacheRead: undefined`
+  (`api/src/models/mock-model.ts:33`), so no test can currently reach the cache
+  branch through the gateway. It gains a `cache <n>` directive, in the same style as
+  its existing `call tool` / `parallel subagents` ones, making it report `n` cache-read
+  tokens. An API test then asserts the recorded credits for a cached turn are strictly
+  below the same turn uncached — the actual point of this change, otherwise covered
+  only by pure unit tests.
+
 **The grind, and one deliberate exception.** 102 `multiplier:` literals across 51
-spec files become explicit zero prices, routed through `tests/support/settings.ts`
-helpers wherever the spec already uses them. `usage.api.spec.ts` and the monitoring
-suites must keep **non-zero** prices: if every fixture prices at zero, a real pricing
-regression passes the whole suite silently.
+spec files become explicit prices, routed through `tests/support/settings.ts` helpers
+wherever the spec already uses them. `usage.api.spec.ts` must keep **non-zero** prices:
+it is the suite that exercises the formula end to end, and if every fixture prices at
+zero a real pricing regression passes silently. The monitoring suites are not in that
+category — they seed usage directly through `/api/test-env/usage` and never price a
+token, so their fixtures move to zero prices like the rest.
 
 ## Customers repo
 
