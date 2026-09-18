@@ -256,8 +256,8 @@ test.describe('Host events', () => {
 
   test('the person can speak during a wait, and their message takes the turn back', async ({ page, goToWithAuth }) => {
     // A pending wait is the assistant standing still by its own choice. Before
-    // this, the composer refused input for the whole turn — up to 120 seconds —
-    // so someone who wanted to say "actually, never mind" had no way to, short
+    // this, the composer refused input for the whole turn — minutes, at the wait's
+    // default — so someone who wanted to say "actually, never mind" had no way to, short
     // of finding the Stop button. The wait is what made that reachable in normal
     // use: an ordinary turn is genuinely working and still refuses input.
     await open(page, goToWithAuth)

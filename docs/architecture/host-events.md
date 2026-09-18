@@ -172,7 +172,7 @@ the model to call it, so advertising it to a page that has never published anyth
 would only ever end in a bounded, pointless dead turn. Re-checked on every tool-set
 rebuild (turn start and every mid-turn rebuild), so a page that starts publishing
 mid-conversation gains the tool at the next one. `{ expecting, timeoutSeconds? }`
-(default 120s, max 600s). It resolves on **what the person did, not on the next event whatever it
+(default 300s, max 600s). It resolves on **what the person did, not on the next event whatever it
 is**. The store already separates two kinds of event: an unkeyed transition is something
 that happened, keyed state is what is true now — and state refreshes for many reasons,
 including the assistant's own action finishing late. A wait resolves on a transition, or on
@@ -229,7 +229,7 @@ the page on the navigation that follows Create — the exact moment that matters
 A pending wait also suspends the chat's own idle watchdog. `use-agent-chat.ts` arms a
 `STREAM_IDLE_TIMEOUT_MS` (90s) timer on every stream part to catch a provider that holds
 the socket open while emitting nothing; a declared wait emits no stream parts by design
-and has its own default timeout of `WAIT_DEFAULT_SECONDS` (120s, `WAIT_MAX_SECONDS` 600
+and has its own default timeout of `WAIT_DEFAULT_SECONDS` (300s, `WAIT_MAX_SECONDS` 600
 max), so before this was fixed the watchdog killed every realistic wait — a real run made
 four gateway requests and then the turn simply died, the person's click never seen. The
 fix suspends the watchdog rather than capping the wait: a declared wait is an intentional,
