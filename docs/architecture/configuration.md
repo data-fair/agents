@@ -57,7 +57,9 @@ JSON array of provider definitions. `type` is one of the 9 supported provider ty
 
 ### `MODELS`
 
-JSON array of global model definitions, each referencing a `provider` id from `PROVIDERS`. `usage` flags which roles the model is *allowed* to serve (`assistant`, `tools`, `summarizer`, `evaluator`, `moderator` — at least one, no duplicates). `multiplier` (default `1`) scales the credits formula below (see [Credits](#credits)). `assertGlobalAiConfig` rejects a model referencing an unknown provider id, and rejects duplicate `provider/id` pairs.
+JSON array of global model definitions, each referencing a `provider` id from `PROVIDERS`. `usage` flags which roles the model is *allowed* to serve (`assistant`, `tools`, `summarizer`, `evaluator`, `moderator` — at least one, no duplicates).
+
+`inputPricePerMillion` and `outputPricePerMillion` are **mandatory**, in euros per million tokens, copied from the provider's own pricing page. `cachedInputPricePerMillion` is optional and means *unknown* when absent, not free — it falls back to the input price (see [Credits](#credits)). `assertGlobalAiConfig` rejects a model referencing an unknown provider id, rejects duplicate `provider/id` pairs, and **exits the process at boot** on a model missing either mandatory price, naming the offending `provider/id`. A price of `0` is legitimate; an absent one is not, because every account on this deployment can resolve a global model (see the [release note](#release-note-every-account-can-now-resolve-a-model-so-credits-are-the-gate) below) and a model free by omission would be an uncapped consumer of the deployment's own keys.
 
 ```json
 [
@@ -66,14 +68,17 @@ JSON array of global model definitions, each referencing a `provider` id from `P
     "name": "GPT-5.4",
     "provider": "global-openai",
     "usage": ["assistant", "tools"],
-    "multiplier": 1
+    "inputPricePerMillion": 1.25,
+    "cachedInputPricePerMillion": 0.125,
+    "outputPricePerMillion": 10
   },
   {
     "id": "gpt-5.4-mini",
     "name": "GPT-5.4 Mini",
     "provider": "global-openai",
     "usage": ["summarizer", "moderator"],
-    "multiplier": 0.2
+    "inputPricePerMillion": 0.25,
+    "outputPricePerMillion": 2
   }
 ]
 ```
@@ -93,13 +98,17 @@ JSON object mapping each role to a `{ provider, id }` ref that must resolve to a
 
 Note `evaluator` is intentionally omitted above — with no global default and no org mapping, resolution falls through the [fallback chain](#role-resolution-the-catalog) to `assistant`.
 
-### `OUTPUT_TOKEN_WEIGHT`
+### `EUROS_PER_CREDIT`
 
-Plain number (not JSON), default `4`. Weight applied to output tokens in the credits formula — output tokens are typically several times more expensive than input tokens across providers, so this approximates that without needing per-model input/output prices.
+Plain number (not JSON), default `0.4`. Euros of inference cost per credit — the single peg that turns the per-model euro prices above into the billed unit.
+
+`0.40` is the input price of the reference model `deepseek-v4-flash-0731` on Scaleway, so one credit is roughly one million tokens consumed by that model.
 
 ```
-OUTPUT_TOKEN_WEIGHT=4
+EUROS_PER_CREDIT=0.4
 ```
+
+**This value must match the reference price in `customers/docs/ai-credits-pricing.md`.** That document derives every plan allowance and every margin from it. If Scaleway moves the reference price, the credit's cost moves and every margin moves with it, with nothing in either codebase saying so — the two have to be changed together.
 
 ### `DEFAULT_CREDITS`
 
@@ -129,7 +138,7 @@ SECRET_LIMITS=a-long-random-shared-secret
 `PUT /api/settings/:type/:id` (`api/src/settings/router.ts`), gated by `reqAdminMode` — a **site superadmin** acting in admin mode, not a regular org admin. This is where an org gets its own providers/models on top of the global catalog, e.g. a customer's own OpenAI key or an internal-only model.
 
 - `settings.providers`: same shape as the global `PROVIDERS` array. `apiKey` is encrypted at rest (AES-256-CBC via `api/src/cipher/`) and obfuscated (`"********"`) in API responses; re-submitting the obfuscated placeholder preserves the stored encrypted value (`encryptProviderApiKeys` in `api/src/settings/operations.ts`).
-- `settings.models`: array of `{ model: { id, name, provider: { type, name, id } }, usage: Role[], multiplier? }` — the org-scoped equivalent of global `MODELS`, referencing `settings.providers` by embedded provider info rather than a bare id.
+- `settings.models`: array of `{ model: { id, name, provider: { type, name, id } }, usage: Role[], inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion?, contextWindow? }` — the org-scoped equivalent of global `MODELS`, referencing `settings.providers` by embedded provider info rather than a bare id. Both mandatory prices are enforced by the PUT schema, so the route 400s on an entry without them — the write-time half of the boot check on global `MODELS`.
 
 This route only ever touches `providers`/`models` (`+ updatedAt`) — it is a partial update, not a whole-document replace, so it never clobbers the org-admin-owned fields from Layer 3, including a Layer-3 write racing concurrently between its read and write.
 
@@ -163,10 +172,23 @@ So for role `tools`: try `modelMapping.tools`, then `defaultModels.tools`; if ne
 Every LLM call — assistant/tools/summarizer/evaluator turns, moderator classification calls, and summary-endpoint calls — is priced in **credits**, not currency:
 
 ```
-credits = (inputTokens + outputTokens × OUTPUT_TOKEN_WEIGHT) / 1_000_000 × multiplier
+euros   = (noCacheTokens + cacheWriteTokens) × inputPricePerMillion       / 1_000_000
+        +  cacheReadTokens                   × cachedInputPricePerMillion / 1_000_000
+        +  outputTokens                      × outputPricePerMillion      / 1_000_000
+credits = euros / EUROS_PER_CREDIT
 ```
 
-(`computeCredits()`, `api/src/usage/operations.ts`). `multiplier` comes from the resolved catalog entry (global `MODELS[].multiplier` or org `settings.models[].multiplier`, default `1`); `OUTPUT_TOKEN_WEIGHT` is the global env var above. There is no currency, no EUR, no per-model input/output price — a deployment tunes relative cost purely through each model's `multiplier`.
+(`priceTokens()` and `toCredits()`, joined by `computeCredits()`, in `api/src/usage/operations.ts`.) The three prices come from the resolved catalog entry — global `MODELS[]` or org `settings.models[]` — and the peg is the global env var above.
+
+**Cache reads are the reason this is priced per class.** Providers charge them at a fraction of fresh input (Scaleway: 0.08 €/M against 0.40, a factor of 5) and claim a 50–90% hit ratio on agentic workloads, so billing them at the fresh rate over-states input cost by 1.67x to 3.57x.
+
+Three rules worth knowing:
+
+- **An unset `cachedInputPricePerMillion` means unknown, not free.** It resolves to the entry's own value, then the snapshot the provider listing gave when the model was picked, then the input price — never to 0. OpenAI, Scaleway, LiteLLM and vLLM publish no cache tariff yet still cache implicitly, and 0 would bill those reads for free and silently loosen every credit cap.
+- **Cache writes bill at the plain input price.** There is no write tariff to configure: this codebase never sets `cache_control`, so no provider reports write tokens today. They are billed rather than dropped so they cannot become free if one ever does.
+- **`noCacheTokens` is taken verbatim** when the provider reports it (ai@6 normalizes this); the subtraction `inputTokens - cacheRead - cacheWrite` is only a fallback, clamped at 0.
+
+Credits, not euros, are what the account cap and every quota are denominated in, and what `limits.ai_credits` holds — the peg exists so a credit has a defined cost, not so the two become interchangeable in the API.
 
 The `usage` MongoDB collection deliberately keeps its pre-existing field name `cost` (see `api/src/usage/service.ts`); the values it stores are credits, not money. This was a conscious choice to avoid a data migration of the `usage` collection itself — only the `settings` collection needed migrating (see [release note](#release-note-caps-shift-units-on-upgrade) below).
 
@@ -219,11 +241,11 @@ This list is a best-effort contract summary written from the `agents`-side imple
 
 The `upgrade/0.10.0/better-config.js` migration (only runs once the deployed service version is bumped to **0.10.0 or higher** — see `api/src/server.ts`'s upgrade-script runner) carries every org's old `quotas.global.monthlyLimit` number across **1:1** into the new `ai_credits.limit` on that org's `limits` doc (`unlimited`/falsy `monthlyLimit` → `-1`).
 
-**That number changes what it measures.** Before this refactor, `quotas.global.monthlyLimit` was a currency budget compared against a cost computed from each model's `inputPricePerMillion`/`outputPricePerMillion` (both now deleted from the schema). After the migration, the *same number* is compared against token-derived credits (`(inputTokens + outputTokens × OUTPUT_TOKEN_WEIGHT) / 1e6 × multiplier`), and `multiplier` defaults to `1` for every migrated model regardless of what it used to cost.
+**That carry is unit-preserving.** The old number was a currency budget, and a credit is pegged to a currency amount (`EUROS_PER_CREDIT`, default `0.40`), so a deployment that leaves the peg alone can read the migrated cap the way it always did — divided by the peg. The migration also carries each old role entry's `inputPricePerMillion` / `outputPricePerMillion` / `cachedInputPricePerMillion` onto its new catalog entry, so what a model costs does not change either.
 
-Concretely: an org whose old assistant model priced at $10/1M output tokens is capped, post-migration, as if every model it uses costs `1 credit / 1M weighted tokens` — the same numeric cap now buys a completely different amount of usage, and the size of that shift depends entirely on that org's old per-model prices (which are gone and not recoverable from the migration alone).
+**What does need review: migrated models that had no prices.** An old role entry without them migrates to `0`, which is what it cost before (the old resolver read every price `?? 0`), and that model bills **nothing** until an admin prices it. Boot validation cannot catch this — it guards new config, not stored documents.
 
-**Operators must review every migrated org's `ai_credits.limit` after upgrading**, and its models' `multiplier` values, rather than assuming the carried-over number still means what it used to.
+**Operators must therefore review every migrated org's `settings.models[]` prices after upgrading**, alongside its `ai_credits.limit`.
 
 ## Release note: every account can now resolve a model, so credits are the gate
 

@@ -27,7 +27,7 @@ flowchart TD
   LLM --> Record[recordUsage<br/>credits]
 ```
 
-Every call is priced in **credits**, not currency — see [Configuration → Credits](./configuration.md#credits) for the exact formula (`(inputTokens + outputTokens × outputTokenWeight) / 1e6 × multiplier`). There is no per-role "cost ratio": each model's own resolved `multiplier` is what makes a cheaper model (e.g. the summarizer's model) consume fewer credits per token than a pricier one.
+Every call is priced in **credits**, not currency — see [Configuration → Credits](./configuration.md#credits) for the exact formula (token counts against the model's per-class euro prices, divided by `EUROS_PER_CREDIT`). There is no per-role "cost ratio": each model's own prices are what make a cheaper model (e.g. the summarizer's model) consume fewer credits per token than a pricier one, and cache reads cost a fraction of fresh input on the same model.
 
 **Storage:** Three MongoDB documents per user×period in the `usage` collection — `daily:YYYY-MM-DD`, `weekly:YYYY-Www`, `monthly:YYYY-MM` — each with a `cost` field (named for historical reasons; the value stored is credits). Atomic `$inc` upserts for concurrent-safe recording. `recordUsage()` also increments the account's `limits.ai_credits.consumption` counter in the same call, so the credit cap check above always reads consumption recorded by this same path.
 

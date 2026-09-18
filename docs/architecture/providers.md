@@ -36,7 +36,7 @@ graph LR
 | `evaluator` | Quality control / reasoning |
 | `moderator` | Input moderation guard (internal, gateway-side) |
 
-There is no per-role fixed cost ratio. Each model in the catalog (global `MODELS` or an org's `settings.models`) carries its own `multiplier`, and credits are computed from actual token counts times that multiplier — see [Configuration → Credits](./configuration.md#credits) for the formula. A cheaper role like `summarizer` is typically *mapped* to a cheaper, lower-`multiplier` model, but nothing in the schema ties a role to a fixed ratio.
+There is no per-role fixed cost ratio. Each model in the catalog (global `MODELS` or an org's `settings.models`) carries its own prices per token class — fresh input, cached input, output — in euros per million tokens, and credits come from actual token counts against those prices divided by the credit peg; see [Configuration → Credits](./configuration.md#credits) for the formula. A cheaper role like `summarizer` is typically *mapped* to a cheaper model, but nothing in the schema ties a role to a fixed ratio.
 
 Each owner (user or organization) may add its own providers and models on top of the deployment-wide catalog — see [Configuration](./configuration.md) for the full env-var / superadmin / org-admin layering. API keys are **encrypted at rest** (AES-256-CBC) and obfuscated in API responses for org-owned providers (the deployment-wide `PROVIDERS` env var is plain text, since it never leaves the deployment's own secret store).
 
@@ -51,8 +51,10 @@ included, falls back to a 128000-token default sized for frontier assistant
 models. See [Conversation history compaction](./compaction.md) for how it feeds
 the budget.
 
-Credits are charged on **total** input tokens, cache reads included: there is no
-cache-read discount and no cache-write tariff in the formula. The multiplier is
-set per model by whoever adds it to the catalog, so a provider's cache pricing is
-folded into that one number rather than tracked per token class.
+Cache reads are charged at their own rate, not at the fresh-input rate — the
+reason prices are per token class at all. Left empty, a model's cache price falls
+back to its input price (*unknown*, never *free*), which is what most entries do:
+the reference model is the only one in the Scaleway catalog publishing a cache
+tariff. Cache **writes** bill at the plain input price; there is no write tariff
+to configure, because this codebase never sets `cache_control`.
 

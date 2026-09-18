@@ -1,6 +1,7 @@
 /**
  * Usage is accounted in credits, not money: a request costs
- * (inputTokens + outputTokens × outputTokenWeight) / 1M × the model's multiplier.
+ * the model's per-class prices (fresh input, cached input, output) applied to the
+ * token counts, divided by the deployment's EUROS_PER_CREDIT peg.
  * Amounts are therefore small fractions, so keep enough significant digits to
  * distinguish them instead of rounding everything to 0.
  */
