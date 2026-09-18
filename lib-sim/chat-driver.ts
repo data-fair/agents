@@ -54,6 +54,20 @@ export const TURN_TIMEOUT_MS = 10 * 60 * 1000
 // legitimately long model turn once the message has actually been sent.
 export const SEND_TIMEOUT_MS = 15000
 
+/**
+ * How a turn ended. `waiting` means the assistant declared
+ * `wait_for_user_action` and is holding the turn open for the person — the
+ * caller's cue to let them act, then wait again for the turn it resumes.
+ */
+export type TurnOutcome = 'ended' | 'waiting'
+
+/**
+ * Matched on the activity's kind, not its label: the label is the model's own
+ * words interpolated into a translated string, so any text match would be both
+ * locale-dependent and at the mercy of what the assistant wrote.
+ */
+export const WAITING_SELECTOR = '[data-testid="chat-activity"][data-activity="waiting"]'
+
 export function createChatDriver (root: ChatRoot, opts: { locale?: ChatDriverLocale } = {}) {
   const strings = chatDriverStrings(opts.locale ?? 'en')
   return {
@@ -84,12 +98,28 @@ export function createChatDriver (root: ChatRoot, opts: { locale?: ChatDriverLoc
       }
     },
 
-    async waitForTurn (timeoutMs = TURN_TIMEOUT_MS) {
+    async waitForTurn (timeoutMs = TURN_TIMEOUT_MS): Promise<TurnOutcome> {
       const stop = root.getByRole('button', { name: strings.stop })
+      const waiting = root.locator(WAITING_SELECTOR)
       // The turn may already be finished by the time we look, so a missing Stop
       // button is not an error — only one that never goes away is.
       await stop.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {})
-      await expect(stop).toHaveCount(0, { timeout: timeoutMs })
+
+      // A turn can finish two ways, and only one of them is the assistant being
+      // done. `wait_for_user_action` holds the turn open on purpose, having handed
+      // control back to the person — and a simulated person only acts between
+      // turns, so a harness that waited for the Stop button alone could never let
+      // them act on it. Every declared wait then ran its whole window and was
+      // recorded as a wedged turn; at a wait window as long as the harness's own
+      // ceiling, that is every run.
+      const ended = expect(stop).toHaveCount(0, { timeout: timeoutMs }).then(() => 'ended' as const)
+      const armed = expect(waiting).toHaveCount(1, { timeout: timeoutMs }).then(
+        () => 'waiting' as const,
+        // Never rejects: a wait that is simply not what this turn did must not be
+        // the error a caller sees. The Stop arm owns the timeout message.
+        () => new Promise<never>(() => {})
+      )
+      return await Promise.race([ended, armed])
     },
 
     async readConversation () {
