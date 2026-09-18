@@ -26,19 +26,45 @@ const oldDoc = {
 }
 
 test.describe('transformSettingsDoc', () => {
-  test('converts role models to deduped defs + mapping, multiplier 1, prices dropped', () => {
+  test('converts role models to deduped defs + mapping, carrying the prices across', () => {
     const result = transformSettingsDoc(structuredClone(oldDoc))!
     assert.equal(result.settings.models.length, 2) // gpt-x, gpt-mini (dedup: summarizer+moderator share gpt-mini)
     const mini = result.settings.models.find((m: any) => m.model.id === 'gpt-mini')
-    // deepEqual on the whole entry (not just a spot-check on inputPricePerMillion): in the
-    // old shape the prices were siblings of `model`, not inside it, so a narrower assertion
-    // would pass even if the transform accidentally carried them over onto the catalog entry.
+    // deepEqual on the whole entry: in the old shape the prices were siblings of `model`,
+    // not inside it, so a narrower assertion would pass even if the transform put them in
+    // the wrong place. gpt-mini is shared by summarizer (priced) and moderator (unpriced)
+    // and dedupes onto the first role seen, so it keeps summarizer's prices.
     assert.deepEqual(mini, {
       model: { id: 'gpt-mini', name: 'GPT Mini', provider: { type: 'openai', name: 'OpenAI', id: 'p1' } },
       usage: ['summarizer', 'moderator'],
-      multiplier: 1
+      inputPricePerMillion: 0.1,
+      outputPricePerMillion: 0.4
     })
     assert.deepEqual(result.settings.modelMapping.assistant, { provider: 'p1', id: 'gpt-x', name: 'GPT X' })
+  })
+
+  test('carries a cache price when the old entry had one', () => {
+    const doc: any = structuredClone(oldDoc)
+    doc.models.assistant.cachedInputPricePerMillion = 0.2
+    const result = transformSettingsDoc(doc)!
+    const gptx = result.settings.models.find((m: any) => m.model.id === 'gpt-x')
+    assert.equal(gptx.cachedInputPricePerMillion, 0.2)
+  })
+
+  test('an old role entry with no prices migrates to zero, not to undefined', () => {
+    // These models are billable-at-nothing until an admin prices them; the release
+    // note calls for a post-upgrade review. Zero is what they cost before the
+    // migration too, since the old resolver read every price `?? 0`. The key must be
+    // present, not absent: the settings schema now requires it.
+    const doc: any = structuredClone(oldDoc)
+    doc.models = { assistant: { model: { id: 'm', name: 'M', provider: { type: 'mock', id: 'p', name: 'P' } } } }
+    const result = transformSettingsDoc(doc)!
+    assert.deepEqual(result.settings.models[0], {
+      model: { id: 'm', name: 'M', provider: { type: 'mock', id: 'p', name: 'P' } },
+      usage: ['assistant'],
+      inputPricePerMillion: 0,
+      outputPricePerMillion: 0
+    })
   })
   test('quotas.global becomes the credit limit, other entries carried over', () => {
     const result = transformSettingsDoc(structuredClone(oldDoc))!

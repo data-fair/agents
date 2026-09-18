@@ -8,16 +8,17 @@
 // api/src/server.ts) — the release that adopts this refactor MUST ship at
 // least 0.10.0, or this migration silently never executes.
 //
-// RELEASE NOTE — the carried-over number changes units. `quotas.global.
-// monthlyLimit` is copied 1:1 into `ai_credits.limit` below, but it used to
-// be a currency budget compared against a cost derived from each model's
-// (now-deleted) inputPricePerMillion/outputPricePerMillion, and is now
-// compared against token-derived credits with a default multiplier of 1.
-// The same number therefore buys a different amount of usage post-upgrade,
-// by a factor that depends on each org's old model prices. See
-// docs/architecture/configuration.md#release-note-caps-shift-units-on-upgrade
-// — operators must review every migrated org's ai_credits.limit (and model
-// multipliers) after upgrading.
+// RELEASE NOTE — `quotas.global.monthlyLimit` is copied 1:1 into
+// `ai_credits.limit` below, and that carry is unit-preserving: the old number
+// was a currency budget, and a credit is pegged to a currency amount
+// (EUROS_PER_CREDIT, default 0.40). A deployment that leaves the peg alone can
+// read the migrated cap the way it always did, divided by the peg.
+//
+// What DOES need review: a role entry that carried no prices migrates to
+// inputPricePerMillion/outputPricePerMillion 0, so that model bills nothing
+// until an admin prices it. Boot validation cannot catch this — it guards new
+// config, not stored documents. See
+// docs/architecture/configuration.md#release-note-caps-shift-units-on-upgrade.
 //
 // exec() MUST be idempotent (see @data-fair/lib-node/upgrade-scripts.js's
 // UpgradeScript contract): the runner re-executes every script whose folder
@@ -103,7 +104,18 @@ export function transformSettingsDoc (doc) {
     if (existing) {
       if (!existing.usage.includes(role)) existing.usage.push(role)
     } else {
-      models.push({ model: { id: entry.model.id, name: entry.model.name, provider: entry.model.provider }, usage: [role], multiplier: 1 })
+      models.push({
+        model: { id: entry.model.id, name: entry.model.name, provider: entry.model.provider },
+        usage: [role],
+        // Carry the old per-role prices across rather than discarding them: they are
+        // exactly what the new per-class formula needs, and nothing else can recover
+        // them. An entry that had none migrates to 0 — what it cost before, since the
+        // old resolver read every price `?? 0` — and stays free until an admin prices
+        // it. See the release note in docs/architecture/configuration.md.
+        inputPricePerMillion: entry.inputPricePerMillion ?? 0,
+        outputPricePerMillion: entry.outputPricePerMillion ?? 0,
+        ...(entry.cachedInputPricePerMillion !== undefined ? { cachedInputPricePerMillion: entry.cachedInputPricePerMillion } : {})
+      })
     }
     modelMapping[role] = { provider: entry.model.provider.id, id: entry.model.id, name: entry.model.name }
   }
