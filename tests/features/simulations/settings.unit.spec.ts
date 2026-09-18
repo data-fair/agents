@@ -1,14 +1,24 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { bridgeSettings } from '../../../simulations/runner/settings.ts'
+import { bridgeSettings, splitSettingsBody } from '../../../simulations/runner/settings.ts'
 
 test.describe('bridge settings', () => {
   test('points every model role at the bridge provider', () => {
+    // The catalog is keyed by model and roles reach it through modelMapping, so
+    // "this role runs on the bridge" is now two claims: the ref names the bridge
+    // provider, AND it resolves to a catalog entry flagged for that role. The org
+    // PUT validates exactly that pair, and an unmapped role would silently fall
+    // through to the dev global config's mock model.
     const s = bridgeSettings('sonnet', 'haiku') as any
     for (const role of ['assistant', 'tools', 'summarizer', 'evaluator', 'moderator']) {
-      assert.ok(s.models[role].model.id, `${role} model`)
-      assert.equal(s.models[role].model.provider.id, 'bridge', `${role} provider`)
+      const ref = s.modelMapping[role]
+      assert.ok(ref, `${role} mapped`)
+      assert.equal(ref.provider, 'bridge', `${role} provider`)
+      const entry = s.models.find((m: any) => m.model.id === ref.id)
+      assert.ok(entry, `${role} ref resolves to a catalog entry`)
+      assert.equal(entry.model.provider.id, 'bridge', `${role} entry provider`)
+      assert.ok(entry.usage.includes(role), `${role} entry flagged for the role`)
     }
   })
 
@@ -17,11 +27,40 @@ test.describe('bridge settings', () => {
     // puts a small model, so a case that only works on the assistant's tier is
     // a case that does not work.
     const s = bridgeSettings('sonnet', 'haiku') as any
-    assert.equal(s.models.assistant.model.id, 'sonnet')
-    assert.equal(s.models.evaluator.model.id, 'sonnet')
-    assert.equal(s.models.tools.model.id, 'haiku')
-    assert.equal(s.models.summarizer.model.id, 'haiku')
-    assert.equal(s.models.moderator.model.id, 'haiku')
+    assert.equal(s.modelMapping.assistant.id, 'sonnet')
+    assert.equal(s.modelMapping.evaluator.id, 'sonnet')
+    assert.equal(s.modelMapping.tools.id, 'haiku')
+    assert.equal(s.modelMapping.summarizer.id, 'haiku')
+    assert.equal(s.modelMapping.moderator.id, 'haiku')
+  })
+
+  test('collapses to one catalog entry when both tiers pin the same model', () => {
+    // SIM_TOOLS_MODEL=sonnet is a legitimate run. Two entries sharing a
+    // provider/id pair would be a duplicate catalog key.
+    const s = bridgeSettings('sonnet', 'sonnet') as any
+    assert.equal(s.models.length, 1)
+    assert.deepEqual(
+      [...s.models[0].usage].sort(),
+      ['assistant', 'evaluator', 'moderator', 'summarizer', 'tools']
+    )
+  })
+
+  test('every catalog entry carries the mandatory prices', () => {
+    // The settings PUT 400s without them. Priced at 0 because the bridge spends a
+    // subscription rather than per-token billing — stating that explicitly is the
+    // point, since a model free by omission is what the mandatory prices forbid.
+    for (const m of (bridgeSettings('sonnet', 'haiku') as any).models) {
+      assert.equal(typeof m.inputPricePerMillion, 'number', 'input price')
+      assert.equal(typeof m.outputPricePerMillion, 'number', 'output price')
+    }
+  })
+
+  test('splits the body across the two write-scoped endpoints', () => {
+    // The regression that killed every case: quotas and storeTraces posted to the
+    // superadmin route, which owns only providers/models, 400 on additionalProperties.
+    const { superadminBody, orgBody } = splitSettingsBody(bridgeSettings('sonnet', 'haiku'))
+    assert.deepEqual(Object.keys(superadminBody).sort(), ['models', 'providers'])
+    assert.deepEqual(Object.keys(orgBody).sort(), ['modelMapping', 'quotas', 'storeTraces'])
   })
 
   test('uses openai-compatible in compatible mode', () => {

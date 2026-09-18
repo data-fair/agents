@@ -84,18 +84,26 @@ export function bridgeSettings (assistantModelId: string, toolsModelId: string) 
 /** Fields the org-admin PUT owns; everything else belongs to the superadmin PUT. */
 const ORG_OWNED_KEYS = ['modelMapping', 'quotas', 'moderation', 'storeTraces']
 
-export async function seedSettings (assistantModelId: string, toolsModelId: string) {
-  const { superAdmin } = await import('../../tests/support/axios.ts')
-  const admin = await superAdmin
-  const body = bridgeSettings(assistantModelId, toolsModelId) as Record<string, any>
-  // Settings authorship is split across two write-scoped endpoints: providers/models
-  // are superadmin-owned, the rest is org-admin-owned. Posting the whole body to the
-  // superadmin route 400s on additionalProperties.
+/**
+ * Settings authorship is split across two write-scoped endpoints: `providers`/`models`
+ * are superadmin-owned, the rest is org-admin-owned. Posting the whole body to the
+ * superadmin route 400s on additionalProperties — which is exactly how every case
+ * silently died when this fixture still predated the split. Pure, so a unit test can
+ * hold the split without any network I/O.
+ */
+export function splitSettingsBody (body: Record<string, any>): { superadminBody: Record<string, any>, orgBody: Record<string, any> } {
   const superadminBody: Record<string, any> = {}
   const orgBody: Record<string, any> = {}
   for (const [key, value] of Object.entries(body)) {
     (ORG_OWNED_KEYS.includes(key) ? orgBody : superadminBody)[key] = value
   }
+  return { superadminBody, orgBody }
+}
+
+export async function seedSettings (assistantModelId: string, toolsModelId: string) {
+  const { superAdmin } = await import('../../tests/support/axios.ts')
+  const admin = await superAdmin
+  const { superadminBody, orgBody } = splitSettingsBody(bridgeSettings(assistantModelId, toolsModelId))
   await admin.put(`/api/settings/${OWNER.type}/${OWNER.id}`, superadminBody)
   await admin.put(`/api/settings/${OWNER.type}/${OWNER.id}/org`, orgBody)
 }
