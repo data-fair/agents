@@ -13,8 +13,8 @@ const baseInput: BuildTraceInput = {
   body: { messages: [], tools: [] },
   response: { content: '', toolCalls: [] },
   usage: { inputTokens: 0, outputTokens: 0 },
-  multiplier: 0,
-  outputTokenWeight: 4,
+  prices: { inputPricePerMillion: 0, outputPricePerMillion: 0 },
+  eurosPerCredit: 0.4,
   timing: { durationMs: 1 }
 }
 

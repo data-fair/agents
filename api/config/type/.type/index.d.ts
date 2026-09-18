@@ -60,7 +60,7 @@ export type ApiConfig = {
     evaluator?: ModelRef;
     moderator?: ModelRef;
   };
-  outputTokenWeight: number;
+  eurosPerCredit: number;
   defaultLimits: {
     credits?: number;
   };

@@ -73,7 +73,12 @@ router.post('/:type/:id', async (req, res, next) => {
     // Record usage after completion (credits)
     const inputTokens = usage?.inputTokens ?? 0
     const outputTokens = usage?.outputTokens ?? 0
-    const cost = computeCredits(inputTokens, outputTokens, entry.multiplier, config.outputTokenWeight)
+    const details = usage?.inputTokenDetails
+    const cost = computeCredits(
+      { inputTokens, outputTokens, noCacheTokens: details?.noCacheTokens, cacheReadTokens: details?.cacheReadTokens, cacheWriteTokens: details?.cacheWriteTokens },
+      entry,
+      config.eurosPerCredit
+    )
     if (cost > 0) {
       await recordUsage(owner, cost, usageUserId, usageUserName, poolId)
     }

@@ -222,8 +222,8 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
         body: req.body,
         response,
         usage,
-        multiplier: entry.multiplier,
-        outputTokenWeight: config.outputTokenWeight,
+        prices: { inputPricePerMillion: entry.inputPricePerMillion, outputPricePerMillion: entry.outputPricePerMillion, cachedInputPricePerMillion: entry.cachedInputPricePerMillion },
+        eurosPerCredit: config.eurosPerCredit,
         timing: { durationMs: Date.now() - traceStart, ...(timeToFirstChunkMs != null ? { timeToFirstChunkMs } : {}) },
         ...(moderation?.traceInfo() ? { moderation: moderation.traceInfo() } : {}),
         ...(traceFlags ? { flags: traceFlags } : {})
@@ -372,7 +372,11 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
           const inputTokens = gen.usage?.inputTokens ?? 0
           const outputTokens = gen.usage?.outputTokens ?? 0
           const details = gen.usage?.inputTokenDetails
-          const cost = computeCredits(inputTokens, outputTokens, entry.multiplier, config.outputTokenWeight)
+          const cost = computeCredits(
+            { inputTokens, outputTokens, noCacheTokens: details?.noCacheTokens, cacheReadTokens: details?.cacheReadTokens, cacheWriteTokens: details?.cacheWriteTokens },
+            entry,
+            config.eurosPerCredit
+          )
           if (cost > 0) await recordUsage(owner, cost, usageUserId, usageUserName, poolId)
           sseWrite(`data: ${JSON.stringify({ id: completionId, object: 'chat.completion.chunk', created, model: modelId, choices: [{ index: 0, delta: {}, finish_reason: mapFinishReason(gen.finishReason as FinishReason) }], usage: buildUsage(gen.usage) })}\n\n`)
           const recordFinishTrace = () => recordTrace(
@@ -456,7 +460,11 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
               const inputTokens = part.totalUsage?.inputTokens ?? 0
               const outputTokens = part.totalUsage?.outputTokens ?? 0
               const details = part.totalUsage?.inputTokenDetails
-              const cost = computeCredits(inputTokens, outputTokens, entry.multiplier, config.outputTokenWeight)
+              const cost = computeCredits(
+                { inputTokens, outputTokens, noCacheTokens: details?.noCacheTokens, cacheReadTokens: details?.cacheReadTokens, cacheWriteTokens: details?.cacheWriteTokens },
+                entry,
+                config.eurosPerCredit
+              )
               if (cost > 0) {
                 await recordUsage(owner, cost, usageUserId, usageUserName, poolId)
               }
@@ -567,7 +575,11 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
       const inputTokens = result.usage?.inputTokens ?? 0
       const outputTokens = result.usage?.outputTokens ?? 0
       const details = result.usage?.inputTokenDetails
-      const cost = computeCredits(inputTokens, outputTokens, entry.multiplier, config.outputTokenWeight)
+      const cost = computeCredits(
+        { inputTokens, outputTokens, noCacheTokens: details?.noCacheTokens, cacheReadTokens: details?.cacheReadTokens, cacheWriteTokens: details?.cacheWriteTokens },
+        entry,
+        config.eurosPerCredit
+      )
       if (cost > 0) {
         await recordUsage(owner, cost, usageUserId, usageUserName, poolId)
       }

@@ -130,8 +130,9 @@ export function toCredits (euros: number, eurosPerCredit: number): number {
   return euros / eurosPerCredit
 }
 
-export function computeCredits (inputTokens: number, outputTokens: number, multiplier: number, outputTokenWeight: number): number {
-  return (inputTokens + outputTokens * outputTokenWeight) / 1_000_000 * multiplier
+/** The single entry point every call site uses: token counts to billed credits. */
+export function computeCredits (counts: TokenCounts, prices: TokenPrices, eurosPerCredit: number): number {
+  return toCredits(priceTokens(counts, prices).total, eurosPerCredit)
 }
 
 export interface QuotaCheckInput {

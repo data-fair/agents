@@ -179,7 +179,12 @@ export function startModeration (params: {
       abortSignal: AbortSignal.timeout(MODERATION_HARD_TIMEOUT_MS)
     }
     const { object, usage } = await withReasoningDisabled(extra => generateObject({ ...baseArgs, ...extra }))
-    const cost = computeCredits(usage?.inputTokens ?? 0, usage?.outputTokens ?? 0, entry.multiplier, config.outputTokenWeight)
+    const details = usage?.inputTokenDetails
+    const cost = computeCredits(
+      { inputTokens: usage?.inputTokens ?? 0, outputTokens: usage?.outputTokens ?? 0, noCacheTokens: details?.noCacheTokens, cacheReadTokens: details?.cacheReadTokens, cacheWriteTokens: details?.cacheWriteTokens },
+      entry,
+      config.eurosPerCredit
+    )
     if (cost > 0) await recordUsage(owner, cost, identity.usageUserId, identity.usageUserName, identity.poolId)
     return object
   })()
@@ -256,7 +261,12 @@ export async function runProbe (settings: Settings, owner: AccountKeys): Promise
         abortSignal: AbortSignal.timeout(MODERATION_HARD_TIMEOUT_MS)
       }
       const { object, usage } = await withReasoningDisabled(extra => generateObject({ ...probeArgs, ...extra }))
-      const cost = computeCredits(usage?.inputTokens ?? 0, usage?.outputTokens ?? 0, entry.multiplier, config.outputTokenWeight)
+      const details = usage?.inputTokenDetails
+      const cost = computeCredits(
+        { inputTokens: usage?.inputTokens ?? 0, outputTokens: usage?.outputTokens ?? 0, noCacheTokens: details?.noCacheTokens, cacheReadTokens: details?.cacheReadTokens, cacheWriteTokens: details?.cacheWriteTokens },
+        entry,
+        config.eurosPerCredit
+      )
       if (cost > 0) await recordUsage(owner, cost)
       results.push({ key: probe.key, message: probe.message, action: object.action, category: object.category, latencyMs: Date.now() - startedAt })
     } catch (err: any) {

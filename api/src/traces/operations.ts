@@ -3,6 +3,7 @@
  * should not reference #mongo, #config, store state in memory or import anything else than other operations.ts
  */
 import type { TraceRequest, TraceModeration, TraceFlags } from './types.ts'
+import { priceTokens, toCredits, type TokenPrices } from '../usage/operations.ts'
 
 // Stored traces are kept for 30 days, enforced by a TTL index on `createdAt`.
 export const RETENTION_SECONDS = 30 * 24 * 60 * 60
@@ -57,8 +58,8 @@ export interface BuildTraceInput {
   body: any
   response: { content: string, toolCalls: { id: string, name: string, arguments: string }[], finishReason?: string }
   usage: { inputTokens: number, outputTokens: number, cacheReadTokens?: number, cacheWriteTokens?: number }
-  multiplier: number
-  outputTokenWeight: number
+  prices: TokenPrices
+  eurosPerCredit: number
   timing: { durationMs: number, timeToFirstChunkMs?: number }
   moderation?: TraceModeration
   flags?: TraceFlags
@@ -68,8 +69,12 @@ export function buildTraceRequestDoc (input: BuildTraceInput, now: Date): TraceR
   const ctx = parseContextId(input.contextId)
   const messages = Array.isArray(input.body?.messages) ? input.body.messages : []
   const tools = Array.isArray(input.body?.tools) ? input.body.tools : []
-  const inputCost = input.usage.inputTokens / 1_000_000 * input.multiplier
-  const outputCost = input.usage.outputTokens * input.outputTokenWeight / 1_000_000 * input.multiplier
+  // Route through the same function as billing rather than re-deriving it here: this
+  // file used to carry its own copy of the formula, which is how a cached turn came to
+  // show a trace cost higher than what was charged.
+  const euros = priceTokens(input.usage, input.prices)
+  const inputCost = toCredits(euros.input, input.eurosPerCredit)
+  const outputCost = toCredits(euros.output, input.eurosPerCredit)
   const cost = { input: inputCost, output: outputCost, total: inputCost + outputCost }
   return {
     owner: input.owner,

@@ -22,7 +22,7 @@ export default {
   providers: { __name: 'PROVIDERS', __format: 'json' },
   models: { __name: 'MODELS', __format: 'json' },
   defaultModels: { __name: 'DEFAULT_MODELS', __format: 'json' },
-  outputTokenWeight: 'OUTPUT_TOKEN_WEIGHT',
+  eurosPerCredit: 'EUROS_PER_CREDIT',
   defaultLimits: { credits: 'DEFAULT_CREDITS' },
   compactionPercent: {
     __name: 'COMPACTION_PERCENT',

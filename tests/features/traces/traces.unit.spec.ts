@@ -31,8 +31,8 @@ test.describe('traces operations (unit)', () => {
       response: { content: 'world', toolCalls: [], finishReason: 'stop' },
       usage: { inputTokens: 0, outputTokens: 0 },
       timing: { durationMs: 12 },
-      multiplier: 0,
-      outputTokenWeight: 4
+      prices: { inputPricePerMillion: 0, outputPricePerMillion: 0 },
+      eurosPerCredit: 0.4
     }, now)
 
     assert.equal(doc.conversation.id, 'conv1')
@@ -45,7 +45,7 @@ test.describe('traces operations (unit)', () => {
     assert.equal(doc.createdAt.getTime(), now.getTime())
   })
 
-  test('buildTraceRequestDoc computes the credit breakdown from tokens, multiplier and output weight', () => {
+  test('buildTraceRequestDoc computes the credit breakdown from tokens and prices', () => {
     const now = new Date('2026-06-08T00:00:00.000Z')
     const doc = buildTraceRequestDoc({
       owner: { type: 'user', id: 'u1' },
@@ -59,14 +59,17 @@ test.describe('traces operations (unit)', () => {
       response: { content: 'hi', toolCalls: [] },
       usage: { inputTokens: 1_000_000, outputTokens: 500_000 },
       timing: { durationMs: 10 },
-      multiplier: 3,
-      outputTokenWeight: 4
+      // a peg of exactly 1 keeps these exact: dividing by 0.4 would yield
+      // 2.9999999999999996, which deepEqual rejects. The peg itself is covered by
+      // the cache test below, whose expectation is built from the same operations.
+      prices: { inputPricePerMillion: 3, outputPricePerMillion: 12 },
+      eurosPerCredit: 1
     }, now)
-    // input: 1e6 / 1e6 * 3 = 3 ; output: 500 000 * 4 / 1e6 * 3 = 6
+    // input: 1e6 × 3 / 1e6 = 3 ; output: 500 000 × 12 / 1e6 = 6
     assert.deepEqual(doc.cost, { input: 3, output: 6, total: 9 })
   })
 
-  test('buildTraceRequestDoc yields zero cost when the multiplier is zero', () => {
+  test('buildTraceRequestDoc yields zero cost when the model is priced at zero', () => {
     const now = new Date('2026-06-08T00:00:00.000Z')
     const doc = buildTraceRequestDoc({
       owner: { type: 'user', id: 'u1' },
@@ -80,34 +83,34 @@ test.describe('traces operations (unit)', () => {
       response: { content: '', toolCalls: [] },
       usage: { inputTokens: 100, outputTokens: 10 },
       timing: { durationMs: 1 },
-      multiplier: 0,
-      outputTokenWeight: 4
+      prices: { inputPricePerMillion: 0, outputPricePerMillion: 0 },
+      eurosPerCredit: 0.4
     }, now)
     assert.deepEqual(doc.cost, { input: 0, output: 0, total: 0 })
   })
 
-  test('buildTraceRequestDoc bills cache reads like any other input token', () => {
-    // Credits are charged on TOTAL input tokens: there is no cache-read discount
-    // and no cache-write tariff, the multiplier folds a provider's cache pricing
-    // into one number. So the trace breakdown and what was actually billed cannot
-    // diverge on a cached turn — this pins that they don't.
+  test('buildTraceRequestDoc bills cache reads at the cache price', () => {
+    // The breakdown and the billed total come from one computation, so a cached turn
+    // cannot show a trace cost higher than what was actually charged.
     const now = new Date('2026-06-08T00:00:00.000Z')
     const doc = buildTraceRequestDoc({
       owner: { type: 'user', id: 'u1' },
       conversationId: 'c1',
       contextId: 'turn:t1',
       modelRole: 'assistant',
-      providerName: 'OpenAI',
-      providerType: 'openai',
-      resolvedModel: 'gpt-5',
+      providerName: 'Scaleway',
+      providerType: 'scaleway',
+      resolvedModel: 'deepseek-v4-flash-0731',
       body: { messages: [], tools: [] },
       response: { content: 'hi', toolCalls: [] },
-      // 1M total input tokens, 900k of which were cache reads and 100k freshly written
+      // 1M total input tokens, 900k cache reads, 100k freshly written
       usage: { inputTokens: 1_000_000, outputTokens: 0, cacheReadTokens: 900_000, cacheWriteTokens: 100_000 },
       timing: { durationMs: 10 },
-      multiplier: 3,
-      outputTokenWeight: 4
+      prices: { inputPricePerMillion: 0.4, cachedInputPricePerMillion: 0.08, outputPricePerMillion: 0.8 },
+      eurosPerCredit: 0.4
     }, now)
-    assert.deepEqual(doc.cost, { input: 3, output: 0, total: 3 })
+    // noCache = 0, so euros = 100k write @0.40 + 900k read @0.08 = 0.04 + 0.072
+    const expectedInput = (0.04 + 0.072) / 0.4
+    assert.deepEqual(doc.cost, { input: expectedInput, output: 0, total: expectedInput })
   })
 })

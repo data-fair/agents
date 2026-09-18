@@ -86,19 +86,6 @@ test.describe('isUntrustedRole', () => {
   })
 })
 
-test.describe('computeCredits', () => {
-  test('applies the output weight and multiplier', () => {
-    // (1_000_000 input + 250_000 output * 4) / 1e6 * 1.5 = 3
-    assert.equal(computeCredits(1_000_000, 250_000, 1.5, 4), 3)
-  })
-  test('zero multiplier means zero credits', () => {
-    assert.equal(computeCredits(500, 500, 0, 4), 0)
-  })
-  test('zero tokens means zero credits', () => {
-    assert.equal(computeCredits(0, 0, 10, 4), 0)
-  })
-})
-
 test.describe('priceTokens', () => {
   const prices = { inputPricePerMillion: 3, outputPricePerMillion: 15, cachedInputPricePerMillion: 0.3 }
 
@@ -161,5 +148,27 @@ test.describe('toCredits', () => {
   })
   test('zero cost is zero credits whatever the peg', () => {
     assert.equal(toCredits(0, 0.4), 0)
+  })
+})
+
+test.describe('computeCredits', () => {
+  test('prices the tokens then converts to credits, in one call', () => {
+    // 1M fresh input at 0.40 EUR/M = 0.40 EUR = exactly 1 credit at the 0.40 peg
+    const credits = computeCredits(
+      { inputTokens: 1_000_000, outputTokens: 0 },
+      { inputPricePerMillion: 0.4, outputPricePerMillion: 0.8 },
+      0.4
+    )
+    assert.equal(credits, 1)
+  })
+
+  test('a cached turn costs strictly less than the same turn uncached', () => {
+    const prices = { inputPricePerMillion: 0.4, cachedInputPricePerMillion: 0.08, outputPricePerMillion: 0.8 }
+    const uncached = computeCredits({ inputTokens: 1_000_000, outputTokens: 0 }, prices, 0.4)
+    const cached = computeCredits({ inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 100_000, cacheReadTokens: 900_000 }, prices, 0.4)
+    assert.equal(uncached, 1)
+    // 100k @0.40 + 900k @0.08 = 0.112 EUR = 0.28 credits
+    assert.ok(cached < uncached)
+    assert.equal(Number(cached.toFixed(10)), 0.28)
   })
 })

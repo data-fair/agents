@@ -19,7 +19,7 @@
     "secretKeys",
     "cipherPassword",
     "requireAnonymousActionToken",
-    "outputTokenWeight",
+    "eurosPerCredit",
     "defaultLimits",
     "compactionPercent"
   ],
@@ -114,7 +114,7 @@
         "moderator": { "$ref": "#/$defs/modelRef" }
       }
     },
-    "outputTokenWeight": { "type": "number", "minimum": 0, "default": 4 },
+    "eurosPerCredit": { "type": "number", "exclusiveMinimum": 0, "default": 0.4 },
     "defaultLimits": {
       "type": "object",
       "additionalProperties": false,
