@@ -73,6 +73,63 @@ export function checkQuota (usage: UsageInfo, limits: UsageLimits, scope: string
   return null
 }
 
+export interface TokenPrices {
+  inputPricePerMillion: number
+  outputPricePerMillion: number
+  /**
+   * Optional here only because the CATALOG resolves it (entry value, then the
+   * provider-listing snapshot, then the input price). By the time a price reaches
+   * this function an unset value genuinely means "no cache tariff", so it bills at
+   * 0 — the "unset means unknown, not free" rule lives in getModelCatalog, not here.
+   */
+  cachedInputPricePerMillion?: number
+}
+
+export interface TokenCounts {
+  /** TOTAL input tokens, inclusive of cache reads (ai@6 `usage.inputTokens`). */
+  inputTokens: number
+  outputTokens: number
+  /** Non-cached portion (ai@6 `usage.inputTokenDetails.noCacheTokens`). */
+  noCacheTokens?: number
+  cacheReadTokens?: number
+  cacheWriteTokens?: number
+}
+
+/**
+ * Cost in euros, split so the trace breakdown and the billed total come from one
+ * computation instead of two that can drift apart.
+ *
+ * ai@6 normalizes the provider disagreement about whether `inputTokens` includes
+ * cache reads: `inputTokens` is always the total and `noCacheTokens` the billable
+ * remainder. Take `noCacheTokens` verbatim when present; the subtraction is only a
+ * fallback for providers/mocks that omit the detail.
+ */
+export function priceTokens (counts: TokenCounts, prices: TokenPrices): { input: number, output: number, total: number } {
+  const cacheRead = counts.cacheReadTokens ?? 0
+  const cacheWrite = counts.cacheWriteTokens ?? 0
+  const noCache = counts.noCacheTokens ?? Math.max(counts.inputTokens - cacheRead - cacheWrite, 0)
+  // Cache WRITES bill at the plain input price. There is no separate write tariff to
+  // configure: this codebase never sets `cache_control`, so no provider reports write
+  // tokens today. They are still billed rather than dropped — both @ai-sdk/anthropic
+  // and @ai-sdk/openai exclude cacheWrite from `noCache`, so omitting the term would
+  // silently make them free if a provider ever did report them. Anthropic's real rate
+  // is 1.25x input; billing at 1x under-bills slightly rather than not at all.
+  const atInputPrice = noCache + cacheWrite
+  // Divide each term individually rather than summing first and dividing once: the two
+  // are not equivalent in floating point, and the test expectations are built from
+  // per-term division.
+  const input =
+    (atInputPrice * prices.inputPricePerMillion) / 1_000_000 +
+    (cacheRead * (prices.cachedInputPricePerMillion ?? 0)) / 1_000_000
+  const output = (counts.outputTokens * prices.outputPricePerMillion) / 1_000_000
+  return { input, output, total: input + output }
+}
+
+/** Euros to the billed unit. The peg is deployment-global config (`eurosPerCredit`). */
+export function toCredits (euros: number, eurosPerCredit: number): number {
+  return euros / eurosPerCredit
+}
+
 export function computeCredits (inputTokens: number, outputTokens: number, multiplier: number, outputTokenWeight: number): number {
   return (inputTokens + outputTokens * outputTokenWeight) / 1_000_000 * multiplier
 }

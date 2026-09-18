@@ -4,7 +4,7 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { checkQuota, computeCredits, firstQuotaViolation, isUntrustedRole, type UsageInfo, type UsageLimits } from '../../../api/src/usage/operations.ts'
+import { checkQuota, computeCredits, priceTokens, toCredits, firstQuotaViolation, isUntrustedRole, type UsageInfo, type UsageLimits } from '../../../api/src/usage/operations.ts'
 
 function mkUsage (daily: number, weekly: number, monthly: number): UsageInfo {
   return {
@@ -96,5 +96,70 @@ test.describe('computeCredits', () => {
   })
   test('zero tokens means zero credits', () => {
     assert.equal(computeCredits(0, 0, 10, 4), 0)
+  })
+})
+
+test.describe('priceTokens', () => {
+  const prices = { inputPricePerMillion: 3, outputPricePerMillion: 15, cachedInputPricePerMillion: 0.3 }
+
+  test('prices input and output per million', () => {
+    const cost = priceTokens({ inputTokens: 500_000, outputTokens: 100_000 }, { inputPricePerMillion: 2, outputPricePerMillion: 6 })
+    assert.equal(cost.input, 1)
+    assert.equal(cost.output, 0.6)
+    assert.equal(cost.total, 1.6)
+  })
+
+  test('zero tokens cost zero', () => {
+    assert.equal(priceTokens({ inputTokens: 0, outputTokens: 0 }, prices).total, 0)
+  })
+
+  test('no cache details bills the whole input at the input price', () => {
+    assert.equal(priceTokens({ inputTokens: 1_000_000, outputTokens: 0 }, prices).total, 3)
+  })
+
+  test('noCacheTokens is taken verbatim, never recomputed', () => {
+    const cost = priceTokens({ inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 100_000, cacheReadTokens: 900_000 }, prices)
+    assert.equal(cost.total, 0.3 + 0.27)
+  })
+
+  test('falls back to subtraction when noCacheTokens is absent', () => {
+    const cost = priceTokens({ inputTokens: 1_000_000, outputTokens: 0, cacheReadTokens: 900_000 }, prices)
+    assert.equal(cost.total, 0.3 + 0.27)
+  })
+
+  test('the subtraction fallback never goes negative', () => {
+    const cost = priceTokens({ inputTokens: 100, outputTokens: 0, cacheReadTokens: 900 }, prices)
+    assert.equal(cost.total, 900 * 0.3 / 1_000_000)
+  })
+
+  test('cache writes bill at the input price, never free', () => {
+    const cost = priceTokens({ inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 0, cacheWriteTokens: 1_000_000 }, prices)
+    assert.equal(cost.total, 3)
+  })
+
+  test('cache writes are added to the non-cached portion, not substituted for it', () => {
+    const cost = priceTokens({ inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 400_000, cacheReadTokens: 200_000, cacheWriteTokens: 400_000 }, prices)
+    assert.equal(cost.total, 2.4 + 0.06)
+  })
+
+  test('an absent cache price bills cache reads at 0 \u2014 the catalog resolves it, not this function', () => {
+    const cost = priceTokens(
+      { inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 0, cacheReadTokens: 1_000_000 },
+      { inputPricePerMillion: 3, outputPricePerMillion: 15 }
+    )
+    assert.equal(cost.total, 0)
+  })
+})
+
+test.describe('toCredits', () => {
+  test('divides by the peg', () => {
+    assert.equal(toCredits(0.4, 0.4), 1)
+    assert.equal(toCredits(4, 0.4), 10)
+  })
+  test('a peg of 1 makes a credit a euro', () => {
+    assert.equal(toCredits(2.5, 1), 2.5)
+  })
+  test('zero cost is zero credits whatever the peg', () => {
+    assert.equal(toCredits(0, 0.4), 0)
   })
 })
