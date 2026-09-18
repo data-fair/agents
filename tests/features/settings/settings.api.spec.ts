@@ -443,6 +443,26 @@ test.describe('Settings API', () => {
     assert.equal(res2.data.storeTraces, false)
   })
 
+  test('should persist per-class prices on a model entry', async () => {
+    const res = await admin.put('/api/settings/user/test-standalone1', {
+      providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
+      models: [{
+        model: mockModel,
+        usage: ['assistant'],
+        inputPricePerMillion: 0.4,
+        cachedInputPricePerMillion: 0.08,
+        outputPricePerMillion: 0.8
+      }]
+    })
+    assert.equal(res.status, 200)
+    assert.equal(res.data.models[0].inputPricePerMillion, 0.4)
+    assert.equal(res.data.models[0].cachedInputPricePerMillion, 0.08)
+    assert.equal(res.data.models[0].outputPricePerMillion, 0.8)
+
+    const getRes = await admin.get('/api/settings/user/test-standalone1')
+    assert.equal(getRes.data.models[0].cachedInputPricePerMillion, 0.08)
+  })
+
   test('should persist a model context window, both the snapshot and the hand-entered one', async () => {
     const res = await admin.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],

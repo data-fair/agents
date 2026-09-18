@@ -734,6 +734,41 @@ export default {
               fr: "Utilisé pour dimensionner la compaction de l'historique. Laissez vide pour utiliser la valeur rapportée par le fournisseur ; seul OpenRouter en rapporte une, pour les autres renseignez-la ici sinon la valeur par défaut de 128000 s'applique. Renseignez-la explicitement pour les petits modèles auto-hébergés, qui déborderaient sinon."
             }
           },
+          inputPricePerMillion: {
+            type: 'number',
+            minimum: 0,
+            title: 'Input price (per 1M tokens)',
+            'x-i18n-title': { en: 'Input price (per 1M tokens)', fr: "Prix d'entrée (par million de tokens)" },
+            description: 'Euros per million fresh input tokens, as listed by the provider.',
+            'x-i18n-description': {
+              en: 'Euros per million fresh input tokens, as listed by the provider.',
+              fr: "Euros par million de tokens d'entrée non mis en cache, tels qu'affichés par le fournisseur."
+            }
+          },
+          cachedInputPricePerMillion: {
+            type: 'number',
+            minimum: 0,
+            title: 'Cached input price (per 1M tokens)',
+            'x-i18n-title': { en: 'Cached input price (per 1M tokens)', fr: "Prix d'entrée en cache (par million de tokens)" },
+            // Optional, and an empty value means UNKNOWN, not free: it falls back to
+            // the input price. Most providers publish no cache tariff at all.
+            description: 'Optional. Leave empty when the provider publishes no cache tariff — cache reads then bill at the input price rather than free.',
+            'x-i18n-description': {
+              en: 'Optional. Leave empty when the provider publishes no cache tariff — cache reads then bill at the input price rather than free.',
+              fr: "Optionnel. Laissez vide si le fournisseur ne publie pas de tarif cache — les lectures de cache sont alors facturées au prix d'entrée et non gratuitement."
+            }
+          },
+          outputPricePerMillion: {
+            type: 'number',
+            minimum: 0,
+            title: 'Output price (per 1M tokens)',
+            'x-i18n-title': { en: 'Output price (per 1M tokens)', fr: 'Prix de sortie (par million de tokens)' },
+            description: 'Euros per million output tokens, as listed by the provider.',
+            'x-i18n-description': {
+              en: 'Euros per million output tokens, as listed by the provider.',
+              fr: 'Euros par million de tokens de sortie, tels quaffichés par le fournisseur.'
+            }
+          },
           multiplier: {
             type: 'number',
             minimum: 0,

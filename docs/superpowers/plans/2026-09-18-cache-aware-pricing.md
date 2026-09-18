@@ -509,9 +509,16 @@ In `api/types/settings/schema.js`, inside the `models` array's `items.properties
 
 ```bash
 npm run build-types
+touch api/src/config.ts && sleep 7   # see note below
 npm run test tests/features/settings/settings.api.spec.ts
 ```
 Expected: PASS.
+
+`build-types` rewrites `api/doc/settings/put-req/.type/index.js` in place, and nodemon
+often restarts mid-rewrite and dies with `ERR_MODULE_NOT_FOUND` on that very file. The
+file is fine by the time the command returns; the touch just makes nodemon try again.
+If the suite reports `Dev web server seems to be unavailable`, that is this race, not a
+real failure — check `tail dev/logs/dev-api.log` and touch again.
 
 - [ ] **Step 5: Lint, type-check, commit**
 
