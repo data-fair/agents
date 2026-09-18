@@ -306,4 +306,46 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
     assert.equal(res.status, 200)
     assert.equal(res.data.choices[0].message.content, 'world')
   })
+
+  test('gateway advertises the context budget', async () => {
+    await admin.put('/api/settings/user/test-standalone1', {
+      providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
+      models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' }, contextWindow: 200000 } } },
+      quotas: defaultQuotas
+    })
+
+    const res = await user.post('/api/gateway/user/test-standalone1/v1/chat/completions', {
+      model: 'assistant',
+      messages: [{ role: 'user', content: 'hello' }]
+    })
+    assert.equal(res.status, 200)
+    assert.equal(res.headers['x-context-budget'], '140000')
+  })
+
+  // The header must survive early-return refusal paths too: a client refused on its
+  // very first turn (e.g. quota already exhausted) still needs to learn its budget so
+  // it can compact history correctly on a later, successful turn.
+  test('gateway advertises the context budget even on a quota-exceeded refusal', async () => {
+    await admin.put('/api/settings/user/test-standalone1', {
+      providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
+      models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' }, contextWindow: 200000 } } },
+      quotas: {
+        ...defaultQuotas,
+        global: { unlimited: false, monthlyLimit: 4 }
+      }
+    })
+    const anonymousAx = (await import('../../support/axios.ts')).anonymousAx
+    await anonymousAx.post('http://localhost:' + process.env.DEV_API_PORT + '/api/test-env/usage', {
+      owner: { type: 'user', id: 'test-standalone1' },
+      cost: 2
+    })
+
+    const res = await user.post('/api/gateway/user/test-standalone1/v1/chat/completions', {
+      model: 'assistant',
+      messages: [{ role: 'user', content: 'hello' }]
+    }).catch((err: any) => err.response ?? err)
+
+    assert.equal(res.status, 429)
+    assert.equal(res.headers['x-context-budget'], '140000')
+  })
 })

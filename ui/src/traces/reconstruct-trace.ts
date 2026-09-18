@@ -250,6 +250,13 @@ export function reconstructTrace (requests: StoredTraceRequest[]): SessionTrace 
     totalDurationMs: physicalRequests.reduce((s, p) => s + (p.durationMs || 0), 0),
     inputTokens: physicalRequests.reduce((s, p) => s + (p.inputTokens || 0), 0),
     outputTokens: physicalRequests.reduce((s, p) => s + (p.outputTokens || 0), 0),
+    // Only present when at least one request actually reported a cache split.
+    // Absent means the provider says nothing about caching (Scaleway may be such
+    // a case), which is not the same as "zero cached" — rendering a 0 there would
+    // claim the cache missed when in truth we do not know.
+    ...(physicalRequests.some(p => p.cacheReadTokens)
+      ? { cachedInputTokens: physicalRequests.reduce((s, p) => s + (p.cacheReadTokens || 0), 0) }
+      : {}),
     ...(physicalRequests.some(p => p.cost) ? { totalCost: physicalRequests.reduce((s, p) => s + (p.cost?.total || 0), 0) } : {}),
     flags
   }

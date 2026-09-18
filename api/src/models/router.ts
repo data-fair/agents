@@ -12,7 +12,12 @@ import { scalewayBaseURL, describeFetchError } from './operations.ts'
 const router = Router()
 export default router
 
-type CoreModelInfo = { id: string, name: string }
+type CoreModelInfo = {
+  id: string
+  name: string
+  contextWindow?: number
+  cachedInputPricePerMillion?: number
+}
 
 /**
  * A provider whose model listing failed. Surfaced to the admin alongside the
@@ -86,9 +91,15 @@ async function fetchOpenRouterModels (apiKey: string): Promise<CoreModelInfo[]> 
   const response = await axios.get('https://openrouter.ai/api/v1/models', {
     headers: { Authorization: `Bearer ${apiKey}` }
   })
+  const perMillion = (v: unknown) => {
+    const n = Number(v)
+    return Number.isFinite(n) && n > 0 ? n * 1_000_000 : undefined
+  }
   return response.data.data.map((model: any) => ({
     id: model.id,
-    name: model.name || model.id
+    name: model.name || model.id,
+    contextWindow: model.top_provider?.context_length ?? model.context_length ?? undefined,
+    cachedInputPricePerMillion: perMillion(model.pricing?.input_cache_read)
   }))
 }
 
@@ -111,10 +122,10 @@ async function fetchModelsForProvider (
 
   if (provider.type === 'mock') {
     return [
-      { id: 'mock-model', name: 'Mock Model' },
-      { id: 'mock-tools', name: 'Mock Tools Model' },
-      { id: 'mock-summarizer', name: 'Mock Summarizer Model' },
-      { id: 'evaluator-mock-model', name: 'Evaluator Mock Model' }
+      { id: 'mock-model', name: 'Mock Model', contextWindow: 128000 },
+      { id: 'mock-tools', name: 'Mock Tools Model', contextWindow: 128000 },
+      { id: 'mock-summarizer', name: 'Mock Summarizer Model', contextWindow: 128000 },
+      { id: 'evaluator-mock-model', name: 'Evaluator Mock Model', contextWindow: 128000 }
     ]
   }
 
@@ -156,6 +167,8 @@ export const getModelsForOwner = memoize(
         models.push(...providerModels.map(m => ({
           id: m.id,
           name: m.name,
+          ...(m.contextWindow ? { contextWindow: m.contextWindow } : {}),
+          ...(m.cachedInputPricePerMillion ? { cachedInputPricePerMillion: m.cachedInputPricePerMillion } : {}),
           provider: { type: provider.type, name: provider.name, id: provider.id }
         })))
       } catch (err) {

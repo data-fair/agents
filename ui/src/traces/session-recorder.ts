@@ -77,6 +77,11 @@ export interface TraceSummary {
   requestCount: number
   totalDurationMs: number
   inputTokens: number
+  /**
+   * Cache-read tokens included in `inputTokens`. Optional on purpose: absent means
+   * no request reported a cache split at all, which is not the same as zero cached.
+   */
+  cachedInputTokens?: number
   outputTokens: number
   totalCost?: number
   flags: AgentFlags

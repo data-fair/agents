@@ -68,6 +68,26 @@ export default {
             name: { type: 'string', title: 'Provider Name' },
             id: { type: 'string', title: 'Provider ID' }
           }
+        },
+        contextWindow: {
+          type: 'number',
+          title: 'Context window',
+          readOnly: true,
+          description: 'Total context size in tokens, as reported by the provider when the model was selected.',
+          'x-i18n-description': {
+            en: 'Total context size in tokens, as reported by the provider when the model was selected.',
+            fr: 'Taille totale du contexte en tokens, telle que rapportée par le fournisseur lors de la sélection du modèle.'
+          }
+        },
+        cachedInputPricePerMillion: {
+          type: 'number',
+          title: 'Cached input price (per 1M tokens)',
+          readOnly: true,
+          description: 'Reported by the provider when the model was selected.',
+          'x-i18n-description': {
+            en: 'Reported by the provider when the model was selected.',
+            fr: 'Rapporté par le fournisseur lors de la sélection du modèle.'
+          }
         }
       }
     }
@@ -655,7 +675,13 @@ Recommendations: GPT-5.4, Claude 4.5 Sonnet, Kimi K2, Mistral Large 3, etc.`,
           },
           layout: {
             comp: 'card',
-            children: [{ key: 'model' }, { key: 'inputPricePerMillion', cols: 6 }, { key: 'outputPricePerMillion', cols: 6 }],
+            children: [
+              { key: 'model' },
+              { key: 'contextWindow', cols: 6 },
+              { key: 'inputPricePerMillion', cols: 4 },
+              { key: 'cachedInputPricePerMillion', cols: 4 },
+              { key: 'outputPricePerMillion', cols: 4 }
+            ],
             cols: 6
           },
           properties: {
@@ -667,6 +693,24 @@ Recommendations: GPT-5.4, Claude 4.5 Sonnet, Kimi K2, Mistral Large 3, etc.`,
                 fr: 'Modèle'
               },
             },
+            contextWindow: {
+              type: 'number',
+              title: 'Context window (tokens)',
+              'x-i18n-title': {
+                en: 'Context window (tokens)',
+                fr: 'Taille de contexte (tokens)'
+              },
+              // Only the assistant carries this: it is the only role whose history is
+              // compacted, so contextBudget() is always resolved for 'assistant'.
+              // Most providers do not report a window, so for them this field is the
+              // only way to set one — it is not merely an override.
+              description: 'Used to size history compaction. Leave empty to use the value reported by the provider; only OpenRouter reports one, so for other providers set it here or the 128000 default applies. Set it explicitly for small self-hosted models, which would otherwise overflow.',
+              'x-i18n-description': {
+                en: 'Used to size history compaction. Leave empty to use the value reported by the provider; only OpenRouter reports one, so for other providers set it here or the 128000 default applies. Set it explicitly for small self-hosted models, which would otherwise overflow.',
+                fr: "Utilisé pour dimensionner la compaction de l'historique. Laissez vide pour utiliser la valeur rapportée par le fournisseur ; seul OpenRouter en rapporte une, pour les autres renseignez-la ici sinon la valeur par défaut de 128000 s'applique. Renseignez-la explicitement pour les petits modèles auto-hébergés, qui déborderaient sinon."
+              },
+              minimum: 0
+            },
             inputPricePerMillion: {
               type: 'number',
               title: 'Input price (per 1M tokens)',
@@ -674,7 +718,15 @@ Recommendations: GPT-5.4, Claude 4.5 Sonnet, Kimi K2, Mistral Large 3, etc.`,
                 en: 'Input price (per 1M tokens)',
                 fr: "Prix d'entrée (par million de tokens)"
               },
-              default: 0,
+              minimum: 0
+            },
+            cachedInputPricePerMillion: {
+              type: 'number',
+              title: 'Cached input price (per 1M tokens)',
+              'x-i18n-title': {
+                en: 'Cached input price (per 1M tokens)',
+                fr: "Prix d'entrée en cache (par million de tokens)"
+              },
               minimum: 0
             },
             outputPricePerMillion: {
@@ -684,7 +736,6 @@ Recommendations: GPT-5.4, Claude 4.5 Sonnet, Kimi K2, Mistral Large 3, etc.`,
                 en: 'Output price (per 1M tokens)',
                 fr: 'Prix de sortie (par million de tokens)'
               },
-              default: 0,
               minimum: 0
             }
           }
@@ -706,7 +757,12 @@ Recommendations: GPT-5.4 Mini, Mistral DevStral, Claude 4.5 Sonnet (Computer Use
           },
           layout: {
             comp: 'card',
-            children: [{ key: 'model' }, { key: 'inputPricePerMillion', cols: 6 }, { key: 'outputPricePerMillion', cols: 6 }],
+            children: [
+              { key: 'model' },
+              { key: 'inputPricePerMillion', cols: 4 },
+              { key: 'cachedInputPricePerMillion', cols: 4 },
+              { key: 'outputPricePerMillion', cols: 4 }
+            ],
             cols: 6
           },
           properties: {
@@ -725,7 +781,15 @@ Recommendations: GPT-5.4 Mini, Mistral DevStral, Claude 4.5 Sonnet (Computer Use
                 en: 'Input price (per 1M tokens)',
                 fr: "Prix d'entrée (par million de tokens)"
               },
-              default: 0,
+              minimum: 0
+            },
+            cachedInputPricePerMillion: {
+              type: 'number',
+              title: 'Cached input price (per 1M tokens)',
+              'x-i18n-title': {
+                en: 'Cached input price (per 1M tokens)',
+                fr: "Prix d'entrée en cache (par million de tokens)"
+              },
               minimum: 0
             },
             outputPricePerMillion: {
@@ -735,7 +799,6 @@ Recommendations: GPT-5.4 Mini, Mistral DevStral, Claude 4.5 Sonnet (Computer Use
                 en: 'Output price (per 1M tokens)',
                 fr: 'Prix de sortie (par million de tokens)'
               },
-              default: 0,
               minimum: 0
             }
           }
@@ -757,7 +820,12 @@ Recommendations: GPT-5.4 Mini, Claude 4.5 Haiku, Mistral Small 4, Qwen3 (8B), et
           },
           layout: {
             comp: 'card',
-            children: [{ key: 'model' }, { key: 'inputPricePerMillion', cols: 6 }, { key: 'outputPricePerMillion', cols: 6 }],
+            children: [
+              { key: 'model' },
+              { key: 'inputPricePerMillion', cols: 4 },
+              { key: 'cachedInputPricePerMillion', cols: 4 },
+              { key: 'outputPricePerMillion', cols: 4 }
+            ],
             cols: 6
           },
           properties: {
@@ -776,7 +844,15 @@ Recommendations: GPT-5.4 Mini, Claude 4.5 Haiku, Mistral Small 4, Qwen3 (8B), et
                 en: 'Input price (per 1M tokens)',
                 fr: "Prix d'entrée (par million de tokens)"
               },
-              default: 0,
+              minimum: 0
+            },
+            cachedInputPricePerMillion: {
+              type: 'number',
+              title: 'Cached input price (per 1M tokens)',
+              'x-i18n-title': {
+                en: 'Cached input price (per 1M tokens)',
+                fr: "Prix d'entrée en cache (par million de tokens)"
+              },
               minimum: 0
             },
             outputPricePerMillion: {
@@ -786,7 +862,6 @@ Recommendations: GPT-5.4 Mini, Claude 4.5 Haiku, Mistral Small 4, Qwen3 (8B), et
                 en: 'Output price (per 1M tokens)',
                 fr: 'Prix de sortie (par million de tokens)'
               },
-              default: 0,
               minimum: 0
             }
           }
@@ -808,7 +883,12 @@ Recommendations: Claude Opus 4.6, GPT-5.4 (Reasoning), DeepSeek-R1, Pharia-1-LLM
           },
           layout: {
             comp: 'card',
-            children: [{ key: 'model' }, { key: 'inputPricePerMillion', cols: 6 }, { key: 'outputPricePerMillion', cols: 6 }],
+            children: [
+              { key: 'model' },
+              { key: 'inputPricePerMillion', cols: 4 },
+              { key: 'cachedInputPricePerMillion', cols: 4 },
+              { key: 'outputPricePerMillion', cols: 4 }
+            ],
             cols: 6
           },
           properties: {
@@ -827,7 +907,15 @@ Recommendations: Claude Opus 4.6, GPT-5.4 (Reasoning), DeepSeek-R1, Pharia-1-LLM
                 en: 'Input price (per 1M tokens)',
                 fr: "Prix d'entrée (par million de tokens)"
               },
-              default: 0,
+              minimum: 0
+            },
+            cachedInputPricePerMillion: {
+              type: 'number',
+              title: 'Cached input price (per 1M tokens)',
+              'x-i18n-title': {
+                en: 'Cached input price (per 1M tokens)',
+                fr: "Prix d'entrée en cache (par million de tokens)"
+              },
               minimum: 0
             },
             outputPricePerMillion: {
@@ -837,7 +925,6 @@ Recommendations: Claude Opus 4.6, GPT-5.4 (Reasoning), DeepSeek-R1, Pharia-1-LLM
                 en: 'Output price (per 1M tokens)',
                 fr: 'Prix de sortie (par million de tokens)'
               },
-              default: 0,
               minimum: 0
             }
           }
@@ -859,7 +946,12 @@ Recommendations: a small/fast general-purpose model with structured (JSON) outpu
           },
           layout: {
             comp: 'card',
-            children: [{ key: 'model' }, { key: 'inputPricePerMillion', cols: 6 }, { key: 'outputPricePerMillion', cols: 6 }],
+            children: [
+              { key: 'model' },
+              { key: 'inputPricePerMillion', cols: 4 },
+              { key: 'cachedInputPricePerMillion', cols: 4 },
+              { key: 'outputPricePerMillion', cols: 4 }
+            ],
             cols: 6
           },
           properties: {
@@ -872,14 +964,21 @@ Recommendations: a small/fast general-purpose model with structured (JSON) outpu
               type: 'number',
               title: 'Input price (per 1M tokens)',
               'x-i18n-title': { en: 'Input price (per 1M tokens)', fr: "Prix d'entrée (par million de tokens)" },
-              default: 0,
+              minimum: 0
+            },
+            cachedInputPricePerMillion: {
+              type: 'number',
+              title: 'Cached input price (per 1M tokens)',
+              'x-i18n-title': {
+                en: 'Cached input price (per 1M tokens)',
+                fr: "Prix d'entrée en cache (par million de tokens)"
+              },
               minimum: 0
             },
             outputPricePerMillion: {
               type: 'number',
               title: 'Output price (per 1M tokens)',
               'x-i18n-title': { en: 'Output price (per 1M tokens)', fr: 'Prix de sortie (par million de tokens)' },
-              default: 0,
               minimum: 0
             }
           }
