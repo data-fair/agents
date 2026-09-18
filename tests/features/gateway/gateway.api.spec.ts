@@ -331,4 +331,36 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
     assert.equal(res.status, 429)
     assert.equal(res.headers['x-context-budget'], '140000')
   })
+  // The whole point of per-class pricing: a cached turn must cost strictly less than
+  // the same turn uncached. 0.40 EUR/M input against 0.08 cached, at the 0.40 peg.
+  // `cache <n>` is a mock-model directive; `hello` stays the LAST line so the mock
+  // still answers "world" and both turns produce identical output tokens.
+  const pricedSettings = {
+    ...settingsData,
+    models: [{ ...settingsData.models[0], inputPricePerMillion: 0.4, cachedInputPricePerMillion: 0.08, outputPricePerMillion: 0.8 }]
+  }
+
+  const recordedCost = async () => (await user.get('/api/usage/user/test-standalone1')).data.daily.cost
+
+  test('cache reads are billed at the cache price, not the input price', async () => {
+    await putSettings(admin, 'user/test-standalone1', pricedSettings)
+    await user.post('/api/gateway/user/test-standalone1/v1/chat/completions', {
+      model: 'assistant',
+      messages: [{ role: 'user', content: 'hello' }]
+    })
+    const uncached = await recordedCost()
+    assert.ok(uncached > 0, 'the uncached turn must record a non-zero cost')
+
+    await clean()
+    await putSettings(admin, 'user/test-standalone1', pricedSettings)
+    const res = await user.post('/api/gateway/user/test-standalone1/v1/chat/completions', {
+      model: 'assistant',
+      messages: [{ role: 'user', content: 'cache 100000\nhello' }]
+    })
+    // the directive must not disturb the mock's answer, or the output tokens differ
+    assert.equal(res.data.choices[0].message.content, 'world')
+    const cached = await recordedCost()
+
+    assert.ok(cached < uncached, `cached turn (${cached}) must cost less than uncached (${uncached})`)
+  })
 })

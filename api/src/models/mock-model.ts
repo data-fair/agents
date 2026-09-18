@@ -28,9 +28,35 @@ function serializePrompt (prompt: string | Array<any>): string {
   return typeof prompt === 'string' ? prompt : JSON.stringify(prompt)
 }
 
+/**
+ * `cache <n>` anywhere in the prompt makes the mock report n of its input tokens as
+ * cache reads (clamped to the total). The mock is the only way any test can reach the
+ * gateway's cache-pricing branch — real providers are never called from the suite.
+ *
+ * Matched against the WHOLE prompt rather than commandLine() on purpose: a caller
+ * keeps its real directive on the last line (`cache 100000\nhello` still answers
+ * "world"), so a test can price a turn without changing what the turn says.
+ *
+ * The prompt reaches here JSON-serialised, so a message newline is the two characters
+ * \ and n, not a real line break — `^`/`$` with the m flag would never match. Anchor
+ * on those escaped boundaries (or a quote) instead, which keeps the directive a whole
+ * line of the message rather than any stray "cache 42" inside a sentence.
+ */
+function cachedTokensDirective (promptText: string): number | undefined {
+  const match = promptText.match(/(?:^|\\n|")cache (\d+)(?=\\n|"|$)/i)
+  return match ? Number(match[1]) : undefined
+}
+
 function buildUsage (promptText: string, outputText: string): LanguageModelV3Usage {
+  const total = estimateMockTokens(promptText)
+  const cacheRead = Math.min(cachedTokensDirective(promptText) ?? 0, total)
   return {
-    inputTokens: { total: estimateMockTokens(promptText), cacheRead: undefined, cacheWrite: undefined, noCache: undefined },
+    inputTokens: {
+      total,
+      cacheRead: cacheRead || undefined,
+      cacheWrite: undefined,
+      noCache: cacheRead ? total - cacheRead : undefined
+    },
     outputTokens: { total: estimateMockTokens(outputText), text: undefined, reasoning: undefined }
   }
 }
