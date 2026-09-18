@@ -37,9 +37,9 @@ const settingsData = {
     { id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }
   ],
   models: [
-    { model: { id: 'mock-model', name: 'Mock Model', provider: mockProvider }, usage: ['assistant'], multiplier: 0 },
-    { model: { id: 'mock-tools', name: 'Mock Tools Model', provider: mockProvider }, usage: ['tools'], multiplier: 0 },
-    { model: { id: 'mock-summarizer', name: 'Mock Summarizer', provider: mockProvider }, usage: ['summarizer'], multiplier: 0 }
+    { model: { id: 'mock-model', name: 'Mock Model', provider: mockProvider }, usage: ['assistant'], inputPricePerMillion: 0, outputPricePerMillion: 0 },
+    { model: { id: 'mock-tools', name: 'Mock Tools Model', provider: mockProvider }, usage: ['tools'], inputPricePerMillion: 0, outputPricePerMillion: 0 },
+    { model: { id: 'mock-summarizer', name: 'Mock Summarizer', provider: mockProvider }, usage: ['summarizer'], inputPricePerMillion: 0, outputPricePerMillion: 0 }
   ],
   modelMapping: {
     assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' },

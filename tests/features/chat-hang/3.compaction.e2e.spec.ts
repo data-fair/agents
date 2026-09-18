@@ -29,8 +29,8 @@ const summarizerModelRef = {
 const settingsData = {
   providers: [mockProvider],
   models: [
-    { model: mockModelRef, usage: ['assistant', 'tools', 'evaluator', 'moderator'], multiplier: 0 },
-    { model: summarizerModelRef, usage: ['summarizer'], multiplier: 0 }
+    { model: mockModelRef, usage: ['assistant', 'tools', 'evaluator', 'moderator'], inputPricePerMillion: 0, outputPricePerMillion: 0 },
+    { model: summarizerModelRef, usage: ['summarizer'], inputPricePerMillion: 0, outputPricePerMillion: 0 }
   ],
   modelMapping: {
     assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' },

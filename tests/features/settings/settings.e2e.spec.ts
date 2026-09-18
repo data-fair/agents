@@ -64,7 +64,8 @@ test.describe('Settings UI', () => {
         {
           model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Seed', id: 'seed-provider' } },
           usage: ['assistant'],
-          multiplier: 0
+          inputPricePerMillion: 0,
+          outputPricePerMillion: 0
         }
       ],
       modelMapping: {
@@ -104,9 +105,9 @@ test.describe('Settings UI', () => {
 
   // Exercises the models array editor end to end: the Model autocomplete (whose
   // getItems URL walks `rootData.providers` to scope the listing to the account's
-  // providers), the usage multi-select, the credit multiplier, and the array
+  // providers), the usage multi-select, the per-class prices, and the array
   // itemTitle expression.
-  test('Can add a model definition with a usage and a credit multiplier', async ({ page, goToWithAuth }) => {
+  test('Can add a model definition with a usage and per-class prices', async ({ page, goToWithAuth }) => {
     // Seed valid settings via API
     const admin = await superAdmin
     await putSettings(admin, 'user/test-standalone1', {
@@ -115,7 +116,8 @@ test.describe('Settings UI', () => {
         {
           model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Seed', id: 'seed-provider' } },
           usage: ['assistant'],
-          multiplier: 0
+          inputPricePerMillion: 0,
+          outputPricePerMillion: 0
         }
       ],
       modelMapping: {
@@ -148,7 +150,10 @@ test.describe('Settings UI', () => {
     await page.getByRole('option', { name: 'Tools', exact: true }).click()
     await page.keyboard.press('Escape')
 
-    await page.getByRole('textbox', { name: 'Credit multiplier' }).last().fill('3')
+    // exact: true — Playwright's name matcher is a substring match, and
+    // "Cached input price (per 1M tokens)" would otherwise match this too
+    await page.getByRole('textbox', { name: 'Input price (per 1M tokens)', exact: true }).last().fill('0.4')
+    await page.getByRole('textbox', { name: 'Output price (per 1M tokens)' }).last().fill('0.8')
 
     await page.getByRole('button', { name: 'Save' }).click()
     await expect(page.getByText('Changes have been saved')).toBeVisible()
@@ -157,7 +162,7 @@ test.describe('Settings UI', () => {
     await page.reload()
     await expect(page.getByText('AI Providers')).toBeVisible({ timeout: 10000 })
     await expect(page.getByText('Mock Tools Model (tools)')).toBeVisible()
-    await expect(page.getByRole('textbox', { name: 'Credit multiplier' }).last()).toHaveValue('3')
+    await expect(page.getByRole('textbox', { name: 'Input price (per 1M tokens)', exact: true }).last()).toHaveValue('0.4')
     await page.waitForTimeout(800)
     await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
   })
@@ -222,7 +227,8 @@ test.describe('Settings UI', () => {
         {
           model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
           usage: ['assistant'],
-          multiplier: 0
+          inputPricePerMillion: 0,
+          outputPricePerMillion: 0
         }
       ],
       modelMapping: {

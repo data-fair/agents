@@ -47,7 +47,6 @@ export type ApiConfig = {
       "assistant" | "tools" | "summarizer" | "evaluator" | "moderator",
       ...("assistant" | "tools" | "summarizer" | "evaluator" | "moderator")[]
     ];
-    multiplier?: number;
     contextWindow?: number;
     inputPricePerMillion: number;
     outputPricePerMillion: number;

@@ -2,12 +2,12 @@
  * Canonical settings bodies for the tests.
  *
  * The mock provider answers "hello" with "world" and needs no API key, so every
- * suite can configure a working agent with a single PUT. Its credit multiplier
- * defaults to 0 so tests that do not care about accounting never trip a quota.
+ * suite can configure a working agent with a single PUT. It is priced at 0 so tests
+ * that do not care about accounting never trip a quota.
  *
  * Note the explicit `modelMapping.assistant`: the dev/test global config also
- * ships a mock model (`global-mock/mock-model`, multiplier 0) as the default
- * assistant, so without the mapping the org's own model — and its multiplier —
+ * ships a mock model (`global-mock/mock-model`, priced at 0) as the default
+ * assistant, so without the mapping the org's own model — and its prices —
  * would never be selected.
  */
 import type { AxiosInstance } from 'axios'
@@ -17,13 +17,13 @@ export const mockProvider = { id: 'mock-provider', type: 'mock', name: 'Mock Pro
 
 export const mockModelRef = { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } }
 
-/** The org model catalog entry, flagged for every role. Quota suites raise the
- * multiplier so that a handful of mock tokens produces a measurable number of
- * credits: credits = (input + output × outputTokenWeight) / 1e6 × multiplier. */
-export const mockModels = (multiplier = 0) => [{
+/** The org model catalog entry, flagged for every role. Priced at 0 so suites that do
+ * not care about accounting never trip a quota; quota suites pass real prices, e.g.
+ * 400_000 EUR/M which at the 0.40 EUR/credit peg is exactly one credit per token. */
+export const mockModels = (prices: { inputPricePerMillion: number, outputPricePerMillion: number, cachedInputPricePerMillion?: number } = { inputPricePerMillion: 0, outputPricePerMillion: 0 }) => [{
   model: mockModelRef,
   usage: ['assistant', 'tools', 'summarizer', 'evaluator', 'moderator'],
-  multiplier
+  ...prices
 }]
 
 export const mockModelMapping = {

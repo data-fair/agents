@@ -699,7 +699,7 @@ export default {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['model', 'usage'],
+        required: ['model', 'usage', 'inputPricePerMillion', 'outputPricePerMillion'],
         properties: {
           model: { $ref: '#/definitions/Model', title: 'Model', 'x-i18n-title': { en: 'Model', fr: 'Modèle' } },
           usage: {
@@ -768,15 +768,6 @@ export default {
               en: 'Euros per million output tokens, as listed by the provider.',
               fr: 'Euros par million de tokens de sortie, tels quaffichés par le fournisseur.'
             }
-          },
-          multiplier: {
-            type: 'number',
-            minimum: 0,
-            default: 1,
-            title: 'Credit multiplier',
-            'x-i18n-title': { en: 'Credit multiplier', fr: 'Multiplicateur de crédits' },
-            description: 'credits = (input tokens + output tokens × output weight) / 1M × multiplier',
-            'x-i18n-description': { en: 'credits = (input tokens + output tokens × output weight) / 1M × multiplier', fr: 'crédits = (tokens d\'entrée + tokens de sortie × poids de sortie) / 1M × multiplicateur' }
           }
         }
       }

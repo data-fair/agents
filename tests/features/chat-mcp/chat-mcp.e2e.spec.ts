@@ -30,7 +30,8 @@ test.describe('Chat MCP UI', () => {
         {
           model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' } },
           usage: ['assistant'],
-          multiplier: 0
+          inputPricePerMillion: 0,
+          outputPricePerMillion: 0
         }
       ],
       modelMapping: {
@@ -61,7 +62,8 @@ test.describe('Chat MCP UI', () => {
         {
           model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' } },
           usage: ['assistant'],
-          multiplier: 0
+          inputPricePerMillion: 0,
+          outputPricePerMillion: 0
         }
       ],
       modelMapping: {

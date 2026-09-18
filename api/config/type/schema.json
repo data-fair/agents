@@ -94,7 +94,6 @@
           "name": { "type": "string" },
           "provider": { "type": "string" },
           "usage": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "enum": ["assistant", "tools", "summarizer", "evaluator", "moderator"] } },
-          "multiplier": { "type": "number", "minimum": 0, "default": 1 },
           "contextWindow": { "type": "number", "minimum": 0 },
           "inputPricePerMillion": { "type": "number", "minimum": 0 },
           "outputPricePerMillion": { "type": "number", "minimum": 0 },

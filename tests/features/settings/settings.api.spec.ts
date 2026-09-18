@@ -21,7 +21,7 @@ const orgMember = await axiosAuth('test1-user1', { org: 'test1' })
 // dev/test global config always provides (same reasoning as `mockOrgSettings`
 // in tests/support/settings.ts).
 const mockModel = { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' } }
-const orgModels = [{ model: mockModel, usage: ['assistant'], multiplier: 0 }]
+const orgModels = [{ model: mockModel, usage: ['assistant'], inputPricePerMillion: 0, outputPricePerMillion: 0 }]
 const mockModelMapping = { assistant: { provider: 'global-mock', id: 'mock-model', name: 'Global Mock Model' } }
 
 // API block: test HTTP and stateful database layer with HTTP client querying the dev server
@@ -443,6 +443,24 @@ test.describe('Settings API', () => {
     assert.equal(res2.data.storeTraces, false)
   })
 
+  test('should reject a model entry with no prices', async () => {
+    // The org-write half of the same rule assertGlobalAiConfig enforces at boot:
+    // a model that is free by omission would be an uncapped consumer of the
+    // deployment's provider keys.
+    await assert.rejects(admin.put('/api/settings/user/test-standalone1', {
+      providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
+      models: [{ model: mockModel, usage: ['assistant'] }]
+    }), { status: 400 })
+  })
+
+  test('should accept a model entry priced at zero', async () => {
+    const res = await admin.put('/api/settings/user/test-standalone1', {
+      providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
+      models: [{ model: mockModel, usage: ['assistant'], inputPricePerMillion: 0, outputPricePerMillion: 0 }]
+    })
+    assert.equal(res.status, 200)
+  })
+
   test('should persist per-class prices on a model entry', async () => {
     const res = await admin.put('/api/settings/user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
@@ -471,7 +489,8 @@ test.describe('Settings API', () => {
         // hand-entered window that overrides it
         model: { ...mockModel, contextWindow: 200000 },
         usage: ['assistant'],
-        multiplier: 0,
+        inputPricePerMillion: 0,
+        outputPricePerMillion: 0,
         contextWindow: 128000
       }]
     })
@@ -532,7 +551,8 @@ test.describe('Org-admin settings endpoint', () => {
       models: [{
         model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
         usage: ['summarizer'],
-        multiplier: 0
+        inputPricePerMillion: 0,
+        outputPricePerMillion: 0
       }]
     })
 

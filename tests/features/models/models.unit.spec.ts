@@ -124,7 +124,7 @@ test.describe('errorMessage / describeFetchError', () => {
 // global-config/catalog.unit.spec.ts); here only the budget arithmetic on top of
 // a resolved entry is exercised.
 function entryWith (contextWindow: number): CatalogModel {
-  return { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' }, usage: ['assistant'], multiplier: 1, contextWindow, inputPricePerMillion: 0.4, outputPricePerMillion: 0.8, cachedInputPricePerMillion: 0.08, source: 'org' }
+  return { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' }, usage: ['assistant'], contextWindow, inputPricePerMillion: 0.4, outputPricePerMillion: 0.8, cachedInputPricePerMillion: 0.08, source: 'org' }
 }
 
 test.describe('contextBudget', () => {

@@ -22,14 +22,16 @@ const settingsData = {
       enabled: true
     }
   ],
-  // multiplier 1e6 makes one token cost one credit
-  // (credits = (input + output × outputTokenWeight) / 1e6 × multiplier),
-  // so a single mock request produces a measurable, non-zero usage record.
+  // 400 000 EUR/M at the 0.40 EUR/credit peg makes one token cost one credit
+  // (credits = tokens × price / 1e6 / eurosPerCredit), so a single mock request
+  // produces a measurable, non-zero usage record. This suite deliberately keeps
+  // non-zero prices: it is the one that exercises the pricing formula end to end.
   models: [
     {
       model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
       usage: ['assistant'],
-      multiplier: 1_000_000
+      inputPricePerMillion: 400_000,
+      outputPricePerMillion: 400_000
     }
   ],
   modelMapping: {
@@ -70,7 +72,7 @@ test.describe('Usage API', () => {
     assert.ok(res.data.monthly)
     assert.ok(res.data.quotas)
     assert.equal(res.data.quotas.admin.unlimited, true)
-    // the mock model reports length-proportional tokens, so with multiplier 1e6
+    // the mock model reports length-proportional tokens, so at 1 credit per token
     // the single request above recorded a whole number of credits in every period
     assert.ok(res.data.daily.cost > 0)
     assert.equal(res.data.weekly.cost, res.data.daily.cost)

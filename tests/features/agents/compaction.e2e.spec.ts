@@ -23,14 +23,16 @@ const settingsData = {
     {
       model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
       usage: ['assistant'],
-      multiplier: 0
+      inputPricePerMillion: 0,
+      outputPricePerMillion: 0
     },
     // The compaction round-trip goes through the summarizer role, so this model
     // must be configured for the compaction call (and its stored trace) to exist.
     {
       model: { id: 'mock-summarizer', name: 'Mock Summarizer', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
       usage: ['summarizer'],
-      multiplier: 0
+      inputPricePerMillion: 0,
+      outputPricePerMillion: 0
     }
   ],
   modelMapping: {

@@ -37,8 +37,9 @@ export interface TraceRequest {
   }
   usage: { inputTokens: number, outputTokens: number, cacheReadTokens?: number, cacheWriteTokens?: number }
   // credits consumed by this request, computed at record time from the model's
-  // credit multiplier and the output-token weight in effect then; absent on
-  // pre-feature documents (cacheTokens are not counted)
+  // per-class prices and the credit peg in effect then; absent on pre-feature
+  // documents. Cache reads ARE priced here (at the cached rate), so the
+  // breakdown matches what was billed.
   cost?: { input: number, output: number, total: number }
   timing: { durationMs: number, timeToFirstChunkMs?: number }
   // verdict of the gateway-side moderation check, when it had settled by the

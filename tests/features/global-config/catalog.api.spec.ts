@@ -45,8 +45,8 @@ test.describe('Catalog API', () => {
     await putSettings(admin, 'organization/test1', {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
       models: [
-        { model: toolsModel, usage: ['tools'], multiplier: 0 },
-        { model: assistantOnlyModel, usage: ['assistant'], multiplier: 0 }
+        { model: toolsModel, usage: ['tools'], inputPricePerMillion: 0, outputPricePerMillion: 0 },
+        { model: assistantOnlyModel, usage: ['assistant'], inputPricePerMillion: 0, outputPricePerMillion: 0 }
       ],
       modelMapping: { assistant: { provider: 'mock-provider', id: 'assistant-only-model' } },
       quotas: defaultQuotas

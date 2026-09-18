@@ -18,7 +18,8 @@ const reviewedSettings = {
     {
       model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
       usage: ['assistant'],
-      multiplier: 0
+      inputPricePerMillion: 0,
+      outputPricePerMillion: 0
     }
   ],
   modelMapping: {
@@ -37,12 +38,14 @@ const sourceSettings = {
     {
       model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
       usage: ['assistant'],
-      multiplier: 0
+      inputPricePerMillion: 0,
+      outputPricePerMillion: 0
     },
     {
       model: { id: 'mock-evaluator', name: 'Mock Evaluator', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
       usage: ['evaluator'],
-      multiplier: 0
+      inputPricePerMillion: 0,
+      outputPricePerMillion: 0
     }
   ],
   modelMapping: {

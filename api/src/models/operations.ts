@@ -143,7 +143,6 @@ export interface GlobalAiModel {
   name: string
   provider: string
   usage: ModelRole[]
-  multiplier?: number
   contextWindow?: number
   inputPricePerMillion: number
   outputPricePerMillion: number
@@ -192,7 +191,6 @@ export interface CatalogModel {
   name: string
   provider: { type: string, name: string, id: string }
   usage: ModelRole[]
-  multiplier: number
   /**
    * Always resolved, never undefined: the hand-entered value, then the snapshot
    * the provider listing gave when the model was picked, then
@@ -213,7 +211,6 @@ export type ModelMapping = Partial<Record<ModelRole, ModelRef>>
 export interface OrgModelDef {
   model: { id: string, name: string, provider: { type: string, name: string, id: string }, contextWindow?: number, cachedInputPricePerMillion?: number }
   usage: string[]
-  multiplier?: number
   contextWindow?: number
   inputPricePerMillion?: number
   outputPricePerMillion?: number
@@ -251,7 +248,6 @@ export function getModelCatalog (globalProviders: GlobalAiProvider[], globalMode
       name: m.name,
       provider: { type: p.type, name: p.name, id: p.id },
       usage: m.usage,
-      multiplier: m.multiplier ?? 1,
       contextWindow: m.contextWindow || UNKNOWN_CONTEXT_WINDOW,
       inputPricePerMillion,
       outputPricePerMillion: m.outputPricePerMillion,
@@ -268,7 +264,6 @@ export function getModelCatalog (globalProviders: GlobalAiProvider[], globalMode
       name: om.model.name,
       provider: om.model.provider,
       usage: om.usage as ModelRole[],
-      multiplier: om.multiplier ?? 1,
       contextWindow: om.contextWindow || om.model.contextWindow || UNKNOWN_CONTEXT_WINDOW,
       inputPricePerMillion,
       outputPricePerMillion: om.outputPricePerMillion ?? 0,

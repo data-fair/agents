@@ -13,7 +13,7 @@ const otherUser = await axiosAuth('test1-user1')
 
 const mockModel = { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' } }
 const assistantOnly = {
-  models: [{ model: mockModel, usage: ['assistant'], multiplier: 0 }],
+  models: [{ model: mockModel, usage: ['assistant'], inputPricePerMillion: 0, outputPricePerMillion: 0 }],
   modelMapping: { assistant: { provider: 'mock', id: 'mock-model', name: 'Mock Model' } }
 }
 
@@ -70,8 +70,8 @@ test.describe('Summary API', () => {
     await putSettings(admin, 'user/test-standalone1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
       models: [
-        { model: mockModel, usage: ['assistant'], multiplier: 0 },
-        { model: summarizerModel, usage: ['summarizer'], multiplier: 0 }
+        { model: mockModel, usage: ['assistant'], inputPricePerMillion: 0, outputPricePerMillion: 0 },
+        { model: summarizerModel, usage: ['summarizer'], inputPricePerMillion: 0, outputPricePerMillion: 0 }
       ],
       modelMapping: {
         assistant: { provider: 'mock', id: 'mock-model', name: 'Mock Model' },

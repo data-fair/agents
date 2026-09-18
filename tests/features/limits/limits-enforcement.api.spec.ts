@@ -24,13 +24,14 @@ const settingsData = {
       enabled: true
     }
   ],
-  // multiplier is irrelevant here: the org cap is enforced from the pushed
+  // pricing is irrelevant here: the org cap is enforced from the pushed
   // limits doc, before any usage/cost is computed from a real call
   models: [
     {
       model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
       usage: ['assistant'],
-      multiplier: 1_000_000
+      inputPricePerMillion: 400_000,
+      outputPricePerMillion: 400_000
     }
   ],
   modelMapping: {

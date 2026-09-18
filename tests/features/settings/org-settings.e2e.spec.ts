@@ -20,7 +20,8 @@ const seedProviderAndModel = async () => {
     models: [{
       model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
       usage: ['assistant', 'tools', 'summarizer', 'evaluator', 'moderator'],
-      multiplier: 1
+      inputPricePerMillion: 0,
+      outputPricePerMillion: 0
     }]
   })
 }

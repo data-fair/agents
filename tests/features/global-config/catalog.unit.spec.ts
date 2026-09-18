@@ -7,12 +7,12 @@ const gProviders: GlobalAiProvider[] = [
   { type: 'mock', id: 'global-off', name: 'Disabled', enabled: false }
 ]
 const gModels: GlobalAiModel[] = [
-  { id: 'g-model', name: 'G Model', provider: 'global-mock', usage: ['assistant', 'summarizer'], multiplier: 2, inputPricePerMillion: 0.4, outputPricePerMillion: 0.8 },
+  { id: 'g-model', name: 'G Model', provider: 'global-mock', usage: ['assistant', 'summarizer'], inputPricePerMillion: 0.4, outputPricePerMillion: 0.8 },
   { id: 'off-model', name: 'Off', provider: 'global-off', usage: ['assistant'], inputPricePerMillion: 0.4, outputPricePerMillion: 0.8 }
 ]
 const orgProviders = [{ id: 'uuid-1', enabled: true }]
 const orgModels = [
-  { model: { id: 'o-model', name: 'O Model', provider: { type: 'mock', name: 'Org Mock', id: 'uuid-1' } }, usage: ['tools'], multiplier: 3, inputPricePerMillion: 0.4, outputPricePerMillion: 0.8 }
+  { model: { id: 'o-model', name: 'O Model', provider: { type: 'mock', name: 'Org Mock', id: 'uuid-1' } }, usage: ['tools'], inputPricePerMillion: 0.4, outputPricePerMillion: 0.8 }
 ]
 
 test.describe('getModelCatalog', () => {
@@ -20,12 +20,7 @@ test.describe('getModelCatalog', () => {
     const catalog = getModelCatalog(gProviders, gModels, orgProviders, orgModels)
     assert.equal(catalog.length, 2) // disabled global provider's model excluded
     assert.deepEqual(catalog.map(c => c.source), ['global', 'org'])
-    assert.equal(catalog[0].multiplier, 2)
     assert.equal(catalog[1].provider.id, 'uuid-1')
-  })
-  test('org model multiplier defaults to 1', () => {
-    const catalog = getModelCatalog([], [], orgProviders, [{ ...orgModels[0], multiplier: undefined }])
-    assert.equal(catalog[0].multiplier, 1)
   })
   test('an org model whose provider is disabled is excluded', () => {
     const catalog = getModelCatalog([], [], [{ id: 'uuid-1', enabled: false }], orgModels)

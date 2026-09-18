@@ -14,7 +14,8 @@ const mockProvider = { id: 'mock-provider', type: 'mock', name: 'Mock Provider',
 const model = (id: string, name: string, usage: string[]) => ({
   model: { id, name, provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
   usage,
-  multiplier: 0
+  inputPricePerMillion: 0,
+  outputPricePerMillion: 0
 })
 const modelRef = (id: string, name: string) => ({ provider: 'mock-provider', id, name })
 

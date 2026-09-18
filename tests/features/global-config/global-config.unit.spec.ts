@@ -10,7 +10,7 @@ const providers: GlobalAiProvider[] = [
   { type: 'openai-compatible', id: 'global-oc', name: 'Global OC', baseURL: 'http://localhost:1234/v1' }
 ]
 const models: GlobalAiModel[] = [
-  { id: 'mock-model', name: 'Mock Model', provider: 'global-mock', usage: ['assistant', 'tools', 'summarizer', 'evaluator', 'moderator'], multiplier: 1, inputPricePerMillion: 0.4, outputPricePerMillion: 0.8 }
+  { id: 'mock-model', name: 'Mock Model', provider: 'global-mock', usage: ['assistant', 'tools', 'summarizer', 'evaluator', 'moderator'], inputPricePerMillion: 0.4, outputPricePerMillion: 0.8 }
 ]
 
 test.describe('assertGlobalAiConfig', () => {

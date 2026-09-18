@@ -109,18 +109,13 @@ export type CachedInputPricePer1MTokens1 = number;
  * Euros per million output tokens, as listed by the provider.
  */
 export type OutputPricePer1MTokens = number;
-/**
- * credits = (input tokens + output tokens × output weight) / 1M × multiplier
- */
-export type CreditMultiplier = number;
 export type Models = {
   model: Model;
   usage: AppropriateUsages;
   contextWindow?: ContextWindowTokens;
-  inputPricePerMillion?: InputPricePer1MTokens;
+  inputPricePerMillion: InputPricePer1MTokens;
   cachedInputPricePerMillion?: CachedInputPricePer1MTokens1;
-  outputPricePerMillion?: OutputPricePer1MTokens;
-  multiplier?: CreditMultiplier;
+  outputPricePerMillion: OutputPricePer1MTokens;
 }[];
 /**
  * When enabled, the last user message of each request from a moderated category is classified before the model responds.
