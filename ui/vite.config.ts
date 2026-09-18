@@ -58,6 +58,13 @@ export default defineConfig({
   ],
   server: {
     port: parseInt(process.env.DEV_UI_PORT!),
+    // Fail on a taken port instead of drifting to the next free one. Nginx proxies
+    // to DEV_UI_PORT and nowhere else, so a vite that quietly moved to port+1 is not
+    // a degraded dev server — it is an invisible one, and every request through the
+    // proxy answers 502. A restart that races the instance it replaces hits exactly
+    // this: the outgoing sockets are still bound a second later. Better a refusal at
+    // startup, naming the port, than an e2e suite failing as if the code were broken.
+    strictPort: true,
     hmr: { port: parseInt(process.env.DEV_UI_HMR_PORT!) }
   },
   build: {

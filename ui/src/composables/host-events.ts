@@ -27,11 +27,42 @@ export const HOST_EVENTS_CLOSE = '</host-events>'
 export const HOST_STATE_OPEN = '<host-state>'
 export const HOST_STATE_CLOSE = '</host-state>'
 export const WAIT_TOOL_NAME = 'wait_for_user_action'
-export const WAIT_DEFAULT_SECONDS = 120
+// 300, not 120: a judged run lost the race by about ten seconds. The assistant
+// told the person the Create button was ready, declared a wait, and timed out
+// while they were still reading the proposal and finding the button — so the
+// creation event never resolved a wait, and the person had to announce their own
+// click and ask what had happened. 120s is a model's idea of a pause, not a
+// person's. A long wait costs little here because the composer stays usable
+// during one: a message takes the turn back, and Stop is always reachable.
+export const WAIT_DEFAULT_SECONDS = 300
 export const WAIT_MAX_SECONDS = 600
 
 export type WaitOutcome = AgentEvent | 'timeout' | 'aborted'
 export interface HostStateSnapshot { state: AgentEvent[], recent: AgentEvent[] }
+
+/**
+ * What a wait is for. A transition is something that happened; keyed state is
+ * what is true now, and it refreshes for many reasons — including the
+ * assistant's own action finishing late. A judged run had
+ * advance_to_confirmation report {ready:false} on its result and {ready:true}
+ * once a title-conflict API check came back; the wait took that refresh as the
+ * person acting, the model retried, and the retry blocked for the full timeout.
+ * Timing cannot separate that from an early click — the same refresh lands
+ * before or after the wait depending on network latency — so the rule is by
+ * kind. `location` is the one keyed change that means the person left, and it
+ * cancels a wait whatever the wait expected.
+ */
+/**
+ * The key a host publishes its location under — the same string as lib-vue's
+ * AGENT_LOCATION_KEY. Repeated here rather than imported because this module is
+ * kept loadable by the node unit runner, which cannot resolve the workspace
+ * package's built entry; a unit test pins the two together so they cannot drift.
+ */
+export const LOCATION_KEY = 'location'
+
+export function resolvesWait (event: AgentEvent): boolean {
+  return !event.key || event.key === LOCATION_KEY
+}
 
 export class HostEventStore {
   // Map keeps a key's original insertion position when its value is replaced, which is
@@ -42,8 +73,22 @@ export class HostEventStore {
   private waiter: ((outcome: WaitOutcome) => void) | null = null
   /** Whether the most recent `waitForEvent` had to block, rather than being answered from the buffer. */
   lastWaitBlocked = false
+  /**
+   * Advances on every event that could have settled a wait — the same rule, by
+   * kind, that `resolvesWait` applies. A waiter compares it against the value it
+   * saw when it last timed out, to tell "has the person acted since?" without
+   * holding on to the events themselves.
+   *
+   * Counting refreshes here would undo the rule at the one boundary the guard
+   * cares about: a late `{ready:true}` landing after a timeout would say the
+   * person had acted, re-arm the wait, and spend another full timeout on someone
+   * who is still away. Timing cannot tell that refresh from a click — it lands
+   * before or after the timeout with the network — so this counts by kind too.
+   */
+  eventSeq = 0
 
   push (event: AgentEvent): void {
+    if (resolvesWait(event)) this.eventSeq++
     if (event.key) {
       this.state.set(event.key, event)
       // Map.set keeps an existing key's position, so the first entry is always the
@@ -56,12 +101,13 @@ export class HostEventStore {
       this.recent.push(event)
       if (this.recent.length > RECENT_MAX) this.recent.shift()
     }
-    if (this.waiter) {
+    if (this.waiter && resolvesWait(event)) {
       const finish = this.waiter
       this.waiter = null
       finish(event)
       return
     }
+    // A refresh arriving mid-wait is owed to the model as a follower, not as the answer.
     if (event.key) {
       const i = this.pending.findIndex(p => p.key === event.key)
       if (i >= 0) { this.pending[i] = event; return }
@@ -112,9 +158,12 @@ export class HostEventStore {
     // never actually waited for anything. `createWaitTool` needs to know, because
     // such a call must not consume the turn's one allowed block — it is routinely
     // a keyed state re-emission the assistant's own tool call produced.
-    if (this.pending.length) {
+    // Only something the person did settles a wait from the buffer; a refresh that
+    // was already true when the wait started stays pending, delivered as a follower.
+    const i = this.pending.findIndex(resolvesWait)
+    if (i >= 0) {
       this.lastWaitBlocked = false
-      return Promise.resolve(this.pending.shift() as AgentEvent)
+      return Promise.resolve(this.pending.splice(i, 1)[0] as AgentEvent)
     }
     this.lastWaitBlocked = true
     return new Promise<WaitOutcome>(resolve => {
@@ -227,6 +276,18 @@ export function createWaitTool (opts: {
 }): Tool {
   const { store } = opts
   let blockedInTurn: string | null = null
+  /**
+   * The event count when the last wait timed out, or null if none has. While it
+   * is unchanged the person has done nothing at all, so blocking again can only
+   * run out another timeout — the per-turn cap cannot catch this, because each
+   * new turn hands out a fresh allowance. A judged run spent 480s of 567s in
+   * four such timeouts, writing a fresh "I'm still waiting" line after each one
+   * while the timeout result was already telling it to end its reply.
+   *
+   * It counts only what could have settled a wait, so a refresh arriving between
+   * two turns cannot quietly re-arm the blocking.
+   */
+  let timedOutAtSeq: number | null = null
   return tool({
     description: 'Pause and wait for the user to act in the application (click a button, submit a form, navigate…). ' +
       'Resolves with the next action the application reports, whatever it is — check it is what you expected before continuing; ' +
@@ -250,6 +311,10 @@ export function createWaitTool (opts: {
         return 'You already waited in this reply and were told what happened. End your reply now and let the user act; ' +
           'the application reports their next action when the conversation continues.'
       }
+      if (turn !== undefined && timedOutAtSeq !== null && store.eventSeq === timedOutAtSeq) {
+        return 'Your last wait timed out and the user has not acted since, so waiting again would only run out another clock. ' +
+          'End your reply now and let them act; you will be told what they did when the conversation continues.'
+      }
       opts.onWaiting?.(String(args?.expecting ?? ''))
       try {
         const outcome = await store.waitForEvent({ timeoutMs: seconds * 1000, signal: options?.abortSignal })
@@ -258,7 +323,17 @@ export function createWaitTool (opts: {
         // and refusing the follow-up left a judged run's assistant unable to
         // observe the click it had just asked for.
         if (turn !== undefined && store.lastWaitBlocked) blockedInTurn = turn
-        if (outcome === 'timeout') return `No user action within ${seconds} seconds. End your reply now and let the user act; you will be told what they did when the conversation continues.`
+        // Remember where the event stream stood, so a repeat before the person
+        // has done anything returns instead of blocking; any event clears it.
+        timedOutAtSeq = outcome === 'timeout' ? store.eventSeq : null
+        if (outcome === 'timeout') {
+          const text = `No user action within ${seconds} seconds. End your reply now and let the user act; you will be told what they did when the conversation continues.`
+          // What the page reported meanwhile is owed to the model now, not on the
+          // next carrier: a keyed refresh that arrived during the wait (correctly
+          // not the answer) used to sit here until the person's next message.
+          const followers = store.takePending()
+          return followers.length ? `${text}\n\n${formatHostEvents(followers)}` : text
+        }
         if (outcome === 'aborted') return 'Wait cancelled.'
         // One macrotask so the followers of the same user gesture (a keyed location event
         // posted right after a creation event) ride in the same result.
