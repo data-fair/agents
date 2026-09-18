@@ -10,7 +10,7 @@ const providers: GlobalAiProvider[] = [
   { type: 'openai-compatible', id: 'global-oc', name: 'Global OC', baseURL: 'http://localhost:1234/v1' }
 ]
 const models: GlobalAiModel[] = [
-  { id: 'mock-model', name: 'Mock Model', provider: 'global-mock', usage: ['assistant', 'tools', 'summarizer', 'evaluator', 'moderator'], multiplier: 1 }
+  { id: 'mock-model', name: 'Mock Model', provider: 'global-mock', usage: ['assistant', 'tools', 'summarizer', 'evaluator', 'moderator'], multiplier: 1, inputPricePerMillion: 0.4, outputPricePerMillion: 0.8 }
 ]
 
 test.describe('assertGlobalAiConfig', () => {
@@ -35,5 +35,16 @@ test.describe('assertGlobalAiConfig', () => {
   test('rejects defaultModels whose model lacks the usage flag', () => {
     const narrow: GlobalAiModel[] = [{ ...models[0], usage: ['summarizer'] }]
     assert.throws(() => assertGlobalAiConfig(providers, narrow, { assistant: { provider: 'global-mock', id: 'mock-model' } }), /not flagged for usage/)
+  })
+  test('rejects a model with no input price', () => {
+    const { inputPricePerMillion, ...noInput } = models[0]
+    assert.throws(() => assertGlobalAiConfig(providers, [noInput as GlobalAiModel], {}), /global-mock\/mock-model.*requires inputPricePerMillion/)
+  })
+  test('rejects a model with no output price', () => {
+    const { outputPricePerMillion, ...noOutput } = models[0]
+    assert.throws(() => assertGlobalAiConfig(providers, [noOutput as GlobalAiModel], {}), /global-mock\/mock-model.*requires outputPricePerMillion/)
+  })
+  test('accepts a zero price — free is a legitimate price, absent is not', () => {
+    assertGlobalAiConfig(providers, [{ ...models[0], inputPricePerMillion: 0, outputPricePerMillion: 0 }], {})
   })
 })

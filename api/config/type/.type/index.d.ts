@@ -49,6 +49,9 @@ export type ApiConfig = {
     ];
     multiplier?: number;
     contextWindow?: number;
+    inputPricePerMillion: number;
+    outputPricePerMillion: number;
+    cachedInputPricePerMillion?: number;
   }[];
   defaultModels?: {
     assistant?: ModelRef;

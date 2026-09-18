@@ -145,6 +145,9 @@ export interface GlobalAiModel {
   usage: ModelRole[]
   multiplier?: number
   contextWindow?: number
+  inputPricePerMillion: number
+  outputPricePerMillion: number
+  cachedInputPricePerMillion?: number
 }
 
 export type DefaultModelRefs = Partial<Record<ModelRole, { provider: string, id: string }>>
@@ -169,6 +172,12 @@ export function assertGlobalAiConfig (providers: GlobalAiProvider[], models: Glo
     if (modelKeys.has(key)) throw new Error(`invalid global AI config: duplicate global model "${key}"`)
     modelKeys.add(key)
     if (!providerIds.has(m.provider)) throw new Error(`invalid global AI config: model "${key}" references unknown provider "${m.provider}"`)
+    // Prices are mandatory because every account on this deployment can resolve a
+    // GLOBAL model with no per-account configuration (see the DEFAULT_CREDITS release
+    // note): a model that is free by omission would be an uncapped consumer of the
+    // deployment's own provider keys. A zero price is fine; an absent one is not.
+    if (typeof m.inputPricePerMillion !== 'number') throw new Error(`invalid global AI config: model "${key}" requires inputPricePerMillion`)
+    if (typeof m.outputPricePerMillion !== 'number') throw new Error(`invalid global AI config: model "${key}" requires outputPricePerMillion`)
   }
   for (const [role, ref] of Object.entries(defaultModels)) {
     if (!ref) continue
@@ -191,6 +200,10 @@ export interface CatalogModel {
    * number field), not a zero-token window, so it falls through.
    */
   contextWindow: number
+  /** Euros per 1M tokens. Always resolved; see resolveCachePrice for the cache chain. */
+  inputPricePerMillion: number
+  outputPricePerMillion: number
+  cachedInputPricePerMillion: number
   source: 'global' | 'org'
 }
 
@@ -198,10 +211,24 @@ export interface ModelRef { provider: string, id: string, name?: string }
 export type ModelMapping = Partial<Record<ModelRole, ModelRef>>
 
 export interface OrgModelDef {
-  model: { id: string, name: string, provider: { type: string, name: string, id: string }, contextWindow?: number }
+  model: { id: string, name: string, provider: { type: string, name: string, id: string }, contextWindow?: number, cachedInputPricePerMillion?: number }
   usage: string[]
   multiplier?: number
   contextWindow?: number
+  inputPricePerMillion?: number
+  outputPricePerMillion?: number
+  cachedInputPricePerMillion?: number
+}
+
+/**
+ * An unset cache price means "unknown", not "free": OpenAI, Scaleway, LiteLLM and
+ * vLLM report no cache tariff in their listings yet still cache implicitly, so
+ * defaulting to 0 would bill cache-read tokens for free and silently loosen every
+ * credit cap. Fall back to the full input price instead. `??` rather than `||` so a
+ * deliberate 0 survives.
+ */
+function resolveCachePrice (entryPrice: number | undefined, snapshot: number | undefined, inputPrice: number): number {
+  return entryPrice ?? snapshot ?? inputPrice
 }
 
 /** Merge global config models and per-org model definitions into the single
@@ -218,12 +245,36 @@ export function getModelCatalog (globalProviders: GlobalAiProvider[], globalMode
   for (const m of globalModels) {
     const p = globalProviders.find(gp => gp.id === m.provider)
     if (!p || p.enabled === false) continue
-    catalog.push({ id: m.id, name: m.name, provider: { type: p.type, name: p.name, id: p.id }, usage: m.usage, multiplier: m.multiplier ?? 1, contextWindow: m.contextWindow || UNKNOWN_CONTEXT_WINDOW, source: 'global' })
+    const inputPricePerMillion = m.inputPricePerMillion
+    catalog.push({
+      id: m.id,
+      name: m.name,
+      provider: { type: p.type, name: p.name, id: p.id },
+      usage: m.usage,
+      multiplier: m.multiplier ?? 1,
+      contextWindow: m.contextWindow || UNKNOWN_CONTEXT_WINDOW,
+      inputPricePerMillion,
+      outputPricePerMillion: m.outputPricePerMillion,
+      cachedInputPricePerMillion: resolveCachePrice(m.cachedInputPricePerMillion, undefined, inputPricePerMillion),
+      source: 'global'
+    })
   }
   for (const om of orgModels) {
     const p = orgProviders.find(op => op.id === om.model.provider.id)
     if (!p || p.enabled === false) continue
-    catalog.push({ id: om.model.id, name: om.model.name, provider: om.model.provider, usage: om.usage as ModelRole[], multiplier: om.multiplier ?? 1, contextWindow: om.contextWindow || om.model.contextWindow || UNKNOWN_CONTEXT_WINDOW, source: 'org' })
+    const inputPricePerMillion = om.inputPricePerMillion ?? 0
+    catalog.push({
+      id: om.model.id,
+      name: om.model.name,
+      provider: om.model.provider,
+      usage: om.usage as ModelRole[],
+      multiplier: om.multiplier ?? 1,
+      contextWindow: om.contextWindow || om.model.contextWindow || UNKNOWN_CONTEXT_WINDOW,
+      inputPricePerMillion,
+      outputPricePerMillion: om.outputPricePerMillion ?? 0,
+      cachedInputPricePerMillion: resolveCachePrice(om.cachedInputPricePerMillion, om.model.cachedInputPricePerMillion, inputPricePerMillion),
+      source: 'org'
+    })
   }
   return catalog
 }

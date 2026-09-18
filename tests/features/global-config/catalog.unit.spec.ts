@@ -7,12 +7,12 @@ const gProviders: GlobalAiProvider[] = [
   { type: 'mock', id: 'global-off', name: 'Disabled', enabled: false }
 ]
 const gModels: GlobalAiModel[] = [
-  { id: 'g-model', name: 'G Model', provider: 'global-mock', usage: ['assistant', 'summarizer'], multiplier: 2 },
-  { id: 'off-model', name: 'Off', provider: 'global-off', usage: ['assistant'] }
+  { id: 'g-model', name: 'G Model', provider: 'global-mock', usage: ['assistant', 'summarizer'], multiplier: 2, inputPricePerMillion: 0.4, outputPricePerMillion: 0.8 },
+  { id: 'off-model', name: 'Off', provider: 'global-off', usage: ['assistant'], inputPricePerMillion: 0.4, outputPricePerMillion: 0.8 }
 ]
 const orgProviders = [{ id: 'uuid-1', enabled: true }]
 const orgModels = [
-  { model: { id: 'o-model', name: 'O Model', provider: { type: 'mock', name: 'Org Mock', id: 'uuid-1' } }, usage: ['tools'], multiplier: 3 }
+  { model: { id: 'o-model', name: 'O Model', provider: { type: 'mock', name: 'Org Mock', id: 'uuid-1' } }, usage: ['tools'], multiplier: 3, inputPricePerMillion: 0.4, outputPricePerMillion: 0.8 }
 ]
 
 test.describe('getModelCatalog', () => {
@@ -65,8 +65,8 @@ test.describe('context window resolution', () => {
 
   test('a global model carries its configured window, else the default', () => {
     const catalog = getModelCatalog(gProviders, [
-      { id: 'sized', name: 'Sized', provider: 'global-mock', usage: ['assistant'], contextWindow: 32000 },
-      { id: 'unsized', name: 'Unsized', provider: 'global-mock', usage: ['assistant'] }
+      { id: 'sized', name: 'Sized', provider: 'global-mock', usage: ['assistant'], contextWindow: 32000, inputPricePerMillion: 0.4, outputPricePerMillion: 0.8 },
+      { id: 'unsized', name: 'Unsized', provider: 'global-mock', usage: ['assistant'], inputPricePerMillion: 0.4, outputPricePerMillion: 0.8 }
     ], [], [])
     assert.deepEqual(catalog.map(c => c.contextWindow), [32000, UNKNOWN_CONTEXT_WINDOW])
   })
@@ -104,5 +104,47 @@ test.describe('getRoleModel', () => {
   })
   test('throws when nothing resolves', () => {
     assert.throws(() => getRoleModel(catalog, {}, {}, 'assistant'), /No model configured for assistant/)
+  })
+})
+
+test.describe('price resolution', () => {
+  const mockProvider = { type: 'mock', name: 'Org Mock', id: 'uuid-1' }
+  const orgEntry = (extra: any) => [{
+    model: { id: 'o-model', name: 'O Model', provider: mockProvider, ...extra.model },
+    usage: ['assistant'],
+    inputPricePerMillion: 0.4,
+    outputPricePerMillion: 0.8,
+    ...extra.entry
+  }]
+
+  test('the entry cache price wins over the listing snapshot', () => {
+    const catalog = getModelCatalog([], [], orgProviders, orgEntry({ model: { cachedInputPricePerMillion: 0.3 }, entry: { cachedInputPricePerMillion: 0.08 } }))
+    assert.equal(catalog[0].cachedInputPricePerMillion, 0.08)
+  })
+
+  test('falls back to the listing snapshot', () => {
+    const catalog = getModelCatalog([], [], orgProviders, orgEntry({ model: { cachedInputPricePerMillion: 0.3 }, entry: {} }))
+    assert.equal(catalog[0].cachedInputPricePerMillion, 0.3)
+  })
+
+  test('an unset cache price falls back to the input price, never to 0', () => {
+    const catalog = getModelCatalog([], [], orgProviders, orgEntry({ model: {}, entry: {} }))
+    assert.equal(catalog[0].cachedInputPricePerMillion, 0.4)
+  })
+
+  test('a genuinely zero input price stays zero rather than being treated as unset', () => {
+    const catalog = getModelCatalog([], [], orgProviders, orgEntry({ model: {}, entry: { inputPricePerMillion: 0, outputPricePerMillion: 0 } }))
+    assert.equal(catalog[0].inputPricePerMillion, 0)
+    assert.equal(catalog[0].cachedInputPricePerMillion, 0)
+  })
+
+  test('a global model carries its configured prices', () => {
+    const catalog = getModelCatalog(gProviders, [
+      { id: 'priced', name: 'Priced', provider: 'global-mock', usage: ['assistant'], inputPricePerMillion: 0.4, cachedInputPricePerMillion: 0.08, outputPricePerMillion: 0.8 }
+    ], [], [])
+    assert.deepEqual(
+      [catalog[0].inputPricePerMillion, catalog[0].cachedInputPricePerMillion, catalog[0].outputPricePerMillion],
+      [0.4, 0.08, 0.8]
+    )
   })
 })

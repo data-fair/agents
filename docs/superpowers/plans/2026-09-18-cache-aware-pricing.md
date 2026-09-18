@@ -389,12 +389,22 @@ In `api/config/development.js:24`, add prices to the global mock model so the de
   models: [{ id: 'mock-model', name: 'Global Mock Model', provider: 'global-mock', usage: ['assistant', 'tools', 'summarizer', 'evaluator', 'moderator'], multiplier: 0, inputPricePerMillion: 0, outputPricePerMillion: 0 }],
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [ ] **Step 4: Regenerate the config validator, then run the tests**
 
-Run: `npm run test tests/features/global-config/catalog.unit.spec.ts tests/features/global-config/global-config.unit.spec.ts`
+`api/config/type/schema.json` feeds a GENERATED validator (`api/config/type/.type/validate.js`)
+that `api/src/config.ts` runs at boot. Editing the schema without regenerating makes the
+API crash with `config/models/0 must NOT have additional properties`.
+
+```bash
+npm run build-types
+npm run test tests/features/global-config/catalog.unit.spec.ts tests/features/global-config/global-config.unit.spec.ts
+```
 Expected: PASS.
 
 - [ ] **Step 5: Verify the API still boots**
+
+Nodemon does not watch the gitignored `.type/` directory, so regenerating alone does not
+reload it. Touch a watched source file first: `touch api/src/config.ts && sleep 6`.
 
 Run: `tail -n 30 dev/logs/dev-api.log`
 Expected: no `invalid global AI config` line — nodemon restarted cleanly after the config edit. If it did not restart, run `bash dev/status.sh`; do not restart it yourself.
