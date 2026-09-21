@@ -1,6 +1,6 @@
 {
   "name": "@data-fair/lib-agents-sim",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Primitives for judged browser simulations of the data-fair agents chat, plus a Claude Code bridge exposing the Agent SDK as an OpenAI-compatible provider.",
   "main": "index.js",
   "type": "module",
