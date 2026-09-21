@@ -281,7 +281,6 @@ export function createWaitTool (opts: {
   onDone?: () => void
 }): Tool {
   const { store } = opts
-  let blockedInTurn: string | null = null
   /**
    * The event count when the last wait timed out, or null if none has. While it
    * is unchanged the person has done nothing at all, so blocking again can only
@@ -313,10 +312,14 @@ export function createWaitTool (opts: {
       const requested = Number(args?.timeoutSeconds)
       const seconds = Number.isFinite(requested) && requested > 0 ? Math.min(WAIT_MAX_SECONDS, Math.floor(requested)) : WAIT_DEFAULT_SECONDS
       const turn = opts.turnId?.()
-      if (turn !== undefined && turn === blockedInTurn) {
-        return 'You already waited in this reply and were told what happened. End your reply now and let the user act; ' +
-          'the application reports their next action when the conversation continues.'
-      }
+      // There is no cap on how many times a reply may wait, only on waiting for
+      // nothing. A wait that blocked and was then answered is progress — the
+      // person acted — and a workflow legitimately needs several in one reply: a
+      // dialog reports itself, the person saves, the next dialog reports itself.
+      // Capping that refused the third wait of a judged run with "you already
+      // waited in this reply"; the assistant ended its reply, the person was
+      // waiting to be told a button was ready, and the run drained to its turn
+      // cap with the correction never made. What must not repeat is below.
       if (turn !== undefined && timedOutAtSeq !== null && store.eventSeq === timedOutAtSeq) {
         return 'Your last wait timed out and the user has not acted since, so waiting again would only run out another clock. ' +
           'End your reply now and let them act; you will be told what they did when the conversation continues.'
@@ -325,10 +328,6 @@ export function createWaitTool (opts: {
       try {
         const outcome = await store.waitForEvent({ timeoutMs: seconds * 1000, signal: options?.abortSignal })
         // Only a wait that genuinely blocked spends the turn's allowance. One
-        // answered instantly from the buffer never waited for the user at all,
-        // and refusing the follow-up left a judged run's assistant unable to
-        // observe the click it had just asked for.
-        if (turn !== undefined && store.lastWaitBlocked) blockedInTurn = turn
         // Remember where the event stream stood, so a repeat before the person
         // has done anything returns instead of blocking; any event clears it.
         timedOutAtSeq = outcome === 'timeout' ? store.eventSeq : null

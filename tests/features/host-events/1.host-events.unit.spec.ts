@@ -299,27 +299,31 @@ test.describe('createWaitTool', () => {
   })
 })
 
-test.describe('createWaitTool blocks at most once per turn', () => {
-  // Two judged runs burned minutes on this. In one, a keyed state re-emission
-  // caused by the assistant's OWN tool call resolved the wait instantly, so the
-  // assistant re-issued the identical wait and sat through the full timeout. In
-  // another it declared three waits in a row with reworded `expecting` strings,
-  // costing six minutes and producing two "take your time" bubbles. The person
-  // cannot act while the turn is still open, so a second block in one turn can
-  // only ever time out.
+test.describe('createWaitTool refuses only a wait that can achieve nothing', () => {
+  // This used to cap a reply at one blocking wait, on the premise that "the
+  // person cannot act while the turn is still open, so a second block can only
+  // ever time out". That premise is what wait_for_user_action exists to falsify:
+  // the composer stays usable during a wait, and the application reports what the
+  // person did. A workflow needs several waits in one reply — a dialog reports
+  // itself, the person saves, the next dialog reports itself — and capping it
+  // refused the third, ending the reply while the person waited to be told a
+  // button was ready.
+  //
+  // What the two judged runs behind the old cap actually cost was waiting again
+  // after a timeout with nothing having happened. That is what is refused now,
+  // and it is refused on the event sequence rather than on a count.
   const exec = (t: any, args: any, options?: any) => t.execute(args, options ?? {})
 
-  test('the second wait of a turn returns at once instead of blocking', async () => {
+  test('a second blocking wait in one reply is allowed when something happened', async () => {
     const store = new HostEventStore()
     const turn = 'turn-1'
     const t = createWaitTool({ store, turnId: () => turn })
     const first = exec(t, { expecting: 'a click' })
     store.push(ev('item-created', '{"id":"1"}'))
     await first
-    const started = Date.now()
-    const out = await exec(t, { expecting: 'the same click, reworded', timeoutSeconds: 30 }) as string
-    assert.ok(Date.now() - started < 1000, 'must not block')
-    assert.match(out, /already/i)
+    const second = exec(t, { expecting: 'the next dialog' })
+    store.push(ev('dialog-opened', '{"mode":"edit"}'))
+    assert.match(await second as string, /dialog-opened/)
   })
 
   test('a new turn may wait again', async () => {
@@ -412,25 +416,46 @@ test.describe('the per-turn cap only counts a wait that really blocked', () => {
     assert.match(await second as string, /navigated/)
   })
 
-  test('a wait that blocked still consumes the allowance', async () => {
+  test('a wait that blocked and was then answered leaves it intact: the person acted', async () => {
+    // This used to be refused, and it is the shape a real workflow has. A judged
+    // run opened the add-line dialog (wait, answered by the dialog reporting
+    // itself), had the person save it (wait, blocked until they clicked, then
+    // answered), then opened the edit dialog — and THAT third wait was refused
+    // with "you already waited in this reply". The assistant ended its reply, the
+    // person was waiting to be told a button was ready, and the run drained to
+    // its turn cap with the correction never made.
+    //
+    // A wait that blocked and then resolved is progress: something happened. What
+    // must not repeat is a wait that timed out while the person did nothing, and
+    // that is caught exactly, below, by the event-sequence rule.
     const store = new HostEventStore()
     const t = createWaitTool({ store, turnId: () => 'turn-1' })
     const first = exec(t, { expecting: 'a click' })
     store.push(ev('item-created', '{"id":"1"}'))
     await first
-    const started = Date.now()
-    const out = await exec(t, { expecting: 'reworded', timeoutSeconds: 30 }) as string
-    assert.ok(Date.now() - started < 1000)
-    assert.match(out, /already/i)
+
+    const second = exec(t, { expecting: 'the dialog to open' })
+    store.push(ev('dialog-opened', '{"mode":"edit"}'))
+    assert.match(await second as string, /dialog-opened/)
   })
 
-  test('a timed-out wait consumes it too', async () => {
+  test('a repeat after a timeout, with nothing having happened, is still refused', async () => {
     const store = new HostEventStore()
     const t = createWaitTool({ store, turnId: () => 'turn-1' })
     await exec(t, { expecting: 'x', timeoutSeconds: 1 })
     const started = Date.now()
-    await exec(t, { expecting: 'x again', timeoutSeconds: 30 })
+    const out = await exec(t, { expecting: 'x again', timeoutSeconds: 30 }) as string
     assert.ok(Date.now() - started < 1000)
+    assert.match(out, /timed out/i)
+  })
+
+  test('but once the person does something, waiting again is allowed', async () => {
+    const store = new HostEventStore()
+    const t = createWaitTool({ store, turnId: () => 'turn-1' })
+    await exec(t, { expecting: 'x', timeoutSeconds: 1 })
+    store.push(ev('item-created', '{"id":"1"}'))
+    const out = await exec(t, { expecting: 'x again', timeoutSeconds: 30 }) as string
+    assert.match(out, /item-created/)
   })
 })
 
