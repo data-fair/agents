@@ -62,17 +62,17 @@ export const SEND_TIMEOUT_MS = 15000
 export type TurnOutcome = 'ended' | 'waiting'
 
 /**
- * Matched on the activity's kind, not its label: the label is the model's own
- * words interpolated into a translated string, so any text match would be both
- * locale-dependent and at the mercy of what the assistant wrote.
- */
-/**
  * How long an armed wait must persist before the driver calls it the person's
  * move. Long enough for a resolving wait's indicator to clear, short enough to be
  * nothing against a wait a person is actually thinking through.
  */
 export const WAIT_SETTLE_MS = 500
 
+/**
+ * Matched on the activity's kind, not its label: the label is the model's own
+ * words interpolated into a translated string, so any text match would be both
+ * locale-dependent and at the mercy of what the assistant wrote.
+ */
 export const WAITING_SELECTOR = '[data-testid="chat-activity"][data-activity="waiting"]'
 
 export function createChatDriver (root: ChatRoot, opts: { locale?: ChatDriverLocale } = {}) {

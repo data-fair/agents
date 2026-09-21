@@ -339,7 +339,7 @@ test.describe('createWaitTool refuses only a wait that can achieve nothing', () 
     assert.match(await second as string, /navigated/)
   })
 
-  test('a timed-out wait also counts, so it cannot be retried in the same turn', async () => {
+  test('a timed-out wait is not retried while the person has done nothing', async () => {
     const store = new HostEventStore()
     const t = createWaitTool({ store, turnId: () => 'turn-1' })
     await exec(t, { expecting: 'x', timeoutSeconds: 1 })
@@ -387,21 +387,22 @@ test.describe('the host blocks admit what they do not cover', () => {
   })
 })
 
-test.describe('the per-turn cap only counts a wait that really blocked', () => {
-  // The cap exists to stop wait->wait loops. But a wait is also satisfied
-  // instantly by an event already in the pending buffer — including a keyed
-  // state re-emission caused by the assistant's OWN tool call. Counting that
-  // against the allowance meant the first "wait" was eaten by a wizard
-  // ready:true transition and the real wait for the user's click was then
-  // REFUSED: a judged run showed the person told three times to click a button
-  // the assistant had no way to observe, through two 120s timeouts.
+test.describe('a refusal needs a timed-out wait and no action since', () => {
+  // What is refused is a repeat after a timeout with nothing having happened
+  // since. A wait satisfied instantly by an event already in the pending buffer
+  // — including a keyed state re-emission caused by the assistant's OWN tool
+  // call — is neither a block nor progress, so it must not refuse the follow-up:
+  // a judged run had the decisive wait for a Create click eaten by a
+  // `wizard ready:true` transition, the real wait refused, and the person told
+  // three times to click a button the assistant had no way to observe, through
+  // two 120s timeouts.
   const exec = (t: any, args: any, options?: any) => t.execute(args, options ?? {})
 
-  test('a wait answered from the pending buffer leaves the allowance intact', async () => {
+  test('a wait answered from the pending buffer does not block, and does not refuse the next one', async () => {
     // The person clicked before the wait was armed: the transition is already
     // pending, so the wait is answered at once without ever blocking — and must
-    // not spend the turn's one allowed block, or the assistant could not wait
-    // for the step that follows. (A pending keyed REFRESH is a different thing:
+    // not be mistaken for the person acting, leaving the next wait free to block.
+    // (A pending keyed REFRESH is a different thing:
     // it is context, never an answer — see resolvesWait.)
     const store = new HostEventStore()
     const t = createWaitTool({ store, turnId: () => 'turn-1' })
@@ -416,7 +417,7 @@ test.describe('the per-turn cap only counts a wait that really blocked', () => {
     assert.match(await second as string, /navigated/)
   })
 
-  test('a wait that blocked and was then answered leaves it intact: the person acted', async () => {
+  test('a wait that blocked and was then answered does not refuse the next one: the person acted', async () => {
     // This used to be refused, and it is the shape a real workflow has. A judged
     // run opened the add-line dialog (wait, answered by the dialog reporting
     // itself), had the person save it (wait, blocked until they clicked, then
@@ -460,12 +461,13 @@ test.describe('the per-turn cap only counts a wait that really blocked', () => {
 })
 
 test.describe('a timed-out wait does not block again until something happens', () => {
-  // The per-turn cap cannot reach this: each new turn gets a fresh allowance, so
-  // an assistant that waits, times out, and waits again on the next turn blocks
-  // for the full timeout every time. A judged data-fair run spent 480s of a 567s
-  // run in four such timeouts, writing a new "I'm still waiting" line after each
-  // — while the timeout result already told it to end its reply and let the user
-  // act. Blocking again before the person has done ANYTHING cannot help.
+  // A per-turn count could not reach this anyway: each new turn would get a
+  // fresh allowance, so an assistant that waits, times out, and waits again on
+  // the next turn blocks for the full timeout every time. A judged data-fair run
+  // spent 480s of a 567s run in four such timeouts, writing a new "I'm still
+  // waiting" line after each one — while the timeout result already told it to
+  // end its reply and let the user act. Blocking again before the person has done
+  // ANYTHING cannot help.
   const exec = (t: any, args: any, options?: any) => t.execute(args, options ?? {})
 
   test('refuses to block again while the application has reported nothing', async () => {

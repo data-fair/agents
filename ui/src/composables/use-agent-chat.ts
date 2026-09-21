@@ -1044,9 +1044,10 @@ export function useAgentChat (options: UseAgentChatOptions) {
         if (hostEvents && (hasHostState(hostEvents.snapshot()) || hostEvents.hasPending())) {
           nextTools[WAIT_TOOL_NAME] = mainLLMTools[WAIT_TOOL_NAME] ?? createWaitTool({
             store: hostEvents,
-            // The tool instance is reused across turns, so it needs to be told
-            // where one ends: it blocks at most once per turn, and the person
-            // cannot act until the turn closes.
+            // The tool instance is reused across turns, so it is told which turn
+            // it is in: that wiring is what opts it into the timeout guard (see
+            // the tool's own doc). A host that wires no turnId keeps the
+            // unbounded behaviour.
             turnId: () => String(currentTurnId),
             onWaiting: (expecting) => {
               activity.value = { kind: 'waiting', expecting }
