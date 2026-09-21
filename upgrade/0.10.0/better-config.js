@@ -9,10 +9,14 @@
 // least 0.10.0, or this migration silently never executes.
 //
 // RELEASE NOTE — `quotas.global.monthlyLimit` is copied 1:1 into
-// `ai_credits.limit` below, and that carry is unit-preserving: the old number
-// was a currency budget, and a credit is pegged to a currency amount
-// (EUROS_PER_CREDIT, default 0.40). A deployment that leaves the peg alone can
-// read the migrated cap the way it always did, divided by the peg.
+// `ai_credits.limit` below. The number is preserved, the unit is not: the old
+// limit was a currency budget, the new one is a credit budget, and a credit is
+// worth EUROS_PER_CREDIT euros of inference (default 0.40, the reference
+// model's input price, i.e. roughly 1M reference-model tokens per credit). A
+// migrated cap is therefore 1/EUROS_PER_CREDIT times tighter in currency terms
+// (2.5x at the default peg); an operator preserving an old euro budget must
+// multiply the cap by 1/EUROS_PER_CREDIT. See
+// docs/architecture/configuration.md#release-note-caps-shift-units-on-upgrade.
 //
 // What DOES need review: a role entry that carried no prices migrates to
 // inputPricePerMillion/outputPricePerMillion 0, so that model bills nothing
