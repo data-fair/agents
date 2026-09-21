@@ -1,3 +1,4 @@
+import { isEmptyTurn } from './empty-turn'
 import { ref, watch, onScopeDispose, type WatchStopHandle } from 'vue'
 import { streamText, generateText, stepCountIs, tool, jsonSchema, ToolLoopAgent } from 'ai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
@@ -655,6 +656,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
       producedText: false,
       stepHadTool: false,
       lastStepHadTool: false,
+      lastStepToolName: undefined,
       setActivity: (phase, toolName) => {
         // A declared wait outlives the tool-call part that announced it: the SDK starts
         // the tool's execute() — which sets the 'waiting' activity — before this loop
@@ -888,6 +890,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
                 producedText: false,
                 stepHadTool: false,
                 lastStepHadTool: false,
+                lastStepToolName: undefined,
                 setActivity: (phase) => {
                   const setPhase = (a: ChatActivity | null) => {
                     const next = { ...subAgentActivities.value }
@@ -1197,7 +1200,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
       // a turn that answered, leaving the user with settled chips, no answer and no error.
       // A turn whose LAST step called a tool is the tell: the model meant to read that result
       // and continue. Surface a fallback so the turn is never visibly empty.
-      if (!mainScope.producedText || mainScope.lastStepHadTool) {
+      if (isEmptyTurn(mainScope)) {
         // An empty turn is anomalous — put it on the same footing as an error and dump
         // the physical request/response to the console for diagnosis (the user only sees
         // the generic fallback bubble). The usage is the tell: a non-zero

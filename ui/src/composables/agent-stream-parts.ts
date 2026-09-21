@@ -48,6 +48,9 @@ export interface StreamScope {
   // a turn that says "let me delegate that" and never comes back reads as one that
   // answered. This flag is the tell.
   lastStepHadTool: boolean
+  // Which tool that was. `wait_for_user_action` ends a stream on purpose and
+  // resumes the same turn, so a turn ending on it is paused, not silent.
+  lastStepToolName?: string
   // toolName of the latest tool-call this step, surfaced so the post-step label
   // can name a sub-agent.
   lastToolName?: string
@@ -124,6 +127,7 @@ export function applyStreamPart (part: StreamPart, scope: StreamScope): void {
       scope.current = null
       scope.setActivity(scope.stepHadTool ? 'analyzing' : 'thinking', scope.lastToolName)
       scope.lastStepHadTool = scope.stepHadTool
+      scope.lastStepToolName = scope.stepHadTool ? scope.lastToolName : undefined
       scope.stepHadTool = false
       scope.lastToolName = undefined
       break
