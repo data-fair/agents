@@ -9,7 +9,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { chatDriverStrings, createChatDriver } from '../../../lib-sim/chat-driver.ts'
+import { chatDriverStrings, createChatDriver, WAITING_SELECTOR } from '../../../lib-sim/chat-driver.ts'
 
 test.describe('chat driver composer strings', () => {
   test('serves the French strings', () => {
@@ -60,6 +60,21 @@ test.describe('chat driver composer strings', () => {
       const { reset } = chatDriverStrings(locale)
       assert.ok(source.includes(reset), `${locale}.reset: "${reset}" is not in AgentChatHeader.vue`)
     }
+  })
+
+  test('the waiting selector is one AgentChatMessages actually renders', () => {
+    // The same drift guard as the composer strings, for the one attribute that
+    // tells the harness the assistant has handed control back. Matched on the
+    // activity KIND rather than its label, because the label is the model's own
+    // words interpolated into a translated string — but that makes it invisible
+    // to every other test here, so it is pinned against the component source.
+    const source = readFileSync('ui/src/components/agent-chat/AgentChatMessages.vue', 'utf8')
+    assert.ok(source.includes('data-testid="chat-activity"'), 'the activity element lost its test id')
+    assert.ok(source.includes(':data-activity="activity?.kind"'), 'the activity element no longer exposes its kind')
+    // And the kind the selector names is one the activity vocabulary still has.
+    const activity = readFileSync('ui/src/composables/agent-activity.ts', 'utf8')
+    assert.match(WAITING_SELECTOR, /data-activity="waiting"/)
+    assert.ok(activity.includes("kind: 'waiting'"), "the 'waiting' activity kind is gone")
   })
 
   test('the runner keeps the reset button off-limits to the persona', () => {

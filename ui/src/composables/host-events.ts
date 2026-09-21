@@ -27,13 +27,19 @@ export const HOST_EVENTS_CLOSE = '</host-events>'
 export const HOST_STATE_OPEN = '<host-state>'
 export const HOST_STATE_CLOSE = '</host-state>'
 export const WAIT_TOOL_NAME = 'wait_for_user_action'
-// 300, not 120: a judged run lost the race by about ten seconds. The assistant
-// told the person the Create button was ready, declared a wait, and timed out
-// while they were still reading the proposal and finding the button — so the
-// creation event never resolved a wait, and the person had to announce their own
-// click and ask what had happened. 120s is a model's idea of a pause, not a
-// person's. A long wait costs little here because the composer stays usable
-// during one: a message takes the turn back, and Stop is always reachable.
+// 300, not 120. The judged run that prompted this looked like a ten-second
+// near-miss — the wait expired just before the person clicked — but that was an
+// artefact of the simulation harness, which runs its simulated person only
+// between turns and so could never resolve a wait from inside one. No real
+// evidence survives that story, and the harness now reports an armed wait as the
+// turn handing control back (lib-sim/chat-driver.ts), which makes the window
+// irrelevant there.
+//
+// What remains is a judgement about a real person: 120s is a model's idea of a
+// pause, not a person's, and someone who reads a proposal before acting can
+// easily spend longer. A long window costs little because the composer stays
+// usable during a wait — a message takes the turn back — and Stop is always
+// reachable.
 export const WAIT_DEFAULT_SECONDS = 300
 export const WAIT_MAX_SECONDS = 600
 

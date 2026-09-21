@@ -213,6 +213,7 @@
           v-if="isStreaming && activityLabel"
           class="px-2 py-1 px-sm-4 py-sm-2 d-flex align-center text-caption text-medium-emphasis"
           data-testid="chat-activity"
+          :data-activity="activity?.kind"
         >
           <v-icon
             :icon="mdiLoading"

@@ -21,7 +21,7 @@ test.describe('package barrel', () => {
       'computeMetrics',
       'selectCases',
       'reportCases',
-      'createChatDriver', 'chatDriverStrings', 'TURN_TIMEOUT_MS', 'SEND_TIMEOUT_MS',
+      'createChatDriver', 'chatDriverStrings', 'TURN_TIMEOUT_MS', 'SEND_TIMEOUT_MS', 'WAITING_SELECTOR',
       'createPagePerception', 'truncate', 'SNAPSHOT_CAP', 'ACTION_TIMEOUT_MS', 'PAGE_MCP_SERVER_NAME'
     ]
     assert.deepEqual(Object.keys(pkg).sort(), expected.sort())

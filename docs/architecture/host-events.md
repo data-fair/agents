@@ -275,15 +275,24 @@ page, a timeout, the idle watchdog staying quiet through a wait, the waiting act
 clearing the instant the wait resolves (the host's `waiting-user`/`working` signal), Stop
 cancelling a wait, and reset re-activating. Simulation case: `workflow-hand-back`.
 
-The judged simulation harness drives its persona only *between* runner turns, never while
-an assistant turn is open, so `wait_for_user_action` in that case always runs out to its
-own timeout rather than being resumed mid-turn by a click — a simulation transcript cannot
-exercise the same-turn resume at all. Read the assistant's resulting "press Create
-whenever you're ready" wrap-up as the intended hand-back, not a stall. The same-turn path
-— clicking while the turn is still open — is instead pinned by
+The judged simulation harness still drives its persona only *between* runner turns — their
+click/look/type tools exist inside `nextUserMessage` and nowhere else — but that no longer
+puts the same-turn resume out of reach. `waitForTurn` reports an armed wait as the turn
+handing control back (`lib-sim/chat-driver.ts`, matched on the activity's kind via
+`data-activity`), so the runner lets the person act and the wait resolves on what they did.
+A `workflow-hand-back` run has since been judged doing exactly that: the wait armed
+mid-turn, the person clicked Create, and the same turn continued into a second assistant
+bubble reporting the creation before they said anything.
+
+**So an assistant that spends the whole window and falls back to "press Create whenever
+you're ready" is a finding, not the intended hand-back.** It used to be the only shape a
+simulation could produce, which is why this paragraph once said the opposite.
+
+The same-turn path is pinned independently of any model by
 `tests/features/host-events/3.host-events.e2e.spec.ts`, which clicks Create mid-wait and
-asserts exactly two gateway requests for the turn (the call that started the wait, then
-the continuation after it resolves).
+asserts exactly two gateway requests for the turn (the call that started the wait, then the
+continuation after it resolves), and whose companion test drives the simulation driver
+itself against a real armed wait.
 
 ## Rejected alternatives
 
