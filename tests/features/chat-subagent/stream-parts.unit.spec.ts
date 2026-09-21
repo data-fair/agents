@@ -10,6 +10,7 @@ function makeScope () {
     producedText: false,
     stepHadTool: false,
     lastStepHadTool: false,
+    lastStepToolName: undefined,
     setActivity: (phase, toolName) => { phases.push([phase, toolName]) }
   }
   return { scope, phases }
@@ -59,8 +60,36 @@ test.describe('applyStreamPart', () => {
     assert.equal(scope.stepHadTool, false)
     assert.equal(scope.lastToolName, undefined)
     assert.equal(scope.current, null)
+    // What the finished step did is remembered for the empty-turn decision: a
+    // turn whose last step called a tool meant to continue, and the name is how
+    // `isEmptyTurn` tells a declared wait (paused, not silent) apart from a
+    // delegation that never came back.
+    assert.equal(scope.lastStepHadTool, true)
+    assert.equal(scope.lastStepToolName, 'subagent_x')
     applyStreamPart({ type: 'finish-step' }, scope)
     assert.deepEqual(phases.at(-1), ['thinking', undefined])
+    assert.equal(scope.lastStepHadTool, false)
+    assert.equal(scope.lastStepToolName, undefined)
+  })
+
+  test('a later step that answers without a tool clears the last-step tool', () => {
+    const { scope } = makeScope()
+    applyStreamPart({ type: 'text-delta', text: 'Je regarde.' }, scope)
+    applyStreamPart({ type: 'tool-call', toolCallId: 'c1', toolName: 'search' }, scope)
+    applyStreamPart({ type: 'finish-step' }, scope)
+    assert.equal(scope.lastStepHadTool, true)
+    applyStreamPart({ type: 'text-delta', text: 'Voilà la réponse.' }, scope)
+    applyStreamPart({ type: 'finish-step' }, scope)
+    assert.equal(scope.lastStepHadTool, false)
+    assert.equal(scope.lastStepToolName, undefined)
+  })
+
+  test('a step ending on the wait tool names it, so the turn reads as paused', () => {
+    const { scope } = makeScope()
+    applyStreamPart({ type: 'tool-call', toolCallId: 'c1', toolName: 'wait_for_user_action' }, scope)
+    applyStreamPart({ type: 'finish-step' }, scope)
+    assert.equal(scope.lastStepHadTool, true)
+    assert.equal(scope.lastStepToolName, 'wait_for_user_action')
   })
 
   test('a new step starts a new assistant message', () => {

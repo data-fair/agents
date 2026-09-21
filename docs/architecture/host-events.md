@@ -191,18 +191,21 @@ after the wait started" moves the failure around with network latency rather tha
 it. What distinguishes the refresh from a click is what it is, not when it came. Timeout and abort return plain text (`No user action within N seconds…`,
 `Wait cancelled.`); a second call while pending returns `Already waiting for the user.`
 (the store itself would reject a concurrent `waitForEvent`, but the tool checks
-`isWaiting()` first so the model gets a sentence instead of a thrown error). **It blocks at most once per turn.** A second call in the same reply returns immediately
-(`You already waited in this reply…`) instead of arming another timeout: the person cannot
-act while the turn is still open, so a second block can only run out the clock. The
-repeated-call [loop guard](./loop-guards.md) does not catch this, because the model rewords
-`expecting` each time and the guard keys on arguments. Two judged runs paid for its
-absence — one where a keyed state re-emission caused by the assistant's own tool call
-settled the wait instantly and it re-issued the identical call, one where three waits with
-reworded `expecting` strings cost six minutes and produced two "take your time" bubbles.
+`isWaiting()` first so the model gets a sentence instead of a thrown error). **A reply may wait as often as it is getting somewhere.** There was a cap of one blocking
+wait per turn, on the premise that "the person cannot act while the turn is still open, so
+a second block can only run out the clock" — which is the very thing this tool exists to
+falsify. A workflow needs several: the dialog reports itself, the person saves, the next
+dialog reports itself. The cap refused the third wait of a judged run, the assistant ended
+its reply, the person sat waiting to be told a button was ready, and the run drained to its
+turn cap with the work half done. What the two runs behind that cap actually paid for was
+waiting again *after a timeout*, with nothing having happened in between — refused below,
+on the event sequence rather than on a count. The repeated-call
+[loop guard](./loop-guards.md) does not help here either, because the model rewords
+`expecting` each time and the guard keys on arguments.
 **A wait that timed out does not block again until the host reports something.**
-The per-turn cap cannot reach this: each new turn hands out a fresh allowance, so an
-assistant that waits, times out and waits again next turn blocks for the full timeout
-every time. A judged data-fair run spent 480s of a 567s run in four such timeouts,
+A per-turn count could not reach this anyway: each new turn would hand out a fresh
+allowance, so an assistant that waits, times out and waits again next turn blocks for the
+full timeout every time. A judged data-fair run spent 480s of a 567s run in four such timeouts,
 writing a new "I'm still waiting" line after each one — while the timeout result was
 already telling it to end its reply and let the user act. The store counts events
 (`eventSeq`); while that count has not moved since the timeout, the person has not acted
@@ -212,13 +215,8 @@ refresh that clears the guard re-arms a full timeout on someone who is still awa
 whether that refresh lands just before or just after the timeout is a matter of network
 latency. Only something the person did clears it.
 
-Only a wait that genuinely BLOCKED spends the allowance. One answered straight from the
-pending buffer never waited for the user at all — routinely a keyed state re-emission the
-assistant's own tool call produced — and counting it refused the follow-up: a judged run
-had the decisive wait for a Create click eaten by a `wizard ready:true` transition, the
-real wait refused, and the person told three times to press a button the assistant had no
-way to observe. `use-agent-chat.ts` supplies the turn identity; a host that wires no
-`turnId` keeps the old unbounded behaviour. Key withdrawal never resolves a wait (a `v-if` toggling a panel
+`use-agent-chat.ts` supplies the turn identity, which the timeout rule keys on; a host that
+wires no `turnId` keeps the unbounded behaviour. Key withdrawal never resolves a wait (a `v-if` toggling a panel
 must not cancel one). While pending the chat shows a "Waiting for: …" line and chip and
 the embedded host receives `agent-status: waiting-user`. Once it settles the chip reads
 "Waited for: …": it stays in the transcript as a record of the step, and a judged run

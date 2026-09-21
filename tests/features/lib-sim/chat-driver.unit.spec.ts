@@ -98,6 +98,10 @@ const fakeSendRoot = (opts: { failAttempts?: number } = {}) => {
   const failAttempts = opts.failAttempts ?? 0
   const composer = { fill: async (text: string) => { calls.push(`fill:${text}`) } }
   const sendButton = {
+    // The composer can only take a message once the send control is actually a
+    // Send button — while the assistant works it is Stop — so sendMessage waits
+    // for it before clicking. A real Locator has waitFor; the fake needs it too.
+    waitFor: async () => { calls.push('waitFor:send') },
     click: async () => {
       attempt++
       if (attempt <= failAttempts) {
@@ -121,14 +125,14 @@ test.describe('sendMessage: bounded, honest recovery from a wedged composer', ()
     const { root, calls } = fakeSendRoot()
     const chat = createChatDriver(root as any)
     await chat.sendMessage('hello')
-    assert.deepEqual(calls, ['fill:hello', 'click:1:ok'])
+    assert.deepEqual(calls, ['fill:hello', 'waitFor:send', 'click:1:ok'])
   })
 
   test('when the first attempt fails, Escape is pressed and the send is retried once', async () => {
     const { root, calls } = fakeSendRoot({ failAttempts: 1 })
     const chat = createChatDriver(root as any)
     await chat.sendMessage('hello')
-    assert.deepEqual(calls, ['fill:hello', 'click:1:fail', 'press:Escape', 'fill:hello', 'click:2:ok'])
+    assert.deepEqual(calls, ['fill:hello', 'waitFor:send', 'click:1:fail', 'press:Escape', 'fill:hello', 'waitFor:send', 'click:2:ok'])
   })
 
   test('when both attempts fail, the error names the composer/modal situation and carries the underlying error', async () => {
@@ -144,7 +148,7 @@ test.describe('sendMessage: bounded, honest recovery from a wedged composer', ()
         return true
       }
     )
-    assert.deepEqual(calls, ['fill:hello', 'click:1:fail', 'press:Escape', 'fill:hello', 'click:2:fail'])
+    assert.deepEqual(calls, ['fill:hello', 'waitFor:send', 'click:1:fail', 'press:Escape', 'fill:hello', 'waitFor:send', 'click:2:fail'])
   })
 
   test('never forces through — no force option on the click/fill calls', () => {
