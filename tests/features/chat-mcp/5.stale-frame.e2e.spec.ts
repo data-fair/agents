@@ -16,13 +16,8 @@
  */
 import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
-import { clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
-
-const mockSettings = {
-  providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
-  models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' } } } },
-  quotas: defaultQuotas
-}
+import { clean, superAdmin } from '../../support/axios.ts'
+import { putMockSettings } from '../../support/settings.ts'
 
 const USER = 'test-standalone1'
 
@@ -30,7 +25,7 @@ test.describe('Tools from a frame that goes away', () => {
   test.beforeEach(async () => {
     await clean()
     const admin = await superAdmin
-    await admin.put(`/api/settings/user/${USER}`, mockSettings)
+    await putMockSettings(admin, `user/${USER}`)
   })
 
   async function openInfo (page: any) {
