@@ -37,6 +37,15 @@ export class FrameServerTransport implements Transport {
   private _channel: BroadcastChannel | null = null
   private _serverReadyTimeout: ReturnType<typeof setTimeout> | null = null
   private readonly _serverReadyRetryMs: number
+  private _onPageHide = (event: PageTransitionEvent) => {
+    // A document being discarded (iframe removed, page navigated away) never runs
+    // its Vue dispose hooks, so without this the server dies without a
+    // `mcp-server-stopped` and every connected aggregator keeps its tools — then
+    // the next turn's tools/call waits the 60s MCP request timeout. A pagehide
+    // with persisted=true is a BFCache entry, not a departure: leave it connected.
+    if (event.persisted || !this._started) return
+    this.close()
+  }
 
   onclose?: () => void
   onerror?: (error: Error) => void
@@ -54,6 +63,7 @@ export class FrameServerTransport implements Transport {
 
     debug('start server=%s channel=%s', this._serverId, this._channelId)
     this._channel = new BroadcastChannel(this._channelId)
+    if (typeof window !== 'undefined') window.addEventListener('pagehide', this._onPageHide)
     this._channel.onmessage = (event: MessageEvent<FrameMessage>) => {
       const data = event.data
       if (!data || data.channel !== this._channelId) return
@@ -123,6 +133,7 @@ export class FrameServerTransport implements Transport {
   async close (): Promise<void> {
     debug('close server=%s', this._serverId)
     this.clearServerReadyRetry()
+    if (typeof window !== 'undefined') window.removeEventListener('pagehide', this._onPageHide)
     if (this._channel) {
       this._channel.postMessage({
         channel: this._channelId,

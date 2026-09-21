@@ -4,8 +4,10 @@
  * tool's result, and wait_for_user_action resuming the same turn on the next event.
  */
 import { expect } from '@playwright/test'
+import assert from 'node:assert/strict'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin } from '../../support/axios.ts'
+import { createChatDriver } from '../../../lib-sim/chat-driver.ts'
 import { mockProvider, mockModelRef, putMockSettings } from '../../support/settings.ts'
 
 // The dedicated mock summarizer is mapped explicitly so the compaction round-trip
@@ -251,6 +253,56 @@ test.describe('Host events', () => {
     // The wait still resolves normally afterwards.
     await page.getByRole('button', { name: 'Create' }).click()
     await expect(lastAnswer(page)).toContainText('You did:', { timeout: 15000 })
+  })
+
+  test('the simulation driver reads an armed wait as the turn handing control back', async ({ page, goToWithAuth }) => {
+    // The harness runs the simulated person only BETWEEN turns, so a driver that
+    // waited for the Stop button alone could never let them act on a wait: every
+    // declared wait ran its whole window and was then recorded as a wedged turn.
+    // A wait is the assistant standing still and handing control back, which is
+    // exactly a turn boundary as far as the person is concerned.
+    await open(page, goToWithAuth)
+    await reachConfirmation(page)
+    const chat = createChatDriver(page as any)
+
+    await send(page, 'wait for me')
+    const started = Date.now()
+    // A generous ceiling: what is under test is that this returns on the wait
+    // rather than running to the end of it.
+    const outcome = await chat.waitForTurn(60_000)
+    assert.equal(outcome, 'waiting')
+    assert.ok(Date.now() - started < 30_000, 'the driver sat through the wait instead of reporting it')
+
+    // And control really is with the person: their click resolves the wait, the
+    // assistant finishes, and the same driver then reports an ordinary end.
+    await page.getByRole('button', { name: 'Create' }).click()
+    assert.equal(await chat.waitForTurn(60_000), 'ended')
+    await expect(lastAnswer(page)).toContainText('You did:')
+  })
+
+  test('a message typed during a wait is not lost when the wait resolves first', async ({ page, goToWithAuth }) => {
+    // The composer offers Send only while a wait is armed, so this is the one
+    // moment a person can send into a turn that is still open — and the flag can
+    // flip between the button being found and the click landing. Both send guards
+    // used to `return` silently there: the message went nowhere, and nothing in
+    // the composer, the transcript or the console said so. A judged simulation
+    // lost six of its nine turns to it. The parent queues now, so whichever way
+    // the race falls the message is delivered.
+    await open(page, goToWithAuth)
+    await reachConfirmation(page)
+    await send(page, 'wait for me')
+    await expect(page.getByTestId('chat-activity')).toContainText('Waiting for', { timeout: 15000 })
+
+    await page.getByPlaceholder('Type your message...').fill('actually, never mind')
+    await expect(page.getByRole('button', { name: 'Send' })).toBeVisible()
+
+    // Resolve the wait from the page, then send: the turn is resuming underneath.
+    await page.getByRole('button', { name: 'Create' }).click()
+    await page.getByRole('button', { name: 'Send' }).click()
+
+    // Delivered, whichever way the race fell — and the composer let it go.
+    await expect(page.locator('.agent-chat__user-bubble').last()).toContainText('actually, never mind', { timeout: 30000 })
+    await expect(page.getByPlaceholder('Type your message...')).toHaveValue('')
   })
 
   test('Stop cancels a pending wait', async ({ page, goToWithAuth }) => {

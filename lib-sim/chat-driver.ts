@@ -54,13 +54,43 @@ export const TURN_TIMEOUT_MS = 10 * 60 * 1000
 // legitimately long model turn once the message has actually been sent.
 export const SEND_TIMEOUT_MS = 15000
 
+/**
+ * How a turn ended. `waiting` means the assistant declared
+ * `wait_for_user_action` and is holding the turn open for the person — the
+ * caller's cue to let them act, then wait again for the turn it resumes.
+ */
+export type TurnOutcome = 'ended' | 'waiting'
+
+/**
+ * How long an armed wait must persist before the driver calls it the person's
+ * move. Long enough for a resolving wait's indicator to clear, short enough to be
+ * nothing against a wait a person is actually thinking through.
+ */
+export const WAIT_SETTLE_MS = 500
+
+/**
+ * Matched on the activity's kind, not its label: the label is the model's own
+ * words interpolated into a translated string, so any text match would be both
+ * locale-dependent and at the mercy of what the assistant wrote.
+ */
+export const WAITING_SELECTOR = '[data-testid="chat-activity"][data-activity="waiting"]'
+
 export function createChatDriver (root: ChatRoot, opts: { locale?: ChatDriverLocale } = {}) {
   const strings = chatDriverStrings(opts.locale ?? 'en')
   return {
-    async sendMessage (text: string) {
+    async sendMessage (text: string, opts: { readyTimeoutMs?: number } = {}) {
       const fillAndSend = async () => {
         await root.getByPlaceholder(strings.input).fill(text, { timeout: SEND_TIMEOUT_MS })
-        await root.getByRole('button', { name: strings.send }).click({ timeout: SEND_TIMEOUT_MS })
+        // Wait for the composer to be able to take it. While the assistant is
+        // genuinely working the send control IS the Stop button, so there is no
+        // Send to click — and a caller that tried anyway spent SEND_TIMEOUT_MS
+        // failing, pressed Escape, failed again, and left the text sitting in the
+        // box. A judged run lost six of its nine turns exactly so, and read as an
+        // assistant that had gone silent. Waiting for the turn is not a wedged
+        // page; it is the normal case, so it gets the caller's own ceiling.
+        const send = root.getByRole('button', { name: strings.send })
+        await send.waitFor({ state: 'visible', timeout: opts.readyTimeoutMs ?? SEND_TIMEOUT_MS })
+        await send.click({ timeout: SEND_TIMEOUT_MS })
       }
       try {
         await fillAndSend()
@@ -84,12 +114,39 @@ export function createChatDriver (root: ChatRoot, opts: { locale?: ChatDriverLoc
       }
     },
 
-    async waitForTurn (timeoutMs = TURN_TIMEOUT_MS) {
+    async waitForTurn (timeoutMs = TURN_TIMEOUT_MS): Promise<TurnOutcome> {
       const stop = root.getByRole('button', { name: strings.stop })
+      const waiting = root.locator(WAITING_SELECTOR)
       // The turn may already be finished by the time we look, so a missing Stop
       // button is not an error — only one that never goes away is.
       await stop.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {})
-      await expect(stop).toHaveCount(0, { timeout: timeoutMs })
+
+      // A turn can finish two ways, and only one of them is the assistant being
+      // done. `wait_for_user_action` holds the turn open on purpose, having handed
+      // control back to the person — and a simulated person only acts between
+      // turns, so a harness that waited for the Stop button alone could never let
+      // them act on it. Every declared wait then ran its whole window and was
+      // recorded as a wedged turn; at a wait window as long as the harness's own
+      // ceiling, that is every run.
+      const ended = expect(stop).toHaveCount(0, { timeout: timeoutMs }).then(() => 'ended' as const)
+      const armed = expect(waiting).toHaveCount(1, { timeout: timeoutMs }).then(
+        // Still armed a moment later, not merely armed at the instant we looked.
+        // A wait that the person has just resolved keeps its indicator for as long
+        // as the click takes to round-trip, and reporting THAT as "control is
+        // yours" hands the caller a turn that is already resuming underneath: the
+        // simulation loop then sends into a working turn, where the message used
+        // to be dropped in silence. Settling costs half a second on a real wait,
+        // which is a pause measured in minutes.
+        async () => {
+          await waiting.page().waitForTimeout(WAIT_SETTLE_MS)
+          if (await waiting.count() === 0) return await new Promise<never>(() => {})
+          return 'waiting' as const
+        },
+        // Never rejects: a wait that is simply not what this turn did must not be
+        // the error a caller sees. The Stop arm owns the timeout message.
+        () => new Promise<never>(() => {})
+      )
+      return await Promise.race([ended, armed])
     },
 
     async readConversation () {

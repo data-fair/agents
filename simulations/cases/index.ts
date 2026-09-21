@@ -48,12 +48,15 @@ export const cases: LocalCase[] = [
   // The hand-back: the assistant guides the person to Create, they press it themselves,
   // and then they ask what the page shows now. What is under test is the assistant
   // answering from events the person caused, without having to be asked what changed.
-  // Events are folded into the next user turn's hidden context; the assistant reads them
-  // from the page's state rather than the person telling it again. The persona acts only
-  // between runner turns (not during an assistant turn), so wait_for_user_action always
-  // times out to "press Create whenever you're ready" — the same-turn resume is the job of
-  // tests/features/host-events/3.host-events.e2e.spec.ts. Handing back is the intended
-  // behaviour, not a stall.
+  //
+  // The persona still acts only between runner turns — their tools exist inside
+  // nextUserMessage and nowhere else — but a declared wait no longer has to time
+  // out for them to get their chance: the driver reports an armed wait as the turn
+  // handing control back, the runner lets them act, and the wait resolves on what
+  // they did. So the same-turn resume is now reachable here and not only in
+  // tests/features/host-events/3.host-events.e2e.spec.ts. If the assistant instead
+  // spends the whole window and falls back to "press Create whenever you're ready",
+  // that is now a finding rather than the expected shape.
   {
     name: 'workflow-hand-back',
     route: '/agents/_dev/chat-workflow',

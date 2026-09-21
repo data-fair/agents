@@ -129,7 +129,9 @@ Both sides retry independently at 250ms intervals until they find each other. On
 
 ### Server Shutdown
 
-When a server closes (frame unmounts), it broadcasts `mcp-server-stopped`. The client transport auto-closes upon receiving this message.
+When a server closes (frame unmounts), it broadcasts `mcp-server-stopped`. The client transport auto-closes upon receiving this message. A document can also be discarded without any Vue unmount hook running — an iframe removed from the DOM by the host's router, a page navigated away — so `FrameServerTransport` also broadcasts on `pagehide`. A `pagehide` with `persisted === true` is a BFCache entry, not a departure, and is ignored.
+
+This is not just cleanup. A server that dies silently leaves its tools in every aggregator's map; the next turn's `resolveSubAgents` then round-trips a `tools/call` to the dead transport and waits out the MCP request timeout (60s, `MCP error -32001`), so the turn never sends a completion request at all. Measured in production as: visiting the portals manager, navigating to a dataset page, then any prompt hanging.
 
 ### Message Validation
 

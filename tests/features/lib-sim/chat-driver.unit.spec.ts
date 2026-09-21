@@ -9,7 +9,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { chatDriverStrings, createChatDriver } from '../../../lib-sim/chat-driver.ts'
+import { chatDriverStrings, createChatDriver, WAITING_SELECTOR } from '../../../lib-sim/chat-driver.ts'
 
 test.describe('chat driver composer strings', () => {
   test('serves the French strings', () => {
@@ -62,6 +62,21 @@ test.describe('chat driver composer strings', () => {
     }
   })
 
+  test('the waiting selector is one AgentChatMessages actually renders', () => {
+    // The same drift guard as the composer strings, for the one attribute that
+    // tells the harness the assistant has handed control back. Matched on the
+    // activity KIND rather than its label, because the label is the model's own
+    // words interpolated into a translated string — but that makes it invisible
+    // to every other test here, so it is pinned against the component source.
+    const source = readFileSync('ui/src/components/agent-chat/AgentChatMessages.vue', 'utf8')
+    assert.ok(source.includes('data-testid="chat-activity"'), 'the activity element lost its test id')
+    assert.ok(source.includes(':data-activity="activity?.kind"'), 'the activity element no longer exposes its kind')
+    // And the kind the selector names is one the activity vocabulary still has.
+    const activity = readFileSync('ui/src/composables/agent-activity.ts', 'utf8')
+    assert.match(WAITING_SELECTOR, /data-activity="waiting"/)
+    assert.ok(activity.includes("kind: 'waiting'"), "the 'waiting' activity kind is gone")
+  })
+
   test('the runner keeps the reset button off-limits to the persona', () => {
     // Drift guard on the harness side, complementing page-perception's own
     // off-limits tests: the runner is where the actual list is assembled, and
@@ -83,6 +98,10 @@ const fakeSendRoot = (opts: { failAttempts?: number } = {}) => {
   const failAttempts = opts.failAttempts ?? 0
   const composer = { fill: async (text: string) => { calls.push(`fill:${text}`) } }
   const sendButton = {
+    // The composer can only take a message once the send control is actually a
+    // Send button — while the assistant works it is Stop — so sendMessage waits
+    // for it before clicking. A real Locator has waitFor; the fake needs it too.
+    waitFor: async () => { calls.push('waitFor:send') },
     click: async () => {
       attempt++
       if (attempt <= failAttempts) {
@@ -106,14 +125,14 @@ test.describe('sendMessage: bounded, honest recovery from a wedged composer', ()
     const { root, calls } = fakeSendRoot()
     const chat = createChatDriver(root as any)
     await chat.sendMessage('hello')
-    assert.deepEqual(calls, ['fill:hello', 'click:1:ok'])
+    assert.deepEqual(calls, ['fill:hello', 'waitFor:send', 'click:1:ok'])
   })
 
   test('when the first attempt fails, Escape is pressed and the send is retried once', async () => {
     const { root, calls } = fakeSendRoot({ failAttempts: 1 })
     const chat = createChatDriver(root as any)
     await chat.sendMessage('hello')
-    assert.deepEqual(calls, ['fill:hello', 'click:1:fail', 'press:Escape', 'fill:hello', 'click:2:ok'])
+    assert.deepEqual(calls, ['fill:hello', 'waitFor:send', 'click:1:fail', 'press:Escape', 'fill:hello', 'waitFor:send', 'click:2:ok'])
   })
 
   test('when both attempts fail, the error names the composer/modal situation and carries the underlying error', async () => {
@@ -129,7 +148,7 @@ test.describe('sendMessage: bounded, honest recovery from a wedged composer', ()
         return true
       }
     )
-    assert.deepEqual(calls, ['fill:hello', 'click:1:fail', 'press:Escape', 'fill:hello', 'click:2:fail'])
+    assert.deepEqual(calls, ['fill:hello', 'waitFor:send', 'click:1:fail', 'press:Escape', 'fill:hello', 'waitFor:send', 'click:2:fail'])
   })
 
   test('never forces through — no force option on the click/fill calls', () => {
