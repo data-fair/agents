@@ -67,7 +67,7 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { mdiSend, mdiStop, mdiCreation } from '@mdi/js'
 
-const props = defineProps<{
+defineProps<{
   isStreaming: boolean
   /**
    * The assistant is paused on a declared wait. It is streaming, but it is not
@@ -88,7 +88,11 @@ const localInput = ref('')
 
 const handleSend = () => {
   const userMessage = localInput.value.trim()
-  if (!userMessage || (props.isStreaming && !props.waitingForUser)) return
+  if (!userMessage) return
+  // No turn-state guard here on purpose. There used to be one, identical to the
+  // parent's, and both returned silently: the message was dropped twice over with
+  // nothing in the composer, the transcript or the console to say so. One decision
+  // point, in the parent, which can queue what it cannot send yet.
   emit('send', userMessage)
   localInput.value = ''
 }

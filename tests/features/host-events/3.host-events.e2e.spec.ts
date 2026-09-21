@@ -271,6 +271,31 @@ test.describe('Host events', () => {
     await expect(lastAnswer(page)).toContainText('You did:')
   })
 
+  test('a message typed during a wait is not lost when the wait resolves first', async ({ page, goToWithAuth }) => {
+    // The composer offers Send only while a wait is armed, so this is the one
+    // moment a person can send into a turn that is still open — and the flag can
+    // flip between the button being found and the click landing. Both send guards
+    // used to `return` silently there: the message went nowhere, and nothing in
+    // the composer, the transcript or the console said so. A judged simulation
+    // lost six of its nine turns to it. The parent queues now, so whichever way
+    // the race falls the message is delivered.
+    await open(page, goToWithAuth)
+    await reachConfirmation(page)
+    await send(page, 'wait for me')
+    await expect(page.getByTestId('chat-activity')).toContainText('Waiting for', { timeout: 15000 })
+
+    await page.getByPlaceholder('Type your message...').fill('actually, never mind')
+    await expect(page.getByRole('button', { name: 'Send' })).toBeVisible()
+
+    // Resolve the wait from the page, then send: the turn is resuming underneath.
+    await page.getByRole('button', { name: 'Create' }).click()
+    await page.getByRole('button', { name: 'Send' }).click()
+
+    // Delivered, whichever way the race fell — and the composer let it go.
+    await expect(page.locator('.agent-chat__user-bubble').last()).toContainText('actually, never mind', { timeout: 30000 })
+    await expect(page.getByPlaceholder('Type your message...')).toHaveValue('')
+  })
+
   test('Stop cancels a pending wait', async ({ page, goToWithAuth }) => {
     await open(page, goToWithAuth)
     await reachConfirmation(page)

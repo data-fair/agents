@@ -141,6 +141,7 @@ import AgentChatInput from './agent-chat/AgentChatInput.vue'
 import AgentChatDebugDialog from './agent-chat/AgentChatDebugDialog.vue'
 import TraceConsentSheet from './agent-chat/TraceConsentSheet.vue'
 import { readFlags, writeFlags } from '~/utils/agent-flags'
+import { canSendNow } from '~/composables/chat-send'
 import { $apiPath } from '~/context'
 
 const props = defineProps<{
@@ -432,14 +433,37 @@ const debugToolsPartition = computed(() => chat.resolvedPartition.value)
 // rewriting what the person read minutes ago.
 const toolTitle = createToolTitleMemo((toolName: string) => (chat.tools.value[toolName] as any)?.title)
 
-const handleSend = (userMessage: string) => {
-  // A turn paused on a declared wait is interruptible: sendMessage settles the
-  // wait and takes the turn back. Any other streaming turn is genuinely working
-  // and still refuses input.
-  if (isStreaming.value && !isWaitingForUser.value) return
+// What someone typed while the turn was busy, waiting for it to stop being busy.
+// Dropping it is what this replaces: a judged simulation lost six of its nine
+// turns to messages that went nowhere and said nothing. The composer only offers
+// Send while a wait is armed, so a person rarely meets the guard — but the flag
+// can flip between the button being found and the click landing, and the message
+// fell into that gap.
+const queuedUserMessage = ref<string | null>(null)
+
+const deliver = (userMessage: string) => {
   mermaidAutoFixBudget.value = MERMAID_AUTO_FIX_BUDGET
   chat.sendMessage(userMessage)
 }
+
+const handleSend = (userMessage: string) => {
+  // A turn paused on a declared wait is interruptible: sendMessage settles the
+  // wait and takes the turn back. Any other streaming turn is genuinely working,
+  // so the message waits its turn rather than being lost.
+  if (!canSendNow(isStreaming.value, isWaitingForUser.value)) {
+    queuedUserMessage.value = userMessage
+    return
+  }
+  deliver(userMessage)
+}
+
+watch([isStreaming, isWaitingForUser], () => {
+  const queued = queuedUserMessage.value
+  if (!queued) return
+  if (!canSendNow(isStreaming.value, isWaitingForUser.value)) return
+  queuedUserMessage.value = null
+  deliver(queued)
+})
 
 function handleFixMermaid ({ source, error }: { source: string, error: string }) {
   if (isStreaming.value) return

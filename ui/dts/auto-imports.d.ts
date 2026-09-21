@@ -50,6 +50,7 @@ declare global {
   const breadcrumbs: typeof import('../src/utils/breadcrumbs').default
   const buildMermaidThemeVariables: typeof import('../src/utils/mermaid').buildMermaidThemeVariables
   const buildModerationSystemPrompt: typeof import('../src/composables/moderation')['buildModerationSystemPrompt']
+  const canSendNow: typeof import('../src/composables/chat-send').canSendNow
   const computed: typeof import('vue').computed
   const computedDeepDiff: typeof import('@data-fair/lib-vue/deep-diff.js').computedDeepDiff
   const createApp: typeof import('vue').createApp
@@ -93,6 +94,7 @@ declare global {
   const hasHostState: typeof import('../src/composables/host-events').hasHostState
   const inject: typeof import('vue').inject
   const injectHead: typeof import('@unhead/vue').injectHead
+  const isEmptyTurn: typeof import('../src/composables/empty-turn').isEmptyTurn
   const isMediaToolResult: typeof import('../src/utils/tool-result').isMediaToolResult
   const isProxy: typeof import('vue').isProxy
   const isReactive: typeof import('vue').isReactive
@@ -231,6 +233,9 @@ declare global {
   export type { StreamMessage, StreamPart, ActivityPhase, StreamScope } from '../src/composables/agent-stream-parts'
   import('../src/composables/agent-stream-parts')
   // @ts-ignore
+  export type { TurnTextState } from '../src/composables/empty-turn'
+  import('../src/composables/empty-turn')
+  // @ts-ignore
   export type { HostEventStore, WaitOutcome, HostStateSnapshot } from '../src/composables/host-events'
   import('../src/composables/host-events')
   // @ts-ignore
@@ -288,6 +293,7 @@ declare module 'vue' {
     readonly applyStreamPart: UnwrapRef<typeof import('../src/composables/agent-stream-parts')['applyStreamPart']>
     readonly breadcrumbs: UnwrapRef<typeof import('../src/utils/breadcrumbs')['default']>
     readonly buildMermaidThemeVariables: UnwrapRef<typeof import('../src/utils/mermaid')['buildMermaidThemeVariables']>
+    readonly canSendNow: UnwrapRef<typeof import('../src/composables/chat-send')['canSendNow']>
     readonly computed: UnwrapRef<typeof import('vue')['computed']>
     readonly computedDeepDiff: UnwrapRef<typeof import('@data-fair/lib-vue/deep-diff.js')['computedDeepDiff']>
     readonly createApp: UnwrapRef<typeof import('vue')['createApp']>
@@ -316,6 +322,7 @@ declare module 'vue' {
     readonly hasHostState: UnwrapRef<typeof import('../src/composables/host-events')['hasHostState']>
     readonly inject: UnwrapRef<typeof import('vue')['inject']>
     readonly injectHead: UnwrapRef<typeof import('@unhead/vue')['injectHead']>
+    readonly isEmptyTurn: UnwrapRef<typeof import('../src/composables/empty-turn')['isEmptyTurn']>
     readonly isMediaToolResult: UnwrapRef<typeof import('../src/utils/tool-result')['isMediaToolResult']>
     readonly isProxy: UnwrapRef<typeof import('vue')['isProxy']>
     readonly isReactive: UnwrapRef<typeof import('vue')['isReactive']>
