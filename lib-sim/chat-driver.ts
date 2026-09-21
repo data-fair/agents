@@ -66,6 +66,13 @@ export type TurnOutcome = 'ended' | 'waiting'
  * words interpolated into a translated string, so any text match would be both
  * locale-dependent and at the mercy of what the assistant wrote.
  */
+/**
+ * How long an armed wait must persist before the driver calls it the person's
+ * move. Long enough for a resolving wait's indicator to clear, short enough to be
+ * nothing against a wait a person is actually thinking through.
+ */
+export const WAIT_SETTLE_MS = 500
+
 export const WAITING_SELECTOR = '[data-testid="chat-activity"][data-activity="waiting"]'
 
 export function createChatDriver (root: ChatRoot, opts: { locale?: ChatDriverLocale } = {}) {
@@ -114,7 +121,18 @@ export function createChatDriver (root: ChatRoot, opts: { locale?: ChatDriverLoc
       // ceiling, that is every run.
       const ended = expect(stop).toHaveCount(0, { timeout: timeoutMs }).then(() => 'ended' as const)
       const armed = expect(waiting).toHaveCount(1, { timeout: timeoutMs }).then(
-        () => 'waiting' as const,
+        // Still armed a moment later, not merely armed at the instant we looked.
+        // A wait that the person has just resolved keeps its indicator for as long
+        // as the click takes to round-trip, and reporting THAT as "control is
+        // yours" hands the caller a turn that is already resuming underneath: the
+        // simulation loop then sends into a working turn, where the message used
+        // to be dropped in silence. Settling costs half a second on a real wait,
+        // which is a pause measured in minutes.
+        async () => {
+          await waiting.page().waitForTimeout(WAIT_SETTLE_MS)
+          if (await waiting.count() === 0) return await new Promise<never>(() => {})
+          return 'waiting' as const
+        },
         // Never rejects: a wait that is simply not what this turn did must not be
         // the error a caller sees. The Stop arm owns the timeout message.
         () => new Promise<never>(() => {})
