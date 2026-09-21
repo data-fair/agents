@@ -78,10 +78,19 @@ export const WAITING_SELECTOR = '[data-testid="chat-activity"][data-activity="wa
 export function createChatDriver (root: ChatRoot, opts: { locale?: ChatDriverLocale } = {}) {
   const strings = chatDriverStrings(opts.locale ?? 'en')
   return {
-    async sendMessage (text: string) {
+    async sendMessage (text: string, opts: { readyTimeoutMs?: number } = {}) {
       const fillAndSend = async () => {
         await root.getByPlaceholder(strings.input).fill(text, { timeout: SEND_TIMEOUT_MS })
-        await root.getByRole('button', { name: strings.send }).click({ timeout: SEND_TIMEOUT_MS })
+        // Wait for the composer to be able to take it. While the assistant is
+        // genuinely working the send control IS the Stop button, so there is no
+        // Send to click — and a caller that tried anyway spent SEND_TIMEOUT_MS
+        // failing, pressed Escape, failed again, and left the text sitting in the
+        // box. A judged run lost six of its nine turns exactly so, and read as an
+        // assistant that had gone silent. Waiting for the turn is not a wedged
+        // page; it is the normal case, so it gets the caller's own ceiling.
+        const send = root.getByRole('button', { name: strings.send })
+        await send.waitFor({ state: 'visible', timeout: opts.readyTimeoutMs ?? SEND_TIMEOUT_MS })
+        await send.click({ timeout: SEND_TIMEOUT_MS })
       }
       try {
         await fillAndSend()
