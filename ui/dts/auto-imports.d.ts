@@ -48,6 +48,7 @@ declare global {
   const appendStreamingCaret: typeof import('../src/utils/markdown').appendStreamingCaret
   const applyStreamPart: typeof import('../src/composables/agent-stream-parts').applyStreamPart
   const breadcrumbs: typeof import('../src/utils/breadcrumbs').default
+  const breakdownDatasets: typeof import('../src/utils/usage-breakdown').breakdownDatasets
   const buildMermaidThemeVariables: typeof import('../src/utils/mermaid').buildMermaidThemeVariables
   const buildModerationSystemPrompt: typeof import('../src/composables/moderation')['buildModerationSystemPrompt']
   const canSendNow: typeof import('../src/composables/chat-send').canSendNow
@@ -80,6 +81,7 @@ declare global {
   const estimateMessageTokens: typeof import('../src/utils/compaction-policy').estimateMessageTokens
   const estimateTokens: typeof import('../src/utils/compaction-policy').estimateTokens
   const extractErrorMessage: typeof import('../src/utils/error').extractErrorMessage
+  const formatBreakdownValue: typeof import('../src/utils/usage-breakdown').formatBreakdownValue
   const formatBytes: typeof import('@data-fair/lib-vue/format/bytes.js').formatBytes
   const formatCredits: typeof import('../src/utils/credits').formatCredits
   const formatHostEvents: typeof import('../src/composables/host-events').formatHostEvents
@@ -229,6 +231,9 @@ declare global {
   export type { McpCallResult, MediaToolResult, FormattedToolResult } from '../src/utils/tool-result'
   import('../src/utils/tool-result')
   // @ts-ignore
+  export type { UsageDimension, UsageEntry } from '../src/utils/usage-breakdown'
+  import('../src/utils/usage-breakdown')
+  // @ts-ignore
   export type { ChatActivity, ActivityLabel } from '../src/composables/agent-activity'
   import('../src/composables/agent-activity')
   // @ts-ignore
@@ -297,6 +302,7 @@ declare module 'vue' {
     readonly appendStreamingCaret: UnwrapRef<typeof import('../src/utils/markdown')['appendStreamingCaret']>
     readonly applyStreamPart: UnwrapRef<typeof import('../src/composables/agent-stream-parts')['applyStreamPart']>
     readonly breadcrumbs: UnwrapRef<typeof import('../src/utils/breadcrumbs')['default']>
+    readonly breakdownDatasets: UnwrapRef<typeof import('../src/utils/usage-breakdown')['breakdownDatasets']>
     readonly buildMermaidThemeVariables: UnwrapRef<typeof import('../src/utils/mermaid')['buildMermaidThemeVariables']>
     readonly canSendNow: UnwrapRef<typeof import('../src/composables/chat-send')['canSendNow']>
     readonly computed: UnwrapRef<typeof import('vue')['computed']>
@@ -313,6 +319,7 @@ declare module 'vue' {
     readonly estimateMessageTokens: UnwrapRef<typeof import('../src/utils/compaction-policy')['estimateMessageTokens']>
     readonly estimateTokens: UnwrapRef<typeof import('../src/utils/compaction-policy')['estimateTokens']>
     readonly extractErrorMessage: UnwrapRef<typeof import('../src/utils/error')['extractErrorMessage']>
+    readonly formatBreakdownValue: UnwrapRef<typeof import('../src/utils/usage-breakdown')['formatBreakdownValue']>
     readonly formatBytes: UnwrapRef<typeof import('@data-fair/lib-vue/format/bytes.js')['formatBytes']>
     readonly formatCredits: UnwrapRef<typeof import('../src/utils/credits')['formatCredits']>
     readonly formatHostEvents: UnwrapRef<typeof import('../src/composables/host-events')['formatHostEvents']>

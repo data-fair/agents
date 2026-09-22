@@ -11,7 +11,7 @@ import config from '#config'
 import { OPENAI_COMPATIBLE_PROVIDER_NAME } from '../models/operations.ts'
 import { resolveRoleModel } from '../models/service.ts'
 import { recordUsage } from '../usage/service.ts'
-import { computeCredits } from '../usage/operations.ts'
+import { computeCreditBreakdown } from '../usage/operations.ts'
 import {
   buildModerationSystemPrompt, truncateForModeration, truncateExcerpt, formatModerationInput,
   verdictSchema, isInCooldown, isReasoningEffortRejected,
@@ -180,12 +180,25 @@ export function startModeration (params: {
     }
     const { object, usage } = await withReasoningDisabled(extra => generateObject({ ...baseArgs, ...extra }))
     const details = usage?.inputTokenDetails
-    const cost = computeCredits(
+    const credits = computeCreditBreakdown(
       { inputTokens: usage?.inputTokens ?? 0, outputTokens: usage?.outputTokens ?? 0, noCacheTokens: details?.noCacheTokens, cacheReadTokens: details?.cacheReadTokens, cacheWriteTokens: details?.cacheWriteTokens },
       entry,
       config.eurosPerCredit
     )
-    if (cost > 0) await recordUsage(owner, cost, identity.usageUserId, identity.usageUserName, identity.poolId)
+    if (credits.total > 0) {
+      await recordUsage(owner, {
+        cost: credits.total,
+        userId: identity.usageUserId,
+        userName: identity.usageUserName,
+        poolId: identity.poolId,
+        dimensions: {
+          modelRole: 'moderator',
+          model: entry.id,
+          profile: identity.role,
+          tokenCosts: { input: credits.input, cachedInput: credits.cachedInput, output: credits.output }
+        }
+      })
+    }
     return object
   })()
 
@@ -262,12 +275,21 @@ export async function runProbe (settings: Settings, owner: AccountKeys): Promise
       }
       const { object, usage } = await withReasoningDisabled(extra => generateObject({ ...probeArgs, ...extra }))
       const details = usage?.inputTokenDetails
-      const cost = computeCredits(
+      const credits = computeCreditBreakdown(
         { inputTokens: usage?.inputTokens ?? 0, outputTokens: usage?.outputTokens ?? 0, noCacheTokens: details?.noCacheTokens, cacheReadTokens: details?.cacheReadTokens, cacheWriteTokens: details?.cacheWriteTokens },
         entry,
         config.eurosPerCredit
       )
-      if (cost > 0) await recordUsage(owner, cost)
+      if (credits.total > 0) {
+        await recordUsage(owner, {
+          cost: credits.total,
+          dimensions: {
+            modelRole: 'moderator',
+            model: entry.id,
+            tokenCosts: { input: credits.input, cachedInput: credits.cachedInput, output: credits.output }
+          }
+        })
+      }
       results.push({ key: probe.key, message: probe.message, action: object.action, category: object.category, latencyMs: Date.now() - startedAt })
     } catch (err: any) {
       results.push({ key: probe.key, message: probe.message, error: err?.message ?? 'moderation call failed', latencyMs: Date.now() - startedAt })

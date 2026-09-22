@@ -13,6 +13,13 @@
       <p class="text-medium-emphasis">
         {{ t('selectAccount') }}
       </p>
+
+      <div id="section-platform">
+        <h3 class="text-title-large mt-6 mb-4">
+          {{ t('platformUsage') }}
+        </h3>
+        <monitoring-platform-section />
+      </div>
     </v-container>
   </div>
 </template>
@@ -21,9 +28,11 @@
 fr:
   agents: Agents
   selectAccount: Sélectionnez une organisation pour gérer la configuration de ses agents.
+  platformUsage: Consommation de la plateforme
 en:
   agents: Agents
   selectAccount: Select an organization to manage its agents configuration.
+  platformUsage: Platform usage
 </i18n>
 
 <script lang="ts" setup>
@@ -31,6 +40,7 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useSession } from '@data-fair/lib-vue/session.js'
 import AccountSelector from '~/components/AccountSelector.vue'
+import MonitoringPlatformSection from '~/components/MonitoringPlatformSection.vue'
 import { setBreadcrumbs } from '~/utils/breadcrumbs'
 
 const { t } = useI18n()

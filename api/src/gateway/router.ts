@@ -6,7 +6,7 @@ import { getSettings, defaultQuotas } from '../settings/service.ts'
 import { streamedToolCallsBroken, contextBudget, OPENAI_COMPATIBLE_PROVIDER_NAME } from '../models/operations.ts'
 import { resolveRoleModel, resolveRoleEntry, type ResolvedRoleModel } from '../models/service.ts'
 import { recordUsage } from '../usage/service.ts'
-import { computeCredits } from '../usage/operations.ts'
+import { computeCreditBreakdown } from '../usage/operations.ts'
 import { resolveUsageIdentity, enforceQuotas } from '../usage/enforce.ts'
 import { convertOpenAITools, convertOpenAIMessages, convertToolChoice, mapFinishReason, supportsMediaToolResults, injectMediaAsUserMessages } from './operations.ts'
 import type { OpenAIMessage, OpenAIToolDefinition, OpenAIToolChoice, FinishReason } from './operations.ts'
@@ -372,12 +372,25 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
           const inputTokens = gen.usage?.inputTokens ?? 0
           const outputTokens = gen.usage?.outputTokens ?? 0
           const details = gen.usage?.inputTokenDetails
-          const cost = computeCredits(
+          const credits = computeCreditBreakdown(
             { inputTokens, outputTokens, noCacheTokens: details?.noCacheTokens, cacheReadTokens: details?.cacheReadTokens, cacheWriteTokens: details?.cacheWriteTokens },
             entry,
             config.eurosPerCredit
           )
-          if (cost > 0) await recordUsage(owner, cost, usageUserId, usageUserName, poolId)
+          if (credits.total > 0) {
+            await recordUsage(owner, {
+              cost: credits.total,
+              userId: usageUserId,
+              userName: usageUserName,
+              poolId,
+              dimensions: {
+                modelRole: modelId,
+                model: entry.id,
+                profile: identity.role,
+                tokenCosts: { input: credits.input, cachedInput: credits.cachedInput, output: credits.output }
+              }
+            })
+          }
           sseWrite(`data: ${JSON.stringify({ id: completionId, object: 'chat.completion.chunk', created, model: modelId, choices: [{ index: 0, delta: {}, finish_reason: mapFinishReason(gen.finishReason as FinishReason) }], usage: buildUsage(gen.usage) })}\n\n`)
           const recordFinishTrace = () => recordTrace(
             { content: streamedText, toolCalls: [...streamedToolCalls.values()], finishReason: mapFinishReason(gen.finishReason as FinishReason) },
@@ -460,13 +473,24 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
               const inputTokens = part.totalUsage?.inputTokens ?? 0
               const outputTokens = part.totalUsage?.outputTokens ?? 0
               const details = part.totalUsage?.inputTokenDetails
-              const cost = computeCredits(
+              const credits = computeCreditBreakdown(
                 { inputTokens, outputTokens, noCacheTokens: details?.noCacheTokens, cacheReadTokens: details?.cacheReadTokens, cacheWriteTokens: details?.cacheWriteTokens },
                 entry,
                 config.eurosPerCredit
               )
-              if (cost > 0) {
-                await recordUsage(owner, cost, usageUserId, usageUserName, poolId)
+              if (credits.total > 0) {
+                await recordUsage(owner, {
+                  cost: credits.total,
+                  userId: usageUserId,
+                  userName: usageUserName,
+                  poolId,
+                  dimensions: {
+                    modelRole: modelId,
+                    model: entry.id,
+                    profile: identity.role,
+                    tokenCosts: { input: credits.input, cachedInput: credits.cachedInput, output: credits.output }
+                  }
+                })
               }
 
               sseWrite(`data: ${JSON.stringify({
@@ -575,13 +599,24 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
       const inputTokens = result.usage?.inputTokens ?? 0
       const outputTokens = result.usage?.outputTokens ?? 0
       const details = result.usage?.inputTokenDetails
-      const cost = computeCredits(
+      const credits = computeCreditBreakdown(
         { inputTokens, outputTokens, noCacheTokens: details?.noCacheTokens, cacheReadTokens: details?.cacheReadTokens, cacheWriteTokens: details?.cacheWriteTokens },
         entry,
         config.eurosPerCredit
       )
-      if (cost > 0) {
-        await recordUsage(owner, cost, usageUserId, usageUserName, poolId)
+      if (credits.total > 0) {
+        await recordUsage(owner, {
+          cost: credits.total,
+          userId: usageUserId,
+          userName: usageUserName,
+          poolId,
+          dimensions: {
+            modelRole: modelId,
+            model: entry.id,
+            profile: identity.role,
+            tokenCosts: { input: credits.input, cachedInput: credits.cachedInput, output: credits.output }
+          }
+        })
       }
 
       // Build response message

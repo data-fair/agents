@@ -32,6 +32,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Bar } from 'vue-chartjs'
 import { formatCredits } from '~/utils/credits'
+import { breakdownDatasets, type UsageDimension, type UsageEntry } from '~/utils/usage-breakdown'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -43,13 +44,10 @@ import {
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
-interface Entry {
-  label: string
-  cost: number
-}
-
 const props = defineProps<{
-  entries: Entry[]
+  entries: UsageEntry[]
+  /** When set, the bars are stacked by this dimension instead of showing totals. */
+  dimension?: UsageDimension | null
 }>()
 
 const { t, locale } = useI18n()
@@ -60,6 +58,10 @@ const formatCost = (amount: number) => formatCredits(locale.value, amount)
 
 const chartData = computed(() => {
   const labels = props.entries.map(e => e.label)
+  if (props.dimension) {
+    return { labels, datasets: breakdownDatasets(props.entries, props.dimension) }
+  }
+
   const data = props.entries.map(e => e.cost)
 
   const datasets: any[] = [{
@@ -77,7 +79,7 @@ const chartOptions = computed(() => ({
   responsive: true,
   maintainAspectRatio: false,
   plugins: {
-    legend: { display: false },
+    legend: { display: !!props.dimension },
     tooltip: {
       callbacks: {
         label: (ctx: any) => {
@@ -90,10 +92,12 @@ const chartOptions = computed(() => ({
   },
   scales: {
     x: {
+      stacked: !!props.dimension,
       grid: { display: false },
       ticks: { maxRotation: 45, autoSkip: true, maxTicksLimit: 15 }
     },
     y: {
+      stacked: !!props.dimension,
       beginAtZero: true,
       ticks: {
         callback: (val: string | number) => formatCost(Number(val))

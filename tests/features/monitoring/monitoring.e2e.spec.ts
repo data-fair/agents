@@ -73,6 +73,55 @@ test.describe('Monitoring UI', () => {
     await expect(dayButtons).toHaveCount(7)
   })
 
+  test('Shows stackable account histograms with a breakdown selector', async ({ page, goToWithAuth }) => {
+    const admin = await superAdmin
+    await putSettings(admin, 'user/test-standalone1', settingsData)
+
+    await admin.post('/api/test-env/usage', {
+      owner,
+      cost: 5,
+      period: dailyPeriod(0),
+      breakdown: { modelRole: { assistant: 5 } }
+    })
+    await admin.post('/api/test-env/usage', {
+      owner,
+      cost: 30,
+      period: monthlyPeriod(0),
+      breakdown: { modelRole: { assistant: 30 } }
+    })
+
+    await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
+
+    await page.locator('#section-global').scrollIntoViewIfNeeded()
+    await page.locator('#section-global .v-select').click()
+    await page.getByRole('option', { name: 'By model role' }).click()
+
+    // both account histograms still render, now stacked
+    await expect(page.locator('#section-global canvas')).toHaveCount(2)
+    await expect(page.getByText('No data available')).toHaveCount(0)
+  })
+
+  test('Shows the platform monitor with owner breakdown on the admin home', async ({ page, goToWithAuth }) => {
+    const admin = await superAdmin
+    await admin.post('/api/test-env/usage', { owner, cost: 5, period: dailyPeriod(0) })
+    await admin.post('/api/test-env/usage', { owner, cost: 5, period: monthlyPeriod(0) })
+    await admin.post('/api/test-env/usage', { owner: { type: 'organization', id: 'test1' }, cost: 3, period: dailyPeriod(0) })
+    await admin.post('/api/test-env/usage', { owner: { type: 'organization', id: 'test1' }, cost: 3, period: monthlyPeriod(0) })
+
+    await goToWithAuth('/agents/admin', 'superadmin', { adminMode: true })
+
+    await page.locator('#section-platform').scrollIntoViewIfNeeded()
+    await expect(page.getByText('Platform monthly usage (12 months)')).toBeVisible()
+    await expect(page.getByText('Platform daily usage (30 days)')).toBeVisible()
+    await expect(page.locator('#section-platform canvas')).toHaveCount(2)
+
+    // drilling down on one account keeps the same chart shape
+    const selects = page.locator('#section-platform .v-select')
+    await selects.nth(1).click()
+    await page.getByRole('option', { name: 'test-standalone1' }).click()
+    await expect(page.locator('#section-platform canvas')).toHaveCount(2)
+  })
+
   test('Shows no data message when empty', async ({ page, goToWithAuth }) => {
     const admin = await superAdmin
     await putSettings(admin, 'user/test-standalone1', settingsData)
