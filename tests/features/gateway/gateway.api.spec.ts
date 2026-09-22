@@ -9,6 +9,7 @@ import { generateText, streamText } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { axiosAuth, superAdmin, clean, directoryUrl, defaultQuotas, anonymousAx, getAnonymousActionToken, proxyHeaders } from '../../support/axios.ts'
+import { putSettings } from '../../support/settings.ts'
 
 const user = await axiosAuth('test-standalone1')
 const admin = await superAdmin
@@ -23,20 +24,16 @@ const settingsData = {
       enabled: true
     }
   ],
-  models: {
-    assistant: {
-      model: {
-        id: 'mock-model',
-        name: 'Mock Model',
-        provider: {
-          type: 'mock',
-          name: 'Mock Provider',
-          id: 'mock-provider'
-        }
-      },
-      inputPricePerMillion: 1,
-      outputPricePerMillion: 2
+  models: [
+    {
+      model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
+      usage: ['assistant'],
+      inputPricePerMillion: 0,
+      outputPricePerMillion: 0
     }
+  ],
+  modelMapping: {
+    assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' }
   },
   quotas: defaultQuotas
 }
@@ -54,7 +51,7 @@ async function createGatewayProvider (ax: any, ownerType = 'user', ownerId = 'te
 test.describe('Gateway API - OpenAI-compatible proxy', () => {
   test.beforeEach(async () => {
     await clean()
-    await admin.put('/api/settings/user/test-standalone1', settingsData)
+    await putSettings(admin, 'user/test-standalone1', settingsData)
   })
 
   test('generateText through gateway', async () => {
@@ -138,7 +135,7 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
   })
 
   test('external user can use gateway when external quota is positive', async () => {
-    await admin.put('/api/settings/user/test-standalone1', {
+    await putSettings(admin, 'user/test-standalone1', {
       ...settingsData,
       quotas: {
         ...defaultQuotas,
@@ -155,7 +152,7 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
 
   test('untrusted pool cap blocks an external user even when their external quota is not reached', async () => {
     // generous external per-user quota, but the shared untrusted pool is tight: monthly=4 → daily=1
-    await admin.put('/api/settings/user/test-standalone1', {
+    await putSettings(admin, 'user/test-standalone1', {
       ...settingsData,
       quotas: {
         ...defaultQuotas,
@@ -174,7 +171,11 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
       messages: [{ role: 'user', content: 'hello' }]
     }).catch((err: any) => err.response ?? err)
     assert.equal(res.status, 429)
+    assert.equal(res.data.error.message, 'Daily cost quota exceeded')
+    assert.equal(res.data.error.type, 'rate_limit_error')
     assert.equal(res.data.error.scope, 'untrusted')
+    assert.equal(res.data.error.limit, 1)
+    assert.ok(res.data.error.resets_at)
   })
 
   test('external user denied when external quota is zero', async () => {
@@ -187,49 +188,27 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
     )
   })
 
-  test('returns 429 with quota exceeded message when daily global quota is exceeded', async () => {
-    // monthly=4 → daily=1 → seed daily usage >= 1
-    await admin.put('/api/settings/user/test-standalone1', {
-      ...settingsData,
-      quotas: {
-        ...defaultQuotas,
-        global: { unlimited: false, monthlyLimit: 4 }
-      }
-    })
-    const anonymousAx = (await import('../../support/axios.ts')).anonymousAx
-    await anonymousAx.post('http://localhost:' + process.env.DEV_API_PORT + '/api/test-env/usage', {
-      owner: { type: 'user', id: 'test-standalone1' },
-      cost: 2
-    })
-
-    const res = await user.post('/api/gateway/user/test-standalone1/v1/chat/completions', {
-      model: 'assistant',
-      messages: [{ role: 'user', content: 'hello' }]
-    }).catch((err: any) => err.response ?? err)
-
-    assert.equal(res.status, 429)
-    assert.equal(res.data.error.message, 'Daily cost quota exceeded')
-    assert.equal(res.data.error.type, 'rate_limit_error')
-    assert.equal(res.data.error.scope, 'user')
-    assert.equal(res.data.error.limit, 1)
-    assert.ok(res.data.error.resets_at)
-  })
+  // NOTE: the former 'daily global quota exceeded' test covered quotas.global,
+  // the account-wide cap; it is dropped from the settings and comes back as
+  // limits-based enforcement, so the test moved with it.
 
   test('AI SDK receives quota exceeded error with extractable message', async () => {
-    await admin.put('/api/settings/user/test-standalone1', {
+    // driven through the untrusted pool: monthly=4 → daily=1, seeded above it
+    await putSettings(admin, 'user/test-standalone1', {
       ...settingsData,
       quotas: {
         ...defaultQuotas,
-        global: { unlimited: false, monthlyLimit: 4 }
+        external: { unlimited: false, monthlyLimit: 1000 },
+        untrusted: { unlimited: false, monthlyLimit: 4 }
       }
     })
-    const anonymousAx = (await import('../../support/axios.ts')).anonymousAx
     await anonymousAx.post('http://localhost:' + process.env.DEV_API_PORT + '/api/test-env/usage', {
       owner: { type: 'user', id: 'test-standalone1' },
+      userId: 'pool:untrusted',
       cost: 2
     })
 
-    const provider = await createGatewayProvider(user)
+    const provider = await createGatewayProvider(externalUser)
     try {
       await generateText({
         model: provider.chat('assistant'),
@@ -262,7 +241,7 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
 
   test('untrusted pool cap blocks an anonymous request even when its per-IP quota is not reached', async () => {
     // generous per-IP anonymous quota, but a tight shared pool: monthly=4 → daily=1
-    await admin.put('/api/settings/user/test-standalone1', {
+    await putSettings(admin, 'user/test-standalone1', {
       ...settingsData,
       quotas: {
         ...defaultQuotas,
@@ -287,32 +266,35 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
   })
 
   test('anonymous request without token is rejected', async () => {
-    await admin.put('/api/settings/user/test-standalone1', { ...settingsData, quotas: anonQuotas })
+    await putSettings(admin, 'user/test-standalone1', { ...settingsData, quotas: anonQuotas })
     const res = await anonymousAx.post(anonGatewayUrl, anonBody, { headers: { ...anonForwardedFor } }).catch((err: any) => err.response ?? err)
     assert.equal(res.status, 401)
   })
 
   test('anonymous request with invalid token is rejected', async () => {
-    await admin.put('/api/settings/user/test-standalone1', { ...settingsData, quotas: anonQuotas })
+    await putSettings(admin, 'user/test-standalone1', { ...settingsData, quotas: anonQuotas })
     const res = await anonymousAx.post(anonGatewayUrl, anonBody, { headers: { 'x-anonymous-token': 'not-a-real-token', ...anonForwardedFor } })
       .catch((err: any) => err.response ?? err)
     assert.equal(res.status, 401)
   })
 
   test('anonymous request with valid token succeeds', async () => {
-    await admin.put('/api/settings/user/test-standalone1', { ...settingsData, quotas: anonQuotas })
+    await putSettings(admin, 'user/test-standalone1', { ...settingsData, quotas: anonQuotas })
     const token = await getAnonymousActionToken()
     const res = await anonymousAx.post(anonGatewayUrl, anonBody, { headers: { 'x-anonymous-token': token, ...anonForwardedFor } })
     assert.equal(res.status, 200)
     assert.equal(res.data.choices[0].message.content, 'world')
   })
 
+  // The window is a property of the catalog entry the assistant role resolves to,
+  // so it is set on the org's `models` entry, not on a role.
+  const sizedSettings = {
+    ...settingsData,
+    models: [{ ...settingsData.models[0], contextWindow: 200000 }]
+  }
+
   test('gateway advertises the context budget', async () => {
-    await admin.put('/api/settings/user/test-standalone1', {
-      providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
-      models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' }, contextWindow: 200000 } } },
-      quotas: defaultQuotas
-    })
+    await putSettings(admin, 'user/test-standalone1', sizedSettings)
 
     const res = await user.post('/api/gateway/user/test-standalone1/v1/chat/completions', {
       model: 'assistant',
@@ -324,28 +306,61 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
 
   // The header must survive early-return refusal paths too: a client refused on its
   // very first turn (e.g. quota already exhausted) still needs to learn its budget so
-  // it can compact history correctly on a later, successful turn.
+  // it can compact history correctly on a later, successful turn. Refused here through
+  // the untrusted pool, the cheapest refusal path to set up.
   test('gateway advertises the context budget even on a quota-exceeded refusal', async () => {
-    await admin.put('/api/settings/user/test-standalone1', {
-      providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
-      models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' }, contextWindow: 200000 } } },
+    await putSettings(admin, 'user/test-standalone1', {
+      ...sizedSettings,
       quotas: {
         ...defaultQuotas,
-        global: { unlimited: false, monthlyLimit: 4 }
+        external: { unlimited: false, monthlyLimit: 1000 },
+        untrusted: { unlimited: false, monthlyLimit: 4 }
       }
     })
-    const anonymousAx = (await import('../../support/axios.ts')).anonymousAx
     await anonymousAx.post('http://localhost:' + process.env.DEV_API_PORT + '/api/test-env/usage', {
       owner: { type: 'user', id: 'test-standalone1' },
+      userId: 'pool:untrusted',
       cost: 2
     })
 
-    const res = await user.post('/api/gateway/user/test-standalone1/v1/chat/completions', {
+    const res = await externalUser.post('/api/gateway/user/test-standalone1/v1/chat/completions', {
       model: 'assistant',
       messages: [{ role: 'user', content: 'hello' }]
     }).catch((err: any) => err.response ?? err)
 
     assert.equal(res.status, 429)
     assert.equal(res.headers['x-context-budget'], '140000')
+  })
+  // The whole point of per-class pricing: a cached turn must cost strictly less than
+  // the same turn uncached. 0.40 EUR/M input against 0.08 cached, at the 0.40 peg.
+  // `cache <n>` is a mock-model directive; `hello` stays the LAST line so the mock
+  // still answers "world" and both turns produce identical output tokens.
+  const pricedSettings = {
+    ...settingsData,
+    models: [{ ...settingsData.models[0], inputPricePerMillion: 0.4, cachedInputPricePerMillion: 0.08, outputPricePerMillion: 0.8 }]
+  }
+
+  const recordedCost = async () => (await user.get('/api/usage/user/test-standalone1')).data.daily.cost
+
+  test('cache reads are billed at the cache price, not the input price', async () => {
+    await putSettings(admin, 'user/test-standalone1', pricedSettings)
+    await user.post('/api/gateway/user/test-standalone1/v1/chat/completions', {
+      model: 'assistant',
+      messages: [{ role: 'user', content: 'hello' }]
+    })
+    const uncached = await recordedCost()
+    assert.ok(uncached > 0, 'the uncached turn must record a non-zero cost')
+
+    await clean()
+    await putSettings(admin, 'user/test-standalone1', pricedSettings)
+    const res = await user.post('/api/gateway/user/test-standalone1/v1/chat/completions', {
+      model: 'assistant',
+      messages: [{ role: 'user', content: 'cache 100000\nhello' }]
+    })
+    // the directive must not disturb the mock's answer, or the output tokens differ
+    assert.equal(res.data.choices[0].message.content, 'world')
+    const cached = await recordedCost()
+
+    assert.ok(cached < uncached, `cached turn (${cached}) must cost less than uncached (${uncached})`)
   })
 })

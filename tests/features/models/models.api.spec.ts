@@ -4,7 +4,7 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { superAdmin, clean, defaultQuotas } from '../../support/axios.ts'
+import { superAdmin, clean } from '../../support/axios.ts'
 
 const admin = await superAdmin
 
@@ -15,8 +15,7 @@ test.describe('Models API', () => {
 
   test('mock provider models advertise a context window', async () => {
     await admin.put('/api/settings/user/test-standalone1', {
-      providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
-      quotas: defaultQuotas
+      providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }]
     })
     const res = await admin.get('/api/models/user/test-standalone1')
     assert.equal(res.status, 200)

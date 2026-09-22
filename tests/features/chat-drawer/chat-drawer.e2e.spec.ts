@@ -5,25 +5,10 @@
 
 import { expect, type Page } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
-import { clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
+import { clean, superAdmin } from '../../support/axios.ts'
+import { putMockSettings } from '../../support/settings.ts'
 
 const admin = await superAdmin
-
-const settingsData = {
-  providers: [
-    { id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }
-  ],
-  models: {
-    assistant: {
-      model: {
-        id: 'mock-model',
-        name: 'Mock Model',
-        provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' }
-      }
-    }
-  },
-  quotas: defaultQuotas
-}
 
 const fabSelector = '.df-agent-chat-toggle'
 
@@ -60,7 +45,7 @@ async function waitForChatFrame (page: Page) {
 test.describe('Chat Drawer Integration', () => {
   test.beforeEach(async () => {
     await clean()
-    await admin.put('/api/settings/user/test-standalone1', settingsData)
+    await putMockSettings(admin, 'user/test-standalone1')
   })
 
   test('FAB is visible and opens the drawer', async ({ page, goToWithAuth }) => {

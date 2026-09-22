@@ -1,6 +1,7 @@
 import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
+import { putSettings } from '../../support/settings.ts'
 
 const admin = await superAdmin
 
@@ -10,13 +11,23 @@ const settingsData = {
   providers: [
     { id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }
   ],
-  models: {
-    assistant: {
-      model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } }
+  models: [
+    {
+      model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
+      usage: ['assistant'],
+      inputPricePerMillion: 0,
+      outputPricePerMillion: 0
     },
-    moderator: {
-      model: { id: 'mock-moderator', name: 'Mock Moderator', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } }
+    {
+      model: { id: 'mock-moderator', name: 'Mock Moderator', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
+      usage: ['moderator'],
+      inputPricePerMillion: 0,
+      outputPricePerMillion: 0
     }
+  ],
+  modelMapping: {
+    assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' },
+    moderator: { provider: 'mock-provider', id: 'mock-moderator', name: 'Mock Moderator' }
   },
   quotas: { ...defaultQuotas, external: { unlimited: false, monthlyLimit: 1000 } },
   moderation: { enabled: true, categories: ['anonymous', 'external'] }
@@ -25,7 +36,7 @@ const settingsData = {
 test.describe('Moderation E2E (gateway-enforced)', () => {
   test.beforeEach(async () => {
     await clean()
-    await admin.put('/api/settings/user/test-standalone1', settingsData)
+    await putSettings(admin, 'user/test-standalone1', settingsData)
   })
 
   test('external user: benign message passes', async ({ page, goToWithAuth }) => {
@@ -78,7 +89,7 @@ test.describe('Moderation E2E (gateway-enforced)', () => {
   })
 
   test('blocked turn appears on the trace review page with the verdict', async ({ page, context, goToWithAuth }) => {
-    await admin.put('/api/settings/user/test-standalone1', { ...settingsData, storeTraces: true })
+    await putSettings(admin, 'user/test-standalone1', { ...settingsData, storeTraces: true })
     await context.addCookies([{ name: 'agent-chat-trace-consent', value: 'yes', domain: 'localhost', path: '/' }])
 
     await goToWithAuth('/agents/user/test-standalone1/chat', 'test1-user1')

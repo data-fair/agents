@@ -11,6 +11,7 @@
 import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
+import { putSettings } from '../../support/settings.ts'
 
 const admin = await superAdmin
 
@@ -18,23 +19,25 @@ const settingsData = {
   providers: [
     { id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }
   ],
-  models: {
-    assistant: {
-      model: {
-        id: 'mock-model',
-        name: 'Mock Model',
-        provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' }
-      }
+  models: [
+    {
+      model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
+      usage: ['assistant'],
+      inputPricePerMillion: 0,
+      outputPricePerMillion: 0
     },
     // The compaction round-trip goes through the summarizer role, so this model
     // must be configured for the compaction call (and its stored trace) to exist.
-    summarizer: {
-      model: {
-        id: 'mock-summarizer',
-        name: 'Mock Summarizer',
-        provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' }
-      }
+    {
+      model: { id: 'mock-summarizer', name: 'Mock Summarizer', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
+      usage: ['summarizer'],
+      inputPricePerMillion: 0,
+      outputPricePerMillion: 0
     }
+  ],
+  modelMapping: {
+    assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' },
+    summarizer: { provider: 'mock-provider', id: 'mock-summarizer', name: 'Mock Summarizer' }
   },
   quotas: defaultQuotas
   // NOTE: storeTraces is intentionally OFF here. Only the review-page test enables it
@@ -45,14 +48,14 @@ const settingsData = {
 test.describe('History Compaction', () => {
   test.beforeEach(async () => {
     await clean()
-    await admin.put('/api/settings/user/test-standalone1', settingsData)
+    await putSettings(admin, 'user/test-standalone1', settingsData)
   })
 
   test('Compaction triggers and appears in trace', async ({ page, context, goToWithAuth }) => {
     // Enable trace storage (only this test needs it) + pre-set consent so the chat
     // sends x-trace-consent: yes, the compaction round-trip is stored, and the consent
     // sheet stays hidden (consent already given).
-    await admin.put('/api/settings/user/test-standalone1', { ...settingsData, storeTraces: true })
+    await putSettings(admin, 'user/test-standalone1', { ...settingsData, storeTraces: true })
     await context.addCookies([{
       name: 'agent-chat-trace-consent',
       value: 'yes',

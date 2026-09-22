@@ -10,6 +10,7 @@
 import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
+import { putSettings } from '../../support/settings.ts'
 
 const admin = await superAdmin
 
@@ -17,16 +18,15 @@ const mockProvider = { type: 'mock', name: 'Mock Provider', id: 'mock-provider' 
 
 const settingsData = {
   providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
-  models: {
-    assistant: {
-      model: { id: 'mock-model', name: 'Mock Model', provider: mockProvider }
-    },
-    tools: {
-      model: { id: 'mock-tools', name: 'Mock Tools Model', provider: mockProvider }
-    },
-    summarizer: {
-      model: { id: 'mock-summarizer', name: 'Mock Summarizer', provider: mockProvider }
-    }
+  models: [
+    { model: { id: 'mock-model', name: 'Mock Model', provider: mockProvider }, usage: ['assistant'], inputPricePerMillion: 0, outputPricePerMillion: 0 },
+    { model: { id: 'mock-tools', name: 'Mock Tools Model', provider: mockProvider }, usage: ['tools'], inputPricePerMillion: 0, outputPricePerMillion: 0 },
+    { model: { id: 'mock-summarizer', name: 'Mock Summarizer', provider: mockProvider }, usage: ['summarizer'], inputPricePerMillion: 0, outputPricePerMillion: 0 }
+  ],
+  modelMapping: {
+    assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' },
+    tools: { provider: 'mock-provider', id: 'mock-tools', name: 'Mock Tools Model' },
+    summarizer: { provider: 'mock-provider', id: 'mock-summarizer', name: 'Mock Summarizer' }
   },
   quotas: defaultQuotas
 }
@@ -84,7 +84,7 @@ async function watchForExploreSkeleton (page: import('@playwright/test').Page) {
 test.describe('Tool exploration E2E', () => {
   test.beforeEach(async () => {
     await clean()
-    await admin.put('/api/settings/user/test-standalone1', settingsData)
+    await putSettings(admin, 'user/test-standalone1', settingsData)
   })
 
   test('explore_tools promotes tools then set_display updates the output area', async ({ page, goToWithAuth }) => {

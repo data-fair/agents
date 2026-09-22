@@ -4,7 +4,8 @@ export default {
   privateDirectoryUrl: 'PRIVATE_DIRECTORY_URL',
   privateEventsUrl: 'PRIVATE_EVENTS_URL',
   secretKeys: {
-    events: 'SECRET_EVENTS'
+    events: 'SECRET_EVENTS',
+    limits: 'SECRET_LIMITS'
   },
   observer: {
     active: 'OBSERVER_ACTIVE',
@@ -12,13 +13,17 @@ export default {
   },
   upgradeRoot: 'UPGRADE_ROOT',
   cipherPassword: 'CIPHER_PASSWORD',
-  currency: 'CURRENCY',
   requireAnonymousActionToken: 'REQUIRE_ANONYMOUS_ACTION_TOKEN',
   evaluatorAccount: {
     type: 'EVALUATOR_ACCOUNT_TYPE',
     id: 'EVALUATOR_ACCOUNT_ID'
   },
   github: { token: 'GITHUB_TOKEN' },
+  providers: { __name: 'PROVIDERS', __format: 'json' },
+  models: { __name: 'MODELS', __format: 'json' },
+  defaultModels: { __name: 'DEFAULT_MODELS', __format: 'json' },
+  eurosPerCredit: 'EUROS_PER_CREDIT',
+  defaultLimits: { credits: 'DEFAULT_CREDITS' },
   compactionPercent: {
     __name: 'COMPACTION_PERCENT',
     __format: 'json'

@@ -13,12 +13,23 @@
 import { expect, type Page } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
+import { putSettings } from '../../support/settings.ts'
 
 const admin = await superAdmin
 
 const mockSettings = {
   providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
-  models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' } } } },
+  models: [
+    {
+      model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' } },
+      usage: ['assistant'],
+      inputPricePerMillion: 0,
+      outputPricePerMillion: 0
+    }
+  ],
+  modelMapping: {
+    assistant: { provider: 'mock', id: 'mock-model', name: 'Mock Model' }
+  },
   quotas: defaultQuotas
 }
 
@@ -34,7 +45,7 @@ const reasoningPanel = (page: Page) => page.locator('.agent-chat__reasoning-pane
 test.describe('Reasoning display toggle (e2e)', () => {
   test.beforeEach(async () => {
     await clean()
-    await admin.put('/api/settings/user/test-standalone1', mockSettings)
+    await putSettings(admin, 'user/test-standalone1', mockSettings)
   })
 
   test('compact mode (default): the answer shows but no reasoning panel', async ({ page, goToWithAuth }) => {

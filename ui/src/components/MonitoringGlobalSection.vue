@@ -9,8 +9,6 @@
           <monitoring-account-histogram
             v-if="monthlyFetch.data.value"
             :entries="monthlyFetch.data.value.entries"
-            :monthly-limit="monthlyLimit"
-            :currency="currency"
           />
         </v-card-text>
       </v-card>
@@ -27,8 +25,6 @@
           <monitoring-account-histogram
             v-if="dailyFetch.data.value"
             :entries="dailyFetch.data.value.entries"
-            :daily-limit="dailyLimit"
-            :currency="currency"
           />
         </v-card-text>
       </v-card>
@@ -46,7 +42,6 @@ en:
 </i18n>
 
 <script lang="ts" setup>
-import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { $apiPath } from '~/context.ts'
 import MonitoringAccountHistogram from '~/components/MonitoringAccountHistogram.vue'
@@ -56,23 +51,12 @@ interface UsageEntry {
   cost: number
 }
 
-interface UsageData {
-  currency: string
-  quotas: {
-    global: { unlimited?: boolean, monthlyLimit: number }
-  }
-}
-
 const props = defineProps<{
   accountType: string
   accountId: string
 }>()
 
 const { t } = useI18n()
-
-const usageFetch = useFetch<UsageData>(
-  () => `${$apiPath}/usage/${props.accountType}/${props.accountId}`
-)
 
 const monthlyFetch = useFetch<{ entries: UsageEntry[] }>(
   () => `${$apiPath}/usage/${props.accountType}/${props.accountId}/history?scope=account-monthly&months=12`
@@ -81,17 +65,4 @@ const monthlyFetch = useFetch<{ entries: UsageEntry[] }>(
 const dailyFetch = useFetch<{ entries: UsageEntry[] }>(
   () => `${$apiPath}/usage/${props.accountType}/${props.accountId}/history?scope=account-daily&days=30`
 )
-
-const currency = computed(() => usageFetch.data.value?.currency || 'EUR')
-
-const monthlyLimit = computed(() => {
-  const q = usageFetch.data.value?.quotas?.global
-  if (!q || q.unlimited) return undefined
-  return q.monthlyLimit || undefined
-})
-
-const dailyLimit = computed(() => {
-  const m = monthlyLimit.value
-  return m ? m / 4 : undefined
-})
 </script>

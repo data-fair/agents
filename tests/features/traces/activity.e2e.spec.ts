@@ -7,7 +7,9 @@
  *   2. Drive a gateway request with consent headers so a trace gets stored.
  *   3. Poll GET /api/traces/organization/test1 until the conversation appears.
  *   4. Navigate to /agents/organization/test1 as superadmin in adminMode.
- *   5. Assert ConfigSummary chip "Mock Provider · mock" is visible.
+ *   5. Assert the "Stored conversations" heading is visible — the page's
+ *      read-only config summary was replaced by the editable org config form,
+ *      so that heading is the stable landmark that the page rendered.
  *   6. Assert the trace row with preview "activity hello" is listed.
  *   7. Click the row; assert the URL changes to /organization/test1/traces/conv-act.
  */
@@ -15,6 +17,7 @@
 import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin } from '../../support/axios.ts'
+import { putSettings } from '../../support/settings.ts'
 
 const admin = await superAdmin
 
@@ -22,19 +25,18 @@ const CONV_ID = 'conv-act'
 
 const settingsData = {
   providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
-  models: {
-    assistant: {
-      model: {
-        id: 'mock-model',
-        name: 'Mock Model',
-        provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' }
-      },
+  models: [
+    {
+      model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
+      usage: ['assistant'],
       inputPricePerMillion: 0,
       outputPricePerMillion: 0
     }
+  ],
+  modelMapping: {
+    assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' }
   },
   quotas: {
-    global: { unlimited: true, monthlyLimit: 0 },
     admin: { unlimited: true, monthlyLimit: 0 },
     contrib: { unlimited: false, monthlyLimit: 0 },
     user: { unlimited: false, monthlyLimit: 0 },
@@ -56,7 +58,7 @@ async function waitForTrace (conversationId: string) {
 test.describe('Activity page', () => {
   test.beforeEach(async () => {
     await clean()
-    await admin.put('/api/settings/organization/test1', settingsData)
+    await putSettings(admin, 'organization/test1', settingsData)
 
     await admin.post('/api/gateway/organization/test1/v1/chat/completions', {
       model: 'assistant',
@@ -75,8 +77,9 @@ test.describe('Activity page', () => {
   test('lists stored conversations and navigates to review', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/organization/test1', 'superadmin', { adminMode: true })
 
-    // ConfigSummary renders a chip per provider: "{{ p.name }} · {{ p.type }}"
-    await expect(page.getByText('Mock Provider · mock')).toBeVisible({ timeout: 15000 })
+    // The page is up (its read-only config summary was replaced by the editable
+    // org config form, so the traces section heading is the stable landmark).
+    await expect(page.getByRole('heading', { name: 'Stored conversations' })).toBeVisible({ timeout: 15000 })
 
     // The seeded conversation preview should appear in the list
     const convRow = page.getByText('activity hello')

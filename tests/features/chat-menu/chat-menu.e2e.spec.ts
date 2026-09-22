@@ -6,6 +6,7 @@
 import { expect, type Page } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
+import { putSettings } from '../../support/settings.ts'
 
 const admin = await superAdmin
 
@@ -13,14 +14,16 @@ const settingsData = {
   providers: [
     { id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }
   ],
-  models: {
-    assistant: {
-      model: {
-        id: 'mock-model',
-        name: 'Mock Model',
-        provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' }
-      }
+  models: [
+    {
+      model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
+      usage: ['assistant'],
+      inputPricePerMillion: 0,
+      outputPricePerMillion: 0
     }
+  ],
+  modelMapping: {
+    assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' }
   },
   quotas: defaultQuotas
 }
@@ -60,7 +63,7 @@ async function waitForChatFrame (page: Page) {
 test.describe('Chat Menu Integration', () => {
   test.beforeEach(async () => {
     await clean()
-    await admin.put('/api/settings/user/test-standalone1', settingsData)
+    await putSettings(admin, 'user/test-standalone1', settingsData)
   })
 
   test('Button is visible and opens the menu', async ({ page, goToWithAuth }) => {

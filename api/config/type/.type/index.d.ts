@@ -15,6 +15,53 @@ export type ApiConfig = {
   privateEventsUrl?: string;
   secretKeys: {
     events?: string;
+    limits?: string;
+  };
+  providers?: {
+    type:
+      | "openai"
+      | "anthropic"
+      | "google"
+      | "mistral"
+      | "openrouter"
+      | "ollama"
+      | "scaleway"
+      | "openai-compatible"
+      | "mock";
+    id: string;
+    name: string;
+    enabled?: boolean;
+    apiKey?: string;
+    baseURL?: string;
+    projectId?: string;
+    compatibility?: "default" | "compatible";
+  }[];
+  models?: {
+    id: string;
+    name: string;
+    provider: string;
+    /**
+     * @minItems 1
+     */
+    usage: [
+      "assistant" | "tools" | "summarizer" | "evaluator" | "moderator",
+      ...("assistant" | "tools" | "summarizer" | "evaluator" | "moderator")[]
+    ];
+    contextWindow?: number;
+    inputPricePerMillion: number;
+    outputPricePerMillion: number;
+    cachedInputPricePerMillion?: number;
+  }[];
+  defaultModels?: {
+    assistant?: ModelRef;
+    tools?: ModelRef;
+    summarizer?: ModelRef;
+    evaluator?: ModelRef;
+    moderator?: ModelRef;
+  };
+  eurosPerCredit: number;
+  defaultLimits: {
+    credits?: number;
   };
   observer: {
     active?: boolean;
@@ -23,7 +70,6 @@ export type ApiConfig = {
   };
   upgradeRoot?: string;
   cipherPassword: string;
-  currency: string;
   requireAnonymousActionToken: boolean;
   evaluatorAccount?: {
     type: "user" | "organization";
@@ -36,6 +82,14 @@ export type ApiConfig = {
   get?: unknown;
   has?: unknown;
   compactionPercent: CompactionPercent;
+}
+/**
+ * This interface was referenced by `ApiConfig`'s JSON-Schema
+ * via the `definition` "modelRef".
+ */
+export type ModelRef = {
+  provider: string;
+  id: string;
 }
 
 

@@ -7,18 +7,25 @@ import assert from 'node:assert/strict'
 import { generateText } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { axiosAuth, superAdmin, clean, directoryUrl, defaultQuotas, proxyHeaders } from '../../support/axios.ts'
+import { putSettings } from '../../support/settings.ts'
 
 const admin = await superAdmin                       // superadmin, adminMode: true
 const externalUser = await axiosAuth('test1-user1')  // not a member of test-standalone1
 
 const settingsData = {
   providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
-  models: {
-    assistant: {
+  // 400 000 EUR/M at the 0.40 peg makes one token cost one credit, so the request records
+  // a measurable amount on the consumed account
+  models: [
+    {
       model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
-      inputPricePerMillion: 1,
-      outputPricePerMillion: 2
+      usage: ['assistant'],
+      inputPricePerMillion: 400_000,
+      outputPricePerMillion: 400_000
     }
+  ],
+  modelMapping: {
+    assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' }
   },
   quotas: defaultQuotas
 }
@@ -36,7 +43,7 @@ async function gatewayProvider (ax: any, ownerType: string, ownerId: string) {
 test.describe('Gateway admin-mode cross-account access', () => {
   test.beforeEach(async () => {
     await clean()
-    await admin.put('/api/settings/user/test-standalone1', settingsData)
+    await putSettings(admin, 'user/test-standalone1', settingsData)
   })
 
   test('admin-mode superadmin consumes a non-member account gateway; usage records on that account', async () => {

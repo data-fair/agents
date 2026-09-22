@@ -1,15 +1,11 @@
 
 export const schemaExports: string[]
 
-export declare function validate(data: any): data is SettingsPut
-export declare function assertValid(data: any, options?: import('@data-fair/lib-validation').AssertValidOptions): asserts data is SettingsPut
-export declare function returnValid(data: any, options?: import('@data-fair/lib-validation').AssertValidOptions): SettingsPut
+export declare function validate(data: any): data is Settings
+export declare function assertValid(data: any, options?: import('@data-fair/lib-validation').AssertValidOptions): asserts data is Settings
+export declare function returnValid(data: any, options?: import('@data-fair/lib-validation').AssertValidOptions): Settings
       
 // see https://github.com/bcherny/json-schema-to-typescript/issues/439 if some types are not exported
-/**
- * When enabled, conversations of consenting users are stored on the server for 30 days for admin review. Each user must explicitly accept.
- */
-export type StoreConversationTraces = boolean;
 export type Provider = OpenAI | Anthropic | Google | Mistral | OpenRouter | Ollama | Scaleway | OpenAICompatible | Mock;
 export type ProviderType = "openai";
 export type ProviderID = string;
@@ -80,57 +76,51 @@ export type ContextWindow = number;
  */
 export type CachedInputPricePer1MTokens = number;
 /**
+ * @minItems 1
+ */
+export type AppropriateUsages = [
+  (Assistant | Tools | Summarizer | Evaluator | Moderator) &
+    string &
+    (Assistant | Tools | Summarizer | Evaluator | Moderator) &
+    string,
+  ...((Assistant | Tools | Summarizer | Evaluator | Moderator) &
+    string &
+    (Assistant | Tools | Summarizer | Evaluator | Moderator) &
+    string)[]
+];
+export type Assistant = "assistant";
+export type Tools = "tools";
+export type Summarizer = "summarizer";
+export type Evaluator = "evaluator";
+export type Moderator = "moderator";
+/**
  * Used to size history compaction. Leave empty to use the value reported by the provider; only OpenRouter reports one, so for other providers set it here or the 128000 default applies. Set it explicitly for small self-hosted models, which would otherwise overflow.
  */
 export type ContextWindowTokens = number;
+/**
+ * Euros per million fresh input tokens, as listed by the provider.
+ */
 export type InputPricePer1MTokens = number;
+/**
+ * Optional. Leave empty when the provider publishes no cache tariff — cache reads then bill at the input price rather than free.
+ */
 export type CachedInputPricePer1MTokens1 = number;
+/**
+ * Euros per million output tokens, as listed by the provider.
+ */
 export type OutputPricePer1MTokens = number;
-export type InputPricePer1MTokens1 = number;
-export type CachedInputPricePer1MTokens2 = number;
-export type OutputPricePer1MTokens1 = number;
-export type InputPricePer1MTokens2 = number;
-export type CachedInputPricePer1MTokens3 = number;
-export type OutputPricePer1MTokens2 = number;
-export type InputPricePer1MTokens3 = number;
-export type CachedInputPricePer1MTokens4 = number;
-export type OutputPricePer1MTokens3 = number;
-export type InputPricePer1MTokens4 = number;
-export type CachedInputPricePer1MTokens5 = number;
-export type OutputPricePer1MTokens4 = number;
-/**
- * When enabled, the last user message of each request from a moderated category is classified before the model responds.
- */
-export type EnableInputModeration = boolean;
-export type Anonymous = "anonymous";
-export type External = "external";
-export type User = "user";
-export type Contributor = "contrib";
-export type Admin = "admin";
-/**
- * User categories whose requests are checked by the gate when moderation is enabled.
- */
-export type ModeratedUserCategories = ((Anonymous | External | User | Contributor | Admin) & string)[];
-export type Unlimited = boolean;
-/**
- * Weekly limit = monthly / 2, daily limit = monthly / 4
- */
-export type MonthlyLimit = number;
+export type Models = {
+  model: Model;
+  usage: AppropriateUsages;
+  contextWindow?: ContextWindowTokens;
+  inputPricePerMillion: InputPricePer1MTokens;
+  cachedInputPricePerMillion?: CachedInputPricePer1MTokens1;
+  outputPricePerMillion: OutputPricePer1MTokens;
+}[];
 
-export type SettingsPut = {
-  createdAt?: string;
-  updatedAt?: string;
-  storeTraces?: StoreConversationTraces;
-  owner?: {
-    type: "user" | "organization";
-    id: string;
-    name?: string;
-    department?: string;
-  };
+export type Settings = {
   providers: AIProviders;
   models?: Models;
-  moderation?: InputModeration;
-  quotas?: RoleQuotas;
 }
 export type OpenAI = {
   type: ProviderType;
@@ -216,28 +206,6 @@ export type Mock = {
   enabled: Enabled8;
   [k: string]: unknown;
 }
-export type Models = {
-  assistant?: Assistant;
-  tools?: Tools;
-  summarizer?: Summarizer;
-  evaluator?: Evaluator;
-  moderator?: Moderator;
-  [k: string]: unknown;
-}
-/**
- *
- * The primary conversational interface. Balanced for reasoning, instruction-following, and human-like interaction. This model manages the high-level flow and delegates complex tasks to subagents.
- *
- * Recommendations: GPT-5.4, Claude 4.5 Sonnet, Kimi K2, Mistral Large 3, etc.
- */
-export type Assistant = {
-  model?: Model;
-  contextWindow?: ContextWindowTokens;
-  inputPricePerMillion?: InputPricePer1MTokens;
-  cachedInputPricePerMillion?: CachedInputPricePer1MTokens1;
-  outputPricePerMillion?: OutputPricePer1MTokens;
-  [k: string]: unknown;
-}
 export type Model = {
   id: ModelID;
   name: Name;
@@ -252,175 +220,10 @@ export type Model = {
   [k: string]: unknown;
 }
 /**
- *
- * The "technician." Specialized in structured data and API interaction. It excels at chaining multiple tool calls without conversational filler, ensuring high reliability in automated workflows.
- *
- * Recommendations: GPT-5.4 Mini, Mistral DevStral, Claude 4.5 Sonnet (Computer Use), MiMo-V2-Flash, etc.
- */
-export type Tools = {
-  model?: Model1;
-  inputPricePerMillion?: InputPricePer1MTokens1;
-  cachedInputPricePerMillion?: CachedInputPricePer1MTokens2;
-  outputPricePerMillion?: OutputPricePer1MTokens1;
-  [k: string]: unknown;
-}
-export type Model1 = {
-  id: ModelID;
-  name: Name;
-  provider: {
-    type: ProviderType9;
-    name: ProviderName;
-    id: ProviderID9;
-    [k: string]: unknown;
-  };
-  contextWindow?: ContextWindow;
-  cachedInputPricePerMillion?: CachedInputPricePer1MTokens;
-  [k: string]: unknown;
-}
-/**
- *
- * A "shorthand" specialist. Optimized for quickly distilling key points from small-to-medium text blocks. It focuses on high information density and brevity to keep context windows lean and costs low.
- *
- * Recommendations: GPT-5.4 Mini, Claude 4.5 Haiku, Mistral Small 4, Qwen3 (8B), etc.
- */
-export type Summarizer = {
-  model?: Model2;
-  inputPricePerMillion?: InputPricePer1MTokens2;
-  cachedInputPricePerMillion?: CachedInputPricePer1MTokens3;
-  outputPricePerMillion?: OutputPricePer1MTokens2;
-  [k: string]: unknown;
-}
-export type Model2 = {
-  id: ModelID;
-  name: Name;
-  provider: {
-    type: ProviderType9;
-    name: ProviderName;
-    id: ProviderID9;
-    [k: string]: unknown;
-  };
-  contextWindow?: ContextWindow;
-  cachedInputPricePerMillion?: CachedInputPricePer1MTokens;
-  [k: string]: unknown;
-}
-/**
- *
- * The "quality controller." Analyzes the assistant's logic and tool outputs for accuracy and safety. It requires the highest reasoning capabilities to act as a reliable ground truth for system performance.
- *
- * Recommendations: Claude Opus 4.6, GPT-5.4 (Reasoning), DeepSeek-R1, Pharia-1-LLM, etc.
- */
-export type Evaluator = {
-  model?: Model3;
-  inputPricePerMillion?: InputPricePer1MTokens3;
-  cachedInputPricePerMillion?: CachedInputPricePer1MTokens4;
-  outputPricePerMillion?: OutputPricePer1MTokens3;
-  [k: string]: unknown;
-}
-export type Model3 = {
-  id: ModelID;
-  name: Name;
-  provider: {
-    type: ProviderType9;
-    name: ProviderName;
-    id: ProviderID9;
-    [k: string]: unknown;
-  };
-  contextWindow?: ContextWindow;
-  cachedInputPricePerMillion?: CachedInputPricePer1MTokens;
-  [k: string]: unknown;
-}
-/**
- *
- * The "gatekeeper." Classifies each new user message for profanity, prompt-injection, persona override, and out-of-scope requests. Should be fast and cheap — it sits on the critical path to the first response token.
- *
- * Recommendations: a small/fast general-purpose model with structured (JSON) output support, e.g. Claude 4.5 Haiku, GPT-5.4 Mini, Mistral Small 4, Qwen3 (4B). Dedicated moderation classifiers (Llama Guard, moderation APIs) are not compatible: they use fixed taxonomies and output formats that cannot express this platform's custom policy.
- */
-export type Moderator = {
-  model?: Model4;
-  inputPricePerMillion?: InputPricePer1MTokens4;
-  cachedInputPricePerMillion?: CachedInputPricePer1MTokens5;
-  outputPricePerMillion?: OutputPricePer1MTokens4;
-  [k: string]: unknown;
-}
-export type Model4 = {
-  id: ModelID;
-  name: Name;
-  provider: {
-    type: ProviderType9;
-    name: ProviderName;
-    id: ProviderID9;
-    [k: string]: unknown;
-  };
-  contextWindow?: ContextWindow;
-  cachedInputPricePerMillion?: CachedInputPricePer1MTokens;
-  [k: string]: unknown;
-}
-export type InputModeration = {
-  enabled: EnableInputModeration;
-  categories: ModeratedUserCategories;
-}
-export type RoleQuotas = {
-  global: GlobalQuotas;
-  admin: AdminQuotas;
-  contrib: ContributorQuotas;
-  user: SimpleUserQuotas;
-  external: ExternalUserQuotas;
-  anonymous: AnonymousUserQuotas;
-  untrusted?: AnonymousExternalPool;
-  [k: string]: unknown;
-}
-export type GlobalQuotas = {
-  unlimited: Unlimited;
-  monthlyLimit: MonthlyLimit;
-  [k: string]: unknown;
-}
-export type AdminQuotas = {
-  unlimited: Unlimited;
-  monthlyLimit: MonthlyLimit;
-  [k: string]: unknown;
-}
-export type ContributorQuotas = {
-  unlimited: Unlimited;
-  monthlyLimit: MonthlyLimit;
-  [k: string]: unknown;
-}
-export type SimpleUserQuotas = {
-  unlimited: Unlimited;
-  monthlyLimit: MonthlyLimit;
-  [k: string]: unknown;
-}
-export type ExternalUserQuotas = {
-  unlimited: Unlimited;
-  monthlyLimit: MonthlyLimit;
-  [k: string]: unknown;
-}
-export type AnonymousUserQuotas = {
-  unlimited: Unlimited;
-  monthlyLimit: MonthlyLimit;
-  [k: string]: unknown;
-}
-/**
- * Aggregate cap shared by all anonymous and external usage combined, so untrusted traffic cannot consume the whole account budget. 0 = no pool cap.
- */
-export type AnonymousExternalPool = {
-  unlimited: Unlimited;
-  monthlyLimit: MonthlyLimit;
-  [k: string]: unknown;
-}
-/**
- * This interface was referenced by `SettingsPut`'s JSON-Schema
- * via the `definition` "RoleQuota".
- */
-export type RoleQuota = {
-  unlimited: Unlimited;
-  monthlyLimit: MonthlyLimit;
-  [k: string]: unknown;
-}
-/**
- * This interface was referenced by `SettingsPut`'s JSON-Schema
+ * This interface was referenced by `Settings`'s JSON-Schema
  * via the `definition` "Model".
  */
-export type Model5 = {
+export type Model1 = {
   id: ModelID;
   name: Name;
   provider: {

@@ -3,7 +3,7 @@
  * should not reference #mongo, #config, store state in memory or import anything else than other operations.ts
  */
 
-import type { Provider, Settings } from '#types'
+import type { Provider } from '#types'
 import type { LanguageModel } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
@@ -84,70 +84,9 @@ export type ModelRole = 'assistant' | 'evaluator' | 'summarizer' | 'tools' | 'mo
  * for the models actually put in the assistant seat — Claude Opus/Sonnet (200k),
  * DeepSeek V4 Flash (1M), GLM 5.2 Flash — while staying at or below the floor of
  * that class, so it under-states rather than over-states. A genuinely small local
- * model needs its window set explicitly on the assistant role.
+ * model needs its window set explicitly on its catalog entry.
  */
 export const UNKNOWN_CONTEXT_WINDOW = 128_000
-
-/**
- * The hand-entered context window, which the schema declares on the assistant role
- * only. Read structurally so the other four role shapes — which legitimately lack
- * the key — do not need a cast at every use.
- */
-function roleContextWindow (source: object): number | undefined {
-  const value = (source as { contextWindow?: unknown }).contextWindow
-  return typeof value === 'number' ? value : undefined
-}
-
-export function getModelConfig (settings: Settings, modelRole: ModelRole) {
-  // moderator prefers a cheap dedicated model, then the summarizer, then the
-  // assistant as a guaranteed last resort; every other role falls back straight
-  // to the assistant.
-  const chain = modelRole === 'moderator'
-    ? [settings.models?.moderator, settings.models?.summarizer, settings.models?.assistant]
-    : [settings.models?.[modelRole], settings.models?.assistant]
-  const source = chain.find(entry => entry?.model)
-  if (!source?.model) throw new Error(`No model configured for ${modelRole}`)
-  return {
-    modelConfig: source.model,
-    inputPricePerMillion: source.inputPricePerMillion ?? 0,
-    outputPricePerMillion: source.outputPricePerMillion ?? 0,
-    // Same resolution order as contextWindow: role override, then the snapshot
-    // taken from the provider listing when the model was picked, then... NOT 0.
-    // An unset cache price means "unknown", not "free": OpenAI, Scaleway, LiteLLM
-    // and vLLM report no pricing in their model listings, yet their SDKs still
-    // report a cache-read/write split (they cache implicitly above ~1024 prompt
-    // tokens). Defaulting to 0 would bill those cache-read tokens for free,
-    // under-billing cost and silently loosening every dollar-denominated quota
-    // (including the untrusted anonymous+external pool). Fall back to the full
-    // input price instead, which is what this codebase billed before the split
-    // was introduced.
-    cachedInputPricePerMillion: source.cachedInputPricePerMillion ?? source.model.cachedInputPricePerMillion ?? (source.inputPricePerMillion ?? 0),
-    // Only the assistant role carries a hand-entered window: it is the sole role
-    // whose history is compacted, so contextBudget() is always resolved for
-    // 'assistant'. Every other role has just the listing snapshot. A 0 means
-    // "unset" (the form emits 0 for an untouched number field), not a zero-token
-    // window — fall through.
-    contextWindow: roleContextWindow(source) || source.model.contextWindow || UNKNOWN_CONTEXT_WINDOW
-  }
-}
-
-/**
- * Token budget above which the client compacts history. Always resolved for the
- * role whose history is actually compacted. `percent` is deployment-global config
- * (`compactionPercent`), passed in rather than read here so this module stays pure.
- */
-export function contextBudget (settings: Settings, modelRole: ModelRole, percent: number): number {
-  const { contextWindow } = getModelConfig(settings, modelRole)
-  return Math.floor(contextWindow * percent / 100)
-}
-
-export function resolveModelForRole (settings: Settings, modelRole: ModelRole): LanguageModel {
-  const { modelConfig } = getModelConfig(settings, modelRole)
-  const provider = settings.providers.find(p => p.id === modelConfig.provider.id)
-  if (!provider) throw new Error('Provider not found')
-  if (!provider.enabled) throw new Error('Provider is disabled')
-  return createModel(provider, modelConfig.id)
-}
 
 /**
  * Scaleway's glm-5.2 deployment silently drops tool calls in STREAMING mode: a
@@ -186,6 +125,188 @@ export function errorMessage (err: unknown): string {
     return err.name || 'Unknown error'
   }
   return String(err)
+}
+
+export interface GlobalAiProvider {
+  type: string
+  id: string
+  name: string
+  enabled?: boolean
+  apiKey?: string
+  baseURL?: string
+  projectId?: string
+  compatibility?: 'default' | 'compatible'
+}
+
+export interface GlobalAiModel {
+  id: string
+  name: string
+  provider: string
+  usage: ModelRole[]
+  contextWindow?: number
+  inputPricePerMillion: number
+  outputPricePerMillion: number
+  cachedInputPricePerMillion?: number
+}
+
+export type DefaultModelRefs = Partial<Record<ModelRole, { provider: string, id: string }>>
+
+/**
+ * Fail-fast consistency check of the env-var-provided global AI config.
+ * Called once at boot from config.ts so a bad deployment config crashes
+ * immediately with an actionable message instead of failing at request time.
+ */
+export function assertGlobalAiConfig (providers: GlobalAiProvider[], models: GlobalAiModel[], defaultModels: DefaultModelRefs): void {
+  const providerIds = new Set<string>()
+  for (const p of providers) {
+    if (providerIds.has(p.id)) throw new Error(`invalid global AI config: duplicate global provider id "${p.id}"`)
+    providerIds.add(p.id)
+    if ((p.type === 'ollama' || p.type === 'openai-compatible') && !p.baseURL) {
+      throw new Error(`invalid global AI config: provider "${p.id}" (${p.type}) requires baseURL`)
+    }
+  }
+  const modelKeys = new Set<string>()
+  for (const m of models) {
+    const key = `${m.provider}/${m.id}`
+    if (modelKeys.has(key)) throw new Error(`invalid global AI config: duplicate global model "${key}"`)
+    modelKeys.add(key)
+    if (!providerIds.has(m.provider)) throw new Error(`invalid global AI config: model "${key}" references unknown provider "${m.provider}"`)
+    // Prices are mandatory because every account on this deployment can resolve a
+    // GLOBAL model with no per-account configuration (see the DEFAULT_CREDITS release
+    // note): a model that is free by omission would be an uncapped consumer of the
+    // deployment's own provider keys. A zero price is fine; an absent one is not.
+    if (typeof m.inputPricePerMillion !== 'number') throw new Error(`invalid global AI config: model "${key}" requires inputPricePerMillion`)
+    if (typeof m.outputPricePerMillion !== 'number') throw new Error(`invalid global AI config: model "${key}" requires outputPricePerMillion`)
+  }
+  for (const [role, ref] of Object.entries(defaultModels)) {
+    if (!ref) continue
+    const model = models.find(m => m.provider === ref.provider && m.id === ref.id)
+    if (!model) throw new Error(`invalid global AI config: defaultModels.${role} references unknown global model "${ref.provider}/${ref.id}"`)
+    if (!model.usage.includes(role as ModelRole)) throw new Error(`invalid global AI config: defaultModels.${role} references model "${ref.provider}/${ref.id}" not flagged for usage "${role}"`)
+  }
+}
+
+export interface CatalogModel {
+  id: string
+  name: string
+  provider: { type: string, name: string, id: string }
+  usage: ModelRole[]
+  /**
+   * Always resolved, never undefined: the hand-entered value, then the snapshot
+   * the provider listing gave when the model was picked, then
+   * UNKNOWN_CONTEXT_WINDOW. A 0 means "unset" (the form emits 0 for an untouched
+   * number field), not a zero-token window, so it falls through.
+   */
+  contextWindow: number
+  /** Euros per 1M tokens. Always resolved; see resolveCachePrice for the cache chain. */
+  inputPricePerMillion: number
+  outputPricePerMillion: number
+  cachedInputPricePerMillion: number
+  source: 'global' | 'org'
+}
+
+export interface ModelRef { provider: string, id: string, name?: string }
+export type ModelMapping = Partial<Record<ModelRole, ModelRef>>
+
+export interface OrgModelDef {
+  model: { id: string, name: string, provider: { type: string, name: string, id: string }, contextWindow?: number, cachedInputPricePerMillion?: number }
+  usage: string[]
+  contextWindow?: number
+  inputPricePerMillion?: number
+  outputPricePerMillion?: number
+  cachedInputPricePerMillion?: number
+}
+
+/**
+ * An unset cache price means "unknown", not "free": OpenAI, Scaleway, LiteLLM and
+ * vLLM report no cache tariff in their listings yet still cache implicitly, so
+ * defaulting to 0 would bill cache-read tokens for free and silently loosen every
+ * credit cap. Fall back to the full input price instead. `??` rather than `||` so a
+ * deliberate 0 survives.
+ */
+function resolveCachePrice (entryPrice: number | undefined, snapshot: number | undefined, inputPrice: number): number {
+  return entryPrice ?? snapshot ?? inputPrice
+}
+
+/** Merge global config models and per-org model definitions into the single
+ * catalog all model consumers resolve against. A model whose provider is
+ * missing or disabled is excluded, on BOTH sides: an org model orphaned by a
+ * provider deletion (or left behind by unticking `enabled`) must drop out of
+ * the catalog here, so that a `modelMapping` still pointing at it is treated as
+ * an unresolvable ref by getRoleModel — logged and fallen through — instead of
+ * being selected and then throwing in resolveRoleModel, which would take the
+ * whole org down (404 "Agent not configured") even though a global default was
+ * available one step further down the chain. */
+export function getModelCatalog (globalProviders: GlobalAiProvider[], globalModels: GlobalAiModel[], orgProviders: { id: string, enabled?: boolean }[], orgModels: OrgModelDef[]): CatalogModel[] {
+  const catalog: CatalogModel[] = []
+  for (const m of globalModels) {
+    const p = globalProviders.find(gp => gp.id === m.provider)
+    if (!p || p.enabled === false) continue
+    const inputPricePerMillion = m.inputPricePerMillion
+    catalog.push({
+      id: m.id,
+      name: m.name,
+      provider: { type: p.type, name: p.name, id: p.id },
+      usage: m.usage,
+      contextWindow: m.contextWindow || UNKNOWN_CONTEXT_WINDOW,
+      inputPricePerMillion,
+      outputPricePerMillion: m.outputPricePerMillion,
+      cachedInputPricePerMillion: resolveCachePrice(m.cachedInputPricePerMillion, undefined, inputPricePerMillion),
+      source: 'global'
+    })
+  }
+  for (const om of orgModels) {
+    const p = orgProviders.find(op => op.id === om.model.provider.id)
+    if (!p || p.enabled === false) continue
+    const inputPricePerMillion = om.inputPricePerMillion ?? 0
+    catalog.push({
+      id: om.model.id,
+      name: om.model.name,
+      provider: om.model.provider,
+      usage: om.usage as ModelRole[],
+      contextWindow: om.contextWindow || om.model.contextWindow || UNKNOWN_CONTEXT_WINDOW,
+      inputPricePerMillion,
+      outputPricePerMillion: om.outputPricePerMillion ?? 0,
+      cachedInputPricePerMillion: resolveCachePrice(om.cachedInputPricePerMillion, om.model.cachedInputPricePerMillion, inputPricePerMillion),
+      source: 'org'
+    })
+  }
+  return catalog
+}
+
+/**
+ * Token budget above which the chat client compacts history. Callers resolve the
+ * seat whose history is actually compacted (the assistant) and pass its entry, so
+ * the window is the one of the model that will have to swallow it. `percent` is
+ * deployment-global config (`compactionPercent`), passed in rather than read here
+ * so this module stays pure.
+ */
+export function contextBudget (entry: CatalogModel, percent: number): number {
+  return Math.floor(entry.contextWindow * percent / 100)
+}
+
+const FALLBACK_CHAINS: Record<ModelRole, ModelRole[]> = {
+  assistant: ['assistant'],
+  tools: ['tools', 'assistant'],
+  summarizer: ['summarizer', 'assistant'],
+  evaluator: ['evaluator', 'assistant'],
+  moderator: ['moderator', 'summarizer', 'assistant']
+}
+
+/** Resolve the catalog entry for a role: org mapping first, then global
+ * defaults, walking the role's fallback chain. An unresolvable ref (e.g. its
+ * provider was deleted) logs a warning and falls through rather than failing
+ * the request. */
+export function getRoleModel (catalog: CatalogModel[], mapping: ModelMapping | undefined, defaultModels: DefaultModelRefs, role: ModelRole): CatalogModel {
+  for (const r of FALLBACK_CHAINS[role]) {
+    for (const ref of [mapping?.[r], defaultModels[r]]) {
+      if (!ref) continue
+      const entry = catalog.find(c => c.provider.id === ref.provider && c.id === ref.id)
+      if (entry) return entry
+      console.warn(`model ref for role ${r} (${ref.provider}/${ref.id}) not found in catalog, falling back`)
+    }
+  }
+  throw new Error(`No model configured for ${role}`)
 }
 
 // Turn a thrown fetch error into a compact { status, message } the admin can

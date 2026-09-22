@@ -4,7 +4,7 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { scalewayBaseURL, streamedToolCallsBroken, errorMessage, describeFetchError, getModelConfig, contextBudget, UNKNOWN_CONTEXT_WINDOW } from '../../../api/src/models/operations.ts'
+import { scalewayBaseURL, streamedToolCallsBroken, errorMessage, describeFetchError, contextBudget, type CatalogModel } from '../../../api/src/models/operations.ts'
 import { commandLine } from '../../../api/src/models/mock-model.ts'
 
 test.describe('Scaleway base URL', () => {
@@ -120,71 +120,25 @@ test.describe('errorMessage / describeFetchError', () => {
   })
 })
 
-const mockModel = { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' } }
-
-function settingsWith (assistant: any): any {
-  return { owner: { type: 'user', id: 'u' }, providers: [], models: { assistant } }
+// Context window resolution itself belongs to the catalog (see
+// global-config/catalog.unit.spec.ts); here only the budget arithmetic on top of
+// a resolved entry is exercised.
+function entryWith (contextWindow: number): CatalogModel {
+  return { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' }, usage: ['assistant'], contextWindow, inputPricePerMillion: 0.4, outputPricePerMillion: 0.8, cachedInputPricePerMillion: 0.08, source: 'org' }
 }
-
-test.describe('context window resolution', () => {
-  test('role override wins over the model snapshot', () => {
-    const s = settingsWith({ model: { ...mockModel, contextWindow: 200000 }, contextWindow: 128000 })
-    assert.equal(getModelConfig(s, 'assistant').contextWindow, 128000)
-  })
-
-  test('falls back to the model snapshot', () => {
-    const s = settingsWith({ model: { ...mockModel, contextWindow: 200000 } })
-    assert.equal(getModelConfig(s, 'assistant').contextWindow, 200000)
-  })
-
-  test('falls back to UNKNOWN_CONTEXT_WINDOW when nothing is known', () => {
-    const s = settingsWith({ model: mockModel })
-    assert.equal(getModelConfig(s, 'assistant').contextWindow, UNKNOWN_CONTEXT_WINDOW)
-    assert.equal(UNKNOWN_CONTEXT_WINDOW, 128000)
-  })
-
-  test('a zero override is ignored, not treated as a window of zero', () => {
-    const s = settingsWith({ model: { ...mockModel, contextWindow: 200000 }, contextWindow: 0 })
-    assert.equal(getModelConfig(s, 'assistant').contextWindow, 200000)
-  })
-
-  test('cache prices fall back to the input price when unset', () => {
-    // An unset cache price means "unknown", not "free": several providers (OpenAI,
-    // Scaleway, LiteLLM, vLLM) report no pricing in their listings yet still cache
-    // implicitly, so falling back to 0 would bill cache reads for free. The
-    // fallback must land on the input price, not on 0.
-    const c = getModelConfig(settingsWith({ model: mockModel, inputPricePerMillion: 5 }), 'assistant')
-    assert.equal(c.cachedInputPricePerMillion, 5)
-  })
-
-  test('cache prices default to 0 only when the input price is also unset', () => {
-    const c = getModelConfig(settingsWith({ model: mockModel }), 'assistant')
-    assert.equal(c.cachedInputPricePerMillion, 0)
-  })
-
-  test('cache prices fall back to the model snapshot, and the role overrides it', () => {
-    const snap = { ...mockModel, cachedInputPricePerMillion: 0.3 }
-    assert.equal(getModelConfig(settingsWith({ model: snap }), 'assistant').cachedInputPricePerMillion, 0.3)
-    const overridden = settingsWith({ model: snap, cachedInputPricePerMillion: 0.1 })
-    assert.equal(getModelConfig(overridden, 'assistant').cachedInputPricePerMillion, 0.1)
-  })
-})
 
 test.describe('contextBudget', () => {
   test('applies the configured percent', () => {
-    const s = settingsWith({ model: { ...mockModel, contextWindow: 200000 } })
-    assert.equal(contextBudget(s, 'assistant', 70), 140000)
+    assert.equal(contextBudget(entryWith(200000), 70), 140000)
   })
 
   test('the percent is supplied by the caller, not read from settings', () => {
-    const s = settingsWith({ model: { ...mockModel, contextWindow: 200000 } })
-    assert.equal(contextBudget(s, 'assistant', 50), 100000)
-    assert.equal(contextBudget(s, 'assistant', 100), 200000)
+    assert.equal(contextBudget(entryWith(200000), 50), 100000)
+    assert.equal(contextBudget(entryWith(200000), 100), 200000)
   })
 
   test('rounds down to an integer', () => {
-    const s = settingsWith({ model: { ...mockModel, contextWindow: 32001 } })
-    assert.equal(contextBudget(s, 'assistant', 55), Math.floor(32001 * 0.55))
+    assert.equal(contextBudget(entryWith(32001), 55), Math.floor(32001 * 0.55))
   })
 })
 

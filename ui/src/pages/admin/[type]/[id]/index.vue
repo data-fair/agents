@@ -10,7 +10,7 @@
       <account-selector />
     </v-container>
     <v-container
-      v-if="settingsEditFetch.data.value"
+      v-if="editedSettings"
       data-iframe-height
     >
       <div id="section-configuration">
@@ -37,7 +37,7 @@
           <v-col>
             <v-form v-model="valid">
               <vjsf-put-req
-                v-model="settingsEditFetch.data.value"
+                v-model="editedSettings"
                 :options="vjsfOptions"
                 :locale="locale"
               />
@@ -97,13 +97,13 @@
       </div>
 
       <df-navigation-right>
-        <v-list-item v-if="settingsEditFetch.hasDiff.value">
+        <v-list-item v-if="hasDiff">
           <v-btn
             width="100%"
             color="accent"
             :disabled="!valid"
-            :loading="settingsEditFetch.save.loading.value"
-            @click="settingsEditFetch.save.execute()"
+            :loading="save.loading.value"
+            @click="save.execute()"
           >
             {{ t('save') }}
           </v-btn>
@@ -144,11 +144,10 @@ import { ref, computed, watch, watchEffect } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useSession } from '@data-fair/lib-vue/session.js'
-import { useEditFetch } from '@data-fair/lib-vue/edit-fetch.js'
 import type { Settings } from '#api/types'
 import DfNavigationRight from '@data-fair/lib-vuetify/navigation-right.vue'
 import DfToc from '@data-fair/lib-vuetify/toc.vue'
-import type { VjsfOptions } from '@koumoul/vjsf/types.js'
+import { useSettingsForm } from '~/composables/use-settings-form'
 import AccountSelector from '~/components/AccountSelector.vue'
 import UsageCard from '~/components/UsageCard.vue'
 import MonitoringGlobalSection from '~/components/MonitoringGlobalSection.vue'
@@ -175,17 +174,30 @@ watchEffect(() => {
   ])
 })
 
-const settingsEditFetch = useEditFetch<Settings>(
-  () => `${$apiPath}/settings/${accountType.value}/${accountId.value}`,
-  {
-    saveOptions: {
-      success: t('saved')
-    }
-  }
-)
-useLeaveGuard(settingsEditFetch.hasDiff, { locale })
+/**
+ * The subset of the settings document this (superadmin) form owns. The rest —
+ * modelMapping/quotas/moderation/storeTraces — belongs to the org admin and is
+ * written through PUT /api/settings/:type/:id/org (see OrgConfigSection.vue).
+ *
+ * The projection mirrors the form's own normalization: `models` is hidden — and
+ * thus pruned by vjsf — until the account has at least one provider, and
+ * materialized to its `[]` default as soon as it has one. See
+ * `useSettingsForm` for why the projection is needed at all.
+ */
+type OwnedSettings = Pick<Settings, 'providers' | 'models'>
 
-const valid = ref(true)
+const projectOwned = (settings: Settings): OwnedSettings => {
+  const providers = structuredClone(settings.providers ?? [])
+  return providers.length ? { providers, models: structuredClone(settings.models ?? []) } : { providers }
+}
+
+const { settingsFetch, edited: editedSettings, hasDiff, save, valid, vjsfOptions } = useSettingsForm<OwnedSettings>({
+  accountType: () => accountType.value,
+  accountId: () => accountId.value,
+  project: projectOwned,
+  savedMessage: t('saved'),
+  locale
+})
 
 // Per-provider model-listing failures, so an empty/short model dropdown is
 // explained (e.g. a wrong key or project) instead of silently empty. Refreshed
@@ -201,19 +213,10 @@ const loadModelErrors = async () => {
 const errorLabel = (err: ProviderModelsError) =>
   `${err.providerName} (${err.providerType}${err.status ? `, HTTP ${err.status}` : ''}): ${err.message}`
 watch(
-  () => [accountType.value, accountId.value, settingsEditFetch.data.value?.updatedAt] as const,
-  () => { if (settingsEditFetch.data.value) loadModelErrors() },
+  () => [accountType.value, accountId.value, settingsFetch.data.value?.updatedAt] as const,
+  () => { if (settingsFetch.data.value) loadModelErrors() },
   { immediate: true }
 )
-
-const vjsfOptions = computed<Partial<VjsfOptions>>(() => ({
-  validateOn: 'input',
-  updateOn: 'blur',
-  density: 'comfortable',
-  readOnlyPropertiesMode: 'hide',
-  initialValidation: 'always',
-  context: { apiPath: $apiPath, accountType: accountType.value, accountId: accountId.value }
-}))
 
 const sections = computed(() => [
   { id: 'section-configuration', title: t('configuration') },

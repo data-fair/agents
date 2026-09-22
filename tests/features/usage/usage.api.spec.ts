@@ -7,6 +7,7 @@ import assert from 'node:assert/strict'
 import { generateText } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { axiosAuth, superAdmin, anonymousAx, clean, directoryUrl, getAnonymousActionToken, proxyHeaders } from '../../support/axios.ts'
+import { putSettings } from '../../support/settings.ts'
 
 const user = await axiosAuth('test-standalone1')
 const admin = await superAdmin
@@ -21,23 +22,22 @@ const settingsData = {
       enabled: true
     }
   ],
-  models: {
-    assistant: {
-      model: {
-        id: 'mock-model',
-        name: 'Mock Model',
-        provider: {
-          type: 'mock',
-          name: 'Mock Provider',
-          id: 'mock-provider'
-        }
-      },
-      inputPricePerMillion: 1,
-      outputPricePerMillion: 2
+  // 400 000 EUR/M at the 0.40 EUR/credit peg makes one token cost one credit
+  // (credits = tokens × price / 1e6 / eurosPerCredit), so a single mock request
+  // produces a measurable, non-zero usage record. This suite deliberately keeps
+  // non-zero prices: it is the one that exercises the pricing formula end to end.
+  models: [
+    {
+      model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
+      usage: ['assistant'],
+      inputPricePerMillion: 400_000,
+      outputPricePerMillion: 400_000
     }
+  ],
+  modelMapping: {
+    assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' }
   },
   quotas: {
-    global: { unlimited: false, monthlyLimit: 100 },
     admin: { unlimited: true, monthlyLimit: 0 },
     contrib: { unlimited: false, monthlyLimit: 0 },
     user: { unlimited: false, monthlyLimit: 0 },
@@ -49,11 +49,10 @@ const settingsData = {
 test.describe('Usage API', () => {
   test.beforeEach(async () => {
     await clean()
-    await admin.put('/api/settings/user/test-standalone1', settingsData)
+    await putSettings(admin, 'user/test-standalone1', settingsData)
   })
 
   test('should return usage with limits after gateway request', async () => {
-    // Use gateway to generate a request (mock tokens are priced at 0, so cost stays 0)
     const cookieString = await user.cookieJar.getCookieString(directoryUrl)
     const provider = createOpenAI({
       baseURL: `http://localhost:${process.env.DEV_API_PORT}/api/gateway/user/test-standalone1/v1`,
@@ -72,11 +71,12 @@ test.describe('Usage API', () => {
     assert.ok(res.data.weekly)
     assert.ok(res.data.monthly)
     assert.ok(res.data.quotas)
-    assert.equal(res.data.quotas.global.monthlyLimit, 100)
-    assert.equal(res.data.currency, 'EUR')
-    // mock provider returns 0 tokens, so cost stays at 0
-    assert.equal(typeof res.data.daily.cost, 'number')
-    assert.equal(typeof res.data.monthly.cost, 'number')
+    assert.equal(res.data.quotas.admin.unlimited, true)
+    // the mock model reports length-proportional tokens, so at 1 credit per token
+    // the single request above recorded a whole number of credits in every period
+    assert.ok(res.data.daily.cost > 0)
+    assert.equal(res.data.weekly.cost, res.data.daily.cost)
+    assert.equal(res.data.monthly.cost, res.data.daily.cost)
     assert.ok(res.data.daily.resetsAt)
     assert.ok(res.data.weekly.resetsAt)
     assert.ok(res.data.monthly.resetsAt)
@@ -127,7 +127,7 @@ test.describe('Anonymous Usage', () => {
         anonymous: { unlimited: false, monthlyLimit: 10 }
       }
     }
-    await admin.put('/api/settings/user/test-standalone1', settingsWithAnonymous)
+    await putSettings(admin, 'user/test-standalone1', settingsWithAnonymous)
 
     const token = await getAnonymousActionToken()
     const provider = createOpenAI({
@@ -144,7 +144,7 @@ test.describe('Anonymous Usage', () => {
   })
 
   test('should deny anonymous gateway access with default quotas (0/0)', async () => {
-    await admin.put('/api/settings/user/test-standalone1', settingsData)
+    await putSettings(admin, 'user/test-standalone1', settingsData)
 
     await assert.rejects(
       anonymousAx.post('/api/gateway/user/test-standalone1/v1/chat/completions', {
@@ -156,7 +156,7 @@ test.describe('Anonymous Usage', () => {
   })
 
   test('should deny anonymous summary access with default quotas', async () => {
-    await admin.put('/api/settings/user/test-standalone1', settingsData)
+    await putSettings(admin, 'user/test-standalone1', settingsData)
 
     await assert.rejects(
       anonymousAx.post('/api/summary/user/test-standalone1', {
@@ -174,7 +174,7 @@ test.describe('Anonymous Usage', () => {
         anonymous: { unlimited: false, monthlyLimit: 10 }
       }
     }
-    await admin.put('/api/settings/user/test-standalone1', settingsWithAnonymous)
+    await putSettings(admin, 'user/test-standalone1', settingsWithAnonymous)
 
     const token = await getAnonymousActionToken()
     const res = await anonymousAx.post('/api/summary/user/test-standalone1', {

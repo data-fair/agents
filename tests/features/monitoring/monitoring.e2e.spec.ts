@@ -5,6 +5,7 @@
 import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { superAdmin, clean, defaultQuotas } from '../../support/axios.ts'
+import { putSettings } from '../../support/settings.ts'
 
 const owner = { type: 'user', id: 'test-standalone1' }
 
@@ -22,7 +23,17 @@ function monthlyPeriod (monthsAgo: number): string {
 
 const settingsData = {
   providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
-  models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } }, inputPricePerMillion: 1, outputPricePerMillion: 2 } },
+  models: [
+    {
+      model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
+      usage: ['assistant'],
+      inputPricePerMillion: 0,
+      outputPricePerMillion: 0
+    }
+  ],
+  modelMapping: {
+    assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' }
+  },
   quotas: defaultQuotas
 }
 
@@ -33,7 +44,7 @@ test.describe('Monitoring UI', () => {
 
   test('Shows monitoring page with monthly and daily histograms', async ({ page, goToWithAuth }) => {
     const admin = await superAdmin
-    await admin.put('/api/settings/user/test-standalone1', settingsData)
+    await putSettings(admin, 'user/test-standalone1', settingsData)
 
     // Seed some data
     await admin.post('/api/test-env/usage', { owner, cost: 5, period: dailyPeriod(0) })
@@ -48,7 +59,7 @@ test.describe('Monitoring UI', () => {
 
   test('Shows per-user histogram with day selector', async ({ page, goToWithAuth }) => {
     const admin = await superAdmin
-    await admin.put('/api/settings/user/test-standalone1', settingsData)
+    await putSettings(admin, 'user/test-standalone1', settingsData)
 
     await admin.post('/api/test-env/usage', { owner, userId: 'user-a', cost: 10, period: dailyPeriod(0) })
 
@@ -64,7 +75,7 @@ test.describe('Monitoring UI', () => {
 
   test('Shows no data message when empty', async ({ page, goToWithAuth }) => {
     const admin = await superAdmin
-    await admin.put('/api/settings/user/test-standalone1', settingsData)
+    await putSettings(admin, 'user/test-standalone1', settingsData)
 
     await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
 

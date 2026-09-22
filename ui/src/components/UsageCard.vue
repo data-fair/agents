@@ -8,6 +8,19 @@
       {{ t('title') }}
     </v-card-title>
     <v-card-text>
+      <div
+        v-if="credits"
+        class="mb-3"
+      >
+        <div class="d-flex align-center justify-space-between mb-1">
+          <span class="text-body-medium font-weight-medium">{{ t('creditCap') }}</span>
+          <span class="text-body-medium text-medium-emphasis">
+            {{ formatCost(credits.consumption) }} / {{ credits.limit === -1 ? t('unlimited') : formatCost(credits.limit) }}
+            <template v-if="credits.limit !== -1">{{ t('credits') }}</template>
+          </span>
+        </div>
+      </div>
+
       <template v-if="hasUsage">
         <div
           v-if="usageFetch.data.value.daily"
@@ -16,16 +29,9 @@
           <div class="d-flex align-center justify-space-between mb-1">
             <span class="text-body-medium font-weight-medium">{{ t('daily') }}</span>
             <span class="text-body-medium text-medium-emphasis">
-              {{ formatCost(usageFetch.data.value.daily.cost) }} / {{ formatLimit(dailyLimit) }}
+              {{ formatCost(usageFetch.data.value.daily.cost) }} {{ t('credits') }}
             </span>
           </div>
-          <v-progress-linear
-            v-if="!quotasGlobal?.unlimited && dailyLimit"
-            :model-value="percent(usageFetch.data.value.daily.cost, dailyLimit)"
-            :color="barColor(usageFetch.data.value.daily.cost, dailyLimit)"
-            height="8"
-            rounded
-          />
           <div class="text-caption text-medium-emphasis mt-1">
             {{ t('resets') }} {{ formatDate(usageFetch.data.value.daily.resetsAt) }}
           </div>
@@ -38,16 +44,9 @@
           <div class="d-flex align-center justify-space-between mb-1">
             <span class="text-body-medium font-weight-medium">{{ t('weekly') }}</span>
             <span class="text-body-medium text-medium-emphasis">
-              {{ formatCost(usageFetch.data.value.weekly.cost) }} / {{ formatLimit(weeklyLimit) }}
+              {{ formatCost(usageFetch.data.value.weekly.cost) }} {{ t('credits') }}
             </span>
           </div>
-          <v-progress-linear
-            v-if="!quotasGlobal?.unlimited && weeklyLimit"
-            :model-value="percent(usageFetch.data.value.weekly.cost, weeklyLimit)"
-            :color="barColor(usageFetch.data.value.weekly.cost, weeklyLimit)"
-            height="8"
-            rounded
-          />
           <div class="text-caption text-medium-emphasis mt-1">
             {{ t('resets') }} {{ formatDate(usageFetch.data.value.weekly.resetsAt) }}
           </div>
@@ -57,16 +56,9 @@
           <div class="d-flex align-center justify-space-between mb-1">
             <span class="text-body-medium font-weight-medium">{{ t('monthly') }}</span>
             <span class="text-body-medium text-medium-emphasis">
-              {{ formatCost(usageFetch.data.value.monthly.cost) }} / {{ formatLimit(monthlyLimit) }}
+              {{ formatCost(usageFetch.data.value.monthly.cost) }} {{ t('credits') }}
             </span>
           </div>
-          <v-progress-linear
-            v-if="!quotasGlobal?.unlimited && monthlyLimit"
-            :model-value="percent(usageFetch.data.value.monthly.cost, monthlyLimit)"
-            :color="barColor(usageFetch.data.value.monthly.cost, monthlyLimit)"
-            height="8"
-            rounded
-          />
           <div class="text-caption text-medium-emphasis mt-1">
             {{ t('resets') }} {{ formatDate(usageFetch.data.value.monthly.resetsAt) }}
           </div>
@@ -90,6 +82,8 @@ fr:
   monthly: Mensuel
   resets: "Réinitialisation :"
   noUsage: Aucune utilisation enregistrée
+  credits: crédits
+  creditCap: Crédits consommés
   unlimited: illimité
 en:
   title: Usage
@@ -98,6 +92,8 @@ en:
   monthly: Monthly
   resets: "Resets:"
   noUsage: No usage recorded
+  credits: credits
+  creditCap: Credits consumed
   unlimited: unlimited
 </i18n>
 
@@ -105,6 +101,7 @@ en:
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { $apiPath } from '../context.ts'
+import { formatCredits } from '~/utils/credits'
 
 const props = defineProps<{
   accountType: string
@@ -118,32 +115,25 @@ interface UsagePeriod {
   resetsAt: string
 }
 
-interface RoleQuota {
-  unlimited?: boolean
-  monthlyLimit?: number
-}
-
 interface UsageData {
   daily?: UsagePeriod
   weekly?: UsagePeriod
   monthly?: UsagePeriod
-  currency: string
-  quotas: {
-    global: RoleQuota
-    [role: string]: RoleQuota
-  }
+  credits?: { limit: number, consumption: number }
 }
 
 const usageFetch = useFetch<UsageData>(
   () => `${$apiPath}/usage/${props.accountType}/${props.accountId}`
 )
 
-const quotasGlobal = computed(() => usageFetch.data.value?.quotas.global)
-const monthlyLimit = computed(() => quotasGlobal.value?.monthlyLimit || 0)
-const weeklyLimit = computed(() => monthlyLimit.value / 2)
-const dailyLimit = computed(() => monthlyLimit.value / 4)
-
-const currency = computed(() => usageFetch.data.value?.currency || 'EUR')
+/**
+ * The org-wide credit allowance pushed by the customers service, and the
+ * counter recordUsage increments. Read from the usage endpoint rather than
+ * from GET /api/v1/limits: this card already fetches the former (one request
+ * instead of two), both are admin-readable here, and the usage endpoint serves
+ * the two figures from the same read so they cannot disagree.
+ */
+const credits = computed(() => usageFetch.data.value?.credits)
 
 const hasUsage = computed(() => {
   const d = usageFetch.data.value
@@ -152,24 +142,7 @@ const hasUsage = computed(() => {
 })
 
 function formatCost (amount: number): string {
-  return new Intl.NumberFormat(locale.value, { style: 'currency', currency: currency.value }).format(amount)
-}
-
-function formatLimit (limit: number): string {
-  if (quotasGlobal.value?.unlimited) return t('unlimited')
-  return limit ? formatCost(limit) : t('unlimited')
-}
-
-function percent (usage: number, limit: number): number {
-  if (!limit) return 0
-  return Math.min(100, (usage / limit) * 100)
-}
-
-function barColor (usage: number, limit: number): string {
-  const p = percent(usage, limit)
-  if (p >= 90) return 'error'
-  if (p >= 70) return 'warning'
-  return 'primary'
+  return formatCredits(locale.value, amount)
 }
 
 function formatDate (iso: string): string {

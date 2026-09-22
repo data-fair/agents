@@ -1,11 +1,12 @@
 import { Router } from 'express'
-import config from '#config'
 import { generateText, streamText, type LanguageModelUsage } from 'ai'
 import { type AccountKeys, reqSession, isAuthenticated } from '@data-fair/lib-express'
-import { getRawSettings, defaultQuotas } from '../settings/service.ts'
-import { getModelConfig, resolveModelForRole, streamedToolCallsBroken, contextBudget, OPENAI_COMPATIBLE_PROVIDER_NAME } from '../models/operations.ts'
+import config from '#config'
+import { getSettings, defaultQuotas } from '../settings/service.ts'
+import { streamedToolCallsBroken, contextBudget, OPENAI_COMPATIBLE_PROVIDER_NAME } from '../models/operations.ts'
+import { resolveRoleModel, resolveRoleEntry, type ResolvedRoleModel } from '../models/service.ts'
 import { recordUsage } from '../usage/service.ts'
-import { computeCost } from '../usage/operations.ts'
+import { computeCredits } from '../usage/operations.ts'
 import { resolveUsageIdentity, enforceQuotas } from '../usage/enforce.ts'
 import { convertOpenAITools, convertOpenAIMessages, convertToolChoice, mapFinishReason, supportsMediaToolResults, injectMediaAsUserMessages } from './operations.ts'
 import type { OpenAIMessage, OpenAIToolDefinition, OpenAIToolChoice, FinishReason } from './operations.ts'
@@ -88,13 +89,18 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
       return
     }
 
-    const settings = await getRawSettings(owner)
-    if (!settings?.models?.assistant?.model) {
+    const settings = await getSettings(owner)
+    let resolved: ResolvedRoleModel
+    try {
+      resolved = resolveRoleModel(settings, modelId)
+    } catch {
       res.status(404).json({
         error: { message: 'Agent not configured', type: 'invalid_request_error' }
       })
       return
     }
+    const { entry } = resolved
+    const model = resolved.model
 
     const quotas = settings.quotas ?? defaultQuotas
 
@@ -142,7 +148,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
     // called: the client compacts the main history, whichever role it just used.
     // Set before any early-return refusal path (strike cooldown, quota) below, so
     // a refused caller still learns its budget and can compact on its next turn.
-    res.setHeader('x-context-budget', String(contextBudget(settings, 'assistant', config.compactionPercent)))
+    res.setHeader('x-context-budget', String(contextBudget(resolveRoleEntry(settings, 'assistant'), config.compactionPercent)))
 
     // Strikes & the cooldown are an anti-abuse measure for untrusted callers
     // only. Moderated trusted members get individual messages blocked by the
@@ -191,12 +197,10 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
     const consented = req.get('x-trace-consent') === 'yes'
     const shouldStoreTrace = storeTraces && consented
 
-    const { modelConfig, inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion } = getModelConfig(settings, modelId)
-    const model = resolveModelForRole(settings, modelId)
     // Downstream debug logging (client→gateway OpenAI exchange), scoped per provider
     // so it can be restricted to one provider: DEBUG=agents:downstream:<type>:<id>.
     // Independent of trace storage; serialisation happens only when the flag is on.
-    const debugDown = createDebug(`agents:downstream:${modelConfig.provider.type}:${modelConfig.provider.id}`)
+    const debugDown = createDebug(`agents:downstream:${entry.provider.type}:${entry.provider.id}`)
     if (debugDown.enabled) debugDown('request\n%s', JSON.stringify(req.body))
     const traceConversationId = req.get('x-trace-conversation') || undefined
     const traceContextId = req.get('x-trace-ctx') || 'unknown'
@@ -212,15 +216,14 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
         conversationId: traceConversationId,
         contextId: traceContextId,
         modelRole: modelId,
-        providerName: modelConfig.provider.name,
-        providerType: modelConfig.provider.type,
-        resolvedModel: modelConfig.id,
+        providerName: entry.provider.name,
+        providerType: entry.provider.type,
+        resolvedModel: entry.id,
         body: req.body,
         response,
         usage,
-        inputPricePerMillion,
-        outputPricePerMillion,
-        cachedInputPricePerMillion,
+        prices: { inputPricePerMillion: entry.inputPricePerMillion, outputPricePerMillion: entry.outputPricePerMillion, cachedInputPricePerMillion: entry.cachedInputPricePerMillion },
+        eurosPerCredit: config.eurosPerCredit,
         timing: { durationMs: Date.now() - traceStart, ...(timeToFirstChunkMs != null ? { timeToFirstChunkMs } : {}) },
         ...(moderation?.traceInfo() ? { moderation: moderation.traceInfo() } : {}),
         ...(traceFlags ? { flags: traceFlags } : {})
@@ -233,7 +236,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
 
     // Convert messages and tools. Providers without a media channel in their
     // tool-result format get tool images re-routed into an injected user message.
-    const provider = modelConfig.provider
+    const provider = resolved.provider
     const converted = convertOpenAIMessages(messages)
     const aiMessages = supportsMediaToolResults(provider.type, 'compatibility' in provider ? provider.compatibility as string : undefined)
       ? converted
@@ -251,8 +254,8 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
       // them correctly non-streamed. When such a model is paired with tools, run the
       // upstream call non-streaming and synthesise the SSE chunks below, so the client
       // still gets a normal stream. See streamedToolCallsBroken.
-      const upstreamNonStreaming = hasTools && streamedToolCallsBroken(modelConfig.provider.type, modelConfig.id)
-      if (upstreamNonStreaming) debugDown('upstream non-streaming workaround active for %s/%s', modelConfig.provider.type, modelConfig.id)
+      const upstreamNonStreaming = hasTools && streamedToolCallsBroken(entry.provider.type, entry.id)
+      if (upstreamNonStreaming) debugDown('upstream non-streaming workaround active for %s/%s', entry.provider.type, entry.id)
       const result = upstreamNonStreaming
         ? null
         : await streamText({
@@ -369,13 +372,11 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
           const inputTokens = gen.usage?.inputTokens ?? 0
           const outputTokens = gen.usage?.outputTokens ?? 0
           const details = gen.usage?.inputTokenDetails
-          const cost = computeCost({
-            inputTokens,
-            outputTokens,
-            noCacheTokens: details?.noCacheTokens,
-            cacheReadTokens: details?.cacheReadTokens,
-            cacheWriteTokens: details?.cacheWriteTokens
-          }, { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion })
+          const cost = computeCredits(
+            { inputTokens, outputTokens, noCacheTokens: details?.noCacheTokens, cacheReadTokens: details?.cacheReadTokens, cacheWriteTokens: details?.cacheWriteTokens },
+            entry,
+            config.eurosPerCredit
+          )
           if (cost > 0) await recordUsage(owner, cost, usageUserId, usageUserName, poolId)
           sseWrite(`data: ${JSON.stringify({ id: completionId, object: 'chat.completion.chunk', created, model: modelId, choices: [{ index: 0, delta: {}, finish_reason: mapFinishReason(gen.finishReason as FinishReason) }], usage: buildUsage(gen.usage) })}\n\n`)
           const recordFinishTrace = () => recordTrace(
@@ -455,17 +456,15 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
               }]
             })}\n\n`)
             } else if (part.type === 'finish') {
-            // Record usage for streaming responses (money cost)
+            // Record usage for streaming responses (credits)
               const inputTokens = part.totalUsage?.inputTokens ?? 0
               const outputTokens = part.totalUsage?.outputTokens ?? 0
               const details = part.totalUsage?.inputTokenDetails
-              const cost = computeCost({
-                inputTokens,
-                outputTokens,
-                noCacheTokens: details?.noCacheTokens,
-                cacheReadTokens: details?.cacheReadTokens,
-                cacheWriteTokens: details?.cacheWriteTokens
-              }, { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion })
+              const cost = computeCredits(
+                { inputTokens, outputTokens, noCacheTokens: details?.noCacheTokens, cacheReadTokens: details?.cacheReadTokens, cacheWriteTokens: details?.cacheWriteTokens },
+                entry,
+                config.eurosPerCredit
+              )
               if (cost > 0) {
                 await recordUsage(owner, cost, usageUserId, usageUserName, poolId)
               }
@@ -572,17 +571,15 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
         return
       }
 
-      // Record usage (money cost)
+      // Record usage (credits)
       const inputTokens = result.usage?.inputTokens ?? 0
       const outputTokens = result.usage?.outputTokens ?? 0
       const details = result.usage?.inputTokenDetails
-      const cost = computeCost({
-        inputTokens,
-        outputTokens,
-        noCacheTokens: details?.noCacheTokens,
-        cacheReadTokens: details?.cacheReadTokens,
-        cacheWriteTokens: details?.cacheWriteTokens
-      }, { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion })
+      const cost = computeCredits(
+        { inputTokens, outputTokens, noCacheTokens: details?.noCacheTokens, cacheReadTokens: details?.cacheReadTokens, cacheWriteTokens: details?.cacheWriteTokens },
+        entry,
+        config.eurosPerCredit
+      )
       if (cost > 0) {
         await recordUsage(owner, cost, usageUserId, usageUserName, poolId)
       }

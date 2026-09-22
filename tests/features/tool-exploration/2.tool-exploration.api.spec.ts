@@ -11,6 +11,7 @@ import assert from 'node:assert/strict'
 import { generateText, tool, jsonSchema } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { axiosAuth, superAdmin, clean, directoryUrl, defaultQuotas, proxyHeaders } from '../../support/axios.ts'
+import { putSettings } from '../../support/settings.ts'
 
 const user = await axiosAuth('test-standalone1')
 const admin = await superAdmin
@@ -18,9 +19,13 @@ const admin = await superAdmin
 const mockProvider = { type: 'mock', name: 'Mock Provider', id: 'mock-provider' }
 const settingsData = {
   providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
-  models: {
-    assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: mockProvider } },
-    summarizer: { model: { id: 'mock-summarizer', name: 'Mock Summarizer', provider: mockProvider } }
+  models: [
+    { model: { id: 'mock-model', name: 'Mock Model', provider: mockProvider }, usage: ['assistant'], inputPricePerMillion: 0, outputPricePerMillion: 0 },
+    { model: { id: 'mock-summarizer', name: 'Mock Summarizer', provider: mockProvider }, usage: ['summarizer'], inputPricePerMillion: 0, outputPricePerMillion: 0 }
+  ],
+  modelMapping: {
+    assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' },
+    summarizer: { provider: 'mock-provider', id: 'mock-summarizer', name: 'Mock Summarizer' }
   },
   quotas: defaultQuotas
 }
@@ -38,7 +43,7 @@ async function createGatewayProvider () {
 test.describe('Tool exploration - mock select_tools seam (through gateway)', () => {
   test.beforeEach(async () => {
     await clean()
-    await admin.put('/api/settings/user/test-standalone1', settingsData)
+    await putSettings(admin, 'user/test-standalone1', settingsData)
   })
 
   test('summarizer selects every candidate tool when select_tools is forced', async () => {

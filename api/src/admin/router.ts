@@ -3,7 +3,8 @@ import { readFile } from 'node:fs/promises'
 import { Router } from 'express'
 import { session } from '@data-fair/lib-express/index.js'
 import config from '#config'
-import { getRawSettings } from '../settings/service.ts'
+import { getSettings } from '../settings/service.ts'
+import { resolveRoleModel } from '../models/service.ts'
 import { validateGithubSourcePath, buildGithubUrl, truncateGithubBody, githubErrorMessage } from './github-proxy.ts'
 
 const router = Router()
@@ -23,13 +24,22 @@ router.get('/info', async (req, res) => {
   const evaluatorAccount = config.evaluatorAccount ?? null
   let evaluatorAvailable = false
   if (evaluatorAccount) {
-    const settings = await getRawSettings(evaluatorAccount)
-    // The gateway refuses any account without an assistant model ("Agent not
-    // configured"), regardless of the requested role — so the promoted evaluator
-    // is only usable when the source account has BOTH an assistant and an
-    // evaluator model. Advertising availability on evaluator alone would enable
-    // a chat whose every call 404s.
-    evaluatorAvailable = !!settings?.models?.assistant?.model && !!settings?.models?.evaluator?.model
+    const settings = await getSettings(evaluatorAccount)
+    // Two independent conditions, both required:
+    // - the gateway refuses any account whose assistant role cannot be resolved
+    //   ("Agent not configured") regardless of the requested role, so the
+    //   assistant must resolve or the chat would 404 on every call;
+    // - the evaluator role must resolve to a model actually flagged for the
+    //   `evaluator` usage. Resolution alone is not enough: the role's fallback
+    //   chain ends on the assistant, so an account with no evaluator-capable
+    //   model still resolves *something* here. Advertising that would offer a
+    //   promoted-evaluator chat backed by a model nobody picked for the job.
+    const resolveEntry = (role: 'assistant' | 'evaluator') => {
+      try {
+        return resolveRoleModel(settings, role).entry
+      } catch { return null }
+    }
+    evaluatorAvailable = !!resolveEntry('assistant') && !!resolveEntry('evaluator')?.usage.includes('evaluator')
   }
   res.send({ ...info, evaluatorAccount, evaluatorAvailable })
 })

@@ -5,10 +5,21 @@
 import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
+import { putSettings } from '../../support/settings.ts'
 
 const mockSettings = {
   providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
-  models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' } } } },
+  models: [
+    {
+      model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' } },
+      usage: ['assistant'],
+      inputPricePerMillion: 0,
+      outputPricePerMillion: 0
+    }
+  ],
+  modelMapping: {
+    assistant: { provider: 'mock', id: 'mock-model', name: 'Mock Model' }
+  },
   quotas: defaultQuotas
 }
 
@@ -19,7 +30,7 @@ test.describe('Mermaid bounded auto-fix (e2e)', () => {
 
   test('a diagram that fails to render is fixed automatically', async ({ page, goToWithAuth }) => {
     const admin = await superAdmin
-    await admin.put('/api/settings/user/test-standalone1', mockSettings)
+    await putSettings(admin, 'user/test-standalone1', mockSettings)
 
     // Mermaid rendering is an opt-in flag persisted in the `agent-chat-flags`
     // cookie that readFlags() consumes (see ui/src/utils/agent-flags.ts); seed it

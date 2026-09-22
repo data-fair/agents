@@ -8,6 +8,7 @@ import assert from 'node:assert/strict'
 import { generateText, streamText } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { axiosAuth, superAdmin, clean, directoryUrl, baseURL, defaultQuotas, proxyHeaders } from '../../support/axios.ts'
+import { putSettings } from '../../support/settings.ts'
 
 const user = await axiosAuth('test-standalone1')
 const admin = await superAdmin
@@ -21,18 +22,16 @@ const settingsData = {
       enabled: true
     }
   ],
-  models: {
-    assistant: {
-      model: {
-        id: 'mock-model',
-        name: 'Mock Model',
-        provider: {
-          type: 'mock',
-          name: 'Mock Provider',
-          id: 'mock-provider'
-        }
-      }
+  models: [
+    {
+      model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
+      usage: ['assistant'],
+      inputPricePerMillion: 0,
+      outputPricePerMillion: 0
     }
+  ],
+  modelMapping: {
+    assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' }
   },
   quotas: defaultQuotas
 }
@@ -50,7 +49,7 @@ async function createGatewayProvider () {
 test.describe('Gateway API - Tool forwarding', () => {
   test.beforeEach(async () => {
     await clean()
-    await admin.put('/api/settings/user/test-standalone1', settingsData)
+    await putSettings(admin, 'user/test-standalone1', settingsData)
   })
 
   test('send tool definitions and receive tool call back', async () => {

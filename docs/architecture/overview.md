@@ -30,3 +30,5 @@ graph TB
 | `lib-vuetify/` | Embeddable Vuetify components: chat drawer, menu, action button, toggle FAB |
 
 The API server is a stateless LLM proxy with no server-side conversation state; all conversation history lives in the browser and is sent with each request.
+
+AI provider/model configuration and credit-based quotas are layered across deploy-time env vars, per-org superadmin definitions, and org-admin distribution — see [Configuration](./configuration.md).

@@ -81,6 +81,7 @@ declare global {
   const estimateTokens: typeof import('../src/utils/compaction-policy').estimateTokens
   const extractErrorMessage: typeof import('../src/utils/error').extractErrorMessage
   const formatBytes: typeof import('@data-fair/lib-vue/format/bytes.js').formatBytes
+  const formatCredits: typeof import('../src/utils/credits').formatCredits
   const formatHostEvents: typeof import('../src/composables/host-events').formatHostEvents
   const formatHostState: typeof import('../src/composables/host-events').formatHostState
   const formatMcpToolResult: typeof import('../src/utils/tool-result').formatMcpToolResult
@@ -192,6 +193,7 @@ declare global {
   const useServerSeoMeta: typeof import('@unhead/vue')['useServerSeoMeta']
   const useSession: typeof import('@data-fair/lib-vue/session.js').useSession
   const useSessionAuthenticated: typeof import('@data-fair/lib-vue/session.js').useSessionAuthenticated
+  const useSettingsForm: typeof import('../src/composables/use-settings-form').useSettingsForm
   const useSlots: typeof import('vue').useSlots
   const useStringSearchParam: typeof import('@data-fair/lib-vue/reactive-search-params.js').useStringSearchParam
   const useStringsArraySearchParam: typeof import('@data-fair/lib-vue/reactive-search-params.js').useStringsArraySearchParam
@@ -247,6 +249,9 @@ declare global {
   // @ts-ignore
   export type { ChatMessage, ToolInfo, SubAgentInfo, DebugToolsPartition, UseAgentChatOptions } from '../src/composables/use-agent-chat'
   import('../src/composables/use-agent-chat')
+  // @ts-ignore
+  export type { SettingsFormParams } from '../src/composables/use-settings-form'
+  import('../src/composables/use-settings-form')
 }
 
 // for vue template auto import
@@ -309,6 +314,7 @@ declare module 'vue' {
     readonly estimateTokens: UnwrapRef<typeof import('../src/utils/compaction-policy')['estimateTokens']>
     readonly extractErrorMessage: UnwrapRef<typeof import('../src/utils/error')['extractErrorMessage']>
     readonly formatBytes: UnwrapRef<typeof import('@data-fair/lib-vue/format/bytes.js')['formatBytes']>
+    readonly formatCredits: UnwrapRef<typeof import('../src/utils/credits')['formatCredits']>
     readonly formatHostEvents: UnwrapRef<typeof import('../src/composables/host-events')['formatHostEvents']>
     readonly formatHostState: UnwrapRef<typeof import('../src/composables/host-events')['formatHostState']>
     readonly formatMcpToolResult: UnwrapRef<typeof import('../src/utils/tool-result')['formatMcpToolResult']>
@@ -412,6 +418,7 @@ declare module 'vue' {
     readonly useSeoMeta: UnwrapRef<typeof import('@unhead/vue')['useSeoMeta']>
     readonly useSession: UnwrapRef<typeof import('@data-fair/lib-vue/session.js')['useSession']>
     readonly useSessionAuthenticated: UnwrapRef<typeof import('@data-fair/lib-vue/session.js')['useSessionAuthenticated']>
+    readonly useSettingsForm: UnwrapRef<typeof import('../src/composables/use-settings-form')['useSettingsForm']>
     readonly useSlots: UnwrapRef<typeof import('vue')['useSlots']>
     readonly useStringSearchParam: UnwrapRef<typeof import('@data-fair/lib-vue/reactive-search-params.js')['useStringSearchParam']>
     readonly useStringsArraySearchParam: UnwrapRef<typeof import('@data-fair/lib-vue/reactive-search-params.js')['useStringsArraySearchParam']>

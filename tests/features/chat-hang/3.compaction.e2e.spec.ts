@@ -13,28 +13,28 @@
 import { expect, type Page } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
+import { mockProvider, mockModelRef, putSettings } from '../../support/settings.ts'
 
 const admin = await superAdmin
 
+const summarizerModelRef = {
+  id: 'mock-summarizer',
+  name: 'Mock Summarizer Model',
+  provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' }
+}
+
+// Two catalog entries so the summarizer seat gets the dedicated mock summarizer
+// rather than the plain mock model; the mapping is explicit because the global
+// dev config also ships a mock model as the default for every role.
 const settingsData = {
-  providers: [
-    { id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }
+  providers: [mockProvider],
+  models: [
+    { model: mockModelRef, usage: ['assistant', 'tools', 'evaluator', 'moderator'], inputPricePerMillion: 0, outputPricePerMillion: 0 },
+    { model: summarizerModelRef, usage: ['summarizer'], inputPricePerMillion: 0, outputPricePerMillion: 0 }
   ],
-  models: {
-    assistant: {
-      model: {
-        id: 'mock-model',
-        name: 'Mock Model',
-        provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' }
-      }
-    },
-    summarizer: {
-      model: {
-        id: 'mock-summarizer',
-        name: 'Mock Summarizer Model',
-        provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' }
-      }
-    }
+  modelMapping: {
+    assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' },
+    summarizer: { provider: 'mock-provider', id: 'mock-summarizer', name: 'Mock Summarizer Model' }
   },
   quotas: defaultQuotas
 }
@@ -59,7 +59,7 @@ async function waitForChatFrame (page: Page) {
 test.describe('History compaction', () => {
   test.beforeEach(async () => {
     await clean()
-    await admin.put('/api/settings/user/test-standalone1', settingsData)
+    await putSettings(admin, 'user/test-standalone1', settingsData)
   })
 
   test('crossing the budget compacts and the conversation keeps answering', async ({ page, goToWithAuth }) => {

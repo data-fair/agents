@@ -1,11 +1,10 @@
 /**
- * stateless unit tests for checkQuota: derived daily/weekly/monthly money limits
+ * stateless unit tests for checkQuota: derived daily/weekly/monthly credit limits
  */
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { checkQuota, computeCost, firstQuotaViolation, isUntrustedRole, type UsageInfo, type UsageLimits } from '../../../api/src/usage/operations.ts'
-import { getModelConfig } from '../../../api/src/models/operations.ts'
+import { checkQuota, computeCredits, priceTokens, toCredits, firstQuotaViolation, isUntrustedRole, type UsageInfo, type UsageLimits } from '../../../api/src/usage/operations.ts'
 
 function mkUsage (daily: number, weekly: number, monthly: number): UsageInfo {
   return {
@@ -15,7 +14,7 @@ function mkUsage (daily: number, weekly: number, monthly: number): UsageInfo {
   }
 }
 
-test.describe('checkQuota (money-based, derived periods)', () => {
+test.describe('checkQuota (credit-based, derived periods)', () => {
   test('unlimited → no violation', () => {
     const limits: UsageLimits = { unlimited: true, monthlyLimit: 0 }
     assert.equal(checkQuota(mkUsage(1000, 1000, 1000), limits, 'user'), null)
@@ -87,109 +86,89 @@ test.describe('isUntrustedRole', () => {
   })
 })
 
-test.describe('computeCost', () => {
-  test('computes cost from tokens and prices per million', () => {
-    // 500k input @ $2/M + 100k output @ $6/M = 1 + 0.6 = 1.6
-    assert.equal(computeCost({ inputTokens: 500_000, outputTokens: 100_000 }, { inputPricePerMillion: 2, outputPricePerMillion: 6 }), 1.6)
+test.describe('priceTokens', () => {
+  const prices = { inputPricePerMillion: 3, outputPricePerMillion: 15, cachedInputPricePerMillion: 0.3 }
+
+  test('prices input and output per million', () => {
+    const cost = priceTokens({ inputTokens: 500_000, outputTokens: 100_000 }, { inputPricePerMillion: 2, outputPricePerMillion: 6 })
+    assert.equal(cost.input, 1)
+    assert.equal(cost.output, 0.6)
+    assert.equal(cost.total, 1.6)
   })
 
-  test('zero tokens → zero cost', () => {
-    assert.equal(computeCost({ inputTokens: 0, outputTokens: 0 }, { inputPricePerMillion: 10, outputPricePerMillion: 20 }), 0)
+  test('zero tokens cost zero', () => {
+    assert.equal(priceTokens({ inputTokens: 0, outputTokens: 0 }, prices).total, 0)
   })
 
-  test('zero prices → zero cost', () => {
-    assert.equal(computeCost({ inputTokens: 1_000_000, outputTokens: 1_000_000 }, { inputPricePerMillion: 0, outputPricePerMillion: 0 }), 0)
-  })
-})
-
-test.describe('computeCost with cache tokens', () => {
-  const prices = {
-    inputPricePerMillion: 3,
-    outputPricePerMillion: 15,
-    cachedInputPricePerMillion: 0.3
-  }
-
-  test('no cache details → whole input billed at input price', () => {
-    const cost = computeCost({ inputTokens: 1_000_000, outputTokens: 0 }, prices)
-    assert.equal(cost, 3)
+  test('no cache details bills the whole input at the input price', () => {
+    assert.equal(priceTokens({ inputTokens: 1_000_000, outputTokens: 0 }, prices).total, 3)
   })
 
   test('noCacheTokens is taken verbatim, never recomputed', () => {
-    // total 1M of which 900k were cache reads
-    const cost = computeCost(
-      { inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 100_000, cacheReadTokens: 900_000 },
-      prices
-    )
-    // 100k * 3/1M + 900k * 0.3/1M
-    assert.equal(cost, 0.3 + 0.27)
+    const cost = priceTokens({ inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 100_000, cacheReadTokens: 900_000 }, prices)
+    assert.equal(cost.total, 0.3 + 0.27)
   })
 
   test('falls back to subtraction when noCacheTokens is absent', () => {
-    const cost = computeCost(
-      { inputTokens: 1_000_000, outputTokens: 0, cacheReadTokens: 900_000 },
-      prices
-    )
-    assert.equal(cost, 0.3 + 0.27)
+    const cost = priceTokens({ inputTokens: 1_000_000, outputTokens: 0, cacheReadTokens: 900_000 }, prices)
+    assert.equal(cost.total, 0.3 + 0.27)
   })
 
-  test('cache writes are billed at the input price, never free', () => {
-    // There is no separate write tariff to configure. Both @ai-sdk/anthropic and
-    // @ai-sdk/openai exclude cacheWrite from noCache, so dropping the term would
-    // make write tokens cost nothing — this asserts they do not.
-    const cost = computeCost(
-      { inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 0, cacheWriteTokens: 1_000_000 },
-      prices
-    )
-    assert.equal(cost, 3)
+  test('the subtraction fallback never goes negative', () => {
+    const cost = priceTokens({ inputTokens: 100, outputTokens: 0, cacheReadTokens: 900 }, prices)
+    assert.equal(cost.total, 900 * 0.3 / 1_000_000)
+  })
+
+  test('cache writes bill at the input price, never free', () => {
+    const cost = priceTokens({ inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 0, cacheWriteTokens: 1_000_000 }, prices)
+    assert.equal(cost.total, 3)
   })
 
   test('cache writes are added to the non-cached portion, not substituted for it', () => {
-    const cost = computeCost(
-      { inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 400_000, cacheReadTokens: 200_000, cacheWriteTokens: 400_000 },
-      prices
-    )
-    // (400k + 400k) * 3/1M + 200k * 0.3/1M
-    assert.equal(cost, 2.4 + 0.06)
+    const cost = priceTokens({ inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 400_000, cacheReadTokens: 200_000, cacheWriteTokens: 400_000 }, prices)
+    assert.equal(cost.total, 2.4 + 0.06)
   })
 
-  test('subtraction fallback never goes negative', () => {
-    const cost = computeCost(
-      { inputTokens: 100, outputTokens: 0, cacheReadTokens: 900 },
-      prices
-    )
-    assert.equal(cost, 900 * 0.3 / 1_000_000)
-  })
-
-  test('an unset cache price (as resolved by getModelConfig) bills cache reads at the input price', () => {
-    // computeCost itself still bills a genuinely absent cache price at 0 (see
-    // 'falls back to subtraction when noCacheTokens is absent' etc. above, all of
-    // which pass a full `prices` object) — that pure-function contract is
-    // unchanged. What changed is the resolver: getModelConfig no longer hands
-    // computeCost an unset cache price at all, it falls back to the input price
-    // first. Go through the real resolver here to prove the system-level fix.
-    const settings: any = {
-      owner: { type: 'user', id: 'u' },
-      providers: [],
-      models: {
-        assistant: {
-          model: { id: 'm', name: 'M', provider: { type: 'mock', id: 'mock', name: 'Mock' } },
-          inputPricePerMillion: 3,
-          outputPricePerMillion: 15
-        }
-      }
-    }
-    const { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion } = getModelConfig(settings, 'assistant')
-    assert.equal(cachedInputPricePerMillion, 3)
-
-    const cost = computeCost(
+  test('an absent cache price bills cache reads at 0 \u2014 the catalog resolves it, not this function', () => {
+    const cost = priceTokens(
       { inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 0, cacheReadTokens: 1_000_000 },
-      { inputPricePerMillion, outputPricePerMillion, cachedInputPricePerMillion }
+      { inputPricePerMillion: 3, outputPricePerMillion: 15 }
     )
-    assert.equal(cost, 3)
+    assert.equal(cost.total, 0)
+  })
+})
+
+test.describe('toCredits', () => {
+  test('divides by the peg', () => {
+    assert.equal(toCredits(0.4, 0.4), 1)
+    assert.equal(toCredits(4, 0.4), 10)
+  })
+  test('a peg of 1 makes a credit a euro', () => {
+    assert.equal(toCredits(2.5, 1), 2.5)
+  })
+  test('zero cost is zero credits whatever the peg', () => {
+    assert.equal(toCredits(0, 0.4), 0)
+  })
+})
+
+test.describe('computeCredits', () => {
+  test('prices the tokens then converts to credits, in one call', () => {
+    // 1M fresh input at 0.40 EUR/M = 0.40 EUR = exactly 1 credit at the 0.40 peg
+    const credits = computeCredits(
+      { inputTokens: 1_000_000, outputTokens: 0 },
+      { inputPricePerMillion: 0.4, outputPricePerMillion: 0.8 },
+      0.4
+    )
+    assert.equal(credits, 1)
   })
 
-  test('output tokens still billed', () => {
-    const cost = computeCost({ inputTokens: 0, outputTokens: 1_000_000 }, prices)
-    assert.equal(cost, 15)
+  test('a cached turn costs strictly less than the same turn uncached', () => {
+    const prices = { inputPricePerMillion: 0.4, cachedInputPricePerMillion: 0.08, outputPricePerMillion: 0.8 }
+    const uncached = computeCredits({ inputTokens: 1_000_000, outputTokens: 0 }, prices, 0.4)
+    const cached = computeCredits({ inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 100_000, cacheReadTokens: 900_000 }, prices, 0.4)
+    assert.equal(uncached, 1)
+    // 100k @0.40 + 900k @0.08 = 0.112 EUR = 0.28 credits
+    assert.ok(cached < uncached)
+    assert.equal(Number(cached.toFixed(10)), 0.28)
   })
 })

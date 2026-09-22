@@ -6,18 +6,27 @@
 import { expect } from '@playwright/test'
 import assert from 'node:assert/strict'
 import { test } from '../../fixtures/login.ts'
-import { clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
+import { clean, superAdmin } from '../../support/axios.ts'
 import { createChatDriver } from '../../../lib-sim/chat-driver.ts'
+import { mockProvider, mockModelRef, putMockSettings } from '../../support/settings.ts'
 
-const mockSettings = {
-  providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
-  models: {
-    assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' } } },
-    // Configured so the compaction round-trip (used by the compaction-dedupe test
-    // below) actually runs instead of failing for want of a summarizer model.
-    summarizer: { model: { id: 'mock-summarizer', name: 'Mock Summarizer', provider: { type: 'mock', id: 'mock', name: 'Mock' } } }
-  },
-  quotas: defaultQuotas
+// The dedicated mock summarizer is mapped explicitly so the compaction round-trip
+// (used by the compaction-dedupe test below) actually runs instead of failing for
+// want of a summarizer model.
+const summarizerModelRef = {
+  id: 'mock-summarizer',
+  name: 'Mock Summarizer',
+  provider: { type: 'mock', name: mockProvider.name, id: mockProvider.id }
+}
+
+const settingsOverrides = {
+  models: [
+    { model: mockModelRef, usage: ['assistant', 'tools', 'evaluator', 'moderator'], inputPricePerMillion: 0, outputPricePerMillion: 0 },
+    { model: summarizerModelRef, usage: ['summarizer'], inputPricePerMillion: 0, outputPricePerMillion: 0 }
+  ],
+  modelMapping: {
+    summarizer: { provider: mockProvider.id, id: summarizerModelRef.id, name: summarizerModelRef.name }
+  }
 }
 
 const USER = 'test-standalone1'
@@ -26,7 +35,7 @@ test.describe('Host events', () => {
   test.beforeEach(async () => {
     await clean()
     const admin = await superAdmin
-    await admin.put(`/api/settings/user/${USER}`, mockSettings)
+    await putMockSettings(admin, `user/${USER}`, settingsOverrides)
   })
 
   async function open (page: any, goToWithAuth: any) {

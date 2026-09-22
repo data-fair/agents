@@ -13,6 +13,7 @@
 import { expect, type Page } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
+import { putSettings } from '../../support/settings.ts'
 
 const admin = await superAdmin
 
@@ -35,16 +36,15 @@ const settingsData = {
   providers: [
     { id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }
   ],
-  models: {
-    assistant: {
-      model: { id: 'mock-model', name: 'Mock Model', provider: mockProvider }
-    },
-    tools: {
-      model: { id: 'mock-tools', name: 'Mock Tools Model', provider: mockProvider }
-    },
-    summarizer: {
-      model: { id: 'mock-summarizer', name: 'Mock Summarizer', provider: mockProvider }
-    }
+  models: [
+    { model: { id: 'mock-model', name: 'Mock Model', provider: mockProvider }, usage: ['assistant'], inputPricePerMillion: 0, outputPricePerMillion: 0 },
+    { model: { id: 'mock-tools', name: 'Mock Tools Model', provider: mockProvider }, usage: ['tools'], inputPricePerMillion: 0, outputPricePerMillion: 0 },
+    { model: { id: 'mock-summarizer', name: 'Mock Summarizer', provider: mockProvider }, usage: ['summarizer'], inputPricePerMillion: 0, outputPricePerMillion: 0 }
+  ],
+  modelMapping: {
+    assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' },
+    tools: { provider: 'mock-provider', id: 'mock-tools', name: 'Mock Tools Model' },
+    summarizer: { provider: 'mock-provider', id: 'mock-summarizer', name: 'Mock Summarizer' }
   },
   quotas: defaultQuotas
   // storeTraces is OFF by default so the consent bottom-sheet doesn't overlay the chat
@@ -87,7 +87,7 @@ async function sendMessage (page: import('@playwright/test').Page, text: string)
 test.describe('Advanced Sub-Agent Scenarios', () => {
   test.beforeEach(async () => {
     await clean()
-    await admin.put('/api/settings/user/test-standalone1', settingsData)
+    await putSettings(admin, 'user/test-standalone1', settingsData)
   })
 
   test('Subagent multi-step tool chain (get_schema → query_data → summary)', async ({ page, goToWithAuth }) => {
@@ -168,7 +168,7 @@ test.describe('Advanced Sub-Agent Scenarios', () => {
   test('Subagent trace appears on the review page', async ({ page, context, goToWithAuth }) => {
     // Enable trace storage for this review-page test + pre-set consent so the
     // conversation is stored server-side and the consent sheet stays hidden.
-    await admin.put('/api/settings/user/test-standalone1', { ...settingsData, storeTraces: true })
+    await putSettings(admin, 'user/test-standalone1', { ...settingsData, storeTraces: true })
     await context.addCookies([{ name: 'agent-chat-trace-consent', value: 'yes', domain: 'localhost', path: '/' }])
     await seedChipCookie(page)
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')

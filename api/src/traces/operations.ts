@@ -3,7 +3,7 @@
  * should not reference #mongo, #config, store state in memory or import anything else than other operations.ts
  */
 import type { TraceRequest, TraceModeration, TraceFlags } from './types.ts'
-import { computeCost } from '../usage/operations.ts'
+import { priceTokens, toCredits, type TokenPrices } from '../usage/operations.ts'
 
 // Stored traces are kept for 30 days, enforced by a TTL index on `createdAt`.
 export const RETENTION_SECONDS = 30 * 24 * 60 * 60
@@ -58,9 +58,8 @@ export interface BuildTraceInput {
   body: any
   response: { content: string, toolCalls: { id: string, name: string, arguments: string }[], finishReason?: string }
   usage: { inputTokens: number, outputTokens: number, cacheReadTokens?: number, cacheWriteTokens?: number }
-  inputPricePerMillion: number
-  outputPricePerMillion: number
-  cachedInputPricePerMillion?: number
+  prices: TokenPrices
+  eurosPerCredit: number
   timing: { durationMs: number, timeToFirstChunkMs?: number }
   moderation?: TraceModeration
   flags?: TraceFlags
@@ -70,18 +69,12 @@ export function buildTraceRequestDoc (input: BuildTraceInput, now: Date): TraceR
   const ctx = parseContextId(input.contextId)
   const messages = Array.isArray(input.body?.messages) ? input.body.messages : []
   const tools = Array.isArray(input.body?.tools) ? input.body.tools : []
-  // Route through the same computeCost formula as billing/quotas, rather than
-  // re-deriving it here: `inputTokens` is the TOTAL including cache reads, so
-  // multiplying it by the plain input price (as before this cache-price split)
-  // would show a trace input cost higher than what was actually billed on any
-  // cached turn. `noCacheTokens` isn't threaded through from the gateway call
-  // site, so this relies on computeCost's documented subtraction fallback
-  // (inputTokens - cacheReadTokens - cacheWriteTokens).
-  const inputCost = computeCost(
-    { inputTokens: input.usage.inputTokens, outputTokens: 0, cacheReadTokens: input.usage.cacheReadTokens, cacheWriteTokens: input.usage.cacheWriteTokens },
-    { inputPricePerMillion: input.inputPricePerMillion, outputPricePerMillion: 0, cachedInputPricePerMillion: input.cachedInputPricePerMillion }
-  )
-  const outputCost = input.usage.outputTokens * input.outputPricePerMillion / 1_000_000
+  // Route through the same function as billing rather than re-deriving it here: this
+  // file used to carry its own copy of the formula, which is how a cached turn came to
+  // show a trace cost higher than what was charged.
+  const euros = priceTokens(input.usage, input.prices)
+  const inputCost = toCredits(euros.input, input.eurosPerCredit)
+  const outputCost = toCredits(euros.output, input.eurosPerCredit)
   const cost = { input: inputCost, output: outputCost, total: inputCost + outputCost }
   return {
     owner: input.owner,

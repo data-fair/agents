@@ -3,8 +3,29 @@
  * should not reference #mongo, #config, store state in memory or import anything else than other operations.ts
  */
 
-import type { AIProviders } from '#types'
+import type { AIProviders, Settings } from '#types'
 import { cipher, decipher } from '../cipher/operations.ts'
+
+/**
+ * Source of truth for the quotas/moderation values applied to an account that
+ * has never been configured (see `emptySettings` and the settings PUT routes in
+ * ./service.ts and ./router.ts). They live in this pure module so that both
+ * service.ts and the upgrade scripts' drift test can import them without
+ * pulling in #mongo/#config.
+ */
+export const defaultQuotas: NonNullable<Settings['quotas']> = {
+  admin: { unlimited: true, monthlyLimit: 0 },
+  contrib: { unlimited: false, monthlyLimit: 0 },
+  user: { unlimited: false, monthlyLimit: 0 },
+  external: { unlimited: false, monthlyLimit: 0 },
+  anonymous: { unlimited: false, monthlyLimit: 0 },
+  untrusted: { unlimited: false, monthlyLimit: 0 }
+}
+
+export const defaultModeration: NonNullable<Settings['moderation']> = {
+  enabled: false,
+  categories: ['anonymous', 'external']
+}
 
 export function encryptProviderApiKeys (providers: AIProviders, existingProviders: AIProviders, securityKey: Buffer): AIProviders {
   return providers.map(provider => {

@@ -13,13 +13,8 @@
 
 import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
-import { clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
-
-const mockSettings = {
-  providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
-  models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' } } } },
-  quotas: defaultQuotas
-}
+import { clean, superAdmin } from '../../support/axios.ts'
+import { putMockSettings } from '../../support/settings.ts'
 
 test.describe('Live tool set (mid-turn refresh)', () => {
   test.beforeEach(async () => {
@@ -28,7 +23,7 @@ test.describe('Live tool set (mid-turn refresh)', () => {
 
   test('a tool registered by a panel opened mid-turn is callable in the same turn', async ({ page, goToWithAuth }) => {
     const admin = await superAdmin
-    await admin.put('/api/settings/user/test-standalone1', mockSettings)
+    await putMockSettings(admin, 'user/test-standalone1')
 
     await goToWithAuth('/agents/_dev/chat-live-tools', 'test-standalone1')
 
@@ -58,7 +53,7 @@ test.describe('Live tool set (mid-turn refresh)', () => {
     // The mirror case: reconciliation must remove as well as add, or the model keeps being
     // offered tools that no longer have a component behind them.
     const admin = await superAdmin
-    await admin.put('/api/settings/user/test-standalone1', mockSettings)
+    await putMockSettings(admin, 'user/test-standalone1')
 
     await goToWithAuth('/agents/_dev/chat-live-tools', 'test-standalone1')
 
@@ -90,7 +85,7 @@ test.describe('Live tool set (mid-turn refresh)', () => {
     // mid-run (the SDK re-reads it only as a prefix, so it would land before the work
     // already done), so it is injected through prepareStep; this is what covers that path.
     const admin = await superAdmin
-    await admin.put('/api/settings/user/test-standalone1', mockSettings)
+    await putMockSettings(admin, 'user/test-standalone1')
 
     await page.addInitScript(() => {
       const flags = { toolExploration: true, subAgents: true, mermaid: false }

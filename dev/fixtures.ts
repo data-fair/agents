@@ -18,24 +18,30 @@ const baseURL = `http://localhost:${process.env.DEV_API_PORT}`
 
 // Mock-provider settings: the mock model answers "hello" with "world" and needs
 // no API key, so the dev env can chat with zero external configuration.
-const settingsData = {
+// `providers`/`models` are superadmin-owned (PUT /api/settings/:type/:id); the
+// rest is org-admin-owned (PUT /api/settings/:type/:id/org) — see writeSettings below.
+const superadminSettingsData = {
   providers: [
     { id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }
   ],
-  models: {
-    assistant: {
-      model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
-      inputPricePerMillion: 0,
-      outputPricePerMillion: 0
-    }
+  models: [{
+    model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
+    usage: ['assistant', 'tools', 'summarizer', 'evaluator', 'moderator'],
+    inputPricePerMillion: 0,
+    outputPricePerMillion: 0
+  }]
+}
+const orgSettingsData = {
+  modelMapping: {
+    assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' }
   },
   quotas: {
-    global: { unlimited: true, monthlyLimit: 0 },
     admin: { unlimited: true, monthlyLimit: 0 },
     contrib: { unlimited: false, monthlyLimit: 100 },
     user: { unlimited: false, monthlyLimit: 50 },
     external: { unlimited: false, monthlyLimit: 0 },
-    anonymous: { unlimited: false, monthlyLimit: 0 }
+    anonymous: { unlimited: false, monthlyLimit: 0 },
+    untrusted: { unlimited: false, monthlyLimit: 0 }
   },
   // store traces so the seeded conversations show up on the review pages
   storeTraces: true
@@ -87,7 +93,8 @@ async function main () {
 
   const owners = [...new Set(conversations.map(c => `${c.ownerType}/${c.ownerId}`))]
   for (const owner of owners) {
-    await adminAx.put(`/api/settings/${owner}`, settingsData)
+    await adminAx.put(`/api/settings/${owner}`, superadminSettingsData)
+    await adminAx.put(`/api/settings/${owner}/org`, orgSettingsData)
     console.log(`settings written for ${owner}`)
   }
 

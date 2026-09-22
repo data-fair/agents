@@ -1,4 +1,5 @@
 import type { Settings } from '#types/settings/index.ts'
+import type { Limits } from '#types/limits/index.ts'
 import type { Usage } from './usage/service.ts'
 import type { TraceRequest } from './traces/types.ts'
 import type { ModerationEvent, ModerationStrike } from './moderation/types.ts'
@@ -22,6 +23,10 @@ export class AgentsMongo {
 
   get usage () {
     return mongoLib.db.collection<Usage>('usage')
+  }
+
+  get limits () {
+    return mongoLib.db.collection<Limits>('limits')
   }
 
   get traceRequests () {
@@ -49,6 +54,9 @@ export class AgentsMongo {
       },
       usage: {
         'main-keys': [{ 'owner.type': 1, 'owner.id': 1, userId: 1, period: 1 }, { unique: true }]
+      },
+      limits: {
+        'main-keys': [{ type: 1, id: 1 }, { unique: true }]
       },
       'trace-requests': {
         'list-keys': [{ 'owner.type': 1, 'owner.id': 1, 'conversation.id': 1, createdAt: 1 }, {}],

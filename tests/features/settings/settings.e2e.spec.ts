@@ -5,6 +5,7 @@
 import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
+import { putSettings } from '../../support/settings.ts'
 
 // E2E block: use full playwright capabilities to test the UI and indirectly the API
 test.describe('Settings UI', () => {
@@ -21,7 +22,8 @@ test.describe('Settings UI', () => {
     await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
 
     // Click "Add item" button in AI Providers section
-    await page.getByRole('button', { name: 'Add item' }).click()
+    // .first(): the models array renders its own "Add item" once a provider exists
+    await page.getByRole('button', { name: 'Add item' }).first().click()
 
     // Select provider type from dropdown
     await page.locator('.v-form').getByRole('combobox').first().click()
@@ -44,7 +46,8 @@ test.describe('Settings UI', () => {
     await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
 
     // Add a provider to create changes
-    await page.getByRole('button', { name: 'Add item' }).click()
+    // .first(): the models array renders its own "Add item" once a provider exists
+    await page.getByRole('button', { name: 'Add item' }).first().click()
     await page.locator('.v-form').getByRole('combobox').first().click()
     await page.getByRole('option', { name: 'Mock' }).click()
 
@@ -55,9 +58,19 @@ test.describe('Settings UI', () => {
   test('Can save settings with valid form', async ({ page, goToWithAuth }) => {
     // Seed valid settings via API first so form is valid
     const admin = await superAdmin
-    await admin.put('/api/settings/user/test-standalone1', {
+    await putSettings(admin, 'user/test-standalone1', {
       providers: [{ id: 'seed-provider', type: 'mock', name: 'Mock Seed', enabled: true }],
-      models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Seed', id: 'seed-provider' } } } },
+      models: [
+        {
+          model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Seed', id: 'seed-provider' } },
+          usage: ['assistant'],
+          inputPricePerMillion: 0,
+          outputPricePerMillion: 0
+        }
+      ],
+      modelMapping: {
+        assistant: { provider: 'seed-provider', id: 'mock-model', name: 'Mock Model' }
+      },
       quotas: defaultQuotas
     })
 
@@ -69,8 +82,14 @@ test.describe('Settings UI', () => {
     // Wait for any validation to complete
     await page.waitForTimeout(500)
 
+    // Precondition: this seeded config must load clean (no unsaved change) —
+    // otherwise the Save click below would "succeed" even if the page never
+    // reacted to the interaction that follows.
+    await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
+
     // Add a provider to create changes
-    await page.getByRole('button', { name: 'Add item' }).click()
+    // .first(): the models array renders its own "Add item" once a provider exists
+    await page.getByRole('button', { name: 'Add item' }).first().click()
     await page.locator('.v-form').getByRole('combobox').first().click()
     await page.getByRole('option', { name: 'Mock' }).click()
 
@@ -84,12 +103,26 @@ test.describe('Settings UI', () => {
     await expect(page.getByText('Changes have been saved')).toBeVisible()
   })
 
-  test('Can edit chat model with valid initial data', async ({ page, goToWithAuth }) => {
+  // Exercises the models array editor end to end: the Model autocomplete (whose
+  // getItems URL walks `rootData.providers` to scope the listing to the account's
+  // providers), the usage multi-select, the per-class prices, and the array
+  // itemTitle expression.
+  test('Can add a model definition with a usage and per-class prices', async ({ page, goToWithAuth }) => {
     // Seed valid settings via API
     const admin = await superAdmin
-    await admin.put('/api/settings/user/test-standalone1', {
+    await putSettings(admin, 'user/test-standalone1', {
       providers: [{ id: 'seed-provider', type: 'mock', name: 'Mock Seed', enabled: true }],
-      models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Seed', id: 'seed-provider' } } } },
+      models: [
+        {
+          model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Seed', id: 'seed-provider' } },
+          usage: ['assistant'],
+          inputPricePerMillion: 0,
+          outputPricePerMillion: 0
+        }
+      ],
+      modelMapping: {
+        assistant: { provider: 'seed-provider', id: 'mock-model', name: 'Mock Model' }
+      },
       quotas: defaultQuotas
     })
 
@@ -98,20 +131,48 @@ test.describe('Settings UI', () => {
     // Wait for page to load
     await expect(page.getByText('AI Providers')).toBeVisible()
 
-    // Add a provider to create changes
-    await page.getByRole('button', { name: 'Add item' }).click()
-    await page.locator('.v-form').getByRole('combobox').first().click()
-    await page.getByRole('option', { name: 'Mock' }).click()
+    // Precondition: this seeded config must load clean (no unsaved change).
+    await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
 
-    // Save button should now be visible
-    await expect(page.getByRole('button', { name: 'Save' })).toBeVisible()
+    // The stored model definition is listed through the array itemTitle expression
+    await expect(page.getByText('Mock Model (assistant)')).toBeVisible()
+
+    // .nth(1): the models array's own "Add item" (the providers array owns the first one)
+    await page.getByRole('button', { name: 'Add item' }).nth(1).click()
+
+    // The Model autocomplete opens on the new item and lists the models of the
+    // account's providers — proof the getItems URL resolved the provider ids.
+    await page.getByRole('option', { name: 'Mock Tools Model' }).click()
+
+    // Flag it for the "tools" usage
+    // the outer combobox wrapper, not the input it overlays (which intercepts clicks)
+    await page.getByRole('combobox').filter({ hasText: 'Appropriate usages' }).last().click()
+    await page.getByRole('option', { name: 'Tools', exact: true }).click()
+    await page.keyboard.press('Escape')
+
+    // exact: true — Playwright's name matcher is a substring match, and
+    // "Cached input price (per 1M tokens)" would otherwise match this too
+    await page.getByRole('textbox', { name: 'Input price (per 1M tokens)', exact: true }).last().fill('0.4')
+    await page.getByRole('textbox', { name: 'Output price (per 1M tokens)' }).last().fill('0.8')
+
+    await page.getByRole('button', { name: 'Save' }).click()
+    await expect(page.getByText('Changes have been saved')).toBeVisible()
+
+    // Reload: the new definition is persisted and the form is clean again
+    await page.reload()
+    await expect(page.getByText('AI Providers')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('Mock Tools Model (tools)')).toBeVisible()
+    await expect(page.getByRole('textbox', { name: 'Input price (per 1M tokens)', exact: true }).last()).toHaveValue('0.4')
+    await page.waitForTimeout(800)
+    await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
   })
 
   test('Can delete a provider', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
 
     // Add a Mock provider first
-    await page.getByRole('button', { name: 'Add item' }).click()
+    // .first(): the models array renders its own "Add item" once a provider exists
+    await page.getByRole('button', { name: 'Add item' }).first().click()
     await page.locator('.v-form').getByRole('combobox').first().click()
     await page.getByRole('option', { name: 'Mock' }).click()
 
@@ -145,38 +206,34 @@ test.describe('Settings UI', () => {
     await expect(page.getByText('Mock - ')).not.toBeVisible()
   })
 
-  // Regression: models/quotas are required but their form sections are hidden until
-  // a provider exists. Toggling the always-visible "Store conversation traces" switch
-  // on an empty config used to prune those hidden required props and raise a global
-  // "required" error. The empty config must stay valid (models/quotas are not required).
-  test('Toggling store-traces on an empty config does not raise a required error', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
-    await expect(page.getByText('AI Providers')).toBeVisible({ timeout: 10000 })
-    await page.waitForTimeout(500)
+  // The "toggling store-traces on an empty config does not raise a required
+  // error" regression lives in org-settings.e2e.spec.ts now: `storeTraces` moved
+  // to the org-admin form (PUT /api/settings/:type/:id/org), and this form has no
+  // always-visible field left to toggle on an empty config — the only widget it
+  // renders then is the providers array's "Add item".
 
-    await page.getByText('Store conversation traces').click()
-    await page.waitForTimeout(500)
-
-    // No validation error must appear and the form must remain valid (Save enabled)
-    await expect(page.getByText('required information')).not.toBeVisible()
-    await expect(page.getByRole('button', { name: 'Save' })).toBeEnabled()
-  })
-
-  // Regression: vjsf writes schema defaults (0 prices) into the model on load, so
-  // a config whose stored shape predates them shows a diff once. Because the
-  // server persists exactly what the form submits, saving normalises the document
-  // and a subsequent reload must converge to a clean, diff-free state.
-  // Was: "converges after one save". A seeded config used to open dirty — the form
-  // strips hidden empty values that the schema then re-supplied through `default: 0`
-  // on the per-role price fields, so the first load always showed a phantom diff and
-  // needed one normalising save. Those defaults are gone, so it now opens clean and
-  // that save is never needed. Asserting the stronger property: no diff, ever, without
-  // the user touching anything.
-  test('A saved config shows no diff: clean on first load and after reload', async ({ page, goToWithAuth }) => {
+  // Regression: GET /api/settings returns the whole document while this form is
+  // generated from the narrowed superadmin PUT schema, so vjsf pruned the
+  // org-owned fields (modelMapping/quotas/moderation/storeTraces) from its model
+  // on mount and the page reported a spurious unsaved change on every load —
+  // which also tripped `useLeaveGuard` on every navigation away. The page now
+  // projects the fetched document down to the fields the form owns before
+  // handing it to the form and to the diff.
+  test('A populated config loads clean and stays clean across a save and reload', async ({ page, goToWithAuth }) => {
     const admin = await superAdmin
-    await admin.put('/api/settings/organization/test1', {
+    await putSettings(admin, 'organization/test1', {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
-      models: { assistant: { model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } } } },
+      models: [
+        {
+          model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
+          usage: ['assistant'],
+          inputPricePerMillion: 0,
+          outputPricePerMillion: 0
+        }
+      ],
+      modelMapping: {
+        assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' }
+      },
       quotas: defaultQuotas
     })
 
@@ -184,8 +241,17 @@ test.describe('Settings UI', () => {
     await expect(page.getByText('AI Providers')).toBeVisible({ timeout: 10000 })
     await page.waitForTimeout(800)
 
-    // Nothing was edited, so there is nothing to save.
+    // The stored shape already matches what the form produces: no diff on load.
     await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
+
+    // Make a real change (add a second provider), save it, and reload: the form
+    // must be clean again. `storeTraces` — the previous trigger here — moved to
+    // the org-admin endpoint and is no longer part of this (superadmin) form.
+    await page.getByRole('button', { name: 'Add item' }).first().click()
+    await page.locator('.v-form').getByRole('combobox').first().click()
+    await page.getByRole('option', { name: 'Mock' }).click()
+    await page.getByRole('button', { name: 'Save' }).click()
+    await expect(page.getByText('Changes have been saved')).toBeVisible()
 
     // And it stays that way across a reload — the original regression was the Save
     // button reappearing on every load.
@@ -195,17 +261,25 @@ test.describe('Settings UI', () => {
     await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
   })
 
-  // Regression: the Save button used to reappear on every reload because the
-  // server re-injected an empty `models` object that vjsf strips from the hidden
-  // model-role sections (no providers). After saving, a reload must converge to a
-  // clean state with no spurious diff.
+  // Regression: the Save button used to reappear on every reload of a config
+  // saved from an empty state, because the server re-injected an empty `models`
+  // value that vjsf then pruned (the models section is hidden until a provider
+  // exists). Its original trigger — toggling `storeTraces` — moved to the
+  // org-admin form, so the change that takes the config out of its empty state
+  // is now adding a provider (which is also what makes the models section
+  // appear, i.e. exactly the transition this regression lived on).
   test('Saving an empty config converges: Save button stays hidden after reload', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/admin/organization/test1', 'superadmin', { adminMode: true })
     await expect(page.getByText('AI Providers')).toBeVisible({ timeout: 10000 })
     await page.waitForTimeout(500)
 
-    // Make a real change (toggle store-traces) so Save becomes available, then save.
-    await page.getByText('Store conversation traces').click()
+    // An empty config must already be clean, so the Save below is caused by the edit.
+    await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
+
+    // Make a real change (add a provider) so Save becomes available, then save.
+    await page.getByRole('button', { name: 'Add item' }).first().click()
+    await page.locator('.v-form').getByRole('combobox').first().click()
+    await page.getByRole('option', { name: 'Mock' }).click()
     await page.getByRole('button', { name: 'Save' }).click()
     await expect(page.getByText('Changes have been saved')).toBeVisible()
 
@@ -216,29 +290,5 @@ test.describe('Settings UI', () => {
       await page.waitForTimeout(800)
       await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
     }
-  })
-
-  test('loading saved settings reports no pending change', async ({ page, goToWithAuth }) => {
-    // The per-role context/cache fields are hidden until a
-    // provider exists, and carry schema defaults. If the form strips a hidden empty
-    // value that the server re-injects, the round-trip reports a diff and Save
-    // re-enables with nothing edited.
-    const admin = await superAdmin
-    await admin.put('/api/settings/user/test-standalone1', {
-      providers: [{ id: 'seed-provider', type: 'mock', name: 'Mock Seed', enabled: true }],
-      models: {
-        assistant: {
-          model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Seed', id: 'seed-provider' } }
-        }
-      },
-      quotas: defaultQuotas
-    })
-
-    await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
-    await expect(page.getByText('AI Providers')).toBeVisible({ timeout: 10000 })
-    // Let vjsf finish its initial validation/normalisation pass.
-    await page.waitForTimeout(500)
-
-    await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
   })
 })
