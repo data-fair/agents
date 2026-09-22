@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { type AccountKeys, assertAccountRole, httpError, isValidAccountType, reqSessionAuthenticated } from '@data-fair/lib-express'
+import { type AccountKeys, assertAccountRole, httpError, isValidAccountType, reqAdminMode, reqSessionAuthenticated } from '@data-fair/lib-express'
 import {
   getOwnerUsage,
   getAccountDailyHistory,
@@ -40,8 +40,7 @@ function parseAccount (req: any): AccountKeys | undefined {
 // histogram can be stacked by owner (the default) or by any account dimension.
 router.get('/history', async (req, res, next) => {
   try {
-    const session = reqSessionAuthenticated(req)
-    if (!session.user?.isAdmin) throw httpError(403, 'super admin only')
+    reqAdminMode(req)
 
     const scope = (req.query.scope as string) || 'platform-daily'
     const dimension = (parseDimension(req.query.dimension, PLATFORM_DIMENSIONS) ?? 'owner') as PlatformDimension
