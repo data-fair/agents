@@ -6,6 +6,17 @@
           {{ t('userUsage') }}
         </v-card-title>
         <v-card-text>
+          <v-select
+            v-model="dimension"
+            :items="dimensionItems"
+            :label="t('breakdown')"
+            density="compact"
+            hide-details
+            variant="outlined"
+            max-width="300"
+            class="mb-4"
+          />
+
           <v-btn-toggle
             v-model="selectedDate"
             mandatory
@@ -25,6 +36,7 @@
           <monitoring-user-histogram
             v-if="usersFetch.data.value"
             :users="filteredUsers"
+            :dimension="dimension || null"
           />
         </v-card-text>
       </v-card>
@@ -35,8 +47,20 @@
 <i18n lang="yaml">
 fr:
   userUsage: Consommation par utilisateur (7 derniers jours)
+  breakdown: Répartition
+  total: Total
+  byModelRole: Par rôle de modèle
+  byModel: Par modèle
+  byProfile: Par profil utilisateur
+  byTokenClass: Par classe de jetons
 en:
   userUsage: Per-user usage (last 7 days)
+  breakdown: Breakdown
+  total: Total
+  byModelRole: By model role
+  byModel: By model
+  byProfile: By user profile
+  byTokenClass: By token class
 </i18n>
 
 <script lang="ts" setup>
@@ -44,11 +68,7 @@ import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { $apiPath } from '~/context.ts'
 import MonitoringUserHistogram from '~/components/MonitoringUserHistogram.vue'
-
-interface UsageEntry {
-  label: string
-  cost: number
-}
+import type { UsageDimension, UsageEntry } from '~/utils/usage-breakdown'
 
 interface UserHistory {
   userId: string
@@ -63,8 +83,20 @@ const props = defineProps<{
 
 const { t } = useI18n()
 
+const dimension = ref<UsageDimension | ''>('')
+
+const dimensionItems = computed(() => [
+  { title: t('total'), value: '' },
+  { title: t('byModelRole'), value: 'modelRole' },
+  { title: t('byModel'), value: 'model' },
+  { title: t('byProfile'), value: 'profile' },
+  { title: t('byTokenClass'), value: 'tokenType' }
+])
+
+const dimensionQuery = computed(() => dimension.value ? `&dimension=${dimension.value}` : '')
+
 const usersFetch = useFetch<{ users: UserHistory[] }>(
-  () => `${$apiPath}/usage/${props.accountType}/${props.accountId}/history?scope=users&days=7`
+  () => `${$apiPath}/usage/${props.accountType}/${props.accountId}/history?scope=users&days=7${dimensionQuery.value}`
 )
 
 const weekDays = computed(() => {
@@ -96,7 +128,8 @@ const filteredUsers = computed(() => {
       return {
         userId: user.userId,
         userLabel: formatUserLabel(user.userId, user.userName),
-        cost: entry?.cost ?? 0
+        cost: entry?.cost ?? 0,
+        breakdown: entry?.breakdown
       }
     })
     .filter(u => u.cost > 0)

@@ -82,6 +82,39 @@ test.describe('Usage API', () => {
     assert.ok(res.data.monthly.resetsAt)
   })
 
+  test('should record usage dimensions for a gateway request', async () => {
+    const cookieString = await user.cookieJar.getCookieString(directoryUrl)
+    const provider = createOpenAI({
+      baseURL: `http://localhost:${process.env.DEV_API_PORT}/api/gateway/user/test-standalone1/v1`,
+      apiKey: 'unused',
+      headers: { ...proxyHeaders, cookie: cookieString },
+      name: 'data-fair-gateway'
+    })
+    await generateText({
+      model: provider.chat('assistant'),
+      messages: [{ role: 'user', content: 'hello' }]
+    })
+
+    const today = new Date().toISOString().slice(0, 10)
+    const todayEntry = (entries: any[]) => entries.find(e => e.label === today)
+
+    const byRole = await user.get('/api/usage/user/test-standalone1/history?scope=account-daily&days=7&dimension=modelRole')
+    assert.equal(byRole.status, 200)
+    assert.ok(todayEntry(byRole.data.entries).breakdown.assistant > 0)
+
+    const byModel = await user.get('/api/usage/user/test-standalone1/history?scope=account-daily&days=7&dimension=model')
+    assert.ok(todayEntry(byModel.data.entries).breakdown['mock-model'] > 0)
+
+    const byProfile = await user.get('/api/usage/user/test-standalone1/history?scope=account-daily&days=7&dimension=profile')
+    const profile = todayEntry(byProfile.data.entries).breakdown
+    assert.equal(Object.keys(profile).length, 1)
+
+    const byToken = await user.get('/api/usage/user/test-standalone1/history?scope=account-daily&days=7&dimension=tokenType')
+    const tokens = todayEntry(byToken.data.entries).breakdown
+    assert.ok(tokens.input > 0)
+    assert.ok(tokens.output > 0)
+  })
+
   test('should return zero usage when no requests made', async () => {
     const res = await user.get('/api/usage/user/test-standalone1')
     assert.equal(res.status, 200)

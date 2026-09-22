@@ -4,7 +4,7 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { checkQuota, computeCredits, priceTokens, toCredits, firstQuotaViolation, isUntrustedRole, type UsageInfo, type UsageLimits } from '../../../api/src/usage/operations.ts'
+import { checkQuota, computeCredits, computeCreditBreakdown, priceTokens, priceTokensBreakdown, toCredits, firstQuotaViolation, isUntrustedRole, encodeBreakdownKey, decodeBreakdownKey, type UsageInfo, type UsageLimits } from '../../../api/src/usage/operations.ts'
 
 function mkUsage (daily: number, weekly: number, monthly: number): UsageInfo {
   return {
@@ -170,5 +170,65 @@ test.describe('computeCredits', () => {
     // 100k @0.40 + 900k @0.08 = 0.112 EUR = 0.28 credits
     assert.ok(cached < uncached)
     assert.equal(Number(cached.toFixed(10)), 0.28)
+  })
+})
+
+test.describe('priceTokensBreakdown', () => {
+  const prices = { inputPricePerMillion: 3, outputPricePerMillion: 15, cachedInputPricePerMillion: 0.3 }
+
+  test('splits fresh input, cached input and output', () => {
+    const breakdown = priceTokensBreakdown(
+      { inputTokens: 1_000_000, outputTokens: 100_000, noCacheTokens: 400_000, cacheReadTokens: 600_000 },
+      prices
+    )
+    assert.equal(breakdown.input, 1.2)
+    assert.equal(breakdown.cachedInput, 0.18)
+    assert.equal(breakdown.output, 1.5)
+    assert.equal(breakdown.total, 1.2 + 0.18 + 1.5)
+  })
+
+  test('cache writes bill with fresh input in the input class', () => {
+    const breakdown = priceTokensBreakdown(
+      { inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 400_000, cacheReadTokens: 200_000, cacheWriteTokens: 400_000 },
+      prices
+    )
+    assert.equal(breakdown.input, (400_000 + 400_000) * 3 / 1_000_000)
+    assert.equal(breakdown.cachedInput, 0.06)
+  })
+
+  test('the classes always sum to the historical priceTokens total', () => {
+    const counts = { inputTokens: 1_000_000, outputTokens: 100_000, noCacheTokens: 400_000, cacheReadTokens: 200_000, cacheWriteTokens: 400_000 }
+    const breakdown = priceTokensBreakdown(counts, prices)
+    const historical = priceTokens(counts, prices)
+    assert.equal(breakdown.total, historical.total)
+    assert.equal(breakdown.input + breakdown.cachedInput, historical.input)
+  })
+})
+
+test.describe('computeCreditBreakdown', () => {
+  test('splits credits by token class and totals like computeCredits', () => {
+    const counts = { inputTokens: 1_000_000, outputTokens: 100_000, noCacheTokens: 500_000, cacheReadTokens: 500_000, cacheWriteTokens: 0 }
+    const prices = { inputPricePerMillion: 0.4, cachedInputPricePerMillion: 0.08, outputPricePerMillion: 0.8 }
+    const breakdown = computeCreditBreakdown(counts, prices, 0.4)
+    assert.equal(breakdown.total, computeCredits(counts, prices, 0.4))
+    // 500k @0.40 = 0.20 EUR = 0.5 credit, 500k @0.08 = 0.04 EUR = 0.1 credit, 100k @0.80 = 0.08 EUR = 0.2 credit
+    assert.equal(Number(breakdown.input.toFixed(10)), 0.5)
+    assert.equal(Number(breakdown.cachedInput.toFixed(10)), 0.1)
+    assert.equal(Number(breakdown.output.toFixed(10)), 0.2)
+    assert.equal(Number(breakdown.total.toFixed(10)), 0.8)
+  })
+})
+
+test.describe('breakdown key encoding', () => {
+  test('escapes the characters MongoDB field paths reject', () => {
+    assert.equal(encodeBreakdownKey('gpt-3.5-turbo'), 'gpt-3%2E5-turbo')
+    assert.equal(encodeBreakdownKey('$weird'), '%24weird')
+    assert.equal(encodeBreakdownKey('100%'), '100%25')
+  })
+
+  test('round-trips model ids with dots and other special characters', () => {
+    for (const value of ['gpt-3.5-turbo', 'meta-llama/Llama-3.1-8B', 'a$b.c%d', 'assistant']) {
+      assert.equal(decodeBreakdownKey(encodeBreakdownKey(value)), value)
+    }
   })
 })

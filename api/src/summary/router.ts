@@ -5,7 +5,7 @@ import config from '#config'
 import { getSettings, defaultQuotas } from '../settings/service.ts'
 import { resolveRoleModel, type ResolvedRoleModel } from '../models/service.ts'
 import { recordUsage } from '../usage/service.ts'
-import { computeCredits } from '../usage/operations.ts'
+import { computeCreditBreakdown } from '../usage/operations.ts'
 import { resolveUsageIdentity, enforceQuotas } from '../usage/enforce.ts'
 import { isStrikeCooldownActive, recordStrikeRefusal } from '../moderation/service.ts'
 
@@ -74,13 +74,24 @@ router.post('/:type/:id', async (req, res, next) => {
     const inputTokens = usage?.inputTokens ?? 0
     const outputTokens = usage?.outputTokens ?? 0
     const details = usage?.inputTokenDetails
-    const cost = computeCredits(
+    const credits = computeCreditBreakdown(
       { inputTokens, outputTokens, noCacheTokens: details?.noCacheTokens, cacheReadTokens: details?.cacheReadTokens, cacheWriteTokens: details?.cacheWriteTokens },
       entry,
       config.eurosPerCredit
     )
-    if (cost > 0) {
-      await recordUsage(owner, cost, usageUserId, usageUserName, poolId)
+    if (credits.total > 0) {
+      await recordUsage(owner, {
+        cost: credits.total,
+        userId: usageUserId,
+        userName: usageUserName,
+        poolId,
+        dimensions: {
+          modelRole: 'summarizer',
+          model: entry.id,
+          profile: identity.role,
+          tokenCosts: { input: credits.input, cachedInput: credits.cachedInput, output: credits.output }
+        }
+      })
     }
 
     res.json({ summary: text })

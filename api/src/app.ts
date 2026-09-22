@@ -61,11 +61,14 @@ if (process.env.NODE_ENV === 'development') {
     res.send()
   })
   app.post('/api/test-env/usage', async (req, res) => {
-    const { owner, cost, userId, userName, period: explicitPeriod } = req.body
+    const { owner, cost, userId, userName, period: explicitPeriod, breakdown } = req.body
     const now = new Date()
-    const userIdField = userId !== undefined ? { userId } : {}
+    // Account-level records are the ones without a userId; the filter must say so
+    // explicitly, otherwise the upsert matches (and overwrites) a per-user record.
+    const userIdField = userId !== undefined ? { userId } : { userId: { $exists: false } }
     const userNameField = userName !== undefined ? { userName } : {}
-    const doc = { owner, ...userIdField, ...userNameField, cost, updatedAt: now.toISOString() }
+    const breakdownField = breakdown !== undefined ? { breakdown } : {}
+    const doc = { owner, ...(userId !== undefined ? { userId } : {}), ...userNameField, cost, ...breakdownField, updatedAt: now.toISOString() }
 
     const isoWeek = (d: Date) => {
       const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
