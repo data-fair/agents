@@ -99,4 +99,76 @@ test.describe('Autonomous agents API', () => {
     const created = await admin.post('/api/autonomous-agents/organization/test1', validAgent())
     await assert.rejects(orgAdmin.get(`/api/autonomous-agents/organization/dev1/${created.data.id}`), { status: 403 })
   })
+
+  test('PUT replaces the writable fields and preserves the server-owned ones', async () => {
+    const created = await admin.post('/api/autonomous-agents/organization/test1', validAgent())
+
+    const updated = await admin.put(`/api/autonomous-agents/organization/test1/${created.data.id}`, {
+      ...validAgent(),
+      title: 'Renamed',
+      instructions: 'Answer in French.',
+      instructors: [{ userId: 'test1-user1', userName: 'Test User' }]
+    })
+
+    assert.equal(updated.status, 200)
+    assert.equal(updated.data.title, 'Renamed')
+    assert.equal(updated.data.instructions, 'Answer in French.')
+    assert.deepEqual(updated.data.instructors, [{ userId: 'test1-user1', userName: 'Test User' }])
+    assert.equal(updated.data.id, created.data.id)
+    assert.equal(updated.data.createdAt, created.data.createdAt)
+    assert.notEqual(updated.data.updatedAt, created.data.createdAt)
+  })
+
+  test('PUT drops a field that is absent from the new body', async () => {
+    const created = await admin.post('/api/autonomous-agents/organization/test1', { ...validAgent(), instructions: 'Initial.' })
+    const updated = await admin.put(`/api/autonomous-agents/organization/test1/${created.data.id}`, validAgent())
+    assert.equal('instructions' in updated.data, false)
+  })
+
+  test('PUT refuses an unknown serverId', async () => {
+    const created = await admin.post('/api/autonomous-agents/organization/test1', validAgent())
+    await assert.rejects(
+      admin.put(`/api/autonomous-agents/organization/test1/${created.data.id}`, { ...validAgent(), mcpServers: [{ serverId: 'no-such-server' }] }),
+      (err: any) => { assert.equal(err.status, 400); assert.match(String(err.data), /no-such-server/); return true }
+    )
+  })
+
+  test('PUT on an unknown autonomous agent is a 404', async () => {
+    await assert.rejects(
+      admin.put('/api/autonomous-agents/organization/test1/no-such-agent', validAgent()),
+      { status: 404 }
+    )
+  })
+
+  test('the rollout gate refuses a PUT from an org admin not in admin mode', async () => {
+    const created = await admin.post('/api/autonomous-agents/organization/test1', validAgent())
+    await assert.rejects(
+      orgAdmin.put(`/api/autonomous-agents/organization/test1/${created.data.id}`, { ...validAgent(), title: 'Nope' }),
+      { status: 403 }
+    )
+  })
+
+  test('DELETE removes it and a second DELETE is a 404', async () => {
+    const created = await admin.post('/api/autonomous-agents/organization/test1', validAgent())
+
+    const deleted = await admin.delete(`/api/autonomous-agents/organization/test1/${created.data.id}`)
+    assert.equal(deleted.status, 204)
+
+    await assert.rejects(
+      admin.get(`/api/autonomous-agents/organization/test1/${created.data.id}`),
+      { status: 404 }
+    )
+    await assert.rejects(
+      admin.delete(`/api/autonomous-agents/organization/test1/${created.data.id}`),
+      { status: 404 }
+    )
+  })
+
+  test('an autonomous agent of another account cannot be reached by id', async () => {
+    const created = await admin.post('/api/autonomous-agents/organization/test1', validAgent())
+    await assert.rejects(
+      admin.get(`/api/autonomous-agents/organization/dev1/${created.data.id}`),
+      { status: 404 }
+    )
+  })
 })

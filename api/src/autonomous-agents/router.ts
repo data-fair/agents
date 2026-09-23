@@ -75,3 +75,47 @@ router.get('/:type/:id/:agentId', async (req, res, next) => {
     res.json(autonomousAgent)
   } catch (err) { next(err) }
 })
+
+router.put('/:type/:id/:agentId', async (req, res, next) => {
+  try {
+    const session = reqWriteSession(req)
+    const owner = { type: req.params.type, id: req.params.id } as AccountKeys
+    assertAccountRole(session, owner, 'admin')
+    const body = writeReqBody.returnValid(req.body, { name: 'body' })
+    assertKnownMcpServers(body.mcpServers)
+
+    const existing = await getAutonomousAgent(owner, req.params.agentId)
+    if (!existing) throw httpError(404, 'unknown autonomous agent')
+
+    // Whole-document replace of the client-writable subset: one owner, one write
+    // route, so there is no disjoint half to preserve the way settings has. The
+    // server-owned fields are carried over explicitly, and any writable field absent
+    // from the body is genuinely dropped.
+    const updated = {
+      ...body,
+      id: existing.id,
+      owner: existing.owner,
+      createdAt: existing.createdAt,
+      ...(existing.createdBy ? { createdBy: existing.createdBy } : {}),
+      updatedAt: new Date().toISOString()
+    }
+    await mongo.autonomousAgents.replaceOne({ id: existing.id, 'owner.type': owner.type, 'owner.id': owner.id }, { ...updated })
+
+    eventsLog.info('agents.autonomous-agent.update', `autonomous agent ${existing.id} updated for owner ${owner.type}/${owner.id}`, { req })
+    res.json(updated)
+  } catch (err) { next(err) }
+})
+
+router.delete('/:type/:id/:agentId', async (req, res, next) => {
+  try {
+    const session = reqWriteSession(req)
+    const owner = { type: req.params.type, id: req.params.id } as AccountKeys
+    assertAccountRole(session, owner, 'admin')
+
+    const result = await mongo.autonomousAgents.deleteOne({ id: req.params.agentId, 'owner.type': owner.type, 'owner.id': owner.id })
+    if (!result.deletedCount) throw httpError(404, 'unknown autonomous agent')
+
+    eventsLog.info('agents.autonomous-agent.delete', `autonomous agent ${req.params.agentId} deleted for owner ${owner.type}/${owner.id}`, { req })
+    res.status(204).send()
+  } catch (err) { next(err) }
+})
