@@ -332,7 +332,7 @@ git commit -m "feat(autonomous-agents): global MCP server catalog config"
 
 **Files:**
 - Create: `api/types/autonomous-agent/schema.js`
-- Create: `api/doc/autonomous-agents/write-req/schema.js`
+- Create: `api/doc/autonomous-agents/autonomous-agent-write-req/schema.js`
 - Create: `api/src/autonomous-agents/operations.ts`
 - Create: `tests/features/autonomous-agents/autonomous-agents.unit.spec.ts`
 - Modify: `api/types/index.ts` (export the new schema and type)
@@ -346,7 +346,7 @@ git commit -m "feat(autonomous-agents): global MCP server catalog config"
   - `interface InstructSession { user: { id: string, adminMode?: boolean }, account: { type: string, id: string }, accountRole?: string }`
   - `canInstruct(agent: Pick<AutonomousAgent, 'owner' | 'instructors'>, session: InstructSession): boolean`
   - `mongo.autonomousAgents` collection accessor
-  - Validator `returnValid` at `#doc/autonomous-agents/write-req/index.ts`
+  - Validator `returnValid` at `#doc/autonomous-agents/autonomous-agent-write-req/index.ts`
 
 - [ ] **Step 1: Write the failing test**
 
@@ -576,7 +576,7 @@ export default {
 
 - [ ] **Step 4: Write the write-request schema**
 
-Create `api/doc/autonomous-agents/write-req/schema.js`. It picks the client-writable subset — `id`, `owner`, `createdAt`, `updatedAt` and `createdBy` are server-owned:
+Create `api/doc/autonomous-agents/autonomous-agent-write-req/schema.js`. It picks the client-writable subset — `id`, `owner`, `createdAt`, `updatedAt` and `createdBy` are server-owned:
 
 ```js
 import AutonomousAgentSchema from '#types/autonomous-agent/schema.js'
@@ -704,7 +704,7 @@ In `api/src/app.ts`, inside the `NODE_ENV === 'development'` `DELETE /api/test-e
 - [ ] **Step 8: Regenerate types and verify**
 
 Run: `npm run build-types && npm run check-types && npm run lint-fix`
-Expected: no errors. `api/doc/autonomous-agents/write-req/index.ts` now exists with a `returnValid` export, and `ui/src/components/vjsf/vjsf-write-req-en.vue` / `-fr.vue` are generated.
+Expected: no errors. `api/doc/autonomous-agents/autonomous-agent-write-req/index.ts` now exists with a `returnValid` export, and `ui/src/components/vjsf/vjsf-autonomous-agent-write-req-en.vue` / `-fr.vue` are generated.
 
 Run: `npm run test-unit`
 Expected: PASS.
@@ -918,7 +918,7 @@ import { nanoid } from 'nanoid'
 import mongo from '#mongo'
 import { type AccountKeys, assertAccountRole, httpError, reqSessionAuthenticated } from '@data-fair/lib-express'
 import eventsLog from '@data-fair/lib-express/events-log.js'
-import * as writeReqBody from '#doc/autonomous-agents/write-req/index.ts'
+import * as writeReqBody from '#doc/autonomous-agents/autonomous-agent-write-req/index.ts'
 import { getAutonomousAgent, getMcpServerCatalog, reqWriteSession, assertKnownMcpServers } from './service.ts'
 
 const router = Router()
