@@ -19,6 +19,7 @@ export default {
   github: { token: undefined },
   providers: [],
   models: [],
+  mcpServers: [],
   defaultModels: {},
   // Euros of inference cost per credit. The peg is the reference model's input price
   // (deepseek-v4-flash-0731 on Scaleway, 0.40 EUR/M), and it MUST match the reference

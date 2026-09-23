@@ -21,6 +21,7 @@ export default {
   github: { token: 'GITHUB_TOKEN' },
   providers: { __name: 'PROVIDERS', __format: 'json' },
   models: { __name: 'MODELS', __format: 'json' },
+  mcpServers: { __name: 'MCP_SERVERS', __format: 'json' },
   defaultModels: { __name: 'DEFAULT_MODELS', __format: 'json' },
   eurosPerCredit: 'EUROS_PER_CREDIT',
   defaultLimits: { credits: 'DEFAULT_CREDITS' },

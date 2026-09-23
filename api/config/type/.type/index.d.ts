@@ -52,6 +52,15 @@ export type ApiConfig = {
     outputPricePerMillion: number;
     cachedInputPricePerMillion?: number;
   }[];
+  mcpServers?: {
+    id: string;
+    name: string;
+    description?: string;
+    url: string;
+    auth: "nhi-session" | "none" | "apiKey";
+    apiKeyHeader?: string;
+    apiKey?: string;
+  }[];
   defaultModels?: {
     assistant?: ModelRef;
     tools?: ModelRef;

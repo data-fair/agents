@@ -101,6 +101,24 @@
         }
       }
     },
+    "mcpServers": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "url", "auth"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "url": { "type": "string" },
+          "auth": { "type": "string", "enum": ["nhi-session", "none", "apiKey"] },
+          "apiKeyHeader": { "type": "string" },
+          "apiKey": { "type": "string" }
+        }
+      }
+    },
     "defaultModels": {
       "type": "object",
       "additionalProperties": false,

@@ -23,6 +23,13 @@ export default {
   providers: [{ type: 'mock', id: 'global-mock', name: 'Global Mock', enabled: true }],
   models: [{ id: 'mock-model', name: 'Global Mock Model', provider: 'global-mock', usage: ['assistant', 'tools', 'summarizer', 'evaluator', 'moderator'], inputPricePerMillion: 0, outputPricePerMillion: 0 }],
   defaultModels: { assistant: { provider: 'global-mock', id: 'mock-model' } },
+  // Placeholder dev catalog: the URLs are deliberately unreachable. Plan A only
+  // needs entries to exist so autonomous agents can reference them; Plan B replaces
+  // these with a real in-process MCP fixture once there is a client to call it.
+  mcpServers: [
+    { id: 'dev-public-mcp', name: 'Dev Public MCP', url: 'http://localhost:1/mcp', auth: 'none' },
+    { id: 'dev-session-mcp', name: 'Dev Session MCP', url: 'http://localhost:1/mcp', auth: 'nhi-session' }
+  ],
   // uncapped in dev/test: the production default of 0 would block every
   // account that has not been pushed a limit, which most specs never do
   defaultLimits: { credits: -1 }
