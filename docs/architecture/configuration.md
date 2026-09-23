@@ -100,15 +100,15 @@ Note `evaluator` is intentionally omitted above — with no global default and n
 
 ### `EUROS_PER_CREDIT`
 
-Plain number (not JSON), default `0.4`. Euros of inference cost per credit — the single peg that turns the per-model euro prices above into the billed unit.
+Plain number (not JSON), default `0.008`. Euros of inference cost per credit — the single peg that turns the per-model euro prices above into the billed unit.
 
-`0.40` is the input price of the reference model `deepseek-v4-flash-0731` on Scaleway, so one credit is roughly one million tokens consumed by that model.
+`0.008` aligns credits with euros: resold at about one euro cent, a credit carries an implicit 20% margin. The credit is deliberately abstract — it is not meant to map to a number of tokens.
 
 ```
-EUROS_PER_CREDIT=0.4
+EUROS_PER_CREDIT=0.008
 ```
 
-**This value must match the reference price in `customers/docs/ai-credits-pricing.md`.** That document derives every plan allowance and every margin from it. If Scaleway moves the reference price, the credit's cost moves and every margin moves with it, with nothing in either codebase saying so — the two have to be changed together.
+**This value must match the credit cost in `customers/docs/ai-credits-pricing.md`.** That document derives every plan allowance and every margin from it — the two have to be changed together, with nothing in either codebase checking it.
 
 ### `DEFAULT_CREDITS`
 
@@ -241,7 +241,7 @@ This list is a best-effort contract summary written from the `agents`-side imple
 
 The `upgrade/0.10.0/better-config.js` migration (only runs once the deployed service version is bumped to **0.10.0 or higher** — see `api/src/server.ts`'s upgrade-script runner) carries every org's old `quotas.global.monthlyLimit` number across **1:1** into the new `ai_credits.limit` on that org's `limits` doc (`unlimited`/falsy `monthlyLimit` → `-1`).
 
-**The number is preserved; the unit is not.** The old limit was a budget in the deployment's currency; the new one is a budget in credits. A credit is worth `EUROS_PER_CREDIT` euros of inference — the default `0.40` is the reference model's input price, so one credit buys roughly one million tokens of that model. Read in the old currency, a migrated cap is therefore `limit × EUROS_PER_CREDIT`: a migrated `10` is 4 EUR at the default peg where the old `10` was 10 EUR, i.e. **1 / EUROS_PER_CREDIT times tighter** (2.5x at `0.40`). An operator carrying an old euro budget over unchanged must multiply the migrated cap by `1 / EUROS_PER_CREDIT`; setting `EUROS_PER_CREDIT=1` makes a credit the old currency unit outright. The migration also carries each old role entry's `inputPricePerMillion` / `outputPricePerMillion` / `cachedInputPricePerMillion` onto its new catalog entry, so what a model costs does not change either.
+**The number is preserved; the unit is not.** The old limit was a budget in the deployment's currency; the new one is a budget in credits. A credit is worth `EUROS_PER_CREDIT` euros of inference (default `0.008`). Read in the old currency, a migrated cap is therefore `limit × EUROS_PER_CREDIT`: a migrated `10` is 0.08 EUR at the default peg where the old `10` was 10 EUR, i.e. **1 / EUROS_PER_CREDIT times tighter** (125x at `0.008`). An operator carrying an old euro budget over unchanged must multiply the migrated cap by `1 / EUROS_PER_CREDIT`; setting `EUROS_PER_CREDIT=1` makes a credit the old currency unit outright. The migration also carries each old role entry's `inputPricePerMillion` / `outputPricePerMillion` / `cachedInputPricePerMillion` onto its new catalog entry, so what a model costs does not change either.
 
 **What does need review: migrated models that had no prices.** An old role entry without them migrates to `0`, which is what it cost before (the old resolver read every price `?? 0`), and that model bills **nothing** until an admin prices it. Boot validation cannot catch this — it guards new config, not stored documents.
 

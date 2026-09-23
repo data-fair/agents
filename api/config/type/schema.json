@@ -113,7 +113,7 @@
         "moderator": { "$ref": "#/$defs/modelRef" }
       }
     },
-    "eurosPerCredit": { "type": "number", "exclusiveMinimum": 0, "default": 0.4 },
+    "eurosPerCredit": { "type": "number", "exclusiveMinimum": 0, "default": 0.008 },
     "defaultLimits": {
       "type": "object",
       "additionalProperties": false,

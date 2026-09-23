@@ -20,11 +20,11 @@ export default {
   providers: [],
   models: [],
   defaultModels: {},
-  // Euros of inference cost per credit. The peg is the reference model's input price
-  // (deepseek-v4-flash-0731 on Scaleway, 0.40 EUR/M), and it MUST match the reference
-  // price in customers/docs/ai-credits-pricing.md — if the two drift, every margin in
-  // that document moves and nothing in either codebase says so.
-  eurosPerCredit: 0.4,
+  // Euros of inference cost per credit. 0.008 EUR lets a credit resell for about a
+  // euro cent with an implicit 20% margin. It MUST match the credit cost in
+  // customers/docs/ai-credits-pricing.md — if the two drift, every margin in that
+  // document moves and nothing in either codebase says so.
+  eurosPerCredit: 0.008,
   // 0 = accounts start capped until the customers service (or an ops admin)
   // pushes them a real limit. Set DEFAULT_CREDITS to -1 for an uncapped
   // deployment, e.g. a self-hosted instance using its own provider keys.

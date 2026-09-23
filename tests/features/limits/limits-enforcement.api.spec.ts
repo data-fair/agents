@@ -30,8 +30,8 @@ const settingsData = {
     {
       model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
       usage: ['assistant'],
-      inputPricePerMillion: 400_000,
-      outputPricePerMillion: 400_000
+      inputPricePerMillion: 8_000,
+      outputPricePerMillion: 8_000
     }
   ],
   modelMapping: {

@@ -14,14 +14,14 @@ const externalUser = await axiosAuth('test1-user1')  // not a member of test-sta
 
 const settingsData = {
   providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
-  // 400 000 EUR/M at the 0.40 peg makes one token cost one credit, so the request records
+  // 8 000 EUR/M at the 0.008 peg makes one token cost one credit, so the request records
   // a measurable amount on the consumed account
   models: [
     {
       model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
       usage: ['assistant'],
-      inputPricePerMillion: 400_000,
-      outputPricePerMillion: 400_000
+      inputPricePerMillion: 8_000,
+      outputPricePerMillion: 8_000
     }
   ],
   modelMapping: {

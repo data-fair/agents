@@ -22,7 +22,7 @@ const settingsData = {
       enabled: true
     }
   ],
-  // 400 000 EUR/M at the 0.40 EUR/credit peg makes one token cost one credit
+  // 8 000 EUR/M at the 0.008 EUR/credit peg makes one token cost one credit
   // (credits = tokens × price / 1e6 / eurosPerCredit), so a single mock request
   // produces a measurable, non-zero usage record. This suite deliberately keeps
   // non-zero prices: it is the one that exercises the pricing formula end to end.
@@ -30,8 +30,8 @@ const settingsData = {
     {
       model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
       usage: ['assistant'],
-      inputPricePerMillion: 400_000,
-      outputPricePerMillion: 400_000
+      inputPricePerMillion: 8_000,
+      outputPricePerMillion: 8_000
     }
   ],
   modelMapping: {
