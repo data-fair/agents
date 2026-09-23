@@ -14,7 +14,13 @@ export default {
       required: ['type', 'id'],
       readOnly: true,
       properties: {
-        type: { type: 'string', enum: ['user', 'organization'] },
+        // Autonomous agents are only ever owned by an organization: their identity
+        // model rests on NHIs, which simple-directory binds to exactly one
+        // organization, so a personal-account (owner.type: 'user') autonomous agent
+        // is meaningless. See assertOrganizationOwner in api/src/autonomous-agents/service.ts,
+        // which enforces this at the route level (a schema enum alone cannot: it
+        // guards writes, not the read paths keyed on the URL's :type param).
+        type: { type: 'string', enum: ['organization'] },
         id: { type: 'string' },
         name: { type: 'string' },
         department: { type: 'string' }

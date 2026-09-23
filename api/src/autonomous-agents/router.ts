@@ -10,7 +10,7 @@ import mongo from '#mongo'
 import { type AccountKeys, assertAccountRole, httpError, reqSessionAuthenticated } from '@data-fair/lib-express'
 import eventsLog from '@data-fair/lib-express/events-log.js'
 import * as writeReqBody from '#doc/autonomous-agents/autonomous-agent-write-req/index.ts'
-import { getAutonomousAgent, getMcpServerCatalog, reqWriteSession, assertKnownMcpServers } from './service.ts'
+import { getAutonomousAgent, getMcpServerCatalog, reqWriteSession, assertKnownMcpServers, assertOrganizationOwner } from './service.ts'
 
 const router = Router()
 export default router
@@ -22,6 +22,7 @@ router.get('/:type/:id/mcp-servers', async (req, res, next) => {
   try {
     const session = reqSessionAuthenticated(req)
     const owner = { type: req.params.type, id: req.params.id } as AccountKeys
+    assertOrganizationOwner(owner)
     assertAccountRole(session, owner, 'admin')
     const results = getMcpServerCatalog()
     res.json({ results, count: results.length })
@@ -32,6 +33,7 @@ router.get('/:type/:id', async (req, res, next) => {
   try {
     const session = reqSessionAuthenticated(req)
     const owner = { type: req.params.type, id: req.params.id } as AccountKeys
+    assertOrganizationOwner(owner)
     assertAccountRole(session, owner, 'admin')
     const results = await mongo.autonomousAgents
       .find({ 'owner.type': owner.type, 'owner.id': owner.id }, { projection: { _id: 0 } })
@@ -43,9 +45,11 @@ router.get('/:type/:id', async (req, res, next) => {
 
 router.post('/:type/:id', async (req, res, next) => {
   try {
-    const session = reqWriteSession(req)
+    const session = reqSessionAuthenticated(req)
     const owner = { type: req.params.type, id: req.params.id } as AccountKeys
+    assertOrganizationOwner(owner)
     assertAccountRole(session, owner, 'admin')
+    reqWriteSession(req) // progressive-rollout gate, last: see reqWriteSession's doc comment
     const body = writeReqBody.returnValid(req.body, { name: 'body' })
     assertKnownMcpServers(body.mcpServers)
 
@@ -69,6 +73,7 @@ router.get('/:type/:id/:agentId', async (req, res, next) => {
   try {
     const session = reqSessionAuthenticated(req)
     const owner = { type: req.params.type, id: req.params.id } as AccountKeys
+    assertOrganizationOwner(owner)
     assertAccountRole(session, owner, 'admin')
     const autonomousAgent = await getAutonomousAgent(owner, req.params.agentId)
     if (!autonomousAgent) throw httpError(404, 'unknown autonomous agent')
@@ -78,9 +83,11 @@ router.get('/:type/:id/:agentId', async (req, res, next) => {
 
 router.put('/:type/:id/:agentId', async (req, res, next) => {
   try {
-    const session = reqWriteSession(req)
+    const session = reqSessionAuthenticated(req)
     const owner = { type: req.params.type, id: req.params.id } as AccountKeys
+    assertOrganizationOwner(owner)
     assertAccountRole(session, owner, 'admin')
+    reqWriteSession(req) // progressive-rollout gate, last: see reqWriteSession's doc comment
     const body = writeReqBody.returnValid(req.body, { name: 'body' })
     assertKnownMcpServers(body.mcpServers)
 
@@ -108,9 +115,11 @@ router.put('/:type/:id/:agentId', async (req, res, next) => {
 
 router.delete('/:type/:id/:agentId', async (req, res, next) => {
   try {
-    const session = reqWriteSession(req)
+    const session = reqSessionAuthenticated(req)
     const owner = { type: req.params.type, id: req.params.id } as AccountKeys
+    assertOrganizationOwner(owner)
     assertAccountRole(session, owner, 'admin')
+    reqWriteSession(req) // progressive-rollout gate, last: see reqWriteSession's doc comment
 
     const result = await mongo.autonomousAgents.deleteOne({ id: req.params.agentId, 'owner.type': owner.type, 'owner.id': owner.id })
     if (!result.deletedCount) throw httpError(404, 'unknown autonomous agent')

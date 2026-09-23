@@ -10,6 +10,18 @@ import { listMcpServerCatalog, unknownMcpServerIds } from '../mcp-servers/operat
 
 export const getMcpServerCatalog = () => listMcpServerCatalog(config.mcpServers ?? [])
 
+/**
+ * Autonomous agents are only ever owned by an organization: their identity model
+ * rests on NHIs, which simple-directory binds to exactly one organization, so a
+ * personal-account (owner.type: 'user') autonomous agent is meaningless. It is also
+ * unsafe: a user is always 'admin' of their own personal account (see
+ * getAccountRole in @data-fair/lib-common-types/session), so assertAccountRole alone
+ * never rejects owner.type: 'user' — every route must call this first.
+ */
+export function assertOrganizationOwner (owner: AccountKeys): asserts owner is AccountKeys & { type: 'organization' } {
+  if (owner.type !== 'organization') throw httpError(400, 'autonomous agents can only be owned by an organization')
+}
+
 export const getAutonomousAgent = async (owner: AccountKeys, id: string) => {
   return await mongo.autonomousAgents.findOne(
     { id, 'owner.type': owner.type, 'owner.id': owner.id },

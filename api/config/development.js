@@ -28,7 +28,11 @@ export default {
   // these with a real in-process MCP fixture once there is a client to call it.
   mcpServers: [
     { id: 'dev-public-mcp', name: 'Dev Public MCP', url: 'http://localhost:1/mcp', auth: 'none' },
-    { id: 'dev-session-mcp', name: 'Dev Session MCP', url: 'http://localhost:1/mcp', auth: 'nhi-session' }
+    { id: 'dev-session-mcp', name: 'Dev Session MCP', url: 'http://localhost:1/mcp', auth: 'nhi-session' },
+    // Only entry that carries a credential — needed so the "no credentials in the
+    // catalog" api test actually exercises the apiKey-stripping path instead of
+    // trivially passing because no configured entry ever had a key to leak.
+    { id: 'dev-apikey-mcp', name: 'Dev API-key MCP', url: 'http://localhost:1/mcp', auth: 'apiKey', apiKeyHeader: 'x-api-key', apiKey: 'dev-secret-value' }
   ],
   // uncapped in dev/test: the production default of 0 would block every
   // account that has not been pushed a limit, which most specs never do

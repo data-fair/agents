@@ -29,11 +29,44 @@ test.describe('Autonomous agents API', () => {
     const publicServer = res.data.results.find((s: any) => s.id === 'dev-public-mcp')
     assert.ok(publicServer, 'expected the dev-config public MCP server')
     assert.equal(publicServer.auth, 'none')
-    assert.equal(JSON.stringify(res.data).includes('apiKey'), false)
+
+    // dev-apikey-mcp is the only dev-config entry that carries a credential — without
+    // it, this "no credentials leak" assertion would pass trivially, since none of the
+    // other entries ever had an apiKey to strip in the first place. Its `auth: "apiKey"`
+    // value is expected to come through (that's the auth MODE, not the credential), so
+    // check for the `apiKey`/`apiKeyHeader` KEYS and the secret's literal VALUE rather
+    // than the bare substring "apiKey", which "auth":"apiKey" legitimately contains.
+    const apiKeyServer = res.data.results.find((s: any) => s.id === 'dev-apikey-mcp')
+    assert.ok(apiKeyServer, 'expected the dev-config apiKey MCP server')
+    assert.equal(apiKeyServer.auth, 'apiKey')
+    assert.equal('apiKey' in apiKeyServer, false)
+    assert.equal('apiKeyHeader' in apiKeyServer, false)
+    assert.equal(JSON.stringify(res.data).includes('dev-secret-value'), false)
   })
 
   test('a non-admin member cannot read the MCP catalog', async () => {
     await assert.rejects(orgMember.get('/api/autonomous-agents/organization/test1/mcp-servers'), { status: 403 })
+  })
+
+  // A user is always 'admin' of their own personal account (getAccountRole in
+  // @data-fair/lib-common-types/session), so assertAccountRole alone never refuses
+  // owner.type: 'user' — including the user's OWN personal account, with no org
+  // switching needed. assertOrganizationOwner is the only thing standing in front of
+  // this. Uses orgMember (test1-user1) precisely because it is otherwise a nobody —
+  // a plain member of test1, not an admin of anything — yet still self-admin of its
+  // own personal account.
+  test('a personal account owner is refused reading the MCP catalog, even the caller\'s own', async () => {
+    await assert.rejects(
+      orgMember.get('/api/autonomous-agents/user/test1-user1/mcp-servers'),
+      (err: any) => { assert.equal(err.status, 400); assert.match(String(err.data), /organization/); return true }
+    )
+  })
+
+  test('a personal account owner is refused creating an autonomous agent, even the caller\'s own', async () => {
+    await assert.rejects(
+      orgMember.post('/api/autonomous-agents/user/test1-user1', validAgent()),
+      (err: any) => { assert.equal(err.status, 400); assert.match(String(err.data), /organization/); return true }
+    )
   })
 
   test('a superadmin creates an autonomous agent and reads it back', async () => {
@@ -74,6 +107,19 @@ test.describe('Autonomous agents API', () => {
     await assert.rejects(orgAdmin.post('/api/autonomous-agents/organization/test1', validAgent()), { status: 403 })
   })
 
+  // assertAccountRole now runs BEFORE the reqWriteSession rollout gate (see router.ts),
+  // so a plain org member is refused by the role check itself, not by the gate — and
+  // the two throw different messages. Asserting on the message, not just the 403,
+  // is what makes this test fail if assertAccountRole were ever removed from the
+  // handler: without it, orgMember would still get 403, just from reqWriteSession
+  // ('super admin only') instead of assertAccountRole ('requires admin role(s)').
+  test('a non-admin org member is refused POST by the role check, not merely the rollout gate', async () => {
+    await assert.rejects(
+      orgMember.post('/api/autonomous-agents/organization/test1', validAgent()),
+      (err: any) => { assert.equal(err.status, 403); assert.match(String(err.data), /requires admin/); return true }
+    )
+  })
+
   test('an org admin can READ even while the rollout gate blocks writes', async () => {
     await admin.post('/api/autonomous-agents/organization/test1', validAgent())
     const res = await orgAdmin.get('/api/autonomous-agents/organization/test1')
@@ -82,11 +128,11 @@ test.describe('Autonomous agents API', () => {
   })
 
   // Cross-account isolation is exercised on the READ path, where nothing sits in front
-  // of assertAccountRole. It cannot be exercised on the write path while
-  // autonomousAgentsRequireAdminMode is true: reqWriteSession rejects every
-  // non-superadmin before assertAccountRole runs, and a superadmin in admin mode
-  // satisfies assertAccountRole for any account by design. Add the write-path case when
-  // that flag is flipped to false.
+  // of assertAccountRole. On the write path, assertAccountRole now runs before the
+  // reqWriteSession rollout gate (see router.ts), so it is reachable there too — but a
+  // superadmin in admin mode satisfies assertAccountRole for any account by design, so
+  // that specific case still can't be exercised with the `admin` client. The
+  // org-member write-path cases just below cover the role check on the write path.
   test('an org admin is refused a cross-account list', async () => {
     await assert.rejects(orgAdmin.get('/api/autonomous-agents/organization/dev1'), { status: 403 })
   })
@@ -148,6 +194,14 @@ test.describe('Autonomous agents API', () => {
     )
   })
 
+  test('a non-admin org member is refused PUT by the role check, not merely the rollout gate', async () => {
+    const created = await admin.post('/api/autonomous-agents/organization/test1', validAgent())
+    await assert.rejects(
+      orgMember.put(`/api/autonomous-agents/organization/test1/${created.data.id}`, { ...validAgent(), title: 'Nope' }),
+      (err: any) => { assert.equal(err.status, 403); assert.match(String(err.data), /requires admin/); return true }
+    )
+  })
+
   test('DELETE removes it and a second DELETE is a 404', async () => {
     const created = await admin.post('/api/autonomous-agents/organization/test1', validAgent())
 
@@ -194,6 +248,14 @@ test.describe('Autonomous agents API', () => {
     await assert.rejects(
       orgAdmin.delete(`/api/autonomous-agents/organization/test1/${created.data.id}`),
       { status: 403 }
+    )
+  })
+
+  test('a non-admin org member is refused DELETE by the role check, not merely the rollout gate', async () => {
+    const created = await admin.post('/api/autonomous-agents/organization/test1', validAgent())
+    await assert.rejects(
+      orgMember.delete(`/api/autonomous-agents/organization/test1/${created.data.id}`),
+      (err: any) => { assert.equal(err.status, 403); assert.match(String(err.data), /requires admin/); return true }
     )
   })
 })

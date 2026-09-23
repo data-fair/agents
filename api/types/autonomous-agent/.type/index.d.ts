@@ -42,7 +42,7 @@ export type Enabled = boolean;
 export type AutonomousAgent = {
   id: string;
   owner: {
-    type: "user" | "organization";
+    type: "organization";
     id: string;
     name?: string;
     department?: string;
