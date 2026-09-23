@@ -132,8 +132,10 @@ autonomous agent document, never in a prompt, never in a stored trace.
 An autonomous agent **references catalog entries by id**, and may narrow one with
 `toolFilter`. Write-time validation rejects an unknown `serverId`, the same way
 `modelMapping` refs are validated against the catalog today. `GET
-/api/autonomous-agents/mcp-servers` returns the catalog (without secrets) to power the
-picker.
+/api/autonomous-agents/:type/:id/mcp-servers` returns the catalog (without secrets) to
+power the picker — account-scoped like `GET /api/catalog/:type/:id`, so the endpoint
+has a real authorization subject and the vjsf picker can interpolate the account the
+same way the model picker does.
 
 Two consequences worth naming:
 
