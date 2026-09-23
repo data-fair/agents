@@ -171,4 +171,29 @@ test.describe('Autonomous agents API', () => {
       { status: 404 }
     )
   })
+
+  test('DELETE is scoped by owner — a foreign account path does not delete it', async () => {
+    const created = await admin.post('/api/autonomous-agents/organization/test1', validAgent())
+
+    // The superadmin satisfies assertAccountRole for any account, so the mongo filter's
+    // owner clauses are the ONLY protection here. Unlike PUT, DELETE does no
+    // owner-scoped fetch first, so dropping them would silently allow a cross-account
+    // delete that every other test in this file would still pass.
+    await assert.rejects(
+      admin.delete(`/api/autonomous-agents/organization/dev1/${created.data.id}`),
+      { status: 404 }
+    )
+
+    const stillThere = await admin.get(`/api/autonomous-agents/organization/test1/${created.data.id}`)
+    assert.equal(stillThere.status, 200)
+    assert.equal(stillThere.data.id, created.data.id)
+  })
+
+  test('the rollout gate refuses a DELETE from an org admin not in admin mode', async () => {
+    const created = await admin.post('/api/autonomous-agents/organization/test1', validAgent())
+    await assert.rejects(
+      orgAdmin.delete(`/api/autonomous-agents/organization/test1/${created.data.id}`),
+      { status: 403 }
+    )
+  })
 })
