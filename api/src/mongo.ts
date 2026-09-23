@@ -1,5 +1,6 @@
 import type { Settings } from '#types/settings/index.ts'
 import type { Limits } from '#types/limits/index.ts'
+import type { AutonomousAgent } from '#types/autonomous-agent/index.ts'
 import type { Usage } from './usage/service.ts'
 import type { TraceRequest } from './traces/types.ts'
 import type { ModerationEvent, ModerationStrike } from './moderation/types.ts'
@@ -41,6 +42,10 @@ export class AgentsMongo {
     return mongoLib.db.collection<ModerationStrike>('moderation-strikes')
   }
 
+  get autonomousAgents () {
+    return mongoLib.db.collection<AutonomousAgent>('autonomous-agents')
+  }
+
   async connect () {
     await mongoLib.connect(config.mongoUrl)
   }
@@ -75,6 +80,10 @@ export class AgentsMongo {
         'main-keys': [{ 'owner.type': 1, 'owner.id': 1, userId: 1 }, { unique: true }],
         // outlives window (24h) + cooldown (1h) comfortably
         'ttl-keys': [{ updatedAt: 1 }, { expireAfterSeconds: 48 * 60 * 60 }]
+      },
+      'autonomous-agents': {
+        'main-keys': [{ id: 1 }, { unique: true }],
+        'owner-keys': [{ 'owner.type': 1, 'owner.id': 1, updatedAt: -1 }, {}]
       }
     })
   }

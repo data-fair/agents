@@ -41,6 +41,9 @@ declare module 'vue' {
     VjsfPutReq: typeof import('./src/components/vjsf/vjsf-put-req.vue')['default']
     VjsfPutReqEn: typeof import('./src/components/vjsf/vjsf-put-req-en.vue')['default']
     VjsfPutReqFr: typeof import('./src/components/vjsf/vjsf-put-req-fr.vue')['default']
+    VjsfWriteReq: typeof import('./src/components/vjsf/vjsf-write-req.vue')['default']
+    VjsfWriteReqEn: typeof import('./src/components/vjsf/vjsf-write-req-en.vue')['default']
+    VjsfWriteReqFr: typeof import('./src/components/vjsf/vjsf-write-req-fr.vue')['default']
     WorkflowDetail: typeof import('./src/components/dev/WorkflowDetail.vue')['default']
     WorkflowWizard: typeof import('./src/components/dev/WorkflowWizard.vue')['default']
   }
