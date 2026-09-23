@@ -1214,6 +1214,23 @@ git commit -m "feat(autonomous-agents): update and delete routes"
 - **Catalog route is account-scoped.** The spec wrote `GET /api/autonomous-agents/mcp-servers`; this plan uses `GET /api/autonomous-agents/:type/:id/mcp-servers`, mirroring `GET /api/catalog/:type/:id`. It gives the endpoint a real authorization subject (`assertAccountRole(session, owner, 'admin')`) instead of leaving it as "any authenticated session", and it lets the vjsf picker interpolate `${context.accountType}/${context.accountId}` exactly as the model picker already does. The spec has been updated to match.
 - **The `shared/` extraction moves to Plan C** (spec delivery step 1 → Plan C), because its only new consumer is the runtime.
 
+## Outstanding after execution — pick up first in Plan B
+
+- **Cross-account WRITE test (parked, ~6 lines).** The final review's fix reordered the
+  write routes so `assertAccountRole` runs before the rollout gate. That makes one test
+  meaningful for the first time: `orgAdmin` (a genuine non-superadmin admin of `test1`)
+  attempting `POST`/`PUT`/`DELETE` against `organization/dev1` is now refused by
+  `assertAccountRole` itself (`requires admin role(s)`), not trivially by the gate. It is
+  the only case that proves cross-**organization** writes are blocked by the role check
+  rather than by the mongo owner filter, and it becomes load-bearing the moment
+  `AUTONOMOUS_AGENTS_REQUIRE_ADMIN_MODE` is flipped to `false`. The code is correct and
+  correctly ordered; only the coverage is short.
+- Minors carried forward: the list-scoping test would pass with the owner filter deleted;
+  no anonymous-401 test on any route; nothing pins the server-owned-field rejection
+  (`POST` with `id`/`owner`/`createdBy` → 400 via `additionalProperties: false`);
+  `mcpServers` has no duplicate-`serverId` guard; two exported types are both named
+  `AutonomousAgent` (stored vs write-req).
+
 ## Deliberately deferred
 
 - **`shared/` extraction of the loop modules** → Plan C, where the runtime that consumes them lives.
