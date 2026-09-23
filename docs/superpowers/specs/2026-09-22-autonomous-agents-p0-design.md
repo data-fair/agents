@@ -173,9 +173,20 @@ The definition, owned by an organization, written by its admins.
 }
 ```
 
+**The owner is always an organization.** `owner.type` is restricted to `organization`,
+in the schema and by a guard on every route. A personal-account autonomous agent could
+not work even in principle: the identity model rests on an NHI, and simple-directory
+binds an NHI to exactly one organization. The restriction also closes a live hole —
+`getAccountRole` returns `admin` for any user acting on their own personal account
+("user is always admin of themself"), so without the guard `assertAccountRole` is a
+no-op on a `user/<own-id>` path and every authenticated user would reach these routes.
+
 **Who may instruct.** Admins of the owning organization are implicitly authorized,
 since they configure the autonomous agent anyway; `instructors[]` extends that to named
-users who are not admins. Both paths are checked by one
+users who are not admins. A listed instructor **may come from any account** — the list
+is a deliberate grant by an org admin, consistent with the acting-identity decision that
+instructing an autonomous agent means borrowing its privileges. The grant is visible and
+revocable in exactly one place, the `instructors[]` array. Both paths are checked by one
 `canInstruct(autonomousAgent, sessionState)` helper, used by the message route, the
 websocket `canSubscribe` callback and the abort route, so the three cannot drift apart.
 
