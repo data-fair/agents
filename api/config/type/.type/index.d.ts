@@ -61,6 +61,7 @@ export type ApiConfig = {
     apiKeyHeader?: string;
     apiKey?: string;
   }[];
+  autonomousAgentsRequireAdminMode?: boolean;
   defaultModels?: {
     assistant?: ModelRef;
     tools?: ModelRef;

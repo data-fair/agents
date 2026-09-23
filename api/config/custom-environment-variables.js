@@ -22,6 +22,7 @@ export default {
   providers: { __name: 'PROVIDERS', __format: 'json' },
   models: { __name: 'MODELS', __format: 'json' },
   mcpServers: { __name: 'MCP_SERVERS', __format: 'json' },
+  autonomousAgentsRequireAdminMode: { __name: 'AUTONOMOUS_AGENTS_REQUIRE_ADMIN_MODE', __format: 'json' },
   defaultModels: { __name: 'DEFAULT_MODELS', __format: 'json' },
   eurosPerCredit: 'EUROS_PER_CREDIT',
   defaultLimits: { credits: 'DEFAULT_CREDITS' },

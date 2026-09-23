@@ -7,6 +7,7 @@ import settingsRouter from './settings/router.ts'
 import adminRouter from './admin/router.ts'
 import modelsRouter, { getModelsForOwner } from './models/router.ts'
 import catalogRouter from './catalog/router.ts'
+import autonomousAgentsRouter from './autonomous-agents/router.ts'
 import summaryRouter from './summary/router.ts'
 import gatewayRouter from './gateway/router.ts'
 import usageRouter from './usage/router.ts'
@@ -41,6 +42,7 @@ app.use('/api/admin', adminRouter)
 app.use('/api/settings', settingsRouter)
 app.use('/api/models', modelsRouter)
 app.use('/api/catalog', catalogRouter)
+app.use('/api/autonomous-agents', autonomousAgentsRouter)
 app.use('/api/gateway', gatewayRouter)
 app.use('/api/summary', summaryRouter)
 app.use('/api/usage', usageRouter)

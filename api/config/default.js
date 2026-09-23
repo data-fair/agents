@@ -20,6 +20,11 @@ export default {
   providers: [],
   models: [],
   mcpServers: [],
+  // Progressive exposure: while true, configuring an autonomous agent additionally
+  // requires admin mode. This is a rollout control, not an ownership boundary —
+  // nothing in the document is durably superadmin-owned, and flipping this to false
+  // opens configuration to org admins with no schema change and no migration.
+  autonomousAgentsRequireAdminMode: true,
   defaultModels: {},
   // Euros of inference cost per credit. The peg is the reference model's input price
   // (deepseek-v4-flash-0731 on Scaleway, 0.40 EUR/M), and it MUST match the reference

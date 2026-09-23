@@ -119,6 +119,7 @@
         }
       }
     },
+    "autonomousAgentsRequireAdminMode": { "type": "boolean", "default": true },
     "defaultModels": {
       "type": "object",
       "additionalProperties": false,
