@@ -6,8 +6,8 @@ import { defineAsyncComponent, defineProps, defineEmits } from 'vue'
 import { emits } from '@koumoul/vjsf/composables/use-vjsf.js'
 
 const localeComps = {
-  en: defineAsyncComponent(() => import('./vjsf-write-req-en.vue')),
-  fr: defineAsyncComponent(() => import('./vjsf-write-req-fr.vue'))
+  en: defineAsyncComponent(() => import('./vjsf-autonomous-agent-write-req-en.vue')),
+  fr: defineAsyncComponent(() => import('./vjsf-autonomous-agent-write-req-fr.vue'))
 }
 
 const props = defineProps({
