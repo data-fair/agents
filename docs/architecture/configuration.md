@@ -133,6 +133,46 @@ Plain string, unset by default. Shared secret the external `customers` billing s
 SECRET_LIMITS=a-long-random-shared-secret
 ```
 
+### `MCP_SERVERS`
+
+JSON array of the MCP server catalog ops publishes for this deployment. Validated fail-fast at boot by `assertGlobalMcpConfig` (`api/src/mcp-servers/operations.ts`, called from `api/src/config.ts`), mirroring `assertGlobalAiConfig` above. Each entry has `id`, `name`, an optional `description`, `url`, and `auth`.
+
+```json
+[
+  { "id": "docs-search", "name": "Docs search", "url": "https://mcp.internal/docs", "auth": "nhi-session" },
+  { "id": "weather", "name": "Weather", "url": "https://mcp.example.com", "auth": "none" },
+  { "id": "partner-crm", "name": "Partner CRM", "url": "https://crm.partner.example/mcp", "auth": "apiKey", "apiKeyHeader": "x-api-key", "apiKey": "..." }
+]
+```
+
+`auth` selects how the MCP client authenticates to that server:
+
+| `auth` | Behavior |
+| --- | --- |
+| `nhi-session` | Injects the calling autonomous agent's NHI session cookie (stack services). |
+| `none` | Sends no credential (public or network-trusted endpoints). |
+| `apiKey` | Sends a static, ops-owned header, from `apiKeyHeader`/`apiKey`. |
+
+**`apiKey` is a deployment secret.** It lives only in this env var and is never returned by any API response, never written into an autonomous agent document, never included in a prompt, and never persisted in a stored trace — `listMcpServerCatalog()` (`api/src/mcp-servers/operations.ts`) strips it before the catalog is exposed to org admins (`GET /api/autonomous-agents/:type/:id/mcp-servers`).
+
+**This catalog IS the egress control for autonomous agents.** An org admin configuring an autonomous agent can only select MCP servers ops has already published here — there is no way to point an autonomous agent at an arbitrary URL from the org-admin side.
+
+Boot validation (`assertGlobalMcpConfig`) rejects:
+- a duplicate `id`;
+- a `url` that is not `http:`/`https:`;
+- an `auth: 'apiKey'` entry missing `apiKeyHeader` or `apiKey`;
+- a credential (`apiKey`/`apiKeyHeader`) on an entry whose `auth` is not `'apiKey'` — a configuration mistake worth naming at boot, since the operator believes that endpoint is authenticated when it will never send the credential.
+
+### `AUTONOMOUS_AGENTS_REQUIRE_ADMIN_MODE`
+
+Boolean, default `true`. `node-config`'s `__format: 'json'` parsing applies, so set it as `AUTONOMOUS_AGENTS_REQUIRE_ADMIN_MODE=false` to flip it, not `"false"` as a bare string.
+
+While `true`, configuring an autonomous agent (`POST`/`PUT`/`DELETE /api/autonomous-agents/:type/:id[/...]`) additionally requires the caller to be a **site superadmin acting in admin mode** (`reqWriteSession` in `api/src/autonomous-agents/service.ts`, gated via `reqAdminMode`). Reads are unaffected — an org admin can always read their org's autonomous agents and MCP catalog, regardless of this flag.
+
+This is a **progressive-rollout control, not an ownership boundary.** Nothing in the autonomous agent document is durably superadmin-owned: the flag only adds a session-level gate in front of the normal `assertAccountRole(session, owner, 'admin')` check every write route also performs. Setting it to `false` opens configuration to any admin of the owning organization, with no schema change and no migration — the same document shape, the same routes, just one fewer gate.
+
+**Flipping it to `false` makes `assertAccountRole` the only thing separating an org admin from an org member on writes.** There is no second line of defense once the rollout gate is gone. Keep the org-member write-path tests in `tests/features/autonomous-agents/autonomous-agents.api.spec.ts` (the ones asserting a `requires admin` role-check message, not merely a 403) green — they are what proves `assertAccountRole` is actually still there and doing the job, rather than the rollout gate incidentally producing the same status code.
+
 ## Layer 2 — per-org catalog additions (superadmin)
 
 `PUT /api/settings/:type/:id` (`api/src/settings/router.ts`), gated by `reqAdminMode` — a **site superadmin** acting in admin mode, not a regular org admin. This is where an org gets its own providers/models on top of the global catalog, e.g. a customer's own OpenAI key or an internal-only model.
