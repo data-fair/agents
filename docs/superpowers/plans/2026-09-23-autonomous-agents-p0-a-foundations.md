@@ -750,7 +750,6 @@ import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
 
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
 const orgMember = await axiosAuth('test1-user1', { org: 'test1' })
-const otherOrgAdmin = await axiosAuth('dev1-contrib1', { org: 'dev1' })
 const admin = await superAdmin
 
 const validAgent = () => ({
@@ -818,8 +817,23 @@ test.describe('Autonomous agents API', () => {
     await assert.rejects(orgAdmin.post('/api/autonomous-agents/organization/test1', validAgent()), { status: 403 })
   })
 
-  test('an admin of another account cannot create here', async () => {
-    await assert.rejects(otherOrgAdmin.post('/api/autonomous-agents/organization/test1', validAgent()), { status: 403 })
+  // Cross-account isolation is exercised on the READ path, where nothing sits in front
+  // of assertAccountRole. It cannot be exercised on the write path while
+  // autonomousAgentsRequireAdminMode is true: reqWriteSession rejects every
+  // non-superadmin before assertAccountRole runs, and a superadmin in admin mode
+  // satisfies assertAccountRole for any account by design. Add the write-path case when
+  // that flag is flipped to false.
+  test('an org admin is refused a cross-account list', async () => {
+    await assert.rejects(orgAdmin.get('/api/autonomous-agents/organization/dev1'), { status: 403 })
+  })
+
+  test('an org admin is refused a cross-account MCP catalog read', async () => {
+    await assert.rejects(orgAdmin.get('/api/autonomous-agents/organization/dev1/mcp-servers'), { status: 403 })
+  })
+
+  test('an org admin is refused a cross-account read by id', async () => {
+    const created = await admin.post('/api/autonomous-agents/organization/test1', validAgent())
+    await assert.rejects(orgAdmin.get(`/api/autonomous-agents/organization/dev1/${created.data.id}`), { status: 403 })
   })
 
   test('an org admin can READ even while the rollout gate blocks writes', async () => {
