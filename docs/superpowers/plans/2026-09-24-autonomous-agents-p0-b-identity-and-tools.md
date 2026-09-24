@@ -604,7 +604,289 @@ git commit -m "feat(autonomous-agents): serve the nhi issuer discovery document 
 
 ---
 
-### Task 3: Mint an assertion and exchange it for a session
+### Task 3: Revise the issuer to be request-derived, and capture the site url
+
+**Supersedes parts of Tasks 1-2, which are already committed.** Those tasks derived the
+issuer from a `PUBLIC_URL` config value. That is being removed in favour of *capturing*
+the real site url from the proxied request that enrols an autonomous agent. Three reasons,
+in increasing order of force:
+
+1. No new config at all, and no operator guess: the admin was demonstrably browsing this
+   service at that origin, so it provably resolves here.
+2. The audience we sign, the `x-forwarded-*` we declare and the exchange path all derive
+   from **one** stored value, so they cannot drift apart.
+3. It is the only way to get `sitePath` right, and `sitePath` is mandatory —
+   `createSiteMiddleware` derives it from `(.*?)\/<service>(\/|$)`, and simple-directory
+   calls it with no options, so the exchange url must carry both that prefix and a
+   `/simple-directory` segment or the middleware 404s before the route runs.
+
+Serving discovery from the request is also strictly more correct: simple-directory rejects
+a discovery document whose `issuer` differs from the url it fetched, and an echo of
+`reqSiteUrl(req)` matches by construction where a config value could drift.
+
+**Files:**
+- Modify: `api/src/nhi/operations.ts` (drop the publicUrl arg; re-key the url helpers on a site url; add the exchange helpers)
+- Modify: `api/src/nhi/service.ts`, `api/src/nhi/router.ts` (discovery from the request)
+- Modify: `api/config/type/schema.json`, `default.js`, `custom-environment-variables.js`, `development.js` (remove `publicUrl`)
+- Modify: `api/src/config.ts`, `api/src/server.ts`
+- Modify: `api/types/autonomous-agent/schema.js` (`nhi` gains read-only `siteUrl` and `issuer`)
+- Modify: `tests/features/autonomous-agents/nhi.unit.spec.ts`
+
+**Interfaces:**
+- Produces:
+  - `assertNhiConfig(signingKey: unknown): void` — one argument now
+  - `SERVICE_PATH_PART = 'agents'`
+  - `nhiIssuerUrl(siteUrl: string): string`
+  - `nhiExchangeUrl(privateDirectoryUrl: string, siteUrl: string): string`
+  - `exchangeHeaders(siteUrl: string): Record<string, string>`
+  - `DECLARED_CLIENT_IP = '127.0.0.1'`
+  - `getNhiDiscovery(req)` — takes the request
+  - **Removed:** `nhiAudience`. The audience is the stored site url itself, so a function that returned `new URL(x).origin` would now be actively wrong for a path-based site.
+
+- [ ] **Step 1: Write the failing tests**
+
+Replace the `assertNhiConfig` publicUrl cases and the url-helper describes in
+`tests/features/autonomous-agents/nhi.unit.spec.ts`. Delete these two tests, which no
+longer describe the contract:
+
+```ts
+  test('rejects a signing key without a publicUrl — the issuer url would not be derivable', () => { … })
+  test('rejects an unparseable publicUrl', () => { … })
+```
+
+Change every surviving `assertNhiConfig(key, '…')` call to `assertNhiConfig(key)`, and
+replace the whole `test.describe('url and subject helpers', …)` block with:
+
+```ts
+test.describe('nhiIssuerUrl', () => {
+  test('mounts the issuer under the service path of the captured site url', () => {
+    assert.equal(nhiIssuerUrl('http://localhost:25475'), 'http://localhost:25475/agents/api/nhi')
+  })
+
+  test('preserves a path-based site prefix', () => {
+    assert.equal(nhiIssuerUrl('https://example.org/portal'), 'https://example.org/portal/agents/api/nhi')
+  })
+
+  test('tolerates a trailing slash without doubling it', () => {
+    assert.equal(nhiIssuerUrl('https://example.org/portal/'), 'https://example.org/portal/agents/api/nhi')
+  })
+})
+
+test.describe('nhiExchangeUrl', () => {
+  // Both segments are mandatory: simple-directory calls createSiteMiddleware('simple-directory')
+  // with no options, so a url without a /simple-directory segment throws 404 before the
+  // route runs, and a missing sitePath prefix resolves a different site.
+  test('inserts the /simple-directory segment on the main site', () => {
+    assert.equal(
+      nhiExchangeUrl('http://simple-directory:8080', 'http://localhost:25475'),
+      'http://simple-directory:8080/simple-directory/api/auth/nhi-token'
+    )
+  })
+
+  test('preserves the site path prefix ahead of the service segment', () => {
+    assert.equal(
+      nhiExchangeUrl('http://simple-directory:8080', 'https://example.org/portal'),
+      'http://simple-directory:8080/portal/simple-directory/api/auth/nhi-token'
+    )
+  })
+
+  test('does not leave a double slash for a root site url', () => {
+    assert.equal(nhiExchangeUrl('http://simple-directory:8080/', 'https://example.org/'), 'http://simple-directory:8080/simple-directory/api/auth/nhi-token')
+  })
+})
+
+test.describe('exchangeHeaders', () => {
+  test('declares the three headers the route requires', () => {
+    const h = exchangeHeaders('http://localhost:25475')
+    assert.equal(h['x-forwarded-host'], 'localhost:25475')
+    assert.equal(h['x-forwarded-proto'], 'http')
+    assert.equal(h['x-forwarded-for'], '127.0.0.1')
+    assert.equal(h['content-type'], 'application/json')
+  })
+
+  test('drops a default https port from the declared host', () => {
+    const h = exchangeHeaders('https://example.org')
+    assert.equal(h['x-forwarded-host'], 'example.org')
+    assert.equal(h['x-forwarded-proto'], 'https')
+  })
+
+  // THE invariant of this whole exchange: simple-directory rebuilds the audience as
+  // reqOrigin(from our declared headers) + reqSitePath(from the url path we posted to),
+  // and compares it to the `aud` we signed — which is the stored site url. If these ever
+  // disagree, every exchange fails as an indistinguishable 401 with no diagnostic.
+  for (const siteUrl of ['http://localhost:25475', 'https://example.org', 'https://example.org/portal', 'http://example.org:8080/portal']) {
+    test(`declared headers + posted path reconstruct exactly the signed audience — ${siteUrl}`, () => {
+      const h = exchangeHeaders(siteUrl)
+      const [host, port] = h['x-forwarded-host'].split(':')
+      const proto = h['x-forwarded-proto']
+      const origin = port && !(port === '443' && proto === 'https') && !(port === '80' && proto === 'http')
+        ? `${proto}://${host}:${port}`
+        : `${proto}://${host}`
+      // simple-directory's sitePath is match[1] of (.*?)\/simple-directory(\/|$) against
+      // the path we posted to — i.e. exactly the prefix nhiExchangeUrl preserved
+      const posted = new URL(nhiExchangeUrl('http://sd:8080', siteUrl)).pathname
+      const sitePath = posted.slice(0, posted.indexOf('/simple-directory'))
+      assert.equal(origin + sitePath, siteUrl.replace(/\/$/, ''))
+    })
+  }
+})
+```
+
+Add `nhiExchangeUrl, exchangeHeaders` to the import and drop `nhiAudience` from it.
+
+- [ ] **Step 2: Run to verify it fails**
+
+Run: `npm run test-unit -- tests/features/autonomous-agents/nhi.unit.spec.ts`
+Expected: FAIL — `assertNhiConfig` still takes two arguments and the new helpers do not exist.
+
+- [ ] **Step 3: Revise the pure helpers**
+
+In `api/src/nhi/operations.ts`: change `assertNhiConfig` to take only `signingKey` and drop
+its two `publicUrl` checks (keep every key-shape check and its message verbatim). Then
+replace `nhiIssuerUrl`/`nhiAudience` with:
+
+```ts
+/**
+ * This service's public mount segment. Must match createSiteMiddleware('agents') in
+ * app.ts — the issuer path and the exchange path are both built from it.
+ */
+export const SERVICE_PATH_PART = 'agents'
+
+/**
+ * The issuer identifier for a captured site url. `siteUrl` is reqOrigin + reqSitePath
+ * taken from a real proxied request, so this is a url that demonstrably resolves here.
+ */
+export function nhiIssuerUrl (siteUrl: string): string {
+  return `${siteUrl.replace(/\/$/, '')}/${SERVICE_PATH_PART}/api/nhi`
+}
+
+/**
+ * Where to POST the exchange. Two constraints, both because simple-directory calls
+ * createSiteMiddleware('simple-directory') with NO options:
+ *  - the path must contain a `/simple-directory` segment, or the middleware throws
+ *    404 'URL path does not contain service prefix' before the route runs;
+ *  - the site path prefix must be preserved ahead of it, or simple-directory resolves a
+ *    different site (and therefore a different audience).
+ * We target the PRIVATE directory url so the call never leaves the internal network.
+ */
+export function nhiExchangeUrl (privateDirectoryUrl: string, siteUrl: string): string {
+  const sitePath = new URL(siteUrl).pathname.replace(/\/+$/, '')
+  return `${privateDirectoryUrl.replace(/\/+$/, '')}${sitePath}/simple-directory/api/auth/nhi-token`
+}
+
+/**
+ * Declared, not real. Its only readers are simple-directory's per-IP rate-limit bucket
+ * and its audit log line; every autonomous agent shares one egress address anyway. This
+ * is also why allowedIps/ipBinding must never be set on an autonomous agent's NHI.
+ */
+export const DECLARED_CLIENT_IP = '127.0.0.1'
+
+/**
+ * The exchange is server-to-server, so no reverse proxy sets x-forwarded-* and the route
+ * needs all three: x-forwarded-for (read before any lookup, so a broken proxy chain
+ * rejects every caller identically), x-forwarded-host (resolves the site and, through
+ * reqSiteUrl, IS the audience) and x-forwarded-proto (reqOrigin throws without it).
+ */
+export function exchangeHeaders (siteUrl: string): Record<string, string> {
+  const url = new URL(siteUrl)
+  return {
+    'content-type': 'application/json',
+    'x-forwarded-for': DECLARED_CLIENT_IP,
+    'x-forwarded-host': url.host,
+    'x-forwarded-proto': url.protocol.replace(':', '')
+  }
+}
+```
+
+- [ ] **Step 4: Serve discovery from the request**
+
+In `api/src/nhi/service.ts`: drop `publicUrl` from `requireNhi` (it now returns just the
+key), delete `getNhiIssuer`/`getNhiAudience`, and make discovery request-derived:
+
+```ts
+import { reqSiteUrl } from '@data-fair/lib-express'
+import type { Request } from 'express'
+
+/**
+ * Built from the request rather than config, so the `issuer` we echo is always exactly
+ * the url simple-directory fetched — it rejects a discovery document that claims a
+ * different issuer, and a config value could drift from reality.
+ */
+export const getNhiDiscovery = (req: Request): { issuer: string, jwks_uri: string } => {
+  requireNhi()
+  const issuer = nhiIssuerUrl(reqSiteUrl(req))
+  return { issuer, jwks_uri: `${issuer}/jwks` }
+}
+```
+
+In `api/src/nhi/router.ts`, pass the request: `res.json(getNhiDiscovery(req))`.
+
+`reqSiteUrl` throws for an internal request (no `x-forwarded-host`). That is correct
+behaviour here — simple-directory fetches through the public url — and surfaces as a 500
+rather than a wrong issuer, which is the safer failure.
+
+- [ ] **Step 5: Remove `publicUrl` from config**
+
+Delete the `publicUrl` entry from `api/config/type/schema.json` `properties`, from
+`api/config/default.js`, from `api/config/custom-environment-variables.js` and from
+`api/config/development.js`. In `api/src/config.ts` call `assertNhiConfig(config.nhiSigningKey)`.
+In `api/src/server.ts`, drop ` and PUBLIC_URL` from the `[nhi]` boot notice.
+
+Then, in this order (the trap that crashed dev-api in Task 1): `npm run build-types`,
+then `touch api/index.ts`, then `bash dev/status.sh` and confirm dev-api is UP.
+
+- [ ] **Step 6: Store the captured values on the autonomous agent**
+
+In `api/types/autonomous-agent/schema.js`, extend the `nhi` object so the captured values
+have somewhere to live. `clientId` stays client-writable; the other two are server-owned:
+
+```js
+    nhi: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['clientId'],
+      title: 'Non-human identity',
+      'x-i18n-title': { en: 'Non-human identity', fr: 'Identité non humaine' },
+      properties: {
+        clientId: {
+          type: 'string',
+          title: 'Client id',
+          'x-i18n-title': { en: 'Client id', fr: 'Identifiant client' }
+        },
+        // Captured server-side from the proxied request that enrolled this autonomous
+        // agent (reqSiteUrl), never sent by the client. Everything the exchange needs is
+        // derived from these two, so they cannot drift from each other.
+        siteUrl: { type: 'string', readOnly: true },
+        issuer: { type: 'string', readOnly: true }
+      }
+    },
+```
+
+Leave `api/doc/autonomous-agents/autonomous-agent-write-req/schema.js` alone: it picks
+`nhi` from this schema, and `readOnly` keeps the two new fields out of the form while
+`additionalProperties: false` keeps a client from injecting them.
+
+Run `npm run build-types`, then `touch api/index.ts`, then confirm dev-api is UP.
+
+- [ ] **Step 7: Verify nothing regressed**
+
+Run: `npm run lint-fix && npm run check-types && npm run test-unit && npm run test-api`
+Expected: PASS. The existing `nhi-issuer.api.spec.ts` must still pass **unchanged** — in
+dev, `reqSiteUrl(req)` is `http://localhost:<NGINX_PORT>` and `sitePath` is empty, so the
+issuer is byte-identical to what the config-derived version produced. If that spec fails,
+stop and report: it means the request-derived issuer does not agree with the previous
+value, which would invalidate the premise of this task.
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add api/src/nhi api/config api/src/config.ts api/src/server.ts api/types/autonomous-agent tests/features/autonomous-agents/nhi.unit.spec.ts
+git commit -m "refactor(autonomous-agents): derive the nhi issuer from the request, not config"
+```
+
+---
+
+### Task 4: Mint an assertion and exchange it for a session
 
 **Files:**
 - Modify: `api/src/nhi/operations.ts` (add `buildAssertionClaims`, `sessionExpiryFromExchange`, `shouldRefreshSession`)
@@ -613,13 +895,15 @@ git commit -m "feat(autonomous-agents): serve the nhi issuer discovery document 
 - Create: `tests/features/autonomous-agents/nhi-exchange.api.spec.ts`
 
 **Interfaces:**
-- Consumes: everything from Tasks 1-2.
+- Consumes: everything from Tasks 1-3.
 - Produces:
   - `buildAssertionClaims(opts: { issuer: string, subject: string, audience: string, ttlSeconds: number, nowSeconds: number }): { iss: string, sub: string, aud: string, iat: number, exp: number, jti: string }`
   - `shouldRefreshSession(expiresAtMs: number, nowMs: number, ttlMs: number): boolean`
-  - `mintAssertion(autonomousAgentId: string): Promise<string>`
-  - `exchangeForSession(clientId: string, assertion: string): Promise<{ cookieHeader: string, expiresAtMs: number }>`
-  - `getAutonomousAgentSession(autonomousAgent: { id: string, nhi?: { clientId: string } }): Promise<string>` — returns the `Cookie` header value, cached and refreshed
+  - `interface EnrolledAutonomousAgent { id: string, nhi?: { clientId: string, siteUrl?: string, issuer?: string } }`
+  - `mintAssertion(autonomousAgent: EnrolledAutonomousAgent): Promise<string>`
+  - `exchangeForSession(autonomousAgent: EnrolledAutonomousAgent): Promise<{ cookieHeader: string, expiresAtMs: number }>`
+  - `getAutonomousAgentSession(autonomousAgent: EnrolledAutonomousAgent): Promise<string>` — returns the `Cookie` header value, cached and refreshed
+  - the write routes capture `nhi.siteUrl` / `nhi.issuer` from `reqSiteUrl(req)`
   - `clearAutonomousAgentSession(autonomousAgentId: string): void`
 
 **PREREQUISITE:** the user must have restarted `simple-directory` with `MANAGE_NHIS: true` and `NHIS_ALLOW_INSECURE_ISSUERS: true` (Task 1 step 10). Without it every exchange returns 404 and this task's api test cannot pass. Verify with the probe in step 5 before implementing, and if it 404s, report and STOP.
@@ -651,38 +935,6 @@ test.describe('buildAssertionClaims', () => {
   })
 })
 
-test.describe('exchangeHeaders', () => {
-  test('declares all three headers the route requires', () => {
-    const h = exchangeHeaders('http://localhost:25475/agents')
-    assert.equal(h['x-forwarded-host'], 'localhost:25475')
-    assert.equal(h['x-forwarded-proto'], 'http')
-    assert.equal(h['x-forwarded-for'], '127.0.0.1')
-    assert.equal(h['content-type'], 'application/json')
-  })
-
-  test('drops the default port from the host for an https url', () => {
-    const h = exchangeHeaders('https://example.org/agents')
-    assert.equal(h['x-forwarded-host'], 'example.org')
-    assert.equal(h['x-forwarded-proto'], 'https')
-  })
-
-  // THE load-bearing invariant of this whole exchange: simple-directory rebuilds the
-  // audience from the headers we declare (reqOrigin = proto://host[:port]) and compares
-  // it to the `aud` we signed. If these two ever disagree, every exchange fails with an
-  // indistinguishable 401 and no diagnostic.
-  for (const publicUrl of ['http://localhost:25475/agents', 'https://example.org/agents', 'http://example.org:8080/agents']) {
-    test(`the declared origin reconstructs to exactly the signed audience — ${publicUrl}`, () => {
-      const h = exchangeHeaders(publicUrl)
-      const [host, port] = h['x-forwarded-host'].split(':')
-      const proto = h['x-forwarded-proto']
-      const reconstructed = port && !(port === '443' && proto === 'https') && !(port === '80' && proto === 'http')
-        ? `${proto}://${host}:${port}`
-        : `${proto}://${host}`
-      assert.equal(reconstructed, nhiAudience(publicUrl))
-    })
-  }
-})
-
 test.describe('shouldRefreshSession', () => {
   const ttl = 300_000
 
@@ -701,7 +953,7 @@ test.describe('shouldRefreshSession', () => {
 })
 ```
 
-Add `buildAssertionClaims, shouldRefreshSession, exchangeHeaders` to the existing import from `api/src/nhi/operations.ts` at the top of that file.
+Add `buildAssertionClaims, shouldRefreshSession` to the existing import from `api/src/nhi/operations.ts` at the top of that file.
 
 - [ ] **Step 2: Run to verify it fails**
 
@@ -745,34 +997,6 @@ export function shouldRefreshSession (expiresAtMs: number, nowMs: number, ttlMs:
   return nowMs >= expiresAtMs - ttlMs * 0.2
 }
 
-/**
- * Declared rather than real. Only two things read it: simple-directory's per-IP rate
- * limit bucket, and its audit log line. Every autonomous agent on a deployment shares
- * one egress address anyway, so a real address would buy nothing — which is also why
- * allowedIps/ipBinding must never be set on an autonomous agent's NHI.
- */
-export const DECLARED_CLIENT_IP = '127.0.0.1'
-
-/**
- * Headers for POST /api/auth/nhi-token. It is a server-to-server call to the PRIVATE
- * directory url, so nothing sets x-forwarded-* for us, and the route needs all three:
- *
- * - x-forwarded-for: reqIp(req) runs BEFORE any lookup, so that a broken proxy chain
- *   rejects every caller identically instead of leaking an oracle.
- * - x-forwarded-host: resolves the site (the main site resolves to undefined, skipping
- *   the site-ownership check) and, via reqSiteUrl, IS the audience compared against the
- *   assertion's aud claim.
- * - x-forwarded-proto: reqOrigin throws without it.
- */
-export function exchangeHeaders (publicUrl: string): Record<string, string> {
-  const url = new URL(publicUrl)
-  return {
-    'content-type': 'application/json',
-    'x-forwarded-for': DECLARED_CLIENT_IP,
-    'x-forwarded-host': url.host,
-    'x-forwarded-proto': url.protocol.replace(':', '')
-  }
-}
 ```
 
 - [ ] **Step 4: Run to verify the unit tests pass**
@@ -796,7 +1020,7 @@ Append to `api/src/nhi/service.ts`:
 ```ts
 import { SignJWT, importJWK } from 'jose'
 import axios from '@data-fair/lib-node/axios.js'
-import { buildAssertionClaims, shouldRefreshSession, autonomousAgentSubject, exchangeHeaders } from './operations.ts'
+import { buildAssertionClaims, shouldRefreshSession, autonomousAgentSubject, exchangeHeaders, nhiExchangeUrl } from './operations.ts'
 
 /**
  * Assertion lifetime, and therefore session lifetime (see buildAssertionClaims).
@@ -806,12 +1030,35 @@ import { buildAssertionClaims, shouldRefreshSession, autonomousAgentSubject, exc
  */
 export const ASSERTION_TTL_SECONDS = 300
 
-export const mintAssertion = async (autonomousAgentId: string): Promise<string> => {
+/** The shape the exchange needs off an autonomous agent document. */
+export interface EnrolledAutonomousAgent {
+  id: string
+  nhi?: { clientId: string, siteUrl?: string, issuer?: string }
+}
+
+/**
+ * An autonomous agent can only be exchanged for a session once all three captured values
+ * are present. siteUrl/issuer are written by the write routes from reqSiteUrl(req); an
+ * agent enrolled before that capture existed would have clientId alone, so check all three
+ * rather than assuming.
+ */
+const requireEnrolment = (autonomousAgent: EnrolledAutonomousAgent) => {
+  const nhi = autonomousAgent.nhi
+  if (!nhi?.clientId || !nhi.siteUrl || !nhi.issuer) {
+    throw httpError(400, `autonomous agent ${autonomousAgent.id} has no enrolled non-human identity`)
+  }
+  return { clientId: nhi.clientId, siteUrl: nhi.siteUrl, issuer: nhi.issuer }
+}
+
+export const mintAssertion = async (autonomousAgent: EnrolledAutonomousAgent): Promise<string> => {
   const key = getNhiSigningKey()
+  const { siteUrl, issuer } = requireEnrolment(autonomousAgent)
   const claims = buildAssertionClaims({
-    issuer: getNhiIssuer(),
-    subject: autonomousAgentSubject(autonomousAgentId),
-    audience: getNhiAudience(),
+    issuer,
+    subject: autonomousAgentSubject(autonomousAgent.id),
+    // The audience is the stored site url, which is exactly reqOrigin + reqSitePath as
+    // simple-directory recomputes it from the headers and path we send below.
+    audience: siteUrl,
     ttlSeconds: ASSERTION_TTL_SECONDS,
     nowSeconds: Math.floor(Date.now() / 1000)
   })
@@ -826,24 +1073,25 @@ export const mintAssertion = async (autonomousAgentId: string): Promise<string> 
 }
 
 /**
- * Exchange the assertion for a session. We keep the Set-Cookie pairs rather than the
- * returned access_token because @data-fair/lib-express reads sessions from the
- * id_token / id_token_sign COOKIES only and parses no Authorization header — the same
- * reason nhi-proxy relays Set-Cookie to its client.
+ * Exchange the assertion for a session, over the PRIVATE directory url so the call never
+ * leaves the internal network. We keep the Set-Cookie pairs rather than the returned
+ * access_token because @data-fair/lib-express reads sessions from the id_token /
+ * id_token_sign COOKIES only and parses no Authorization header — the same reason
+ * nhi-proxy relays Set-Cookie to its client.
  */
-export const exchangeForSession = async (clientId: string, assertion: string): Promise<{ cookieHeader: string, expiresAtMs: number }> => {
+export const exchangeForSession = async (autonomousAgent: EnrolledAutonomousAgent): Promise<{ cookieHeader: string, expiresAtMs: number }> => {
+  const { clientId, siteUrl } = requireEnrolment(autonomousAgent)
+  const assertion = await mintAssertion(autonomousAgent)
   const res = await axios.post(
-    `${config.privateDirectoryUrl}/api/auth/nhi-token`,
+    nhiExchangeUrl(config.privateDirectoryUrl, siteUrl),
     { client_id: clientId, assertion },
-    // This is a server-to-server call, so no reverse proxy sets x-forwarded-*. The route
-    // needs three of them or it fails outright — see exchangeHeaders.
-    { headers: exchangeHeaders(requireNhi().publicUrl), maxRedirects: 0 }
+    { headers: exchangeHeaders(siteUrl), maxRedirects: 0 }
   )
   const setCookies: string[] = res.headers['set-cookie'] ?? []
   // keep only name=value, dropping attributes (Path, HttpOnly, …) — a Cookie request
   // header carries pairs only
   const pairs = setCookies.map(c => c.split(';')[0].trim()).filter(Boolean)
-  if (!pairs.some(p => p.startsWith('id_token='))) {
+  if (!pairs.some(pair => pair.startsWith('id_token='))) {
     throw new Error('nhi exchange returned no id_token cookie')
   }
   const expiresIn = typeof res.data?.expires_in === 'number' ? res.data.expires_in : ASSERTION_TTL_SECONDS
@@ -858,16 +1106,13 @@ const sessions = new Map<string, { cookieHeader: string, expiresAtMs: number }>(
 
 export const clearAutonomousAgentSession = (autonomousAgentId: string) => { sessions.delete(autonomousAgentId) }
 
-export const getAutonomousAgentSession = async (autonomousAgent: { id: string, nhi?: { clientId: string } }): Promise<string> => {
-  if (!autonomousAgent.nhi?.clientId) {
-    throw httpError(400, `autonomous agent ${autonomousAgent.id} has no enrolled non-human identity`)
-  }
+export const getAutonomousAgentSession = async (autonomousAgent: EnrolledAutonomousAgent): Promise<string> => {
+  requireEnrolment(autonomousAgent)
   const cached = sessions.get(autonomousAgent.id)
   if (cached && !shouldRefreshSession(cached.expiresAtMs, Date.now(), ASSERTION_TTL_SECONDS * 1000)) {
     return cached.cookieHeader
   }
-  const assertion = await mintAssertion(autonomousAgent.id)
-  const session = await exchangeForSession(autonomousAgent.nhi.clientId, assertion)
+  const session = await exchangeForSession(autonomousAgent)
   sessions.set(autonomousAgent.id, session)
   return session.cookieHeader
 }
@@ -960,9 +1205,33 @@ test.describe('NHI exchange', () => {
 })
 ```
 
-- [ ] **Step 8: Add the `/session` diagnostic route**
+- [ ] **Step 8: Capture the site url on save, and add the `/session` diagnostic route**
 
-This route exists so the exchange is observable end to end. It returns the *identity obtained*, never the cookie.
+First the capture. In `api/src/autonomous-agents/router.ts`, in BOTH the POST and the PUT
+handler, derive the two server-owned values from the request whenever a `clientId` is
+present, and never from the body:
+
+```ts
+// Captured, not configured: this request came through the proxy from an admin who was
+// browsing this service, so reqSiteUrl(req) is a site url that demonstrably resolves
+// here. Everything the exchange needs — the signed audience, the declared
+// x-forwarded-*, and the path it posts to — derives from this one value, so they cannot
+// drift apart. See api/src/nhi/operations.ts.
+const nhi = body.nhi?.clientId
+  ? { clientId: body.nhi.clientId, siteUrl: reqSiteUrl(req).replace(/\/+$/, ''), issuer: nhiIssuerUrl(reqSiteUrl(req)) }
+  : undefined
+```
+
+and use that `nhi` in place of `body.nhi` when assembling the document (`{ ...body, ...(nhi ? { nhi } : {}) }`
+for POST; the same substitution inside `updated` for PUT). Import `reqSiteUrl` from
+`@data-fair/lib-express` and `nhiIssuerUrl` from `../nhi/operations.ts`.
+
+Note the PUT must re-capture rather than preserve the old values: an admin re-saving from
+a different host is telling us the site url changed, and the enrolment check in Task 5
+will immediately verify whether the new one actually works.
+
+Then the route itself, which exists so the exchange is observable end to end. It returns
+the *identity obtained*, never the cookie.
 
 In `api/src/autonomous-agents/router.ts`, add (registered after the existing `/:type/:id/:agentId` GET, before nothing else — order does not matter here since the path is longer and literal):
 
@@ -983,7 +1252,7 @@ router.get('/:type/:id/:agentId/session', async (req, res, next) => {
 Add to `api/src/autonomous-agents/service.ts`:
 
 ```ts
-import { getAutonomousAgentSession } from '../nhi/service.ts'
+import { getAutonomousAgentSession, type EnrolledAutonomousAgent } from '../nhi/service.ts'
 import { decodeSessionClaims } from '../nhi/operations.ts'
 
 /**
@@ -991,7 +1260,7 @@ import { decodeSessionClaims } from '../nhi/operations.ts'
  * ever returning the cookie. Diagnostic surface for admins, and the end-to-end proof
  * that issuer/jwks/claims/audience agree.
  */
-export const describeAutonomousAgentSession = async (autonomousAgent: { id: string, nhi?: { clientId: string } }) => {
+export const describeAutonomousAgentSession = async (autonomousAgent: EnrolledAutonomousAgent) => {
   const cookieHeader = await getAutonomousAgentSession(autonomousAgent)
   const claims = decodeSessionClaims(cookieHeader)
   return {
@@ -1067,7 +1336,7 @@ git commit -m "feat(autonomous-agents): mint nhi assertions and exchange them fo
 
 ---
 
-### Task 4: Verify the enrolment when it is saved
+### Task 5: Verify the enrolment when it is saved
 
 **Files:**
 - Modify: `api/src/autonomous-agents/router.ts` (POST and PUT verify a newly set `nhi.clientId`)
@@ -1075,7 +1344,7 @@ git commit -m "feat(autonomous-agents): mint nhi assertions and exchange them fo
 - Modify: `tests/features/autonomous-agents/nhi-exchange.api.spec.ts` (add cases)
 
 **Interfaces:**
-- Consumes: `getAutonomousAgentSession`, `clearAutonomousAgentSession` (Task 3).
+- Consumes: `getAutonomousAgentSession`, `clearAutonomousAgentSession` (Task 4).
 - Produces: `assertEnrolmentWorks(autonomousAgent): Promise<void>`
 
 **Why:** nhi-proxy's `enroll` performs a real exchange immediately so a misconfiguration surfaces at configuration time rather than inside the first run. Without this, a typo'd `client_id` or a mismatched subject is only discovered when an autonomous agent silently fails to reach any tool.
@@ -1137,12 +1406,12 @@ Add to `api/src/autonomous-agents/service.ts`:
  * consumes a point on success too, so re-verifying an unchanged enrolment on every edit
  * would spend that budget for nothing.
  */
-export const assertEnrolmentWorks = async (autonomousAgent: { id: string, nhi?: { clientId: string } }) => {
+export const assertEnrolmentWorks = async (autonomousAgent: EnrolledAutonomousAgent) => {
   clearAutonomousAgentSession(autonomousAgent.id)
   try {
     await getAutonomousAgentSession(autonomousAgent)
   } catch (err: any) {
-    throw httpError(400, `the non-human identity "${autonomousAgent.nhi?.clientId}" could not be verified against simple-directory: ${err.message}. Check that the NHI exists, that its issuer is ${getNhiIssuer()} and that its subject is ${autonomousAgentSubject(autonomousAgent.id)}.`)
+    throw httpError(400, `the non-human identity "${autonomousAgent.nhi?.clientId}" could not be verified against simple-directory: ${err.message}. Check that the NHI exists, that its issuer is ${autonomousAgent.nhi?.issuer} and that its subject is ${autonomousAgentSubject(autonomousAgent.id)}.`)
   }
 }
 ```
@@ -1160,7 +1429,7 @@ and in the PUT handler after `updated` is assembled and before `replaceOne`:
     if (updated.nhi?.clientId && updated.nhi.clientId !== existing.nhi?.clientId) await assertEnrolmentWorks(updated)
 ```
 
-Import `assertEnrolmentWorks` in the router and `clearAutonomousAgentSession`, `getNhiIssuer`, `autonomousAgentSubject` in the service.
+Import `assertEnrolmentWorks` in the router and `clearAutonomousAgentSession`, `autonomousAgentSubject` in the service.
 
 - [ ] **Step 4: Run to verify they pass**
 
@@ -1176,7 +1445,7 @@ git commit -m "feat(autonomous-agents): verify a new nhi enrolment at configurat
 
 ---
 
-### Task 5: The MCP client — transport, credentials, tool wrapping
+### Task 6: The MCP client — transport, credentials, tool wrapping
 
 **Files:**
 - Create: `api/src/mcp-servers/client.ts`
@@ -1186,7 +1455,7 @@ git commit -m "feat(autonomous-agents): verify a new nhi enrolment at configurat
 - Modify: `tests/features/autonomous-agents/mcp-catalog.unit.spec.ts` (add `credentialHeaders` cases)
 
 **Interfaces:**
-- Consumes: `GlobalMcpServer` (Plan A), `getAutonomousAgentSession` (Task 3).
+- Consumes: `GlobalMcpServer` (Plan A), `getAutonomousAgentSession` (Task 4).
 - Produces:
   - `credentialHeaders(server: GlobalMcpServer, cookieHeader: string | undefined): Record<string, string>`
   - `formatMcpToolResult(callResult): string | { _agentsMediaResult: true, text?: string, media: {data,mediaType}[] }`
@@ -1378,7 +1647,7 @@ export const listAutonomousAgentTools = async (autonomousAgent: {
 }
 ```
 
-**Note on connection lifetime:** this opens and closes a connection per listing. That is correct for the diagnostic endpoint in Task 6 and for a single run, and deliberately avoids a pool whose invalidation rules nothing yet needs. Plan C revisits it if a long run makes the reconnect cost visible.
+**Note on connection lifetime:** this opens and closes a connection per listing. That is correct for the diagnostic endpoint in Task 7 and for a single run, and deliberately avoids a pool whose invalidation rules nothing yet needs. Plan C revisits it if a long run makes the reconnect cost visible.
 
 - [ ] **Step 7: Verify it compiles and the suites pass**
 
@@ -1394,7 +1663,7 @@ git commit -m "feat(autonomous-agents): mcp client with per-auth-mode credential
 
 ---
 
-### Task 6: The `/tools` endpoint — make it observable in staging
+### Task 7: The `/tools` endpoint — make it observable in staging
 
 **Files:**
 - Modify: `api/src/autonomous-agents/router.ts` (add the route)
@@ -1403,7 +1672,7 @@ git commit -m "feat(autonomous-agents): mcp client with per-auth-mode credential
 - Modify: `api/config/development.js` (point a dev catalog entry at the fixture port)
 
 **Interfaces:**
-- Consumes: `listAutonomousAgentTools` (Task 5), `assertOrganizationOwner`, `getAutonomousAgent` (Plan A).
+- Consumes: `listAutonomousAgentTools` (Task 6), `assertOrganizationOwner`, `getAutonomousAgent` (Plan A).
 - Produces: `GET /api/autonomous-agents/:type/:id/:agentId/tools` → `{ results: [{ name, description, server, annotations }], count }`
 
 **Why this route exists:** it is the deliverable. Without an executor there is no other way to see that identity and tools work end to end, and it is exactly what someone validating a staging deployment needs: create an autonomous agent, enrol it, point it at a server, and read back the real tool list fetched as that agent.
