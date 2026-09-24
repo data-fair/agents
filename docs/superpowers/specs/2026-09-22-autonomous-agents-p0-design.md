@@ -306,10 +306,31 @@ Issuer is `${publicUrl}/api/nhi`, serving:
   simple-directory's `getJwksUri` rejects a mismatch;
 - `/jwks`.
 
-Discovery rather than an inline JWKS means rotation is publishing a new `kid` and
-keeping the old one during overlap: `createRemoteJWKSet` refetches on an unknown `kid`
-by itself, with no re-enrollment anywhere. Discovery requires https and a non-private
-host; dev relies on simple-directory's `nhisAllowInsecureIssuers`.
+`PUBLIC_URL` is new config for this service, which otherwise learns its url per request
+from `createSiteMiddleware` — useless in a background run, and an issuer must be stable
+because it is an identifier registered on the NHI record. Note what it is *not*: nothing
+on our side dereferences it. It supplies the issuer string and the origin we declare to
+simple-directory (below).
+
+**Discovery, not an inline JWKS — because we cannot maintain an inline one.** The NHI
+management endpoints (`/api/organizations/:organizationId/nhis`) are gated on
+`isOrgAdmin`, with no secret-based service-to-service path, so this service has no door
+through which to push a rotated key. An inline JWKS would therefore make correctness
+depend on a human performing a UI step after every rotation, whose failure mode is every
+autonomous agent silently losing access. With discovery, rotation is publishing a new
+`kid` and keeping the old one during overlap: `createRemoteJWKSet` refetches on an
+unknown `kid` by itself.
+
+This is also what keeps **NHI management a one-time UI action**: an org admin creates the
+record once with the issuer and subject, and it never needs touching again.
+
+Discovery's cost is bounded and is not per-exchange: `getJwksUri` is memoized for 10
+minutes and `createRemoteJWKSet` caches keys, refetching only on an unknown `kid`, so a
+steady-state exchange triggers no fetch at all. Discovery does require https and a
+non-private host, so a deployment whose cluster cannot reach its own ingress should solve
+that with split-horizon DNS rather than by enabling `nhisAllowInsecureIssuers`, which
+would disable the SSRF guard for *every* NHI provider on that deployment. Dev relies on
+that flag only because its issuer is `http://localhost`.
 
 ### Enrollment
 
@@ -335,6 +356,25 @@ because a browser it drives holds the cookie directly; here the cookie never lea
 process. So the **assertion TTL is configurable with a 300 s default**, cutting
 exchanges roughly fifteen-fold against nhi-proxy's posture at a cost bounded by the
 assertion never leaving the process.
+
+**The exchange goes to `privateDirectoryUrl`, but declares the public origin.** It is a
+server-to-server call, so no reverse proxy sets the `x-forwarded-*` headers — and the
+route needs three of them or it fails outright:
+
+- `x-forwarded-for` — `reqIp(req)` runs *before any lookup*, so a missing value rejects
+  every caller identically rather than leaking an oracle. It feeds the rate limiter.
+  We declare a fixed `127.0.0.1`: its only effects are the per-IP rate-limit bucket
+  (shared by every agent regardless, since they share one egress) and the audit log line.
+- `x-forwarded-host` — resolves the site (the main site resolves to `undefined`, which
+  skips the site-ownership check) and, through `reqSiteUrl`, **is the audience**.
+- `x-forwarded-proto` — `reqOrigin` throws without it.
+
+So the audience is not discovered but *declared*: `reqSiteUrl = reqOrigin + reqSitePath`,
+and `reqSitePath` is empty for the main site, making it the origin of `PUBLIC_URL`.
+
+**Do not set `allowedIps` or `ipBinding` on an autonomous agent's NHI.** Both key off the
+address we declare rather than a real client address, so an operator configuring them
+against a pod IP would break either the exchange or the session it issues.
 
 Operational consequence worth sizing for: the exchange endpoint is rate-limited **per
 `client_id` and per caller IP, consuming a point on success too**. A deployment running

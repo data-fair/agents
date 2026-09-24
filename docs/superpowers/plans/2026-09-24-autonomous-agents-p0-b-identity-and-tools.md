@@ -320,8 +320,10 @@ Note `nhiSigningKey` is deliberately NOT in the schema's top-level `required` li
 
 ```js
   // Public base url of this service, e.g. https://example.org/agents. Required only
-  // when NHI_SIGNING_KEY is set: the NHI issuer url must be stable and identical to
-  // what an org admin registered in simple-directory.
+  // when NHI_SIGNING_KEY is set. It is a DECLARATION, not a fetch target: nothing on
+  // our side dereferences it. It supplies (a) the NHI issuer identifier, which must be
+  // stable and identical to what an org admin registered in simple-directory, and
+  // (b) the origin we declare in x-forwarded-* when calling the exchange.
   publicUrl: undefined,
   // ES256 private JWK used to sign NHI assertions. Absent = the autonomous agent NHI
   // feature is off: the issuer routes 404 and no assertion can be minted.
@@ -649,6 +651,38 @@ test.describe('buildAssertionClaims', () => {
   })
 })
 
+test.describe('exchangeHeaders', () => {
+  test('declares all three headers the route requires', () => {
+    const h = exchangeHeaders('http://localhost:25475/agents')
+    assert.equal(h['x-forwarded-host'], 'localhost:25475')
+    assert.equal(h['x-forwarded-proto'], 'http')
+    assert.equal(h['x-forwarded-for'], '127.0.0.1')
+    assert.equal(h['content-type'], 'application/json')
+  })
+
+  test('drops the default port from the host for an https url', () => {
+    const h = exchangeHeaders('https://example.org/agents')
+    assert.equal(h['x-forwarded-host'], 'example.org')
+    assert.equal(h['x-forwarded-proto'], 'https')
+  })
+
+  // THE load-bearing invariant of this whole exchange: simple-directory rebuilds the
+  // audience from the headers we declare (reqOrigin = proto://host[:port]) and compares
+  // it to the `aud` we signed. If these two ever disagree, every exchange fails with an
+  // indistinguishable 401 and no diagnostic.
+  for (const publicUrl of ['http://localhost:25475/agents', 'https://example.org/agents', 'http://example.org:8080/agents']) {
+    test(`the declared origin reconstructs to exactly the signed audience — ${publicUrl}`, () => {
+      const h = exchangeHeaders(publicUrl)
+      const [host, port] = h['x-forwarded-host'].split(':')
+      const proto = h['x-forwarded-proto']
+      const reconstructed = port && !(port === '443' && proto === 'https') && !(port === '80' && proto === 'http')
+        ? `${proto}://${host}:${port}`
+        : `${proto}://${host}`
+      assert.equal(reconstructed, nhiAudience(publicUrl))
+    })
+  }
+})
+
 test.describe('shouldRefreshSession', () => {
   const ttl = 300_000
 
@@ -667,7 +701,7 @@ test.describe('shouldRefreshSession', () => {
 })
 ```
 
-Add `buildAssertionClaims, shouldRefreshSession` to the existing import from `api/src/nhi/operations.ts` at the top of that file.
+Add `buildAssertionClaims, shouldRefreshSession, exchangeHeaders` to the existing import from `api/src/nhi/operations.ts` at the top of that file.
 
 - [ ] **Step 2: Run to verify it fails**
 
@@ -710,6 +744,35 @@ export function buildAssertionClaims (opts: {
 export function shouldRefreshSession (expiresAtMs: number, nowMs: number, ttlMs: number): boolean {
   return nowMs >= expiresAtMs - ttlMs * 0.2
 }
+
+/**
+ * Declared rather than real. Only two things read it: simple-directory's per-IP rate
+ * limit bucket, and its audit log line. Every autonomous agent on a deployment shares
+ * one egress address anyway, so a real address would buy nothing — which is also why
+ * allowedIps/ipBinding must never be set on an autonomous agent's NHI.
+ */
+export const DECLARED_CLIENT_IP = '127.0.0.1'
+
+/**
+ * Headers for POST /api/auth/nhi-token. It is a server-to-server call to the PRIVATE
+ * directory url, so nothing sets x-forwarded-* for us, and the route needs all three:
+ *
+ * - x-forwarded-for: reqIp(req) runs BEFORE any lookup, so that a broken proxy chain
+ *   rejects every caller identically instead of leaking an oracle.
+ * - x-forwarded-host: resolves the site (the main site resolves to undefined, skipping
+ *   the site-ownership check) and, via reqSiteUrl, IS the audience compared against the
+ *   assertion's aud claim.
+ * - x-forwarded-proto: reqOrigin throws without it.
+ */
+export function exchangeHeaders (publicUrl: string): Record<string, string> {
+  const url = new URL(publicUrl)
+  return {
+    'content-type': 'application/json',
+    'x-forwarded-for': DECLARED_CLIENT_IP,
+    'x-forwarded-host': url.host,
+    'x-forwarded-proto': url.protocol.replace(':', '')
+  }
+}
 ```
 
 - [ ] **Step 4: Run to verify the unit tests pass**
@@ -733,7 +796,7 @@ Append to `api/src/nhi/service.ts`:
 ```ts
 import { SignJWT, importJWK } from 'jose'
 import axios from '@data-fair/lib-node/axios.js'
-import { buildAssertionClaims, shouldRefreshSession, autonomousAgentSubject } from './operations.ts'
+import { buildAssertionClaims, shouldRefreshSession, autonomousAgentSubject, exchangeHeaders } from './operations.ts'
 
 /**
  * Assertion lifetime, and therefore session lifetime (see buildAssertionClaims).
@@ -772,7 +835,9 @@ export const exchangeForSession = async (clientId: string, assertion: string): P
   const res = await axios.post(
     `${config.privateDirectoryUrl}/api/auth/nhi-token`,
     { client_id: clientId, assertion },
-    { headers: { 'content-type': 'application/json' }, maxRedirects: 0 }
+    // This is a server-to-server call, so no reverse proxy sets x-forwarded-*. The route
+    // needs three of them or it fails outright — see exchangeHeaders.
+    { headers: exchangeHeaders(requireNhi().publicUrl), maxRedirects: 0 }
   )
   const setCookies: string[] = res.headers['set-cookie'] ?? []
   // keep only name=value, dropping attributes (Path, HttpOnly, …) — a Cookie request
@@ -1584,7 +1649,12 @@ Expected: all PASS. (e2e needs `lib-vuetify` and `lib-vue` built: `cd lib-vuetif
 
 - [ ] **Step 8: Document the staging verification procedure**
 
-Append a short section to `docs/architecture/configuration.md`, after the `MCP_SERVERS` section, titled **Verifying an autonomous agent's identity and tools**, listing the steps an operator follows: set `PUBLIC_URL` and `NHI_SIGNING_KEY`; confirm `GET <PUBLIC_URL>/api/nhi/.well-known/openid-configuration` resolves; create an autonomous agent; register the NHI in simple-directory with that issuer and subject `autonomous-agent:<id>`; PUT the returned `nhi-…` id onto the agent (a bad id is refused immediately); then `GET …/:agentId/session` to see which identity it obtained and `GET …/:agentId/tools` to see the live tool list. Mention that simple-directory must run with `manageNhis` enabled.
+Append a short section to `docs/architecture/configuration.md`, after the `MCP_SERVERS` section, titled **Verifying an autonomous agent's identity and tools**, listing the steps an operator follows: set `PUBLIC_URL` and `NHI_SIGNING_KEY`; confirm `GET <PUBLIC_URL>/api/nhi/.well-known/openid-configuration` resolves; create an autonomous agent; register the NHI in simple-directory with that issuer and subject `autonomous-agent:<id>`; PUT the returned `nhi-…` id onto the agent (a bad id is refused immediately); then `GET …/:agentId/session` to see which identity it obtained and `GET …/:agentId/tools` to see the live tool list. Mention that simple-directory must run with `manageNhis` enabled. State plainly that
+**`allowedIps` and `ipBinding` must not be set on an autonomous agent's NHI**: both key
+off the address this service declares rather than a real client address, so configuring
+them against a pod IP breaks either the exchange or the session it issues. Also note that
+NHI management is a one-time UI action precisely because discovery keeps the record valid
+across key rotations.
 
 - [ ] **Step 9: Commit**
 
