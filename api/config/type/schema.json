@@ -120,6 +120,20 @@
       }
     },
     "autonomousAgentsRequireAdminMode": { "type": "boolean", "default": true },
+    "publicUrl": { "type": "string" },
+    "nhiSigningKey": {
+      "type": "object",
+      "required": ["kty", "crv", "x", "y", "d", "kid"],
+      "properties": {
+        "kty": { "type": "string" },
+        "crv": { "type": "string" },
+        "x": { "type": "string" },
+        "y": { "type": "string" },
+        "d": { "type": "string" },
+        "kid": { "type": "string" },
+        "alg": { "type": "string" }
+      }
+    },
     "defaultModels": {
       "type": "object",
       "additionalProperties": false,

@@ -45,6 +45,10 @@ services:
       CIPHER_PASSWORD: dev
       CONTACT: contact@test.com
       MANAGE_SITES: true
+      MANAGE_NHIS: true
+      # dev only: the issuer is http://localhost, which assertSafeIssuer would reject
+      # for being non-https on a private host
+      NHIS_ALLOW_INSECURE_ISSUERS: true
       MONGO_URL: mongodb://localhost:${MONGO_PORT}/simple-directory
       OBSERVER_ACTIVE: false
       PUBLIC_URL: http://localhost:${NGINX_PORT}/simple-directory

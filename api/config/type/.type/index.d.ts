@@ -62,6 +62,17 @@ export type ApiConfig = {
     apiKey?: string;
   }[];
   autonomousAgentsRequireAdminMode?: boolean;
+  publicUrl?: string;
+  nhiSigningKey?: {
+    kty: string;
+    crv: string;
+    x: string;
+    y: string;
+    d: string;
+    kid: string;
+    alg?: string;
+    [k: string]: unknown;
+  };
   defaultModels?: {
     assistant?: ModelRef;
     tools?: ModelRef;

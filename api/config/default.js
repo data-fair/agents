@@ -25,6 +25,15 @@ export default {
   // nothing in the document is durably superadmin-owned, and flipping this to false
   // opens configuration to org admins with no schema change and no migration.
   autonomousAgentsRequireAdminMode: true,
+  // Public base url of this service, e.g. https://example.org/agents. Required only
+  // when NHI_SIGNING_KEY is set. It is a DECLARATION, not a fetch target: nothing on
+  // our side dereferences it. It supplies (a) the NHI issuer identifier, which must be
+  // stable and identical to what an org admin registered in simple-directory, and
+  // (b) the origin we declare in x-forwarded-* when calling the exchange.
+  publicUrl: undefined,
+  // ES256 private JWK used to sign NHI assertions. Absent = the autonomous agent NHI
+  // feature is off: the issuer routes 404 and no assertion can be minted.
+  nhiSigningKey: undefined,
   defaultModels: {},
   // Euros of inference cost per credit. 0.008 EUR lets a credit resell for about a
   // euro cent with an implicit 20% margin. It MUST match the credit cost in

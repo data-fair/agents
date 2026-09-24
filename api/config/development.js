@@ -34,6 +34,10 @@ export default {
     // trivially passing because no configured entry ever had a key to leak.
     { id: 'dev-apikey-mcp', name: 'Dev API-key MCP', url: 'http://localhost:1/mcp', auth: 'apiKey', apiKeyHeader: 'x-api-key', apiKey: 'dev-secret-value' }
   ],
+  publicUrl: `http://localhost:${process.env.NGINX_PORT}/agents`,
+  // Dev-only keypair, generated for this plan and round-trip verified. NEVER reuse a
+  // committed key in a real deployment.
+  nhiSigningKey: { kty: 'EC', crv: 'P-256', x: 'iuGRxiUsSj4YmAvrp3XpXGnvttc6ruQIYakEVp-B4Ig', y: 'nF0kPlKpzNztlqKozkb9T4sHl_sCD1M6ngrpwEnTL-M', d: 'Hv71PS5oK6z6bqiRT-nq62cmgauiaCreaO-zmS30-6Q', kid: 'dev-1', alg: 'ES256' },
   // uncapped in dev/test: the production default of 0 would block every
   // account that has not been pushed a limit, which most specs never do
   defaultLimits: { credits: -1 }
