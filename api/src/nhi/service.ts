@@ -3,29 +3,32 @@
  */
 
 import config from '#config'
-import { httpError } from '@data-fair/lib-express'
-import { toPublicJwk, nhiIssuerUrl, nhiAudience, type NhiPrivateJwk, type NhiPublicJwk } from './operations.ts'
+import { httpError, reqSiteUrl } from '@data-fair/lib-express'
+import type { Request } from 'express'
+import { toPublicJwk, nhiIssuerUrl, type NhiPrivateJwk, type NhiPublicJwk } from './operations.ts'
 
 /** The whole NHI feature is off when no signing key is configured. */
 export const nhiEnabled = () => !!config.nhiSigningKey
 
-const requireNhi = (): { key: NhiPrivateJwk, publicUrl: string } => {
-  // 501 rather than 404: the caller asked for a coherent capability this deployment
-  // has not enabled, and boot validation already guarantees publicUrl is set whenever
-  // the key is.
-  if (!config.nhiSigningKey || !config.publicUrl) throw httpError(501, 'the autonomous agent non-human-identity feature is not configured on this deployment')
-  return { key: config.nhiSigningKey as NhiPrivateJwk, publicUrl: config.publicUrl }
+// 501 rather than 404: the caller asked for a coherent capability this deployment has
+// not enabled. Composes off nhiEnabled() so there is a single encoding of "is this
+// configured" rather than two independent ones drifting apart.
+const requireNhi = (): NhiPrivateJwk => {
+  if (!nhiEnabled()) throw httpError(501, 'the autonomous agent non-human-identity feature is not configured on this deployment')
+  return config.nhiSigningKey as NhiPrivateJwk
 }
 
-export const getNhiIssuer = (): string => nhiIssuerUrl(requireNhi().publicUrl)
+export const getNhiSigningKey = (): NhiPrivateJwk => requireNhi()
 
-export const getNhiAudience = (): string => nhiAudience(requireNhi().publicUrl)
-
-export const getNhiSigningKey = (): NhiPrivateJwk => requireNhi().key
-
-export const getNhiDiscovery = (): { issuer: string, jwks_uri: string } => {
-  const issuer = getNhiIssuer()
+/**
+ * Built from the request rather than config, so the `issuer` we echo is always exactly
+ * the url simple-directory fetched — it rejects a discovery document that claims a
+ * different issuer, and a config value could drift from reality.
+ */
+export const getNhiDiscovery = (req: Request): { issuer: string, jwks_uri: string } => {
+  requireNhi()
+  const issuer = nhiIssuerUrl(reqSiteUrl(req))
   return { issuer, jwks_uri: `${issuer}/jwks` }
 }
 
-export const getNhiJwks = (): { keys: NhiPublicJwk[] } => ({ keys: [toPublicJwk(requireNhi().key)] })
+export const getNhiJwks = (): { keys: NhiPublicJwk[] } => ({ keys: [toPublicJwk(requireNhi())] })

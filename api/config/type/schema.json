@@ -120,7 +120,6 @@
       }
     },
     "autonomousAgentsRequireAdminMode": { "type": "boolean", "default": true },
-    "publicUrl": { "type": "string" },
     "nhiSigningKey": {
       "type": "object",
       "required": ["kty", "crv", "x", "y", "d", "kid"],

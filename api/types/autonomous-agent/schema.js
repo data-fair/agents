@@ -123,7 +123,12 @@ export default {
           type: 'string',
           title: 'Client id',
           'x-i18n-title': { en: 'Client id', fr: 'Identifiant client' }
-        }
+        },
+        // Captured server-side from the proxied request that enrolled this autonomous
+        // agent (reqSiteUrl), never sent by the client. Everything the exchange needs is
+        // derived from these two, so they cannot drift from each other.
+        siteUrl: { type: 'string', readOnly: true },
+        issuer: { type: 'string', readOnly: true }
       }
     },
     instructors: {

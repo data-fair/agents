@@ -18,7 +18,7 @@ export default router
 router.get('/.well-known/openid-configuration', (req, res, next) => {
   try {
     if (!nhiEnabled()) throw httpError(404, 'not found')
-    res.json(getNhiDiscovery())
+    res.json(getNhiDiscovery(req))
   } catch (err) { next(err) }
 })
 

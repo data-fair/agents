@@ -62,7 +62,6 @@ export type ApiConfig = {
     apiKey?: string;
   }[];
   autonomousAgentsRequireAdminMode?: boolean;
-  publicUrl?: string;
   nhiSigningKey?: {
     kty: string;
     crv: string;

@@ -96,7 +96,7 @@ export const start = async () => {
     console.log('[github] No GITHUB_TOKEN configured: the trace evaluator\'s source exploration (explore_github) will use unauthenticated GitHub (60 requests/hour/IP). To raise the limit to 5000/hour, create a fine-grained personal access token with public read-only access at https://github.com/settings/tokens and set the GITHUB_TOKEN environment variable on the container.')
   }
   if (!config.nhiSigningKey) {
-    console.log('[nhi] No NHI_SIGNING_KEY configured: the autonomous agent non-human-identity feature is off. The issuer routes return 404 and no autonomous agent can obtain a session or reach an MCP server. Set NHI_SIGNING_KEY (an ES256 private JWK) and PUBLIC_URL to enable it.')
+    console.log('[nhi] No NHI_SIGNING_KEY configured: the autonomous agent non-human-identity feature is off. The issuer routes return 404 and no autonomous agent can obtain a session or reach an MCP server. Set NHI_SIGNING_KEY (an ES256 private JWK) to enable it.')
   }
 }
 

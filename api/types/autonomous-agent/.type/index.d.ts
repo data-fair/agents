@@ -64,5 +64,7 @@ export type AutonomousAgent = {
 }
 export type NonHumanIdentity = {
   clientId: ClientId;
+  siteUrl?: string;
+  issuer?: string;
 }
 

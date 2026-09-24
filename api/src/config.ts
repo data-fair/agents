@@ -9,6 +9,6 @@ assertValid(config, { lang: 'en', name: 'config', internal: true })
 
 assertGlobalAiConfig((config as ApiConfig).providers ?? [], (config as ApiConfig).models ?? [], (config as ApiConfig).defaultModels ?? {})
 assertGlobalMcpConfig((config as ApiConfig).mcpServers ?? [])
-assertNhiConfig((config as ApiConfig).nhiSigningKey, (config as ApiConfig).publicUrl)
+assertNhiConfig((config as ApiConfig).nhiSigningKey)
 
 export default config as ApiConfig

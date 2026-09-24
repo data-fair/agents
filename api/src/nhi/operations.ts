@@ -29,27 +29,17 @@ export interface NhiPublicJwk {
  * Fail-fast boot validation, mirroring assertGlobalAiConfig/assertGlobalMcpConfig.
  *
  * The whole NHI feature is optional: a deployment with no signing key simply does not
- * serve the issuer routes and refuses to mint assertions. But a signing key WITHOUT a
- * publicUrl is a misconfiguration we must catch at boot, because the issuer url has to
- * be stable and identical to what an org admin registered in simple-directory — and
- * this service otherwise only learns its url per-request, which is unavailable in a
- * background run.
+ * serve the issuer routes and refuses to mint assertions. The issuer identifier is no
+ * longer config — it is captured per-request from the proxied request that enrols an
+ * autonomous agent (reqSiteUrl) — so this only validates the key shape itself.
  */
-export function assertNhiConfig (signingKey: unknown, publicUrl: string | undefined): void {
+export function assertNhiConfig (signingKey: unknown): void {
   if (signingKey === undefined || signingKey === null) return
 
   if (typeof signingKey !== 'object' || Array.isArray(signingKey)) {
     throw new Error('invalid NHI config: NHI_SIGNING_KEY must be a JSON object (an ES256 private JWK)')
   }
   const key = signingKey as Partial<NhiPrivateJwk>
-
-  if (!publicUrl) throw new Error('invalid NHI config: NHI_SIGNING_KEY requires PUBLIC_URL to be set, so the issuer url is stable')
-  try {
-    // eslint-disable-next-line no-new
-    new URL(publicUrl)
-  } catch {
-    throw new Error(`invalid NHI config: invalid PUBLIC_URL "${publicUrl}"`)
-  }
 
   if (key.kty !== 'EC') throw new Error('invalid NHI config: NHI_SIGNING_KEY must be an EC key (kty "EC")')
   if (key.crv !== 'P-256') throw new Error('invalid NHI config: NHI_SIGNING_KEY must use curve P-256 (ES256)')
@@ -74,21 +64,55 @@ export function toPublicJwk (privateJwk: NhiPrivateJwk): NhiPublicJwk {
   }
 }
 
-/** Stable issuer url. Must match the `issuer` on the NHI record in simple-directory. */
-export function nhiIssuerUrl (publicUrl: string): string {
-  return publicUrl.replace(/\/$/, '') + '/api/nhi'
+/**
+ * This service's public mount segment. Must match createSiteMiddleware('agents') in
+ * app.ts — the issuer path and the exchange path are both built from it.
+ */
+export const SERVICE_PATH_PART = 'agents'
+
+/**
+ * The issuer identifier for a captured site url. `siteUrl` is reqOrigin + reqSitePath
+ * taken from a real proxied request, so this is a url that demonstrably resolves here.
+ */
+export function nhiIssuerUrl (siteUrl: string): string {
+  return `${siteUrl.replace(/\/$/, '')}/${SERVICE_PATH_PART}/api/nhi`
 }
 
 /**
- * The `aud` simple-directory checks. It compares against reqSiteUrl(req), which is
- * reqOrigin(req) + reqSitePath(req) — and reqSitePath is empty for the main site, so
- * the audience is the site ORIGIN rather than this service's mount path.
- *
- * A deployment serving agents on a non-main site would need that site's path appended;
- * that is out of scope here.
+ * Where to POST the exchange. Two constraints, both because simple-directory calls
+ * createSiteMiddleware('simple-directory') with NO options:
+ *  - the path must contain a `/simple-directory` segment, or the middleware throws
+ *    404 'URL path does not contain service prefix' before the route runs;
+ *  - the site path prefix must be preserved ahead of it, or simple-directory resolves a
+ *    different site (and therefore a different audience).
+ * We target the PRIVATE directory url so the call never leaves the internal network.
  */
-export function nhiAudience (publicUrl: string): string {
-  return new URL(publicUrl).origin
+export function nhiExchangeUrl (privateDirectoryUrl: string, siteUrl: string): string {
+  const sitePath = new URL(siteUrl).pathname.replace(/\/+$/, '')
+  return `${privateDirectoryUrl.replace(/\/+$/, '')}${sitePath}/simple-directory/api/auth/nhi-token`
+}
+
+/**
+ * Declared, not real. Its only readers are simple-directory's per-IP rate-limit bucket
+ * and its audit log line; every autonomous agent shares one egress address anyway. This
+ * is also why allowedIps/ipBinding must never be set on an autonomous agent's NHI.
+ */
+export const DECLARED_CLIENT_IP = '127.0.0.1'
+
+/**
+ * The exchange is server-to-server, so no reverse proxy sets x-forwarded-* and the route
+ * needs all three: x-forwarded-for (read before any lookup, so a broken proxy chain
+ * rejects every caller identically), x-forwarded-host (resolves the site and, through
+ * reqSiteUrl, IS the audience) and x-forwarded-proto (reqOrigin throws without it).
+ */
+export function exchangeHeaders (siteUrl: string): Record<string, string> {
+  const url = new URL(siteUrl)
+  return {
+    'content-type': 'application/json',
+    'x-forwarded-for': DECLARED_CLIENT_IP,
+    'x-forwarded-host': url.host,
+    'x-forwarded-proto': url.protocol.replace(':', '')
+  }
 }
 
 /** The `sub` bound on the NHI record. Namespaced so it cannot collide with another subject. */

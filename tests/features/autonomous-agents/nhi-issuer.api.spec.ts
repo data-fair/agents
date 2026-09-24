@@ -3,14 +3,14 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { anonymousAx } from '../../support/axios.ts'
+import { nginxAx } from '../../support/axios.ts'
 
 const publicUrl = `http://localhost:${process.env.NGINX_PORT}/agents`
 const expectedIssuer = `${publicUrl}/api/nhi`
 
 test.describe('NHI issuer endpoints', () => {
   test('the discovery document is public and self-consistent', async () => {
-    const res = await anonymousAx.get('/api/nhi/.well-known/openid-configuration')
+    const res = await nginxAx.get('/api/nhi/.well-known/openid-configuration')
     assert.equal(res.status, 200)
     // simple-directory's getJwksUri rejects a discovery document whose `issuer` does
     // not match the url it was fetched for, so this equality is load-bearing.
@@ -19,7 +19,7 @@ test.describe('NHI issuer endpoints', () => {
   })
 
   test('the JWKS is public, carries a kid, and never exposes the private scalar', async () => {
-    const res = await anonymousAx.get('/api/nhi/jwks')
+    const res = await nginxAx.get('/api/nhi/jwks')
     assert.equal(res.status, 200)
     assert.equal(Array.isArray(res.data.keys), true)
     assert.equal(res.data.keys.length >= 1, true)
@@ -35,7 +35,7 @@ test.describe('NHI issuer endpoints', () => {
 
   test('the published key actually verifies an assertion this service signs', async () => {
     const { importJWK, SignJWT, jwtVerify, createLocalJWKSet } = await import('jose')
-    const jwks = (await anonymousAx.get('/api/nhi/jwks')).data
+    const jwks = (await nginxAx.get('/api/nhi/jwks')).data
 
     // sign with the dev private key from api/config/development.js
     const priv = { kty: 'EC', crv: 'P-256', x: 'iuGRxiUsSj4YmAvrp3XpXGnvttc6ruQIYakEVp-B4Ig', y: 'nF0kPlKpzNztlqKozkb9T4sHl_sCD1M6ngrpwEnTL-M', d: 'Hv71PS5oK6z6bqiRT-nq62cmgauiaCreaO-zmS30-6Q', kid: 'dev-1', alg: 'ES256' }
