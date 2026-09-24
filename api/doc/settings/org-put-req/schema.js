@@ -20,9 +20,9 @@ export default {
   $id: 'https://github.com/data-fair/agents/settings/org-put-req',
   title: 'Org settings',
   'x-i18n-title': { en: 'Org settings', fr: "Paramètres d'organisation" },
-  'x-exports': ['validate', 'types', 'vjsf'],
-  'x-vjsf': { xI18n: true },
-  'x-vjsf-locales': ['en', 'fr'],
+  // the form itself is rendered per tab from slices of this schema (see
+  // ../org-form-part.js), this one validates the whole body
+  'x-exports': ['validate', 'types'],
   type: 'object',
   additionalProperties: false,
   // the page that renders this form already titles the section

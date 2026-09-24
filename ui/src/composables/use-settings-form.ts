@@ -11,7 +11,7 @@
  * re-fetches. Keeping one copy of that here avoids the two pages drifting.
  */
 
-import { computed, ref, watch, type ComputedRef, type Ref } from 'vue'
+import { computed, ref, toRaw, watch, type ComputedRef, type Ref } from 'vue'
 import { ofetch } from 'ofetch'
 import { useFetch } from '@data-fair/lib-vue/fetch.js'
 import { useAsyncAction } from '@data-fair/lib-vue/async-action.js'
@@ -36,6 +36,8 @@ export type SettingsFormParams<T> = {
   /** notification shown after a successful save */
   savedMessage: string
   locale: Ref<string> | ComputedRef<string>
+  /** extra entries merged into the vjsf expressions' `context` */
+  context?: () => Record<string, any>
 }
 
 /**
@@ -70,6 +72,9 @@ export function useSettingsForm<T extends Record<string, any>> (params: Settings
     { success: params.savedMessage }
   )
 
+  // toRaw: structuredClone rejects the reactive proxy
+  const cancel = () => { edited.value = structuredClone(toRaw(saved.value)) }
+
   useLeaveGuard(hasDiff, { locale: params.locale })
 
   const valid = ref(true)
@@ -78,10 +83,12 @@ export function useSettingsForm<T extends Record<string, any>> (params: Settings
     validateOn: 'input',
     updateOn: 'blur',
     density: 'comfortable',
+    // the forms sit inside a section card whose title is text-title-large
+    titleDepth: 4,
     readOnlyPropertiesMode: 'hide',
     initialValidation: 'always',
-    context: { apiPath: $apiPath, accountType: params.accountType(), accountId: params.accountId() }
+    context: { ...params.context?.(), apiPath: $apiPath, accountType: params.accountType(), accountId: params.accountId() }
   }))
 
-  return { settingsFetch, edited, saved, hasDiff, save, valid, vjsfOptions }
+  return { settingsFetch, edited, saved, hasDiff, save, cancel, valid, vjsfOptions }
 }
