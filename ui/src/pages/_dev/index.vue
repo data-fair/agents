@@ -72,9 +72,17 @@ const accountPages = computed(() => {
   const account = session.account.value
   if (!account) return []
   const base = `/${account.type}/${account.id}`
-  return [
-    { path: base, title: 'activity' },
+  const pages = [
+    { path: base, title: 'configuration and activity' },
     { path: `${base}/chat`, title: 'chat' }
   ]
+  // the superadmin pages redirect anyone else away, so only list them when usable
+  if (session.state.user?.isAdmin) {
+    pages.push(
+      { path: '/admin', title: 'superadmin - platform' },
+      { path: `/admin${base}`, title: 'superadmin - account' }
+    )
+  }
+  return pages
 })
 </script>

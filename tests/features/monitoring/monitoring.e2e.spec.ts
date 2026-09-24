@@ -52,7 +52,7 @@ test.describe('Monitoring UI', () => {
 
     await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
 
-    await page.locator('#section-global').scrollIntoViewIfNeeded()
+    await page.locator('#section-activity').scrollIntoViewIfNeeded()
     await expect(page.getByText('Monthly usage (12 months)')).toBeVisible()
     await expect(page.getByText('Daily usage (30 days)')).toBeVisible()
   })
@@ -65,7 +65,8 @@ test.describe('Monitoring UI', () => {
 
     await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
 
-    await page.locator('#section-individual').scrollIntoViewIfNeeded()
+    await page.locator('#section-activity').scrollIntoViewIfNeeded()
+    await page.locator('#section-activity').getByRole('tab', { name: 'Per user' }).click()
     await expect(page.getByText('Per-user usage (last 7 days)')).toBeVisible()
 
     // Verify day selector buttons are present (7 days)
@@ -92,12 +93,12 @@ test.describe('Monitoring UI', () => {
 
     await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
 
-    await page.locator('#section-global').scrollIntoViewIfNeeded()
-    await page.locator('#section-global .v-select').click()
+    await page.locator('#section-activity').scrollIntoViewIfNeeded()
+    await page.locator('#section-activity .v-select').click()
     await page.getByRole('option', { name: 'By model role' }).click()
 
     // both account histograms still render, now stacked
-    await expect(page.locator('#section-global canvas')).toHaveCount(2)
+    await expect(page.locator('#section-activity canvas')).toHaveCount(2)
     await expect(page.getByText('No data available')).toHaveCount(0)
   })
 
@@ -128,7 +129,7 @@ test.describe('Monitoring UI', () => {
 
     await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
 
-    await page.locator('#section-global').scrollIntoViewIfNeeded()
+    await page.locator('#section-activity').scrollIntoViewIfNeeded()
     // Both histograms should show no data
     const noDataMessages = page.getByText('No data available')
     await expect(noDataMessages.first()).toBeVisible()

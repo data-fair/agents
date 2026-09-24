@@ -332,7 +332,7 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
     assert.equal(res.headers['x-context-budget'], '140000')
   })
   // The whole point of per-class pricing: a cached turn must cost strictly less than
-  // the same turn uncached. 0.40 EUR/M input against 0.08 cached, at the 0.40 peg.
+  // the same turn uncached. 0.40 EUR/M input against 0.08 cached.
   // `cache <n>` is a mock-model directive; `hello` stays the LAST line so the mock
   // still answers "world" and both turns produce identical output tokens.
   const pricedSettings = {

@@ -14,12 +14,17 @@
         {{ t('selectAccount') }}
       </p>
 
-      <div id="section-platform">
-        <h3 class="text-title-large mt-6 mb-4">
-          {{ t('platformUsage') }}
-        </h3>
-        <monitoring-platform-section />
-      </div>
+      <df-section-tabs
+        id="section-platform"
+        class="mt-6"
+        :title="t('platformUsage')"
+      >
+        <template #content>
+          <div class="pa-4">
+            <monitoring-platform-section />
+          </div>
+        </template>
+      </df-section-tabs>
     </v-container>
   </div>
 </template>
@@ -39,6 +44,7 @@ en:
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useSession } from '@data-fair/lib-vue/session.js'
+import DfSectionTabs from '@data-fair/lib-vuetify/section-tabs.vue'
 import AccountSelector from '~/components/AccountSelector.vue'
 import MonitoringPlatformSection from '~/components/MonitoringPlatformSection.vue'
 import { setBreadcrumbs } from '~/utils/breadcrumbs'

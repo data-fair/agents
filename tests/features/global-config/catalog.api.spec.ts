@@ -63,6 +63,31 @@ test.describe('Catalog API', () => {
     assert.ok(res.data.results.some((m: any) => m.source === 'global' && m.id === 'mock-model'))
   })
 
+  test('defaults report what each role resolves to when left unmapped', async () => {
+    const res = await orgAdmin.get('/api/catalog/organization/test1')
+    assert.equal(res.status, 200)
+    // only assistant has a global default in the dev config; every other role
+    // walks its fallback chain down to it
+    for (const role of ['assistant', 'tools', 'summarizer', 'evaluator', 'moderator']) {
+      assert.equal(res.data.defaults[role]?.id, 'mock-model', `default for ${role}`)
+      assert.equal(res.data.defaults[role]?.provider.id, 'global-mock', `default provider for ${role}`)
+    }
+  })
+
+  test('a mapped role\'s default ignores its own mapping but follows the others', async () => {
+    const orgModel = { id: 'org-model', name: 'Org Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } }
+    await putSettings(admin, 'organization/test1', {
+      providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
+      models: [{ model: orgModel, usage: ['assistant', 'tools'], inputPricePerMillion: 0, outputPricePerMillion: 0 }],
+      modelMapping: { assistant: { provider: 'mock-provider', id: 'org-model' } },
+      quotas: defaultQuotas
+    })
+
+    const res = await orgAdmin.get('/api/catalog/organization/test1?usage=tools')
+    assert.equal(res.data.defaults.assistant.id, 'mock-model')
+    assert.equal(res.data.defaults.tools.id, 'org-model')
+  })
+
   test('unknown usage value yields an empty result set', async () => {
     const res = await orgAdmin.get('/api/catalog/organization/test1?usage=not-a-role')
     assert.equal(res.status, 200)

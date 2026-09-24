@@ -77,9 +77,8 @@ test.describe('Activity page', () => {
   test('lists stored conversations and navigates to review', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/organization/test1', 'superadmin', { adminMode: true })
 
-    // The page is up (its read-only config summary was replaced by the editable
-    // org config form, so the traces section heading is the stable landmark).
-    await expect(page.getByRole('heading', { name: 'Stored conversations' })).toBeVisible({ timeout: 15000 })
+    // The stored conversations are a tab of the activity section
+    await page.locator('#activity').getByRole('tab', { name: 'Stored conversations' }).click({ timeout: 15000 })
 
     // The seeded conversation preview should appear in the list
     const convRow = page.getByText('activity hello')

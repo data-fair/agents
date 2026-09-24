@@ -13,28 +13,39 @@
       v-if="editedSettings"
       data-iframe-height
     >
-      <div id="section-configuration">
-        <h3 class="text-title-large mb-4">
-          {{ t('configuration') }}
-        </h3>
-        <v-alert
-          v-if="modelErrors.length"
-          type="warning"
-          variant="tonal"
-          class="mb-4"
-          :title="t('modelErrorsTitle')"
-        >
-          <ul class="ms-4 mt-2">
-            <li
-              v-for="err in modelErrors"
-              :key="err.providerId"
+      <df-section-tabs
+        id="section-configuration"
+        :title="t('configuration')"
+        :subtitle="t('configurationSubtitle')"
+        color="admin"
+      >
+        <template #actions>
+          <form-actions
+            :has-diff="hasDiff"
+            :valid="valid"
+            :loading="save.loading.value"
+            @save="save.execute()"
+            @cancel="cancel()"
+          />
+        </template>
+        <template #content>
+          <div class="pa-4">
+            <v-alert
+              v-if="modelErrors.length"
+              type="warning"
+              variant="tonal"
+              class="mb-4"
+              :title="t('modelErrorsTitle')"
             >
-              {{ errorLabel(err) }}
-            </li>
-          </ul>
-        </v-alert>
-        <v-row>
-          <v-col>
+              <ul class="ms-4 mt-2">
+                <li
+                  v-for="err in modelErrors"
+                  :key="err.providerId"
+                >
+                  {{ errorLabel(err) }}
+                </li>
+              </ul>
+            </v-alert>
             <v-form v-model="valid">
               <vjsf-put-req
                 v-model="editedSettings"
@@ -42,71 +53,61 @@
                 :locale="locale"
               />
             </v-form>
-          </v-col>
-        </v-row>
+          </div>
+        </template>
+      </df-section-tabs>
 
-        <v-row>
-          <v-col>
+      <df-section-tabs
+        id="section-activity"
+        v-model="activityTab"
+        :title="t('activity')"
+        :tabs="activityTabs"
+      >
+        <template #windows>
+          <v-tabs-window-item value="usage">
             <usage-card
               :account-type="accountType"
               :account-id="accountId"
             />
-          </v-col>
-        </v-row>
-      </div>
-
-      <div id="section-global">
-        <h3 class="text-title-large mt-6 mb-4">
-          {{ t('globalUsage') }}
-        </h3>
-        <monitoring-global-section
-          :account-type="accountType"
-          :account-id="accountId"
-        />
-      </div>
-
-      <div id="section-individual">
-        <h3 class="text-title-large mt-6 mb-4">
-          {{ t('individualUsage') }}
-        </h3>
-        <monitoring-individual-section
-          :account-type="accountType"
-          :account-id="accountId"
-        />
-      </div>
-
-      <div id="section-moderation">
-        <h3 class="text-title-large mt-6 mb-4">
-          {{ t('moderation') }}
-        </h3>
-        <moderation-section
-          :account-type="accountType"
-          :account-id="accountId"
-        />
-      </div>
-
-      <div id="section-traces">
-        <h3 class="text-title-large mt-6 mb-4">
-          {{ t('traces') }}
-        </h3>
-        <traces-section
-          :account-type="accountType"
-          :account-id="accountId"
-          :base="`/admin/${accountType}/${accountId}`"
-        />
-      </div>
+            <monitoring-global-section
+              :account-type="accountType"
+              :account-id="accountId"
+            />
+          </v-tabs-window-item>
+          <v-tabs-window-item value="usageIndividual">
+            <monitoring-individual-section
+              :account-type="accountType"
+              :account-id="accountId"
+            />
+          </v-tabs-window-item>
+          <v-tabs-window-item value="moderation">
+            <moderation-section
+              :account-type="accountType"
+              :account-id="accountId"
+            />
+          </v-tabs-window-item>
+          <v-tabs-window-item value="traces">
+            <traces-section
+              :account-type="accountType"
+              :account-id="accountId"
+              :base="`/admin/${accountType}/${accountId}`"
+            />
+          </v-tabs-window-item>
+        </template>
+      </df-section-tabs>
 
       <df-navigation-right>
-        <v-list-item v-if="hasDiff">
-          <v-btn
-            width="100%"
-            color="accent"
-            :disabled="!valid"
-            :loading="save.loading.value"
-            @click="save.execute()"
-          >
-            {{ t('save') }}
-          </v-btn>
+        <v-list-item
+          :to="`/${accountType}/${accountId}`"
+          link
+        >
+          <template #prepend>
+            <v-icon
+              color="primary"
+              :icon="mdiCog"
+            />
+          </template>
+          {{ t('orgConfig') }}
         </v-list-item>
         <df-toc :sections="sections" />
       </df-navigation-right>
@@ -118,22 +119,26 @@
 fr:
   agents: Agents
   settings: Paramètres
-  save: Enregistrer
   saved: Les modifications ont été enregistrées
-  configuration: Configuration
-  globalUsage: Consommation globale
-  individualUsage: Consommation individuelle
+  configuration: Fournisseurs et modèles
+  configurationSubtitle: Fournisseurs d'IA et modèles propres à ce compte, en plus du catalogue global de la plateforme.
+  orgConfig: Réglages du compte
+  activity: Activité
+  usage: Consommation
+  usageIndividual: Par utilisateur
   moderation: Modération
   traces: Conversations enregistrées
   modelErrorsTitle: Certains fournisseurs n'ont pas pu lister leurs modèles
 en:
   settings: Settings
   agents: Agents
-  save: Save
   saved: Changes have been saved
-  configuration: Configuration
-  globalUsage: Global usage
-  individualUsage: Individual usage
+  configuration: Providers and models
+  configurationSubtitle: AI providers and models specific to this account, on top of the platform's global catalog.
+  orgConfig: Account settings
+  activity: Activity
+  usage: Usage
+  usageIndividual: Per user
   moderation: Moderation
   traces: Stored conversations
   modelErrorsTitle: Some providers could not list their models
@@ -145,9 +150,12 @@ import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useSession } from '@data-fair/lib-vue/session.js'
 import type { Settings } from '#api/types'
+import { mdiAccountMultiple, mdiChartBar, mdiCog, mdiForum, mdiShieldCheckOutline } from '@mdi/js'
+import DfSectionTabs from '@data-fair/lib-vuetify/section-tabs.vue'
 import DfNavigationRight from '@data-fair/lib-vuetify/navigation-right.vue'
 import DfToc from '@data-fair/lib-vuetify/toc.vue'
 import { useSettingsForm } from '~/composables/use-settings-form'
+import FormActions from '~/components/FormActions.vue'
 import AccountSelector from '~/components/AccountSelector.vue'
 import UsageCard from '~/components/UsageCard.vue'
 import MonitoringGlobalSection from '~/components/MonitoringGlobalSection.vue'
@@ -191,7 +199,7 @@ const projectOwned = (settings: Settings): OwnedSettings => {
   return providers.length ? { providers, models: structuredClone(settings.models ?? []) } : { providers }
 }
 
-const { settingsFetch, edited: editedSettings, hasDiff, save, valid, vjsfOptions } = useSettingsForm<OwnedSettings>({
+const { settingsFetch, edited: editedSettings, hasDiff, save, cancel, valid, vjsfOptions } = useSettingsForm<OwnedSettings>({
   accountType: () => accountType.value,
   accountId: () => accountId.value,
   project: projectOwned,
@@ -218,11 +226,16 @@ watch(
   { immediate: true }
 )
 
+const activityTab = ref('usage')
+const activityTabs = computed(() => [
+  { key: 'usage', title: t('usage'), icon: mdiChartBar },
+  { key: 'usageIndividual', title: t('usageIndividual'), icon: mdiAccountMultiple },
+  { key: 'moderation', title: t('moderation'), icon: mdiShieldCheckOutline },
+  { key: 'traces', title: t('traces'), icon: mdiForum }
+])
+
 const sections = computed(() => [
   { id: 'section-configuration', title: t('configuration') },
-  { id: 'section-global', title: t('globalUsage') },
-  { id: 'section-individual', title: t('individualUsage') },
-  { id: 'section-moderation', title: t('moderation') },
-  { id: 'section-traces', title: t('traces') }
+  { id: 'section-activity', title: t('activity') }
 ])
 </script>

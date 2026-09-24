@@ -7,7 +7,7 @@
 import { Router } from 'express'
 import { type AccountKeys, assertAccountRole, reqSessionAuthenticated } from '@data-fair/lib-express'
 import { getRawSettings } from '../settings/service.ts'
-import { getCatalog } from '../models/service.ts'
+import { getCatalog, resolveRoleDefaults } from '../models/service.ts'
 import type { ModelRole } from '../models/operations.ts'
 
 const router = Router()
@@ -19,9 +19,12 @@ router.get('/:type/:id', async (req, res, next) => {
     const owner = req.params as AccountKeys
     assertAccountRole(session, owner, 'admin')
     const settings = await getRawSettings(owner)
-    let results = getCatalog(settings)
+    const catalog = getCatalog(settings)
     const usage = req.query.usage as ModelRole | undefined
-    if (usage) results = results.filter(m => m.usage.includes(usage))
-    res.json({ results, count: results.length })
+    const results = usage ? catalog.filter(m => m.usage.includes(usage)) : catalog
+    // what each role falls back to when left unmapped, shown as the role
+    // pickers' placeholder in the org config form
+    const defaults = resolveRoleDefaults(settings, catalog)
+    res.json({ results, count: results.length, defaults })
   } catch (err) { next(err) }
 })

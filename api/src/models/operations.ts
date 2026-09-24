@@ -309,6 +309,22 @@ export function getRoleModel (catalog: CatalogModel[], mapping: ModelMapping | u
   throw new Error(`No model configured for ${role}`)
 }
 
+/** For each role, the entry it resolves to when the org leaves it unmapped —
+ * i.e. with that role (and only it) removed from the mapping, so the other
+ * mapped roles still take part in the fallback chain. Lets the config form
+ * show what an empty role actually means. A role that cannot be resolved at
+ * all is omitted. */
+export function getRoleDefaults (catalog: CatalogModel[], mapping: ModelMapping | undefined, defaultModels: DefaultModelRefs): Partial<Record<ModelRole, CatalogModel>> {
+  const defaults: Partial<Record<ModelRole, CatalogModel>> = {}
+  for (const role of Object.keys(FALLBACK_CHAINS) as ModelRole[]) {
+    const { [role]: _, ...otherRoles } = mapping ?? {}
+    try {
+      defaults[role] = getRoleModel(catalog, otherRoles, defaultModels, role)
+    } catch { /* no default for this role */ }
+  }
+  return defaults
+}
+
 // Turn a thrown fetch error into a compact { status, message } the admin can
 // act on (e.g. Scaleway's 403 "insufficient permissions to access the resource").
 // The @data-fair/lib-node axios instance rejects HTTP errors as a flattened

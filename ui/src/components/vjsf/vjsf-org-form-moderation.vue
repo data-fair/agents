@@ -6,8 +6,8 @@ import { defineAsyncComponent, defineProps, defineEmits } from 'vue'
 import { emits } from '@koumoul/vjsf/composables/use-vjsf.js'
 
 const localeComps = {
-  en: defineAsyncComponent(() => import('./vjsf-org-put-req-en.vue')),
-  fr: defineAsyncComponent(() => import('./vjsf-org-put-req-fr.vue'))
+  en: defineAsyncComponent(() => import('./vjsf-org-form-moderation-en.vue')),
+  fr: defineAsyncComponent(() => import('./vjsf-org-form-moderation-fr.vue'))
 }
 
 const props = defineProps({
