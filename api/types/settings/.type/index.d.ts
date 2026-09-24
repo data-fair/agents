@@ -148,7 +148,7 @@ export type Settings = {
   };
   providers: AIProviders;
   models?: Models;
-  modelMapping?: ModelRoles;
+  modelMapping?: ModelPerRole;
   moderation?: InputModeration;
   quotas?: RoleQuotas;
 }
@@ -249,7 +249,10 @@ export type Model = {
   cachedInputPricePerMillion?: CachedInputPricePer1MTokens;
   [k: string]: unknown;
 }
-export type ModelRoles = {
+/**
+ * Leave a role empty to use the default model shown in the field, which is the recommended choice in most cases.
+ */
+export type ModelPerRole = {
   assistant?: Assistant1;
   tools?: Tools1;
   summarizer?: Summarizer1;

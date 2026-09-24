@@ -1,6 +1,6 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { getModelCatalog, getRoleModel, UNKNOWN_CONTEXT_WINDOW, type GlobalAiProvider, type GlobalAiModel, type CatalogModel } from '../../../api/src/models/operations.ts'
+import { getModelCatalog, getRoleModel, getRoleDefaults, UNKNOWN_CONTEXT_WINDOW, type GlobalAiProvider, type GlobalAiModel, type CatalogModel } from '../../../api/src/models/operations.ts'
 
 const gProviders: GlobalAiProvider[] = [
   { type: 'mock', id: 'global-mock', name: 'Global Mock' },
@@ -99,6 +99,25 @@ test.describe('getRoleModel', () => {
   })
   test('throws when nothing resolves', () => {
     assert.throws(() => getRoleModel(catalog, {}, {}, 'assistant'), /No model configured for assistant/)
+  })
+})
+
+test.describe('getRoleDefaults', () => {
+  const catalog: CatalogModel[] = getModelCatalog(gProviders, gModels, orgProviders, orgModels)
+  const globalDefaults = { assistant: { provider: 'global-mock', id: 'g-model' } }
+  test('a role\'s own mapping is ignored: its default is what it resolves to once cleared', () => {
+    const defaults = getRoleDefaults(catalog, { assistant: { provider: 'uuid-1', id: 'o-model' } }, globalDefaults)
+    assert.equal(defaults.assistant?.id, 'g-model')
+  })
+  test('the other mapped roles still take part in the fallback chain', () => {
+    // tools has no global default of its own, so an unmapped tools role follows
+    // the ORG's assistant mapping, not the global assistant default
+    const defaults = getRoleDefaults(catalog, { assistant: { provider: 'uuid-1', id: 'o-model' } }, globalDefaults)
+    assert.equal(defaults.tools?.id, 'o-model')
+  })
+  test('a role that resolves to nothing is omitted', () => {
+    const defaults = getRoleDefaults(catalog, {}, {})
+    assert.deepEqual(defaults, {})
   })
 })
 

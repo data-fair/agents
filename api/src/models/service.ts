@@ -4,7 +4,7 @@
 import type { LanguageModel } from 'ai'
 import config from '#config'
 import type { Provider, Settings } from '#types'
-import { getModelCatalog, getRoleModel, createModel, type CatalogModel, type ModelRole, type GlobalAiProvider, type GlobalAiModel, type DefaultModelRefs } from './operations.ts'
+import { getModelCatalog, getRoleModel, getRoleDefaults, createModel, type CatalogModel, type ModelRole, type GlobalAiProvider, type GlobalAiModel, type DefaultModelRefs } from './operations.ts'
 
 export function getCatalog (settings: Settings | null): CatalogModel[] {
   return getModelCatalog(config.providers as GlobalAiProvider[], config.models as GlobalAiModel[], settings?.providers ?? [], settings?.models ?? [])
@@ -20,6 +20,11 @@ export interface ResolvedRoleModel { model: LanguageModel, entry: CatalogModel, 
 /** The catalog entry a role resolves to, without instantiating the SDK model. */
 export function resolveRoleEntry (settings: Settings | null, role: ModelRole): CatalogModel {
   return getRoleModel(getCatalog(settings), settings?.modelMapping, config.defaultModels as DefaultModelRefs, role)
+}
+
+/** What each role resolves to when the org leaves it unmapped (see getRoleDefaults). */
+export function resolveRoleDefaults (settings: Settings | null, catalog: CatalogModel[] = getCatalog(settings)) {
+  return getRoleDefaults(catalog, settings?.modelMapping, config.defaultModels as DefaultModelRefs)
 }
 
 export function resolveRoleModel (settings: Settings | null, role: ModelRole): ResolvedRoleModel {

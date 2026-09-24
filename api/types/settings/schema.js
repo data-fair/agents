@@ -775,8 +775,13 @@ export default {
     modelMapping: {
       type: 'object',
       additionalProperties: false,
-      title: 'Model roles',
-      'x-i18n-title': { en: 'Model roles', fr: 'Rôles de modèles' },
+      title: 'Model per role',
+      'x-i18n-title': { en: 'Model per role', fr: 'Modèle par rôle' },
+      description: 'Leave a role empty to use the default model shown in the field, which is the recommended choice in most cases.',
+      'x-i18n-description': {
+        en: 'Leave a role empty to use the default model shown in the field, which is the recommended choice in most cases.',
+        fr: 'Laissez un rôle vide pour utiliser le modèle par défaut affiché dans le champ, ce qui est le choix recommandé dans la plupart des cas.'
+      },
       layout: { if: 'parent.data.providers?.length' },
       properties: Object.fromEntries(MODEL_ROLES.map(role => [role, {
         type: 'object',
@@ -789,6 +794,11 @@ export default {
         layout: {
           comp: 'autocomplete',
           cols: { md: 6 },
+          // An unmapped role is the normal case: show the model it falls back
+          // to as a persistent placeholder, so the empty field does not read as
+          // missing information. The page computes the localized text into
+          // `context.roleDefaults` (see OrgConfigSection.vue).
+          getProps: `({ placeholder: context.roleDefaults?.${role}, persistentPlaceholder: !!context.roleDefaults?.${role} })`,
           getItems: {
             // eslint-disable-next-line no-template-curly-in-string
             url: '${context.apiPath}/catalog/${context.accountType}/${context.accountId}?usage=' + role,
