@@ -1394,6 +1394,17 @@ git commit -m "feat(autonomous-agents): mint nhi assertions and exchange them fo
 
 **Why:** nhi-proxy's `enroll` performs a real exchange immediately so a misconfiguration surfaces at configuration time rather than inside the first run. Without this, a typo'd `client_id` or a mismatched subject is only discovered when an autonomous agent silently fails to reach any tool.
 
+**MANDATORY — this task breaks an existing test on purpose, and must convert it rather than
+delete or re-guard it.** `nhi-exchange.api.spec.ts`'s "a client-supplied nhi.siteUrl /
+nhi.issuer is discarded, not trusted" currently creates an autonomous agent with a bogus
+`clientId: 'nhi-whatever'` and asserts the captured values beat the attacker-supplied ones.
+Once enrolment verification exists that POST is rejected before insert, so the agent is
+never created and its `assert.ok(stored, …)` fails — deliberately, with a message saying
+what to do. Convert it to assert the **rejection** path: the POST is refused 400, the error
+names the unverifiable identity, and no autonomous agent with that title exists afterwards.
+Do NOT restore an `if (stored)`-style guard: that is exactly what made the test silently
+decay into zero assertions, and it is the failure mode this branch has produced repeatedly.
+
 - [ ] **Step 1: Write the failing tests**
 
 Append inside the existing `test.describe` in `tests/features/autonomous-agents/nhi-exchange.api.spec.ts`:
