@@ -8,7 +8,9 @@ import adminRouter from './admin/router.ts'
 import modelsRouter, { getModelsForOwner } from './models/router.ts'
 import catalogRouter from './catalog/router.ts'
 import autonomousAgentsRouter from './autonomous-agents/router.ts'
-import autonomousAgentRuntimeRouter from './autonomous-agent-runtime/router.ts'
+import autonomousAgentRuntimeRouter, { runsRouter as autonomousAgentRunsRouter } from './autonomous-agent-runtime/router.ts'
+import { sweepInterruptedRuns } from './autonomous-agent-runtime/executor.ts'
+import locks from '@data-fair/lib-node/locks.js'
 import nhiRouter from './nhi/router.ts'
 import summaryRouter from './summary/router.ts'
 import gatewayRouter from './gateway/router.ts'
@@ -46,6 +48,7 @@ app.use('/api/models', modelsRouter)
 app.use('/api/catalog', catalogRouter)
 app.use('/api/autonomous-agents', autonomousAgentsRouter)
 app.use('/api/autonomous-agent-conversations', autonomousAgentRuntimeRouter)
+app.use('/api/autonomous-agent-runs', autonomousAgentRunsRouter)
 app.use('/api/nhi', nhiRouter)
 app.use('/api/gateway', gatewayRouter)
 app.use('/api/summary', summaryRouter)
@@ -69,6 +72,33 @@ if (process.env.NODE_ENV === 'development') {
     await mongo.db.collection('autonomous-agent-messages').deleteMany({ 'owner.id': /^test/ })
     await mongo.db.collection('autonomous-agent-runs').deleteMany({ 'owner.id': /^test/ })
     res.send()
+  })
+  // Dev-only seams for the boot sweep. A restart is not reproducible from a test — dev
+  // processes are user-managed — so `orphan-run` manufactures the state a dead process
+  // leaves behind and `sweep-interrupted-runs` invokes the same function server.ts calls
+  // at boot. Without these the sweep would ship asserted only in prose.
+  // Dev-only seams that make the per-conversation serialisation testable deterministically.
+  // Without them the "two messages back to back" test is a race: with an in-process
+  // executor the first turn often finishes before the second post lands, so the lock is
+  // never contended and the pickup path never runs — a test that passes while proving
+  // nothing.
+  app.post('/api/test-env/lock-conversation', async (req, res) => {
+    res.json({ acquired: await locks.acquire(`autonomous-agent-conversation:${req.body.conversationId}`, 'test') })
+  })
+  app.post('/api/test-env/unlock-conversation', async (req, res) => {
+    await locks.release(`autonomous-agent-conversation:${req.body.conversationId}`)
+    res.send()
+  })
+  app.post('/api/test-env/orphan-run', async (req, res) => {
+    await mongo.autonomousAgentRuns.updateOne(
+      { id: req.body.runId },
+      { $set: { status: 'running' }, $unset: { endedAt: '', stopReason: '' } }
+    )
+    await mongo.autonomousAgentMessages.updateMany({ runId: req.body.runId }, { $set: { pending: true } })
+    res.send()
+  })
+  app.post('/api/test-env/sweep-interrupted-runs', async (req, res) => {
+    res.json({ swept: await sweepInterruptedRuns() })
   })
   app.post('/api/test-env/usage', async (req, res) => {
     const { owner, cost, userId, userName, period: explicitPeriod, breakdown } = req.body

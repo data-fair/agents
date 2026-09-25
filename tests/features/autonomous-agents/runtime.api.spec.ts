@@ -95,7 +95,11 @@ test.describe('Autonomous agent conversations', () => {
   test('sinceSeq returns only newer messages, so a poller can page forward', async () => {
     const agent = await createAgent()
     const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 't' })).data
-    await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })
+    const { runId } = (await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })).data
+    // Wait for the turn to finish first: the executor appends its own message, so without
+    // this the assistant message can land between the two reads below and the assertion
+    // becomes a race.
+    await pollRun(runId)
 
     const all = await orgAdmin.get(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`)
     const highest = Math.max(...all.data.results.map((m: any) => m.seq))
@@ -120,6 +124,108 @@ test.describe('Autonomous agent conversations', () => {
     await assert.rejects(
       orgAdmin.post('/api/autonomous-agent-conversations/user/test1-admin1', { autonomousAgentId: 'x', title: 'y' }),
       { status: 400 }
+    )
+  })
+
+  // The executor is asynchronous and there is no websocket yet, so these poll rather
+  // than sleep a fixed time.
+  const pollRun = async (runId: string) => {
+    for (let i = 0; i < 60; i++) {
+      const run = (await orgAdmin.get(`/api/autonomous-agent-runs/organization/test1/${runId}`)).data
+      if (run.status !== 'running') return run
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
+    throw new Error('run never reached a terminal status')
+  }
+
+  const pollAssistants = async (conversationId: string, atLeast: number) => {
+    for (let i = 0; i < 80; i++) {
+      const messages = (await orgAdmin.get(`/api/autonomous-agent-conversations/organization/test1/${conversationId}/messages`)).data.results
+      const done = messages.filter((m: any) => m.role === 'assistant' && m.pending === false)
+      if (done.length >= atLeast) return done
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
+    throw new Error(`fewer than ${atLeast} finished assistant messages`)
+  }
+
+  test('a run reaches a terminal status and the assistant message is attributed to the autonomous agent', async () => {
+    const agent = await createAgent()
+    const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 't' })).data
+    const { runId } = (await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })).data
+
+    const run = await pollRun(runId)
+    assert.notEqual(run.status, 'running')
+    assert.ok(run.endedAt)
+
+    const messages = (await orgAdmin.get(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`)).data.results
+    const assistant = messages.find((m: any) => m.role === 'assistant')
+    assert.ok(assistant, 'a run must always leave an assistant message — failure is a message, not a silence')
+    assert.equal(assistant.author.kind, 'autonomous-agent')
+    assert.equal(assistant.runId, runId)
+    assert.equal(assistant.pending, false)
+    assert.ok(assistant.seq > messages.find((m: any) => m.role === 'user').seq)
+  })
+
+  test('a message posted while the conversation is locked is queued, not dropped, and is picked up later', async () => {
+    const agent = await createAgent()
+    const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 't' })).data
+
+    // Hold the lock from outside so this is deterministic. Posting two messages and hoping
+    // they overlap is a race: the in-process executor usually finishes the first turn
+    // before the second post lands, so the contended path would go untested.
+    const locked = await admin.post('/api/test-env/lock-conversation', { conversationId: conv.id })
+    assert.equal(locked.data.acquired, true)
+
+    const first = (await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })).data
+    await new Promise(resolve => setTimeout(resolve, 300))
+    const blocked = (await orgAdmin.get(`/api/autonomous-agent-runs/organization/test1/${first.runId}`)).data
+    assert.equal(blocked.status, 'running', 'a run whose conversation is locked must stay queued, not be dropped or failed')
+    const during = (await orgAdmin.get(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`)).data.results
+    assert.equal(during.filter((m: any) => m.role === 'assistant' && m.pending === false).length, 0)
+
+    await admin.post('/api/test-env/unlock-conversation', { conversationId: conv.id })
+
+    // The next post's executor acquires the freed lock and must drain BOTH pending runs,
+    // the queued one first.
+    await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content: 'hello again' })
+    const assistants = await pollAssistants(conv.id, 2)
+    assert.equal(assistants.length, 2, 'the queued run must not be dropped by the lock')
+    // seq is monotonic, so ordering is observable
+    assert.ok(assistants[1].seq > assistants[0].seq)
+    const firstRun = (await orgAdmin.get(`/api/autonomous-agent-runs/organization/test1/${first.runId}`)).data
+    assert.equal(firstRun.status, 'done', 'the queued run must have been picked up, not left running')
+  })
+
+  test('a run left running by a restart is swept to interrupted, with a message', async () => {
+    const agent = await createAgent()
+    const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 't' })).data
+    const { runId } = (await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })).data
+    await pollRun(runId)
+
+    // Simulate the orphan a restart leaves behind: a run still marked running whose
+    // process is gone. The boot sweep must give it an honest terminal state rather than
+    // leave a conversation that appears to be thinking forever.
+    await admin.post('/api/test-env/orphan-run', { runId })
+    const swept = await admin.post('/api/test-env/sweep-interrupted-runs', {})
+    assert.ok(swept.data.swept >= 1)
+
+    const run = (await orgAdmin.get(`/api/autonomous-agent-runs/organization/test1/${runId}`)).data
+    assert.equal(run.status, 'interrupted')
+    assert.ok(run.endedAt)
+    const messages = (await orgAdmin.get(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`)).data.results
+    const forRun = messages.filter((m: any) => m.role === 'assistant' && m.runId === runId)
+    assert.equal(forRun.length, 1, 'the sweep must not append a second message beside the one already there')
+    assert.equal(forRun[0].pending, false)
+    assert.ok(forRun[0].content.length > 0)
+  })
+
+  test('a run of another account cannot be read', async () => {
+    const agent = await createAgent()
+    const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 't' })).data
+    const { runId } = (await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })).data
+    await assert.rejects(
+      orgAdmin.get(`/api/autonomous-agent-runs/organization/dev1/${runId}`),
+      { status: 404 }
     )
   })
 })

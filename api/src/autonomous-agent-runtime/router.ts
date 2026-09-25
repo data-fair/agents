@@ -16,6 +16,28 @@ import { startRun } from './executor.ts'
 const router = Router()
 export default router
 
+/**
+ * Runs are read through their own mount (/api/autonomous-agent-runs) rather than nested
+ * under a conversation: a caller holds a runId from the message POST and should not have
+ * to remember which conversation it came from.
+ */
+export const runsRouter = Router()
+
+runsRouter.get('/:type/:id/:runId', async (req, res, next) => {
+  try {
+    const session = reqSessionAuthenticated(req)
+    const owner = reqOwner(req)
+    const run = await mongo.autonomousAgentRuns.findOne(
+      { id: req.params.runId, 'owner.type': owner.type, 'owner.id': owner.id },
+      { projection: { _id: 0 } }
+    )
+    if (!run) throw httpError(404, 'unknown run')
+    const autonomousAgent = await requireAutonomousAgent(owner, run.autonomousAgentId)
+    assertCanInstruct(autonomousAgent, session)
+    res.json(run)
+  } catch (err) { next(err) }
+})
+
 /** The owner named in the path, rejected early when it cannot own an autonomous agent. */
 const reqOwner = (req: any): AccountKeys => {
   const owner = { type: req.params.type, id: req.params.id } as AccountKeys

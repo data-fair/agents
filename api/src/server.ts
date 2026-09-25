@@ -10,6 +10,7 @@ import { app } from './app.ts'
 import config from '#config'
 import mongo from '#mongo'
 import { cleanupOldUsage } from './usage/cleanup.ts'
+import { sweepInterruptedRuns } from './autonomous-agent-runtime/executor.ts'
 
 /**
  * Run pending upgrade/<version>/*.js migrations (see @data-fair/lib-node/upgrade-scripts.js).
@@ -64,6 +65,11 @@ export const start = async () => {
   await mongo.init()
   await locks.start(mongo.db)
   await runUpgradeScripts()
+
+  // A restart cannot resume a run (the executor is in-process and non-resumable), so any
+  // run still marked running belongs to a dead process. Mark it interrupted so a reader
+  // sees an honest terminal state instead of a turn that appears to be thinking forever.
+  await sweepInterruptedRuns()
 
   if (config.privateEventsUrl) {
     if (!config.secretKeys?.events) {
