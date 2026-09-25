@@ -1806,15 +1806,21 @@ export const startMcpFixture = async (port: number): Promise<McpFixture> => {
 In `api/config/development.js`, replace the two placeholder entries' unreachable urls so the `none` entry targets the fixture, and keep a `nhi-session` entry:
 
 ```js
-  mcpServers: [
-    // the api-test fixture (tests/support/mcp-fixture.ts) listens here
-    { id: 'dev-public-mcp', name: 'Dev Public MCP', url: 'http://localhost:25499/mcp', auth: 'none' },
-    { id: 'dev-session-mcp', name: 'Dev Session MCP', url: 'http://localhost:25499/mcp', auth: 'nhi-session' },
-    { id: 'dev-apikey-mcp', name: 'Dev API-key MCP', url: 'http://localhost:25499/mcp', auth: 'apiKey', apiKeyHeader: 'x-api-key', apiKey: 'dev-secret-value' }
-  ],
+  // The api-test MCP fixture (tests/support/mcp-fixture.ts) listens on this port. It is
+  // DERIVED, not hardcoded: dev/init-env.sh assigns a RANDOM base port and allocates
+  // base..base+22, so any literal port is free on one checkout and taken on another (and in
+  // CI). +30 sits clear of that range. The test computes the same expression.
+  mcpServers: (() => {
+    const fixtureUrl = `http://localhost:${Number(process.env.NGINX_PORT) + 30}/mcp`
+    return [
+      { id: 'dev-public-mcp', name: 'Dev Public MCP', url: fixtureUrl, auth: 'none' },
+      { id: 'dev-session-mcp', name: 'Dev Session MCP', url: fixtureUrl, auth: 'nhi-session' },
+      { id: 'dev-apikey-mcp', name: 'Dev API-key MCP', url: fixtureUrl, auth: 'apiKey', apiKeyHeader: 'x-api-key', apiKey: 'dev-secret-value' }
+    ]
+  })(),
 ```
 
-Use a port that nothing else in `.env` claims; `25499` is outside the dev range in use, but grep `.env` to confirm before settling on it. Then `npm run build-types`, `touch api/index.ts`, and confirm `dev-api` is UP.
+Do NOT hardcode a port. `dev/init-env.sh` sets `NGINX_PORT=$((1024 + RANDOM % 48000))` and allocates `base..base+22`, so a literal port is free on one checkout and taken on another — the same trap that rules out a committed fixture issuer. `+30` is clear of the range. Then `npm run build-types`, `touch api/index.ts`, and confirm `dev-api` is UP.
 
 - [ ] **Step 3: Write the failing test**
 
@@ -1840,7 +1846,7 @@ const agentBody = (over: any = {}) => ({
 })
 
 test.describe('Autonomous agent tools', () => {
-  test.beforeAll(async () => { fixture = await startMcpFixture(25499) })
+  test.beforeAll(async () => { fixture = await startMcpFixture(Number(process.env.NGINX_PORT) + 30) })
   test.afterAll(async () => { await fixture.close() })
   test.beforeEach(async () => { await clean() })
 
