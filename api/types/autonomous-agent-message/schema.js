@@ -48,7 +48,12 @@ export default {
           serverId: { type: 'string' },
           // readOnlyHint / destructiveHint, recorded per call so the write surface is
           // queryable before P1's approval gate is switched on
-          annotations: { type: 'object', additionalProperties: true }
+          annotations: { type: 'object', additionalProperties: true },
+          // The tool was called and did NOT return a usable result. Recorded because the
+          // model sees the error and usually carries on talking, so without this a failed
+          // call is indistinguishable from a successful one to anyone reading the thread.
+          failed: { type: 'boolean' },
+          error: { type: 'string' }
         }
       }
     },

@@ -87,9 +87,15 @@ export const createRun = async (run: Omit<AutonomousAgentRun, 'id'>): Promise<Au
   return doc
 }
 
-export const finishRun = async (id: string, patch: Partial<AutonomousAgentRun>) => {
-  await mongo.autonomousAgentRuns.updateOne(
-    { id },
+/**
+ * Close a run out. Conditional on it still being `running`, so two writers cannot both
+ * decide how a run ended — the boot sweep of another instance racing the instance that is
+ * actually executing it, for example. Returns whether this call was the one that closed it.
+ */
+export const finishRun = async (id: string, patch: Partial<AutonomousAgentRun>): Promise<boolean> => {
+  const res = await mongo.autonomousAgentRuns.updateOne(
+    { id, status: 'running' },
     { $set: { ...patch, endedAt: new Date().toISOString() } }
   )
+  return res.modifiedCount > 0
 }

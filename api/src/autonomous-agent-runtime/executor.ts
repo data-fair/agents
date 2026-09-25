@@ -27,7 +27,7 @@ import { getSettings } from '../settings/service.ts'
 import { resolveRoleModel } from '../models/service.ts'
 import { contextBudget } from '../models/operations.ts'
 import { computeCreditBreakdown } from '../usage/operations.ts'
-import { listAutonomousAgentTools } from '../mcp-servers/client.ts'
+import { openAutonomousAgentTools } from '../mcp-servers/client.ts'
 import { enforceQuotas, type UsageIdentity } from '../usage/enforce.ts'
 import { recordUsage } from '../usage/service.ts'
 
@@ -56,6 +56,9 @@ const debug = Debug('df-agents:autonomous-agent-executor')
 
 const LOCK_ORIGIN = 'autonomous-agent-executor'
 
+/** Shown when the provider returns no text at all, so the turn never renders blank. */
+const EMPTY_COMPLETION_MESSAGE = 'I was not able to produce a response for this turn. Please try rephrasing the request.'
+
 /**
  * Live turns, by run id, so the abort route can stop one.
  *
@@ -77,6 +80,18 @@ export const abortRun = (runId: string): boolean => {
 const conversationLockId = (conversationId: string) => `autonomous-agent-conversation:${conversationId}`
 
 /** What one turn produced. The model loop replaces the body that fills this in. */
+/**
+ * Spend so far, owned by runTurn and updated in place by performTurn.
+ *
+ * A turn that throws, is aborted, or overruns its deadline never returns a TurnResult, but it
+ * has still consumed credits and steps, and the run document must say so — otherwise the
+ * usage records and the run disagree about what happened.
+ */
+export interface TurnProgress {
+  steps: number
+  credits: number
+}
+
 interface TurnResult {
   content: string
   reasoning?: string
@@ -114,7 +129,16 @@ const loadHistory = async (conversationId: string, upToSeq: number): Promise<Mod
     .toArray()
   return messages
     .filter(m => (m.content ?? '').trim())
-    .map(m => ({ role: m.role, content: m.content as string }) as ModelMessage)
+    .map(m => ({
+      role: m.role,
+      // A user turn carries WHO wrote it. The system prompt tells the model the timeline is
+      // shared and to attribute requests to whoever actually made them, which it cannot do
+      // from an undifferentiated stream of `user` turns. On a shared timeline that is also a
+      // safety property: one instructor's paste must not read as another's request.
+      content: m.role === 'user' && m.author?.userName
+        ? `[from ${m.author.userName}${m.author.userId ? ` (${m.author.userId})` : ''}]\n${m.content as string}`
+        : m.content as string
+    }) as ModelMessage)
 }
 
 /**
@@ -179,8 +203,16 @@ const withProvenance = (tools: Record<string, Tool>, serverOf: (name: string) =>
       execute: tool.execute
         ? async (args: any, opts: any) => {
           const result = await tool.execute!(args, opts)
-          const text = typeof result === 'string' ? result : JSON.stringify(result)
-          return wrapToolResult(serverOf(name), name, text)
+          if (typeof result === 'string') return wrapToolResult(serverOf(name), name, result)
+          // A media result is an envelope the rest of the stack rebuilds into real image
+          // parts by its marker. Stringifying it would inline the base64 into text, lose the
+          // marker, and can blow the context window in a single step — so wrap only its text
+          // and keep the object shape intact.
+          if (result && typeof result === 'object' && '_agentsMediaResult' in (result as any)) {
+            const media = result as any
+            return { ...media, text: wrapToolResult(serverOf(name), name, String(media.text ?? '')) }
+          }
+          return wrapToolResult(serverOf(name), name, JSON.stringify(result))
         }
         : undefined
     } as Tool
@@ -195,12 +227,22 @@ const withProvenance = (tools: Record<string, Tool>, serverOf: (name: string) =>
  * reached as that identity — so this refuses early with an actionable message rather than
  * producing a toolless turn that looks like a capability problem.
  */
-const performTurn = async (run: AutonomousAgentRun, upToSeq: number, abortSignal: AbortSignal): Promise<TurnResult> => {
+const performTurn = async (run: AutonomousAgentRun, upToSeq: number, abortSignal: AbortSignal, progress: TurnProgress): Promise<TurnResult> => {
   const autonomousAgent = await mongo.autonomousAgents.findOne(
     { id: run.autonomousAgentId },
     { projection: { _id: 0 } }
   ) as AutonomousAgent | null
   if (!autonomousAgent) throw new Error('the autonomous agent no longer exists')
+  // The kill switch. Disabling an autonomous agent must actually stop it answering, calling
+  // tools as its identity, and spending credits.
+  if (autonomousAgent.enabled === false) {
+    return {
+      content: 'This autonomous agent is currently disabled, so it cannot act. An administrator can re-enable it.',
+      steps: 0,
+      credits: 0,
+      stopReason: 'error'
+    }
+  }
   if (!autonomousAgent.nhi?.clientId) {
     return {
       content: 'This autonomous agent has no non-human identity enrolled, so it cannot reach any of its tools. An administrator needs to complete its enrolment before it can run.',
@@ -230,15 +272,37 @@ const performTurn = async (run: AutonomousAgentRun, upToSeq: number, abortSignal
   // resolveRoleModel already resolved the catalog entry; no need to resolve it twice.
   const budget = contextBudget(entry, config.compactionPercent)
 
-  const rawTools = await listAutonomousAgentTools(autonomousAgent)
-  // Which server each tool came from, for the provenance envelope and the recorded call.
-  const serverByTool = new Map<string, string>()
-  for (const server of autonomousAgent.mcpServers ?? []) {
-    for (const name of Object.keys(rawTools)) {
-      if (!serverByTool.has(name)) serverByTool.set(name, server.serverId)
-    }
-  }
+  // Connections stay OPEN for the whole turn: a tool's execute closes over its client, and
+  // the MCP SDK's close() clears the transport, so closing early makes every call reject
+  // with 'Not connected'. Released in the finally below.
+  const { tools: rawTools, serverByTool, close: closeTools } = await openAutonomousAgentTools(autonomousAgent)
   const tools = withProvenance(rawTools, name => serverByTool.get(name) ?? 'unknown')
+
+  try {
+    return await runModelLoop({ run, upToSeq, abortSignal, progress, model, entry, tools, settings, budget, serverByTool, autonomousAgent })
+  } finally {
+    // The turn is over (normally, by throw, or by abandonment): release the MCP connections.
+    await closeTools()
+  }
+}
+
+interface ModelLoopContext {
+  run: AutonomousAgentRun
+  upToSeq: number
+  abortSignal: AbortSignal
+  progress: TurnProgress
+  model: ReturnType<typeof resolveRoleModel>['model']
+  entry: ReturnType<typeof resolveRoleModel>['entry']
+  tools: Record<string, Tool>
+  settings: Awaited<ReturnType<typeof getSettings>>
+  budget: number
+  serverByTool: Map<string, string>
+  autonomousAgent: AutonomousAgent
+}
+
+const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
+  const { run, upToSeq, abortSignal, progress, model, entry, tools, settings, budget, serverByTool, autonomousAgent } = ctx
+  const identity = usageIdentityFor(autonomousAgent)
 
   const history = await compactHistory(
     await loadHistory(run.conversationId, upToSeq),
@@ -280,6 +344,8 @@ const performTurn = async (run: AutonomousAgentRun, upToSeq: number, abortSignal
         config.eurosPerCredit
       )
       credits += stepCredits.total
+      progress.credits = credits
+      progress.steps += 1
       if (stepCredits.total > 0) {
         // Recorded per step, not once per turn: a turn stopped by the budget or the clock
         // must still bill what it actually consumed.
@@ -312,6 +378,18 @@ const performTurn = async (run: AutonomousAgentRun, upToSeq: number, abortSignal
     if (part.type === 'tool-call') {
       toolCalls.push({ toolCallId: part.toolCallId, toolName: part.toolName, serverId: serverByTool.get(part.toolName) })
     }
+    // A tool that failed does not stop the turn — the model sees the error and usually keeps
+    // talking — so without recording it a failed call reads exactly like a successful one.
+    // That is not hypothetical: it hid a broken tool path for the whole of this plan.
+    if (part.type === 'tool-error') {
+      const failedCall = toolCalls.find(c => c.toolCallId === part.toolCallId)
+      const detail = (part as any).error instanceof Error ? (part as any).error.message : String((part as any).error)
+      if (failedCall) {
+        failedCall.failed = true
+        failedCall.error = detail
+      }
+      debug('tool failed tool=%s error=%s', part.toolName, detail)
+    }
   }
 
   const steps = (await result.steps).length
@@ -328,7 +406,23 @@ const performTurn = async (run: AutonomousAgentRun, upToSeq: number, abortSignal
     ? (budgetExceeded ? 'budget' : steps >= STEP_LIMIT ? 'step-limit' : 'repeated-calls')
     : 'completed'
 
-  return { content, reasoning: reasoning || undefined, toolCalls: toolCalls.length ? toolCalls : undefined, steps, credits, stopReason }
+  // An empty completion is a known provider failure mode with its own mock seam, and the
+  // browser loop has a fallback for it. Without one here the turn persists a blank message
+  // and a green run — the "conversation that simply stops" this module forbids.
+  //
+  // Only when the turn OTHERWISE COMPLETED, though: a turn cut off by a guard, a budget or
+  // the clock has no text by nature (it was mid-tool-chain), and runTurn appends that stop
+  // reason's notice as its content. Treating those as empty completions would relabel every
+  // truncation as a provider error.
+  const emptyCompletion = stopReason === 'completed' && content.trim().length === 0
+  return {
+    content: emptyCompletion ? EMPTY_COMPLETION_MESSAGE : content,
+    reasoning: reasoning || undefined,
+    toolCalls: toolCalls.length ? toolCalls : undefined,
+    steps,
+    credits,
+    stopReason: emptyCompletion ? 'error' : stopReason
+  }
 }
 
 /**
@@ -350,14 +444,6 @@ export const runTurn = async (run: AutonomousAgentRun): Promise<void> => {
     return
   }
 
-  const message = await appendMessage(conversation, {
-    role: 'assistant',
-    author: { kind: 'autonomous-agent', userName: conversation.title },
-    content: '',
-    runId: run.id,
-    pending: true
-  })
-
   const abortController = new AbortController()
   liveRuns.set(run.id, abortController)
 
@@ -375,10 +461,26 @@ export const runTurn = async (run: AutonomousAgentRun): Promise<void> => {
     }, config.autonomousAgentRunTimeoutSeconds * 1000)
   })
 
+  // Owned here so every terminal path can report what the turn actually spent, including
+  // one that threw or was abandoned and so never returned a result.
+  const progress: TurnProgress = { steps: 0, credits: 0 }
+  let message: AutonomousAgentMessage | undefined
+
   try {
+    // Inside the try: appendMessage can fail (the conversation vanished between the findOne
+    // above and the $inc, a duplicate seq, a transient mongo error) and that must still
+    // close the run out rather than escape and leave it `running` forever.
+    message = await appendMessage(conversation, {
+      role: 'assistant',
+      author: { kind: 'autonomous-agent', userName: conversation.title },
+      content: '',
+      runId: run.id,
+      pending: true
+    })
+
     // The assistant message's own seq bounds the history: it was created before the turn
     // (empty, pending), so it must not be fed back to the model as an empty turn.
-    const result = await Promise.race([performTurn(run, message.seq, abortController.signal), deadline])
+    const result = await Promise.race([performTurn(run, message.seq, abortController.signal, progress), deadline])
     // A turn that stopped for a reason other than finishing explains itself, appended to
     // whatever it did manage to produce.
     const notice = result.stopReason === 'completed' ? '' : runStopReasonMessage(result.stopReason)
@@ -389,6 +491,7 @@ export const runTurn = async (run: AutonomousAgentRun): Promise<void> => {
       toolCalls: result.toolCalls,
       pending: false
     })
+
     // A run stopped by a guard or a budget is still a completed run: it did work and said
     // so. But a turn that REFUSED — no enrolled identity, an exhausted credit cap — returns
     // stopReason 'error' without throwing, and must not be reported as done.
@@ -405,12 +508,23 @@ export const runTurn = async (run: AutonomousAgentRun): Promise<void> => {
     const aborted = abortController.signal.aborted
     const timedOut = aborted && /timeout/i.test(String((abortController.signal as any).reason?.message ?? ''))
     const stopReason: RunStopReason = timedOut ? 'timeout' : aborted ? 'aborted' : 'error'
-    await updateMessage(message.id, { content: runStopReasonMessage(stopReason), pending: false })
+    // finishRun FIRST: whatever sent us here (a mongo blip, a shutdown) is likely to make
+    // the message write fail too, and a run left `running` is worse than a message left
+    // without its notice — the run is what every reader and the boot sweep key on. The
+    // spend comes from `progress`, since a turn that threw never returned a result.
     await finishRun(run.id, {
       status: stopReason === 'timeout' ? 'error' : aborted ? 'aborted' : 'error',
       stopReason,
-      error: detail
-    })
+      error: detail,
+      steps: progress.steps,
+      credits: progress.credits
+    }).catch(finishErr => console.error('autonomous agent run could not be closed out', finishErr))
+    // No message exists if appendMessage itself failed; there is then nothing to update, and
+    // the run above already carries the failure.
+    if (message) {
+      await updateMessage(message.id, { content: runStopReasonMessage(stopReason, detail), pending: false })
+        .catch(updateErr => console.error('autonomous agent message could not be finalised', updateErr))
+    }
   } finally {
     if (timeout) clearTimeout(timeout)
     liveRuns.delete(run.id)
@@ -454,9 +568,22 @@ export const startRun = async (run: AutonomousAgentRun): Promise<void> => {
  * Reuses the assistant message the run already created rather than appending a second one.
  */
 export const sweepInterruptedRuns = async (): Promise<number> => {
-  const orphaned = await mongo.autonomousAgentRuns
+  const candidates = await mongo.autonomousAgentRuns
     .find({ status: 'running' }, { projection: { _id: 0 } })
     .toArray()
+
+  // A `running` run does NOT always belong to a dead process: with several API instances (a
+  // rolling restart, or replicas) one of them may be executing it right now. A held
+  // conversation lock is the evidence that someone is, so skip those — and because the lock
+  // doc's TTL is refreshed only by its own holder, a genuinely dead process's lock expires
+  // and its run is swept on a later pass.
+  const heldLocks = new Set(
+    (await mongo.db.collection<{ _id: string }>('locks')
+      .find({ _id: { $regex: '^autonomous-agent-conversation:' } }, { projection: { _id: 1 } }).toArray())
+      .map(doc => String(doc._id).replace('autonomous-agent-conversation:', ''))
+  )
+  const orphaned = candidates.filter(run => !heldLocks.has(run.conversationId))
+  const skipped = candidates.length - orphaned.length
 
   for (const run of orphaned) {
     const existing = await mongo.autonomousAgentMessages.findOne(
@@ -492,5 +619,34 @@ export const sweepInterruptedRuns = async (): Promise<number> => {
   if (orphaned.length) {
     console.log(`[autonomous-agents] swept ${orphaned.length} run(s) left running by a previous process`)
   }
+  if (skipped) {
+    console.log(`[autonomous-agents] left ${skipped} running run(s) alone: their conversation lock is still held, so another instance is executing them`)
+  }
   return orphaned.length
+}
+
+/**
+ * Recover a conversation whose run is queued with nobody to run it.
+ *
+ * `startRun` returns silently when the lock is held, trusting the holder to come back for the
+ * run. If the holder died, its lock lingers for up to the lock TTL and then vanishes — at
+ * which point nothing is watching, and the run would sit `running` until somebody happened to
+ * post to that conversation again. This picks those up: a run whose conversation lock is NOT
+ * held and which no live turn in this process owns.
+ */
+export const resumeQueuedRuns = async (): Promise<number> => {
+  const queued = await mongo.autonomousAgentRuns
+    .find({ status: 'running' }, { projection: { _id: 0 } })
+    .toArray()
+  let resumed = 0
+  for (const run of queued) {
+    if (liveRuns.has(run.id)) continue
+    const locked = await mongo.db.collection<{ _id: string }>('locks')
+      .findOne({ _id: `autonomous-agent-conversation:${run.conversationId}` })
+    if (locked) continue
+    resumed++
+    // Not awaited as a group: each acquires the lock itself and drains its conversation.
+    startRun(run).catch(err => console.error('autonomous agent queued run failed to resume', err))
+  }
+  return resumed
 }

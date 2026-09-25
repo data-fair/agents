@@ -51,36 +51,54 @@ export interface ListedMcpTool {
  */
 export const forEachListedTool = async (
   autonomousAgent: AutonomousAgentForTools,
-  visit: (t: ListedMcpTool, server: GlobalMcpServer, client: Client) => void
-): Promise<void> => {
+  visit: (t: ListedMcpTool, server: GlobalMcpServer, client: Client) => void,
+  opts?: { keepConnectionsOpen?: boolean }
+): Promise<() => Promise<void>> => {
   const catalog = config.mcpServers ?? []
   const refs = autonomousAgent.mcpServers ?? []
   const needsSession = refs.some(ref => catalog.find(s => s.id === ref.serverId)?.auth === 'nhi-session')
   const cookieHeader = needsSession ? await getAutonomousAgentSession(autonomousAgent) : undefined
 
-  for (const ref of refs) {
-    const server = catalog.find(s => s.id === ref.serverId)
-    if (!server) throw httpError(400, `unknown MCP server "${ref.serverId}"`)
+  // Connections the caller is responsible for closing (keepConnectionsOpen only).
+  const held: (() => Promise<void>)[] = []
+  const closeHeld = async () => { for (const close of held.splice(0)) await close().catch(() => {}) }
 
-    // This route's entire purpose is diagnosis, so a raw connect/list failure — which
-    // names nothing — is useless when an autonomous agent references several servers.
-    // Wrap and rethrow naming server.id; never include the credential (cookieHeader) in
-    // the message, only the underlying error text.
-    let client: Client | undefined
-    let close: (() => Promise<void>) | undefined
-    try {
-      ({ client, close } = await connectMcpServer(server, cookieHeader))
-      const listed = await client.listTools()
-      for (const t of listed.tools) {
-        if (ref.toolFilter?.length && !ref.toolFilter.includes(t.name)) continue
-        visit(t, server, client)
+  try {
+    for (const ref of refs) {
+      const server = catalog.find(s => s.id === ref.serverId)
+      if (!server) throw httpError(400, `unknown MCP server "${ref.serverId}"`)
+
+      // A raw connect/list failure names nothing, which is useless when an autonomous
+      // agent references several servers. Wrap and rethrow naming server.id; never
+      // include the credential (cookieHeader) in the message, only the error text.
+      let client: Client | undefined
+      let close: (() => Promise<void>) | undefined
+      try {
+        ({ client, close } = await connectMcpServer(server, cookieHeader))
+        const listed = await client.listTools()
+        for (const t of listed.tools) {
+          if (ref.toolFilter?.length && !ref.toolFilter.includes(t.name)) continue
+          visit(t, server, client)
+        }
+        if (opts?.keepConnectionsOpen) {
+          // Handed to the caller: an executable tool's `execute` closes over this client,
+          // and closing it here would make every call reject with 'Not connected'.
+          held.push(close)
+          close = undefined
+        }
+      } catch (err: any) {
+        throw httpError(502, `MCP server "${server.id}" failed: ${err.message}`)
+      } finally {
+        await close?.()
       }
-    } catch (err: any) {
-      throw httpError(502, `MCP server "${server.id}" failed: ${err.message}`)
-    } finally {
-      await close?.()
     }
+  } catch (err) {
+    // A later server failing must not leak the earlier ones' open connections.
+    await closeHeld()
+    throw err
   }
+
+  return closeHeld
 }
 
 /**
@@ -88,11 +106,30 @@ export const forEachListedTool = async (
  * references, narrowed by that reference's optional toolFilter, as executable AI SDK
  * tools.
  */
-export const listAutonomousAgentTools = async (autonomousAgent: AutonomousAgentForTools): Promise<Record<string, Tool>> => {
+export interface OpenAutonomousAgentTools {
+  tools: Record<string, Tool>
+  /** Which server each tool actually came from, for provenance and audit. */
+  serverByTool: Map<string, string>
+  /** MUST be called when the turn is over: until then the connections stay open. */
+  close: () => Promise<void>
+}
+
+/**
+ * The executable tool set for one autonomous agent, with its connections STILL OPEN.
+ *
+ * The connections cannot be closed before returning: each tool's `execute` closes over the
+ * client it was listed from, and the MCP SDK's close() clears the transport, so every call
+ * would reject with 'Not connected'. The caller owns the returned `close` and must call it
+ * when the turn ends.
+ */
+export const openAutonomousAgentTools = async (autonomousAgent: AutonomousAgentForTools): Promise<OpenAutonomousAgentTools> => {
   const tools: Record<string, Tool> = {}
-  await forEachListedTool(autonomousAgent, (t, server, client) => {
+  const serverByTool = new Map<string, string>()
+  const close = await forEachListedTool(autonomousAgent, (t, server, client) => {
     // Last-write-wins on a name collision across servers, matching the browser
-    // aggregator's Object.assign semantics.
+    // aggregator's Object.assign semantics — and the provenance map follows the same
+    // winner, so the recorded server is the one whose tool will actually run.
+    serverByTool.set(t.name, server.id)
     tools[t.name] = tool({
       description: t.description ?? '',
       inputSchema: jsonSchema((t.inputSchema as any) ?? { type: 'object', properties: {} }),
@@ -106,8 +143,8 @@ export const listAutonomousAgentTools = async (autonomousAgent: AutonomousAgentF
         return formatMcpToolResult(callResult as any)
       }
     })
-  })
-  return tools
+  }, { keepConnectionsOpen: true })
+  return { tools, serverByTool, close }
 }
 
 export interface McpToolDescriptor {

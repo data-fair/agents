@@ -408,15 +408,20 @@ function processForModel (modelId: string, options: { prompt: string | Array<any
   // Silent-drop test seams (apply to every model role): "empty" makes the model
   // return an empty completion (no text, no tool call), "stream error" makes the
   // stream fail mid-flight. Both previously ended the conversation silently.
-  if (lastMessage.toLowerCase() === 'empty') return { type: 'text', text: '' }
-  if (lastMessage.toLowerCase() === 'stream error') return { type: 'error' }
+  // commandLine(), not whole-message equality: anything the caller prepends ahead of the
+  // visible directive — a <host-state> block, or the autonomous runtime's `[from <author>]`
+  // attribution line — would otherwise stop these seams matching. Exactly the failure the
+  // comment on commandLine() describes.
+  const directive = commandLine(lastMessage).toLowerCase()
+  if (directive === 'empty') return { type: 'text', text: '' }
+  if (directive === 'stream error') return { type: 'error' }
   // Hang seam: "stall" holds the response open far longer than any test idle-watchdog
   // timeout, simulating a provider/gateway that keeps the socket open but emits
   // nothing — the client's watchdog must abort the turn with a recoverable timeout.
-  if (lastMessage.toLowerCase() === 'stall') return { type: 'text', text: 'too late', delayMs: 30_000 }
+  if (directive === 'stall') return { type: 'text', text: 'too late', delayMs: 30_000 }
   // Reasoning seam: emit reasoning tokens before the answer (exercises the gateway's
   // reasoning_content forwarding and the client's reasoning capture).
-  if (lastMessage.toLowerCase() === 'reason') return { type: 'text', text: 'world', reasoning: 'Let me think about it.' }
+  if (directive === 'reason') return { type: 'text', text: 'world', reasoning: 'Let me think about it.' }
   // Loop-guard close-out seams (exercise the sub-agent loop → close-out path).
   // A task of exactly "loop forever" makes the model emit the SAME tool call on EVERY
   // step (ignoring prior tool results and the injected nudge), so a sub-agent's
@@ -424,7 +429,7 @@ function processForModel (modelId: string, options: { prompt: string | Array<any
   // The harness then issues a no-tools close-out turn; the second seam recognizes that
   // prompt and returns a distinctive best-effort answer the test asserts was recovered
   // (not a bare truncation notice).
-  if (lastMessage.trim().toLowerCase() === 'loop forever') {
+  if (directive === 'loop forever') {
     return { type: 'tool-call', toolName: 'get_schema', toolArgs: '{"dataset":"test"}' }
   }
   if (/reached your step budget/i.test(lastMessage)) {
@@ -482,7 +487,13 @@ export function createMockLanguageModel (modelId: string = 'mock-model'): Langua
                 type: 'tool-call',
                 toolCallId,
                 toolName: call.toolName,
-                input: call.toolArgs ? JSON.parse(call.toolArgs) : {}
+                // A JSON STRING, not a parsed object: LanguageModelV3's tool-call part is the
+                // raw provider payload, and the SDK parses and validates it itself (it calls
+                // .trim() on this). Emitting an object made every SDK-side tool execution
+                // fail with "toolCall.input.trim is not a function" — invisible until now,
+                // because the gateway hands tool calls to the browser to execute and no test
+                // had ever let the SDK run one server-side.
+                input: call.toolArgs || '{}'
               } as any)
             })
             controller.enqueue({

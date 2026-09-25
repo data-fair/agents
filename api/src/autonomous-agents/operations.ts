@@ -13,12 +13,12 @@ export interface InstructSession {
   // types it as `1 | undefined`, and canInstruct only ever reads it for truthiness. Keeping
   // it `boolean` here forced every real call site to cast.
   user: { id: string, adminMode?: boolean | number }
-  account: { type: string, id: string }
+  account: { type: string, id: string, department?: string }
   accountRole?: string
 }
 
 interface InstructableAgent {
-  owner: { type: string, id: string }
+  owner: { type: string, id: string, department?: string }
   instructors?: { userId: string, userName?: string }[]
 }
 
@@ -33,7 +33,14 @@ interface InstructableAgent {
  */
 export function canInstruct (agent: InstructableAgent, session: InstructSession): boolean {
   if (session.user.adminMode) return true
-  const ownsAccount = session.account.type === agent.owner.type && session.account.id === agent.owner.id
+  // The department has to match too, exactly as lib-common-types' matchAccount does for
+  // assertAccountRole. Autonomous agents are always stored with a department-less owner, so
+  // comparing type+id alone would let an admin OF A DEPARTMENT instruct an org-root agent —
+  // borrowing its NHI permissions and spending the org's credits — while that same user is
+  // refused by every route that uses assertAccountRole and cannot even list the agents.
+  const ownsAccount = session.account.type === agent.owner.type &&
+    session.account.id === agent.owner.id &&
+    (session.account.department ?? null) === (agent.owner.department ?? null)
   if (ownsAccount && session.accountRole === 'admin') return true
   return (agent.instructors ?? []).some(instructor => instructor.userId === session.user.id)
 }

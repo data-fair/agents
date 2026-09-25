@@ -11,6 +11,9 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 export interface McpFixture {
   port: number
   lastHeaders: () => Record<string, string | string[] | undefined>
+  /** Tool names this server actually EXECUTED, in order. Listing does not appear here. */
+  invokedTools: () => string[]
+  resetInvokedTools: () => void
   close: () => Promise<void>
 }
 
@@ -20,7 +23,7 @@ export interface McpFixture {
 // constructed with `sessionIdGenerator: undefined` is shared across requests — unlike what
 // the brief's original one-transport-for-the-process-lifetime sketch assumed. See
 // node_modules/@modelcontextprotocol/sdk/dist/esm/server/webStandardStreamableHttp.js.
-const buildMcpServer = (): McpServer => {
+const buildMcpServer = (record: (toolName: string) => void): McpServer => {
   const mcp = new McpServer({ name: 'fixture', version: '1.0.0' })
   // The installed SDK also requires a Zod schema/raw-shape for inputSchema, not a plain
   // JSON Schema object — registerTool() calls getZodSchemaObject() on it and throws
@@ -29,7 +32,7 @@ const buildMcpServer = (): McpServer => {
   mcp.registerTool(
     'echo',
     { description: 'Echoes its input back', inputSchema: { value: z.string() } },
-    async ({ value }) => ({ content: [{ type: 'text', text: `echo:${value}` }] })
+    async ({ value }) => { record('echo'); return { content: [{ type: 'text', text: `echo:${value}` }] } }
   )
   mcp.registerTool(
     'get_schema',
@@ -38,23 +41,26 @@ const buildMcpServer = (): McpServer => {
     // tool the agent does not have and ends as an unknown-tool error, which would still
     // satisfy a naive "the run stopped" assertion while testing the wrong thing.
     { description: 'Returns a fixed schema', inputSchema: {} },
-    async () => ({ content: [{ type: 'text', text: '{"fields":[]}' }] })
+    async () => { record('get_schema'); return { content: [{ type: 'text', text: '{"fields":[]}' }] } }
   )
   mcp.registerTool(
     'ignored',
     { description: 'Exists so toolFilter has something to exclude', inputSchema: {} },
-    async () => ({ content: [{ type: 'text', text: 'ignored' }] })
+    async () => { record('ignored'); return { content: [{ type: 'text', text: 'ignored' }] } }
   )
   return mcp
 }
 
 export const startMcpFixture = async (port: number): Promise<McpFixture> => {
   let lastHeaders: Record<string, string | string[] | undefined> = {}
+  // Ground truth for "was this tool actually CALLED". Listing tools also reaches this server,
+  // so headers alone cannot distinguish a listing from an invocation.
+  let invoked: string[] = []
 
   const server: Server = createServer((req, res) => {
     lastHeaders = req.headers
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined })
-    const mcp = buildMcpServer()
+    const mcp = buildMcpServer(name => invoked.push(name))
     mcp.connect(transport)
       .then(() => transport.handleRequest(req, res))
       .catch(() => { if (!res.headersSent) res.statusCode = 500; res.end() })
@@ -65,6 +71,8 @@ export const startMcpFixture = async (port: number): Promise<McpFixture> => {
   return {
     port,
     lastHeaders: () => lastHeaders,
+    invokedTools: () => [...invoked],
+    resetInvokedTools: () => { invoked = [] },
     close: async () => { await new Promise<void>(resolve => server.close(() => resolve())) }
   }
 }

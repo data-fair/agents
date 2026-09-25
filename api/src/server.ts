@@ -10,7 +10,7 @@ import { app } from './app.ts'
 import config from '#config'
 import mongo from '#mongo'
 import { cleanupOldUsage } from './usage/cleanup.ts'
-import { sweepInterruptedRuns } from './autonomous-agent-runtime/executor.ts'
+import { sweepInterruptedRuns, resumeQueuedRuns } from './autonomous-agent-runtime/executor.ts'
 
 /**
  * Run pending upgrade/<version>/*.js migrations (see @data-fair/lib-node/upgrade-scripts.js).
@@ -55,6 +55,7 @@ const runUpgradeScripts = async () => {
 const server = createServer(app)
 const httpTerminator = createHttpTerminator({ server })
 let cleanupInterval: ReturnType<typeof setInterval> | undefined
+let autonomousAgentReaper: ReturnType<typeof setInterval> | undefined
 
 server.keepAliveTimeout = (60 * 1000) + 1000
 server.headersTimeout = (60 * 1000) + 2000
@@ -78,6 +79,14 @@ export const start = async () => {
       await eventsQueue.start({ eventsUrl: config.privateEventsUrl, eventsSecret: config.secretKeys.events })
     }
   }
+
+  // A queued run whose holder died is only picked up when someone posts to that conversation
+  // again, which may be never. This reaper makes "running with nobody running it" recoverable
+  // without a restart. The interval is well inside the 60s lock TTL, so it does not fight a
+  // live holder.
+  autonomousAgentReaper = setInterval(() => {
+    resumeQueuedRuns().catch(err => console.error('autonomous agent reaper failed', err))
+  }, 30 * 1000)
 
   cleanupOldUsage().catch(err => console.error('initial usage cleanup failed', err))
   cleanupInterval = setInterval(() => {
@@ -108,6 +117,7 @@ export const start = async () => {
 
 export const stop = async () => {
   if (cleanupInterval) clearInterval(cleanupInterval)
+  if (autonomousAgentReaper) clearInterval(autonomousAgentReaper)
   await httpTerminator.terminate()
   if (config.observer?.active) await stopObserver()
   await locks.stop()

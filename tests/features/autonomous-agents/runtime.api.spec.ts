@@ -244,6 +244,7 @@ test.describe('Autonomous agent model loop', () => {
   test.afterAll(async () => { await fixture.close() })
   test.beforeEach(async () => {
     await clean()
+    fixture.resetInvokedTools()
     // The org needs a resolvable assistant model; the mock provider is the deterministic seam.
     await putMockSettings(admin, 'organization/test1')
   })
@@ -296,13 +297,47 @@ test.describe('Autonomous agent model loop', () => {
     const call = assistant.toolCalls.find((c: any) => c.toolName === 'echo')
     assert.ok(call, 'expected the echo tool call')
     assert.equal(call.serverId, 'dev-public-mcp')
-    // Two steps and a final answer prove the whole round trip, not merely that a call was
-    // emitted: the fixture executed the tool, its wrapped result went back to the model,
-    // and the model produced an answer from it. A call that never reached the server would
-    // have left the turn looping or failing instead.
+    // GROUND TRUTH from the MCP server itself. Asserting on the model's behaviour cannot
+    // prove the tool ran: the mock answers 'done' to any tool-role message, an execution
+    // ERROR included, so steps/content look identical whether or not the call ever reached
+    // the server. This assertion is the one that fails if the client is closed too early.
+    assert.deepEqual(fixture.invokedTools(), ['echo'], 'the MCP server must have actually executed the tool')
     assert.equal(run.stopReason, 'completed')
     assert.equal(run.steps, 2)
     assert.equal(assistant.content, 'done')
+  })
+
+  test('with two MCP servers, provenance names the server the tool actually came from', async () => {
+    // Both dev servers point at the same fixture and need no session, so the tool names
+    // collide and last-write-wins picks the SECOND. Mapping every tool to mcpServers[0] —
+    // which is what a per-server loop over all names does — would name the first, so this
+    // distinguishes a correct mapping from a plausible-looking guess.
+    const agent = await createAgent({ mcpServers: [{ serverId: 'dev-public-mcp' }, { serverId: 'dev-apikey-mcp' }] })
+    await enrol(agent.id)
+    const { assistant } = await runOnce(agent.id, 'call tool echo {"value":"x"}')
+    const call = assistant.toolCalls.find((c: any) => c.toolName === 'echo')
+    assert.ok(call)
+    assert.equal(call.serverId, 'dev-apikey-mcp')
+    assert.notEqual(call.failed, true, 'the tool must have returned a usable result')
+  })
+
+  test('a disabled autonomous agent refuses to act', async () => {
+    const agent = await createAgent({ enabled: false })
+    await enrol(agent.id)
+    const { run, assistant } = await runOnce(agent.id, 'hello')
+    // enabled is the kill switch; if it does not stop a turn it stops nothing at all.
+    assert.equal(run.status, 'error')
+    assert.notEqual(assistant.content, 'world')
+    assert.match(assistant.content, /disabled/i)
+  })
+
+  test('an empty completion does not render as a blank, successful turn', async () => {
+    const agent = await createAgent()
+    await enrol(agent.id)
+    const { run, assistant } = await runOnce(agent.id, 'empty')
+    assert.ok(assistant.content.trim().length > 0, 'a blank bubble is the silent stop this forbids')
+    assert.notEqual(run.stopReason, 'completed')
+    assert.equal(assistant.pending, false)
   })
 
   test('the repeated-call guard stops a looping turn as a truncation, not an error', async () => {
@@ -460,7 +495,9 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
       { status: 403 }
     )
 
-    // a listed instructor can: anyone who can start a turn can stop one
+    // A listed instructor can: anyone who can start a turn can stop one. Asserted against a
+    // LIVE turn — aborting an already-finished run returns 200 with {aborted:false}, which
+    // would pass while proving only that the 403 is gone.
     await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, {
       title: agent.title,
       persona: agent.persona,
@@ -469,7 +506,14 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
       enabled: true,
       instructors: [{ userId: 'test1-user1', userName: 'Test User' }]
     })
-    const allowed = await orgMember.post(`/api/autonomous-agent-runs/organization/test1/${runId}/abort`, {})
+    // The PUT above carries no `nhi`, and the write route rebuilds that field from the body,
+    // so it drops the enrolment — re-enrol or the turn refuses instantly instead of stalling.
+    await enrol(agent.id)
+    const live = await startTurn(agent.id, 'stall')
+    await new Promise(resolve => setTimeout(resolve, 300))
+    const allowed = await orgMember.post(`/api/autonomous-agent-runs/organization/test1/${live.runId}/abort`, {})
     assert.equal(allowed.status, 200)
+    assert.equal(allowed.data.aborted, true, 'an instructor must be able to stop a turn in flight')
+    assert.equal((await awaitRun(live.runId)).status, 'aborted')
   })
 })
