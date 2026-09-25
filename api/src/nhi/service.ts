@@ -7,7 +7,7 @@ import { httpError, reqSiteUrl } from '@data-fair/lib-express'
 import type { Request } from 'express'
 import { SignJWT, importJWK } from 'jose'
 import axios from '@data-fair/lib-node/axios.js'
-import { toPublicJwk, nhiIssuerUrl, buildAssertionClaims, shouldRefreshSession, autonomousAgentSubject, exchangeHeaders, nhiExchangeUrl, type NhiPrivateJwk, type NhiPublicJwk } from './operations.ts'
+import { toPublicJwk, nhiIssuerUrl, buildAssertionClaims, shouldRefreshSession, autonomousAgentSubject, exchangeHeaders, nhiExchangeUrl, sanitizeExchangeError, type NhiPrivateJwk, type NhiPublicJwk } from './operations.ts'
 
 /** The whole NHI feature is off when no signing key is configured. */
 export const nhiEnabled = () => !!config.nhiSigningKey
@@ -95,11 +95,19 @@ export const mintAssertion = async (autonomousAgent: EnrolledAutonomousAgent): P
 export const exchangeForSession = async (autonomousAgent: EnrolledAutonomousAgent): Promise<{ cookieHeader: string, expiresAtMs: number }> => {
   const { clientId, siteUrl } = requireEnrolment(autonomousAgent)
   const assertion = await mintAssertion(autonomousAgent)
-  const res = await axios.post(
-    nhiExchangeUrl(config.privateDirectoryUrl, siteUrl),
-    { client_id: clientId, assertion },
-    { headers: exchangeHeaders(siteUrl), maxRedirects: 0 }
-  )
+  let res
+  try {
+    res = await axios.post(
+      nhiExchangeUrl(config.privateDirectoryUrl, siteUrl),
+      { client_id: clientId, assertion },
+      { headers: exchangeHeaders(siteUrl), maxRedirects: 0 }
+    )
+  } catch (err) {
+    // lib-node's axios interceptor attaches the request body (which carries the
+    // assertion) to the rejected error — see sanitizeExchangeError. Never let the raw
+    // error escape this call.
+    throw sanitizeExchangeError(err)
+  }
   const setCookies: string[] = res.headers['set-cookie'] ?? []
   // keep only name=value, dropping attributes (Path, HttpOnly, …) — a Cookie request
   // header carries pairs only

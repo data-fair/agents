@@ -139,8 +139,17 @@ router.put('/:type/:id/:agentId', async (req, res, next) => {
       ...(existing.createdBy ? { createdBy: existing.createdBy } : {}),
       updatedAt: new Date().toISOString()
     }
-    // only when it changed — see assertEnrolmentWorks
-    if (updated.nhi?.clientId && updated.nhi.clientId !== existing.nhi?.clientId) await assertEnrolmentWorks(updated)
+    // Re-verify whenever any part of the enrolment changed, not just the clientId: a
+    // re-save from a different host changes siteUrl/issuer, and those feed the signed
+    // audience and the exchange path, so an unverified change breaks the agent at its
+    // first tool call. An unchanged enrolment is deliberately NOT re-verified — the
+    // exchange is rate-limited per client_id and consumes a point even on success.
+    const enrolmentChanged = !!updated.nhi?.clientId && (
+      updated.nhi.clientId !== existing.nhi?.clientId ||
+      updated.nhi.siteUrl !== existing.nhi?.siteUrl ||
+      updated.nhi.issuer !== existing.nhi?.issuer
+    )
+    if (enrolmentChanged) await assertEnrolmentWorks(updated)
     await mongo.autonomousAgents.replaceOne({ id: existing.id, 'owner.type': owner.type, 'owner.id': owner.id }, { ...updated })
 
     eventsLog.info('agents.autonomous-agent.update', `autonomous agent ${existing.id} updated for owner ${owner.type}/${owner.id}`, { req })

@@ -3,7 +3,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { assertNhiConfig, toPublicJwk, nhiIssuerUrl, nhiExchangeUrl, exchangeHeaders, autonomousAgentSubject, buildAssertionClaims, shouldRefreshSession, decodeSessionClaims, type NhiPrivateJwk } from '../../../api/src/nhi/operations.ts'
+import { assertNhiConfig, toPublicJwk, nhiIssuerUrl, nhiExchangeUrl, exchangeHeaders, autonomousAgentSubject, buildAssertionClaims, shouldRefreshSession, decodeSessionClaims, sanitizeExchangeError, type NhiPrivateJwk } from '../../../api/src/nhi/operations.ts'
 
 const key: NhiPrivateJwk = {
   kty: 'EC',
@@ -201,5 +201,31 @@ test.describe('decodeSessionClaims', () => {
 
   test('throws on a cookie that is not a header.payload pair', () => {
     assert.throws(() => decodeSessionClaims('id_token=nodots'), /header.payload pair/)
+  })
+})
+
+test.describe('sanitizeExchangeError', () => {
+  const fake = () => {
+    const err: any = new Error('401 - invalid credentials')
+    // the shape lib-node's interceptor actually produces
+    err.config = { method: 'post', url: 'http://sd:8080/simple-directory/api/auth/nhi-token', data: JSON.stringify({ client_id: 'nhi-abc', assertion: 'eyJhbGciOiJFUzI1NiJ9.SECRET_ASSERTION.sig' }) }
+    err.response = { status: 401, config: err.config }
+    return err
+  }
+
+  test('keeps the scrubbed message', () => {
+    assert.match(sanitizeExchangeError(fake()).message, /401 - invalid credentials/)
+  })
+
+  test('drops the request body, so a live assertion cannot reach a log or a caller', () => {
+    const sanitized = sanitizeExchangeError(fake())
+    assert.equal('config' in sanitized, false)
+    assert.equal('response' in sanitized, false)
+    // belt and braces: the credential must not survive anywhere on the object
+    assert.equal(JSON.stringify(sanitized, Object.getOwnPropertyNames(sanitized)).includes('SECRET_ASSERTION'), false)
+  })
+
+  test('tolerates a non-error rejection', () => {
+    assert.match(sanitizeExchangeError('boom').message, /unknown error/)
   })
 })

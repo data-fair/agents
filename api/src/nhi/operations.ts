@@ -123,6 +123,18 @@ export function autonomousAgentSubject (autonomousAgentId: string): string {
 }
 
 /**
+ * The lib-node axios interceptor attaches the REQUEST BODY to the error it rejects with
+ * (`error.response.config.data`, merged onto the thrown AxiosRequestError). The exchange's
+ * body carries a live assertion — a short-lived credential that can mint a session — so the
+ * raw error must never reach a caller, a log or an error handler. Only the already-scrubbed
+ * message survives; `config` and `response` are dropped entirely.
+ */
+export function sanitizeExchangeError (err: unknown): Error {
+  const message = typeof (err as any)?.message === 'string' ? (err as any).message : 'unknown error'
+  return new Error(`nhi token exchange failed: ${message}`)
+}
+
+/**
  * The assertion's claims. Signature, iss, sub, aud and exp/nbf are all checked by
  * simple-directory in one jwtVerify call, with requiredClaims ['exp', 'sub', 'iat'].
  *
