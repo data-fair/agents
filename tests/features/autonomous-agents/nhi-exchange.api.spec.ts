@@ -111,11 +111,14 @@ test.describe('NHI exchange', () => {
     // whichever agent exists and assert the captured values won.
     const list = await admin.get('/api/autonomous-agents/organization/test1')
     const stored = list.data.results.find((a: any) => a.title === 'Injection probe')
-    if (stored) {
-      assert.equal(stored.nhi?.siteUrl, `http://localhost:${process.env.NGINX_PORT}`)
-      assert.match(stored.nhi?.issuer ?? '', /\/agents\/api\/nhi$/)
-      assert.equal(JSON.stringify(stored).includes('attacker.example'), false)
-    }
+    // Deliberately a hard assertion rather than `if (stored)`. Task 5 adds enrolment
+    // verification, which will reject this bogus clientId before insert — at which point
+    // this test MUST fail loudly so whoever does Task 5 converts it to assert the
+    // rejection path, rather than it silently decaying into zero assertions.
+    assert.ok(stored, 'expected the autonomous agent to have been created; if Task 5 now rejects the bogus clientId, convert this test to assert the rejection path instead of deleting it')
+    assert.equal(stored.nhi?.siteUrl, `http://localhost:${process.env.NGINX_PORT}`)
+    assert.match(stored.nhi?.issuer ?? '', /\/agents\/api\/nhi$/)
+    assert.equal(JSON.stringify(stored).includes('attacker.example'), false)
   })
 
   test('an autonomous agent with no enrolled identity is refused', async () => {
