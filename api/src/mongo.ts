@@ -1,6 +1,9 @@
 import type { Settings } from '#types/settings/index.ts'
 import type { Limits } from '#types/limits/index.ts'
 import type { AutonomousAgent } from '#types/autonomous-agent/index.ts'
+import type { AutonomousAgentConversation } from '#types/autonomous-agent-conversation/index.ts'
+import type { AutonomousAgentMessage } from '#types/autonomous-agent-message/index.ts'
+import type { AutonomousAgentRun } from '#types/autonomous-agent-run/index.ts'
 import type { Usage } from './usage/service.ts'
 import type { TraceRequest } from './traces/types.ts'
 import type { ModerationEvent, ModerationStrike } from './moderation/types.ts'
@@ -46,6 +49,18 @@ export class AgentsMongo {
     return mongoLib.db.collection<AutonomousAgent>('autonomous-agents')
   }
 
+  get autonomousAgentConversations () {
+    return mongoLib.db.collection<AutonomousAgentConversation>('autonomous-agent-conversations')
+  }
+
+  get autonomousAgentMessages () {
+    return mongoLib.db.collection<AutonomousAgentMessage>('autonomous-agent-messages')
+  }
+
+  get autonomousAgentRuns () {
+    return mongoLib.db.collection<AutonomousAgentRun>('autonomous-agent-runs')
+  }
+
   async connect () {
     await mongoLib.connect(config.mongoUrl)
   }
@@ -84,6 +99,23 @@ export class AgentsMongo {
       'autonomous-agents': {
         'main-keys': [{ id: 1 }, { unique: true }],
         'owner-keys': [{ 'owner.type': 1, 'owner.id': 1, updatedAt: -1 }, {}]
+      },
+      'autonomous-agent-conversations': {
+        'main-keys': [{ id: 1 }, { unique: true }],
+        'agent-keys': [{ autonomousAgentId: 1, lastMessageAt: -1 }, {}]
+      },
+      'autonomous-agent-messages': {
+        // The read path: one conversation's messages in order. Unique so a duplicate seq
+        // is a write error rather than a silently reordered conversation — the backstop
+        // for the $inc allocation in appendMessage.
+        'main-keys': [{ conversationId: 1, seq: 1 }, { unique: true }],
+        'id-keys': [{ id: 1 }, { unique: true }]
+      },
+      'autonomous-agent-runs': {
+        'main-keys': [{ id: 1 }, { unique: true }],
+        'conversation-keys': [{ conversationId: 1, startedAt: -1 }, {}],
+        // the boot sweep that marks orphaned runs interrupted
+        'status-keys': [{ status: 1 }, {}]
       }
     })
   }

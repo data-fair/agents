@@ -63,6 +63,9 @@ if (process.env.NODE_ENV === 'development') {
     await mongo.db.collection('moderation-strikes').deleteMany({ 'owner.id': /^test/ })
     await mongo.db.collection('limits').deleteMany({ id: /^test/ })
     await mongo.db.collection('autonomous-agents').deleteMany({ 'owner.id': /^test/ })
+    await mongo.db.collection('autonomous-agent-conversations').deleteMany({ 'owner.id': /^test/ })
+    await mongo.db.collection('autonomous-agent-messages').deleteMany({ 'owner.id': /^test/ })
+    await mongo.db.collection('autonomous-agent-runs').deleteMany({ 'owner.id': /^test/ })
     res.send()
   })
   app.post('/api/test-env/usage', async (req, res) => {
