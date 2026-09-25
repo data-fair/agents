@@ -1731,6 +1731,20 @@ git commit -m "feat(autonomous-agents): mcp client with per-auth-mode credential
 - Consumes: `listAutonomousAgentTools` (Task 6), `assertOrganizationOwner`, `getAutonomousAgent` (Plan A).
 - Produces: `GET /api/autonomous-agents/:type/:id/:agentId/tools` → `{ results: [{ name, description, server, annotations }], count }`
 
+**Consequence of Task 5 you must handle here.** Task 5 makes every save carrying an
+`nhi.clientId` perform a real exchange and reject on failure. In this dev stack no NHI can
+exist at all (`FileStorage.createUser` throws), so **no autonomous agent can be given a
+working NHI in dev**. That makes one test in this task unreachable: "a session server
+receives the autonomous agent's own NHI cookie", which needs a real enrolment. Skip that
+one with the same reasoning as the skipped test in `nhi-exchange.api.spec.ts`, and leave its
+body intact.
+
+Everything else in this task is unaffected and must stay active — the fixture MCP server,
+tool listing, `toolFilter`, the `none` and `apiKey` credential paths, the
+no-secret-in-response assertion, and authorization. Those cover the endpoint's behaviour
+without needing an identity, which is why this task remains a real deliverable despite the
+gap.
+
 **Why this route exists:** it is the deliverable. Without an executor there is no other way to see that identity and tools work end to end, and it is exactly what someone validating a staging deployment needs: create an autonomous agent, enrol it, point it at a server, and read back the real tool list fetched as that agent.
 
 - [ ] **Step 1: Write the in-process MCP fixture**
