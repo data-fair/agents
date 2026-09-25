@@ -30,5 +30,13 @@ export default {
   compactionPercent: {
     __name: 'COMPACTION_PERCENT',
     __format: 'json'
+  },
+  autonomousAgentRunCredits: {
+    __name: 'AUTONOMOUS_AGENT_RUN_CREDITS',
+    __format: 'json'
+  },
+  autonomousAgentRunTimeoutSeconds: {
+    __name: 'AUTONOMOUS_AGENT_RUN_TIMEOUT_SECONDS',
+    __format: 'json'
   }
 }

@@ -6,6 +6,14 @@ export const schemaExports: string[]
  * Share of the assistant model's context window above which conversation history is compacted.
  */
 export type CompactionPercent = number;
+/**
+ * Credits one autonomous agent turn may spend before it is stopped. The account credit cap still applies on top of this.
+ */
+export type AutonomousAgentRunCreditBudget = number;
+/**
+ * Wall-clock ceiling for one autonomous agent turn, so a hanging model or MCP server cannot hold a conversation's lock.
+ */
+export type AutonomousAgentRunTimeoutSeconds = number;
 
 export type ApiConfig = {
   mongoUrl: string;
@@ -102,6 +110,8 @@ export type ApiConfig = {
   get?: unknown;
   has?: unknown;
   compactionPercent: CompactionPercent;
+  autonomousAgentRunCredits: AutonomousAgentRunCreditBudget;
+  autonomousAgentRunTimeoutSeconds: AutonomousAgentRunTimeoutSeconds;
 }
 /**
  * This interface was referenced by `ApiConfig`'s JSON-Schema

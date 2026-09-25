@@ -4,7 +4,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
-import { putMockSettings } from '../../support/settings.ts'
+import { putMockSettings, mockModels } from '../../support/settings.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 
 const admin = await superAdmin
@@ -18,6 +18,10 @@ const agentBody = (over: any = {}) => ({
 const createAgent = async (over: any = {}) =>
   (await admin.post('/api/autonomous-agents/organization/test1', agentBody(over))).data
 
+// These cover routing and the run LIFECYCLE — locking, pickup, terminal state, terminal
+// message, restart sweep. The agents here are deliberately left unconfigured and unenrolled,
+// so their turns refuse; that is fine, because a refusal exercises the same lifecycle. The
+// 'model loop' and 'budgets' blocks below configure a model and cover successful turns.
 test.describe('Autonomous agent conversations', () => {
   test.beforeEach(async () => { await clean() })
 
@@ -195,7 +199,8 @@ test.describe('Autonomous agent conversations', () => {
     // seq is monotonic, so ordering is observable
     assert.ok(assistants[1].seq > assistants[0].seq)
     const firstRun = (await orgAdmin.get(`/api/autonomous-agent-runs/organization/test1/${first.runId}`)).data
-    assert.equal(firstRun.status, 'done', 'the queued run must have been picked up, not left running')
+    assert.notEqual(firstRun.status, 'running', 'the queued run must have been picked up, not left running')
+    assert.ok(firstRun.endedAt)
   })
 
   test('a run left running by a restart is swept to interrupted, with a message', async () => {
@@ -316,7 +321,10 @@ test.describe('Autonomous agent model loop', () => {
     const agent = await createAgent({ mcpServers: [{ serverId: 'dev-public-mcp' }] })
     // deliberately NOT enrolled
     const { run, assistant } = await runOnce(agent.id, 'hello')
-    assert.notEqual(run.status, 'running')
+    // A refusal is an error, not a completed run: asserting only "not running" would let a
+    // refusal be reported as `done`.
+    assert.equal(run.status, 'error')
+    assert.equal(run.stopReason, 'error')
     assert.ok(assistant, 'a refusal is still a message')
     assert.match(assistant.content, /identity|enrol/i)
     assert.equal(assistant.pending, false)
@@ -333,5 +341,135 @@ test.describe('Autonomous agent model loop', () => {
     assert.ok(assistant, 'failure is a message, not a silence')
     assert.equal(assistant.pending, false)
     assert.ok(assistant.content.length > 0)
+  })
+})
+
+test.describe('Autonomous agent budgets, quotas and abort', () => {
+  let fixture: McpFixture
+  const SECRET = 'secretlimits' // matches api/config/development.js, as tests/features/limits does
+
+  test.beforeAll(async () => { fixture = await startMcpFixture(Number(process.env.NGINX_PORT) + 30) })
+  test.afterAll(async () => { await fixture.close() })
+  test.beforeEach(async () => {
+    await clean()
+    await putMockSettings(admin, 'organization/test1')
+  })
+
+  const enrol = async (agentId: string) => { await admin.post('/api/test-env/enrol-autonomous-agent', { agentId }) }
+
+  const startTurn = async (agentId: string, content: string) => {
+    const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agentId, title: 't' })).data
+    const { runId } = (await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content })).data
+    return { conv, runId }
+  }
+
+  const awaitRun = async (runId: string, tries = 120) => {
+    for (let i = 0; i < tries; i++) {
+      const run = (await orgAdmin.get(`/api/autonomous-agent-runs/organization/test1/${runId}`)).data
+      if (run.status !== 'running') return run
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
+    throw new Error('run never reached a terminal status')
+  }
+
+  const messagesOf = async (conversationId: string) =>
+    (await orgAdmin.get(`/api/autonomous-agent-conversations/organization/test1/${conversationId}/messages`)).data.results
+
+  test('an exhausted account credit cap refuses the turn before any model call', async () => {
+    await orgAdmin.post(`/api/v1/limits/organization/test1?key=${SECRET}`, {
+      name: 'Test 1', lastUpdate: new Date().toISOString(), ai_credits: { limit: 10, consumption: 10 }
+    })
+    const agent = await createAgent()
+    await enrol(agent.id)
+    const { conv, runId } = await startTurn(agent.id, 'hello')
+    const run = await awaitRun(runId)
+
+    assert.equal(run.status, 'error')
+    // credits and steps at zero are what prove the refusal landed BEFORE the model ran.
+    // The MCP fixture cannot prove it: it records headers for the tool LISTING too, so a
+    // header there would not distinguish listing from invoking.
+    assert.equal(run.credits ?? 0, 0)
+    assert.equal(run.steps ?? 0, 0)
+
+    const assistant = (await messagesOf(conv.id)).find((m: any) => m.role === 'assistant')
+    assert.ok(assistant, 'a refusal is still a message')
+    assert.match(assistant.content, /could not run/i)
+    assert.match(assistant.content, /limit/i)
+    assert.equal(assistant.pending, false)
+  })
+
+  test('usage is recorded against the autonomous agent, not the instructing user', async () => {
+    const agent = await createAgent()
+    await enrol(agent.id)
+    // Non-zero prices, otherwise a mock turn costs 0 credits and records nothing at all.
+    await putMockSettings(admin, 'organization/test1', { models: mockModels({ inputPricePerMillion: 1000, outputPricePerMillion: 1000 }) })
+    const { runId } = await startTurn(agent.id, 'hello')
+    const run = await awaitRun(runId)
+    assert.equal(run.status, 'done')
+    assert.ok(run.credits > 0, 'a priced turn must record what it cost')
+
+    const usage = (await orgAdmin.get('/api/usage/organization/test1/history?scope=users&days=7')).data
+    const flat = JSON.stringify(usage)
+    assert.match(flat, new RegExp(`autonomous-agent:${agent.id}`), 'spend must be keyed on the agent')
+    assert.doesNotMatch(flat, /test1-admin1/, 'the instructing user must not be billed for an autonomous run')
+  })
+
+  test('the per-run credit budget stops a turn that would otherwise keep calling tools', async () => {
+    const agent = await createAgent({ mcpServers: [{ serverId: 'dev-public-mcp' }] })
+    await enrol(agent.id)
+    // Priced so a single step blows the global per-run budget, which must then cut the loop
+    // in fewer steps than the repeated-call guard would have taken.
+    await putMockSettings(admin, 'organization/test1', { models: mockModels({ inputPricePerMillion: 100_000_000, outputPricePerMillion: 100_000_000 }) })
+    const { conv, runId } = await startTurn(agent.id, 'loop forever')
+    const run = await awaitRun(runId)
+
+    assert.equal(run.stopReason, 'budget')
+    assert.ok(run.steps < 5, `expected the budget to stop the turn before the repeated-call guard, got ${run.steps} steps`)
+    const assistant = (await messagesOf(conv.id)).find((m: any) => m.role === 'assistant')
+    assert.match(assistant.content, /credit budget/i)
+  })
+
+  test('a turn can be aborted, and says so', async () => {
+    const agent = await createAgent()
+    await enrol(agent.id)
+    // 'stall' holds the response open for 30s — far longer than this test waits — so the
+    // abort is what ends it.
+    const { conv, runId } = await startTurn(agent.id, 'stall')
+    await new Promise(resolve => setTimeout(resolve, 300))
+
+    const res = await orgAdmin.post(`/api/autonomous-agent-runs/organization/test1/${runId}/abort`, {})
+    assert.equal(res.data.aborted, true, 'the process holding the turn must report that it aborted it')
+
+    const run = await awaitRun(runId)
+    assert.equal(run.status, 'aborted')
+    assert.equal(run.stopReason, 'aborted')
+    const assistant = (await messagesOf(conv.id)).find((m: any) => m.role === 'assistant')
+    assert.match(assistant.content, /stopped/i)
+    assert.equal(assistant.pending, false)
+  })
+
+  test('aborting requires the same grant as instructing', async () => {
+    const agent = await createAgent()
+    await enrol(agent.id)
+    const { runId } = await startTurn(agent.id, 'hello')
+    await awaitRun(runId)
+
+    // an unlisted org member cannot stop this autonomous agent
+    await assert.rejects(
+      orgMember.post(`/api/autonomous-agent-runs/organization/test1/${runId}/abort`, {}),
+      { status: 403 }
+    )
+
+    // a listed instructor can: anyone who can start a turn can stop one
+    await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, {
+      title: agent.title,
+      persona: agent.persona,
+      mcpServers: [],
+      toolDisclosure: 'static',
+      enabled: true,
+      instructors: [{ userId: 'test1-user1', userName: 'Test User' }]
+    })
+    const allowed = await orgMember.post(`/api/autonomous-agent-runs/organization/test1/${runId}/abort`, {})
+    assert.equal(allowed.status, 200)
   })
 })

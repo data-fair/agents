@@ -381,6 +381,24 @@ function processChainSeam (lastMessage: string, prompt: string | Array<any>, too
   return { type: 'tool-call', toolName: then, toolArgs: '{}' }
 }
 
+/**
+ * The mock's artificial latency, abortable.
+ *
+ * A bare setTimeout would make the mock the ONE provider that ignores abortSignal, so a
+ * test could never observe a caller's abort taking effect — the turn would only end when
+ * the delay elapsed. Real fetch-based providers reject on abort; the mock does too.
+ */
+const mockDelay = async (ms: number, signal?: AbortSignal): Promise<void> => {
+  if (signal?.aborted) throw signal.reason ?? new Error('aborted')
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(resolve, ms)
+    signal?.addEventListener('abort', () => {
+      clearTimeout(timer)
+      reject(signal.reason ?? new Error('aborted'))
+    }, { once: true })
+  })
+}
+
 function processForModel (modelId: string, options: { prompt: string | Array<any>, tools?: Array<any> }): MockPromptResult {
   const lastMessage = getLastUserMessage(options)
   const seam = processSelectToolsSeam(lastMessage, options.tools)
@@ -432,7 +450,7 @@ export function createMockLanguageModel (modelId: string = 'mock-model'): Langua
     supportedUrls: {},
     doStream: async (options) => {
       const result = processForModel(modelId, options)
-      if (result.delayMs) await new Promise(resolve => setTimeout(resolve, result.delayMs))
+      if (result.delayMs) await mockDelay(result.delayMs, options.abortSignal)
       const promptText = serializePrompt(options.prompt)
 
       if (result.type === 'error') {
@@ -507,7 +525,7 @@ export function createMockLanguageModel (modelId: string = 'mock-model'): Langua
     },
     doGenerate: async (options) => {
       const result = processForModel(modelId, options)
-      if (result.delayMs) await new Promise(resolve => setTimeout(resolve, result.delayMs))
+      if (result.delayMs) await mockDelay(result.delayMs, options.abortSignal)
       const promptText = serializePrompt(options.prompt)
 
       if (result.type === 'error') {

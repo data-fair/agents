@@ -21,7 +21,9 @@
     "requireAnonymousActionToken",
     "eurosPerCredit",
     "defaultLimits",
-    "compactionPercent"
+    "compactionPercent",
+    "autonomousAgentRunCredits",
+    "autonomousAgentRunTimeoutSeconds"
   ],
   "$defs": {
     "modelRef": {
@@ -216,6 +218,20 @@
       "default": 70,
       "minimum": 10,
       "maximum": 100
+    },
+    "autonomousAgentRunCredits": {
+      "type": "number",
+      "title": "Autonomous agent run credit budget",
+      "description": "Credits one autonomous agent turn may spend before it is stopped. The account credit cap still applies on top of this.",
+      "default": 5,
+      "minimum": 0
+    },
+    "autonomousAgentRunTimeoutSeconds": {
+      "type": "number",
+      "title": "Autonomous agent run timeout (seconds)",
+      "description": "Wall-clock ceiling for one autonomous agent turn, so a hanging model or MCP server cannot hold a conversation's lock.",
+      "default": 300,
+      "minimum": 10
     }
   }
 }

@@ -11,7 +11,7 @@ import { type AccountKeys, httpError, reqSessionAuthenticated } from '@data-fair
 import eventsLog from '@data-fair/lib-express/events-log.js'
 import { assertOrganizationOwner } from '../autonomous-agents/service.ts'
 import { assertCanInstruct, requireAutonomousAgent, requireConversation, appendMessage, createRun } from './service.ts'
-import { startRun } from './executor.ts'
+import { startRun, abortRun } from './executor.ts'
 
 const router = Router()
 export default router
@@ -22,6 +22,30 @@ export default router
  * to remember which conversation it came from.
  */
 export const runsRouter = Router()
+
+/**
+ * Stop a running turn. Guarded by canInstruct, not by who started it: anyone who can send
+ * this autonomous agent a message can stop what it is doing.
+ */
+runsRouter.post('/:type/:id/:runId/abort', async (req, res, next) => {
+  try {
+    const session = reqSessionAuthenticated(req)
+    const owner = reqOwner(req)
+    const run = await mongo.autonomousAgentRuns.findOne(
+      { id: req.params.runId, 'owner.type': owner.type, 'owner.id': owner.id },
+      { projection: { _id: 0 } }
+    )
+    if (!run) throw httpError(404, 'unknown run')
+    const autonomousAgent = await requireAutonomousAgent(owner, run.autonomousAgentId)
+    assertCanInstruct(autonomousAgent, session)
+
+    // `aborted: false` for a run this process is not holding — it may already have finished,
+    // or (with several API processes) be held elsewhere. Reported rather than pretended.
+    const aborted = abortRun(run.id)
+    eventsLog.info('agents.autonomous-agent-run.abort', `abort requested for run ${run.id}`, { req })
+    res.json({ aborted })
+  } catch (err) { next(err) }
+})
 
 runsRouter.get('/:type/:id/:runId', async (req, res, next) => {
   try {

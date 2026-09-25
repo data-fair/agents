@@ -44,5 +44,11 @@ export default {
   // compacts conversation history. Global rather than per-account: it is a
   // safety/efficiency tuning knob, not something an org should have to reason
   // about. See docs/architecture/compaction.md.
-  compactionPercent: 70
+  compactionPercent: 70,
+  // Bounds one autonomous agent turn. Global rather than per-agent: nothing has asked for
+  // per-agent tuning, and the account credit cap still applies on top of this.
+  autonomousAgentRunCredits: 5,
+  // Wall-clock ceiling for one turn. A model or MCP server that hangs must not hold a
+  // conversation's lock until the lock's own TTL expires.
+  autonomousAgentRunTimeoutSeconds: 300
 }
