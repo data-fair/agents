@@ -9,7 +9,12 @@ import type { Request } from 'express'
 import { listMcpServerCatalog, unknownMcpServerIds } from '../mcp-servers/operations.ts'
 import { getAutonomousAgentSession, clearAutonomousAgentSession, type EnrolledAutonomousAgent } from '../nhi/service.ts'
 import { decodeSessionClaims, autonomousAgentSubject } from '../nhi/operations.ts'
-import { listAutonomousAgentToolDescriptors } from '../mcp-servers/client.ts'
+import { listAutonomousAgentToolDescriptors, type AutonomousAgentForTools } from '../mcp-servers/client.ts'
+
+// Re-exported so the router (HTTP layer only) never imports ../nhi/service.ts directly —
+// it drops a deleted autonomous agent's cached session the same way assertEnrolmentWorks
+// below does for a changed one.
+export { clearAutonomousAgentSession }
 
 export const getMcpServerCatalog = () => listMcpServerCatalog(config.mcpServers ?? [])
 
@@ -85,5 +90,5 @@ export const assertEnrolmentWorks = async (autonomousAgent: EnrolledAutonomousAg
  * The tool list an autonomous agent would actually receive, fetched live as its own
  * identity. Descriptions and annotations only — never a credential.
  */
-export const describeAutonomousAgentTools = async (autonomousAgent: { id: string, nhi?: { clientId: string }, mcpServers?: { serverId: string, toolFilter?: string[] }[] }) =>
+export const describeAutonomousAgentTools = async (autonomousAgent: AutonomousAgentForTools) =>
   await listAutonomousAgentToolDescriptors(autonomousAgent)

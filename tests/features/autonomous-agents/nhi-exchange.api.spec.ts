@@ -134,6 +134,35 @@ test.describe('NHI exchange', () => {
     assert.equal(stored, undefined)
   })
 
+  test('an empty nhi.clientId is rejected, and cannot smuggle siteUrl/issuer through', async () => {
+    // Two layers are under test. The schema's minLength makes this a validation 400; and
+    // even without that, the routes now strip `nhi` from the body unconditionally rather
+    // than relying on a truthy clientId to trigger the rebuild. Before both, this body was
+    // accepted and the attacker-supplied siteUrl/issuer persisted verbatim while enrolment
+    // verification was skipped.
+    await assert.rejects(
+      admin.post(throughNginx('/api/autonomous-agents/organization/test1'), {
+        title: 'Empty clientId probe',
+        persona: 'x',
+        mcpServers: [],
+        toolDisclosure: 'static',
+        enabled: true,
+        nhi: { clientId: '', siteUrl: 'https://attacker.example', issuer: 'https://attacker.example/agents/api/nhi' }
+      }),
+      (err: any) => {
+        assert.equal(err.status, 400)
+        // a validation failure, NOT the enrolment-verification message
+        assert.doesNotMatch(JSON.stringify(err.data), /could not be verified/)
+        return true
+      }
+    )
+
+    const list = await admin.get('/api/autonomous-agents/organization/test1')
+    const stored = list.data.results.find((a: any) => a.title === 'Empty clientId probe')
+    assert.equal(stored, undefined, 'nothing should have been persisted')
+    assert.equal(JSON.stringify(list.data).includes('attacker.example'), false)
+  })
+
   test('an autonomous agent with no enrolled identity is refused', async () => {
     const created = await admin.post('/api/autonomous-agents/organization/test1', {
       title: 'No identity',

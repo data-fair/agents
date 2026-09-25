@@ -202,6 +202,44 @@ test.describe('decodeSessionClaims', () => {
   test('throws on a cookie that is not a header.payload pair', () => {
     assert.throws(() => decodeSessionClaims('id_token=nodots'), /header.payload pair/)
   })
+
+  // describeAutonomousAgentSession's whole purpose is a diagnostic that never leaks the
+  // cookie. It is not pure (it calls getAutonomousAgentSession, which needs #config), so
+  // it cannot be unit-tested directly — but its decode step and its projection are pure,
+  // and are pinned here.
+  test('a realistic two-cookie session string yields only claims, never the raw token', () => {
+    const claims = { id: 'nhi-abc', name: 'agent', organization: { id: 'test1' }, nhi: 1, exp: 1_700_000_300 }
+    const idToken = 'eyJhbGciOiJSUzI1NiJ9.' + Buffer.from(JSON.stringify(claims)).toString('base64url')
+    // a realistic Set-Cookie-derived header: id_token carries header.payload, id_token_sign
+    // the signature — exactly the two cookies simple-directory splits the session JWT across.
+    const cookieHeader = `id_token=${idToken}; id_token_sign=zzz-signature-blob`
+    const decoded = decodeSessionClaims(cookieHeader)
+    assert.deepEqual(decoded, claims)
+    const serialized = JSON.stringify(decoded)
+    assert.equal(serialized.includes(idToken), false)
+    assert.equal(serialized.includes('zzz-signature-blob'), false)
+  })
+
+  test('the /session projection carries only its five fields, nothing resembling id_token', () => {
+    // Mirrors describeAutonomousAgentSession's projection (api/src/autonomous-agents/service.ts)
+    // exactly, built on the pure decode step only, so the no-secret-leak property stays
+    // testable at unit level without an NHI or #config.
+    const claims = { id: 'nhi-abc', name: 'agent', organization: { id: 'test1' }, nhi: 1, exp: Math.floor(Date.now() / 1000) + 120 }
+    const idToken = 'eyJhbGciOiJSUzI1NiJ9.' + Buffer.from(JSON.stringify(claims)).toString('base64url')
+    const cookieHeader = `id_token=${idToken}; id_token_sign=zzz-signature-blob`
+    const decoded = decodeSessionClaims(cookieHeader)
+    const projection = {
+      userId: decoded.id,
+      userName: decoded.name,
+      organization: decoded.organization?.id,
+      nhi: decoded.nhi === 1 || decoded.nhi === true,
+      expiresIn: typeof decoded.exp === 'number' ? Math.max(0, decoded.exp - Math.floor(Date.now() / 1000)) : undefined
+    }
+    assert.deepEqual(Object.keys(projection).sort(), ['expiresIn', 'nhi', 'organization', 'userId', 'userName'])
+    const serialized = JSON.stringify(projection)
+    assert.equal(serialized.includes(idToken), false)
+    assert.equal(/id_token/i.test(serialized), false)
+  })
 })
 
 test.describe('sanitizeExchangeError', () => {

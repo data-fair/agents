@@ -28,6 +28,7 @@ import checkboxNode from '@koumoul/vjsf/components/nodes/checkbox.vue'
 
 
 import localizeErrors from "ajv-i18n/localize/fr/index.js";
+import ucs2length from "ajv/dist/runtime/ucs2length.js";
 
 const export0 = validate22;
 const schema26 = {"$id":"export0","$ref":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/toolFilter/items"};
@@ -378,7 +379,8 @@ validate25.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
 const export3 = validate26;
 const schema33 = {"$id":"export3","$ref":"https://github.com/data-fair/agents/autonomous-agent/write-req#"};
-const schema27 = {"$id":"https://github.com/data-fair/agents/autonomous-agent/write-req","title":"Agent autonome","x-exports":["validate","types","vjsf"],"x-vjsf":{"xI18n":true,"pluginsImports":["@koumoul/vjsf-markdown"]},"x-vjsf-locales":["en","fr"],"type":"object","additionalProperties":false,"required":["title","persona","mcpServers","toolDisclosure","enabled"],"layout":{"title":null},"properties":{"title":{"type":"string","title":"Nom","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/title","errorMessage":{}},"persona":{"type":"string","layout":"textarea","title":"Persona","description":"Qui est cet agent autonome : son rôle, son ton et son périmètre. Devient le prompt système.","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/persona","errorMessage":{}},"instructions":{"type":"string","layout":"textarea","title":"Instructions","description":"Comment il doit travailler : procédures, contraintes, conduite à tenir en cas de doute.","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/instructions","errorMessage":{}},"mcpServers":{"type":"array","default":[],"title":"Serveurs MCP","description":"Choisis parmi les serveurs configurés pour ce déploiement.","layout":{"itemTitle":"item?.serverId || \"\"","listActions":["add","edit","delete"]},"items":{"type":"object","additionalProperties":false,"required":["serverId"],"properties":{"serverId":{"type":"string","title":"Serveur","layout":{"comp":"autocomplete","getItems":{"url":{"type":"js-tpl","expr":"${context.apiPath}/autonomous-agents/${context.accountType}/${context.accountId}/mcp-servers","pure":true,"dataAlias":"value","ref":2},"itemsResults":{"type":"js-eval","expr":"data.results","pure":true,"dataAlias":"body","ref":5},"itemTitle":{"type":"js-eval","expr":"item.name","pure":true,"dataAlias":"item","ref":3},"itemKey":{"type":"js-eval","expr":"item.id","pure":true,"dataAlias":"item","ref":4},"itemValue":{"type":"js-eval","expr":"item.id","pure":true,"dataAlias":"item","ref":4}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/serverId","errorMessage":{}},"toolFilter":{"type":"array","title":"Uniquement ces outils","description":"Laissez vide pour exposer tous les outils proposés par ce serveur.","items":{"type":"string","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/toolFilter/items","errorMessage":{}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/toolFilter","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items","errorMessage":{"required":{"serverId":"information obligatoire"}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers","errorMessage":{}},"toolDisclosure":{"type":"string","enum":["static","exploration"],"default":"static","title":"Exposition des outils","description":"« static » envoie tous les outils sélectionnés à chaque tour. « exploration » n'affiche que les noms et laisse l'agent autonome promouvoir ceux dont il a besoin — à utiliser quand la sélection est grande.","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/toolDisclosure","errorMessage":{}},"nhi":{"type":"object","additionalProperties":false,"required":["clientId"],"title":"Identité non humaine","properties":{"clientId":{"type":"string","title":"Identifiant client","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/nhi/properties/clientId","errorMessage":{}},"siteUrl":{"type":"string","readOnly":true,"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/nhi/properties/siteUrl","errorMessage":{}},"issuer":{"type":"string","readOnly":true,"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/nhi/properties/issuer","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/nhi","errorMessage":{"required":{"clientId":"information obligatoire"}}},"instructors":{"type":"array","default":[],"title":"Utilisateurs autorisés à donner des instructions","description":"Les administrateurs de l'organisation propriétaire sont toujours autorisés. Toute personne listée ici emprunte les permissions de cet agent autonome.","items":{"type":"object","additionalProperties":false,"required":["userId"],"properties":{"userId":{"type":"string","title":"Identifiant utilisateur","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/instructors/items/properties/userId","errorMessage":{}},"userName":{"type":"string","title":"Nom","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/instructors/items/properties/userName","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/instructors/items","errorMessage":{"required":{"userId":"information obligatoire"}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/instructors","errorMessage":{}},"enabled":{"type":"boolean","default":true,"title":"Activé","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/enabled","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#","errorMessage":{"required":{"title":"information obligatoire","persona":"information obligatoire","mcpServers":"information obligatoire","toolDisclosure":"information obligatoire","enabled":"information obligatoire"}}};
+const schema27 = {"$id":"https://github.com/data-fair/agents/autonomous-agent/write-req","title":"Agent autonome","x-exports":["validate","types","vjsf"],"x-vjsf":{"xI18n":true,"pluginsImports":["@koumoul/vjsf-markdown"]},"x-vjsf-locales":["en","fr"],"type":"object","additionalProperties":false,"required":["title","persona","mcpServers","toolDisclosure","enabled"],"layout":{"title":null},"properties":{"title":{"type":"string","title":"Nom","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/title","errorMessage":{}},"persona":{"type":"string","layout":"textarea","title":"Persona","description":"Qui est cet agent autonome : son rôle, son ton et son périmètre. Devient le prompt système.","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/persona","errorMessage":{}},"instructions":{"type":"string","layout":"textarea","title":"Instructions","description":"Comment il doit travailler : procédures, contraintes, conduite à tenir en cas de doute.","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/instructions","errorMessage":{}},"mcpServers":{"type":"array","default":[],"title":"Serveurs MCP","description":"Choisis parmi les serveurs configurés pour ce déploiement.","layout":{"itemTitle":"item?.serverId || \"\"","listActions":["add","edit","delete"]},"items":{"type":"object","additionalProperties":false,"required":["serverId"],"properties":{"serverId":{"type":"string","title":"Serveur","layout":{"comp":"autocomplete","getItems":{"url":{"type":"js-tpl","expr":"${context.apiPath}/autonomous-agents/${context.accountType}/${context.accountId}/mcp-servers","pure":true,"dataAlias":"value","ref":2},"itemsResults":{"type":"js-eval","expr":"data.results","pure":true,"dataAlias":"body","ref":5},"itemTitle":{"type":"js-eval","expr":"item.name","pure":true,"dataAlias":"item","ref":3},"itemKey":{"type":"js-eval","expr":"item.id","pure":true,"dataAlias":"item","ref":4},"itemValue":{"type":"js-eval","expr":"item.id","pure":true,"dataAlias":"item","ref":4}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/serverId","errorMessage":{}},"toolFilter":{"type":"array","title":"Uniquement ces outils","description":"Laissez vide pour exposer tous les outils proposés par ce serveur.","items":{"type":"string","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/toolFilter/items","errorMessage":{}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/toolFilter","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items","errorMessage":{"required":{"serverId":"information obligatoire"}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers","errorMessage":{}},"toolDisclosure":{"type":"string","enum":["static","exploration"],"default":"static","title":"Exposition des outils","description":"« static » envoie tous les outils sélectionnés à chaque tour. « exploration » n'affiche que les noms et laisse l'agent autonome promouvoir ceux dont il a besoin — à utiliser quand la sélection est grande.","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/toolDisclosure","errorMessage":{}},"nhi":{"type":"object","additionalProperties":false,"required":["clientId"],"title":"Identité non humaine","properties":{"clientId":{"type":"string","minLength":1,"title":"Identifiant client","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/nhi/properties/clientId","errorMessage":{}},"siteUrl":{"type":"string","readOnly":true,"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/nhi/properties/siteUrl","errorMessage":{}},"issuer":{"type":"string","readOnly":true,"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/nhi/properties/issuer","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/nhi","errorMessage":{"required":{"clientId":"information obligatoire"}}},"instructors":{"type":"array","default":[],"title":"Utilisateurs autorisés à donner des instructions","description":"Les administrateurs de l'organisation propriétaire sont toujours autorisés. Toute personne listée ici emprunte les permissions de cet agent autonome.","items":{"type":"object","additionalProperties":false,"required":["userId"],"properties":{"userId":{"type":"string","title":"Identifiant utilisateur","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/instructors/items/properties/userId","errorMessage":{}},"userName":{"type":"string","title":"Nom","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/instructors/items/properties/userName","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/instructors/items","errorMessage":{"required":{"userId":"information obligatoire"}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/instructors","errorMessage":{}},"enabled":{"type":"boolean","default":true,"title":"Activé","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/enabled","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#","errorMessage":{"required":{"title":"information obligatoire","persona":"information obligatoire","mcpServers":"information obligatoire","toolDisclosure":"information obligatoire","enabled":"information obligatoire"}}};
+const func1 = ucs2length.default;
 
 function validate26(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 /*# sourceURL="export3" */;
@@ -758,8 +760,9 @@ errors++;
 }
 if(data9.clientId !== undefined){
 let data10 = data9.clientId;
-if(typeof data10 !== "string"){
-const err31 = {instancePath:instancePath+"/nhi/clientId",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/nhi/properties/clientId/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.nhi.properties.clientId.type,parentSchema:schema27.properties.nhi.properties.clientId,data:data10};
+if(typeof data10 === "string"){
+if(func1(data10) < 1){
+const err31 = {instancePath:instancePath+"/nhi/clientId",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/nhi/properties/clientId/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters",schema:1,parentSchema:schema27.properties.nhi.properties.clientId,data:data10};
 if(vErrors === null){
 vErrors = [err31];
 }
@@ -768,11 +771,22 @@ vErrors.push(err31);
 }
 errors++;
 }
+}
+else {
+const err32 = {instancePath:instancePath+"/nhi/clientId",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/nhi/properties/clientId/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.nhi.properties.clientId.type,parentSchema:schema27.properties.nhi.properties.clientId,data:data10};
+if(vErrors === null){
+vErrors = [err32];
+}
+else {
+vErrors.push(err32);
+}
+errors++;
+}
 if(errors > 0){
 const emErrs9 = [];
-for(const err32 of vErrors){
-if(!err32.emUsed){
-emErrs9.push(err32);
+for(const err33 of vErrors){
+if(!err33.emUsed){
+emErrs9.push(err33);
 }
 }
 vErrors = emErrs9;
@@ -782,20 +796,20 @@ errors = emErrs9.length;
 if(data9.siteUrl !== undefined){
 let data11 = data9.siteUrl;
 if(typeof data11 !== "string"){
-const err33 = {instancePath:instancePath+"/nhi/siteUrl",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/nhi/properties/siteUrl/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.nhi.properties.siteUrl.type,parentSchema:schema27.properties.nhi.properties.siteUrl,data:data11};
+const err34 = {instancePath:instancePath+"/nhi/siteUrl",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/nhi/properties/siteUrl/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.nhi.properties.siteUrl.type,parentSchema:schema27.properties.nhi.properties.siteUrl,data:data11};
 if(vErrors === null){
-vErrors = [err33];
+vErrors = [err34];
 }
 else {
-vErrors.push(err33);
+vErrors.push(err34);
 }
 errors++;
 }
 if(errors > 0){
 const emErrs10 = [];
-for(const err34 of vErrors){
-if(!err34.emUsed){
-emErrs10.push(err34);
+for(const err35 of vErrors){
+if(!err35.emUsed){
+emErrs10.push(err35);
 }
 }
 vErrors = emErrs10;
@@ -805,20 +819,20 @@ errors = emErrs10.length;
 if(data9.issuer !== undefined){
 let data12 = data9.issuer;
 if(typeof data12 !== "string"){
-const err35 = {instancePath:instancePath+"/nhi/issuer",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/nhi/properties/issuer/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.nhi.properties.issuer.type,parentSchema:schema27.properties.nhi.properties.issuer,data:data12};
+const err36 = {instancePath:instancePath+"/nhi/issuer",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/nhi/properties/issuer/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.nhi.properties.issuer.type,parentSchema:schema27.properties.nhi.properties.issuer,data:data12};
 if(vErrors === null){
-vErrors = [err35];
+vErrors = [err36];
 }
 else {
-vErrors.push(err35);
+vErrors.push(err36);
 }
 errors++;
 }
 if(errors > 0){
 const emErrs11 = [];
-for(const err36 of vErrors){
-if(!err36.emUsed){
-emErrs11.push(err36);
+for(const err37 of vErrors){
+if(!err37.emUsed){
+emErrs11.push(err37);
 }
 }
 vErrors = emErrs11;
@@ -827,12 +841,12 @@ errors = emErrs11.length;
 }
 }
 else {
-const err37 = {instancePath:instancePath+"/nhi",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/nhi/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.nhi.type,parentSchema:schema27.properties.nhi,data:data9};
+const err38 = {instancePath:instancePath+"/nhi",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/nhi/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.nhi.type,parentSchema:schema27.properties.nhi,data:data9};
 if(vErrors === null){
-vErrors = [err37];
+vErrors = [err38];
 }
 else {
-vErrors.push(err37);
+vErrors.push(err38);
 }
 errors++;
 }
@@ -841,13 +855,13 @@ const emErrors1 = {"required":{"clientId":[]}};
 const templates1 = {required:{}};
 let emPropParams1;
 let emParamsErrors1;
-for(const err38 of vErrors){
-if((((((err38.keyword !== "errorMessage") && (!err38.emUsed)) && (err38.instancePath === instancePath+"/nhi")) && (err38.keyword in emErrors1)) && (err38.schemaPath.indexOf("https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/nhi") === 0)) && (/^\/[^\/]*$/.test(err38.schemaPath.slice(78)))){
-emPropParams1 = obj0[err38.keyword];
-emParamsErrors1 = emErrors1[err38.keyword][err38.params[emPropParams1]];
+for(const err39 of vErrors){
+if((((((err39.keyword !== "errorMessage") && (!err39.emUsed)) && (err39.instancePath === instancePath+"/nhi")) && (err39.keyword in emErrors1)) && (err39.schemaPath.indexOf("https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/nhi") === 0)) && (/^\/[^\/]*$/.test(err39.schemaPath.slice(78)))){
+emPropParams1 = obj0[err39.keyword];
+emParamsErrors1 = emErrors1[err39.keyword][err39.params[emPropParams1]];
 if(emParamsErrors1){
-emParamsErrors1.push(err38);
-err38.emUsed = true;
+emParamsErrors1.push(err39);
+err39.emUsed = true;
 }
 }
 }
@@ -856,21 +870,21 @@ for(const keyProp1 in emErrors1[key4]){
 emParamsErrors1 = emErrors1[key4][keyProp1];
 if(emParamsErrors1.length){
 const tmpl1 = templates1[key4] && templates1[key4][keyProp1];
-const err39 = {instancePath:instancePath+"/nhi",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/nhi/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors1},message:tmpl1 ? tmpl1() : schema27.properties.nhi.errorMessage[key4][keyProp1],schema:schema27.properties.nhi.errorMessage,parentSchema:schema27.properties.nhi,data:data9};
+const err40 = {instancePath:instancePath+"/nhi",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/nhi/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors1},message:tmpl1 ? tmpl1() : schema27.properties.nhi.errorMessage[key4][keyProp1],schema:schema27.properties.nhi.errorMessage,parentSchema:schema27.properties.nhi,data:data9};
 if(vErrors === null){
-vErrors = [err39];
+vErrors = [err40];
 }
 else {
-vErrors.push(err39);
+vErrors.push(err40);
 }
 errors++;
 }
 }
 }
 const emErrs12 = [];
-for(const err40 of vErrors){
-if(!err40.emUsed){
-emErrs12.push(err40);
+for(const err41 of vErrors){
+if(!err41.emUsed){
+emErrs12.push(err41);
 }
 }
 vErrors = emErrs12;
@@ -885,18 +899,7 @@ for(let i2=0; i2<len2; i2++){
 let data14 = data13[i2];
 if(data14 && typeof data14 == "object" && !Array.isArray(data14)){
 if(data14.userId === undefined){
-const err41 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/instructors/items/required",keyword:"required",params:{missingProperty: "userId"},message:"must have required property '"+"userId"+"'",schema:schema27.properties.instructors.items.required,parentSchema:schema27.properties.instructors.items,data:data14};
-if(vErrors === null){
-vErrors = [err41];
-}
-else {
-vErrors.push(err41);
-}
-errors++;
-}
-for(const key5 in data14){
-if(!((key5 === "userId") || (key5 === "userName"))){
-const err42 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/instructors/items/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key5},message:"must NOT have additional properties",schema:false,parentSchema:schema27.properties.instructors.items,data:data14};
+const err42 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/instructors/items/required",keyword:"required",params:{missingProperty: "userId"},message:"must have required property '"+"userId"+"'",schema:schema27.properties.instructors.items.required,parentSchema:schema27.properties.instructors.items,data:data14};
 if(vErrors === null){
 vErrors = [err42];
 }
@@ -905,11 +908,9 @@ vErrors.push(err42);
 }
 errors++;
 }
-}
-if(data14.userId !== undefined){
-let data15 = data14.userId;
-if(typeof data15 !== "string"){
-const err43 = {instancePath:instancePath+"/instructors/" + i2+"/userId",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/instructors/items/properties/userId/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.instructors.items.properties.userId.type,parentSchema:schema27.properties.instructors.items.properties.userId,data:data15};
+for(const key5 in data14){
+if(!((key5 === "userId") || (key5 === "userName"))){
+const err43 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/instructors/items/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key5},message:"must NOT have additional properties",schema:false,parentSchema:schema27.properties.instructors.items,data:data14};
 if(vErrors === null){
 vErrors = [err43];
 }
@@ -918,11 +919,24 @@ vErrors.push(err43);
 }
 errors++;
 }
+}
+if(data14.userId !== undefined){
+let data15 = data14.userId;
+if(typeof data15 !== "string"){
+const err44 = {instancePath:instancePath+"/instructors/" + i2+"/userId",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/instructors/items/properties/userId/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.instructors.items.properties.userId.type,parentSchema:schema27.properties.instructors.items.properties.userId,data:data15};
+if(vErrors === null){
+vErrors = [err44];
+}
+else {
+vErrors.push(err44);
+}
+errors++;
+}
 if(errors > 0){
 const emErrs13 = [];
-for(const err44 of vErrors){
-if(!err44.emUsed){
-emErrs13.push(err44);
+for(const err45 of vErrors){
+if(!err45.emUsed){
+emErrs13.push(err45);
 }
 }
 vErrors = emErrs13;
@@ -932,20 +946,20 @@ errors = emErrs13.length;
 if(data14.userName !== undefined){
 let data16 = data14.userName;
 if(typeof data16 !== "string"){
-const err45 = {instancePath:instancePath+"/instructors/" + i2+"/userName",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/instructors/items/properties/userName/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.instructors.items.properties.userName.type,parentSchema:schema27.properties.instructors.items.properties.userName,data:data16};
+const err46 = {instancePath:instancePath+"/instructors/" + i2+"/userName",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/instructors/items/properties/userName/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.instructors.items.properties.userName.type,parentSchema:schema27.properties.instructors.items.properties.userName,data:data16};
 if(vErrors === null){
-vErrors = [err45];
+vErrors = [err46];
 }
 else {
-vErrors.push(err45);
+vErrors.push(err46);
 }
 errors++;
 }
 if(errors > 0){
 const emErrs14 = [];
-for(const err46 of vErrors){
-if(!err46.emUsed){
-emErrs14.push(err46);
+for(const err47 of vErrors){
+if(!err47.emUsed){
+emErrs14.push(err47);
 }
 }
 vErrors = emErrs14;
@@ -954,12 +968,12 @@ errors = emErrs14.length;
 }
 }
 else {
-const err47 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/instructors/items/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.instructors.items.type,parentSchema:schema27.properties.instructors.items,data:data14};
+const err48 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/instructors/items/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.instructors.items.type,parentSchema:schema27.properties.instructors.items,data:data14};
 if(vErrors === null){
-vErrors = [err47];
+vErrors = [err48];
 }
 else {
-vErrors.push(err47);
+vErrors.push(err48);
 }
 errors++;
 }
@@ -968,13 +982,13 @@ const emErrors2 = {"required":{"userId":[]}};
 const templates2 = {required:{}};
 let emPropParams2;
 let emParamsErrors2;
-for(const err48 of vErrors){
-if((((((err48.keyword !== "errorMessage") && (!err48.emUsed)) && (err48.instancePath === instancePath+"/instructors/" + i2)) && (err48.keyword in emErrors2)) && (err48.schemaPath.indexOf("https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/instructors/items") === 0)) && (/^\/[^\/]*$/.test(err48.schemaPath.slice(92)))){
-emPropParams2 = obj0[err48.keyword];
-emParamsErrors2 = emErrors2[err48.keyword][err48.params[emPropParams2]];
+for(const err49 of vErrors){
+if((((((err49.keyword !== "errorMessage") && (!err49.emUsed)) && (err49.instancePath === instancePath+"/instructors/" + i2)) && (err49.keyword in emErrors2)) && (err49.schemaPath.indexOf("https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/instructors/items") === 0)) && (/^\/[^\/]*$/.test(err49.schemaPath.slice(92)))){
+emPropParams2 = obj0[err49.keyword];
+emParamsErrors2 = emErrors2[err49.keyword][err49.params[emPropParams2]];
 if(emParamsErrors2){
-emParamsErrors2.push(err48);
-err48.emUsed = true;
+emParamsErrors2.push(err49);
+err49.emUsed = true;
 }
 }
 }
@@ -983,21 +997,21 @@ for(const keyProp2 in emErrors2[key6]){
 emParamsErrors2 = emErrors2[key6][keyProp2];
 if(emParamsErrors2.length){
 const tmpl2 = templates2[key6] && templates2[key6][keyProp2];
-const err49 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/instructors/items/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors2},message:tmpl2 ? tmpl2() : schema27.properties.instructors.items.errorMessage[key6][keyProp2],schema:schema27.properties.instructors.items.errorMessage,parentSchema:schema27.properties.instructors.items,data:data14};
+const err50 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/instructors/items/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors2},message:tmpl2 ? tmpl2() : schema27.properties.instructors.items.errorMessage[key6][keyProp2],schema:schema27.properties.instructors.items.errorMessage,parentSchema:schema27.properties.instructors.items,data:data14};
 if(vErrors === null){
-vErrors = [err49];
+vErrors = [err50];
 }
 else {
-vErrors.push(err49);
+vErrors.push(err50);
 }
 errors++;
 }
 }
 }
 const emErrs15 = [];
-for(const err50 of vErrors){
-if(!err50.emUsed){
-emErrs15.push(err50);
+for(const err51 of vErrors){
+if(!err51.emUsed){
+emErrs15.push(err51);
 }
 }
 vErrors = emErrs15;
@@ -1006,20 +1020,20 @@ errors = emErrs15.length;
 }
 }
 else {
-const err51 = {instancePath:instancePath+"/instructors",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/instructors/type",keyword:"type",params:{type: "array"},message:"must be array",schema:schema27.properties.instructors.type,parentSchema:schema27.properties.instructors,data:data13};
+const err52 = {instancePath:instancePath+"/instructors",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/instructors/type",keyword:"type",params:{type: "array"},message:"must be array",schema:schema27.properties.instructors.type,parentSchema:schema27.properties.instructors,data:data13};
 if(vErrors === null){
-vErrors = [err51];
+vErrors = [err52];
 }
 else {
-vErrors.push(err51);
+vErrors.push(err52);
 }
 errors++;
 }
 if(errors > 0){
 const emErrs16 = [];
-for(const err52 of vErrors){
-if(!err52.emUsed){
-emErrs16.push(err52);
+for(const err53 of vErrors){
+if(!err53.emUsed){
+emErrs16.push(err53);
 }
 }
 vErrors = emErrs16;
@@ -1029,20 +1043,20 @@ errors = emErrs16.length;
 if(data.enabled !== undefined){
 let data17 = data.enabled;
 if(typeof data17 !== "boolean"){
-const err53 = {instancePath:instancePath+"/enabled",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema27.properties.enabled.type,parentSchema:schema27.properties.enabled,data:data17};
+const err54 = {instancePath:instancePath+"/enabled",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema27.properties.enabled.type,parentSchema:schema27.properties.enabled,data:data17};
 if(vErrors === null){
-vErrors = [err53];
+vErrors = [err54];
 }
 else {
-vErrors.push(err53);
+vErrors.push(err54);
 }
 errors++;
 }
 if(errors > 0){
 const emErrs17 = [];
-for(const err54 of vErrors){
-if(!err54.emUsed){
-emErrs17.push(err54);
+for(const err55 of vErrors){
+if(!err55.emUsed){
+emErrs17.push(err55);
 }
 }
 vErrors = emErrs17;
@@ -1051,12 +1065,12 @@ errors = emErrs17.length;
 }
 }
 else {
-const err55 = {instancePath,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.type,parentSchema:schema27,data};
+const err56 = {instancePath,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.type,parentSchema:schema27,data};
 if(vErrors === null){
-vErrors = [err55];
+vErrors = [err56];
 }
 else {
-vErrors.push(err55);
+vErrors.push(err56);
 }
 errors++;
 }
@@ -1065,13 +1079,13 @@ const emErrors3 = {"required":{"title":[],"persona":[],"mcpServers":[],"toolDisc
 const templates3 = {required:{}};
 let emPropParams3;
 let emParamsErrors3;
-for(const err56 of vErrors){
-if((((((err56.keyword !== "errorMessage") && (!err56.emUsed)) && (err56.instancePath === instancePath)) && (err56.keyword in emErrors3)) && (err56.schemaPath.indexOf("https://github.com/data-fair/agents/autonomous-agent/write-req#") === 0)) && (/^\/[^\/]*$/.test(err56.schemaPath.slice(63)))){
-emPropParams3 = obj0[err56.keyword];
-emParamsErrors3 = emErrors3[err56.keyword][err56.params[emPropParams3]];
+for(const err57 of vErrors){
+if((((((err57.keyword !== "errorMessage") && (!err57.emUsed)) && (err57.instancePath === instancePath)) && (err57.keyword in emErrors3)) && (err57.schemaPath.indexOf("https://github.com/data-fair/agents/autonomous-agent/write-req#") === 0)) && (/^\/[^\/]*$/.test(err57.schemaPath.slice(63)))){
+emPropParams3 = obj0[err57.keyword];
+emParamsErrors3 = emErrors3[err57.keyword][err57.params[emPropParams3]];
 if(emParamsErrors3){
-emParamsErrors3.push(err56);
-err56.emUsed = true;
+emParamsErrors3.push(err57);
+err57.emUsed = true;
 }
 }
 }
@@ -1080,21 +1094,21 @@ for(const keyProp3 in emErrors3[key7]){
 emParamsErrors3 = emErrors3[key7][keyProp3];
 if(emParamsErrors3.length){
 const tmpl3 = templates3[key7] && templates3[key7][keyProp3];
-const err57 = {instancePath,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors3},message:tmpl3 ? tmpl3() : schema27.errorMessage[key7][keyProp3],schema:schema27.errorMessage,parentSchema:schema27,data};
+const err58 = {instancePath,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors3},message:tmpl3 ? tmpl3() : schema27.errorMessage[key7][keyProp3],schema:schema27.errorMessage,parentSchema:schema27,data};
 if(vErrors === null){
-vErrors = [err57];
+vErrors = [err58];
 }
 else {
-vErrors.push(err57);
+vErrors.push(err58);
 }
 errors++;
 }
 }
 }
 const emErrs18 = [];
-for(const err58 of vErrors){
-if(!err58.emUsed){
-emErrs18.push(err58);
+for(const err59 of vErrors){
+if(!err59.emUsed){
+emErrs18.push(err59);
 }
 }
 vErrors = emErrs18;

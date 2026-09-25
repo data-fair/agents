@@ -10,7 +10,7 @@ import mongo from '#mongo'
 import { type AccountKeys, assertAccountRole, httpError, reqSessionAuthenticated, reqSiteUrl } from '@data-fair/lib-express'
 import eventsLog from '@data-fair/lib-express/events-log.js'
 import * as writeReqBody from '#doc/autonomous-agents/autonomous-agent-write-req/index.ts'
-import { getAutonomousAgent, getMcpServerCatalog, reqWriteSession, assertKnownMcpServers, assertOrganizationOwner, describeAutonomousAgentSession, assertEnrolmentWorks, describeAutonomousAgentTools } from './service.ts'
+import { getAutonomousAgent, getMcpServerCatalog, reqWriteSession, assertKnownMcpServers, assertOrganizationOwner, describeAutonomousAgentSession, assertEnrolmentWorks, describeAutonomousAgentTools, clearAutonomousAgentSession } from './service.ts'
 import { nhiIssuerUrl } from '../nhi/operations.ts'
 
 const router = Router()
@@ -59,13 +59,20 @@ router.post('/:type/:id', async (req, res, next) => {
     // here. Everything the exchange needs — the signed audience, the declared
     // x-forwarded-*, and the path it posts to — derives from this one value, so they cannot
     // drift apart. See api/src/nhi/operations.ts.
-    const nhi = body.nhi?.clientId
-      ? { clientId: body.nhi.clientId, siteUrl: reqSiteUrl(req).replace(/\/+$/, ''), issuer: nhiIssuerUrl(reqSiteUrl(req)) }
+    //
+    // `nhi` is NEVER taken from the body. `readOnly` is not enforced by ajv, and
+    // siteUrl/issuer are KNOWN keys so `additionalProperties: false` does not reject them
+    // either — so the ONLY protection is that we strip the client's object and rebuild it.
+    // Stripping unconditionally matters: a present-but-falsy clientId (e.g. '') used to skip
+    // the rebuild and let the whole client-supplied nhi through the spread below.
+    const { nhi: clientNhi, ...writable } = body
+    const nhi = clientNhi?.clientId
+      ? { clientId: clientNhi.clientId, siteUrl: reqSiteUrl(req).replace(/\/+$/, ''), issuer: nhiIssuerUrl(reqSiteUrl(req)) }
       : undefined
 
     const now = new Date().toISOString()
     const autonomousAgent = {
-      ...body,
+      ...writable,
       ...(nhi ? { nhi } : {}),
       id: nanoid(),
       owner,
@@ -136,8 +143,15 @@ router.put('/:type/:id/:agentId', async (req, res, next) => {
     // preserving the existing siteUrl/issuer: an admin re-saving from a different host
     // is telling us the site url changed, and the enrolment check (Task 5) will
     // immediately verify whether the new one actually works.
-    const nhi = body.nhi?.clientId
-      ? { clientId: body.nhi.clientId, siteUrl: reqSiteUrl(req).replace(/\/+$/, ''), issuer: nhiIssuerUrl(reqSiteUrl(req)) }
+    //
+    // `nhi` is NEVER taken from the body. `readOnly` is not enforced by ajv, and
+    // siteUrl/issuer are KNOWN keys so `additionalProperties: false` does not reject them
+    // either — so the ONLY protection is that we strip the client's object and rebuild it.
+    // Stripping unconditionally matters: a present-but-falsy clientId (e.g. '') used to skip
+    // the rebuild and let the whole client-supplied nhi through the spread below.
+    const { nhi: clientNhi, ...writable } = body
+    const nhi = clientNhi?.clientId
+      ? { clientId: clientNhi.clientId, siteUrl: reqSiteUrl(req).replace(/\/+$/, ''), issuer: nhiIssuerUrl(reqSiteUrl(req)) }
       : undefined
 
     // Whole-document replace of the client-writable subset: one owner, one write
@@ -145,7 +159,7 @@ router.put('/:type/:id/:agentId', async (req, res, next) => {
     // server-owned fields are carried over explicitly, and any writable field absent
     // from the body is genuinely dropped.
     const updated = {
-      ...body,
+      ...writable,
       ...(nhi ? { nhi } : {}),
       id: existing.id,
       owner: existing.owner,
@@ -181,6 +195,7 @@ router.delete('/:type/:id/:agentId', async (req, res, next) => {
 
     const result = await mongo.autonomousAgents.deleteOne({ id: req.params.agentId, 'owner.type': owner.type, 'owner.id': owner.id })
     if (!result.deletedCount) throw httpError(404, 'unknown autonomous agent')
+    clearAutonomousAgentSession(req.params.agentId)
 
     eventsLog.info('agents.autonomous-agent.delete', `autonomous agent ${req.params.agentId} deleted for owner ${owner.type}/${owner.id}`, { req })
     res.status(204).send()

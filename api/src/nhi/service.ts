@@ -130,6 +130,11 @@ export const clearAutonomousAgentSession = (autonomousAgentId: string) => { sess
 export const getAutonomousAgentSession = async (autonomousAgent: EnrolledAutonomousAgent): Promise<string> => {
   requireEnrolment(autonomousAgent)
   const cached = sessions.get(autonomousAgent.id)
+  // ASSERTION_TTL_SECONDS stands in for "the session's lifetime" here (shouldRefreshSession's
+  // doc comment) only because simple-directory caps the session at min(assertion.exp, 30m)
+  // and ASSERTION_TTL_SECONDS (300s) is always well under that 30m cap — so the assertion
+  // ttl we requested IS the session's real lifetime, not merely an estimate of it. Passing
+  // ASSERTION_TTL_SECONDS would be wrong the moment either side of that inequality changed.
   if (cached && !shouldRefreshSession(cached.expiresAtMs, Date.now(), ASSERTION_TTL_SECONDS * 1000)) {
     return cached.cookieHeader
   }

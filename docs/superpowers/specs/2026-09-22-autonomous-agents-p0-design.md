@@ -300,17 +300,22 @@ One ES256 keypair. The private half comes from the deployment's secret store
 (`NHI_SIGNING_KEY`), is validated fail-fast at boot the way `assertGlobalAiConfig`
 validates provider config, and is **never stored in Mongo**.
 
-Issuer is `${publicUrl}/api/nhi`, serving:
+Issuer is `${siteUrl}/agents/api/nhi`, serving:
 
 - `/.well-known/openid-configuration` — must echo its own `issuer`, since
   simple-directory's `getJwksUri` rejects a mismatch;
 - `/jwks`.
 
-`PUBLIC_URL` is new config for this service, which otherwise learns its url per request
-from `createSiteMiddleware` — useless in a background run, and an issuer must be stable
-because it is an identifier registered on the NHI record. Note what it is *not*: nothing
-on our side dereferences it. It supplies the issuer string and the origin we declare to
-simple-directory (below).
+There is no `PUBLIC_URL` config. Instead, the issuer is **captured, not configured**: on
+the request that enrolls (or re-enrolls) an autonomous agent, the write routes read
+`reqSiteUrl(req)` — the real site url that admin's request was proxied through — and
+store it as `nhi.siteUrl`, with `nhi.issuer` derived from it
+(`${siteUrl}/agents/api/nhi`). Because it comes off a request that demonstrably reached
+this service, the captured issuer provably resolves here; a configured value could drift
+from reality (wrong host, missing path prefix, stale after a move) with nothing to catch
+it before the first exchange. Note what it is *not*: nothing on our side dereferences it
+— it only supplies the issuer string and the audience we declare to simple-directory
+(below).
 
 **Discovery, not an inline JWKS — because we cannot maintain an inline one.** The NHI
 management endpoints (`/api/organizations/:organizationId/nhis`) are gated on
@@ -369,8 +374,13 @@ route needs three of them or it fails outright:
   skips the site-ownership check) and, through `reqSiteUrl`, **is the audience**.
 - `x-forwarded-proto` — `reqOrigin` throws without it.
 
-So the audience is not discovered but *declared*: `reqSiteUrl = reqOrigin + reqSitePath`,
-and `reqSitePath` is empty for the main site, making it the origin of `PUBLIC_URL`.
+So the audience is not discovered but *declared*: the signed audience is the stored
+`nhi.siteUrl`, which is exactly `reqOrigin + reqSitePath` as simple-directory
+recomputes it from the `x-forwarded-*` headers above and the path segment the exchange
+call preserves ahead of `/simple-directory/...` (`nhiExchangeUrl`, posting to
+`{privateDirectoryUrl}{sitePath}/simple-directory/api/auth/nhi-token`). `reqSitePath` is
+empty for the main site and non-empty for a path-prefixed one — the same declared
+headers reconstruct either audience correctly, which is why a path-prefixed site works.
 
 **Do not set `allowedIps` or `ipBinding` on an autonomous agent's NHI.** Both key off the
 address we declare rather than a real client address, so an operator configuring them

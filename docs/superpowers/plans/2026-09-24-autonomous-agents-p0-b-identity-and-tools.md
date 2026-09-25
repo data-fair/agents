@@ -2056,6 +2056,27 @@ git commit -m "feat(autonomous-agents): list an autonomous agent's live tools as
   needs a committed, environment-independent url cannot embed a dev port. This is why
   option 1 above requires a synthetic host.
 
+- **No 401-triggered session refresh.** The spec says the jar refreshes at ~80% of expiry
+  *and on any 401*; only the first exists. `clearAutonomousAgentSession` is called only
+  from `assertEnrolmentWorks` (and now, on delete, from the router), and
+  `forEachListedTool` does not catch a 401 from an MCP server and retry with a fresh
+  session. An NHI deleted in simple-directory underneath a live autonomous agent, or a
+  session expiring mid-listing, produces an unexplained far-end permission error with a
+  dead cookie cached for up to ~60s. Plan C must add the retry.
+
+- **Rotation overlap is promised but not expressible.** `config.nhiSigningKey` holds one
+  key and the JWKS publishes exactly one, yet the spec and `configuration.md` describe
+  publishing a new `kid` alongside the old. Nothing in Plan B needs overlap, but an
+  operator following that text will find no way to do it, and the real rotation behaviour
+  — up to ~30s of `JWKSNoMatchingKey` 401s while jose's `createRemoteJWKSet` cooldown
+  elapses — is undocumented and looks identical to a misconfiguration. Either make the
+  config an array or correct the prose.
+
+- **`expires_in` has never been seen from a real simple-directory response.**
+  `exchangeForSession` falls back to 300s if it is absent; if the field is missing or in
+  milliseconds, the refresh margin is wrong and the only symptom is a stale-cookie 401
+  with no retry (see above). Confirm it when the environment gap closes.
+
 ## Carried forward from Plan A
 
 Pick these up here if convenient; none block this plan:

@@ -121,6 +121,7 @@ export default {
       properties: {
         clientId: {
           type: 'string',
+          minLength: 1,
           title: 'Client id',
           'x-i18n-title': { en: 'Client id', fr: 'Identifiant client' }
         },

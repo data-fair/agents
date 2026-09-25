@@ -62,15 +62,23 @@ export const forEachListedTool = async (
     const server = catalog.find(s => s.id === ref.serverId)
     if (!server) throw httpError(400, `unknown MCP server "${ref.serverId}"`)
 
-    const { client, close } = await connectMcpServer(server, cookieHeader)
+    // This route's entire purpose is diagnosis, so a raw connect/list failure — which
+    // names nothing — is useless when an autonomous agent references several servers.
+    // Wrap and rethrow naming server.id; never include the credential (cookieHeader) in
+    // the message, only the underlying error text.
+    let client: Client | undefined
+    let close: (() => Promise<void>) | undefined
     try {
+      ({ client, close } = await connectMcpServer(server, cookieHeader))
       const listed = await client.listTools()
       for (const t of listed.tools) {
         if (ref.toolFilter?.length && !ref.toolFilter.includes(t.name)) continue
         visit(t, server, client)
       }
+    } catch (err: any) {
+      throw httpError(502, `MCP server "${server.id}" failed: ${err.message}`)
     } finally {
-      await close()
+      await close?.()
     }
   }
 }
