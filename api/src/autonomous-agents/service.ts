@@ -7,8 +7,8 @@ import config from '#config'
 import { type AccountKeys, httpError, reqAdminMode, reqSessionAuthenticated } from '@data-fair/lib-express'
 import type { Request } from 'express'
 import { listMcpServerCatalog, unknownMcpServerIds } from '../mcp-servers/operations.ts'
-import { getAutonomousAgentSession, type EnrolledAutonomousAgent } from '../nhi/service.ts'
-import { decodeSessionClaims } from '../nhi/operations.ts'
+import { getAutonomousAgentSession, clearAutonomousAgentSession, type EnrolledAutonomousAgent } from '../nhi/service.ts'
+import { decodeSessionClaims, autonomousAgentSubject } from '../nhi/operations.ts'
 
 export const getMcpServerCatalog = () => listMcpServerCatalog(config.mcpServers ?? [])
 
@@ -60,5 +60,22 @@ export const describeAutonomousAgentSession = async (autonomousAgent: EnrolledAu
     organization: claims.organization?.id,
     nhi: claims.nhi === 1 || claims.nhi === true,
     expiresIn: typeof claims.exp === 'number' ? Math.max(0, claims.exp - Math.floor(Date.now() / 1000)) : undefined
+  }
+}
+
+/**
+ * Perform a real exchange so a misconfigured enrolment fails at configuration time
+ * rather than inside the first run — the lesson nhi-proxy's `enroll` encodes.
+ *
+ * Called only when the clientId CHANGED: the exchange is rate-limited per client_id and
+ * consumes a point on success too, so re-verifying an unchanged enrolment on every edit
+ * would spend that budget for nothing.
+ */
+export const assertEnrolmentWorks = async (autonomousAgent: EnrolledAutonomousAgent) => {
+  clearAutonomousAgentSession(autonomousAgent.id)
+  try {
+    await getAutonomousAgentSession(autonomousAgent)
+  } catch (err: any) {
+    throw httpError(400, `the non-human identity "${autonomousAgent.nhi?.clientId}" could not be verified against simple-directory: ${err.message}. Check that the NHI exists, that its issuer is ${autonomousAgent.nhi?.issuer} and that its subject is ${autonomousAgentSubject(autonomousAgent.id)}.`)
   }
 }

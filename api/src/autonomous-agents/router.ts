@@ -10,7 +10,7 @@ import mongo from '#mongo'
 import { type AccountKeys, assertAccountRole, httpError, reqSessionAuthenticated, reqSiteUrl } from '@data-fair/lib-express'
 import eventsLog from '@data-fair/lib-express/events-log.js'
 import * as writeReqBody from '#doc/autonomous-agents/autonomous-agent-write-req/index.ts'
-import { getAutonomousAgent, getMcpServerCatalog, reqWriteSession, assertKnownMcpServers, assertOrganizationOwner, describeAutonomousAgentSession } from './service.ts'
+import { getAutonomousAgent, getMcpServerCatalog, reqWriteSession, assertKnownMcpServers, assertOrganizationOwner, describeAutonomousAgentSession, assertEnrolmentWorks } from './service.ts'
 import { nhiIssuerUrl } from '../nhi/operations.ts'
 
 const router = Router()
@@ -73,6 +73,7 @@ router.post('/:type/:id', async (req, res, next) => {
       updatedAt: now,
       createdBy: { id: session.user.id, name: session.user.name }
     }
+    if (autonomousAgent.nhi?.clientId) await assertEnrolmentWorks(autonomousAgent)
     await mongo.autonomousAgents.insertOne({ ...autonomousAgent })
 
     eventsLog.info('agents.autonomous-agent.create', `autonomous agent ${autonomousAgent.id} created for owner ${owner.type}/${owner.id}`, { req })
@@ -138,6 +139,8 @@ router.put('/:type/:id/:agentId', async (req, res, next) => {
       ...(existing.createdBy ? { createdBy: existing.createdBy } : {}),
       updatedAt: new Date().toISOString()
     }
+    // only when it changed — see assertEnrolmentWorks
+    if (updated.nhi?.clientId && updated.nhi.clientId !== existing.nhi?.clientId) await assertEnrolmentWorks(updated)
     await mongo.autonomousAgents.replaceOne({ id: existing.id, 'owner.type': owner.type, 'owner.id': owner.id }, { ...updated })
 
     eventsLog.info('agents.autonomous-agent.update', `autonomous agent ${existing.id} updated for owner ${owner.type}/${owner.id}`, { req })

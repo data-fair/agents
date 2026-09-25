@@ -94,31 +94,44 @@ test.describe('NHI exchange', () => {
   test('a client-supplied nhi.siteUrl / nhi.issuer is discarded, not trusted', async () => {
     // readOnly is only a form hint: ajv does not enforce it, and these are KNOWN keys so
     // additionalProperties: false does not reject them either. The write routes must
-    // therefore overwrite both from reqSiteUrl(req) on every write. Without this test the
-    // only thing standing between an admin and an attacker-chosen issuer is a comment.
+    // therefore overwrite both from reqSiteUrl(req) on every write, BEFORE enrolment
+    // verification (Task 5) ever looks at them. Without this test the only thing
+    // standing between an admin and an attacker-chosen issuer is a comment.
     // Sent through nginx because the body carries nhi.clientId.
-    await admin.post(throughNginx('/api/autonomous-agents/organization/test1'), {
-      title: 'Injection probe',
-      persona: 'x',
-      mcpServers: [],
-      toolDisclosure: 'static',
-      enabled: true,
-      nhi: { clientId: 'nhi-whatever', siteUrl: 'https://attacker.example', issuer: 'https://attacker.example/agents/api/nhi' }
-    }).catch((err: any) => err)
+    //
+    // Since Task 5, this POST is rejected before insert: 'nhi-whatever' is not a real
+    // enrolment, so assertEnrolmentWorks's exchange fails and the autonomous agent is
+    // never created. That rejection is itself part of the proof this test makes: the
+    // server verifies against the CAPTURED issuer/subject, never the attacker-supplied
+    // ones, and nothing attacker-controlled is ever persisted or echoed back.
+    // Deliberately a hard assert.rejects rather than a `.catch((err) => err)` /
+    // `if (stored)` pattern — that is exactly what let this test decay into zero
+    // assertions before, and it is the failure mode this branch keeps producing.
+    await assert.rejects(
+      admin.post(throughNginx('/api/autonomous-agents/organization/test1'), {
+        title: 'Injection probe',
+        persona: 'x',
+        mcpServers: [],
+        toolDisclosure: 'static',
+        enabled: true,
+        nhi: { clientId: 'nhi-whatever', siteUrl: 'https://attacker.example', issuer: 'https://attacker.example/agents/api/nhi' }
+      }),
+      (err: any) => {
+        assert.equal(err.status, 400)
+        const errText = JSON.stringify(err.data)
+        assert.match(errText, /could not be verified/)
+        // the identity named in the error is the SERVER-captured one, never the
+        // attacker-supplied siteUrl/issuer
+        assert.match(errText, /\/agents\/api\/nhi/)
+        assert.equal(errText.includes('attacker.example'), false)
+        return true
+      }
+    )
 
-    // The POST may legitimately fail enrolment verification (Task 5) for the bogus
-    // clientId; what must NOT happen is the attacker values being persisted. Read back
-    // whichever agent exists and assert the captured values won.
+    // and no autonomous agent with that title was persisted
     const list = await admin.get('/api/autonomous-agents/organization/test1')
     const stored = list.data.results.find((a: any) => a.title === 'Injection probe')
-    // Deliberately a hard assertion rather than `if (stored)`. Task 5 adds enrolment
-    // verification, which will reject this bogus clientId before insert — at which point
-    // this test MUST fail loudly so whoever does Task 5 converts it to assert the
-    // rejection path, rather than it silently decaying into zero assertions.
-    assert.ok(stored, 'expected the autonomous agent to have been created; if Task 5 now rejects the bogus clientId, convert this test to assert the rejection path instead of deleting it')
-    assert.equal(stored.nhi?.siteUrl, `http://localhost:${process.env.NGINX_PORT}`)
-    assert.match(stored.nhi?.issuer ?? '', /\/agents\/api\/nhi$/)
-    assert.equal(JSON.stringify(stored).includes('attacker.example'), false)
+    assert.equal(stored, undefined)
   })
 
   test('an autonomous agent with no enrolled identity is refused', async () => {
@@ -133,5 +146,53 @@ test.describe('NHI exchange', () => {
       admin.get(`/api/autonomous-agents/organization/test1/${created.data.id}/session`),
       (err: any) => { assert.equal(err.status, 400); assert.match(JSON.stringify(err.data), /non-human identity/); return true }
     )
+  })
+
+  test('saving a bogus nhi.clientId is refused at configuration time', async () => {
+    const created = await admin.post('/api/autonomous-agents/organization/test1', {
+      title: 'Bad enrolment', persona: 'x', mcpServers: [], toolDisclosure: 'static', enabled: true
+    })
+    // Sent through nginx: the body carries nhi.clientId, so the PUT handler calls
+    // reqSiteUrl(req) to capture siteUrl/issuer before verification runs, and that
+    // throws under the direct client (see the top-of-file comment / throughNginx above).
+    await assert.rejects(
+      admin.put(throughNginx(`/api/autonomous-agents/organization/test1/${created.data.id}`), {
+        title: 'Bad enrolment',
+        persona: 'x',
+        mcpServers: [],
+        toolDisclosure: 'static',
+        enabled: true,
+        nhi: { clientId: 'nhi-doesnotexist' }
+      }),
+      (err: any) => { assert.equal(err.status, 400); assert.match(JSON.stringify(err.data), /could not be verified/); return true }
+    )
+  })
+
+  // NOTE: the brief also specifies a test proving an UNCHANGED nhi.clientId is not
+  // re-verified on every save (protecting the per-client_id rate-limited exchange
+  // budget). That test can only be written by first completing a REAL, successful
+  // enrolment (create the autonomous agent, register a working NHI in simple-directory,
+  // PUT it in so the first save's verification succeeds) and then proving a second save
+  // with the same clientId does not repeat that exchange. This dev stack cannot do the
+  // first half: simple-directory runs STORAGE_TYPE=file, whose FileStorage.createUser
+  // throws 'Method not implemented.', so no NHI can ever be created here (see the
+  // skipped test above) and therefore no enrolment can ever succeed. Per this task's
+  // explicit instructions, no test requiring a successful enrolment is added. The
+  // changed-only guard itself is implemented in assertEnrolmentWorks's caller (see
+  // router.ts: `updated.nhi.clientId !== existing.nhi?.clientId`) and documented there;
+  // closing this test gap needs the same environment fix as the skipped test above.
+
+  test('a save with no nhi at all is unaffected by enrolment verification', async () => {
+    const created = await admin.post('/api/autonomous-agents/organization/test1', {
+      title: 'No nhi', persona: 'x', mcpServers: [], toolDisclosure: 'static', enabled: true
+    })
+    // No nhi.clientId anywhere in the body, so assertEnrolmentWorks must never be
+    // invoked and this ordinary edit must succeed without attempting any exchange.
+    const updated = await admin.put(`/api/autonomous-agents/organization/test1/${created.data.id}`, {
+      title: 'No nhi renamed', persona: 'x', mcpServers: [], toolDisclosure: 'static', enabled: true
+    })
+    assert.equal(updated.status, 200)
+    assert.equal(updated.data.title, 'No nhi renamed')
+    assert.equal(updated.data.nhi, undefined)
   })
 })
