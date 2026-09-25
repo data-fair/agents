@@ -2059,7 +2059,15 @@ Pick these up here if convenient; none block this plan:
 
 ## Deliberately deferred to Plan C
 
-- The `shared/` extraction, and de-duplicating `formatMcpToolResult` into it.
+- The `shared/` extraction, and de-duplicating `formatMcpToolResult` into it. **When that
+  happens, reconsider two warts characterised by tests in
+  `tests/features/autonomous-agents/mcp-client.unit.spec.ts`** (verified against the live
+  `ui/src/utils/tool-result.ts`, so they are pre-existing, not introduced by Plan B):
+  a present-but-empty `content: []` returns `''` rather than falling back to the serialized
+  result (the `??` only catches null/undefined, so the fallback fires only when `content` is
+  absent entirely), and an errored result with no text returns the bare prefix
+  `'Tool execution failed: '`, which tells a model nothing about what failed. Both are pinned
+  by characterisation tests so a fix has to update them deliberately.
 - Conversations, messages, runs, the executor, per-conversation locking, budgets.
 - Websockets and the UI.
 - Trace integration.

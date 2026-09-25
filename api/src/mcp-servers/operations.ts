@@ -81,3 +81,24 @@ export function unknownMcpServerIds (servers: GlobalMcpServer[], refs: { serverI
   const known = new Set(servers.map(s => s.id))
   return refs.map(ref => ref.serverId).filter(id => !known.has(id))
 }
+
+/**
+ * The credential headers for one catalog entry.
+ *
+ * A cookie is used rather than a bearer token because @data-fair/lib-express reads
+ * sessions from the id_token / id_token_sign cookies only and parses no Authorization
+ * header — the same constraint nhi-proxy works around by relaying Set-Cookie.
+ */
+export function credentialHeaders (server: GlobalMcpServer, cookieHeader: string | undefined): Record<string, string> {
+  if (server.auth === 'nhi-session') {
+    // Refuse rather than silently omit: an unauthenticated call would run as anonymous
+    // and fail at the far end as a confusing permission error instead of here.
+    if (!cookieHeader) throw new Error(`MCP server "${server.id}" requires a session but none was supplied`)
+    return { cookie: cookieHeader }
+  }
+  if (server.auth === 'apiKey') {
+    if (!server.apiKeyHeader || !server.apiKey) throw new Error(`MCP server "${server.id}" is missing its apiKey configuration`)
+    return { [server.apiKeyHeader]: server.apiKey }
+  }
+  return {}
+}

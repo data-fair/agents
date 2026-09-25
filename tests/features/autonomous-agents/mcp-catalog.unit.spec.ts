@@ -3,7 +3,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { assertGlobalMcpConfig, listMcpServerCatalog, unknownMcpServerIds, type GlobalMcpServer } from '../../../api/src/mcp-servers/operations.ts'
+import { assertGlobalMcpConfig, listMcpServerCatalog, unknownMcpServerIds, credentialHeaders, type GlobalMcpServer } from '../../../api/src/mcp-servers/operations.ts'
 
 const servers: GlobalMcpServer[] = [
   { id: 'registry', name: 'Data Fair registry', url: 'https://example.org/mcp-registry/mcp', auth: 'nhi-session' },
@@ -75,5 +75,25 @@ test.describe('unknownMcpServerIds', () => {
 
   test('returns an empty array when every ref resolves', () => {
     assert.deepEqual(unknownMcpServerIds(servers, [{ serverId: 'registry' }, { serverId: 'public-docs' }]), [])
+  })
+})
+
+// Full per-branch coverage of credentialHeaders lives in mcp-client.unit.spec.ts; these
+// cases just confirm it composes correctly against real catalog entries (the ids/headers
+// defined above), rather than re-deriving fixtures of its own.
+test.describe('credentialHeaders against the catalog', () => {
+  test('an "nhi-session" catalog entry replays the supplied cookie', () => {
+    const registry = servers.find(s => s.id === 'registry') as GlobalMcpServer
+    assert.deepEqual(credentialHeaders(registry, 'id_token=abc; id_token_sign=def'), { cookie: 'id_token=abc; id_token_sign=def' })
+  })
+
+  test('a "none" catalog entry never sends the cookie', () => {
+    const publicDocs = servers.find(s => s.id === 'public-docs') as GlobalMcpServer
+    assert.deepEqual(credentialHeaders(publicDocs, 'id_token=abc; id_token_sign=def'), {})
+  })
+
+  test('an "apiKey" catalog entry sends its configured header, never the cookie', () => {
+    const thirdParty = servers.find(s => s.id === 'third-party') as GlobalMcpServer
+    assert.deepEqual(credentialHeaders(thirdParty, 'id_token=abc; id_token_sign=def'), { 'x-api-key': 'secret-value' })
   })
 })
