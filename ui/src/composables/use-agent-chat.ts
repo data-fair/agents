@@ -5,7 +5,7 @@ import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import type { ModelMessage, Tool } from 'ai'
 import { getTabChannelId } from '@data-fair/lib-vue-agents'
 import { FrameClientAggregator } from '~/transports/frame-client-aggregator'
-import { createExploreTool, formatToolsAvailableMessage, newlyAvailableTools, EXPLORE_TOOL_NAME } from '~/composables/tool-exploration'
+import { createExploreTool, formatToolsAvailableMessage, newlyAvailableTools, EXPLORE_TOOL_NAME } from '@agents/shared/tool-exploration'
 import { shouldFlattenSubAgent } from '~/composables/sub-agent-flatten'
 import { reconcileTools } from '~/composables/live-tools'
 import { $apiPath } from '~/context'
@@ -15,12 +15,12 @@ import { extractErrorMessage } from '~/utils/error'
 import { redactHistoryMediaToolResults } from '~/utils/tool-result'
 import { readConsent, traceStorageAvailable } from '~/traces/trace-consent'
 import { wrapHiddenContext } from '~/traces/hidden-context'
-import { decideCompaction, retainedToolNames } from '~/utils/compaction-policy'
+import { decideCompaction, retainedToolNames } from '@agents/shared/compaction-policy'
 import Debug from 'debug'
 import type { ChatActivity } from './agent-activity.ts'
-import { applyStreamPart, type StreamScope, type StreamPart } from './agent-stream-parts.ts'
-import { SUBAGENT_STEP_LIMIT_NOTICE, subAgentModelOutput } from './agent-subagent-output.ts'
-import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep } from './agent-loop-guards.ts'
+import { applyStreamPart, type StreamScope, type StreamPart } from '@agents/shared/agent-stream-parts'
+import { SUBAGENT_STEP_LIMIT_NOTICE, subAgentModelOutput } from '@agents/shared/agent-subagent-output'
+import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep } from '@agents/shared/agent-loop-guards'
 import { HostEventStore, createWaitTool, appendHostEvents, formatHostEvents, formatHostState, hasHostState, WAIT_TOOL_NAME } from './host-events'
 import { useHostEvents } from './use-host-events'
 
@@ -65,31 +65,9 @@ const DEFAULT_TIMEOUT_RESPONSE = 'The assistant took too long to respond, so the
 // sessionStorage('agent-chat-idle-timeout').
 const STREAM_IDLE_TIMEOUT_MS = 90_000
 
-export interface ChatMessage {
-  role: 'user' | 'assistant'
-  content: string
-  // Reasoning ("thinking") tokens from reasoning models, shown collapsed in the UI.
-  reasoning?: string
-  toolInvocations?: Array<{
-    toolCallId: string
-    toolName: string
-    state: 'pending' | 'done'
-  }>
-  // Per delegating tool-call id: the sub-agent's transcript. Keyed by toolCallId so
-  // concurrent sub-agent calls under one assistant message render in separate panels
-  // instead of clobbering one shared array. Workers are stateless (single-shot), so
-  // there is no cross-call turn index — each delegation stands alone.
-  subAgentPanels?: Record<string, { messages: ChatMessage[] }>
-  // Set on a sub-agent refusal message so toModelOutput can hand the main agent a
-  // moderation-specific notice instead of the generic user-facing refusal text.
-  // Not rendered; the panel shows `content` like any other message.
-  moderationBlocked?: boolean
-  // Set on the trailing sub-agent message when the worker stopped at its step limit
-  // while still mid-tool-chain (truncated, not finished). The message content is the
-  // best-effort answer recovered by the forced close-out turn (or empty if that failed);
-  // toModelOutput uses the flag to mark the result partial instead of reporting success.
-  stepLimitReached?: boolean
-}
+// Moved to the shared workspace so the server-side autonomous agent runtime can use
+// the same type; re-exported here for this module's existing consumers.
+export type { ChatMessage } from '@agents/shared/chat-message'
 
 export interface ToolInfo {
   name: string

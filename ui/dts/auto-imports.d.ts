@@ -219,9 +219,6 @@ declare global {
   export type { AgentFlags } from '../src/utils/agent-flags'
   import('../src/utils/agent-flags')
   // @ts-ignore
-  export type { CompactionInput, CompactionDecision } from '../src/utils/compaction-policy'
-  import('../src/utils/compaction-policy')
-  // @ts-ignore
   export type { MermaidAutoFixState } from '../src/utils/mermaid-fix'
   import('../src/utils/mermaid-fix')
   // @ts-ignore
@@ -237,9 +234,6 @@ declare global {
   export type { ChatActivity, ActivityLabel } from '../src/composables/agent-activity'
   import('../src/composables/agent-activity')
   // @ts-ignore
-  export type { StreamMessage, StreamPart, ActivityPhase, StreamScope } from '../src/composables/agent-stream-parts'
-  import('../src/composables/agent-stream-parts')
-  // @ts-ignore
   export type { TurnTextState } from '../src/composables/empty-turn'
   import('../src/composables/empty-turn')
   // @ts-ignore
@@ -252,7 +246,7 @@ declare global {
   export type { SubAgentFlattenConfig } from '../src/composables/sub-agent-flatten'
   import('../src/composables/sub-agent-flatten')
   // @ts-ignore
-  export type { ChatMessage, ToolInfo, SubAgentInfo, DebugToolsPartition, UseAgentChatOptions } from '../src/composables/use-agent-chat'
+  export type { ToolInfo, SubAgentInfo, DebugToolsPartition, UseAgentChatOptions, ChatMessage } from '../src/composables/use-agent-chat'
   import('../src/composables/use-agent-chat')
   // @ts-ignore
   export type { SettingsFormParams } from '../src/composables/use-settings-form'
@@ -269,12 +263,9 @@ declare module 'vue' {
     readonly $fetch: UnwrapRef<typeof import('~/context')['$fetch']>
     readonly $sitePath: UnwrapRef<typeof import('~/context')['$sitePath']>
     readonly $uiConfig: UnwrapRef<typeof import('~/context')['$uiConfig']>
-    readonly CHARS_PER_TOKEN: UnwrapRef<typeof import('../src/utils/compaction-policy')['CHARS_PER_TOKEN']>
     readonly DEFAULT_FLAGS: UnwrapRef<typeof import('../src/utils/agent-flags')['DEFAULT_FLAGS']>
-    readonly EXPLORE_TOOL_NAME: UnwrapRef<typeof import('../src/composables/tool-exploration')['EXPLORE_TOOL_NAME']>
     readonly EffectScope: UnwrapRef<typeof import('vue')['EffectScope']>
     readonly FLAGS_COOKIE: UnwrapRef<typeof import('../src/utils/agent-flags')['FLAGS_COOKIE']>
-    readonly FLOOR_SHARE: UnwrapRef<typeof import('../src/utils/compaction-policy')['FLOOR_SHARE']>
     readonly HOST_EVENTS_CLOSE: UnwrapRef<typeof import('../src/composables/host-events')['HOST_EVENTS_CLOSE']>
     readonly HOST_EVENTS_OPEN: UnwrapRef<typeof import('../src/composables/host-events')['HOST_EVENTS_OPEN']>
     readonly HOST_STATE_CLOSE: UnwrapRef<typeof import('../src/composables/host-events')['HOST_STATE_CLOSE']>
@@ -284,23 +275,13 @@ declare module 'vue' {
     readonly MERMAID_AUTO_FIX_BUDGET: UnwrapRef<typeof import('../src/utils/mermaid-fix')['MERMAID_AUTO_FIX_BUDGET']>
     readonly PENDING_MAX: UnwrapRef<typeof import('../src/composables/host-events')['PENDING_MAX']>
     readonly RECENT_MAX: UnwrapRef<typeof import('../src/composables/host-events')['RECENT_MAX']>
-    readonly REPEATED_CALL_LIMIT: UnwrapRef<typeof import('../src/composables/agent-loop-guards')['REPEATED_CALL_LIMIT']>
-    readonly REPEATED_CALL_NUDGE_AT: UnwrapRef<typeof import('../src/composables/agent-loop-guards')['REPEATED_CALL_NUDGE_AT']>
-    readonly RETENTION_SHARE: UnwrapRef<typeof import('../src/utils/compaction-policy')['RETENTION_SHARE']>
-    readonly SELECT_TOOL_NAME: UnwrapRef<typeof import('../src/composables/tool-exploration')['SELECT_TOOL_NAME']>
     readonly STATE_MAX_KEYS: UnwrapRef<typeof import('../src/composables/host-events')['STATE_MAX_KEYS']>
-    readonly STEP_LIMIT: UnwrapRef<typeof import('../src/composables/agent-loop-guards')['STEP_LIMIT']>
-    readonly SUBAGENT_DONE_FALLBACK: UnwrapRef<typeof import('../src/composables/agent-subagent-output')['SUBAGENT_DONE_FALLBACK']>
-    readonly SUBAGENT_MODERATION_NOTICE: UnwrapRef<typeof import('../src/composables/agent-subagent-output')['SUBAGENT_MODERATION_NOTICE']>
-    readonly SUBAGENT_PARTIAL_PREFIX: UnwrapRef<typeof import('../src/composables/agent-subagent-output')['SUBAGENT_PARTIAL_PREFIX']>
-    readonly SUBAGENT_STEP_LIMIT_NOTICE: UnwrapRef<typeof import('../src/composables/agent-subagent-output')['SUBAGENT_STEP_LIMIT_NOTICE']>
     readonly WAIT_DEFAULT_SECONDS: UnwrapRef<typeof import('../src/composables/host-events')['WAIT_DEFAULT_SECONDS']>
     readonly WAIT_MAX_SECONDS: UnwrapRef<typeof import('../src/composables/host-events')['WAIT_MAX_SECONDS']>
     readonly WAIT_TOOL_NAME: UnwrapRef<typeof import('../src/composables/host-events')['WAIT_TOOL_NAME']>
     readonly activityLabelKey: UnwrapRef<typeof import('../src/composables/agent-activity')['activityLabelKey']>
     readonly appendHostEvents: UnwrapRef<typeof import('../src/composables/host-events')['appendHostEvents']>
     readonly appendStreamingCaret: UnwrapRef<typeof import('../src/utils/markdown')['appendStreamingCaret']>
-    readonly applyStreamPart: UnwrapRef<typeof import('../src/composables/agent-stream-parts')['applyStreamPart']>
     readonly breadcrumbs: UnwrapRef<typeof import('../src/utils/breadcrumbs')['default']>
     readonly breakdownDatasets: UnwrapRef<typeof import('../src/utils/usage-breakdown')['breakdownDatasets']>
     readonly buildMermaidThemeVariables: UnwrapRef<typeof import('../src/utils/mermaid')['buildMermaidThemeVariables']>
@@ -308,16 +289,12 @@ declare module 'vue' {
     readonly computed: UnwrapRef<typeof import('vue')['computed']>
     readonly computedDeepDiff: UnwrapRef<typeof import('@data-fair/lib-vue/deep-diff.js')['computedDeepDiff']>
     readonly createApp: UnwrapRef<typeof import('vue')['createApp']>
-    readonly createExploreTool: UnwrapRef<typeof import('../src/composables/tool-exploration')['createExploreTool']>
     readonly createToolTitleMemo: UnwrapRef<typeof import('../src/composables/tool-titles')['createToolTitleMemo']>
     readonly createWaitTool: UnwrapRef<typeof import('../src/composables/host-events')['createWaitTool']>
     readonly customRef: UnwrapRef<typeof import('vue')['customRef']>
-    readonly decideCompaction: UnwrapRef<typeof import('../src/utils/compaction-policy')['decideCompaction']>
     readonly defineAsyncComponent: UnwrapRef<typeof import('vue')['defineAsyncComponent']>
     readonly defineComponent: UnwrapRef<typeof import('vue')['defineComponent']>
     readonly effectScope: UnwrapRef<typeof import('vue')['effectScope']>
-    readonly estimateMessageTokens: UnwrapRef<typeof import('../src/utils/compaction-policy')['estimateMessageTokens']>
-    readonly estimateTokens: UnwrapRef<typeof import('../src/utils/compaction-policy')['estimateTokens']>
     readonly extractErrorMessage: UnwrapRef<typeof import('../src/utils/error')['extractErrorMessage']>
     readonly formatBreakdownValue: UnwrapRef<typeof import('../src/utils/usage-breakdown')['formatBreakdownValue']>
     readonly formatBytes: UnwrapRef<typeof import('@data-fair/lib-vue/format/bytes.js')['formatBytes']>
@@ -326,7 +303,6 @@ declare module 'vue' {
     readonly formatHostState: UnwrapRef<typeof import('../src/composables/host-events')['formatHostState']>
     readonly formatMcpToolResult: UnwrapRef<typeof import('../src/utils/tool-result')['formatMcpToolResult']>
     readonly formatMermaidFix: UnwrapRef<typeof import('../src/utils/mermaid-fix')['formatMermaidFix']>
-    readonly formatToolsAvailableMessage: UnwrapRef<typeof import('../src/composables/tool-exploration')['formatToolsAvailableMessage']>
     readonly getAnonymousToken: UnwrapRef<typeof import('../src/composables/use-anonymous-token')['getAnonymousToken']>
     readonly getCurrentInstance: UnwrapRef<typeof import('vue')['getCurrentInstance']>
     readonly getCurrentScope: UnwrapRef<typeof import('vue')['getCurrentScope']>
@@ -341,13 +317,9 @@ declare module 'vue' {
     readonly isReactive: UnwrapRef<typeof import('vue')['isReactive']>
     readonly isReadonly: UnwrapRef<typeof import('vue')['isReadonly']>
     readonly isRef: UnwrapRef<typeof import('vue')['isRef']>
-    readonly isRepeatingCalls: UnwrapRef<typeof import('../src/composables/agent-loop-guards')['isRepeatingCalls']>
     readonly isShallow: UnwrapRef<typeof import('vue')['isShallow']>
-    readonly isTurnBoundary: UnwrapRef<typeof import('../src/utils/compaction-policy')['isTurnBoundary']>
     readonly looksLikeIncompleteTable: UnwrapRef<typeof import('../src/utils/markdown')['looksLikeIncompleteTable']>
-    readonly loopGuardPrepareStep: UnwrapRef<typeof import('../src/composables/agent-loop-guards')['loopGuardPrepareStep']>
     readonly markRaw: UnwrapRef<typeof import('vue')['markRaw']>
-    readonly newlyAvailableTools: UnwrapRef<typeof import('../src/composables/tool-exploration')['newlyAvailableTools']>
     readonly nextTick: UnwrapRef<typeof import('vue')['nextTick']>
     readonly onActivated: UnwrapRef<typeof import('vue')['onActivated']>
     readonly onBeforeMount: UnwrapRef<typeof import('vue')['onBeforeMount']>
@@ -376,13 +348,9 @@ declare module 'vue' {
     readonly renderMermaidIn: UnwrapRef<typeof import('../src/utils/mermaid')['renderMermaidIn']>
     readonly renderStreamingMarkdown: UnwrapRef<typeof import('../src/utils/markdown')['renderStreamingMarkdown']>
     readonly repairInline: UnwrapRef<typeof import('../src/utils/markdown')['repairInline']>
-    readonly repeatedCallGuard: UnwrapRef<typeof import('../src/composables/agent-loop-guards')['repeatedCallGuard']>
-    readonly repeatedCallNudge: UnwrapRef<typeof import('../src/composables/agent-loop-guards')['repeatedCallNudge']>
     readonly resetAnonymousToken: UnwrapRef<typeof import('../src/composables/use-anonymous-token')['resetAnonymousToken']>
     readonly resolveComponent: UnwrapRef<typeof import('vue')['resolveComponent']>
     readonly resolvesWait: UnwrapRef<typeof import('../src/composables/host-events')['resolvesWait']>
-    readonly retainedToolNames: UnwrapRef<typeof import('../src/utils/compaction-policy')['retainedToolNames']>
-    readonly selectPromotions: UnwrapRef<typeof import('../src/composables/tool-exploration')['selectPromotions']>
     readonly serializeFlagsCookie: UnwrapRef<typeof import('../src/utils/agent-flags')['serializeFlagsCookie']>
     readonly setBreadcrumbs: UnwrapRef<typeof import('../src/utils/breadcrumbs')['setBreadcrumbs']>
     readonly shallowReactive: UnwrapRef<typeof import('vue')['shallowReactive']>
@@ -391,12 +359,10 @@ declare module 'vue' {
     readonly shouldAutoFixMermaid: UnwrapRef<typeof import('../src/utils/mermaid-fix')['shouldAutoFixMermaid']>
     readonly shouldFlattenSubAgent: UnwrapRef<typeof import('../src/composables/sub-agent-flatten')['shouldFlattenSubAgent']>
     readonly streamingSafeBuffer: UnwrapRef<typeof import('../src/utils/markdown')['streamingSafeBuffer']>
-    readonly subAgentModelOutput: UnwrapRef<typeof import('../src/composables/agent-subagent-output')['subAgentModelOutput']>
     readonly toRaw: UnwrapRef<typeof import('vue')['toRaw']>
     readonly toRef: UnwrapRef<typeof import('vue')['toRef']>
     readonly toRefs: UnwrapRef<typeof import('vue')['toRefs']>
     readonly toValue: UnwrapRef<typeof import('vue')['toValue']>
-    readonly trailingRepeatCount: UnwrapRef<typeof import('../src/composables/agent-loop-guards')['trailingRepeatCount']>
     readonly triggerRef: UnwrapRef<typeof import('vue')['triggerRef']>
     readonly unref: UnwrapRef<typeof import('vue')['unref']>
     readonly useAgentChat: UnwrapRef<typeof import('../src/composables/use-agent-chat')['useAgentChat']>

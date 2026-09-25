@@ -1,6 +1,11 @@
 {
   "name": "@agents/shared",
-  "main": "index.js",
+  "version": "0.0.0",
   "type": "module",
-  "license": "MIT"
+  "license": "MIT",
+  "exports": { "./*": "./*.ts" },
+  "dependencies": {
+    "ai": "^6.0.116",
+    "debug": "^4.4.3"
+  }
 }

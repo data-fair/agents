@@ -12,7 +12,7 @@ import {
   estimateTokens,
   retainedToolNames,
   RETENTION_SHARE
-} from '../../../ui/src/utils/compaction-policy.ts'
+} from '@agents/shared/compaction-policy'
 
 const userMsg = (text: string): ModelMessage => ({ role: 'user', content: text })
 const asstMsg = (text: string): ModelMessage => ({ role: 'assistant', content: text })

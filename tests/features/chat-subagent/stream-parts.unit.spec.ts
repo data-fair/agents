@@ -1,6 +1,6 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { applyStreamPart, type StreamScope, type ActivityPhase } from '../../../ui/src/composables/agent-stream-parts.ts'
+import { applyStreamPart, type StreamScope, type ActivityPhase } from '@agents/shared/agent-stream-parts'
 
 function makeScope () {
   const phases: [ActivityPhase, string | undefined][] = []

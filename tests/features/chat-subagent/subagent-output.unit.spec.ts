@@ -6,7 +6,7 @@ import {
   SUBAGENT_STEP_LIMIT_NOTICE,
   SUBAGENT_PARTIAL_PREFIX,
   SUBAGENT_DONE_FALLBACK
-} from '../../../ui/src/composables/agent-subagent-output.ts'
+} from '@agents/shared/agent-subagent-output'
 
 test.describe('subAgentModelOutput (what the lead receives)', () => {
   test('returns the trailing assistant text on a normal completion', () => {
