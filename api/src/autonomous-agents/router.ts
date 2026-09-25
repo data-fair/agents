@@ -10,7 +10,7 @@ import mongo from '#mongo'
 import { type AccountKeys, assertAccountRole, httpError, reqSessionAuthenticated, reqSiteUrl } from '@data-fair/lib-express'
 import eventsLog from '@data-fair/lib-express/events-log.js'
 import * as writeReqBody from '#doc/autonomous-agents/autonomous-agent-write-req/index.ts'
-import { getAutonomousAgent, getMcpServerCatalog, reqWriteSession, assertKnownMcpServers, assertOrganizationOwner, describeAutonomousAgentSession, assertEnrolmentWorks } from './service.ts'
+import { getAutonomousAgent, getMcpServerCatalog, reqWriteSession, assertKnownMcpServers, assertOrganizationOwner, describeAutonomousAgentSession, assertEnrolmentWorks, describeAutonomousAgentTools } from './service.ts'
 import { nhiIssuerUrl } from '../nhi/operations.ts'
 
 const router = Router()
@@ -102,6 +102,20 @@ router.get('/:type/:id/:agentId/session', async (req, res, next) => {
     const autonomousAgent = await getAutonomousAgent(owner, req.params.agentId)
     if (!autonomousAgent) throw httpError(404, 'unknown autonomous agent')
     res.json(await describeAutonomousAgentSession(autonomousAgent))
+  } catch (err) { next(err) }
+})
+
+router.get('/:type/:id/:agentId/tools', async (req, res, next) => {
+  try {
+    const session = reqSessionAuthenticated(req)
+    const owner = { type: req.params.type, id: req.params.id } as AccountKeys
+    assertOrganizationOwner(owner)
+    assertAccountRole(session, owner, 'admin')
+    const autonomousAgent = await getAutonomousAgent(owner, req.params.agentId)
+    if (!autonomousAgent) throw httpError(404, 'unknown autonomous agent')
+
+    const results = await describeAutonomousAgentTools(autonomousAgent)
+    res.json({ results, count: results.length })
   } catch (err) { next(err) }
 })
 

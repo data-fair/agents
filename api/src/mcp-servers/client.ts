@@ -24,24 +24,40 @@ export const connectMcpServer = async (server: GlobalMcpServer, cookieHeader?: s
   return { client, close: async () => { await client.close() } }
 }
 
+export interface AutonomousAgentForTools {
+  id: string
+  nhi?: { clientId: string }
+  mcpServers?: { serverId: string, toolFilter?: string[] }[]
+}
+
+/** A listed MCP tool, as returned by client.listTools(). */
+export interface ListedMcpTool {
+  name: string
+  description?: string
+  inputSchema?: unknown
+  annotations?: unknown
+}
+
 /**
- * The tool set for one autonomous agent: every tool of every catalog entry it
- * references, narrowed by that reference's optional toolFilter.
+ * Connects, as the autonomous agent's own identity, to every MCP server it references,
+ * lists each one's tools (narrowed by that reference's optional toolFilter), and calls
+ * `visit` for each surviving tool — with the still-open client it was listed from —
+ * before closing the connection. The shared shape behind both `listAutonomousAgentTools`
+ * (executable AI SDK tools) and `listAutonomousAgentToolDescriptors` (diagnostic
+ * descriptors only) — there is exactly one copy of the connect/list/filter/close loop.
  *
  * A session is obtained lazily and only once: an autonomous agent whose entries are all
  * `none`/`apiKey` performs no exchange at all.
  */
-export const listAutonomousAgentTools = async (autonomousAgent: {
-  id: string
-  nhi?: { clientId: string }
-  mcpServers?: { serverId: string, toolFilter?: string[] }[]
-}): Promise<Record<string, Tool>> => {
+export const forEachListedTool = async (
+  autonomousAgent: AutonomousAgentForTools,
+  visit: (t: ListedMcpTool, server: GlobalMcpServer, client: Client) => void
+): Promise<void> => {
   const catalog = config.mcpServers ?? []
   const refs = autonomousAgent.mcpServers ?? []
   const needsSession = refs.some(ref => catalog.find(s => s.id === ref.serverId)?.auth === 'nhi-session')
   const cookieHeader = needsSession ? await getAutonomousAgentSession(autonomousAgent) : undefined
 
-  const tools: Record<string, Tool> = {}
   for (const ref of refs) {
     const server = catalog.find(s => s.id === ref.serverId)
     if (!server) throw httpError(400, `unknown MCP server "${ref.serverId}"`)
@@ -51,25 +67,65 @@ export const listAutonomousAgentTools = async (autonomousAgent: {
       const listed = await client.listTools()
       for (const t of listed.tools) {
         if (ref.toolFilter?.length && !ref.toolFilter.includes(t.name)) continue
-        // Last-write-wins on a name collision across servers, matching the browser
-        // aggregator's Object.assign semantics.
-        tools[t.name] = tool({
-          description: t.description ?? '',
-          inputSchema: jsonSchema((t.inputSchema as any) ?? { type: 'object', properties: {} }),
-          execute: async (args: any) => {
-            debug('call tool=%s server=%s', t.name, server.id)
-            // request() rather than callTool(): the latter also validates the result's
-            // structuredContent against the declared outputSchema, and formatMcpToolResult
-            // discards structuredContent, so that check could only reject an otherwise
-            // usable call over a value we throw away.
-            const callResult = await client.request({ method: 'tools/call', params: { name: t.name, arguments: args } }, CallToolResultSchema)
-            return formatMcpToolResult(callResult as any)
-          }
-        })
+        visit(t, server, client)
       }
     } finally {
       await close()
     }
   }
+}
+
+/**
+ * The tool set for one autonomous agent: every tool of every catalog entry it
+ * references, narrowed by that reference's optional toolFilter, as executable AI SDK
+ * tools.
+ */
+export const listAutonomousAgentTools = async (autonomousAgent: AutonomousAgentForTools): Promise<Record<string, Tool>> => {
+  const tools: Record<string, Tool> = {}
+  await forEachListedTool(autonomousAgent, (t, server, client) => {
+    // Last-write-wins on a name collision across servers, matching the browser
+    // aggregator's Object.assign semantics.
+    tools[t.name] = tool({
+      description: t.description ?? '',
+      inputSchema: jsonSchema((t.inputSchema as any) ?? { type: 'object', properties: {} }),
+      execute: async (args: any) => {
+        debug('call tool=%s server=%s', t.name, server.id)
+        // request() rather than callTool(): the latter also validates the result's
+        // structuredContent against the declared outputSchema, and formatMcpToolResult
+        // discards structuredContent, so that check could only reject an otherwise
+        // usable call over a value we throw away.
+        const callResult = await client.request({ method: 'tools/call', params: { name: t.name, arguments: args } }, CallToolResultSchema)
+        return formatMcpToolResult(callResult as any)
+      }
+    })
+  })
   return tools
+}
+
+export interface McpToolDescriptor {
+  name: string
+  description: string
+  server: string
+  annotations?: Record<string, unknown>
+}
+
+/**
+ * The tool list an autonomous agent would actually receive, as descriptors only — no
+ * executable closures over a client connection that this diagnostic endpoint will never
+ * call and never keeps open.
+ */
+export const listAutonomousAgentToolDescriptors = async (autonomousAgent: AutonomousAgentForTools): Promise<McpToolDescriptor[]> => {
+  const descriptors: McpToolDescriptor[] = []
+  await forEachListedTool(autonomousAgent, (t, server) => {
+    descriptors.push({
+      name: t.name,
+      description: t.description ?? '',
+      server: server.id,
+      // readOnlyHint / destructiveHint drive the approval gate in P1 and are recorded
+      // per call in the run; surfacing them here lets an admin see the write surface
+      // before an autonomous agent is ever run.
+      ...(t.annotations ? { annotations: t.annotations as Record<string, unknown> } : {})
+    })
+  })
+  return descriptors
 }

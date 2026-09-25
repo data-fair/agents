@@ -163,6 +163,24 @@ Boot validation (`assertGlobalMcpConfig`) rejects:
 - an `auth: 'apiKey'` entry missing `apiKeyHeader` or `apiKey`;
 - a credential (`apiKey`/`apiKeyHeader`) on an entry whose `auth` is not `'apiKey'` — a configuration mistake worth naming at boot, since the operator believes that endpoint is authenticated when it will never send the credential.
 
+### Verifying an autonomous agent's identity and tools
+
+`GET /api/autonomous-agents/:type/:id/:agentId/tools` (`api/src/autonomous-agents/router.ts`) is the end-to-end proof that an autonomous agent's identity and MCP wiring actually work in a given deployment: it connects to every MCP server the agent references, as that agent's own identity, and returns the live tool list. There is no executor yet (that is Plan C), so this route — plus the `/session` diagnostic below it — is the only way to observe any of this before then. The procedure:
+
+1. **Set `NHI_SIGNING_KEY`** (an ES256 private JWK — see `nhiSigningKey` above) on this service. No `PUBLIC_URL`-style config is needed: the issuer identifier is not configured, it is *captured* from the real proxied request that creates or saves the autonomous agent (`reqSiteUrl(req)`, see `api/src/nhi/operations.ts`), so it is always a url that demonstrably resolves here.
+2. **Confirm discovery resolves** by requesting `<the site's own public url>/agents/api/nhi/.well-known/openid-configuration` through the reverse proxy (not directly on the API port — the issuer is meaningless without the proxy's `x-forwarded-*` headers). It should 404 until `NHI_SIGNING_KEY` is set.
+3. **Create an autonomous agent** (`POST /api/autonomous-agents/organization/:id`) through the normal admin UI/API, referencing the MCP servers to verify.
+4. **Register the NHI in simple-directory**, with `provider.issuer` set to the `nhi.issuer` now stored on the autonomous agent (`GET /api/autonomous-agents/organization/:id/:agentId`) and `subject` set to `autonomous-agent:<agentId>` (`autonomousAgentSubject()`).
+5. **PUT the returned `nhi-…` id** onto the autonomous agent's `nhi.clientId`. The save performs a real exchange before accepting it (`assertEnrolmentWorks`), so a bad id, a wrong subject or an unreachable issuer is refused immediately at configuration time rather than surfacing later as a confusing failure inside a run.
+6. **`GET …/:agentId/session`** to see which identity the exchange actually obtained (user id, org, session TTL) without ever returning the session cookie itself.
+7. **`GET …/:agentId/tools`** to see the live tool list fetched as that identity — the deliverable this section documents.
+
+**simple-directory must run with `manageNhis` enabled** (`MANAGE_NHIS=true`) for step 4 to work at all; it is what exposes `POST /api/organizations/:id/nhis`.
+
+**`allowedIps` and `ipBinding` must not be set on an autonomous agent's NHI.** Both key off the address this service *declares* on the exchange (`DECLARED_CLIENT_IP`, a fixed `127.0.0.1` — see `api/src/nhi/operations.ts`) rather than any real client address, since the exchange is server-to-server and every autonomous agent on this deployment shares that one declared egress address. Binding either setting to a real pod/node IP breaks the exchange (a mismatched declared address) or the session it issues (a mismatched bound address on every subsequent call) — there is no real client IP here for either setting to usefully pin.
+
+Registering the NHI is a one-time UI action, not a per-rotation chore: because discovery (`.well-known/openid-configuration` + `/jwks`) is fetched live rather than pinned, simple-directory picks up a new signing key automatically on rotation (a new `kid` published alongside the old one) without the NHI record ever needing to be touched again.
+
 ### `AUTONOMOUS_AGENTS_REQUIRE_ADMIN_MODE`
 
 Boolean, default `true`. `node-config`'s `__format: 'json'` parsing applies, so set it as `AUTONOMOUS_AGENTS_REQUIRE_ADMIN_MODE=false` to flip it, not `"false"` as a bare string.

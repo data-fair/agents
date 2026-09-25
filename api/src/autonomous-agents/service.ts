@@ -9,6 +9,7 @@ import type { Request } from 'express'
 import { listMcpServerCatalog, unknownMcpServerIds } from '../mcp-servers/operations.ts'
 import { getAutonomousAgentSession, clearAutonomousAgentSession, type EnrolledAutonomousAgent } from '../nhi/service.ts'
 import { decodeSessionClaims, autonomousAgentSubject } from '../nhi/operations.ts'
+import { listAutonomousAgentToolDescriptors } from '../mcp-servers/client.ts'
 
 export const getMcpServerCatalog = () => listMcpServerCatalog(config.mcpServers ?? [])
 
@@ -79,3 +80,10 @@ export const assertEnrolmentWorks = async (autonomousAgent: EnrolledAutonomousAg
     throw httpError(400, `the non-human identity "${autonomousAgent.nhi?.clientId}" could not be verified against simple-directory: ${err.message}. Check that the NHI exists, that its issuer is ${autonomousAgent.nhi?.issuer} and that its subject is ${autonomousAgentSubject(autonomousAgent.id)}.`)
   }
 }
+
+/**
+ * The tool list an autonomous agent would actually receive, fetched live as its own
+ * identity. Descriptions and annotations only — never a credential.
+ */
+export const describeAutonomousAgentTools = async (autonomousAgent: { id: string, nhi?: { clientId: string }, mcpServers?: { serverId: string, toolFilter?: string[] }[] }) =>
+  await listAutonomousAgentToolDescriptors(autonomousAgent)

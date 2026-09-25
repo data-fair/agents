@@ -23,17 +23,21 @@ export default {
   providers: [{ type: 'mock', id: 'global-mock', name: 'Global Mock', enabled: true }],
   models: [{ id: 'mock-model', name: 'Global Mock Model', provider: 'global-mock', usage: ['assistant', 'tools', 'summarizer', 'evaluator', 'moderator'], inputPricePerMillion: 0, outputPricePerMillion: 0 }],
   defaultModels: { assistant: { provider: 'global-mock', id: 'mock-model' } },
-  // Placeholder dev catalog: the URLs are deliberately unreachable. Plan A only
-  // needs entries to exist so autonomous agents can reference them; Plan B replaces
-  // these with a real in-process MCP fixture once there is a client to call it.
-  mcpServers: [
-    { id: 'dev-public-mcp', name: 'Dev Public MCP', url: 'http://localhost:1/mcp', auth: 'none' },
-    { id: 'dev-session-mcp', name: 'Dev Session MCP', url: 'http://localhost:1/mcp', auth: 'nhi-session' },
-    // Only entry that carries a credential — needed so the "no credentials in the
-    // catalog" api test actually exercises the apiKey-stripping path instead of
-    // trivially passing because no configured entry ever had a key to leak.
-    { id: 'dev-apikey-mcp', name: 'Dev API-key MCP', url: 'http://localhost:1/mcp', auth: 'apiKey', apiKeyHeader: 'x-api-key', apiKey: 'dev-secret-value' }
-  ],
+  // The api-test MCP fixture (tests/support/mcp-fixture.ts) listens on this port. It is
+  // DERIVED, not hardcoded: dev/init-env.sh assigns a RANDOM base port and allocates
+  // base..base+22, so any literal port is free on one checkout and taken on another (and in
+  // CI). +30 sits clear of that range. The test computes the same expression.
+  mcpServers: (() => {
+    const fixtureUrl = `http://localhost:${Number(process.env.NGINX_PORT) + 30}/mcp`
+    return [
+      { id: 'dev-public-mcp', name: 'Dev Public MCP', url: fixtureUrl, auth: 'none' },
+      { id: 'dev-session-mcp', name: 'Dev Session MCP', url: fixtureUrl, auth: 'nhi-session' },
+      // Only entry that carries a credential — needed so the "no credentials in the
+      // catalog" api test actually exercises the apiKey-stripping path instead of
+      // trivially passing because no configured entry ever had a key to leak.
+      { id: 'dev-apikey-mcp', name: 'Dev API-key MCP', url: fixtureUrl, auth: 'apiKey', apiKeyHeader: 'x-api-key', apiKey: 'dev-secret-value' }
+    ]
+  })(),
   // Dev-only keypair, generated for this plan and round-trip verified. NEVER reuse a
   // committed key in a real deployment.
   nhiSigningKey: { kty: 'EC', crv: 'P-256', x: 'iuGRxiUsSj4YmAvrp3XpXGnvttc6ruQIYakEVp-B4Ig', y: 'nF0kPlKpzNztlqKozkb9T4sHl_sCD1M6ngrpwEnTL-M', d: 'Hv71PS5oK6z6bqiRT-nq62cmgauiaCreaO-zmS30-6Q', kid: 'dev-1', alg: 'ES256' },
