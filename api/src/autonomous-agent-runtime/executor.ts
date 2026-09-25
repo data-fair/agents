@@ -13,10 +13,22 @@
  */
 
 import mongo from '#mongo'
+import config from '#config'
 import locks from '@data-fair/lib-node/locks.js'
-import type { AutonomousAgentMessage, AutonomousAgentRun } from '#types'
-import { runStopReasonMessage, type RunStopReason } from './operations.ts'
+import Debug from 'debug'
+import { streamText, generateText, stepCountIs, type ModelMessage, type Tool } from 'ai'
+import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep } from '@agents/shared/agent-loop-guards'
+import { decideCompaction } from '@agents/shared/compaction-policy'
+import { compactionSystemPrompt, recapMessage } from '@agents/shared/compaction-prompt'
+import type { AutonomousAgent, AutonomousAgentMessage, AutonomousAgentRun } from '#types'
+import { runStopReasonMessage, buildSystemPrompt, wrapToolResult, type RunStopReason } from './operations.ts'
 import { appendMessage, updateMessage, finishRun } from './service.ts'
+import { getSettings } from '../settings/service.ts'
+import { resolveRoleModel } from '../models/service.ts'
+import { contextBudget } from '../models/operations.ts'
+import { listAutonomousAgentTools } from '../mcp-servers/client.ts'
+
+const debug = Debug('df-agents:autonomous-agent-executor')
 
 const LOCK_ORIGIN = 'autonomous-agent-executor'
 
@@ -47,23 +59,171 @@ const nextPendingRun = async (conversationId: string) => {
 }
 
 /**
- * Perform the turn itself.
+ * The conversation so far, as model messages.
  *
- * For now this echoes the instruction back: the point of this step is that the lifecycle
- * around it — locking, pickup, terminal status, terminal message, restart sweep — is
- * correct and tested before a model is in the picture. The model loop replaces this body.
+ * Tool calls are NOT replayed as tool-call/tool-result pairs: the runtime persists only
+ * what a reader needs (which tools were called), not the full wire exchange, so a past
+ * turn's tool traffic is summarised into its assistant text instead. Replaying partial
+ * pairs would produce a history the provider rejects.
  */
-const performTurn = async (run: AutonomousAgentRun): Promise<TurnResult> => {
-  const lastUserMessage = await mongo.autonomousAgentMessages.findOne(
-    { conversationId: run.conversationId, role: 'user' },
-    { projection: { _id: 0 }, sort: { seq: -1 } }
-  )
-  return {
-    content: `Received: "${lastUserMessage?.content ?? ''}"`,
-    steps: 0,
-    credits: 0,
-    stopReason: 'completed'
+const loadHistory = async (conversationId: string, upToSeq: number): Promise<ModelMessage[]> => {
+  const messages = await mongo.autonomousAgentMessages
+    .find({ conversationId, seq: { $lt: upToSeq } }, { projection: { _id: 0 } })
+    .sort({ seq: 1 })
+    .toArray()
+  return messages
+    .filter(m => (m.content ?? '').trim())
+    .map(m => ({ role: m.role, content: m.content as string }) as ModelMessage)
+}
+
+/**
+ * Compact the history when it no longer fits the budget.
+ *
+ * Unlike the browser loop, this has no provider-reported measurement of a previous turn to
+ * work from — there is no prior response object in hand — so the whole history counts as
+ * unmeasured and the decision runs on the character estimate alone. That is conservative in
+ * the safe direction: it can compact slightly early, never slightly late.
+ *
+ * A failure here is non-fatal. Continuing with the full history risks a context-overflow
+ * error from the provider, which the caller turns into a message; losing the turn entirely
+ * to a summarizer hiccup would be worse.
+ */
+const compactHistory = async (
+  history: ModelMessage[],
+  budget: number,
+  settings: Awaited<ReturnType<typeof getSettings>>,
+  abortSignal: AbortSignal
+): Promise<ModelMessage[]> => {
+  if (!budget) return history
+  const decision = decideCompaction({
+    history,
+    lastInputTokens: 0,
+    appendedChars: JSON.stringify(history).length,
+    budget,
+    generation: 0
+  })
+  if (!decision.compact) {
+    debug('no compaction: %s', decision.reason)
+    return history
   }
+  try {
+    const { model } = resolveRoleModel(settings, 'summarizer')
+    const { text: summary } = await generateText({
+      model,
+      system: compactionSystemPrompt(decision.generation - 1),
+      messages: [{ role: 'user', content: JSON.stringify(decision.prefixToSummarize) }],
+      abortSignal
+    })
+    debug('compacted %d messages into a recap', decision.prefixToSummarize.length)
+    return [recapMessage(summary), ...decision.retained]
+  } catch (err) {
+    if (abortSignal.aborted) throw err
+    debug('compaction failed, continuing with the full history: %O', err)
+    return history
+  }
+}
+
+/**
+ * Wrap each MCP tool so its result reaches the model inside a provenance envelope.
+ *
+ * The envelope has to be applied where the result is produced rather than when history is
+ * rebuilt, because within a single turn the AI SDK feeds tool results straight back to the
+ * model without passing through this module.
+ */
+const withProvenance = (tools: Record<string, Tool>, serverOf: (name: string) => string): Record<string, Tool> => {
+  const wrapped: Record<string, Tool> = {}
+  for (const [name, tool] of Object.entries(tools)) {
+    wrapped[name] = {
+      ...tool,
+      execute: tool.execute
+        ? async (args: any, opts: any) => {
+          const result = await tool.execute!(args, opts)
+          const text = typeof result === 'string' ? result : JSON.stringify(result)
+          return wrapToolResult(serverOf(name), name, text)
+        }
+        : undefined
+    } as Tool
+  }
+  return wrapped
+}
+
+/**
+ * Perform the turn itself: resolve the model, gather the agent's tools, and run the loop.
+ *
+ * An autonomous agent with no verified NHI cannot run at all — its whole tool surface is
+ * reached as that identity — so this refuses early with an actionable message rather than
+ * producing a toolless turn that looks like a capability problem.
+ */
+const performTurn = async (run: AutonomousAgentRun, upToSeq: number, abortSignal: AbortSignal): Promise<TurnResult> => {
+  const autonomousAgent = await mongo.autonomousAgents.findOne(
+    { id: run.autonomousAgentId },
+    { projection: { _id: 0 } }
+  ) as AutonomousAgent | null
+  if (!autonomousAgent) throw new Error('the autonomous agent no longer exists')
+  if (!autonomousAgent.nhi?.clientId) {
+    return {
+      content: 'This autonomous agent has no non-human identity enrolled, so it cannot reach any of its tools. An administrator needs to complete its enrolment before it can run.',
+      steps: 0,
+      credits: 0,
+      stopReason: 'error'
+    }
+  }
+
+  const settings = await getSettings(run.owner)
+  const { model, entry } = resolveRoleModel(settings, 'assistant')
+  // resolveRoleModel already resolved the catalog entry; no need to resolve it twice.
+  const budget = contextBudget(entry, config.compactionPercent)
+
+  const rawTools = await listAutonomousAgentTools(autonomousAgent)
+  // Which server each tool came from, for the provenance envelope and the recorded call.
+  const serverByTool = new Map<string, string>()
+  for (const server of autonomousAgent.mcpServers ?? []) {
+    for (const name of Object.keys(rawTools)) {
+      if (!serverByTool.has(name)) serverByTool.set(name, server.serverId)
+    }
+  }
+  const tools = withProvenance(rawTools, name => serverByTool.get(name) ?? 'unknown')
+
+  const history = await compactHistory(
+    await loadHistory(run.conversationId, upToSeq),
+    budget,
+    settings,
+    abortSignal
+  )
+
+  const result = streamText({
+    model,
+    system: buildSystemPrompt(autonomousAgent),
+    messages: history,
+    tools,
+    stopWhen: [stepCountIs(STEP_LIMIT), repeatedCallGuard()],
+    prepareStep: loopGuardPrepareStep,
+    abortSignal
+  })
+
+  let content = ''
+  let reasoning = ''
+  const toolCalls: NonNullable<AutonomousAgentMessage['toolCalls']> = []
+  for await (const part of result.fullStream) {
+    // 'error' parts do NOT throw — an unhandled one is how a conversation silently dropped
+    // before. Turn it into a real failure so the caller reports it.
+    if (part.type === 'error') throw part.error instanceof Error ? part.error : new Error(String(part.error))
+    if (part.type === 'text-delta') content += part.text
+    if (part.type === 'reasoning-delta') reasoning += part.text
+    if (part.type === 'tool-call') {
+      toolCalls.push({ toolCallId: part.toolCallId, toolName: part.toolName, serverId: serverByTool.get(part.toolName) })
+    }
+  }
+
+  const steps = (await result.steps).length
+  const finishReason = await result.finishReason
+  // A guard-stopped turn is a truncation, not a provider error: the model still wanted to
+  // call tools when the step cap or the repeated-call guard cut it off.
+  const stopReason: RunStopReason = finishReason === 'tool-calls'
+    ? (steps >= STEP_LIMIT ? 'step-limit' : 'repeated-calls')
+    : 'completed'
+
+  return { content, reasoning: reasoning || undefined, toolCalls: toolCalls.length ? toolCalls : undefined, steps, credits: 0, stopReason }
 }
 
 /**
@@ -93,8 +253,11 @@ export const runTurn = async (run: AutonomousAgentRun): Promise<void> => {
     pending: true
   })
 
+  const abortController = new AbortController()
   try {
-    const result = await performTurn(run)
+    // The assistant message's own seq bounds the history: it was created before the turn
+    // (empty, pending), so it must not be fed back to the model as an empty turn.
+    const result = await performTurn(run, message.seq, abortController.signal)
     // A turn that stopped for a reason other than finishing explains itself, appended to
     // whatever it did manage to produce.
     const notice = result.stopReason === 'completed' ? '' : runStopReasonMessage(result.stopReason)

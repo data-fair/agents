@@ -26,7 +26,7 @@ test.describe('Autonomous agent tools', () => {
     const res = await admin.get(`/api/autonomous-agents/organization/test1/${created.data.id}/tools`)
     assert.equal(res.status, 200)
     const names = res.data.results.map((t: any) => t.name).sort()
-    assert.deepEqual(names, ['echo', 'ignored'])
+    assert.deepEqual(names, ['echo', 'get_schema', 'ignored'])
     assert.equal(res.data.results.find((t: any) => t.name === 'echo').server, 'dev-public-mcp')
   })
 

@@ -32,6 +32,15 @@ const buildMcpServer = (): McpServer => {
     async ({ value }) => ({ content: [{ type: 'text', text: `echo:${value}` }] })
   )
   mcp.registerTool(
+    'get_schema',
+    // Exists so the mock model's `loop forever` seam, which emits this exact tool name,
+    // has something to call in an autonomous agent's tool set. Without it the turn calls a
+    // tool the agent does not have and ends as an unknown-tool error, which would still
+    // satisfy a naive "the run stopped" assertion while testing the wrong thing.
+    { description: 'Returns a fixed schema', inputSchema: {} },
+    async () => ({ content: [{ type: 'text', text: '{"fields":[]}' }] })
+  )
+  mcp.registerTool(
     'ignored',
     { description: 'Exists so toolFilter has something to exclude', inputSchema: {} },
     async () => ({ content: [{ type: 'text', text: 'ignored' }] })

@@ -4,6 +4,8 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
+import { putMockSettings } from '../../support/settings.ts'
+import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
@@ -227,5 +229,109 @@ test.describe('Autonomous agent conversations', () => {
       orgAdmin.get(`/api/autonomous-agent-runs/organization/dev1/${runId}`),
       { status: 404 }
     )
+  })
+})
+
+test.describe('Autonomous agent model loop', () => {
+  let fixture: McpFixture
+
+  test.beforeAll(async () => { fixture = await startMcpFixture(Number(process.env.NGINX_PORT) + 30) })
+  test.afterAll(async () => { await fixture.close() })
+  test.beforeEach(async () => {
+    await clean()
+    // The org needs a resolvable assistant model; the mock provider is the deterministic seam.
+    await putMockSettings(admin, 'organization/test1')
+  })
+
+  /** Dev cannot complete a real enrolment (see the seam's comment), so set the field directly. */
+  const enrol = async (agentId: string) => {
+    await admin.post('/api/test-env/enrol-autonomous-agent', { agentId })
+  }
+
+  const runOnce = async (agentId: string, content: string) => {
+    const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agentId, title: 't' })).data
+    const { runId } = (await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content })).data
+    let run
+    for (let i = 0; i < 100; i++) {
+      run = (await orgAdmin.get(`/api/autonomous-agent-runs/organization/test1/${runId}`)).data
+      if (run.status !== 'running') break
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
+    const messages = (await orgAdmin.get(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`)).data.results
+    return { run, messages, assistant: messages.find((m: any) => m.role === 'assistant' && m.runId === runId) }
+  }
+
+  test('a real model turn produces the model\'s answer', async () => {
+    const agent = await createAgent()
+    await enrol(agent.id)
+    const { run, assistant } = await runOnce(agent.id, 'hello')
+    assert.equal(run.status, 'done')
+    assert.equal(run.stopReason, 'completed')
+    // the mock model answers "hello" with "world" — proves prompt assembly, model
+    // resolution, streaming and persistence all joined up
+    assert.equal(assistant.content, 'world')
+    assert.equal(assistant.pending, false)
+    assert.ok(run.steps >= 1)
+  })
+
+  test('reasoning tokens are persisted separately from the answer', async () => {
+    const agent = await createAgent()
+    await enrol(agent.id)
+    const { assistant } = await runOnce(agent.id, 'reason')
+    assert.equal(assistant.content, 'world')
+    assert.equal(assistant.reasoning, 'Let me think about it.')
+  })
+
+  test('a tool call reaches a real MCP server and is recorded with its server', async () => {
+    const agent = await createAgent({ mcpServers: [{ serverId: 'dev-public-mcp' }] })
+    await enrol(agent.id)
+    const { run, assistant } = await runOnce(agent.id, 'call tool echo {"value":"x"}')
+    assert.equal(run.status, 'done')
+    assert.ok(assistant.toolCalls?.length, 'expected the tool call to be recorded on the message')
+    const call = assistant.toolCalls.find((c: any) => c.toolName === 'echo')
+    assert.ok(call, 'expected the echo tool call')
+    assert.equal(call.serverId, 'dev-public-mcp')
+    // Two steps and a final answer prove the whole round trip, not merely that a call was
+    // emitted: the fixture executed the tool, its wrapped result went back to the model,
+    // and the model produced an answer from it. A call that never reached the server would
+    // have left the turn looping or failing instead.
+    assert.equal(run.stopReason, 'completed')
+    assert.equal(run.steps, 2)
+    assert.equal(assistant.content, 'done')
+  })
+
+  test('the repeated-call guard stops a looping turn as a truncation, not an error', async () => {
+    const agent = await createAgent({ mcpServers: [{ serverId: 'dev-public-mcp' }] })
+    await enrol(agent.id)
+    const { run, assistant } = await runOnce(agent.id, 'loop forever')
+    // A guard-stopped turn did work and said so; only a throw is an error.
+    assert.equal(run.status, 'done')
+    assert.equal(run.stopReason, 'repeated-calls')
+    assert.ok(run.steps > 1, 'expected several steps before the guard fired')
+    assert.ok(assistant.content.length > 0, 'a truncated turn must still explain itself')
+    assert.match(assistant.content, /repeating the same tool call/i)
+  })
+
+  test('an autonomous agent with no enrolled identity refuses with an actionable message', async () => {
+    const agent = await createAgent({ mcpServers: [{ serverId: 'dev-public-mcp' }] })
+    // deliberately NOT enrolled
+    const { run, assistant } = await runOnce(agent.id, 'hello')
+    assert.notEqual(run.status, 'running')
+    assert.ok(assistant, 'a refusal is still a message')
+    assert.match(assistant.content, /identity|enrol/i)
+    assert.equal(assistant.pending, false)
+  })
+
+  test('a provider error becomes a message rather than a silent stop', async () => {
+    const agent = await createAgent()
+    await enrol(agent.id)
+    // 'stream error' makes the mock emit an AI SDK error part, which does NOT throw on its
+    // own — an unhandled one is exactly how a conversation silently dropped before.
+    const { run, assistant } = await runOnce(agent.id, 'stream error')
+    assert.equal(run.status, 'error')
+    assert.ok(run.error, 'the run must record what went wrong')
+    assert.ok(assistant, 'failure is a message, not a silence')
+    assert.equal(assistant.pending, false)
+    assert.ok(assistant.content.length > 0)
   })
 })

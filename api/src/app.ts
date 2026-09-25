@@ -82,6 +82,19 @@ if (process.env.NODE_ENV === 'development') {
   // executor the first turn often finishes before the second post lands, so the lock is
   // never contended and the pickup path never runs — a test that passes while proving
   // nothing.
+  // Dev-only. Enrolment cannot be completed in the dev stack at all: simple-directory's
+  // FileStorage cannot create the NHI (`Method not implemented.`), which is why two of
+  // Plan B's tests are skipped. The write routes call assertEnrolmentWorks and would
+  // therefore reject any nhi a test tried to set, leaving everything downstream of
+  // enrolment untestable. This writes the field directly so the runtime can be exercised
+  // against MCP servers that need no session (auth: 'none').
+  app.post('/api/test-env/enrol-autonomous-agent', async (req, res) => {
+    await mongo.autonomousAgents.updateOne(
+      { id: req.body.agentId },
+      { $set: { nhi: { clientId: req.body.clientId ?? 'dev-fixture-nhi', siteUrl: req.body.siteUrl ?? 'http://localhost/agents', issuer: req.body.issuer ?? 'http://localhost/agents/api/nhi' } } }
+    )
+    res.send()
+  })
   app.post('/api/test-env/lock-conversation', async (req, res) => {
     res.json({ acquired: await locks.acquire(`autonomous-agent-conversation:${req.body.conversationId}`, 'test') })
   })
