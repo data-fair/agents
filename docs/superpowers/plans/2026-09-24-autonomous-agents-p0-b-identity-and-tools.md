@@ -1988,6 +1988,43 @@ git commit -m "feat(autonomous-agents): list an autonomous agent's live tools as
 - No credential (cookie, `apiKey`, signing key) appears in any response body.
 - `lint-fix`, `check-types`, `test-unit`, `test-api`, `test-e2e` all pass.
 
+## Outstanding after execution
+
+- **The real NHI exchange is not provable in this dev stack** (the skipped test in
+  `tests/features/autonomous-agents/nhi-exchange.api.spec.ts`). simple-directory runs
+  `STORAGE_TYPE=file`, as every data-fair dev stack does, and `FileStorage.createUser`
+  (`api/src/storages/file.ts:250`) throws `Method not implemented.`, so
+  `POST /api/organizations/:id/nhis` 500s and no NHI can be created. The 401 probe in Task 1
+  could not catch this: it exercises the *exchange* route, not NHI *creation*.
+
+  Three ways to close it, in the order I would try them:
+
+  1. **A dev-only seeding route plus a port-free fixture NHI.** This repo already has
+     `/api/test-env/*` routes under `NODE_ENV=development`. Add one that upserts an
+     autonomous agent with a chosen id, and commit a fixture NHI in
+     `dev/resources/users.json` whose `provider` carries an **inline jwks** (the dev public
+     key) and whose issuer uses a port-free synthetic host. The inline jwks means
+     simple-directory never fetches the issuer, so the host need not resolve, and the
+     random `NGINX_PORT` stops mattering. Most contained. Open question to settle first:
+     whether simple-directory tolerates an unknown `Host` for site resolution, or whether
+     `reqSite` must resolve to the main site.
+  2. **Build mongo-storage seeding.** Switch `STORAGE_TYPE` to mongo and have
+     `dev/fixtures.ts` create the users and organizations through simple-directory's API.
+     Matches staging exactly. Costly: `users.json`/`organizations.json` are FileStorage-only
+     (read with `readFileSync` at construction), so every test identity disappears and all
+     190 api + 123 e2e tests fail until seeding is correct. It also diverges from every
+     sibling data-fair dev stack.
+  3. **Leave it, and prove the exchange in staging**, where simple-directory runs mongo
+     storage and an org admin creates the NHI through the UI — the designed path.
+
+  What the gap actually risks: a mismatch in the audience, the site path or the issuer would
+  not surface until staging. The declare/sign invariant most likely to break is covered at
+  unit level in `nhi.unit.spec.ts`, which narrows but does not eliminate it.
+
+- **`dev/init-env.sh` randomises every dev port** (`1024 + RANDOM % 48000`). Anything that
+  needs a committed, environment-independent url cannot embed a dev port. This is why
+  option 1 above requires a synthetic host.
+
 ## Carried forward from Plan A
 
 Pick these up here if convenient; none block this plan:
