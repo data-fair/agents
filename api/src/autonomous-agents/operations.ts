@@ -9,7 +9,10 @@
  * own input.
  */
 export interface InstructSession {
-  user: { id: string, adminMode?: boolean }
+  // adminMode is widened past `boolean` on purpose: lib-express's SessionStateAuthenticated
+  // types it as `1 | undefined`, and canInstruct only ever reads it for truthiness. Keeping
+  // it `boolean` here forced every real call site to cast.
+  user: { id: string, adminMode?: boolean | number }
   account: { type: string, id: string }
   accountRole?: string
 }
