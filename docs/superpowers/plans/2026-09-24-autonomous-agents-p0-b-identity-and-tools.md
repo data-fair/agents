@@ -863,8 +863,19 @@ have somewhere to live. `clientId` stays client-writable; the other two are serv
 ```
 
 Leave `api/doc/autonomous-agents/autonomous-agent-write-req/schema.js` alone: it picks
-`nhi` from this schema, and `readOnly` keeps the two new fields out of the form while
-`additionalProperties: false` keeps a client from injecting them.
+`nhi` from this schema, so `readOnly` keeps the two new fields out of the generated form.
+
+**`readOnly` does NOT stop a client sending them.** Verified in this tree: ajv treats
+`readOnly` as a documentation hint (nothing in `@data-fair/lib-validation` or `api/src`
+enforces it), the generated write-req validator now accepts `nhi.siteUrl` and
+`nhi.issuer` as *known* string keys, and `additionalProperties: false` only rejects
+*unknown* ones. The routers spread the validated `body` straight into mongo, so as of
+this task a client could persist arbitrary values in both fields.
+
+That is inert here — nothing reads them until Task 4 — and Task 4 closes it by
+overwriting both server-side on every write, with a regression test proving a
+client-supplied value is discarded. Do not add a defensive strip in this task; it would
+be code Task 4 deletes.
 
 Run `npm run build-types`, then `touch api/index.ts`, then confirm dev-api is UP.
 
@@ -1189,6 +1200,32 @@ test.describe('NHI exchange', () => {
     assert.equal(JSON.stringify(session.data).includes('id_token'), false)
   })
 
+  test('a client-supplied nhi.siteUrl / nhi.issuer is discarded, not trusted', async () => {
+    // readOnly is only a form hint: ajv does not enforce it, and these are KNOWN keys so
+    // additionalProperties: false does not reject them either. The write routes must
+    // therefore overwrite both from reqSiteUrl(req) on every write. Without this test the
+    // only thing standing between an admin and an attacker-chosen issuer is a comment.
+    const created = await admin.post('/api/autonomous-agents/organization/test1', {
+      title: 'Injection probe',
+      persona: 'x',
+      mcpServers: [],
+      toolDisclosure: 'static',
+      enabled: true,
+      nhi: { clientId: 'nhi-whatever', siteUrl: 'https://attacker.example', issuer: 'https://attacker.example/agents/api/nhi' }
+    }).catch((err: any) => err)
+
+    // The POST may legitimately fail enrolment verification (Task 5) for the bogus
+    // clientId; what must NOT happen is the attacker values being persisted. Read back
+    // whichever agent exists and assert the captured values won.
+    const list = await admin.get('/api/autonomous-agents/organization/test1')
+    const stored = list.data.results.find((a: any) => a.title === 'Injection probe')
+    if (stored) {
+      assert.equal(stored.nhi?.siteUrl, `http://localhost:${process.env.NGINX_PORT}`)
+      assert.match(stored.nhi?.issuer ?? '', /\/agents\/api\/nhi$/)
+      assert.equal(JSON.stringify(stored).includes('attacker.example'), false)
+    }
+  })
+
   test('an autonomous agent with no enrolled identity is refused', async () => {
     const created = await admin.post('/api/autonomous-agents/organization/test1', {
       title: 'No identity',
@@ -1225,6 +1262,14 @@ const nhi = body.nhi?.clientId
 and use that `nhi` in place of `body.nhi` when assembling the document (`{ ...body, ...(nhi ? { nhi } : {}) }`
 for POST; the same substitution inside `updated` for PUT). Import `reqSiteUrl` from
 `@data-fair/lib-express` and `nhiIssuerUrl` from `../nhi/operations.ts`.
+
+**This overwrite is a security boundary, not a convenience.** `readOnly` in the schema is
+only a form hint — ajv does not enforce it, the write-req validator accepts
+`nhi.siteUrl`/`nhi.issuer` as known string keys, and `additionalProperties: false` only
+rejects unknown keys. So the object you build must be constructed from `clientId` plus the
+two request-derived values and must never merge anything else out of `body.nhi`. Take
+`clientId` from the body; take both other fields from the request, unconditionally, even
+when the body supplied them.
 
 Note the PUT must re-capture rather than preserve the old values: an admin re-saving from
 a different host is telling us the site url changed, and the enrolment check in Task 5
