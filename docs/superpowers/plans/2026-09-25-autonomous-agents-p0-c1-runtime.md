@@ -46,6 +46,8 @@ Verified, not assumed. Do not re-derive.
 - **The mock model's `loop forever` seam sits in `processForModel`**, ahead of the per-`modelId` switch, so it applies to the assistant role an autonomous agent resolves. It emits a call to **`get_schema`** specifically — a tool the MCP fixture does not serve — which is why Task 5 registers one (see there).
 - **`tests/support/mcp-fixture.ts` serves exactly two tools**, `echo` and `ignored`, and Plan B's `mcp-tools.api.spec.ts:29` pins that list with `assert.deepEqual(names, ['echo', 'ignored'])`. Any tool added to the fixture must update that assertion.
 - **Loop guards** export `STEP_LIMIT = 100`, `repeatedCallGuard(limit)`, `loopGuardPrepareStep({ steps, messages })`. **Compaction** exports `decideCompaction(input)` and `retainedToolNames(retained)`.
+- **Credit exhaustion is provoked through `/api/v1/limits/:type/:id?key=<SECRET_LIMITS>`** with `ai_credits: { limit, consumption }`, per `tests/features/limits/limits-enforcement.api.spec.ts`. The `POST /api/test-env/usage` seam writes *usage* records (per period, optionally per user) and is the tool for per-profile quota scenarios, not for the account credit cap.
+- **`DELETE /api/test-env` cleans nine collections today and none of C1's three.** Task 2 must add them or every later task's tests leak state into each other.
 - **The mock model** (`api/src/models/mock-model.ts`) answers `hello` → `world`, `call tool <name> <args>` → a tool call, and `loop forever` → the same call every step while ignoring the nudge. It is the deterministic seam for every executor test.
 
 ## Decisions
@@ -960,7 +962,15 @@ const identity = {
 
 Add to `runtime.api.spec.ts`:
 
-- **Quota refusal before any model call.** Push a `limits` document with `ai_credits.limit` already exhausted (the suite has a `POST /api/test-env/usage` seam and the `/api/v1/limits` routes), post a message, and assert the run ends `error` with a message naming the credit cap, that an assistant message exists, and that **no** tool was called on the fixture.
+- **Quota refusal before any model call.** Exhaust the org's credit cap the way `tests/features/limits/limits-enforcement.api.spec.ts` does — that file's `pushLimits` helper is the pattern to copy:
+
+```ts
+  const res = await test1Admin.post(`/api/v1/limits/organization/test1?key=${SECRET}`, {
+    name: 'Test 1', lastUpdate: new Date().toISOString(), ai_credits: { limit: 10, consumption: 10 }
+  })
+```
+
+  Then post a message and assert the run ends `error`, that its message names the credit cap, and that an assistant message exists. **Assert the refusal happened before the model ran via `run.credits === 0` and `run.steps === 0`** — not via the MCP fixture's `lastHeaders()`. The fixture records headers for the tool *listing* call too, so a header there proves nothing about whether a tool was invoked; `credits`/`steps` at zero is the observable fact.
 - **Abort.** Post a message, immediately `POST …/:runId/abort`, and assert the run reaches `aborted` with `stopReason: 'aborted'` and an assistant message explaining it.
 - **Abort authorization.** A plain unlisted org member gets 403 from the abort route; a listed instructor succeeds. Anyone who can start a turn can stop one.
 - **Usage is recorded against the agent.** After a successful turn, `GET /api/usage/organization/test1/...` (match the existing usage specs' shape) shows a record whose `userId` is `autonomous-agent:<id>`.
