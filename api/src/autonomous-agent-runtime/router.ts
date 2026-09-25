@@ -17,6 +17,23 @@ const router = Router()
 export default router
 
 /**
+ * These routes deliberately do NOT apply `reqWriteSession` (the
+ * `autonomousAgentsRequireAdminMode` rollout gate), unlike the configuration routes in
+ * ../autonomous-agents/router.ts.
+ *
+ * The gate exists so the feature is not exposed to org admins before it is ready, and it
+ * already achieves that at the only door that matters: while it is on, no org admin can
+ * create an autonomous agent, so there is nothing for anyone to run. An agent that does exist
+ * was created by a superadmin, who thereby chose both the owning organization and — through
+ * `instructors` — who may drive it. Gating the runtime too would make that grant inert until
+ * the flag flips, so the instruct path could never be exercised in the configuration it will
+ * ship in.
+ *
+ * What the flag therefore means is "org admins cannot CONFIGURE autonomous agents yet", not
+ * "nobody may use one".
+ */
+
+/**
  * Runs are read through their own mount (/api/autonomous-agent-runs) rather than nested
  * under a conversation: a caller holds a runId from the message POST and should not have
  * to remember which conversation it came from.

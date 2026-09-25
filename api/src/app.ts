@@ -107,7 +107,14 @@ if (process.env.NODE_ENV === 'development') {
       { id: req.body.runId },
       { $set: { status: 'running' }, $unset: { endedAt: '', stopReason: '' } }
     )
-    await mongo.autonomousAgentMessages.updateMany({ runId: req.body.runId }, { $set: { pending: true } })
+    if (req.body.dropMessage) {
+      // Reproduces the narrower orphan: a process that died between createRun and
+      // appendMessage, so the run has no message at all and the sweep must write one. That is
+      // half of the "a run always leaves exactly one assistant message" invariant.
+      await mongo.autonomousAgentMessages.deleteMany({ runId: req.body.runId })
+    } else {
+      await mongo.autonomousAgentMessages.updateMany({ runId: req.body.runId }, { $set: { pending: true } })
+    }
     res.send()
   })
   app.post('/api/test-env/sweep-interrupted-runs', async (req, res) => {

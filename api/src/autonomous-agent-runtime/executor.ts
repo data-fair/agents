@@ -22,7 +22,7 @@ import { decideCompaction } from '@agents/shared/compaction-policy'
 import { compactionSystemPrompt, recapMessage } from '@agents/shared/compaction-prompt'
 import type { AutonomousAgent, AutonomousAgentMessage, AutonomousAgentRun } from '#types'
 import { runStopReasonMessage, buildSystemPrompt, wrapToolResult, type RunStopReason } from './operations.ts'
-import { appendMessage, updateMessage, finishRun } from './service.ts'
+import { appendMessage, updateMessage, finishRun, incrementRunSpend } from './service.ts'
 import { getSettings } from '../settings/service.ts'
 import { resolveRoleModel } from '../models/service.ts'
 import { contextBudget } from '../models/operations.ts'
@@ -80,18 +80,6 @@ export const abortRun = (runId: string): boolean => {
 const conversationLockId = (conversationId: string) => `autonomous-agent-conversation:${conversationId}`
 
 /** What one turn produced. The model loop replaces the body that fills this in. */
-/**
- * Spend so far, owned by runTurn and updated in place by performTurn.
- *
- * A turn that throws, is aborted, or overruns its deadline never returns a TurnResult, but it
- * has still consumed credits and steps, and the run document must say so — otherwise the
- * usage records and the run disagree about what happened.
- */
-export interface TurnProgress {
-  steps: number
-  credits: number
-}
-
 interface TurnResult {
   content: string
   reasoning?: string
@@ -227,7 +215,7 @@ const withProvenance = (tools: Record<string, Tool>, serverOf: (name: string) =>
  * reached as that identity — so this refuses early with an actionable message rather than
  * producing a toolless turn that looks like a capability problem.
  */
-const performTurn = async (run: AutonomousAgentRun, upToSeq: number, abortSignal: AbortSignal, progress: TurnProgress): Promise<TurnResult> => {
+const performTurn = async (run: AutonomousAgentRun, upToSeq: number, abortSignal: AbortSignal): Promise<TurnResult> => {
   const autonomousAgent = await mongo.autonomousAgents.findOne(
     { id: run.autonomousAgentId },
     { projection: { _id: 0 } }
@@ -279,7 +267,7 @@ const performTurn = async (run: AutonomousAgentRun, upToSeq: number, abortSignal
   const tools = withProvenance(rawTools, name => serverByTool.get(name) ?? 'unknown')
 
   try {
-    return await runModelLoop({ run, upToSeq, abortSignal, progress, model, entry, tools, settings, budget, serverByTool, autonomousAgent })
+    return await runModelLoop({ run, upToSeq, abortSignal, model, entry, tools, settings, budget, serverByTool, autonomousAgent })
   } finally {
     // The turn is over (normally, by throw, or by abandonment): release the MCP connections.
     await closeTools()
@@ -290,7 +278,6 @@ interface ModelLoopContext {
   run: AutonomousAgentRun
   upToSeq: number
   abortSignal: AbortSignal
-  progress: TurnProgress
   model: ReturnType<typeof resolveRoleModel>['model']
   entry: ReturnType<typeof resolveRoleModel>['entry']
   tools: Record<string, Tool>
@@ -301,7 +288,7 @@ interface ModelLoopContext {
 }
 
 const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
-  const { run, upToSeq, abortSignal, progress, model, entry, tools, settings, budget, serverByTool, autonomousAgent } = ctx
+  const { run, upToSeq, abortSignal, model, entry, tools, settings, budget, serverByTool, autonomousAgent } = ctx
   const identity = usageIdentityFor(autonomousAgent)
 
   const history = await compactHistory(
@@ -344,8 +331,9 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
         config.eurosPerCredit
       )
       credits += stepCredits.total
-      progress.credits = credits
-      progress.steps += 1
+      // On the RUN as well as in usage, per step, so an abandoned turn's later steps still
+      // show up and the two never disagree.
+      await incrementRunSpend(run.id, stepCredits.total, 1)
       if (stepCredits.total > 0) {
         // Recorded per step, not once per turn: a turn stopped by the budget or the clock
         // must still bill what it actually consumed.
@@ -461,9 +449,6 @@ export const runTurn = async (run: AutonomousAgentRun): Promise<void> => {
     }, config.autonomousAgentRunTimeoutSeconds * 1000)
   })
 
-  // Owned here so every terminal path can report what the turn actually spent, including
-  // one that threw or was abandoned and so never returned a result.
-  const progress: TurnProgress = { steps: 0, credits: 0 }
   let message: AutonomousAgentMessage | undefined
 
   try {
@@ -480,7 +465,7 @@ export const runTurn = async (run: AutonomousAgentRun): Promise<void> => {
 
     // The assistant message's own seq bounds the history: it was created before the turn
     // (empty, pending), so it must not be fed back to the model as an empty turn.
-    const result = await Promise.race([performTurn(run, message.seq, abortController.signal, progress), deadline])
+    const result = await Promise.race([performTurn(run, message.seq, abortController.signal), deadline])
     // A turn that stopped for a reason other than finishing explains itself, appended to
     // whatever it did manage to produce.
     const notice = result.stopReason === 'completed' ? '' : runStopReasonMessage(result.stopReason)
@@ -495,11 +480,11 @@ export const runTurn = async (run: AutonomousAgentRun): Promise<void> => {
     // A run stopped by a guard or a budget is still a completed run: it did work and said
     // so. But a turn that REFUSED — no enrolled identity, an exhausted credit cap — returns
     // stopReason 'error' without throwing, and must not be reported as done.
+    // steps/credits are not written here: incrementRunSpend owns them, so a turn abandoned
+    // at its deadline cannot end up reporting less than it actually spent.
     await finishRun(run.id, {
       status: result.stopReason === 'error' ? 'error' : 'done',
-      stopReason: result.stopReason,
-      steps: result.steps,
-      credits: result.credits
+      stopReason: result.stopReason
     })
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err)
@@ -515,9 +500,7 @@ export const runTurn = async (run: AutonomousAgentRun): Promise<void> => {
     await finishRun(run.id, {
       status: stopReason === 'timeout' ? 'error' : aborted ? 'aborted' : 'error',
       stopReason,
-      error: detail,
-      steps: progress.steps,
-      credits: progress.credits
+      error: detail
     }).catch(finishErr => console.error('autonomous agent run could not be closed out', finishErr))
     // No message exists if appendMessage itself failed; there is then nothing to update, and
     // the run above already carries the failure.

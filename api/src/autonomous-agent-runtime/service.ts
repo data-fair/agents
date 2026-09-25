@@ -92,6 +92,18 @@ export const createRun = async (run: Omit<AutonomousAgentRun, 'id'>): Promise<Au
  * decide how a run ended — the boot sweep of another instance racing the instance that is
  * actually executing it, for example. Returns whether this call was the one that closed it.
  */
+/**
+ * Add one step's spend to a run, as it happens.
+ *
+ * $inc rather than a value written at finish time: a turn abandoned at its deadline keeps
+ * streaming (abort() is only a request, and a provider may ignore it), and its later steps
+ * are really billed through recordUsage. If the run's own numbers were written once when it
+ * was closed out, the run and the usage records would then disagree about what was spent.
+ */
+export const incrementRunSpend = async (id: string, credits: number, steps: number) => {
+  await mongo.autonomousAgentRuns.updateOne({ id }, { $inc: { credits, steps } })
+}
+
 export const finishRun = async (id: string, patch: Partial<AutonomousAgentRun>): Promise<boolean> => {
   const res = await mongo.autonomousAgentRuns.updateOne(
     { id, status: 'running' },

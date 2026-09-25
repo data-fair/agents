@@ -23,7 +23,18 @@ const createAgent = async (over: any = {}) =>
 // so their turns refuse; that is fine, because a refusal exercises the same lifecycle. The
 // 'model loop' and 'budgets' blocks below configure a model and cover successful turns.
 test.describe('Autonomous agent conversations', () => {
+  // Conversations this spec locked through the dev seam. The dev-api holds the lock under its
+  // OWN pid, and lib-node's Locks refreshes its own pid's locks every 30s forever, so a test
+  // failing between lock and unlock would wedge that conversation for the life of the process
+  // — surfacing later as an unrelated test timing out. Released unconditionally here.
+  const lockedConversations: string[] = []
+
   test.beforeEach(async () => { await clean() })
+  test.afterEach(async () => {
+    for (const conversationId of lockedConversations.splice(0)) {
+      await admin.post('/api/test-env/unlock-conversation', { conversationId }).catch(() => {})
+    }
+  })
 
   test('an org admin creates a thread and lists it', async () => {
     const agent = await createAgent()
@@ -181,6 +192,7 @@ test.describe('Autonomous agent conversations', () => {
     // before the second post lands, so the contended path would go untested.
     const locked = await admin.post('/api/test-env/lock-conversation', { conversationId: conv.id })
     assert.equal(locked.data.acquired, true)
+    lockedConversations.push(conv.id)
 
     const first = (await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })).data
     await new Promise(resolve => setTimeout(resolve, 300))
@@ -224,6 +236,27 @@ test.describe('Autonomous agent conversations', () => {
     assert.equal(forRun.length, 1, 'the sweep must not append a second message beside the one already there')
     assert.equal(forRun[0].pending, false)
     assert.ok(forRun[0].content.length > 0)
+  })
+
+  test('a run orphaned before its message existed gets one from the sweep', async () => {
+    const agent = await createAgent()
+    const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 't' })).data
+    const { runId } = (await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })).data
+    await pollRun(runId)
+
+    // The narrower orphan: a process that died between creating the run and appending its
+    // message. The sweep must WRITE one rather than only finalising an existing one.
+    await admin.post('/api/test-env/orphan-run', { runId, dropMessage: true })
+    const swept = await admin.post('/api/test-env/sweep-interrupted-runs', {})
+    assert.ok(swept.data.swept >= 1)
+
+    const run = (await orgAdmin.get(`/api/autonomous-agent-runs/organization/test1/${runId}`)).data
+    assert.equal(run.status, 'interrupted')
+    const forRun = (await orgAdmin.get(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`)).data.results
+      .filter((m: any) => m.role === 'assistant' && m.runId === runId)
+    assert.equal(forRun.length, 1, 'the sweep must leave exactly one assistant message')
+    assert.ok(forRun[0].content.length > 0)
+    assert.equal(forRun[0].pending, false)
   })
 
   test('a run of another account cannot be read', async () => {
