@@ -3,6 +3,8 @@
  * should not reference #mongo, #config, store state in memory or import anything else than other operations.ts
  */
 
+import crypto from 'node:crypto'
+
 /** The ES256 private key this deployment signs NHI assertions with. */
 export interface NhiPrivateJwk {
   kty: string
@@ -118,4 +120,54 @@ export function exchangeHeaders (siteUrl: string): Record<string, string> {
 /** The `sub` bound on the NHI record. Namespaced so it cannot collide with another subject. */
 export function autonomousAgentSubject (autonomousAgentId: string): string {
   return `autonomous-agent:${autonomousAgentId}`
+}
+
+/**
+ * The assertion's claims. Signature, iss, sub, aud and exp/nbf are all checked by
+ * simple-directory in one jwtVerify call, with requiredClaims ['exp', 'sub', 'iat'].
+ *
+ * ttlSeconds is load-bearing beyond replay risk: the issued session lives
+ * min(assertion.exp, now + 30m), so a short ttl shortens the session too.
+ */
+export function buildAssertionClaims (opts: {
+  issuer: string
+  subject: string
+  audience: string
+  ttlSeconds: number
+  nowSeconds: number
+}): { iss: string, sub: string, aud: string, iat: number, exp: number, jti: string } {
+  return {
+    iss: opts.issuer,
+    sub: opts.subject,
+    aud: opts.audience,
+    iat: opts.nowSeconds,
+    exp: opts.nowSeconds + opts.ttlSeconds,
+    jti: crypto.randomUUID()
+  }
+}
+
+/**
+ * Refresh at 80% of the session's lifetime rather than on expiry, so a call never
+ * races the cutoff. Also true for an already-expired session.
+ */
+export function shouldRefreshSession (expiresAtMs: number, nowMs: number, ttlMs: number): boolean {
+  return nowMs >= expiresAtMs - ttlMs * 0.2
+}
+
+/**
+ * simple-directory splits the session JWT across two cookies: `id_token` carries
+ * `header.payload` and `id_token_sign` the signature (hence the cookie list in
+ * lib-express's unsetCookies). So the claims are the SECOND dot-separated segment of
+ * `id_token`, base64url-encoded.
+ *
+ * Deliberately does NOT verify the signature, and nothing may be authorized on the
+ * strength of what it returns: this process just obtained the token from
+ * simple-directory itself, and this is a diagnostic read of claims we already hold.
+ */
+export function decodeSessionClaims (cookieHeader: string): Record<string, any> {
+  const pair = cookieHeader.split(';').map(c => c.trim()).find(c => c.startsWith('id_token='))
+  if (!pair) throw new Error('no id_token cookie in the session')
+  const segments = pair.slice('id_token='.length).split('.')
+  if (segments.length < 2) throw new Error('id_token cookie is not a header.payload pair')
+  return JSON.parse(Buffer.from(segments[1], 'base64url').toString('utf8'))
 }

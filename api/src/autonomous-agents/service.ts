@@ -7,6 +7,8 @@ import config from '#config'
 import { type AccountKeys, httpError, reqAdminMode, reqSessionAuthenticated } from '@data-fair/lib-express'
 import type { Request } from 'express'
 import { listMcpServerCatalog, unknownMcpServerIds } from '../mcp-servers/operations.ts'
+import { getAutonomousAgentSession, type EnrolledAutonomousAgent } from '../nhi/service.ts'
+import { decodeSessionClaims } from '../nhi/operations.ts'
 
 export const getMcpServerCatalog = () => listMcpServerCatalog(config.mcpServers ?? [])
 
@@ -42,4 +44,21 @@ export const reqWriteSession = (req: Request) => {
 export const assertKnownMcpServers = (mcpServers?: { serverId: string }[]) => {
   const unknown = unknownMcpServerIds(config.mcpServers ?? [], mcpServers ?? [])
   if (unknown.length) throw httpError(400, `unknown MCP server(s): ${unknown.join(', ')}`)
+}
+
+/**
+ * Obtain a session for this autonomous agent and report WHICH identity it got, without
+ * ever returning the cookie. Diagnostic surface for admins, and the end-to-end proof
+ * that issuer/jwks/claims/audience agree.
+ */
+export const describeAutonomousAgentSession = async (autonomousAgent: EnrolledAutonomousAgent) => {
+  const cookieHeader = await getAutonomousAgentSession(autonomousAgent)
+  const claims = decodeSessionClaims(cookieHeader)
+  return {
+    userId: claims.id,
+    userName: claims.name,
+    organization: claims.organization?.id,
+    nhi: claims.nhi === 1 || claims.nhi === true,
+    expiresIn: typeof claims.exp === 'number' ? Math.max(0, claims.exp - Math.floor(Date.now() / 1000)) : undefined
+  }
 }

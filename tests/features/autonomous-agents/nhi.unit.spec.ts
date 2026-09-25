@@ -3,7 +3,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { assertNhiConfig, toPublicJwk, nhiIssuerUrl, nhiExchangeUrl, exchangeHeaders, autonomousAgentSubject, type NhiPrivateJwk } from '../../../api/src/nhi/operations.ts'
+import { assertNhiConfig, toPublicJwk, nhiIssuerUrl, nhiExchangeUrl, exchangeHeaders, autonomousAgentSubject, buildAssertionClaims, shouldRefreshSession, decodeSessionClaims, type NhiPrivateJwk } from '../../../api/src/nhi/operations.ts'
 
 const key: NhiPrivateJwk = {
   kty: 'EC',
@@ -141,5 +141,65 @@ test.describe('exchangeHeaders', () => {
 test.describe('autonomousAgentSubject', () => {
   test('the subject namespaces the autonomous agent id', () => {
     assert.equal(autonomousAgentSubject('abc123'), 'autonomous-agent:abc123')
+  })
+})
+
+test.describe('buildAssertionClaims', () => {
+  const base = { issuer: 'http://x/agents/api/nhi', subject: 'autonomous-agent:a1', audience: 'http://x', ttlSeconds: 300, nowSeconds: 1_700_000_000 }
+
+  test('sets every claim simple-directory requires', () => {
+    const claims = buildAssertionClaims(base)
+    assert.equal(claims.iss, base.issuer)
+    assert.equal(claims.sub, base.subject)
+    assert.equal(claims.aud, base.audience)
+    // verifyAssertion passes requiredClaims: ['exp', 'sub', 'iat']
+    assert.equal(claims.iat, base.nowSeconds)
+    assert.equal(claims.exp, base.nowSeconds + 300)
+  })
+
+  test('the session length is capped by this ttl, so it must be honoured exactly', () => {
+    assert.equal(buildAssertionClaims({ ...base, ttlSeconds: 120 }).exp - base.nowSeconds, 120)
+  })
+
+  test('each assertion carries a distinct jti', () => {
+    assert.notEqual(buildAssertionClaims(base).jti, buildAssertionClaims(base).jti)
+  })
+})
+
+test.describe('shouldRefreshSession', () => {
+  const ttl = 300_000
+
+  test('does not refresh a fresh session', () => {
+    assert.equal(shouldRefreshSession(1_000_000 + ttl, 1_000_000, ttl), false)
+  })
+
+  test('refreshes once past 80% of the lifetime', () => {
+    // 80% of 300s = 240s in; expiry is at now + 60s
+    assert.equal(shouldRefreshSession(1_000_000 + 60_000, 1_000_000, ttl), true)
+  })
+
+  test('refreshes an already expired session', () => {
+    assert.equal(shouldRefreshSession(1_000_000 - 1, 1_000_000, ttl), true)
+  })
+})
+
+test.describe('decodeSessionClaims', () => {
+  const claims = { id: 'nhi-abc', name: 'agent', organization: { id: 'test1' }, nhi: 1, exp: 1_700_000_300 }
+  const idToken = 'eyJhbGciOiJSUzI1NiJ9.' + Buffer.from(JSON.stringify(claims)).toString('base64url')
+
+  test('reads the claims out of the id_token cookie', () => {
+    assert.deepEqual(decodeSessionClaims(`id_token=${idToken}; id_token_sign=zzz`), claims)
+  })
+
+  test('finds id_token regardless of position', () => {
+    assert.equal(decodeSessionClaims(`id_token_sign=zzz; id_token=${idToken}`).id, 'nhi-abc')
+  })
+
+  test('throws when there is no id_token cookie', () => {
+    assert.throws(() => decodeSessionClaims('id_token_sign=zzz'), /no id_token cookie/)
+  })
+
+  test('throws on a cookie that is not a header.payload pair', () => {
+    assert.throws(() => decodeSessionClaims('id_token=nodots'), /header.payload pair/)
   })
 })

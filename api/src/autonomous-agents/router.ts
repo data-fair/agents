@@ -7,10 +7,11 @@
 import { Router } from 'express'
 import { nanoid } from 'nanoid'
 import mongo from '#mongo'
-import { type AccountKeys, assertAccountRole, httpError, reqSessionAuthenticated } from '@data-fair/lib-express'
+import { type AccountKeys, assertAccountRole, httpError, reqSessionAuthenticated, reqSiteUrl } from '@data-fair/lib-express'
 import eventsLog from '@data-fair/lib-express/events-log.js'
 import * as writeReqBody from '#doc/autonomous-agents/autonomous-agent-write-req/index.ts'
-import { getAutonomousAgent, getMcpServerCatalog, reqWriteSession, assertKnownMcpServers, assertOrganizationOwner } from './service.ts'
+import { getAutonomousAgent, getMcpServerCatalog, reqWriteSession, assertKnownMcpServers, assertOrganizationOwner, describeAutonomousAgentSession } from './service.ts'
+import { nhiIssuerUrl } from '../nhi/operations.ts'
 
 const router = Router()
 export default router
@@ -53,9 +54,19 @@ router.post('/:type/:id', async (req, res, next) => {
     const body = writeReqBody.returnValid(req.body, { name: 'body' })
     assertKnownMcpServers(body.mcpServers)
 
+    // Captured, not configured: this request came through the proxy from an admin who was
+    // browsing this service, so reqSiteUrl(req) is a site url that demonstrably resolves
+    // here. Everything the exchange needs — the signed audience, the declared
+    // x-forwarded-*, and the path it posts to — derives from this one value, so they cannot
+    // drift apart. See api/src/nhi/operations.ts.
+    const nhi = body.nhi?.clientId
+      ? { clientId: body.nhi.clientId, siteUrl: reqSiteUrl(req).replace(/\/+$/, ''), issuer: nhiIssuerUrl(reqSiteUrl(req)) }
+      : undefined
+
     const now = new Date().toISOString()
     const autonomousAgent = {
       ...body,
+      ...(nhi ? { nhi } : {}),
       id: nanoid(),
       owner,
       createdAt: now,
@@ -81,6 +92,18 @@ router.get('/:type/:id/:agentId', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
+router.get('/:type/:id/:agentId/session', async (req, res, next) => {
+  try {
+    const session = reqSessionAuthenticated(req)
+    const owner = { type: req.params.type, id: req.params.id } as AccountKeys
+    assertOrganizationOwner(owner)
+    assertAccountRole(session, owner, 'admin')
+    const autonomousAgent = await getAutonomousAgent(owner, req.params.agentId)
+    if (!autonomousAgent) throw httpError(404, 'unknown autonomous agent')
+    res.json(await describeAutonomousAgentSession(autonomousAgent))
+  } catch (err) { next(err) }
+})
+
 router.put('/:type/:id/:agentId', async (req, res, next) => {
   try {
     const session = reqSessionAuthenticated(req)
@@ -94,12 +117,21 @@ router.put('/:type/:id/:agentId', async (req, res, next) => {
     const existing = await getAutonomousAgent(owner, req.params.agentId)
     if (!existing) throw httpError(404, 'unknown autonomous agent')
 
+    // Captured, not configured — same as POST. Note this RE-CAPTURES rather than
+    // preserving the existing siteUrl/issuer: an admin re-saving from a different host
+    // is telling us the site url changed, and the enrolment check (Task 5) will
+    // immediately verify whether the new one actually works.
+    const nhi = body.nhi?.clientId
+      ? { clientId: body.nhi.clientId, siteUrl: reqSiteUrl(req).replace(/\/+$/, ''), issuer: nhiIssuerUrl(reqSiteUrl(req)) }
+      : undefined
+
     // Whole-document replace of the client-writable subset: one owner, one write
     // route, so there is no disjoint half to preserve the way settings has. The
     // server-owned fields are carried over explicitly, and any writable field absent
     // from the body is genuinely dropped.
     const updated = {
       ...body,
+      ...(nhi ? { nhi } : {}),
       id: existing.id,
       owner: existing.owner,
       createdAt: existing.createdAt,
