@@ -228,4 +228,14 @@ test.describe('sanitizeExchangeError', () => {
   test('tolerates a non-error rejection', () => {
     assert.match(sanitizeExchangeError('boom').message, /unknown error/)
   })
+
+  test('does not link the original error, so the credential cannot be reached through a cause chain', () => {
+    const sanitized: any = sanitizeExchangeError(fake())
+    // A `new Error(msg, { cause: err })` implementation would pass every other assertion
+    // here — the filter array in JSON.stringify(x, getOwnPropertyNames(x)) excludes nested
+    // paths at every depth, so cause.config.data never appears. This assertion is what
+    // actually forbids reintroducing the leak.
+    assert.equal('cause' in sanitized, false)
+    assert.equal(sanitized.cause, undefined)
+  })
 })

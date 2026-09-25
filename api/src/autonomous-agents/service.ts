@@ -67,9 +67,9 @@ export const describeAutonomousAgentSession = async (autonomousAgent: EnrolledAu
  * Perform a real exchange so a misconfigured enrolment fails at configuration time
  * rather than inside the first run — the lesson nhi-proxy's `enroll` encodes.
  *
- * Called only when the clientId CHANGED: the exchange is rate-limited per client_id and
- * consumes a point on success too, so re-verifying an unchanged enrolment on every edit
- * would spend that budget for nothing.
+ * Called only when clientId/siteUrl/issuer CHANGED: the exchange is rate-limited per
+ * client_id and consumes a point on success too, so re-verifying an unchanged enrolment
+ * on every edit would spend that budget for nothing.
  */
 export const assertEnrolmentWorks = async (autonomousAgent: EnrolledAutonomousAgent) => {
   clearAutonomousAgentSession(autonomousAgent.id)
