@@ -98,7 +98,6 @@ fr:
   monthlyLimit: Limite mensuelle (crédits IA)
   weekly: Hebdomadaire
   daily: Journalière
-  zero: aucun accès
   globalLimit: "Limite globale du compte : {limit} crédits IA."
   globalUnlimited: "Limite globale du compte : illimitée."
   globalHint: Les quotas ci-dessous répartissent cette enveloppe entre profils d'utilisateur, ils ne peuvent pas la dépasser.
@@ -119,7 +118,6 @@ en:
   monthlyLimit: Monthly limit (AI credits)
   weekly: Weekly
   daily: Daily
-  zero: no access
   globalLimit: "Account global limit: {limit} AI credits."
   globalUnlimited: "Account global limit: unlimited."
   globalHint: The quotas below split this allowance between user profiles, they cannot exceed it.
@@ -190,7 +188,7 @@ const limitSuffix = computed(() => {
 const derived = (role: QuotaRole, divider: number) => {
   const q = quota(role)
   if (q.unlimited) return t('unlimitedValue')
-  if (!q.monthlyLimit) return role === 'untrusted' ? '-' : t('zero')
+  if (!q.monthlyLimit) return '-'
   return formatNumber(q.monthlyLimit / divider)
 }
 </script>
