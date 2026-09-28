@@ -1,13 +1,14 @@
 import OrgPutReq from './org-put-req/schema.js'
 
 /**
- * The org config page shows its form in tabs, one vjsf form per tab. Each tab
+ * The org config page shows its form in tabs, one vjsf form per tab (except
+ * quotas, edited as a plain table by QuotasTable.vue). Each tab
  * schema is a slice of the org PUT body schema (the single source of truth,
  * still used to validate the whole body server side), so they cannot drift.
  * The page composes the slices back into the full body before saving.
  *
  * @param {string} name
- * @param {('modelMapping' | 'quotas' | 'moderation' | 'storeTraces')[]} keys
+ * @param {('modelMapping' | 'moderation' | 'storeTraces')[]} keys
  */
 export const orgFormPart = (name, keys) => {
   /** @type {Record<string, any>} */

@@ -30,6 +30,8 @@ graph TD
 
 ## Layer 1 — global config (environment variables)
 
+The production values (GreenPT through LiteLLM, one model per role) are in [production-greenpt.md](../deployment/production-greenpt.md).
+
 Set once per deployment, validated fail-fast at boot by `assertGlobalAiConfig` (`api/src/models/operations.ts`, called from `api/src/config.ts`). A bad value crashes the process immediately instead of failing on the first request. The `node-config` mapping lives in `api/config/custom-environment-variables.js`, defaults in `api/config/default.js`, and the full JSON Schema (used to `assertValid` the merged config at boot) in `api/config/type/schema.json`.
 
 ### `PROVIDERS`

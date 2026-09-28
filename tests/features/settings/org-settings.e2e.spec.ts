@@ -12,7 +12,7 @@ import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin } from '../../support/axios.ts'
 import { putSettings } from '../../support/settings.ts'
 
-// the form is split in tabs (models / quotas / moderation and traces)
+// the form is split in tabs (quotas / moderation and traces / models)
 const openTab = (page: Page, name: string) => page.locator('#configuration').getByRole('tab', { name }).click()
 
 const seedProviderAndModel = async () => {
@@ -45,6 +45,15 @@ test.describe('Org admin config UI', () => {
     // "succeed" without the edits having registered.
     await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
 
+    // A per-profile credit quota, shown against the account-wide allowance
+    // (unlimited in dev: DEFAULT_CREDITS=-1)
+    await expect(page.getByText('Account global limit: unlimited.')).toBeVisible()
+    await page.getByRole('spinbutton', { name: 'Contributors - Monthly limit (AI credits)' }).fill('42')
+
+    // Model mapping comes last: the defaults are the recommended choice
+    await openTab(page, 'Model per role')
+    await expect(page.getByText('Leave the roles empty to use the default models')).toBeVisible()
+
     // An unmapped role shows the model it falls back to, so leaving it empty
     // does not read as missing information
     await expect(page.getByRole('combobox', { name: 'Assistant' })).toHaveAttribute('placeholder', 'Default: Global Mock Model (Global Mock)')
@@ -55,10 +64,6 @@ test.describe('Org admin config UI', () => {
     await page.getByRole('combobox', { name: 'Assistant' }).click()
     await expect(page.getByRole('option', { name: 'Global Mock Model (Global Mock)' })).toBeVisible()
     await page.getByRole('option', { name: 'Mock Model (Mock Provider)' }).click()
-
-    // A per-profile credit quota
-    await openTab(page, 'Quotas')
-    await page.getByRole('textbox', { name: 'Monthly Limit' }).first().fill('42')
 
     // And the store-traces switch
     await openTab(page, 'Moderation and traces')
@@ -72,9 +77,9 @@ test.describe('Org admin config UI', () => {
     await expect(page.getByRole('tab', { name: 'Model per role' })).toBeVisible({ timeout: 15000 })
     // The stored ref is matched against the freshly fetched catalog and shown as
     // the autocomplete's selection (a slot, not the input's value).
+    await expect(page.getByRole('spinbutton', { name: 'Contributors - Monthly limit (AI credits)' })).toHaveValue('42')
+    await openTab(page, 'Model per role')
     await expect(page.getByText('Mock Model (Mock Provider)')).toBeVisible()
-    await openTab(page, 'Quotas')
-    await expect(page.getByRole('textbox', { name: 'Monthly Limit' }).first()).toHaveValue('42')
     await openTab(page, 'Moderation and traces')
     await expect(page.getByRole('checkbox', { name: 'Store conversation traces' })).toBeChecked()
     await page.waitForTimeout(800)
@@ -122,9 +127,8 @@ test.describe('Org admin config UI', () => {
     await goToWithAuth('/agents/user/test-standalone1', 'test-standalone1')
     await expect(page.getByRole('tab', { name: 'Model per role' })).toBeVisible({ timeout: 15000 })
     await page.waitForTimeout(500)
-    await openTab(page, 'Quotas')
-    await expect(page.getByText('Admin quotas')).toBeVisible()
-    await expect(page.getByText('Contributor quotas')).not.toBeVisible()
+    await expect(page.getByRole('cell', { name: 'Admins', exact: true })).toBeVisible()
+    await expect(page.getByRole('cell', { name: 'Contributors', exact: true })).not.toBeVisible()
 
     await openTab(page, 'Moderation and traces')
     await page.getByText('Store conversation traces').click()
