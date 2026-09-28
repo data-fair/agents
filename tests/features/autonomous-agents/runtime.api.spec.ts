@@ -707,6 +707,50 @@ test.describe('Autonomous agent live conversation events', () => {
     }
   })
 
+  test('a FAILING turn finalises its message before the terminal run event', async () => {
+    // The regression this pins: a subscriber stops listening at the terminal `run` event, so if
+    // the run is closed before the message is finalised, every failed / aborted / timed-out turn
+    // leaves the message stuck `pending` in the client forever. Both other event tests drive
+    // COMPLETING turns, where the order is right by accident — which is why this was missed.
+    const { events } = await watchTurn('stream error')
+
+    const terminalRunIndex = events.findIndex(e => e.type === 'run' && e.run.status !== 'running')
+    assert.ok(terminalRunIndex >= 0, 'expected a terminal run event')
+    const finalisedIndex = events.findIndex(e => e.type === 'message' && e.message.role === 'assistant' && e.message.pending === false)
+    assert.ok(finalisedIndex >= 0, 'a failed turn must still announce its finalised message')
+    assert.ok(
+      finalisedIndex < terminalRunIndex,
+      'the finalised message must be announced BEFORE the run closes, or a client that stops on the run never sees it'
+    )
+    assert.ok(events[finalisedIndex].message.content.length > 0, 'the failure must be explained in the message')
+  })
+
+  test('an aborted turn also finalises its message before the run closes', async () => {
+    // Same ordering, via the abort path rather than a provider error, since they are different
+    // branches of the same catch.
+    const agent = await createAgent()
+    await enrol(agent.id)
+    const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 't' })).data
+    const client = await open(await cookieOf(orgAdmin))
+    const channel = conversationChannel(conv.id)
+    await client.subscribe(channel)
+    const { runId } = (await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content: 'stall' })).data
+    await new Promise(resolve => setTimeout(resolve, 300))
+    await orgAdmin.post(`/api/autonomous-agent-runs/organization/test1/${runId}/abort`, {})
+
+    const events: any[] = []
+    for (let i = 0; i < 100; i++) {
+      const msg = await client.next(8000)
+      if (msg.channel !== channel) continue
+      events.push(msg.data)
+      if (msg.data.type === 'run' && msg.data.run.status !== 'running') break
+    }
+    const terminalRunIndex = events.findIndex(e => e.type === 'run' && e.run.status !== 'running')
+    const finalisedIndex = events.findIndex(e => e.type === 'message' && e.message.role === 'assistant' && e.message.pending === false)
+    assert.ok(finalisedIndex >= 0 && finalisedIndex < terminalRunIndex)
+    assert.equal(events[terminalRunIndex].run.status, 'aborted')
+  })
+
   test('a long answer is throttled: far fewer revisions than characters', async () => {
     // Every emit is a mongo insert (ws-emitter), so per-token emission would be a write storm.
     const { events } = await watchTurn('long answer')
@@ -745,11 +789,15 @@ test.describe('Autonomous agent run traces', () => {
     await enrol(agent.id)
     const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 't' })).data
     const { runId } = (await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content })).data
+    let settled = false
     for (let i = 0; i < 100; i++) {
       const run = (await orgAdmin.get(`/api/autonomous-agent-runs/organization/test1/${runId}`)).data
-      if (run.status !== 'running') break
+      if (run.status !== 'running') { settled = true; break }
       await new Promise(resolve => setTimeout(resolve, 100))
     }
+    // Without this, a run that never finished would make "no trace was stored" pass for entirely
+    // the wrong reason.
+    assert.ok(settled, 'the run never reached a terminal status')
     return { agent, conv, runId }
   }
 
@@ -793,6 +841,34 @@ test.describe('Autonomous agent run traces', () => {
     // The tool must be visible both as advertised (request) and as called (response).
     assert.ok(turn.request.toolCount >= 1, 'the traced body must list the tools advertised')
     assert.match(JSON.stringify(turn.response.toolCalls), /echo/, 'the trace must show which tool the turn called')
+  })
+
+  test('a traced turn carries the cache token detail, so its cost matches what was billed', async () => {
+    // priceTokens reads noCacheTokens/cacheReadTokens/cacheWriteTokens. Passing only
+    // inputTokens/outputTokens makes a trace price cache reads at the full input tariff and
+    // contradict what was actually charged — the regression traces/operations.ts records having
+    // already fixed once in its own copy of the formula.
+    //
+    // Non-zero prices, or the cost is 0 either way and the assertion proves nothing. `cache <n>`
+    // is a mock directive matched against the whole prompt; `hello` stays on the last line so the
+    // answer is still 'world'.
+    await putMockSettings(admin, 'organization/test1', {
+      storeTraces: true,
+      models: mockModels({ inputPricePerMillion: 1000, outputPricePerMillion: 1000, cachedInputPricePerMillion: 0 })
+    })
+    const { conv } = await runTurnFor({}, 'cache 1000\nhello')
+
+    const turn = (await tracesOf(conv.id)).find((t: any) => t.contextKind === 'turn')
+    assert.ok(turn, 'expected a turn trace')
+    assert.ok(turn.usage.cacheReadTokens > 0, 'the cache read detail must reach the trace')
+    assert.ok(turn.usage.noCacheTokens >= 0)
+    // With a zero cache tariff, priced input must be strictly less than pricing every input
+    // token at the full rate — which is only possible if the detail survived.
+    const pricedAtFullRate = (turn.usage.inputTokens / 1_000_000) * 1000
+    assert.ok(
+      turn.cost.input < pricedAtFullRate,
+      `cache reads were billed at the full input tariff: ${turn.cost.input} vs ${pricedAtFullRate}`
+    )
   })
 
   test('a trace carries no MCP credential and no tool payload', async () => {

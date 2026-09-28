@@ -127,7 +127,7 @@ const recordAutonomousTrace = (
     entry: ReturnType<typeof resolveRoleModel>['entry']
     body: unknown
     response: { content: string, toolCalls: { id: string, name: string, arguments: string }[], finishReason?: string }
-    usage: { inputTokens: number, outputTokens: number }
+    usage: { inputTokens: number, outputTokens: number, noCacheTokens?: number, cacheReadTokens?: number, cacheWriteTokens?: number }
     durationMs: number
   }
 ) => {
@@ -392,6 +392,12 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   // usage records and the run cannot disagree.
   let inputTokens = 0
   let outputTokens = 0
+  // The cache detail too: priceTokens reads noCacheTokens/cacheReadTokens/cacheWriteTokens, so
+  // dropping them makes a trace price cache reads at the full input tariff and contradict what
+  // was actually billed — the exact regression traces/operations.ts documents having fixed once.
+  let noCacheTokens = 0
+  let cacheReadTokens = 0
+  let cacheWriteTokens = 0
   const startedAt = Date.now()
 
   const result = streamText({
@@ -423,6 +429,9 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
       )
       inputTokens += usage?.inputTokens ?? 0
       outputTokens += usage?.outputTokens ?? 0
+      noCacheTokens += details?.noCacheTokens ?? 0
+      cacheReadTokens += details?.cacheReadTokens ?? 0
+      cacheWriteTokens += details?.cacheWriteTokens ?? 0
       credits += stepCredits.total
       // On the RUN as well as in usage, per step, so an abandoned turn's later steps still
       // show up and the two never disagree.
@@ -458,9 +467,11 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   let revision = 0
   let lastRevisionAt = 0
   let lastRevisionLength = -1
-  const publishRevision = async (force = false) => {
+  // No `force` variant: the finalising `message` event carries the complete content, so a
+  // trailing revision would be redundant.
+  const publishRevision = async () => {
     const now = Date.now()
-    if (!force && now - lastRevisionAt < REVISION_INTERVAL_MS) return
+    if (now - lastRevisionAt < REVISION_INTERVAL_MS) return
     if (content.length === lastRevisionLength) return
     lastRevisionAt = now
     lastRevisionLength = content.length
@@ -522,7 +533,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
       toolCalls: toolCalls.map(call => ({ id: call.toolCallId ?? '', name: call.toolName, arguments: '' })),
       finishReason
     },
-    usage: { inputTokens, outputTokens },
+    usage: { inputTokens, outputTokens, noCacheTokens, cacheReadTokens, cacheWriteTokens },
     durationMs: Date.now() - startedAt
   })
   // A guard-stopped turn is a truncation, not a provider error: the model still wanted to
@@ -636,21 +647,26 @@ export const runTurn = async (run: AutonomousAgentRun): Promise<void> => {
     const aborted = abortController.signal.aborted
     const timedOut = aborted && /timeout/i.test(String((abortController.signal as any).reason?.message ?? ''))
     const stopReason: RunStopReason = timedOut ? 'timeout' : aborted ? 'aborted' : 'error'
-    // finishRun FIRST: whatever sent us here (a mongo blip, a shutdown) is likely to make
-    // the message write fail too, and a run left `running` is worse than a message left
-    // without its notice — the run is what every reader and the boot sweep key on. The
-    // spend comes from `progress`, since a turn that threw never returned a result.
+    // The message is finalised FIRST, and the run closed after, because the terminal `run`
+    // event is the end-of-turn signal a subscriber stops listening on: closing the run first
+    // would leave every failed, aborted and timed-out turn showing a message stuck `pending`.
+    //
+    // This does NOT give up the guarantee that sent these two the other way round originally —
+    // that whatever brought us here (a mongo blip, a shutdown) is likely to fail the message
+    // write too, and a run left `running` is worse than a message left without its notice,
+    // since the run is what every reader and the boot sweep key on. That is preserved by
+    // CATCHING the message write rather than by ordering it last: finishRun still runs.
+    //
+    // No message exists if appendMessage itself failed; the run then carries the failure alone.
+    if (message) {
+      await updateMessage(message.id, { content: runStopReasonMessage(stopReason, detail), pending: false })
+        .catch(updateErr => console.error('autonomous agent message could not be finalised', updateErr))
+    }
     await finishRun(run.id, {
       status: stopReason === 'timeout' ? 'error' : aborted ? 'aborted' : 'error',
       stopReason,
       error: detail
     }).catch(finishErr => console.error('autonomous agent run could not be closed out', finishErr))
-    // No message exists if appendMessage itself failed; there is then nothing to update, and
-    // the run above already carries the failure.
-    if (message) {
-      await updateMessage(message.id, { content: runStopReasonMessage(stopReason, detail), pending: false })
-        .catch(updateErr => console.error('autonomous agent message could not be finalised', updateErr))
-    }
   } finally {
     if (timeout) clearTimeout(timeout)
     liveRuns.delete(run.id)

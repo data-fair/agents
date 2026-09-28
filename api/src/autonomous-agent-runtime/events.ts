@@ -19,6 +19,16 @@ import { conversationChannel, channelConversationId } from './operations.ts'
  * `seq` is on every message-bearing variant so a client can notice a hole in the sequence and
  * refetch with `?sinceSeq=`. Without it a dropped event is indistinguishable from an ordering
  * difference, and the client silently diverges from the server.
+ *
+ * Two different contracts live here, and a client must not confuse them:
+ *  - `message` and `run` describe PERSISTED state. Each follows its write, so refetching over
+ *    HTTP always agrees with what was announced.
+ *  - `message-revision` describes state that is NOT yet persisted: the stored message still has
+ *    `content: ''` and `pending: true` until the turn ends. A revision is live-only, superseded
+ *    by the finalising `message` event, and NOT recoverable from HTTP — a client that refetches
+ *    mid-turn will see empty content, and one that joins mid-turn cannot backfill the text so
+ *    far. It must therefore treat revisions as a display optimisation over the document events,
+ *    never as the record.
  */
 export type AutonomousAgentConversationEvent =
   | { type: 'message', seq: number, message: AutonomousAgentMessage }
@@ -62,8 +72,9 @@ export const canSubscribeAutonomousAgent = async (channel: string, sessionState:
 /**
  * Publish an event to a conversation's channel.
  *
- * Always AFTER the persisted change it describes, never before, so a client that reloads from
- * the HTTP routes never disagrees with what it was told. Failures are swallowed and logged:
+ * A document event is always published AFTER the change it describes, never before, so a client
+ * that reloads from the HTTP routes never disagrees with what it was told. (A `message-revision`
+ * is the documented exception — see the event type above.) Failures are swallowed and logged:
  * the documents are the source of truth, so a dropped event costs liveness, not correctness.
  */
 export const emitConversationEvent = async (conversationId: string, event: AutonomousAgentConversationEvent) => {
