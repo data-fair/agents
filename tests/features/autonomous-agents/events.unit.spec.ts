@@ -3,7 +3,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { conversationChannel, channelConversationId } from '../../../api/src/autonomous-agent-runtime/operations.ts'
+import { conversationChannel, channelConversationId } from '@agents/shared/autonomous-agent-channel'
 
 test.describe('conversationChannel', () => {
   test('round-trips a conversation id', () => {

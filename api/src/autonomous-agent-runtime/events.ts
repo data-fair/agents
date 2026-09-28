@@ -10,7 +10,7 @@
 import { emit } from '@data-fair/lib-node/ws-emitter.js'
 import mongo from '#mongo'
 import { canInstruct, type InstructSession } from '../autonomous-agents/operations.ts'
-import { conversationChannel, channelConversationId } from './operations.ts'
+import { conversationChannel, channelConversationId } from '@agents/shared/autonomous-agent-channel'
 
 /**
  * What a subscriber receives: a bare "this conversation changed, and it is now at version N".

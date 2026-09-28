@@ -7,7 +7,7 @@ import { axiosAuth, superAdmin, clean, directoryUrl } from '../../support/axios.
 import { putMockSettings, mockModels } from '../../support/settings.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 import { openWsClient, type WsClient } from '../../support/ws.ts'
-import { conversationChannel } from '../../../api/src/autonomous-agent-runtime/operations.ts'
+import { conversationChannel } from '@agents/shared/autonomous-agent-channel'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
