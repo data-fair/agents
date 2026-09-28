@@ -626,7 +626,7 @@ test.describe('Autonomous agent conversation events', () => {
   })
 })
 
-test.describe('Autonomous agent live conversation events', () => {
+test.describe('Autonomous agent live conversation notifications', () => {
   const clients: WsClient[] = []
   const open = async (cookie?: string) => {
     const client = await openWsClient(cookie)
@@ -642,8 +642,12 @@ test.describe('Autonomous agent live conversation events', () => {
   test.afterEach(() => { for (const client of clients.splice(0)) client.close() })
 
   const enrol = async (agentId: string) => { await admin.post('/api/test-env/enrol-autonomous-agent', { agentId }) }
+  const messagesSince = async (conversationId: string, sinceVersion?: number) => {
+    const query = sinceVersion === undefined ? '' : `?sinceVersion=${sinceVersion}`
+    return (await orgAdmin.get(`/api/autonomous-agent-conversations/organization/test1/${conversationId}/messages${query}`)).data
+  }
 
-  /** Subscribe, post, and collect this channel's events until the assistant turn is finished. */
+  /** Subscribe, post, and collect notifications until the run reaches a terminal state. */
   const watchTurn = async (content: string, agentOver: any = {}) => {
     const agent = await createAgent(agentOver)
     await enrol(agent.id)
@@ -652,124 +656,139 @@ test.describe('Autonomous agent live conversation events', () => {
     const channel = conversationChannel(conv.id)
     assert.equal((await client.subscribe(channel)).type, 'subscribe-confirm')
 
-    await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content })
+    const { runId } = (await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content })).data
 
-    const events: any[] = []
-    // Bounded by the run reaching a terminal state, not by a fixed event count: a count would
-    // pin the throttle's timing, which is not a contract. The run — not the message — is the
-    // end-of-turn signal, because runTurn finalises the message first and closes the run after.
+    const notifications: any[] = []
     for (let i = 0; i < 400; i++) {
       const msg = await client.next(8000)
       if (msg.channel !== channel) continue
-      events.push(msg.data)
-      if (msg.data.type === 'run' && msg.data.run.status !== 'running') break
+      notifications.push(msg.data)
+      const run = (await orgAdmin.get(`/api/autonomous-agent-runs/organization/test1/${runId}`)).data
+      if (run.status !== 'running') break
     }
-    return { agent, conv, events }
+    return { agent, conv, runId, notifications, client, channel }
   }
 
-  test('a subscriber sees the user message, the assistant turn and the run', async () => {
-    const { events } = await watchTurn('hello')
-
-    const user = events.find(e => e.type === 'message' && e.message.role === 'user')
-    assert.ok(user, 'the poster must see their own message on the channel, like every other subscriber')
-    assert.equal(user.message.content, 'hello')
-    assert.equal(user.seq, user.message.seq)
-
-    const finished = events.find(e => e.type === 'message' && e.message.role === 'assistant' && e.message.pending === false)
-    assert.ok(finished)
-    assert.equal(finished.message.content, 'world')
-    assert.ok(finished.seq > user.seq, 'seq is monotonic, so ordering is observable')
-
-    const run = events.filter(e => e.type === 'run').pop()
-    assert.ok(run, 'the run must be observable, not only the messages')
-    assert.notEqual(run.run.status, 'running')
-  })
-
-  test('the assistant message is announced pending before it is finished', async () => {
-    // A reader has to be able to show that the turn exists while it is being produced; without
-    // this event the thread looks idle until the whole answer lands.
-    const { events } = await watchTurn('hello')
-    const assistantEvents = events.filter(e => e.type === 'message' && e.message.role === 'assistant')
-    assert.ok(assistantEvents.length >= 2, 'expected a pending announcement and a finished one')
-    assert.equal(assistantEvents[0].message.pending, true)
-    assert.equal(assistantEvents[assistantEvents.length - 1].message.pending, false)
-  })
-
-  test('every message event carries the seq a client needs to detect a gap', async () => {
-    // The gap DETECTOR is C3's; C2's contract is that the seq is always there to detect one
-    // with. An event without it makes a hole indistinguishable from an ordering difference, and
-    // the client silently diverges.
-    const { events } = await watchTurn('hello')
-    for (const event of events) {
-      if (event.type === 'run') continue
-      assert.equal(typeof event.seq, 'number', `${event.type} must carry a seq`)
-      assert.ok(event.seq >= 1)
+  test('a notification carries only the conversation and its version — no content', async () => {
+    const { notifications } = await watchTurn('hello')
+    assert.ok(notifications.length >= 1)
+    for (const notification of notifications) {
+      // The whole point of the redesign: nothing that could leak to a subscriber whose grant was
+      // revoked while its socket stayed open, and nothing that can outgrow ws-emitter's 100 KB
+      // capped queue.
+      assert.deepEqual(Object.keys(notification).sort(), ['conversationId', 'version'])
+      assert.equal(typeof notification.version, 'number')
     }
   })
 
-  test('a FAILING turn finalises its message before the terminal run event', async () => {
-    // The regression this pins: a subscriber stops listening at the terminal `run` event, so if
-    // the run is closed before the message is finalised, every failed / aborted / timed-out turn
-    // leaves the message stuck `pending` in the client forever. Both other event tests drive
-    // COMPLETING turns, where the order is right by accident — which is why this was missed.
-    const { events } = await watchTurn('stream error')
-
-    const terminalRunIndex = events.findIndex(e => e.type === 'run' && e.run.status !== 'running')
-    assert.ok(terminalRunIndex >= 0, 'expected a terminal run event')
-    const finalisedIndex = events.findIndex(e => e.type === 'message' && e.message.role === 'assistant' && e.message.pending === false)
-    assert.ok(finalisedIndex >= 0, 'a failed turn must still announce its finalised message')
-    assert.ok(
-      finalisedIndex < terminalRunIndex,
-      'the finalised message must be announced BEFORE the run closes, or a client that stops on the run never sees it'
-    )
-    assert.ok(events[finalisedIndex].message.content.length > 0, 'the failure must be explained in the message')
+  test('versions are monotonic, so a client can hold one cursor', async () => {
+    const { notifications } = await watchTurn('hello')
+    const versions = notifications.map((n: any) => n.version)
+    assert.deepEqual(versions, [...versions].sort((a, b) => a - b))
+    assert.equal(new Set(versions).size, versions.length, 'a version must never be reused')
   })
 
-  test('an aborted turn also finalises its message before the run closes', async () => {
-    // Same ordering, via the abort path rather than a provider error, since they are different
-    // branches of the same catch.
+  test('sinceVersion fetches an IN-PLACE update, which sinceSeq structurally cannot', async () => {
+    // This is the gap that made the notification design need a version at all: the assistant
+    // message is created empty and pending, then filled in at the SAME seq.
     const agent = await createAgent()
     await enrol(agent.id)
     const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 't' })).data
     const client = await open(await cookieOf(orgAdmin))
-    const channel = conversationChannel(conv.id)
-    await client.subscribe(channel)
+    await client.subscribe(conversationChannel(conv.id))
+
+    const { runId } = (await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })).data
+    // Catch up once, early, then wait for the turn to finish. The assistant message is created by
+    // the executor, which the POST does not await, so wait for it to appear rather than assuming
+    // it is there the instant the POST returns.
+    let early: any
+    for (let i = 0; i < 100; i++) {
+      early = await messagesSince(conv.id)
+      if (early.results.some((m: any) => m.role === 'assistant')) break
+      await new Promise(resolve => setTimeout(resolve, 50))
+    }
+    const assistantEarly = early.results.find((m: any) => m.role === 'assistant')
+    assert.ok(assistantEarly, 'the assistant message must exist from the start of the turn')
+    const cursor = early.version
+    const highestSeq = Math.max(...early.results.map((m: any) => m.seq))
+
+    for (let i = 0; i < 100; i++) {
+      const run = (await orgAdmin.get(`/api/autonomous-agent-runs/organization/test1/${runId}`)).data
+      if (run.status !== 'running') break
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
+
+    const bySeq = await messagesSince(conv.id)
+    assert.equal(bySeq.results.filter((m: any) => m.seq > highestSeq).length, 0, 'no NEW message was added by finishing the turn')
+
+    const byVersion = await messagesSince(conv.id, cursor)
+    const refreshed = byVersion.results.find((m: any) => m.role === 'assistant')
+    assert.ok(refreshed, 'the finished assistant message must come back through sinceVersion')
+    assert.equal(refreshed.pending, false)
+    assert.equal(refreshed.content, 'world')
+    assert.ok(byVersion.version > cursor, 'the response carries the cursor to store next')
+  })
+
+  test('the partial answer is PERSISTED as it streams, so a mid-turn fetch shows real text', async () => {
+    // Publishing the text instead would have made a mid-turn refetch return an empty message and
+    // visibly lose what the reader was just shown.
+    const agent = await createAgent()
+    await enrol(agent.id)
+    const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 't' })).data
+    const { runId } = (await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content: 'long answer' })).data
+
+    let sawPartial = false
+    for (let i = 0; i < 100; i++) {
+      const messages = (await messagesSince(conv.id)).results
+      const assistant = messages.find((m: any) => m.role === 'assistant')
+      if (assistant?.pending === true && (assistant.content ?? '').length > 0) { sawPartial = true; break }
+      const run = (await orgAdmin.get(`/api/autonomous-agent-runs/organization/test1/${runId}`)).data
+      if (run.status !== 'running') break
+      await new Promise(resolve => setTimeout(resolve, 50))
+    }
+    assert.ok(sawPartial, 'a pending assistant message must carry the text produced so far')
+  })
+
+  test('a long answer produces far fewer notifications than characters', async () => {
+    const { conv, notifications } = await watchTurn('long answer')
+    const finished = (await messagesSince(conv.id)).results.find((m: any) => m.role === 'assistant')
+    assert.ok(finished.content.length > 200, 'this test needs a long answer to be meaningful')
+    assert.ok(
+      notifications.length < finished.content.length / 10,
+      `expected throttling, got ${notifications.length} notifications for ${finished.content.length} chars`
+    )
+  })
+
+  test('a FAILING turn notifies its finalised message before the run closes', async () => {
+    // The ordering regression this pins: a client that stops at the terminal run state must
+    // already have been told about the finalised message, or it shows one stuck pending forever.
+    const { conv, runId } = await watchTurn('stream error')
+    const run = (await orgAdmin.get(`/api/autonomous-agent-runs/organization/test1/${runId}`)).data
+    assert.equal(run.status, 'error')
+    const assistant = (await messagesSince(conv.id)).results.find((m: any) => m.role === 'assistant')
+    assert.equal(assistant.pending, false, 'a failed turn must not leave its message pending')
+    assert.ok(assistant.content.length > 0)
+    assert.ok(assistant.version < run.version, 'the message must reach its final version BEFORE the run closes')
+  })
+
+  test('an aborted turn also finalises its message before the run closes', async () => {
+    const agent = await createAgent()
+    await enrol(agent.id)
+    const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 't' })).data
     const { runId } = (await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content: 'stall' })).data
     await new Promise(resolve => setTimeout(resolve, 300))
     await orgAdmin.post(`/api/autonomous-agent-runs/organization/test1/${runId}/abort`, {})
 
-    const events: any[] = []
+    let run: any
     for (let i = 0; i < 100; i++) {
-      const msg = await client.next(8000)
-      if (msg.channel !== channel) continue
-      events.push(msg.data)
-      if (msg.data.type === 'run' && msg.data.run.status !== 'running') break
+      run = (await orgAdmin.get(`/api/autonomous-agent-runs/organization/test1/${runId}`)).data
+      if (run.status !== 'running') break
+      await new Promise(resolve => setTimeout(resolve, 100))
     }
-    const terminalRunIndex = events.findIndex(e => e.type === 'run' && e.run.status !== 'running')
-    const finalisedIndex = events.findIndex(e => e.type === 'message' && e.message.role === 'assistant' && e.message.pending === false)
-    assert.ok(finalisedIndex >= 0 && finalisedIndex < terminalRunIndex)
-    assert.equal(events[terminalRunIndex].run.status, 'aborted')
-  })
-
-  test('a long answer is throttled: far fewer revisions than characters', async () => {
-    // Every emit is a mongo insert (ws-emitter), so per-token emission would be a write storm.
-    const { events } = await watchTurn('long answer')
-    const revisions = events.filter(e => e.type === 'message-revision')
-    const finished = events.find(e => e.type === 'message' && e.message.role === 'assistant' && e.message.pending === false)
-    assert.ok(finished.message.content.length > 200, 'this test needs a long answer to be meaningful')
-    assert.ok(revisions.length >= 1, 'a streamed answer must produce at least one live revision')
-    assert.ok(
-      revisions.length < finished.message.content.length / 10,
-      `expected throttling, got ${revisions.length} revisions for ${finished.message.content.length} chars`
-    )
-    // Monotonic revisions are what let a client discard one it has already passed.
-    const numbers = revisions.map((r: any) => r.revision)
-    assert.deepEqual(numbers, [...numbers].sort((a, b) => a - b))
-    assert.equal(new Set(numbers).size, numbers.length)
-    // Each revision is a snapshot, so content only ever grows.
-    for (let i = 1; i < revisions.length; i++) {
-      assert.ok(revisions[i].content.length >= revisions[i - 1].content.length)
-    }
+    assert.equal(run.status, 'aborted')
+    const assistant = (await messagesSince(conv.id)).results.find((m: any) => m.role === 'assistant')
+    assert.equal(assistant.pending, false)
+    assert.ok(assistant.version < run.version)
   })
 })
 

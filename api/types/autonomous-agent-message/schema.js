@@ -61,6 +61,10 @@ export default {
     // true while the executor is still appending to this message
     pending: { type: 'boolean' },
     createdAt: { type: 'string', format: 'date-time' },
-    updatedAt: { type: 'string', format: 'date-time' }
+    updatedAt: { type: 'string', format: 'date-time' },
+    // The conversation version at which this message last changed. `?sinceVersion=` filters on
+    // it, which is what makes an IN-PLACE update (the assistant message being filled in, at an
+    // unchanged seq) visible to an incremental fetch — `seq` alone can only reveal new messages.
+    version: { type: 'number', minimum: 1 }
   }
 }

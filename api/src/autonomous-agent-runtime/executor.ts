@@ -23,7 +23,6 @@ import { compactionSystemPrompt, recapMessage } from '@agents/shared/compaction-
 import type { AutonomousAgent, AutonomousAgentMessage, AutonomousAgentRun } from '#types'
 import { runStopReasonMessage, buildSystemPrompt, wrapToolResult, type RunStopReason } from './operations.ts'
 import { appendMessage, updateMessage, finishRun, incrementRunSpend } from './service.ts'
-import { emitConversationEvent } from './events.ts'
 import { recordTraceRequest } from '../traces/service.ts'
 import { getSettings } from '../settings/service.ts'
 import { resolveRoleModel } from '../models/service.ts'
@@ -291,7 +290,7 @@ const withProvenance = (tools: Record<string, Tool>, serverOf: (name: string) =>
  * reached as that identity — so this refuses early with an actionable message rather than
  * producing a toolless turn that looks like a capability problem.
  */
-const performTurn = async (run: AutonomousAgentRun, messageSeq: number, abortSignal: AbortSignal): Promise<TurnResult> => {
+const performTurn = async (run: AutonomousAgentRun, messageSeq: number, messageId: string, abortSignal: AbortSignal): Promise<TurnResult> => {
   const autonomousAgent = await mongo.autonomousAgents.findOne(
     { id: run.autonomousAgentId },
     { projection: { _id: 0 } }
@@ -343,24 +342,25 @@ const performTurn = async (run: AutonomousAgentRun, messageSeq: number, abortSig
   const tools = withProvenance(rawTools, name => serverByTool.get(name) ?? 'unknown')
 
   try {
-    return await runModelLoop({ run, messageSeq, abortSignal, model, entry, tools, settings, budget, serverByTool, autonomousAgent })
+    return await runModelLoop({ run, messageSeq, messageId, abortSignal, model, entry, tools, settings, budget, serverByTool, autonomousAgent })
   } finally {
     // The turn is over (normally, by throw, or by abandonment): release the MCP connections.
     await closeTools()
   }
 }
 
-/** How often a live text revision may be published, at most. */
-const REVISION_INTERVAL_MS = 250
+/** How often the growing answer is written back, at most. */
+const PARTIAL_PERSIST_INTERVAL_MS = 250
 
 interface ModelLoopContext {
   run: AutonomousAgentRun
   /**
-   * The assistant message being produced — created by runTurn, empty and pending, before the
-   * turn starts. It doubles as the history bound: the message must not be fed back to the model
-   * as an empty turn, so history is everything strictly before this seq.
+   * The assistant message being produced — created by runTurn, empty and pending, before the turn
+   * starts. The seq doubles as the history bound: the message must not be fed back to the model as
+   * an empty turn, so history is everything strictly before it.
    */
   messageSeq: number
+  messageId: string
   abortSignal: AbortSignal
   model: ReturnType<typeof resolveRoleModel>['model']
   entry: ReturnType<typeof resolveRoleModel>['entry']
@@ -372,7 +372,7 @@ interface ModelLoopContext {
 }
 
 const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
-  const { run, messageSeq, abortSignal, model, entry, tools, settings, budget, serverByTool, autonomousAgent } = ctx
+  const { run, messageSeq, messageId, abortSignal, model, entry, tools, settings, budget, serverByTool, autonomousAgent } = ctx
   const identity = usageIdentityFor(autonomousAgent)
 
   const history = await compactHistory(
@@ -460,29 +460,19 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   let reasoning = ''
   const toolCalls: NonNullable<AutonomousAgentMessage['toolCalls']> = []
 
-  // Live text, throttled. Every emit is a mongo insert (ws-emitter), so forwarding one event
-  // per token would be a write storm. A revision carries the ACCUMULATED text plus a
-  // monotonically increasing number, not a diff: applying a diff needs every prior diff to have
-  // arrived in order, while a snapshot only needs the client to ignore a revision it has passed.
-  let revision = 0
-  let lastRevisionAt = 0
-  let lastRevisionLength = -1
-  // No `force` variant: the finalising `message` event carries the complete content, so a
-  // trailing revision would be redundant.
-  const publishRevision = async () => {
+  // Live text: the growing content is PERSISTED, throttled, rather than published. Each write
+  // advances the conversation version, which notifies subscribers, who then fetch the record over
+  // HTTP. That makes the partial answer real — a client refetching mid-turn sees the text so far
+  // instead of an empty message — and keeps every websocket payload fixed-size.
+  let lastPersistAt = 0
+  let lastPersistedLength = -1
+  const persistPartial = async () => {
     const now = Date.now()
-    if (now - lastRevisionAt < REVISION_INTERVAL_MS) return
-    if (content.length === lastRevisionLength) return
-    lastRevisionAt = now
-    lastRevisionLength = content.length
-    revision++
-    await emitConversationEvent(run.conversationId, {
-      type: 'message-revision',
-      seq: messageSeq,
-      revision,
-      content,
-      ...(reasoning ? { reasoning } : {})
-    })
+    if (now - lastPersistAt < PARTIAL_PERSIST_INTERVAL_MS) return
+    if (content.length === lastPersistedLength) return
+    lastPersistAt = now
+    lastPersistedLength = content.length
+    await updateMessage(messageId, { content, ...(reasoning ? { reasoning } : {}), pending: true })
   }
 
   for await (const part of result.fullStream) {
@@ -491,7 +481,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
     if (part.type === 'error') throw part.error instanceof Error ? part.error : new Error(String(part.error))
     if (part.type === 'text-delta') {
       content += part.text
-      await publishRevision()
+      await persistPartial()
     }
     if (part.type === 'reasoning-delta') reasoning += part.text
     if (part.type === 'tool-call') {
@@ -619,7 +609,7 @@ export const runTurn = async (run: AutonomousAgentRun): Promise<void> => {
 
     // The assistant message's own seq bounds the history: it was created before the turn
     // (empty, pending), so it must not be fed back to the model as an empty turn.
-    const result = await Promise.race([performTurn(run, message.seq, abortController.signal), deadline])
+    const result = await Promise.race([performTurn(run, message.seq, message.id, abortController.signal), deadline])
     // A turn that stopped for a reason other than finishing explains itself, appended to
     // whatever it did manage to produce.
     const notice = result.stopReason === 'completed' ? '' : runStopReasonMessage(result.stopReason)

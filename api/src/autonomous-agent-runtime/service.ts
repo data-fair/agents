@@ -7,7 +7,7 @@ import { nanoid } from 'nanoid'
 import { type AccountKeys, httpError } from '@data-fair/lib-express'
 import type { AutonomousAgentConversation, AutonomousAgentMessage, AutonomousAgentRun } from '#types'
 import { canInstruct, type InstructSession } from '../autonomous-agents/operations.ts'
-import { emitConversationEvent } from './events.ts'
+import { notifyConversationChanged } from './events.ts'
 import { getAutonomousAgent } from '../autonomous-agents/service.ts'
 
 /**
@@ -45,6 +45,23 @@ export const requireConversation = async (owner: AccountKeys, conversationId: st
 }
 
 /**
+ * Advance the conversation's version and return the new value.
+ *
+ * Every change a client might need to see goes through here — a message appended, a message
+ * updated in place, a run transition — so one number is enough for a client to know it is behind,
+ * and `?sinceVersion=` is enough to catch up. $inc, so two concurrent writers cannot collide on
+ * it the way a timestamp would in the same millisecond.
+ */
+const bumpConversationVersion = async (conversationId: string): Promise<number | undefined> => {
+  const updated = await mongo.autonomousAgentConversations.findOneAndUpdate(
+    { id: conversationId },
+    { $inc: { version: 1 }, $set: { updatedAt: new Date().toISOString() } },
+    { returnDocument: 'after', projection: { _id: 0, version: 1 } }
+  )
+  return updated?.version
+}
+
+/**
  * Append a message and allocate its sequence in one step.
  *
  * The seq comes from a findOneAndUpdate $inc on the conversation rather than a read
@@ -57,7 +74,8 @@ export const appendMessage = async (
 ): Promise<AutonomousAgentMessage> => {
   const updated = await mongo.autonomousAgentConversations.findOneAndUpdate(
     { id: conversation.id },
-    { $inc: { messageSeq: 1 }, $set: { lastMessageAt: new Date().toISOString() } },
+    // One round trip allocates both: the seq (per message) and the version (per change).
+    { $inc: { messageSeq: 1, version: 1 }, $set: { lastMessageAt: new Date().toISOString(), updatedAt: new Date().toISOString() } },
     { returnDocument: 'after', projection: { _id: 0 } }
   )
   if (!updated) throw httpError(404, 'unknown conversation')
@@ -68,13 +86,14 @@ export const appendMessage = async (
     autonomousAgentId: conversation.autonomousAgentId,
     owner: conversation.owner,
     seq: updated.messageSeq,
+    version: updated.version,
     createdAt: new Date().toISOString()
   }
   await mongo.autonomousAgentMessages.insertOne({ ...doc })
-  // After the write, never before, so a client that reloads from the HTTP routes never
-  // disagrees with what it was told. Emits are placed next to the writes they describe rather
-  // than at the call sites, so a future caller cannot add a write that is silently unobservable.
-  await emitConversationEvent(conversation.id, { type: 'message', seq: doc.seq, message: doc })
+  // After the write, never before. The notification carries no content — just "there is
+  // something at version N" — so a client always reads the record over HTTP, where authorization
+  // is re-checked and nothing is size-capped.
+  await notifyConversationChanged(conversation.id, doc.version)
   return doc
 }
 
@@ -85,21 +104,25 @@ export const appendMessage = async (
  * and two round trips would let a concurrent write make the event disagree with what is stored.
  */
 export const updateMessage = async (id: string, patch: Partial<AutonomousAgentMessage>) => {
-  const updated = await mongo.autonomousAgentMessages.findOneAndUpdate(
+  const existing = await mongo.autonomousAgentMessages.findOne({ id }, { projection: { _id: 0, conversationId: 1 } })
+  if (!existing) return
+  // The version has to advance for an in-place update too, or an incremental fetch cannot see it:
+  // the assistant message keeps its seq while its content is filled in, so `seq` alone would only
+  // ever reveal NEW messages.
+  const version = await bumpConversationVersion(existing.conversationId)
+  await mongo.autonomousAgentMessages.updateOne(
     { id },
-    { $set: { ...patch, updatedAt: new Date().toISOString() } },
-    { returnDocument: 'after', projection: { _id: 0 } }
+    { $set: { ...patch, version, updatedAt: new Date().toISOString() } }
   )
-  if (updated) {
-    await emitConversationEvent(updated.conversationId, { type: 'message', seq: updated.seq, message: updated })
-  }
+  await notifyConversationChanged(existing.conversationId, version)
 }
 
 export const createRun = async (run: Omit<AutonomousAgentRun, 'id'>): Promise<AutonomousAgentRun> => {
   const doc: AutonomousAgentRun = { ...run, id: nanoid() }
-  await mongo.autonomousAgentRuns.insertOne({ ...doc })
-  await emitConversationEvent(doc.conversationId, { type: 'run', run: doc })
-  return doc
+  const version = await bumpConversationVersion(doc.conversationId)
+  await mongo.autonomousAgentRuns.insertOne({ ...doc, version })
+  await notifyConversationChanged(doc.conversationId, version)
+  return { ...doc, version }
 }
 
 /**
@@ -120,13 +143,16 @@ export const incrementRunSpend = async (id: string, credits: number, steps: numb
  * executing it, for example. Returns whether this call was the one that closed it.
  */
 export const finishRun = async (id: string, patch: Partial<AutonomousAgentRun>): Promise<boolean> => {
+  const existing = await mongo.autonomousAgentRuns.findOne({ id, status: 'running' }, { projection: { _id: 0, conversationId: 1 } })
+  if (!existing) return false
+  const version = await bumpConversationVersion(existing.conversationId)
   const updated = await mongo.autonomousAgentRuns.findOneAndUpdate(
     { id, status: 'running' },
-    { $set: { ...patch, endedAt: new Date().toISOString() } },
+    { $set: { ...patch, version, endedAt: new Date().toISOString() } },
     { returnDocument: 'after', projection: { _id: 0 } }
   )
-  // Only the call that actually closed the run announces it, so a losing racer cannot publish a
+  // Only the call that actually closed the run notifies, so a losing racer cannot announce a
   // second, contradictory terminal state.
-  if (updated) await emitConversationEvent(updated.conversationId, { type: 'run', run: updated })
+  if (updated) await notifyConversationChanged(existing.conversationId, version)
   return !!updated
 }

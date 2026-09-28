@@ -105,6 +105,8 @@ export class AgentsMongo {
         'agent-keys': [{ autonomousAgentId: 1, lastMessageAt: -1 }, {}]
       },
       'autonomous-agent-messages': {
+        // the incremental cursor: one conversation's changes after a given version
+        'version-keys': [{ conversationId: 1, version: 1 }, {}],
         // The read path: one conversation's messages in order. Unique so a duplicate seq
         // is a write error rather than a silently reordered conversation — the backstop
         // for the $inc allocation in appendMessage.

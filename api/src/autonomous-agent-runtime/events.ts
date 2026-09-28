@@ -9,31 +9,30 @@
 
 import { emit } from '@data-fair/lib-node/ws-emitter.js'
 import mongo from '#mongo'
-import type { AutonomousAgentMessage, AutonomousAgentRun } from '#types'
 import { canInstruct, type InstructSession } from '../autonomous-agents/operations.ts'
 import { conversationChannel, channelConversationId } from './operations.ts'
 
 /**
- * What a subscriber receives.
+ * What a subscriber receives: a bare "this conversation changed, and it is now at version N".
  *
- * `seq` is on every message-bearing variant so a client can notice a hole in the sequence and
- * refetch with `?sinceSeq=`. Without it a dropped event is indistinguishable from an ordering
- * difference, and the client silently diverges from the server.
+ * Deliberately tiny and constant-size, and deliberately carrying NO content. Three reasons:
+ *  - ws-server authorizes a subscription once, at connect time, and caches the session on the
+ *    upgrade request. Nothing revalidates it, so a revoked instructor keeps receiving whatever is
+ *    published for as long as the socket stays open. Carrying no content means the worst that
+ *    leaks is the fact that something changed; the record is read over HTTP, where authorization
+ *    is re-checked on every request.
+ *  - ws-emitter's queue is a CAPPED collection of 100 000 bytes total. An event bigger than that
+ *    cannot be inserted at all, so a long assistant message would silently lose the very event a
+ *    client needs. A fixed-size notification cannot hit that ceiling.
+ *  - it removes a whole class of divergence: there is no payload that can disagree with the
+ *    stored document, because there is no payload.
  *
- * Two different contracts live here, and a client must not confuse them:
- *  - `message` and `run` describe PERSISTED state. Each follows its write, so refetching over
- *    HTTP always agrees with what was announced.
- *  - `message-revision` describes state that is NOT yet persisted: the stored message still has
- *    `content: ''` and `pending: true` until the turn ends. A revision is live-only, superseded
- *    by the finalising `message` event, and NOT recoverable from HTTP — a client that refetches
- *    mid-turn will see empty content, and one that joins mid-turn cannot backfill the text so
- *    far. It must therefore treat revisions as a display optimisation over the document events,
- *    never as the record.
+ * The client's half is one call: `GET .../messages?sinceVersion=<last seen>`.
  */
-export type AutonomousAgentConversationEvent =
-  | { type: 'message', seq: number, message: AutonomousAgentMessage }
-  | { type: 'message-revision', seq: number, revision: number, content: string, reasoning?: string }
-  | { type: 'run', run: AutonomousAgentRun }
+export interface AutonomousAgentConversationChanged {
+  conversationId: string
+  version: number
+}
 
 /**
  * Authorization for a subscription — the same rule as the HTTP routes, through the same
@@ -70,17 +69,18 @@ export const canSubscribeAutonomousAgent = async (channel: string, sessionState:
 }
 
 /**
- * Publish an event to a conversation's channel.
+ * Tell subscribers the conversation moved to a new version.
  *
- * A document event is always published AFTER the change it describes, never before, so a client
- * that reloads from the HTTP routes never disagrees with what it was told. (A `message-revision`
- * is the documented exception — see the event type above.) Failures are swallowed and logged:
- * the documents are the source of truth, so a dropped event costs liveness, not correctness.
+ * Always AFTER the write it describes, so a client that fetches on the notification always finds
+ * at least what it was told about. Failures are swallowed and logged: the documents are the source
+ * of truth, so a dropped notification costs liveness, not correctness — and a client that also
+ * refetches on reconnect or focus recovers on its own.
  */
-export const emitConversationEvent = async (conversationId: string, event: AutonomousAgentConversationEvent) => {
+export const notifyConversationChanged = async (conversationId: string, version?: number) => {
+  if (version === undefined) return
   try {
-    await emit(conversationChannel(conversationId), event)
+    await emit(conversationChannel(conversationId), { conversationId, version } satisfies AutonomousAgentConversationChanged)
   } catch (err) {
-    console.error('autonomous agent conversation event could not be published', err)
+    console.error('autonomous agent conversation notification could not be published', err)
   }
 }

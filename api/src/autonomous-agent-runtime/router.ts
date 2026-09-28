@@ -139,14 +139,23 @@ router.get('/:type/:id/:conversationId/messages', async (req, res, next) => {
     const autonomousAgent = await requireAutonomousAgent(owner, conversation.autonomousAgentId)
     assertCanInstruct(autonomousAgent, session)
 
-    const sinceSeq = Number(req.query.sinceSeq)
     const filter: Record<string, any> = { conversationId: conversation.id }
-    if (Number.isFinite(sinceSeq)) filter.seq = { $gt: sinceSeq }
+    // sinceVersion is the incremental cursor: it catches a message UPDATED in place — the
+    // assistant's answer being filled in keeps its seq — which sinceSeq structurally cannot.
+    // sinceSeq is kept for "only messages newer than the one I have", which is a different
+    // question and still the cheaper one when that is what a caller means.
+    const sinceVersion = Number(req.query.sinceVersion)
+    const sinceSeq = Number(req.query.sinceSeq)
+    if (Number.isFinite(sinceVersion)) filter.version = { $gt: sinceVersion }
+    else if (Number.isFinite(sinceSeq)) filter.seq = { $gt: sinceSeq }
     const results = await mongo.autonomousAgentMessages
       .find(filter, { projection: { _id: 0 } })
       .sort({ seq: 1 })
       .toArray()
-    res.json({ results, count: results.length })
+    // The conversation's current version travels with the response so a client can store exactly
+    // the cursor it has caught up to, rather than inferring it from the messages it happened to
+    // receive — which would be wrong whenever the last change was to a run.
+    res.json({ results, count: results.length, version: conversation.version ?? 0 })
   } catch (err) { next(err) }
 })
 
