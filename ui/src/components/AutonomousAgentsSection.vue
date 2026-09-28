@@ -144,6 +144,7 @@ en:
   save: Save
   cancel: Cancel
   none: No autonomous agent yet.
+  saveFailed: Could not save this autonomous agent.
   disabled: Disabled
   notEnrolled: No identity
   gated: Autonomous agents are still being rolled out. A superadmin in admin mode configures them for now.
@@ -157,6 +158,7 @@ fr:
   save: Enregistrer
   cancel: Annuler
   none: Aucun agent autonome pour le moment.
+  saveFailed: Impossible d'enregistrer cet agent autonome.
   disabled: Désactivé
   notEnrolled: Pas d'identité
   gated: Les agents autonomes sont en cours de déploiement progressif. Pour l'instant, un superadministrateur en mode administration les configure.
@@ -170,7 +172,9 @@ import { mdiPencil, mdiRobotOffOutline, mdiRobotOutline } from '@mdi/js'
 import DfSectionTabs from '@data-fair/lib-vuetify/section-tabs.vue'
 import { useFetch } from '@data-fair/lib-vue/fetch.js'
 import { useSession } from '@data-fair/lib-vue/session.js'
+import { getUiNotif } from '@data-fair/lib-vue/ui-notif.js'
 import VjsfAutonomousAgentWriteReq from '~/components/vjsf/vjsf-autonomous-agent-write-req.vue'
+import { autonomousAgentEditDraft } from '~/utils/autonomous-agent-draft'
 import { $apiPath, $fetch, $uiConfig } from '~/context'
 
 const props = defineProps<{
@@ -181,6 +185,7 @@ const props = defineProps<{
 
 const { t, locale } = useI18n()
 const session = useSession()
+const { sendUiNotif } = getUiNotif()
 
 const tab = ref('list')
 const tabs = computed(() => [{ key: 'list', title: t('list'), icon: mdiRobotOutline }])
@@ -202,6 +207,7 @@ const agents = computed(() => agentsFetch.data.value?.results ?? [])
 
 const subtitle = (agent: any) => t('servers', { count: agent.mcpServers?.length ?? 0 })
 
+const formRef = ref<any>(null)
 const dialog = ref(false)
 const editing = ref<any | null>(null)
 const draft = ref<any>({})
@@ -214,7 +220,10 @@ const saving = ref(false)
  */
 const vjsfOptions = computed(() => ({
   validateOn: 'input' as const,
-  updateOn: 'blur' as const,
+  // 'input', not 'blur': this is a dialog the admin saves and closes, so a toggle that only reaches
+  // the model on blur would be read as unchanged by save() — a checkbox flipped and then saved
+  // directly did nothing at all.
+  updateOn: 'input' as const,
   density: 'comfortable' as const,
   titleDepth: 4,
   readOnlyPropertiesMode: 'hide' as const,
@@ -230,28 +239,29 @@ const startCreate = () => {
 
 const startEdit = (agent: any) => {
   editing.value = agent
-  // The whole writable document, INCLUDING nhi: the write route rebuilds that field from the body,
-  // so a PUT that omits it silently un-enrols the autonomous agent and its next turn refuses.
-  draft.value = {
-    title: agent.title,
-    persona: agent.persona,
-    instructions: agent.instructions,
-    mcpServers: agent.mcpServers ?? [],
-    toolDisclosure: agent.toolDisclosure,
-    enabled: agent.enabled,
-    instructors: agent.instructors,
-    ...(agent.nhi?.clientId ? { nhi: { clientId: agent.nhi.clientId } } : {})
-  }
+  // The projection lives in a tested function, not inline: the write route treats its body as the
+  // whole writable document, so a property added to the schema and forgotten here would be silently
+  // wiped — and for nhi that un-enrols the agent.
+  draft.value = autonomousAgentEditDraft(agent)
   dialog.value = true
 }
 
 const save = async () => {
+  // Validate explicitly rather than disabling Save while v-form still reports null: a disabled
+  // button on an unvalidated form blocks a legitimate save, while an unvalidated submit would 400.
+  const validation = await formRef.value?.validate()
+  if (validation && validation.valid === false) return
   saving.value = true
   try {
     const url = editing.value ? `${apiBase.value}/${editing.value.id}` : apiBase.value
     await $fetch(url, { method: editing.value ? 'PUT' : 'POST', body: draft.value, credentials: 'include' })
     dialog.value = false
     await agentsFetch.refresh()
+  } catch (error) {
+    // Bare $fetch does not notify, unlike useFetch. Without this the admin clicks Save, the spinner
+    // stops, the dialog stays open and nothing says why — and there are several real 400/403s here:
+    // an unknown MCP server, a failed enrolment check, the rollout gate.
+    sendUiNotif({ type: 'error', msg: t('saveFailed'), error })
   } finally {
     saving.value = false
   }

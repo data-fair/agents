@@ -68,6 +68,7 @@
 <i18n lang="yaml">
 en:
   abort: Stop
+  abortFailed: Could not stop this turn.
   steps: "{count} step(s)"
   credits: "{credits} credits"
   toolFailed: "The tool {tool} on {server} did not return a usable result."
@@ -80,6 +81,7 @@ en:
     error: Failed.
 fr:
   abort: Arrêter
+  abortFailed: Impossible d'arrêter ce tour.
   steps: "{count} étape(s)"
   credits: "{credits} crédits"
   toolFailed: "L'outil {tool} sur {server} n'a pas renvoyé de résultat exploitable."
@@ -95,6 +97,7 @@ fr:
 <script lang="ts" setup>
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { getUiNotif } from '@data-fair/lib-vue/ui-notif.js'
 import { $apiPath, $fetch } from '~/context'
 import type { StoredAutonomousAgentMessage } from '@agents/shared/autonomous-agent-chat-message'
 
@@ -108,6 +111,7 @@ const emit = defineEmits<{ aborted: [] }>()
 
 const { t } = useI18n()
 const aborting = ref(false)
+const { sendUiNotif } = getUiNotif()
 
 const statusColor = computed(() => {
   if (props.run?.status === 'running') return 'info'
@@ -129,6 +133,9 @@ const abort = async () => {
       method: 'POST', body: {}, credentials: 'include'
     })
     emit('aborted')
+  } catch (error) {
+    // A 403 here is real: aborting needs the same grant as instructing.
+    sendUiNotif({ type: 'error', msg: t('abortFailed'), error })
   } finally {
     aborting.value = false
   }

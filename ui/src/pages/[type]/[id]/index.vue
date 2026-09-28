@@ -9,7 +9,12 @@
       :account-id="accountId"
     />
 
+    <!-- Organizations only: an autonomous agent's identity model rests on an NHI, which
+         simple-directory binds to exactly one organization, so the API 400s on a personal account.
+         Every user is admin of their own account, so without this guard every admin visiting
+         /user/<id> got an error toast and a TOC entry for a feature that cannot exist there. -->
     <autonomous-agents-section
+      v-if="accountType === 'organization'"
       id="autonomous-agents"
       :account-type="accountType"
       :account-id="accountId"
@@ -128,7 +133,7 @@ const activityTabs = computed(() => [
 
 const sections = computed(() => [
   { id: 'configuration', title: t('configuration') },
-  { id: 'autonomous-agents', title: t('autonomousAgents') },
+  ...(accountType === 'organization' ? [{ id: 'autonomous-agents', title: t('autonomousAgents') }] : []),
   { id: 'activity', title: t('activity') }
 ])
 </script>

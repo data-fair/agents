@@ -143,7 +143,38 @@ test.describe('Autonomous agents API', () => {
 
   test('an org admin is refused a cross-account read by id', async () => {
     const created = await admin.post('/api/autonomous-agents/organization/test1', validAgent())
-    await assert.rejects(orgAdmin.get(`/api/autonomous-agents/organization/dev1/${created.data.id}`), { status: 403 })
+    // 404, not 403: this read is now gated on canInstruct rather than on the owner's admin role, so a
+    // listed instructor — including one from another account, which is the whole point of the grant —
+    // can open the agent's thread. canInstruct is a property of the AGENT's instructors list, so the
+    // document must be fetched before it can be evaluated, and an agent that is not this owner's is
+    // simply not found. Same structural consequence as the runtime routes, and 404 discloses less
+    // than a 403 would.
+    await assert.rejects(orgAdmin.get(`/api/autonomous-agents/organization/dev1/${created.data.id}`), { status: 404 })
+  })
+
+  test('a non-admin who may not instruct is refused a read by id', async () => {
+    // The refusal that replaced the admin gate: same account, no grant.
+    const created = await admin.post('/api/autonomous-agents/organization/test1', validAgent())
+    await assert.rejects(
+      orgMember.get(`/api/autonomous-agents/organization/test1/${created.data.id}`),
+      (err: any) => { assert.equal(err.status, 403); assert.match(JSON.stringify(err.data), /instruct/i); return true }
+    )
+  })
+
+  test('a listed instructor reads the agent, but not its identity or the other instructors', async () => {
+    const created = await admin.post('/api/autonomous-agents/organization/test1', {
+      ...validAgent(), instructors: [{ userId: 'test1-user1', userName: 'Test User' }]
+    })
+    const res = await orgMember.get(`/api/autonomous-agents/organization/test1/${created.data.id}`)
+    assert.equal(res.status, 200)
+    assert.equal(res.data.title, validAgent().title)
+    // Driving an autonomous agent does not mean seeing the identity it acts as, nor who else was
+    // granted access.
+    assert.equal('nhi' in res.data, false)
+    assert.equal('instructors' in res.data, false)
+    // The persona is deliberately NOT withheld: it describes what the agent will do with an
+    // instruction, which is what someone about to instruct it should be able to read.
+    assert.equal(res.data.persona, validAgent().persona)
   })
 
   test('PUT replaces the writable fields and preserves the server-owned ones', async () => {

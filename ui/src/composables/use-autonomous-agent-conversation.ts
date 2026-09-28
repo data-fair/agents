@@ -29,11 +29,20 @@ export function useAutonomousAgentConversation (opts: AutonomousAgentConversatio
   const base = `${$apiPath}/autonomous-agent-conversations/${opts.accountType}/${opts.accountId}/${opts.conversationId}`
 
   let inFlight: Promise<void> | null = null
+  let requestedAgain = false
 
   const refresh = async (): Promise<void> => {
     // Serialised: a burst of notifications during a streaming turn would otherwise start several
     // overlapping fetches whose responses could apply out of order.
-    if (inFlight) return await inFlight
+    //
+    // But a request arriving mid-fetch must NOT simply join the one in progress: that fetch already
+    // read the server before the change it is being told about, so joining it would silently drop
+    // the update — and after the LAST notification of a turn nothing else would ever arrive to
+    // recover it, leaving the thread permanently stale. Mark it and run once more instead.
+    if (inFlight) {
+      requestedAgain = true
+      return await inFlight
+    }
     inFlight = (async () => {
       try {
         // Omit the parameter entirely on a cold start, so the first load gets the whole thread.
@@ -51,7 +60,11 @@ export function useAutonomousAgentConversation (opts: AutonomousAgentConversatio
         inFlight = null
       }
     })()
-    return await inFlight
+    await inFlight
+    if (requestedAgain) {
+      requestedAgain = false
+      await refresh()
+    }
   }
 
   const post = async (content: string): Promise<void> => {
@@ -83,7 +96,23 @@ export function useAutonomousAgentConversation (opts: AutonomousAgentConversatio
     })
   }
 
-  onScopeDispose(() => { ws?.unsubscribe(channel, onNotification) })
+  /**
+   * Fallback while NOT connected.
+   *
+   * useWS returns undefined without window.WebSocket, and reconnecting-websocket keeps failing when a
+   * proxy refuses the Upgrade — a per-deployment hazard. In that state the page would do one fetch
+   * and then nothing: the user posts, the answer never appears, and nothing says why. Polling only
+   * while disconnected does not contradict the design (which rules out polling while connected).
+   */
+  const poll = setInterval(() => {
+    if (ws?.opened.value) return
+    refresh().catch(() => {})
+  }, 5000)
+
+  onScopeDispose(() => {
+    clearInterval(poll)
+    ws?.unsubscribe(channel, onNotification)
+  })
 
   return {
     messages,

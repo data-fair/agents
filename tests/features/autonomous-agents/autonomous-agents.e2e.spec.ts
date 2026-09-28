@@ -44,6 +44,26 @@ test.describe('Autonomous agents configuration', () => {
     await expect(page.getByTestId('autonomous-agent-list')).toContainText('Persisted agent')
   })
 
+  test('the edit dialog opens pre-filled from the stored autonomous agent', async ({ page, goToWithAuth }) => {
+    // What only e2e can show: that Edit actually loads the stored values into the form. The dangerous
+    // half — that the body it builds keeps every writable field, nhi included — is pinned
+    // deterministically in edit-draft.unit.spec.ts, including a guard that fails if the write-req
+    // schema gains a property the form does not carry.
+    const created = await admin.post('/api/autonomous-agents/organization/test1', {
+      title: 'Editable agent', persona: 'You answer briefly.', mcpServers: [], toolDisclosure: 'static', enabled: true
+    })
+    await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: created.data.id })
+
+    await goToWithAuth('/agents/organization/test1', 'superadmin', asSuperAdmin)
+    await page.getByTestId('autonomous-agent-list').getByTitle('Edit').first().click({ timeout: 20000 })
+    const dialog = page.locator('.v-overlay--active')
+    await expect(dialog.getByTestId('autonomous-agent-save')).toBeVisible()
+    await expect(dialog.getByRole('textbox', { name: 'Name' })).toHaveValue('Editable agent', { timeout: 10000 })
+    await expect(dialog.getByRole('textbox', { name: 'Persona' })).toHaveValue('You answer briefly.')
+    // The enrolment is loaded into the form, which is what stops a save from dropping it.
+    await expect(dialog.getByRole('textbox', { name: 'Client id' })).toHaveValue('dev-fixture-nhi')
+  })
+
   test('the MCP server picker offers the catalog the API serves', async ({ page, goToWithAuth }) => {
     // Assert a known dev id rather than a count, which would pin the dev config.
     await goToWithAuth('/agents/organization/test1', 'superadmin', asSuperAdmin)
@@ -75,8 +95,12 @@ test.describe('Autonomous agent thread', () => {
       title: 'Thread agent', persona: 'You answer briefly.', mcpServers: [], toolDisclosure: 'static', enabled: true
     })
     agentId = created.data.id
-    // Dev cannot complete a real NHI enrolment, and an unenrolled agent refuses every turn.
+    // Dev cannot complete a real NHI enrolment, and an unenrolled agent refuses every turn — which
+    // produces the SAME generic failure text as a provider error, so a silently no-op fixture would
+    // make several tests below pass for entirely the wrong reason. Assert it took.
     await admin.post('/api/test-env/enrol-autonomous-agent', { agentId })
+    const enrolled = await admin.get(`/api/autonomous-agents/organization/test1/${agentId}`)
+    expect(enrolled.data.nhi?.clientId).toBeTruthy()
   })
 
   const openThread = async (goToWithAuth: any, user = 'superadmin', opts: any = { adminMode: true }) =>
@@ -113,7 +137,12 @@ test.describe('Autonomous agent thread', () => {
     await page.getByTestId('autonomous-agent-composer').locator('textarea:not([aria-hidden="true"])').fill('stream error')
     await page.getByTestId('autonomous-agent-send').click()
 
-    await expect(page.getByTestId('autonomous-agent-transcript')).toContainText(/could not be completed|failed/i, { timeout: 15000 })
+    // The generic 'This turn failed and could not be completed.' is appended for EVERY stopReason
+    // 'error' — a disabled agent, a missing enrolment, an exhausted quota, an empty completion. Only
+    // the parenthetical detail runStopReasonMessage appends distinguishes the provider error this
+    // test claims to drive.
+    await expect(page.getByTestId('autonomous-agent-transcript')).toContainText('could not be completed', { timeout: 15000 })
+    await expect(page.getByTestId('autonomous-agent-transcript')).toContainText(/\(.*error.*\)/i)
     await expect(page.getByTestId('autonomous-agent-run-status')).toContainText(/error/i)
   })
 
@@ -130,8 +159,37 @@ test.describe('Autonomous agent thread', () => {
     await expect(page.getByTestId('autonomous-agent-conversation-list').getByRole('listitem')).toHaveCount(2)
   })
 
-  test('an org member who may not instruct is told so, not shown an empty thread', async ({ page, goToWithAuth }) => {
+  test('an org member who may not instruct is told exactly that', async ({ page, goToWithAuth }) => {
+    // Asserting the TEXT, not merely that some alert appeared: pageError is set on any rejection, so
+    // a 404, a 500 or a typo in the url all satisfied the old assertion. This message is the only
+    // thing that pins the forbidden branch.
     await openThread(goToWithAuth, 'test1-user1', { org: 'test1' })
-    await expect(page.getByTestId('autonomous-agent-error')).toBeVisible({ timeout: 15000 })
+    await expect(page.getByTestId('autonomous-agent-error'))
+      .toContainText('You are not allowed to instruct this autonomous agent', { timeout: 15000 })
+  })
+
+  test('a listed instructor who is NOT an admin can open the thread and post', async ({ page, goToWithAuth }) => {
+    // The capability the cross-account instructor grant exists for. It was unreachable: the page's
+    // first request was admin-gated, so every instructor saw the refusal above — and the refusal test
+    // passed BECAUSE of that gate, never touching canInstruct at all.
+    await admin.put(`/api/autonomous-agents/organization/test1/${agentId}`, {
+      title: 'Thread agent',
+      persona: 'You answer briefly.',
+      mcpServers: [],
+      toolDisclosure: 'static',
+      enabled: true,
+      instructors: [{ userId: 'test1-user1', userName: 'Test User' }]
+      // nhi is deliberately NOT sent here: supplying it makes the write route rebuild the enrolment,
+      // which needs an X-Forwarded-Host this direct client does not send. The PUT therefore drops the
+      // enrolment, so re-apply it through the dev seam below.
+    })
+    await admin.post('/api/test-env/enrol-autonomous-agent', { agentId })
+
+    await openThread(goToWithAuth, 'test1-user1', { org: 'test1' })
+    await expect(page.getByTestId('autonomous-agent-error')).toBeHidden()
+    await page.getByTestId('autonomous-agent-new-conversation').click({ timeout: 20000 })
+    await page.getByTestId('autonomous-agent-composer').locator('textarea:not([aria-hidden="true"])').fill('hello')
+    await page.getByTestId('autonomous-agent-send').click()
+    await expect(page.getByTestId('autonomous-agent-transcript')).toContainText('world', { timeout: 15000 })
   })
 })

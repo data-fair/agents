@@ -109,6 +109,7 @@ en:
   send: Send
   welcome: Send this autonomous agent something to work on.
   forbidden: You are not allowed to instruct this autonomous agent.
+  createFailed: Could not create a conversation.
 fr:
   loading: Chargement…
   newConversation: Nouvelle conversation
@@ -117,16 +118,18 @@ fr:
   send: Envoyer
   welcome: Confiez une tâche à cet agent autonome.
   forbidden: Vous n'êtes pas autorisé à donner des instructions à cet agent autonome.
+  createFailed: Impossible de créer une conversation.
 </i18n>
 
 <script lang="ts" setup>
-import { computed, onMounted, ref, shallowRef, watch, effectScope, type EffectScope } from 'vue'
+import { computed, onMounted, onUnmounted, ref, shallowRef, watch, effectScope, type EffectScope } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import AgentChatMessages from '~/components/agent-chat/AgentChatMessages.vue'
 import AutonomousAgentRunStatus from '~/components/AutonomousAgentRunStatus.vue'
 import { useAutonomousAgentConversation } from '~/composables/use-autonomous-agent-conversation'
 import { setBreadcrumbs } from '~/utils/breadcrumbs'
+import { getUiNotif } from '@data-fair/lib-vue/ui-notif.js'
 import { $apiPath, $fetch } from '~/context'
 
 const { t } = useI18n()
@@ -134,6 +137,7 @@ const route = useRoute('/[type]/[id]/autonomous-agents/[agentId]')
 const accountType = route.params.type as string
 const accountId = route.params.id as string
 const agentId = route.params.agentId as string
+const { sendUiNotif } = getUiNotif()
 
 const autonomousAgent = ref<any | null>(null)
 const conversations = ref<any[]>([])
@@ -156,6 +160,11 @@ const toolTitle = (toolName: string) => toolName
 // ambiguous between the template and the script. The accessors below are what the template uses.
 const conversation = shallowRef<ReturnType<typeof useAutonomousAgentConversation> | null>(null)
 let scope: EffectScope | null = null
+
+// The scope below is created inside a watcher callback, where no scope is active — so it is detached
+// from the component and will NOT be stopped automatically. Without this the last conversation's
+// subscription and poll survive leaving the page, once per visit.
+onUnmounted(() => { scope?.stop() })
 
 watch(currentId, (id) => {
   scope?.stop()
@@ -194,13 +203,18 @@ const loadConversations = async () => {
 }
 
 const createConversation = async () => {
-  const created = await $fetch<any>(conversationsBase, {
-    method: 'POST',
-    body: { autonomousAgentId: agentId, title: new Date().toLocaleString() },
-    credentials: 'include'
-  })
-  await loadConversations()
-  currentId.value = created.id
+  try {
+    const created = await $fetch<any>(conversationsBase, {
+      method: 'POST',
+      body: { autonomousAgentId: agentId, title: new Date().toLocaleString() },
+      credentials: 'include'
+    })
+    await loadConversations()
+    currentId.value = created.id
+  } catch (error) {
+    // Otherwise the button simply does nothing and the failure is an unhandled rejection.
+    sendUiNotif({ type: 'error', msg: t('createFailed'), error })
+  }
 }
 
 const send = async () => {

@@ -12,6 +12,7 @@ import eventsLog from '@data-fair/lib-express/events-log.js'
 import * as writeReqBody from '#doc/autonomous-agents/autonomous-agent-write-req/index.ts'
 import { getAutonomousAgent, getMcpServerCatalog, reqWriteSession, assertKnownMcpServers, assertOrganizationOwner, describeAutonomousAgentSession, assertEnrolmentWorks, describeAutonomousAgentTools, clearAutonomousAgentSession } from './service.ts'
 import { nhiIssuerUrl } from '../nhi/operations.ts'
+import { canInstruct } from './operations.ts'
 
 const router = Router()
 export default router
@@ -88,15 +89,36 @@ router.post('/:type/:id', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
+/**
+ * Read one autonomous agent.
+ *
+ * Gated on canInstruct, NOT on the owner's admin role: a listed instructor — including one from
+ * another account, which is the cross-account grant this feature exists to support — has to be able
+ * to open the agent's thread, and this is the first request that page makes. An admin gate here made
+ * the whole instructor grant unreachable.
+ *
+ * A non-admin instructor gets a PROJECTION. They may drive the autonomous agent, which does not mean
+ * they may see the identity it acts as or who else was granted access, so `nhi` and `instructors` are
+ * withheld from them. The persona and instructions are not withheld: they describe what the agent
+ * will do with an instruction, which is exactly what someone about to instruct it should be able to
+ * read.
+ */
 router.get('/:type/:id/:agentId', async (req, res, next) => {
   try {
     const session = reqSessionAuthenticated(req)
     const owner = { type: req.params.type, id: req.params.id } as AccountKeys
     assertOrganizationOwner(owner)
-    assertAccountRole(session, owner, 'admin')
+    // Fetched before authorization because canInstruct is a property of the agent (its instructors
+    // list), not of the account alone.
     const autonomousAgent = await getAutonomousAgent(owner, req.params.agentId)
     if (!autonomousAgent) throw httpError(404, 'unknown autonomous agent')
-    res.json(autonomousAgent)
+    if (!canInstruct(autonomousAgent, session)) throw httpError(403, 'you are not allowed to instruct this autonomous agent')
+
+    const isOwnerAdmin = !!session.user.adminMode ||
+      (session.account.type === owner.type && session.account.id === owner.id && session.accountRole === 'admin')
+    if (isOwnerAdmin) { res.json(autonomousAgent); return }
+    const { nhi, instructors, ...instructable } = autonomousAgent
+    res.json(instructable)
   } catch (err) { next(err) }
 })
 
