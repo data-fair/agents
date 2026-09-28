@@ -10,8 +10,12 @@
 import type { ChatMessage } from './chat-message.ts'
 
 /**
- * The stored fields this mapper reads, described structurally so `shared/` needs no `#types`
+ * The stored message as the UI reads it, described structurally so `shared/` needs no `#types`
  * alias (which resolves only inside the api workspace).
+ *
+ * Wider than the mapper itself needs: `runId` and a tool call's `serverId`/`arguments`/`error` are
+ * not part of a ChatMessage at all, but they travel with the message and the run-status strip reads
+ * them — that is where anything the transcript cannot carry is surfaced.
  */
 export interface StoredAutonomousAgentMessage {
   seq: number
@@ -19,7 +23,15 @@ export interface StoredAutonomousAgentMessage {
   content?: string
   reasoning?: string
   pending?: boolean
-  toolCalls?: { toolCallId?: string, toolName: string, failed?: boolean }[]
+  runId?: string
+  toolCalls?: {
+    toolCallId?: string
+    toolName: string
+    serverId?: string
+    arguments?: string
+    failed?: boolean
+    error?: string
+  }[]
 }
 
 export function autonomousAgentMessageToChat (message: StoredAutonomousAgentMessage): ChatMessage {
