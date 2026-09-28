@@ -337,6 +337,9 @@ test.describe('Autonomous agent model loop', () => {
     // ERROR included, so steps/content look identical whether or not the call ever reached
     // the server. This assertion is the one that fails if the client is closed too early.
     assert.deepEqual(fixture.invokedTools(), ['echo'], 'the MCP server must have actually executed the tool')
+    // What it was ASKED to do, not merely that it was called — the difference that makes a write
+    // auditable and an injection visible after the fact.
+    assert.match(call.arguments, /"value"\s*:\s*"x"/, 'the message must record the arguments the agent sent')
     assert.equal(run.stopReason, 'completed')
     assert.equal(run.steps, 2)
     assert.equal(assistant.content, 'done')
@@ -859,7 +862,9 @@ test.describe('Autonomous agent run traces', () => {
     const turn = traces.find((t: any) => t.contextKind === 'turn')
     // The tool must be visible both as advertised (request) and as called (response).
     assert.ok(turn.request.toolCount >= 1, 'the traced body must list the tools advertised')
-    assert.match(JSON.stringify(turn.response.toolCalls), /echo/, 'the trace must show which tool the turn called')
+    const traced = turn.response.toolCalls.find((c: any) => c.name === 'echo')
+    assert.ok(traced, 'the trace must show which tool the turn called')
+    assert.match(traced.arguments, /"value"\s*:\s*"x"/, 'and what it was asked to do — a name alone is not auditable')
   })
 
   test('a traced turn carries the cache token detail, so its cost matches what was billed', async () => {

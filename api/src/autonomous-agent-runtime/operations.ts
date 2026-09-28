@@ -142,3 +142,32 @@ export function channelConversationId (channel: string): string | undefined {
   if (!rest || rest.includes('/')) return undefined
   return rest
 }
+
+/**
+ * How much of a tool call's arguments to keep. A tool can be handed a whole document, and these
+ * are stored on the conversation message — which has no TTL and is refetched on every catch-up —
+ * so an unbounded value would grow the thread and make every read of it heavier.
+ */
+const TOOL_ARGUMENTS_LIMIT = 2000
+
+/**
+ * What the agent actually asked a tool to do, as a bounded string.
+ *
+ * Recorded because knowing a tool was CALLED is far weaker than knowing what it was asked to do:
+ * that difference is what makes a write auditable after the fact, and what makes a prompt
+ * injection visible — an instruction smuggled through a tool result shows up here, in the call it
+ * provoked, even when the answer looks innocuous.
+ */
+export function summarizeToolArguments (input: unknown, limit: number = TOOL_ARGUMENTS_LIMIT): string {
+  if (input === undefined || input === null) return ''
+  let serialized: string
+  try {
+    serialized = typeof input === 'string' ? input : JSON.stringify(input) ?? ''
+  } catch {
+    // A circular or otherwise unserialisable value must not take the turn down with it, and must
+    // not be recorded as though it were empty.
+    return '[unserializable arguments]'
+  }
+  if (serialized.length <= limit) return serialized
+  return `${serialized.slice(0, limit)}… [truncated, ${serialized.length} chars total]`
+}

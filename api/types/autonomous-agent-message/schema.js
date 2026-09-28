@@ -46,6 +46,10 @@ export default {
           toolCallId: { type: 'string' },
           toolName: { type: 'string' },
           serverId: { type: 'string' },
+          // What the agent asked the tool to DO, bounded. Knowing only that a tool was called is
+          // far weaker: this is what makes a write auditable and an injection visible after the
+          // fact, and it is what P1's approval gate will show a reviewer.
+          arguments: { type: 'string' },
           // readOnlyHint / destructiveHint, recorded per call so the write surface is
           // queryable before P1's approval gate is switched on
           annotations: { type: 'object', additionalProperties: true },

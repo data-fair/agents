@@ -3,7 +3,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { nextMessageSeq, isRunTerminal, runStopReasonMessage, buildSystemPrompt, wrapToolResult } from '../../../api/src/autonomous-agent-runtime/operations.ts'
+import { nextMessageSeq, isRunTerminal, runStopReasonMessage, buildSystemPrompt, wrapToolResult, summarizeToolArguments } from '../../../api/src/autonomous-agent-runtime/operations.ts'
 import { compactionSystemPrompt, recapMessage } from '@agents/shared/compaction-prompt'
 
 test.describe('nextMessageSeq', () => {
@@ -162,5 +162,33 @@ test.describe('wrapToolResult header safety', () => {
     const wrapped = wrapToolResult('dev-public-mcp', 'search_datasets', 'rows')
     assert.match(wrapped, /server="dev-public-mcp"/)
     assert.match(wrapped, /tool="search_datasets"/)
+  })
+})
+
+test.describe('summarizeToolArguments', () => {
+  test('records what the tool was actually asked to do', () => {
+    // Knowing a tool was CALLED matters far less than knowing what it was asked to do — that is
+    // what makes a write auditable and an injection visible after the fact.
+    assert.equal(summarizeToolArguments({ dataset: 'abc', rows: 10 }), '{"dataset":"abc","rows":10}')
+  })
+
+  test('no arguments reads as empty, not as the string "undefined"', () => {
+    assert.equal(summarizeToolArguments(undefined), '')
+    assert.equal(summarizeToolArguments({}), '{}')
+  })
+
+  test('bounds a large payload and says that it did', () => {
+    // A tool can be handed a whole document. Recording it verbatim would grow the conversation
+    // document without limit and make every fetch of the thread heavier.
+    const big = summarizeToolArguments({ blob: 'x'.repeat(10_000) })
+    assert.ok(big.length < 3000, `expected a bounded value, got ${big.length}`)
+    assert.match(big, /truncated/i, 'a truncated value must say so, or it reads as the whole input')
+  })
+
+  test('a value that cannot be serialised is reported, not thrown', () => {
+    const circular: any = {}
+    circular.self = circular
+    assert.doesNotThrow(() => summarizeToolArguments(circular))
+    assert.match(summarizeToolArguments(circular), /unserializable/i)
   })
 })

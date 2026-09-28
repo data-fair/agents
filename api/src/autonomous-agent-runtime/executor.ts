@@ -21,7 +21,7 @@ import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep } from '@agents/sha
 import { decideCompaction } from '@agents/shared/compaction-policy'
 import { compactionSystemPrompt, recapMessage } from '@agents/shared/compaction-prompt'
 import type { AutonomousAgent, AutonomousAgentMessage, AutonomousAgentRun } from '#types'
-import { runStopReasonMessage, buildSystemPrompt, wrapToolResult, type RunStopReason } from './operations.ts'
+import { runStopReasonMessage, buildSystemPrompt, wrapToolResult, summarizeToolArguments, type RunStopReason } from './operations.ts'
 import { appendMessage, updateMessage, finishRun, incrementRunSpend } from './service.ts'
 import { recordTraceRequest } from '../traces/service.ts'
 import { getSettings } from '../settings/service.ts'
@@ -485,7 +485,12 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
     }
     if (part.type === 'reasoning-delta') reasoning += part.text
     if (part.type === 'tool-call') {
-      toolCalls.push({ toolCallId: part.toolCallId, toolName: part.toolName, serverId: serverByTool.get(part.toolName) })
+      toolCalls.push({
+        toolCallId: part.toolCallId,
+        toolName: part.toolName,
+        serverId: serverByTool.get(part.toolName),
+        arguments: summarizeToolArguments((part as any).input)
+      })
     }
     // A tool that failed does not stop the turn — the model sees the error and usually keeps
     // talking — so without recording it a failed call reads exactly like a successful one.
@@ -520,7 +525,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
     },
     response: {
       content,
-      toolCalls: toolCalls.map(call => ({ id: call.toolCallId ?? '', name: call.toolName, arguments: '' })),
+      toolCalls: toolCalls.map(call => ({ id: call.toolCallId ?? '', name: call.toolName, arguments: call.arguments ?? '' })),
       finishReason
     },
     usage: { inputTokens, outputTokens, noCacheTokens, cacheReadTokens, cacheWriteTokens },
