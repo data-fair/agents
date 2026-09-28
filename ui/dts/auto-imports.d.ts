@@ -168,6 +168,7 @@ declare global {
   const useAgentEvaluator: typeof import('../src/composables/use-agent-evaluator')['default']
   const useAsyncAction: typeof import('@data-fair/lib-vue/async-action.js').useAsyncAction
   const useAttrs: typeof import('vue').useAttrs
+  const useAutonomousAgentConversation: typeof import('../src/composables/use-autonomous-agent-conversation').useAutonomousAgentConversation
   const useBooleanSearchParam: typeof import('@data-fair/lib-vue/reactive-search-params.js').useBooleanSearchParam
   const useConceptFilters: typeof import('@data-fair/lib-vue/concept-filters.js').useConceptFilters
   const useCssModule: typeof import('vue').useCssModule
@@ -248,6 +249,9 @@ declare global {
   // @ts-ignore
   export type { ToolInfo, SubAgentInfo, DebugToolsPartition, UseAgentChatOptions, ChatMessage } from '../src/composables/use-agent-chat'
   import('../src/composables/use-agent-chat')
+  // @ts-ignore
+  export type { AutonomousAgentConversationOptions } from '../src/composables/use-autonomous-agent-conversation'
+  import('../src/composables/use-autonomous-agent-conversation')
   // @ts-ignore
   export type { SettingsFormParams } from '../src/composables/use-settings-form'
   import('../src/composables/use-settings-form')
@@ -368,6 +372,7 @@ declare module 'vue' {
     readonly useAgentChat: UnwrapRef<typeof import('../src/composables/use-agent-chat')['useAgentChat']>
     readonly useAsyncAction: UnwrapRef<typeof import('@data-fair/lib-vue/async-action.js')['useAsyncAction']>
     readonly useAttrs: UnwrapRef<typeof import('vue')['useAttrs']>
+    readonly useAutonomousAgentConversation: UnwrapRef<typeof import('../src/composables/use-autonomous-agent-conversation')['useAutonomousAgentConversation']>
     readonly useBooleanSearchParam: UnwrapRef<typeof import('@data-fair/lib-vue/reactive-search-params.js')['useBooleanSearchParam']>
     readonly useConceptFilters: UnwrapRef<typeof import('@data-fair/lib-vue/concept-filters.js')['useConceptFilters']>
     readonly useCssModule: UnwrapRef<typeof import('vue')['useCssModule']>

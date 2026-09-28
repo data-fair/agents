@@ -9,6 +9,12 @@
       :account-id="accountId"
     />
 
+    <autonomous-agents-section
+      id="autonomous-agents"
+      :account-type="accountType"
+      :account-id="accountId"
+    />
+
     <df-section-tabs
       id="activity"
       v-model="activityTab"
@@ -57,6 +63,7 @@
 <i18n lang="yaml">
 fr:
   configuration: Configuration
+  autonomousAgents: Agents autonomes
   activity: Activité
   usage: Consommation
   usageIndividual: Par utilisateur
@@ -64,6 +71,7 @@ fr:
   traces: Conversations enregistrées
 en:
   configuration: Configuration
+  autonomousAgents: Autonomous agents
   activity: Activity
   usage: Usage
   usageIndividual: Per user
@@ -81,6 +89,7 @@ import DfSectionTabs from '@data-fair/lib-vuetify/section-tabs.vue'
 import DfNavigationRight from '@data-fair/lib-vuetify/navigation-right.vue'
 import DfToc from '@data-fair/lib-vuetify/toc.vue'
 import OrgConfigSection from '~/components/OrgConfigSection.vue'
+import AutonomousAgentsSection from '~/components/AutonomousAgentsSection.vue'
 import UsageCard from '~/components/UsageCard.vue'
 import MonitoringGlobalSection from '~/components/MonitoringGlobalSection.vue'
 import MonitoringIndividualSection from '~/components/MonitoringIndividualSection.vue'
@@ -119,6 +128,7 @@ const activityTabs = computed(() => [
 
 const sections = computed(() => [
   { id: 'configuration', title: t('configuration') },
+  { id: 'autonomous-agents', title: t('autonomousAgents') },
   { id: 'activity', title: t('activity') }
 ])
 </script>
