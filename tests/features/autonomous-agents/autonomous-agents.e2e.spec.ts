@@ -22,7 +22,8 @@ test.describe('Autonomous agents configuration', () => {
   test('an admin creates an autonomous agent and sees it listed', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/organization/test1', 'superadmin', asSuperAdmin)
 
-    await page.getByTestId('autonomous-agents-add').click()
+    // Generous: the first navigation after a dev-server restart pays vite's compile cost.
+    await page.getByTestId('autonomous-agents-add').click({ timeout: 20000 })
     await page.getByRole('textbox', { name: 'Name' }).fill('Support triage')
     await page.getByRole('textbox', { name: 'Persona' }).fill('You triage support questions.')
     await page.getByTestId('autonomous-agent-save').click()
@@ -37,7 +38,7 @@ test.describe('Autonomous agents configuration', () => {
     await page.getByRole('textbox', { name: 'Name' }).fill('Persisted agent')
     await page.getByRole('textbox', { name: 'Persona' }).fill('x')
     await page.getByTestId('autonomous-agent-save').click()
-    await expect(page.getByTestId('autonomous-agent-list')).toContainText('Persisted agent')
+    await expect(page.getByTestId('autonomous-agent-list')).toContainText('Persisted agent', { timeout: 20000 })
 
     await page.reload()
     await expect(page.getByTestId('autonomous-agent-list')).toContainText('Persisted agent')
@@ -86,8 +87,8 @@ test.describe('Autonomous agent thread', () => {
     // incremental fetch both work. Auto-waiting, never a fixed timeout — a fixed wait would also
     // pass on a page that secretly polls, hiding a broken socket.
     await openThread(goToWithAuth)
-    await page.getByTestId('autonomous-agent-new-conversation').click()
-    await page.getByTestId('autonomous-agent-composer').fill('hello')
+    await page.getByTestId('autonomous-agent-new-conversation').click({ timeout: 20000 })
+    await page.getByTestId('autonomous-agent-composer').locator('textarea:not([aria-hidden="true"])').fill('hello')
     await page.getByTestId('autonomous-agent-send').click()
 
     await expect(page.getByTestId('autonomous-agent-transcript')).toContainText('hello')
@@ -97,8 +98,8 @@ test.describe('Autonomous agent thread', () => {
 
   test('the run reaches a terminal state that is shown', async ({ page, goToWithAuth }) => {
     await openThread(goToWithAuth)
-    await page.getByTestId('autonomous-agent-new-conversation').click()
-    await page.getByTestId('autonomous-agent-composer').fill('hello')
+    await page.getByTestId('autonomous-agent-new-conversation').click({ timeout: 20000 })
+    await page.getByTestId('autonomous-agent-composer').locator('textarea:not([aria-hidden="true"])').fill('hello')
     await page.getByTestId('autonomous-agent-send').click()
     await expect(page.getByTestId('autonomous-agent-transcript')).toContainText('world', { timeout: 15000 })
     await expect(page.getByTestId('autonomous-agent-run-status')).toContainText(/done/i)
@@ -108,8 +109,8 @@ test.describe('Autonomous agent thread', () => {
     // 'stream error' is the mock seam for a provider error that does NOT throw — the class of
     // failure that used to end a conversation silently.
     await openThread(goToWithAuth)
-    await page.getByTestId('autonomous-agent-new-conversation').click()
-    await page.getByTestId('autonomous-agent-composer').fill('stream error')
+    await page.getByTestId('autonomous-agent-new-conversation').click({ timeout: 20000 })
+    await page.getByTestId('autonomous-agent-composer').locator('textarea:not([aria-hidden="true"])').fill('stream error')
     await page.getByTestId('autonomous-agent-send').click()
 
     await expect(page.getByTestId('autonomous-agent-transcript')).toContainText(/could not be completed|failed/i, { timeout: 15000 })
@@ -118,8 +119,8 @@ test.describe('Autonomous agent thread', () => {
 
   test('two conversations are listed and switching shows different messages', async ({ page, goToWithAuth }) => {
     await openThread(goToWithAuth)
-    await page.getByTestId('autonomous-agent-new-conversation').click()
-    await page.getByTestId('autonomous-agent-composer').fill('hello')
+    await page.getByTestId('autonomous-agent-new-conversation').click({ timeout: 20000 })
+    await page.getByTestId('autonomous-agent-composer').locator('textarea:not([aria-hidden="true"])').fill('hello')
     await page.getByTestId('autonomous-agent-send').click()
     await expect(page.getByTestId('autonomous-agent-transcript')).toContainText('world', { timeout: 15000 })
 
