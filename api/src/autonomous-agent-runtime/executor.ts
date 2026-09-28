@@ -23,6 +23,7 @@ import { compactionSystemPrompt, recapMessage } from '@agents/shared/compaction-
 import type { AutonomousAgent, AutonomousAgentMessage, AutonomousAgentRun } from '#types'
 import { runStopReasonMessage, buildSystemPrompt, wrapToolResult, type RunStopReason } from './operations.ts'
 import { appendMessage, updateMessage, finishRun, incrementRunSpend } from './service.ts'
+import { emitConversationEvent } from './events.ts'
 import { getSettings } from '../settings/service.ts'
 import { resolveRoleModel } from '../models/service.ts'
 import { contextBudget } from '../models/operations.ts'
@@ -215,7 +216,7 @@ const withProvenance = (tools: Record<string, Tool>, serverOf: (name: string) =>
  * reached as that identity — so this refuses early with an actionable message rather than
  * producing a toolless turn that looks like a capability problem.
  */
-const performTurn = async (run: AutonomousAgentRun, upToSeq: number, abortSignal: AbortSignal): Promise<TurnResult> => {
+const performTurn = async (run: AutonomousAgentRun, messageSeq: number, abortSignal: AbortSignal): Promise<TurnResult> => {
   const autonomousAgent = await mongo.autonomousAgents.findOne(
     { id: run.autonomousAgentId },
     { projection: { _id: 0 } }
@@ -267,16 +268,24 @@ const performTurn = async (run: AutonomousAgentRun, upToSeq: number, abortSignal
   const tools = withProvenance(rawTools, name => serverByTool.get(name) ?? 'unknown')
 
   try {
-    return await runModelLoop({ run, upToSeq, abortSignal, model, entry, tools, settings, budget, serverByTool, autonomousAgent })
+    return await runModelLoop({ run, messageSeq, abortSignal, model, entry, tools, settings, budget, serverByTool, autonomousAgent })
   } finally {
     // The turn is over (normally, by throw, or by abandonment): release the MCP connections.
     await closeTools()
   }
 }
 
+/** How often a live text revision may be published, at most. */
+const REVISION_INTERVAL_MS = 250
+
 interface ModelLoopContext {
   run: AutonomousAgentRun
-  upToSeq: number
+  /**
+   * The assistant message being produced — created by runTurn, empty and pending, before the
+   * turn starts. It doubles as the history bound: the message must not be fed back to the model
+   * as an empty turn, so history is everything strictly before this seq.
+   */
+  messageSeq: number
   abortSignal: AbortSignal
   model: ReturnType<typeof resolveRoleModel>['model']
   entry: ReturnType<typeof resolveRoleModel>['entry']
@@ -288,11 +297,11 @@ interface ModelLoopContext {
 }
 
 const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
-  const { run, upToSeq, abortSignal, model, entry, tools, settings, budget, serverByTool, autonomousAgent } = ctx
+  const { run, messageSeq, abortSignal, model, entry, tools, settings, budget, serverByTool, autonomousAgent } = ctx
   const identity = usageIdentityFor(autonomousAgent)
 
   const history = await compactHistory(
-    await loadHistory(run.conversationId, upToSeq),
+    await loadHistory(run.conversationId, messageSeq),
     budget,
     settings,
     abortSignal
@@ -357,11 +366,38 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   let content = ''
   let reasoning = ''
   const toolCalls: NonNullable<AutonomousAgentMessage['toolCalls']> = []
+
+  // Live text, throttled. Every emit is a mongo insert (ws-emitter), so forwarding one event
+  // per token would be a write storm. A revision carries the ACCUMULATED text plus a
+  // monotonically increasing number, not a diff: applying a diff needs every prior diff to have
+  // arrived in order, while a snapshot only needs the client to ignore a revision it has passed.
+  let revision = 0
+  let lastRevisionAt = 0
+  let lastRevisionLength = -1
+  const publishRevision = async (force = false) => {
+    const now = Date.now()
+    if (!force && now - lastRevisionAt < REVISION_INTERVAL_MS) return
+    if (content.length === lastRevisionLength) return
+    lastRevisionAt = now
+    lastRevisionLength = content.length
+    revision++
+    await emitConversationEvent(run.conversationId, {
+      type: 'message-revision',
+      seq: messageSeq,
+      revision,
+      content,
+      ...(reasoning ? { reasoning } : {})
+    })
+  }
+
   for await (const part of result.fullStream) {
     // 'error' parts do NOT throw — an unhandled one is how a conversation silently dropped
     // before. Turn it into a real failure so the caller reports it.
     if (part.type === 'error') throw part.error instanceof Error ? part.error : new Error(String(part.error))
-    if (part.type === 'text-delta') content += part.text
+    if (part.type === 'text-delta') {
+      content += part.text
+      await publishRevision()
+    }
     if (part.type === 'reasoning-delta') reasoning += part.text
     if (part.type === 'tool-call') {
       toolCalls.push({ toolCallId: part.toolCallId, toolName: part.toolName, serverId: serverByTool.get(part.toolName) })

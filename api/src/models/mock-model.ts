@@ -422,6 +422,12 @@ function processForModel (modelId: string, options: { prompt: string | Array<any
   // Reasoning seam: emit reasoning tokens before the answer (exercises the gateway's
   // reasoning_content forwarding and the client's reasoning capture).
   if (directive === 'reason') return { type: 'text', text: 'world', reasoning: 'Let me think about it.' }
+  // Streaming seam: the mock emits one text-delta per CHARACTER every 10ms, so a long string is
+  // all that is needed to produce a few hundred deltas — enough for a consumer to prove it
+  // throttles rather than forwarding one event per token.
+  if (directive === 'long answer') {
+    return { type: 'text', text: 'This is a deliberately long answer used to exercise streaming throughput. '.repeat(6) }
+  }
   // Loop-guard close-out seams (exercise the sub-agent loop → close-out path).
   // A task of exactly "loop forever" makes the model emit the SAME tool call on EVERY
   // step (ignoring prior tool results and the injected nudge), so a sub-agent's

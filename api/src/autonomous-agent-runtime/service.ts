@@ -7,6 +7,7 @@ import { nanoid } from 'nanoid'
 import { type AccountKeys, httpError } from '@data-fair/lib-express'
 import type { AutonomousAgentConversation, AutonomousAgentMessage, AutonomousAgentRun } from '#types'
 import { canInstruct, type InstructSession } from '../autonomous-agents/operations.ts'
+import { emitConversationEvent } from './events.ts'
 import { getAutonomousAgent } from '../autonomous-agents/service.ts'
 
 /**
@@ -70,28 +71,37 @@ export const appendMessage = async (
     createdAt: new Date().toISOString()
   }
   await mongo.autonomousAgentMessages.insertOne({ ...doc })
+  // After the write, never before, so a client that reloads from the HTTP routes never
+  // disagrees with what it was told. Emits are placed next to the writes they describe rather
+  // than at the call sites, so a future caller cannot add a write that is silently unobservable.
+  await emitConversationEvent(conversation.id, { type: 'message', seq: doc.seq, message: doc })
   return doc
 }
 
-/** Patch a message in place, for the executor's incremental writes. */
+/**
+ * Patch a message in place, for the executor's incremental writes.
+ *
+ * findOneAndUpdate rather than updateOne plus a read: the event carries the RESULTING document,
+ * and two round trips would let a concurrent write make the event disagree with what is stored.
+ */
 export const updateMessage = async (id: string, patch: Partial<AutonomousAgentMessage>) => {
-  await mongo.autonomousAgentMessages.updateOne(
+  const updated = await mongo.autonomousAgentMessages.findOneAndUpdate(
     { id },
-    { $set: { ...patch, updatedAt: new Date().toISOString() } }
+    { $set: { ...patch, updatedAt: new Date().toISOString() } },
+    { returnDocument: 'after', projection: { _id: 0 } }
   )
+  if (updated) {
+    await emitConversationEvent(updated.conversationId, { type: 'message', seq: updated.seq, message: updated })
+  }
 }
 
 export const createRun = async (run: Omit<AutonomousAgentRun, 'id'>): Promise<AutonomousAgentRun> => {
   const doc: AutonomousAgentRun = { ...run, id: nanoid() }
   await mongo.autonomousAgentRuns.insertOne({ ...doc })
+  await emitConversationEvent(doc.conversationId, { type: 'run', run: doc })
   return doc
 }
 
-/**
- * Close a run out. Conditional on it still being `running`, so two writers cannot both
- * decide how a run ended — the boot sweep of another instance racing the instance that is
- * actually executing it, for example. Returns whether this call was the one that closed it.
- */
 /**
  * Add one step's spend to a run, as it happens.
  *
@@ -104,10 +114,19 @@ export const incrementRunSpend = async (id: string, credits: number, steps: numb
   await mongo.autonomousAgentRuns.updateOne({ id }, { $inc: { credits, steps } })
 }
 
+/**
+ * Close a run out. Conditional on it still being `running`, so two writers cannot both decide
+ * how a run ended — the boot sweep of another instance racing the instance that is actually
+ * executing it, for example. Returns whether this call was the one that closed it.
+ */
 export const finishRun = async (id: string, patch: Partial<AutonomousAgentRun>): Promise<boolean> => {
-  const res = await mongo.autonomousAgentRuns.updateOne(
+  const updated = await mongo.autonomousAgentRuns.findOneAndUpdate(
     { id, status: 'running' },
-    { $set: { ...patch, endedAt: new Date().toISOString() } }
+    { $set: { ...patch, endedAt: new Date().toISOString() } },
+    { returnDocument: 'after', projection: { _id: 0 } }
   )
-  return res.modifiedCount > 0
+  // Only the call that actually closed the run announces it, so a losing racer cannot publish a
+  // second, contradictory terminal state.
+  if (updated) await emitConversationEvent(updated.conversationId, { type: 'run', run: updated })
+  return !!updated
 }

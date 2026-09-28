@@ -625,3 +625,106 @@ test.describe('Autonomous agent conversation events', () => {
     assert.equal((await client.subscribe(conversationChannel(conv.id))).status, 403)
   })
 })
+
+test.describe('Autonomous agent live conversation events', () => {
+  const clients: WsClient[] = []
+  const open = async (cookie?: string) => {
+    const client = await openWsClient(cookie)
+    clients.push(client)
+    return client
+  }
+  const cookieOf = async (ax: any) => await ax.cookieJar.getCookieString(directoryUrl)
+
+  test.beforeEach(async () => {
+    await clean()
+    await putMockSettings(admin, 'organization/test1')
+  })
+  test.afterEach(() => { for (const client of clients.splice(0)) client.close() })
+
+  const enrol = async (agentId: string) => { await admin.post('/api/test-env/enrol-autonomous-agent', { agentId }) }
+
+  /** Subscribe, post, and collect this channel's events until the assistant turn is finished. */
+  const watchTurn = async (content: string, agentOver: any = {}) => {
+    const agent = await createAgent(agentOver)
+    await enrol(agent.id)
+    const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 't' })).data
+    const client = await open(await cookieOf(orgAdmin))
+    const channel = conversationChannel(conv.id)
+    assert.equal((await client.subscribe(channel)).type, 'subscribe-confirm')
+
+    await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content })
+
+    const events: any[] = []
+    // Bounded by the run reaching a terminal state, not by a fixed event count: a count would
+    // pin the throttle's timing, which is not a contract. The run — not the message — is the
+    // end-of-turn signal, because runTurn finalises the message first and closes the run after.
+    for (let i = 0; i < 400; i++) {
+      const msg = await client.next(8000)
+      if (msg.channel !== channel) continue
+      events.push(msg.data)
+      if (msg.data.type === 'run' && msg.data.run.status !== 'running') break
+    }
+    return { agent, conv, events }
+  }
+
+  test('a subscriber sees the user message, the assistant turn and the run', async () => {
+    const { events } = await watchTurn('hello')
+
+    const user = events.find(e => e.type === 'message' && e.message.role === 'user')
+    assert.ok(user, 'the poster must see their own message on the channel, like every other subscriber')
+    assert.equal(user.message.content, 'hello')
+    assert.equal(user.seq, user.message.seq)
+
+    const finished = events.find(e => e.type === 'message' && e.message.role === 'assistant' && e.message.pending === false)
+    assert.ok(finished)
+    assert.equal(finished.message.content, 'world')
+    assert.ok(finished.seq > user.seq, 'seq is monotonic, so ordering is observable')
+
+    const run = events.filter(e => e.type === 'run').pop()
+    assert.ok(run, 'the run must be observable, not only the messages')
+    assert.notEqual(run.run.status, 'running')
+  })
+
+  test('the assistant message is announced pending before it is finished', async () => {
+    // A reader has to be able to show that the turn exists while it is being produced; without
+    // this event the thread looks idle until the whole answer lands.
+    const { events } = await watchTurn('hello')
+    const assistantEvents = events.filter(e => e.type === 'message' && e.message.role === 'assistant')
+    assert.ok(assistantEvents.length >= 2, 'expected a pending announcement and a finished one')
+    assert.equal(assistantEvents[0].message.pending, true)
+    assert.equal(assistantEvents[assistantEvents.length - 1].message.pending, false)
+  })
+
+  test('every message event carries the seq a client needs to detect a gap', async () => {
+    // The gap DETECTOR is C3's; C2's contract is that the seq is always there to detect one
+    // with. An event without it makes a hole indistinguishable from an ordering difference, and
+    // the client silently diverges.
+    const { events } = await watchTurn('hello')
+    for (const event of events) {
+      if (event.type === 'run') continue
+      assert.equal(typeof event.seq, 'number', `${event.type} must carry a seq`)
+      assert.ok(event.seq >= 1)
+    }
+  })
+
+  test('a long answer is throttled: far fewer revisions than characters', async () => {
+    // Every emit is a mongo insert (ws-emitter), so per-token emission would be a write storm.
+    const { events } = await watchTurn('long answer')
+    const revisions = events.filter(e => e.type === 'message-revision')
+    const finished = events.find(e => e.type === 'message' && e.message.role === 'assistant' && e.message.pending === false)
+    assert.ok(finished.message.content.length > 200, 'this test needs a long answer to be meaningful')
+    assert.ok(revisions.length >= 1, 'a streamed answer must produce at least one live revision')
+    assert.ok(
+      revisions.length < finished.message.content.length / 10,
+      `expected throttling, got ${revisions.length} revisions for ${finished.message.content.length} chars`
+    )
+    // Monotonic revisions are what let a client discard one it has already passed.
+    const numbers = revisions.map((r: any) => r.revision)
+    assert.deepEqual(numbers, [...numbers].sort((a, b) => a - b))
+    assert.equal(new Set(numbers).size, numbers.length)
+    // Each revision is a snapshot, so content only ever grows.
+    for (let i = 1; i < revisions.length; i++) {
+      assert.ok(revisions[i].content.length >= revisions[i - 1].content.length)
+    }
+  })
+})
