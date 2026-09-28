@@ -4,6 +4,8 @@ import { startObserver, stopObserver, internalError } from '@data-fair/lib-node/
 import eventPromise from '@data-fair/lib-utils/event-promise.js'
 import eventsQueue from '@data-fair/lib-node/events-queue.js'
 import locks from '@data-fair/lib-node/locks.js'
+import * as wsServer from '@data-fair/lib-express/ws-server.js'
+import { init as initWsEmitter } from '@data-fair/lib-node/ws-emitter.js'
 import upgradeScripts from '@data-fair/lib-node/upgrade-scripts.js'
 import { createHttpTerminator } from 'http-terminator'
 import { app } from './app.ts'
@@ -11,6 +13,7 @@ import config from '#config'
 import mongo from '#mongo'
 import { cleanupOldUsage } from './usage/cleanup.ts'
 import { sweepInterruptedRuns, resumeQueuedRuns } from './autonomous-agent-runtime/executor.ts'
+import { canSubscribeAutonomousAgent } from './autonomous-agent-runtime/events.ts'
 
 /**
  * Run pending upgrade/<version>/*.js migrations (see @data-fair/lib-node/upgrade-scripts.js).
@@ -93,6 +96,11 @@ export const start = async () => {
     cleanupOldUsage().catch(err => console.error('usage cleanup failed', err))
   }, 24 * 60 * 60 * 1000)
 
+  // Before server.listen: the emitter's collection must exist before anything publishes, and
+  // the ws server must be attached before the http server starts accepting connections.
+  await initWsEmitter(mongo.db)
+  await wsServer.start(server, mongo.db, canSubscribeAutonomousAgent)
+
   server.listen(config.port)
   await eventPromise(server, 'listening')
 
@@ -120,6 +128,7 @@ export const stop = async () => {
   if (autonomousAgentReaper) clearInterval(autonomousAgentReaper)
   await httpTerminator.terminate()
   if (config.observer?.active) await stopObserver()
+  await wsServer.stop()
   await locks.stop()
   await mongo.client.close()
 }

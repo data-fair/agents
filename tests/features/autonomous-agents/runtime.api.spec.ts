@@ -3,9 +3,11 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
+import { axiosAuth, superAdmin, clean, directoryUrl } from '../../support/axios.ts'
 import { putMockSettings, mockModels } from '../../support/settings.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
+import { openWsClient, type WsClient } from '../../support/ws.ts'
+import { conversationChannel } from '../../../api/src/autonomous-agent-runtime/operations.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
@@ -548,5 +550,78 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
     assert.equal(allowed.status, 200)
     assert.equal(allowed.data.aborted, true, 'an instructor must be able to stop a turn in flight')
     assert.equal((await awaitRun(live.runId)).status, 'aborted')
+  })
+})
+
+test.describe('Autonomous agent conversation events', () => {
+  // Every client is closed here: a leaked socket holds a dev-api connection open and surfaces
+  // later as an unrelated test timing out.
+  const clients: WsClient[] = []
+  const open = async (cookie?: string) => {
+    const client = await openWsClient(cookie)
+    clients.push(client)
+    return client
+  }
+  const cookieOf = async (ax: any) => await ax.cookieJar.getCookieString(directoryUrl)
+
+  test.beforeEach(async () => {
+    await clean()
+    await putMockSettings(admin, 'organization/test1')
+  })
+  test.afterEach(() => { for (const client of clients.splice(0)) client.close() })
+
+  const newConversation = async (autonomousAgentId: string) =>
+    (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId, title: 't' })).data
+
+  test('an admin of the owning org may subscribe to its conversation', async () => {
+    const agent = await createAgent()
+    const conv = await newConversation(agent.id)
+    const client = await open(await cookieOf(orgAdmin))
+    const res = await client.subscribe(conversationChannel(conv.id))
+    assert.equal(res.type, 'subscribe-confirm')
+    assert.equal(res.channel, conversationChannel(conv.id))
+  })
+
+  test('a listed instructor may subscribe, and an unlisted member may not', async () => {
+    // The same rule as the HTTP routes, through the same canInstruct — which is the point of
+    // routing both through it. A superadmin is deliberately NOT tested here: ws-server skips
+    // canSubscribe entirely for a session in admin mode, so it would prove nothing.
+    const agent = await createAgent()
+    const conv = await newConversation(agent.id)
+
+    const refused = await open(await cookieOf(orgMember))
+    const refusal = await refused.subscribe(conversationChannel(conv.id))
+    assert.equal(refusal.type, 'error')
+    assert.equal(refusal.status, 403)
+
+    await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, {
+      title: agent.title,
+      persona: agent.persona,
+      mcpServers: [],
+      toolDisclosure: 'static',
+      enabled: true,
+      instructors: [{ userId: 'test1-user1', userName: 'Test User' }]
+    })
+    const allowed = await open(await cookieOf(orgMember))
+    assert.equal((await allowed.subscribe(conversationChannel(conv.id))).type, 'subscribe-confirm')
+  })
+
+  test('a channel naming no conversation is refused', async () => {
+    const client = await open(await cookieOf(orgAdmin))
+    assert.equal((await client.subscribe(conversationChannel('no-such-conversation'))).status, 403)
+  })
+
+  test('a channel with extra segments is refused rather than widened', async () => {
+    const agent = await createAgent()
+    const conv = await newConversation(agent.id)
+    const client = await open(await cookieOf(orgAdmin))
+    assert.equal((await client.subscribe(`${conversationChannel(conv.id)}/messages`)).status, 403)
+  })
+
+  test('an anonymous client is refused', async () => {
+    const agent = await createAgent()
+    const conv = await newConversation(agent.id)
+    const client = await open()
+    assert.equal((await client.subscribe(conversationChannel(conv.id))).status, 403)
   })
 })
