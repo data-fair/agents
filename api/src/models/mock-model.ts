@@ -194,6 +194,15 @@ function processMockPrompt (lastMessage: string, prompt: string | Array<any>): M
   if (endsWithCommand(lastMessage, 'select note')) {
     return { type: 'tool-call', toolName: 'select_type', toolArgs: JSON.stringify({ type: 'note' }) }
   }
+  // A page tool, THEN a wait: the shape of a turn that opens something and waits on
+  // the person. Interrupting it exercises an abort after a completed tool step.
+  if (endsWithCommand(lastMessage, 'select then wait')) {
+    if (toolResult === undefined) return { type: 'tool-call', toolName: 'select_type', toolArgs: JSON.stringify({ type: 'note' }) }
+    const last = Array.isArray(prompt) ? prompt[prompt.length - 1] : undefined
+    const waited = last?.content?.some?.((c: any) => c.type === 'tool-result' && c.toolName === 'wait_for_user_action')
+    if (waited) return { type: 'text', text: `You did: ${toolResult}` }
+    return { type: 'tool-call', toolName: 'wait_for_user_action', toolArgs: JSON.stringify({ expecting: 'you to click Create' }) }
+  }
   if (endsWithCommand(lastMessage, 'wait for me')) {
     return { type: 'tool-call', toolName: 'wait_for_user_action', toolArgs: JSON.stringify({ expecting: 'you to click Create' }) }
   }

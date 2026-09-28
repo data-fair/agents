@@ -1183,6 +1183,14 @@ export function useAgentChat (options: UseAgentChatOptions) {
         applyStreamPart(part, mainScope)
       }
 
+      // An aborted stream does not throw: the SDK emits an `abort` part and closes it
+      // cleanly. Left to fall through, the turn ran its normal ending — a last step
+      // that called a tool read as an empty answer (the fallback bubble under the
+      // message of a person who had just interrupted a wait), its steps were appended
+      // to history after the next turn's user message, and it set `ready` over the
+      // running turn. Rethrown, it takes the abort path the catch already has.
+      signal.throwIfAborted()
+
       // Surface an in-band stream error captured during the loop (or by onError).
       // The fullStream does not throw on an 'error' part and result.response only
       // rejects when no step completed, so after a tool step the error must be
