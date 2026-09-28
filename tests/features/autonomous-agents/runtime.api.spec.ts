@@ -728,3 +728,81 @@ test.describe('Autonomous agent live conversation events', () => {
     }
   })
 })
+
+test.describe('Autonomous agent run traces', () => {
+  // The fixture is needed even though these tests are about traces: an agent referencing an MCP
+  // server whose endpoint is down fails when the tool set is gathered, which is BEFORE any model
+  // call — and a turn that never reaches the model records no trace at all.
+  let fixture: McpFixture
+  test.beforeAll(async () => { fixture = await startMcpFixture(Number(process.env.NGINX_PORT) + 30) })
+  test.afterAll(async () => { await fixture.close() })
+  test.beforeEach(async () => { await clean() })
+
+  const enrol = async (agentId: string) => { await admin.post('/api/test-env/enrol-autonomous-agent', { agentId }) }
+
+  const runTurnFor = async (agentOver: any = {}, content = 'hello') => {
+    const agent = await createAgent(agentOver)
+    await enrol(agent.id)
+    const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 't' })).data
+    const { runId } = (await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content })).data
+    for (let i = 0; i < 100; i++) {
+      const run = (await orgAdmin.get(`/api/autonomous-agent-runs/organization/test1/${runId}`)).data
+      if (run.status !== 'running') break
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
+    return { agent, conv, runId }
+  }
+
+  // The three-segment route, not /api/traces/conversation/:id — that one 404s on an empty
+  // result and so cannot express "no trace was stored".
+  const tracesOf = async (conversationId: string) =>
+    (await admin.get(`/api/traces/organization/test1/${conversationId}`)).data.results
+
+  test('a turn is traced when the org stores traces, keyed to the run and the agent', async () => {
+    await putMockSettings(admin, 'organization/test1', { storeTraces: true })
+    const { agent, conv, runId } = await runTurnFor()
+
+    const traces = await tracesOf(conv.id)
+    assert.ok(traces.length >= 1, 'a traced turn must be retrievable beside its conversation')
+    const turn = traces.find((t: any) => t.contextKind === 'turn')
+    assert.ok(turn, 'expected a trace of contextKind "turn"')
+    // 'turn' is an existing contextKind, so an autonomous run's traces are well-typed without a
+    // schema change — parseContextId keys off the contextId prefix.
+    assert.match(turn.contextId, new RegExp(runId))
+    // Same attribution as usage: the agent, not whoever sent the message, so a trace and a
+    // usage record for one turn cannot disagree about who spent it.
+    assert.equal(turn.userId, `autonomous-agent:${agent.id}`)
+    assert.equal(turn.request.model, 'mock-model')
+    // buildTraceRequestDoc derives these from body.messages / body.tools, so a body shaped
+    // wrongly would store a trace the review UI reads as empty.
+    assert.ok(turn.request.messageCount >= 1, 'the traced body must carry the history')
+    assert.equal(turn.modelRole, 'assistant')
+  })
+
+  test('no trace is stored when the org has not enabled it', async () => {
+    await putMockSettings(admin, 'organization/test1', { storeTraces: false })
+    const { conv } = await runTurnFor()
+    assert.equal((await tracesOf(conv.id)).length, 0, 'storeTraces is the only gate, and it is off')
+  })
+
+  test('a traced turn records the tool calls it made', async () => {
+    await putMockSettings(admin, 'organization/test1', { storeTraces: true })
+    const { conv } = await runTurnFor({ mcpServers: [{ serverId: 'dev-public-mcp' }] }, 'call tool echo {"value":"x"}')
+    const traces = await tracesOf(conv.id)
+    const turn = traces.find((t: any) => t.contextKind === 'turn')
+    // The tool must be visible both as advertised (request) and as called (response).
+    assert.ok(turn.request.toolCount >= 1, 'the traced body must list the tools advertised')
+    assert.match(JSON.stringify(turn.response.toolCalls), /echo/, 'the trace must show which tool the turn called')
+  })
+
+  test('a trace carries no MCP credential and no tool payload', async () => {
+    // dev-apikey-mcp is the only dev entry with a credential; without it this would pass
+    // trivially. Tool RESULTS are deliberately absent too: the trace is for diagnosing the loop,
+    // not for duplicating fetched data.
+    await putMockSettings(admin, 'organization/test1', { storeTraces: true })
+    const { conv } = await runTurnFor({ mcpServers: [{ serverId: 'dev-apikey-mcp' }] }, 'call tool echo {"value":"x"}')
+    const flat = JSON.stringify(await tracesOf(conv.id))
+    assert.equal(flat.includes('dev-secret-value'), false, 'no MCP credential may reach a trace')
+    assert.equal(flat.includes('echo:x'), false, 'the tool RESULT is not the trace\'s business')
+  })
+})

@@ -24,6 +24,7 @@ import type { AutonomousAgent, AutonomousAgentMessage, AutonomousAgentRun } from
 import { runStopReasonMessage, buildSystemPrompt, wrapToolResult, type RunStopReason } from './operations.ts'
 import { appendMessage, updateMessage, finishRun, incrementRunSpend } from './service.ts'
 import { emitConversationEvent } from './events.ts'
+import { recordTraceRequest } from '../traces/service.ts'
 import { getSettings } from '../settings/service.ts'
 import { resolveRoleModel } from '../models/service.ts'
 import { contextBudget } from '../models/operations.ts'
@@ -104,6 +105,58 @@ const nextPendingRun = async (conversationId: string) => {
 }
 
 /**
+ * Record one model call of an autonomous run, when the org has asked for traces.
+ *
+ * Gated on `settings.storeTraces` alone, with no consent header — unlike the gateway. That
+ * second gate exists because an in-page chat's messages live only in the user's browser, so
+ * storing them server-side is a new disclosure needing the person's consent. An autonomous
+ * conversation is ALREADY stored server-side by design, so a trace adds prompt/response detail
+ * about data the org already holds, not a new category of it. There is also no browser in the
+ * loop to ask, and scheduled runs will have no instructing user at all.
+ *
+ * Fire-and-forget with a logged catch, exactly as the gateway treats it: a trace is diagnostic,
+ * and losing one must never cost a turn.
+ */
+const recordAutonomousTrace = (
+  settings: Awaited<ReturnType<typeof getSettings>>,
+  input: {
+    run: AutonomousAgentRun
+    identity: UsageIdentity
+    contextId: string
+    modelRole: string
+    entry: ReturnType<typeof resolveRoleModel>['entry']
+    body: unknown
+    response: { content: string, toolCalls: { id: string, name: string, arguments: string }[], finishReason?: string }
+    usage: { inputTokens: number, outputTokens: number }
+    durationMs: number
+  }
+) => {
+  if (settings.storeTraces !== true) return
+  recordTraceRequest({
+    owner: input.run.owner,
+    userId: input.identity.usageUserId,
+    userName: input.identity.usageUserName,
+    // The conversation id, so a run's traces are retrievable beside its messages.
+    conversationId: input.run.conversationId,
+    contextId: input.contextId,
+    modelRole: input.modelRole,
+    providerName: input.entry.provider.name,
+    providerType: input.entry.provider.type,
+    resolvedModel: input.entry.id,
+    body: input.body,
+    response: input.response,
+    usage: input.usage,
+    prices: {
+      inputPricePerMillion: input.entry.inputPricePerMillion,
+      outputPricePerMillion: input.entry.outputPricePerMillion,
+      cachedInputPricePerMillion: input.entry.cachedInputPricePerMillion
+    },
+    eurosPerCredit: config.eurosPerCredit,
+    timing: { durationMs: input.durationMs }
+  }).catch(err => console.error('autonomous agent trace could not be recorded', err))
+}
+
+/**
  * The conversation so far, as model messages.
  *
  * Tool calls are NOT replayed as tool-call/tool-result pairs: the runtime persists only
@@ -143,6 +196,8 @@ const loadHistory = async (conversationId: string, upToSeq: number): Promise<Mod
  * to a summarizer hiccup would be worse.
  */
 const compactHistory = async (
+  run: AutonomousAgentRun,
+  identity: UsageIdentity,
   history: ModelMessage[],
   budget: number,
   settings: Awaited<ReturnType<typeof getSettings>>,
@@ -161,12 +216,32 @@ const compactHistory = async (
     return history
   }
   try {
-    const { model } = resolveRoleModel(settings, 'summarizer')
-    const { text: summary } = await generateText({
+    const { model, entry } = resolveRoleModel(settings, 'summarizer')
+    const startedAt = Date.now()
+    const system = compactionSystemPrompt(decision.generation - 1)
+    const body = { messages: [{ role: 'user', content: JSON.stringify(decision.prefixToSummarize) }] }
+    const generated = await generateText({
       model,
-      system: compactionSystemPrompt(decision.generation - 1),
-      messages: [{ role: 'user', content: JSON.stringify(decision.prefixToSummarize) }],
+      system,
+      messages: body.messages as any,
       abortSignal
+    })
+    const summary = generated.text
+    // A compaction is a real model call, so its cost must be attributable rather than appearing
+    // as unexplained spend on the turn beside it.
+    recordAutonomousTrace(settings, {
+      run,
+      identity,
+      contextId: `compaction:${run.id}`,
+      modelRole: 'summarizer',
+      entry,
+      body: { system, messages: body.messages },
+      response: { content: summary, toolCalls: [], finishReason: generated.finishReason },
+      usage: {
+        inputTokens: generated.usage?.inputTokens ?? 0,
+        outputTokens: generated.usage?.outputTokens ?? 0
+      },
+      durationMs: Date.now() - startedAt
     })
     debug('compacted %d messages into a recap', decision.prefixToSummarize.length)
     return [recapMessage(summary), ...decision.retained]
@@ -301,6 +376,8 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   const identity = usageIdentityFor(autonomousAgent)
 
   const history = await compactHistory(
+    run,
+    identity,
     await loadHistory(run.conversationId, messageSeq),
     budget,
     settings,
@@ -311,6 +388,11 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   // between steps rather than only reporting the overrun afterwards.
   let credits = 0
   let budgetExceeded = false
+  // Turn totals for the trace, taken from the same place spend comes from so the trace, the
+  // usage records and the run cannot disagree.
+  let inputTokens = 0
+  let outputTokens = 0
+  const startedAt = Date.now()
 
   const result = streamText({
     model,
@@ -339,6 +421,8 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
         entry,
         config.eurosPerCredit
       )
+      inputTokens += usage?.inputTokens ?? 0
+      outputTokens += usage?.outputTokens ?? 0
       credits += stepCredits.total
       // On the RUN as well as in usage, per step, so an abandoned turn's later steps still
       // show up and the two never disagree.
@@ -418,6 +502,29 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
 
   const steps = (await result.steps).length
   const finishReason = await result.finishReason
+
+  recordAutonomousTrace(settings, {
+    run,
+    identity,
+    contextId: `turn:${run.id}`,
+    modelRole: 'assistant',
+    entry,
+    // The request as sent: the system prompt, the history, and the tool names advertised —
+    // deliberately NOT the tool results, which carry MCP payloads. The trace is for diagnosing
+    // the loop, not for duplicating fetched data.
+    body: {
+      system: buildSystemPrompt(autonomousAgent),
+      messages: history,
+      tools: Object.keys(tools)
+    },
+    response: {
+      content,
+      toolCalls: toolCalls.map(call => ({ id: call.toolCallId ?? '', name: call.toolName, arguments: '' })),
+      finishReason
+    },
+    usage: { inputTokens, outputTokens },
+    durationMs: Date.now() - startedAt
+  })
   // A guard-stopped turn is a truncation, not a provider error: the model still wanted to
   // call tools when a cap cut it off. The budget is checked first because it is the reason
   // that is not otherwise visible from the finish reason.
