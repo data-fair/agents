@@ -23,10 +23,11 @@ import { compactionSystemPrompt, recapMessage } from '@agents/shared/compaction-
 import type { AutonomousAgent, AutonomousAgentMessage, AutonomousAgentRun } from '#types'
 import {
   runStopReasonMessage, buildSystemPrompt, wrapToolResult, summarizeToolArguments,
-  storedTurnsToModelMessages, boundToolResult, partsText, withAppendedText,
+  storedTurnsToModelMessagesWithSeqs, alignCutToStoredMessage,
+  boundToolResult, partsText, withAppendedText,
   type RunStopReason, type StoredPart
 } from './operations.ts'
-import { appendMessage, updateMessage, finishRun, incrementRunSpend } from './service.ts'
+import { appendMessage, updateMessage, finishRun, incrementRunSpend, saveCompaction } from './service.ts'
 import { recordTraceRequest } from '../traces/service.ts'
 import { getSettings } from '../settings/service.ts'
 import { resolveRoleModel } from '../models/service.ts'
@@ -158,6 +159,14 @@ const recordAutonomousTrace = (
   }).catch(err => console.error('autonomous agent trace could not be recorded', err))
 }
 
+/** The model's context for a turn, with the stored seq behind each message (see loadHistory). */
+interface LoadedHistory {
+  messages: ModelMessage[]
+  seqs: number[]
+  /** How many times this conversation has already been compacted. */
+  generation: number
+}
+
 /**
  * The conversation so far, as model messages.
  *
@@ -170,12 +179,30 @@ const recordAutonomousTrace = (
  * that had called a tool, and the model saw neither the result nor the fact that it had acted. See
  * storedTurnsToModelMessages for how a turn's steps are grouped back into assistant/tool pairs.
  */
-const loadHistory = async (conversationId: string, upToSeq: number): Promise<ModelMessage[]> => {
-  const messages = await mongo.autonomousAgentMessages
-    .find({ conversationId, seq: { $lt: upToSeq } }, { projection: { _id: 0 } })
+const loadHistory = async (conversationId: string, upToSeq: number): Promise<LoadedHistory> => {
+  const conversation = await mongo.autonomousAgentConversations.findOne(
+    { id: conversationId },
+    { projection: { _id: 0, compaction: 1 } }
+  )
+  const recap = conversation?.compaction
+  // Only what the recap does NOT already cover. The messages it covers stay in the store untouched —
+  // this is a cache for the MODEL's context, not a trim of the conversation.
+  const stored = await mongo.autonomousAgentMessages
+    .find(
+      { conversationId, seq: recap ? { $gt: recap.coversUpToSeq, $lt: upToSeq } : { $lt: upToSeq } },
+      { projection: { _id: 0 } }
+    )
     .sort({ seq: 1 })
     .toArray()
-  return storedTurnsToModelMessages(messages as any) as ModelMessage[]
+  const { messages, seqs } = storedTurnsToModelMessagesWithSeqs(stored as any)
+  if (!recap) return { messages: messages as ModelMessage[], seqs, generation: 0 }
+  // The recap is tagged with the last seq it covers, so alignCutToStoredMessage never tries to merge it
+  // with the message after it (whose seq is strictly greater).
+  return {
+    messages: [recapMessage(recap.summary), ...messages] as ModelMessage[],
+    seqs: [recap.coversUpToSeq, ...seqs],
+    generation: recap.generation
+  }
 }
 
 /**
@@ -193,28 +220,41 @@ const loadHistory = async (conversationId: string, upToSeq: number): Promise<Mod
 const compactHistory = async (
   run: AutonomousAgentRun,
   identity: UsageIdentity,
-  history: ModelMessage[],
+  loaded: LoadedHistory,
   budget: number,
   settings: Awaited<ReturnType<typeof getSettings>>,
   abortSignal: AbortSignal
 ): Promise<ModelMessage[]> => {
+  const history = loaded.messages
   if (!budget) return history
   const decision = decideCompaction({
     history,
     lastInputTokens: 0,
     appendedChars: JSON.stringify(history).length,
     budget,
-    generation: 0
+    // The REAL generation, read from the persisted recap. It was hardcoded to 0, which told the
+    // summarizer every time that it was seeing raw exchanges — so a chained compaction was asked to
+    // re-digest an existing recap instead of merging it, which is what compounds loss.
+    generation: loaded.generation
   })
   if (!decision.compact) {
     debug('no compaction: %s', decision.reason)
     return history
   }
+  // The recap is cached against a STORED MESSAGE boundary, so the cut has to land on one.
+  const cut = alignCutToStoredMessage(loaded.seqs, decision.prefixToSummarize.length)
+  if (cut <= 0) {
+    debug('no compaction: the cut aligned away to nothing')
+    return history
+  }
+  const prefixToSummarize = history.slice(0, cut)
+  const retained = history.slice(cut)
+  const coversUpToSeq = loaded.seqs[cut - 1]
   try {
     const { model, entry } = resolveRoleModel(settings, 'summarizer')
     const startedAt = Date.now()
     const system = compactionSystemPrompt(decision.generation - 1)
-    const body = { messages: [{ role: 'user', content: JSON.stringify(decision.prefixToSummarize) }] }
+    const body = { messages: [{ role: 'user', content: JSON.stringify(prefixToSummarize) }] }
     const generated = await generateText({
       model,
       system,
@@ -238,8 +278,20 @@ const compactHistory = async (
       },
       durationMs: Date.now() - startedAt
     })
-    debug('compacted %d messages into a recap', decision.prefixToSummarize.length)
-    return [recapMessage(summary), ...decision.retained]
+    // PERSISTED, so the next turn does not re-summarise the same prefix. Without this, a conversation
+    // past the budget paid a full summarizer call on every turn, for ever: nothing was stored, so the
+    // next turn loaded everything again and was over budget again. Storing tool results made that bite
+    // much sooner, since a single result can be a quarter of the budget.
+    //
+    // After this, the next turn's context is [recap, ...messages after coversUpToSeq], which is small —
+    // so compaction stays quiet until the retained tail itself outgrows the budget.
+    await saveCompaction(run.conversationId, {
+      summary,
+      generation: decision.generation,
+      coversUpToSeq
+    })
+    debug('compacted %d messages into a recap (generation %d, covers up to seq %d)', prefixToSummarize.length, decision.generation, coversUpToSeq)
+    return [recapMessage(summary), ...retained]
   } catch (err) {
     if (abortSignal.aborted) throw err
     debug('compaction failed, continuing with the full history: %O', err)

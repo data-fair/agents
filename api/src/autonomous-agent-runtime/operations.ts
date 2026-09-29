@@ -217,14 +217,32 @@ export function attributedUserText (text: string, author?: { userId?: string, us
  * history unusable rather than just that step.
  */
 export function storedTurnsToModelMessages (turns: StoredTurn[]): Array<{ role: 'user' | 'assistant' | 'tool', content: any }> {
+  return storedTurnsToModelMessagesWithSeqs(turns).messages
+}
+
+/**
+ * The same reconstruction, plus the stored `seq` each model message came from.
+ *
+ * One stored turn becomes SEVERAL model messages (assistant / tool / assistant, once per step), so the
+ * mapping back is not one-to-one. Compaction needs it: its cut is an index into the model messages, but
+ * the recap it caches has to be keyed on a stored-message boundary, or the context could not be rebuilt
+ * identically on the next turn.
+ */
+export function storedTurnsToModelMessagesWithSeqs (
+  turns: Array<StoredTurn & { seq?: number }>
+): { messages: Array<{ role: 'user' | 'assistant' | 'tool', content: any }>, seqs: number[] } {
   const messages: Array<{ role: 'user' | 'assistant' | 'tool', content: any }> = []
+  const seqs: number[] = []
 
   for (const turn of turns) {
     const parts = turn.parts ?? []
 
     if (turn.role === 'user') {
       const text = parts.filter(p => p.type === 'text').map(p => (p as { text: string }).text).join('')
-      if (text.trim()) messages.push({ role: 'user', content: attributedUserText(text, turn.author) })
+      if (text.trim()) {
+        messages.push({ role: 'user', content: attributedUserText(text, turn.author) })
+        seqs.push(turn.seq ?? 0)
+      }
       continue
     }
 
@@ -237,8 +255,8 @@ export function storedTurnsToModelMessages (turns: StoredTurn[]): Array<{ role: 
     let assistant: any[] = []
     let toolResults: any[] = []
     const flush = () => {
-      if (assistant.length) { messages.push({ role: 'assistant', content: assistant }); assistant = [] }
-      if (toolResults.length) { messages.push({ role: 'tool', content: toolResults }); toolResults = [] }
+      if (assistant.length) { messages.push({ role: 'assistant', content: assistant }); seqs.push(turn.seq ?? 0); assistant = [] }
+      if (toolResults.length) { messages.push({ role: 'tool', content: toolResults }); seqs.push(turn.seq ?? 0); toolResults = [] }
     }
 
     for (const part of parts) {
@@ -268,7 +286,24 @@ export function storedTurnsToModelMessages (turns: StoredTurn[]): Array<{ role: 
     flush()
   }
 
-  return messages
+  return { messages, seqs }
+}
+
+/**
+ * Move a compaction cut back to the start of the stored message it lands in.
+ *
+ * `decideCompaction` cuts between MODEL messages, and one stored turn spans several of them — so a cut
+ * can fall inside a turn, leaving the recap covering half of it. That is legal for the provider
+ * (isTurnBoundary already guarantees no tool result is orphaned) but it makes the recap unkeyable: the
+ * cache records "covered up to seq N", which has to mean the whole of N.
+ *
+ * Moving the cut EARLIER only ever retains more verbatim, so it cannot orphan anything the cut had
+ * already accepted — the same reasoning decideCompaction's own boundary walk relies on.
+ */
+export function alignCutToStoredMessage (seqs: number[], cut: number): number {
+  let aligned = cut
+  while (aligned > 0 && seqs[aligned - 1] === seqs[aligned]) aligned--
+  return aligned
 }
 
 /** The visible text of a turn: every text part, in order. Reasoning and tool traffic are excluded. */

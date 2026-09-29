@@ -31,6 +31,35 @@ export default {
     //
     // A counter rather than a timestamp on purpose: two writes in the same millisecond make a
     // timestamp-based cursor either skip one or re-deliver it, while an $inc cannot collide.
-    version: { type: 'number', minimum: 0 }
+    version: { type: 'number', minimum: 0 },
+    /**
+     * The compaction recap: a CACHE, not part of the conversation.
+     *
+     * The stored messages remain the conversation of record — complete, and never rewritten by a
+     * compaction. This only spares the summarizer from re-reading the same prefix on every turn.
+     *
+     * Without it, compaction re-summarised from scratch on EVERY turn once a conversation crossed the
+     * budget, permanently: nothing was persisted, so the next turn loaded the whole history again and
+     * was over budget again. That grew more expensive as the conversation grew, and storing tool
+     * results made conversations cross the threshold far sooner — a single 100k-char result is about a
+     * quarter of a default budget on its own.
+     *
+     * `coversUpToSeq` is a STORED MESSAGE boundary, never mid-turn, so the model context can be
+     * rebuilt as [recap, ...messages after it] and reproduce exactly what the previous turn saw.
+     */
+    compaction: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['summary', 'generation', 'coversUpToSeq'],
+      properties: {
+        summary: { type: 'string' },
+        // How many times this conversation has been compacted. Drives the summarizer prompt: from the
+        // second on it is told a recap already heads the content and asked to merge rather than
+        // re-digest, which is what keeps chained generations from compounding loss.
+        generation: { type: 'number', minimum: 1 },
+        coversUpToSeq: { type: 'number', minimum: 1 },
+        createdAt: { type: 'string', format: 'date-time' }
+      }
+    }
   }
 }

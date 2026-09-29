@@ -156,3 +156,21 @@ export const finishRun = async (id: string, patch: Partial<AutonomousAgentRun>):
   if (updated) await notifyConversationChanged(existing.conversationId, version)
   return !!updated
 }
+
+/**
+ * Persist the compaction recap for a conversation.
+ *
+ * A CACHE, deliberately kept on the conversation rather than in the message log: the log is the
+ * conversation of record and a compaction must never rewrite it. Writing here does not bump the
+ * conversation version, because nothing a reader can see has changed — a version bump would wake every
+ * subscriber to refetch a transcript that is byte-identical.
+ */
+export const saveCompaction = async (
+  conversationId: string,
+  compaction: { summary: string, generation: number, coversUpToSeq: number }
+) => {
+  await mongo.autonomousAgentConversations.updateOne(
+    { id: conversationId },
+    { $set: { compaction: { ...compaction, createdAt: new Date().toISOString() } } }
+  )
+}

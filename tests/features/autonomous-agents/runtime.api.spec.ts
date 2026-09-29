@@ -4,7 +4,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean, directoryUrl } from '../../support/axios.ts'
-import { putMockSettings, mockModels } from '../../support/settings.ts'
+import { putMockSettings, mockModels, mockModelRef } from '../../support/settings.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 import { openWsClient, type WsClient } from '../../support/ws.ts'
 import { conversationChannel } from '@agents/shared/autonomous-agent-channel'
@@ -886,6 +886,66 @@ test.describe('Autonomous agent run traces', () => {
     const traced = turn.response.toolCalls.find((c: any) => c.name === 'echo')
     assert.ok(traced, 'the trace must show which tool the turn called')
     assert.match(traced.arguments, /"value"\s*:\s*"x"/, 'and what it was asked to do — a name alone is not auditable')
+  })
+
+  test('the compaction recap is PERSISTED and reused, not recomputed every turn', async () => {
+    // Compaction used to re-summarise from scratch on every turn once a conversation crossed the
+    // budget — permanently, because nothing was persisted: the next turn loaded the whole history
+    // again and was over budget again. Storing tool results made that bite far sooner, since one
+    // result can be a quarter of the budget.
+    //
+    // A tiny context window forces the threshold with a couple of short turns.
+    await putMockSettings(admin, 'organization/test1', {
+      storeTraces: true,
+      // A COMPLETE entry: overrides deep-merge, and an array element is replaced wholesale rather than
+      // merged, so a partial one loses the required model/usage/price fields and the PUT 400s.
+      models: [{
+        model: mockModelRef,
+        usage: ['assistant', 'tools', 'summarizer', 'evaluator', 'moderator'],
+        contextWindow: 200,
+        inputPricePerMillion: 0,
+        outputPricePerMillion: 0
+      }]
+    })
+    const agent = await createAgent()
+    await enrol(agent.id)
+    const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 't' })).data
+
+    const turn = async (content: string) => {
+      const { runId } = (await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content })).data
+      for (let i = 0; i < 100; i++) {
+        const run = (await orgAdmin.get(`/api/autonomous-agent-runs/organization/test1/${runId}`)).data
+        if (run.status !== 'running') return run
+        await new Promise(resolve => setTimeout(resolve, 100))
+      }
+      throw new Error('run never settled')
+    }
+
+    await turn('long answer')
+    await turn('long answer')
+    await turn('long answer')
+
+    // Via the list route: there is no single-conversation GET, and the list returns the full document.
+    const conversation = (await orgAdmin.get(`/api/autonomous-agent-conversations/organization/test1?autonomousAgentId=${agent.id}`))
+      .data.results.find((c: any) => c.id === conv.id)
+    assert.ok(conversation.compaction, 'a compaction must leave a persisted recap behind')
+    assert.ok(conversation.compaction.summary.length > 0)
+    assert.ok(conversation.compaction.generation >= 1)
+
+    // The recap covers a STORED MESSAGE boundary, never mid-turn — otherwise the model context could
+    // not be rebuilt identically from [recap, ...messages after it].
+    const messages = (await orgAdmin.get(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`)).data.results
+    const seqs = messages.map((m: any) => m.seq)
+    assert.ok(seqs.includes(conversation.compaction.coversUpToSeq), 'coversUpToSeq must name a real stored message')
+
+    // THE POINT: the covered prefix is no longer sent. The turn's traced messageCount counts
+    // [recap, ...tail], so it must be below the number of stored messages the conversation now holds.
+    const turnTraces = (await tracesOf(conv.id)).filter((t: any) => t.contextKind === 'turn')
+    const latest = turnTraces.sort((a: any, b: any) => b.request.body.historyUpToSeq - a.request.body.historyUpToSeq)[0]
+    assert.ok(
+      latest.request.messageCount < messages.length,
+      `the recap must replace the prefix it covers: sent ${latest.request.messageCount} for ${messages.length} stored messages`
+    )
   })
 
   test('a trace does NOT duplicate the conversation, and carries no tool payloads', async () => {

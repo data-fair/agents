@@ -11,6 +11,8 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import {
   storedTurnsToModelMessages,
+  storedTurnsToModelMessagesWithSeqs,
+  alignCutToStoredMessage,
   boundToolResult,
   withAppendedText,
   partsText,
@@ -186,5 +188,58 @@ test.describe('parts text helpers', () => {
 test.describe('attributedUserText', () => {
   test('leaves an unattributed message alone', () => {
     assert.equal(attributedUserText('hi'), 'hi')
+  })
+})
+
+test.describe('alignCutToStoredMessage', () => {
+  // decideCompaction cuts between MODEL messages, but one stored turn spans several of them. The recap
+  // is cached as "covers up to seq N", which has to mean the WHOLE of N — so a cut landing inside a turn
+  // must move back to that turn's start. Moving earlier only ever retains more, so it cannot orphan
+  // anything the cut had accepted.
+  test('a cut inside a stored turn moves back to its start', () => {
+    // seqs: turn 1 is one message, turn 2 spans three (assistant / tool / assistant)
+    const seqs = [1, 2, 2, 2, 3]
+    assert.equal(alignCutToStoredMessage(seqs, 3), 1, 'mid-turn-2 must fall back to the start of turn 2')
+    assert.equal(alignCutToStoredMessage(seqs, 2), 1)
+  })
+
+  test('a cut already on a boundary is left alone', () => {
+    const seqs = [1, 2, 2, 2, 3]
+    assert.equal(alignCutToStoredMessage(seqs, 1), 1)
+    assert.equal(alignCutToStoredMessage(seqs, 4), 4)
+  })
+
+  test('a cut at the very end needs no alignment', () => {
+    const seqs = [1, 2, 2]
+    assert.equal(alignCutToStoredMessage(seqs, 3), 3)
+  })
+
+  test('a recap at the head is never merged into the turn after it', () => {
+    // loadHistory tags the recap with the last seq it covers; the next message's seq is strictly
+    // greater, so a cut just after the recap stays put rather than collapsing to 0.
+    const seqs = [5, 6, 6]
+    assert.equal(alignCutToStoredMessage(seqs, 1), 1)
+  })
+})
+
+test.describe('storedTurnsToModelMessagesWithSeqs', () => {
+  test('every model message is tagged with the stored turn it came from', () => {
+    // The mapping is NOT one-to-one — this turn becomes three model messages — which is exactly why the
+    // compaction cut has to be aligned before a recap can be keyed on a seq.
+    const { messages, seqs } = storedTurnsToModelMessagesWithSeqs([
+      { seq: 1, role: 'user', parts: [{ type: 'text', text: 'go' }] },
+      {
+        seq: 2,
+        role: 'assistant',
+        parts: [
+          { type: 'tool-call', toolCallId: 'c1', toolName: 'echo', arguments: '{}' },
+          { type: 'tool-result', toolCallId: 'c1', toolName: 'echo', result: 'r' },
+          { type: 'text', text: 'done' }
+        ]
+      }
+    ])
+    assert.deepEqual(messages.map(m => m.role), ['user', 'assistant', 'tool', 'assistant'])
+    assert.deepEqual(seqs, [1, 2, 2, 2])
+    assert.equal(messages.length, seqs.length, 'one seq per model message, or the cut cannot be mapped')
   })
 })
