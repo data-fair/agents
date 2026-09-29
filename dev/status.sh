@@ -67,12 +67,13 @@ check_http "dev-api" "$NGINX/agents/api/ping"
 check_http "dev-ui" "$NGINX/agents"
 # Optional: only needed to run the workspace on Claude Code subscription models
 # (npm run dev-bridge). DOWN here is normal unless you configured that provider.
-check_http "claude-bridge" "http://localhost:${BRIDGE_PORT:-3194}/_bridge/status"
-# Serves the dev-*-mcp catalog entries (npm run dev-mcp). DOWN is normal unless you are working
-# with autonomous agents — but then an agent wired to one of those entries fails with a 502 when it
-# gathers its tools, which is otherwise a confusing way to learn this is not running. It answers
-# only POST, so a HEAD/GET probe reporting a 4xx still means it is up.
-check_http "dev-mcp" "http://localhost:$((NGINX_PORT + 31))/mcp"
+check_http "claude-bridge" "http://localhost:${BRIDGE_PORT:?BRIDGE_PORT missing from .env — re-run dev/init-env.sh}/_bridge/status"
+# Serves the dev-review-*-mcp catalog entries (npm run dev-mcp). DOWN is normal unless you are
+# working with autonomous agents — but then an agent wired to one of those entries fails with a 502
+# when it gathers its tools, which is otherwise a confusing way to learn this is not running.
+# Probed over TCP, not HTTP: the MCP endpoint answers only POST with a specific Accept header, so an
+# HTTP probe reports 406 for a server that is perfectly healthy.
+check_tcp "dev-mcp" "localhost" "$((NGINX_PORT + 31))"
 echo ""
 
 # --- Docker compose services (probed through nginx where possible) ---

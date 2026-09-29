@@ -45,14 +45,16 @@ is a confusing way to discover this is not running.
 
 ### Running on Claude Code models
 
-`npm run dev-bridge` starts a local OpenAI-compatible server (default port 3194, override
-with `BRIDGE_PORT`) backed by your Claude Code subscription, so the dev workspace can run
+`npm run dev-bridge` starts a local OpenAI-compatible server on `BRIDGE_PORT` (seeded by
+`dev/init-env.sh` like every other dev port; it used to default to a fixed 3194, which meant two
+worktrees fought over it and the second simply failed to start) backed by your Claude Code subscription, so the dev workspace can run
 on real models without an API key. It is part of the `npm run dev-zellij` layout, so a
 normal dev session already has it. Logs go to `dev/logs/dev-bridge.log`. It is optional —
 `dev/status.sh` reporting it DOWN is normal unless you use it.
 
 Configure it in the settings UI as an **OpenAI Compatible** provider with base URL
-`http://localhost:3194/v1` and **Compatibility Mode `compatible`** (the default mode
+`http://localhost:$BRIDGE_PORT/v1` — the value in `.env`, not a fixed port — and **Compatibility
+Mode `compatible`** (the default mode
 targets `/v1/responses`, which the bridge does not implement). Leave the API key empty.
 
 `GET /_bridge/status` reports how many conversations are holding a live `claude` session.

@@ -12,6 +12,10 @@ DEV_UI_HMR_PORT=$((RANDOM_NB + 3))
 MAILDEV_UI_PORT=$((RANDOM_NB + 4))
 MAILDEV_SMTP_PORT=$((RANDOM_NB + 5))
 
+# Seeded like every other dev process rather than defaulting to a fixed 3194: that default made
+# every checkout fight for one port, so a second worktree's bridge simply failed to start.
+BRIDGE_PORT=$((RANDOM_NB + 6))
+
 MONGO_PORT=$((RANDOM_NB + 10))
 
 SD_PORT=$((RANDOM_NB + 20))
