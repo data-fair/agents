@@ -91,12 +91,17 @@ export function createAgentChatBase (isOpen: Ref<boolean>, storageKey?: string) 
       // The link may be a full URL, a base-prefixed path, or an app-relative path that
       // omits our base prefix (models often write those). Resolve against our router base
       // and navigate in-SPA when it maps to a real route; otherwise fall back to a full
-      // navigation (external links, same-origin pages outside this app, or no router).
+      // navigation (same-origin pages outside this app, or no router). Another origin opens in
+      // a new tab, and anything but an http(s) URL is ignored.
       const decision = decideAgentNavigation(msg.url, window.location.origin, chatRouter)
-      if (decision.spa && chatRouter) {
+      if (decision.action === 'spa' && chatRouter) {
         chatRouter.push(decision.path)
-      } else {
+      } else if (decision.action === 'page') {
         window.location.href = decision.url
+      } else if (decision.action === 'new-tab') {
+        window.open(decision.url, '_blank', 'noopener,noreferrer')
+      } else {
+        debug('ignored navigation to a non-http(s) link %s', msg.url)
       }
     } else if (msg.type === 'unread') {
       if (!isOpen.value && msg.unread) {
