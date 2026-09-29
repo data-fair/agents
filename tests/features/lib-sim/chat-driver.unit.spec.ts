@@ -77,15 +77,32 @@ test.describe('chat driver composer strings', () => {
     assert.ok(activity.includes("kind: 'waiting'"), "the 'waiting' activity kind is gone")
   })
 
-  test('the runner keeps the reset button off-limits to the persona', () => {
-    // Drift guard on the harness side, complementing page-perception's own
-    // off-limits tests: the runner is where the actual list is assembled, and
-    // a future edit dropping `strings.reset` from it would silently let the
-    // persona wipe the transcript mid-run, with nothing here to catch it.
-    const source = readFileSync('simulations/simulate.sim.spec.ts', 'utf8')
-    const offLimitsLine = source.match(/offLimits:\s*\[[^\]]*\]/)?.[0]
-    assert.ok(offLimitsLine, 'could not find the offLimits array in simulate.sim.spec.ts')
-    assert.match(offLimitsLine!, /strings\.reset/)
+  test('the in-page surface keeps the composer and the reset button off-limits', () => {
+    // Drift guard on the harness side, complementing page-perception's own off-limits tests. The list
+    // now lives on the driver, beside the controls it names, so the two cannot disagree about what
+    // "the composer" is — which matters more with two different composers. Asserted from the driver's
+    // value rather than by scanning the runner's source, which broke the moment the list moved.
+    const driver = createChatDriver({} as any)
+    const strings = chatDriverStrings('en')
+    for (const name of [strings.input, strings.send, strings.stop, strings.reset]) {
+      assert.ok(driver.offLimits.includes(name), `${name} must stay off-limits to the persona`)
+    }
+  })
+
+  test('the autonomous agent surface keeps ITS composer off-limits', () => {
+    // A new surface with a composer nobody had listed would silently let the persona type its own
+    // message into the page and press Send — the harness would then report a conversation the person
+    // never had.
+    const driver = createChatDriver({} as any, { surface: 'autonomous-agent' })
+    assert.ok(driver.offLimits.length > 0)
+    for (const name of ['Message', 'Send']) {
+      assert.ok(driver.offLimits.includes(name), `${name} must stay off-limits on the thread page`)
+    }
+  })
+
+  test('an unknown surface is refused rather than silently treated as the default', () => {
+    // A typo in a case would otherwise drive the wrong composer and time out with no diagnosis.
+    assert.throws(() => createChatDriver({} as any, { surface: 'autonomus-agent' as any }))
   })
 })
 

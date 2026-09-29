@@ -28,7 +28,16 @@ test.describe('case registry', () => {
     for (const c of cases) {
       assert.ok(c.goal.length > 20, `${c.name}: goal should describe an outcome`)
       assert.ok(c.persona.length > 20, `${c.name}: persona should describe a person`)
-      assert.ok(c.route.startsWith('/agents/_dev/'), `${c.name}: route ${c.route}`)
+      // The route depends on what the persona operates. An in-page-chat case needs a _dev page,
+      // which is where the same WebMCP tools a host application registers are registered. An
+      // autonomous agent has no such page: it is driven through its own thread, a real product
+      // route, so requiring _dev there would have been requiring the wrong thing.
+      if (c.surface === 'autonomous-agent') {
+        assert.match(c.route, /^\/agents\/(user|organization)\/[^/]+\/autonomous-agents\/[^/]+$/, `${c.name}: route ${c.route}`)
+        assert.ok(c.user, `${c.name}: an autonomous agent case must name a user who may instruct it`)
+      } else {
+        assert.ok(c.route.startsWith('/agents/_dev/'), `${c.name}: route ${c.route}`)
+      }
       assert.ok(c.maxTurns >= 2 && c.maxTurns <= 12, `${c.name}: maxTurns ${c.maxTurns}`)
     }
   })

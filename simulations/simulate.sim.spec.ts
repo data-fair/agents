@@ -9,7 +9,6 @@ import { cases } from './cases/index.ts'
 import { seedSettings, assertBridgeUp, OWNER } from './runner/settings.ts'
 import {
   createChatDriver,
-  chatDriverStrings,
   captureGateway,
   nextUserMessage, isDone, resolveUserModel,
   writeEvidence, type Transcript,
@@ -49,15 +48,17 @@ for (const simCase of selected) {
 
       // OWNER, not a literal: seedSettings configures that account, and logging in
       // as anyone else would fail every case with "no provider configured".
-      await goToWithAuth(simCase.route, OWNER.id)
+      // A case may name its own user: one driving an existing autonomous agent needs someone who may
+      // instruct it, which the seeded owner is not.
+      await goToWithAuth(simCase.route, simCase.user ?? OWNER.id)
       const root = simCase.embedded ? page.frameLocator('iframe') : page
-      // Single source of truth for the composer's locale-dependent strings: the
-      // chat driver and the perception's off-limits list must agree on exactly
-      // what "the composer" is called, or the guard could miss it.
+      // The driver owns the composer AND the off-limits list, so the two cannot disagree about what
+      // "the composer" is called — which matters more now that there are two different composers.
       const locale = 'en' as const
-      const strings = chatDriverStrings(locale)
-      const chat = createChatDriver(root, { locale })
-      await root.getByPlaceholder(strings.input).waitFor({ state: 'visible', timeout: 30000 })
+      const chat = createChatDriver(root, { locale, surface: simCase.surface })
+      // Per-surface readiness: the autonomous agent thread page has no composer until a conversation
+      // exists, so the driver owns getting there rather than the runner assuming one shape.
+      await chat.prepare()
 
       // A person sees the whole viewport, not one frame: when the chat is embedded,
       // the persona looks at both the host page and the frame.
@@ -75,7 +76,7 @@ for (const simCase of selected) {
         simCase.embedded
           ? [{ label: 'page', root: page }, { label: 'chat panel', root: page.frameLocator('iframe') }]
           : [{ label: 'page', root: page }],
-        { offLimits: [strings.input, strings.send, strings.stop, strings.reset] }
+        { offLimits: chat.offLimits }
       )
 
       for (let i = 0; i < simCase.maxTurns; i++) {

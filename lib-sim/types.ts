@@ -16,6 +16,16 @@ export type SimulationCase = {
   goal: string
   /** Give up after this many user turns; the judge sees how far it got. */
   maxTurns: number
+  /**
+   * Which surface the persona operates. Defaults to the in-page assistant, so existing cases are
+   * untouched; 'autonomous-agent' drives an autonomous agent's thread page instead.
+   */
+  surface?: 'in-page-chat' | 'autonomous-agent'
+  /**
+   * Who to log in as. Defaults to the account the runner seeds settings for. A case targeting an
+   * existing autonomous agent needs someone who may instruct it, which that account is not.
+   */
+  user?: string
 }
 
 export type Transcript = {

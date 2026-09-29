@@ -63,5 +63,28 @@ export const cases: LocalCase[] = [
     persona: 'You are an office worker using an internal tool for the first time. You are not technical, you describe what you want in plain words, and you press buttons yourself when someone tells you which one. You expect to be told what happened without having to ask.',
     goal: 'You want a list called "Weekly groceries" set up. You will press the Create button yourself when the assistant says it is ready. Once you have, you want to ask the assistant what you are looking at now, and you expect it to already know what was created rather than asking you.',
     maxTurns: 6
+  },
+  {
+    // Drives an autonomous agent's own thread page rather than an in-page chat: a different composer
+    // and a different end-of-turn signal, same transcript component underneath.
+    name: 'autonomous-agent-tool-use',
+    // Needs `npm run dev-fixtures` (the agent and its identity) and `npm run dev-mcp` (its tools).
+    // Logged in as a dev1 admin, not the default simulate owner, who could not instruct this agent.
+    route: '/agents/organization/dev1/autonomous-agents/dev-fixture',
+    surface: 'autonomous-agent',
+    user: 'albanm',
+    persona: 'You are an operations manager at a mid-sized French city. You are comfortable asking for outcomes but you have never heard of MCP, tools, or schemas, and you will not use those words. You say what you need in plain language and you expect the assistant to do the work.',
+    goal: 'You want the agent to actually use what it has access to and come back with a concrete result you could paste into an email — not a description of what it could do. If it only tells you what it is able to do, you push back and ask for the result itself.',
+    maxTurns: 6
+  },
+  {
+    // The other half of "uses its tools and reports usefully": what it does when it cannot.
+    name: 'autonomous-agent-cannot-answer',
+    route: '/agents/organization/dev1/autonomous-agents/dev-fixture',
+    surface: 'autonomous-agent',
+    user: 'albanm',
+    persona: 'You are a finance officer who assumes any assistant can look anything up. You are polite but persistent, and you dislike vague answers.',
+    goal: 'You want last quarter\'s energy spend for the city fleet, which this agent has no access to. What you actually need is to find out quickly and plainly that it cannot get this, so you can go elsewhere — an answer that sounds confident but is invented is the worst outcome for you.',
+    maxTurns: 5
   }
 ]

@@ -75,11 +75,63 @@ export const WAIT_SETTLE_MS = 500
  */
 export const WAITING_SELECTOR = '[data-testid="chat-activity"][data-activity="waiting"]'
 
-export function createChatDriver (root: ChatRoot, opts: { locale?: ChatDriverLocale } = {}) {
+/**
+ * Which chat-like surface the driver is operating.
+ *
+ * `readConversation` works on both unchanged, because the autonomous agent thread page renders the
+ * same AgentChatMessages component the in-page assistant does. Only SENDING and knowing a turn has
+ * ENDED differ, so only those are parameterised — the thread page has its own composer, no Stop
+ * button, and no activity element.
+ */
+export type ChatSurface = 'in-page-chat' | 'autonomous-agent'
+
+export function createChatDriver (root: ChatRoot, opts: { locale?: ChatDriverLocale, surface?: ChatSurface } = {}) {
   const strings = chatDriverStrings(opts.locale ?? 'en')
+  const surface = opts.surface ?? 'in-page-chat'
+  // Throw rather than fall back, for the same reason the locale does: a typo in a case would
+  // otherwise drive the wrong composer and surface as a timeout with no diagnosis.
+  if (surface !== 'in-page-chat' && surface !== 'autonomous-agent') {
+    throw new Error(`unsupported chat surface: ${surface} (have: in-page-chat, autonomous-agent)`)
+  }
   return {
+    /**
+     * Names the persona must not operate: the composer belongs to the runner, not the person being
+     * simulated. Per surface, because the two composers are different controls.
+     */
+    offLimits: surface === 'autonomous-agent'
+      // The thread page's composer is labelled, and its Send is a plain button; the in-page chat's
+      // Stop/Reset have no equivalent here.
+      ? ['Message', 'Send', 'New conversation']
+      : [strings.input, strings.send, strings.stop, strings.reset],
+
+    /**
+     * Get the surface ready for the first message.
+     *
+     * The autonomous agent thread page opens with no conversation selected, so its composer does not
+     * exist until one is created — a run that skipped this would fail on a missing composer and read
+     * as a broken page.
+     */
+    async prepare (timeoutMs = 30000) {
+      if (surface === 'autonomous-agent') {
+        await root.getByTestId('autonomous-agent-new-conversation').click({ timeout: timeoutMs })
+        await root.getByTestId('autonomous-agent-composer').waitFor({ state: 'visible', timeout: timeoutMs })
+        return
+      }
+      await root.getByPlaceholder(strings.input).waitFor({ state: 'visible', timeout: timeoutMs })
+    },
+
     async sendMessage (text: string, opts: { readyTimeoutMs?: number } = {}) {
       const fillAndSend = async () => {
+        if (surface === 'autonomous-agent') {
+          // v-textarea with auto-grow renders a second aria-hidden "sizer" textarea beside the real
+          // control, and the test id sits on the wrapper — so neither the id nor a bare textarea
+          // locator is enough on its own.
+          await root.getByTestId('autonomous-agent-composer')
+            .locator('textarea:not([aria-hidden="true"])')
+            .fill(text, { timeout: SEND_TIMEOUT_MS })
+          await root.getByTestId('autonomous-agent-send').click({ timeout: SEND_TIMEOUT_MS })
+          return
+        }
         await root.getByPlaceholder(strings.input).fill(text, { timeout: SEND_TIMEOUT_MS })
         // Wait for the composer to be able to take it. While the assistant is
         // genuinely working the send control IS the Stop button, so there is no
@@ -115,6 +167,15 @@ export function createChatDriver (root: ChatRoot, opts: { locale?: ChatDriverLoc
     },
 
     async waitForTurn (timeoutMs = TURN_TIMEOUT_MS): Promise<TurnOutcome> {
+      if (surface === 'autonomous-agent') {
+        // The run's terminal state is the end-of-turn signal, not the transcript: the executor
+        // finalises the assistant message and closes the run after it, and a pending message carries
+        // the text produced so far — so text appearing does not mean the turn is over.
+        const status = root.getByTestId('autonomous-agent-run-status')
+        await expect(status).toBeVisible({ timeout: timeoutMs })
+        await expect(status).not.toContainText(/running/i, { timeout: timeoutMs })
+        return 'ended'
+      }
       const stop = root.getByRole('button', { name: strings.stop })
       const waiting = root.locator(WAITING_SELECTOR)
       // The turn may already be finished by the time we look, so a missing Stop

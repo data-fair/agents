@@ -115,6 +115,40 @@ test.describe('Autonomous agents configuration', () => {
     await expect(page.getByRole('option', { name: /dev-public-mcp|Dev Public MCP/ })).toBeVisible()
   })
 
+  test('the whole journey: create, open its thread, instruct it, see the answer', async ({ page, goToWithAuth }) => {
+    // What only an end-to-end flow can show: that the pieces connect. Each is covered on its own
+    // above; this asserts an admin can get from an empty organization to an answered question without
+    // touching the API, following the same links a person would.
+    //
+    // One dev-only detour, at the one step this environment cannot do: giving the agent its identity.
+    // simple-directory's NHI management is mongo-only, so the UI's Enrol button fails locally (see the
+    // test above, which pins that failure being reported). The seam stands in for it here so the rest
+    // of the journey is exercised rather than blocked.
+    await goToWithAuth('/agents/organization/test1', 'superadmin', asSuperAdmin)
+
+    await page.getByTestId('autonomous-agents-add').click({ timeout: 20000 })
+    await page.getByRole('textbox', { name: 'Name' }).fill('Journey agent')
+    await page.getByRole('textbox', { name: 'Persona' }).fill('You answer briefly.')
+    await page.getByTestId('autonomous-agent-save').click()
+    await expect(page.getByTestId('autonomous-agent-list')).toContainText('Journey agent')
+
+    const listed = (await admin.get('/api/autonomous-agents/organization/test1')).data.results
+    const journeyAgent = listed.find((agent: any) => agent.title === 'Journey agent')
+    expect(journeyAgent).toBeTruthy()
+    await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: journeyAgent.id })
+
+    // Follow the link a person would, rather than navigating by url.
+    await page.reload()
+    await page.getByTestId('autonomous-agent-list').getByRole('link', { name: 'Open' }).first().click()
+
+    await page.getByTestId('autonomous-agent-new-conversation').click({ timeout: 20000 })
+    await page.getByTestId('autonomous-agent-composer').locator('textarea:not([aria-hidden="true"])').fill('hello')
+    await page.getByTestId('autonomous-agent-send').click()
+
+    await expect(page.getByTestId('autonomous-agent-transcript')).toContainText('world', { timeout: 15000 })
+    await expect(page.getByTestId('autonomous-agent-run-status')).toContainText(/done/i)
+  })
+
   test('an org admin without admin mode is not offered the configuration form', async ({ page, goToWithAuth }) => {
     // The rollout gate means the API would refuse every save; offering the form anyway would be a
     // UI that cannot work. The section still explains itself rather than vanishing silently.
