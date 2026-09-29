@@ -28,10 +28,19 @@ export default {
   // base..base+22, so any literal port is free on one checkout and taken on another (and in
   // CI). +30 sits clear of that range. The test computes the same expression.
   mcpServers: (() => {
+    // +30 belongs to the TEST fixture, which each spec starts and stops itself. +31 belongs to the
+    // long-running `npm run dev-mcp`, used for manual review and by the dev fixtures. They are
+    // deliberately separate: they would otherwise fight over one port, and since dev-mcp is part of
+    // the zellij layout that would make the api suite unrunnable in a normal dev session.
     const fixtureUrl = `http://localhost:${Number(process.env.NGINX_PORT) + 30}/mcp`
+    const reviewUrl = `http://localhost:${Number(process.env.NGINX_PORT) + 31}/mcp`
     return [
       { id: 'dev-public-mcp', name: 'Dev Public MCP', url: fixtureUrl, auth: 'none' },
       { id: 'dev-session-mcp', name: 'Dev Session MCP', url: fixtureUrl, auth: 'nhi-session' },
+      // Served by `npm run dev-mcp`, so a seeded autonomous agent keeps working while a human
+      // reviews the UI and posts new messages.
+      { id: 'dev-review-mcp', name: 'Dev Review MCP', url: reviewUrl, auth: 'none' },
+      { id: 'dev-review-session-mcp', name: 'Dev Review MCP (as the agent)', url: reviewUrl, auth: 'nhi-session' },
       // Only entry that carries a credential — needed so the "no credentials in the
       // catalog" api test actually exercises the apiKey-stripping path instead of
       // trivially passing because no configured entry ever had a key to leak.

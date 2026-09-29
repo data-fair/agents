@@ -30,6 +30,19 @@ Log files are in `dev/logs/`:
 
 Use `tail -n 50 dev/logs/<file>` to see recent output, or `grep -i error dev/logs/<file>` to find errors.
 
+### The dev MCP server
+
+`npm run dev-mcp` serves the `dev-review-*-mcp` entries of the MCP catalog (`api/config/development.js`),
+on `NGINX_PORT + 31` (the test fixture owns +30, and each spec starts and stops its own). It is part of the `npm run dev-zellij` layout, so a normal dev session already
+has it, and `dev/status.sh` probes it.
+
+It reuses `tests/support/mcp-fixture.ts` rather than defining a second server, so what you exercise
+by hand is exactly what the suite exercises: tools `echo`, `get_schema` and `ignored`.
+
+Only autonomous agents need it. Without it, an agent wired to one of those catalog entries fails with
+a 502 the moment it gathers its tools — the seeded dev fixtures can then be read but not used, which
+is a confusing way to discover this is not running.
+
 ### Running on Claude Code models
 
 `npm run dev-bridge` starts a local OpenAI-compatible server (default port 3194, override

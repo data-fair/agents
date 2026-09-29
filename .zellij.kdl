@@ -26,6 +26,13 @@ layout {
         command "bash"
         args "-ic" "nvm use > /dev/null 2>&1 && npm run dev-bridge"
       }
+      // Serves the dev-*-mcp catalog entries. Without it an autonomous agent wired to one of
+      // them fails with a 502 when it gathers its tools, so the seeded fixtures can be read
+      // but not used. Reuses the same server the test suite runs.
+      pane name="mcp" {
+        command "bash"
+        args "-ic" "nvm use > /dev/null 2>&1 && npm run dev-mcp"
+      }
     }
     pane size=2 borderless=true {
         command "bash"
