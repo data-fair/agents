@@ -34,6 +34,11 @@ services:
   #####
 
   simple-directory:
+    # Needs the readonly guard on the NHI exchange's updateLogged call (merged upstream): without it
+    # FileStorage's SYNCHRONOUS throw propagates as a 500 and an NHI can never obtain a session under
+    # file storage, which is what the autonomous-agent fixture NHIs need. If the two exchange tests in
+    # tests/features/autonomous-agents/nhi-exchange.api.spec.ts start failing with a 500 from the token
+    # exchange, this image predates that fix — `docker compose pull simple-directory`.
     image: ghcr.io/data-fair/simple-directory:master
     network_mode: host
     depends_on:
