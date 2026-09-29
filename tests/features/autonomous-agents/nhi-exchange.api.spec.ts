@@ -50,11 +50,66 @@ test.describe('NHI exchange', () => {
     // OIDC discovery against our own issuer, and JWKS verification all agree.
     const session = await admin.get('/api/autonomous-agents/organization/test1/test-fixture/session')
     assert.equal(session.status, 200)
-    const described = JSON.stringify(session.data)
-    assert.match(described, /test-autonomous-agent-nhi/, `expected the NHI's identity, got ${described}`)
-    // and nothing that could authenticate anyone
-    assert.equal(described.includes('id_token'), false, 'a session cookie must never reach a caller')
-    assert.equal(described.includes('assertion'), false)
+    // Asserted field by field, not as a regex over the serialised object: a loose match is satisfied
+    // by the id turning up in `userName`, and says nothing about the two claims that actually carry
+    // the meaning here.
+    assert.equal(session.data.userId, 'test-autonomous-agent-nhi')
+    assert.equal(session.data.organization, 'test1')
+    // The one claim distinguishing this from any ordinary user session.
+    assert.equal(session.data.nhi, true, 'the session must be a non-human-identity session')
+    // simple-directory caps the session at min(assertion.exp, 30m), and we request a 300s assertion —
+    // the inequality the cache's refresh logic is built on (see nhi/service.ts).
+    assert.ok(
+      session.data.expiresIn > 0 && session.data.expiresIn <= 300,
+      `session must be capped by the assertion ttl, got ${session.data.expiresIn}`
+    )
+    // No secret reaches the caller. describeAutonomousAgentSession returns only decoded claims, so
+    // these guard against it ever being widened to pass the cookie or the assertion through.
+    assert.deepEqual(
+      Object.keys(session.data).sort(),
+      ['expiresIn', 'nhi', 'organization', 'userId', 'userName'],
+      'a new key on this response must be reviewed: the cookie and the assertion must never be among them'
+    )
+  })
+
+  test('a client-supplied nhi.siteUrl / nhi.issuer is discarded, not trusted', async () => {
+    // Restored: it was dropped along with the skipped test it sat beside, although it never depended
+    // on that skip and was passing. `readOnly` is only a form hint — ajv does not enforce it, and
+    // siteUrl/issuer are KNOWN keys so additionalProperties: false does not reject them either. The
+    // write routes must therefore overwrite both from reqSiteUrl(req) on every write. Without this
+    // test the only thing standing between an admin and an attacker-chosen issuer is a comment.
+    //
+    // It has to prove the point through the REJECTION rather than a successful create: the fixture
+    // identity's subject is pinned to `autonomous-agent:test-fixture`, so it can only ever be used by
+    // an agent with that exact id, while this route generates its own. The rejection is itself the
+    // proof — verification ran against the SERVER-captured issuer, never the supplied one.
+    //
+    // Deliberately a hard assert.rejects rather than a `.catch(err => err)` / `if (stored)` pattern:
+    // that is exactly what let this test decay into zero assertions once before.
+    await assert.rejects(
+      admin.post(throughNginx('/api/autonomous-agents/organization/test1'), {
+        title: 'Injection probe',
+        persona: 'x',
+        mcpServers: [],
+        toolDisclosure: 'static',
+        enabled: true,
+        nhi: { clientId: 'nhi-whatever', siteUrl: 'https://attacker.example', issuer: 'https://attacker.example/agents/api/nhi' }
+      }),
+      (err: any) => {
+        assert.equal(err.status, 400)
+        const errText = JSON.stringify(err.data)
+        assert.match(errText, /could not be verified/)
+        // the identity named in the error is the SERVER-captured one, never the supplied siteUrl/issuer
+        assert.match(errText, /\/agents\/api\/nhi/)
+        assert.equal(errText.includes('attacker.example'), false)
+        return true
+      }
+    )
+
+    // and no autonomous agent with that title was persisted
+    const list = await admin.get('/api/autonomous-agents/organization/test1')
+    assert.equal(list.data.results.find((a: any) => a.title === 'Injection probe'), undefined)
+    assert.equal(JSON.stringify(list.data).includes('attacker.example'), false)
   })
 
   test('an empty nhi.clientId is rejected, and cannot smuggle siteUrl/issuer through', async () => {

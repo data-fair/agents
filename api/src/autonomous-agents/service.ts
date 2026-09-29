@@ -63,7 +63,13 @@ export const describeAutonomousAgentSession = async (autonomousAgent: EnrolledAu
   return {
     userId: claims.id,
     userName: claims.name,
-    organization: claims.organization?.id,
+    // From `organizations`, NOT a singular `organization` claim — there is no such claim in the
+    // id_token (simple-directory's getTokenPayload builds `organizations`, and the ACTIVE org travels
+    // in the separate id_token_org cookie, which decodeSessionClaims does not read). Reading
+    // `claims.organization?.id` left this permanently undefined, i.e. the one field telling an admin
+    // which organization the agent acts in was always blank. Taking [0] is exact rather than a guess:
+    // the NHI token route refuses any identity whose `organizations.length !== 1`.
+    organization: claims.organizations?.[0]?.id,
     nhi: claims.nhi === 1 || claims.nhi === true,
     expiresIn: typeof claims.exp === 'number' ? Math.max(0, claims.exp - Math.floor(Date.now() / 1000)) : undefined
   }

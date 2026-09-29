@@ -12,6 +12,7 @@ import autonomousAgentRuntimeRouter, { runsRouter as autonomousAgentRunsRouter }
 import { sweepInterruptedRuns } from './autonomous-agent-runtime/executor.ts'
 import locks from '@data-fair/lib-node/locks.js'
 import nhiRouter from './nhi/router.ts'
+import { clearAutonomousAgentSession } from './nhi/service.ts'
 import summaryRouter from './summary/router.ts'
 import gatewayRouter from './gateway/router.ts'
 import usageRouter from './usage/router.ts'
@@ -67,6 +68,12 @@ if (process.env.NODE_ENV === 'development') {
     await mongo.db.collection('moderation-events').deleteMany({ 'owner.id': /^test/ })
     await mongo.db.collection('moderation-strikes').deleteMany({ 'owner.id': /^test/ })
     await mongo.db.collection('limits').deleteMany({ id: /^test/ })
+    // The NHI session cache is in-process and keyed by AGENT ID alone, so deleting the documents is
+    // not enough: a later spec re-creating the same id would be served the cookie obtained for the
+    // previous one, silently skipping the exchange it means to test.
+    for (const agent of await mongo.db.collection('autonomous-agents').find({ 'owner.id': /^test/ }, { projection: { id: 1 } }).toArray()) {
+      clearAutonomousAgentSession(agent.id as string)
+    }
     await mongo.db.collection('autonomous-agents').deleteMany({ 'owner.id': /^test/ })
     await mongo.db.collection('autonomous-agent-conversations').deleteMany({ 'owner.id': /^test/ })
     await mongo.db.collection('autonomous-agent-messages').deleteMany({ 'owner.id': /^test/ })
@@ -101,6 +108,14 @@ if (process.env.NODE_ENV === 'development') {
    * that field from the request and needs an x-forwarded-host the direct clients do not send.
    *
    * Pass the FIXTURE client id (see dev/resources/users.template.json) for a real exchange.
+   *
+   * UNAUTHENTICATED, like every seam in this block, and unreachable outside development (the
+   * NODE_ENV guard above, with the /api 404 catch-all after it). Worth stating plainly because this
+   * one is a step up from the others: it binds a REAL non-human identity, so any local caller that can
+   * reach this port can bind an existing NHI to an agent they then instruct, and so borrow that
+   * identity's simple-directory session. The placeholder seam below only ever writes a fake. That is
+   * acceptable for a dev stack whose simple-directory holds only fixture identities; it would not be
+   * if this block ever ran anywhere else.
    */
   app.post('/api/test-env/autonomous-agent', async (req, res) => {
     const now = new Date().toISOString()
@@ -118,6 +133,11 @@ if (process.env.NODE_ENV === 'development') {
       updatedAt: now
     }
     await mongo.autonomousAgents.replaceOne({ id: doc.id }, doc, { upsert: true })
+    // This can change nhi.clientId/siteUrl/issuer for an id another spec already exchanged for, and
+    // the cache keyed on the id alone would then serve that stale cookie for ~240s — so the test
+    // whose whole point is to perform a real exchange would silently not perform one, and would keep
+    // passing with the issuer or the audience broken. Same reason assertEnrolmentWorks clears first.
+    clearAutonomousAgentSession(doc.id)
     res.json(doc)
   })
   /**

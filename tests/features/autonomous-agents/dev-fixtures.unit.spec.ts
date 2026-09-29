@@ -65,6 +65,57 @@ test.describe('dev NHI fixtures', () => {
     }
   })
 
+  test('every consumer pairs an NHI with the agent id that NHI\'s subject pins', () => {
+    // THE coupling everything here rests on, and the one nothing pinned: an NHI's subject is fixed in
+    // the template, our assertions derive the subject from the agent's id, and simple-directory
+    // answers a mismatch with the same uniform 401 as every other misconfiguration. Renaming
+    // AUTONOMOUS_AGENT_ID (or editing a subject) therefore broke `npm run dev-fixtures` and the specs
+    // at their first tool call with nothing pointing at the cause, while every test still passed —
+    // AGENTS.md claimed this file enforced it, and it only checked the SHAPE, deriving the agent id
+    // from the subject it was checking.
+    //
+    // Read from the consumers' source rather than restated, for the same reason the chat driver's
+    // selectors are: a copy here would drift with them and prove nothing.
+    const subjectOf = (nhiUserId: string) => {
+      const user = users.find(u => u.id === nhiUserId)
+      assert.ok(user, `no fixture NHI ${nhiUserId} in users.template.json`)
+      return user.nhi?.subject
+    }
+
+    // 1. dev/fixtures.ts — the pair `npm run dev-fixtures` uses.
+    const fixtures = readFileSync('dev/fixtures.ts', 'utf8')
+    const devAgentId = fixtures.match(/AUTONOMOUS_AGENT_ID\s*=\s*'([^']+)'/)?.[1]
+    const devNhi = fixtures.match(/AUTONOMOUS_AGENT_NHI\s*=\s*'([^']+)'/)?.[1]
+    assert.ok(devAgentId && devNhi, 'dev/fixtures.ts must still declare AUTONOMOUS_AGENT_ID and AUTONOMOUS_AGENT_NHI')
+    assert.equal(
+      subjectOf(devNhi), autonomousAgentSubject(devAgentId),
+      `dev/fixtures.ts pairs ${devNhi} with agent id ${devAgentId}, so that NHI's subject must be ${autonomousAgentSubject(devAgentId)}`
+    )
+
+    // 2. every spec that creates an agent through the dev seam with a chosen id.
+    const specs = [
+      'tests/features/autonomous-agents/mcp-tools.api.spec.ts',
+      'tests/features/autonomous-agents/nhi-exchange.api.spec.ts',
+      'tests/features/autonomous-agents/autonomous-agents.e2e.spec.ts'
+    ]
+    let checked = 0
+    for (const spec of specs) {
+      const source = readFileSync(spec, 'utf8')
+      assert.match(source, /test-env\/autonomous-agent/, `${spec} no longer calls the seam — update this list`)
+      // Each seam call names both, within a few lines of each other.
+      for (const call of source.matchAll(/id:\s*'([^']+)'[\s\S]{0,400}?clientId:\s*'([^']+)'/g)) {
+        const [, agentId, clientId] = call
+        if (!clientId.endsWith('-autonomous-agent-nhi')) continue
+        assert.equal(
+          subjectOf(clientId), autonomousAgentSubject(agentId),
+          `${spec} pairs ${clientId} with agent id ${agentId}, so that NHI's subject must be ${autonomousAgentSubject(agentId)}`
+        )
+        checked++
+      }
+    }
+    assert.ok(checked >= specs.length, `expected a seam pairing in each of ${specs.length} specs, found ${checked}`)
+  })
+
   test('each subject has the shape our assertions actually sign', () => {
     // The subject is pinned per NHI and ours is strictly derived from the agent id, so a fixture
     // whose subject does not follow that shape can never be matched by any agent.
