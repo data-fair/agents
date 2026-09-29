@@ -13,6 +13,7 @@ declare global {
   const $fetch: typeof import('~/context').$fetch
   const $sitePath: typeof import('~/context').$sitePath
   const $uiConfig: typeof import('~/context').$uiConfig
+  const AUTONOMOUS_AGENT_WRITABLE_KEYS: typeof import('../src/utils/autonomous-agent-draft').AUTONOMOUS_AGENT_WRITABLE_KEYS
   const CHARS_PER_TOKEN: typeof import('../src/utils/compaction-policy').CHARS_PER_TOKEN
   const DEFAULT_FLAGS: typeof import('../src/utils/agent-flags').DEFAULT_FLAGS
   const DEFAULT_REFUSAL: typeof import('../src/composables/moderation')['DEFAULT_REFUSAL']
@@ -47,6 +48,7 @@ declare global {
   const appendHostEvents: typeof import('../src/composables/host-events').appendHostEvents
   const appendStreamingCaret: typeof import('../src/utils/markdown').appendStreamingCaret
   const applyStreamPart: typeof import('../src/composables/agent-stream-parts').applyStreamPart
+  const autonomousAgentEditDraft: typeof import('../src/utils/autonomous-agent-draft').autonomousAgentEditDraft
   const breadcrumbs: typeof import('../src/utils/breadcrumbs').default
   const breakdownDatasets: typeof import('../src/utils/usage-breakdown').breakdownDatasets
   const buildMermaidThemeVariables: typeof import('../src/utils/mermaid').buildMermaidThemeVariables
@@ -78,6 +80,7 @@ declare global {
   const dfUiNotifAlert: typeof import('@data-fair/lib-vuetify/ui-notif-alert.vue')['default']
   const dfUserAvatar: typeof import('@data-fair/lib-vuetify/ui-user-avatar.vue')['default']
   const effectScope: typeof import('vue').effectScope
+  const enrolmentErrorMessage: typeof import('../src/utils/autonomous-agent-enrolment-error').enrolmentErrorMessage
   const estimateMessageTokens: typeof import('../src/utils/compaction-policy').estimateMessageTokens
   const estimateTokens: typeof import('../src/utils/compaction-policy').estimateTokens
   const extractErrorMessage: typeof import('../src/utils/error').extractErrorMessage
@@ -169,6 +172,7 @@ declare global {
   const useAsyncAction: typeof import('@data-fair/lib-vue/async-action.js').useAsyncAction
   const useAttrs: typeof import('vue').useAttrs
   const useAutonomousAgentConversation: typeof import('../src/composables/use-autonomous-agent-conversation').useAutonomousAgentConversation
+  const useAutonomousAgentEnrolment: typeof import('../src/composables/use-autonomous-agent-enrolment').useAutonomousAgentEnrolment
   const useBooleanSearchParam: typeof import('@data-fair/lib-vue/reactive-search-params.js').useBooleanSearchParam
   const useConceptFilters: typeof import('@data-fair/lib-vue/concept-filters.js').useConceptFilters
   const useCssModule: typeof import('vue').useCssModule
@@ -253,6 +257,9 @@ declare global {
   export type { AutonomousAgentConversationOptions } from '../src/composables/use-autonomous-agent-conversation'
   import('../src/composables/use-autonomous-agent-conversation')
   // @ts-ignore
+  export type { OrgNhi } from '../src/composables/use-autonomous-agent-enrolment'
+  import('../src/composables/use-autonomous-agent-enrolment')
+  // @ts-ignore
   export type { SettingsFormParams } from '../src/composables/use-settings-form'
   import('../src/composables/use-settings-form')
 }
@@ -267,6 +274,7 @@ declare module 'vue' {
     readonly $fetch: UnwrapRef<typeof import('~/context')['$fetch']>
     readonly $sitePath: UnwrapRef<typeof import('~/context')['$sitePath']>
     readonly $uiConfig: UnwrapRef<typeof import('~/context')['$uiConfig']>
+    readonly AUTONOMOUS_AGENT_WRITABLE_KEYS: UnwrapRef<typeof import('../src/utils/autonomous-agent-draft')['AUTONOMOUS_AGENT_WRITABLE_KEYS']>
     readonly DEFAULT_FLAGS: UnwrapRef<typeof import('../src/utils/agent-flags')['DEFAULT_FLAGS']>
     readonly EffectScope: UnwrapRef<typeof import('vue')['EffectScope']>
     readonly FLAGS_COOKIE: UnwrapRef<typeof import('../src/utils/agent-flags')['FLAGS_COOKIE']>
@@ -286,6 +294,7 @@ declare module 'vue' {
     readonly activityLabelKey: UnwrapRef<typeof import('../src/composables/agent-activity')['activityLabelKey']>
     readonly appendHostEvents: UnwrapRef<typeof import('../src/composables/host-events')['appendHostEvents']>
     readonly appendStreamingCaret: UnwrapRef<typeof import('../src/utils/markdown')['appendStreamingCaret']>
+    readonly autonomousAgentEditDraft: UnwrapRef<typeof import('../src/utils/autonomous-agent-draft')['autonomousAgentEditDraft']>
     readonly breadcrumbs: UnwrapRef<typeof import('../src/utils/breadcrumbs')['default']>
     readonly breakdownDatasets: UnwrapRef<typeof import('../src/utils/usage-breakdown')['breakdownDatasets']>
     readonly buildMermaidThemeVariables: UnwrapRef<typeof import('../src/utils/mermaid')['buildMermaidThemeVariables']>
@@ -299,6 +308,7 @@ declare module 'vue' {
     readonly defineAsyncComponent: UnwrapRef<typeof import('vue')['defineAsyncComponent']>
     readonly defineComponent: UnwrapRef<typeof import('vue')['defineComponent']>
     readonly effectScope: UnwrapRef<typeof import('vue')['effectScope']>
+    readonly enrolmentErrorMessage: UnwrapRef<typeof import('../src/utils/autonomous-agent-enrolment-error')['enrolmentErrorMessage']>
     readonly extractErrorMessage: UnwrapRef<typeof import('../src/utils/error')['extractErrorMessage']>
     readonly formatBreakdownValue: UnwrapRef<typeof import('../src/utils/usage-breakdown')['formatBreakdownValue']>
     readonly formatBytes: UnwrapRef<typeof import('@data-fair/lib-vue/format/bytes.js')['formatBytes']>
@@ -373,6 +383,7 @@ declare module 'vue' {
     readonly useAsyncAction: UnwrapRef<typeof import('@data-fair/lib-vue/async-action.js')['useAsyncAction']>
     readonly useAttrs: UnwrapRef<typeof import('vue')['useAttrs']>
     readonly useAutonomousAgentConversation: UnwrapRef<typeof import('../src/composables/use-autonomous-agent-conversation')['useAutonomousAgentConversation']>
+    readonly useAutonomousAgentEnrolment: UnwrapRef<typeof import('../src/composables/use-autonomous-agent-enrolment')['useAutonomousAgentEnrolment']>
     readonly useBooleanSearchParam: UnwrapRef<typeof import('@data-fair/lib-vue/reactive-search-params.js')['useBooleanSearchParam']>
     readonly useConceptFilters: UnwrapRef<typeof import('@data-fair/lib-vue/concept-filters.js')['useConceptFilters']>
     readonly useCssModule: UnwrapRef<typeof import('vue')['useCssModule']>

@@ -82,12 +82,24 @@ test.describe('Autonomous agents configuration', () => {
 
     const dialog = page.locator('.v-overlay--active')
     await expect(dialog.getByTestId('autonomous-agent-enrol-confirm')).toBeVisible()
+
+    // The federation is the thing under test, so pin the request ACTUALLY reaching simple-directory.
+    // Asserting only that some error is displayed passed while the call was being rewritten to
+    // /agents/api/simple-directory/... by $fetch's baseURL and answered by our own /api 404 — the
+    // directory was never contacted, and our 404 body read plausibly like a refusal from it.
+    const nhiRequest = page.waitForRequest(req =>
+      req.url().includes('/simple-directory/api/organizations/test1/nhis') && req.method() === 'POST',
+    { timeout: 20000 })
     await dialog.getByTestId('autonomous-agent-enrol-confirm').click()
+    const sent = await nhiRequest
+    expect(new URL(sent.url()).pathname).toBe('/simple-directory/api/organizations/test1/nhis')
 
     // Whatever simple-directory answers, the admin is told — not left with a spinner that stops and
     // a dialog that does nothing.
     await expect(page.getByTestId('autonomous-agent-enrol-error')).toBeVisible({ timeout: 20000 })
     await expect(page.getByTestId('autonomous-agent-enrol-error')).not.toBeEmpty()
+    // and specifically not our own catch-all, which is what the rewritten URL used to return
+    await expect(page.getByTestId('autonomous-agent-enrol-error')).not.toContainText('unknown api endpoint')
   })
 
   test('an enrolled autonomous agent shows its identity instead of offering to enrol', async ({ page, goToWithAuth }) => {

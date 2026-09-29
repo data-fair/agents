@@ -13,8 +13,21 @@
  */
 
 import { ref } from 'vue'
+import { ofetch } from 'ofetch'
 import { autonomousAgentNhiBody } from '@agents/shared/autonomous-agent-identity'
 import { $apiPath, $fetch, $sdUrl } from '~/context'
+import { autonomousAgentEditDraft } from '~/utils/autonomous-agent-draft'
+import { enrolmentErrorMessage } from '~/utils/autonomous-agent-enrolment-error'
+
+/**
+ * Cross-service calls must NOT go through `$fetch`, which carries `baseURL: $apiPath`. ofetch applies
+ * ufo's `withBase` to every string request, and that only leaves a path alone when it already starts
+ * with the base — so `/simple-directory/api/...` became `/agents/api/simple-directory/api/...` and hit
+ * our own `/api` 404 catch-all. simple-directory was never contacted at all, while the error surfaced
+ * looked plausibly like a refusal from it. Same origin through nginx, so the session cookie applies
+ * either way; only the prefixing has to go.
+ */
+const $crossServiceFetch = ofetch.create({})
 
 export interface OrgNhi {
   id: string
@@ -40,7 +53,7 @@ export function useAutonomousAgentEnrolment (accountType: string, accountId: str
 
   /** Identities already registered for this organization, so an admin can reuse one. */
   const listNhis = async (): Promise<OrgNhi[]> => {
-    const res = await $fetch<OrgNhi[] | { results?: OrgNhi[] }>(nhisUrl, { credentials: 'include' })
+    const res = await $crossServiceFetch<OrgNhi[] | { results?: OrgNhi[] }>(nhisUrl, { credentials: 'include' })
     return Array.isArray(res) ? res : (res.results ?? [])
   }
 
@@ -56,7 +69,7 @@ export function useAutonomousAgentEnrolment (accountType: string, accountId: str
     error.value = null
     try {
       const issuer = await readIssuer()
-      const created = await $fetch<{ id: string }>(nhisUrl, {
+      const created = await $crossServiceFetch<{ id: string }>(nhisUrl, {
         method: 'POST',
         body: autonomousAgentNhiBody({ autonomousAgentId: autonomousAgent.id, title: autonomousAgent.title, issuer, role }),
         credentials: 'include'
@@ -65,7 +78,11 @@ export function useAutonomousAgentEnrolment (accountType: string, accountId: str
     } catch (err: any) {
       // simple-directory's NHI management is mongo-only: on a file-storage deployment createUser
       // throws and this fails. Say so rather than leaving the button apparently inert.
-      error.value = err?.data?.message ?? err?.data ?? err?.message ?? 'unknown error'
+      //
+      // Built so the result can never be EMPTY, which is the same thing as inert to a reader: the
+      // status is always known, while `err.data` can legitimately be '' (a body-less 401/500), and
+      // `?? ` passes an empty string straight through — the dialog then rendered nothing at all.
+      error.value = enrolmentErrorMessage(err)
       throw err
     } finally {
       enrolling.value = false
@@ -82,16 +99,10 @@ export function useAutonomousAgentEnrolment (accountType: string, accountId: str
       method: 'PUT',
       // The write route treats its body as the whole writable document, so the rest must travel with
       // the change or it would be reset.
-      body: {
-        title: current.title,
-        persona: current.persona,
-        instructions: current.instructions,
-        mcpServers: current.mcpServers ?? [],
-        toolDisclosure: current.toolDisclosure,
-        enabled: current.enabled,
-        instructors: current.instructors,
-        nhi: { clientId }
-      },
+      // Built from the same drift-tested projection the edit form uses, then overridden: listing the
+      // writable fields again here would put a second copy outside that test, and a field added to the
+      // schema would be silently wiped by every attach.
+      body: { ...autonomousAgentEditDraft(current), nhi: { clientId } },
       credentials: 'include'
     })
   }
