@@ -44,6 +44,61 @@ const buildMcpServer = (record: (toolName: string) => void): McpServer => {
     async () => { record('get_schema'); return { content: [{ type: 'text', text: '{"fields":[]}' }] } }
   )
   mcp.registerTool(
+    'list_road_closures',
+    // The only tool here that returns DATA. The other three are structural — a string reflector, a
+    // fixed empty schema and a filter target — and with only those, a simulation asking the agent for
+    // a usable result has no reachable answer: a well-behaved agent and a broken one both end at "I
+    // can't do this", which is what the refusal case already covers. Both judges of the first run
+    // reported exactly that, independently.
+    //
+    // Deterministic, and distinctive enough that a paraphrase is detectable: an agent that invents an
+    // answer instead of calling this will not produce "Rue de la Paix" or the 2026-07 dates.
+    {
+      description: 'Lists current road closures for a city district, with reason and expected reopening date',
+      inputSchema: { district: z.string().describe('District name, e.g. "city-center"') }
+    },
+    async ({ district }) => {
+      record('list_road_closures')
+      // Dates are relative to TODAY, not hardcoded. A fixed month goes stale: a simulated user asking
+      // for "current" closures was correctly told by the agent that every row had expired, so the run
+      // spent its turns on the staleness instead of on the reporting the case is about. The agent was
+      // right and the fixture was wrong.
+      const day = (offset: number) => new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10)
+      // `reopens`, not `until`: with `until` the one-day market closure rendered as
+      // "Closed From 2026-10-04 / Reopening 2026-10-04", which is self-contradictory. The ambiguity
+      // (last closed day, or the day it reopens?) was the fixture's, and the agent had to guess.
+      const CLOSURES: Record<string, Array<{ street: string, from: string, reopens: string, reason: string }>> = {
+        'city-center': [
+          { street: 'Rue de la Paix', from: day(-3), reopens: day(11), reason: 'water main replacement' },
+          { street: 'Avenue Foch', from: day(1), reopens: day(3), reason: 'resurfacing' },
+          { street: 'Place du Marche', from: day(5), reopens: day(6), reason: 'weekly market' }
+        ],
+        riverside: [
+          { street: 'Quai des Chartrons', from: day(-1), reopens: day(20), reason: 'bridge inspection' }
+        ]
+      }
+      // The argument SELECTS the rows, and an unknown district returns none.
+      //
+      // Previously `district` was echoed into the payload and otherwise ignored, so every value
+      // returned the same three rows: the case proved the agent called the tool but not that it asked
+      // the right question, and an agent passing "Bellecour" or "" was indistinguishable from a correct
+      // one. Worse, the agent volunteers "let me know if you need another district" — so the next run
+      // would confidently report Rue de la Paix as closed somewhere it is not.
+      const key = String(district ?? '').trim().toLowerCase()
+      const closures = CLOSURES[key] ?? []
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            district,
+            known: key in CLOSURES,
+            closures
+          })
+        }]
+      }
+    }
+  )
+  mcp.registerTool(
     'ignored',
     { description: 'Exists so toolFilter has something to exclude', inputSchema: {} },
     async () => { record('ignored'); return { content: [{ type: 'text', text: 'ignored' }] } }

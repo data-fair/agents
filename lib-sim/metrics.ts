@@ -47,6 +47,12 @@ export type RunMetrics = {
   largestNonLeadPromptModel: string | null
   /** Tool calls issued twice with identical arguments, across every conversation. */
   duplicateToolCalls: number
+  /**
+   * How many tool calls the SERVER recorded (`Transcript.agentToolCalls`), or null when the surface
+   * does not produce them. The gateway-derived counts above are blind on a server-side surface, so
+   * this is the only honest tool-activity figure for an autonomous agent.
+   */
+  agentToolCallCount: number | null
   /** Characters the host injected as `<host-state>` / `<host-events>` blocks;
    *  null for a run recorded before the capture measured them. */
   hostBlockChars: number | null
@@ -146,7 +152,15 @@ export function computeMetrics (transcript: Transcript): RunMetrics {
       : null,
     largestNonLeadPromptChars: biggest ? biggest.lastUserMessage.length : null,
     largestNonLeadPromptModel: biggest ? (biggest.model || null) : null,
-    duplicateToolCalls: conversations.reduce((sum, s) => sum + countDuplicates(finalToolCalls(s)), 0),
+    // Falls back to the SERVER's record when the gateway saw nothing. An autonomous agent executes
+    // server-side, so `gateway` is structurally empty for it and this read 0 for a run with two
+    // byte-identical calls in `agentToolCalls` — a maintainer skimming the sidecar would conclude no
+    // tool was called at all. Every gateway-derived tool metric is a false negative on that surface.
+    duplicateToolCalls: transcript.gateway.length
+      ? conversations.reduce((sum, s) => sum + countDuplicates(finalToolCalls(s)), 0)
+      : countDuplicates((transcript.agentToolCalls ?? []).map(c => ({ name: c.toolName, arguments: c.arguments ?? '' }))),
+    /** Tool calls the SERVER recorded, for surfaces the gateway capture cannot see. */
+    agentToolCallCount: transcript.agentToolCalls?.length ?? null,
     hostBlockChars: measuredHostBlocks
       // Cumulative like the history, so a conversation's last request holds its total.
       ? conversations.reduce((sum, s) => sum + Math.max(0, ...s.map(e => e.hostBlockChars ?? 0)), 0)

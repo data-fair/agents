@@ -3,7 +3,16 @@
  * test runs on a real model.
  */
 
-export const BRIDGE_URL = process.env.BRIDGE_URL ?? 'http://localhost:3194/v1'
+// Derived from the SEEDED BRIDGE_PORT, never a fixed default. dev/init-env.sh randomises the port per
+// worktree precisely so two checkouts cannot collide; a hardcoded 3194 reintroduced the collision in
+// the one place it is least visible — another worktree's bridge answers assertBridgeUp(), the run is
+// recorded valid, and the cases are driven against the wrong process. Fail loudly when it is unset
+// rather than guessing a port that probably belongs to someone else.
+const bridgePort = process.env.BRIDGE_PORT
+export const BRIDGE_URL = process.env.BRIDGE_URL ??
+  (bridgePort
+    ? `http://localhost:${bridgePort}/v1`
+    : (() => { throw new Error('BRIDGE_PORT is not set — simulations load .env via playwright.sim.config.ts, so re-run dev/init-env.sh if it predates the seeded bridge port') })())
 export const OWNER = { type: 'user', id: 'test-standalone1' } as const
 
 const provider = {
@@ -100,12 +109,68 @@ export function splitSettingsBody (body: Record<string, any>): { superadminBody:
   return { superadminBody, orgBody }
 }
 
-export async function seedSettings (assistantModelId: string, toolsModelId: string) {
+export async function seedSettings (assistantModelId: string, toolsModelId: string, owner: { type: string, id: string } = OWNER) {
   const { superAdmin } = await import('../../tests/support/axios.ts')
   const admin = await superAdmin
   const { superadminBody, orgBody } = splitSettingsBody(bridgeSettings(assistantModelId, toolsModelId))
-  await admin.put(`/api/settings/${OWNER.type}/${OWNER.id}`, superadminBody)
-  await admin.put(`/api/settings/${OWNER.type}/${OWNER.id}/org`, orgBody)
+  // Owner-parameterised because a case may drive a surface that belongs to a DIFFERENT account than
+  // the default one. Seeding only OWNER while driving another account is silent and total: that
+  // account keeps whatever mapping it had — for organization/dev1 the dev fixtures' mock model — so
+  // assertBridgeUp() still passes, the run is recorded valid, and the judge grades the mock's
+  // "what do you mean ?" as if it were the product.
+  await admin.put(`/api/settings/${owner.type}/${owner.id}`, superadminBody)
+  await admin.put(`/api/settings/${owner.type}/${owner.id}/org`, orgBody)
+}
+
+/**
+ * The account and autonomous agent a thread-page route addresses, e.g.
+ * `/agents/organization/test1/autonomous-agents/test-fixture`.
+ *
+ * Parsed from the route rather than restated as extra case fields, so the account whose settings get
+ * seeded and the page actually opened cannot disagree.
+ */
+export function parseAutonomousAgentRoute (route: string) {
+  const match = route.match(/^\/agents\/(user|organization)\/([^/]+)\/autonomous-agents\/([^/?#]+)/)
+  if (!match) throw new Error(`an autonomous-agent case's route must look like /agents/organization/<id>/autonomous-agents/<agentId>, got ${route}`)
+  return { owner: { type: match[1], id: match[2] }, autonomousAgentId: match[3] }
+}
+
+/**
+ * Create the autonomous agent a case drives, enrolled with the fixture NHI and granting `instructor`.
+ *
+ * The sim seeds its own rather than relying on `npm run dev-fixtures`: that would be an unstated
+ * prerequisite, it would point the run at organization/dev1 whose settings are deliberately the mock
+ * model, and seeding the bridge over them would break the fixtures a human reviews by hand.
+ *
+ * The NHI's subject is pinned to `autonomous-agent:<agentId>`, so the agent id is not free — it must
+ * be the one the fixture identity names (dev-fixtures.unit.spec.ts pins that pairing).
+ */
+export async function seedAutonomousAgent (route: string, instructorUserId: string) {
+  const { superAdmin } = await import('../../tests/support/axios.ts')
+  const admin = await superAdmin
+  const { owner, autonomousAgentId } = parseAutonomousAgentRoute(route)
+  const siteUrl = `http://localhost:${process.env.NGINX_PORT}`
+  await admin.post('/api/test-env/autonomous-agent', {
+    id: autonomousAgentId,
+    owner,
+    clientId: 'test-autonomous-agent-nhi',
+    siteUrl,
+    issuer: `${siteUrl}/agents/api/nhi`,
+    autonomousAgent: {
+      title: 'Simulated autonomous agent',
+      persona: 'You are a helpful data assistant. You answer briefly and you say plainly when you cannot do something.',
+      instructions: 'Prefer calling a tool over guessing. If a tool fails or you have no tool for what is asked, say so rather than inventing a result.',
+      // The long-running review server (npm run dev-mcp), not the per-spec fixture: a simulation is
+      // not a spec and nothing would be listening on the fixture's port.
+      mcpServers: [{ serverId: 'dev-review-session-mcp' }],
+      toolDisclosure: 'static',
+      // A listed instructor, so the case can be driven by someone who is NOT an org admin — which is
+      // also the only kind of user the login fixture can address here (it derives <id>@test.com).
+      instructors: [{ userId: instructorUserId, userName: instructorUserId }],
+      enabled: true
+    }
+  })
+  return { owner, autonomousAgentId }
 }
 
 /** Fail loudly and early: without the bridge every case dies as an opaque timeout. */
@@ -120,4 +185,51 @@ export async function assertBridgeUp () {
       'Start it with: npm run dev-bridge'
     )
   }
+}
+
+/**
+ * The tool calls the SERVER recorded for this agent's conversations.
+ *
+ * An autonomous agent's model calls never touch the browser, so `captureGateway` — which hooks
+ * `page.on('request')` — records nothing for this surface: `modelRequests: 0` and an empty tool-call
+ * list are structural, not a finding about the product. Read the stored messages instead, which carry
+ * `toolName`/`arguments`/`failed` exactly so a run is auditable after the fact.
+ *
+ * Without this the judge can only take the assistant's prose for which tools it called — the
+ * unverifiable claim the harness exists to check.
+ */
+export async function readAutonomousAgentToolCalls (route: string) {
+  const { superAdmin } = await import('../../tests/support/axios.ts')
+  const admin = await superAdmin
+  const { owner, autonomousAgentId } = parseAutonomousAgentRoute(route)
+  const base = `/api/autonomous-agent-conversations/${owner.type}/${owner.id}`
+  const conversations = (await admin.get(`${base}?autonomousAgentId=${autonomousAgentId}`)).data.results as any[]
+  const calls: Array<{ toolName: string, arguments?: string, serverId?: string, failed?: boolean, error?: string }> = []
+  for (const conversation of conversations) {
+    const messages = (await admin.get(`${base}/${conversation.id}/messages`)).data.results as any[]
+    // Read from the ordered PARTS, joining each call to its result. The failure now lives on the
+    // result — the model was handed the error as the tool's answer — so a reader that only looked at
+    // calls would report every call as successful. An earlier version of this read `message.toolCalls`,
+    // which the storage model replaced, and silently reported zero tool calls for a run that made
+    // several: the evidence looked like a finding about the agent when it was a bug here.
+    for (const message of messages) {
+      const parts = (message.parts ?? []) as any[]
+      const resultFor = new Map<string, any>()
+      for (const part of parts) {
+        if (part.type === 'tool-result' && part.toolCallId) resultFor.set(part.toolCallId, part)
+      }
+      for (const part of parts) {
+        if (part.type !== 'tool-call') continue
+        const result = part.toolCallId ? resultFor.get(part.toolCallId) : undefined
+        calls.push({
+          toolName: part.toolName,
+          arguments: part.arguments,
+          serverId: part.serverId,
+          failed: result?.failed,
+          error: result?.error
+        })
+      }
+    }
+  }
+  return calls
 }

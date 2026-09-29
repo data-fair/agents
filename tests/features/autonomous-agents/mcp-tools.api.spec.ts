@@ -25,7 +25,7 @@ test.describe('Autonomous agent tools', () => {
     const res = await admin.get(`/api/autonomous-agents/organization/test1/${created.data.id}/tools`)
     assert.equal(res.status, 200)
     const names = res.data.results.map((t: any) => t.name).sort()
-    assert.deepEqual(names, ['echo', 'get_schema', 'ignored'])
+    assert.deepEqual(names, ['echo', 'get_schema', 'ignored', 'list_road_closures'])
     assert.equal(res.data.results.find((t: any) => t.name === 'echo').server, 'dev-public-mcp')
   })
 
@@ -35,6 +35,9 @@ test.describe('Autonomous agent tools', () => {
     assert.deepEqual(res.data.results.map((t: any) => t.name), ['echo'])
   })
 
+  // Also the contrast that makes the session test below meaningful: a client that always sent a cookie
+  // would fail HERE, on `cookie === undefined` — which is stricter than checking the cookie merely
+  // lacks an id_token, so no separate test is needed for that.
   test('a public server receives no credential', async () => {
     const created = await admin.post('/api/autonomous-agents/organization/test1', agentBody())
     await admin.get(`/api/autonomous-agents/organization/test1/${created.data.id}/tools`)
@@ -77,13 +80,6 @@ test.describe('Autonomous agent tools', () => {
     // and nothing that could mint another one
     assert.equal(JSON.stringify(res.data).includes('id_token'), false)
     assert.equal(cookie.includes('assertion'), false)
-  })
-
-  test('a public server is called WITHOUT a session, so the two auth modes are distinguishable', async () => {
-    // Without this the cookie assertion above would pass for a client that simply always sends one.
-    const created = await admin.post('/api/autonomous-agents/organization/test1', agentBody({ mcpServers: [{ serverId: 'dev-public-mcp' }] }))
-    await admin.get(`/api/autonomous-agents/organization/test1/${created.data.id}/tools`)
-    assert.equal(String(fixture.lastHeaders().cookie ?? '').includes('id_token'), false)
   })
 
   test('a session server with no enrolled identity is refused rather than called anonymously', async () => {

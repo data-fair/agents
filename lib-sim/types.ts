@@ -37,6 +37,27 @@ export type Transcript = {
   gateway: GatewayExchange[]
   consoleErrors: string[]
   observations: Observation[]
+  /**
+   * Tool calls as the SERVER recorded them, for surfaces whose model calls do not pass through the
+   * browser.
+   *
+   * `gateway` is captured with `page.on('request')`, so it sees everything for the in-page chat — where
+   * the browser talks to the gateway — and NOTHING for an autonomous agent, whose executor runs
+   * server-side. Without this the judge could only take the assistant's word for which tools it called,
+   * which is precisely the unverifiable claim this harness exists to check.
+   */
+  agentToolCalls?: Array<{
+    toolName: string
+    arguments?: string
+    serverId?: string
+    failed?: boolean
+    error?: string
+    // NOTE: the tool's RESULT is deliberately absent, because the server does not persist it — the
+    // stored message records only the call, its arguments and whether it failed. So "does what the
+    // agent reported match what the tool returned" still has to be checked against the fixture's own
+    // source. Keep fixture outputs deterministic and distinctive for that reason; the road-closure
+    // fixture's named streets and computed dates are what make that check possible at all.
+  }>
 }
 
 export type RunSidecar = {

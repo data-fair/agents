@@ -6,7 +6,7 @@
  */
 import { test } from '../tests/fixtures/login.ts'
 import { cases } from './cases/index.ts'
-import { seedSettings, assertBridgeUp, OWNER } from './runner/settings.ts'
+import { seedSettings, assertBridgeUp, seedAutonomousAgent, parseAutonomousAgentRoute, readAutonomousAgentToolCalls, OWNER } from './runner/settings.ts'
 import {
   createChatDriver,
   captureGateway,
@@ -44,13 +44,25 @@ for (const simCase of selected) {
       // mistaken for this run's result.
       await assertBridgeUp()
       await clean()
-      await seedSettings(ASSISTANT_MODEL, TOOLS_MODEL)
+      // An autonomous-agent case drives a thread that belongs to an ORGANIZATION, so the account whose
+      // settings must point at the bridge is that one — not OWNER. Both are derived from the case's
+      // own route, so the account configured and the page opened cannot drift apart.
+      const user = simCase.user ?? OWNER.id
+      if (simCase.surface === 'autonomous-agent') {
+        const { owner } = parseAutonomousAgentRoute(simCase.route)
+        await seedSettings(ASSISTANT_MODEL, TOOLS_MODEL, owner)
+        // Seeded here rather than assumed present: `npm run dev-fixtures` would be an unstated
+        // prerequisite, and its agent lives on an account deliberately wired to the mock model.
+        await seedAutonomousAgent(simCase.route, user)
+      } else {
+        await seedSettings(ASSISTANT_MODEL, TOOLS_MODEL)
+      }
 
       // OWNER, not a literal: seedSettings configures that account, and logging in
       // as anyone else would fail every case with "no provider configured".
       // A case may name its own user: one driving an existing autonomous agent needs someone who may
       // instruct it, which the seeded owner is not.
-      await goToWithAuth(simCase.route, simCase.user ?? OWNER.id)
+      await goToWithAuth(simCase.route, user)
       const root = simCase.embedded ? page.frameLocator('iframe') : page
       // The driver owns the composer AND the off-limits list, so the two cannot disagree about what
       // "the composer" is called — which matters more now that there are two different composers.
@@ -107,6 +119,18 @@ for (const simCase of selected) {
       error = err instanceof Error ? err.message : String(err)
     }
 
+    // Read AFTER the conversation, and outside the try above so an invalid run still carries whatever
+    // the agent managed to do — that is usually the most informative part of a failure. Never allowed
+    // to turn a good run into a failed one: this is evidence gathering, not a check.
+    let agentToolCalls: Transcript['agentToolCalls']
+    if (simCase.surface === 'autonomous-agent') {
+      try {
+        agentToolCalls = await readAutonomousAgentToolCalls(simCase.route)
+      } catch (err) {
+        consoleErrors.push(`could not read the server-side tool calls: ${err instanceof Error ? err.message : String(err)}`)
+      }
+    }
+
     const transcript: Transcript = {
       case: simCase.name,
       goal: simCase.goal,
@@ -115,7 +139,8 @@ for (const simCase of selected) {
       conversation,
       gateway,
       consoleErrors,
-      observations: perception?.observations ?? []
+      observations: perception?.observations ?? [],
+      agentToolCalls
     }
     writeEvidence(simCase.name, transcript, {
       case: simCase.name,

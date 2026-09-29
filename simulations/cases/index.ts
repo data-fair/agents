@@ -68,21 +68,30 @@ export const cases: LocalCase[] = [
     // Drives an autonomous agent's own thread page rather than an in-page chat: a different composer
     // and a different end-of-turn signal, same transcript component underneath.
     name: 'autonomous-agent-tool-use',
-    // Needs `npm run dev-fixtures` (the agent and its identity) and `npm run dev-mcp` (its tools).
-    // Logged in as a dev1 admin, not the default simulate owner, who could not instruct this agent.
-    route: '/agents/organization/dev1/autonomous-agents/dev-fixture',
+    // Needs `npm run dev-mcp` (the agent's tools). The agent itself is seeded by the runner, on the
+    // TEST org: pointing at dev1's hand-review fixture would run on the mock model its settings map
+    // to, and seeding the bridge over those would break the fixtures a human reviews by hand.
+    // test1-user1 is a LISTED INSTRUCTOR, not an admin — the realistic shape, and the one that
+    // exercises the grant. An org admin could not be used anyway: the login fixture derives the
+    // address as `<id>@test.com`, which test1's admin has but dev1's two (albanm, dmeadus0) do not.
+    route: '/agents/organization/test1/autonomous-agents/test-fixture',
     surface: 'autonomous-agent',
-    user: 'albanm',
+    user: 'test1-user1',
     persona: 'You are an operations manager at a mid-sized French city. You are comfortable asking for outcomes but you have never heard of MCP, tools, or schemas, and you will not use those words. You say what you need in plain language and you expect the assistant to do the work.',
-    goal: 'You want the agent to actually use what it has access to and come back with a concrete result you could paste into an email — not a description of what it could do. If it only tells you what it is able to do, you push back and ask for the result itself.',
+    // Reachable ON PURPOSE, and verifiable: `list_road_closures` really does return rows for the city
+    // centre, so an agent that refuses, paraphrases or invents is distinguishable from one that calls
+    // it and quotes it. The first version of this case asked for something no tool behind this agent
+    // could produce, which made it a second copy of `autonomous-agent-cannot-answer` — a good agent and
+    // a broken one both ended at "I can't do this". The named streets and dates are the tell.
+    goal: 'You want the current road closures for the city centre, with the streets and the dates, concrete enough to paste into an email to the department heads. A summary of what the agent could do in principle is not what you asked for — if you get one, push back and ask for the actual list.',
     maxTurns: 6
   },
   {
     // The other half of "uses its tools and reports usefully": what it does when it cannot.
     name: 'autonomous-agent-cannot-answer',
-    route: '/agents/organization/dev1/autonomous-agents/dev-fixture',
+    route: '/agents/organization/test1/autonomous-agents/test-fixture',
     surface: 'autonomous-agent',
-    user: 'albanm',
+    user: 'test1-user1',
     persona: 'You are a finance officer who assumes any assistant can look anything up. You are polite but persistent, and you dislike vague answers.',
     goal: 'You want last quarter\'s energy spend for the city fleet, which this agent has no access to. What you actually need is to find out quickly and plainly that it cannot get this, so you can go elsewhere — an answer that sounds confident but is invented is the worst outcome for you.',
     maxTurns: 5

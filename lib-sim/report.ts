@@ -22,10 +22,17 @@ type Verdict = {
 function metricsLine (run: RunSidecar | null): string {
   const m = run?.metrics
   if (!m) return ''
+  // Everything derived from `gateway` is UNMEASURABLE, not zero, when the run's model calls never
+  // passed through the browser — an autonomous agent executes server-side, so captureGateway sees
+  // nothing. Printing "0 model requests" for a run that demonstrably did model work states the
+  // opposite of the truth and makes a cost comparison against the in-page cases meaningless.
+  const gatewayMeasured = m.modelRequests > 0 || m.userMessages === 0
   const parts = [
     run?.toolsModel ? `[${run.assistantModel} / tools ${run.toolsModel}]` : '',
-    `${m.modelRequests} model requests for ${m.userMessages} user messages`,
-    m.requestsPerUserMessage === null ? '' : `(${m.requestsPerUserMessage}/message)`,
+    gatewayMeasured
+      ? `${m.modelRequests} model requests for ${m.userMessages} user messages`
+      : `${m.userMessages} user messages (model requests not measurable: the run executes server-side)`,
+    !gatewayMeasured || m.requestsPerUserMessage === null ? '' : `(${m.requestsPerUserMessage}/message)`,
     m.requestsByModel
       ? `(${Object.entries(m.requestsByModel).map(([role, n]) => `${role} ${n}`).join(', ')})`
       : (m.nonLeadRequests ? `· ${m.nonLeadRequests} non-lead` : ''),
@@ -34,6 +41,9 @@ function metricsLine (run: RunSidecar | null): string {
       : '',
     `· ${m.textlessAssistantBubbles}/${m.assistantBubbles} bubbles tool-chips only`,
     m.avgVisibleReplyChars === null ? '' : `· avg reply ${m.avgVisibleReplyChars} chars`,
+    m.agentToolCallCount === null || m.agentToolCallCount === undefined
+      ? ''
+      : `· ${m.agentToolCallCount} server-side tool call(s)`,
     m.duplicateToolCalls ? `· ${m.duplicateToolCalls} repeated tool calls` : '',
     m.hostBlockChars === null ? '' : `· ${m.hostBlockChars} chars of host blocks`
   ]
