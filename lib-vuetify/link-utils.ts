@@ -9,6 +9,8 @@
 // page reload into an in-SPA navigation.
 
 export interface ResolvedLink {
+  /** false when the link is not an http(s) URL (javascript:, data:, malformed…): never follow it */
+  safe: boolean
   /** true when the link points to another origin and should leave the SPA entirely */
   external: boolean
   /** in-app router path (base prefix stripped); only meaningful when !external */
@@ -17,16 +19,26 @@ export interface ResolvedLink {
   url: string
 }
 
+const UNSAFE: ResolvedLink = { safe: false, external: false, path: '', url: '' }
+
 export function resolveAgentLink (rawUrl: string, origin: string, base: string): ResolvedLink {
-  const parsed = new URL(rawUrl, origin)
-  if (parsed.origin !== origin) return { external: true, path: '', url: rawUrl }
+  let parsed: URL
+  try {
+    parsed = new URL(rawUrl, origin)
+  } catch {
+    return UNSAFE
+  }
+  // The href comes from model output (and whatever a page or a tool result made it write): a
+  // javascript: URL assigned to the host's location runs in the host page, with the user's session.
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return UNSAFE
+  if (parsed.origin !== origin) return { safe: true, external: true, path: '', url: parsed.href }
 
   const baseNoTrailing = base.endsWith('/') ? base.slice(0, -1) : base
   let pathname = parsed.pathname
   if (baseNoTrailing && (pathname === baseNoTrailing || pathname.startsWith(baseNoTrailing + '/'))) {
     pathname = pathname.slice(baseNoTrailing.length) || '/'
   }
-  return { external: false, path: pathname + parsed.search + parsed.hash, url: parsed.href }
+  return { safe: true, external: false, path: pathname + parsed.search + parsed.hash, url: parsed.href }
 }
 
 /**
@@ -39,8 +51,14 @@ export interface AgentNavRouter {
 }
 
 export interface NavDecision {
-  /** true => navigate in-SPA via router.push(path); false => full page load to url */
-  spa: boolean
+  /**
+   * - spa: router.push(path)
+   * - page: full navigation of the host page to url (same origin only)
+   * - new-tab: open url in a new tab without an opener (another origin: the host page stays, and
+   *   a link planted in the conversation cannot silently replace it with a look-alike)
+   * - ignore: not an http(s) URL, do nothing
+   */
+  action: 'spa' | 'page' | 'new-tab' | 'ignore'
   path: string
   url: string
 }
@@ -52,11 +70,9 @@ export interface NavDecision {
  * useRouter() yields undefined) we degrade to a full navigation rather than crash.
  */
 export function decideAgentNavigation (rawUrl: string, origin: string, router?: AgentNavRouter): NavDecision {
-  if (!router) {
-    const link = resolveAgentLink(rawUrl, origin, '')
-    return { spa: false, path: link.path, url: link.url }
-  }
-  const link = resolveAgentLink(rawUrl, origin, router.options.history.base)
-  const spa = !link.external && router.resolve(link.path).matched.length > 0
-  return { spa, path: link.path, url: link.url }
+  const link = resolveAgentLink(rawUrl, origin, router ? router.options.history.base : '')
+  if (!link.safe) return { action: 'ignore', path: '', url: '' }
+  if (link.external) return { action: 'new-tab', path: '', url: link.url }
+  const spa = !!router && router.resolve(link.path).matched.length > 0
+  return { action: spa ? 'spa' : 'page', path: link.path, url: link.url }
 }
