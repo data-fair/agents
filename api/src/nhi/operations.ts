@@ -1,6 +1,8 @@
 /**
  * operations.ts contains pure stateless functions
- * should not reference #mongo, #config, store state in memory or import anything else than other operations.ts
+ * should not reference #mongo, #config, store state in memory or import anything else than other
+ * operations.ts — or a module of `shared/`, which is pure by the same rule and exists so the ui and
+ * the api cannot hold two copies of a value they must agree on (see the re-export at the bottom).
  */
 
 import crypto from 'node:crypto'

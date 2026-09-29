@@ -56,7 +56,19 @@ export const test = base.extend<{
             await page.goto(withQuery('/simple-directory/login', query))
             await page.fill('input[name="email"]', user + '@test.com')
             await page.fill('input[name="password"]', 'passwd')
-            await page.getByText('login', { exact: true }).click()
+            // A login that fails leaves us on the login page, and waitForURL then simply
+            // waits out the whole test timeout with no indication why — 15 minutes of
+            // silence for a simulation. The usual cause is a `user` whose email is not
+            // `<id>@test.com` (dev/resources/users.template.json has several: albanm,
+            // dmeadus0), which simple-directory answers with a 400 no assertion sees.
+            // Fail on the response instead, naming the address actually tried.
+            const [loginResponse] = await Promise.all([
+              page.waitForResponse(res => res.url().includes('/api/auth/password')),
+              page.getByText('login', { exact: true }).click()
+            ])
+            if (!loginResponse.ok()) {
+              throw new Error(`login failed for ${user}@test.com (${loginResponse.status()}) — is that user's email really <id>@test.com in dev/resources/users.template.json?`)
+            }
             await page.waitForURL(url)
             // Simple-directory keeps a server-side session reference per user and drops
             // the old one when a newer login supersedes it, so every entry cached before

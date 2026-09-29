@@ -67,7 +67,16 @@ check_http "dev-api" "$NGINX/agents/api/ping"
 check_http "dev-ui" "$NGINX/agents"
 # Optional: only needed to run the workspace on Claude Code subscription models
 # (npm run dev-bridge). DOWN here is normal unless you configured that provider.
-check_http "claude-bridge" "http://localhost:${BRIDGE_PORT:?BRIDGE_PORT missing from .env — re-run dev/init-env.sh}/_bridge/status"
+# `${BRIDGE_PORT:?}` would abort the whole script under `set -e`, reporting nothing about
+# simple-directory, mongo, the containers or the logs — on exactly the checkouts most likely to be
+# broken, since every .env predating the seeded port lacks it. This is the tool AGENTS.md says to run
+# first when something is down, so it must always finish. Equally it must not fall back to a fixed
+# 3194, which would report another worktree's bridge as this one's.
+if [ -n "${BRIDGE_PORT:-}" ]; then
+  check_http "claude-bridge" "http://localhost:${BRIDGE_PORT}/_bridge/status"
+else
+  printf '%-20s %s\n' "claude-bridge" "SKIPPED (BRIDGE_PORT not in .env — re-run dev/init-env.sh)"
+fi
 # Serves the dev-review-*-mcp catalog entries (npm run dev-mcp). DOWN is normal unless you are
 # working with autonomous agents — but then an agent wired to one of those entries fails with a 502
 # when it gathers its tools, which is otherwise a confusing way to learn this is not running.

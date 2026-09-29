@@ -114,6 +114,11 @@ const autonomousAgentBody = {
   instructions: 'Prefer calling a tool over guessing. If a tool fails, say so rather than inventing a result.',
   mcpServers: [{ serverId: 'dev-review-session-mcp' }],
   toolDisclosure: 'static',
+  // The grant is half the feature and is otherwise unreviewable by hand: dev1's two admins
+  // are allowed anyway, so without an instructor there is no way to open this thread as
+  // someone who is NOT an admin and see what they are permitted to do. dev1-contrib1 is a
+  // contrib, so every "allowed because admin" path is off for them.
+  instructors: [{ userId: 'dev1-contrib1', userName: 'Dev1 Contrib' }],
   enabled: true
 }
 
@@ -160,7 +165,11 @@ async function seedAutonomousAgent (adminAx: any, orgAx: any) {
       if (run.status !== 'running') break
       await new Promise(resolve => setTimeout(resolve, 100))
     }
-    if (run?.status === 'running') throw new Error(`run ${runId} never settled — is npm run dev-mcp up?`)
+    // Deliberately NOT "is dev-mcp up?": with the MCP server down the tool fetch 502s and the run
+    // reaches a terminal `error` state promptly, so it would have settled. Still `running` here means
+    // something slower or stuck — a model call, a lock, a hung stream — and naming dev-mcp would point
+    // the reader away from it.
+    if (run?.status === 'running') throw new Error(`run ${runId} was still running after the wait — it did not fail, it never finished; check dev/logs/dev-api.log`)
     console.log(`  seeded conversation "${fixture.title}" (${run.status}${run.stopReason ? `/${run.stopReason}` : ''})`)
   }
 }

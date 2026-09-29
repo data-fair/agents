@@ -37,7 +37,10 @@ on `NGINX_PORT + 31` (the test fixture owns +30, and each spec starts and stops 
 has it, and `dev/status.sh` probes it.
 
 It reuses `tests/support/mcp-fixture.ts` rather than defining a second server, so what you exercise
-by hand is exactly what the suite exercises: tools `echo`, `get_schema` and `ignored`.
+by hand is exactly what the suite exercises: tools `echo`, `get_schema`, `ignored` and
+`list_road_closures`. Only the last returns data — the others are structural (a string reflector, a
+fixed empty schema, and a target for `toolFilter`), so it is the one to use when you need to see an
+agent actually fetch something and quote it.
 
 Only autonomous agents need it. Without it, an agent wired to one of those catalog entries fails with
 a 502 the moment it gathers its tools — the seeded dev fixtures can then be read but not used, which
@@ -88,7 +91,7 @@ Test users are defined in @dev/resources/users.template.json and organizations i
 
 `dev/resources/users.json` is **generated** — `dev/init-env.sh` renders it from `users.template.json`, resolving `{NGINX_PORT}` and any other `{ENV_VAR}` placeholder, and it is gitignored. Edit the template, never the rendered file. It exists because docker-compose mounts the rendered file straight into simple-directory, which reads it verbatim and does no substitution of its own — so a fixture that names a URL (the autonomous-agent NHI fixtures name this service as their issuer) cannot write the randomised port literally. An unresolved placeholder fails the render loudly rather than reaching simple-directory and surfacing later as an unexplained 401 from the token exchange.
 
-The two `*-autonomous-agent-nhi` users are non-human identities an autonomous agent authenticates as. Each needs an `email` (simple-directory lowercases it unguarded), must belong to exactly one organization, and must carry no `allowedIps`/`ipBinding` — every autonomous agent shares one egress address. Their `nhi.subject` must equal `autonomous-agent:<agent id>`, which is why a dev-only seam creates a fixture agent with a chosen id. `tests/features/autonomous-agents/dev-fixtures.unit.spec.ts` enforces all of this.
+The two `*-autonomous-agent-nhi` users are non-human identities an autonomous agent authenticates as. Each needs an `email` (simple-directory lowercases it unguarded), must belong to exactly one organization, and must carry no `allowedIps`/`ipBinding` — every autonomous agent shares one egress address. Their `nhi.subject` must equal `autonomous-agent:<agent id>`, which is why a dev-only seam creates a fixture agent with a chosen id. `tests/features/autonomous-agents/dev-fixtures.unit.spec.ts` enforces all of this — including the pairing itself, read out of `dev/fixtures.ts` and the specs rather than restated, so renaming an agent id without renaming the subject fails a unit test instead of surfacing as that uniform 401.
 
 Tests are separated in playwright projects: unit (pure functions), api (stateful API endpoints through HTTP) and e2e (UI with playwright browser intrumentation). When working on the e2e part you can use subagents `playwright-test-generator` and `playwright-test-generator`.
 
@@ -118,7 +121,11 @@ When e2e tests fail, follow this order:
 ### Scenario simulations
 
 `npm run simulate` drives judged browser conversations: a simulated user with a
-persona and a goal talks to the real chat on a `_dev` page. The persona can also
+persona and a goal talks to the real chat on a `_dev` page, or to an autonomous
+agent's thread page (`surface: 'autonomous-agent'`), whose account and agent the
+runner seeds itself — settings included, since a case driving an account whose
+model mapping points at the mock would be graded on the mock's canned reply while
+still reporting a valid run. The persona can also
 look at, click and type on the page itself (not the composer), so a claim like
 "I don't see it" is checkable against what it actually observed, not invented.
 A judge subagent then reads the transcript, observations included. Needs the
