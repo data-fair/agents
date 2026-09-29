@@ -18,6 +18,10 @@
       {
         "id": "dev1-user1",
         "role": "user1"
+      },
+      {
+        "id": "dev-autonomous-agent-nhi",
+        "role": "contrib"
       }
     ]
   },
@@ -36,6 +40,10 @@
       {
         "id": "test1-user1",
         "role": "user1"
+      },
+      {
+        "id": "test-autonomous-agent-nhi",
+        "role": "contrib"
       }
     ]
   }
