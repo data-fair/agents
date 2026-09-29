@@ -338,6 +338,24 @@ test.describe('Host events', () => {
     await expect(page.getByTestId('chat-activity')).toHaveCount(0)
   })
 
+  test('speaking during a wait that follows a tool step leaves no empty-answer bubble', async ({ page, goToWithAuth }) => {
+    // The AI SDK ends an aborted stream cleanly — an `abort` part, no throw — so the
+    // interrupted turn used to run its normal ending: its last finished step called a
+    // tool, which reads as an empty answer, and « I wasn't able to produce a
+    // response » landed right under the person's message. A real session got it on
+    // exactly this shape: open the add-line dialog, wait, "it's already open".
+    await open(page, goToWithAuth)
+    await send(page, 'select then wait')
+    await expect(page.getByTestId('chat-activity')).toContainText('Waiting for', { timeout: 15000 })
+
+    await page.getByPlaceholder('Type your message...').fill('hello')
+    await page.getByRole('button', { name: 'Send' }).click()
+
+    await expect(lastAnswer(page)).toContainText('world', { timeout: 15000 })
+    await expect(page.getByTestId('chat-activity')).toHaveCount(0)
+    await expect(page.getByText("I wasn't able to produce a response")).toHaveCount(0)
+  })
+
   test('the waiting activity clears once the wait resolves (drives the host\'s waiting-user/working signal)', async ({ page, goToWithAuth }) => {
     // AgentChat.vue posts `agent-status: waiting-user` / `working` to the embedding host
     // purely off `chat.activity.value?.kind === 'waiting'` — but `sendDFrameMessage` only

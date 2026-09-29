@@ -1,6 +1,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { transformSettingsDoc, DEFAULT_QUOTAS, DEFAULT_MODERATION } from '../../../upgrade/0.10.0/better-config.js'
+import { transformSettingsDoc, eurosPerCreditFromEnv, DEFAULT_QUOTAS, DEFAULT_MODERATION, DEFAULT_EUROS_PER_CREDIT } from '../../../upgrade/0.10.0/better-config.js'
+import defaultConfig from '../../../api/config/default.js'
 import { defaultQuotas, defaultModeration } from '../../../api/src/settings/operations.ts'
 import { assertRoleQuota } from '../../../api/src/auth.ts'
 
@@ -66,12 +67,39 @@ test.describe('transformSettingsDoc', () => {
       outputPricePerMillion: 0
     })
   })
-  test('quotas.global becomes the credit limit, other entries carried over', () => {
+  test('quotas.global becomes the credit limit, converted from euros at the default peg', () => {
     const result = transformSettingsDoc(structuredClone(oldDoc))!
-    assert.equal(result.creditLimit, 10)
+    assert.equal(result.creditLimit, 1250) // 10 € / 0.008
     assert.equal(result.settings.quotas.global, undefined)
+  })
+  test('role caps are converted from euros too, 0 and unlimited entries left alone', () => {
+    const result = transformSettingsDoc(structuredClone(oldDoc))!
+    assert.deepEqual(result.settings.quotas.contrib, { unlimited: false, monthlyLimit: 625 })
+    assert.deepEqual(result.settings.quotas.untrusted, { unlimited: false, monthlyLimit: 250 })
+    assert.deepEqual(result.settings.quotas.admin, { unlimited: true, monthlyLimit: 0 })
+    assert.deepEqual(result.settings.quotas.user, { unlimited: false, monthlyLimit: 0 })
+  })
+  test('the conversion follows the peg it is given', () => {
+    const result = transformSettingsDoc(structuredClone(oldDoc), 1)!
+    assert.equal(result.creditLimit, 10)
     assert.equal(result.settings.quotas.contrib.monthlyLimit, 5)
-    assert.equal(result.settings.quotas.untrusted.monthlyLimit, 2)
+    assert.equal(transformSettingsDoc(structuredClone(oldDoc), 0.03)!.creditLimit, 333.33)
+  })
+  test('the peg comes from EUROS_PER_CREDIT, like the service config', () => {
+    const previous = process.env.EUROS_PER_CREDIT
+    try {
+      delete process.env.EUROS_PER_CREDIT
+      assert.equal(eurosPerCreditFromEnv(), DEFAULT_EUROS_PER_CREDIT)
+      process.env.EUROS_PER_CREDIT = '0.01'
+      assert.equal(eurosPerCreditFromEnv(), 0.01)
+      process.env.EUROS_PER_CREDIT = 'abc'
+      assert.throws(() => eurosPerCreditFromEnv())
+      process.env.EUROS_PER_CREDIT = '0'
+      assert.throws(() => eurosPerCreditFromEnv())
+    } finally {
+      if (previous === undefined) delete process.env.EUROS_PER_CREDIT
+      else process.env.EUROS_PER_CREDIT = previous
+    }
   })
   test('unlimited global becomes -1', () => {
     const doc = structuredClone(oldDoc); doc.quotas.global = { unlimited: true, monthlyLimit: 0 }
@@ -103,7 +131,7 @@ test.describe('transformSettingsDoc', () => {
     const result = transformSettingsDoc(doc)!
     assert.deepEqual(result.settings.models, [])
     assert.equal(result.settings.modelMapping, undefined)
-    assert.equal(result.creditLimit, 10)
+    assert.equal(result.creditLimit, 1250)
   })
   test('an old-shape doc with role-keyed models but no quotas.global (or no quotas at all) still migrates the models to an array', () => {
     // pre-quotas-feature legacy data: the old top-level schema only required
@@ -139,7 +167,7 @@ test.describe('transformSettingsDoc', () => {
     doc.quotas = { global: { unlimited: true, monthlyLimit: 0 }, contrib: { unlimited: false, monthlyLimit: 5 } }
     const result = transformSettingsDoc(doc)!
     assert.equal(result.settings.quotas.global, undefined)
-    assert.deepEqual(result.settings.quotas.contrib, { unlimited: false, monthlyLimit: 5 })
+    assert.deepEqual(result.settings.quotas.contrib, { unlimited: false, monthlyLimit: 625 })
     assert.deepEqual(result.settings.quotas.admin, defaultQuotas.admin)
     assert.doesNotThrow(() => assertRoleQuota('admin', result.settings.quotas))
   })
@@ -154,5 +182,6 @@ test.describe('transformSettingsDoc', () => {
     // copies are checked here instead
     assert.deepEqual(DEFAULT_QUOTAS, defaultQuotas)
     assert.deepEqual(DEFAULT_MODERATION, defaultModeration)
+    assert.equal(DEFAULT_EUROS_PER_CREDIT, defaultConfig.eurosPerCredit)
   })
 })

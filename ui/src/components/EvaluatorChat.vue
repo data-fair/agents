@@ -114,7 +114,15 @@ const handleAbort = () => {
 }
 
 const onNavigate = (url: string) => {
-  // links inside evaluator messages open in a new tab (this page is not an iframe)
-  window.open(url, '_blank', 'noopener')
+  // links inside evaluator messages open in a new tab (this page is not an iframe), and only
+  // http(s) ones: the href is model output
+  let parsed: URL
+  try {
+    parsed = new URL(url, window.location.href)
+  } catch {
+    return
+  }
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return
+  window.open(parsed.href, '_blank', 'noopener,noreferrer')
 }
 </script>

@@ -20,31 +20,15 @@
       <!-- eager: every tab's form stays mounted, so the validity of the tabs
            not currently shown still gates the save -->
       <v-tabs-window-item
-        value="models"
-        eager
-      >
-        <p class="text-body-medium mb-4">
-          {{ t('modelsHint') }}
-        </p>
-        <v-form v-model="tabValid.models">
-          <vjsf-org-form-models
-            :model-value="parts.models"
-            :options="vjsfOptions"
-            :locale="locale"
-            @update:model-value="(data: any) => onPartUpdate('models', data)"
-          />
-        </v-form>
-      </v-tabs-window-item>
-      <v-tabs-window-item
         value="quotas"
         eager
       >
         <v-form v-model="tabValid.quotas">
-          <vjsf-org-form-quotas
-            :model-value="parts.quotas"
-            :options="vjsfOptions"
-            :locale="locale"
-            @update:model-value="(data: any) => onPartUpdate('quotas', data)"
+          <quotas-table
+            :model-value="parts.quotas.quotas"
+            :account-type="accountType"
+            :account-id="accountId"
+            @update:model-value="(quotas) => onPartUpdate('quotas', { quotas })"
           />
         </v-form>
       </v-tabs-window-item>
@@ -61,6 +45,24 @@
           />
         </v-form>
       </v-tabs-window-item>
+      <v-tabs-window-item
+        value="models"
+        eager
+      >
+        <df-tutorial-alert
+          id="agents-config-models-defaults"
+          :text="t('modelsHint')"
+          persistent
+        />
+        <v-form v-model="tabValid.models">
+          <vjsf-org-form-models
+            :model-value="parts.models"
+            :options="vjsfOptions"
+            :locale="locale"
+            @update:model-value="(data: any) => onPartUpdate('models', data)"
+          />
+        </v-form>
+      </v-tabs-window-item>
     </template>
   </df-section-tabs>
 </template>
@@ -68,23 +70,23 @@
 <i18n lang="yaml">
 fr:
   title: Configuration
-  subtitle: Modèles utilisés, quotas de consommation par profil d'utilisateur, modération et enregistrement des conversations.
+  subtitle: Quotas de consommation par profil d'utilisateur, modération, enregistrement des conversations et modèles utilisés.
   saved: Les modifications ont été enregistrées
   tabs:
     models: Modèle par rôle
     quotas: Quotas
     moderation: Modération et traces
-  modelsHint: Laissez un rôle vide pour utiliser le modèle par défaut affiché dans le champ, ce qui est le choix recommandé dans la plupart des cas.
+  modelsHint: Laissez les rôles vides pour utiliser les modèles par défaut affichés dans les champs. C'est le choix recommandé, ne sélectionnez un autre modèle que si vous avez une raison précise de le faire.
   defaultModel: "Par défaut : {model}"
 en:
   title: Configuration
-  subtitle: Models in use, consumption quotas per user profile, moderation and conversation storage.
+  subtitle: Consumption quotas per user profile, moderation, conversation storage and models in use.
   saved: Changes have been saved
   tabs:
     models: Model per role
     quotas: Quotas
     moderation: Moderation and traces
-  modelsHint: Leave a role empty to use the default model shown in the field, which is the recommended choice in most cases.
+  modelsHint: Leave the roles empty to use the default models shown in the fields. This is the recommended choice, only select another model if you have a specific reason to.
   defaultModel: "Default: {model}"
 </i18n>
 
@@ -97,7 +99,8 @@ import { useFetch } from '@data-fair/lib-vue/fetch.js'
 import DfSectionTabs from '@data-fair/lib-vuetify/section-tabs.vue'
 import type { Settings } from '#api/types'
 import VjsfOrgFormModels from '~/components/vjsf/vjsf-org-form-models.vue'
-import VjsfOrgFormQuotas from '~/components/vjsf/vjsf-org-form-quotas.vue'
+import QuotasTable from '~/components/QuotasTable.vue'
+import DfTutorialAlert from '@data-fair/lib-vuetify/tutorial-alert.vue'
 import VjsfOrgFormModeration from '~/components/vjsf/vjsf-org-form-moderation.vue'
 import FormActions from '~/components/FormActions.vue'
 import { useSettingsForm } from '~/composables/use-settings-form'
@@ -202,9 +205,9 @@ watch(() => settingsFetch.data.value?.updatedAt, (_, previous) => {
  */
 type TabKey = 'models' | 'quotas' | 'moderation'
 const TAB_FIELDS: Record<TabKey, (keyof OrgOwnedSettings)[]> = {
-  models: ['modelMapping'],
   quotas: ['quotas'],
-  moderation: ['moderation', 'storeTraces']
+  moderation: ['moderation', 'storeTraces'],
+  models: ['modelMapping']
 }
 const tabKeys = Object.keys(TAB_FIELDS) as TabKey[]
 
@@ -229,11 +232,11 @@ const onPartUpdate = (tab: TabKey, data: Partial<OrgOwnedSettings>) => {
 const tabValid = ref<Record<TabKey, boolean | null>>({ models: null, quotas: null, moderation: null })
 const valid = computed(() => tabKeys.every(tab => tabValid.value[tab] !== false))
 
-const tab = ref<TabKey>('models')
+const tab = ref<TabKey>('quotas')
 const tabs = computed(() => ([
-  { key: 'models', icon: mdiRobotOutline },
   { key: 'quotas', icon: mdiGauge },
-  { key: 'moderation', icon: mdiShieldCheckOutline }
+  { key: 'moderation', icon: mdiShieldCheckOutline },
+  { key: 'models', icon: mdiRobotOutline }
 ] as const).map(({ key, icon }) => ({
   key,
   icon,
