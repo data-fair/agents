@@ -4,7 +4,7 @@
 
 **Goal:** A real NHI enrolment works in dev, so the token exchange is exercised by the suite instead of first in staging — and an autonomous agent's whole journey (create → enrol → instruct → answer, with real MCP tools as its own identity) is covered by api tests, e2e, judged simulations and hand-reviewable fixtures.
 
-**Architecture:** Two fixture NHIs live in `dev/resources/users.json`, which docker-compose already mounts into simple-directory. The randomised dev port is handled by `{NGINX_PORT}` placeholders — substituted upstream in simple-directory's `FileStorage` (its proper home) and, so this repo does not wait on an SD release, also rendered locally by `dev/init-env.sh`. Because simple-directory pins an NHI's `subject`, a dev-only seam creates an autonomous agent with a *chosen* id so the fixture's subject matches; the production invariant (subject strictly derived from the agent id, one NHI per agent) is untouched.
+**Architecture:** Two fixture NHIs live in `dev/resources/users.json`, which docker-compose already mounts into simple-directory. The randomised dev port is handled by a `{NGINX_PORT}` placeholder in a committed template, rendered by `dev/init-env.sh` into the file compose already mounts. Because simple-directory pins an NHI's `subject`, a dev-only seam creates an autonomous agent with a *chosen* id so the fixture's subject matches; the production invariant (subject strictly derived from the agent id, one NHI per agent) is untouched.
 
 **Tech Stack:** Node 24, Express 5, MongoDB, simple-directory (file storage), Playwright (`unit` / `api` / `e2e` / `simulate`), `lib-sim` (judged browser simulations).
 
@@ -16,7 +16,7 @@ P0's five plans (A, B, C1, C2, C3) are merged and complete: an autonomous agent 
 
 This plan closes that, then uses it: the scenarios it unlocks are the point, not the plumbing.
 
-**Two repos.** Task 1 lands in `~/data-fair/simple-directory_chore-dev-nhis` (branch `chore-dev-nhis`); every other task is in this repo. Commit them separately — they release separately.
+**One repo.** simple-directory needs no change — see Ruling R1. The `chore-dev-nhis` worktree is left untouched.
 
 ## Global Constraints
 
@@ -42,17 +42,16 @@ Verified by reading the running container and both repos. Do not re-derive.
 - **docker-compose already mounts this repo's fixtures into the container:** `./dev/resources/users.json:/app/data/users.json` and the same for organizations. So a fixture NHI added here is the file simple-directory reads — no SD release needed for the *fixture*, only for the substitution.
 - **The issuer URL is reachable from inside the simple-directory container.** All three services use `network_mode: host`, and `http://localhost:<NGINX_PORT>/agents/api/nhi/.well-known/openid-configuration` returns **200** from in there. OIDC discovery will work.
 - **`NHIS_ALLOW_INSECURE_ISSUERS: true` and `MANAGE_NHIS: true` are already set** in docker-compose, so an `http://localhost` issuer passes `assertSafeIssuer` and the route is live (it answers 400 on an empty body, not 404).
-- **simple-directory already has the substitution code**, in `/api/test-env/seed` for the mongo path: `for (const [key, value] of Object.entries(process.env)) if (value) raw = raw.replaceAll('{' + key + '}', value)`. Task 1 applies that same loop to `FileStorage`.
+- **simple-directory does NO placeholder substitution when reading fixture files** (`src/storages/file.ts:65` is a bare `JSON.parse(readFileSync(...))`), which is why the rendering happens here instead. Its `/api/test-env/seed` route does substitute, but only on the mongo path and only on its own repo's copy — not on the file compose mounts.
 - **The subject is pinned per NHI.** `verifyAssertion(assertion, user.nhi.provider, user.nhi.subject, reqSiteUrl(req))`, and ours is `autonomous-agent:<agentId>` (`api/src/nhi/operations.ts:121`) with a nanoid id — so a static fixture cannot match unless the agent id is chosen.
 - **`dev/fixtures.ts` already exists** (390 lines, `npm run dev-fixtures`): it authenticates as the real dev user `alban.mouton@koumoul.com`, targets `organization/dev1`, uses stable ids so a re-run is idempotent-ish, never deletes, and prints a "Browse the seeded data at:" summary. Autonomous-agent fixtures belong there, not in a new route.
 - **`clean()` deletes only `owner.id: /^test/`**, which is why dev fixtures target `dev1` and survive the test suites.
 - **The sim harness can already READ an autonomous agent's conversation.** `lib-sim/chat-driver.ts:155` reads `.agent-chat__user-bubble, .assistant-content`, both defined in `AgentChatMessages.vue` — which the thread page reuses. Only *sending* (`getByPlaceholder(strings.input)`, `getByRole('button', {name: strings.send})`) and *turn-done* (`[data-testid="chat-activity"][data-activity="waiting"]`) are specific to the in-page chat.
 - **The types Task 7 builds on are `ChatRoot` (`Page | FrameLocator`) and `TurnOutcome` (`'ended' | 'waiting'`), both already exported from `lib-sim/chat-driver.ts`**; the diagnostic route Task 4 asserts against is `GET /api/autonomous-agents/:type/:id/:agentId/session`.
-- **simple-directory has the same Playwright projects** (`test-unit`, `test-api`, `test-e2e`), so Task 1's change is unit-testable in its own repo.
 
 ## Decisions
 
-**Ruling R1 — the substitution lands in BOTH repos, deliberately.** Upstream in `FileStorage` because that is its home (it is simple-directory's fixture-loading concern, and the pattern already exists there for the mongo seed path) and it helps every consumer. Locally in `dev/init-env.sh` because the dev stack runs the `master` **image**, so nothing downstream of the substitution would be testable here until that image ships. Substituting an already-substituted file is a no-op, so the two compose safely and the local rendering can be dropped later without ceremony. *Cost if wrong:* one mechanism exists in two places for a while, documented as such in both.
+**Ruling R1 — the port substitution happens HERE, at render time, and simple-directory is not changed at all.** The first draft of this plan also added the substitution upstream in `FileStorage`, on the grounds that it is that file's proper home. The user challenged it and was right: `{NGINX_PORT}` is known when `init-env.sh` writes `.env`, nothing in the fixture needs a value only simple-directory knows at runtime, and simple-directory is the only consumer of the mounted file — so rendering it here fully replaces the upstream change. Keeping both would have been generality for a hypothetical other consumer, at the cost of a cross-repo PR, a release to wait on before anything downstream was testable, and one mechanism living in two places. *Cost if wrong:* another consumer wanting variabilised file-storage fixtures has to render them itself, as we do.
 
 **Ruling R2 — the agent id becomes choosable in dev, rather than the subject becoming overridable in production.** simple-directory pins `nhi.subject`, so a static fixture needs a known subject. Making the *agent id* settable through a dev-only seam keeps `autonomousAgentSubject` strictly derived and keeps one NHI bound to one agent — the "NHI link strictly enforced" requirement. An `nhi.subject` override on the agent document would have been smaller and would have let two agents share one identity. *Cost if wrong:* one more dev-only route.
 
@@ -62,48 +61,7 @@ Verified by reading the running container and both repos. Do not re-derive.
 
 ---
 
-### Task 1: simple-directory — substitute env placeholders in file storage
-
-**Repo:** `~/data-fair/simple-directory_chore-dev-nhis` (branch `chore-dev-nhis`). **Nothing else in this plan touches that repo.**
-
-**Files:**
-- Modify: `api/src/storages/file.ts`
-- Test: add to that repo's unit project (mirror an existing `test/features/*.unit.spec.ts` for placement and style)
-
-**Interfaces:**
-- Consumes: `process.env`.
-- Produces: `FileStorage` resolving `{ENV_VAR}` placeholders in both fixture files.
-
-- [ ] **Step 1: Read the existing precedent, then write the failing test**
-
-The loop to mirror is in `api/src/test-env.ts`'s `/seed` route:
-
-```js
-for (const [key, value] of Object.entries(process.env)) {
-  if (value) orgsRaw = orgsRaw.replaceAll(`{${key}}`, value)
-}
-```
-
-Write a unit test for a small exported helper — `substituteEnvPlaceholders(raw: string, env: Record<string, string | undefined>): string` — rather than for the constructor, so it needs no filesystem. Cover: a placeholder is replaced; several occurrences of the same one are all replaced; an unset variable is left untouched (so a typo is visible rather than silently becoming empty); a string with no placeholder is returned unchanged; and `{}`/`{ }` are not treated as placeholders.
-
-- [ ] **Step 2: Run it, see it fail, then implement**
-
-Export the helper and use it on both reads in the constructor (`newUsersPath`/`oldUsersPath` and the organizations equivalents), so a fixture can carry `{NGINX_PORT}`. Comment why: the dev stack randomises its ports per checkout, so a fixture NHI's `provider` (its issuer URL) cannot be written literally.
-
-- [ ] **Step 3: Verify and commit, in that repo**
-
-Run that repo's `npm run lint-fix`, `npm run check-types`, `npm run test-unit`. Do not run its api/e2e suites — they need its own dev stack, which is not what is running.
-
-```bash
-git add api/src/storages/file.ts test
-git commit -m "feat(storages): substitute env placeholders in file storage fixtures"
-```
-
-Then **report to the user** that this repo's change is committed but the agents dev stack runs the published `master` image, so it has no effect here until released — which is exactly why Task 2 renders the file locally too.
-
----
-
-### Task 2: fixture NHIs, and rendering them for the randomised port
+### Task 1: fixture NHIs, and rendering them for the randomised port
 
 **Files:**
 - Create: `dev/resources/users.template.json` (committed, with placeholders)
@@ -137,13 +95,13 @@ Then **report to the user** that this repo's change is committed but the agents 
 }
 ```
 
-Each needs a comment in the file's own README or in `AGENTS.md` (JSON has no comments) explaining: `email` is required because `cleanUser` lowercases it unguarded; `provider` is this service's issuer and carries `{NGINX_PORT}` because dev ports are random; `subject` must equal `autonomous-agent:<the agent's id>`, which is why the seam in Task 3 lets a fixture agent choose its id. Deliberately **no** `allowedIps` and **no** `ipBinding` — every autonomous agent shares one egress address, and the exchange declares `127.0.0.1`.
+Each needs a comment in the file's own README or in `AGENTS.md` (JSON has no comments) explaining: `email` is required because `cleanUser` lowercases it unguarded; `provider` is this service's issuer and carries `{NGINX_PORT}` because dev ports are random; `subject` must equal `autonomous-agent:<the agent's id>`, which is why the seam in Task 2 lets a fixture agent choose its id. Deliberately **no** `allowedIps` and **no** `ipBinding` — every autonomous agent shares one egress address, and the exchange declares `127.0.0.1`.
 
 In `dev/resources/organizations.json`, add `test-autonomous-agent-nhi` as a member of `test1` and `dev-autonomous-agent-nhi` as a member of `dev1` — **exactly one organization each**, which the route requires. Role: `contrib` is enough; it does not need admin.
 
 - [ ] **Step 2: Render it in init-env.sh**
 
-Add a step that reads the template, replaces `{NGINX_PORT}` (and any other `{VAR}` present in the env it just wrote), and writes `dev/resources/users.json`. Comment that this mirrors what simple-directory's own `FileStorage` does once released, and that it exists so this repo does not wait on that release.
+Add a step that reads the template, replaces `{NGINX_PORT}` (and any other `{VAR}` present in the env it just wrote), and writes `dev/resources/users.json`. Comment why it exists: simple-directory reads the mounted fixture verbatim, and the dev ports are randomised per checkout, so the issuer URL in an NHI fixture cannot be written literally.
 
 Add `dev/resources/users.json` to `.gitignore`.
 
@@ -169,7 +127,7 @@ git commit -m "feat(dev): fixture non-human identities for autonomous agents"
 
 ---
 
-### Task 3: create an autonomous agent with a chosen id, and enrol it for real
+### Task 2: create an autonomous agent with a chosen id, and enrol it for real
 
 **Files:**
 - Modify: `api/src/app.ts` (replace the `enrol-autonomous-agent` seam)
@@ -222,17 +180,17 @@ git commit -m "feat(dev): create an autonomous agent with a chosen id for real e
 
 ---
 
-### Task 4: prove the real exchange, and un-skip the two tests
+### Task 3: prove the real exchange, and un-skip the two tests
 
 **Files:**
 - Modify: `tests/features/autonomous-agents/nhi-exchange.api.spec.ts`
 - Modify: `tests/features/autonomous-agents/mcp-tools.api.spec.ts`
 
-**Interfaces:** consumes Tasks 2 and 3. Produces no new code — this task is the payoff.
+**Interfaces:** consumes Tasks 1 and 2. Produces no new code — this task is the payoff.
 
 - [ ] **Step 1: Un-skip the enrolment test and make it real**
 
-`nhi-exchange.api.spec.ts`'s skipped `'an enrolled autonomous agent obtains a real simple-directory session'`: create the agent with id `test-fixture` through Task 3's seam, with `clientId: 'test-autonomous-agent-nhi'`, and assert the session describe endpoint reports the NHI's identity. Delete the comment block explaining why it was skipped and replace it with what now makes it work.
+`nhi-exchange.api.spec.ts`'s skipped `'an enrolled autonomous agent obtains a real simple-directory session'`: create the agent with id `test-fixture` through Task 2's seam, with `clientId: 'test-autonomous-agent-nhi'`, and assert the session describe endpoint reports the NHI's identity. Delete the comment block explaining why it was skipped and replace it with what now makes it work.
 
 The second skipped case (the changed-only enrolment guard) becomes writable too: enrol once, then PUT the same `clientId` again and assert no second exchange happened. Use whatever observable the describe endpoint exposes; if none does, assert the cached session is reused rather than re-minted.
 
@@ -261,7 +219,7 @@ git commit -m "test(autonomous-agents): prove the real nhi exchange end to end"
 
 ---
 
-### Task 5: the full journey in e2e
+### Task 4: the full journey in e2e
 
 **Files:**
 - Modify: `tests/features/autonomous-agents/autonomous-agents.e2e.spec.ts`
@@ -272,7 +230,7 @@ The existing e2e covers configuration and the thread separately. Add a single jo
 
 - [ ] **Step 2: The seeded fixture is reviewable**
 
-After Task 6, add a check that the seeded `dev1` fixture agent's thread page renders its seeded conversations — the guard that the fixtures stay usable as the UI changes, which is the whole point of them.
+After Task 5, add a check that the seeded `dev1` fixture agent's thread page renders its seeded conversations — the guard that the fixtures stay usable as the UI changes, which is the whole point of them.
 
 - [ ] **Step 3: Verify and commit**
 
@@ -285,12 +243,12 @@ git commit -m "test(autonomous-agents): the full create-to-conversation journey"
 
 ---
 
-### Task 6: dev fixtures for manual UI review
+### Task 5: dev fixtures for manual UI review
 
 **Files:**
 - Modify: `dev/fixtures.ts`
 
-**Interfaces:** consumes Task 3's seam. One working autonomous agent, per the user's direction — no deliberately-broken second agent for now.
+**Interfaces:** consumes Task 2's seam. One working autonomous agent, per the user's direction — no deliberately-broken second agent for now.
 
 - [ ] **Step 1: Seed one working autonomous agent and a conversation history**
 
@@ -318,7 +276,7 @@ git commit -m "feat(dev): seed a working autonomous agent and conversations for 
 
 ---
 
-### Task 7: judged simulations of an autonomous agent using its tools
+### Task 6: judged simulations of an autonomous agent using its tools
 
 **Files:**
 - Modify: `lib-sim/chat-driver.ts`, `lib-sim/types.ts`
@@ -357,7 +315,7 @@ In `simulations/cases/index.ts`, with `surface: 'autonomous-agent'` and a route 
 - a persona who wants a concrete answer that can only come from calling a tool, phrased in plain language with no tool names;
 - a persona who asks something its tools cannot answer, where the useful behaviour is saying so plainly rather than inventing it.
 
-Both need the dev fixtures seeded first (Task 6) and `npm run dev-bridge` running.
+Both need the dev fixtures seeded first (Task 5) and `npm run dev-bridge` running.
 
 - [ ] **Step 3: Run them once, deliberately, and read the verdicts**
 
@@ -382,12 +340,11 @@ git commit -m "feat(sim): judged simulations of an autonomous agent using its to
 - One e2e journey covers create → thread → post → answer → run status.
 - `npm run dev-fixtures` seeds a working autonomous agent with completed, failed and truncated conversations, and prints where to review them.
 - Two judged simulations exercise an autonomous agent using its MCP tools, with the existing in-page cases unchanged.
-- `lint-fix`, `check-types`, `test-unit`, `test-api`, `test-e2e` all pass; the simple-directory change is committed on its own branch, in its own repo.
+- `lint-fix`, `check-types`, `test-unit`, `test-api`, `test-e2e` all pass, with simple-directory unchanged.
 
 ## Deliberately deferred
 
 - A deliberately-broken second fixture agent (disabled, or unenrolled) for reviewing the degraded UIs — the user asked for one working agent first.
 - A shared-timeline simulation (two instructors in one conversation) — the user chose tool use as the interesting judgement.
-- The local rendering in `init-env.sh` becomes removable once the simple-directory change is released; leaving it is harmless but it is not meant to be permanent.
 - Carried from C2/C3: a revoked subscriber still learns a conversation changed until its socket drops; a compaction is traced but not billed; a turn failing before its first model call is untraced; reasoning does not drive a persist.
 - Carried from B, and now partly addressable by this plan's fixture: no 401-triggered session refresh, rotation overlap not expressible, `expires_in` unconfirmed against a real response.
