@@ -117,10 +117,11 @@ export function exchangeHeaders (siteUrl: string): Record<string, string> {
   }
 }
 
-/** The `sub` bound on the NHI record. Namespaced so it cannot collide with another subject. */
-export function autonomousAgentSubject (autonomousAgentId: string): string {
-  return `autonomous-agent:${autonomousAgentId}`
-}
+/**
+ * Re-exported from the shared home: the UI registers the NHI carrying this subject and the server
+ * signs assertions with it, so the two cannot be allowed to drift.
+ */
+export { autonomousAgentSubject } from '@agents/shared/autonomous-agent-identity'
 
 /**
  * The lib-node axios interceptor attaches the REQUEST BODY to the error it rejects with

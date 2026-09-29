@@ -51,13 +51,33 @@
                     class="mr-2"
                     :text="t('disabled')"
                   />
+                  <!-- Actionable rather than merely informative: the identity is created in
+                       simple-directory from here, so the admin never leaves this UI. -->
+                  <v-btn
+                    v-if="canConfigure && !agent.nhi?.clientId"
+                    size="small"
+                    color="warning"
+                    variant="tonal"
+                    class="mr-2"
+                    :loading="enrolling && enrolTarget === agent.id"
+                    :text="t('enrol')"
+                    @click="startEnrol(agent)"
+                  />
                   <v-chip
-                    v-if="!agent.nhi?.clientId"
+                    v-else-if="!agent.nhi?.clientId"
                     size="small"
                     color="warning"
                     variant="tonal"
                     class="mr-2"
                     :text="t('notEnrolled')"
+                  />
+                  <v-chip
+                    v-else
+                    size="small"
+                    variant="tonal"
+                    class="mr-2"
+                    :title="agent.nhi.clientId"
+                    :text="t('enrolled')"
                   />
                   <v-btn
                     :to="`/${accountType}/${accountId}/autonomous-agents/${agent.id}`"
@@ -93,6 +113,55 @@
       </v-tabs-window-item>
     </template>
   </df-section-tabs>
+
+  <v-dialog
+    v-model="enrolDialog"
+    max-width="620"
+  >
+    <v-card :title="t('enrolTitle')">
+      <v-card-text>
+        <p class="text-body-2 mb-4">
+          {{ t('enrolExplain') }}
+        </p>
+        <v-alert
+          v-if="enrolError"
+          type="warning"
+          variant="tonal"
+          density="compact"
+          class="mb-4"
+          data-testid="autonomous-agent-enrol-error"
+          :text="enrolError"
+        />
+        <v-select
+          v-model="reuseClientId"
+          :items="reusableNhis"
+          item-title="label"
+          item-value="id"
+          clearable
+          :label="t('reuseExisting')"
+          :hint="t('reuseHint')"
+          persistent-hint
+          data-testid="autonomous-agent-enrol-reuse"
+        />
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn
+          variant="text"
+          :text="t('cancel')"
+          @click="enrolDialog = false"
+        />
+        <v-btn
+          color="primary"
+          variant="flat"
+          :loading="enrolling"
+          data-testid="autonomous-agent-enrol-confirm"
+          :text="reuseClientId ? t('attach') : t('createIdentity')"
+          @click="confirmEnrol()"
+        />
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 
   <v-dialog
     v-model="dialog"
@@ -147,6 +216,15 @@ en:
   saveFailed: Could not save this autonomous agent.
   disabled: Disabled
   notEnrolled: No identity
+  enrolled: Identity enrolled
+  enrol: Enrol an identity
+  enrolTitle: Enrol a non-human identity
+  enrolExplain: An autonomous agent acts under its own identity, registered in the directory. Creating one here binds it to this agent; you can also reuse an identity that already exists.
+  reuseExisting: Reuse an existing identity
+  reuseHint: Leave empty to create a new one for this autonomous agent.
+  createIdentity: Create and enrol
+  attach: Attach
+  enrolFailed: Could not enrol this autonomous agent.
   gated: Autonomous agents are still being rolled out. A superadmin in admin mode configures them for now.
   servers: "{count} MCP server(s)"
 fr:
@@ -161,6 +239,15 @@ fr:
   saveFailed: Impossible d'enregistrer cet agent autonome.
   disabled: Désactivé
   notEnrolled: Pas d'identité
+  enrolled: Identité enregistrée
+  enrol: Enregistrer une identité
+  enrolTitle: Enregistrer une identité non humaine
+  enrolExplain: Un agent autonome agit sous sa propre identité, enregistrée dans l'annuaire. En créer une ici la lie à cet agent ; vous pouvez aussi réutiliser une identité existante.
+  reuseExisting: Réutiliser une identité existante
+  reuseHint: Laissez vide pour en créer une nouvelle pour cet agent autonome.
+  createIdentity: Créer et enregistrer
+  attach: Rattacher
+  enrolFailed: Impossible d'enregistrer cet agent autonome.
   gated: Les agents autonomes sont en cours de déploiement progressif. Pour l'instant, un superadministrateur en mode administration les configure.
   servers: "{count} serveur(s) MCP"
 </i18n>
@@ -175,6 +262,7 @@ import { useSession } from '@data-fair/lib-vue/session.js'
 import { getUiNotif } from '@data-fair/lib-vue/ui-notif.js'
 import VjsfAutonomousAgentWriteReq from '~/components/vjsf/vjsf-autonomous-agent-write-req.vue'
 import { autonomousAgentEditDraft } from '~/utils/autonomous-agent-draft'
+import { useAutonomousAgentEnrolment } from '~/composables/use-autonomous-agent-enrolment'
 import { $apiPath, $fetch, $uiConfig } from '~/context'
 
 const props = defineProps<{
@@ -244,6 +332,40 @@ const startEdit = (agent: any) => {
   // wiped — and for nhi that un-enrols the agent.
   draft.value = autonomousAgentEditDraft(agent)
   dialog.value = true
+}
+
+// ---- enrolment (federated with simple-directory, client-side) ----
+const { enrolling, error: enrolError, listNhis, enrol, attach } = useAutonomousAgentEnrolment(props.accountType, props.accountId)
+const enrolDialog = ref(false)
+const enrolTarget = ref<string | null>(null)
+const reuseClientId = ref<string | null>(null)
+const reusableNhis = ref<{ id: string, label: string }[]>([])
+
+const startEnrol = async (agent: any) => {
+  enrolTarget.value = agent.id
+  reuseClientId.value = null
+  reusableNhis.value = []
+  enrolError.value = null
+  enrolDialog.value = true
+  try {
+    // Offered, not required: listing is mongo-only in simple-directory, so on a file-storage
+    // deployment this comes back empty and the admin simply creates a new identity.
+    const existing = await listNhis()
+    reusableNhis.value = existing.map(nhi => ({ id: nhi.id, label: `${nhi.name ?? nhi.id} — ${nhi.nhi?.subject ?? ''}` }))
+  } catch { /* leave the list empty; creating a new identity still works */ }
+}
+
+const confirmEnrol = async () => {
+  const agent = agents.value.find((a: any) => a.id === enrolTarget.value)
+  if (!agent) return
+  try {
+    if (reuseClientId.value) await attach(agent, reuseClientId.value)
+    else await enrol(agent)
+    enrolDialog.value = false
+    await agentsFetch.refresh()
+  } catch {
+    // enrolError carries simple-directory's own message; the dialog stays open showing it.
+  }
 }
 
 const save = async () => {

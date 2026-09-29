@@ -64,6 +64,48 @@ test.describe('Autonomous agents configuration', () => {
     await expect(dialog.getByRole('textbox', { name: 'Client id' })).toHaveValue('dev-fixture-nhi')
   })
 
+  test('an unenrolled autonomous agent offers to enrol it, and reports what the directory says', async ({ page, goToWithAuth }) => {
+    // The two services are federated CLIENT-side: this button calls simple-directory's own NHI API
+    // with the admin's session, so the admin never leaves this UI.
+    //
+    // The SUCCESS path cannot run here: simple-directory's NHI management is mongo-only (createUser
+    // throws under the file storage every data-fair dev stack uses), so creation fails. That makes
+    // the failure path the valuable one to pin — an inert button would be the likely bug, and this
+    // asserts the directory's own refusal is surfaced instead.
+    const created = await admin.post('/api/autonomous-agents/organization/test1', {
+      title: 'Unenrolled agent', persona: 'x', mcpServers: [], toolDisclosure: 'static', enabled: true
+    })
+    expect(created.data.nhi?.clientId).toBeFalsy()
+
+    await goToWithAuth('/agents/organization/test1', 'superadmin', asSuperAdmin)
+    await page.getByTestId('autonomous-agent-list').getByRole('button', { name: 'Enrol an identity' }).first().click({ timeout: 20000 })
+
+    const dialog = page.locator('.v-overlay--active')
+    await expect(dialog.getByTestId('autonomous-agent-enrol-confirm')).toBeVisible()
+    await dialog.getByTestId('autonomous-agent-enrol-confirm').click()
+
+    // Whatever simple-directory answers, the admin is told — not left with a spinner that stops and
+    // a dialog that does nothing.
+    await expect(page.getByTestId('autonomous-agent-enrol-error')).toBeVisible({ timeout: 20000 })
+    await expect(page.getByTestId('autonomous-agent-enrol-error')).not.toBeEmpty()
+  })
+
+  test('an enrolled autonomous agent shows its identity instead of offering to enrol', async ({ page, goToWithAuth }) => {
+    const siteUrl = `http://localhost:${process.env.NGINX_PORT}`
+    await admin.post('/api/test-env/autonomous-agent', {
+      id: 'test-fixture',
+      owner: { type: 'organization', id: 'test1' },
+      clientId: 'test-autonomous-agent-nhi',
+      siteUrl,
+      issuer: `${siteUrl}/agents/api/nhi`,
+      autonomousAgent: { title: 'Enrolled agent', persona: 'x', mcpServers: [], toolDisclosure: 'static', enabled: true }
+    })
+
+    await goToWithAuth('/agents/organization/test1', 'superadmin', asSuperAdmin)
+    await expect(page.getByTestId('autonomous-agent-list')).toContainText('Identity enrolled', { timeout: 20000 })
+    await expect(page.getByTestId('autonomous-agent-list').getByRole('button', { name: 'Enrol an identity' })).toHaveCount(0)
+  })
+
   test('the MCP server picker offers the catalog the API serves', async ({ page, goToWithAuth }) => {
     // Assert a known dev id rather than a count, which would pin the dev config.
     await goToWithAuth('/agents/organization/test1', 'superadmin', asSuperAdmin)
