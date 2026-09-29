@@ -92,6 +92,79 @@ const conversations = [
   }
 ]
 
+// ---- autonomous agent fixtures ----
+//
+// One working autonomous agent on organization/dev1, with a conversation history that already shows
+// the states that are awkward to produce by hand. Seeded through the REAL routes and waited on, so
+// what you review is what the executor actually produces rather than documents written to look like
+// it.
+//
+// The id is fixed because simple-directory pins an NHI's `subject` and ours is derived as
+// `autonomous-agent:<id>`: `dev-autonomous-agent-nhi` in dev/resources/users.template.json declares
+// exactly `autonomous-agent:dev-fixture`, so this agent gets a REAL identity and its tool calls are
+// really authenticated as itself.
+const AUTONOMOUS_AGENT_ID = 'dev-fixture'
+const AUTONOMOUS_AGENT_NHI = 'dev-autonomous-agent-nhi'
+
+// Wired to the review MCP server (npm run dev-mcp), not the test fixture: the test one only exists
+// for the life of a spec, so an agent pointed at it would 502 the moment you posted a message.
+const autonomousAgentBody = {
+  title: 'Dev fixture agent',
+  persona: 'You are a helpful data assistant for the Dev Organization. You answer briefly and you say plainly when you cannot do something.',
+  instructions: 'Prefer calling a tool over guessing. If a tool fails, say so rather than inventing a result.',
+  mcpServers: [{ serverId: 'dev-review-session-mcp' }],
+  toolDisclosure: 'static',
+  enabled: true
+}
+
+// Each entry is one conversation, seeded by posting its message and waiting for the run to settle.
+// The directives are mock-model seams (see api/src/models/mock-model.ts), chosen so the history
+// covers a clean answer, a real tool call, a provider failure and a guard truncation.
+const autonomousAgentConversations = [
+  { title: 'A plain answer', message: 'hello' },
+  { title: 'A tool call', message: 'call tool echo {"value":"Dev Organization"}' },
+  { title: 'A failed turn', message: 'stream error' },
+  { title: 'A truncated turn', message: 'loop forever' }
+]
+
+async function seedAutonomousAgent (adminAx: any, orgAx: any) {
+  const siteUrl = `http://localhost:${process.env.NGINX_PORT}`
+  await adminAx.post('/api/test-env/autonomous-agent', {
+    id: AUTONOMOUS_AGENT_ID,
+    owner: { type: 'organization', id: 'dev1' },
+    clientId: AUTONOMOUS_AGENT_NHI,
+    siteUrl,
+    issuer: `${siteUrl}/agents/api/nhi`,
+    autonomousAgent: autonomousAgentBody
+  })
+  console.log(`seeded autonomous agent ${AUTONOMOUS_AGENT_ID} (organization/dev1, enrolled as ${AUTONOMOUS_AGENT_NHI})`)
+
+  const base = '/api/autonomous-agent-conversations/organization/dev1'
+  const existing = (await orgAx.get(`${base}?autonomousAgentId=${AUTONOMOUS_AGENT_ID}`)).data.results as any[]
+
+  for (const fixture of autonomousAgentConversations) {
+    // Idempotent-ish, like the rest of this script: an existing conversation with the same title is
+    // reused rather than duplicated, so a re-run does not pile up threads.
+    if (existing.some(conversation => conversation.title === fixture.title)) {
+      console.log(`  conversation already seeded: ${fixture.title}`)
+      continue
+    }
+    const conversation = (await orgAx.post(base, { autonomousAgentId: AUTONOMOUS_AGENT_ID, title: fixture.title })).data
+    const { runId } = (await orgAx.post(`${base}/${conversation.id}/messages`, { content: fixture.message })).data
+
+    // Wait for the run to settle, so the script's success means the history is really there — the
+    // same contract the trace seeding above holds itself to.
+    let run: any
+    for (let i = 0; i < 150; i++) {
+      run = (await orgAx.get(`/api/autonomous-agent-runs/organization/dev1/${runId}`)).data
+      if (run.status !== 'running') break
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
+    if (run?.status === 'running') throw new Error(`run ${runId} never settled — is npm run dev-mcp up?`)
+    console.log(`  seeded conversation "${fixture.title}" (${run.status}${run.stopReason ? `/${run.stopReason}` : ''})`)
+  }
+}
+
 // ---- consumption fixtures ----
 //
 // Pseudo usage for the monitoring histograms (account, per-user, platform),
@@ -367,6 +440,8 @@ async function main () {
     console.log(`${owner}: ${count} stored conversation(s)`)
   }
 
+  await seedAutonomousAgent(adminAx, orgAx)
+
   await seedConsumption()
 
   const ui = `http://localhost:${process.env.NGINX_PORT}/agents`
@@ -374,6 +449,9 @@ async function main () {
   for (const owner of owners) console.log(`  activity: ${ui}/${owner}/activity`)
   for (const conv of conversations) console.log(`  review:   ${ui}/traces/${conv.convId}/review`)
   console.log(`  usage:    ${ui}/organization/dev1 (account + per-user), ${ui}/user/albanm, ${ui}/admin (platform)`)
+  console.log(`  agents:   ${ui}/organization/dev1#autonomous-agents (configuration)`)
+  console.log(`  thread:   ${ui}/organization/dev1/autonomous-agents/${AUTONOMOUS_AGENT_ID}`)
+  console.log('\n  The agent\'s tools need `npm run dev-mcp` running (it is in the zellij layout).')
 }
 
 // Only run when invoked directly (`npm run dev-fixtures`), so the seeding
