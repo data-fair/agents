@@ -88,6 +88,47 @@ if (process.env.NODE_ENV === 'development') {
   // therefore reject any nhi a test tried to set, leaving everything downstream of
   // enrolment untestable. This writes the field directly so the runtime can be exercised
   // against MCP servers that need no session (auth: 'none').
+  /**
+   * Create an autonomous agent with a CHOSEN id, and a real enrolment.
+   *
+   * The id matters: simple-directory pins an NHI's `subject`, and ours is strictly derived as
+   * `autonomous-agent:<id>`, so a fixture NHI can only ever be matched by an agent whose id the
+   * caller picked. Making the id choosable in dev keeps that derivation — and therefore one NHI per
+   * agent — intact in production, where the alternative (an overridable subject) would have let two
+   * agents share one identity.
+   *
+   * Also sets `nhi` directly, which the real write route cannot do from a test client: it rebuilds
+   * that field from the request and needs an x-forwarded-host the direct clients do not send.
+   *
+   * Pass the FIXTURE client id (see dev/resources/users.template.json) for a real exchange.
+   */
+  app.post('/api/test-env/autonomous-agent', async (req, res) => {
+    const now = new Date().toISOString()
+    const doc = {
+      title: 'Fixture autonomous agent',
+      persona: 'You answer briefly.',
+      mcpServers: [],
+      toolDisclosure: 'static',
+      enabled: true,
+      ...req.body.autonomousAgent,
+      id: req.body.id,
+      owner: req.body.owner,
+      nhi: { clientId: req.body.clientId, siteUrl: req.body.siteUrl, issuer: req.body.issuer },
+      createdAt: now,
+      updatedAt: now
+    }
+    await mongo.autonomousAgents.replaceOne({ id: doc.id }, doc, { upsert: true })
+    res.json(doc)
+  })
+  /**
+   * Attach a PLACEHOLDER enrolment to an existing autonomous agent.
+   *
+   * Deliberately not a real one: it unblocks the executor's "no enrolled identity" refusal so a test
+   * can exercise everything downstream, and that is all. It proves nothing about the token exchange,
+   * and it only suffices because the MCP servers those tests use are `auth: 'none'` and need no
+   * session. A test that needs a REAL identity uses /api/test-env/autonomous-agent above with a
+   * fixture client id.
+   */
   app.post('/api/test-env/enrol-autonomous-agent', async (req, res) => {
     await mongo.autonomousAgents.updateOne(
       { id: req.body.agentId },

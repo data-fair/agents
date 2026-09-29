@@ -79,7 +79,9 @@
     "id": "test-autonomous-agent-nhi",
     "email": "test-autonomous-agent-nhi@test.com",
     "nhi": {
-      "provider": "http://localhost:{NGINX_PORT}/agents/api/nhi",
+      "provider": {
+        "issuer": "http://localhost:{NGINX_PORT}/agents/api/nhi"
+      },
       "subject": "autonomous-agent:test-fixture"
     }
   },
@@ -87,7 +89,9 @@
     "id": "dev-autonomous-agent-nhi",
     "email": "dev-autonomous-agent-nhi@test.com",
     "nhi": {
-      "provider": "http://localhost:{NGINX_PORT}/agents/api/nhi",
+      "provider": {
+        "issuer": "http://localhost:{NGINX_PORT}/agents/api/nhi"
+      },
       "subject": "autonomous-agent:dev-fixture"
     }
   }

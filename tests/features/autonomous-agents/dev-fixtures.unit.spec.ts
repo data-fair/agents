@@ -37,14 +37,31 @@ test.describe('dev NHI fixtures', () => {
     }
   })
 
+  test('each declares its provider as an OBJECT carrying an issuer', () => {
+    // simple-directory types it as `{ issuer: string, jwks?: any }` and calls assertSafeIssuer on
+    // `provider.issuer`. A bare string makes `new URL(undefined)` throw, which surfaces as the
+    // exchange's uniform 401 with 'invalid issuer url' visible only in simple-directory's own log.
+    for (const user of nhiUsers) {
+      assert.equal(typeof user.nhi.provider, 'object', `${user.id} provider must be an object, not a string`)
+      assert.equal(typeof user.nhi.provider.issuer, 'string')
+    }
+  })
+
   test('each declares this service as its issuer', () => {
-    // `provider` is what verifyAssertion resolves the signing keys from, via OIDC discovery against
+    // The issuer is what verifyAssertion resolves the signing keys from, via OIDC discovery against
     // our own /.well-known/openid-configuration.
     for (const user of nhiUsers) {
       assert.ok(
-        user.nhi.provider.endsWith(`/${SERVICE_PATH_PART}/api/nhi`),
-        `${user.id} issuer should end with /${SERVICE_PATH_PART}/api/nhi, got ${user.nhi.provider}`
+        user.nhi.provider.issuer.endsWith(`/${SERVICE_PATH_PART}/api/nhi`),
+        `${user.id} issuer should end with /${SERVICE_PATH_PART}/api/nhi, got ${user.nhi.provider.issuer}`
       )
+    }
+  })
+
+  test('no fixture pins an inline jwks, so key rotation needs no re-enrolment', () => {
+    // Discovery is deliberate: an inline jwks would freeze the keys at fixture-authoring time.
+    for (const user of nhiUsers) {
+      assert.equal('jwks' in user.nhi.provider, false, `${user.id} should rely on discovery`)
     }
   })
 
@@ -71,8 +88,8 @@ test.describe('dev NHI fixtures', () => {
     // dev/init-env.sh randomises every port, so a literal one would be correct in exactly one
     // checkout and wrong everywhere else, including CI.
     for (const user of nhiUsers) {
-      assert.doesNotMatch(user.nhi.provider, /:\d{4,5}\b/, `${user.id} should use {NGINX_PORT}, not a literal port`)
-      assert.match(user.nhi.provider, /\{NGINX_PORT\}/)
+      assert.doesNotMatch(user.nhi.provider.issuer, /:\d{4,5}\b/, `${user.id} should use {NGINX_PORT}, not a literal port`)
+      assert.match(user.nhi.provider.issuer, /\{NGINX_PORT\}/)
     }
   })
 

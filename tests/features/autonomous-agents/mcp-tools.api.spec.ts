@@ -3,11 +3,10 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { axiosAuth, superAdmin, clean, directoryUrl } from '../../support/axios.ts'
+import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 
 const admin = await superAdmin
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
 const issuer = `http://localhost:${process.env.NGINX_PORT}/agents/api/nhi`
 
 let fixture: McpFixture
@@ -51,28 +50,40 @@ test.describe('Autonomous agent tools', () => {
     assert.equal(JSON.stringify(res.data).includes('dev-secret-value'), false)
   })
 
-  // SKIPPED: not provable in this dev stack, for an environment reason rather than a code
-  // one — the same reason as the skipped test in nhi-exchange.api.spec.ts. simple-directory
-  // runs STORAGE_TYPE=file (as every data-fair dev stack does), and FileStorage.createUser
-  // throws 'Method not implemented.', so POST /api/organizations/:id/nhis 500s and no NHI
-  // can ever be created here. Task 5 also makes every save carrying nhi.clientId perform a
-  // real exchange and reject on failure, so an autonomous agent can never be given a working
-  // NHI in this dev stack at all. In staging and production this path is exercised normally:
-  // simple-directory runs mongo storage and an org admin creates the NHI through the UI.
-  test.skip('a session server receives the autonomous agent\'s own NHI cookie', async () => {
-    const created = await admin.post('/api/autonomous-agents/organization/test1', agentBody({ mcpServers: [{ serverId: 'dev-session-mcp' }] }))
-    const agentId = created.data.id
-    const nhi = await orgAdmin.post(`${directoryUrl}/api/organizations/test1/nhis`, {
-      name: `autonomous-agent-${agentId}`, provider: { issuer }, subject: `autonomous-agent:${agentId}`
+  /**
+   * The point of the whole identity design: the far end saw a session, and it is the AGENT's own.
+   *
+   * Previously unprovable because no NHI could be created in dev. The fixture in
+   * dev/resources/users.template.json supplies one, and the agent's id is chosen so the fixture's
+   * pinned subject matches — see the seam in app.ts.
+   */
+  test('a session server receives the autonomous agent\'s own NHI cookie', async () => {
+    const siteUrl = `http://localhost:${process.env.NGINX_PORT}`
+    await admin.post('/api/test-env/autonomous-agent', {
+      id: 'test-fixture',
+      owner: { type: 'organization', id: 'test1' },
+      clientId: 'test-autonomous-agent-nhi',
+      siteUrl,
+      issuer,
+      autonomousAgent: agentBody({ mcpServers: [{ serverId: 'dev-session-mcp' }] })
     })
-    await admin.put(`/api/autonomous-agents/organization/test1/${agentId}`, agentBody({ mcpServers: [{ serverId: 'dev-session-mcp' }], nhi: { clientId: nhi.data.id } }))
 
-    const res = await admin.get(`/api/autonomous-agents/organization/test1/${agentId}/tools`)
+    const res = await admin.get('/api/autonomous-agents/organization/test1/test-fixture/tools')
     assert.equal(res.status, 200)
-    // THE point of this plan: the far end saw a session, and it is the agent's own
+
     const cookie = String(fixture.lastHeaders().cookie ?? '')
-    assert.match(cookie, /id_token=/)
+    // A real simple-directory session, minted by a real exchange, presented to a real MCP server.
+    assert.match(cookie, /id_token=/, `expected a session cookie at the MCP server, got: ${cookie}`)
+    // and nothing that could mint another one
     assert.equal(JSON.stringify(res.data).includes('id_token'), false)
+    assert.equal(cookie.includes('assertion'), false)
+  })
+
+  test('a public server is called WITHOUT a session, so the two auth modes are distinguishable', async () => {
+    // Without this the cookie assertion above would pass for a client that simply always sends one.
+    const created = await admin.post('/api/autonomous-agents/organization/test1', agentBody({ mcpServers: [{ serverId: 'dev-public-mcp' }] }))
+    await admin.get(`/api/autonomous-agents/organization/test1/${created.data.id}/tools`)
+    assert.equal(String(fixture.lastHeaders().cookie ?? '').includes('id_token'), false)
   })
 
   test('a session server with no enrolled identity is refused rather than called anonymously', async () => {
