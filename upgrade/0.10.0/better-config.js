@@ -8,15 +8,14 @@
 // api/src/server.ts) — the release that adopts this refactor MUST ship at
 // least 0.10.0, or this migration silently never executes.
 //
-// RELEASE NOTE — `quotas.global.monthlyLimit` is copied 1:1 into
-// `ai_credits.limit` below. The number is preserved, the unit is not: the old
-// limit was a currency budget, the new one is a credit budget, and a credit is
-// worth EUROS_PER_CREDIT euros of inference (default 0.40, the reference
-// model's input price, i.e. roughly 1M reference-model tokens per credit). A
-// migrated cap is therefore 1/EUROS_PER_CREDIT times tighter in currency terms
-// (2.5x at the default peg); an operator preserving an old euro budget must
-// multiply the cap by 1/EUROS_PER_CREDIT. See
-// docs/architecture/configuration.md#release-note-caps-shift-units-on-upgrade.
+// RELEASE NOTE — the old `quotas.global.monthlyLimit` and every role
+// `monthlyLimit` were budgets in euros of inference; the new caps are in
+// credits, and a credit is worth EUROS_PER_CREDIT euros (default 0.008). Every
+// cap is therefore converted (euros / EUROS_PER_CREDIT) so that a migrated org
+// keeps the same budget in currency terms: an old 10 € cap becomes 1250 credits
+// at the default peg. The peg is read from the same EUROS_PER_CREDIT env var the
+// service uses, so the migration MUST run with the value the deployment runs
+// with. See docs/architecture/configuration.md#release-note-caps-shift-units-on-upgrade.
 //
 // What DOES need review: a role entry that carried no prices migrates to
 // inputPricePerMillion/outputPricePerMillion 0, so that model bills nothing
@@ -54,7 +53,28 @@ const DEFAULT_MODERATION = {
   categories: ['anonymous', 'external']
 }
 
-export { DEFAULT_QUOTAS, DEFAULT_MODERATION }
+// Duplicated from api/config/default.js (eurosPerCredit) for the same reason,
+// also checked by tests/features/upgrade/upgrade.unit.spec.ts. The env var wins,
+// exactly as it does for the service's own config.
+const DEFAULT_EUROS_PER_CREDIT = 0.008
+
+export { DEFAULT_QUOTAS, DEFAULT_MODERATION, DEFAULT_EUROS_PER_CREDIT }
+
+export const eurosPerCreditFromEnv = () => {
+  const raw = process.env.EUROS_PER_CREDIT
+  if (raw === undefined || raw === '') return DEFAULT_EUROS_PER_CREDIT
+  const value = Number(raw)
+  if (!(value > 0)) throw new Error(`invalid EUROS_PER_CREDIT "${raw}", refusing to migrate quotas with it`)
+  return value
+}
+
+/**
+ * An old euro budget expressed in credits, rounded to the cent of a credit so
+ * float noise (10 / 0.008) does not leak into stored caps.
+ * @param {number} euros
+ * @param {number} eurosPerCredit
+ */
+export const eurosToCredits = (euros, eurosPerCredit) => Math.round(euros / eurosPerCredit * 100) / 100
 
 /**
  * Pure transform: old (role-keyed `models` + `quotas.global`) settings doc ->
@@ -89,9 +109,10 @@ export { DEFAULT_QUOTAS, DEFAULT_MODERATION }
  * fixed once, here. See the "no role models, no quotas.global" unit test.
  *
  * @param {any} doc a raw `settings` collection document
+ * @param {number} [eurosPerCredit] the credit peg used to convert old euro caps
  * @returns {{ settings: any, creditLimit: number | undefined } | null}
  */
-export function transformSettingsDoc (doc) {
+export function transformSettingsDoc (doc, eurosPerCredit = DEFAULT_EUROS_PER_CREDIT) {
   if (Array.isArray(doc.models)) return null
   const hasOldModels = doc.models !== undefined && doc.models !== null && typeof doc.models === 'object'
   const hadGlobalQuota = Object.prototype.hasOwnProperty.call(doc.quotas ?? {}, 'global')
@@ -135,7 +156,16 @@ export function transformSettingsDoc (doc) {
   // moderation feature must come out of the migration with the default, or the
   // org config form (ui/src/components/OrgConfigSection.vue) reports a
   // permanent unsaved change against the schema default vjsf materializes.
-  const { global: globalQuota, ...roleQuotas } = doc.quotas ?? {}
+  const { global: globalQuota, ...oldRoleQuotas } = doc.quotas ?? {}
+  // role caps were euro budgets too, and usage is now recorded in credits:
+  // convert them like the global cap, leaving 0 / unlimited entries as they are
+  /** @type {Record<string, any>} */
+  const roleQuotas = {}
+  for (const [role, quota] of Object.entries(oldRoleQuotas)) {
+    roleQuotas[role] = quota && quota.monthlyLimit > 0
+      ? { ...quota, monthlyLimit: eurosToCredits(quota.monthlyLimit, eurosPerCredit) }
+      : quota
+  }
   const settings = { ...doc, models, quotas: { ...DEFAULT_QUOTAS, ...roleQuotas }, moderation: doc.moderation ?? DEFAULT_MODERATION }
   if (Object.keys(modelMapping).length) settings.modelMapping = modelMapping
   else delete settings.modelMapping
@@ -154,7 +184,7 @@ export function transformSettingsDoc (doc) {
   // never-configured accounts cannot spend the deployment's provider keys;
   // an org that worked before the upgrade must not be refused by it.
   const creditLimit = globalQuota && !globalQuota.unlimited && globalQuota.monthlyLimit
-    ? globalQuota.monthlyLimit
+    ? eurosToCredits(globalQuota.monthlyLimit, eurosPerCredit)
     : -1
 
   return { settings, creditLimit }
@@ -164,9 +194,11 @@ export function transformSettingsDoc (doc) {
 export default {
   description: 'migrate settings to the models array / modelMapping / credit limit structure introduced by the config refactor',
   async exec (db, debug) {
+    const eurosPerCredit = eurosPerCreditFromEnv()
+    debug(`converting euro caps to credits at ${eurosPerCredit} EUR per credit`)
     const cursor = db.collection('settings').find({})
     for await (const doc of cursor) {
-      const result = transformSettingsDoc(doc)
+      const result = transformSettingsDoc(doc, eurosPerCredit)
       if (!result) continue
 
       // Seed the credit limit BEFORE flipping the settings doc to the new shape.
