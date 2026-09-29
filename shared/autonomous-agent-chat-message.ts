@@ -20,43 +20,68 @@ import type { ChatMessage } from './chat-message.ts'
 export interface StoredAutonomousAgentMessage {
   seq: number
   role: 'user' | 'assistant'
-  content?: string
-  reasoning?: string
   pending?: boolean
   runId?: string
-  toolCalls?: {
-    toolCallId?: string
-    toolName: string
-    serverId?: string
-    arguments?: string
-    failed?: boolean
-    error?: string
-  }[]
+  /**
+   * The turn's ordered parts, as stored. This is the conversation of record — the same shape the model
+   * is replayed from — so the UI renders the same thing the model saw rather than a parallel summary
+   * that can drift from it.
+   */
+  parts?: StoredAutonomousAgentPart[]
 }
 
+export type StoredAutonomousAgentPart =
+  | { type: 'text', text: string }
+  | { type: 'reasoning', text: string }
+  | { type: 'tool-call', toolCallId?: string, toolName: string, serverId?: string, arguments?: string }
+  | {
+    type: 'tool-result'
+    toolCallId?: string
+    toolName: string
+    result?: string
+    truncated?: { totalChars: number }
+    failed?: boolean
+    error?: string
+  }
+
 export function autonomousAgentMessageToChat (message: StoredAutonomousAgentMessage): ChatMessage {
+  const parts = message.parts ?? []
   const chat: ChatMessage = {
     role: message.role,
     // Required by ChatMessage, and a pending assistant message legitimately has none yet — the
     // renderer indexes into this, so it must never be undefined.
-    content: message.content ?? ''
+    content: parts.filter(p => p.type === 'text').map(p => p.text).join('')
   }
-  if (message.reasoning) chat.reasoning = message.reasoning
-  if (message.toolCalls?.length) {
-    chat.toolInvocations = message.toolCalls.map((call, index) => ({
-      // A call is only recorded once the model has emitted it, so an id is normally present; fall
-      // back to a stable positional one rather than dropping the call from the transcript.
-      toolCallId: call.toolCallId ?? `${message.seq}-${index}`,
-      toolName: call.toolName,
-      // 'pending' tracks the MESSAGE, not the individual call: the runtime records a call when it
-      // is emitted and finalises the whole message at the end of the turn, so there is no
-      // per-call completion to read.
-      //
-      // A FAILED call is deliberately 'done'. ChatMessage has no failure state, and reporting
-      // 'pending' would leave a spinner turning for a call that will never return — the failure
-      // is shown outside the transcript, where its arguments and error can be read too.
-      state: (message.pending && !call.failed) ? 'pending' : 'done'
-    }))
+  const reasoning = parts.filter(p => p.type === 'reasoning').map(p => p.text).join('')
+  if (reasoning) chat.reasoning = reasoning
+
+  // A result is matched to its call so the transcript can show a call that FAILED, which is the one
+  // distinction a reader cannot recover from the chip alone. Results are not rendered themselves:
+  // they are tool payloads, and the transcript shows what the agent did, not what it fetched.
+  const resultFor = new Map<string, Extract<StoredAutonomousAgentPart, { type: 'tool-result' }>>()
+  for (const part of parts) {
+    if (part.type === 'tool-result' && part.toolCallId) resultFor.set(part.toolCallId, part)
+  }
+
+  const calls = parts.filter(p => p.type === 'tool-call') as Array<Extract<StoredAutonomousAgentPart, { type: 'tool-call' }>>
+  if (calls.length) {
+    chat.toolInvocations = calls.map((call, index) => {
+      const failed = call.toolCallId ? resultFor.get(call.toolCallId)?.failed : undefined
+      return {
+        // A call is only recorded once the model has emitted it, so an id is normally present; fall
+        // back to a stable positional one rather than dropping the call from the transcript.
+        toolCallId: call.toolCallId ?? `${message.seq}-${index}`,
+        toolName: call.toolName,
+        // 'pending' tracks the MESSAGE, not the individual call: the runtime records a call when it
+        // is emitted and finalises the whole message at the end of the turn, so there is no
+        // per-call completion to read.
+        //
+        // A FAILED call is deliberately 'done'. ChatMessage has no failure state, and reporting
+        // 'pending' would leave a spinner turning for a call that will never return — the failure
+        // is shown outside the transcript, where its arguments and error can be read too.
+        state: (message.pending && !failed) ? 'pending' : 'done'
+      }
+    })
   }
   return chat
 }

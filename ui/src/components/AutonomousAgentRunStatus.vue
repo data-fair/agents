@@ -5,6 +5,7 @@
     color="surface-light"
     rounded
     data-testid="autonomous-agent-run-status"
+    :data-run-id="run.id"
   >
     <v-chip
       size="small"
@@ -119,11 +120,35 @@ const statusColor = computed(() => {
   return 'warning'
 })
 
-/** Failed tool calls of this run, with what the tool was asked to do. */
+/**
+ * Failed tool calls of this run, with what the tool was asked to do.
+ *
+ * Joined from the two parts that hold the halves: the CALL carries the server and the arguments, the
+ * RESULT carries the failure and the error. They are separate parts because the model was handed the
+ * error as the tool's answer, and the pair has to exist for the history to replay.
+ */
 const failures = computed(() =>
   props.messages
     .filter(message => message.runId === props.run?.id)
-    .flatMap(message => (message.toolCalls ?? []).filter(call => call.failed))
+    .flatMap(message => {
+      const parts = message.parts ?? []
+      const failedResults = new Map(
+        parts
+          .filter(part => part.type === 'tool-result' && part.failed && part.toolCallId)
+          .map(part => [(part as { toolCallId: string }).toolCallId, part as { error?: string }])
+      )
+      return parts
+        .filter(part => part.type === 'tool-call' && part.toolCallId && failedResults.has(part.toolCallId))
+        .map(part => {
+          const call = part as { toolCallId: string, toolName: string, serverId?: string, arguments?: string }
+          return {
+            toolName: call.toolName,
+            serverId: call.serverId,
+            arguments: call.arguments,
+            error: failedResults.get(call.toolCallId)?.error
+          }
+        })
+    })
 )
 
 const abort = async () => {

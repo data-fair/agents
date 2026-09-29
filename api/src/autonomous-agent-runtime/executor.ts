@@ -21,7 +21,11 @@ import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep } from '@agents/sha
 import { decideCompaction } from '@agents/shared/compaction-policy'
 import { compactionSystemPrompt, recapMessage } from '@agents/shared/compaction-prompt'
 import type { AutonomousAgent, AutonomousAgentMessage, AutonomousAgentRun } from '#types'
-import { runStopReasonMessage, buildSystemPrompt, wrapToolResult, summarizeToolArguments, type RunStopReason } from './operations.ts'
+import {
+  runStopReasonMessage, buildSystemPrompt, wrapToolResult, summarizeToolArguments,
+  storedTurnsToModelMessages, boundToolResult, partsText, withAppendedText,
+  type RunStopReason, type StoredPart
+} from './operations.ts'
 import { appendMessage, updateMessage, finishRun, incrementRunSpend } from './service.ts'
 import { recordTraceRequest } from '../traces/service.ts'
 import { getSettings } from '../settings/service.ts'
@@ -82,9 +86,8 @@ const conversationLockId = (conversationId: string) => `autonomous-agent-convers
 
 /** What one turn produced. The model loop replaces the body that fills this in. */
 interface TurnResult {
-  content: string
-  reasoning?: string
-  toolCalls?: NonNullable<AutonomousAgentMessage['toolCalls']>
+  /** The turn's ordered parts — the record itself, not a rendering of it. */
+  parts: StoredPart[]
   steps: number
   credits: number
   stopReason: RunStopReason
@@ -158,28 +161,21 @@ const recordAutonomousTrace = (
 /**
  * The conversation so far, as model messages.
  *
- * Tool calls are NOT replayed as tool-call/tool-result pairs: the runtime persists only
- * what a reader needs (which tools were called), not the full wire exchange, so a past
- * turn's tool traffic is summarised into its assistant text instead. Replaying partial
- * pairs would produce a history the provider rejects.
+ * A straight mapping, deliberately: the stored parts ARE the wire exchange, so reconstructing them
+ * needs no inference and no second source. Completeness is structural rather than something this
+ * function has to be careful about.
+ *
+ * It replaced a lossy flattening that stored tool calls without their RESULTS and dropped any turn
+ * with no text — so a resumed conversation replayed `{role:'assistant',content:'done'}` for a turn
+ * that had called a tool, and the model saw neither the result nor the fact that it had acted. See
+ * storedTurnsToModelMessages for how a turn's steps are grouped back into assistant/tool pairs.
  */
 const loadHistory = async (conversationId: string, upToSeq: number): Promise<ModelMessage[]> => {
   const messages = await mongo.autonomousAgentMessages
     .find({ conversationId, seq: { $lt: upToSeq } }, { projection: { _id: 0 } })
     .sort({ seq: 1 })
     .toArray()
-  return messages
-    .filter(m => (m.content ?? '').trim())
-    .map(m => ({
-      role: m.role,
-      // A user turn carries WHO wrote it. The system prompt tells the model the timeline is
-      // shared and to attribute requests to whoever actually made them, which it cannot do
-      // from an undifferentiated stream of `user` turns. On a shared timeline that is also a
-      // safety property: one instructor's paste must not read as another's request.
-      content: m.role === 'user' && m.author?.userName
-        ? `[from ${m.author.userName}${m.author.userId ? ` (${m.author.userId})` : ''}]\n${m.content as string}`
-        : m.content as string
-    }) as ModelMessage)
+  return storedTurnsToModelMessages(messages as any) as ModelMessage[]
 }
 
 /**
@@ -300,7 +296,7 @@ const performTurn = async (run: AutonomousAgentRun, messageSeq: number, messageI
   // tools as its identity, and spending credits.
   if (autonomousAgent.enabled === false) {
     return {
-      content: 'This autonomous agent is currently disabled, so it cannot act. An administrator can re-enable it.',
+      parts: [{ type: 'text', text: 'This autonomous agent is currently disabled, so it cannot act. An administrator can re-enable it.' }],
       steps: 0,
       credits: 0,
       stopReason: 'error'
@@ -308,7 +304,7 @@ const performTurn = async (run: AutonomousAgentRun, messageSeq: number, messageI
   }
   if (!autonomousAgent.nhi?.clientId) {
     return {
-      content: 'This autonomous agent has no non-human identity enrolled, so it cannot reach any of its tools. An administrator needs to complete its enrolment before it can run.',
+      parts: [{ type: 'text', text: 'This autonomous agent has no non-human identity enrolled, so it cannot reach any of its tools. An administrator needs to complete its enrolment before it can run.' }],
       steps: 0,
       credits: 0,
       stopReason: 'error'
@@ -324,7 +320,7 @@ const performTurn = async (run: AutonomousAgentRun, messageSeq: number, messageI
   if (violation) {
     return {
       // reason/scope/period name WHAT was exceeded; an org admin needs that to act.
-      content: `This autonomous agent could not run: ${violation.reason} (${violation.scope}, ${violation.period} limit ${violation.limit}, used ${violation.usage}). Resets at ${violation.resetsAt}.`,
+      parts: [{ type: 'text', text: `This autonomous agent could not run: ${violation.reason} (${violation.scope}, ${violation.period} limit ${violation.limit}, used ${violation.usage}). Resets at ${violation.resetsAt}.` }],
       steps: 0,
       credits: 0,
       stopReason: 'error'
@@ -456,9 +452,16 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
     abortSignal
   })
 
-  let content = ''
-  let reasoning = ''
-  const toolCalls: NonNullable<AutonomousAgentMessage['toolCalls']> = []
+  // The turn's parts, in the order the model produced them. This IS the record: everything the model
+  // saw has to end up here, or a revived conversation is a different conversation.
+  const parts: StoredPart[] = []
+  const appendText = (kind: 'text' | 'reasoning', delta: string) => {
+    const last = parts[parts.length - 1]
+    // Merged into the trailing part of the same kind rather than pushed per delta, or a turn would
+    // store thousands of one-token parts.
+    if (last && last.type === kind) { (last as { text: string }).text += delta; return }
+    parts.push({ type: kind, text: delta })
+  }
 
   // Live text: the growing content is PERSISTED, throttled, rather than published. Each write
   // advances the conversation version, which notifies subscribers, who then fetch the record over
@@ -469,10 +472,11 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   const persistPartial = async () => {
     const now = Date.now()
     if (now - lastPersistAt < PARTIAL_PERSIST_INTERVAL_MS) return
-    if (content.length === lastPersistedLength) return
+    const length = partsText(parts).length
+    if (length === lastPersistedLength) return
     lastPersistAt = now
-    lastPersistedLength = content.length
-    await updateMessage(messageId, { content, ...(reasoning ? { reasoning } : {}), pending: true })
+    lastPersistedLength = length
+    await updateMessage(messageId, { parts: parts as any, pending: true })
   }
 
   for await (const part of result.fullStream) {
@@ -480,31 +484,61 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
     // before. Turn it into a real failure so the caller reports it.
     if (part.type === 'error') throw part.error instanceof Error ? part.error : new Error(String(part.error))
     if (part.type === 'text-delta') {
-      content += part.text
+      appendText('text', part.text)
       await persistPartial()
     }
-    if (part.type === 'reasoning-delta') reasoning += part.text
+    if (part.type === 'reasoning-delta') appendText('reasoning', part.text)
     if (part.type === 'tool-call') {
-      toolCalls.push({
+      parts.push({
+        type: 'tool-call',
         toolCallId: part.toolCallId,
         toolName: part.toolName,
         serverId: serverByTool.get(part.toolName),
         arguments: summarizeToolArguments((part as any).input)
       })
     }
+    // The RESULT, stored because the conversation is revivable: without it a later turn replays a
+    // call with no answer, which providers reject — so the old shape had to drop the call too, and
+    // the model resumed unable to see either the data or the fact that it had acted.
+    //
+    // Stored as the model received it, envelope included (withProvenance wraps before this point),
+    // because the guarantee is that a revived conversation reproduces what the model saw.
+    if (part.type === 'tool-result') {
+      const output = (part as any).output
+      const text = typeof output === 'string'
+        ? output
+        : (output && typeof output === 'object' && 'value' in output)
+            ? String((output as any).value)
+            : JSON.stringify(output ?? '')
+      parts.push({
+        type: 'tool-result',
+        toolCallId: part.toolCallId,
+        toolName: part.toolName,
+        ...boundToolResult(text)
+      })
+    }
     // A tool that failed does not stop the turn — the model sees the error and usually keeps
     // talking — so without recording it a failed call reads exactly like a successful one.
     // That is not hypothetical: it hid a broken tool path for the whole of this plan.
+    //
+    // Recorded as a RESULT part, not a flag on the call: the model was handed the error as the
+    // tool's answer, so the pair has to exist for the history to replay at all.
     if (part.type === 'tool-error') {
-      const failedCall = toolCalls.find(c => c.toolCallId === part.toolCallId)
       const detail = (part as any).error instanceof Error ? (part as any).error.message : String((part as any).error)
-      if (failedCall) {
-        failedCall.failed = true
-        failedCall.error = detail
-      }
+      parts.push({
+        type: 'tool-result',
+        toolCallId: part.toolCallId,
+        toolName: part.toolName,
+        ...boundToolResult(detail),
+        failed: true,
+        error: detail
+      })
       debug('tool failed tool=%s error=%s', part.toolName, detail)
     }
   }
+
+  const content = partsText(parts)
+  const toolCalls = parts.filter(p => p.type === 'tool-call') as Array<Extract<StoredPart, { type: 'tool-call' }>>
 
   const steps = (await result.steps).length
   const finishReason = await result.finishReason
@@ -515,12 +549,19 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
     contextId: `turn:${run.id}`,
     modelRole: 'assistant',
     entry,
-    // The request as sent: the system prompt, the history, and the tool names advertised —
-    // deliberately NOT the tool results, which carry MCP payloads. The trace is for diagnosing
-    // the loop, not for duplicating fetched data.
+    // The request DESCRIBED, not duplicated: the system prompt, the tool names advertised, and a
+    // REFERENCE to the history rather than the history itself.
+    //
+    // This is the conversation/trace separation. The stored conversation is now the complete wire
+    // exchange, tool results included, so copying `history` in here would (a) duplicate the
+    // conversation in a second place, quadratically since every request resends the whole thing, and
+    // (b) put MCP payloads into traces, which are a different storage decision — opt-in, consent-gated
+    // and TTL'd — and which were deliberately kept free of fetched data. The conversation id and the
+    // seq bound below are enough to fetch the exact history this request sent.
     body: {
       system: buildSystemPrompt(autonomousAgent),
-      messages: history,
+      messageCount: history.length,
+      historyUpToSeq: messageSeq,
       tools: Object.keys(tools)
     },
     response: {
@@ -553,9 +594,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   // truncation as a provider error.
   const emptyCompletion = stopReason === 'completed' && content.trim().length === 0
   return {
-    content: emptyCompletion ? EMPTY_COMPLETION_MESSAGE : content,
-    reasoning: reasoning || undefined,
-    toolCalls: toolCalls.length ? toolCalls : undefined,
+    parts: emptyCompletion ? withAppendedText(parts, EMPTY_COMPLETION_MESSAGE) : parts,
     steps,
     credits,
     stopReason: emptyCompletion ? 'error' : stopReason
@@ -607,7 +646,7 @@ export const runTurn = async (run: AutonomousAgentRun): Promise<void> => {
     message = await appendMessage(conversation, {
       role: 'assistant',
       author: { kind: 'autonomous-agent', userName: conversation.title },
-      content: '',
+      parts: [],
       runId: run.id,
       pending: true
     })
@@ -618,11 +657,8 @@ export const runTurn = async (run: AutonomousAgentRun): Promise<void> => {
     // A turn that stopped for a reason other than finishing explains itself, appended to
     // whatever it did manage to produce.
     const notice = result.stopReason === 'completed' ? '' : runStopReasonMessage(result.stopReason)
-    const content = [result.content, notice].filter(Boolean).join('\n\n')
     await updateMessage(message.id, {
-      content,
-      reasoning: result.reasoning,
-      toolCalls: result.toolCalls,
+      parts: (notice ? withAppendedText(result.parts, notice) : result.parts) as any,
       pending: false
     })
 
@@ -654,7 +690,17 @@ export const runTurn = async (run: AutonomousAgentRun): Promise<void> => {
     //
     // No message exists if appendMessage itself failed; the run then carries the failure alone.
     if (message) {
-      await updateMessage(message.id, { content: runStopReasonMessage(stopReason, detail), pending: false })
+      // APPENDED to what was persisted, not replacing it. `message` is the empty document created
+      // before the turn, so the partial text and the tool traffic the executor has since written live
+      // only in the store — replacing the parts here would delete the record of everything the turn
+      // actually did, which is exactly what must survive a failure.
+      const persisted = await mongo.autonomousAgentMessages
+        .findOne({ id: message.id }, { projection: { _id: 0, parts: 1 } })
+        .catch(() => null)
+      await updateMessage(message.id, {
+        parts: withAppendedText((persisted?.parts ?? []) as any, runStopReasonMessage(stopReason, detail)) as any,
+        pending: false
+      })
         .catch(updateErr => console.error('autonomous agent message could not be finalised', updateErr))
     }
     await finishRun(run.id, {
@@ -732,7 +778,7 @@ export const sweepInterruptedRuns = async (): Promise<number> => {
     const notice = runStopReasonMessage('error', 'interrupted by a restart')
     if (existing) {
       await updateMessage(existing.id, {
-        content: existing.content ? `${existing.content}\n\n${notice}` : notice,
+        parts: withAppendedText(existing.parts as any, notice),
         pending: false
       })
     } else {
@@ -744,7 +790,7 @@ export const sweepInterruptedRuns = async (): Promise<number> => {
         await appendMessage(conversation, {
           role: 'assistant',
           author: { kind: 'autonomous-agent', userName: conversation.title },
-          content: notice,
+          parts: [{ type: 'text', text: notice }],
           runId: run.id,
           pending: false
         })

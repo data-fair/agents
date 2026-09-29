@@ -173,7 +173,9 @@ router.post('/:type/:id/:conversationId/messages', async (req, res, next) => {
     const message = await appendMessage(conversation, {
       role: 'user',
       author: { kind: 'user', userId: session.user.id, userName: session.user.name },
-      content
+      // A user turn is one text part. Stored the same way as an assistant turn so there is a single
+      // shape to read: the conversation of record is the model messages, not two parallel formats.
+      parts: [{ type: 'text', text: content }]
     })
 
     const run = await createRun({

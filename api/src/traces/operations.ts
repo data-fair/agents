@@ -67,7 +67,12 @@ export interface BuildTraceInput {
 
 export function buildTraceRequestDoc (input: BuildTraceInput, now: Date): TraceRequest {
   const ctx = parseContextId(input.contextId)
+  // An explicit `messageCount` wins over counting `messages`, because a caller may deliberately send a
+  // REFERENCE to its history rather than a copy of it — the autonomous agent runtime does, so that the
+  // conversation lives in exactly one place and tool payloads stay out of traces. Counting an absent
+  // `messages` would report 0 for a request that sent many.
   const messages = Array.isArray(input.body?.messages) ? input.body.messages : []
+  const messageCount = typeof input.body?.messageCount === 'number' ? input.body.messageCount : messages.length
   const tools = Array.isArray(input.body?.tools) ? input.body.tools : []
   // Route through the same function as billing rather than re-deriving it here: this
   // file used to carry its own copy of the formula, which is how a cached turn came to
@@ -90,7 +95,7 @@ export function buildTraceRequestDoc (input: BuildTraceInput, now: Date): TraceR
     request: {
       model: input.resolvedModel,
       body: input.body,
-      messageCount: messages.length,
+      messageCount,
       toolCount: tools.length,
       bodyChars: JSON.stringify(input.body ?? {}).length
     },

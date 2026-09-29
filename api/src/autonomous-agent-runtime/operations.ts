@@ -141,3 +141,152 @@ export function summarizeToolArguments (input: unknown, limit: number = TOOL_ARG
   if (serialized.length <= limit) return serialized
   return `${serialized.slice(0, limit)}… [truncated, ${serialized.length} chars total]`
 }
+
+/**
+ * How much of a tool RESULT to keep on the stored message.
+ *
+ * Deliberately large: this is the conversation of record, so a result is normally kept whole and the
+ * bound exists to stop one pathological answer, not to compress ordinary ones. A typical MCP result —
+ * a JSON page of rows — is single-digit KB, so this should rarely be reached.
+ *
+ * 100 000 chars is ~25 000 tokens at CHARS_PER_TOKEN 4, about a fifth of a default 128k context: big
+ * enough to be rare, small enough that one result cannot exhaust the context on its own, and far below
+ * MongoDB's 16MB document cap even with several results on one turn.
+ */
+export const TOOL_RESULT_LIMIT = 100_000
+
+/**
+ * A tool result as stored: bounded, and HONEST about having been bounded.
+ *
+ * The marker travels inside the text, not only in the `truncated` field, because the text is what the
+ * model is handed when the conversation is revived — a silently short result would read as the whole
+ * answer, and the model would reason from it as though nothing were missing.
+ */
+export function boundToolResult (
+  text: string,
+  limit: number = TOOL_RESULT_LIMIT
+): { result: string, truncated?: { totalChars: number } } {
+  if (text.length <= limit) return { result: text }
+  return {
+    result: `${text.slice(0, limit)}… [truncated, ${text.length} chars total]`,
+    truncated: { totalChars: text.length }
+  }
+}
+
+/** One stored message's ordered parts, as the message schema defines them. */
+export type StoredPart =
+  | { type: 'text', text: string }
+  | { type: 'reasoning', text: string }
+  | { type: 'tool-call', toolCallId?: string, toolName: string, serverId?: string, arguments?: string }
+  | { type: 'tool-result', toolCallId?: string, toolName: string, result?: string, failed?: boolean, error?: string }
+
+/** The subset of a stored message this reconstruction needs. */
+export type StoredTurn = {
+  role: 'user' | 'assistant'
+  parts?: StoredPart[]
+  author?: { userId?: string, userName?: string }
+}
+
+/**
+ * A user turn carries WHO wrote it.
+ *
+ * The system prompt tells the model the timeline is shared and to attribute requests to whoever
+ * actually made them, which it cannot do from an undifferentiated stream of `user` turns. On a shared
+ * timeline that is also a safety property: one instructor's paste must not read as another's request.
+ */
+export function attributedUserText (text: string, author?: { userId?: string, userName?: string }): string {
+  if (!author?.userName) return text
+  return `[from ${author.userName}${author.userId ? ` (${author.userId})` : ''}]\n${text}`
+}
+
+/**
+ * Rebuild the exact model messages a stored conversation produced.
+ *
+ * This is the function the storage model exists for, so it is worth being explicit about what it
+ * guarantees: every tool call is emitted WITH its result, in the order they happened. Providers reject
+ * a history containing a call without its result, which is why the old shape — which stored calls but
+ * never results — could not replay them at all and silently dropped both.
+ *
+ * A turn interleaves steps, so consecutive parts are grouped: a run of assistant parts becomes one
+ * assistant message, and the tool results that follow become one `tool` message, repeating for as many
+ * steps as the turn took. An assistant turn that only called tools therefore still appears in history,
+ * where the old shape dropped it entirely for having no text.
+ *
+ * A call whose result is missing is dropped ALONG WITH its result rather than emitted alone: that can
+ * only happen for a turn interrupted before the tool answered, and a lone call would make the whole
+ * history unusable rather than just that step.
+ */
+export function storedTurnsToModelMessages (turns: StoredTurn[]): Array<{ role: 'user' | 'assistant' | 'tool', content: any }> {
+  const messages: Array<{ role: 'user' | 'assistant' | 'tool', content: any }> = []
+
+  for (const turn of turns) {
+    const parts = turn.parts ?? []
+
+    if (turn.role === 'user') {
+      const text = parts.filter(p => p.type === 'text').map(p => (p as { text: string }).text).join('')
+      if (text.trim()) messages.push({ role: 'user', content: attributedUserText(text, turn.author) })
+      continue
+    }
+
+    // Only calls that actually have a result may be replayed.
+    const resultsByCallId = new Map<string, Extract<StoredPart, { type: 'tool-result' }>>()
+    for (const part of parts) {
+      if (part.type === 'tool-result' && part.toolCallId) resultsByCallId.set(part.toolCallId, part)
+    }
+
+    let assistant: any[] = []
+    let toolResults: any[] = []
+    const flush = () => {
+      if (assistant.length) { messages.push({ role: 'assistant', content: assistant }); assistant = [] }
+      if (toolResults.length) { messages.push({ role: 'tool', content: toolResults }); toolResults = [] }
+    }
+
+    for (const part of parts) {
+      if (part.type === 'tool-result') continue // emitted with its call, below
+      // A new assistant part after results means a new step started: close the previous pair first,
+      // or the message order stops matching what the model actually saw.
+      if (toolResults.length) flush()
+      if (part.type === 'text') {
+        if (part.text) assistant.push({ type: 'text', text: part.text })
+        continue
+      }
+      if (part.type === 'reasoning') continue // never replayed: providers reject foreign reasoning
+      if (part.type === 'tool-call') {
+        const result = part.toolCallId ? resultsByCallId.get(part.toolCallId) : undefined
+        if (!result) continue
+        let input: unknown = {}
+        try { input = part.arguments ? JSON.parse(part.arguments) : {} } catch { input = {} }
+        assistant.push({ type: 'tool-call', toolCallId: part.toolCallId, toolName: part.toolName, input })
+        toolResults.push({
+          type: 'tool-result',
+          toolCallId: part.toolCallId,
+          toolName: part.toolName,
+          output: { type: 'text', value: result.result ?? (result.error ?? '') }
+        })
+      }
+    }
+    flush()
+  }
+
+  return messages
+}
+
+/** The visible text of a turn: every text part, in order. Reasoning and tool traffic are excluded. */
+export function partsText (parts: StoredPart[] = []): string {
+  return parts.filter(p => p.type === 'text').map(p => (p as { text: string }).text).join('')
+}
+
+/**
+ * Append a notice to a turn as its own trailing text part.
+ *
+ * A new part rather than concatenation into an existing one: the parts are ordered and a notice
+ * belongs at the END of the turn, after whatever tool traffic it interrupted. Concatenating into the
+ * first text part would move it before results that had already been produced, which misrepresents
+ * what the model saw.
+ */
+export function withAppendedText (parts: StoredPart[] = [], text: string): StoredPart[] {
+  // Separated from existing TEXT, not from existing parts: a turn that only called tools has no text
+  // to separate from, and a leading blank line there would render as stray whitespace.
+  const separator = partsText(parts).trim() ? '\n\n' : ''
+  return [...parts, { type: 'text', text: `${separator}${text}` }]
+}

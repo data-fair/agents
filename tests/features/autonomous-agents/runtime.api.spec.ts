@@ -8,6 +8,11 @@ import { putMockSettings, mockModels } from '../../support/settings.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 import { openWsClient, type WsClient } from '../../support/ws.ts'
 import { conversationChannel } from '@agents/shared/autonomous-agent-channel'
+import { partsText } from '../../../api/src/autonomous-agent-runtime/operations.ts'
+
+/** Tool calls / results of a stored turn, read out of its ordered parts. */
+const toolCalls = (message: any) => (message.parts ?? []).filter((p: any) => p.type === 'tool-call')
+const toolResults = (message: any) => (message.parts ?? []).filter((p: any) => p.type === 'tool-result')
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
@@ -96,7 +101,7 @@ test.describe('Autonomous agent conversations', () => {
     const user = messages.data.results.find((m: any) => m.role === 'user')
     assert.ok(user)
     assert.equal(user.seq, 1)
-    assert.equal(user.content, 'hello')
+    assert.equal(partsText(user.parts), 'hello')
     // attribution is mandatory on a shared timeline
     assert.equal(user.author.kind, 'user')
     assert.equal(user.author.userId, 'test1-admin1')
@@ -237,7 +242,7 @@ test.describe('Autonomous agent conversations', () => {
     const forRun = messages.filter((m: any) => m.role === 'assistant' && m.runId === runId)
     assert.equal(forRun.length, 1, 'the sweep must not append a second message beside the one already there')
     assert.equal(forRun[0].pending, false)
-    assert.ok(forRun[0].content.length > 0)
+    assert.ok(partsText(forRun[0].parts).length > 0)
   })
 
   test('a run orphaned before its message existed gets one from the sweep', async () => {
@@ -257,7 +262,7 @@ test.describe('Autonomous agent conversations', () => {
     const forRun = (await orgAdmin.get(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`)).data.results
       .filter((m: any) => m.role === 'assistant' && m.runId === runId)
     assert.equal(forRun.length, 1, 'the sweep must leave exactly one assistant message')
-    assert.ok(forRun[0].content.length > 0)
+    assert.ok(partsText(forRun[0].parts).length > 0)
     assert.equal(forRun[0].pending, false)
   })
 
@@ -310,7 +315,7 @@ test.describe('Autonomous agent model loop', () => {
     assert.equal(run.stopReason, 'completed')
     // the mock model answers "hello" with "world" — proves prompt assembly, model
     // resolution, streaming and persistence all joined up
-    assert.equal(assistant.content, 'world')
+    assert.equal(partsText(assistant.parts), 'world')
     assert.equal(assistant.pending, false)
     assert.ok(run.steps >= 1)
   })
@@ -319,8 +324,12 @@ test.describe('Autonomous agent model loop', () => {
     const agent = await createAgent()
     await enrol(agent.id)
     const { assistant } = await runOnce(agent.id, 'reason')
-    assert.equal(assistant.content, 'world')
-    assert.equal(assistant.reasoning, 'Let me think about it.')
+    assert.equal(partsText(assistant.parts), 'world')
+    // Reasoning is its own part, kept out of the visible text — and never replayed to a provider.
+    assert.deepEqual(
+      assistant.parts.filter((p: any) => p.type === 'reasoning'),
+      [{ type: 'reasoning', text: 'Let me think about it.' }]
+    )
   })
 
   test('a tool call reaches a real MCP server and is recorded with its server', async () => {
@@ -328,8 +337,8 @@ test.describe('Autonomous agent model loop', () => {
     await enrol(agent.id)
     const { run, assistant } = await runOnce(agent.id, 'call tool echo {"value":"x"}')
     assert.equal(run.status, 'done')
-    assert.ok(assistant.toolCalls?.length, 'expected the tool call to be recorded on the message')
-    const call = assistant.toolCalls.find((c: any) => c.toolName === 'echo')
+    assert.ok(toolCalls(assistant).length, 'expected the tool call to be recorded on the message')
+    const call = toolCalls(assistant).find((c: any) => c.toolName === 'echo')
     assert.ok(call, 'expected the echo tool call')
     assert.equal(call.serverId, 'dev-public-mcp')
     // GROUND TRUTH from the MCP server itself. Asserting on the model's behaviour cannot
@@ -342,7 +351,18 @@ test.describe('Autonomous agent model loop', () => {
     assert.match(call.arguments, /"value"\s*:\s*"x"/, 'the message must record the arguments the agent sent')
     assert.equal(run.stopReason, 'completed')
     assert.equal(run.steps, 2)
-    assert.equal(assistant.content, 'done')
+    assert.equal(partsText(assistant.parts), 'done')
+
+    // The RESULT is stored, which is what makes this conversation revivable: without it a later turn
+    // would replay a call with no answer — a history providers reject — so the call had to be dropped
+    // too, and the model resumed seeing neither the data nor the fact that it had acted.
+    const result = toolResults(assistant).find((r: any) => r.toolName === 'echo')
+    assert.ok(result, 'expected the tool RESULT to be recorded on the message')
+    assert.equal(result.toolCallId, call.toolCallId, 'the result must be paired with its call')
+    // Stored as the model received it, provenance envelope included.
+    assert.match(result.result, /echo:x/, 'the stored result must be what the tool actually returned')
+    assert.match(result.result, /<tool-result server="dev-public-mcp" tool="echo">/)
+    assert.notEqual(result.failed, true)
   })
 
   test('with two MCP servers, provenance names the server the tool actually came from', async () => {
@@ -353,10 +373,11 @@ test.describe('Autonomous agent model loop', () => {
     const agent = await createAgent({ mcpServers: [{ serverId: 'dev-public-mcp' }, { serverId: 'dev-apikey-mcp' }] })
     await enrol(agent.id)
     const { assistant } = await runOnce(agent.id, 'call tool echo {"value":"x"}')
-    const call = assistant.toolCalls.find((c: any) => c.toolName === 'echo')
+    const call = toolCalls(assistant).find((c: any) => c.toolName === 'echo')
     assert.ok(call)
     assert.equal(call.serverId, 'dev-apikey-mcp')
-    assert.notEqual(call.failed, true, 'the tool must have returned a usable result')
+    const result = toolResults(assistant).find((r: any) => r.toolCallId === call.toolCallId)
+    assert.notEqual(result?.failed, true, 'the tool must have returned a usable result')
   })
 
   test('a disabled autonomous agent refuses to act', async () => {
@@ -365,15 +386,15 @@ test.describe('Autonomous agent model loop', () => {
     const { run, assistant } = await runOnce(agent.id, 'hello')
     // enabled is the kill switch; if it does not stop a turn it stops nothing at all.
     assert.equal(run.status, 'error')
-    assert.notEqual(assistant.content, 'world')
-    assert.match(assistant.content, /disabled/i)
+    assert.notEqual(partsText(assistant.parts), 'world')
+    assert.match(partsText(assistant.parts), /disabled/i)
   })
 
   test('an empty completion does not render as a blank, successful turn', async () => {
     const agent = await createAgent()
     await enrol(agent.id)
     const { run, assistant } = await runOnce(agent.id, 'empty')
-    assert.ok(assistant.content.trim().length > 0, 'a blank bubble is the silent stop this forbids')
+    assert.ok(partsText(assistant.parts).trim().length > 0, 'a blank bubble is the silent stop this forbids')
     assert.notEqual(run.stopReason, 'completed')
     assert.equal(assistant.pending, false)
   })
@@ -386,8 +407,8 @@ test.describe('Autonomous agent model loop', () => {
     assert.equal(run.status, 'done')
     assert.equal(run.stopReason, 'repeated-calls')
     assert.ok(run.steps > 1, 'expected several steps before the guard fired')
-    assert.ok(assistant.content.length > 0, 'a truncated turn must still explain itself')
-    assert.match(assistant.content, /repeating the same tool call/i)
+    assert.ok(partsText(assistant.parts).length > 0, 'a truncated turn must still explain itself')
+    assert.match(partsText(assistant.parts), /repeating the same tool call/i)
   })
 
   test('an autonomous agent with no enrolled identity refuses with an actionable message', async () => {
@@ -399,7 +420,7 @@ test.describe('Autonomous agent model loop', () => {
     assert.equal(run.status, 'error')
     assert.equal(run.stopReason, 'error')
     assert.ok(assistant, 'a refusal is still a message')
-    assert.match(assistant.content, /identity|enrol/i)
+    assert.match(partsText(assistant.parts), /identity|enrol/i)
     assert.equal(assistant.pending, false)
   })
 
@@ -413,7 +434,7 @@ test.describe('Autonomous agent model loop', () => {
     assert.ok(run.error, 'the run must record what went wrong')
     assert.ok(assistant, 'failure is a message, not a silence')
     assert.equal(assistant.pending, false)
-    assert.ok(assistant.content.length > 0)
+    assert.ok(partsText(assistant.parts).length > 0)
   })
 })
 
@@ -466,8 +487,8 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
 
     const assistant = (await messagesOf(conv.id)).find((m: any) => m.role === 'assistant')
     assert.ok(assistant, 'a refusal is still a message')
-    assert.match(assistant.content, /could not run/i)
-    assert.match(assistant.content, /limit/i)
+    assert.match(partsText(assistant.parts), /could not run/i)
+    assert.match(partsText(assistant.parts), /limit/i)
     assert.equal(assistant.pending, false)
   })
 
@@ -499,7 +520,7 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
     assert.equal(run.stopReason, 'budget')
     assert.ok(run.steps < 5, `expected the budget to stop the turn before the repeated-call guard, got ${run.steps} steps`)
     const assistant = (await messagesOf(conv.id)).find((m: any) => m.role === 'assistant')
-    assert.match(assistant.content, /credit budget/i)
+    assert.match(partsText(assistant.parts), /credit budget/i)
   })
 
   test('a turn can be aborted, and says so', async () => {
@@ -517,7 +538,7 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
     assert.equal(run.status, 'aborted')
     assert.equal(run.stopReason, 'aborted')
     const assistant = (await messagesOf(conv.id)).find((m: any) => m.role === 'assistant')
-    assert.match(assistant.content, /stopped/i)
+    assert.match(partsText(assistant.parts), /stopped/i)
     assert.equal(assistant.pending, false)
   })
 
@@ -728,7 +749,7 @@ test.describe('Autonomous agent live conversation notifications', () => {
     const refreshed = byVersion.results.find((m: any) => m.role === 'assistant')
     assert.ok(refreshed, 'the finished assistant message must come back through sinceVersion')
     assert.equal(refreshed.pending, false)
-    assert.equal(refreshed.content, 'world')
+    assert.equal(partsText(refreshed.parts), 'world')
     assert.ok(byVersion.version > cursor, 'the response carries the cursor to store next')
   })
 
@@ -744,7 +765,7 @@ test.describe('Autonomous agent live conversation notifications', () => {
     for (let i = 0; i < 100; i++) {
       const messages = (await messagesSince(conv.id)).results
       const assistant = messages.find((m: any) => m.role === 'assistant')
-      if (assistant?.pending === true && (assistant.content ?? '').length > 0) { sawPartial = true; break }
+      if (assistant?.pending === true && partsText(assistant.parts).length > 0) { sawPartial = true; break }
       const run = (await orgAdmin.get(`/api/autonomous-agent-runs/organization/test1/${runId}`)).data
       if (run.status !== 'running') break
       await new Promise(resolve => setTimeout(resolve, 50))
@@ -755,10 +776,10 @@ test.describe('Autonomous agent live conversation notifications', () => {
   test('a long answer produces far fewer notifications than characters', async () => {
     const { conv, notifications } = await watchTurn('long answer')
     const finished = (await messagesSince(conv.id)).results.find((m: any) => m.role === 'assistant')
-    assert.ok(finished.content.length > 200, 'this test needs a long answer to be meaningful')
+    assert.ok(partsText(finished.parts).length > 200, 'this test needs a long answer to be meaningful')
     assert.ok(
-      notifications.length < finished.content.length / 10,
-      `expected throttling, got ${notifications.length} notifications for ${finished.content.length} chars`
+      notifications.length < partsText(finished.parts).length / 10,
+      `expected throttling, got ${notifications.length} notifications for ${partsText(finished.parts).length} chars`
     )
   })
 
@@ -770,7 +791,7 @@ test.describe('Autonomous agent live conversation notifications', () => {
     assert.equal(run.status, 'error')
     const assistant = (await messagesSince(conv.id)).results.find((m: any) => m.role === 'assistant')
     assert.equal(assistant.pending, false, 'a failed turn must not leave its message pending')
-    assert.ok(assistant.content.length > 0)
+    assert.ok(partsText(assistant.parts).length > 0)
     assert.ok(assistant.version < run.version, 'the message must reach its final version BEFORE the run closes')
   })
 
@@ -865,6 +886,23 @@ test.describe('Autonomous agent run traces', () => {
     const traced = turn.response.toolCalls.find((c: any) => c.name === 'echo')
     assert.ok(traced, 'the trace must show which tool the turn called')
     assert.match(traced.arguments, /"value"\s*:\s*"x"/, 'and what it was asked to do — a name alone is not auditable')
+  })
+
+  test('a trace does NOT duplicate the conversation, and carries no tool payloads', async () => {
+    // The conversation/trace separation. The stored conversation is the complete wire exchange, tool
+    // results included; a trace is per-request observability. Copying the history into the trace would
+    // duplicate the conversation — quadratically, since every request resends the whole thing — and put
+    // MCP payloads into a store that is opt-in, consent-gated and TTL'd precisely to keep them out.
+    await putMockSettings(admin, 'organization/test1', { storeTraces: true })
+    const { conv } = await runTurnFor({ mcpServers: [{ serverId: 'dev-public-mcp' }] }, 'call tool echo {"value":"x"}')
+    const turn = (await tracesOf(conv.id)).find((t: any) => t.contextKind === 'turn')
+    assert.equal(turn.request.body.messages, undefined, 'the trace must not carry a copy of the history')
+    // The tool's answer was `echo:x`; it must appear nowhere in the trace.
+    assert.equal(JSON.stringify(turn).includes('echo:x'), false, 'a tool payload must not reach a trace')
+    // A reference is kept instead, enough to fetch the exact history this request sent.
+    assert.ok(turn.request.messageCount >= 1, 'the trace must still report how many messages were sent')
+    assert.ok(turn.request.body.historyUpToSeq >= 1, 'and the seq bound that identifies them')
+    assert.equal(turn.conversation.id, conv.id)
   })
 
   test('a traced turn carries the cache token detail, so its cost matches what was billed', async () => {
