@@ -5,6 +5,8 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { nextMessageSeq, isRunTerminal, runStopReasonMessage, buildSystemPrompt, wrapToolResult, summarizeToolArguments } from '../../../api/src/autonomous-agent-runtime/operations.ts'
 import { compactionSystemPrompt, recapMessage } from '@agents/shared/compaction-prompt'
+import { STREAM_IDLE_TIMEOUT_MS } from '@agents/shared/agent-loop-guards'
+import { readFileSync } from 'node:fs'
 
 test.describe('nextMessageSeq', () => {
   test('starts at 1 for a fresh conversation', () => {
@@ -190,5 +192,36 @@ test.describe('summarizeToolArguments', () => {
     circular.self = circular
     assert.doesNotThrow(() => summarizeToolArguments(circular))
     assert.match(summarizeToolArguments(circular), /unserializable/i)
+  })
+})
+
+test.describe('the stream idle watchdog', () => {
+  // The P0 spec claimed the server "reuses the idle watchdog" and it did not: the browser armed a timer
+  // per stream part while the executor had only a whole-turn wall clock, so a provider that accepted a
+  // request and then went silent held the conversation's lock for the full run timeout. Both now read
+  // one shared constant — the browser for its own timer, the server as the AI SDK's timeout.chunkMs.
+  test('both loops read the SAME constant, not two copies', () => {
+    const executor = readFileSync(new URL('../../../api/src/autonomous-agent-runtime/executor.ts', import.meta.url), 'utf8')
+    const browser = readFileSync(new URL('../../../ui/src/composables/use-agent-chat.ts', import.meta.url), 'utf8')
+
+    for (const [name, source] of [['executor', executor], ['browser loop', browser]] as const) {
+      assert.match(
+        source,
+        /STREAM_IDLE_TIMEOUT_MS[\s\S]{0,120}?from '@agents\/shared\/agent-loop-guards'/,
+        `${name} must import the watchdog from shared/, not redeclare it`
+      )
+      assert.doesNotMatch(source, /const STREAM_IDLE_TIMEOUT_MS\s*=/, `${name} must not declare its own copy`)
+    }
+
+    // And the server must actually hand it to the SDK as the chunk (idle) bound — a constant imported
+    // and unused would pass the checks above while changing nothing.
+    assert.match(executor, /chunkMs: STREAM_IDLE_TIMEOUT_MS/)
+  })
+
+  test('it is an idle bound, so it must be well under the whole-turn ceiling', () => {
+    // If it were not, it could never fire before the wall clock and would be decoration.
+    const runTimeoutMs = 300_000 // api/config/default.js autonomousAgentRunTimeoutSeconds
+    assert.ok(STREAM_IDLE_TIMEOUT_MS < runTimeoutMs, 'an idle watchdog that outlasts the ceiling is dead code')
+    assert.equal(STREAM_IDLE_TIMEOUT_MS, 90_000)
   })
 })

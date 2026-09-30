@@ -19,8 +19,8 @@ import mongo from '#mongo'
 import config from '#config'
 import locks from '@data-fair/lib-node/locks.js'
 import Debug from 'debug'
-import { streamText, generateText, stepCountIs, type ModelMessage, type Tool } from 'ai'
-import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep } from '@agents/shared/agent-loop-guards'
+import { streamText, generateText, stepCountIs, pruneMessages, type ModelMessage, type Tool } from 'ai'
+import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep, STREAM_IDLE_TIMEOUT_MS } from '@agents/shared/agent-loop-guards'
 import { decideCompaction } from '@agents/shared/compaction-policy'
 import { compactionSystemPrompt, recapMessage } from '@agents/shared/compaction-prompt'
 import type { AutonomousAgent, AutonomousAgentMessage, AutonomousAgentRun } from '#types'
@@ -329,8 +329,26 @@ const compactHistory = async (
     return { messages: [recapMessage(summary), ...retained], credits: compactionCredits.total }
   } catch (err) {
     if (abortSignal.aborted) throw err
-    debug('compaction failed, continuing with the full history: %O', err)
-    return { messages: history, credits: 0 }
+    // A failed compaction used to return the FULL history, which the comment above admits risks a
+    // context-overflow error from the provider. Prune the oldest tool payloads instead: in this branch
+    // the alternative is failing the turn, so dropping data the model may still have wanted is the
+    // lesser harm — and it is the only place where that trade is clearly right.
+    //
+    // NOT used on the happy path. Pruning tool results silently drops what a tool returned, leaving only
+    // whatever the assistant happened to narrate about it — and the storage work established that its
+    // prose captures tool findings unreliably. A recap at least stands in for what it replaces; a prune
+    // does not. The store keeps everything either way, so revival and audit are unaffected; this is
+    // about what the model can still see.
+    //
+    // Calls and their results are removed together, so the history stays replayable.
+    const pruned = pruneMessages({ messages: history, toolCalls: 'before-last-4-messages' })
+    debug(
+      'compaction failed, continuing with a pruned history (%d -> %d chars): %O',
+      JSON.stringify(history).length,
+      JSON.stringify(pruned).length,
+      err
+    )
+    return { messages: pruned, credits: 0 }
   }
 }
 
@@ -505,6 +523,19 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
       () => budgetExceeded
     ],
     prepareStep: loopGuardPrepareStep,
+    // The SDK's own bounds, which are finer than the wall clock this turn is also raced against:
+    //
+    //  - chunkMs is an IDLE watchdog, and it closes a real gap. The browser loop has had one all along
+    //    (it arms a timer per stream part); the server had only the whole-turn ceiling, so a provider
+    //    that accepted the request and then went quiet held the conversation's lock for the full
+    //    autonomousAgentRunTimeoutSeconds. Same constant on both sides, from shared/.
+    //  - totalMs is defence in depth. The outer Promise.race in runTurn still exists and is not
+    //    redundant: it covers the whole turn — resolving the agent, opening MCP connections, compaction
+    //    — whereas this bounds only the model stream.
+    timeout: {
+      totalMs: config.autonomousAgentRunTimeoutSeconds * 1000,
+      chunkMs: STREAM_IDLE_TIMEOUT_MS
+    },
     onStepFinish: async (step) => {
       const usage = step.usage
       const details = (usage as any)?.inputTokenDetails

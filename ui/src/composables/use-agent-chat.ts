@@ -21,7 +21,7 @@ import Debug from 'debug'
 import type { ChatActivity } from './agent-activity.ts'
 import { applyStreamPart, type StreamScope, type StreamPart } from '@agents/shared/agent-stream-parts'
 import { SUBAGENT_STEP_LIMIT_NOTICE, subAgentModelOutput } from '@agents/shared/agent-subagent-output'
-import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep } from '@agents/shared/agent-loop-guards'
+import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep, STREAM_IDLE_TIMEOUT_MS } from '@agents/shared/agent-loop-guards'
 import { HostEventStore, createWaitTool, appendHostEvents, formatHostEvents, formatHostState, hasHostState, WAIT_TOOL_NAME } from './host-events'
 import { useHostEvents } from './use-host-events'
 
@@ -64,7 +64,6 @@ const DEFAULT_TIMEOUT_RESPONSE = 'The assistant took too long to respond, so the
 // Deliberately generous — a slow first token from a large reasoning model on a big
 // context must not trip it; only a genuine stall should. Overridable for tests via
 // sessionStorage('agent-chat-idle-timeout').
-const STREAM_IDLE_TIMEOUT_MS = 90_000
 
 // Moved to the shared workspace so the server-side autonomous agent runtime can use
 // the same type; re-exported here for this module's existing consumers.

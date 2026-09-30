@@ -157,7 +157,7 @@ built or are about to build. Each item below was checked against the **installed
 documentation, because an earlier pass of this review concluded `@ai-sdk/mcp` did not exist on the
 strength of it being absent from `node_modules`. Absence from our tree is not absence from the registry.
 
-## 2.1 OpenTelemetry GenAI telemetry — adopt
+## 2.1 OpenTelemetry GenAI telemetry — BLOCKED on a platform decision (revised)
 
 `experimental_telemetry` is available in the installed `ai` 6.0.277 (19 references in its types), and
 `registerTelemetryIntegration` / `TelemetryIntegration` are exported. The `gen_ai.*` semantic conventions
@@ -177,6 +177,20 @@ TTL'd and user-facing. Spans are per-operator and content-free.
 
 Deferred detail: `ai` v7 replaces per-call `experimental_telemetry` with a `registerTelemetry` call. That
 is a tidy-up at the upgrade, not a reason to wait.
+
+**Revised after checking the prerequisite.** `experimental_telemetry` is present, but the only
+OpenTelemetry package in the tree is `@opentelemetry/api` (1.9.1), pulled in transitively by `ai`. That
+is the API surface only: **without a registered tracer provider it is a no-op**, so enabling the flag
+would emit nothing. Nothing in `api/src` or `@data-fair/lib-node` registers one, and no OTel SDK is a
+declared dependency anywhere.
+
+So this is not "add a flag". It needs an OTel SDK, an exporter, and an OTLP endpoint in config — i.e. a
+telemetry stack for a service whose siblings in the data-fair stack do not have one. That is a platform
+decision, not a branch decision, and it collides with the standing preference for reaching for an
+existing `@data-fair/lib` primitive first (there isn't one).
+
+Left unimplemented deliberately. The finding it would have addressed — compaction spend invisible to
+every ledger — was fixed directly instead, by billing the compaction.
 
 ## 2.2 `@ai-sdk/mcp` — adopt the 1.x line
 
@@ -200,7 +214,7 @@ What it does NOT replace, and must stay ours:
 So this removes plumbing, not the parts that carry the guarantees. It also brings OAuth, resources and
 elicitation, which matter for catalog servers beyond this stack's own.
 
-## 2.3 `pruneMessages` — adopt as a pre-compaction step
+## 2.3 `pruneMessages` — adopted only on the FAILURE path (revised)
 
 Already present in the installed version:
 `pruneMessages({ messages, reasoning, toolCalls, emptyMessages })`, with `toolCalls` accepting
@@ -215,12 +229,37 @@ It also flags an assumption worth revisiting: `loadHistory` drops reasoning unco
 `pruneMessages` offers `reasoning: 'before-last-message'` — implying keeping the most recent turn's
 reasoning is both safe and useful.
 
-## 2.4 `ToolLoopAgent`'s `timeout` — adopt
+**Revised after measuring it.** `pruneMessages({ toolCalls: 'before-last-N-messages' })` does what was
+hoped — verified on a toy history it dropped the old call/result pair *together* (so nothing is orphaned)
+and cut 1070 chars to 648. But adopting it on the happy path was the wrong call, for the reason this
+branch already established: pruning a tool result leaves only whatever the assistant happened to narrate
+about it, and its prose captures tool findings **unreliably**. A recap stands in for what it replaces; a
+prune does not. The store keeps everything either way, so revival and audit are unaffected — but the
+model would lose data it may still need, silently.
 
-`ToolLoopAgent.stream({ timeout })` ships a run timeout. It replaces the hand-rolled `Promise.race`
-deadline in `runTurn`. Whether to adopt `ToolLoopAgent` wholesale is a smaller question — it is a config
-wrapper bundling model/instructions/tools/`stopWhen` for reuse, and adds no persistence, guards or
-billing — so the timeout is the part worth taking.
+Adopted instead in the one place the trade is clearly right: **when compaction FAILS.** That branch used
+to return the full history, which the code's own comment admits risks a context-overflow error from the
+provider. There the alternative is failing the turn, so pruning the oldest tool payloads is the lesser
+harm.
+
+The reasoning observation stands and is untouched: we drop all reasoning, the SDK offers
+`before-last-message`, and changing that needs evidence rather than a guess about what providers accept.
+
+## 2.4 The SDK's `timeout` — adopted, and it closes a gap (revised: better than described)
+
+**Revised: `streamText` takes `timeout` directly, so no `ToolLoopAgent` adoption is needed, and the
+option is richer than a run ceiling.** `TimeoutConfiguration` is `number | { totalMs, stepMs, chunkMs }`,
+and `chunkMs` is an **idle** bound.
+
+That closes a real gap rather than merely simplifying. The P0 spec claimed the server "reuses the idle
+watchdog" and it did not: the browser arms a timer per stream part, while the executor had only a
+whole-turn wall clock — so a provider that accepted a request and then went silent held the
+conversation's lock for the full run timeout. `STREAM_IDLE_TIMEOUT_MS` now lives in
+`shared/agent-loop-guards.ts` and both loops read it, which makes the spec's claim true.
+
+It does NOT replace the outer `Promise.race` in `runTurn`, contrary to what this section first said: that
+race bounds the whole turn — resolving the agent, opening MCP connections, compaction — whereas
+`timeout` bounds only the model stream. Both are kept, and `totalMs` is defence in depth.
 
 ## 2.5 Evaluated and deliberately NOT adopted
 

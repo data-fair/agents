@@ -32,6 +32,20 @@ import type { ModelMessage } from 'ai'
  */
 export const STEP_LIMIT = 100
 
+/**
+ * How long a stream may produce NOTHING before the turn is treated as stuck.
+ *
+ * An idle watchdog, not a total ceiling: a legitimate multi-step tool conversation has no fixed
+ * duration, so bounding total time would cut off honest work, while a stream that has gone quiet is
+ * stuck whatever its total elapsed time.
+ *
+ * Shared because both loops need the same number. The browser arms its own timer per stream part; the
+ * server passes it to the AI SDK as `timeout.chunkMs`. The P0 spec claimed the server "reuses the idle
+ * watchdog" and it did not — it had only a whole-turn wall clock, so a provider that accepted a request
+ * and then went silent held the conversation until that ceiling.
+ */
+export const STREAM_IDLE_TIMEOUT_MS = 90_000
+
 /** Consecutive identical tool-call steps after which the model is reminded it is repeating itself. */
 export const REPEATED_CALL_NUDGE_AT = 3
 
