@@ -11,7 +11,9 @@ import { reconcileTools } from '~/composables/live-tools'
 import { $apiPath } from '~/context'
 import { useSession } from '@data-fair/lib-vue/session.js'
 import { getAnonymousToken, resetAnonymousToken } from '~/composables/use-anonymous-token'
-import { extractErrorMessage } from '~/utils/error'
+import { extractErrorMessage, extractQuotaError, type QuotaErrorInfo } from '~/utils/error'
+import { watchResponseCost } from '~/utils/gateway-cost'
+import type { SelfUsage } from '../../../api/src/usage/operations'
 import { redactHistoryMediaToolResults } from '~/utils/tool-result'
 import { readConsent, traceStorageAvailable } from '~/traces/trace-consent'
 import { wrapHiddenContext } from '~/traces/hidden-context'
@@ -120,6 +122,8 @@ export interface UseAgentChatOptions {
   refusalMessage?: string
   emptyResponseMessage?: string
   timeoutMessage?: string
+  // localized text of a quota 429; the raw gateway message is used when absent
+  formatQuotaError?: (info: QuotaErrorInfo) => string
   toolExploration?: boolean
   flattenSubAgents?: boolean
   // When set, this chat never opts into server-side trace storage: the
@@ -195,6 +199,13 @@ export function useAgentChat (options: UseAgentChatOptions) {
   // Reactive so a reset starts a fresh trace: consumers (debug dialog review link)
   // and trace headers pick up the new id.
   const conversationId = ref(crypto.randomUUID())
+  // Credits spent by this conversation, summed from each gateway response's
+  // usage.cost (see gatewayFetch). Informational: a moderation verdict that lands
+  // after the gate failed open is recorded server-side but not reported here.
+  const conversationCost = ref(0)
+  // Bumped when consumption may have changed (a finished turn, a 429), so an
+  // open consumption view refetches.
+  const usageVersion = ref(0)
 
   const messages = ref<ChatMessage[]>(options.initialMessages ?? [])
 
@@ -352,8 +363,13 @@ export function useAgentChat (options: UseAgentChatOptions) {
     return res
   }
 
+  const noteResponse = async (res: Response): Promise<Response> => {
+    if (res.status === 429) usageVersion.value++
+    return watchResponseCost(noteStorageHeader(res), cost => { conversationCost.value += cost })
+  }
+
   const gatewayFetch: typeof fetch = async (input, init) => {
-    if (!isAnonymous()) return noteStorageHeader(await fetch(input, init))
+    if (!isAnonymous()) return noteResponse(await fetch(input, init))
     const withToken = async (token: string) => {
       const headers = new Headers(init?.headers as HeadersInit | undefined)
       headers.set('x-anonymous-token', token)
@@ -364,7 +380,13 @@ export function useAgentChat (options: UseAgentChatOptions) {
       resetAnonymousToken()
       res = await withToken(await getAnonymousToken())
     }
-    return noteStorageHeader(res)
+    return noteResponse(res)
+  }
+
+  const fetchSelfUsage = async (): Promise<SelfUsage> => {
+    const res = await gatewayFetch(`${window.location.origin}${$apiPath}/gateway/${options.accountType}/${options.accountId}/usage`)
+    if (!res.ok) throw new Error(`usage request failed: ${res.status}`)
+    return res.json()
   }
 
   // openai-compatible (not @ai-sdk/openai) so the client parses the gateway's
@@ -402,6 +424,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
     history = []
     // Start a fresh trace: a reset is a new conversation, not a continuation.
     conversationId.value = crypto.randomUUID()
+    conversationCost.value = 0
     // abort() above guarantees no in-flight prepareStep will read the old Set
     promotedTools = new Set<string>()
     announcedTools.clear()
@@ -1261,7 +1284,8 @@ export function useAgentChat (options: UseAgentChatOptions) {
       // The AI SDK wraps stream failures in a generic NoOutputGeneratedError.
       // Use the actual error captured via onError when available.
       const actualError = streamError ?? err
-      const message = extractErrorMessage(actualError)
+      const quota = extractQuotaError(actualError)
+      const message = quota && options.formatQuotaError ? options.formatQuotaError(quota) : extractErrorMessage(actualError)
       debug('chat error: %s %O', message, actualError)
       console.error('Agent chat error:', actualError)
       error.value = message
@@ -1280,6 +1304,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
       // has already settled through the signal, as it does today.
       hostEvents?.cancelWait()
       if (owns) {
+        usageVersion.value++
         activity.value = null
         subAgentActivities.value = {}
         abortController = null
@@ -1302,7 +1327,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
   /** The assistant is paused on a declared wait: idle, and interruptible by a message. */
   const isWaitingForUser = computed(() => activity.value?.kind === 'waiting')
 
-  return { messages, status, error, activity, isWaitingForUser, subAgentActivities, tools, toolsVersion, resolvedPartition, conversationId, sendMessage, abort, reset, setSystemPrompt, setToolExploration, setFlattenSubAgents }
+  return { messages, status, error, activity, isWaitingForUser, subAgentActivities, tools, toolsVersion, resolvedPartition, conversationId, conversationCost, usageVersion, fetchSelfUsage, sendMessage, abort, reset, setSystemPrompt, setToolExploration, setFlattenSubAgents }
 }
 
 export default useAgentChat

@@ -33,3 +33,30 @@ export function extractErrorMessage (err: unknown): string {
   if (e.message && e.message !== 'No output generated. Check the stream for errors.') return e.message
   return 'Unknown error'
 }
+
+export interface QuotaErrorInfo {
+  scope: string
+  period?: 'daily' | 'weekly' | 'monthly'
+  resetsAt?: string
+  message: string
+}
+
+/**
+ * The gateway's 429 `rate_limit_error`, wherever the AI SDK nested it in the
+ * cause chain (parsed `data`, or the raw `responseBody`). Null for any other error.
+ */
+export function extractQuotaError (err: unknown): QuotaErrorInfo | null {
+  let current: any = err
+  while (current) {
+    let body = current.data
+    if (!body?.error && typeof current.responseBody === 'string') {
+      try { body = JSON.parse(current.responseBody) } catch { body = undefined }
+    }
+    const e = body?.error
+    if (e?.type === 'rate_limit_error') {
+      return { scope: e.scope, message: e.message, ...(e.period ? { period: e.period } : {}), ...(e.resets_at ? { resetsAt: e.resets_at } : {}) }
+    }
+    current = current.cause
+  }
+  return null
+}
