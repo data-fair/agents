@@ -4,7 +4,8 @@ Part 1 replaces the hand-built message shape with the library's. Part 2 covers t
 "are we reinventing this?" question — what the SDK and its ecosystem already provide, what to take,
 and what was evaluated and rejected.
 
-**Status:** proposed, awaiting approval to implement
+**Status:** Part 1 IMPLEMENTED 2026-09-30. Part 2: 2.4 adopted, 2.1 postponed, 2.2 reversed, 2.3
+superseded — each recorded in its own section.
 **Date:** 2026-09-30
 **Supersedes:** the `parts` shape introduced by
 `2026-09-29-conversation-storage-as-the-logical-reference-design.md` (that document's *principle* stands
@@ -105,6 +106,26 @@ Stated so the change is not oversold. These remain open and are unaffected:
 - **attribution forgery on the shared timeline** — `[from …]` is our own in-band marker and needs the
   `attributeSafe` treatment regardless of the message shape;
 - the tool result being unbounded in the turn (bounding must move to the point of production).
+
+## Deviations from this spec, as implemented
+
+Three, each recorded where a reader would otherwise be misled by the text above:
+
+1. **The stored document is a SUPERSET of `UIMessage`, not `{ id, role, parts, metadata }`.** `seq`,
+   `version` and `conversationId` stay TOP-LEVEL because they are indexed, with a unique index on
+   `{conversationId, seq}`; moving them under `metadata` would have rewritten the indexes and the
+   live-update cursor for no gain. `safeValidateUIMessages` ignores the extra fields — verified — so
+   only `parts` migrated. There is consequently no `metadataSchema`, and Decision 3's metadata clause
+   does not apply; the validation is structure-only, which is what it says revival needs.
+2. **`step-start` parts are recorded, and are load-bearing.** Not anticipated here. Without them
+   `convertToModelMessages` puts text produced AFTER a tool result inside the assistant message that
+   made the call, ahead of the tool message answering it.
+3. **Two subtractions stay ours**, applied to what is sent while the record keeps everything: reasoning
+   is never replayed (no signature to offer), and a blank text part is dropped rather than sent as an
+   empty block. Both are provider constraints; the library replays both as-is.
+
+Also: `summarizeToolArguments` moved to `shared/`, because the stored `input` became the real arguments
+and both the trace and the run-status strip now need the same bounded rendering of it.
 
 ## Scope
 
