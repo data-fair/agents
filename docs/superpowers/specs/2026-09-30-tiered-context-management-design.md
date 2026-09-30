@@ -1,6 +1,6 @@
 # Tiered context management
 
-**Status:** proposed, awaiting approval to implement
+**Status:** IMPLEMENTED 2026-09-30
 **Date:** 2026-09-30
 **Supersedes:** §2.3 of `2026-09-30-adopt-the-ai-sdk-message-model-design.md`, which relegated
 `pruneMessages` to the compaction-failure path. That was wrong — see below.
@@ -150,6 +150,27 @@ the same constant was copied. Concretely:
   threshold, what a placeholder means, and the caching interaction. The autonomous-agents subsystem is
   already the only concern in the repo with no topical architecture doc; this policy must not add a
   second undocumented one.
+
+## Deviations from this spec, as implemented
+
+- **The shared entry point is `decideContextManagement`**, which composes clearing, the re-measure and
+  `decideCompaction` into one call. The spec described the clearing decision alone; making the whole
+  ordered sequence the shared thing is what actually makes "one policy" enforceable — a loop can no
+  longer route through tier 1 and then apply tier 2 on its own terms. The drift test asserts neither loop
+  calls `decideCompaction` directly.
+- **The placeholder names the server only when the provenance envelope is present.** The model messages
+  carry a tool's name but not its server; the envelope inside the result text carries both, so the policy
+  reads it opportunistically rather than requiring it.
+- **A result smaller than its own placeholder is skipped.** Not anticipated here: clearing such a result
+  would GROW the context. It falls out as the right treatment for a short tool error, with no extra knob.
+- **`docs/architecture/compaction.md` was MERGED into `context-management.md` rather than left beside
+  it.** The spec called the new doc new and did not notice the existing one; two docs on one policy is
+  the duplication this work exists to remove. The merged doc keeps the old one's budget-resolution and
+  fill-measurement detail, and fixes its stale claim that the policy lives under `ui/src/utils/`.
+- **The compaction-failure fallback is now a tier-1 clear with `keep: 0`**, replacing `pruneMessages`
+  entirely. §2.3 of the message-model spec had kept prune for exactly this path; clearing is strictly
+  better there for the same reason it is better everywhere — it leaves the calls and a placeholder
+  instead of nothing.
 
 ## Scope
 

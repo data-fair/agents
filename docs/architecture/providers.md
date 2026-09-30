@@ -48,7 +48,7 @@ model rather than the role, so any entry may set it. Left empty it falls back to
 whatever the model listing reported when the model was picked — only OpenRouter
 and the mock provider report a context length today; everything else, Ollama
 included, falls back to a 128000-token default sized for frontier assistant
-models. See [Conversation history compaction](./compaction.md) for how it feeds
+models. See [Context management](./context-management.md) for how it feeds
 the budget.
 
 Cache reads are charged at their own rate, not at the fresh-input rate — the

@@ -99,6 +99,23 @@ const buildMcpServer = (record: (toolName: string) => void): McpServer => {
     }
   )
   mcp.registerTool(
+    'bulk',
+    /**
+     * A big result from a tiny request — the shape tier 1 of the context policy exists for.
+     *
+     * Every other tool here returns roughly as much as it was asked for, so a conversation using them has
+     * a history split evenly between instructions (unclearable) and results (clearable). That makes
+     * "clearing alone brought it back under budget" impossible to demonstrate without tuning the budget
+     * to a knife edge. With this one the payload dominates, which is what a real MCP conversation looks
+     * like once a tool returns a page of rows.
+     */
+    { description: 'Returns a result of the requested size', inputSchema: { chars: z.number() } },
+    async ({ chars }) => {
+      record('bulk')
+      return { content: [{ type: 'text', text: 'b'.repeat(Math.min(chars, 200_000)) }] }
+    }
+  )
+  mcp.registerTool(
     'explode',
     /**
      * A tool that FAILS, which nothing here could do before.

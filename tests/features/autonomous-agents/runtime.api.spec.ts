@@ -1173,6 +1173,80 @@ test.describe('Autonomous agent run traces', () => {
     assert.ok(conversation.compaction, 'this test is only meaningful if a compaction actually happened')
   })
 
+  test('a conversation brought back under budget by CLEARING alone makes no summarizer call', async () => {
+    // The saving the tier ordering exists for, asserted directly rather than assumed. Clearing old tool
+    // payloads is free; summarising them is a blocking, billed model call. Before this, the summarizer
+    // was the only lever, so a tool-heavy conversation paid for one on every turn past the threshold.
+    //
+    // `bulk` returns a big result from a tiny request, so the history is dominated by clearable payload —
+    // which is what a real MCP conversation looks like, and what makes this provable without tuning the
+    // budget to a knife edge.
+    await putMockSettings(admin, 'organization/test1', {
+      // On, so the model's OWN reported input size can be compared against the stored conversation —
+      // the only way to show the context really shrank rather than never having grown.
+      storeTraces: true,
+      models: [{
+        model: mockModelRef,
+        usage: ['assistant', 'tools', 'summarizer', 'evaluator', 'moderator'],
+        // Big enough that the 3 most recent results plus every instruction fit with margin; small enough
+        // that adding the older payloads on top crosses it, which happens around the fifth turn.
+        contextWindow: 8000,
+        inputPricePerMillion: 400_000,
+        outputPricePerMillion: 400_000
+      }]
+    })
+    const agent = await createAgent({ mcpServers: [{ serverId: 'dev-public-mcp' }] })
+    await enrol(agent.id)
+    const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 't' })).data
+
+    const turn = async (content: string) => {
+      const { runId } = (await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content })).data
+      for (let i = 0; i < 100; i++) {
+        const run = (await orgAdmin.get(`/api/autonomous-agent-runs/organization/test1/${runId}`)).data
+        if (run.status !== 'running') return run
+        await new Promise(resolve => setTimeout(resolve, 100))
+      }
+      throw new Error('run never settled')
+    }
+    for (let i = 0; i < 8; i++) await turn('call tool bulk {"chars":4000}')
+
+    const conversation = (await orgAdmin.get(`/api/autonomous-agent-conversations/organization/test1?autonomousAgentId=${agent.id}`))
+      .data.results.find((c: any) => c.id === conv.id)
+    assert.equal(conversation.compaction, undefined, 'clearing must have sufficed, so no recap should exist')
+
+    // And nothing reached the summarizer's ledger, which is the cost this avoids.
+    const today = new Date().toISOString().slice(0, 10)
+    const byRole = await admin.get('/api/usage/organization/test1/history?scope=account-daily&days=7&dimension=modelRole')
+    const breakdown = byRole.data.entries.find((e: any) => e.label === today)?.breakdown ?? {}
+    assert.ok(!breakdown.summarizer, `no summarizer spend expected, got ${JSON.stringify(breakdown)}`)
+
+    // The conversation itself is untouched: clearing only ever changes what the MODEL is sent, so every
+    // payload is still in the store and the thread still replays in full.
+    const messages = (await orgAdmin.get(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`)).data.results
+    const payloads = messages.flatMap((m: any) => (m.parts ?? [])
+      .filter((p: any) => p.type === 'dynamic-tool' && p.toolName === 'bulk')
+      .map((p: any) => String(p.output ?? '')))
+    assert.equal(payloads.length, 8, 'every call is still recorded')
+    assert.ok(payloads.every((text: string) => text.includes('bbbbbbbbbb')), 'and every payload is still whole in the store')
+
+    // THE CROSSING, which "no compaction" alone does not prove: a conversation that never grew past the
+    // budget would also leave no recap. The mock reports its input size, so the last turn's trace says
+    // how much context actually reached the model — and it must be far below the stored conversation,
+    // because the old payloads were replaced by placeholders on the way in.
+    const storedChars = JSON.stringify(messages).length
+    const lastTurn = (await tracesOf(conv.id))
+      .filter((t: any) => t.contextKind === 'turn')
+      .sort((a: any, b: any) => b.request.body.historyUpToSeq - a.request.body.historyUpToSeq)[0]
+    assert.ok(lastTurn, 'expected the last turn to be traced')
+    const sentTokens = lastTurn.usage.inputTokens
+    assert.ok(
+      sentTokens < storedChars / 4 * 0.7,
+      `the cleared context must be materially smaller than the stored conversation: sent ${sentTokens} tokens for ~${Math.round(storedChars / 4)} stored`
+    )
+    // And it has to have been over the budget before clearing, or there was nothing to save.
+    assert.ok(storedChars / 4 > 8000 * 70 / 100, 'this test is only meaningful if the history crossed the budget')
+  })
+
   test('the compaction recap is PERSISTED and reused, not recomputed every turn', async () => {
     // Compaction used to re-summarise from scratch on every turn once a conversation crossed the
     // budget — permanently, because nothing was persisted: the next turn loaded the whole history

@@ -15,7 +15,7 @@ import { extractErrorMessage } from '~/utils/error'
 import { redactHistoryMediaToolResults } from '~/utils/tool-result'
 import { readConsent, traceStorageAvailable } from '~/traces/trace-consent'
 import { wrapHiddenContext } from '~/traces/hidden-context'
-import { decideCompaction, retainedToolNames } from '@agents/shared/compaction-policy'
+import { decideContextManagement, retainedToolNames } from '@agents/shared/compaction-policy'
 import { compactionSystemPrompt, recapMessage } from '@agents/shared/compaction-prompt'
 import Debug from 'debug'
 import type { ChatActivity } from './agent-activity.ts'
@@ -433,25 +433,46 @@ export function useAgentChat (options: UseAgentChatOptions) {
   }
 
   /**
+   * Bring the history back within budget: clear old tool results, re-measure, then summarise if needed.
+   *
+   * The decision is `decideContextManagement` in `shared/`, which the autonomous executor calls too —
+   * one policy, not two that happen to agree. Only the APPLICATION is local: this rewrites an in-memory
+   * array, the executor rebuilds from stored parts and persists a recap. See
+   * docs/architecture/context-management.md.
+   *
    * Returns whether history was actually rebuilt. sendMessage needs that: after a
    * compaction the model is re-activated, so the host-state block has to be folded
    * back into the last user message — which the retained window still ends with.
+   *
+   * A CLEAR alone also counts as rebuilt: the head of the prompt changed, so the measurement basis is
+   * gone and the turn has to be re-activated on the same terms as after a compaction.
    */
   async function compactHistory (compactionCtxId: string, signal: AbortSignal): Promise<boolean> {
     const override = Number(sessionStorage.getItem('agent-chat-compaction-threshold'))
     const budget = (Number.isFinite(override) && override > 0) ? override : contextBudget.value
     if (!budget) return false
 
-    const decision = decideCompaction({
+    const { history: managed, clearing, compaction: decision } = decideContextManagement({
       history,
       lastInputTokens,
       appendedChars: Math.max(JSON.stringify(history).length - measuredChars, 0),
       budget,
       generation: compactionGeneration
     })
+    if (clearing.clear) {
+      // Tier 1, free: no model call, no blank gap to name in `activity`. The payloads are replaced by
+      // placeholders that say a result existed and can be re-fetched.
+      debug('cleared %d old tool results, freeing ~%d tokens', clearing.clearedCount, clearing.freedTokens)
+      history = managed
+      // The cleared prefix is not what `lastInputTokens` measured any more, so the next turn re-measures
+      // against the real prompt — the same reset a compaction performs below.
+      lastInputTokens = 0
+      measuredChars = 0
+    }
     if (!decision.compact) {
       debug('no compaction: %s', decision.reason)
-      return false
+      // Clearing alone rebuilt the history, and sendMessage has to know.
+      return clearing.clear
     }
     const { prefixToSummarize, retained } = decision
 

@@ -19,9 +19,9 @@ import mongo from '#mongo'
 import config from '#config'
 import locks from '@data-fair/lib-node/locks.js'
 import Debug from 'debug'
-import { streamText, generateText, stepCountIs, pruneMessages, type ModelMessage, type Tool } from 'ai'
+import { streamText, generateText, stepCountIs, type ModelMessage, type Tool } from 'ai'
 import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep, STREAM_IDLE_TIMEOUT_MS } from '@agents/shared/agent-loop-guards'
-import { decideCompaction } from '@agents/shared/compaction-policy'
+import { decideContextManagement, clearOldToolResults } from '@agents/shared/compaction-policy'
 import { summarizeToolArguments } from '@agents/shared/tool-arguments'
 import { compactionSystemPrompt, recapMessage } from '@agents/shared/compaction-prompt'
 import type { AutonomousAgent, AutonomousAgentMessage, AutonomousAgentRun } from '#types'
@@ -212,12 +212,18 @@ const loadHistory = async (conversationId: string, upToSeq: number): Promise<Loa
 }
 
 /**
- * Compact the history when it no longer fits the budget.
+ * Bring the history back within budget: clear old tool results, re-measure, then summarise if needed.
+ *
+ * The decision is `decideContextManagement` in `shared/`, which the browser loop calls too — one policy,
+ * not two that happen to agree. Only the APPLICATION is local: this rebuilds from stored parts and
+ * persists a recap, the browser rewrites an in-memory array. See
+ * docs/architecture/context-management.md.
  *
  * Unlike the browser loop, this has no provider-reported measurement of a previous turn to
  * work from — there is no prior response object in hand — so the whole history counts as
  * unmeasured and the decision runs on the character estimate alone. That is conservative in
- * the safe direction: it can compact slightly early, never slightly late.
+ * the safe direction: it can compact slightly early, never slightly late. Expressed as a
+ * PARAMETER to the shared decision (`lastInputTokens: 0`), not as a second implementation.
  *
  * A failure here is non-fatal. Continuing with the full history risks a context-overflow
  * error from the provider, which the caller turns into a message; losing the turn entirely
@@ -231,19 +237,24 @@ const compactHistory = async (
   settings: Awaited<ReturnType<typeof getSettings>>,
   abortSignal: AbortSignal
 ): Promise<{ messages: ModelMessage[], credits: number }> => {
-  const history = loaded.messages
-  if (!budget) return { messages: history, credits: 0 }
-  const decision = decideCompaction({
-    history,
+  if (!budget) return { messages: loaded.messages, credits: 0 }
+  const { history, clearing, compaction: decision } = decideContextManagement({
+    history: loaded.messages,
     lastInputTokens: 0,
-    appendedChars: JSON.stringify(history).length,
+    appendedChars: JSON.stringify(loaded.messages).length,
     budget,
     // The REAL generation, read from the persisted recap. It was hardcoded to 0, which told the
     // summarizer every time that it was seeing raw exchanges — so a chained compaction was asked to
     // re-digest an existing recap instead of merging it, which is what compounds loss.
     generation: loaded.generation
   })
+  // Clearing leaves the message LIST untouched — only payloads inside it — so `loaded.seqs` still lines
+  // up with `history` and the cut alignment below is unaffected.
+  if (clearing.clear) {
+    debug('cleared %d old tool results, freeing ~%d tokens', clearing.clearedCount, clearing.freedTokens)
+  }
   if (!decision.compact) {
+    // The saving tier 1 exists for: over budget, brought back under it without a model call.
     debug('no compaction: %s', decision.reason)
     return { messages: history, credits: 0 }
   }
@@ -331,25 +342,23 @@ const compactHistory = async (
   } catch (err) {
     if (abortSignal.aborted) throw err
     // A failed compaction used to return the FULL history, which the comment above admits risks a
-    // context-overflow error from the provider. Prune the oldest tool payloads instead: in this branch
-    // the alternative is failing the turn, so dropping data the model may still have wanted is the
-    // lesser harm — and it is the only place where that trade is clearly right.
+    // context-overflow error from the provider. Clear EVERY tool result instead — the same tier-1
+    // mechanism, with `keep: 0` and no minimum, because in this branch the alternative is failing the
+    // turn outright.
     //
-    // NOT used on the happy path. Pruning tool results silently drops what a tool returned, leaving only
-    // whatever the assistant happened to narrate about it — and the storage work established that its
-    // prose captures tool findings unreliably. A recap at least stands in for what it replaces; a prune
-    // does not. The store keeps everything either way, so revival and audit are unaffected; this is
-    // about what the model can still see.
-    //
-    // Calls and their results are removed together, so the history stays replayable.
-    const pruned = pruneMessages({ messages: history, toolCalls: 'before-last-4-messages' })
+    // This replaced `pruneMessages`, which removes each call together with its result and leaves nothing
+    // in their place: the model then reasons as though it had never asked. Clearing keeps every call and
+    // every placeholder, so it can see what it did and that the payload is re-fetchable. The store keeps
+    // everything either way; this is only about what the model can still see.
+    const fallback = clearOldToolResults(history, budget, { keep: 0, clearAtLeast: 0 })
+    const cleared = fallback.clear ? fallback.history : history
     debug(
-      'compaction failed, continuing with a pruned history (%d -> %d chars): %O',
+      'compaction failed, continuing with every tool result cleared (%d -> %d chars): %O',
       JSON.stringify(history).length,
-      JSON.stringify(pruned).length,
+      JSON.stringify(cleared).length,
       err
     )
-    return { messages: pruned, credits: 0 }
+    return { messages: cleared, credits: 0 }
   }
 }
 

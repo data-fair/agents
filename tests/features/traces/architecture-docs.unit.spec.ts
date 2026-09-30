@@ -4,28 +4,28 @@ import { buildDocMap, docTopicFromPath, lookupArchitectureDoc } from '../../../u
 
 test.describe('architecture docs lookup (unit)', () => {
   test('derives topic keys from glob paths', () => {
-    assert.equal(docTopicFromPath('../../../docs/architecture/compaction.md'), 'compaction')
+    assert.equal(docTopicFromPath('../../../docs/architecture/context-management.md'), 'context-management')
     assert.equal(docTopicFromPath('../../../docs/architecture/integration-context.md'), 'integration-context')
   })
 
   test('builds a topic -> markdown map from glob modules', () => {
     const map = buildDocMap({
       '../../../docs/architecture/overview.md': '# Overview',
-      '../../../docs/architecture/compaction.md': '# Compaction'
+      '../../../docs/architecture/context-management.md': '# Context management'
     })
-    assert.deepEqual(Object.keys(map).sort(), ['compaction', 'overview'])
-    assert.equal(map.compaction, '# Compaction')
+    assert.deepEqual(Object.keys(map).sort(), ['context-management', 'overview'])
+    assert.equal(map['context-management'], '# Context management')
   })
 
   test('returns content for a known topic', () => {
-    const map = { compaction: '# Compaction' }
-    assert.equal(lookupArchitectureDoc(map, 'compaction'), '# Compaction')
+    const map = { 'context-management': '# Context management' }
+    assert.equal(lookupArchitectureDoc(map, 'context-management'), '# Context management')
   })
 
   test('returns the available topic list for an unknown topic', () => {
-    const map = { overview: 'a', compaction: 'b' }
+    const map = { overview: 'a', 'context-management': 'b' }
     const res = lookupArchitectureDoc(map, 'nope')
     assert.match(res, /Unknown topic "nope"/)
-    assert.match(res, /compaction, overview/)
+    assert.match(res, /context-management, overview/)
   })
 })

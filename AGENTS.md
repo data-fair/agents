@@ -71,6 +71,13 @@ to the SDK so a legitimate bump of `api`'s own zod is not silently clamped.
 Design, measurements and the isolation guarantee:
 `docs/superpowers/specs/2026-09-12-claude-code-bridge-and-simulation-harness-design.md`.
 
+### nodemon does not watch `shared/`
+
+`dev-api` runs nodemon from `api/`, so it restarts on `api/**` changes only. Editing `shared/` — the
+loop guards, the context policy, the compaction prompt — leaves the running server on the OLD code,
+which silently invalidates any api/e2e test of that change. Touch any file under `api/src/` to force the
+restart (the fresh process re-imports `shared/`), or verify the change through a unit test instead.
+
 ### When something is down
 
 If a service is down, do not try to fix the infrastructure. Instead:
@@ -138,7 +145,7 @@ quota.
 
 ## Code patterns
 
-Topical architecture docs (for understanding the service) live in `docs/architecture/` — one file per concern (gateway, sub-agents, loop-guards, mcp-tools, host-events, providers, quotas-usage, compaction, embedding, moderation, tool-exploration, tracing) plus `overview.md`. Read on a need-to-know basis.
+Topical architecture docs (for understanding the service) live in `docs/architecture/` — one file per concern (gateway, sub-agents, loop-guards, mcp-tools, host-events, providers, quotas-usage, context-management, embedding, moderation, tool-exploration, tracing) plus `overview.md`. Read on a need-to-know basis.
 
 When working on this project, read the following files on a need-to-know basis to understand conventions:
 

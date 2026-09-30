@@ -25,7 +25,7 @@ sequenceDiagram
 3. `prepareStep` reads `promotedTools` live, so a tool promoted at step *N* is callable at step *N+1* — within the same turn, no re-issue.
 4. Promotions **survive history compaction**: they are pruned to the tools the
    retained (post-compaction) window still references — see
-   `retainedToolNames` in [Conversation history compaction](./compaction.md) —
+   `retainedToolNames` in [Context management](./context-management.md) —
    rather than cleared wholesale. They are still cleared on reset. The name
    catalog is always present, so re-exploration of a pruned tool is cheap.
 

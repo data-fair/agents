@@ -4,6 +4,7 @@
  */
 
 import { convertToModelMessages, safeValidateUIMessages, type ModelMessage } from 'ai'
+import { truncatedToolResultText } from '@agents/shared/compaction-policy'
 
 export type RunStatus = 'running' | 'done' | 'error' | 'aborted' | 'interrupted'
 export type RunStopReason = 'completed' | 'step-limit' | 'repeated-calls' | 'budget' | 'timeout' | 'aborted' | 'error'
@@ -135,6 +136,12 @@ export const TOOL_RESULT_LIMIT = 100_000
  * The marker travels inside the text, not only in the `truncated` field, because the text is what the
  * model is handed when the conversation is revived — a silently short result would read as the whole
  * answer, and the model would reason from it as though nothing were missing.
+ *
+ * TIER 0 of the context policy, and it uses the same vocabulary as a tier-1 clear
+ * (`truncatedToolResultText`), so a reader — and the model — meets one wording for "part of this is gone
+ * and you can ask again" rather than two. Summarising an oversized result instead of cutting it, and
+ * offloading a very large one to a store, are the planned refinements recorded in
+ * docs/architecture/context-management.md.
  */
 export function boundToolResult (
   text: string,
@@ -142,7 +149,7 @@ export function boundToolResult (
 ): { result: string, truncated?: { totalChars: number } } {
   if (text.length <= limit) return { result: text }
   return {
-    result: `${text.slice(0, limit)}… [truncated, ${text.length} chars total]`,
+    result: truncatedToolResultText(text.slice(0, limit), text.length),
     truncated: { totalChars: text.length }
   }
 }

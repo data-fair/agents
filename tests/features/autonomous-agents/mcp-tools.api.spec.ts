@@ -25,7 +25,7 @@ test.describe('Autonomous agent tools', () => {
     const res = await admin.get(`/api/autonomous-agents/organization/test1/${created.data.id}/tools`)
     assert.equal(res.status, 200)
     const names = res.data.results.map((t: any) => t.name).sort()
-    assert.deepEqual(names, ['echo', 'explode', 'get_schema', 'ignored', 'list_road_closures', 'wipe_everything'])
+    assert.deepEqual(names, ['bulk', 'echo', 'explode', 'get_schema', 'ignored', 'list_road_closures', 'wipe_everything'])
     assert.equal(res.data.results.find((t: any) => t.name === 'echo').server, 'dev-public-mcp')
     // The write surface, visible before the agent is ever run. Same annotations the runtime records per
     // call, so an admin and an auditor read the same thing.

@@ -108,7 +108,7 @@ coerced) since a buggy host can post anything on a BroadcastChannel.
 3. **Otherwise** — at the next `sendMessage`, pending events are drained into the
    `<hidden-context>` wrapper of that user turn (before any action-button context).
 4. **Activation** — when `history` is empty (first turn, after reset) or
-   [compaction](./compaction.md) ran, a `<host-state>` block (retained keys, then recent
+   [compaction](./context-management.md) ran, a `<host-state>` block (retained keys, then recent
    unkeyed events) is placed in that wrapper ahead of the events.
 
 On an activation turn only, the events drained in step 4 are first filtered against that

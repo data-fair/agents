@@ -274,7 +274,8 @@ test.describe('boundToolResult', () => {
     // The marker has to be in the text, not only in the metadata: the text is what the model is handed
     // on revival, and a silently short result would read as the whole answer.
     const { result, truncated } = boundToolResult('x'.repeat(50), 10)
-    assert.match(result, /^x{10}… \[truncated, 50 chars total\]$/)
+    // The same vocabulary a tier-1 clear uses, so one wording covers "part of this is gone, ask again".
+    assert.match(result, /^x{10}… \[rest of this result dropped to free context — 50 chars in total\./)
     assert.deepEqual(truncated, { totalChars: 50 })
   })
 
