@@ -17,7 +17,7 @@
       },
       {
         "id": "dev1-user1",
-        "role": "user1"
+        "role": "user"
       }
     ]
   },
@@ -35,7 +35,7 @@
       },
       {
         "id": "test1-user1",
-        "role": "user1"
+        "role": "user"
       }
     ]
   }

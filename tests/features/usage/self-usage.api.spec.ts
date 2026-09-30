@@ -15,7 +15,7 @@ const admin = await superAdmin
 const owner = await axiosAuth('test-standalone1') // owner (admin) of user/test-standalone1
 const externalUser = await axiosAuth('test1-user1') // external to user/test-standalone1
 const test1Admin = await axiosAuth('test1-admin1', { org: 'test1' })
-// contrib member of organization/test1 (test1-user1's org role is 'user1' in dev/resources, which maps to no quota)
+// contrib member of organization/test1
 const test1Member = await axiosAuth('test1-contrib1', { org: 'test1' })
 
 const apiBase = `http://localhost:${process.env.DEV_API_PORT}`
