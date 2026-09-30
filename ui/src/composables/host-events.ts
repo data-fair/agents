@@ -300,10 +300,11 @@ export function createWaitTool (opts: {
     inputSchema: jsonSchema({
       type: 'object',
       properties: {
-        expecting: { type: 'string', description: 'What you are waiting for, in a few words; shown to the user.' },
+        message: { type: 'string', description: 'Your message to the user, shown in the chat as your reply: what is ready and exactly what they should do (e.g. which button to press). Do not repeat it as text.' },
+        expecting: { type: 'string', description: 'What you are waiting for, in a few words; shown as a status label.' },
         timeoutSeconds: { type: 'integer', minimum: 1, maximum: WAIT_MAX_SECONDS, description: `Seconds to wait before giving up (default ${WAIT_DEFAULT_SECONDS}, max ${WAIT_MAX_SECONDS}).` }
       },
-      required: ['expecting'],
+      required: ['message', 'expecting'],
       additionalProperties: false
     }),
     execute: async (args: any, options?: { abortSignal?: AbortSignal }) => {

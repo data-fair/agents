@@ -7,6 +7,10 @@
  * be unit-tested directly by the node test runner.
  */
 
+// Same value as host-events' WAIT_TOOL_NAME, not imported: that module loads the `ai`
+// runtime, which this one stays free of (a unit test holds the two equal).
+export const WAIT_TOOL_NAME = 'wait_for_user_action'
+
 // Structural subset of ChatMessage the builder reads/writes; the real
 // ChatMessage (from use-agent-chat) is assignable to this.
 export interface StreamMessage {
@@ -102,6 +106,17 @@ export function applyStreamPart (part: StreamPart, scope: StreamScope): void {
         state: 'pending',
         ...(input !== undefined ? { input } : {})
       })
+      // A wait hands the turn to the person, so it carries its own message to them.
+      // Models read the waiting chip as that message and wrote none: judged runs showed
+      // the person nothing but « En attente : Clic sur Enregistrer » and had to ask
+      // whether the button was ready. Shown only when the step wrote no text itself.
+      if (part.toolName === WAIT_TOOL_NAME && !scope.current.content.trim()) {
+        const message = typeof input?.message === 'string' ? input.message.trim() : ''
+        if (message) {
+          scope.current.content = message
+          scope.producedText = true
+        }
+      }
       break
     }
     case 'tool-result': {

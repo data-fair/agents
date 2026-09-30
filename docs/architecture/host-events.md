@@ -171,8 +171,11 @@ a pending event — not merely "a host store exists"): the tool's own descriptio
 the model to call it, so advertising it to a page that has never published anything
 would only ever end in a bounded, pointless dead turn. Re-checked on every tool-set
 rebuild (turn start and every mid-turn rebuild), so a page that starts publishing
-mid-conversation gains the tool at the next one. `{ expecting, timeoutSeconds? }`
-(default 300s, max 600s). It resolves on **what the person did, not on the next event whatever it
+mid-conversation gains the tool at the next one. `{ message, expecting, timeoutSeconds? }`
+(default 300s, max 600s). `message` is the model's reply to the person — what is ready and
+what to press — and the chat shows it as the step's text when the step wrote none
+(`applyStreamPart`); `expecting` is only the status label. Before `message` existed, models
+read the « En attente : … » label as their message and handed buttons over in silence. It resolves on **what the person did, not on the next event whatever it
 is**. The store already separates two kinds of event: an unkeyed transition is something
 that happened, keyed state is what is true now — and state refreshes for many reasons,
 including the assistant's own action finishing late. A wait resolves on a transition, or on
