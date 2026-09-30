@@ -994,6 +994,55 @@ test.describe('Autonomous agent run traces', () => {
     assert.match(traced.arguments, /"value"\s*:\s*"x"/, 'and what it was asked to do — a name alone is not auditable')
   })
 
+  test('a compaction is BILLED — to the account ledger and to the run', async () => {
+    // compactHistory calls generateText against the summarizer and recorded only a trace, which is
+    // itself gated on storeTraces (off by default). So summarizer tokens reached no ledger at all: not
+    // the run budget, not the account credit cap, not the usage histogram. That contradicts the rule
+    // stated for the assistant path a hundred lines above it — "a turn stopped by the budget or the
+    // clock must still bill what it actually consumed".
+    //
+    // Non-zero prices, or computeCreditBreakdown returns 0 and `if (total > 0)` skips the recording,
+    // which would make this pass for the wrong reason. A tiny context window forces the compaction.
+    await putMockSettings(admin, 'organization/test1', {
+      storeTraces: false,
+      models: [{
+        model: mockModelRef,
+        usage: ['assistant', 'tools', 'summarizer', 'evaluator', 'moderator'],
+        contextWindow: 200,
+        inputPricePerMillion: 400_000,
+        outputPricePerMillion: 400_000
+      }]
+    })
+    const agent = await createAgent()
+    await enrol(agent.id)
+    const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 't' })).data
+
+    const turn = async (content: string) => {
+      const { runId } = (await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content })).data
+      for (let i = 0; i < 100; i++) {
+        const run = (await orgAdmin.get(`/api/autonomous-agent-runs/organization/test1/${runId}`)).data
+        if (run.status !== 'running') return run
+        await new Promise(resolve => setTimeout(resolve, 100))
+      }
+      throw new Error('run never settled')
+    }
+
+    await turn('long answer')
+    const second = await turn('long answer')
+
+    // 1. the account ledger knows the summarizer ran.
+    const today = new Date().toISOString().slice(0, 10)
+    const byRole = await admin.get('/api/usage/organization/test1/history?scope=account-daily&days=7&dimension=modelRole')
+    const breakdown = byRole.data.entries.find((e: any) => e.label === today)?.breakdown ?? {}
+    assert.ok(breakdown.summarizer > 0, `compaction must reach the usage ledger, got ${JSON.stringify(breakdown)}`)
+
+    // 2. and the run it happened during carries the cost, so the per-run budget can see it.
+    assert.ok(second.credits > 0)
+    const conversation = (await orgAdmin.get(`/api/autonomous-agent-conversations/organization/test1?autonomousAgentId=${agent.id}`))
+      .data.results.find((c: any) => c.id === conv.id)
+    assert.ok(conversation.compaction, 'this test is only meaningful if a compaction actually happened')
+  })
+
   test('the compaction recap is PERSISTED and reused, not recomputed every turn', async () => {
     // Compaction used to re-summarise from scratch on every turn once a conversation crossed the
     // budget — permanently, because nothing was persisted: the next turn loaded the whole history

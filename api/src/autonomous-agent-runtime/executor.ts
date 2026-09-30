@@ -227,9 +227,9 @@ const compactHistory = async (
   budget: number,
   settings: Awaited<ReturnType<typeof getSettings>>,
   abortSignal: AbortSignal
-): Promise<ModelMessage[]> => {
+): Promise<{ messages: ModelMessage[], credits: number }> => {
   const history = loaded.messages
-  if (!budget) return history
+  if (!budget) return { messages: history, credits: 0 }
   const decision = decideCompaction({
     history,
     lastInputTokens: 0,
@@ -242,13 +242,13 @@ const compactHistory = async (
   })
   if (!decision.compact) {
     debug('no compaction: %s', decision.reason)
-    return history
+    return { messages: history, credits: 0 }
   }
   // The recap is cached against a STORED MESSAGE boundary, so the cut has to land on one.
   const cut = alignCutToStoredMessage(loaded.seqs, decision.prefixToSummarize.length)
   if (cut <= 0) {
     debug('no compaction: the cut aligned away to nothing')
-    return history
+    return { messages: history, credits: 0 }
   }
   const prefixToSummarize = history.slice(0, cut)
   const retained = history.slice(cut)
@@ -265,8 +265,38 @@ const compactHistory = async (
       abortSignal
     })
     const summary = generated.text
-    // A compaction is a real model call, so its cost must be attributable rather than appearing
-    // as unexplained spend on the turn beside it.
+
+    // A compaction is a real model call, so it is BILLED like one. It used to record only a trace —
+    // itself gated on settings.storeTraces, which is off by default — so summarizer tokens reached no
+    // ledger at all: not the run, not the account credit cap, not the usage histogram. The executor
+    // talks to the provider directly rather than through the gateway, so nothing else would have.
+    const compactionCredits = computeCreditBreakdown(
+      {
+        inputTokens: generated.usage?.inputTokens ?? 0,
+        outputTokens: generated.usage?.outputTokens ?? 0
+      },
+      entry,
+      config.eurosPerCredit
+    )
+    // 0 steps: the spend is real but a compaction is not a step of the turn, and inflating the step
+    // count would make the step limit and the run's own record disagree.
+    await incrementRunSpend(run.id, compactionCredits.total, 0)
+    if (compactionCredits.total > 0) {
+      await recordUsage(run.owner, {
+        cost: compactionCredits.total,
+        userId: identity.usageUserId,
+        userName: identity.usageUserName,
+        dimensions: {
+          modelRole: 'summarizer',
+          model: entry.id,
+          profile: identity.role,
+          tokenCosts: { input: compactionCredits.input, cachedInput: compactionCredits.cachedInput, output: compactionCredits.output }
+        }
+      })
+    }
+
+    // Traced too, so its cost is attributable rather than appearing as unexplained spend on the
+    // turn beside it.
     recordAutonomousTrace(settings, {
       run,
       identity,
@@ -294,11 +324,11 @@ const compactHistory = async (
       coversUpToSeq
     })
     debug('compacted %d messages into a recap (generation %d, covers up to seq %d)', prefixToSummarize.length, decision.generation, coversUpToSeq)
-    return [recapMessage(summary), ...retained]
+    return { messages: [recapMessage(summary), ...retained], credits: compactionCredits.total }
   } catch (err) {
     if (abortSignal.aborted) throw err
     debug('compaction failed, continuing with the full history: %O', err)
-    return history
+    return { messages: history, credits: 0 }
   }
 }
 
@@ -426,7 +456,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   const { run, messageSeq, messageId, abortSignal, model, entry, tools, settings, budget, serverByTool, autonomousAgent } = ctx
   const identity = usageIdentityFor(autonomousAgent)
 
-  const history = await compactHistory(
+  const compacted = await compactHistory(
     run,
     identity,
     await loadHistory(run.conversationId, messageSeq),
@@ -434,10 +464,15 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
     settings,
     abortSignal
   )
+  const history = compacted.messages
 
   // Credits spent so far this turn, accumulated per step so the budget can stop the loop
   // between steps rather than only reporting the overrun afterwards.
-  let credits = 0
+  //
+  // SEEDED with what compaction just cost, so the per-run budget bounds everything the run spent
+  // rather than only the assistant's steps. A compaction is charged to the account either way; this is
+  // what makes it count against the ceiling too.
+  let credits = compacted.credits
   let budgetExceeded = false
   // Turn totals for the trace, taken from the same place spend comes from so the trace, the
   // usage records and the run cannot disagree.
