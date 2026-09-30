@@ -54,6 +54,23 @@ test.describe('snapshot truncation', () => {
     assert.ok(out.startsWith('aaa'), 'the top of the page must survive too')
   })
 
+  test('never cuts inside a line, so a partial value cannot pass for a whole one', () => {
+    const value = 'gymnase, salle de sport, piscine, bassin de natation, stade, terrain de sport, complexe sportif'
+    const lines = Array.from({ length: 160 }, (_, i) => `  - text: ligne de remplissage numéro ${i}`)
+    lines.splice(58, 0, `  - textbox "Termes de recherche associés": ${value}`)
+    const out = truncate(lines.join('\n'))
+    for (const line of out.split('\n')) {
+      if (line.includes('Termes de recherche')) assert.ok(line.endsWith(value), `a cut line: ${line}`)
+    }
+    assert.match(out, /\[truncated: \d+ lines not shown\]/)
+  })
+
+  test('takes a per-root budget', () => {
+    const text = Array.from({ length: 300 }, (_, i) => `- text: line ${i}`).join('\n')
+    assert.ok(truncate(text, 8000).length > truncate(text).length)
+    assert.ok(truncate(text, 8000).length <= 8000 + 60)
+  })
+
   test('stays within a bounded budget', () => {
     const out = truncate('x'.repeat(SNAPSHOT_CAP * 5))
     assert.ok(out.length <= SNAPSHOT_CAP + 60, `budget exceeded: ${out.length}`)
@@ -93,7 +110,7 @@ test.describe('observations', () => {
       { label: 'chat panel', root: fakeRoot('- button "Send"') as any }
     ])
     const out = await p.call('look', {})
-    assert.ok(out.includes('…[truncated]'), 'the oversized first root is marked as cut')
+    assert.ok(out.includes('…[truncated'), 'the oversized first root is marked as cut')
     assert.ok(out.includes('## chat panel'), 'the second root is not crowded out')
     assert.ok(out.includes('button "Send"'), 'the second root is fully present')
   })

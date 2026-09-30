@@ -38,7 +38,8 @@ export const SNAPSHOT_CAP = 4000
 // instead of an unrecorded hang.
 export const ACTION_TIMEOUT_MS = 15000
 
-export type PerceptionRoot = { label: string, root: ChatRoot }
+/** `cap` overrides SNAPSHOT_CAP for this root: a dense page can deserve more than a chat panel. */
+export type PerceptionRoot = { label: string, root: ChatRoot, cap?: number }
 export type Observation = { turn: number, tool: string, args: unknown, result: string }
 
 export type PagePerception = {
@@ -65,12 +66,28 @@ export type PagePerception = {
  * point before and after the click, and whether the dialog ever opened was not
  * decidable from the record — the judge had to say so instead of ruling.
  */
-export function truncate (text: string): string {
-  if (text.length <= SNAPSHOT_CAP) return text
-  const marker = '\n…[truncated]\n'
-  const head = Math.floor(SNAPSHOT_CAP * 0.6)
-  const tail = SNAPSHOT_CAP - head
-  return text.slice(0, head) + marker + text.slice(-tail)
+//
+// On line boundaries, because a cut inside a line reads as the whole line. A judged
+// run's cut fell inside the value of a filled textbox: the persona read
+// `textbox "Termes de recherche associés": gymnase, salle de sport` as the field's
+// entire content, told the assistant its 14 terms were missing, and never saved.
+// A line is shown whole or not at all; only a single line longer than the whole
+// budget is cut, and says so.
+export function truncate (text: string, cap: number = SNAPSHOT_CAP): string {
+  if (text.length <= cap) return text
+  const lines = text.split('\n')
+  const headBudget = Math.floor(cap * 0.6)
+  const tailBudget = cap - headBudget
+  let used = 0
+  let head = 0
+  while (head < lines.length && used + lines[head].length + 1 <= headBudget) used += lines[head++].length + 1
+  used = 0
+  let tail = 0
+  while (tail < lines.length - head && used + lines[lines.length - 1 - tail].length + 1 <= tailBudget) used += lines[lines.length - 1 - (tail++)].length + 1
+  const headPart = head ? lines.slice(0, head) : [lines[0].slice(0, headBudget) + ' …[line cut]']
+  const tailPart = tail ? lines.slice(lines.length - tail) : [lines.length - head > 1 ? '[line cut]… ' + lines[lines.length - 1].slice(-tailBudget) : '']
+  const hidden = lines.length - Math.max(head, 1) - Math.max(tail, 1)
+  return [...headPart, `…[truncated: ${Math.max(hidden, 0)} lines not shown]`, ...tailPart].join('\n')
 }
 
 type SnapNode = { line: string, children: SnapNode[], raw?: boolean }
@@ -188,7 +205,7 @@ export function createPagePerception (roots: PerceptionRoot[], opts: { offLimits
 
   const look = async () => {
     const parts: string[] = []
-    for (const { label, root } of roots) {
+    for (const { label, root, cap } of roots) {
       let snap = ''
       try { snap = await root.locator('body').ariaSnapshot({ timeout: ACTION_TIMEOUT_MS }) } catch (err) {
         snap = `(could not read: ${err instanceof Error ? err.message : String(err)})`
@@ -197,7 +214,7 @@ export function createPagePerception (roots: PerceptionRoot[], opts: { offLimits
       // root can consume the whole budget and a second root (e.g. an embedded
       // `## chat panel`) disappears from the log entirely, with no marker
       // hinting it was ever there.
-      parts.push(truncate(`## ${label}\n${pruneSnapshot(snap)}`))
+      parts.push(truncate(`## ${label}\n${pruneSnapshot(snap)}`, cap))
     }
     return parts.join('\n\n')
   }
