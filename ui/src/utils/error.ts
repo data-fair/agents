@@ -61,7 +61,7 @@ export function extractQuotaError (err: unknown): QuotaErrorInfo | null {
     }
     // the AI SDK retries a 429 and then throws a RetryError that holds the
     // real APICallError in `lastError`, not in `cause`
-    current = current.cause ?? current.lastError
+    current = current.lastError ?? current.cause
   }
   return null
 }

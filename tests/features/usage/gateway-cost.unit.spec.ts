@@ -87,6 +87,22 @@ test.describe('extractQuotaError', () => {
     assert.equal(extractQuotaError({ responseBody: JSON.stringify(body) })?.scope, 'user')
   })
 
+  test('from a RetryError-shaped error (lastError, not cause)', () => {
+    const full = { error: { message: 'Daily cost quota exceeded', type: 'rate_limit_error', scope: 'user', period: 'daily', resets_at: '2026-10-01T00:00:00.000Z' } }
+    const err = { message: 'Failed after 3 attempts', lastError: { statusCode: 429, data: { error: { type: 'rate_limit_error', message: 'Daily cost quota exceeded' } }, responseBody: JSON.stringify(full) } }
+    assert.deepEqual(extractQuotaError(err), { scope: 'user', period: 'daily', resetsAt: '2026-10-01T00:00:00.000Z', message: 'Daily cost quota exceeded' })
+  })
+
+  test('lastError is checked even when a cause exists', () => {
+    const err = { cause: { message: 'unrelated' }, lastError: { data: body } }
+    assert.equal(extractQuotaError(err)?.scope, 'user')
+  })
+
+  test('truncated parsed data: the complete responseBody wins', () => {
+    const err = { data: { error: { type: 'rate_limit_error', message: 'Daily cost quota exceeded' } }, responseBody: JSON.stringify(body) }
+    assert.deepEqual(extractQuotaError(err), { scope: 'user', period: 'daily', resetsAt: '2026-10-01T00:00:00.000Z', message: 'Daily cost quota exceeded' })
+  })
+
   test('null for any other error', () => {
     assert.equal(extractQuotaError(new Error('boom')), null)
     assert.equal(extractQuotaError({ data: { error: { message: 'no', type: 'invalid_request_error' } } }), null)

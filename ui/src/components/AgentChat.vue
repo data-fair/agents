@@ -227,7 +227,9 @@ const chatResult = useAgentChat({
   toolExploration: explorationEnabled.value,
   flattenSubAgents: !subAgentsEnabled.value,
   formatQuotaError: (q) => {
-    const date = q.resetsAt ? new Intl.DateTimeFormat(locale.value, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(q.resetsAt)) : ''
+    // without a reset date the localized sentences would read "resets on ."
+    if (!q.resetsAt) return q.message
+    const date = new Intl.DateTimeFormat(locale.value, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(q.resetsAt))
     if (q.scope === 'account') return t('quotaAccount', { date })
     if (q.scope === 'untrusted') return t('quotaShared', { date })
     return t(`quota_${q.period ?? 'monthly'}`, { date })
