@@ -1,6 +1,8 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { interruptedStepMessages, INTERRUPTED_RESULT } from '../../../ui/src/composables/interrupted-turn.ts'
+import { interruptedStepMessages, toolResultOutput, INTERRUPTED_RESULTS } from '../../../ui/src/composables/interrupted-turn.ts'
+
+const waitCall = { toolCallId: 'w', toolName: 'wait_for_user_action', input: { message: 'Appuyez sur Enregistrer.', expecting: 'Clic sur Enregistrer' } }
 
 test.describe('interruptedStepMessages', () => {
   test('an open step with nothing in it adds nothing', () => {
@@ -11,29 +13,50 @@ test.describe('interruptedStepMessages', () => {
     assert.deepEqual(interruptedStepMessages({ text: 'Le formulaire est prêt.', calls: [], results: {} }), [{ role: 'assistant', content: 'Le formulaire est prêt.' }])
   })
 
-  test('every pending call gets a result saying it was interrupted', () => {
-    const [assistant, tool] = interruptedStepMessages({
-      text: 'Appuyez sur Enregistrer.',
-      calls: [{ toolCallId: 'c1', toolName: 'wait_for_user_action', input: { expecting: 'Clic sur Enregistrer' } }],
-      results: {}
-    }) as any[]
-    assert.equal(assistant.role, 'assistant')
+  test('a pending call gets a result saying the person spoke', () => {
+    const [assistant, tool] = interruptedStepMessages({ text: 'Voilà.', calls: [waitCall], results: {} }) as any[]
     assert.deepEqual(assistant.content.map((p: any) => p.type), ['text', 'tool-call'])
-    assert.equal(tool.role, 'tool')
-    assert.equal(tool.content[0].toolCallId, 'c1')
-    assert.equal(tool.content[0].output.value, INTERRUPTED_RESULT)
+    assert.equal(tool.content[0].toolCallId, 'w')
+    assert.equal(tool.content[0].output.value, INTERRUPTED_RESULTS.message)
   })
 
-  test('a call whose result arrived keeps it', () => {
+  test('after Stop the result says the reply was stopped', () => {
+    const [, tool] = interruptedStepMessages({ text: '', calls: [waitCall], results: {} }, { reason: 'stop' }) as any[]
+    assert.equal(tool.content[0].output.value, INTERRUPTED_RESULTS.stop)
+  })
+
+  test('a call whose result arrived keeps it, formatted as its tool would', () => {
     const [, tool] = interruptedStepMessages({
       text: '',
-      calls: [
-        { toolCallId: 'c1', toolName: 'open_add_line_dialog', input: {} },
-        { toolCallId: 'c2', toolName: 'wait_for_user_action', input: {} }
-      ],
-      results: { c1: 'Dialog open.' }
-    }) as any[]
-    assert.deepEqual(tool.content[0].output, { type: 'text', value: 'Dialog open.' })
-    assert.equal(tool.content[1].output.value, INTERRUPTED_RESULT)
+      calls: [{ toolCallId: 'c1', toolName: 'subagent_x', input: {} }, waitCall],
+      results: { c1: { raw: true } }
+    }, { format: (call, output) => toolResultOutput(output, () => ({ type: 'text', value: 'formatted' }), call) }) as any[]
+    assert.deepEqual(tool.content[0].output, { type: 'text', value: 'formatted' })
+    assert.equal(tool.content[1].output.value, INTERRUPTED_RESULTS.message)
+  })
+
+  test('the loop lagging behind the SDK never sends a call twice', () => {
+    // The SDK reported the step finished while its parts were still in the open step.
+    const finished = [
+      { role: 'assistant', content: [{ type: 'tool-call', toolCallId: 'c1', toolName: 'open_add_line_dialog', input: {} }] },
+      { role: 'tool', content: [{ type: 'tool-result', toolCallId: 'c1', toolName: 'open_add_line_dialog', output: { type: 'text', value: 'open' } }] }
+    ] as any
+    const lagging = { text: 'J’ouvre le formulaire.', calls: [{ toolCallId: 'c1', toolName: 'open_add_line_dialog', input: {} }], results: { c1: 'open' } }
+    assert.deepEqual(interruptedStepMessages(lagging, { finished }), [], 'that step is already in finished, text included')
+    const mixed = { text: '', calls: [{ toolCallId: 'c1', toolName: 'open_add_line_dialog', input: {} }, waitCall], results: {} }
+    const [assistant] = interruptedStepMessages(mixed, { finished }) as any[]
+    assert.deepEqual(assistant.content.map((p: any) => p.toolCallId), ['w'])
+  })
+})
+
+test.describe('toolResultOutput', () => {
+  test('follows the SDK default without a toModelOutput', () => {
+    assert.deepEqual(toolResultOutput('ok'), { type: 'text', value: 'ok' })
+    assert.deepEqual(toolResultOutput({ a: 1 }), { type: 'json', value: { a: 1 } })
+    assert.deepEqual(toolResultOutput(undefined), { type: 'json', value: null })
+  })
+
+  test('falls back to the default when toModelOutput is asynchronous', () => {
+    assert.deepEqual(toolResultOutput('ok', async () => ({ type: 'text', value: 'x' }), { toolCallId: 'c', input: {} }), { type: 'text', value: 'ok' })
   })
 })

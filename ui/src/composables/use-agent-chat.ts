@@ -23,7 +23,7 @@ import { SUBAGENT_STEP_LIMIT_NOTICE, subAgentModelOutput } from './agent-subagen
 import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep } from './agent-loop-guards.ts'
 import { HostEventStore, createWaitTool, appendHostEvents, formatHostEvents, formatHostState, hasHostState, WAIT_TOOL_NAME } from './host-events'
 import { useHostEvents } from './use-host-events'
-import { interruptedStepMessages, type OpenStep } from './interrupted-turn'
+import { interruptedStepMessages, toolResultOutput, type OpenStep, type InterruptReason } from './interrupted-turn'
 
 const debug = Debug('df-agents:use-agent-chat')
 
@@ -253,7 +253,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
   // Writes the running turn's finished steps into history. Called when that turn is
   // cut short — the person speaking during a wait, or Stop — while the order of
   // history is still known, before the next turn pushes its own user message.
-  let commitRunningTurn: (() => void) | null = null
+  let commitRunningTurn: ((reason: InterruptReason) => void) | null = null
 
   let aggregator: FrameClientAggregator | null = null
 
@@ -564,7 +564,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
       // ends the turn; anything else still in flight is a turn that IS working,
       // and those are left alone.
       if (activity.value?.kind !== 'waiting') return
-      commitRunningTurn?.()
+      commitRunningTurn?.('message')
       abort()
     }
 
@@ -640,11 +640,18 @@ export function useAgentChat (options: UseAgentChatOptions) {
     // commitRunningTurn if the turn is cut short.
     let finishedStepMessages: ModelMessage[] = []
     let openStep: OpenStep = { text: '', calls: [], results: {} }
+    // The turn's tools, once built: a result that arrived in the open step is formatted
+    // through its tool's toModelOutput, as the SDK does for a finished step.
+    let turnTools: Record<string, Tool> = {}
     let stepsCommitted = false
-    const commitSteps = () => {
+    const commitSteps = (reason: InterruptReason) => {
       if (stepsCommitted) return
       stepsCommitted = true
-      history.push(...finishedStepMessages, ...interruptedStepMessages(openStep))
+      history.push(...finishedStepMessages, ...interruptedStepMessages(openStep, {
+        finished: finishedStepMessages,
+        reason,
+        format: (call, output) => toolResultOutput(output, (turnTools[call.toolName] as any)?.toModelOutput, call)
+      }))
     }
     commitRunningTurn = commitSteps
     let watchdog: ReturnType<typeof setTimeout> | undefined
@@ -734,6 +741,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
       // of the SAME turn, with no need to stop and relaunch the stream.
       // See live-tools.ts; 2.sdk-live-tools.unit.spec.ts pins the SDK behaviour.
       const mainLLMTools: Record<string, Tool> = {}
+      turnTools = mainLLMTools
       // Live for the same reason: explore_tools must search the current set, not a copy
       // taken at turn start.
       const plainTools: Record<string, Tool> = {}
@@ -1172,7 +1180,6 @@ export function useAgentChat (options: UseAgentChatOptions) {
         onStepFinish: (step) => {
           // Cumulative: the messages of every step finished so far this turn.
           finishedStepMessages = step.response.messages
-          openStep = { text: '', calls: [], results: {} }
         },
         onError: ({ error: err }) => {
           streamError = err
@@ -1203,7 +1210,10 @@ export function useAgentChat (options: UseAgentChatOptions) {
           streamError = streamError ?? (part as any).error
           break
         }
-        if (part.type === 'text-delta') openStep.text += part.text
+        // Reset in the order this loop reads the parts, not in onStepFinish, which the SDK
+        // may run before the loop has read that step's parts.
+        if (part.type === 'finish-step') openStep = { text: '', calls: [], results: {} }
+        else if (part.type === 'text-delta') openStep.text += part.text
         else if (part.type === 'tool-call') openStep.calls.push({ toolCallId: part.toolCallId, toolName: part.toolName, input: part.input })
         else if (part.type === 'tool-result') openStep.results[part.toolCallId] = part.output
         applyStreamPart(part, mainScope)
@@ -1282,7 +1292,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
           status.value = 'error'
         } else {
           // Stop: keep what the turn did, as an interrupting message does.
-          commitSteps()
+          commitSteps('stop')
           status.value = 'ready'
         }
         return
