@@ -484,6 +484,10 @@ test.describe('Autonomous agent model loop', () => {
     assert.ok(call, 'expected the failed call to be recorded at all')
     assert.equal(call.state, 'output-error', 'a failure is the part\'s STATE, so nothing downstream can drop it')
     assert.match(call.errorText, /nothing to explode/, 'and it carries what the tool said')
+    // INSIDE the provenance envelope, like any other tool output. A failure carries the tool's own
+    // words, so the failure path was the one place the model was handed unattributed, tool-authored
+    // text — exactly what the envelope exists to prevent.
+    assert.match(call.errorText, /<tool-result server="dev-public-mcp" tool="explode">/)
     // A failed tool does not stop the turn: the model is handed the error and keeps going.
     assert.equal(run.status, 'done')
     assert.ok(partsText(assistant.parts).length > 0, 'the turn still answers rather than going blank')
@@ -776,6 +780,78 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
     const assistant = (await messagesOf(conv.id)).find((m: any) => m.role === 'assistant')
     assert.match(partsText(assistant.parts), /stopped/i)
     assert.equal(assistant.pending, false)
+  })
+
+  test('disabling an autonomous agent stops the turn it is already running', async () => {
+    // The kill switch was read only at the START of a turn, so disabling an agent left whatever it was
+    // already doing running to completion — tool calls included. For a control whose entire purpose is
+    // "make it stop", the gap between "stop" and "stops eventually" is the defect.
+    const agent = await createAgent()
+    await enrol(agent.id)
+    // 'stall' holds the response open for 30s, far longer than this test waits, so only the disable can
+    // end it.
+    const { conv, runId } = await startTurn(agent.id, 'stall')
+    await new Promise(resolve => setTimeout(resolve, 300))
+
+    await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, {
+      title: agent.title, persona: agent.persona, mcpServers: [], toolDisclosure: 'static', enabled: false
+    })
+
+    const run = await awaitRun(runId)
+    assert.equal(run.status, 'aborted', 'the live turn must have been stopped by the disable')
+    assert.ok(run.endedAt)
+    const assistant = (await messagesOf(conv.id)).find((m: any) => m.role === 'assistant')
+    assert.ok(partsText(assistant.parts).length > 0, 'and it still explains itself rather than going blank')
+    assert.equal(assistant.pending, false)
+  })
+
+  test('deleting an autonomous agent erases its conversations, messages and runs', async () => {
+    // These used to be left behind for ever, with no route that could reach them: every read path
+    // resolves through the agent, and the agent was gone. Orphaned data an admin can neither see,
+    // export nor erase is not a defensible state for a store that now holds whole tool results.
+    const agent = await createAgent()
+    await enrol(agent.id)
+    const { conv, runId } = await startTurn(agent.id, 'hello')
+    await awaitRun(runId)
+    assert.ok((await messagesOf(conv.id)).length >= 2, 'the thread has to exist before deleting proves anything')
+
+    await admin.delete(`/api/autonomous-agents/organization/test1/${agent.id}`)
+
+    // Nothing resolves through the deleted agent any more, so the only honest check is the store — read
+    // through the dev seam rather than through a route that now 404s for the wrong reason.
+    const left = (await admin.get(`/api/test-env/autonomous-agent-data/${agent.id}`)).data
+    assert.deepEqual(left, { conversations: 0, messages: 0, runs: 0 })
+  })
+
+  test('an instructor can erase one thread without deleting the autonomous agent', async () => {
+    // The means to comply with an erasure request while the agent stays in use.
+    const agent = await createAgent({ instructors: [{ userId: 'test1-user1', userName: 'Test User' }] })
+    await enrol(agent.id)
+    const { conv, runId } = await startTurn(agent.id, 'hello')
+    await awaitRun(runId)
+    const other = await startTurn(agent.id, 'hello')
+    await awaitRun(other.runId)
+
+    const res = await orgMember.delete(`/api/autonomous-agent-conversations/organization/test1/${conv.id}`)
+    assert.equal(res.status, 204)
+
+    const left = (await admin.get(`/api/test-env/autonomous-agent-data/${agent.id}`)).data
+    assert.equal(left.conversations, 1, 'only the named thread is erased')
+    // And the messages went with it, rather than being left unreachable behind a deleted conversation.
+    const remaining = await messagesOf(other.conv.id)
+    assert.ok(remaining.length >= 2)
+    assert.equal(left.messages, remaining.length)
+    await assert.rejects(orgAdmin.get(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`), { status: 404 })
+  })
+
+  test('erasing a thread needs the same grant as instructing', async () => {
+    const agent = await createAgent()
+    await enrol(agent.id)
+    const { conv } = await startTurn(agent.id, 'hello')
+    await assert.rejects(
+      orgMember.delete(`/api/autonomous-agent-conversations/organization/test1/${conv.id}`),
+      { status: 403 }
+    )
   })
 
   test('aborting requires the same grant as instructing', async () => {

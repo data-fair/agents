@@ -75,15 +75,39 @@ const EMPTY_COMPLETION_MESSAGE = 'I was not able to produce a response for this 
  * In-process only, which matches the executor: a run is not resumable and does not migrate,
  * so the process that holds the turn is the only one that can stop it. An abort for a run
  * this process is not running is reported as such rather than silently accepted.
+ *
+ * The agent id travels with the controller so a whole agent can be stopped at once — see
+ * abortRunsOfAgent.
  */
-const liveRuns = new Map<string, AbortController>()
+const liveRuns = new Map<string, { controller: AbortController, autonomousAgentId: string }>()
 
 /** True when this process actually aborted a live turn. */
 export const abortRun = (runId: string): boolean => {
-  const controller = liveRuns.get(runId)
-  if (!controller) return false
-  controller.abort()
+  const live = liveRuns.get(runId)
+  if (!live) return false
+  live.controller.abort()
   return true
+}
+
+/**
+ * Stop every live turn of one autonomous agent. Returns how many this process actually stopped.
+ *
+ * The kill switch used to be checked only at the START of a turn, so disabling an agent — or deleting
+ * it — left whatever it was already doing running to completion, tool calls included. For a control
+ * whose entire purpose is "make it stop", the gap between "stop" and "stops eventually" is the bug: an
+ * admin disabling a misbehaving agent means now.
+ *
+ * Best-effort by the same reasoning as abortRun: only this process's turns, and abort() is a request
+ * the provider may ignore — the run's own deadline is the hard backstop.
+ */
+export const abortRunsOfAgent = (autonomousAgentId: string): number => {
+  let stopped = 0
+  for (const live of liveRuns.values()) {
+    if (live.autonomousAgentId !== autonomousAgentId) continue
+    live.controller.abort(new Error('autonomous agent stopped'))
+    stopped++
+  }
+  return stopped
 }
 
 /** One conversation is one serialised timeline, so the lock is keyed on it. */
@@ -376,7 +400,22 @@ const withProvenance = (tools: Record<string, Tool>, serverOf: (name: string) =>
       ...tool,
       execute: tool.execute
         ? async (args: any, opts: any) => {
-          const result = await tool.execute!(args, opts)
+          const result = await tool.execute!(args, opts).catch((err: unknown) => {
+            // A THROWN failure is tool-controlled text too, and it reached the model bare.
+            //
+            // The envelope is the security property: it tells the model where content came from, so a
+            // tool cannot pass its output off as the system or the user. A failure carries the tool's
+            // own words — `isError` results are rethrown with the tool's content in the message — so
+            // without this the one path that hands the model unattributed, tool-authored text was the
+            // failure path.
+            //
+            // Rethrown, not returned: the AI SDK must still see a rejection, or the call would be
+            // recorded `output-available` and a failure would look like a result again. An abort is
+            // passed through untouched — it is ours, not the tool's, and the loop has to recognise it.
+            if (opts?.abortSignal?.aborted) throw err
+            const detail = err instanceof Error ? err.message : String(err)
+            throw new Error(wrapToolResult(serverOf(name), name, detail))
+          })
           if (typeof result === 'string') return wrapToolResult(serverOf(name), name, result)
           // A media result is an envelope the rest of the stack rebuilds into real image
           // parts by its marker. Stringifying it would inline the base64 into text, lose the
@@ -806,7 +845,7 @@ export const runTurn = async (run: AutonomousAgentRun): Promise<void> => {
   }
 
   const abortController = new AbortController()
-  liveRuns.set(run.id, abortController)
+  liveRuns.set(run.id, { controller: abortController, autonomousAgentId: run.autonomousAgentId })
 
   // The ceiling has to be enforced twice over, because abort() is only a REQUEST.
   // abortController.signal asks the provider and the MCP client to stop, which is what a

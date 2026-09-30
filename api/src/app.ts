@@ -192,6 +192,24 @@ if (process.env.NODE_ENV === 'development') {
     )
     res.send()
   })
+  /**
+   * What one autonomous agent still has in the store.
+   *
+   * A seam because the cascade's whole point is that nothing resolves through a DELETED agent any more:
+   * asserting on a route would only prove it 404s, which it would whether the data was erased or merely
+   * orphaned — the state this exists to rule out.
+   */
+  app.get('/api/test-env/autonomous-agent-data/:agentId', async (req, res) => {
+    const conversations = await mongo.autonomousAgentConversations
+      .find({ autonomousAgentId: req.params.agentId }, { projection: { _id: 0, id: 1 } })
+      .toArray()
+    const conversationIds = conversations.map(conversation => conversation.id)
+    res.json({
+      conversations: conversations.length,
+      messages: await mongo.autonomousAgentMessages.countDocuments({ conversationId: { $in: conversationIds } }),
+      runs: await mongo.autonomousAgentRuns.countDocuments({ conversationId: { $in: conversationIds } })
+    })
+  })
   app.post('/api/test-env/recover-ownerless-runs', async (req, res) => {
     res.json(await recoverOwnerlessRuns())
   })

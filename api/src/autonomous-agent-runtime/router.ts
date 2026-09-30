@@ -131,6 +131,45 @@ router.get('/:type/:id', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
+/**
+ * Erase one thread: the conversation, its messages, its runs.
+ *
+ * The means to comply with an erasure request without deleting the whole autonomous agent. Until this
+ * existed, a stored conversation — which now holds complete tool results, not just prose — could only
+ * be removed by deleting the agent it belonged to, and nothing at all could remove it if the agent was
+ * still in use.
+ *
+ * Deliberately NOT a TTL. The stored conversation is the conversation of record, so a timer that
+ * silently destroyed it would take the audit trail with it. Erasure is a decision someone makes, and
+ * this is where they make it.
+ */
+router.delete('/:type/:id/:conversationId', async (req, res, next) => {
+  try {
+    const session = reqSessionAuthenticated(req)
+    const owner = reqOwner(req)
+    const conversation = await requireConversation(owner, req.params.conversationId)
+    const autonomousAgent = await requireAutonomousAgent(owner, conversation.autonomousAgentId)
+    // The same grant as instructing and aborting: someone who can make this agent act can erase what
+    // it did. A narrower rule would leave an instructor's own thread beyond their reach.
+    assertCanInstruct(autonomousAgent, session)
+
+    // A live turn is stopped first, or it would keep writing messages into a conversation that is being
+    // deleted underneath it — and runTurn's "the conversation was deleted under us" path would then be
+    // reached with tool calls already in flight.
+    const live = await mongo.autonomousAgentRuns
+      .find({ conversationId: conversation.id, status: 'running' }, { projection: { _id: 0, id: 1 } })
+      .toArray()
+    for (const run of live) abortRun(run.id)
+
+    const messages = await mongo.autonomousAgentMessages.deleteMany({ conversationId: conversation.id })
+    const runs = await mongo.autonomousAgentRuns.deleteMany({ conversationId: conversation.id })
+    await mongo.autonomousAgentConversations.deleteOne({ id: conversation.id })
+
+    eventsLog.info('agents.autonomous-agent-conversation.delete', `conversation ${conversation.id} deleted with ${messages.deletedCount} message(s) and ${runs.deletedCount} run(s)`, { req })
+    res.status(204).send()
+  } catch (err) { next(err) }
+})
+
 router.get('/:type/:id/:conversationId/messages', async (req, res, next) => {
   try {
     const session = reqSessionAuthenticated(req)

@@ -10,9 +10,10 @@ import mongo from '#mongo'
 import { type AccountKeys, assertAccountRole, httpError, reqSessionAuthenticated, reqSiteUrl } from '@data-fair/lib-express'
 import eventsLog from '@data-fair/lib-express/events-log.js'
 import * as writeReqBody from '#doc/autonomous-agents/autonomous-agent-write-req/index.ts'
-import { getAutonomousAgent, getMcpServerCatalog, reqWriteSession, assertKnownMcpServers, assertOrganizationOwner, describeAutonomousAgentSession, assertEnrolmentWorks, describeAutonomousAgentTools, clearAutonomousAgentSession } from './service.ts'
+import { getAutonomousAgent, getMcpServerCatalog, reqWriteSession, assertKnownMcpServers, assertOrganizationOwner, describeAutonomousAgentSession, assertEnrolmentWorks, describeAutonomousAgentTools, clearAutonomousAgentSession, deleteAutonomousAgentData } from './service.ts'
 import { nhiIssuerUrl } from '../nhi/operations.ts'
 import { canInstruct } from './operations.ts'
+import { abortRunsOfAgent } from '../autonomous-agent-runtime/executor.ts'
 
 const router = Router()
 export default router
@@ -202,6 +203,18 @@ router.put('/:type/:id/:agentId', async (req, res, next) => {
     if (enrolmentChanged) await assertEnrolmentWorks(updated)
     await mongo.autonomousAgents.replaceOne({ id: existing.id, 'owner.type': owner.type, 'owner.id': owner.id }, { ...updated })
 
+    // The kill switch has to act NOW, not at the next turn. It was only read at the start of a turn, so
+    // disabling an agent left whatever it was already doing running to completion — tool calls included.
+    // The cached NHI session is dropped at the same time, or a turn already inside the loop could keep
+    // acting as the agent with credentials obtained before it was disabled.
+    if (updated.enabled === false && existing.enabled !== false) {
+      const stopped = abortRunsOfAgent(existing.id)
+      clearAutonomousAgentSession(existing.id)
+      if (stopped) {
+        eventsLog.info('agents.autonomous-agent.disable-stopped-runs', `disabling autonomous agent ${existing.id} stopped ${stopped} live run(s)`, { req })
+      }
+    }
+
     eventsLog.info('agents.autonomous-agent.update', `autonomous agent ${existing.id} updated for owner ${owner.type}/${owner.id}`, { req })
     res.json(updated)
   } catch (err) { next(err) }
@@ -217,9 +230,17 @@ router.delete('/:type/:id/:agentId', async (req, res, next) => {
 
     const result = await mongo.autonomousAgents.deleteOne({ id: req.params.agentId, 'owner.type': owner.type, 'owner.id': owner.id })
     if (!result.deletedCount) throw httpError(404, 'unknown autonomous agent')
+    // Stop before deleting: a turn still in flight would otherwise keep calling tools as an agent that
+    // no longer exists, and would write messages into a conversation on its way out.
+    abortRunsOfAgent(req.params.agentId)
     clearAutonomousAgentSession(req.params.agentId)
+    // CASCADE. Deleting the agent used to leave its conversations, their messages and their runs behind
+    // for ever, with no route that could reach them — the agent they belonged to was gone, and every
+    // read path resolves through it. That is orphaned data an admin cannot see, cannot export and
+    // cannot erase, which is not a defensible state for a store that now holds whole tool results.
+    const removed = await deleteAutonomousAgentData(req.params.agentId)
 
-    eventsLog.info('agents.autonomous-agent.delete', `autonomous agent ${req.params.agentId} deleted for owner ${owner.type}/${owner.id}`, { req })
+    eventsLog.info('agents.autonomous-agent.delete', `autonomous agent ${req.params.agentId} deleted for owner ${owner.type}/${owner.id} with ${removed.conversations} conversation(s), ${removed.messages} message(s), ${removed.runs} run(s)`, { req })
     res.status(204).send()
   } catch (err) { next(err) }
 })

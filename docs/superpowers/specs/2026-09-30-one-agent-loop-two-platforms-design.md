@@ -1,6 +1,13 @@
 # One agent loop, two platforms
 
-**Status:** proposed, awaiting approval to implement
+**Status:** POSTPONED 2026-09-30, by decision, after its two dependencies landed. The `shared/`
+contract below is DONE; the engine extraction itself is not started.
+
+Why postponed rather than dropped: everything it depends on is now in place (the message model and the
+context policy both shipped), so it is ready to start whenever the payoff is wanted. But its payoff is
+structural rather than a fixed bug, and its own risk section names churn on code that has just been
+rewritten twice. Smaller concrete work — the approval gate, the remaining review findings — was taken
+first. Nothing here is invalidated by waiting; the reversal it keeps available stays available.
 **Date:** 2026-09-30
 **Decision recorded:** the in-browser loop is **not** moved to the server. Loop *location* stays
 per-surface; the loop *itself* becomes one implementation behind a platform boundary.

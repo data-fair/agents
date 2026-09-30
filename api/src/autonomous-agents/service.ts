@@ -98,3 +98,28 @@ export const assertEnrolmentWorks = async (autonomousAgent: EnrolledAutonomousAg
  */
 export const describeAutonomousAgentTools = async (autonomousAgent: AutonomousAgentForTools) =>
   await listAutonomousAgentToolDescriptors(autonomousAgent)
+
+/**
+ * Erase everything one autonomous agent accumulated: its conversations, their messages, their runs.
+ *
+ * A CASCADE rather than a TTL, deliberately. The stored conversation is the conversation of record —
+ * that is the whole point of the storage model, and the reason it holds complete tool results — so a
+ * timer that silently destroyed it would take the audit trail with it. What it needs instead is an
+ * owner who can erase it, which is exactly what deleting the agent now means.
+ *
+ * Ordered children-first, so an interruption leaves conversations whose messages are already gone
+ * rather than messages no conversation can reach: the conversation is what every read path resolves
+ * through, so it is the safe thing to have survive a half-completed delete.
+ */
+export const deleteAutonomousAgentData = async (autonomousAgentId: string) => {
+  const conversations = await mongo.autonomousAgentConversations
+    .find({ autonomousAgentId }, { projection: { _id: 0, id: 1 } })
+    .toArray()
+  const conversationIds = conversations.map(conversation => conversation.id)
+  if (!conversationIds.length) return { conversations: 0, messages: 0, runs: 0 }
+
+  const messages = await mongo.autonomousAgentMessages.deleteMany({ conversationId: { $in: conversationIds } })
+  const runs = await mongo.autonomousAgentRuns.deleteMany({ conversationId: { $in: conversationIds } })
+  const removed = await mongo.autonomousAgentConversations.deleteMany({ autonomousAgentId })
+  return { conversations: removed.deletedCount, messages: messages.deletedCount, runs: runs.deletedCount }
+}
