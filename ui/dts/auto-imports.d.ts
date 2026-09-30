@@ -100,6 +100,7 @@ declare global {
   const inject: typeof import('vue').inject
   const injectHead: typeof import('@unhead/vue').injectHead
   const interruptedStepMessages: typeof import('../src/composables/interrupted-turn').interruptedStepMessages
+  const interruptedWaitResult: typeof import('../src/composables/interrupted-turn').interruptedWaitResult
   const isEmptyTurn: typeof import('../src/composables/empty-turn').isEmptyTurn
   const isMediaToolResult: typeof import('../src/utils/tool-result').isMediaToolResult
   const isProxy: typeof import('vue').isProxy
@@ -144,6 +145,7 @@ declare global {
   const renderMermaidIn: typeof import('../src/utils/mermaid').renderMermaidIn
   const renderStreamingMarkdown: typeof import('../src/utils/markdown').renderStreamingMarkdown
   const repairInline: typeof import('../src/utils/markdown').repairInline
+  const repairWaitInput: typeof import('../src/composables/agent-stream-parts').repairWaitInput
   const repeatedCallGuard: typeof import('../src/composables/agent-loop-guards').repeatedCallGuard
   const repeatedCallNudge: typeof import('../src/composables/agent-loop-guards').repeatedCallNudge
   const resetAnonymousToken: typeof import('../src/composables/use-anonymous-token').resetAnonymousToken
@@ -241,7 +243,7 @@ declare global {
   export type { ChatActivity, ActivityLabel } from '../src/composables/agent-activity'
   import('../src/composables/agent-activity')
   // @ts-ignore
-  export type { StreamMessage, StreamPart, ActivityPhase, StreamScope } from '../src/composables/agent-stream-parts'
+  export type { WaitInput, StreamMessage, StreamPart, ActivityPhase, StreamScope } from '../src/composables/agent-stream-parts'
   import('../src/composables/agent-stream-parts')
   // @ts-ignore
   export type { TurnTextState } from '../src/composables/empty-turn'
@@ -344,6 +346,7 @@ declare module 'vue' {
     readonly inject: UnwrapRef<typeof import('vue')['inject']>
     readonly injectHead: UnwrapRef<typeof import('@unhead/vue')['injectHead']>
     readonly interruptedStepMessages: UnwrapRef<typeof import('../src/composables/interrupted-turn')['interruptedStepMessages']>
+    readonly interruptedWaitResult: UnwrapRef<typeof import('../src/composables/interrupted-turn')['interruptedWaitResult']>
     readonly isEmptyTurn: UnwrapRef<typeof import('../src/composables/empty-turn')['isEmptyTurn']>
     readonly isMediaToolResult: UnwrapRef<typeof import('../src/utils/tool-result')['isMediaToolResult']>
     readonly isProxy: UnwrapRef<typeof import('vue')['isProxy']>
@@ -385,6 +388,7 @@ declare module 'vue' {
     readonly renderMermaidIn: UnwrapRef<typeof import('../src/utils/mermaid')['renderMermaidIn']>
     readonly renderStreamingMarkdown: UnwrapRef<typeof import('../src/utils/markdown')['renderStreamingMarkdown']>
     readonly repairInline: UnwrapRef<typeof import('../src/utils/markdown')['repairInline']>
+    readonly repairWaitInput: UnwrapRef<typeof import('../src/composables/agent-stream-parts')['repairWaitInput']>
     readonly repeatedCallGuard: UnwrapRef<typeof import('../src/composables/agent-loop-guards')['repeatedCallGuard']>
     readonly repeatedCallNudge: UnwrapRef<typeof import('../src/composables/agent-loop-guards')['repeatedCallNudge']>
     readonly resetAnonymousToken: UnwrapRef<typeof import('../src/composables/use-anonymous-token')['resetAnonymousToken']>
