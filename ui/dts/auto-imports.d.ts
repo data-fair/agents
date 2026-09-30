@@ -100,6 +100,7 @@ declare global {
   const inject: typeof import('vue').inject
   const injectHead: typeof import('@unhead/vue').injectHead
   const interruptedStepMessages: typeof import('../src/composables/interrupted-turn').interruptedStepMessages
+  const interruptedWaitReminder: typeof import('../src/composables/interrupted-turn').interruptedWaitReminder
   const interruptedWaitResult: typeof import('../src/composables/interrupted-turn').interruptedWaitResult
   const isEmptyTurn: typeof import('../src/composables/empty-turn').isEmptyTurn
   const isMediaToolResult: typeof import('../src/utils/tool-result').isMediaToolResult
@@ -346,6 +347,7 @@ declare module 'vue' {
     readonly inject: UnwrapRef<typeof import('vue')['inject']>
     readonly injectHead: UnwrapRef<typeof import('@unhead/vue')['injectHead']>
     readonly interruptedStepMessages: UnwrapRef<typeof import('../src/composables/interrupted-turn')['interruptedStepMessages']>
+    readonly interruptedWaitReminder: UnwrapRef<typeof import('../src/composables/interrupted-turn')['interruptedWaitReminder']>
     readonly interruptedWaitResult: UnwrapRef<typeof import('../src/composables/interrupted-turn')['interruptedWaitResult']>
     readonly isEmptyTurn: UnwrapRef<typeof import('../src/composables/empty-turn')['isEmptyTurn']>
     readonly isMediaToolResult: UnwrapRef<typeof import('../src/utils/tool-result')['isMediaToolResult']>

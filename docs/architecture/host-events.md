@@ -182,6 +182,11 @@ a new one. An aborted turn never reaches `result.response`, which is where a tur
 normally enter history, so the turn's finished steps are tracked as they complete and committed
 (`commitRunningTurn`) before the new turn pushes its user message; the step still open — the one
 holding the wait — is recorded with a result saying it was interrupted (`interrupted-turn.ts`).
+The new turn's hidden context then ends with a reminder, just before the person's message: what the
+wait was for, and to declare it again after answering if that action is still to come. The same
+instruction used to live in the interrupted wait's tool result, where it sat in history ahead of the new
+question; judged runs answered the question and never waited again, so the action they had handed
+over went unseen.
 Stop commits the same way, with a result saying the reply was stopped. The open step is reset on
 the `finish-step` part the loop reads, not in `onStepFinish`: the SDK runs that callback on its
 side of the stream, possibly before the loop has read the step's parts, and any call already in
