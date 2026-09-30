@@ -23,6 +23,7 @@ import { SUBAGENT_STEP_LIMIT_NOTICE, subAgentModelOutput } from './agent-subagen
 import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep } from './agent-loop-guards.ts'
 import { HostEventStore, createWaitTool, appendHostEvents, formatHostEvents, formatHostState, hasHostState, WAIT_TOOL_NAME } from './host-events'
 import { useHostEvents } from './use-host-events'
+import { interruptedStepMessages, type OpenStep } from './interrupted-turn'
 
 const debug = Debug('df-agents:use-agent-chat')
 
@@ -249,6 +250,10 @@ export function useAgentChat (options: UseAgentChatOptions) {
   // clear its activity and null its abort controller, leaving the Stop button
   // inert on a turn that is genuinely running.
   let currentTurnId: number | null = null
+  // Writes the running turn's finished steps into history. Called when that turn is
+  // cut short — the person speaking during a wait, or Stop — while the order of
+  // history is still known, before the next turn pushes its own user message.
+  let commitRunningTurn: (() => void) | null = null
 
   let aggregator: FrameClientAggregator | null = null
 
@@ -559,6 +564,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
       // ends the turn; anything else still in flight is a turn that IS working,
       // and those are left alone.
       if (activity.value?.kind !== 'waiting') return
+      commitRunningTurn?.()
       abort()
     }
 
@@ -629,6 +635,18 @@ export function useAgentChat (options: UseAgentChatOptions) {
     const signal = controller.signal
     let streamError: unknown = null
     let timedOut = false
+    // An aborted turn never reaches result.response, which is the only other place its
+    // messages enter history — so they are tracked as steps finish, and committed by
+    // commitRunningTurn if the turn is cut short.
+    let finishedStepMessages: ModelMessage[] = []
+    let openStep: OpenStep = { text: '', calls: [], results: {} }
+    let stepsCommitted = false
+    const commitSteps = () => {
+      if (stepsCommitted) return
+      stepsCommitted = true
+      history.push(...finishedStepMessages, ...interruptedStepMessages(openStep))
+    }
+    commitRunningTurn = commitSteps
     let watchdog: ReturnType<typeof setTimeout> | undefined
     const idleMs = Number(sessionStorage.getItem('agent-chat-idle-timeout')) || STREAM_IDLE_TIMEOUT_MS
     // Set for the duration of a declared wait_for_user_action (see the wait tool's
@@ -1151,6 +1169,11 @@ export function useAgentChat (options: UseAgentChatOptions) {
         // Loop-guard nudge composed with the exploration tool gating (when active).
         prepareStep: (opts) => ({ ...loopGuardPrepareStep(opts), ...(explorationPrepareStep ? explorationPrepareStep() : {}) }),
         headers: traceHeaders(`turn:${turnId}`),
+        onStepFinish: (step) => {
+          // Cumulative: the messages of every step finished so far this turn.
+          finishedStepMessages = step.response.messages
+          openStep = { text: '', calls: [], results: {} }
+        },
         onError: ({ error: err }) => {
           streamError = err
         }
@@ -1180,6 +1203,9 @@ export function useAgentChat (options: UseAgentChatOptions) {
           streamError = streamError ?? (part as any).error
           break
         }
+        if (part.type === 'text-delta') openStep.text += part.text
+        else if (part.type === 'tool-call') openStep.calls.push({ toolCallId: part.toolCallId, toolName: part.toolName, input: part.input })
+        else if (part.type === 'tool-result') openStep.results[part.toolCallId] = part.output
         applyStreamPart(part, mainScope)
       }
 
@@ -1199,6 +1225,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
 
       // Update history with all response messages
       const response = await result.response
+      stepsCommitted = true
       history = history.concat(response.messages)
 
       // A clean finish with no assistant text is a silent drop: empty model completion, a
@@ -1254,6 +1281,8 @@ export function useAgentChat (options: UseAgentChatOptions) {
           error.value = options.timeoutMessage || DEFAULT_TIMEOUT_RESPONSE
           status.value = 'error'
         } else {
+          // Stop: keep what the turn did, as an interrupting message does.
+          commitSteps()
           status.value = 'ready'
         }
         return
@@ -1279,6 +1308,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
       // instead of being buffered for the next one. Idempotent: a no-op once the wait
       // has already settled through the signal, as it does today.
       hostEvents?.cancelWait()
+      if (commitRunningTurn === commitSteps) commitRunningTurn = null
       if (owns) {
         activity.value = null
         subAgentActivities.value = {}

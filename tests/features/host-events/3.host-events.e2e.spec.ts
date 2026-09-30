@@ -356,6 +356,28 @@ test.describe('Host events', () => {
     await expect(page.getByText("I wasn't able to produce a response")).toHaveCount(0)
   })
 
+  test('speaking during a wait keeps the interrupted turn in the history sent next', async ({ page, goToWithAuth }) => {
+    // The fix for the bubble above rethrew the abort before the turn's messages reached
+    // history, so the next request carried the person's two messages and nothing between:
+    // judged runs saw the assistant deny work it had done and redo it from scratch.
+    await open(page, goToWithAuth)
+    await send(page, 'select then wait')
+    await expect(page.getByTestId('chat-activity')).toContainText('Waiting for', { timeout: 15000 })
+
+    const next = page.waitForRequest(r => r.url().includes('/chat/completions') && (r.postData() ?? '').includes('hello'))
+    await page.getByPlaceholder('Type your message...').fill('hello')
+    await page.getByRole('button', { name: 'Send' }).click()
+    const messages: any[] = JSON.parse((await next).postData() ?? '{}').messages
+    const roles = messages.map(m => m.role)
+    const calls = messages.flatMap(m => m.tool_calls ?? []).map((c: any) => c.function.name)
+    assert.deepEqual(calls, ['select_type', 'wait_for_user_action'])
+    // Each call keeps a result, the wait's saying why it never completed, and the
+    // person's new message comes after the interrupted turn, not before it.
+    assert.equal(messages.filter(m => m.role === 'tool').length, 2)
+    assert.ok(messages.find(m => m.role === 'tool' && String(m.content).includes('Interrupted')))
+    assert.equal(roles[roles.length - 1], 'user')
+  })
+
   test('the waiting activity clears once the wait resolves (drives the host\'s waiting-user/working signal)', async ({ page, goToWithAuth }) => {
     // AgentChat.vue posts `agent-status: waiting-user` / `working` to the embedding host
     // purely off `chat.activity.value?.kind === 'waiting'` — but `sendDFrameMessage` only
