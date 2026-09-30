@@ -296,8 +296,6 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
       // avoids TypeScript's (here incorrect) control-flow narrowing of the let.
       const gateBlocked = () => gateState === 'blocked'
       const buffered: string[] = []
-      // a finish trace captured while the gate was still pending: only stored if the gate opens
-      let deferredFinishTrace: (() => void) | null = null
       const sseWrite = (payload: string) => {
         if (gateState === 'blocked' || res.writableEnded) return
         if (gateState === 'pending') buffered.push(payload)
@@ -327,8 +325,6 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
             gateState = 'open'
             for (const payload of buffered) res.write(payload)
             buffered.length = 0
-            deferredFinishTrace?.()
-            deferredFinishTrace = null
           }
         })
         moderation.onLateBlock(() => {
@@ -408,8 +404,9 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
             { inputTokens, outputTokens, cacheReadTokens: details?.cacheReadTokens, cacheWriteTokens: details?.cacheWriteTokens },
             ttfc
           )
-          if (gateState === 'pending') deferredFinishTrace = recordFinishTrace
-          else if (gateState === 'open') recordFinishTrace()
+          // the gate is already settled here (awaited above): a block verdict has
+          // recorded its own content-free content_filter trace instead
+          if (gateState === 'open') recordFinishTrace()
         } else {
           for await (const part of result!.fullStream) {
             if (part.type === 'error') {
@@ -519,10 +516,9 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
                 { inputTokens, outputTokens, cacheReadTokens: details?.cacheReadTokens, cacheWriteTokens: details?.cacheWriteTokens },
                 ttfc
               )
-              // While the gate is pending the content must not reach trace storage:
-              // a block verdict records its own content-free content_filter trace.
-              if (gateState === 'pending') deferredFinishTrace = recordFinishTrace
-              else if (gateState === 'open') recordFinishTrace()
+              // the gate is already settled here (awaited above): a block verdict has
+              // recorded its own content-free content_filter trace instead
+              if (gateState === 'open') recordFinishTrace()
             }
           }
         }
