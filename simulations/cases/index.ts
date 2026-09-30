@@ -63,5 +63,17 @@ export const cases: LocalCase[] = [
     persona: 'You are an office worker using an internal tool for the first time. You are not technical, you describe what you want in plain words, and you press buttons yourself when someone tells you which one. You expect to be told what happened without having to ask.',
     goal: 'You want a list called "Weekly groceries" set up. You will press the Create button yourself when the assistant says it is ready. Once you have, you want to ask the assistant what you are looking at now, and you expect it to already know what was created rather than asking you.',
     maxTurns: 6
+  },
+  // Speaking during a wait: the person writes instead of pressing the button they were
+  // handed, which aborts the waiting turn and starts a new one. That once dropped the
+  // whole interrupted turn from history — the model saw two user messages and nothing
+  // between, denied having prepared anything and rebuilt it. What is under test is the
+  // assistant answering from what it already did and handing the same button back.
+  {
+    name: 'speak-during-wait',
+    route: '/agents/_dev/chat-workflow',
+    persona: 'You are an office worker using an internal tool for the first time. You are not technical and you describe what you want in plain words. You are careful: before pressing a button that creates something, you always first ask a question in the chat to double-check, and you press it only once you have the answer. You never claim to have pressed a button you did not press.',
+    goal: 'You want a list called "Team lunch" set up. When the assistant says it is ready, you first ask it in the chat what the list will be called, because you are not sure it got the name right; once it answers, you press the Create button yourself.',
+    maxTurns: 6
   }
 ]
