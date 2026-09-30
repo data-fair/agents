@@ -1,5 +1,6 @@
 {
   "ignoreRoot": [],
+  "watch": [".", "../shared"],
   "ignore": ["node_modules/", "../dev/"],
   "execMap": {
     "ts": "node"

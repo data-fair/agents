@@ -71,12 +71,21 @@ to the SDK so a legitimate bump of `api`'s own zod is not silently clamped.
 Design, measurements and the isolation guarantee:
 `docs/superpowers/specs/2026-09-12-claude-code-bridge-and-simulation-harness-design.md`.
 
-### nodemon does not watch `shared/`
+### dev-api watches `shared/` too
 
-`dev-api` runs nodemon from `api/`, so it restarts on `api/**` changes only. Editing `shared/` — the
-loop guards, the context policy, the compaction prompt — leaves the running server on the OLD code,
-which silently invalidates any api/e2e test of that change. Touch any file under `api/src/` to force the
-restart (the fresh process re-imports `shared/`), or verify the change through a unit test instead.
+`dev-api` runs nodemon from `api/`, so its default watch covers `api/**` only — while `shared/` reaches
+the server through a workspace symlink under `node_modules`, which nodemon neither follows nor would see.
+Editing the context policy or the loop guards therefore left the running server on the OLD code, silently
+invalidating any api or e2e test of that change (it passed a mutation check that should have failed).
+`api/nodemon.json` now names `../shared` explicitly in `watch`.
+
+Two things to know when it still looks stale:
+
+- **nodemon reads its own config only at startup.** Changing `api/nodemon.json` restarts the app but not
+  nodemon, so a watch-list change needs `dev-api` itself restarted once — ask the user.
+- Verify with the log, not with a guess: `wc -c dev/logs/dev-api.log` before and after the edit, or look
+  for a fresh `API server listening` line. A restart takes a second or two, and a test fired too early
+  runs against the old process.
 
 ### When something is down
 
