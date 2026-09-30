@@ -1,4 +1,5 @@
 import type { ModelMessage } from 'ai'
+import { WAIT_TOOL_NAME } from './agent-stream-parts.ts'
 
 /** What the step still streaming when the turn was interrupted had produced so far. */
 export interface OpenStep {
@@ -9,6 +10,16 @@ export interface OpenStep {
 }
 
 export type InterruptReason = 'message' | 'stop'
+
+/**
+ * The result of a wait the person interrupted by writing. The action it waited for is
+ * usually still to come: a judged run answered the person's question, never waited
+ * again, and so never learned the list it had prepared was created.
+ */
+export function interruptedWaitResult (expecting: unknown): string {
+  const what = typeof expecting === 'string' && expecting.trim() ? expecting.trim() : 'act'
+  return `Interrupted: the person wrote to you while you were waiting for them (${what}). Answer them; if that action is still to come, declare ${WAIT_TOOL_NAME} again.`
+}
 
 export const INTERRUPTED_RESULTS: Record<InterruptReason, string> = {
   message: 'Interrupted: the person sent a new message before this finished. Read it and continue from there.',
@@ -68,7 +79,10 @@ export function interruptedStepMessages (
     return step.text ? [{ role: 'assistant', content: step.text }] : []
   }
   const format = opts.format ?? ((_c, output) => toolResultOutput(output))
-  const interrupted = INTERRUPTED_RESULTS[opts.reason ?? 'message']
+  const reason = opts.reason ?? 'message'
+  const interrupted = (c: OpenStep['calls'][number]) => reason === 'message' && c.toolName === WAIT_TOOL_NAME
+    ? interruptedWaitResult((c.input as { expecting?: unknown } | undefined)?.expecting)
+    : INTERRUPTED_RESULTS[reason]
   return [
     {
       role: 'assistant',
@@ -85,7 +99,7 @@ export function interruptedStepMessages (
         toolName: c.toolName,
         output: c.toolCallId in step.results
           ? format(c, step.results[c.toolCallId])
-          : { type: 'text' as const, value: interrupted }
+          : { type: 'text' as const, value: interrupted(c) }
       }))
     }
   ] as ModelMessage[]

@@ -1,6 +1,6 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { interruptedStepMessages, toolResultOutput, INTERRUPTED_RESULTS } from '../../../ui/src/composables/interrupted-turn.ts'
+import { interruptedStepMessages, interruptedWaitResult, toolResultOutput, INTERRUPTED_RESULTS } from '../../../ui/src/composables/interrupted-turn.ts'
 
 const waitCall = { toolCallId: 'w', toolName: 'wait_for_user_action', input: { message: 'Appuyez sur Enregistrer.', expecting: 'Clic sur Enregistrer' } }
 
@@ -13,10 +13,16 @@ test.describe('interruptedStepMessages', () => {
     assert.deepEqual(interruptedStepMessages({ text: 'Le formulaire est prêt.', calls: [], results: {} }), [{ role: 'assistant', content: 'Le formulaire est prêt.' }])
   })
 
-  test('a pending call gets a result saying the person spoke', () => {
+  test('an interrupted wait says what it waited for and to wait again if still to come', () => {
     const [assistant, tool] = interruptedStepMessages({ text: 'Voilà.', calls: [waitCall], results: {} }) as any[]
     assert.deepEqual(assistant.content.map((p: any) => p.type), ['text', 'tool-call'])
     assert.equal(tool.content[0].toolCallId, 'w')
+    assert.equal(tool.content[0].output.value, interruptedWaitResult('Clic sur Enregistrer'))
+    assert.match(tool.content[0].output.value, /\(Clic sur Enregistrer\).*declare wait_for_user_action again/)
+  })
+
+  test('any other pending call only says the person spoke', () => {
+    const [, tool] = interruptedStepMessages({ text: '', calls: [{ toolCallId: 'c', toolName: 'subagent_x', input: {} }], results: {} }) as any[]
     assert.equal(tool.content[0].output.value, INTERRUPTED_RESULTS.message)
   })
 
@@ -32,7 +38,7 @@ test.describe('interruptedStepMessages', () => {
       results: { c1: { raw: true } }
     }, { format: (call, output) => toolResultOutput(output, () => ({ type: 'text', value: 'formatted' }), call) }) as any[]
     assert.deepEqual(tool.content[0].output, { type: 'text', value: 'formatted' })
-    assert.equal(tool.content[1].output.value, INTERRUPTED_RESULTS.message)
+    assert.equal(tool.content[1].output.value, interruptedWaitResult('Clic sur Enregistrer'))
   })
 
   test('the loop lagging behind the SDK never sends a call twice', () => {
