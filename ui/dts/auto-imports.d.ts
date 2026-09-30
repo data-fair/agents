@@ -239,9 +239,6 @@ declare global {
   export type { MermaidFailure } from '../src/utils/mermaid'
   import('../src/utils/mermaid')
   // @ts-ignore
-  export type { McpCallResult, MediaToolResult, FormattedToolResult } from '../src/utils/tool-result'
-  import('../src/utils/tool-result')
-  // @ts-ignore
   export type { UsageDimension, UsageEntry } from '../src/utils/usage-breakdown'
   import('../src/utils/usage-breakdown')
   // @ts-ignore
@@ -334,7 +331,6 @@ declare module 'vue' {
     readonly formatCredits: UnwrapRef<typeof import('../src/utils/credits')['formatCredits']>
     readonly formatHostEvents: UnwrapRef<typeof import('../src/composables/host-events')['formatHostEvents']>
     readonly formatHostState: UnwrapRef<typeof import('../src/composables/host-events')['formatHostState']>
-    readonly formatMcpToolResult: UnwrapRef<typeof import('../src/utils/tool-result')['formatMcpToolResult']>
     readonly formatMermaidFix: UnwrapRef<typeof import('../src/utils/mermaid-fix')['formatMermaidFix']>
     readonly formatToolsAvailableMessage: UnwrapRef<typeof import('../src/utils/tool-exploration')['formatToolsAvailableMessage']>
     readonly getAnonymousToken: UnwrapRef<typeof import('../src/composables/use-anonymous-token')['getAnonymousToken']>
@@ -346,7 +342,6 @@ declare module 'vue' {
     readonly inject: UnwrapRef<typeof import('vue')['inject']>
     readonly injectHead: UnwrapRef<typeof import('@unhead/vue')['injectHead']>
     readonly isEmptyTurn: UnwrapRef<typeof import('../src/composables/empty-turn')['isEmptyTurn']>
-    readonly isMediaToolResult: UnwrapRef<typeof import('../src/utils/tool-result')['isMediaToolResult']>
     readonly isProxy: UnwrapRef<typeof import('vue')['isProxy']>
     readonly isReactive: UnwrapRef<typeof import('vue')['isReactive']>
     readonly isReadonly: UnwrapRef<typeof import('vue')['isReadonly']>
@@ -377,8 +372,6 @@ declare module 'vue' {
     readonly reactive: UnwrapRef<typeof import('vue')['reactive']>
     readonly readonly: UnwrapRef<typeof import('vue')['readonly']>
     readonly reconcileTools: UnwrapRef<typeof import('../src/composables/live-tools')['reconcileTools']>
-    readonly redactHistoryMediaToolResults: UnwrapRef<typeof import('../src/utils/tool-result')['redactHistoryMediaToolResults']>
-    readonly redactMediaToolResult: UnwrapRef<typeof import('../src/utils/tool-result')['redactMediaToolResult']>
     readonly ref: UnwrapRef<typeof import('vue')['ref']>
     readonly renderMarkdown: UnwrapRef<typeof import('../src/utils/markdown')['renderMarkdown']>
     readonly renderMermaidIn: UnwrapRef<typeof import('../src/utils/mermaid')['renderMermaidIn']>

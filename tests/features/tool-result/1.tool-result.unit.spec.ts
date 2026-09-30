@@ -1,6 +1,6 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { formatMcpToolResult, isMediaToolResult, redactMediaToolResult, redactHistoryMediaToolResults } from '../../../ui/src/utils/tool-result.ts'
+import { formatMcpToolResult, isMediaToolResult, redactMediaToolResult, redactHistoryMediaToolResults } from '@agents/shared/tool-result'
 
 const PNG = 'iVBORw0KGgoAAAANSUhEUg=='
 
@@ -59,6 +59,22 @@ test.describe('formatMcpToolResult (unit)', () => {
   test('marks an error even when it carried no text body', () => {
     const out = formatMcpToolResult({ isError: true })
     assert.match(out as string, /Tool execution failed: /)
+  })
+
+  // The `[]` vs `undefined` asymmetry is real and surprising, so both branches are pinned.
+  // `textParts?.join('\n')` yields '' for a present-but-empty content array, and `??` only catches
+  // null/undefined, so the JSON.stringify fallback fires ONLY when `content` is absent entirely.
+  test('returns an empty string for a present-but-empty content array', () => {
+    assert.equal(formatMcpToolResult({ content: [] }), '')
+  })
+
+  // Characterisation test for a known wart, pinned so whoever fixes it has to update this test
+  // consciously rather than discovering the behaviour by accident: an errored tool with no text yields
+  // a prefix and nothing else, which tells a model nothing about what failed. Now that the autonomous
+  // runtime RETHROWS an isError result, this string is what reaches the model as the failure — so the
+  // wart got slightly more visible, not less.
+  test('an errored result with no text yields a bare prefix — known wart, pinned', () => {
+    assert.equal(formatMcpToolResult({ content: [], isError: true }), 'Tool execution failed: ')
   })
 })
 

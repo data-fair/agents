@@ -9,7 +9,7 @@
 import { tool, jsonSchema } from 'ai'
 import type { Tool } from 'ai'
 import type { AgentEvent } from '@data-fair/lib-vue-agents'
-import { isMediaToolResult } from '../utils/tool-result.ts'
+import { isMediaToolResult } from '@agents/shared/tool-result'
 import Debug from 'debug'
 
 const debug = Debug('df-agents:host-events')

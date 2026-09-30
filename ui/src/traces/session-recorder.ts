@@ -5,7 +5,7 @@ import { DEFAULT_FLAGS, type AgentFlags } from '../utils/agent-flags.ts'
 // Stored traces must not carry base64 image payloads (MongoDB document size, and the
 // trace review UI embeds outputs as text) — media tool results are redacted to
 // small size placeholders at recording time.
-import { redactMediaToolResult, redactHistoryMediaToolResults } from '../utils/tool-result.ts'
+import { redactMediaToolResult, redactHistoryMediaToolResults } from '@agents/shared/tool-result'
 
 export interface ToolCallTrace {
   id: string

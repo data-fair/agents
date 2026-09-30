@@ -11,7 +11,7 @@ import config from '#config'
 import { httpError } from '@data-fair/lib-express'
 import Debug from 'debug'
 import { credentialHeaders, type GlobalMcpServer } from './operations.ts'
-import { formatMcpToolResult } from './tool-result.ts'
+import { formatMcpToolResult } from '@agents/shared/tool-result'
 import { getAutonomousAgentSession } from '../nhi/service.ts'
 
 const debug = Debug('agents:mcp-client')

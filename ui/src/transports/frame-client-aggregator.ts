@@ -2,7 +2,7 @@ import { Client, ToolListChangedNotificationSchema, PolyfillJsonSchemaValidator,
 import { tool, jsonSchema } from 'ai'
 import type { Tool } from 'ai'
 import { FrameClientTransport } from './frame-client-transport'
-import { formatMcpToolResult, type McpCallResult } from '~/utils/tool-result'
+import { formatMcpToolResult, type McpCallResult } from '@agents/shared/tool-result'
 import Debug from 'debug'
 
 const debug = Debug('df-agents:frame-client-aggregator')
