@@ -48,10 +48,17 @@ payloads, offload to a store and hand the model a handle rather than the bytes.
 strategy and clearing is for *"specific scenarios where you need more fine-grained control"*, naming
 heavy tool use — which is what an autonomous agent is.
 
-Known refinement, **out of scope here**: the production consensus for Tier 2 is *anchored incremental
-summarisation* — maintain a persistent structured recap and extend it per evicted span, rather than
-regenerating from the originals (what we do, correct but repeatedly paid) or chaining summaries of
-summaries (cheaper, compounds loss).
+Known refinements, **out of scope here but planned rather than dismissed** — both recorded so they are
+picked up deliberately:
+
+- **Anchored incremental summarisation** for Tier 2. The production consensus: maintain a persistent
+  structured recap and extend it per evicted span, rather than regenerating from the originals (what we
+  do — correct, no compounding loss, but paid repeatedly) or chaining summaries of summaries (cheaper,
+  compounds loss).
+- **On-the-fly compaction of an oversized tool result**, instead of the bare truncation
+  `TOOL_RESULT_LIMIT` performs today: summarise it once where it is produced, and above some size
+  offload it to a store and hand the model a handle rather than the bytes. This is the honest answer to
+  "a single result can be a quarter of the budget"; truncation is the crudest form of it.
 
 ## Why we implement Tier 1 ourselves
 
@@ -121,14 +128,38 @@ upstream. We do not yet place cache breakpoints (a deferred item recorded as the
 this costs nothing. When caching lands, `clearAtLeast` stops being churn-avoidance and becomes the knob
 that decides whether a clear is worth a cache write. Stated now so it is not rediscovered then.
 
+## Requirement: one policy, both loops, written down
+
+This is a requirement of the work, not an aspiration for later. There must be **one** context-management
+policy, shared by the in-browser agents and the server-side autonomous agents, and it must be documented
+so a reader can state what happens to a conversation as it grows without reading two implementations.
+
+That rules out the shape this codebase already has elsewhere: two loops that *happen* to agree because
+the same constant was copied. Concretely:
+
+- **The decision is a pure function in `shared/`**, taking a history and the parameters and returning
+  what to clear and what to summarise. It holds no state and touches no store, so both callers can use
+  it unchanged.
+- **Each loop keeps only its own application** of that decision — the browser rebuilds an in-memory
+  history, the executor rebuilds from stored parts and persists a recap. Those are genuinely different
+  and must stay separate; what must not differ is *when* and *what*.
+- **A drift test pins that both loops route through the shared decision**, in the shape already used for
+  `STREAM_IDLE_TIMEOUT_MS` and the chat driver's selectors: assert the call, not just the import, because
+  an imported-and-unused function passes a weaker check while changing nothing.
+- **`docs/architecture/context-management.md`** is part of the deliverable: the three tiers, the single
+  threshold, what a placeholder means, and the caching interaction. The autonomous-agents subsystem is
+  already the only concern in the repo with no topical architecture doc; this policy must not add a
+  second undocumented one.
+
 ## Scope
 
-- `shared/compaction-policy.ts` — the clearing decision and the placeholder, pure and shared, beside
-  `decideCompaction`.
+- `shared/compaction-policy.ts` — the clearing decision and the placeholder, pure, beside
+  `decideCompaction`. This is the single source of truth for both loops.
 - `api/src/autonomous-agent-runtime/executor.ts` — apply clearing, re-measure, then compact.
 - `api/src/autonomous-agent-runtime/operations.ts` — `boundToolResult` adopts the placeholder shape.
-- The browser loop may adopt the same policy later; it is not required by this change, and the decision
-  function being shared is what makes that cheap.
+- `ui/src/composables/use-agent-chat.ts` — applies the same decision to its in-memory history. Required,
+  not optional: a policy that only one loop follows is not a policy.
+- `docs/architecture/context-management.md` — new.
 
 ## Testing
 
@@ -142,6 +173,10 @@ that decides whether a clear is worth a cache write. Stated now so it is not red
 - A conversation that crossed the budget and is brought back under it by clearing alone makes **no
   summarizer call** — the saving is the point, so it is asserted directly rather than assumed.
 - A conversation still over budget after clearing compacts as before.
+- **Both loops route through the shared decision** — asserted against each call site, not merely its
+  import, so a loop that diverges fails rather than drifting quietly.
+- The documented behaviour matches the code: the architecture doc's threshold and `keep` default are
+  pinned against the constants, the way AGENTS.md's claims about the NHI fixtures now are.
 
 ## Risks
 
