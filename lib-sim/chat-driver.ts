@@ -73,6 +73,9 @@ export const WAIT_SETTLE_MS = 500
  * words interpolated into a translated string, so any text match would be both
  * locale-dependent and at the mercy of what the assistant wrote.
  */
+/** The chat empties its composer as it takes a message, so this only has to cover a busy page. */
+export const SENT_TIMEOUT_MS = 5000
+
 export const WAITING_SELECTOR = '[data-testid="chat-activity"][data-activity="waiting"]'
 
 export function createChatDriver (root: ChatRoot, opts: { locale?: ChatDriverLocale } = {}) {
@@ -91,6 +94,16 @@ export function createChatDriver (root: ChatRoot, opts: { locale?: ChatDriverLoc
         const send = root.getByRole('button', { name: strings.send })
         await send.waitFor({ state: 'visible', timeout: opts.readyTimeoutMs ?? SEND_TIMEOUT_MS })
         await send.click({ timeout: SEND_TIMEOUT_MS })
+        // A click that resolves is not a message sent. A judged run's persona "wrote"
+        // three messages this way while a wait was armed: each stayed in the box, no
+        // request followed, and the run still counted nine turns. The chat empties its
+        // composer when it takes a message, so that is the proof asked for here.
+        const composer = root.getByPlaceholder(strings.input)
+        const deadline = Date.now() + SENT_TIMEOUT_MS
+        while (await composer.inputValue({ timeout: SEND_TIMEOUT_MS }) !== '') {
+          if (Date.now() > deadline) throw new Error('the message was still in the composer after Send was clicked: it was never sent')
+          await new Promise(resolve => setTimeout(resolve, 100))
+        }
       }
       try {
         await fillAndSend()
