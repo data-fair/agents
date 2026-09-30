@@ -35,85 +35,61 @@ export default {
       }
     },
     /**
-     * The turn's content, as ORDERED model-message parts.
+     * The turn's content, as the AI SDK's ORDERED UIMessagePart list.
      *
-     * This is the whole point of the storage model: what is stored must be sufficient to reconstruct
-     * exactly what the model saw, without inference and without a second source. The previous shape
-     * kept `content` plus tool calls as name-and-arguments and never the RESULTS, so a resumed
-     * conversation replayed `{role:'assistant',content:'done'}` for a turn that had called a tool —
-     * the model saw neither the result nor the fact that it had acted.
+     * The library owns this contract: `UIMessagePart` from `ai`, converted to model messages by
+     * `convertToModelMessages` and validated by `validateUIMessages`. It replaced a hand-written union
+     * that had already drifted three ways (two hand copies plus this schema, each missing a different
+     * field) and that made a failing tool indistinguishable in shape from a successful one.
      *
-     * ORDER IS LOAD-BEARING. A turn interleaves steps (call, result, call, result, text), and
-     * `loadHistory` groups consecutive runs back into the `assistant` / `tool` message sequence the
-     * provider requires. A set would not round-trip; a list does.
+     * Deliberately LOOSE here, and not `additionalProperties: false`: the precise state machine —
+     * input-streaming -> input-available -> approval-requested/responded -> output-available |
+     * output-error | output-denied, with the fields each state permits — belongs to the library, which
+     * also ships the validator. Restating it here would recreate exactly the drift this replaced, and
+     * would reject a part the library legitimately widens.
      *
-     * `tool-result` parts live on the assistant turn that produced them rather than in their own
-     * stored message, so one stored message stays one visible turn for the UI, and the split into
-     * model messages happens at load time.
+     * ORDER IS LOAD-BEARING. A turn interleaves steps, and `convertToModelMessages` reconstructs the
+     * `assistant(tool-call) -> tool(tool-result)` sequence from it, dropping a call whose result never
+     * arrived (`ignoreIncompleteToolCalls`) rather than emitting one alone, which providers reject.
+     *
+     * `dynamic-tool` rather than the statically-typed `tool-<name>`: an agent's tools are discovered
+     * from its MCP servers at runtime, so the names are not known to the type system.
      */
     parts: {
       type: 'array',
       default: [],
       items: {
         type: 'object',
-        unevaluatedProperties: false,
-        discriminator: { propertyName: 'type' },
         required: ['type'],
-        oneOf: [{
-          title: 'Text',
-          required: ['type', 'text'],
-          properties: {
-            type: { const: 'text' },
-            text: { type: 'string' }
-          }
-        }, {
-          title: 'Reasoning',
-          required: ['type', 'text'],
-          properties: {
-            type: { const: 'reasoning' },
-            text: { type: 'string' }
-          }
-        }, {
-          title: 'Tool call',
-          required: ['type', 'toolName'],
-          properties: {
-            type: { const: 'tool-call' },
-            toolCallId: { type: 'string' },
-            toolName: { type: 'string' },
-            serverId: { type: 'string' },
-            // What the agent asked the tool to DO. Knowing only that a tool was called is far
-            // weaker: this is what makes a write auditable and an injection visible after the fact,
-            // and it is what P1's approval gate will show a reviewer.
-            arguments: { type: 'string' },
-            // readOnlyHint / destructiveHint, recorded per call so the write surface is
-            // queryable before P1's approval gate is switched on
-            annotations: { type: 'object', additionalProperties: true }
-          }
-        }, {
-          title: 'Tool result',
-          required: ['type', 'toolName'],
-          properties: {
-            type: { const: 'tool-result' },
-            toolCallId: { type: 'string' },
-            toolName: { type: 'string' },
-            // Bounded (see TOOL_RESULT_LIMIT). The bound is large enough to be rarely reached, and
-            // when it is, `truncated` records it and the marker travels inside `result` — so a model
-            // reading this on revival is TOLD it is seeing a trimmed result rather than handed a
-            // silently short one.
-            result: { type: 'string' },
-            truncated: {
-              type: 'object',
-              additionalProperties: false,
-              required: ['totalChars'],
-              properties: { totalChars: { type: 'number', minimum: 0 } }
-            },
-            // The tool was called and did NOT return a usable result. The pair still has to exist,
-            // or the history is one the provider rejects — so a failure is a result carrying the
-            // error, never an absent part.
-            failed: { type: 'boolean' },
-            error: { type: 'string' }
-          }
-        }]
+        properties: {
+          type: { type: 'string' },
+          // text / reasoning
+          text: { type: 'string' },
+          // dynamic-tool
+          toolName: { type: 'string' },
+          toolCallId: { type: 'string' },
+          state: { type: 'string' },
+          // Declared without a type on purpose. A tool's arguments and its result are whatever its own
+          // schema says — the library types both as `unknown` — but they must be DECLARED, or a
+          // validator that strips unknown properties would silently empty every tool call in the
+          // record. `input` in particular is what makes a call replayable and auditable.
+          input: { description: "The tool call's arguments, as the tool's own schema defines them." },
+          output: { description: "The tool's result, as the tool's own schema defines it." },
+          providerExecuted: { type: 'boolean' },
+          errorText: { type: 'string' },
+          /**
+           * Where this project's own per-invocation facts live, which is what the library's open
+           * `toolMetadata` slot is for:
+           *  - `serverId`: which catalog MCP server ran the tool, so the record names its provenance;
+           *  - `truncated`: that the result was bounded, with its original size.
+           */
+          toolMetadata: { type: 'object', additionalProperties: true },
+          /**
+           * The approval record for a tool call: the library's `needsApproval` gate, which is what P1's
+           * write-approval feature is built on rather than a bespoke mechanism. Never written yet.
+           */
+          approval: { type: 'object', additionalProperties: true }
+        }
       }
     },
     runId: { type: 'string' },

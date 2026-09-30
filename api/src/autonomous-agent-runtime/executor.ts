@@ -22,13 +22,14 @@ import Debug from 'debug'
 import { streamText, generateText, stepCountIs, pruneMessages, type ModelMessage, type Tool } from 'ai'
 import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep, STREAM_IDLE_TIMEOUT_MS } from '@agents/shared/agent-loop-guards'
 import { decideCompaction } from '@agents/shared/compaction-policy'
+import { summarizeToolArguments } from '@agents/shared/tool-arguments'
 import { compactionSystemPrompt, recapMessage } from '@agents/shared/compaction-prompt'
 import type { AutonomousAgent, AutonomousAgentMessage, AutonomousAgentRun } from '#types'
 import {
-  runStopReasonMessage, buildSystemPrompt, wrapToolResult, summarizeToolArguments,
-  storedTurnsToModelMessagesWithSeqs, alignCutToStoredMessage,
+  runStopReasonMessage, buildSystemPrompt, wrapToolResult,
+  storedTurnsToModelMessages, alignCutToStoredMessage,
   boundToolResult, partsText, withAppendedText,
-  type RunStopReason, type StoredPart
+  type RunStopReason, type UIPart
 } from './operations.ts'
 import { appendMessage, updateMessage, finishRun, incrementRunSpend, saveCompaction } from './service.ts'
 import { recordTraceRequest } from '../traces/service.ts'
@@ -91,7 +92,7 @@ const conversationLockId = (conversationId: string) => `autonomous-agent-convers
 /** What one turn produced. The model loop replaces the body that fills this in. */
 interface TurnResult {
   /** The turn's ordered parts — the record itself, not a rendering of it. */
-  parts: StoredPart[]
+  parts: UIPart[]
   steps: number
   credits: number
   stopReason: RunStopReason
@@ -199,12 +200,12 @@ const loadHistory = async (conversationId: string, upToSeq: number): Promise<Loa
     )
     .sort({ seq: 1 })
     .toArray()
-  const { messages, seqs } = storedTurnsToModelMessagesWithSeqs(stored as any)
-  if (!recap) return { messages: messages as ModelMessage[], seqs, generation: 0 }
+  const { messages, seqs } = await storedTurnsToModelMessages(stored as any)
+  if (!recap) return { messages, seqs, generation: 0 }
   // The recap is tagged with the last seq it covers, so alignCutToStoredMessage never tries to merge it
   // with the message after it (whose seq is strictly greater).
   return {
-    messages: [recapMessage(recap.summary), ...messages] as ModelMessage[],
+    messages: [recapMessage(recap.summary), ...messages],
     seqs: [recap.coversUpToSeq, ...seqs],
     generation: recap.generation
   }
@@ -597,13 +598,29 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
 
   // The turn's parts, in the order the model produced them. This IS the record: everything the model
   // saw has to end up here, or a revived conversation is a different conversation.
-  const parts: StoredPart[] = []
+  const parts: UIPart[] = []
   const appendText = (kind: 'text' | 'reasoning', delta: string) => {
     const last = parts[parts.length - 1]
     // Merged into the trailing part of the same kind rather than pushed per delta, or a turn would
     // store thousands of one-token parts.
-    if (last && last.type === kind) { (last as { text: string }).text += delta; return }
+    if (last && last.type === kind) { last.text = String(last.text ?? '') + delta; return }
     parts.push({ type: kind, text: delta })
+  }
+
+  /**
+   * Complete a tool call in place, by its id.
+   *
+   * By ID rather than "the last part": a step may issue several calls in parallel, and their results
+   * arrive interleaved. A call with no matching part cannot happen — the stream always announces the
+   * call first — but if it ever did, appending a resultless part would produce a history the provider
+   * rejects, so the update is simply dropped.
+   */
+  const settleToolPart = (toolCallId: string, settled: Record<string, unknown>) => {
+    const call = parts.find(p => p.type === 'dynamic-tool' && p.toolCallId === toolCallId)
+    if (!call) return
+    const { truncated, ...rest } = settled
+    Object.assign(call, rest)
+    if (truncated) call.toolMetadata = { ...(call.toolMetadata as object), truncated }
   }
 
   // Live text: the growing content is PERSISTED, throttled, rather than published. Each write
@@ -631,13 +648,26 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
       await persistPartial()
     }
     if (part.type === 'reasoning-delta') appendText('reasoning', part.text)
+    // A step boundary, recorded as a part. LOAD-BEARING, not decoration: it is what
+    // `convertToModelMessages` splits the turn's assistant messages on, so without it text the model
+    // produced AFTER a tool result is replayed inside the assistant message that made the call —
+    // before the tool message answering it. A leading one is harmless; it emits no empty message.
+    if (part.type === 'start-step') parts.push({ type: 'step-start' })
+    // ONE part per tool call, moved through the library's states — not a call part followed by a
+    // result part. That pairing is what `convertToModelMessages` reconstructs the
+    // assistant/tool message pair from, and it is why a failed call is no longer shaped like a
+    // successful one: the failure is the part's STATE, which nothing downstream can drop.
     if (part.type === 'tool-call') {
       parts.push({
-        type: 'tool-call',
+        type: 'dynamic-tool',
         toolCallId: part.toolCallId,
         toolName: part.toolName,
-        serverId: serverByTool.get(part.toolName),
-        arguments: summarizeToolArguments((part as any).input)
+        state: 'input-available',
+        // The real arguments, not a summary of them: the stored conversation is the reference copy,
+        // so a revived turn has to replay the call the model actually made. The summary is for the
+        // trace, which is a description rather than a record.
+        input: (part as any).input,
+        toolMetadata: { serverId: serverByTool.get(part.toolName) }
       })
     }
     // The RESULT, stored because the conversation is revivable: without it a later turn replays a
@@ -653,35 +683,29 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
         : (output && typeof output === 'object' && 'value' in output)
             ? String((output as any).value)
             : JSON.stringify(output ?? '')
-      parts.push({
-        type: 'tool-result',
-        toolCallId: part.toolCallId,
-        toolName: part.toolName,
-        ...boundToolResult(text)
+      const bounded = boundToolResult(text)
+      settleToolPart(part.toolCallId, {
+        state: 'output-available',
+        output: bounded.result,
+        truncated: bounded.truncated
       })
     }
     // A tool that failed does not stop the turn — the model sees the error and usually keeps
     // talking — so without recording it a failed call reads exactly like a successful one.
     // That is not hypothetical: it hid a broken tool path for the whole of this plan.
     //
-    // Recorded as a RESULT part, not a flag on the call: the model was handed the error as the
-    // tool's answer, so the pair has to exist for the history to replay at all.
+    // `output-error` is the library's own state for it, so the distinction survives every conversion:
+    // the previous shape carried it as an extra `failed` flag on a result part, which
+    // `convertToModelMessages` has no reason to look at.
     if (part.type === 'tool-error') {
       const detail = (part as any).error instanceof Error ? (part as any).error.message : String((part as any).error)
-      parts.push({
-        type: 'tool-result',
-        toolCallId: part.toolCallId,
-        toolName: part.toolName,
-        ...boundToolResult(detail),
-        failed: true,
-        error: detail
-      })
+      settleToolPart(part.toolCallId, { state: 'output-error', errorText: boundToolResult(detail).result })
       debug('tool failed tool=%s error=%s', part.toolName, detail)
     }
   }
 
   const content = partsText(parts)
-  const toolCalls = parts.filter(p => p.type === 'tool-call') as Array<Extract<StoredPart, { type: 'tool-call' }>>
+  const toolCalls = parts.filter(p => p.type === 'dynamic-tool')
 
   const steps = (await result.steps).length
   const finishReason = await result.finishReason
@@ -709,7 +733,11 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
     },
     response: {
       content,
-      toolCalls: toolCalls.map(call => ({ id: call.toolCallId ?? '', name: call.toolName, arguments: call.arguments ?? '' })),
+      toolCalls: toolCalls.map(call => ({
+        id: String(call.toolCallId ?? ''),
+        name: String(call.toolName ?? ''),
+        arguments: summarizeToolArguments(call.input)
+      })),
       finishReason
     },
     usage: { inputTokens, outputTokens, noCacheTokens, cacheReadTokens, cacheWriteTokens },

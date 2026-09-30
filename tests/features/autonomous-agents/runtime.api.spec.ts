@@ -10,9 +10,13 @@ import { openWsClient, type WsClient } from '../../support/ws.ts'
 import { conversationChannel } from '@agents/shared/autonomous-agent-channel'
 import { partsText } from '../../../api/src/autonomous-agent-runtime/operations.ts'
 
-/** Tool calls / results of a stored turn, read out of its ordered parts. */
-const toolCalls = (message: any) => (message.parts ?? []).filter((p: any) => p.type === 'tool-call')
-const toolResults = (message: any) => (message.parts ?? []).filter((p: any) => p.type === 'tool-result')
+/**
+ * The tool calls of a stored turn, read out of its ordered parts.
+ *
+ * ONE part per call, holding its answer and its outcome too — the AI SDK's model. There is no separate
+ * result part to look up by id any more.
+ */
+const toolCalls = (message: any) => (message.parts ?? []).filter((p: any) => p.type === 'dynamic-tool')
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
@@ -439,7 +443,7 @@ test.describe('Autonomous agent model loop', () => {
     assert.ok(toolCalls(assistant).length, 'expected the tool call to be recorded on the message')
     const call = toolCalls(assistant).find((c: any) => c.toolName === 'echo')
     assert.ok(call, 'expected the echo tool call')
-    assert.equal(call.serverId, 'dev-public-mcp')
+    assert.equal(call.toolMetadata.serverId, 'dev-public-mcp')
     // GROUND TRUTH from the MCP server itself. Asserting on the model's behaviour cannot
     // prove the tool ran: the mock answers 'done' to any tool-role message, an execution
     // ERROR included, so steps/content look identical whether or not the call ever reached
@@ -447,21 +451,19 @@ test.describe('Autonomous agent model loop', () => {
     assert.deepEqual(fixture.invokedTools(), ['echo'], 'the MCP server must have actually executed the tool')
     // What it was ASKED to do, not merely that it was called — the difference that makes a write
     // auditable and an injection visible after the fact.
-    assert.match(call.arguments, /"value"\s*:\s*"x"/, 'the message must record the arguments the agent sent')
+    assert.deepEqual(call.input, { value: 'x' }, 'the message must record the arguments the agent sent')
     assert.equal(run.stopReason, 'completed')
     assert.equal(run.steps, 2)
     assert.equal(partsText(assistant.parts), 'done')
 
     // The RESULT is stored, which is what makes this conversation revivable: without it a later turn
     // would replay a call with no answer — a history providers reject — so the call had to be dropped
-    // too, and the model resumed seeing neither the data nor the fact that it had acted.
-    const result = toolResults(assistant).find((r: any) => r.toolName === 'echo')
-    assert.ok(result, 'expected the tool RESULT to be recorded on the message')
-    assert.equal(result.toolCallId, call.toolCallId, 'the result must be paired with its call')
+    // too, and the model resumed seeing neither the data nor the fact that it had acted. It is the
+    // SAME part as the call, which is what keeps the two from being stored or dropped independently.
+    assert.equal(call.state, 'output-available', 'the call must be settled, and settled as a success')
     // Stored as the model received it, provenance envelope included.
-    assert.match(result.result, /echo:x/, 'the stored result must be what the tool actually returned')
-    assert.match(result.result, /<tool-result server="dev-public-mcp" tool="echo">/)
-    assert.notEqual(result.failed, true)
+    assert.match(call.output, /echo:x/, 'the stored result must be what the tool actually returned')
+    assert.match(call.output, /<tool-result server="dev-public-mcp" tool="echo">/)
   })
 
   test('recovering a started run does NOT re-execute its tool calls', async () => {
@@ -502,9 +504,8 @@ test.describe('Autonomous agent model loop', () => {
     const { assistant } = await runOnce(agent.id, 'call tool echo {"value":"x"}')
     const call = toolCalls(assistant).find((c: any) => c.toolName === 'echo')
     assert.ok(call)
-    assert.equal(call.serverId, 'dev-apikey-mcp')
-    const result = toolResults(assistant).find((r: any) => r.toolCallId === call.toolCallId)
-    assert.notEqual(result?.failed, true, 'the tool must have returned a usable result')
+    assert.equal(call.toolMetadata.serverId, 'dev-apikey-mcp')
+    assert.equal(call.state, 'output-available', 'the tool must have returned a usable result')
   })
 
   test('a disabled autonomous agent refuses to act', async () => {

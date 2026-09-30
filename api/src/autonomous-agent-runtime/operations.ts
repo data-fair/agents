@@ -3,6 +3,8 @@
  * should not reference #mongo, #config, store state in memory or import anything else than other operations.ts
  */
 
+import { convertToModelMessages, type ModelMessage } from 'ai'
+
 export type RunStatus = 'running' | 'done' | 'error' | 'aborted' | 'interrupted'
 export type RunStopReason = 'completed' | 'step-limit' | 'repeated-calls' | 'budget' | 'timeout' | 'aborted' | 'error'
 
@@ -115,35 +117,6 @@ export function wrapToolResult (serverId: string, toolName: string, text: string
 }
 
 /**
- * How much of a tool call's arguments to keep. A tool can be handed a whole document, and these
- * are stored on the conversation message — which has no TTL and is refetched on every catch-up —
- * so an unbounded value would grow the thread and make every read of it heavier.
- */
-const TOOL_ARGUMENTS_LIMIT = 2000
-
-/**
- * What the agent actually asked a tool to do, as a bounded string.
- *
- * Recorded because knowing a tool was CALLED is far weaker than knowing what it was asked to do:
- * that difference is what makes a write auditable after the fact, and what makes a prompt
- * injection visible — an instruction smuggled through a tool result shows up here, in the call it
- * provoked, even when the answer looks innocuous.
- */
-export function summarizeToolArguments (input: unknown, limit: number = TOOL_ARGUMENTS_LIMIT): string {
-  if (input === undefined || input === null) return ''
-  let serialized: string
-  try {
-    serialized = typeof input === 'string' ? input : JSON.stringify(input) ?? ''
-  } catch {
-    // A circular or otherwise unserialisable value must not take the turn down with it, and must
-    // not be recorded as though it were empty.
-    return '[unserializable arguments]'
-  }
-  if (serialized.length <= limit) return serialized
-  return `${serialized.slice(0, limit)}… [truncated, ${serialized.length} chars total]`
-}
-
-/**
  * How much of a tool RESULT to keep on the stored message.
  *
  * Deliberately large: this is the conversation of record, so a result is normally kept whole and the
@@ -174,27 +147,24 @@ export function boundToolResult (
   }
 }
 
-/** One stored message's ordered parts, as the message schema defines them. */
-export type StoredPart =
-  | { type: 'text', text: string }
-  | { type: 'reasoning', text: string }
-  | { type: 'tool-call', toolCallId?: string, toolName: string, serverId?: string, arguments?: string }
-  | { type: 'tool-result', toolCallId?: string, toolName: string, result?: string, failed?: boolean, error?: string }
+/**
+ * A stored part, as loosely as this module needs it.
+ *
+ * The real contract is the AI SDK's `UIMessagePart` union, which the message schema now mirrors. This
+ * alias exists only so the few functions that walk parts by `type` can do so without importing `#types`
+ * (operations.ts stays free of the generated types) and without restating the union — restating it is
+ * exactly what produced three divergent copies of it.
+ */
+export type UIPart = { type: string, [key: string]: unknown }
 
-/** The subset of a stored message this reconstruction needs. */
+/** One stored turn, as much of it as the reconstruction needs. */
 export type StoredTurn = {
   role: 'user' | 'assistant'
-  parts?: StoredPart[]
+  parts?: UIPart[]
   author?: { userId?: string, userName?: string }
+  seq?: number
 }
 
-/**
- * A user turn carries WHO wrote it.
- *
- * The system prompt tells the model the timeline is shared and to attribute requests to whoever
- * actually made them, which it cannot do from an undifferentiated stream of `user` turns. On a shared
- * timeline that is also a safety property: one instructor's paste must not read as another's request.
- */
 const MESSAGE_END = '</message>'
 
 /**
@@ -216,9 +186,7 @@ const neutraliseEnvelope = (text: string, tag: string): string => text
  *
  * Not `attributeSafe`: that reduces to an identifier charset, which would mangle a real display name
  * ("Alban Mouton" -> "AlbanMouton") and every accented one. What has to go is only what could break OUT
- * of the attribute or forge structure — quotes, angle brackets, newlines and control characters — since
- * `userName` comes from simple-directory rather than from us. Bounded too: a pathological name must not
- * dominate the turn.
+ * of the attribute or forge structure, since `userName` comes from simple-directory rather than from us.
  */
 const attributionSafe = (value: string): string => {
   // \p{C} is the Unicode "Other" category: control characters, and also FORMAT characters — which
@@ -228,16 +196,17 @@ const attributionSafe = (value: string): string => {
   return cleaned.slice(0, 120) || 'unknown'
 }
 
+/**
+ * A user turn carries WHO wrote it, unforgeably.
+ *
+ * An ENVELOPE, for the same reason wrapToolResult uses one: `[from X]` was a bare text prefix glued onto
+ * raw, instructor-controlled content, while buildSystemPrompt tells the model to attribute requests by
+ * it. So a message whose first line named an org admin read to the model as that admin's request — and a
+ * listed instructor may come from another account, so lower trust could launder a request as higher
+ * trust. The stored author made it detectable afterwards, never during the turn.
+ */
 export function attributedUserText (text: string, author?: { userId?: string, userName?: string }): string {
   if (!author?.userName) return text
-  // An ENVELOPE, for the same reason wrapToolResult uses one: `[from X]` was a bare text prefix glued
-  // onto raw, instructor-controlled content, while buildSystemPrompt tells the model to attribute
-  // requests by it. So a message whose first line named an org admin read to the model as that admin's
-  // request — and a listed instructor may come from another account, so lower trust could launder a
-  // request as higher trust. The stored author made it detectable afterwards, never during the turn.
-  //
-  // Escaping the closing delimiter rather than stripping it keeps the message readable while making it
-  // impossible for the body to end its own envelope and continue outside the labelled region.
   const safe = neutraliseEnvelope(text, 'message')
   const attributes = `from="${attributionSafe(author.userName)}"` +
     (author.userId ? ` user-id="${attributionSafe(author.userId)}"` : '')
@@ -245,92 +214,62 @@ export function attributedUserText (text: string, author?: { userId?: string, us
 }
 
 /**
- * Rebuild the exact model messages a stored conversation produced.
+ * A stored turn as the library's input: attributed, and carrying only what may be replayed.
  *
- * This is the function the storage model exists for, so it is worth being explicit about what it
- * guarantees: every tool call is emitted WITH its result, in the order they happened. Providers reject
- * a history containing a call without its result, which is why the old shape — which stored calls but
- * never results — could not replay them at all and silently dropped both.
+ * Two subtractions, both provider constraints rather than format ones — which is why they live here
+ * and not in the conversion:
  *
- * A turn interleaves steps, so consecutive parts are grouped: a run of assistant parts becomes one
- * assistant message, and the tool results that follow become one `tool` message, repeating for as many
- * steps as the turn took. An assistant turn that only called tools therefore still appears in history,
- * where the old shape dropped it entirely for having no text.
+ *  - REASONING is never replayed. Providers reject reasoning they did not produce themselves in this
+ *    exchange; the stored part has no signature to offer, so sending it back fails the request.
+ *  - A BLANK text part is dropped. Providers reject an empty or whitespace-only text block, and a turn
+ *    left with nothing to say is skipped entirely rather than sent as an empty message.
  *
- * A call whose result is missing is dropped ALONG WITH its result rather than emitted alone: that can
- * only happen for a turn interrupted before the tool answered, and a lone call would make the whole
- * history unusable rather than just that step.
+ * Both are subtractions from what is SENT only. The stored parts keep the reasoning and whatever else
+ * the turn contained — the conversation of record is not rewritten.
  */
-export function storedTurnsToModelMessages (turns: StoredTurn[]): Array<{ role: 'user' | 'assistant' | 'tool', content: any }> {
-  return storedTurnsToModelMessagesWithSeqs(turns).messages
+const replayableTurn = (turn: StoredTurn): { role: 'user' | 'assistant', parts: any[] } | undefined => {
+  const parts = (turn.parts ?? [])
+    .filter(part => part.type !== 'reasoning')
+    .filter(part => part.type !== 'text' || String(part.text ?? '').trim())
+    .map(part => (part.type === 'text' && turn.role === 'user')
+      ? { ...part, text: attributedUserText(String(part.text ?? ''), turn.author) }
+      : part)
+  // `step-start` only marks a boundary INSIDE a turn, so a turn holding nothing else says nothing.
+  if (!parts.some(part => part.type !== 'step-start')) return undefined
+  return { role: turn.role, parts }
 }
 
 /**
- * The same reconstruction, plus the stored `seq` each model message came from.
+ * The stored turns as model messages, plus which stored turn each one came from.
  *
- * One stored turn becomes SEVERAL model messages (assistant / tool / assistant, once per step), so the
- * mapping back is not one-to-one. Compaction needs it: its cut is an index into the model messages, but
- * the recap it caches has to be keyed on a stored-message boundary, or the context could not be rebuilt
- * identically on the next turn.
+ * The conversion is the library's. A hand-written reconstruction used to group parts into
+ * `assistant`/`tool` pairs here, carrying its own "drop a call whose result never arrived" rule — which
+ * is `ignoreIncompleteToolCalls` upstream. Deleting it removed the third declaration of the parts union
+ * and every cast that spanned it.
+ *
+ * The seq map is the part the library does not provide, and compaction needs it: `decideCompaction`
+ * cuts between MODEL messages, while the recap it caches is keyed on a stored message. It is recovered
+ * by converting each turn alone and counting — verified equivalent to converting the whole list, because
+ * the conversion is turn-local: a turn expands into its own assistant/tool messages, splitting at each
+ * `step-start`, without looking at its neighbours.
+ *
+ * What stays ours is the user turn's attribution envelope: a property of THIS product's shared timeline
+ * rather than of the message format.
  */
-export function storedTurnsToModelMessagesWithSeqs (
-  turns: Array<StoredTurn & { seq?: number }>
-): { messages: Array<{ role: 'user' | 'assistant' | 'tool', content: any }>, seqs: number[] } {
-  const messages: Array<{ role: 'user' | 'assistant' | 'tool', content: any }> = []
+export async function storedTurnsToModelMessages (
+  turns: StoredTurn[]
+): Promise<{ messages: ModelMessage[], seqs: number[] }> {
+  const messages: ModelMessage[] = []
   const seqs: number[] = []
-
   for (const turn of turns) {
-    const parts = turn.parts ?? []
-
-    if (turn.role === 'user') {
-      const text = parts.filter(p => p.type === 'text').map(p => (p as { text: string }).text).join('')
-      if (text.trim()) {
-        messages.push({ role: 'user', content: attributedUserText(text, turn.author) })
-        seqs.push(turn.seq ?? 0)
-      }
-      continue
+    const replayable = replayableTurn(turn)
+    if (!replayable) continue
+    const converted = await convertToModelMessages([replayable], { ignoreIncompleteToolCalls: true })
+    for (const message of converted) {
+      messages.push(message)
+      seqs.push(turn.seq ?? 0)
     }
-
-    // Only calls that actually have a result may be replayed.
-    const resultsByCallId = new Map<string, Extract<StoredPart, { type: 'tool-result' }>>()
-    for (const part of parts) {
-      if (part.type === 'tool-result' && part.toolCallId) resultsByCallId.set(part.toolCallId, part)
-    }
-
-    let assistant: any[] = []
-    let toolResults: any[] = []
-    const flush = () => {
-      if (assistant.length) { messages.push({ role: 'assistant', content: assistant }); seqs.push(turn.seq ?? 0); assistant = [] }
-      if (toolResults.length) { messages.push({ role: 'tool', content: toolResults }); seqs.push(turn.seq ?? 0); toolResults = [] }
-    }
-
-    for (const part of parts) {
-      if (part.type === 'tool-result') continue // emitted with its call, below
-      // A new assistant part after results means a new step started: close the previous pair first,
-      // or the message order stops matching what the model actually saw.
-      if (toolResults.length) flush()
-      if (part.type === 'text') {
-        if (part.text) assistant.push({ type: 'text', text: part.text })
-        continue
-      }
-      if (part.type === 'reasoning') continue // never replayed: providers reject foreign reasoning
-      if (part.type === 'tool-call') {
-        const result = part.toolCallId ? resultsByCallId.get(part.toolCallId) : undefined
-        if (!result) continue
-        let input: unknown = {}
-        try { input = part.arguments ? JSON.parse(part.arguments) : {} } catch { input = {} }
-        assistant.push({ type: 'tool-call', toolCallId: part.toolCallId, toolName: part.toolName, input })
-        toolResults.push({
-          type: 'tool-result',
-          toolCallId: part.toolCallId,
-          toolName: part.toolName,
-          output: { type: 'text', value: result.result ?? (result.error ?? '') }
-        })
-      }
-    }
-    flush()
   }
-
   return { messages, seqs }
 }
 
@@ -352,8 +291,8 @@ export function alignCutToStoredMessage (seqs: number[], cut: number): number {
 }
 
 /** The visible text of a turn: every text part, in order. Reasoning and tool traffic are excluded. */
-export function partsText (parts: StoredPart[] = []): string {
-  return parts.filter(p => p.type === 'text').map(p => (p as { text: string }).text).join('')
+export function partsText (parts: UIPart[] = []): string {
+  return parts.filter(p => p.type === 'text').map(p => String(p.text ?? '')).join('')
 }
 
 /**
@@ -364,7 +303,7 @@ export function partsText (parts: StoredPart[] = []): string {
  * first text part would move it before results that had already been produced, which misrepresents
  * what the model saw.
  */
-export function withAppendedText (parts: StoredPart[] = [], text: string): StoredPart[] {
+export function withAppendedText (parts: UIPart[] = [], text: string): UIPart[] {
   // Separated from existing TEXT, not from existing parts: a turn that only called tools has no text
   // to separate from, and a leading blank line there would render as stray whitespace.
   const separator = partsText(parts).trim() ? '\n\n' : ''

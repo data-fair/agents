@@ -3,7 +3,8 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { nextMessageSeq, isRunTerminal, runStopReasonMessage, buildSystemPrompt, wrapToolResult, summarizeToolArguments } from '../../../api/src/autonomous-agent-runtime/operations.ts'
+import { nextMessageSeq, isRunTerminal, runStopReasonMessage, buildSystemPrompt, wrapToolResult } from '../../../api/src/autonomous-agent-runtime/operations.ts'
+import { summarizeToolArguments } from '@agents/shared/tool-arguments'
 import { compactionSystemPrompt, recapMessage } from '@agents/shared/compaction-prompt'
 import { STREAM_IDLE_TIMEOUT_MS } from '@agents/shared/agent-loop-guards'
 import { readFileSync } from 'node:fs'

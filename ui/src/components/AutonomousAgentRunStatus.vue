@@ -100,7 +100,9 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getUiNotif } from '@data-fair/lib-vue/ui-notif.js'
 import { $apiPath, $fetch } from '~/context'
+import { isDynamicToolUIPart } from 'ai'
 import type { StoredAutonomousAgentMessage } from '@agents/shared/autonomous-agent-chat-message'
+import { summarizeToolArguments } from '@agents/shared/tool-arguments'
 
 const props = defineProps<{
   accountType: string
@@ -123,32 +125,22 @@ const statusColor = computed(() => {
 /**
  * Failed tool calls of this run, with what the tool was asked to do.
  *
- * Joined from the two parts that hold the halves: the CALL carries the server and the arguments, the
- * RESULT carries the failure and the error. They are separate parts because the model was handed the
- * error as the tool's answer, and the pair has to exist for the history to replay.
+ * Read off ONE part per call: the failure is the part's own `output-error` state, alongside the server
+ * and the arguments. It used to be joined from two parts — a call and a separate result holding the
+ * failure — which is the shape the AI SDK's message model replaced.
  */
 const failures = computed(() =>
   props.messages
     .filter(message => message.runId === props.run?.id)
-    .flatMap(message => {
-      const parts = message.parts ?? []
-      const failedResults = new Map(
-        parts
-          .filter(part => part.type === 'tool-result' && part.failed && part.toolCallId)
-          .map(part => [(part as { toolCallId: string }).toolCallId, part as { error?: string }])
-      )
-      return parts
-        .filter(part => part.type === 'tool-call' && part.toolCallId && failedResults.has(part.toolCallId))
-        .map(part => {
-          const call = part as { toolCallId: string, toolName: string, serverId?: string, arguments?: string }
-          return {
-            toolName: call.toolName,
-            serverId: call.serverId,
-            arguments: call.arguments,
-            error: failedResults.get(call.toolCallId)?.error
-          }
-        })
-    })
+    .flatMap(message => (message.parts ?? [])
+      .filter(isDynamicToolUIPart)
+      .filter(part => part.state === 'output-error')
+      .map(part => ({
+        toolName: part.toolName,
+        serverId: (part.toolMetadata as { serverId?: string } | undefined)?.serverId,
+        arguments: summarizeToolArguments(part.input),
+        error: part.errorText
+      })))
 )
 
 const abort = async () => {

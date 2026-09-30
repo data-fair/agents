@@ -7,15 +7,17 @@
  * around the transcript rather than inside it.
  */
 
+import { isDynamicToolUIPart } from 'ai'
+import type { UIMessagePart, UIDataTypes, UITools } from 'ai'
 import type { ChatMessage } from './chat-message.ts'
 
 /**
  * The stored message as the UI reads it, described structurally so `shared/` needs no `#types`
  * alias (which resolves only inside the api workspace).
  *
- * Wider than the mapper itself needs: `runId` and a tool call's `serverId`/`arguments`/`error` are
- * not part of a ChatMessage at all, but they travel with the message and the run-status strip reads
- * them — that is where anything the transcript cannot carry is surfaced.
+ * Wider than the mapper itself needs: `runId` is not part of a ChatMessage at all, but it travels with
+ * the message and the run-status strip reads it — that is where anything the transcript cannot carry
+ * is surfaced.
  */
 export interface StoredAutonomousAgentMessage {
   seq: number
@@ -26,23 +28,14 @@ export interface StoredAutonomousAgentMessage {
    * The turn's ordered parts, as stored. This is the conversation of record — the same shape the model
    * is replayed from — so the UI renders the same thing the model saw rather than a parallel summary
    * that can drift from it.
+   *
+   * The AI SDK's own type. It replaced a hand-written union declared here, which was the third copy of
+   * the same shape and had already drifted from the other two.
    */
-  parts?: StoredAutonomousAgentPart[]
+  parts?: AutonomousAgentPart[]
 }
 
-export type StoredAutonomousAgentPart =
-  | { type: 'text', text: string }
-  | { type: 'reasoning', text: string }
-  | { type: 'tool-call', toolCallId?: string, toolName: string, serverId?: string, arguments?: string }
-  | {
-    type: 'tool-result'
-    toolCallId?: string
-    toolName: string
-    result?: string
-    truncated?: { totalChars: number }
-    failed?: boolean
-    error?: string
-  }
+export type AutonomousAgentPart = UIMessagePart<UIDataTypes, UITools>
 
 export function autonomousAgentMessageToChat (message: StoredAutonomousAgentMessage): ChatMessage {
   const parts = message.parts ?? []
@@ -55,33 +48,22 @@ export function autonomousAgentMessageToChat (message: StoredAutonomousAgentMess
   const reasoning = parts.filter(p => p.type === 'reasoning').map(p => p.text).join('')
   if (reasoning) chat.reasoning = reasoning
 
-  // A result is matched to its call so the transcript can show a call that FAILED, which is the one
-  // distinction a reader cannot recover from the chip alone. Results are not rendered themselves:
-  // they are tool payloads, and the transcript shows what the agent did, not what it fetched.
-  const resultFor = new Map<string, Extract<StoredAutonomousAgentPart, { type: 'tool-result' }>>()
-  for (const part of parts) {
-    if (part.type === 'tool-result' && part.toolCallId) resultFor.set(part.toolCallId, part)
-  }
-
-  const calls = parts.filter(p => p.type === 'tool-call') as Array<Extract<StoredAutonomousAgentPart, { type: 'tool-call' }>>
+  // One part per tool call, carrying its own state — so a call that FAILED is readable directly, where
+  // it used to be recovered by joining a call part to a separate result part on their shared id. The
+  // results themselves are still not rendered: they are tool payloads, and the transcript shows what
+  // the agent did, not what it fetched.
+  const calls = parts.filter(isDynamicToolUIPart)
   if (calls.length) {
-    chat.toolInvocations = calls.map((call, index) => {
-      const failed = call.toolCallId ? resultFor.get(call.toolCallId)?.failed : undefined
-      return {
-        // A call is only recorded once the model has emitted it, so an id is normally present; fall
-        // back to a stable positional one rather than dropping the call from the transcript.
-        toolCallId: call.toolCallId ?? `${message.seq}-${index}`,
-        toolName: call.toolName,
-        // 'pending' tracks the MESSAGE, not the individual call: the runtime records a call when it
-        // is emitted and finalises the whole message at the end of the turn, so there is no
-        // per-call completion to read.
-        //
-        // A FAILED call is deliberately 'done'. ChatMessage has no failure state, and reporting
-        // 'pending' would leave a spinner turning for a call that will never return — the failure
-        // is shown outside the transcript, where its arguments and error can be read too.
-        state: (message.pending && !failed) ? 'pending' : 'done'
-      }
-    })
+    chat.toolInvocations = calls.map(call => ({
+      toolCallId: call.toolCallId,
+      toolName: call.toolName,
+      // PER CALL, not per message. The states before an output arrives are exactly the ones still
+      // running, so a parallel step now shows each call finishing as it finishes, instead of every
+      // chip waiting on the slowest. A failed call is 'done', because ChatMessage has no failure
+      // state and a spinner turning for a call that will never return is worse than a plain chip —
+      // the failure is shown outside the transcript, with its arguments and error.
+      state: (call.state === 'input-streaming' || call.state === 'input-available') ? 'pending' : 'done'
+    }))
   }
   return chat
 }

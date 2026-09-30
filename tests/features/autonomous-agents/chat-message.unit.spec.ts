@@ -32,49 +32,59 @@ test.describe('autonomousAgentMessageToChat', () => {
     assert.equal(chat.reasoning, 'thinking')
   })
 
-  test('a tool call of a FINISHED message is done, not pending', () => {
+  test('a tool call that has produced its output is done', () => {
     const chat = autonomousAgentMessageToChat({
       ...base,
       role: 'assistant',
       pending: false,
-      parts: [{ type: 'text', text: 'x' }, { type: 'tool-call', toolCallId: 't1', toolName: 'echo' }]
+      parts: [
+        { type: 'text', text: 'x' },
+        { type: 'dynamic-tool', toolCallId: 't1', toolName: 'echo', state: 'output-available', input: {}, output: 'r' }
+      ]
     })
     assert.deepEqual(chat.toolInvocations, [{ toolCallId: 't1', toolName: 'echo', state: 'done' }])
   })
 
-  test('a tool call of a PENDING message is pending, so the spinner is honest', () => {
+  test('a call still waiting for its output is pending, so the spinner is honest', () => {
     const chat = autonomousAgentMessageToChat({
-      ...base, role: 'assistant', pending: true, parts: [{ type: 'tool-call', toolCallId: 't1', toolName: 'echo' }]
+      ...base,
+      role: 'assistant',
+      pending: true,
+      parts: [{ type: 'dynamic-tool', toolCallId: 't1', toolName: 'echo', state: 'input-available', input: {} }]
     })
     assert.equal(chat.toolInvocations?.[0].state, 'pending')
+  })
+
+  test('each call of a parallel step reports its OWN progress', () => {
+    // The distinction the AI SDK's per-call states bought. Progress used to be read off the MESSAGE,
+    // so every chip in a step waited on the slowest call in it — a finished call kept spinning until
+    // the whole turn ended.
+    const chat = autonomousAgentMessageToChat({
+      ...base,
+      role: 'assistant',
+      pending: true,
+      parts: [
+        { type: 'dynamic-tool', toolCallId: 't1', toolName: 'fast', state: 'output-available', input: {}, output: 'r' },
+        { type: 'dynamic-tool', toolCallId: 't2', toolName: 'slow', state: 'input-available', input: {} }
+      ]
+    })
+    assert.deepEqual(chat.toolInvocations?.map(i => i.state), ['done', 'pending'])
   })
 
   test('a FAILED tool call is still shown as done, not as running forever', () => {
     // ChatMessage has no failure state for a tool call. Reporting 'pending' would leave a
     // spinner turning for a call that will never return; the failure is surfaced outside the
-    // transcript instead.
+    // transcript instead, where its arguments and error can be read.
     const chat = autonomousAgentMessageToChat({
       ...base,
       role: 'assistant',
       pending: true,
       parts: [
         { type: 'text', text: 'x' },
-        { type: 'tool-call', toolCallId: 't1', toolName: 'echo' },
-        // The failure lives on the RESULT now, because the model was handed the error as the tool's
-        // answer — so the pair exists and the history stays replayable.
-        { type: 'tool-result', toolCallId: 't1', toolName: 'echo', failed: true, error: 'boom' }
+        { type: 'dynamic-tool', toolCallId: 't1', toolName: 'echo', state: 'output-error', input: {}, errorText: 'boom' }
       ]
     })
     assert.equal(chat.toolInvocations?.[0].state, 'done')
-  })
-
-  test('a tool call with no id still renders rather than being dropped', () => {
-    const chat = autonomousAgentMessageToChat({
-      ...base, role: 'assistant', parts: [{ type: 'text', text: 'x' }, { type: 'tool-call', toolName: 'echo' }]
-    })
-    assert.equal(chat.toolInvocations?.length, 1)
-    assert.equal(typeof chat.toolInvocations?.[0].toolCallId, 'string')
-    assert.ok(chat.toolInvocations![0].toolCallId.length > 0)
   })
 
   test('maps a list in seq order regardless of input order', () => {
