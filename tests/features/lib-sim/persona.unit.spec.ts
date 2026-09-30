@@ -33,6 +33,16 @@ test.describe('persona prompting', () => {
     assert.ok(p.includes(DONE))
   })
 
+  test('tells the persona what it did on the page, and only that', () => {
+    const p = personaPrompt([{ role: 'assistant', text: 'Rechargez la page.' }], 3, [
+      { turn: 1, tool: 'look', args: {}, result: '## page' },
+      { turn: 1, tool: 'click', args: { name: 'Enregistrer' }, result: 'clicked' }
+    ])
+    assert.ok(p.includes('clicked "Enregistrer"'))
+    assert.ok(!p.includes('## page'), 'looks are not actions')
+    assert.ok(!personaPrompt([{ role: 'assistant', text: 'x' }], 3).includes('What you have done'))
+  })
+
   test('warns the persona when it is nearly out of turns', () => {
     assert.ok(personaPrompt([{ role: 'assistant', text: 'x' }], 1).includes('last'))
   })

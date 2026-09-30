@@ -10,7 +10,7 @@
 import { createNeutralCwd, isolationOptions } from './isolation.ts'
 import { MISSING_SDK_MESSAGE, isMissingSdkError } from './missing-sdk.ts'
 import type { SimulationCase } from './types.ts'
-import type { PagePerception } from './page-perception.ts'
+import type { PagePerception, Observation } from './page-perception.ts'
 import { MCP_SERVER_NAME } from './page-perception.ts'
 import type { McpServerConfig } from '@anthropic-ai/claude-agent-sdk'
 
@@ -64,7 +64,9 @@ export const PERSONA_MAX_TURNS = 25
 
 export const PERCEPTION_INSTRUCTIONS = `You can look at the screen yourself with the look tool, and you can click and type
 on the page. Before you say anything about what is or is not on the screen, look.
-Never claim you cannot see something you have not looked for.`
+Never claim you cannot see something you have not looked for.
+Your tools are the only way you act on the page: never say you did something (reload, scroll, save…)
+that is not in the list of what you did.`
 
 // Appended only when the caller actually configured createPagePerception's
 // offLimits — otherwise nothing refuses the composer and this sentence would be
@@ -134,17 +136,34 @@ export function personaSystemPrompt (c: SimulationCase, perceptionEnabled = fals
  */
 export type PersonaQuery = (typeof import('@anthropic-ai/claude-agent-sdk'))['query']
 
-export function personaPrompt (conversation: Array<{ role: string, text: string }>, turnsLeft: number): string {
+/**
+ * What the persona did on the page, told back to it. Each persona turn is a fresh query
+ * whose only memory is the chat transcript, so it could not tell what it had done from
+ * what the assistant had told it to do: judged runs had it say « J'ai actualisé la
+ * page » after being told to reload, with no reload among its actions.
+ */
+export function actionRecap (observations: Observation[]): string | null {
+  const acts = observations.filter(o => o.tool !== 'look').slice(-10).map(o => {
+    const args = (o.args ?? {}) as { name?: unknown, text?: unknown }
+    const what = o.tool === 'click' ? `clicked "${args.name}"` : o.tool === 'type' ? `typed "${args.text}" into "${args.name}"` : o.tool
+    return `- ${what} → ${o.result.slice(0, 120)}`
+  })
+  return acts.length ? ['What you have done on the page so far (nothing else):', ...acts].join('\n') : null
+}
+
+export function personaPrompt (conversation: Array<{ role: string, text: string }>, turnsLeft: number, observations: Observation[] = []): string {
   if (conversation.length === 0) return 'Write your first message to the assistant.'
   const transcript = conversation.map(m => `${m.role === 'user' ? 'you' : 'assistant'}: ${m.text}`).join('\n\n')
   const warning = turnsLeft <= 1
     ? '\n\nThis is your last message. If you already have what you needed, reply ' + DONE + '.'
     : ''
+  const recap = actionRecap(observations)
   return [
     'The conversation so far:',
     '',
     transcript,
     '',
+    ...(recap ? [recap, ''] : []),
     `Write your next message, or ${DONE} if you are finished.${warning}`
   ].join('\n')
 }
@@ -174,7 +193,7 @@ export async function nextUserMessage (
   neutralCwd ??= createNeutralCwd()
   let text = ''
   for await (const msg of runQuery({
-    prompt: personaPrompt(conversation, turnsLeft),
+    prompt: personaPrompt(conversation, turnsLeft, opts?.perception?.observations),
     options: {
       ...isolationOptions(neutralCwd),
       model: resolveUserModel(),
