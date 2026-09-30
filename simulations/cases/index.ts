@@ -69,11 +69,13 @@ export const cases: LocalCase[] = [
   // whole interrupted turn from history — the model saw two user messages and nothing
   // between, denied having prepared anything and rebuilt it. What is under test is the
   // assistant answering from what it already did and handing the same button back.
+  // The goal's last sentence catches an assistant that answers and never waits again:
+  // one did, and never learned the list it had prepared was created.
   {
     name: 'speak-during-wait',
     route: '/agents/_dev/chat-workflow',
     persona: 'You are an office worker using an internal tool for the first time. You are not technical and you describe what you want in plain words. You are careful: before pressing a button that creates something, you always first ask a question in the chat to double-check, and you press it only once you have the answer. You never claim to have pressed a button you did not press.',
-    goal: 'You want a list called "Team lunch" set up. When the assistant says it is ready, you first ask it in the chat what the list will be called, because you are not sure it got the name right; once it answers, you press the Create button yourself.',
+    goal: 'You want a list called "Team lunch" set up. When the assistant says it is ready, you first ask it in the chat what the list will be called, because you are not sure it got the name right; once it answers, you press the Create button yourself. After pressing it you wait: you expect the assistant to tell you on its own that the list was created, without you having to ask or report it.',
     maxTurns: 6
   }
 ]
