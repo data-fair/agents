@@ -222,27 +222,36 @@ in one shared helper so no call site can get it wrong, and the endpoint behind c
 Better still, raised as a `@data-fair/lib-node` question so the bootstrap and its defaults are decided
 once for every service.
 
-## 2.2 `@ai-sdk/mcp` — adopt the 1.x line
+## 2.2 `@ai-sdk/mcp` — NOT ADOPTED (decided 2026-09-30, after reading the package)
 
-**Version constraint, verified:** `@ai-sdk/mcp@2.x` depends on `@ai-sdk/provider@4` /
-`provider-utils@5`, i.e. it tracks `ai` v7. The line for our `ai` 6.x is **`@ai-sdk/mcp@1.0.89`**, whose
-dependencies (`provider@3.0.18`, `provider-utils@4.0.56`) match our installed 3.0.15 / 4.0.50. Adoptable
-now with a patch bump, blocked on nothing.
+**Reversed.** The earlier revision recommended adopting `@ai-sdk/mcp@1.0.89`. Reading 1.0.89's
+`toolsFromDefinitions` before adopting it shows it would reintroduce the defect this migration
+just removed, so it is not adopted.
 
-What `createMCPClient` replaces in `api/src/mcp-servers/client.ts`: the connect / list / convert
-plumbing. It wraps the same `StreamableHTTPClientTransport` we already use, supports custom HTTP headers
-(so the cookie and `x-api-key` injection survives unchanged), supports explicit schemas for a tool subset
-(which is what `toolFilter` expresses), and `client.tools()` returns tools `streamText` accepts directly.
+Verified in the published 1.0.89:
 
-What it does NOT replace, and must stay ours:
+- **An `isError` result is returned as ordinary data.** `execute` does `if (result.isError) return
+  result`, and `mcpToModelOutput` — the `toModelOutput` it attaches to every tool — ignores `isError`
+  entirely, converting an error result to `{ type: 'content' }` exactly like a success. So a tool that
+  reports its own failure produces a part in `output-available`, which is precisely the conflation that
+  hid a broken tool path for a whole plan. Our client rethrows instead, which is what makes the failure
+  the part's STATE.
+- **It forces `additionalProperties: false`** onto every tool's input schema, changing what a catalog
+  server's tools accept.
+- **Its media conversion is its own** (`{ type: 'image-data' }`), replacing `formatMcpToolResult`'s
+  `_agentsMediaResult` envelope — which the browser's `tool-result.ts` reads. Adopting it would pull the
+  UI's media rendering into the same change.
 
-- the multi-server merge and its last-write-wins collision behaviour;
-- the `serverByTool` provenance map;
-- `wrapToolResult` and the envelope — the security property lives here;
-- the per-turn connection lifetime tied to the conversation lock.
+What we wanted from it we already have: `annotations` are carried onto the stored call (it puts them in
+the tool's `metadata`; we read them from the listing and write them into `toolMetadata`, which is where
+the audit record and P1's approval gate need them).
 
-So this removes plumbing, not the parts that carry the guarantees. It also brings OAuth, resources and
-elicitation, which matter for catalog servers beyond this stack's own.
+What it genuinely offers, and what it would cost: it removes connect/list/convert plumbing — a small,
+stable part of `api/src/mcp-servers/client.ts` — at the price of the three behaviours above, each of
+which carries a guarantee. **Revisit when upstream maps `isError` onto a tool failure**; that is the one
+blocking item, and it is a small upstream change rather than a design disagreement. The version
+constraint still holds for whenever that happens: 2.x tracks `ai` v7 (`@ai-sdk/provider@4` /
+`provider-utils@5`), and 1.0.89 is the `ai` 6.x line (`provider@3.0.18` / `provider-utils@4.0.56`).
 
 ## 2.3 `pruneMessages` — SUPERSEDED by the tiered context management spec (revised twice)
 
@@ -341,5 +350,6 @@ gating every PR, while these simulations deliberately gate nothing.
 Independent of the message-model migration, and safe to land first or in parallel:
 **2.1** (telemetry), **2.3** (prune), **2.4** (timeout).
 
-Coupled to it: **2.2** (`@ai-sdk/mcp`) touches the same tool-construction path where `annotations` must
-start being carried into `toolMetadata`, so it belongs with the migration rather than before it.
+**2.2** (`@ai-sdk/mcp`) was reversed on inspection and is not adopted — see the section, which records
+why so it is not re-litigated. The `annotations` wiring it was coupled to landed with the migration
+regardless, since that is where the audit record needs them.
