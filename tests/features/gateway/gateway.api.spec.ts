@@ -367,4 +367,37 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
 
     assert.ok(cached < uncached, `cached turn (${cached}) must cost less than uncached (${uncached})`)
   })
+
+  test('responses carry usage.cost equal to the recorded credits', async () => {
+    await putSettings(admin, 'user/test-standalone1', {
+      ...settingsData,
+      models: [{ ...settingsData.models[0], inputPricePerMillion: 8_000, outputPricePerMillion: 8_000 }]
+    })
+    const monthly = async () => (await user.get('/api/usage/user/test-standalone1')).data.monthly?.cost ?? 0
+
+    const before = await monthly()
+    const plain = await user.post('/api/gateway/user/test-standalone1/v1/chat/completions', {
+      model: 'assistant', messages: [{ role: 'user', content: 'hello' }]
+    })
+    assert.ok(plain.data.usage.cost > 0)
+    const afterPlain = await monthly()
+    assert.ok(Math.abs((afterPlain - before) - plain.data.usage.cost) < 1e-9)
+
+    const streamed = await user.post('/api/gateway/user/test-standalone1/v1/chat/completions', {
+      model: 'assistant', stream: true, messages: [{ role: 'user', content: 'hello' }]
+    }, { responseType: 'text' })
+    const usageChunk = String(streamed.data).split('\n')
+      .filter((l: string) => l.startsWith('data: {'))
+      .map((l: string) => JSON.parse(l.slice(6)))
+      .find((c: any) => c.usage)
+    assert.ok(usageChunk.usage.cost > 0)
+    assert.ok(Math.abs((await monthly()) - afterPlain - usageChunk.usage.cost) < 1e-9)
+  })
+
+  test('an unpriced model still reports cost 0', async () => {
+    const res = await user.post('/api/gateway/user/test-standalone1/v1/chat/completions', {
+      model: 'assistant', messages: [{ role: 'user', content: 'hello' }]
+    })
+    assert.equal(res.data.usage.cost, 0)
+  })
 })

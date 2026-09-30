@@ -21,7 +21,8 @@ import createDebug from 'debug'
 // provider reports them (Anthropic cache read/write, OpenAI cached_tokens, etc.).
 // The AI SDK normalizes these into usage.inputTokenDetails regardless of provider,
 // so the gateway can forward them uniformly for the debug trace.
-function buildUsage (usage: LanguageModelUsage | undefined) {
+// `cost` is the credits billed for the call (moderation included), always present.
+function buildUsage (usage: LanguageModelUsage | undefined, cost: number) {
   if (!usage) return undefined
   const promptTokens = usage.inputTokens ?? 0
   const completionTokens = usage.outputTokens ?? 0
@@ -31,11 +32,14 @@ function buildUsage (usage: LanguageModelUsage | undefined) {
     prompt_tokens: number
     completion_tokens: number
     total_tokens: number
+    // credits billed for this call (OpenRouter's `usage.cost` convention), moderation included
+    cost: number
     prompt_tokens_details?: { cached_tokens: number, cache_creation_tokens: number }
   } = {
     prompt_tokens: promptTokens,
     completion_tokens: completionTokens,
-    total_tokens: promptTokens + completionTokens
+    total_tokens: promptTokens + completionTokens,
+    cost
   }
   if (cacheRead != null || cacheWrite != null) {
     result.prompt_tokens_details = { cached_tokens: cacheRead ?? 0, cache_creation_tokens: cacheWrite ?? 0 }
@@ -397,7 +401,8 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
               }
             })
           }
-          sseWrite(`data: ${JSON.stringify({ id: completionId, object: 'chat.completion.chunk', created, model: modelId, choices: [{ index: 0, delta: {}, finish_reason: mapFinishReason(gen.finishReason as FinishReason) }], usage: buildUsage(gen.usage) })}\n\n`)
+          if (moderation) await moderation.gate
+          sseWrite(`data: ${JSON.stringify({ id: completionId, object: 'chat.completion.chunk', created, model: modelId, choices: [{ index: 0, delta: {}, finish_reason: mapFinishReason(gen.finishReason as FinishReason) }], usage: buildUsage(gen.usage, credits.total + (moderation?.cost() ?? 0)) })}\n\n`)
           const recordFinishTrace = () => recordTrace(
             { content: streamedText, toolCalls: [...streamedToolCalls.values()], finishReason: mapFinishReason(gen.finishReason as FinishReason) },
             { inputTokens, outputTokens, cacheReadTokens: details?.cacheReadTokens, cacheWriteTokens: details?.cacheWriteTokens },
@@ -499,13 +504,14 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
                 })
               }
 
+              if (moderation) await moderation.gate
               sseWrite(`data: ${JSON.stringify({
               id: completionId,
               object: 'chat.completion.chunk',
               created,
               model: modelId,
               choices: [{ index: 0, delta: {}, finish_reason: mapFinishReason(part.finishReason as FinishReason) }],
-              usage: buildUsage(part.totalUsage)
+              usage: buildUsage(part.totalUsage, credits.total + (moderation?.cost() ?? 0))
             })}\n\n`)
 
               const recordFinishTrace = () => recordTrace(
@@ -654,7 +660,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
           message: responseMessage,
           finish_reason: mapFinishReason(result.finishReason as FinishReason)
         }],
-        usage: buildUsage(result.usage)
+        usage: buildUsage(result.usage, credits.total + (moderation?.cost() ?? 0))
       })
 
       recordTrace(
