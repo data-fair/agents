@@ -200,7 +200,7 @@ const loadHistory = async (conversationId: string, upToSeq: number): Promise<Loa
     )
     .sort({ seq: 1 })
     .toArray()
-  const { messages, seqs } = await storedTurnsToModelMessages(stored as any)
+  const { messages, seqs } = await storedTurnsToModelMessages(stored)
   if (!recap) return { messages, seqs, generation: 0 }
   // The recap is tagged with the last seq it covers, so alignCutToStoredMessage never tries to merge it
   // with the message after it (whose seq is strictly greater).

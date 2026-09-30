@@ -3,7 +3,7 @@
  * should not reference #mongo, #config, store state in memory or import anything else than other operations.ts
  */
 
-import { convertToModelMessages, type ModelMessage } from 'ai'
+import { convertToModelMessages, safeValidateUIMessages, type ModelMessage } from 'ai'
 
 export type RunStatus = 'running' | 'done' | 'error' | 'aborted' | 'interrupted'
 export type RunStopReason = 'completed' | 'step-limit' | 'repeated-calls' | 'budget' | 'timeout' | 'aborted' | 'error'
@@ -159,6 +159,7 @@ export type UIPart = { type: string, [key: string]: unknown }
 
 /** One stored turn, as much of it as the reconstruction needs. */
 export type StoredTurn = {
+  id: string
   role: 'user' | 'assistant'
   parts?: UIPart[]
   author?: { userId?: string, userName?: string }
@@ -259,6 +260,24 @@ const replayableTurn = (turn: StoredTurn): { role: 'user' | 'assistant', parts: 
 export async function storedTurnsToModelMessages (
   turns: StoredTurn[]
 ): Promise<{ messages: ModelMessage[], seqs: number[] }> {
+  // Structure checked against the library's OWN validator, before anything is sent.
+  //
+  // The stored `parts` schema is deliberately loose — the state machine belongs to the library, and
+  // restating it is what produced the drift this migration removed — so nothing else would catch a
+  // document that no longer matches what the library accepts. That is the drift a future SDK upgrade
+  // invites, and its symptom without this check is a provider 400 mid-turn.
+  //
+  // Deliberately WITHOUT `tools`: passing them would validate historical inputs against today's tool
+  // schemas, so a tool whose schema changed would invalidate every old conversation. Revival needs the
+  // structure, not the semantics.
+  //
+  // It THROWS rather than skipping the offending turn. A run that cannot reconstruct its history must
+  // not proceed on a partial one, and the executor turns this into an assistant message that says so —
+  // a silent gap in the context is the failure mode that has to stay impossible.
+  const validation = await safeValidateUIMessages({ messages: turns })
+  if (!validation.success) {
+    throw new Error(`stored conversation cannot be replayed, a message does not match the message model: ${validation.error.message}`)
+  }
   const messages: ModelMessage[] = []
   const seqs: number[] = []
   for (const turn of turns) {

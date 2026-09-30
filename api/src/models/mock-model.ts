@@ -141,6 +141,25 @@ function lastToolResultText (prompt: string | Array<any>): string | undefined {
   return typeof output.value === 'string' ? output.value : JSON.stringify(output.value)
 }
 
+/**
+ * Text of the FIRST tool result anywhere in the prompt, not only at its end.
+ *
+ * `lastToolResultText` reads the answer of the step just taken. This reads what a tool returned on an
+ * EARLIER TURN, which is only in the prompt if the stored conversation replayed its tool results — the
+ * property the storage model exists for, and one no seam could observe before: the mock answered from
+ * the last user message alone, so a history that had silently lost its tool results looked identical.
+ */
+function priorToolResultText (prompt: string | Array<any>): string | undefined {
+  if (!Array.isArray(prompt)) return undefined
+  for (const message of prompt) {
+    if (message.role !== 'tool' || !Array.isArray(message.content)) continue
+    const output = message.content.find((c: any) => c.type === 'tool-result')?.output
+    if (!output) continue
+    return typeof output.value === 'string' ? output.value : JSON.stringify(output.value)
+  }
+  return undefined
+}
+
 /** The visible prompt ends the user message; hidden context (if any) precedes it. */
 function endsWithCommand (lastMessage: string, command: string): boolean {
   return new RegExp(`(^|\\n)${command}\\s*$`, 'i').test(lastMessage.trim())
@@ -196,6 +215,12 @@ function processMockPrompt (lastMessage: string, prompt: string | Array<any>): M
     const state = sentinelBody(lastMessage, 'host-state')
     const events = sentinelBody(lastMessage, 'host-events')
     return { type: 'text', text: state ? `state:\n${state}` : events ? `events:\n${events}` : 'nothing' }
+  }
+  // Cross-TURN recall: answers from a tool result of an earlier turn, so a test can assert that the
+  // stored conversation really replayed it rather than trusting that it did.
+  if (endsWithCommand(lastMessage, 'recall')) {
+    const prior = priorToolResultText(prompt)
+    return { type: 'text', text: prior === undefined ? 'nothing earlier' : `Earlier the tool said: ${prior}` }
   }
   if (endsWithCommand(lastMessage, 'what happened')) {
     const events = sentinelBody(lastMessage, 'host-events')

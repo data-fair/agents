@@ -178,6 +178,20 @@ if (process.env.NODE_ENV === 'development') {
     }
     res.send()
   })
+  /**
+   * Corrupt a stored message's parts, to exercise the read-side validation.
+   *
+   * Only reachable through a deliberate write: the schema's `parts` is loose on purpose, so nothing on
+   * the write path would produce this. That is exactly why the check exists, and why it needs a seam to
+   * be tested at all.
+   */
+  app.post('/api/test-env/corrupt-message', async (req, res) => {
+    await mongo.autonomousAgentMessages.updateOne(
+      { conversationId: req.body.conversationId, seq: req.body.seq },
+      { $set: { parts: req.body.parts } }
+    )
+    res.send()
+  })
   app.post('/api/test-env/recover-ownerless-runs', async (req, res) => {
     res.json(await recoverOwnerlessRuns())
   })

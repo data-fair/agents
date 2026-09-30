@@ -397,17 +397,22 @@ test.describe('Autonomous agent model loop', () => {
     await admin.post('/api/test-env/enrol-autonomous-agent', { agentId })
   }
 
-  const runOnce = async (agentId: string, content: string) => {
-    const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agentId, title: 't' })).data
-    const { runId } = (await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content })).data
+  /** One turn in an EXISTING conversation, so a test can assert what a later turn sees. */
+  const runTurn = async (conversationId: string, content: string) => {
+    const { runId } = (await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conversationId}/messages`, { content })).data
     let run
     for (let i = 0; i < 100; i++) {
       run = (await orgAdmin.get(`/api/autonomous-agent-runs/organization/test1/${runId}`)).data
       if (run.status !== 'running') break
       await new Promise(resolve => setTimeout(resolve, 100))
     }
-    const messages = (await orgAdmin.get(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`)).data.results
+    const messages = (await orgAdmin.get(`/api/autonomous-agent-conversations/organization/test1/${conversationId}/messages`)).data.results
     return { run, messages, assistant: messages.find((m: any) => m.role === 'assistant' && m.runId === runId) }
+  }
+
+  const runOnce = async (agentId: string, content: string) => {
+    const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agentId, title: 't' })).data
+    return runTurn(conv.id, content)
   }
 
   test('a real model turn produces the model\'s answer', async () => {
@@ -464,6 +469,43 @@ test.describe('Autonomous agent model loop', () => {
     // Stored as the model received it, provenance envelope included.
     assert.match(call.output, /echo:x/, 'the stored result must be what the tool actually returned')
     assert.match(call.output, /<tool-result server="dev-public-mcp" tool="echo">/)
+  })
+
+  test("a later turn sees the PREVIOUS turn's tool result, replayed from the store", async () => {
+    // The property the whole storage model exists for, asserted end to end for the first time. Every
+    // other test reads what was WRITTEN; this reads what the model was later SENT. The previous shape
+    // stored a call without its result, so a second turn replayed a call with no answer — and the mock
+    // answered from the last user message alone, which is why losing the result was invisible.
+    const agent = await createAgent({ mcpServers: [{ serverId: 'dev-public-mcp' }] })
+    await enrol(agent.id)
+    const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 't' })).data
+    await runTurn(conv.id, 'call tool echo {"value":"remembered"}')
+
+    const { run, assistant } = await runTurn(conv.id, 'recall')
+    assert.equal(run.status, 'done')
+    assert.match(partsText(assistant.parts), /remembered/, 'the tool result of turn 1 must have reached the model on turn 2')
+  })
+
+  test('a stored message that no longer matches the message model fails the turn, loudly', async () => {
+    // The stored `parts` schema is loose on purpose — the state machine belongs to the library — so
+    // nothing on the write path would catch a document the library no longer accepts. The read-side
+    // validation is the only guard, and its whole point is to fail with an explanation rather than let
+    // a half-reconstructed history reach the provider as a 400.
+    const agent = await createAgent()
+    await enrol(agent.id)
+    const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 't' })).data
+    await runTurn(conv.id, 'hello')
+    await admin.post('/api/test-env/corrupt-message', {
+      conversationId: conv.id,
+      seq: 1,
+      parts: [{ type: 'dynamic-tool', toolCallId: 'c1', toolName: 'echo', state: 'finished-probably' }]
+    })
+
+    const { run, assistant } = await runTurn(conv.id, 'hello')
+    assert.equal(run.status, 'error')
+    // The invariant: a failure is a message, not a silence.
+    assert.ok(partsText(assistant.parts).length > 0, 'a blank bubble is the silent stop this forbids')
+    assert.match(partsText(assistant.parts), /replay/i)
   })
 
   test('recovering a started run does NOT re-execute its tool calls', async () => {

@@ -20,16 +20,25 @@ import {
   type StoredTurn
 } from '../../../api/src/autonomous-agent-runtime/operations.ts'
 
-const userTurn = (text: string, author?: { userId?: string, userName?: string }): StoredTurn => ({
+/**
+ * A stored turn without its id, which the helpers below supply.
+ *
+ * Every stored message has one and the library's validator requires it; leaving it out of the fixtures
+ * keeps each one about the property it is testing. `the stored shape is validated` covers the id itself.
+ */
+type Turn = Omit<StoredTurn, 'id'>
+
+const userTurn = (text: string, author?: { userId?: string, userName?: string }): Turn => ({
   role: 'user', parts: [{ type: 'text', text }], author
 })
 
 /** A tool call and its answer are ONE part in the AI SDK's model, moved through its states. */
-const toolCall = (toolCallId: string, toolName: string, input: unknown, output: string): StoredTurn['parts'] extends (infer P)[] | undefined ? P : never => ({
+const toolCall = (toolCallId: string, toolName: string, input: unknown, output: string) => ({
   type: 'dynamic-tool', toolCallId, toolName, state: 'output-available', input, output
 })
 
-const replay = async (turns: StoredTurn[]) => (await storedTurnsToModelMessages(turns)).messages
+const withIds = (turns: Turn[]): StoredTurn[] => turns.map((turn, index) => ({ id: `m${index}`, ...turn }))
+const replay = async (turns: Turn[]) => (await storedTurnsToModelMessages(withIds(turns))).messages
 
 /** The text of a user message, whose content is a part list like any other. */
 const userText = (message: { content: unknown }) => (message.content as Array<{ text: string }>)[0].text
@@ -199,6 +208,61 @@ test.describe('storedTurnsToModelMessages', () => {
   })
 })
 
+test.describe('the stored shape is validated against the library', () => {
+  // The stored `parts` schema is deliberately loose — the state machine belongs to the library, and
+  // restating it is what produced the drift this migration removed — so the library's own validator is
+  // the only thing that can catch a document it no longer accepts. Without this, the symptom of an SDK
+  // upgrade tightening the model is a provider 400 in the middle of a turn.
+
+  test('a well-formed stored turn passes', async () => {
+    await storedTurnsToModelMessages([{
+      id: 'm1',
+      seq: 1,
+      role: 'assistant',
+      parts: [toolCall('c1', 'echo', { v: 1 }, 'r'), { type: 'step-start' }, { type: 'text', text: 'done' }]
+    }])
+  })
+
+  test('a tool part in a state the library does not define is REJECTED, not sent', async () => {
+    await assert.rejects(
+      storedTurnsToModelMessages([{
+        id: 'm1',
+        role: 'assistant',
+        parts: [{ type: 'dynamic-tool', toolCallId: 'c1', toolName: 'echo', state: 'finished-probably' }]
+      }]),
+      /cannot be replayed/
+    )
+  })
+
+  test('a message with no id is rejected', async () => {
+    // Every stored message has one; a document without it did not come from this executor.
+    await assert.rejects(
+      storedTurnsToModelMessages([{ role: 'assistant', parts: [{ type: 'text', text: 'x' }] } as never]),
+      /cannot be replayed/
+    )
+  })
+
+  test("the message's own extra fields are accepted, since the document is a SUPERSET", async () => {
+    // seq, version and conversationId stay TOP-LEVEL rather than moving under `metadata`: they are
+    // indexed, and `{conversationId, seq}` is unique. The validator ignores them, which is what makes
+    // keeping them free.
+    const { seqs } = await storedTurnsToModelMessages([{
+      id: 'm1', seq: 7, role: 'user', parts: [{ type: 'text', text: 'hi' }], version: 3, conversationId: 'c1'
+    } as StoredTurn])
+    assert.deepEqual(seqs, [7])
+  })
+
+  test("historical tool INPUTS are not validated against today's schemas", async () => {
+    // Deliberate: passing `tools` to the validator would invalidate every conversation that used a tool
+    // whose schema has since changed. Revival needs the structure, not the semantics.
+    const messages = await replay([{
+      role: 'assistant',
+      parts: [toolCall('c1', 'echo', { aFieldTheToolNoLongerAccepts: true }, 'r')]
+    }])
+    assert.equal(((messages[0].content as any[])[0]).toolName, 'echo')
+  })
+})
+
 test.describe('boundToolResult', () => {
   test('keeps a normal result whole and marks nothing', () => {
     const { result, truncated } = boundToolResult('small')
@@ -294,14 +358,14 @@ test.describe('the seq map', () => {
     // The mapping is NOT one-to-one — this turn becomes three model messages — which is exactly why the
     // compaction cut has to be aligned before a recap can be keyed on a seq. The library does not
     // report it, so it is the one part of the reconstruction that is still ours.
-    const { messages, seqs } = await storedTurnsToModelMessages([
+    const { messages, seqs } = await storedTurnsToModelMessages(withIds([
       { seq: 1, role: 'user', parts: [{ type: 'text', text: 'go' }] },
       {
         seq: 2,
         role: 'assistant',
         parts: [toolCall('c1', 'echo', {}, 'r'), { type: 'step-start' }, { type: 'text', text: 'done' }]
       }
-    ])
+    ]))
     assert.deepEqual(messages.map(m => m.role), ['user', 'assistant', 'tool', 'assistant'])
     assert.deepEqual(seqs, [1, 2, 2, 2])
     assert.equal(messages.length, seqs.length, 'one seq per model message, or the cut cannot be mapped')
