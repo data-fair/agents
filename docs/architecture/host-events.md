@@ -175,7 +175,15 @@ mid-conversation gains the tool at the next one. `{ message, expecting, timeoutS
 (default 300s, max 600s). `message` is the model's reply to the person — what is ready and
 what to press — and the chat shows it as the step's text when the step wrote none
 (`applyStreamPart`); `expecting` is only the status label. Before `message` existed, models
-read the « En attente : … » label as their message and handed buttons over in silence. It resolves on **what the person did, not on the next event whatever it
+read the « En attente : … » label as their message and handed buttons over in silence.
+
+**Speaking during a wait** takes the turn back: `sendMessage` aborts the waiting turn and starts
+a new one. An aborted turn never reaches `result.response`, which is where a turn's messages
+normally enter history, so the turn's finished steps are tracked as they complete and committed
+(`commitRunningTurn`) before the new turn pushes its user message; the step still open — the one
+holding the wait — is recorded with a result saying it was interrupted (`interrupted-turn.ts`).
+Stop commits the same way. Without this, judged runs sent the model the person's two messages
+with nothing between, and the assistant denied work it had done and redid it. It resolves on **what the person did, not on the next event whatever it
 is**. The store already separates two kinds of event: an unkeyed transition is something
 that happened, keyed state is what is true now — and state refreshes for many reasons,
 including the assistant's own action finishing late. A wait resolves on a transition, or on
