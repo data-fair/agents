@@ -23,7 +23,8 @@ state, and per-user server compute replaces free client orchestration.
 
 Kept from that analysis: **if a personal conversation ever becomes a server-side artifact** — durable,
 multi-device, resumable — the reversal is right. This design is what makes that a change of one adapter
-rather than a rewrite.
+rather than a rewrite. It is also cheaper than it looked: the gateway has no consumers outside our own
+UI, so the reversal would retire it rather than having to maintain it as a compatibility surface.
 
 ## Principle
 
@@ -44,10 +45,25 @@ Each of these has two genuinely different implementations right now:
 | **Spend** | gateway-owned, per request | executor-owned, per step |
 | **Output** | reactive state, token by token | throttled persist + version notification |
 
-Two notes on that table. The tool port is the one that must **not** be unified — WebMCP and the MCP
-catalog are different tool universes, not two implementations of one (there is no `api/src/tools/`; the
-server-side machinery is entirely new). And the spend port is where the gateway stops being the single
-chokepoint for model calls; that is already true and this makes it explicit instead of incidental.
+Three notes on that table.
+
+**The tool port must not be unified.** WebMCP and the MCP catalog are different tool universes, not two
+implementations of one — there is no `api/src/tools/`, so the server-side machinery is entirely new.
+
+**The gateway has no consumers outside our own UI**, so it carries no compatibility burden and can be
+changed or removed freely. But it is **not merely a model proxy — it is the trust boundary**, and that
+is why the spend and moderation ports are required rather than incidental. Quotas, usage recording and
+moderation must be enforced server-side; for a browser-resident loop the model call is the only place the
+request crosses onto the server, so that is necessarily where enforcement sits. The consequence: the
+gateway cannot be deleted while any loop runs in the browser, however few consumers it has.
+
+**Shared guard code does not mean equal protection.** Verified: the browser evaluates
+`stopWhen: [stepCountIs(STEP_LIMIT), repeatedCallGuard()]` *in the browser*. Those guards are therefore
+**advisory** there — a patched bundle or a devtools session bypasses them — and the real bound is the
+gateway's per-request `enforceQuotas`. The same code in the executor is **enforcing**, because nothing
+between it and the provider is user-controlled. The engine must not let that distinction blur: a reader
+seeing one guard module should not conclude both platforms are equally protected, and any future guard
+that matters for cost or abuse has to have a server-side counterpart when the loop is in the browser.
 
 ## What becomes one implementation
 
@@ -121,6 +137,9 @@ that both call sites route through it.
 - **The loop becomes unit-testable.** Today it is reachable only through HTTP with a mock model, which is
   why a tool failure has never been exercised at any level. With ports, a fake tool provider can fail, a
   fake history can be malformed, and a fake model can return nothing — none of which needs a stack.
+- **It closes the gap toward the SDK's own abstraction.** The browser already uses `ToolLoopAgent`, though
+  only for sub-agents; its main loop and the executor both call `streamText` directly. So the engine is
+  not a novel shape — it is the shape the library offers, which one surface has already adopted in part.
 - **`executor.ts` splits.** At ~890 lines it holds the loop, history, compaction, recovery and tracing;
   extracting the engine forces the three seams the simplicity review named.
 - **The reversal stays available.** If personal conversations become server-side artifacts, that is a new
