@@ -13,6 +13,7 @@ import config from '#config'
 import mongo from '#mongo'
 import { cleanupOldUsage } from './usage/cleanup.ts'
 import { recoverOwnerlessRuns } from './autonomous-agent-runtime/executor.ts'
+import { assertSessionOutlivesRun, ASSERTION_TTL_SECONDS } from './nhi/operations.ts'
 import { canSubscribeAutonomousAgent } from './autonomous-agent-runtime/events.ts'
 
 /**
@@ -73,6 +74,12 @@ export const start = async () => {
   // A restart cannot resume a run (the executor is in-process and non-resumable), so any
   // run still marked running belongs to a dead process. Mark it interrupted so a reader
   // sees an honest terminal state instead of a turn that appears to be thinking forever.
+  // Asserted at API boot, NOT in config.ts: that module is pulled into the UI dev server through a
+  // request-time dynamic import of ui-config.ts, so a cross-module invariant there takes the UI down
+  // with it. config.ts validates config SHAPE; this is a relationship between an api constant and a
+  // config value that only the api runtime cares about.
+  assertSessionOutlivesRun(ASSERTION_TTL_SECONDS, config.autonomousAgentRunTimeoutSeconds)
+
   await recoverOwnerlessRuns()
 
   if (config.privateEventsUrl) {

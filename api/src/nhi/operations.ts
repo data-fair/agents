@@ -30,6 +30,33 @@ export interface NhiPublicJwk {
 }
 
 /**
+ * Assertion lifetime, and therefore session lifetime (see buildAssertionClaims).
+ * nhi-proxy uses 120s because a browser it drives holds the cookie directly; here the
+ * cookie never leaves this process, so 300s cuts exchanges ~15x against the 30m cap
+ * at a cost bounded by the assertion never being exposed.
+ */
+export const ASSERTION_TTL_SECONDS = 300
+
+/**
+ * The session an agent obtains must be able to outlive a whole turn.
+ *
+ * A turn acquires the session once and the MCP transport holds that cookie for the entire tool chain,
+ * so if the assertion TTL is shorter than the run timeout then even a FRESHLY minted session expires
+ * mid-turn and every later tool call comes back 401. The cache's headroom check cannot save that case —
+ * there is no session long enough to satisfy it — so this has to be refused at boot rather than
+ * discovered as intermittent tool failures in production.
+ */
+export function assertSessionOutlivesRun (assertionTtlSeconds: number, runTimeoutSeconds: number): void {
+  if (assertionTtlSeconds < runTimeoutSeconds) {
+    throw new Error(
+      `invalid NHI config: the assertion TTL (${assertionTtlSeconds}s) is shorter than the autonomous ` +
+      `agent run timeout (${runTimeoutSeconds}s), so an agent's session would expire mid-turn and its ` +
+      'tool calls would start failing with 401. Raise the TTL or lower the run timeout.'
+    )
+  }
+}
+
+/**
  * Fail-fast boot validation, mirroring assertGlobalAiConfig/assertGlobalMcpConfig.
  *
  * The whole NHI feature is optional: a deployment with no signing key simply does not
@@ -162,11 +189,19 @@ export function buildAssertionClaims (opts: {
 }
 
 /**
- * Refresh at 80% of the session's lifetime rather than on expiry, so a call never
- * races the cutoff. Also true for an already-expired session.
+ * Does this cached session need replacing before it is used for `minRemainingMs` of work?
+ *
+ * The question is whether the session outlives the WORK, not whether it is past some fraction of its
+ * own lifetime. It used to refresh at 80% of the assertion TTL, which reused a session with as little as
+ * 60s left — while a turn may legitimately run for the whole run timeout (300s). That matters because
+ * the MCP transport is constructed once per turn with the cookie fixed in its headers and held open for
+ * the duration: nothing refreshes a credential mid-chain, so every tool call after expiry comes back
+ * 401 and the model reports it as a tool failure.
+ *
+ * Refreshing on the boundary rather than after it keeps equality off the knife edge.
  */
-export function shouldRefreshSession (expiresAtMs: number, nowMs: number, ttlMs: number): boolean {
-  return nowMs >= expiresAtMs - ttlMs * 0.2
+export function shouldRefreshSession (expiresAtMs: number, nowMs: number, minRemainingMs: number): boolean {
+  return expiresAtMs - nowMs <= minRemainingMs
 }
 
 /**

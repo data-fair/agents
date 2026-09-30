@@ -7,7 +7,7 @@ import { httpError, reqSiteUrl } from '@data-fair/lib-express'
 import type { Request } from 'express'
 import { SignJWT, importJWK } from 'jose'
 import axios from '@data-fair/lib-node/axios.js'
-import { toPublicJwk, nhiIssuerUrl, buildAssertionClaims, shouldRefreshSession, autonomousAgentSubject, exchangeHeaders, nhiExchangeUrl, sanitizeExchangeError, type NhiPrivateJwk, type NhiPublicJwk } from './operations.ts'
+import { toPublicJwk, nhiIssuerUrl, buildAssertionClaims, shouldRefreshSession, autonomousAgentSubject, exchangeHeaders, nhiExchangeUrl, sanitizeExchangeError, type NhiPrivateJwk, type NhiPublicJwk, ASSERTION_TTL_SECONDS } from './operations.ts'
 
 /** The whole NHI feature is off when no signing key is configured. */
 export const nhiEnabled = () => !!config.nhiSigningKey
@@ -34,14 +34,6 @@ export const getNhiDiscovery = (req: Request): { issuer: string, jwks_uri: strin
 }
 
 export const getNhiJwks = (): { keys: NhiPublicJwk[] } => ({ keys: [toPublicJwk(requireNhi())] })
-
-/**
- * Assertion lifetime, and therefore session lifetime (see buildAssertionClaims).
- * nhi-proxy uses 120s because a browser it drives holds the cookie directly; here the
- * cookie never leaves this process, so 300s cuts exchanges ~15x against the 30m cap
- * at a cost bounded by the assertion never being exposed.
- */
-export const ASSERTION_TTL_SECONDS = 300
 
 /** The shape the exchange needs off an autonomous agent document. */
 export interface EnrolledAutonomousAgent {
@@ -130,12 +122,18 @@ export const clearAutonomousAgentSession = (autonomousAgentId: string) => { sess
 export const getAutonomousAgentSession = async (autonomousAgent: EnrolledAutonomousAgent): Promise<string> => {
   requireEnrolment(autonomousAgent)
   const cached = sessions.get(autonomousAgent.id)
-  // ASSERTION_TTL_SECONDS stands in for "the session's lifetime" here (shouldRefreshSession's
-  // doc comment) only because simple-directory caps the session at min(assertion.exp, 30m)
-  // and ASSERTION_TTL_SECONDS (300s) is always well under that 30m cap — so the assertion
-  // ttl we requested IS the session's real lifetime, not merely an estimate of it. Passing
-  // ASSERTION_TTL_SECONDS would be wrong the moment either side of that inequality changed.
-  if (cached && !shouldRefreshSession(cached.expiresAtMs, Date.now(), ASSERTION_TTL_SECONDS * 1000)) {
+  // The required headroom is the RUN TIMEOUT, not a fraction of the session's own lifetime. A turn
+  // acquires this cookie once, the MCP transport holds it for the whole chain, and nothing refreshes it
+  // mid-turn — so a session that expires during the turn produces 401s the model reports as tool
+  // failures. Requiring it to outlive the longest a turn may legitimately take removes that class.
+  //
+  // Consequence, accepted deliberately: with ASSERTION_TTL_SECONDS (300s) equal to the run timeout,
+  // this means a fresh exchange per turn in practice. The cross-turn cache is given up on purpose. The
+  // alternative — lengthening the assertion TTL so one session spans several turns — would extend the
+  // life of a credential that is handed to every `nhi-session` MCP server, and the short TTL is the
+  // main thing bounding that blast radius. If the per-client_id exchange rate limit ever becomes the
+  // binding constraint, raising the TTL is the lever, with that trade stated.
+  if (cached && !shouldRefreshSession(cached.expiresAtMs, Date.now(), config.autonomousAgentRunTimeoutSeconds * 1000)) {
     return cached.cookieHeader
   }
   const session = await exchangeForSession(autonomousAgent)

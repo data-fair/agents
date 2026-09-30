@@ -3,7 +3,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { assertNhiConfig, toPublicJwk, nhiIssuerUrl, nhiExchangeUrl, exchangeHeaders, autonomousAgentSubject, buildAssertionClaims, shouldRefreshSession, decodeSessionClaims, sanitizeExchangeError, type NhiPrivateJwk } from '../../../api/src/nhi/operations.ts'
+import { assertNhiConfig, assertSessionOutlivesRun, ASSERTION_TTL_SECONDS, toPublicJwk, nhiIssuerUrl, nhiExchangeUrl, exchangeHeaders, autonomousAgentSubject, buildAssertionClaims, shouldRefreshSession, decodeSessionClaims, sanitizeExchangeError, type NhiPrivateJwk } from '../../../api/src/nhi/operations.ts'
 
 const key: NhiPrivateJwk = {
   kty: 'EC',
@@ -167,19 +167,34 @@ test.describe('buildAssertionClaims', () => {
 })
 
 test.describe('shouldRefreshSession', () => {
-  const ttl = 300_000
+  // The contract is "does this session outlive the work about to be done with it", NOT a fraction of
+  // its own lifetime. The old 80%-of-TTL rule reused a session with as little as 60s left while a turn
+  // may legitimately run for the whole 300s run timeout — and the MCP transport bakes the cookie in at
+  // connect time and holds it for the turn, so nothing refreshes it once a tool chain is under way.
+  // Every tool call after expiry then 401s and the model reports it as a tool problem.
+  const runTimeoutMs = 300_000
 
-  test('does not refresh a fresh session', () => {
-    assert.equal(shouldRefreshSession(1_000_000 + ttl, 1_000_000, ttl), false)
+  test('reuses a session that outlives the work', () => {
+    assert.equal(shouldRefreshSession(1_000_000 + runTimeoutMs + 1, 1_000_000, runTimeoutMs), false)
   })
 
-  test('refreshes once past 80% of the lifetime', () => {
-    // 80% of 300s = 240s in; expiry is at now + 60s
-    assert.equal(shouldRefreshSession(1_000_000 + 60_000, 1_000_000, ttl), true)
+  test('refreshes a session that would expire DURING the work', () => {
+    // 61s of life against a 300s turn: valid right now, useless 61s in.
+    assert.equal(shouldRefreshSession(1_000_000 + 61_000, 1_000_000, runTimeoutMs), true)
+  })
+
+  test('refreshes at the exact boundary, so equality is never a coin toss', () => {
+    assert.equal(shouldRefreshSession(1_000_000 + runTimeoutMs, 1_000_000, runTimeoutMs), true)
   })
 
   test('refreshes an already expired session', () => {
-    assert.equal(shouldRefreshSession(1_000_000 - 1, 1_000_000, ttl), true)
+    assert.equal(shouldRefreshSession(1_000_000 - 1, 1_000_000, runTimeoutMs), true)
+  })
+
+  test('a zero requirement still refuses an expired session', () => {
+    // Guards the degenerate config: no required headroom must not become "reuse anything".
+    assert.equal(shouldRefreshSession(1_000_000 - 1, 1_000_000, 0), true)
+    assert.equal(shouldRefreshSession(1_000_000 + 1, 1_000_000, 0), false)
   })
 })
 
@@ -275,5 +290,27 @@ test.describe('sanitizeExchangeError', () => {
     // actually forbids reintroducing the leak.
     assert.equal('cause' in sanitized, false)
     assert.equal(sanitized.cause, undefined)
+  })
+})
+
+test.describe('assertSessionOutlivesRun', () => {
+  // The precondition the cache's headroom check silently depends on. If the assertion TTL is shorter
+  // than the run timeout then NO session can satisfy that check — even a freshly minted one expires
+  // mid-turn — so every tool call late in a chain would 401. That has to be refused at boot rather than
+  // show up as intermittent tool failures.
+  test('accepts a TTL that covers the run timeout', () => {
+    assert.doesNotThrow(() => assertSessionOutlivesRun(300, 300))
+    assert.doesNotThrow(() => assertSessionOutlivesRun(600, 300))
+  })
+
+  test('refuses a TTL shorter than the run timeout, naming both numbers', () => {
+    assert.throws(() => assertSessionOutlivesRun(120, 300), /120s.*300s|300s.*120s/)
+  })
+
+  test('the shipped values satisfy it', () => {
+    // A drift guard: raising the run timeout past the assertion TTL would otherwise reintroduce the bug
+    // silently, since the boot assertion is the only thing connecting the two.
+    assert.equal(ASSERTION_TTL_SECONDS, 300)
+    assert.doesNotThrow(() => assertSessionOutlivesRun(ASSERTION_TTL_SECONDS, 300))
   })
 })
