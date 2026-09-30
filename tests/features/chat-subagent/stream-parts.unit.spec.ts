@@ -47,9 +47,16 @@ test.describe('applyStreamPart', () => {
 
   test('a wait does not repeat a message the step already wrote', () => {
     const { scope } = makeScope()
-    applyStreamPart({ type: 'text-delta', text: 'Appuyez sur Enregistrer.' }, scope)
-    applyStreamPart({ type: 'tool-call', toolCallId: 'w', toolName: WAIT_TOOL_NAME, input: { message: 'Autre chose', expecting: 'x' } } as any, scope)
-    assert.equal(scope.messages[0].content, 'Appuyez sur Enregistrer.')
+    applyStreamPart({ type: 'text-delta', text: 'Le formulaire est prêt : appuyez sur Enregistrer.' }, scope)
+    applyStreamPart({ type: 'tool-call', toolCallId: 'w', toolName: WAIT_TOOL_NAME, input: { message: 'appuyez sur Enregistrer.', expecting: 'x' } } as any, scope)
+    assert.equal(scope.messages[0].content, 'Le formulaire est prêt : appuyez sur Enregistrer.')
+  })
+
+  test('a wait adds its message after text that does not say it', () => {
+    const { scope } = makeScope()
+    applyStreamPart({ type: 'text-delta', text: 'Voilà.' }, scope)
+    applyStreamPart({ type: 'tool-call', toolCallId: 'w', toolName: WAIT_TOOL_NAME, input: { message: 'Appuyez sur Enregistrer.', expecting: 'x' } } as any, scope)
+    assert.equal(scope.messages[0].content, 'Voilà.\n\nAppuyez sur Enregistrer.')
   })
 
   test('final tool-result settles the matching invocation; preliminary does not', () => {
