@@ -138,4 +138,25 @@ test.describe('self usage endpoint', () => {
     const res = await externalUser.get('/api/gateway/user/test-standalone1/usage').catch((err: any) => err.response ?? err)
     assert.equal(res.status, 403)
   })
+
+  test('the owner of a user account records into its own document, never an external user\'s', async () => {
+    await putSettings(admin, 'user/test-standalone1', settingsData({ external: { unlimited: false, monthlyLimit: 1000 } }))
+    // the external user's record exists alone (no account aggregate yet): an owner write
+    // with no userId clause used to match it, since the upsert took the first document
+    await seedUsage({ type: 'user', id: 'test-standalone1' }, 'test1-user1', 3)
+    const externalBefore = (await externalUser.get('/api/gateway/user/test-standalone1/usage')).data.quota.daily.used
+    assert.equal(externalBefore, 3)
+    const ownerBefore = (await owner.get('/api/gateway/user/test-standalone1/usage')).data.quota.daily.used
+    assert.equal(ownerBefore, 0)
+
+    const res = await owner.post('/api/gateway/user/test-standalone1/v1/chat/completions', {
+      model: 'assistant', messages: [{ role: 'user', content: 'hello' }]
+    })
+    assert.equal(res.status, 200)
+
+    const externalAfter = (await externalUser.get('/api/gateway/user/test-standalone1/usage')).data.quota.daily.used
+    const ownerAfter = (await owner.get('/api/gateway/user/test-standalone1/usage')).data.quota.daily.used
+    assert.equal(externalAfter, externalBefore)
+    assert.ok(ownerAfter > ownerBefore)
+  })
 })
