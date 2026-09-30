@@ -12,7 +12,7 @@ import { app } from './app.ts'
 import config from '#config'
 import mongo from '#mongo'
 import { cleanupOldUsage } from './usage/cleanup.ts'
-import { sweepInterruptedRuns, resumeQueuedRuns } from './autonomous-agent-runtime/executor.ts'
+import { recoverOwnerlessRuns } from './autonomous-agent-runtime/executor.ts'
 import { canSubscribeAutonomousAgent } from './autonomous-agent-runtime/events.ts'
 
 /**
@@ -73,7 +73,7 @@ export const start = async () => {
   // A restart cannot resume a run (the executor is in-process and non-resumable), so any
   // run still marked running belongs to a dead process. Mark it interrupted so a reader
   // sees an honest terminal state instead of a turn that appears to be thinking forever.
-  await sweepInterruptedRuns()
+  await recoverOwnerlessRuns()
 
   if (config.privateEventsUrl) {
     if (!config.secretKeys?.events) {
@@ -88,7 +88,7 @@ export const start = async () => {
   // without a restart. The interval is well inside the 60s lock TTL, so it does not fight a
   // live holder.
   autonomousAgentReaper = setInterval(() => {
-    resumeQueuedRuns().catch(err => console.error('autonomous agent reaper failed', err))
+    recoverOwnerlessRuns().catch(err => console.error('autonomous agent recovery failed', err))
   }, 30 * 1000)
 
   cleanupOldUsage().catch(err => console.error('initial usage cleanup failed', err))

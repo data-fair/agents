@@ -232,8 +232,8 @@ test.describe('Autonomous agent conversations', () => {
     // process is gone. The boot sweep must give it an honest terminal state rather than
     // leave a conversation that appears to be thinking forever.
     await admin.post('/api/test-env/orphan-run', { runId })
-    const swept = await admin.post('/api/test-env/sweep-interrupted-runs', {})
-    assert.ok(swept.data.swept >= 1)
+    const swept = await admin.post('/api/test-env/recover-ownerless-runs', {})
+    assert.ok(swept.data.interrupted >= 1)
 
     const run = (await orgAdmin.get(`/api/autonomous-agent-runs/organization/test1/${runId}`)).data
     assert.equal(run.status, 'interrupted')
@@ -245,24 +245,102 @@ test.describe('Autonomous agent conversations', () => {
     assert.ok(partsText(forRun[0].parts).length > 0)
   })
 
-  test('a run orphaned before its message existed gets one from the sweep', async () => {
+  test('a run that already STARTED is never resumed, only interrupted', async () => {
+    // The whole point of recovery having one rule. runTurn appends the assistant message before
+    // performTurn opens the agent's tools, so "has an assistant message" means the turn began and its
+    // tool calls may already have fired. Resuming such a run re-executes them — at-least-once side
+    // effects on a catalog that may contain writes — and appends a SECOND assistant message, breaking
+    // the invariant that a run leaves exactly one.
+    //
+    // Two mechanisms used to disagree about this population: the boot sweep marked it `interrupted`
+    // while a 30s reaper resumed it.
     const agent = await createAgent()
     const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 't' })).data
     const { runId } = (await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })).data
     await pollRun(runId)
 
-    // The narrower orphan: a process that died between creating the run and appending its
-    // message. The sweep must WRITE one rather than only finalising an existing one.
-    await admin.post('/api/test-env/orphan-run', { runId, dropMessage: true })
-    const swept = await admin.post('/api/test-env/sweep-interrupted-runs', {})
-    assert.ok(swept.data.swept >= 1)
+    await admin.post('/api/test-env/orphan-run', { runId })
+    await admin.post('/api/test-env/recover-ownerless-runs', {})
+    // Long enough that a resume would have produced its message by now.
+    await new Promise(resolve => setTimeout(resolve, 1500))
 
     const run = (await orgAdmin.get(`/api/autonomous-agent-runs/organization/test1/${runId}`)).data
-    assert.equal(run.status, 'interrupted')
+    assert.equal(run.status, 'interrupted', 'a started run must be interrupted, never resumed')
     const forRun = (await orgAdmin.get(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`)).data.results
       .filter((m: any) => m.role === 'assistant' && m.runId === runId)
-    assert.equal(forRun.length, 1, 'the sweep must leave exactly one assistant message')
-    assert.ok(partsText(forRun[0].parts).length > 0)
+    assert.equal(forRun.length, 1, 'resuming would append a second assistant message for the same run')
+    assert.equal(forRun[0].pending, false, 'and would leave the first one pending for ever')
+  })
+
+  test('a run that NEVER started is resumed, because nothing can have fired yet', async () => {
+    // The other half of the rule, and why recovery cannot simply interrupt everything: a process that
+    // died between createRun and appendMessage left a run that has done nothing. Interrupting it would
+    // lose a turn the instructor is waiting for, and resuming it is safe precisely because no tool call
+    // can have happened — the message is created before the tools are opened.
+    const agent = await createAgent()
+    const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 't' })).data
+    const { runId } = (await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })).data
+    await pollRun(runId)
+
+    // Enrolled, so the resumed turn can actually reach a model and produce an answer — otherwise it
+    // refuses for lack of an identity and 'error' would be mistaken for "resume does not work".
+    await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
+    await admin.post('/api/test-env/orphan-run', { runId, dropMessage: true })
+    await admin.post('/api/test-env/recover-ownerless-runs', {})
+
+    const run = await pollRun(runId)
+    assert.equal(run.status, 'done', 'a never-started run must be run, not written off')
+    const forRun = (await orgAdmin.get(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`)).data.results
+      .filter((m: any) => m.role === 'assistant' && m.runId === runId)
+    assert.equal(forRun.length, 1)
+    assert.equal(partsText(forRun[0].parts), 'world', 'the resumed turn really ran')
+  })
+
+  test('a run whose conversation lock is HELD is left alone, on both branches', async () => {
+    // The branch that decides a `running` run is NOT ownerless. Untested until now, and the failure is
+    // destructive rather than inert: another instance is streaming that turn, and recovery would append
+    // "interrupted by a restart" into a live conversation and — because finishRun is conditional on
+    // status 'running' — make the real turn's completion a silent no-op, so the run reports interrupted
+    // for a turn that actually succeeded.
+    const agent = await createAgent()
+    const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 't' })).data
+    const { runId } = (await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })).data
+    await pollRun(runId)
+
+    await admin.post('/api/test-env/orphan-run', { runId })
+    await admin.post('/api/test-env/lock-conversation', { conversationId: conv.id })
+    try {
+      const res = await admin.post('/api/test-env/recover-ownerless-runs', {})
+      assert.equal(res.data.interrupted, 0, 'a lock-held run must not be interrupted')
+      assert.equal(res.data.resumed, 0, 'nor resumed')
+      assert.ok(res.data.skipped >= 1, 'it must be reported as skipped, so the reason is visible')
+      const run = (await orgAdmin.get(`/api/autonomous-agent-runs/organization/test1/${runId}`)).data
+      assert.equal(run.status, 'running', 'the live holder keeps ownership')
+    } finally {
+      await admin.post('/api/test-env/unlock-conversation', { conversationId: conv.id })
+    }
+  })
+
+  test('a resumed run that cannot succeed still ends terminal with exactly one message', async () => {
+    // The harder half of "a run always leaves exactly one assistant message", under the recovery rule.
+    // This used to assert that recovery WROTE the message itself for a message-less orphan; it now
+    // resumes instead, so the invariant has to hold through a turn that refuses. The agent is
+    // deliberately NOT enrolled, so the resumed turn declines for lack of an identity.
+    const agent = await createAgent()
+    const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 't' })).data
+    const { runId } = (await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })).data
+    await pollRun(runId)
+
+    await admin.post('/api/test-env/orphan-run', { runId, dropMessage: true })
+    const recovered = await admin.post('/api/test-env/recover-ownerless-runs', {})
+    assert.equal(recovered.data.resumed, 1, 'a message-less orphan is resumed, not written off')
+
+    const run = await pollRun(runId)
+    assert.ok(run.endedAt, 'it must not be left running for ever')
+    const forRun = (await orgAdmin.get(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`)).data.results
+      .filter((m: any) => m.role === 'assistant' && m.runId === runId)
+    assert.equal(forRun.length, 1, 'exactly one, even when the turn could not run')
+    assert.ok(partsText(forRun[0].parts).length > 0, 'and it explains itself rather than being blank')
     assert.equal(forRun[0].pending, false)
   })
 
@@ -363,6 +441,34 @@ test.describe('Autonomous agent model loop', () => {
     assert.match(result.result, /echo:x/, 'the stored result must be what the tool actually returned')
     assert.match(result.result, /<tool-result server="dev-public-mcp" tool="echo">/)
     assert.notEqual(result.failed, true)
+  })
+
+  test('recovering a started run does NOT re-execute its tool calls', async () => {
+    // The property the recovery rule exists for, asserted on GROUND TRUTH from the MCP server rather
+    // than on a proxy like the message count. A run that already called a tool must never be resumed:
+    // MCP tools are not required to be idempotent, and the operator catalog may contain writes, so
+    // re-running a turn is at-least-once execution of real side effects.
+    const agent = await createAgent({ mcpServers: [{ serverId: 'dev-public-mcp' }] })
+    await enrol(agent.id)
+    const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 't' })).data
+    const { runId } = (await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content: 'call tool echo {"value":"x"}' })).data
+    for (let i = 0; i < 100; i++) {
+      const run = (await orgAdmin.get(`/api/autonomous-agent-runs/organization/test1/${runId}`)).data
+      if (run.status !== 'running') break
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
+    assert.deepEqual(fixture.invokedTools(), ['echo'], 'the turn must have called the tool once')
+
+    // Now manufacture the orphan a dead holder leaves: the run is `running` again, its assistant
+    // message is back to pending, and no lock is held.
+    await admin.post('/api/test-env/orphan-run', { runId })
+    const recovered = await admin.post('/api/test-env/recover-ownerless-runs', {})
+    assert.equal(recovered.data.resumed, 0, 'a started run must not be resumed')
+    assert.ok(recovered.data.interrupted >= 1)
+    // Generous, so a resume would have had time to reach the server.
+    await new Promise(resolve => setTimeout(resolve, 1500))
+
+    assert.deepEqual(fixture.invokedTools(), ['echo'], 'the tool must NOT have run a second time')
   })
 
   test('with two MCP servers, provenance names the server the tool actually came from', async () => {

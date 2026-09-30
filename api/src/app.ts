@@ -9,7 +9,7 @@ import modelsRouter, { getModelsForOwner } from './models/router.ts'
 import catalogRouter from './catalog/router.ts'
 import autonomousAgentsRouter from './autonomous-agents/router.ts'
 import autonomousAgentRuntimeRouter, { runsRouter as autonomousAgentRunsRouter } from './autonomous-agent-runtime/router.ts'
-import { sweepInterruptedRuns } from './autonomous-agent-runtime/executor.ts'
+import { recoverOwnerlessRuns } from './autonomous-agent-runtime/executor.ts'
 import locks from '@data-fair/lib-node/locks.js'
 import nhiRouter from './nhi/router.ts'
 import { clearAutonomousAgentSession } from './nhi/service.ts'
@@ -178,8 +178,8 @@ if (process.env.NODE_ENV === 'development') {
     }
     res.send()
   })
-  app.post('/api/test-env/sweep-interrupted-runs', async (req, res) => {
-    res.json({ swept: await sweepInterruptedRuns() })
+  app.post('/api/test-env/recover-ownerless-runs', async (req, res) => {
+    res.json(await recoverOwnerlessRuns())
   })
   app.post('/api/test-env/usage', async (req, res) => {
     const { owner, cost, userId, userName, period: explicitPeriod, breakdown } = req.body

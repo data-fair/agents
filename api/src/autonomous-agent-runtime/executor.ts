@@ -1,9 +1,12 @@
 /**
  * Runs one turn of an autonomous agent, in this process, asynchronously.
  *
- * Deliberately not resumable: a restart marks an in-flight run `interrupted`
- * (sweepInterruptedRuns) rather than trying to continue it. The spec chose this over
- * distributed run leasing until concurrency demands otherwise.
+ * A turn that has BEGUN is deliberately not resumable: recovery marks it `interrupted`
+ * (recoverOwnerlessRuns) rather than continuing it, because its tool calls may already have fired and
+ * re-running them would execute those side effects twice. A run that never began — no assistant message
+ * yet, so nothing can have happened — is resumed instead. That one rule replaced two mechanisms which
+ * took opposite actions on the identical population. The spec chose this over distributed run leasing
+ * until concurrency demands otherwise.
  *
  * Two invariants hold for every path through this module:
  *  - a run always reaches a terminal status, and
@@ -794,94 +797,67 @@ export const startRun = async (run: AutonomousAgentRun): Promise<void> => {
 }
 
 /**
- * Close out runs orphaned by a restart.
+ * Recover runs that are `running` with nobody running them.
  *
- * The executor is in-process and non-resumable, so any run still marked `running` at boot
- * belongs to a process that is gone. Marking it `interrupted` gives a reader an honest
- * terminal state instead of a turn that appears to be thinking forever.
+ * ONE function with ONE rule, because there are two correct answers and which applies depends on
+ * whether the turn had already begun:
  *
- * Reuses the assistant message the run already created rather than appending a second one.
+ *  - it HAS an assistant message  -> it started, so its tool calls may already have fired. Mark it
+ *    `interrupted`. Re-running it would execute those side effects a second time (at-least-once on a
+ *    catalog that may contain writes) and append a second assistant message for one run.
+ *  - it has NO assistant message  -> it died between createRun and appendMessage, so nothing can have
+ *    happened yet. Resume it: interrupting would throw away a turn the instructor is waiting for.
+ *
+ * `runTurn` appends that message before `performTurn` opens the agent's tools, which is what makes the
+ * test exact rather than a guess.
+ *
+ * This replaced two mechanisms that took OPPOSITE actions on the identical population — a boot sweep
+ * marking them `interrupted` and a 30s reaper resuming them — where only ordering (the sweep runs
+ * first) kept a single-instance deployment from noticing.
+ *
+ * A held conversation lock means another instance is executing that conversation right now, so those
+ * are skipped entirely. Because a lock's TTL is refreshed only by its holder, a dead process's lock
+ * expires and its runs are recovered on a later pass.
  */
-export const sweepInterruptedRuns = async (): Promise<number> => {
+export const recoverOwnerlessRuns = async (): Promise<{ interrupted: number, resumed: number, skipped: number }> => {
   const candidates = await mongo.autonomousAgentRuns
     .find({ status: 'running' }, { projection: { _id: 0 } })
     .toArray()
 
-  // A `running` run does NOT always belong to a dead process: with several API instances (a
-  // rolling restart, or replicas) one of them may be executing it right now. A held
-  // conversation lock is the evidence that someone is, so skip those — and because the lock
-  // doc's TTL is refreshed only by its own holder, a genuinely dead process's lock expires
-  // and its run is swept on a later pass.
   const heldLocks = new Set(
     (await mongo.db.collection<{ _id: string }>('locks')
-      .find({ _id: { $regex: '^autonomous-agent-conversation:' } }, { projection: { _id: 1 } }).toArray())
-      .map(doc => String(doc._id).replace('autonomous-agent-conversation:', ''))
+      .find({ _id: { $regex: `^${conversationLockId('')}` } }, { projection: { _id: 1 } }).toArray())
+      .map(doc => String(doc._id).slice(conversationLockId('').length))
   )
-  const orphaned = candidates.filter(run => !heldLocks.has(run.conversationId))
-  const skipped = candidates.length - orphaned.length
+  const ownerless = candidates.filter(run => !heldLocks.has(run.conversationId) && !liveRuns.has(run.id))
+  const skipped = candidates.length - ownerless.length
 
-  for (const run of orphaned) {
+  let interrupted = 0
+  let resumed = 0
+  for (const run of ownerless) {
     const existing = await mongo.autonomousAgentMessages.findOne(
       { runId: run.id, role: 'assistant' },
       { projection: { _id: 0 } }
     )
+    if (!existing) {
+      resumed++
+      // Not awaited as a group: each acquires the conversation lock itself and drains from there.
+      startRun(run).catch(err => console.error('autonomous agent run failed to resume', err))
+      continue
+    }
+    interrupted++
     // stopReason has no 'interrupted' member — the status carries that — so the reason is
     // 'error' with the restart named as the detail.
     const notice = runStopReasonMessage('error', 'interrupted by a restart')
-    if (existing) {
-      await updateMessage(existing.id, {
-        parts: withAppendedText(existing.parts as any, notice),
-        pending: false
-      })
-    } else {
-      const conversation = await mongo.autonomousAgentConversations.findOne(
-        { id: run.conversationId },
-        { projection: { _id: 0 } }
-      )
-      if (conversation) {
-        await appendMessage(conversation, {
-          role: 'assistant',
-          author: { kind: 'autonomous-agent', userName: conversation.title },
-          parts: [{ type: 'text', text: notice }],
-          runId: run.id,
-          pending: false
-        })
-      }
-    }
+    await updateMessage(existing.id, {
+      parts: withAppendedText(existing.parts as any, notice),
+      pending: false
+    })
     await finishRun(run.id, { status: 'interrupted', stopReason: 'error', error: 'interrupted by a restart' })
   }
 
-  if (orphaned.length) {
-    console.log(`[autonomous-agents] swept ${orphaned.length} run(s) left running by a previous process`)
-  }
-  if (skipped) {
-    console.log(`[autonomous-agents] left ${skipped} running run(s) alone: their conversation lock is still held, so another instance is executing them`)
-  }
-  return orphaned.length
-}
-
-/**
- * Recover a conversation whose run is queued with nobody to run it.
- *
- * `startRun` returns silently when the lock is held, trusting the holder to come back for the
- * run. If the holder died, its lock lingers for up to the lock TTL and then vanishes — at
- * which point nothing is watching, and the run would sit `running` until somebody happened to
- * post to that conversation again. This picks those up: a run whose conversation lock is NOT
- * held and which no live turn in this process owns.
- */
-export const resumeQueuedRuns = async (): Promise<number> => {
-  const queued = await mongo.autonomousAgentRuns
-    .find({ status: 'running' }, { projection: { _id: 0 } })
-    .toArray()
-  let resumed = 0
-  for (const run of queued) {
-    if (liveRuns.has(run.id)) continue
-    const locked = await mongo.db.collection<{ _id: string }>('locks')
-      .findOne({ _id: `autonomous-agent-conversation:${run.conversationId}` })
-    if (locked) continue
-    resumed++
-    // Not awaited as a group: each acquires the lock itself and drains its conversation.
-    startRun(run).catch(err => console.error('autonomous agent queued run failed to resume', err))
-  }
-  return resumed
+  if (interrupted) console.log(`[autonomous-agents] interrupted ${interrupted} started run(s) left behind by a dead process`)
+  if (resumed) console.log(`[autonomous-agents] resumed ${resumed} run(s) that had not started yet`)
+  if (skipped) console.log(`[autonomous-agents] left ${skipped} running run(s) alone: another instance holds their conversation`)
+  return { interrupted, resumed, skipped }
 }
