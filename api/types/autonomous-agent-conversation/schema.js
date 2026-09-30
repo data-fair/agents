@@ -21,6 +21,11 @@ export default {
     },
     title: { type: 'string' },
     createdAt: { type: 'string', format: 'date-time' },
+    // Declared because the service WRITES it — bumpConversationVersion and appendMessage both $set it.
+    // With additionalProperties: false and no declaration, every stored conversation violated its own
+    // schema and the generated type lacked a field the collection always has. The other three
+    // autonomous-agent schemas all declare theirs.
+    updatedAt: { type: 'string', format: 'date-time' },
     lastMessageAt: { type: 'string', format: 'date-time' },
     // monotonic, starts at 1 — see nextMessageSeq
     messageSeq: { type: 'number', minimum: 0 },

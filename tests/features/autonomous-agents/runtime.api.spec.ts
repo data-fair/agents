@@ -347,6 +347,24 @@ test.describe('Autonomous agent conversations', () => {
     assert.equal(forRun[0].pending, false)
   })
 
+  test('a stored conversation satisfies its own schema', async () => {
+    // The schema has additionalProperties: false, and the service $sets updatedAt on every version bump
+    // and every appended message — but never declared it. So every live document violated its schema and
+    // the generated type lacked a field the collection always has. Nothing validates on write, so only a
+    // test comparing the document to the declared properties catches it.
+    const agent = await createAgent()
+    const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 't' })).data
+    await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })
+
+    const stored = (await orgAdmin.get(`/api/autonomous-agent-conversations/organization/test1?autonomousAgentId=${agent.id}`))
+      .data.results.find((c: any) => c.id === conv.id)
+    const schema = (await import('../../../api/types/autonomous-agent-conversation/schema.js')).default
+    const declared = new Set(Object.keys(schema.properties))
+    const undeclared = Object.keys(stored).filter(k => !declared.has(k))
+    assert.deepEqual(undeclared, [], `stored keys not in the schema: ${undeclared.join(', ')}`)
+    assert.ok(declared.has('updatedAt') && stored.updatedAt, 'updatedAt is written, so it must be declared')
+  })
+
   test('a run of another account cannot be read', async () => {
     const agent = await createAgent()
     const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 't' })).data
