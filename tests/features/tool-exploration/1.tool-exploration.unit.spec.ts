@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { selectPromotions, formatToolsAvailableMessage, newlyAvailableTools, EXPLORE_TOOL_NAME } from '@agents/shared/tool-exploration'
+import { selectPromotions, formatToolsAvailableMessage, newlyAvailableTools, EXPLORE_TOOL_NAME } from '../../../ui/src/utils/tool-exploration.ts'
 
 test.describe('selectPromotions', () => {
   test('keeps only requested names that exist in the available set', () => {

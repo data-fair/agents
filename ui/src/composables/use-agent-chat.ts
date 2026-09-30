@@ -5,7 +5,7 @@ import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import type { ModelMessage, Tool } from 'ai'
 import { getTabChannelId } from '@data-fair/lib-vue-agents'
 import { FrameClientAggregator } from '~/transports/frame-client-aggregator'
-import { createExploreTool, formatToolsAvailableMessage, newlyAvailableTools, EXPLORE_TOOL_NAME } from '@agents/shared/tool-exploration'
+import { createExploreTool, formatToolsAvailableMessage, newlyAvailableTools, EXPLORE_TOOL_NAME } from '~/utils/tool-exploration'
 import { shouldFlattenSubAgent } from '~/composables/sub-agent-flatten'
 import { reconcileTools } from '~/composables/live-tools'
 import { $apiPath } from '~/context'
@@ -19,8 +19,8 @@ import { decideContextManagement, retainedToolNames } from '@agents/shared/compa
 import { compactionSystemPrompt, recapMessage } from '@agents/shared/compaction-prompt'
 import Debug from 'debug'
 import type { ChatActivity } from './agent-activity.ts'
-import { applyStreamPart, type StreamScope, type StreamPart } from '@agents/shared/agent-stream-parts'
-import { SUBAGENT_STEP_LIMIT_NOTICE, subAgentModelOutput } from '@agents/shared/agent-subagent-output'
+import { applyStreamPart, type StreamScope, type StreamPart } from '~/utils/agent-stream-parts'
+import { SUBAGENT_STEP_LIMIT_NOTICE, subAgentModelOutput } from '~/utils/agent-subagent-output'
 import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep, STREAM_IDLE_TIMEOUT_MS } from '@agents/shared/agent-loop-guards'
 import { HostEventStore, createWaitTool, appendHostEvents, formatHostEvents, formatHostState, hasHostState, WAIT_TOOL_NAME } from './host-events'
 import { useHostEvents } from './use-host-events'
@@ -67,7 +67,7 @@ const DEFAULT_TIMEOUT_RESPONSE = 'The assistant took too long to respond, so the
 
 // Moved to the shared workspace so the server-side autonomous agent runtime can use
 // the same type; re-exported here for this module's existing consumers.
-export type { ChatMessage } from '@agents/shared/chat-message'
+export type { ChatMessage } from '~/utils/chat-message'
 
 export interface ToolInfo {
   name: string

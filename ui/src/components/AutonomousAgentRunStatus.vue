@@ -101,7 +101,7 @@ import { useI18n } from 'vue-i18n'
 import { getUiNotif } from '@data-fair/lib-vue/ui-notif.js'
 import { $apiPath, $fetch } from '~/context'
 import { isDynamicToolUIPart } from 'ai'
-import type { StoredAutonomousAgentMessage } from '@agents/shared/autonomous-agent-chat-message'
+import type { StoredAutonomousAgentMessage } from '~/utils/autonomous-agent-chat-message'
 import { summarizeToolArguments } from '@agents/shared/tool-arguments'
 
 const props = defineProps<{

@@ -4,7 +4,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { autonomousAgentMessageToChat, autonomousAgentMessagesToChat, mergeBySeq, type StoredAutonomousAgentMessage } from '@agents/shared/autonomous-agent-chat-message'
+import { autonomousAgentMessageToChat, autonomousAgentMessagesToChat, mergeBySeq, type StoredAutonomousAgentMessage } from '../../../ui/src/utils/autonomous-agent-chat-message.ts'
 
 const base: StoredAutonomousAgentMessage = {
   seq: 1,

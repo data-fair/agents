@@ -113,6 +113,14 @@ The rule: **`shared/` holds what both platforms consume.** UI-only modules move 
 That is a precondition for the engine, not a tidy-up, because the engine's contract is "everything in
 `shared/` is platform-neutral by construction".
 
+**Implemented.** The five UI-only modules moved to `ui/src/utils/`, and
+`tests/features/shared-contract/shared-contract.unit.spec.ts` now enforces the rule in both
+directions — every shared module must have an api consumer AND a ui consumer — plus that no shared
+module imports a platform-only alias (`#…`, `~/…`, or a reach into `api/`/`ui/`). `shared/` is now
+six modules, all genuinely shared: the five above plus `tool-arguments`, which the message-model
+migration added when the trace and the run-status strip came to need one bounded rendering of a
+call's arguments.
+
 ## Dependencies
 
 This design is downstream of both queued specs and should not start before them:

@@ -11,7 +11,7 @@
 import { computed, onScopeDispose, ref, watch } from 'vue'
 import { $apiPath, $fetch } from '~/context'
 import { conversationChannel } from '@agents/shared/autonomous-agent-channel'
-import { autonomousAgentMessagesToChat, mergeBySeq, type StoredAutonomousAgentMessage } from '@agents/shared/autonomous-agent-chat-message'
+import { autonomousAgentMessagesToChat, mergeBySeq, type StoredAutonomousAgentMessage } from '~/utils/autonomous-agent-chat-message'
 import useWS from '@data-fair/lib-vue/ws.js'
 
 export interface AutonomousAgentConversationOptions {

@@ -17,7 +17,7 @@ declare global {
   const CHARS_PER_TOKEN: typeof import('../src/utils/compaction-policy').CHARS_PER_TOKEN
   const DEFAULT_FLAGS: typeof import('../src/utils/agent-flags').DEFAULT_FLAGS
   const DEFAULT_REFUSAL: typeof import('../src/composables/moderation')['DEFAULT_REFUSAL']
-  const EXPLORE_TOOL_NAME: typeof import('../src/composables/tool-exploration').EXPLORE_TOOL_NAME
+  const EXPLORE_TOOL_NAME: typeof import('../src/utils/tool-exploration').EXPLORE_TOOL_NAME
   const EffectScope: typeof import('vue').EffectScope
   const FLAGS_COOKIE: typeof import('../src/utils/agent-flags').FLAGS_COOKIE
   const FLOOR_SHARE: typeof import('../src/utils/compaction-policy').FLOOR_SHARE
@@ -34,21 +34,23 @@ declare global {
   const REPEATED_CALL_LIMIT: typeof import('../src/composables/agent-loop-guards').REPEATED_CALL_LIMIT
   const REPEATED_CALL_NUDGE_AT: typeof import('../src/composables/agent-loop-guards').REPEATED_CALL_NUDGE_AT
   const RETENTION_SHARE: typeof import('../src/utils/compaction-policy').RETENTION_SHARE
-  const SELECT_TOOL_NAME: typeof import('../src/composables/tool-exploration').SELECT_TOOL_NAME
+  const SELECT_TOOL_NAME: typeof import('../src/utils/tool-exploration').SELECT_TOOL_NAME
   const STATE_MAX_KEYS: typeof import('../src/composables/host-events').STATE_MAX_KEYS
   const STEP_LIMIT: typeof import('../src/composables/agent-loop-guards').STEP_LIMIT
-  const SUBAGENT_DONE_FALLBACK: typeof import('../src/composables/agent-subagent-output').SUBAGENT_DONE_FALLBACK
-  const SUBAGENT_MODERATION_NOTICE: typeof import('../src/composables/agent-subagent-output').SUBAGENT_MODERATION_NOTICE
-  const SUBAGENT_PARTIAL_PREFIX: typeof import('../src/composables/agent-subagent-output').SUBAGENT_PARTIAL_PREFIX
-  const SUBAGENT_STEP_LIMIT_NOTICE: typeof import('../src/composables/agent-subagent-output').SUBAGENT_STEP_LIMIT_NOTICE
+  const SUBAGENT_DONE_FALLBACK: typeof import('../src/utils/agent-subagent-output').SUBAGENT_DONE_FALLBACK
+  const SUBAGENT_MODERATION_NOTICE: typeof import('../src/utils/agent-subagent-output').SUBAGENT_MODERATION_NOTICE
+  const SUBAGENT_PARTIAL_PREFIX: typeof import('../src/utils/agent-subagent-output').SUBAGENT_PARTIAL_PREFIX
+  const SUBAGENT_STEP_LIMIT_NOTICE: typeof import('../src/utils/agent-subagent-output').SUBAGENT_STEP_LIMIT_NOTICE
   const WAIT_DEFAULT_SECONDS: typeof import('../src/composables/host-events').WAIT_DEFAULT_SECONDS
   const WAIT_MAX_SECONDS: typeof import('../src/composables/host-events').WAIT_MAX_SECONDS
   const WAIT_TOOL_NAME: typeof import('../src/composables/host-events').WAIT_TOOL_NAME
   const activityLabelKey: typeof import('../src/composables/agent-activity').activityLabelKey
   const appendHostEvents: typeof import('../src/composables/host-events').appendHostEvents
   const appendStreamingCaret: typeof import('../src/utils/markdown').appendStreamingCaret
-  const applyStreamPart: typeof import('../src/composables/agent-stream-parts').applyStreamPart
+  const applyStreamPart: typeof import('../src/utils/agent-stream-parts').applyStreamPart
   const autonomousAgentEditDraft: typeof import('../src/utils/autonomous-agent-draft').autonomousAgentEditDraft
+  const autonomousAgentMessageToChat: typeof import('../src/utils/autonomous-agent-chat-message').autonomousAgentMessageToChat
+  const autonomousAgentMessagesToChat: typeof import('../src/utils/autonomous-agent-chat-message').autonomousAgentMessagesToChat
   const breadcrumbs: typeof import('../src/utils/breadcrumbs').default
   const breakdownDatasets: typeof import('../src/utils/usage-breakdown').breakdownDatasets
   const buildMermaidThemeVariables: typeof import('../src/utils/mermaid').buildMermaidThemeVariables
@@ -57,7 +59,7 @@ declare global {
   const computed: typeof import('vue').computed
   const computedDeepDiff: typeof import('@data-fair/lib-vue/deep-diff.js').computedDeepDiff
   const createApp: typeof import('vue').createApp
-  const createExploreTool: typeof import('../src/composables/tool-exploration').createExploreTool
+  const createExploreTool: typeof import('../src/utils/tool-exploration').createExploreTool
   const createReactiveSearchParams: typeof import('../src/composables/use-webmcp')['createReactiveSearchParams']
   const createRouter: typeof import('vue-router').createRouter
   const createToolTitleMemo: typeof import('../src/composables/tool-titles').createToolTitleMemo
@@ -91,7 +93,7 @@ declare global {
   const formatHostState: typeof import('../src/composables/host-events').formatHostState
   const formatMcpToolResult: typeof import('../src/utils/tool-result').formatMcpToolResult
   const formatMermaidFix: typeof import('../src/utils/mermaid-fix').formatMermaidFix
-  const formatToolsAvailableMessage: typeof import('../src/composables/tool-exploration').formatToolsAvailableMessage
+  const formatToolsAvailableMessage: typeof import('../src/utils/tool-exploration').formatToolsAvailableMessage
   const getAnonymousToken: typeof import('../src/composables/use-anonymous-token').getAnonymousToken
   const getCurrentInstance: typeof import('vue').getCurrentInstance
   const getCurrentScope: typeof import('vue').getCurrentScope
@@ -112,7 +114,8 @@ declare global {
   const looksLikeIncompleteTable: typeof import('../src/utils/markdown').looksLikeIncompleteTable
   const loopGuardPrepareStep: typeof import('../src/composables/agent-loop-guards').loopGuardPrepareStep
   const markRaw: typeof import('vue').markRaw
-  const newlyAvailableTools: typeof import('../src/composables/tool-exploration').newlyAvailableTools
+  const mergeBySeq: typeof import('../src/utils/autonomous-agent-chat-message').mergeBySeq
+  const newlyAvailableTools: typeof import('../src/utils/tool-exploration').newlyAvailableTools
   const nextTick: typeof import('vue').nextTick
   const onActivated: typeof import('vue').onActivated
   const onBeforeMount: typeof import('vue').onBeforeMount
@@ -150,7 +153,7 @@ declare global {
   const resolveComponent: typeof import('vue').resolveComponent
   const resolvesWait: typeof import('../src/composables/host-events').resolvesWait
   const retainedToolNames: typeof import('../src/utils/compaction-policy').retainedToolNames
-  const selectPromotions: typeof import('../src/composables/tool-exploration').selectPromotions
+  const selectPromotions: typeof import('../src/utils/tool-exploration').selectPromotions
   const serializeFlagsCookie: typeof import('../src/utils/agent-flags').serializeFlagsCookie
   const setBreadcrumbs: typeof import('../src/utils/breadcrumbs').setBreadcrumbs
   const shallowReactive: typeof import('vue').shallowReactive
@@ -159,7 +162,7 @@ declare global {
   const shouldAutoFixMermaid: typeof import('../src/utils/mermaid-fix').shouldAutoFixMermaid
   const shouldFlattenSubAgent: typeof import('../src/composables/sub-agent-flatten').shouldFlattenSubAgent
   const streamingSafeBuffer: typeof import('../src/utils/markdown').streamingSafeBuffer
-  const subAgentModelOutput: typeof import('../src/composables/agent-subagent-output').subAgentModelOutput
+  const subAgentModelOutput: typeof import('../src/utils/agent-subagent-output').subAgentModelOutput
   const toRaw: typeof import('vue').toRaw
   const toRef: typeof import('vue').toRef
   const toRefs: typeof import('vue').toRefs
@@ -224,6 +227,12 @@ declare global {
   export type { AgentFlags } from '../src/utils/agent-flags'
   import('../src/utils/agent-flags')
   // @ts-ignore
+  export type { StreamMessage, StreamPart, ActivityPhase, StreamScope } from '../src/utils/agent-stream-parts'
+  import('../src/utils/agent-stream-parts')
+  // @ts-ignore
+  export type { StoredAutonomousAgentMessage, AutonomousAgentPart } from '../src/utils/autonomous-agent-chat-message'
+  import('../src/utils/autonomous-agent-chat-message')
+  // @ts-ignore
   export type { MermaidAutoFixState } from '../src/utils/mermaid-fix'
   import('../src/utils/mermaid-fix')
   // @ts-ignore
@@ -276,6 +285,7 @@ declare module 'vue' {
     readonly $uiConfig: UnwrapRef<typeof import('~/context')['$uiConfig']>
     readonly AUTONOMOUS_AGENT_WRITABLE_KEYS: UnwrapRef<typeof import('../src/utils/autonomous-agent-draft')['AUTONOMOUS_AGENT_WRITABLE_KEYS']>
     readonly DEFAULT_FLAGS: UnwrapRef<typeof import('../src/utils/agent-flags')['DEFAULT_FLAGS']>
+    readonly EXPLORE_TOOL_NAME: UnwrapRef<typeof import('../src/utils/tool-exploration')['EXPLORE_TOOL_NAME']>
     readonly EffectScope: UnwrapRef<typeof import('vue')['EffectScope']>
     readonly FLAGS_COOKIE: UnwrapRef<typeof import('../src/utils/agent-flags')['FLAGS_COOKIE']>
     readonly HOST_EVENTS_CLOSE: UnwrapRef<typeof import('../src/composables/host-events')['HOST_EVENTS_CLOSE']>
@@ -287,14 +297,22 @@ declare module 'vue' {
     readonly MERMAID_AUTO_FIX_BUDGET: UnwrapRef<typeof import('../src/utils/mermaid-fix')['MERMAID_AUTO_FIX_BUDGET']>
     readonly PENDING_MAX: UnwrapRef<typeof import('../src/composables/host-events')['PENDING_MAX']>
     readonly RECENT_MAX: UnwrapRef<typeof import('../src/composables/host-events')['RECENT_MAX']>
+    readonly SELECT_TOOL_NAME: UnwrapRef<typeof import('../src/utils/tool-exploration')['SELECT_TOOL_NAME']>
     readonly STATE_MAX_KEYS: UnwrapRef<typeof import('../src/composables/host-events')['STATE_MAX_KEYS']>
+    readonly SUBAGENT_DONE_FALLBACK: UnwrapRef<typeof import('../src/utils/agent-subagent-output')['SUBAGENT_DONE_FALLBACK']>
+    readonly SUBAGENT_MODERATION_NOTICE: UnwrapRef<typeof import('../src/utils/agent-subagent-output')['SUBAGENT_MODERATION_NOTICE']>
+    readonly SUBAGENT_PARTIAL_PREFIX: UnwrapRef<typeof import('../src/utils/agent-subagent-output')['SUBAGENT_PARTIAL_PREFIX']>
+    readonly SUBAGENT_STEP_LIMIT_NOTICE: UnwrapRef<typeof import('../src/utils/agent-subagent-output')['SUBAGENT_STEP_LIMIT_NOTICE']>
     readonly WAIT_DEFAULT_SECONDS: UnwrapRef<typeof import('../src/composables/host-events')['WAIT_DEFAULT_SECONDS']>
     readonly WAIT_MAX_SECONDS: UnwrapRef<typeof import('../src/composables/host-events')['WAIT_MAX_SECONDS']>
     readonly WAIT_TOOL_NAME: UnwrapRef<typeof import('../src/composables/host-events')['WAIT_TOOL_NAME']>
     readonly activityLabelKey: UnwrapRef<typeof import('../src/composables/agent-activity')['activityLabelKey']>
     readonly appendHostEvents: UnwrapRef<typeof import('../src/composables/host-events')['appendHostEvents']>
     readonly appendStreamingCaret: UnwrapRef<typeof import('../src/utils/markdown')['appendStreamingCaret']>
+    readonly applyStreamPart: UnwrapRef<typeof import('../src/utils/agent-stream-parts')['applyStreamPart']>
     readonly autonomousAgentEditDraft: UnwrapRef<typeof import('../src/utils/autonomous-agent-draft')['autonomousAgentEditDraft']>
+    readonly autonomousAgentMessageToChat: UnwrapRef<typeof import('../src/utils/autonomous-agent-chat-message')['autonomousAgentMessageToChat']>
+    readonly autonomousAgentMessagesToChat: UnwrapRef<typeof import('../src/utils/autonomous-agent-chat-message')['autonomousAgentMessagesToChat']>
     readonly breadcrumbs: UnwrapRef<typeof import('../src/utils/breadcrumbs')['default']>
     readonly breakdownDatasets: UnwrapRef<typeof import('../src/utils/usage-breakdown')['breakdownDatasets']>
     readonly buildMermaidThemeVariables: UnwrapRef<typeof import('../src/utils/mermaid')['buildMermaidThemeVariables']>
@@ -302,6 +320,7 @@ declare module 'vue' {
     readonly computed: UnwrapRef<typeof import('vue')['computed']>
     readonly computedDeepDiff: UnwrapRef<typeof import('@data-fair/lib-vue/deep-diff.js')['computedDeepDiff']>
     readonly createApp: UnwrapRef<typeof import('vue')['createApp']>
+    readonly createExploreTool: UnwrapRef<typeof import('../src/utils/tool-exploration')['createExploreTool']>
     readonly createToolTitleMemo: UnwrapRef<typeof import('../src/composables/tool-titles')['createToolTitleMemo']>
     readonly createWaitTool: UnwrapRef<typeof import('../src/composables/host-events')['createWaitTool']>
     readonly customRef: UnwrapRef<typeof import('vue')['customRef']>
@@ -317,6 +336,7 @@ declare module 'vue' {
     readonly formatHostState: UnwrapRef<typeof import('../src/composables/host-events')['formatHostState']>
     readonly formatMcpToolResult: UnwrapRef<typeof import('../src/utils/tool-result')['formatMcpToolResult']>
     readonly formatMermaidFix: UnwrapRef<typeof import('../src/utils/mermaid-fix')['formatMermaidFix']>
+    readonly formatToolsAvailableMessage: UnwrapRef<typeof import('../src/utils/tool-exploration')['formatToolsAvailableMessage']>
     readonly getAnonymousToken: UnwrapRef<typeof import('../src/composables/use-anonymous-token')['getAnonymousToken']>
     readonly getCurrentInstance: UnwrapRef<typeof import('vue')['getCurrentInstance']>
     readonly getCurrentScope: UnwrapRef<typeof import('vue')['getCurrentScope']>
@@ -334,6 +354,8 @@ declare module 'vue' {
     readonly isShallow: UnwrapRef<typeof import('vue')['isShallow']>
     readonly looksLikeIncompleteTable: UnwrapRef<typeof import('../src/utils/markdown')['looksLikeIncompleteTable']>
     readonly markRaw: UnwrapRef<typeof import('vue')['markRaw']>
+    readonly mergeBySeq: UnwrapRef<typeof import('../src/utils/autonomous-agent-chat-message')['mergeBySeq']>
+    readonly newlyAvailableTools: UnwrapRef<typeof import('../src/utils/tool-exploration')['newlyAvailableTools']>
     readonly nextTick: UnwrapRef<typeof import('vue')['nextTick']>
     readonly onActivated: UnwrapRef<typeof import('vue')['onActivated']>
     readonly onBeforeMount: UnwrapRef<typeof import('vue')['onBeforeMount']>
@@ -365,6 +387,7 @@ declare module 'vue' {
     readonly resetAnonymousToken: UnwrapRef<typeof import('../src/composables/use-anonymous-token')['resetAnonymousToken']>
     readonly resolveComponent: UnwrapRef<typeof import('vue')['resolveComponent']>
     readonly resolvesWait: UnwrapRef<typeof import('../src/composables/host-events')['resolvesWait']>
+    readonly selectPromotions: UnwrapRef<typeof import('../src/utils/tool-exploration')['selectPromotions']>
     readonly serializeFlagsCookie: UnwrapRef<typeof import('../src/utils/agent-flags')['serializeFlagsCookie']>
     readonly setBreadcrumbs: UnwrapRef<typeof import('../src/utils/breadcrumbs')['setBreadcrumbs']>
     readonly shallowReactive: UnwrapRef<typeof import('vue')['shallowReactive']>
@@ -373,6 +396,7 @@ declare module 'vue' {
     readonly shouldAutoFixMermaid: UnwrapRef<typeof import('../src/utils/mermaid-fix')['shouldAutoFixMermaid']>
     readonly shouldFlattenSubAgent: UnwrapRef<typeof import('../src/composables/sub-agent-flatten')['shouldFlattenSubAgent']>
     readonly streamingSafeBuffer: UnwrapRef<typeof import('../src/utils/markdown')['streamingSafeBuffer']>
+    readonly subAgentModelOutput: UnwrapRef<typeof import('../src/utils/agent-subagent-output')['subAgentModelOutput']>
     readonly toRaw: UnwrapRef<typeof import('vue')['toRaw']>
     readonly toRef: UnwrapRef<typeof import('vue')['toRef']>
     readonly toRefs: UnwrapRef<typeof import('vue')['toRefs']>
