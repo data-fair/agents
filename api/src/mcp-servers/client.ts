@@ -110,6 +110,14 @@ export interface OpenAutonomousAgentTools {
   tools: Record<string, Tool>
   /** Which server each tool actually came from, for provenance and audit. */
   serverByTool: Map<string, string>
+  /**
+   * The MCP `annotations` each tool declared — `readOnlyHint`, `destructiveHint` and the rest.
+   *
+   * Recorded per call on the stored message, because they are what makes a write auditable after the
+   * fact and are the input P1's approval gate reads. They were listed by the diagnostic endpoint and
+   * dropped on the path that actually runs a tool, which is the path where they matter.
+   */
+  annotationsByTool: Map<string, Record<string, unknown>>
   /** MUST be called when the turn is over: until then the connections stay open. */
   close: () => Promise<void>
 }
@@ -125,11 +133,13 @@ export interface OpenAutonomousAgentTools {
 export const openAutonomousAgentTools = async (autonomousAgent: AutonomousAgentForTools): Promise<OpenAutonomousAgentTools> => {
   const tools: Record<string, Tool> = {}
   const serverByTool = new Map<string, string>()
+  const annotationsByTool = new Map<string, Record<string, unknown>>()
   const close = await forEachListedTool(autonomousAgent, (t, server, client) => {
     // Last-write-wins on a name collision across servers, matching the browser
     // aggregator's Object.assign semantics — and the provenance map follows the same
     // winner, so the recorded server is the one whose tool will actually run.
     serverByTool.set(t.name, server.id)
+    if (t.annotations) annotationsByTool.set(t.name, t.annotations as Record<string, unknown>)
     tools[t.name] = tool({
       description: t.description ?? '',
       inputSchema: jsonSchema((t.inputSchema as any) ?? { type: 'object', properties: {} }),
@@ -140,11 +150,21 @@ export const openAutonomousAgentTools = async (autonomousAgent: AutonomousAgentF
         // discards structuredContent, so that check could only reject an otherwise
         // usable call over a value we throw away.
         const callResult = await client.request({ method: 'tools/call', params: { name: t.name, arguments: args } }, CallToolResultSchema)
-        return formatMcpToolResult(callResult as any)
+        const formatted = formatMcpToolResult(callResult as any)
+        // An MCP tool reports its OWN failure with `isError`, which is not a transport error and so
+        // does not reject on its own. Rethrown as one, because that is the only thing the model loop
+        // treats as a failure: returned as a value, the turn recorded a failed call in the exact shape
+        // of a successful one — the conflation that hid a broken tool path for a whole plan. The AI SDK
+        // turns this into a `tool-error` part, so the call is stored `output-error` and the model is
+        // handed it as `error-text` rather than as data.
+        if ((callResult as { isError?: boolean }).isError) {
+          throw new Error(typeof formatted === 'string' ? formatted : formatted.text ?? 'Tool execution failed')
+        }
+        return formatted
       }
     })
   }, { keepConnectionsOpen: true })
-  return { tools, serverByTool, close }
+  return { tools, serverByTool, annotationsByTool, close }
 }
 
 export interface McpToolDescriptor {

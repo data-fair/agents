@@ -440,11 +440,11 @@ const performTurn = async (run: AutonomousAgentRun, messageSeq: number, messageI
   // Connections stay OPEN for the whole turn: a tool's execute closes over its client, and
   // the MCP SDK's close() clears the transport, so closing early makes every call reject
   // with 'Not connected'. Released in the finally below.
-  const { tools: rawTools, serverByTool, close: closeTools } = await openAutonomousAgentTools(autonomousAgent)
+  const { tools: rawTools, serverByTool, annotationsByTool, close: closeTools } = await openAutonomousAgentTools(autonomousAgent)
   const tools = withProvenance(rawTools, name => serverByTool.get(name) ?? 'unknown')
 
   try {
-    return await runModelLoop({ run, messageSeq, messageId, abortSignal, model, entry, tools, settings, budget, serverByTool, autonomousAgent })
+    return await runModelLoop({ run, messageSeq, messageId, abortSignal, model, entry, tools, settings, budget, serverByTool, annotationsByTool, autonomousAgent })
   } finally {
     // The turn is over (normally, by throw, or by abandonment): release the MCP connections.
     await closeTools()
@@ -470,11 +470,12 @@ interface ModelLoopContext {
   settings: Awaited<ReturnType<typeof getSettings>>
   budget: number
   serverByTool: Map<string, string>
+  annotationsByTool: Map<string, Record<string, unknown>>
   autonomousAgent: AutonomousAgent
 }
 
 const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
-  const { run, messageSeq, messageId, abortSignal, model, entry, tools, settings, budget, serverByTool, autonomousAgent } = ctx
+  const { run, messageSeq, messageId, abortSignal, model, entry, tools, settings, budget, serverByTool, annotationsByTool, autonomousAgent } = ctx
   const identity = usageIdentityFor(autonomousAgent)
 
   const compacted = await compactHistory(
@@ -667,7 +668,10 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
         // so a revived turn has to replay the call the model actually made. The summary is for the
         // trace, which is a description rather than a record.
         input: (part as any).input,
-        toolMetadata: { serverId: serverByTool.get(part.toolName) }
+        toolMetadata: {
+          serverId: serverByTool.get(part.toolName),
+          ...(annotationsByTool.get(part.toolName) ? { annotations: annotationsByTool.get(part.toolName) } : {})
+        }
       })
     }
     // The RESULT, stored because the conversation is revivable: without it a later turn replays a

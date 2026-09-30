@@ -471,6 +471,37 @@ test.describe('Autonomous agent model loop', () => {
     assert.match(call.output, /<tool-result server="dev-public-mcp" tool="echo">/)
   })
 
+  test('a tool that FAILS is recorded as a failure, not as a result', async () => {
+    // The conflation this shape exists to make impossible, and the assertion that was unwritable until
+    // the fixture had a tool that could fail: every fixture tool succeeded, so a failed call stored in
+    // the exact shape of a successful one looked correct. The MCP tool reports `isError` rather than
+    // throwing — the case the client used to return as ordinary data.
+    const agent = await createAgent({ mcpServers: [{ serverId: 'dev-public-mcp' }] })
+    await enrol(agent.id)
+    const { run, assistant } = await runOnce(agent.id, 'call tool explode {}')
+    assert.deepEqual(fixture.invokedTools(), ['explode'], 'the tool must actually have been reached')
+    const call = toolCalls(assistant).find((c: any) => c.toolName === 'explode')
+    assert.ok(call, 'expected the failed call to be recorded at all')
+    assert.equal(call.state, 'output-error', 'a failure is the part\'s STATE, so nothing downstream can drop it')
+    assert.match(call.errorText, /nothing to explode/, 'and it carries what the tool said')
+    // A failed tool does not stop the turn: the model is handed the error and keeps going.
+    assert.equal(run.status, 'done')
+    assert.ok(partsText(assistant.parts).length > 0, 'the turn still answers rather than going blank')
+  })
+
+  test("a tool's MCP annotations are recorded on the call", async () => {
+    // readOnlyHint / destructiveHint are what make a write auditable after the fact, and they are the
+    // input P1's approval gate reads. They were listed by the diagnostic endpoint and dropped on the
+    // path that actually runs a tool — the one path where they matter.
+    const agent = await createAgent({ mcpServers: [{ serverId: 'dev-public-mcp' }] })
+    await enrol(agent.id)
+    const { assistant } = await runOnce(agent.id, 'call tool wipe_everything {}')
+    const call = toolCalls(assistant).find((c: any) => c.toolName === 'wipe_everything')
+    assert.ok(call)
+    assert.equal(call.toolMetadata.annotations.destructiveHint, true)
+    assert.equal(call.toolMetadata.annotations.readOnlyHint, false)
+  })
+
   test("a later turn sees the PREVIOUS turn's tool result, replayed from the store", async () => {
     // The property the whole storage model exists for, asserted end to end for the first time. Every
     // other test reads what was WRITTEN; this reads what the model was later SENT. The previous shape

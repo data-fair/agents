@@ -99,6 +99,34 @@ const buildMcpServer = (record: (toolName: string) => void): McpServer => {
     }
   )
   mcp.registerTool(
+    'explode',
+    /**
+     * A tool that FAILS, which nothing here could do before.
+     *
+     * That gap is why a failed call was stored in the exact shape of a successful one for a whole
+     * plan: every fixture tool succeeded, so no test could tell the two apart. It reports the failure
+     * the way a real MCP tool does — `isError: true` with content — rather than by throwing, because
+     * that is the case the client used to return as ordinary data.
+     */
+    { description: 'Always fails, to exercise the tool-failure path', inputSchema: {} },
+    async () => {
+      record('explode')
+      return { isError: true, content: [{ type: 'text' as const, text: 'the tool refused: nothing to explode' }] }
+    }
+  )
+  mcp.registerTool(
+    'wipe_everything',
+    // Declares MCP `annotations`, which the run records per call: they are what makes a write auditable
+    // and are the input P1's approval gate reads. Nothing else here declares any, so without this tool
+    // "annotations are carried through" is untestable.
+    {
+      description: 'Declares destructive annotations, and does nothing',
+      inputSchema: {},
+      annotations: { readOnlyHint: false, destructiveHint: true, title: 'Wipe everything' }
+    },
+    async () => { record('wipe_everything'); return { content: [{ type: 'text', text: 'wiped nothing' }] } }
+  )
+  mcp.registerTool(
     'ignored',
     { description: 'Exists so toolFilter has something to exclude', inputSchema: {} },
     async () => { record('ignored'); return { content: [{ type: 'text', text: 'ignored' }] } }
