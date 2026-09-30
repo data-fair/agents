@@ -56,7 +56,6 @@ test.describe('Chat consumption tab', () => {
     await goToWithAuth('/agents/organization/test1/chat', 'test1-contrib1', { org: 'test1' })
     await page.getByRole('textbox').fill('hello')
     await page.keyboard.press('Enter')
-    // the AI SDK retries a 429 (2s then 4s backoff) before surfacing it
-    await expect(page.getByText(/Your daily AI quota is used up\. It resets on/)).toBeVisible({ timeout: 20000 })
+    await expect(page.getByText(/Your daily AI quota is used up\. It resets on/)).toBeVisible()
   })
 })

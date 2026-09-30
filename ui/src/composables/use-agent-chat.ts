@@ -1,6 +1,6 @@
 import { isEmptyTurn } from './empty-turn'
 import { ref, watch, onScopeDispose, type WatchStopHandle } from 'vue'
-import { streamText, generateText, stepCountIs, tool, jsonSchema, ToolLoopAgent } from 'ai'
+import { streamText, generateText, stepCountIs, tool, jsonSchema, ToolLoopAgent, APICallError } from 'ai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import type { ModelMessage, Tool } from 'ai'
 import { getTabChannelId } from '@data-fair/lib-vue-agents'
@@ -363,13 +363,24 @@ export function useAgentChat (options: UseAgentChatOptions) {
     return res
   }
 
-  const noteResponse = async (res: Response): Promise<Response> => {
-    if (res.status === 429) usageVersion.value++
+  const noteResponse = async (res: Response, input: RequestInfo | URL): Promise<Response> => {
+    if (res.status === 429) {
+      usageVersion.value++
+      // A quota 429 is final until the window resets: the AI SDK would retry it
+      // (twice, ~7s) before surfacing the readable message. Upstream provider
+      // rate limits (no rate_limit_error type) keep the SDK's default retries.
+      const text = await res.clone().text().catch(() => '')
+      let body: any
+      try { body = JSON.parse(text) } catch { body = undefined }
+      if (body?.error?.type === 'rate_limit_error') {
+        throw new APICallError({ message: body.error.message, url: String(input), requestBodyValues: {}, statusCode: 429, responseBody: text, isRetryable: false })
+      }
+    }
     return watchResponseCost(noteStorageHeader(res), cost => { conversationCost.value += cost })
   }
 
   const gatewayFetch: typeof fetch = async (input, init) => {
-    if (!isAnonymous()) return noteResponse(await fetch(input, init))
+    if (!isAnonymous()) return noteResponse(await fetch(input, init), input)
     const withToken = async (token: string) => {
       const headers = new Headers(init?.headers as HeadersInit | undefined)
       headers.set('x-anonymous-token', token)
@@ -380,7 +391,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
       resetAnonymousToken()
       res = await withToken(await getAnonymousToken())
     }
-    return noteResponse(res)
+    return noteResponse(res, input)
   }
 
   const fetchSelfUsage = async (): Promise<SelfUsage> => {
