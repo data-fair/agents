@@ -174,7 +174,9 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
     assert.equal(res.data.error.message, 'Daily cost quota exceeded')
     assert.equal(res.data.error.type, 'rate_limit_error')
     assert.equal(res.data.error.scope, 'untrusted')
-    assert.equal(res.data.error.limit, 1)
+    // the pool is a shared budget: its numbers are not disclosed to an external caller
+    assert.equal(res.data.error.limit, undefined)
+    assert.equal(res.data.error.period, 'daily')
     assert.ok(res.data.error.resets_at)
   })
 
@@ -262,7 +264,9 @@ test.describe('Gateway API - OpenAI-compatible proxy', () => {
     assert.equal(res.status, 429)
     assert.equal(res.data.error.message, 'Daily cost quota exceeded')
     assert.equal(res.data.error.scope, 'untrusted')
-    assert.equal(res.data.error.limit, 1)
+    // the pool is a shared budget: its numbers are not disclosed to an anonymous caller
+    assert.equal(res.data.error.limit, undefined)
+    assert.equal(res.data.error.period, 'daily')
   })
 
   test('anonymous request without token is rejected', async () => {

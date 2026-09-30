@@ -18,7 +18,9 @@ import { assertCanUseModel, assertRoleQuota, getEffectiveRole, type EffectiveRol
 import { assertAnonymousActionToken } from '../anonymous-token/service.ts'
 import { getUsage, getMonthlyResetsAt } from './service.ts'
 import { getCreditInfo } from '../limits/service.ts'
-import { firstQuotaViolation, isUntrustedRole, type QuotaCheckInput, type QuotaExceeded } from './operations.ts'
+import { firstQuotaViolation, isUntrustedRole, quotaWindows, type QuotaExceeded, type SelfUsage } from './operations.ts'
+
+export type { SelfUsage } from './operations.ts'
 
 type Quotas = NonNullable<Settings['quotas']>
 
@@ -82,16 +84,11 @@ export async function resolveUsageIdentity (req: Request, owner: AccountKeys, qu
 }
 
 /**
- * Enforce the org-wide credit cap, then the untrusted-pool and per-user
- * quotas, in that order. Returns the first violation (for a 429 response) or
- * null when within all limits.
- *
- * The account-wide cap is no longer a quota: it is enforced from the
- * account's credits limit (customers-pushed, or the configured default) and
- * checked first, short-circuiting even when the caller's own profile quota
- * is unlimited.
+ * The shared-budget checks: the org-wide credit cap, then (untrusted callers
+ * only) the anonymous+external pool. First of enforceQuotas()'s checks, and
+ * what the self-usage view reports as the account status.
  */
-export async function enforceQuotas (owner: AccountKeys, quotas: Quotas, identity: UsageIdentity): Promise<QuotaExceeded | null> {
+export async function accountViolation (owner: AccountKeys, quotas: Quotas, identity: UsageIdentity): Promise<QuotaExceeded | null> {
   // org-wide cap from the limits API (customers-pushed, or the configured default)
   const { limit, consumption } = await getCreditInfo(owner)
   if (limit >= 0 && consumption >= limit) {
@@ -106,25 +103,51 @@ export async function enforceQuotas (owner: AccountKeys, quotas: Quotas, identit
     }
   }
 
-  const checks: (QuotaCheckInput | null)[] = []
-
   // combined anonymous + external pool — caps untrusted traffic as a group
   if (identity.isUntrusted) {
     const poolLimits = quotas.untrusted
     if (poolLimits && !poolLimits.unlimited && poolLimits.monthlyLimit) {
       const usage = await getUsage(owner, UNTRUSTED_POOL_ID)
-      checks.push({ usage, limits: poolLimits, scope: 'untrusted' })
+      return firstQuotaViolation([{ usage, limits: poolLimits, scope: 'untrusted' }])
     }
   }
+  return null
+}
+
+/**
+ * Enforce the shared budgets (see accountViolation), then the per-user (or
+ * per-IP) quota. Returns the first violation (for a 429 response) or null.
+ */
+export async function enforceQuotas (owner: AccountKeys, quotas: Quotas, identity: UsageIdentity): Promise<QuotaExceeded | null> {
+  const shared = await accountViolation(owner, quotas, identity)
+  if (shared) return shared
 
   // per-user (or per-IP) role cap
   if (identity.trackPerUser) {
     const roleLimits = quotas[identity.role]
     if (roleLimits && !roleLimits.unlimited && roleLimits.monthlyLimit) {
       const usage = await getUsage(owner, identity.usageUserId)
-      checks.push({ usage, limits: roleLimits, scope: 'user' })
+      return firstQuotaViolation([{ usage, limits: roleLimits, scope: 'user' }])
     }
   }
+  return null
+}
 
-  return firstQuotaViolation(checks)
+/**
+ * What a caller may know about their own consumption: their own quota windows,
+ * and the shared budgets as a status — with numbers only for an admin of the owner.
+ */
+export async function getSelfUsage (owner: AccountKeys, quotas: Quotas, identity: UsageIdentity): Promise<SelfUsage> {
+  const isAdmin = identity.role === 'admin'
+  const [usage, violation, credits] = await Promise.all([
+    // untracked callers (owner of a user account) consume the account aggregate
+    getUsage(owner, identity.trackPerUser ? identity.usageUserId : undefined),
+    accountViolation(owner, quotas, identity),
+    isAdmin ? getCreditInfo(owner) : Promise.resolve(null)
+  ])
+  // a per-profile quota is only enforced for per-user tracked callers
+  const quota = quotaWindows(usage, identity.trackPerUser ? quotas[identity.role] : undefined)
+  const account: SelfUsage['account'] = violation ? { status: 'exhausted', resetsAt: violation.resetsAt } : { status: 'ok' }
+  if (credits && credits.limit >= 0) Object.assign(account, { used: credits.consumption, limit: credits.limit })
+  return { role: identity.role, quota, account }
 }

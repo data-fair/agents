@@ -103,7 +103,7 @@ export async function getUsage (owner: AccountKeys, userId?: string): Promise<Us
   const weeklyPeriod = getWeeklyPeriod()
   const monthlyPeriod = getMonthlyPeriod()
 
-  const filter = { 'owner.type': owner.type, 'owner.id': owner.id, ...(userId ? { userId } : {}) }
+  const filter = { 'owner.type': owner.type, 'owner.id': owner.id, userId: userId ?? { $exists: false } }
 
   const [daily, weekly, monthly] = await Promise.all([
     mongo.usage.findOne({ ...filter, period: dailyPeriod }),

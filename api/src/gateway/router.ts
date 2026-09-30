@@ -6,8 +6,8 @@ import { getSettings, defaultQuotas } from '../settings/service.ts'
 import { streamedToolCallsBroken, contextBudget, OPENAI_COMPATIBLE_PROVIDER_NAME } from '../models/operations.ts'
 import { resolveRoleModel, resolveRoleEntry, type ResolvedRoleModel } from '../models/service.ts'
 import { recordUsage } from '../usage/service.ts'
-import { computeCreditBreakdown } from '../usage/operations.ts'
-import { resolveUsageIdentity, enforceQuotas } from '../usage/enforce.ts'
+import { computeCreditBreakdown, quotaErrorBody } from '../usage/operations.ts'
+import { resolveUsageIdentity, enforceQuotas, getSelfUsage } from '../usage/enforce.ts'
 import { convertOpenAITools, convertOpenAIMessages, convertToolChoice, mapFinishReason, supportsMediaToolResults, injectMediaAsUserMessages } from './operations.ts'
 import type { OpenAIMessage, OpenAIToolDefinition, OpenAIToolChoice, FinishReason } from './operations.ts'
 import { recordTraceRequest } from '../traces/service.ts'
@@ -52,6 +52,21 @@ type ModelId = typeof MODEL_IDS[number]
 function isValidModelId (id: string): id is ModelId {
   return MODEL_IDS.includes(id as ModelId)
 }
+
+// The caller's own consumption: same identity resolution (and 401/403) as a
+// completion, so it reports exactly the usage that the gateway enforces.
+router.get('/:type/:id/usage', async (req, res, next) => {
+  try {
+    const sessionState = reqSession(req)
+    const owner = req.params as unknown as AccountKeys
+    const settings = await getSettings(owner)
+    const quotas = settings.quotas ?? defaultQuotas
+    const identity = await resolveUsageIdentity(req, owner, quotas, sessionState, isAuthenticated(sessionState))
+    res.json(await getSelfUsage(owner, quotas, identity))
+  } catch (err) {
+    next(err)
+  }
+})
 
 // OpenAI-compatible chat completions endpoint
 router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
@@ -161,16 +176,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
 
     const quotaCheck = await enforceQuotas(owner, quotas, identity)
     if (quotaCheck) {
-      res.status(429).json({
-        error: {
-          message: quotaCheck.reason,
-          type: 'rate_limit_error',
-          scope: quotaCheck.scope,
-          usage: quotaCheck.usage,
-          limit: quotaCheck.limit,
-          resets_at: quotaCheck.resetsAt
-        }
-      })
+      res.status(429).json({ error: quotaErrorBody(quotaCheck, identity.role === 'admin') })
       return
     }
 
