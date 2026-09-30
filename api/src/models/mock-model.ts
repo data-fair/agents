@@ -82,9 +82,26 @@ function wasAnnounced (prompt: string | Array<any>, toolName: string): boolean {
   return prompt.some((p: any) => isToolsAvailableNotice(p.content) && messageText(p.content).includes(toolName))
 }
 
+/**
+ * Unwrap the autonomous runtime's attribution envelope.
+ *
+ * Every instructor turn is replayed as `<message from="..." user-id="...">…</message>` so the model
+ * cannot be fooled about who wrote it. A real provider sees that envelope; the mock's TEST SEAMS want
+ * the text a test actually typed.
+ *
+ * Stripped once here rather than in each matcher: `endsWithCommand` looks at the end of the message and
+ * `commandLine` at its last line, and with the envelope in place both saw `</message>` — so directives
+ * silently stopped matching and every seam fell through to "what do you mean ?". One strip at extraction
+ * keeps whole-message equality, endsWithCommand and commandLine all working unchanged.
+ */
+const stripAttributionEnvelope = (text: string): string => {
+  const match = /^<message\b[^>]*>\n([\s\S]*)\n<\/message>$/.exec(text.trim())
+  return match ? match[1] : text
+}
+
 function getLastUserMessage (options: { prompt: string | Array<any> }): string {
   if (typeof options.prompt === 'string') {
-    return options.prompt
+    return stripAttributionEnvelope(options.prompt)
   }
   if (Array.isArray(options.prompt)) {
     // The client's loop guard injects a per-step "you have called X with the same
@@ -97,11 +114,11 @@ function getLastUserMessage (options: { prompt: string | Array<any> }): string {
     if (lastUserMsg) {
       const content = lastUserMsg.content
       if (typeof content === 'string') {
-        return content
+        return stripAttributionEnvelope(content)
       }
       if (Array.isArray(content)) {
         const textPart = content.find((c: any) => c.type === 'text') as any
-        return textPart?.text || ''
+        return stripAttributionEnvelope(textPart?.text || '')
       }
     }
   }
@@ -418,8 +435,8 @@ function processForModel (modelId: string, options: { prompt: string | Array<any
   // return an empty completion (no text, no tool call), "stream error" makes the
   // stream fail mid-flight. Both previously ended the conversation silently.
   // commandLine(), not whole-message equality: anything the caller prepends ahead of the
-  // visible directive — a <host-state> block, or the autonomous runtime's `[from <author>]`
-  // attribution line — would otherwise stop these seams matching. Exactly the failure the
+  // visible directive — a <host-state> block, or the autonomous runtime's <message from=...>
+  // attribution envelope — would otherwise stop these seams matching. Exactly the failure the
   // comment on commandLine() describes.
   const directive = commandLine(lastMessage).toLowerCase()
   if (directive === 'empty') return { type: 'text', text: '' }
