@@ -37,7 +37,7 @@ import { resolveRoleModel } from '../models/service.ts'
 import { contextBudget } from '../models/operations.ts'
 import { computeCreditBreakdown } from '../usage/operations.ts'
 import { openAutonomousAgentTools } from '../mcp-servers/client.ts'
-import { enforceQuotas, type UsageIdentity } from '../usage/enforce.ts'
+import { enforceQuotas, checkAccountCreditCap, type UsageIdentity } from '../usage/enforce.ts'
 import { recordUsage } from '../usage/service.ts'
 
 /**
@@ -95,6 +95,8 @@ interface TurnResult {
   steps: number
   credits: number
   stopReason: RunStopReason
+  /** Which ceiling stopped it, when the stop reason alone would be ambiguous. */
+  stopDetail?: string
 }
 
 /**
@@ -473,6 +475,10 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   // rather than only the assistant's steps. A compaction is charged to the account either way; this is
   // what makes it count against the ceiling too.
   let credits = compacted.credits
+  // Why the loop stopped spending, when it did. The per-run budget and the ACCOUNT cap both stop the
+  // turn, and a reader needs to know which: one is this turn being greedy, the other is the
+  // organization being out of credit, and only the second is actionable by an admin.
+  let stopDetail: string | undefined
   let budgetExceeded = false
   // Turn totals for the trace, taken from the same place spend comes from so the trace, the
   // usage records and the run cannot disagree.
@@ -537,7 +543,23 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
           }
         })
       }
-      if (credits >= config.autonomousAgentRunCredits) budgetExceeded = true
+      // The ACCOUNT cap, re-read after recording this step. enforceQuotas ran once before the loop, so
+      // a turn that was under the cap when it started could spend its whole per-run budget past an
+      // exhausted one — and since nothing caps concurrent runs, N conversations posted together each
+      // overshot by that much. Checking between steps bounds the overshoot to about one step per run.
+      //
+      // Deliberately only the account cap, not all of enforceQuotas: the role and pool checks are about
+      // the caller and cannot change mid-run, while this is the shared resource other runs are draining.
+      //
+      // Checked BEFORE the per-run budget so that when both ceilings are crossed by the same step, the
+      // reader is told the one an admin can act on. Either way the turn stops.
+      const accountCap = await checkAccountCreditCap(run.owner)
+      if (accountCap) {
+        budgetExceeded = true
+        stopDetail = `${accountCap.reason} (${accountCap.scope}, ${accountCap.period} limit ${accountCap.limit}, used ${accountCap.usage}). Resets at ${accountCap.resetsAt}.`
+      } else if (credits >= config.autonomousAgentRunCredits) {
+        budgetExceeded = true
+      }
     },
     abortSignal
   })
@@ -687,6 +709,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
     parts: emptyCompletion ? withAppendedText(parts, EMPTY_COMPLETION_MESSAGE) : parts,
     steps,
     credits,
+    stopDetail,
     stopReason: emptyCompletion ? 'error' : stopReason
   }
 }
@@ -746,7 +769,7 @@ export const runTurn = async (run: AutonomousAgentRun): Promise<void> => {
     const result = await Promise.race([performTurn(run, message.seq, message.id, abortController.signal), deadline])
     // A turn that stopped for a reason other than finishing explains itself, appended to
     // whatever it did manage to produce.
-    const notice = result.stopReason === 'completed' ? '' : runStopReasonMessage(result.stopReason)
+    const notice = result.stopReason === 'completed' ? '' : runStopReasonMessage(result.stopReason, result.stopDetail)
     await updateMessage(message.id, {
       parts: (notice ? withAppendedText(result.parts, notice) : result.parts) as any,
       pending: false

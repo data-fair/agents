@@ -91,8 +91,15 @@ export async function resolveUsageIdentity (req: Request, owner: AccountKeys, qu
  * checked first, short-circuiting even when the caller's own profile quota
  * is unlimited.
  */
-export async function enforceQuotas (owner: AccountKeys, quotas: Quotas, identity: UsageIdentity): Promise<QuotaExceeded | null> {
-  // org-wide cap from the limits API (customers-pushed, or the configured default)
+/**
+ * The org-wide credit cap from the limits API (customers-pushed, or the configured default).
+ *
+ * Extracted from enforceQuotas because it has a SECOND caller: a long autonomous run re-checks it
+ * between steps. The rest of enforceQuotas is about the caller's role and pool, which cannot change
+ * mid-run; this is the shared account resource, and it can be exhausted by other runs while this one
+ * is still going. One definition so the two cannot disagree about when the cap is reached.
+ */
+export async function checkAccountCreditCap (owner: AccountKeys): Promise<QuotaExceeded | null> {
   const { limit, consumption } = await getCreditInfo(owner)
   if (limit >= 0 && consumption >= limit) {
     return {
@@ -105,6 +112,12 @@ export async function enforceQuotas (owner: AccountKeys, quotas: Quotas, identit
       resetsAt: getMonthlyResetsAt()
     }
   }
+  return null
+}
+
+export async function enforceQuotas (owner: AccountKeys, quotas: Quotas, identity: UsageIdentity): Promise<QuotaExceeded | null> {
+  const accountCap = await checkAccountCreditCap(owner)
+  if (accountCap) return accountCap
 
   const checks: (QuotaCheckInput | null)[] = []
 

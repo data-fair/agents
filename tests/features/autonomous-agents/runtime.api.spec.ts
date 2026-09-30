@@ -22,6 +22,9 @@ const agentBody = (over: any = {}) => ({
   title: 'Runtime probe', persona: 'You answer briefly.', mcpServers: [], toolDisclosure: 'static', enabled: true, ...over
 })
 
+/** api/config/default.js autonomousAgentRunCredits — the per-run ceiling this test must NOT trip. */
+const PER_RUN_CREDIT_BUDGET = 500
+
 const createAgent = async (over: any = {}) =>
   (await admin.post('/api/autonomous-agents/organization/test1', agentBody(over))).data
 
@@ -627,6 +630,41 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
     assert.ok(run.steps < 5, `expected the budget to stop the turn before the repeated-call guard, got ${run.steps} steps`)
     const assistant = (await messagesOf(conv.id)).find((m: any) => m.role === 'assistant')
     assert.match(partsText(assistant.parts), /credit budget/i)
+  })
+
+  test('the account credit cap stops a turn that crosses it MID-RUN', async () => {
+    // enforceQuotas ran once, before the loop, and the only in-turn ceiling was the per-run budget
+    // (500 credits). The conversation lock serialises turns within ONE conversation, but nothing caps
+    // conversations or concurrent runs — so N conversations posted at once all pass the same pre-spend
+    // check and each may then spend a full per-run budget past an exhausted account cap. Overshoot was
+    // N x 500 credits of real provider spend before the cap bit on the next turn.
+    //
+    // Re-checking the account cap between steps bounds that to roughly one step per concurrent run.
+    // This asserts the single-run half of it, which is the mechanism: the cap is crossed during the
+    // turn and must stop it, rather than the turn running on to its own budget.
+    await orgAdmin.post(`/api/v1/limits/organization/test1?key=${SECRET}`, {
+      name: 'Test 1', lastUpdate: new Date().toISOString(), ai_credits: { limit: 200, consumption: 0 }
+    })
+    const agent = await createAgent({ mcpServers: [{ serverId: 'dev-public-mcp' }] })
+    await enrol(agent.id)
+    // Priced so ONE step costs ~110 credits. That is deliberately under the 500-credit per-run budget:
+    // if a step blew that first, this test would pass on the wrong ceiling and prove nothing. Two steps
+    // then cross the 200 account cap.
+    await putMockSettings(admin, 'organization/test1', {
+      models: mockModels({ inputPricePerMillion: 4_000, outputPricePerMillion: 4_000 })
+    })
+    const { conv, runId } = await startTurn(agent.id, 'loop forever')
+    const run = await awaitRun(runId)
+
+    assert.ok(run.endedAt, 'the turn must end rather than run on')
+    const assistant = (await messagesOf(conv.id)).find((m: any) => m.role === 'assistant')
+    assert.match(partsText(assistant.parts), /account credit limit/i, 'and must say the ACCOUNT cap stopped it, not its own budget')
+
+    // The overshoot is what this bounds: spend past the cap must be about one step, not a whole
+    // per-run budget.
+    const { consumption } = (await orgAdmin.get('/api/v1/limits/organization/test1' + `?key=${SECRET}`)).data.ai_credits
+    assert.ok(consumption > 200, 'the cap is crossed — that is the premise')
+    assert.ok(consumption < 200 + PER_RUN_CREDIT_BUDGET, `overshoot must be bounded by roughly one step, got ${consumption}`)
   })
 
   test('a turn can be aborted, and says so', async () => {
