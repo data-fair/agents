@@ -67,3 +67,36 @@ Steps 2 and 3 go through `firstQuotaViolation()` (`api/src/usage/operations.ts`)
 - **Same account, user-type owner** → role from session, userId omitted (usage aggregated for the account).
 - **Same account, organization member** → role from session, userId `user.id`.
 - **Different account** → role `external`, userId `user.id`.
+
+## Self-service view
+
+Any caller can read their own consumption: `GET /api/gateway/:type/:id/usage`
+resolves the caller through the same `resolveUsageIdentity()` as a completion
+(same 401/403, anonymous action token included) and returns `getSelfUsage()`
+(`api/src/usage/enforce.ts`; the `SelfUsage` type is defined in the pure
+`api/src/usage/operations.ts` and re-exported from enforce.ts):
+
+- `quota` — the caller's own daily/weekly/monthly windows from `quotaWindows()`
+  (`api/src/usage/operations.ts`), the same function `checkQuota()` enforces with.
+  A caller not tracked per user (owner of a user account) reads the account
+  aggregate, reported as unlimited since no per-profile quota applies to them.
+- `account` — `accountViolation()` (credit cap, then the untrusted pool for
+  anonymous/external callers) as a status `ok|exhausted` + `resetsAt`. Only an
+  admin of the owner also gets the credit cap numbers.
+
+The same rule applies to 429 bodies (`quotaErrorBody()`): `usage`/`limit` of the
+`account` and `untrusted` scopes are omitted for non-admins; `period` and
+`resets_at` are always present, and the chat renders them as a localized
+"which limit, resets when" message. The client's `extractQuotaError`
+(`ui/src/utils/error.ts`) finds the 429 through the AI SDK's `RetryError.lastError`
+and prefers the raw `responseBody`, because the SDK's parsed `data` drops `scope`,
+`period` and `resets_at`.
+
+**Per-call cost.** Every gateway `usage` object carries `cost` — the credits
+billed for that call, following OpenRouter's `usage.cost` convention — including
+the moderation classifier call when its verdict settled before the gate opened.
+The chat sums it in `gatewayFetch` (`ui/src/utils/gateway-cost.ts`) into the
+conversation total shown in the chat settings' Consumption tab. A verdict that
+lands after the gate failed open is recorded server-side but not reported in any
+response, so the conversation total may slightly undercount; the quota windows
+(server-side) stay exact.
