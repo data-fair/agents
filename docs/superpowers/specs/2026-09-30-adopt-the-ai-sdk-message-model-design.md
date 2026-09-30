@@ -244,7 +244,7 @@ What it does NOT replace, and must stay ours:
 So this removes plumbing, not the parts that carry the guarantees. It also brings OAuth, resources and
 elicitation, which matter for catalog servers beyond this stack's own.
 
-## 2.3 `pruneMessages` — adopted only on the FAILURE path (revised)
+## 2.3 `pruneMessages` — SUPERSEDED by the tiered context management spec (revised twice)
 
 Already present in the installed version:
 `pruneMessages({ messages, reasoning, toolCalls, emptyMessages })`, with `toolCalls` accepting
@@ -274,6 +274,22 @@ harm.
 
 The reasoning observation stands and is untouched: we drop all reasoning, the SDK offers
 `before-last-message`, and changing that needs evidence rather than a guess about what providers accept.
+
+### Superseded
+
+Relegating it to the failure path was itself wrong, and for a reason worth recording: the objection above
+conflated "prune all tool results" with "prune the OLD ones", and then applied a standard that compaction
+does not meet either. `before-last-N-messages` drops only old payloads, and **compaction discards the raw
+text of that same span while paying a summarizer to do it** — so pruning old results is strictly less
+lossy and free. Keeping it only for the failure path was abandoning it.
+
+The genuine defect is narrower: `pruneMessages` removes the call together with the result and leaves **no
+placeholder**, where the state of the art keeps the call and marks the result as cleared. That is a
+missing marker, not a reason to drop the strategy.
+
+Superseded by `2026-09-30-tiered-context-management-design.md`, which puts clearing, summarisation and
+production-time bounding into the standard three-tier order instead of treating the summarizer as the
+only lever.
 
 ## 2.4 The SDK's `timeout` — adopted, and it closes a gap (revised: better than described)
 
