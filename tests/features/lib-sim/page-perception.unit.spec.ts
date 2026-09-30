@@ -7,7 +7,7 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { createPagePerception, truncate, SNAPSHOT_CAP, ACTION_TIMEOUT_MS, MCP_SERVER_NAME } from '../../../lib-sim/page-perception.ts'
+import { createPagePerception, truncate, pruneSnapshot, SNAPSHOT_CAP, TABLE_ROWS_KEPT, ACTION_TIMEOUT_MS, MCP_SERVER_NAME } from '../../../lib-sim/page-perception.ts'
 
 const fakeRoot = (snapshot: string, log: string[] = []) => ({
   locator: (sel: string) => ({ ariaSnapshot: async () => snapshot, click: async () => { log.push('click ' + sel) }, fill: async (t: string) => { log.push('fill ' + t) } }),
@@ -344,5 +344,58 @@ test.describe('click says what it actually hit', () => {
     const result = await p.call('click', { name: '/workflow/item-1' })
     assert.ok(/not a button or a link/.test(result), result)
     assert.ok(result.includes('/workflow/item-1'), result)
+  })
+})
+
+test.describe('snapshot pruning', () => {
+  // The shape of the dataset page where the persona asserted a filled field did not
+  // exist: a table and a rich-text toolbar ahead of the metadata fields.
+  const rows = Array.from({ length: 40 }, (_, i) => `      - row "Equipement ${i} Nantes Stade ${500 + i}":\n        - cell "Equipement ${i}"\n        - cell "Nantes"\n        - cell "Stade"\n        - cell "${500 + i}"`).join('\n')
+  const toolbar = ['Gras', 'Italique', 'Titre', 'Citation', 'Liste à puce', 'Liste numérotée', 'Lien', 'Image', 'Tableau', 'Aperçu', 'Plein écran', 'Aide'].map(b => `      - button "${b}":\n        - img\n      - text: "|"`).join('\n')
+  const page = [
+    '- main:',
+    '  - link "Jeux de données":',
+    '    - /url: /data-fair/datasets',
+    '  - img',
+    '  - table:',
+    '    - rowgroup:',
+    '      - row "nom commune type capacite":',
+    '        - columnheader "nom"',
+    '        - columnheader "commune"',
+    '    - rowgroup:',
+    rows,
+    '  - application:',
+    '    - toolbar:',
+    toolbar,
+    '  - textbox "Termes de recherche associés": gymnase, piscine',
+    // what follows the form on the real page, so the field sits in the middle
+    '  - list "Permissions":',
+    Array.from({ length: 60 }, (_, i) => `    - listitem: Permission ${i} accordée au rôle contributeur de l'organisation`).join('\n')
+  ].join('\n')
+
+  test('keeps a field below a long table and a toolbar within the cap', () => {
+    assert.ok(page.length > SNAPSHOT_CAP * 1.5, 'the fixture must overflow the cap unpruned')
+    assert.ok(!truncate(page).includes('Termes de recherche associés'))
+    assert.ok(truncate(pruneSnapshot(page)).includes('Termes de recherche associés": gymnase, piscine'))
+  })
+
+  test('keeps every listed row by its name and counts the rest', () => {
+    const out = pruneSnapshot(page)
+    assert.ok(out.includes('- row "Equipement 0 Nantes Stade 500"'))
+    assert.ok(!out.includes('cell "Equipement 0"'), 'cells repeat the row name')
+    assert.equal((out.match(/- row "/g) ?? []).length, TABLE_ROWS_KEPT + 1)
+    assert.ok(out.includes(`… ${40 - TABLE_ROWS_KEPT} more rows`))
+  })
+
+  test('folds a toolbar into one line and drops what names nothing', () => {
+    const out = pruneSnapshot(page)
+    assert.ok(out.includes('- toolbar: Gras, Italique, Titre'))
+    assert.ok(!/- img$/m.test(out))
+    assert.ok(!out.includes('/url:'))
+    assert.ok(out.includes('- link "Jeux de données"\n'), 'a link that lost its only child loses its colon')
+  })
+
+  test('leaves a snapshot that is not an outline as it is', () => {
+    assert.equal(pruneSnapshot('(could not read: timeout)'), '(could not read: timeout)')
   })
 })

@@ -73,6 +73,89 @@ export function truncate (text: string): string {
   return text.slice(0, head) + marker + text.slice(-tail)
 }
 
+type SnapNode = { line: string, children: SnapNode[], raw?: boolean }
+
+/** Rows a person takes in at a glance; the rest are counted, not listed. */
+export const TABLE_ROWS_KEPT = 20
+
+/**
+ * Drop what repeats or says nothing, before the cap has to cut something that matters.
+ *
+ * The cap alone hid a whole form: on a dataset page the table's cells and a rich-text
+ * toolbar filled the head budget, the fields below the Description editor landed in the
+ * cut, and the persona told the assistant a field it had just filled did not exist.
+ * - a row keeps its name, which already spells its cells, and loses the cells;
+ * - a table lists TABLE_ROWS_KEPT rows and counts the others;
+ * - a toolbar becomes one line of button names;
+ * - unnamed images, link targets, separators and "|" dividers go.
+ */
+export function pruneSnapshot (snapshot: string): string {
+  const root: SnapNode = { line: '', children: [] }
+  const stack: { indent: number, node: SnapNode }[] = [{ indent: -1, node: root }]
+  for (const raw of snapshot.split('\n')) {
+    const m = raw.match(/^(\s*)- (.*)$/)
+    if (!m) {
+      // a continuation line of a multi-line value: keep it with the current node
+      const last = stack[stack.length - 1].node
+      if (last !== root) last.line += '\n' + raw
+      else if (raw.trim()) root.children.push({ line: raw, children: [], raw: true })
+      continue
+    }
+    const indent = m[1].length
+    while (stack[stack.length - 1].indent >= indent) stack.pop()
+    const node = { line: m[2], children: [] }
+    stack[stack.length - 1].node.children.push(node)
+    stack.push({ indent, node })
+  }
+
+  const isNoise = (line: string) => line === 'img' || line === 'separator' || line === 'text: "|"' || line.startsWith('/url:')
+  const isCell = (line: string) => /^(cell|gridcell|columnheader|rowheader)\b/.test(line)
+  const buttonName = (line: string) => line.match(/^button "(.*)"/)?.[1]
+
+  const prune = (node: SnapNode): SnapNode | null => {
+    if (node.raw) return node
+    if (isNoise(node.line)) return null
+    if (node.line.startsWith('toolbar')) {
+      const names: string[] = []
+      const collect = (n: SnapNode) => { const b = buttonName(n.line); if (b) names.push(b); n.children.forEach(collect) }
+      node.children.forEach(collect)
+      return { line: `toolbar: ${names.join(', ')}`, children: [] }
+    }
+    if (/^row "/.test(node.line) && node.children.every(c => isCell(c.line))) {
+      return { line: node.line.replace(/:$/, ''), children: [] }
+    }
+    let children = node.children.map(prune).filter((c): c is SnapNode => !!c)
+    if (/^(table|grid|treegrid)\b/.test(node.line)) children = capRows(children)
+    const line = children.length ? node.line : node.line.replace(/:$/, '')
+    return { line, children }
+  }
+
+  // Rows sit under rowgroups; count them across the whole table, header row included.
+  const capRows = (groups: SnapNode[]): SnapNode[] => {
+    let seen = 0
+    let dropped = 0
+    const walk = (nodes: SnapNode[]): SnapNode[] => nodes.flatMap(n => {
+      if (/^row\b/.test(n.line)) {
+        seen++
+        if (seen > TABLE_ROWS_KEPT + 1) { dropped++; return [] }
+        return [n]
+      }
+      const children = walk(n.children)
+      return [{ line: children.length ? n.line : n.line.replace(/:$/, ''), children }]
+    })
+    const kept = walk(groups)
+    return dropped ? [...kept, { line: `text: … ${dropped} more rows`, children: [] }] : kept
+  }
+
+  const out: string[] = []
+  const write = (n: SnapNode, depth: number) => {
+    out.push(n.raw ? n.line : `${'  '.repeat(depth)}- ${n.line}`)
+    n.children.forEach(c => write(c, depth + 1))
+  }
+  root.children.map(prune).forEach(n => { if (n) write(n, 0) })
+  return out.join('\n')
+}
+
 const TOOLS = [
   {
     name: 'look',
@@ -114,7 +197,7 @@ export function createPagePerception (roots: PerceptionRoot[], opts: { offLimits
       // root can consume the whole budget and a second root (e.g. an embedded
       // `## chat panel`) disappears from the log entirely, with no marker
       // hinting it was ever there.
-      parts.push(truncate(`## ${label}\n${snap}`))
+      parts.push(truncate(`## ${label}\n${pruneSnapshot(snap)}`))
     }
     return parts.join('\n\n')
   }
