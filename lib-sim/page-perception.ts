@@ -38,6 +38,29 @@ export const SNAPSHOT_CAP = 4000
 // instead of an unrecorded hang.
 export const ACTION_TIMEOUT_MS = 15000
 
+/** How long a look after an action waits, at most, for the page to stop changing. */
+export const SETTLE_MAX_MS = 3000
+export const SETTLE_INTERVAL_MS = 250
+
+/**
+ * Read until two consecutive reads agree, or the budget runs out. A look taken right
+ * after clicking a chat link read the page before the route changed: the persona saw
+ * the old page, said the link did nothing, and the assistant apologised for a link
+ * the application had just reported as followed.
+ */
+export async function settledRead (read: () => Promise<string>, opts: { intervalMs?: number, maxMs?: number } = {}): Promise<string> {
+  const interval = opts.intervalMs ?? SETTLE_INTERVAL_MS
+  const deadline = Date.now() + (opts.maxMs ?? SETTLE_MAX_MS)
+  let previous = await read()
+  while (Date.now() < deadline) {
+    await new Promise(resolve => setTimeout(resolve, interval))
+    const current = await read()
+    if (current === previous) return current
+    previous = current
+  }
+  return previous
+}
+
 /** `cap` overrides SNAPSHOT_CAP for this root: a dense page can deserve more than a chat panel. */
 export type PerceptionRoot = { label: string, root: ChatRoot, cap?: number }
 export type Observation = { turn: number, tool: string, args: unknown, result: string }
@@ -203,11 +226,17 @@ export function createPagePerception (roots: PerceptionRoot[], opts: { offLimits
   const isOffLimits = (name: string) => offLimits.has(name.trim().toLowerCase())
   const OFF_LIMITS_RESULT = 'the composer is not yours to operate — reply with your message and the runner will send it for you'
 
+  // Set by click and type: the next look waits for what the action set off to settle.
+  let actedSinceLook = false
+
   const look = async () => {
+    const settle = actedSinceLook
+    actedSinceLook = false
     const parts: string[] = []
     for (const { label, root, cap } of roots) {
       let snap = ''
-      try { snap = await root.locator('body').ariaSnapshot({ timeout: ACTION_TIMEOUT_MS }) } catch (err) {
+      const read = () => root.locator('body').ariaSnapshot({ timeout: ACTION_TIMEOUT_MS })
+      try { snap = settle ? await settledRead(read) : await read() } catch (err) {
         snap = `(could not read: ${err instanceof Error ? err.message : String(err)})`
       }
       // Capped per root, not on the joined result: otherwise a large first
@@ -251,6 +280,7 @@ export function createPagePerception (roots: PerceptionRoot[], opts: { offLimits
       if (match) {
         try {
           await match.loc.click({ timeout: ACTION_TIMEOUT_MS })
+          actedSinceLook = true
           // Playwright clicks whatever is visible, so the text fallback succeeds
           // on a paragraph as readily as on a button. Saying which one it was is
           // the difference between a person learning nothing happened and a
@@ -277,6 +307,7 @@ export function createPagePerception (roots: PerceptionRoot[], opts: { offLimits
       if (loc) {
         try {
           await loc.fill(text, { timeout: ACTION_TIMEOUT_MS })
+          actedSinceLook = true
           return `typed into "${name}"`
         } catch (err) {
           return `could not type into "${name}": ${err instanceof Error ? err.message : String(err)}`
