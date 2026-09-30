@@ -25,6 +25,8 @@ declare global {
   const HOST_STATE_CLOSE: typeof import('../src/composables/host-events').HOST_STATE_CLOSE
   const HOST_STATE_OPEN: typeof import('../src/composables/host-events').HOST_STATE_OPEN
   const HostEventStore: typeof import('../src/composables/host-events').HostEventStore
+  const INTERRUPTED_RESULT: typeof import('../src/composables/interrupted-turn').INTERRUPTED_RESULT
+  const INTERRUPTED_RESULTS: typeof import('../src/composables/interrupted-turn').INTERRUPTED_RESULTS
   const LOCATION_KEY: typeof import('../src/composables/host-events').LOCATION_KEY
   const MERMAID_AUTO_FIX_BUDGET: typeof import('../src/utils/mermaid-fix').MERMAID_AUTO_FIX_BUDGET
   const MODERATION_TASK_MARKER: typeof import('../src/composables/moderation')['MODERATION_TASK_MARKER']
@@ -97,6 +99,7 @@ declare global {
   const hasHostState: typeof import('../src/composables/host-events').hasHostState
   const inject: typeof import('vue').inject
   const injectHead: typeof import('@unhead/vue').injectHead
+  const interruptedStepMessages: typeof import('../src/composables/interrupted-turn').interruptedStepMessages
   const isEmptyTurn: typeof import('../src/composables/empty-turn').isEmptyTurn
   const isMediaToolResult: typeof import('../src/utils/tool-result').isMediaToolResult
   const isProxy: typeof import('vue').isProxy
@@ -161,6 +164,7 @@ declare global {
   const toRef: typeof import('vue').toRef
   const toRefs: typeof import('vue').toRefs
   const toValue: typeof import('vue').toValue
+  const toolResultOutput: typeof import('../src/composables/interrupted-turn').toolResultOutput
   const trailingRepeatCount: typeof import('../src/composables/agent-loop-guards').trailingRepeatCount
   const triggerRef: typeof import('vue').triggerRef
   const unref: typeof import('vue').unref
@@ -246,6 +250,9 @@ declare global {
   export type { HostEventStore, WaitOutcome, HostStateSnapshot } from '../src/composables/host-events'
   import('../src/composables/host-events')
   // @ts-ignore
+  export type { OpenStep, InterruptReason, ToolResultOutput } from '../src/composables/interrupted-turn'
+  import('../src/composables/interrupted-turn')
+  // @ts-ignore
   export type { ToolsDelta } from '../src/composables/live-tools'
   import('../src/composables/live-tools')
   // @ts-ignore
@@ -280,6 +287,7 @@ declare module 'vue' {
     readonly HOST_STATE_CLOSE: UnwrapRef<typeof import('../src/composables/host-events')['HOST_STATE_CLOSE']>
     readonly HOST_STATE_OPEN: UnwrapRef<typeof import('../src/composables/host-events')['HOST_STATE_OPEN']>
     readonly HostEventStore: UnwrapRef<typeof import('../src/composables/host-events')['HostEventStore']>
+    readonly INTERRUPTED_RESULTS: UnwrapRef<typeof import('../src/composables/interrupted-turn')['INTERRUPTED_RESULTS']>
     readonly LOCATION_KEY: UnwrapRef<typeof import('../src/composables/host-events')['LOCATION_KEY']>
     readonly MERMAID_AUTO_FIX_BUDGET: UnwrapRef<typeof import('../src/utils/mermaid-fix')['MERMAID_AUTO_FIX_BUDGET']>
     readonly PENDING_MAX: UnwrapRef<typeof import('../src/composables/host-events')['PENDING_MAX']>
@@ -335,6 +343,7 @@ declare module 'vue' {
     readonly hasHostState: UnwrapRef<typeof import('../src/composables/host-events')['hasHostState']>
     readonly inject: UnwrapRef<typeof import('vue')['inject']>
     readonly injectHead: UnwrapRef<typeof import('@unhead/vue')['injectHead']>
+    readonly interruptedStepMessages: UnwrapRef<typeof import('../src/composables/interrupted-turn')['interruptedStepMessages']>
     readonly isEmptyTurn: UnwrapRef<typeof import('../src/composables/empty-turn')['isEmptyTurn']>
     readonly isMediaToolResult: UnwrapRef<typeof import('../src/utils/tool-result')['isMediaToolResult']>
     readonly isProxy: UnwrapRef<typeof import('vue')['isProxy']>
@@ -396,6 +405,7 @@ declare module 'vue' {
     readonly toRef: UnwrapRef<typeof import('vue')['toRef']>
     readonly toRefs: UnwrapRef<typeof import('vue')['toRefs']>
     readonly toValue: UnwrapRef<typeof import('vue')['toValue']>
+    readonly toolResultOutput: UnwrapRef<typeof import('../src/composables/interrupted-turn')['toolResultOutput']>
     readonly trailingRepeatCount: UnwrapRef<typeof import('../src/composables/agent-loop-guards')['trailingRepeatCount']>
     readonly triggerRef: UnwrapRef<typeof import('vue')['triggerRef']>
     readonly unref: UnwrapRef<typeof import('vue')['unref']>

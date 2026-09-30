@@ -1,6 +1,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { applyStreamPart, type StreamScope, type ActivityPhase } from '../../../ui/src/composables/agent-stream-parts.ts'
+import { applyStreamPart, WAIT_TOOL_NAME, type StreamScope, type ActivityPhase } from '../../../ui/src/composables/agent-stream-parts.ts'
+import { WAIT_TOOL_NAME as HOST_WAIT_TOOL_NAME } from '../../../ui/src/composables/host-events.ts'
 
 function makeScope () {
   const phases: [ActivityPhase, string | undefined][] = []
@@ -34,6 +35,28 @@ test.describe('applyStreamPart', () => {
     assert.equal(scope.lastToolName, 'subagent_explorer')
     assert.deepEqual(scope.messages[0].toolInvocations, [{ toolCallId: 'c1', toolName: 'subagent_explorer', state: 'pending' }])
     assert.deepEqual(phases.at(-1), ['tool', 'subagent_explorer'])
+  })
+
+  test('a wait shows its message when the step wrote none', () => {
+    assert.equal(WAIT_TOOL_NAME, HOST_WAIT_TOOL_NAME)
+    const { scope } = makeScope()
+    applyStreamPart({ type: 'tool-call', toolCallId: 'w', toolName: WAIT_TOOL_NAME, input: { message: 'Le formulaire est prêt : appuyez sur Enregistrer.', expecting: 'Clic sur Enregistrer' } } as any, scope)
+    assert.equal(scope.messages[0].content, 'Le formulaire est prêt : appuyez sur Enregistrer.')
+    assert.equal(scope.producedText, true)
+  })
+
+  test('a wait does not repeat a message the step already wrote', () => {
+    const { scope } = makeScope()
+    applyStreamPart({ type: 'text-delta', text: 'Le formulaire est prêt : appuyez sur Enregistrer.' }, scope)
+    applyStreamPart({ type: 'tool-call', toolCallId: 'w', toolName: WAIT_TOOL_NAME, input: { message: 'appuyez sur Enregistrer.', expecting: 'x' } } as any, scope)
+    assert.equal(scope.messages[0].content, 'Le formulaire est prêt : appuyez sur Enregistrer.')
+  })
+
+  test('a wait adds its message after text that does not say it', () => {
+    const { scope } = makeScope()
+    applyStreamPart({ type: 'text-delta', text: 'Voilà.' }, scope)
+    applyStreamPart({ type: 'tool-call', toolCallId: 'w', toolName: WAIT_TOOL_NAME, input: { message: 'Appuyez sur Enregistrer.', expecting: 'x' } } as any, scope)
+    assert.equal(scope.messages[0].content, 'Voilà.\n\nAppuyez sur Enregistrer.')
   })
 
   test('final tool-result settles the matching invocation; preliminary does not', () => {
