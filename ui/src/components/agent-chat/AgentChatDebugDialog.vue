@@ -28,6 +28,9 @@
           <v-tab value="settings">
             {{ t('settings') }}
           </v-tab>
+          <v-tab value="consumption">
+            {{ t('consumption') }}
+          </v-tab>
         </v-tabs>
         <v-spacer />
       </div>
@@ -221,6 +224,15 @@
               </div>
             </v-defaults-provider>
           </v-window-item>
+
+          <v-window-item value="consumption">
+            <agent-chat-consumption
+              :conversation-cost="conversationCost"
+              :usage-version="usageVersion"
+              :fetch-self-usage="fetchSelfUsage"
+              :active="modelValue && activeDebugTab === 'consumption'"
+            />
+          </v-window-item>
         </v-window>
       </v-card-text>
     </v-card>
@@ -237,6 +249,7 @@ fr:
   inputSchema: Schéma d'entrée
   openReview: Ouvrir l'analyse
   settings: Paramètres
+  consumption: Consommation
   storeTraces: Enregistrer mes conversations pour relecture
   storeTracesHint: "Vos conversations seront enregistrées sur le serveur pendant 30 jours afin qu'un administrateur puisse les relire. Vous pouvez retirer votre consentement à tout moment."
   experimental: Expérimental
@@ -259,6 +272,7 @@ en:
   inputSchema: Input Schema
   openReview: Open review
   settings: Settings
+  consumption: Consumption
   storeTraces: Store my conversations for review
   storeTracesHint: "Your conversations will be stored on the server for 30 days so an administrator can review them. You can withdraw your consent at any time."
   experimental: Experimental
@@ -281,6 +295,8 @@ import { useRouter } from 'vue-router'
 import { mdiArrowLeft, mdiOpenInNew } from '@mdi/js'
 import DfTutorialAlert from '@data-fair/lib-vuetify/tutorial-alert.vue'
 import type { DebugToolsPartition } from '~/composables/use-agent-chat'
+import type { SelfUsage } from '../../../../api/src/usage/operations'
+import AgentChatConsumption from './AgentChatConsumption.vue'
 import { traceStorageAvailable, consentRef, writeConsent } from '~/traces/trace-consent'
 
 const props = defineProps<{
@@ -296,6 +312,9 @@ const props = defineProps<{
   simpleSubAgents?: boolean
   mermaid?: boolean
   showReasoning?: boolean
+  conversationCost: number
+  usageVersion: number
+  fetchSelfUsage: () => Promise<SelfUsage>
 }>()
 
 defineEmits<{

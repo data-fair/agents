@@ -48,15 +48,20 @@ export interface QuotaErrorInfo {
 export function extractQuotaError (err: unknown): QuotaErrorInfo | null {
   let current: any = err
   while (current) {
-    let body = current.data
-    if (!body?.error && typeof current.responseBody === 'string') {
+    // the raw responseBody first: the AI SDK's parsed `data` only keeps the
+    // fields of its own error schema, which drops scope/period/resets_at
+    let body: any
+    if (typeof current.responseBody === 'string') {
       try { body = JSON.parse(current.responseBody) } catch { body = undefined }
     }
+    if (body?.error?.type !== 'rate_limit_error') body = current.data
     const e = body?.error
     if (e?.type === 'rate_limit_error') {
       return { scope: e.scope, message: e.message, ...(e.period ? { period: e.period } : {}), ...(e.resets_at ? { resetsAt: e.resets_at } : {}) }
     }
-    current = current.cause
+    // the AI SDK retries a 429 and then throws a RetryError that holds the
+    // real APICallError in `lastError`, not in `cause`
+    current = current.cause ?? current.lastError
   }
   return null
 }
