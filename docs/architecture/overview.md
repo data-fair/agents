@@ -29,6 +29,9 @@ graph TB
 | `lib-vue/` | Vue composables: WebMCP tool registration, sub-agent declaration, BroadcastChannel transport |
 | `lib-vuetify/` | Embeddable Vuetify components: chat drawer, menu, action button, toggle FAB |
 
-The API server is a stateless LLM proxy with no server-side conversation state; all conversation history lives in the browser and is sent with each request.
+For the in-page chat the API server is a stateless LLM proxy with no server-side conversation state:
+that conversation lives in the browser and is sent with each request. **Autonomous agents are the
+exception** — they run their loop on the server and store their conversations, which is what makes a
+shared, revivable thread possible. See [Autonomous agents](./autonomous-agents.md).
 
 AI provider/model configuration and credit-based quotas are layered across deploy-time env vars, per-org superadmin definitions, and org-admin distribution — see [Configuration](./configuration.md).

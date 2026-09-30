@@ -114,6 +114,35 @@ test.describe('Autonomous agent conversations', () => {
     assert.equal(user.author.userId, 'test1-admin1')
   })
 
+  test('TWO instructors share one timeline, each attributed to themselves', async () => {
+    // The shared-timeline property, which nothing exercised: every other test has a single speaker, so
+    // "attribution is mandatory" was only ever checked against a conversation where there was nothing to
+    // confuse it with. Two authors is the case the envelope, the author field and the visibility rule
+    // all exist for.
+    const agent = await createAgent({ instructors: [{ userId: 'test1-user1', userName: 'Test User' }] })
+    const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 't' })).data
+
+    await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content: 'first, from the admin' })
+    await orgMember.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content: 'second, from the instructor' })
+
+    // Read as the SECOND instructor: a shared timeline means they see what the other person said, which
+    // is a real authorization decision and not merely a rendering one.
+    const results = (await orgMember.get(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`)).data.results
+    const userTurns = results.filter((m: any) => m.role === 'user').sort((a: any, b: any) => a.seq - b.seq)
+    assert.equal(userTurns.length, 2, 'both turns must be on ONE conversation, not two private ones')
+    assert.deepEqual(userTurns.map((m: any) => m.author.userId), ['test1-admin1', 'test1-user1'])
+    assert.deepEqual(userTurns.map((m: any) => partsText(m.parts)), ['first, from the admin', 'second, from the instructor'])
+    // Each author is recorded as themselves — neither turn inherits the other's identity, which is what
+    // a single `author` written from the conversation rather than the request would have done.
+    assert.ok(userTurns[0].seq < userTurns[1].seq)
+
+    // And the agent's own turns are attributed to the AGENT, not to whoever spoke last.
+    for (const assistant of results.filter((m: any) => m.role === 'assistant')) {
+      assert.equal(assistant.author.kind, 'autonomous-agent')
+      assert.equal(assistant.author.userId, undefined)
+    }
+  })
+
   test('an empty message is refused rather than starting a run', async () => {
     const agent = await createAgent()
     const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 't' })).data

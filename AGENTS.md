@@ -154,16 +154,16 @@ quota.
 
 ## Code patterns
 
-Topical architecture docs (for understanding the service) live in `docs/architecture/` — one file per concern (gateway, sub-agents, loop-guards, mcp-tools, host-events, providers, quotas-usage, context-management, embedding, moderation, tool-exploration, tracing) plus `overview.md`. Read on a need-to-know basis.
+Topical architecture docs (for understanding the service) live in `docs/architecture/` — one file per concern (gateway, sub-agents, loop-guards, mcp-tools, host-events, providers, configuration, quotas-usage, context-management, autonomous-agents, integration-context, embedding, moderation, tool-exploration, tracing) plus `overview.md`. Read on a need-to-know basis.
 
 When working on this project, read the following files on a need-to-know basis to understand conventions:
 
 - API route pattern: @api/src/settings/router.ts
 - API operations pattern: @api/src/settings/operations.ts
-- Dataset tool pattern: @api/src/tools/datasets/search-data.ts
-- MCP server setup: @api/src/mcp/server.ts
-- Vue page pattern: @ui/src/pages/settings.vue
-- Unit test pattern: @tests/features/settings/1.settings.unit.spec.ts
-- API test pattern: @tests/features/settings/2.settings.api.spec.ts
-- E2E test pattern: @tests/features/settings/3.settings.e2e.spec.ts
+- Browser tool registration (WebMCP): @lib-vue/use-agent-tools.ts
+- MCP client, as an autonomous agent's own identity: @api/src/mcp-servers/client.ts
+- Vue page pattern: @ui/src/pages/admin/[type]/[id]/index.vue
+- Unit test pattern: @tests/features/settings/settings.unit.spec.ts
+- API test pattern: @tests/features/settings/settings.api.spec.ts
+- E2E test pattern: @tests/features/settings/settings.e2e.spec.ts
 - Type generation from JSON schemas: @api/types/settings/schema.js

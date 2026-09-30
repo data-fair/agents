@@ -1,6 +1,12 @@
 # Stateless OpenAI-compatible gateway
 
-The API server is a pure **LLM proxy** with no server-side conversation state. Conversations live entirely in the browser.
+For a browser-resident loop the API server is a pure **LLM proxy** with no server-side conversation
+state: that conversation lives entirely in the browser. It is not *merely* a proxy, though — it is the
+**trust boundary**, and quotas, usage recording and moderation are enforced here because the model call
+is the only point at which a browser-resident turn crosses onto the server.
+
+[Autonomous agents](./autonomous-agents.md) do not use this gateway at all: they run on the server, talk
+to providers directly, and store their conversations.
 
 ```mermaid
 sequenceDiagram
