@@ -87,7 +87,14 @@ resolves the caller through the same `resolveUsageIdentity()` as a completion
 The same rule applies to 429 bodies (`quotaErrorBody()`): `usage`/`limit` of the
 `account` and `untrusted` scopes are omitted for non-admins; `period` and
 `resets_at` are always present, and the chat renders them as a localized
-"which limit, resets when" message. The client's `extractQuotaError`
+"which limit, resets when" message. This redaction protects the shared budgets
+from external and anonymous callers: org members (contrib/user) can already
+read the org credit cap and consumption through `GET /api/limits/:type/:id`,
+which mirrors the ecosystem's member-level access. A quota 429 is marked
+non-retryable client-side (`gatewayFetch` throws a non-retryable `APICallError`
+for a `rate_limit_error` body), so the AI SDK does not spend ~7s retrying it
+before the message shows; other 429s, such as an upstream provider's rate
+limit, keep the SDK's default retries. The client's `extractQuotaError`
 (`ui/src/utils/error.ts`) finds the 429 through the AI SDK's `RetryError.lastError`
 and prefers the raw `responseBody`, because the SDK's parsed `data` drops `scope`,
 `period` and `resets_at`.
@@ -95,8 +102,11 @@ and prefers the raw `responseBody`, because the SDK's parsed `data` drops `scope
 **Per-call cost.** Every gateway `usage` object carries `cost` — the credits
 billed for that call, following OpenRouter's `usage.cost` convention — including
 the moderation classifier call when its verdict settled before the gate opened.
-The chat sums it in `gatewayFetch` (`ui/src/utils/gateway-cost.ts`) into the
-conversation total shown in the chat settings' Consumption tab. A verdict that
-lands after the gate failed open is recorded server-side but not reported in any
-response, so the conversation total may slightly undercount; the quota windows
+`gatewayFetch` (in `ui/src/composables/use-agent-chat.ts`) sums it, through
+`watchResponseCost` from `ui/src/utils/gateway-cost.ts`, into the conversation
+total shown in the chat settings' Consumption tab. A verdict that lands after
+the gate failed open is recorded server-side but not reported in any response,
+and a blocked (`content_filter`) response has no usage chunk, so its moderation
+cost is not reported to the client either; both are recorded server-side. The
+conversation total may therefore slightly undercount; the quota windows
 (server-side) stay exact.
