@@ -13,7 +13,6 @@ const validAgent = () => ({
   title: 'Support triage',
   persona: 'You triage incoming support questions.',
   mcpServers: [{ serverId: 'dev-public-mcp' }],
-  toolDisclosure: 'static',
   enabled: true
 })
 

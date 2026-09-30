@@ -5,7 +5,7 @@ export default {
   'x-i18n-title': { en: 'Autonomous agent', fr: 'Agent autonome' },
   type: 'object',
   additionalProperties: false,
-  required: ['id', 'owner', 'title', 'persona', 'mcpServers', 'toolDisclosure', 'enabled'],
+  required: ['id', 'owner', 'title', 'persona', 'mcpServers', 'enabled'],
   properties: {
     id: { type: 'string', readOnly: true },
     owner: {
@@ -98,18 +98,6 @@ export default {
             items: { type: 'string' }
           }
         }
-      }
-    },
-    toolDisclosure: {
-      type: 'string',
-      enum: ['static', 'exploration'],
-      default: 'static',
-      title: 'Tool disclosure',
-      'x-i18n-title': { en: 'Tool disclosure', fr: 'Exposition des outils' },
-      description: '"static" sends every selected tool on every turn. "exploration" shows names only and lets the autonomous agent promote the ones it needs — use it when the selection is large.',
-      'x-i18n-description': {
-        en: '"static" sends every selected tool on every turn. "exploration" shows names only and lets the autonomous agent promote the ones it needs — use it when the selection is large.',
-        fr: "« static » envoie tous les outils sélectionnés à chaque tour. « exploration » n'affiche que les noms et laisse l'agent autonome promouvoir ceux dont il a besoin — à utiliser quand la sélection est grande."
       }
     },
     nhi: {

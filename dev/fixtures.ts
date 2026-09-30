@@ -113,7 +113,6 @@ const autonomousAgentBody = {
   persona: 'You are a helpful data assistant for the Dev Organization. You answer briefly and you say plainly when you cannot do something.',
   instructions: 'Prefer calling a tool over guessing. If a tool fails, say so rather than inventing a result.',
   mcpServers: [{ serverId: 'dev-review-session-mcp' }],
-  toolDisclosure: 'static',
   // The grant is half the feature and is otherwise unreviewable by hand: dev1's two admins
   // are allowed anyway, so without an instructor there is no way to open this thread as
   // someone who is NOT an admin and see what they are permitted to do. dev1-contrib1 is a

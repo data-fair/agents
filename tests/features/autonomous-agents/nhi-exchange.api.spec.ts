@@ -41,7 +41,7 @@ test.describe('NHI exchange', () => {
       clientId: 'test-autonomous-agent-nhi',
       siteUrl,
       issuer,
-      autonomousAgent: { title: 'Identity probe', persona: 'You probe identity.', mcpServers: [], toolDisclosure: 'static', enabled: true }
+      autonomousAgent: { title: 'Identity probe', persona: 'You probe identity.', mcpServers: [], enabled: true }
     })
     assert.equal(created.data.nhi.clientId, 'test-autonomous-agent-nhi')
 
@@ -91,7 +91,6 @@ test.describe('NHI exchange', () => {
         title: 'Injection probe',
         persona: 'x',
         mcpServers: [],
-        toolDisclosure: 'static',
         enabled: true,
         nhi: { clientId: 'nhi-whatever', siteUrl: 'https://attacker.example', issuer: 'https://attacker.example/agents/api/nhi' }
       }),
@@ -123,7 +122,6 @@ test.describe('NHI exchange', () => {
         title: 'Empty clientId probe',
         persona: 'x',
         mcpServers: [],
-        toolDisclosure: 'static',
         enabled: true,
         nhi: { clientId: '', siteUrl: 'https://attacker.example', issuer: 'https://attacker.example/agents/api/nhi' }
       }),
@@ -146,7 +144,6 @@ test.describe('NHI exchange', () => {
       title: 'No identity',
       persona: 'x',
       mcpServers: [],
-      toolDisclosure: 'static',
       enabled: true
     })
     await assert.rejects(
@@ -157,7 +154,7 @@ test.describe('NHI exchange', () => {
 
   test('saving a bogus nhi.clientId is refused at configuration time', async () => {
     const created = await admin.post('/api/autonomous-agents/organization/test1', {
-      title: 'Bad enrolment', persona: 'x', mcpServers: [], toolDisclosure: 'static', enabled: true
+      title: 'Bad enrolment', persona: 'x', mcpServers: [], enabled: true
     })
     // Sent through nginx: the body carries nhi.clientId, so the PUT handler calls
     // reqSiteUrl(req) to capture siteUrl/issuer before verification runs, and that
@@ -167,7 +164,6 @@ test.describe('NHI exchange', () => {
         title: 'Bad enrolment',
         persona: 'x',
         mcpServers: [],
-        toolDisclosure: 'static',
         enabled: true,
         nhi: { clientId: 'nhi-doesnotexist' }
       }),
@@ -191,12 +187,12 @@ test.describe('NHI exchange', () => {
 
   test('a save with no nhi at all is unaffected by enrolment verification', async () => {
     const created = await admin.post('/api/autonomous-agents/organization/test1', {
-      title: 'No nhi', persona: 'x', mcpServers: [], toolDisclosure: 'static', enabled: true
+      title: 'No nhi', persona: 'x', mcpServers: [], enabled: true
     })
     // No nhi.clientId anywhere in the body, so assertEnrolmentWorks must never be
     // invoked and this ordinary edit must succeed without attempting any exchange.
     const updated = await admin.put(`/api/autonomous-agents/organization/test1/${created.data.id}`, {
-      title: 'No nhi renamed', persona: 'x', mcpServers: [], toolDisclosure: 'static', enabled: true
+      title: 'No nhi renamed', persona: 'x', mcpServers: [], enabled: true
     })
     assert.equal(updated.status, 200)
     assert.equal(updated.data.title, 'No nhi renamed')

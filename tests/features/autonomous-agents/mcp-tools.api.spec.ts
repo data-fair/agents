@@ -12,7 +12,7 @@ const issuer = `http://localhost:${process.env.NGINX_PORT}/agents/api/nhi`
 let fixture: McpFixture
 
 const agentBody = (over: any = {}) => ({
-  title: 'Tool probe', persona: 'x', mcpServers: [{ serverId: 'dev-public-mcp' }], toolDisclosure: 'static', enabled: true, ...over
+  title: 'Tool probe', persona: 'x', mcpServers: [{ serverId: 'dev-public-mcp' }], enabled: true, ...over
 })
 
 test.describe('Autonomous agent tools', () => {

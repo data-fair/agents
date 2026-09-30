@@ -9,7 +9,7 @@
 
 /** Every property the write-req schema accepts. Kept in sync by a unit test, not by memory. */
 export const AUTONOMOUS_AGENT_WRITABLE_KEYS = [
-  'title', 'persona', 'instructions', 'mcpServers', 'toolDisclosure', 'nhi', 'instructors', 'enabled'
+  'title', 'persona', 'instructions', 'mcpServers', 'nhi', 'instructors', 'enabled'
 ] as const
 
 export function autonomousAgentEditDraft (autonomousAgent: Record<string, any>): Record<string, any> {

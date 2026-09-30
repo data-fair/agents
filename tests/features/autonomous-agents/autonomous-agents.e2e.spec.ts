@@ -50,7 +50,7 @@ test.describe('Autonomous agents configuration', () => {
     // deterministically in edit-draft.unit.spec.ts, including a guard that fails if the write-req
     // schema gains a property the form does not carry.
     const created = await admin.post('/api/autonomous-agents/organization/test1', {
-      title: 'Editable agent', persona: 'You answer briefly.', mcpServers: [], toolDisclosure: 'static', enabled: true
+      title: 'Editable agent', persona: 'You answer briefly.', mcpServers: [], enabled: true
     })
     await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: created.data.id })
 
@@ -73,7 +73,7 @@ test.describe('Autonomous agents configuration', () => {
     // the failure path the valuable one to pin — an inert button would be the likely bug, and this
     // asserts the directory's own refusal is surfaced instead.
     const created = await admin.post('/api/autonomous-agents/organization/test1', {
-      title: 'Unenrolled agent', persona: 'x', mcpServers: [], toolDisclosure: 'static', enabled: true
+      title: 'Unenrolled agent', persona: 'x', mcpServers: [], enabled: true
     })
     expect(created.data.nhi?.clientId).toBeFalsy()
 
@@ -110,7 +110,7 @@ test.describe('Autonomous agents configuration', () => {
       clientId: 'test-autonomous-agent-nhi',
       siteUrl,
       issuer: `${siteUrl}/agents/api/nhi`,
-      autonomousAgent: { title: 'Enrolled agent', persona: 'x', mcpServers: [], toolDisclosure: 'static', enabled: true }
+      autonomousAgent: { title: 'Enrolled agent', persona: 'x', mcpServers: [], enabled: true }
     })
 
     await goToWithAuth('/agents/organization/test1', 'superadmin', asSuperAdmin)
@@ -180,7 +180,7 @@ test.describe('Autonomous agent thread', () => {
     // Created through the API rather than the UI: this block is about the thread, and driving the
     // configuration form again would make every failure here ambiguous.
     const created = await admin.post('/api/autonomous-agents/organization/test1', {
-      title: 'Thread agent', persona: 'You answer briefly.', mcpServers: [], toolDisclosure: 'static', enabled: true
+      title: 'Thread agent', persona: 'You answer briefly.', mcpServers: [], enabled: true
     })
     agentId = created.data.id
     // Dev cannot complete a real NHI enrolment, and an unenrolled agent refuses every turn — which
@@ -264,7 +264,6 @@ test.describe('Autonomous agent thread', () => {
       title: 'Thread agent',
       persona: 'You answer briefly.',
       mcpServers: [],
-      toolDisclosure: 'static',
       enabled: true,
       instructors: [{ userId: 'test1-user1', userName: 'Test User' }]
       // nhi is deliberately NOT sent here: supplying it makes the write route rebuild the enrolment,

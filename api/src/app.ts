@@ -123,7 +123,6 @@ if (process.env.NODE_ENV === 'development') {
       title: 'Fixture autonomous agent',
       persona: 'You answer briefly.',
       mcpServers: [],
-      toolDisclosure: 'static',
       enabled: true,
       ...req.body.autonomousAgent,
       id: req.body.id,

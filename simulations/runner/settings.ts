@@ -163,7 +163,6 @@ export async function seedAutonomousAgent (route: string, instructorUserId: stri
       // The long-running review server (npm run dev-mcp), not the per-spec fixture: a simulation is
       // not a spec and nothing would be listening on the fixture's port.
       mcpServers: [{ serverId: 'dev-review-session-mcp' }],
-      toolDisclosure: 'static',
       // A listed instructor, so the case can be driven by someone who is NOT an org admin — which is
       // also the only kind of user the login fixture can address here (it derives <id>@test.com).
       instructors: [{ userId: instructorUserId, userName: instructorUserId }],

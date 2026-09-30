@@ -321,7 +321,7 @@ const vjsfOptions = computed(() => ({
 
 const startCreate = () => {
   editing.value = null
-  draft.value = { toolDisclosure: 'static', enabled: true, mcpServers: [] }
+  draft.value = { enabled: true, mcpServers: [] }
   dialog.value = true
 }
 

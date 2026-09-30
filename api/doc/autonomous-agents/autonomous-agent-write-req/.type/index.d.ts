@@ -27,10 +27,6 @@ export type MCPServers = {
   serverId: Server;
   toolFilter?: OnlyTheseTools;
 }[];
-/**
- * "static" sends every selected tool on every turn. "exploration" shows names only and lets the autonomous agent promote the ones it needs — use it when the selection is large.
- */
-export type ToolDisclosure = "static" | "exploration";
 export type ClientId = string;
 export type UserId = string;
 export type UserName = string;
@@ -48,7 +44,6 @@ export type AutonomousAgent = {
   persona: Persona;
   instructions?: Instructions;
   mcpServers: MCPServers;
-  toolDisclosure: ToolDisclosure;
   nhi?: NonHumanIdentity;
   instructors?: UsersAllowedToInstruct;
   enabled: Enabled;

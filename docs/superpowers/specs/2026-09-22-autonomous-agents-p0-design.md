@@ -67,7 +67,7 @@ are reasonable and will be re-proposed otherwise.
 | Key custody | One service keypair, one issuer, subject per autonomous agent | Accepted tradeoff, see [Security posture](#security-posture) |
 | MCP servers | Global env-var catalog; org admins pick from it | Ops owns which endpoints exist; picking from a list is also the whole egress story |
 | Write surface | MCP server profiles + the NHI's own permissions | Writes are on the table with disclaimers; approval gate is built but open |
-| Tool disclosure | Per-agent toggle: static set or runtime exploration | `tool-exploration.ts` already exists and is Vue-free, so the second path is reuse rather than a second implementation |
+| ~~Tool disclosure~~ | **REMOVED 2026-09-30.** The field shipped and nothing ever read it: the executor always sent every selected tool, while the form offered "exploration" and described it as showing names only. An admin picking it for a large tool set got static behaviour with no signal, which is worse than not offering the choice. Reuse of `tool-exploration.ts` is still the right implementation — but it is a feature with its own decisions (how promotion interacts with the loop guards, with compaction's `retainedToolNames`, and with storing the `<tools-available>` notices in the parts model), not a field. The field comes back with it. |
 | Conversation scope | Shared per autonomous agent, multiple threads | Collaborative by nature; makes per-user attribution mandatory and gives P2's scheduled runs an obvious place to post |
 | Configuration ownership | Org admins | Superadmin gating is a temporary rollout flag, not an ownership boundary |
 | Sub-agents | Out of P0 | A single loop with a tool set is the smallest thing that proves the architecture |

@@ -23,7 +23,7 @@ const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
 const orgMember = await axiosAuth('test1-user1', { org: 'test1' })
 
 const agentBody = (over: any = {}) => ({
-  title: 'Runtime probe', persona: 'You answer briefly.', mcpServers: [], toolDisclosure: 'static', enabled: true, ...over
+  title: 'Runtime probe', persona: 'You answer briefly.', mcpServers: [], enabled: true, ...over
 })
 
 /** api/config/default.js autonomousAgentRunCredits — the per-run ceiling this test must NOT trip. */
@@ -794,7 +794,7 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
     await new Promise(resolve => setTimeout(resolve, 300))
 
     await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, {
-      title: agent.title, persona: agent.persona, mcpServers: [], toolDisclosure: 'static', enabled: false
+      title: agent.title, persona: agent.persona, mcpServers: [], enabled: false
     })
 
     const run = await awaitRun(runId)
@@ -873,7 +873,6 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
       title: agent.title,
       persona: agent.persona,
       mcpServers: [],
-      toolDisclosure: 'static',
       enabled: true,
       instructors: [{ userId: 'test1-user1', userName: 'Test User' }]
     })
@@ -934,7 +933,6 @@ test.describe('Autonomous agent conversation events', () => {
       title: agent.title,
       persona: agent.persona,
       mcpServers: [],
-      toolDisclosure: 'static',
       enabled: true,
       instructors: [{ userId: 'test1-user1', userName: 'Test User' }]
     })

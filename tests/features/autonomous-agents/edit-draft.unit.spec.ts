@@ -26,7 +26,6 @@ test.describe('autonomousAgentEditDraft', () => {
     persona: 'You triage.',
     instructions: 'In French.',
     mcpServers: [{ serverId: 'dev-public-mcp' }],
-    toolDisclosure: 'static',
     enabled: true,
     instructors: [{ userId: 'u1' }],
     nhi: { clientId: 'client-1', siteUrl: 'https://example.test/agents', issuer: 'https://example.test/agents/api/nhi' },
@@ -62,7 +61,6 @@ test.describe('autonomousAgentEditDraft', () => {
     assert.equal(draft.enabled, true)
     assert.deepEqual(draft.instructors, [{ userId: 'u1' }])
     assert.deepEqual(draft.mcpServers, [{ serverId: 'dev-public-mcp' }])
-    assert.equal(draft.toolDisclosure, 'static')
     assert.equal(draft.instructions, 'In French.')
   })
 
