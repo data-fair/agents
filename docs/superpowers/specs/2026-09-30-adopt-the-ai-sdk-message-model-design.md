@@ -157,7 +157,7 @@ built or are about to build. Each item below was checked against the **installed
 documentation, because an earlier pass of this review concluded `@ai-sdk/mcp` did not exist on the
 strength of it being absent from `node_modules`. Absence from our tree is not absence from the registry.
 
-## 2.1 OpenTelemetry GenAI telemetry — BLOCKED on a platform decision (revised)
+## 2.1 OpenTelemetry GenAI telemetry — POSTPONED (decided 2026-09-30)
 
 `experimental_telemetry` is available in the installed `ai` 6.0.277 (19 references in its types), and
 `registerTelemetryIntegration` / `TelemetryIntegration` are exported. The `gen_ai.*` semantic conventions
@@ -191,6 +191,36 @@ existing `@data-fair/lib` primitive first (there isn't one).
 
 Left unimplemented deliberately. The finding it would have addressed — compaction spend invisible to
 every ledger — was fixed directly instead, by billing the compaction.
+
+### Why it was postponed, so this is not re-litigated
+
+Four consequences, all checked rather than assumed:
+
+1. **Footprint.** `@opentelemetry/sdk-node` pulls ~25 packages — every exporter (OTLP http/grpc/proto,
+   Zipkin, Jaeger, Prometheus) plus the metrics and logs SDKs — and sits at 0.222.0, i.e. pre-1.0 where
+   minors carry breaking changes. Hand-wiring a `NodeTracerProvider` with one exporter avoids most of
+   that, at the cost of writing it.
+2. **Infrastructure.** Spans need a destination. The dev stack has no collector (nginx,
+   simple-directory, events, maildev, mongo), so dev gains a container and production needs an OTLP
+   endpoint plus a retention decision.
+3. **The default conflicts with an existing consent policy.** `recordInputs` and `recordOutputs` are
+   ENABLED by default, so the out-of-the-box behaviour ships full prompts, completions and tool results
+   into spans — into a differently-governed store, outside the per-org opt-in and per-user consent that
+   `storeTraces` enforces, with retention set by whoever runs the collector. Fixable with
+   `recordInputs: false, recordOutputs: false`, but it is opt-OUT: the safe configuration is the one a
+   future call site has to remember. Wrong default for this codebase.
+4. **There is no stack convention to join.** Neither `@data-fair/lib-express` nor `@data-fair/lib-node`
+   exports observability primitives and this service has no metrics endpoint — so adopting it here sets
+   a stack-wide convention from one branch of one service.
+
+It does NOT replace trace records either way: those are per-org, user-facing and consent-gated, while
+spans are operator telemetry. Both would run.
+
+**If revisited**, the cheap and safe shape is: hand-wired `NodeTracerProvider` plus one OTLP exporter
+(not `sdk-node`), an explicit `tracer` rather than the global, `recordInputs`/`recordOutputs` forced off
+in one shared helper so no call site can get it wrong, and the endpoint behind config defaulting to off.
+Better still, raised as a `@data-fair/lib-node` question so the bootstrap and its defaults are decided
+once for every service.
 
 ## 2.2 `@ai-sdk/mcp` — adopt the 1.x line
 
