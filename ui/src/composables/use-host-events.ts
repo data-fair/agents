@@ -1,6 +1,6 @@
 import { getCurrentScope, onScopeDispose } from 'vue'
 import { getTabChannelId, type AgentEvent } from '@data-fair/lib-vue-agents'
-import { HostEventStore } from './host-events'
+import { HostEventStore } from '@agents/shared/host-events'
 import Debug from 'debug'
 
 const debug = Debug('df-agents:use-host-events')

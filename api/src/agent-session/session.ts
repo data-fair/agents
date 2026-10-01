@@ -13,6 +13,7 @@
 
 import { nanoid } from 'nanoid'
 import type { BrowserToolDescriptor, ClientMessage, ServerMessage } from '@agents/shared/agent-session-protocol'
+import { HostEventStore } from '@agents/shared/host-events'
 
 /** How long the server waits for the browser to answer a contextual tool call. */
 export const BROWSER_CALL_TIMEOUT_MS = 30_000
@@ -53,6 +54,14 @@ export interface AgentSession {
   /** The forwarded session of the person on the other end, for tools that want one. */
   sessionCookie: () => string | undefined
   /**
+   * What the page has reported: retained state, and what the person has done.
+   *
+   * The SAME store the browser loop uses — `shared/host-events.ts` turned out to be free of Vue and of
+   * every browser API, so moving host events server-side was a move rather than a rewrite. The page now
+   * feeds it over the socket instead of directly, and `createWaitTool` works against it unchanged.
+   */
+  hostEvents: HostEventStore
+  /**
    * Ask the browser to run one of its contextual tools.
    *
    * Rejects on timeout, on a browser-reported error, and when the connection closes — never hangs,
@@ -72,6 +81,7 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
   const setTimer = options.setTimer ?? ((fn, ms) => setTimeout(fn, ms))
   const clearTimer = options.clearTimer ?? ((handle) => { clearTimeout(handle as ReturnType<typeof setTimeout>) })
 
+  const hostEvents = new HostEventStore()
   let tools: BrowserToolDescriptor[] = []
   let attached = false
   let closed: string | undefined
@@ -87,6 +97,7 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
 
   return {
     send: options.send,
+    hostEvents,
     tools: () => [...tools],
     attached: () => attached,
     sessionCookie: () => options.sessionCookie,
@@ -132,6 +143,18 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
         }
         case 'abort':
           options.onAbort?.()
+          return
+        case 'host-state':
+          // Keyed facts, pushed as state-like events so the store's own retention rules apply. A key
+          // whose value is absent is a WITHDRAWAL: the page is saying that fact is no longer true,
+          // which is a different statement from never having reported it.
+          for (const [key, detail] of Object.entries(message.state)) {
+            if (detail === null || detail === undefined) hostEvents.withdraw(key)
+            else hostEvents.push({ name: key, key, detail: String(detail), at: Date.now() })
+          }
+          return
+        case 'host-events':
+          for (const event of message.events) hostEvents.push(event)
       }
     },
 

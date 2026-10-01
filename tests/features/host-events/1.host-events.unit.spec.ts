@@ -5,7 +5,7 @@ import {
   formatHostEvents, formatHostState, hasHostState, appendHostEvents,
   HOST_EVENTS_OPEN, HOST_EVENTS_CLOSE, HOST_STATE_OPEN, HOST_STATE_CLOSE, createWaitTool,
   LOCATION_KEY, resolvesWait
-} from '../../../ui/src/composables/host-events.ts'
+} from '@agents/shared/host-events'
 import { AGENT_LOCATION_KEY } from '../../../lib-vue/agent-location.ts'
 import { wrapHiddenContext, splitHiddenContext } from '../../../ui/src/traces/hidden-context.ts'
 

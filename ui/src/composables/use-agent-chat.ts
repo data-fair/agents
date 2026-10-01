@@ -22,7 +22,7 @@ import type { ChatActivity } from './agent-activity.ts'
 import { applyStreamPart, type StreamScope, type StreamPart } from '~/utils/agent-stream-parts'
 import { SUBAGENT_STEP_LIMIT_NOTICE, subAgentModelOutput } from '@agents/shared/agent-subagent-output'
 import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep, STREAM_IDLE_TIMEOUT_MS } from '@agents/shared/agent-loop-guards'
-import { HostEventStore, createWaitTool, appendHostEvents, formatHostEvents, formatHostState, hasHostState, WAIT_TOOL_NAME } from './host-events'
+import { HostEventStore, createWaitTool, appendHostEvents, formatHostEvents, formatHostState, hasHostState, WAIT_TOOL_NAME } from '@agents/shared/host-events'
 import { useHostEvents } from './use-host-events'
 
 const debug = Debug('df-agents:use-agent-chat')

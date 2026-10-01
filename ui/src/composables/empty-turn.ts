@@ -1,4 +1,4 @@
-import { WAIT_TOOL_NAME } from './host-events.js'
+import { WAIT_TOOL_NAME } from '@agents/shared/host-events'
 
 export interface TurnTextState {
   /** The turn produced at least one word of visible text. */

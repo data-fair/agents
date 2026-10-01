@@ -233,6 +233,23 @@ So sub-agents are cheap server-side *in the end state* and expensive *during the
 tools still carry data operations. That ordering is now a reason to sequence the tool migration before
 any rollout, not just alongside it.
 
+**6. Host events were the cheapest piece, not the riskiest.** §4 listed them alongside sub-agents as
+work to be done server-side, and the two-platform spec called them a browser concern. The module turned
+out to contain **zero browser APIs** — its own header says it is "kept free of Vue and the `~` alias so
+the node unit runner can import it" — so moving it was a rename plus two protocol frames. The store, the
+pure formatters and `createWaitTool` all work unchanged, with the page feeding them over the socket
+instead of directly.
+
+And it discharges the objection this reversal was originally rejected over. `wait_for_user_action` was
+described as "a distributed suspension holding a conversation lock". With the loop colocated with the
+socket it is neither distributed nor a lock: an in-process promise, settled by the next frame on the
+same connection in the same process. Asserted directly — a wait resolves with what the person did,
+times out with text that tells the model to end its reply, and refuses a second concurrent wait.
+
+The lesson generalises: of the two pieces the design feared most, one (sub-agents) was small code with
+large consequences, and the other (host events) was a rename. Fearing the wrong one cost nothing here,
+but it is a reason to read the remaining estimates sceptically.
+
 ## 6. What is knowingly lost
 
 Stated plainly, because a prototype that hides its costs cannot be judged:

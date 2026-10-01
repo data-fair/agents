@@ -33,6 +33,31 @@ export type ClientMessage =
   | { type: 'tool-result', callId: string, result?: unknown, error?: string }
   /** Stop the turn in flight. */
   | { type: 'abort' }
+  /**
+   * What is true on the page right now — retained, keyed facts.
+   *
+   * Replaces the previous state wholesale, because it answers "what is true now" rather than "what
+   * changed": the model is told it at the moments it has no history to integrate from (first turn,
+   * after a reset, after a compaction).
+   */
+  | { type: 'host-state', state: Record<string, unknown> }
+  /** Things the person did. Appended, coalesced and capped by the store, not by the wire. */
+  | { type: 'host-events', events: HostEventFrame[] }
+
+/**
+ * One thing that happened on the page, as it travels.
+ *
+ * Structurally identical to lib-vue's `AgentEvent`, and deliberately re-declared rather than imported:
+ * `shared/` must not depend on a Vue package, and this is a WIRE type whose shape is now part of the
+ * protocol — pinning it here is what stops a lib-vue refactor silently changing what the server parses.
+ */
+export interface HostEventFrame {
+  name: string
+  detail?: string
+  /** Present on state-like events: a later event with the same key supersedes this one. */
+  key?: string
+  at: number
+}
 
 export type ServerMessage =
   | { type: 'attached', conversationId: string, anonymous: boolean }
@@ -141,6 +166,28 @@ export function parseClientMessage (raw: string): ClientMessage | InvalidMessage
     }
     case 'abort':
       return { type: 'abort' }
+    case 'host-state': {
+      if (!isRecord(parsed.state)) return { type: 'invalid', reason: 'state must be an object of keyed facts' }
+      return { type: 'host-state', state: parsed.state }
+    }
+    case 'host-events': {
+      if (!Array.isArray(parsed.events)) return { type: 'invalid', reason: 'events must be an array' }
+      const events: HostEventFrame[] = []
+      for (const raw of parsed.events) {
+        // Validated rather than trusted: these reach the model's context as prose, and `at` orders the
+        // coalescing, so a missing name or a non-numeric timestamp corrupts what the model is told.
+        if (!isRecord(raw) || typeof raw.name !== 'string' || !raw.name || typeof raw.at !== 'number') {
+          return { type: 'invalid', reason: 'each event needs a non-empty name and a numeric at' }
+        }
+        events.push({
+          name: raw.name,
+          at: raw.at,
+          ...(typeof raw.detail === 'string' ? { detail: raw.detail } : {}),
+          ...(typeof raw.key === 'string' ? { key: raw.key } : {})
+        })
+      }
+      return { type: 'host-events', events }
+    }
     default:
       return { type: 'invalid', reason: `unknown message type ${JSON.stringify(parsed.type)}` }
   }
