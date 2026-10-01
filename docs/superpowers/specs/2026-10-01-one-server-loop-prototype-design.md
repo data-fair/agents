@@ -26,10 +26,8 @@ My earlier rejection had six load-bearing objections. Four do not survive:
 Two survive and are accepted costs: **per-conversation server compute**, and **churn on code reworked
 twice this week**.
 
-And two arguments *for* it that the rejection never weighed:
+One argument *for* it that the rejection never weighed:
 
-- **openapi-mcp bootstrapping is a per-page-view cost in the browser** — fetch and parse a set of
-  OpenAPI documents on every page open — and a once-per-process cost on the server.
 - **Guards and moderation become enforcing rather than advisory.** The earlier spec had to state that
   the browser's `stopWhen` guards are advisory, bypassable by a patched bundle or a devtools session,
   with the gateway as the only real bound; and that moderation applied to one loop only. That asymmetry
@@ -37,6 +35,27 @@ And two arguments *for* it that the rejection never weighed:
 
 **The condition I wrote for reversing is met.** That spec said the reversal becomes right "if a personal
 conversation ever becomes a server-side artifact". Per-user stored conversation history is exactly that.
+
+### Two arguments withdrawn on inspection
+
+Both were raised in favour of this change and both turned out not to support it. Recorded because a
+spec that keeps a bad argument invites someone to lean on it.
+
+- **"openapi-mcp bootstrapping is a per-page-view cost in the browser."** It argues for *openapi-mcp*
+  being server-side, which was already the plan — not for the loop being server-side. A browser loop can
+  be an MCP *client* of a server-side openapi-mcp: one `tools/list` round trip per page, no OpenAPI
+  document parsing in the browser at all. That is what MCP is for.
+- **"Security is clearer server-side."** True of *our own* traffic, and that is worth real money and
+  real product quality. But **loop guards cannot protect the platform**: a third-party agent reaching
+  the same published MCP server as the user is untouched by our moderation and our step limits. Platform
+  safety lives at the MCP server and in Data Fair's own permissions either way.
+
+**So the honest remaining case is narrower than when this started:** one loop instead of two (the
+duplication that caused every context bug on this branch), the gateway disappearing, guards that are not
+bypassable for our own traffic, and durable history with memories. With capability on a published MCP
+server, a browser loop and a server loop are **equally capable** — the tool argument is gone, not
+weakened. This is a change made for our own product, not for the ecosystem's safety, and §7's measures
+are what decide whether it pays.
 
 ## 2. Decisions taken (from this conversation)
 
@@ -76,6 +95,27 @@ and no benefit. (This is the correction to that spec: the engine extraction and 
 wrapped in the same provenance envelope as any other tool result. A browser-returned result is untrusted
 input, exactly as an MCP server's is.
 
+### Parity is an invariant, not an aspiration
+
+**This loop gets no tool surface another agent cannot reach.** The promise made to colleagues and
+customers is that a third-party agent — a WebMCP-capable browser extension, another vendor's assistant,
+anything with an NHI — has the same capabilities as ours. That is a constraint on where tools live and
+who may reach them, and it is *independent* of where the loop runs. The loop is a **peer consumer** of
+published surfaces, never a privileged one.
+
+Concretely, two rules this prototype must not break:
+
+1. **Capability comes from the published MCP server**, reached over HTTP the same way any client reaches
+   it, authenticated as the user (forwarded session) or as the agent (NHI). Not a ClusterIP-only
+   deployment with the profile gate off. If our loop can call a tool that an authenticated third-party
+   client cannot, the promise is broken regardless of how the loop is structured.
+2. **The page declares only genuinely contextual tools** — select, open, display, wait for the user —
+   which any in-browser agent sees. Non-contextual capability moves to the server surface, and that is
+   acceptable for parity *because that surface is published*, not because it stays in the page.
+
+Why this needs writing down: the alternative is already the deployed design elsewhere, so drifting into
+it is the default rather than a mistake someone has to make. See §9.
+
 **The gateway is deleted.** It is the single largest measurable simplification and it is only available
 once no loop runs in the browser. Quotas, usage recording and moderation move into the loop, which is
 where they stop being enforceable-only-at-one-hop.
@@ -97,7 +137,9 @@ Roughly in dependency order. Each is a commit-sized unit, not a task list.
 2. **The browser tool bridge** — the page registers its contextual WebMCP tools with the session; the
    server advertises them to the model and calls them over the socket.
 3. **The personal agent** — an agent record with no NHI, identity = forwarded session, calling the
-   internal MCP server as the user.
+   **published** MCP server as the user, over the same ingress a third-party client uses (§3's parity
+   invariant). Until the consolidation in §9 lands, the prototype points at whatever is reachable and
+   records the gap rather than reaching for the privileged deployment.
 4. **Conversation storage, simplified** — per-user, with an agent reference; drop the shared-timeline
    machinery (one `author` per message becomes user-or-agent, not an attribution envelope defending
    against other instructors).
@@ -152,7 +194,47 @@ Fixed now, so the judgement is not retrospective:
 **Revert triggers:** contextual tool latency bad enough to be felt in normal use; sub-agents or host
 events needing more code server-side than they replace; or net code going *up*.
 
-## 8. What this prototype needs from the dev environment
+## 8. Dependency: consolidating `data-fair/mcp`, which is not this repo's change
+
+The parity invariant in §3 cannot be satisfied by this service alone. `data-fair/mcp` currently deploys
+one image as two services, and its README names this service as the beneficiary of the privileged one:
+
+| | `mode: public` | `mode: internal` |
+|---|---|---|
+| Reachable | ingress at `/mcp-server/` | ClusterIP only, no ingress |
+| Profiles | gated by `PUBLIC_PROFILES` (default `["explore"]`) | unrestricted |
+| Rate limiting | per IP | **off** |
+| Consumers | external MCP clients | *"the agents service's autonomous runs"* |
+
+Two things follow. First, **the promise is already untrue for writes**: with `PUBLIC_PROFILES` at
+`["explore"]`, an external agent cannot even ask for `edit`. The consolidation is what makes the parity
+claim true, and it is needed whether or not the loop moves. Second, **nothing depends on the privileged
+deployment yet** — `api/config/default.js` has `mcpServers: []` — so this is the cheapest moment the
+decision will ever have.
+
+What consolidation actually costs, so it is not mistaken for a rename:
+
+- **Rate limiting becomes load-bearing.** Today `internal` runs with limiting off *because it has no
+  ingress*: unreachability is the control. One published server makes every profile internet-reachable
+  and the limiter becomes the only thing between an anonymous caller and an expensive aggregate query.
+  Once sessions are forwarded it should key on the authenticated principal, not on IP alone.
+- **`IGNORE_RATE_LIMITING` becomes a sharp object.** A shared secret that bypasses Data Fair's own
+  limits is defensible for an unreachable service; held by a loop acting per-user it means a user's
+  agent traffic is unlimited while their direct traffic is not. That asymmetry needs an explicit
+  decision, and the honest end state is that the secret stops existing.
+- **A write surface goes on the public internet.** The gate moves from "which profiles are published" to
+  "what may this principal do", which is the right place — Data Fair's own permissions — and it makes
+  the approval gate (`2026-10-01-tool-approval-gate-design.md`) more valuable, not less.
+
+Per-caller identity forwarding is already designed for: openapi-mcp's `createMcpHttpHandler` takes a
+`context(request)` hook for exactly this, and its README calls the multi-caller server "`data-fair/mcp`
+v2". Discovery is already partly built too — `GET /v0/servers` serves an MCP Registry API document, one
+entry per profile, listing public profiles only in `public` mode.
+
+**Out of scope here, tracked as a dependency.** The prototype proceeds against whatever is reachable and
+records where it had to deviate.
+
+## 9. What this prototype needs from the dev environment
 
 It is a second checkout, so it needs its own `npm install`, and exercising it needs a dev stack for this
 worktree — its own ports and containers, which the user starts. Until then this branch can be written and
