@@ -462,7 +462,16 @@ const performTurn = async (run: AutonomousAgentRun, messageSeq: number, messageI
   const sessionProvider = autonomousAgent.nhi
     ? nhiSessionProvider(autonomousAgent)
     : forwardedSessionProvider(session?.sessionCookie())
-  const { tools: rawTools, serverByTool, annotationsByTool, close: closeTools } = await openAutonomousAgentTools(autonomousAgent, sessionProvider)
+  // The personal assistant takes the WHOLE catalog, so an unreachable entry is an availability event
+  // rather than a misconfiguration: it is skipped and reported instead of failing the turn. A
+  // configured agent's selection is deliberate, so for it a failure still throws.
+  const { tools: rawTools, serverByTool, annotationsByTool, skippedServers, close: closeTools } =
+    await openAutonomousAgentTools(autonomousAgent, sessionProvider, {
+      onServerError: autonomousAgent.id === PERSONAL_AGENT_ID ? 'skip' : 'throw'
+    })
+  if (skippedServers.length) {
+    debug('skipped %d unreachable server(s): %o', skippedServers.length, skippedServers)
+  }
   // The catalog's tools, plus whatever the page in front of the person can do. Both already carry the
   // provenance envelope, and from here on the loop cannot tell them apart — which is the claim.
   const tools = {

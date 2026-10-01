@@ -124,11 +124,18 @@ test.describe('A turn over the agent session', () => {
     assert.match(String(call.output), /<tool-result server="the-page" tool="select_row">/)
   })
 
-  test('losing the socket before the turn starts costs it its identity — and it still ends properly', async () => {
-    // A finding, asserted rather than hidden. For the personal assistant the credential IS the socket,
-    // so a tab closed before the turn begins leaves it with no session: any catalog entry whose auth is
-    // `nhi-session` then refuses, and the turn fails. What must still hold is the executor's invariant —
-    // a terminal status and exactly one assistant message that explains itself, never a silence.
+  test('losing the socket before the turn starts costs it its session-authenticated tools, SILENTLY', async () => {
+    // Finding 1, as it actually behaves once unreachable catalog entries are skipped rather than fatal.
+    //
+    // For the personal assistant the credential IS the socket. A tab closed before the turn begins
+    // leaves it with no session, so every entry whose auth is `nhi-session` is refused — and now
+    // SKIPPED rather than failing the turn. So the turn completes and answers, with fewer tools than it
+    // would have had, and nothing in the answer says so.
+    //
+    // That is a real trade and not obviously the right one: failing loudly told the person something
+    // was wrong, where this quietly narrows what the assistant can do. Recorded in §5b rather than
+    // resolved here, because the skip decision currently conflates "the server is down" with "we have
+    // no credential for it", and only the first is an availability event.
     const conversation = await personalConversation()
     const session = await open(await cookieOf(orgAdmin))
     session.send({ type: 'hello', conversationId: conversation.id, tools: [] })
@@ -142,9 +149,9 @@ test.describe('A turn over the agent session', () => {
       const assistant = messages.find((m: any) => m.role === 'assistant')
       if (assistant && assistant.pending === false) {
         const text = assistant.parts.find((p: any) => p.type === 'text')?.text ?? ''
+        // The invariant holds whatever happened: a terminal message, never a silence.
         assert.ok(text.length > 0, 'a blank bubble is the silence this forbids')
-        // It says what happened rather than appearing to answer.
-        assert.match(text, /requires a session|could not be completed/i)
+        assert.equal(text, 'world', 'the turn completes — the capability loss is what is silent')
         return
       }
       await new Promise(resolve => setTimeout(resolve, 100))

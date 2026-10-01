@@ -30,6 +30,12 @@ export interface AutonomousAgentForTools {
   mcpServers?: { serverId: string, toolFilter?: string[] }[]
 }
 
+/** A catalog entry that could not be reached, when the caller asked to skip rather than fail. */
+export interface SkippedServer {
+  id: string
+  reason: string
+}
+
 /** A listed MCP tool, as returned by client.listTools(). */
 export interface ListedMcpTool {
   name: string
@@ -58,7 +64,7 @@ export const forEachListedTool = async (
   autonomousAgent: AutonomousAgentForTools,
   sessionProvider: SessionProvider,
   visit: (t: ListedMcpTool, server: GlobalMcpServer, client: Client) => void,
-  opts?: { keepConnectionsOpen?: boolean }
+  opts?: { keepConnectionsOpen?: boolean, onServerError?: 'throw' | 'skip', skipped?: SkippedServer[] }
 ): Promise<() => Promise<void>> => {
   const catalog = config.mcpServers ?? []
   const refs = autonomousAgent.mcpServers ?? []
@@ -93,7 +99,18 @@ export const forEachListedTool = async (
           close = undefined
         }
       } catch (err: any) {
-        throw httpError(502, `MCP server "${server.id}" failed: ${err.message}`)
+        // THROW or SKIP, and the two are different semantics rather than a tolerance knob.
+        //
+        // A configured agent's server selection is deliberate, so a failure is a misconfiguration and
+        // must surface loudly — a toolless turn would otherwise read as a capability problem.
+        //
+        // The personal assistant's selection is "everything in the catalog", so the same failure is an
+        // availability event: taking down the whole assistant for a server the person never chose, and
+        // may not need, is the wrong trade. data-fair/mcp's own composer draws this line the same way —
+        // a failing service is excluded and reported, only a bad index throws.
+        if (opts?.onServerError !== 'skip') throw httpError(502, `MCP server "${server.id}" failed: ${err.message}`)
+        debug('skipping server=%s %s', server.id, err.message)
+        opts.skipped?.push({ id: server.id, reason: err.message })
       } finally {
         await close?.()
       }
@@ -124,6 +141,8 @@ export interface OpenAutonomousAgentTools {
    * dropped on the path that actually runs a tool, which is the path where they matter.
    */
   annotationsByTool: Map<string, Record<string, unknown>>
+  /** Catalog entries that could not be reached; always empty unless the caller asked to skip. */
+  skippedServers: SkippedServer[]
   /** MUST be called when the turn is over: until then the connections stay open. */
   close: () => Promise<void>
 }
@@ -138,11 +157,13 @@ export interface OpenAutonomousAgentTools {
  */
 export const openAutonomousAgentTools = async (
   autonomousAgent: AutonomousAgentForTools,
-  sessionProvider: SessionProvider
+  sessionProvider: SessionProvider,
+  opts?: { onServerError?: 'throw' | 'skip' }
 ): Promise<OpenAutonomousAgentTools> => {
   const tools: Record<string, Tool> = {}
   const serverByTool = new Map<string, string>()
   const annotationsByTool = new Map<string, Record<string, unknown>>()
+  const skippedServers: SkippedServer[] = []
   const close = await forEachListedTool(autonomousAgent, sessionProvider, (t, server, client) => {
     // Last-write-wins on a name collision across servers, matching the browser
     // aggregator's Object.assign semantics — and the provenance map follows the same
@@ -172,8 +193,8 @@ export const openAutonomousAgentTools = async (
         return formatted
       }
     })
-  }, { keepConnectionsOpen: true })
-  return { tools, serverByTool, annotationsByTool, close }
+  }, { keepConnectionsOpen: true, onServerError: opts?.onServerError, skipped: skippedServers })
+  return { tools, serverByTool, annotationsByTool, skippedServers, close }
 }
 
 export interface McpToolDescriptor {

@@ -183,16 +183,26 @@ Mitigation available and not taken yet: capture the cookie when the turn begins 
 per tool gather, which widens the window from "the whole turn" to "the moment it starts". It does not
 remove the class.
 
-**2. "Every catalog entry, unfiltered" makes one broken server break the assistant.**
+**1b. Fixing 2 narrowed 1, and left a subtler version of it.** With unreachable entries skipped, a
+socketless personal turn no longer fails — it completes with **fewer tools than it should have had, and
+nothing says so**. That is a real trade and not obviously the better one: failing loudly told the person
+something was wrong.
+
+The cause is that the skip decision conflates two different things: *"the server is down"* (an
+availability event, where skipping is right) and *"we have no credential for it"* (a capability loss the
+person should be told about). Separating them is the obvious next refinement, and the `skippedServers`
+list already carries the reason needed to do it.
+
+**2. "Every catalog entry, unfiltered" makes one broken server break the assistant.** FIXED.
 `forEachListedTool` throws a 502 naming the failing server, which is right for a *configured* agent —
 its selection is deliberate, so a failure is a misconfiguration worth surfacing loudly. The personal
 assistant's selection is "everything in the catalog", so the same failure is an availability event,
 and it takes down the whole assistant for a server the person never chose and may not need.
 
-The fix is a parameter rather than a behaviour change, because the two semantics are genuinely
-different: a deliberate selection throws, "everything" skips and reports. `data-fair/mcp`'s own
-composer already draws this line — *"a failing service is excluded and reported; only a bad index
-throws"*. Not implemented yet; it is the next thing to do in this area.
+Fixed as a parameter rather than a behaviour change, because the two semantics are genuinely different:
+a deliberate selection throws, "everything" skips and reports. `data-fair/mcp`'s own composer already
+draws this line — *"a failing service is excluded and reported; only a bad index throws"*. Both halves
+are asserted, and the skip is mutation-checked. See 1b for what it left behind.
 
 **3. A guard written for configured agents refused every personal turn.** The executor refuses an agent
 with no enrolled NHI, because for a configured agent that means a toolless turn that looks like a
