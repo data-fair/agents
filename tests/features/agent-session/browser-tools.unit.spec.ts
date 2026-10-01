@@ -19,6 +19,7 @@ const fakeSession = (over: Partial<AgentSession> = {}): AgentSession => ({
   callBrowserTool: async () => 'the page answered',
   tools: () => [{ name: 'select_row', description: 'selects a row' }],
   sessionCookie: () => undefined,
+  send: () => {},
   attached: () => true,
   close: () => {},
   ...over

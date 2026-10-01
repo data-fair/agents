@@ -31,14 +31,18 @@ import {
   boundToolResult, partsText, withAppendedText,
   type RunStopReason, type UIPart
 } from './operations.ts'
-import { appendMessage, updateMessage, finishRun, incrementRunSpend, saveCompaction } from './service.ts'
+import { appendMessage, updateMessage, finishRun, incrementRunSpend, saveCompaction, resolveAgent } from './service.ts'
 import { recordTraceRequest } from '../traces/service.ts'
 import { getSettings } from '../settings/service.ts'
 import { resolveRoleModel } from '../models/service.ts'
 import { contextBudget } from '../models/operations.ts'
 import { computeCreditBreakdown } from '../usage/operations.ts'
 import { openAutonomousAgentTools } from '../mcp-servers/client.ts'
-import { nhiSessionProvider } from '../agent-identity/service.ts'
+import { nhiSessionProvider, forwardedSessionProvider } from '../agent-identity/service.ts'
+import { sessionFor } from '../agent-session/registry.ts'
+import { PERSONAL_AGENT_ID } from '../agent-session/personal-agent.ts'
+import type { AgentSession } from '../agent-session/session.ts'
+import { browserToolSet } from '../agent-session/browser-tools.ts'
 import { enforceQuotas, checkAccountCreditCap, type UsageIdentity } from '../usage/enforce.ts'
 import { recordUsage } from '../usage/service.ts'
 
@@ -395,11 +399,16 @@ const compactHistory = async (
  * producing a toolless turn that looks like a capability problem.
  */
 const performTurn = async (run: AutonomousAgentRun, messageSeq: number, messageId: string, abortSignal: AbortSignal): Promise<TurnResult> => {
-  const autonomousAgent = await mongo.autonomousAgents.findOne(
-    { id: run.autonomousAgentId },
-    { projection: { _id: 0 } }
-  ) as AutonomousAgent | null
+  const autonomousAgent = await resolveAgent(run.owner, run.autonomousAgentId)
   if (!autonomousAgent) throw new Error('the autonomous agent no longer exists')
+
+  // The session watching this conversation, if any. UNDEFINED IS NORMAL: a turn can run with nobody
+  // there — a tab closed mid-turn, and later a scheduled run that never had one. Such a turn has no
+  // page tools and streams to nobody; the stored message is still the record.
+  //
+  // This lookup is the whole of what colocation buys. The loop runs in the process holding the socket,
+  // so "who is watching, and what can their page do?" is a Map read.
+  const session = sessionFor(run.conversationId)
   // The kill switch. Disabling an autonomous agent must actually stop it answering, calling
   // tools as its identity, and spending credits.
   if (autonomousAgent.enabled === false) {
@@ -410,7 +419,13 @@ const performTurn = async (run: AutonomousAgentRun, messageSeq: number, messageI
       stopReason: 'error'
     }
   }
-  if (!autonomousAgent.nhi?.clientId) {
+  // A CONFIGURED agent with no enrolment cannot run: its whole tool surface is reached as that
+  // identity, so a toolless turn would look like a capability problem rather than a setup one.
+  //
+  // The personal assistant is the deliberate exception — it has no non-human identity BY DESIGN and
+  // acts as the person whose socket it is. This guard predates it and would have refused every
+  // personal turn with a message about enrolment, which is how the first end-to-end test failed.
+  if (autonomousAgent.id !== PERSONAL_AGENT_ID && !autonomousAgent.nhi?.clientId) {
     return {
       parts: [{ type: 'text', text: 'This autonomous agent has no non-human identity enrolled, so it cannot reach any of its tools. An administrator needs to complete its enrolment before it can run.' }],
       steps: 0,
@@ -442,11 +457,21 @@ const performTurn = async (run: AutonomousAgentRun, messageSeq: number, messageI
   // Connections stay OPEN for the whole turn: a tool's execute closes over its client, and
   // the MCP SDK's close() clears the transport, so closing early makes every call reject
   // with 'Not connected'. Released in the finally below.
-  const { tools: rawTools, serverByTool, annotationsByTool, close: closeTools } = await openAutonomousAgentTools(autonomousAgent, nhiSessionProvider(autonomousAgent))
-  const tools = withProvenance(rawTools, name => serverByTool.get(name) ?? 'unknown')
+  // WHO IT ACTS AS — the one port. A configured agent has a non-human identity and acts as itself; the
+  // personal assistant has none and acts as the person whose socket this is.
+  const sessionProvider = autonomousAgent.nhi
+    ? nhiSessionProvider(autonomousAgent)
+    : forwardedSessionProvider(session?.sessionCookie())
+  const { tools: rawTools, serverByTool, annotationsByTool, close: closeTools } = await openAutonomousAgentTools(autonomousAgent, sessionProvider)
+  // The catalog's tools, plus whatever the page in front of the person can do. Both already carry the
+  // provenance envelope, and from here on the loop cannot tell them apart — which is the claim.
+  const tools = {
+    ...withProvenance(rawTools, name => serverByTool.get(name) ?? 'unknown'),
+    ...(session ? browserToolSet(session) : {})
+  }
 
   try {
-    return await runModelLoop({ run, messageSeq, messageId, abortSignal, model, entry, tools, settings, budget, serverByTool, annotationsByTool, autonomousAgent })
+    return await runModelLoop({ run, messageSeq, messageId, abortSignal, model, entry, tools, settings, budget, serverByTool, annotationsByTool, autonomousAgent, session })
   } finally {
     // The turn is over (normally, by throw, or by abandonment): release the MCP connections.
     await closeTools()
@@ -473,11 +498,13 @@ interface ModelLoopContext {
   budget: number
   serverByTool: Map<string, string>
   annotationsByTool: Map<string, Record<string, unknown>>
+  /** The browser watching this conversation, if one is. */
+  session?: AgentSession
   autonomousAgent: AutonomousAgent
 }
 
 const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
-  const { run, messageSeq, messageId, abortSignal, model, entry, tools, settings, budget, serverByTool, annotationsByTool, autonomousAgent } = ctx
+  const { run, messageSeq, messageId, abortSignal, model, entry, tools, settings, budget, serverByTool, annotationsByTool, autonomousAgent, session } = ctx
   const identity = usageIdentityFor(autonomousAgent)
 
   const compacted = await compactHistory(
@@ -611,6 +638,21 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   }
 
   /**
+   * Stream to the browser, if one is watching.
+   *
+   * UNTHROTTLED, unlike the persistence below, and the difference is the point. Persisting every token
+   * would be thousands of writes a turn, so that is throttled and the client refetches; a socket frame
+   * costs a syscall, so the person sees the answer arrive token by token. That is the thing the delta
+   * protocol this branch deleted was trying to do over HTTP.
+   *
+   * Best-effort: send already checks the socket is open, and a person who closed the tab mid-turn must
+   * not fail the turn — it finishes and is stored.
+   */
+  const stream = (kind: 'text' | 'reasoning', delta: string) => {
+    session?.send({ type: 'delta', kind, text: delta })
+  }
+
+  /**
    * Complete a tool call in place, by its id.
    *
    * By ID rather than "the last part": a step may issue several calls in parallel, and their results
@@ -648,9 +690,13 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
     if (part.type === 'error') throw part.error instanceof Error ? part.error : new Error(String(part.error))
     if (part.type === 'text-delta') {
       appendText('text', part.text)
+      stream('text', part.text)
       await persistPartial()
     }
-    if (part.type === 'reasoning-delta') appendText('reasoning', part.text)
+    if (part.type === 'reasoning-delta') {
+      appendText('reasoning', part.text)
+      stream('reasoning', part.text)
+    }
     // A step boundary, recorded as a part. LOAD-BEARING, not decoration: it is what
     // `convertToModelMessages` splits the turn's assistant messages on, so without it text the model
     // produced AFTER a tool result is replayed inside the assistant message that made the call —
@@ -849,6 +895,12 @@ export const runTurn = async (run: AutonomousAgentRun): Promise<void> => {
       status: result.stopReason === 'error' ? 'error' : 'done',
       stopReason: result.stopReason
     })
+    // The end-of-turn signal, so a watching page stops its spinner without polling for it.
+    sessionFor(run.conversationId)?.send({
+      type: 'turn-end',
+      stopReason: result.stopReason,
+      ...(result.stopDetail ? { detail: result.stopDetail } : {})
+    })
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err)
     // An abort is not a failure of the turn: distinguish the clock from a caller pressing
@@ -856,6 +908,9 @@ export const runTurn = async (run: AutonomousAgentRun): Promise<void> => {
     const aborted = abortController.signal.aborted
     const timedOut = aborted && /timeout/i.test(String((abortController.signal as any).reason?.message ?? ''))
     const stopReason: RunStopReason = timedOut ? 'timeout' : aborted ? 'aborted' : 'error'
+    // A failed turn ends the same way for a watcher as a successful one: the page must stop waiting
+    // whatever happened. "Failure is a message, not a silence" applies to the socket too.
+    sessionFor(run.conversationId)?.send({ type: 'turn-end', stopReason, detail })
     // The message is finalised FIRST, and the run closed after, because the terminal `run`
     // event is the end-of-turn signal a subscriber stops listening on: closing the run first
     // would leave every failed, aborted and timed-out turn showing a message stuck `pending`.

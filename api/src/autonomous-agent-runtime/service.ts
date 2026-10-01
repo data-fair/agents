@@ -3,9 +3,11 @@
  */
 
 import mongo from '#mongo'
+import config from '#config'
+import { personalAgent, PERSONAL_AGENT_ID } from '../agent-session/personal-agent.ts'
 import { nanoid } from 'nanoid'
 import { type AccountKeys, httpError } from '@data-fair/lib-express'
-import type { AutonomousAgentConversation, AutonomousAgentMessage, AutonomousAgentRun } from '#types'
+import type { AutonomousAgent, AutonomousAgentConversation, AutonomousAgentMessage, AutonomousAgentRun } from '#types'
 import { canInstruct, type InstructSession } from '../autonomous-agents/operations.ts'
 import { notifyConversationChanged } from './events.ts'
 import { getAutonomousAgent } from '../autonomous-agents/service.ts'
@@ -51,9 +53,27 @@ export const assertOwnsConversation = (conversation: { userId?: string }, sessio
 
 /** The autonomous agent behind a request, 404 when it is not this owner's. */
 export const requireAutonomousAgent = async (owner: AccountKeys, autonomousAgentId: string) => {
-  const autonomousAgent = await getAutonomousAgent(owner, autonomousAgentId)
+  const autonomousAgent = await resolveAgent(owner, autonomousAgentId)
   if (!autonomousAgent) throw httpError(404, 'unknown autonomous agent')
   return autonomousAgent
+}
+
+/**
+ * The agent a conversation names: a configured one from the store, or the personal assistant.
+ *
+ * ONE resolver, because the claim this prototype tests is that the loop does not care which it is
+ * serving. Everything downstream — the system prompt, the tool gathering, the guards, the spend — reads
+ * the same shape; only the reserved id and the absence of an `nhi` distinguish them, and the second is
+ * what the identity port keys on.
+ *
+ * The personal assistant is built per call rather than stored (see ../agent-session/personal-agent.ts),
+ * so it costs no collection and no migration.
+ */
+export const resolveAgent = async (owner: AccountKeys, autonomousAgentId: string) => {
+  if (autonomousAgentId === PERSONAL_AGENT_ID) {
+    return { ...personalAgent(config.mcpServers ?? []), owner } as unknown as AutonomousAgent
+  }
+  return await getAutonomousAgent(owner, autonomousAgentId)
 }
 
 /**

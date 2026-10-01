@@ -30,6 +30,8 @@ export interface AgentSessionOptions {
   /** Called on a `prompt`. The loop lands here; until then a session is a transport. */
   onPrompt?: (content: string) => void
   onAbort?: () => void
+  /** Called when a `hello` binds this connection to a conversation. The registry is wired here. */
+  onAttach?: (conversationId: string) => void
   callTimeoutMs?: number
   /** Injectable for tests; the real one is setTimeout. */
   setTimer?: (fn: () => void, ms: number) => unknown
@@ -46,6 +48,8 @@ interface PendingCall {
 export interface AgentSession {
   /** Dispatch one parsed client message. */
   handle: (message: ClientMessage) => void
+  /** Send a server frame. Used by the loop to stream, and by the registry to report a displacement. */
+  send: (message: ServerMessage) => void
   /** The forwarded session of the person on the other end, for tools that want one. */
   sessionCookie: () => string | undefined
   /**
@@ -82,6 +86,7 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
   }
 
   return {
+    send: options.send,
     tools: () => [...tools],
     attached: () => attached,
     sessionCookie: () => options.sessionCookie,
@@ -94,6 +99,7 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
           // declares is the authority for the page it is on now.
           tools = message.tools
           attached = true
+          if (message.conversationId) options.onAttach?.(message.conversationId)
           // conversationId is echoed back so a client that sent none learns the one it got. The
           // conversation itself is §4.4's work; until then the session reports what it was given.
           options.send({

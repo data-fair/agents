@@ -13,6 +13,8 @@ import { session as expressSession } from '@data-fair/lib-express'
 import Debug from 'debug'
 import { parseClientMessage, isAgentSessionPath, type ServerMessage } from '@agents/shared/agent-session-protocol'
 import { createAgentSession, type AgentSession } from './session.ts'
+import { attachSession, detachSession } from './registry.ts'
+import { startSessionTurn } from './turn.ts'
 
 const debug = Debug('agents:agent-session')
 
@@ -52,7 +54,7 @@ export interface StartAgentSessionsOptions {
 export const startAgentSessions = (server: Server, options: StartAgentSessionsOptions) => {
   const wss = new WebSocketServer({ noServer: true })
 
-  wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
+  wss.on('connection', (ws: WebSocket, req: IncomingMessage, sessionState: any) => {
     const send = (message: ServerMessage) => {
       // readyState is checked because a turn can finish producing after the person closed the tab, and
       // writing to a closed socket throws rather than no-ops.
@@ -60,7 +62,42 @@ export const startAgentSessions = (server: Server, options: StartAgentSessionsOp
     }
     // The cookie is taken from the UPGRADE request, which is the only moment it is available: a
     // websocket frame carries no headers.
-    const agentSession = createAgentSession({ send, sessionCookie: req.headers.cookie })
+    // The conversation this connection is bound to, remembered so the close handler can detach the
+    // right one. A session may re-attach (a navigation within the same tab), so this is not final.
+    let boundConversationId: string | undefined
+    const agentSession: AgentSession = createAgentSession({
+      send,
+      sessionCookie: req.headers.cookie,
+      onAttach: conversationId => {
+        if (boundConversationId && boundConversationId !== conversationId) detachSession(boundConversationId, agentSession)
+        boundConversationId = conversationId
+        attachSession(conversationId, agentSession)
+      },
+      onPrompt: content => {
+        if (!boundConversationId) {
+          send({ type: 'error', message: 'this connection is not bound to a conversation' })
+          return
+        }
+        if (!sessionState?.user) {
+          // Anonymous conversations are not persisted, so there is nothing to append a prompt to yet —
+          // §3 of the design keeps them in memory, which the loop does not serve.
+          send({ type: 'error', message: 'an anonymous session cannot run a turn yet' })
+          return
+        }
+        startSessionTurn({
+          conversationId: boundConversationId,
+          owner: { type: sessionState.account.type, id: sessionState.account.id },
+          session: sessionState,
+          content
+        }).catch((err: any) => {
+          // Reported on the socket rather than swallowed: the person pressed send, so a refusal has to
+          // reach them. The same reasons the HTTP route rejects for — not your conversation, empty
+          // content — arrive here as a message.
+          debug('prompt refused: %O', err)
+          send({ type: 'error', message: err.message ?? 'the turn could not be started' })
+        })
+      }
+    })
     sessions.set(ws, agentSession)
     debug('session opened, %d live', sessions.size)
 
@@ -77,6 +114,7 @@ export const startAgentSessions = (server: Server, options: StartAgentSessionsOp
 
     ws.on('close', () => {
       agentSession.close('the connection closed')
+      if (boundConversationId) detachSession(boundConversationId, agentSession)
       sessions.delete(ws)
       debug('session closed, %d live', sessions.size)
     })
@@ -99,8 +137,10 @@ export const startAgentSessions = (server: Server, options: StartAgentSessionsOp
     // the chat is open to anonymous users — but it must be a deliberate decision rather than the
     // consequence of not looking.
     expressSession.req(req as any)
-      .then(() => {
-        wss.handleUpgrade(req, socket as any, head, (ws) => { wss.emit('connection', ws, req) })
+      .then((sessionState) => {
+        // The resolved session travels with the connection: a websocket frame carries no cookie, so who
+        // this is can only be established once, here.
+        wss.handleUpgrade(req, socket as any, head, (ws) => { wss.emit('connection', ws, req, sessionState) })
       })
       .catch((err) => {
         debug('rejected an upgrade: %O', err)

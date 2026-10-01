@@ -163,6 +163,43 @@ consent unlocks is admin visibility, flagged per conversation, with the existing
 applying to that flag rather than to the content. This needs its own review before implementation — it
 is the one part of this design with a compliance consequence, and §4 can proceed without it.
 
+## 5b. Findings from building it
+
+Things the code revealed that the design did not anticipate. Recorded as they are found, because the
+point of a prototype is what it teaches.
+
+**1. For the personal assistant, the credential IS the socket.** Session forwarding means a turn's
+identity comes from the connection, so a tab closed *before the turn starts* leaves it with no session,
+and any catalog entry whose `auth` is `nhi-session` refuses. The executor's invariants still hold — a
+terminal status, one assistant message that explains itself — and a test asserts exactly that rather
+than pretending the turn succeeds. But it means:
+
+- a personal turn is only as durable as the connection that started it, which is the opposite of the
+  durability argument used *for* moving the loop;
+- a scheduled run can never be the personal assistant, which independently confirms that scheduled runs
+  are a different model rather than a conversation.
+
+Mitigation available and not taken yet: capture the cookie when the turn begins rather than reading it
+per tool gather, which widens the window from "the whole turn" to "the moment it starts". It does not
+remove the class.
+
+**2. "Every catalog entry, unfiltered" makes one broken server break the assistant.**
+`forEachListedTool` throws a 502 naming the failing server, which is right for a *configured* agent —
+its selection is deliberate, so a failure is a misconfiguration worth surfacing loudly. The personal
+assistant's selection is "everything in the catalog", so the same failure is an availability event,
+and it takes down the whole assistant for a server the person never chose and may not need.
+
+The fix is a parameter rather than a behaviour change, because the two semantics are genuinely
+different: a deliberate selection throws, "everything" skips and reports. `data-fair/mcp`'s own
+composer already draws this line — *"a failing service is excluded and reported; only a bad index
+throws"*. Not implemented yet; it is the next thing to do in this area.
+
+**3. A guard written for configured agents refused every personal turn.** The executor refuses an agent
+with no enrolled NHI, because for a configured agent that means a toolless turn that looks like a
+capability problem. The personal assistant has no NHI *by design*, so the guard had to learn about the
+one exception. Noted because it is the shape of thing to expect from reusing the loop: not conflicts of
+structure, but guards whose premises were narrower than they looked.
+
 ## 6. What is knowingly lost
 
 Stated plainly, because a prototype that hides its costs cannot be judged:
