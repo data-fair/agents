@@ -8,7 +8,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { tool, jsonSchema, type Tool } from 'ai'
-import { parseSubAgentConfig, partitionSubAgents, SUBAGENT_PREFIX } from '../../../api/src/agent-session/sub-agents.ts'
+import { parseSubAgentConfig, partitionSubAgents, subAgentDelegation, SUBAGENT_PREFIX } from '../../../api/src/agent-session/sub-agents.ts'
 
 /** A tool whose execute returns a fixed value, standing in for a page tool over the socket. */
 const fake = (returns: unknown): Tool => tool({
@@ -149,5 +149,104 @@ test.describe('partitionSubAgents', () => {
     assert.deepEqual(Object.keys(mainTools).sort(), ['a', 'b'])
     assert.deepEqual(reserved, [])
     assert.deepEqual(configs, {})
+  })
+})
+
+test.describe('subAgentDelegation — the worker trace', () => {
+  /** A stub model: one tool call, then a sentence. Enough to produce a trace with structure. */
+  const scriptedModel = () => {
+    let calls = 0
+    return {
+      specificationVersion: 'v3',
+      provider: 'probe',
+      modelId: 'probe',
+      supportedUrls: {},
+      doStream: async () => {
+        calls++
+        const parts: any[] = calls === 1
+          ? [
+              { type: 'tool-input-start', id: 'w1', toolName: 'query_data' },
+              // `tool-input-delta` is required: without it the SDK never builds the call's input and
+              // the tool is simply not executed — silently, with no error part. Copied from the repo's
+              // own mock model, which is the only stub known to drive the real loop.
+              { type: 'tool-input-delta', id: 'w1', delta: '{}' },
+              { type: 'tool-input-end', id: 'w1' },
+              { type: 'tool-call', toolCallId: 'w1', toolName: 'query_data', input: '{}' }
+            ]
+          : [
+              { type: 'text-start', id: 't' },
+              { type: 'text-delta', id: 't', delta: 'three rows matched' },
+              { type: 'text-end', id: 't' }
+            ]
+        return {
+          stream: new ReadableStream({
+            start (c) {
+              c.enqueue({ type: 'stream-start', warnings: [] })
+              for (const p of parts) c.enqueue(p)
+              // An OBJECT, not a bare string: the SDK reads `finishReason.unified`, and a string
+              // makes the loop stop after one step without executing anything.
+              c.enqueue({ type: 'finish', finishReason: { unified: calls === 1 ? 'tool-calls' : 'stop', raw: undefined }, usage: { inputTokens: { total: 1 }, outputTokens: { total: 1 } } })
+              c.close()
+            }
+          })
+        }
+      }
+    }
+  }
+
+  test('the panel gets the trace as it happens, and the lead gets only the summary', async () => {
+    const traces: any[] = []
+    const phases: Array<string | null> = []
+    const delegation = subAgentDelegation({
+      name: 'subagent_analyst',
+      config: { prompt: 'You analyse.', tools: ['query_data'] },
+      workerTools: { query_data: fake('rows') },
+      model: scriptedModel(),
+      onTrace: trace => traces.push(trace),
+      onPhase: (_id, phase) => phases.push(phase)
+    })
+
+    const summary = await delegation.execute!({ task: 'count the rows' } as never, { toolCallId: 'parent-1', messages: [] })
+
+    // What the LEAD gets: the summary only. The whole point of the pattern, and the reason a worker
+    // can make many calls without flooding the conversation it was delegated from.
+    assert.match(String(summary), /three rows matched/)
+    assert.doesNotMatch(String(summary), /query_data/, 'the lead must not receive the trace')
+
+    // What the PANEL gets: structure, keyed on the delegating call, streamed rather than sent at the
+    // end — so an expanded panel fills in instead of sitting empty for as long as the worker takes.
+    assert.ok(traces.length > 1, 'the trace must arrive progressively, not in one lump')
+    assert.ok(traces.every(t => t.parentToolCallId === 'parent-1'), 'every frame keys on the delegating call')
+    const last = traces[traces.length - 1]
+    assert.equal(last.pending, false, 'the final frame must clear pending')
+    const tool = (last.parts as any[]).find(p => p.type === 'dynamic-tool')
+    assert.equal(tool.toolName, 'query_data')
+    assert.equal(tool.state, 'output-available', 'the worker tool call must be shown as settled')
+    assert.match((last.parts as any[]).find(p => p.type === 'text').text, /three rows matched/)
+
+    // And the phase line moves, ending cleared so a finished panel does not spin for ever.
+    assert.equal(phases[0], 'starting')
+    assert.equal(phases[phases.length - 1], null)
+  })
+
+  test('a worker that fails still clears its phase line', async () => {
+    // Otherwise a panel spins for ever on a failure, which is the one state a reader cannot recover
+    // from by waiting.
+    const phases: Array<string | null> = []
+    const delegation = subAgentDelegation({
+      name: 'subagent_broken',
+      config: { prompt: 'p', tools: [] },
+      workerTools: {},
+      model: {
+        specificationVersion: 'v3',
+        provider: 'p',
+        modelId: 'p',
+        supportedUrls: {},
+        doStream: async (): Promise<never> => { throw new Error('the model refused') }
+      },
+      onPhase: (_id, phase) => phases.push(phase)
+    })
+    await assert.rejects(delegation.execute!({ task: 't' } as never, { toolCallId: 'parent-2', messages: [] }))
+    assert.equal(phases[phases.length - 1], null)
   })
 })

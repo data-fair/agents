@@ -14,6 +14,8 @@
  * wait for the answer, in the process holding the connection.
  */
 
+import type { ChatActivity } from './agent-activity.ts'
+
 /** A contextual tool the page offers. Only its advertisement — the page keeps the implementation. */
 export interface BrowserToolDescriptor {
   name: string
@@ -88,7 +90,26 @@ export type ServerMessage =
    * It also answers `isWaitingForUser`, which is `kind === 'waiting'` — one frame rather than two
    * overlapping ones.
    */
-  | { type: 'activity', activity: ChatActivity | null }
+  | {
+    type: 'activity'
+    activity: ChatActivity | null
+    /**
+     * Present when this is a sub-agent PANEL's phase line rather than the main one.
+     *
+     * Keyed on the delegating tool call, because several workers run concurrently when the lead
+     * delegates more than once in a step — the browser loop keys its panels the same way, and without
+     * the key two panels would share one phase line.
+     */
+    parentToolCallId?: string
+  }
+  /**
+   * A worker's trace, as stored parts, for its panel.
+   *
+   * Same shape as the main turn's `message` frame and for the same reason: one way to render a turn.
+   * The lead still sees only the summary — this is the trace the UI shows when a panel is expanded,
+   * never something the model reads.
+   */
+  | { type: 'subagent', parentToolCallId: string, name: string, parts: unknown[], pending: boolean }
   | { type: 'turn-end', stopReason: string, detail?: string }
   | { type: 'error', message: string }
 
@@ -257,7 +278,22 @@ export function parseServerMessageForClient (raw: string): ServerMessage | undef
       // does not know rather than drop the frame — the renderer already returns null for anything it
       // cannot label.
       if (parsed.activity !== null && !isRecord(parsed.activity)) return undefined
-      return { type: 'activity', activity: parsed.activity as ChatActivity | null }
+      return {
+        type: 'activity',
+        activity: parsed.activity as ChatActivity | null,
+        ...(typeof parsed.parentToolCallId === 'string' ? { parentToolCallId: parsed.parentToolCallId } : {})
+      }
+    case 'subagent': {
+      if (typeof parsed.parentToolCallId !== 'string' || typeof parsed.name !== 'string') return undefined
+      if (!Array.isArray(parsed.parts)) return undefined
+      return {
+        type: 'subagent',
+        parentToolCallId: parsed.parentToolCallId,
+        name: parsed.name,
+        parts: parsed.parts,
+        pending: parsed.pending === true
+      }
+    }
     case 'turn-end':
       if (typeof parsed.stopReason !== 'string') return undefined
       return {

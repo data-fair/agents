@@ -137,6 +137,15 @@ export async function partitionSubAgents (
  * difference from the browser is that here they are ENFORCING rather than advisory, which was one of the
  * few arguments for moving that survived scrutiny.
  */
+export interface SubAgentTrace {
+  /** The delegating tool call, which is what keys a panel. */
+  parentToolCallId: string
+  name: string
+  /** The worker's turn as stored parts, same shape as the lead's. */
+  parts: unknown[]
+  pending: boolean
+}
+
 export function subAgentDelegation (opts: {
   name: string
   config: SubAgentConfig
@@ -144,6 +153,16 @@ export function subAgentDelegation (opts: {
   model: unknown
   description?: string
   abortSignal?: AbortSignal
+  /**
+   * The worker's trace, as it happens, for its panel.
+   *
+   * The lead never sees this — it gets the summary. This is what the UI shows when a panel is
+   * expanded, and it is streamed rather than sent at the end so an expanded panel fills in instead of
+   * sitting empty for however long the worker takes.
+   */
+  onTrace?: (trace: SubAgentTrace) => void
+  /** The panel's phase line. Keyed on the same call, so concurrent panels do not share one. */
+  onPhase?: (parentToolCallId: string, phase: 'starting' | 'thinking' | 'tool' | 'analyzing' | null) => void
 }): Tool {
   return tool({
     description: opts.description ?? `Delegate a task to the ${opts.name.replace(SUBAGENT_PREFIX, '')} sub-agent.`,
@@ -152,7 +171,7 @@ export function subAgentDelegation (opts: {
       properties: { task: { type: 'string', description: 'The task to delegate, including all context the sub-agent needs.' } },
       required: ['task']
     } as any),
-    execute: async (input: any) => {
+    execute: async (input: any, options?: { toolCallId?: string }) => {
       const agent = new ToolLoopAgent({
         model: opts.model as any,
         // `instructions`, not `system`: ToolLoopAgent names the system prompt that way, and
@@ -161,14 +180,70 @@ export function subAgentDelegation (opts: {
         tools: opts.workerTools,
         stopWhen: [stepCountIs(STEP_LIMIT), repeatedCallGuard()]
       })
+      // The delegating call keys the panel. Falling back to the name keeps a trace addressable when no
+      // id is supplied, at the cost of two concurrent delegations of the SAME worker sharing a panel —
+      // which is the browser loop's own fallback, and the id is always present in practice.
+      const parentToolCallId = options?.toolCallId ?? opts.name
       debug('delegating to %s with %d tool(s)', opts.name, Object.keys(opts.workerTools).length)
-      const result = await agent.generate({
-        prompt: String(input?.task ?? ''),
-        abortSignal: opts.abortSignal
-      })
-      // The LEAD sees a summary, never the worker's trace. That is the context reduction the whole
-      // pattern exists for, and the reason a worker can make many calls without flooding the lead.
-      return subAgentModelOutput(result.text) || SUBAGENT_DONE_FALLBACK
+      opts.onPhase?.(parentToolCallId, 'starting')
+
+      // Streamed rather than generated, so the panel fills in as the worker works. The trace is for
+      // the UI only; what the lead receives is still just the summary below.
+      const parts: unknown[] = []
+      const emit = (pending: boolean) => { opts.onTrace?.({ parentToolCallId, name: opts.name, parts: [...parts], pending }) }
+      const appendText = (text: string) => {
+        const last = parts[parts.length - 1] as { type?: string, text?: string } | undefined
+        if (last?.type === 'text') { last.text = String(last.text ?? '') + text; return }
+        parts.push({ type: 'text', text })
+      }
+
+      try {
+        const result = await agent.stream({
+          prompt: String(input?.task ?? ''),
+          abortSignal: opts.abortSignal
+        })
+        for await (const part of result.fullStream) {
+          if (part.type === 'error') throw part.error instanceof Error ? part.error : new Error(String(part.error))
+          if (part.type === 'text-delta') {
+            appendText(part.text)
+            opts.onPhase?.(parentToolCallId, null)
+            emit(true)
+          }
+          if (part.type === 'tool-call') {
+            parts.push({ type: 'dynamic-tool', toolCallId: part.toolCallId, toolName: part.toolName, state: 'input-available', input: (part as any).input })
+            opts.onPhase?.(parentToolCallId, 'tool')
+            emit(true)
+          }
+          if (part.type === 'tool-result' || part.type === 'tool-error') {
+            const settled = parts.find(p => (p as any).type === 'dynamic-tool' && (p as any).toolCallId === part.toolCallId) as any
+            if (settled) {
+              if (part.type === 'tool-result') { settled.state = 'output-available'; settled.output = (part as any).output } else { settled.state = 'output-error'; settled.errorText = String((part as any).error) }
+            }
+            opts.onPhase?.(parentToolCallId, 'analyzing')
+            emit(true)
+          }
+        }
+        emit(false)
+
+        // The LEAD sees a summary, never the worker's trace. That is the context reduction the whole
+        // pattern exists for, and the reason a worker can make many calls without flooding the lead.
+        //
+        // `subAgentModelOutput` takes the worker's MESSAGE ARRAY, not its text — passing a string
+        // silently yields the "task completed" fallback, which would relabel a truncated worker as a
+        // success. The shape is what carries `stepLimitReached`, and that flag is the difference
+        // between "here is the answer" and "here is what I managed before running out".
+        const steps = (await result.steps).length
+        const text = await result.text
+        return subAgentModelOutput([{
+          content: text,
+          // A worker stopped by the step limit produced a PARTIAL result. Reported as such, because a
+          // lead told nothing would treat a truncation as a finished answer — the exact conflation the
+          // notice in shared/agent-subagent-output.ts exists to prevent.
+          ...(steps >= STEP_LIMIT ? { stepLimitReached: true } : {})
+        }]) || SUBAGENT_DONE_FALLBACK
+      } finally {
+        opts.onPhase?.(parentToolCallId, null)
+      }
     }
   })
 }
