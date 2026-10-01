@@ -65,6 +65,19 @@ export type ServerMessage =
   | { type: 'delta', kind: 'text' | 'reasoning', text: string }
   /** Run this contextual tool and answer with a `tool-result` carrying the same callId. */
   | { type: 'tool-call', callId: string, name: string, input: unknown }
+  /**
+   * The assistant turn as it stands, as STORED PARTS.
+   *
+   * One frame type instead of a parallel stream vocabulary. The transcript a client renders is the
+   * conversation of record — the same `UIMessagePart[]` the model is replayed from — so the same
+   * mapper serves the live chat and a thread reopened later, and there is no second format to keep in
+   * step. `delta` stays for token-level smoothness; this carries structure: tool calls, their states,
+   * step boundaries, reasoning.
+   *
+   * Throttled on the same clock as the partial persist, because the structure changes per tool call
+   * rather than per token.
+   */
+  | { type: 'message', seq: number, role: 'user' | 'assistant', parts: unknown[], pending: boolean }
   | { type: 'turn-end', stopReason: string, detail?: string }
   | { type: 'error', message: string }
 
@@ -222,6 +235,12 @@ export function parseServerMessageForClient (raw: string): ServerMessage | undef
     case 'tool-call':
       if (typeof parsed.callId !== 'string' || typeof parsed.name !== 'string') return undefined
       return { type: 'tool-call', callId: parsed.callId, name: parsed.name, input: parsed.input }
+    case 'message': {
+      if (typeof parsed.seq !== 'number') return undefined
+      if (parsed.role !== 'user' && parsed.role !== 'assistant') return undefined
+      if (!Array.isArray(parsed.parts)) return undefined
+      return { type: 'message', seq: parsed.seq, role: parsed.role, parts: parsed.parts, pending: parsed.pending === true }
+    }
     case 'turn-end':
       if (typeof parsed.stopReason !== 'string') return undefined
       return {

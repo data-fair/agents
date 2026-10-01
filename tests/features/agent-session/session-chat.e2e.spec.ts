@@ -59,5 +59,13 @@ test.describe('Session chat on a dev page', () => {
 
     await expect(page.getByTestId('tool-data').locator('textarea')).toHaveValue('written by the server', { timeout: 20000 })
     await expect(state).toHaveAttribute('data-tool-calls', '1')
+
+    // The STRUCTURE arrived too, not just the side effect: the page learned which tool ran and that it
+    // finished, through the same parts-to-ChatMessage mapper a reopened thread uses. This is what makes
+    // a real transcript drivable from the socket — tool chips, states and all — without a second format.
+    await expect(state).toHaveAttribute('data-tool-chips', 'set_data:done', { timeout: 20000 })
+    // And it arrived WHILE the turn ran, not only at the end. Without this the assertion above passes
+    // on the final frame alone — which is how it first survived removing the in-turn one.
+    await expect(state).toHaveAttribute('data-saw-pending', 'yes')
   })
 })

@@ -691,6 +691,20 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
     lastPersistAt = now
     lastPersistedLength = length
     await updateMessage(messageId, { parts: parts as any, pending: true })
+    sendMessageFrame(true)
+  }
+
+  /**
+   * Push the turn's STRUCTURE to a watching page: the stored parts as they stand.
+   *
+   * One frame type rather than a parallel stream vocabulary. What a client renders is the conversation
+   * of record, so the same mapper serves the live chat and a thread reopened later and there is no
+   * second format to keep in step. `stream` stays for token-level smoothness; this carries tool calls
+   * and their states, step boundaries and reasoning — which change per tool call, not per token, so it
+   * rides the persist clock rather than the delta one.
+   */
+  const sendMessageFrame = (pending: boolean) => {
+    session?.send({ type: 'message', seq: messageSeq, role: 'assistant', parts: parts as unknown[], pending })
   }
 
   for await (const part of result.fullStream) {
@@ -730,6 +744,10 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
           ...(annotationsByTool.get(part.toolName) ? { annotations: annotationsByTool.get(part.toolName) } : {})
         }
       })
+      // Immediately, not on the persist clock: a tool chip appearing is what tells the person the
+      // assistant is doing something, and a call can take seconds. Waiting for the next token would
+      // show the chip after the work it describes.
+      sendMessageFrame(true)
     }
     // The RESULT, stored because the conversation is revivable: without it a later turn replays a
     // call with no answer, which providers reject — so the old shape had to drop the call too, and
@@ -750,6 +768,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
         output: bounded.result,
         truncated: bounded.truncated
       })
+      sendMessageFrame(true)
     }
     // A tool that failed does not stop the turn — the model sees the error and usually keeps
     // talking — so without recording it a failed call reads exactly like a successful one.
@@ -761,6 +780,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
     if (part.type === 'tool-error') {
       const detail = (part as any).error instanceof Error ? (part as any).error.message : String((part as any).error)
       settleToolPart(part.toolCallId, { state: 'output-error', errorText: boundToolResult(detail).result })
+      sendMessageFrame(true)
       debug('tool failed tool=%s error=%s', part.toolName, detail)
     }
   }
@@ -825,8 +845,12 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   // reason's notice as its content. Treating those as empty completions would relabel every
   // truncation as a provider error.
   const emptyCompletion = stopReason === 'completed' && content.trim().length === 0
+  const finalParts = emptyCompletion ? withAppendedText(parts, EMPTY_COMPLETION_MESSAGE) : parts
+  // The last word on this turn's structure, with pending cleared — so a page stops rendering it as in
+  // progress without having to infer that from `turn-end`.
+  session?.send({ type: 'message', seq: messageSeq, role: 'assistant', parts: finalParts as unknown[], pending: false })
   return {
-    parts: emptyCompletion ? withAppendedText(parts, EMPTY_COMPLETION_MESSAGE) : parts,
+    parts: finalParts,
     steps,
     credits,
     stopDetail,

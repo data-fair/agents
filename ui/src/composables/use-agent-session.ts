@@ -31,6 +31,13 @@ export interface AgentSessionClientOptions {
   conversationId?: string
   agentId?: string
   onDelta?: (kind: 'text' | 'reasoning', text: string) => void
+  /**
+   * The turn's structure as stored parts: tool calls and their states, step boundaries, reasoning.
+   *
+   * Rendered with `autonomousAgentMessageToChat`, the same mapper a reopened thread uses — so the live
+   * transcript and the stored one cannot drift, because they are the same data through the same code.
+   */
+  onMessage?: (message: { seq: number, role: 'user' | 'assistant', parts: unknown[], pending: boolean }) => void
   onTurnEnd?: (stopReason: string, detail?: string) => void
   onError?: (message: string) => void
 }
@@ -93,6 +100,9 @@ export function useAgentSession (options: AgentSessionClientOptions) {
         attached.value = true
         conversationId.value = message.conversationId
         debug('attached to %s', message.conversationId)
+        return
+      case 'message':
+        options.onMessage?.(message)
         return
       case 'tool-call':
         // Not awaited: the socket must keep reading while the page works, so several calls of one

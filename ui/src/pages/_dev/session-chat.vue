@@ -32,10 +32,13 @@
           :data-first-token-ms="firstTokenMs ?? ''"
           :data-tool-calls="toolCalls"
           :data-tools="Object.keys(pageTools).length"
+          :data-tool-chips="toolChips.join(',')"
+          :data-saw-pending="sawPending ? 'yes' : 'no'"
         >
           connected: {{ connected }} · attached: {{ attached }} ·
           first token: {{ firstTokenMs === undefined ? '—' : firstTokenMs + ' ms' }} ·
-          page tools: {{ Object.keys(pageTools).length }} · page tool calls: {{ toolCalls }}
+          page tools: {{ Object.keys(pageTools).length }} · page tool calls: {{ toolCalls }} ·
+          tools used: {{ toolChips.join(', ') || '—' }}
         </div>
       </v-col>
 
@@ -100,6 +103,7 @@ import { useAgentTool, useFrameServer, getTabChannelId } from '@data-fair/lib-vu
 import { useSessionAuthenticated } from '@data-fair/lib-vue/session.js'
 import { FrameClientAggregator } from '~/transports/frame-client-aggregator'
 import { useAgentSession } from '~/composables/use-agent-session'
+import { autonomousAgentMessageToChat } from '~/utils/autonomous-agent-chat-message'
 import { $apiPath, $fetch } from '~/context'
 import type { Tool } from 'ai'
 
@@ -110,6 +114,14 @@ const toolCalls = ref(0)
 const draft = ref('')
 const turns = ref<Array<{ role: 'user' | 'assistant', text: string }>>([])
 const firstTokenMs = ref<number | undefined>()
+const toolChips = ref<string[]>([])
+/**
+ * Whether structure arrived WHILE the turn was running.
+ *
+ * Without it a transcript that only updated at the end would look identical in a test to a live one —
+ * which is exactly how the first version of the e2e assertion passed with the in-turn frame removed.
+ */
+const sawPending = ref(false)
 
 /** The page's own WebMCP tools, discovered by the aggregator exactly as the in-browser loop does. */
 const pageTools = ref<Record<string, Tool>>({})
@@ -127,6 +139,14 @@ const agent = useAgentSession({
     const last = turns.value[turns.value.length - 1]
     if (last?.role === 'assistant') last.text += text
     else turns.value.push({ role: 'assistant', text })
+  },
+  // The STRUCTURE of the turn, rendered through the same mapper a reopened thread uses. Here it is
+  // reduced to a list of tool chips, which is what a transcript needs beyond the text — the real chat
+  // renders the full ChatMessage this produces.
+  onMessage: message => {
+    if (message.pending) sawPending.value = true
+    const chat = autonomousAgentMessageToChat({ seq: message.seq, role: message.role, parts: message.parts as any, pending: message.pending })
+    toolChips.value = (chat.toolInvocations ?? []).map(invocation => `${invocation.toolName}:${invocation.state}`)
   },
   onError: message => { turns.value.push({ role: 'assistant', text: `[error] ${message}` }) }
 })
