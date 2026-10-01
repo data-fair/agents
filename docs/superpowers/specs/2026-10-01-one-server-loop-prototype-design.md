@@ -28,34 +28,72 @@ twice this week**.
 
 One argument *for* it that the rejection never weighed:
 
-- **Guards and moderation become enforcing rather than advisory.** The earlier spec had to state that
-  the browser's `stopWhen` guards are advisory, bypassable by a patched bundle or a devtools session,
-  with the gateway as the only real bound; and that moderation applied to one loop only. That asymmetry
-  is a defect, not a trade.
+- **What can be tampered with collapses to the irreducible.** The earlier spec had to state that the
+  browser's `stopWhen` guards are advisory, bypassable by a patched bundle or a devtools session, with
+  the gateway as the only real bound, and that moderation applied to one loop only. That asymmetry is a
+  defect, not a trade — and it is the narrow version of a bigger point, set out in full under "the
+  security argument, correctly stated" below.
 
 **The condition I wrote for reversing is met.** That spec said the reversal becomes right "if a personal
 conversation ever becomes a server-side artifact". Per-user stored conversation history is exactly that.
 
-### Two arguments withdrawn on inspection
-
-Both were raised in favour of this change and both turned out not to support it. Recorded because a
-spec that keeps a bad argument invites someone to lean on it.
+### One argument withdrawn on inspection
 
 - **"openapi-mcp bootstrapping is a per-page-view cost in the browser."** It argues for *openapi-mcp*
   being server-side, which was already the plan — not for the loop being server-side. A browser loop can
   be an MCP *client* of a server-side openapi-mcp: one `tools/list` round trip per page, no OpenAPI
   document parsing in the browser at all. That is what MCP is for.
-- **"Security is clearer server-side."** True of *our own* traffic, and that is worth real money and
-  real product quality. But **loop guards cannot protect the platform**: a third-party agent reaching
-  the same published MCP server as the user is untouched by our moderation and our step limits. Platform
-  safety lives at the MCP server and in Data Fair's own permissions either way.
 
-**So the honest remaining case is narrower than when this started:** one loop instead of two (the
-duplication that caused every context bug on this branch), the gateway disappearing, guards that are not
-bypassable for our own traffic, and durable history with memories. With capability on a published MCP
-server, a browser loop and a server loop are **equally capable** — the tool argument is gone, not
-weakened. This is a change made for our own product, not for the ecosystem's safety, and §7's measures
-are what decide whether it pays.
+Recorded because a spec that keeps a bad argument invites someone to lean on it.
+
+### The security argument, correctly stated
+
+An earlier revision of this section withdrew it too, on the grounds that "loop guards cannot protect the
+platform". That reasoning **collapsed two different trust relationships into one** and then judged the
+argument against the one it was never about. Corrected here, because the error is instructive and the
+argument is strong.
+
+- *"Can we stop any agent misusing the platform?"* — authorization, rate limits, approval gates on
+  destructive operations. Lives at the MCP server, applies to any fast actor regardless of who drives
+  it, and loop location is irrelevant to it. An external agent acting as a user can do what that user
+  can do; that is the definition of acting as a user, not a hole. Whether such an agent obeys its
+  instructions or gets injected is **its harness's problem and its user's**, and not something this
+  service can fix.
+- *"Can we be clear about what OUR agent does, with OUR models, on OUR budget, and be accountable for
+  its output?"* — that is the loop, and it gets unambiguously clearer server-side.
+
+The second is better stated as a reduction in what can be tampered with than as "guards become
+enforcing". Concretely, measured against the code:
+
+| | today | after |
+| --- | --- | --- |
+| the history the model sees | client-composed, so forgeable | server-held |
+| the moderation call | client-initiated, so skippable | in the loop, unavoidable |
+| `stopWhen`, step limit, repeated-call guard | advisory | enforcing |
+| compaction and the context budget | client-decided | server-decided |
+| tool results **including the provenance envelope** | client-written | server-written for every tool but the page's own |
+| which model role is asked for | client-chosen | server-chosen |
+| spend accounting | per request at the gateway | per step in the loop |
+
+A patched client today can do every one of those. After the move it can lie about **contextual tool
+results and host state, and nothing else** — both irreducible, since the page runs those tools, and both
+already treated as untrusted input by the envelope. The tamperable surface collapses to the part that
+cannot be moved.
+
+Two further consequences of the same kind: the **gateway is itself a liability surface** — an
+OpenAI-compatible endpoint accepting arbitrary message arrays from a browser — so deleting it removes an
+authenticated API we have to reason about, not merely a hop. And **moderation becomes uniform**: today it
+applies to the browser loop only and the autonomous executor has none.
+
+What this does **not** fix, so the claim stays honest: prompt injection through tool results and host
+state remains, because that channel is irreducibly user-side.
+
+**So the remaining case, after both corrections:** the two-loop duplication caused every context bug on
+this branch; the tamperable surface collapses to the irreducible; the gateway's API surface goes;
+moderation becomes uniform; durable history and memories get their natural home. With capability on a
+published MCP server a browser loop and a server loop are **equally capable**, so the tool argument is
+gone — but the accountability argument is second-strongest rather than withdrawn. §7's measures decide
+whether it pays.
 
 ## 2. Decisions taken (from this conversation)
 
@@ -324,7 +362,17 @@ The honest head-to-head is still outstanding and needs the same instrument on th
 cheap to take — the browser loop is untouched on this branch — and is worth doing before the final
 judgement rather than now, since §4.6 and §4.7 will both move work across the line.
 
-## 8. Dependency: consolidating `data-fair/mcp`, which is not this repo's change
+## 8. Deployment precondition: consolidating `data-fair/mcp` — NOT an iteration blocker
+
+**Scope of this section, stated first because an earlier revision got it wrong.** This service is
+independent of any particular MCP server: it talks to whatever the catalog is configured with, and in
+dev that is mock tools and the local fixture. So nothing here blocks building, testing or iterating on
+the single-loop architecture, and an earlier verdict that said "consolidate first, then migrate the
+loop" over-escalated a deployment precondition into a development dependency.
+
+What it *is*: a precondition for **deploying** this architecture. Before the new shape ships, the MCP
+server has to be ready for it — and §5b.5 gives an independent reason to want that ready first, since
+sub-agents are cheap server-side only once data tools are server-side too.
 
 The parity invariant in §3 cannot be satisfied by this service alone. `data-fair/mcp` currently deploys
 one image as two services, and its README names this service as the beneficiary of the privileged one:
@@ -361,8 +409,10 @@ Per-caller identity forwarding is already designed for: openapi-mcp's `createMcp
 v2". Discovery is already partly built too — `GET /v0/servers` serves an MCP Registry API document, one
 entry per profile, listing public profiles only in `public` mode.
 
-**Out of scope here, tracked as a dependency.** The prototype proceeds against whatever is reachable and
-records where it had to deviate.
+**Out of scope here, and not on the critical path.** The prototype proceeds against whatever the dev
+catalog offers — mock tools and the local fixture — and records where it had to deviate. The parity
+invariant in §3 still binds whenever this architecture meets a real deployment: our loop must reach the
+published server the way any client reaches it, never a ClusterIP-only one with the profile gate off.
 
 ## 9. What this prototype needs from the dev environment
 
