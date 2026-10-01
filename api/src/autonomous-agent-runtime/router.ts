@@ -10,7 +10,7 @@ import mongo from '#mongo'
 import { type AccountKeys, httpError, reqSessionAuthenticated } from '@data-fair/lib-express'
 import eventsLog from '@data-fair/lib-express/events-log.js'
 import { assertOrganizationOwner } from '../autonomous-agents/service.ts'
-import { assertCanInstruct, requireAutonomousAgent, requireConversation, appendMessage, createRun } from './service.ts'
+import { assertCanInstruct, assertOwnsConversation, requireAutonomousAgent, requireConversation, appendMessage, createRun } from './service.ts'
 import { startRun, abortRun } from './executor.ts'
 
 const router = Router()
@@ -53,8 +53,10 @@ runsRouter.post('/:type/:id/:runId/abort', async (req, res, next) => {
       { projection: { _id: 0 } }
     )
     if (!run) throw httpError(404, 'unknown run')
-    const autonomousAgent = await requireAutonomousAgent(owner, run.autonomousAgentId)
-    assertCanInstruct(autonomousAgent, session)
+    await requireAutonomousAgent(owner, run.autonomousAgentId)
+    // A run belongs to a conversation, which belongs to ONE person. Guarding this with the agent grant
+    // let any instructor of the agent read — or abort — someone else's turn.
+    assertOwnsConversation(await requireConversation(owner, run.conversationId), session)
 
     // `aborted: false` for a run this process is not holding — it may already have finished,
     // or (with several API processes) be held elsewhere. Reported rather than pretended.
@@ -73,8 +75,10 @@ runsRouter.get('/:type/:id/:runId', async (req, res, next) => {
       { projection: { _id: 0 } }
     )
     if (!run) throw httpError(404, 'unknown run')
-    const autonomousAgent = await requireAutonomousAgent(owner, run.autonomousAgentId)
-    assertCanInstruct(autonomousAgent, session)
+    await requireAutonomousAgent(owner, run.autonomousAgentId)
+    // A run belongs to a conversation, which belongs to ONE person. Guarding this with the agent grant
+    // let any instructor of the agent read — or abort — someone else's turn.
+    assertOwnsConversation(await requireConversation(owner, run.conversationId), session)
     res.json(run)
   } catch (err) { next(err) }
 })
@@ -101,6 +105,10 @@ router.post('/:type/:id', async (req, res, next) => {
       id: nanoid(),
       autonomousAgentId,
       owner: autonomousAgent.owner,
+      // The ONE person this thread belongs to. `owner` stays the ACCOUNT, because that is what quotas
+      // and credits are charged to; `userId` is who may read it.
+      userId: session.user.id,
+      ...(session.user.name ? { userName: session.user.name } : {}),
       title,
       createdAt: now,
       // starts at 0: nextMessageSeq hands out 1 for the first message
@@ -123,8 +131,18 @@ router.get('/:type/:id', async (req, res, next) => {
     const autonomousAgent = await requireAutonomousAgent(owner, autonomousAgentId)
     assertCanInstruct(autonomousAgent, session)
 
+    // Your own threads only. A conversation belongs to one person, so listing someone else's would be
+    // a disclosure — and an org admin's role no longer grants it.
     const results = await mongo.autonomousAgentConversations
-      .find({ autonomousAgentId, 'owner.type': owner.type, 'owner.id': owner.id }, { projection: { _id: 0 } })
+      .find(
+        {
+          autonomousAgentId,
+          'owner.type': owner.type,
+          'owner.id': owner.id,
+          ...(session.user.adminMode ? {} : { userId: session.user.id })
+        },
+        { projection: { _id: 0 } }
+      )
       .sort({ lastMessageAt: -1, createdAt: -1 })
       .toArray()
     res.json({ results, count: results.length })
@@ -148,10 +166,11 @@ router.delete('/:type/:id/:conversationId', async (req, res, next) => {
     const session = reqSessionAuthenticated(req)
     const owner = reqOwner(req)
     const conversation = await requireConversation(owner, req.params.conversationId)
-    const autonomousAgent = await requireAutonomousAgent(owner, conversation.autonomousAgentId)
-    // The same grant as instructing and aborting: someone who can make this agent act can erase what
-    // it did. A narrower rule would leave an instructor's own thread beyond their reach.
-    assertCanInstruct(autonomousAgent, session)
+    await requireAutonomousAgent(owner, conversation.autonomousAgentId)
+    // Your own thread, and nobody else's. This used to be the agent grant, which made erasure available
+    // to every instructor of the agent — defensible when the timeline was shared, wrong now that it is
+    // one person's.
+    assertOwnsConversation(conversation, session)
 
     // A live turn is stopped first, or it would keep writing messages into a conversation that is being
     // deleted underneath it — and runTurn's "the conversation was deleted under us" path would then be
@@ -175,8 +194,10 @@ router.get('/:type/:id/:conversationId/messages', async (req, res, next) => {
     const session = reqSessionAuthenticated(req)
     const owner = reqOwner(req)
     const conversation = await requireConversation(owner, req.params.conversationId)
-    const autonomousAgent = await requireAutonomousAgent(owner, conversation.autonomousAgentId)
-    assertCanInstruct(autonomousAgent, session)
+    // Still resolved, so a thread whose agent was deleted 404s rather than half-working; no longer the
+    // thing that authorizes the read or the write.
+    await requireAutonomousAgent(owner, conversation.autonomousAgentId)
+    assertOwnsConversation(conversation, session)
 
     const filter: Record<string, any> = { conversationId: conversation.id }
     // sinceVersion is the incremental cursor: it catches a message UPDATED in place — the
@@ -203,8 +224,10 @@ router.post('/:type/:id/:conversationId/messages', async (req, res, next) => {
     const session = reqSessionAuthenticated(req)
     const owner = reqOwner(req)
     const conversation = await requireConversation(owner, req.params.conversationId)
-    const autonomousAgent = await requireAutonomousAgent(owner, conversation.autonomousAgentId)
-    assertCanInstruct(autonomousAgent, session)
+    // Still resolved, so a thread whose agent was deleted 404s rather than half-working; no longer the
+    // thing that authorizes the read or the write.
+    await requireAutonomousAgent(owner, conversation.autonomousAgentId)
+    assertOwnsConversation(conversation, session)
 
     const content = typeof req.body?.content === 'string' ? req.body.content.trim() : ''
     if (!content) throw httpError(400, 'content is required')

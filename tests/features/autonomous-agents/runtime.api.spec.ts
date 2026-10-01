@@ -114,33 +114,32 @@ test.describe('Autonomous agent conversations', () => {
     assert.equal(user.author.userId, 'test1-admin1')
   })
 
-  test('TWO instructors share one timeline, each attributed to themselves', async () => {
-    // The shared-timeline property, which nothing exercised: every other test has a single speaker, so
-    // "attribution is mandatory" was only ever checked against a conversation where there was nothing to
-    // confuse it with. Two authors is the case the envelope, the author field and the visibility rule
-    // all exist for.
+  test('a conversation belongs to ONE person, and another instructor cannot read it', async () => {
+    // This replaces a test that asserted the opposite — two instructors sharing one timeline — which
+    // was the capability this design deliberately drops. What survives is the agent-level grant: a
+    // listed instructor may still START their own conversation with the agent, because that grant is
+    // about borrowing the agent's permissions, which has not changed.
     const agent = await createAgent({ instructors: [{ userId: 'test1-user1', userName: 'Test User' }] })
     const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 't' })).data
+    assert.equal(conv.userId, 'test1-admin1', 'a conversation records the one person it belongs to')
 
-    await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content: 'first, from the admin' })
-    await orgMember.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content: 'second, from the instructor' })
+    // The listed instructor may use the agent...
+    const theirs = await orgMember.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 'mine' })
+    assert.equal(theirs.status, 200)
 
-    // Read as the SECOND instructor: a shared timeline means they see what the other person said, which
-    // is a real authorization decision and not merely a rendering one.
-    const results = (await orgMember.get(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`)).data.results
-    const userTurns = results.filter((m: any) => m.role === 'user').sort((a: any, b: any) => a.seq - b.seq)
-    assert.equal(userTurns.length, 2, 'both turns must be on ONE conversation, not two private ones')
-    assert.deepEqual(userTurns.map((m: any) => m.author.userId), ['test1-admin1', 'test1-user1'])
-    assert.deepEqual(userTurns.map((m: any) => partsText(m.parts)), ['first, from the admin', 'second, from the instructor'])
-    // Each author is recorded as themselves — neither turn inherits the other's identity, which is what
-    // a single `author` written from the conversation rather than the request would have done.
-    assert.ok(userTurns[0].seq < userTurns[1].seq)
+    // ...but not read, write or erase the admin's thread.
+    await assert.rejects(orgMember.get(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`), { status: 403 })
+    await assert.rejects(
+      orgMember.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content: 'hello' }),
+      { status: 403 }
+    )
+    await assert.rejects(orgMember.delete(`/api/autonomous-agent-conversations/organization/test1/${conv.id}`), { status: 403 })
 
-    // And the agent's own turns are attributed to the AGENT, not to whoever spoke last.
-    for (const assistant of results.filter((m: any) => m.role === 'assistant')) {
-      assert.equal(assistant.author.kind, 'autonomous-agent')
-      assert.equal(assistant.author.userId, undefined)
-    }
+    // And listing shows each person only their own.
+    const mine = (await orgAdmin.get(`/api/autonomous-agent-conversations/organization/test1?autonomousAgentId=${agent.id}`)).data
+    assert.deepEqual(mine.results.map((c: any) => c.id), [conv.id])
+    const theirList = (await orgMember.get(`/api/autonomous-agent-conversations/organization/test1?autonomousAgentId=${agent.id}`)).data
+    assert.deepEqual(theirList.results.map((c: any) => c.id), [theirs.data.id])
   })
 
   test('an empty message is refused rather than starting a run', async () => {
@@ -852,8 +851,9 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
     assert.deepEqual(left, { conversations: 0, messages: 0, runs: 0 })
   })
 
-  test('an instructor can erase one thread without deleting the autonomous agent', async () => {
-    // The means to comply with an erasure request while the agent stays in use.
+  test('the person a thread belongs to can erase it without deleting the autonomous agent', async () => {
+    // The means to comply with an erasure request while the agent stays in use. The actor is now the
+    // thread's OWNER rather than any instructor of the agent — erasure follows ownership, like reading.
     const agent = await createAgent({ instructors: [{ userId: 'test1-user1', userName: 'Test User' }] })
     await enrol(agent.id)
     const { conv, runId } = await startTurn(agent.id, 'hello')
@@ -861,7 +861,7 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
     const other = await startTurn(agent.id, 'hello')
     await awaitRun(other.runId)
 
-    const res = await orgMember.delete(`/api/autonomous-agent-conversations/organization/test1/${conv.id}`)
+    const res = await orgAdmin.delete(`/api/autonomous-agent-conversations/organization/test1/${conv.id}`)
     assert.equal(res.status, 204)
 
     const left = (await admin.get(`/api/test-env/autonomous-agent-data/${agent.id}`)).data
@@ -873,8 +873,10 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
     await assert.rejects(orgAdmin.get(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`), { status: 404 })
   })
 
-  test('erasing a thread needs the same grant as instructing', async () => {
-    const agent = await createAgent()
+  test('erasing someone else\'s thread is refused, even for a listed instructor', async () => {
+    // Being allowed to USE the agent is not being allowed to touch another person's conversation with
+    // it — the distinction the ownership model introduces.
+    const agent = await createAgent({ instructors: [{ userId: 'test1-user1', userName: 'Test User' }] })
     await enrol(agent.id)
     const { conv } = await startTurn(agent.id, 'hello')
     await assert.rejects(
@@ -883,36 +885,31 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
     )
   })
 
-  test('aborting requires the same grant as instructing', async () => {
-    const agent = await createAgent()
-    await enrol(agent.id)
-    const { runId } = await startTurn(agent.id, 'hello')
-    await awaitRun(runId)
-
-    // an unlisted org member cannot stop this autonomous agent
-    await assert.rejects(
-      orgMember.post(`/api/autonomous-agent-runs/organization/test1/${runId}/abort`, {}),
-      { status: 403 }
-    )
-
-    // A listed instructor can: anyone who can start a turn can stop one. Asserted against a
-    // LIVE turn — aborting an already-finished run returns 200 with {aborted:false}, which
-    // would pass while proving only that the 403 is gone.
-    await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, {
-      title: agent.title,
-      persona: agent.persona,
-      mcpServers: [],
-      enabled: true,
-      instructors: [{ userId: 'test1-user1', userName: 'Test User' }]
-    })
-    // The PUT above carries no `nhi`, and the write route rebuilds that field from the body,
-    // so it drops the enrolment — re-enrol or the turn refuses instantly instead of stalling.
+  test('aborting follows OWNERSHIP of the thread, not the agent grant', async () => {
+    // It used to follow the agent grant, which meant any listed instructor could stop anyone else's
+    // turn — and read their run's status and spend. With one person per conversation that is a
+    // cross-user action, so it follows ownership like reading and erasing.
+    const agent = await createAgent({ instructors: [{ userId: 'test1-user1', userName: 'Test User' }] })
     await enrol(agent.id)
     const live = await startTurn(agent.id, 'stall')
     await new Promise(resolve => setTimeout(resolve, 300))
-    const allowed = await orgMember.post(`/api/autonomous-agent-runs/organization/test1/${live.runId}/abort`, {})
+
+    // A listed instructor of the agent, but not this thread's owner.
+    await assert.rejects(
+      orgMember.post(`/api/autonomous-agent-runs/organization/test1/${live.runId}/abort`, {}),
+      { status: 403 }
+    )
+    // Reading the run is refused for the same reason: it carries status and spend.
+    await assert.rejects(
+      orgMember.get(`/api/autonomous-agent-runs/organization/test1/${live.runId}`),
+      { status: 403 }
+    )
+
+    // The owner can. Asserted against a LIVE turn — aborting a finished run returns 200 with
+    // {aborted:false}, which would pass while proving only that the 403 is gone.
+    const allowed = await orgAdmin.post(`/api/autonomous-agent-runs/organization/test1/${live.runId}/abort`, {})
     assert.equal(allowed.status, 200)
-    assert.equal(allowed.data.aborted, true, 'an instructor must be able to stop a turn in flight')
+    assert.equal(allowed.data.aborted, true, 'the thread\'s owner must be able to stop a turn in flight')
     assert.equal((await awaitRun(live.runId)).status, 'aborted')
   })
 })

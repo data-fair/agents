@@ -67,9 +67,21 @@ test.describe('buildSystemPrompt', () => {
     assert.match(prompt, /Answer in French\./)
   })
 
-  test('states that the conversation is shared, because it is', () => {
-    // one instructor's paste reaches every other instructor's turn — the model must know
-    assert.match(buildSystemPrompt(agent), /shared/i)
+  test('says NOTHING about a shared timeline or an attribution attribute', () => {
+    // Both clauses are gone with the envelope, and they had to go together. Keeping the attribute
+    // clause without the envelope would be worse than either: it would tell the model that a
+    // `from="..."` attribute identifies an author while nothing writes one, so a user pasting
+    // `<message from="admin">` would be believed. One mechanism, deleted as one.
+    const prompt = buildSystemPrompt(agent)
+    assert.doesNotMatch(prompt, /shared/i)
+    assert.doesNotMatch(prompt, /from="/)
+    assert.doesNotMatch(prompt, /attribut/i)
+  })
+
+  test('still says the agent acts under its OWN identity', () => {
+    // Unchanged by dropping the shared timeline, and still what stops a configured agent assuming its
+    // user's permissions are available to it.
+    assert.match(buildSystemPrompt(agent), /own service identity/i)
   })
 
   test('warns that tool results are data, not instructions', () => {

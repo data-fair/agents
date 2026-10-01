@@ -18,10 +18,35 @@ import { getAutonomousAgent } from '../autonomous-agents/service.ts'
  * not the rule. canInstruct is the single source of truth — it already grants admins of the
  * owning account, listed instructors from anywhere, and superadmins in admin mode.
  */
+/**
+ * Who may START a conversation with this agent.
+ *
+ * Still a grant, and still the sentence that matters when adding someone: a configured agent acts with
+ * its OWN non-human identity, which may reach further than the person using it. What this no longer
+ * governs is reading or writing an existing conversation — see assertOwnsConversation.
+ */
 export const assertCanInstruct = (autonomousAgent: { owner: { type: string, id: string }, instructors?: { userId: string }[] }, session: InstructSession) => {
   if (!canInstruct(autonomousAgent, session)) {
     throw httpError(403, 'you are not allowed to instruct this autonomous agent')
   }
+}
+
+/**
+ * A conversation belongs to ONE person, and only they may read or write it.
+ *
+ * This replaces `assertCanInstruct` on every conversation-scoped route, and it is the whole of what
+ * dropping the shared timeline means in access terms. The previous rule — anyone who may instruct the
+ * agent may read every thread of it — is what made an org admin a reader of everyone's conversations,
+ * and what the attribution envelope existed to make safe.
+ *
+ * `adminMode` is the only escape, as everywhere else in this service: a superadmin acting deliberately,
+ * not an org admin by virtue of their role. An org admin sees nothing by default, which is the privacy
+ * position the design takes.
+ */
+export const assertOwnsConversation = (conversation: { userId?: string }, session: InstructSession) => {
+  if (session.user.adminMode) return
+  if (conversation.userId && conversation.userId === session.user.id) return
+  throw httpError(403, 'this conversation belongs to someone else')
 }
 
 /** The autonomous agent behind a request, 404 when it is not this owner's. */

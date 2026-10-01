@@ -4,10 +4,24 @@ export default {
   title: 'Autonomous agent conversation',
   type: 'object',
   additionalProperties: false,
-  required: ['id', 'autonomousAgentId', 'owner', 'title', 'createdAt', 'messageSeq'],
+  required: ['id', 'autonomousAgentId', 'owner', 'userId', 'title', 'createdAt', 'messageSeq'],
   properties: {
     id: { type: 'string' },
     autonomousAgentId: { type: 'string' },
+    /**
+     * The ONE person this conversation belongs to.
+     *
+     * A conversation used to be a shared timeline: several instructors of one agent contributed to it,
+     * which is what made the attribution envelope necessary and what the `?sinceVersion=` fan-out
+     * existed to serve. One user per conversation drops all of that — see
+     * docs/superpowers/specs/2026-10-01-one-server-loop-prototype-design.md §2.
+     *
+     * Who may START a conversation with an agent is still a grant (`instructors`, `canInstruct`),
+     * because a configured agent acts with its own permissions and may reach further than its user.
+     * What is gone is two people in one thread.
+     */
+    userId: { type: 'string' },
+    userName: { type: 'string' },
     owner: {
       type: 'object',
       additionalProperties: false,
