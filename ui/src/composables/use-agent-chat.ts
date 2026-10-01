@@ -25,7 +25,7 @@ import { SUBAGENT_STEP_LIMIT_NOTICE, subAgentModelOutput } from './agent-subagen
 import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep } from './agent-loop-guards.ts'
 import { HostEventStore, createWaitTool, appendHostEvents, formatHostEvents, formatHostState, hasHostState, WAIT_TOOL_NAME } from './host-events'
 import { useHostEvents } from './use-host-events'
-import { interruptedStepMessages, toolResultOutput, type OpenStep, type InterruptReason } from './interrupted-turn'
+import { interruptedStepMessages, interruptedWaitReminder, toolResultOutput, type OpenStep, type InterruptReason } from './interrupted-turn'
 
 const debug = Debug('df-agents:use-agent-chat')
 
@@ -591,6 +591,8 @@ export function useAgentChat (options: UseAgentChatOptions) {
   }
 
   const sendMessage = async (msg: string, sendOptions?: { hiddenContext?: string }) => {
+    // What a wait this message interrupts was waiting for, so the new turn can say so.
+    let interruptedExpecting: string | null = null
     if (status.value === 'streaming') {
       // A pending wait is the assistant standing still by its own choice, not
       // working — so the composer stays live and this message is how the person
@@ -598,6 +600,7 @@ export function useAgentChat (options: UseAgentChatOptions) {
       // ends the turn; anything else still in flight is a turn that IS working,
       // and those are left alone.
       if (activity.value?.kind !== 'waiting') return
+      interruptedExpecting = activity.value.expecting
       commitRunningTurn?.('message')
       abort()
     }
@@ -642,7 +645,8 @@ export function useAgentChat (options: UseAgentChatOptions) {
     }
     const buildTurnHidden = (events: typeof pendingEvents) => [
       events.length ? formatHostEvents(events) : null,
-      sendOptions?.hiddenContext ?? null
+      sendOptions?.hiddenContext ?? null,
+      interruptedExpecting !== null ? interruptedWaitReminder(interruptedExpecting) : null
     ].filter((p): p is string => !!p)
     const turnHidden = buildTurnHidden(activation ? dedupeAgainstState(pendingEvents) : pendingEvents)
     const withState = (parts: string[]) => {

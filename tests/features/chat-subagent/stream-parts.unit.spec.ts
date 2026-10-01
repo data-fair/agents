@@ -1,6 +1,6 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { applyStreamPart, WAIT_TOOL_NAME, type StreamScope, type ActivityPhase } from '../../../ui/src/composables/agent-stream-parts.ts'
+import { applyStreamPart, WAIT_TOOL_NAME, repairWaitInput, type StreamScope, type ActivityPhase } from '../../../ui/src/composables/agent-stream-parts.ts'
 import { WAIT_TOOL_NAME as HOST_WAIT_TOOL_NAME } from '../../../ui/src/composables/host-events.ts'
 
 function makeScope () {
@@ -57,6 +57,23 @@ test.describe('applyStreamPart', () => {
     applyStreamPart({ type: 'text-delta', text: 'Voilà.' }, scope)
     applyStreamPart({ type: 'tool-call', toolCallId: 'w', toolName: WAIT_TOOL_NAME, input: { message: 'Appuyez sur Enregistrer.', expecting: 'x' } } as any, scope)
     assert.equal(scope.messages[0].content, 'Voilà.\n\nAppuyez sur Enregistrer.')
+  })
+
+  test('repairs the other arguments swallowed into the wait message', () => {
+    // The exact arguments a Haiku run sent (JSON-decoded once, as the tool receives them).
+    const raw = JSON.parse(String.raw`{"message":"Parfait ! J'ai créé les 11 champs :\\n\\n**Contact :** Email\\n\\nCliquez sur « Enregistrer ».\",\"expecting\":\"Enregistrement de la structure\",\"timeoutSeconds\":300"}`)
+    const repaired = repairWaitInput(raw)
+    assert.equal(repaired.message, "Parfait ! J'ai créé les 11 champs :\n\n**Contact :** Email\n\nCliquez sur « Enregistrer ».")
+    assert.equal(repaired.expecting, 'Enregistrement de la structure')
+    assert.equal(repaired.timeoutSeconds, 300)
+    const { scope } = makeScope()
+    applyStreamPart({ type: 'tool-call', toolCallId: 'w', toolName: WAIT_TOOL_NAME, input: raw } as any, scope)
+    assert.ok(!scope.messages[0].content.includes('expecting'), scope.messages[0].content)
+  })
+
+  test('leaves well-formed wait arguments alone', () => {
+    const input = { message: 'Appuyez sur "Enregistrer".', expecting: 'Clic', timeoutSeconds: 120 }
+    assert.deepEqual(repairWaitInput(input), input)
   })
 
   test('final tool-result settles the matching invocation; preliminary does not', () => {

@@ -11,6 +11,35 @@
 // runtime, which this one stays free of (a unit test holds the two equal).
 export const WAIT_TOOL_NAME = 'wait_for_user_action'
 
+export interface WaitInput { message: string, expecting?: string, timeoutSeconds?: number }
+
+/**
+ * Undo a known small-model slip in wait_for_user_action's arguments: the other
+ * arguments serialized into the message string. A Haiku run sent
+ * {"message":"…Cliquez sur « Enregistrer ».\",\"expecting\":\"…\",\"timeoutSeconds\":300"},
+ * with literal \n sequences, and the person read the JSON tail as the handover.
+ * The message is cut where the swallowed arguments begin, they are recovered, and
+ * literal \n become line breaks. Well-formed input comes back unchanged.
+ */
+export function repairWaitInput (input: any): WaitInput {
+  let message = typeof input?.message === 'string' ? input.message : ''
+  const out: WaitInput = { message }
+  if (typeof input?.expecting === 'string') out.expecting = input.expecting
+  if (Number.isFinite(Number(input?.timeoutSeconds))) out.timeoutSeconds = Number(input.timeoutSeconds)
+  const cut = message.search(/"\s*,\s*"(expecting|timeoutSeconds)"\s*:/)
+  if (cut !== -1) {
+    try {
+      // message.slice(cut + 1) is `,"expecting":"…","timeoutSeconds":300`
+      const swallowed = JSON.parse('{' + message.slice(cut + 1).replace(/^\s*,/, '') + '}')
+      if (out.expecting === undefined && typeof swallowed.expecting === 'string') out.expecting = swallowed.expecting
+      if (out.timeoutSeconds === undefined && Number.isFinite(Number(swallowed.timeoutSeconds))) out.timeoutSeconds = Number(swallowed.timeoutSeconds)
+    } catch { /* keep what the message says before the fragment */ }
+    message = message.slice(0, cut)
+  }
+  out.message = message.replace(/\\n/g, '\n').trim()
+  return out
+}
+
 // Structural subset of ChatMessage the builder reads/writes; the real
 // ChatMessage (from use-agent-chat) is assignable to this.
 export interface StreamMessage {
@@ -112,7 +141,7 @@ export function applyStreamPart (part: StreamPart, scope: StreamScope): void {
       // whether the button was ready. Shown after whatever the step wrote ("Voilà.")
       // unless that text already says it.
       if (part.toolName === WAIT_TOOL_NAME) {
-        const message = typeof input?.message === 'string' ? input.message.trim() : ''
+        const message = repairWaitInput(input).message
         const text = scope.current.content.trim()
         if (message && !text.includes(message)) {
           scope.current.content = text ? `${text}\n\n${message}` : message

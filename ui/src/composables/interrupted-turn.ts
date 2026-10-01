@@ -11,14 +11,23 @@ export interface OpenStep {
 
 export type InterruptReason = 'message' | 'stop'
 
-/**
- * The result of a wait the person interrupted by writing. The action it waited for is
- * usually still to come: a judged run answered the person's question, never waited
- * again, and so never learned the list it had prepared was created.
- */
+/** The result of a wait the person interrupted: what it was waiting for, nothing more. */
 export function interruptedWaitResult (expecting: unknown): string {
-  const what = typeof expecting === 'string' && expecting.trim() ? expecting.trim() : 'act'
-  return `Interrupted: the person wrote to you while you were waiting for them (${what}). Answer them; if that action is still to come, declare ${WAIT_TOOL_NAME} again.`
+  return `Interrupted: the person wrote to you while you were waiting for them (${waitedFor(expecting)}).`
+}
+
+/**
+ * Carried by the turn the person's message starts, just before that message. The same
+ * instruction in the interrupted wait's tool result sat in history ahead of the new
+ * question; judged runs answered the question and never waited again, so a list they
+ * had prepared was created unseen. Here it is the last thing the model reads.
+ */
+export function interruptedWaitReminder (expecting: unknown): string {
+  return `You were waiting for the person (${waitedFor(expecting)}) when they wrote the message below instead. Answer it; then, if that action is still to come, declare wait_for_user_action again so you learn when they do it.`
+}
+
+function waitedFor (expecting: unknown): string {
+  return typeof expecting === 'string' && expecting.trim() ? expecting.trim() : 'an action on the page'
 }
 
 export const INTERRUPTED_RESULTS: Record<InterruptReason, string> = {

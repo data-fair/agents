@@ -10,6 +10,7 @@ import { tool, jsonSchema } from 'ai'
 import type { Tool } from 'ai'
 import type { AgentEvent } from '@data-fair/lib-vue-agents'
 import { isMediaToolResult } from '../utils/tool-result.ts'
+import { repairWaitInput } from './agent-stream-parts.ts'
 import Debug from 'debug'
 
 const debug = Debug('df-agents:host-events')
@@ -307,7 +308,12 @@ export function createWaitTool (opts: {
       required: ['message', 'expecting'],
       additionalProperties: false
     }),
-    execute: async (args: any, options?: { abortSignal?: AbortSignal }) => {
+    execute: async (rawArgs: any, options?: { abortSignal?: AbortSignal }) => {
+      const args = repairWaitInput(rawArgs)
+      // Required by the schema, which the SDK does not enforce: a Haiku run declared a
+      // wait with no arguments at all, the turn went silent, and the person — told
+      // nothing — had to ask what to do. Refused rather than waited on, so it is retried.
+      if (!args.message) return 'Not waiting: message is required — one or two sentences telling the person what is ready and what to press. Call wait_for_user_action again with it.'
       if (store.isWaiting()) return 'Already waiting for the user.'
       const requested = Number(args?.timeoutSeconds)
       const seconds = Number.isFinite(requested) && requested > 0 ? Math.min(WAIT_MAX_SECONDS, Math.floor(requested)) : WAIT_DEFAULT_SECONDS

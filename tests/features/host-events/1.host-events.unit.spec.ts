@@ -258,12 +258,22 @@ test.describe('wait_for_user_action advertising gate', () => {
 test.describe('createWaitTool', () => {
   const exec = (t: any, args: any, options?: any) => t.execute(args, options ?? {})
 
+  test('refuses a wait with no message for the person, without waiting', async () => {
+    const store = new HostEventStore()
+    const waiting: string[] = []
+    const t = createWaitTool({ store, onWaiting: e => waiting.push(e) })
+    assert.match(await exec(t, {}), /message is required/)
+    assert.match(await exec(t, { message: '  ', expecting: 'a click' }), /message is required/)
+    assert.deepEqual(waiting, [], 'no wait was armed')
+    assert.equal(store.isWaiting(), false)
+  })
+
   test('resolves with the event block and drains followers', async () => {
     const store = new HostEventStore()
     const waiting: string[] = []
     let done = 0
     const t = createWaitTool({ store, onWaiting: e => waiting.push(e), onDone: () => done++ })
-    const p = exec(t, { expecting: 'a click' })
+    const p = exec(t, { message: 'Ready.', expecting: 'a click' })
     store.push(ev('item-created', '{"id":"1"}'))
     store.push(ev('navigated', '/x', 'location'))
     const out = await p as string
@@ -277,7 +287,7 @@ test.describe('createWaitTool', () => {
   test('times out with the verbatim text', async () => {
     const store = new HostEventStore()
     const t = createWaitTool({ store })
-    const out = await exec(t, { expecting: 'x', timeoutSeconds: 1 })
+    const out = await exec(t, { message: 'Ready.', expecting: 'x', timeoutSeconds: 1 })
     assert.equal(out, 'No user action within 1 seconds. End your reply now and let the user act; you will be told what they did when the conversation continues.')
   })
 
@@ -285,7 +295,7 @@ test.describe('createWaitTool', () => {
     const store = new HostEventStore()
     const t = createWaitTool({ store })
     const ac = new AbortController()
-    const p = exec(t, { expecting: 'x' }, { abortSignal: ac.signal })
+    const p = exec(t, { message: 'Ready.', expecting: 'x' }, { abortSignal: ac.signal })
     ac.abort()
     assert.equal(await p, 'Wait cancelled.')
   })
@@ -293,8 +303,8 @@ test.describe('createWaitTool', () => {
   test('a second call while pending returns immediately', async () => {
     const store = new HostEventStore()
     const t = createWaitTool({ store })
-    const p = exec(t, { expecting: 'x', timeoutSeconds: 1 })
-    assert.equal(await exec(t, { expecting: 'y' }), 'Already waiting for the user.')
+    const p = exec(t, { message: 'Ready.', expecting: 'x', timeoutSeconds: 1 })
+    assert.equal(await exec(t, { message: 'Ready.', expecting: 'y' }), 'Already waiting for the user.')
     await p
   })
 })
@@ -318,10 +328,10 @@ test.describe('createWaitTool refuses only a wait that can achieve nothing', () 
     const store = new HostEventStore()
     const turn = 'turn-1'
     const t = createWaitTool({ store, turnId: () => turn })
-    const first = exec(t, { expecting: 'a click' })
+    const first = exec(t, { message: 'Ready.', expecting: 'a click' })
     store.push(ev('item-created', '{"id":"1"}'))
     await first
-    const second = exec(t, { expecting: 'the next dialog' })
+    const second = exec(t, { message: 'Ready.', expecting: 'the next dialog' })
     store.push(ev('dialog-opened', '{"mode":"edit"}'))
     assert.match(await second as string, /dialog-opened/)
   })
@@ -330,11 +340,11 @@ test.describe('createWaitTool refuses only a wait that can achieve nothing', () 
     const store = new HostEventStore()
     let turn = 'turn-1'
     const t = createWaitTool({ store, turnId: () => turn })
-    const first = exec(t, { expecting: 'a click' })
+    const first = exec(t, { message: 'Ready.', expecting: 'a click' })
     store.push(ev('item-created', '{"id":"1"}'))
     await first
     turn = 'turn-2'
-    const second = exec(t, { expecting: 'another click' })
+    const second = exec(t, { message: 'Ready.', expecting: 'another click' })
     store.push(ev('navigated', '/x', 'location'))
     assert.match(await second as string, /navigated/)
   })
@@ -342,9 +352,9 @@ test.describe('createWaitTool refuses only a wait that can achieve nothing', () 
   test('a timed-out wait is not retried while the person has done nothing', async () => {
     const store = new HostEventStore()
     const t = createWaitTool({ store, turnId: () => 'turn-1' })
-    await exec(t, { expecting: 'x', timeoutSeconds: 1 })
+    await exec(t, { message: 'Ready.', expecting: 'x', timeoutSeconds: 1 })
     const started = Date.now()
-    await exec(t, { expecting: 'x again', timeoutSeconds: 30 })
+    await exec(t, { message: 'Ready.', expecting: 'x again', timeoutSeconds: 30 })
     assert.ok(Date.now() - started < 1000, 'must not block twice')
   })
 
@@ -352,10 +362,10 @@ test.describe('createWaitTool refuses only a wait that can achieve nothing', () 
     // Hosts that never wired turnId must not silently lose the ability to wait.
     const store = new HostEventStore()
     const t = createWaitTool({ store })
-    const first = exec(t, { expecting: 'a' })
+    const first = exec(t, { message: 'Ready.', expecting: 'a' })
     store.push(ev('item-created', '{"id":"1"}'))
     await first
-    const second = exec(t, { expecting: 'b' })
+    const second = exec(t, { message: 'Ready.', expecting: 'b' })
     store.push(ev('navigated', '/x', 'location'))
     assert.match(await second as string, /navigated/)
   })
@@ -407,12 +417,12 @@ test.describe('a refusal needs a timed-out wait and no action since', () => {
     const store = new HostEventStore()
     const t = createWaitTool({ store, turnId: () => 'turn-1' })
     store.push(ev('item-created', '{"id":"1"}'))
-    const first = await exec(t, { expecting: 'the user clicks Create' }) as string
+    const first = await exec(t, { message: 'Ready.', expecting: 'the user clicks Create' }) as string
     assert.match(first, /item-created/)
     assert.equal(store.lastWaitBlocked, false)
 
     // The next wait must still be available, and must actually block.
-    const second = exec(t, { expecting: 'the user reaches the detail page' })
+    const second = exec(t, { message: 'Ready.', expecting: 'the user reaches the detail page' })
     store.push(ev('navigated', '{"path":"/detail"}', 'location'))
     assert.match(await second as string, /navigated/)
   })
@@ -431,11 +441,11 @@ test.describe('a refusal needs a timed-out wait and no action since', () => {
     // that is caught exactly, below, by the event-sequence rule.
     const store = new HostEventStore()
     const t = createWaitTool({ store, turnId: () => 'turn-1' })
-    const first = exec(t, { expecting: 'a click' })
+    const first = exec(t, { message: 'Ready.', expecting: 'a click' })
     store.push(ev('item-created', '{"id":"1"}'))
     await first
 
-    const second = exec(t, { expecting: 'the dialog to open' })
+    const second = exec(t, { message: 'Ready.', expecting: 'the dialog to open' })
     store.push(ev('dialog-opened', '{"mode":"edit"}'))
     assert.match(await second as string, /dialog-opened/)
   })
@@ -443,9 +453,9 @@ test.describe('a refusal needs a timed-out wait and no action since', () => {
   test('a repeat after a timeout, with nothing having happened, is still refused', async () => {
     const store = new HostEventStore()
     const t = createWaitTool({ store, turnId: () => 'turn-1' })
-    await exec(t, { expecting: 'x', timeoutSeconds: 1 })
+    await exec(t, { message: 'Ready.', expecting: 'x', timeoutSeconds: 1 })
     const started = Date.now()
-    const out = await exec(t, { expecting: 'x again', timeoutSeconds: 30 }) as string
+    const out = await exec(t, { message: 'Ready.', expecting: 'x again', timeoutSeconds: 30 }) as string
     assert.ok(Date.now() - started < 1000)
     assert.match(out, /timed out/i)
   })
@@ -453,9 +463,9 @@ test.describe('a refusal needs a timed-out wait and no action since', () => {
   test('but once the person does something, waiting again is allowed', async () => {
     const store = new HostEventStore()
     const t = createWaitTool({ store, turnId: () => 'turn-1' })
-    await exec(t, { expecting: 'x', timeoutSeconds: 1 })
+    await exec(t, { message: 'Ready.', expecting: 'x', timeoutSeconds: 1 })
     store.push(ev('item-created', '{"id":"1"}'))
-    const out = await exec(t, { expecting: 'x again', timeoutSeconds: 30 }) as string
+    const out = await exec(t, { message: 'Ready.', expecting: 'x again', timeoutSeconds: 30 }) as string
     assert.match(out, /item-created/)
   })
 })
@@ -474,11 +484,11 @@ test.describe('a timed-out wait does not block again until something happens', (
     const store = new HostEventStore()
     let turn = 1
     const t = createWaitTool({ store, turnId: () => `turn-${turn}` })
-    await exec(t, { expecting: 'the user clicks Create', timeoutSeconds: 1 })
+    await exec(t, { message: 'Ready.', expecting: 'the user clicks Create', timeoutSeconds: 1 })
 
     turn = 2
     const started = Date.now()
-    const out = await exec(t, { expecting: 'the user clicks Create', timeoutSeconds: 30 }) as string
+    const out = await exec(t, { message: 'Ready.', expecting: 'the user clicks Create', timeoutSeconds: 30 }) as string
     assert.ok(Date.now() - started < 1000, 'must not block a second time')
     assert.match(out, /not acted|nothing|no action/i)
   })
@@ -487,14 +497,14 @@ test.describe('a timed-out wait does not block again until something happens', (
     const store = new HostEventStore()
     let turn = 1
     const t = createWaitTool({ store, turnId: () => `turn-${turn}` })
-    await exec(t, { expecting: 'a click', timeoutSeconds: 1 })
+    await exec(t, { message: 'Ready.', expecting: 'a click', timeoutSeconds: 1 })
 
     // The person acts; that event is delivered by the normal path.
     store.push(ev('item-created', '{"id":"1"}'))
     store.takePending()
 
     turn = 2
-    const second = exec(t, { expecting: 'the next step', timeoutSeconds: 30 })
+    const second = exec(t, { message: 'Ready.', expecting: 'the next step', timeoutSeconds: 30 })
     store.push(ev('navigated', '/detail', 'location'))
     assert.match(await second as string, /navigated/)
   })
@@ -509,13 +519,13 @@ test.describe('a timed-out wait does not block again until something happens', (
     const store = new HostEventStore()
     let turn = 1
     const t = createWaitTool({ store, turnId: () => `turn-${turn}` })
-    await exec(t, { expecting: 'the user clicks Create', timeoutSeconds: 1 })
+    await exec(t, { message: 'Ready.', expecting: 'the user clicks Create', timeoutSeconds: 1 })
 
     store.push(ev('wizard', '{"ready":true}', 'wizard'))
 
     turn = 2
     const started = Date.now()
-    const out = await exec(t, { expecting: 'the user clicks Create', timeoutSeconds: 30 }) as string
+    const out = await exec(t, { message: 'Ready.', expecting: 'the user clicks Create', timeoutSeconds: 30 }) as string
     assert.ok(Date.now() - started < 1000, 'a refresh is not the person acting')
     assert.match(out, /not acted/i)
   })
@@ -523,7 +533,7 @@ test.describe('a timed-out wait does not block again until something happens', (
   test('the very first wait of a conversation still blocks', async () => {
     const store = new HostEventStore()
     const t = createWaitTool({ store, turnId: () => 'turn-1' })
-    const first = exec(t, { expecting: 'a click' })
+    const first = exec(t, { message: 'Ready.', expecting: 'a click' })
     store.push(ev('item-created', '{"id":"1"}'))
     assert.match(await first as string, /item-created/)
   })
@@ -531,8 +541,8 @@ test.describe('a timed-out wait does not block again until something happens', (
   test('a host that wires no turnId is unaffected', async () => {
     const store = new HostEventStore()
     const t = createWaitTool({ store })
-    await exec(t, { expecting: 'x', timeoutSeconds: 1 })
-    const second = exec(t, { expecting: 'y', timeoutSeconds: 30 })
+    await exec(t, { message: 'Ready.', expecting: 'x', timeoutSeconds: 1 })
+    const second = exec(t, { message: 'Ready.', expecting: 'y', timeoutSeconds: 30 })
     store.push(ev('item-created', '{"id":"1"}'))
     assert.match(await second as string, /item-created/)
   })
@@ -630,7 +640,7 @@ test.describe('a timed-out wait carries what the application reported meanwhile'
   test('delivers pending refreshes with the timeout, and empties the buffer', async () => {
     const store = new HostEventStore()
     const t = createWaitTool({ store })
-    const p = exec(t, { expecting: 'a click', timeoutSeconds: 1 })
+    const p = exec(t, { message: 'Ready.', expecting: 'a click', timeoutSeconds: 1 })
     store.push(ev('wizard', '{"ready":true}', 'wizard'))
     const out = await p as string
     assert.match(out, /No user action within 1 seconds/)
@@ -642,7 +652,7 @@ test.describe('a timed-out wait carries what the application reported meanwhile'
   test('a bare timeout is unchanged when nothing arrived', async () => {
     const store = new HostEventStore()
     const t = createWaitTool({ store })
-    const out = await exec(t, { expecting: 'x', timeoutSeconds: 1 })
+    const out = await exec(t, { message: 'Ready.', expecting: 'x', timeoutSeconds: 1 })
     assert.equal(out, 'No user action within 1 seconds. End your reply now and let the user act; you will be told what they did when the conversation continues.')
   })
 })

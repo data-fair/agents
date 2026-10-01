@@ -376,6 +376,8 @@ test.describe('Host events', () => {
     assert.equal(messages.filter(m => m.role === 'tool').length, 2)
     assert.ok(messages.find(m => m.role === 'tool' && String(m.content).includes('Interrupted')))
     assert.equal(roles[roles.length - 1], 'user')
+    // The instruction to wait again rides in the new turn, the last thing read.
+    assert.match(String(messages[messages.length - 1].content), /you were waiting for the person \(you to click Create\).*declare wait_for_user_action again/is)
   })
 
   test('the waiting activity clears once the wait resolves (drives the host\'s waiting-user/working signal)', async ({ page, goToWithAuth }) => {

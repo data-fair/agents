@@ -7,7 +7,7 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { createPagePerception, truncate, pruneSnapshot, SNAPSHOT_CAP, TABLE_ROWS_KEPT, ACTION_TIMEOUT_MS, MCP_SERVER_NAME } from '../../../lib-sim/page-perception.ts'
+import { createPagePerception, settledRead, truncate, pruneSnapshot, SNAPSHOT_CAP, TABLE_ROWS_KEPT, ACTION_TIMEOUT_MS, MCP_SERVER_NAME } from '../../../lib-sim/page-perception.ts'
 
 const fakeRoot = (snapshot: string, log: string[] = []) => ({
   locator: (sel: string) => ({ ariaSnapshot: async () => snapshot, click: async () => { log.push('click ' + sel) }, fill: async (t: string) => { log.push('fill ' + t) } }),
@@ -414,5 +414,39 @@ test.describe('snapshot pruning', () => {
 
   test('leaves a snapshot that is not an outline as it is', () => {
     assert.equal(pruneSnapshot('(could not read: timeout)'), '(could not read: timeout)')
+  })
+})
+
+test.describe('a look after an action waits for the page to settle', () => {
+  test('reads until two consecutive reads agree', async () => {
+    const reads = ['- text: liste', '- text: liste', '- text: tableau', '- text: tableau']
+    let i = 0
+    // the first two reads agree at once: stable
+    assert.equal(await settledRead(async () => reads[Math.min(i++, reads.length - 1)], { intervalMs: 1 }), '- text: liste')
+    const moving = ['- text: liste', '- text: chargement', '- text: tableau', '- text: tableau']
+    let j = 0
+    assert.equal(await settledRead(async () => moving[Math.min(j++, moving.length - 1)], { intervalMs: 1 }), '- text: tableau')
+  })
+
+  test('gives up after its budget and returns the last read', async () => {
+    let n = 0
+    const out = await settledRead(async () => `- text: ${n++}`, { intervalMs: 5, maxMs: 30 })
+    assert.match(out, /^- text: \d+$/)
+  })
+
+  test('only a look after a click or typing waits', async () => {
+    let reads = 0
+    const root = {
+      locator: () => ({ ariaSnapshot: async () => { reads++; return '- button "OK"' } }),
+      getByRole: () => ({ first: () => ({ click: async () => {}, fill: async () => {}, count: async () => 1 }) }),
+      getByText: () => ({ first: () => ({ click: async () => {}, count: async () => 1 }) }),
+      getByLabel: () => ({ first: () => ({ fill: async () => {}, count: async () => 1 }) })
+    }
+    const p = createPagePerception([{ label: 'page', root: root as any }])
+    await p.call('look', {})
+    assert.equal(reads, 1, 'a plain look reads once')
+    await p.call('click', { name: 'OK' })
+    await p.call('look', {})
+    assert.equal(reads, 3, 'the look after a click reads until stable')
   })
 })

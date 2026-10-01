@@ -1,6 +1,6 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { interruptedStepMessages, interruptedWaitResult, toolResultOutput, INTERRUPTED_RESULTS } from '../../../ui/src/composables/interrupted-turn.ts'
+import { interruptedStepMessages, interruptedWaitResult, interruptedWaitReminder, toolResultOutput, INTERRUPTED_RESULTS } from '../../../ui/src/composables/interrupted-turn.ts'
 
 const waitCall = { toolCallId: 'w', toolName: 'wait_for_user_action', input: { message: 'Appuyez sur Enregistrer.', expecting: 'Clic sur Enregistrer' } }
 
@@ -18,7 +18,12 @@ test.describe('interruptedStepMessages', () => {
     assert.deepEqual(assistant.content.map((p: any) => p.type), ['text', 'tool-call'])
     assert.equal(tool.content[0].toolCallId, 'w')
     assert.equal(tool.content[0].output.value, interruptedWaitResult('Clic sur Enregistrer'))
-    assert.match(tool.content[0].output.value, /\(Clic sur Enregistrer\).*declare wait_for_user_action again/)
+    assert.match(tool.content[0].output.value, /\(Clic sur Enregistrer\)/)
+  })
+
+  test('the turn the person starts carries the reminder to wait again', () => {
+    assert.match(interruptedWaitReminder('Clic sur Enregistrer'), /\(Clic sur Enregistrer\).*declare wait_for_user_action again/)
+    assert.match(interruptedWaitReminder(undefined), /\(an action on the page\)/)
   })
 
   test('any other pending call only says the person spoke', () => {

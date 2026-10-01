@@ -96,10 +96,11 @@ for (const simCase of selected) {
           const changed = resumed.length !== conversation.length
           conversation.length = 0
           conversation.push(...resumed)
-          // A person who acted and stopped has not seen the reply their action caused:
-          // a judged run ended on the click, and whether the assistant noticed the
-          // creation was never on record. Let them read it before they decide.
-          if (changed && isDone(message)) continue
+          // Whatever the person wrote in that pass, they wrote it before the reply their
+          // action caused: a judged run ended on the click, others sent "what was just
+          // created?" under the very message that said so, interrupting the next wait.
+          // Drop it and let them read the reply first — stopping included.
+          if (changed) continue
         }
         if (isDone(message)) break
         if (message === '') {
