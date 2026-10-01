@@ -42,7 +42,9 @@ import { nhiSessionProvider, forwardedSessionProvider } from '../agent-identity/
 import { sessionFor } from '../agent-session/registry.ts'
 import { PERSONAL_AGENT_ID } from '../agent-session/personal-agent.ts'
 import type { AgentSession } from '../agent-session/session.ts'
+import type { ChatActivity } from '@agents/shared/agent-activity'
 import { browserToolSet } from '../agent-session/browser-tools.ts'
+import { createWaitTool, WAIT_TOOL_NAME } from '@agents/shared/host-events'
 import { enforceQuotas, checkAccountCreditCap, type UsageIdentity } from '../usage/enforce.ts'
 import { recordUsage } from '../usage/service.ts'
 
@@ -296,6 +298,11 @@ const compactHistory = async (
   const prefixToSummarize = history.slice(0, cut)
   const retained = history.slice(cut)
   const coversUpToSeq = loaded.seqs[cut - 1]
+  // Labelled only when a compaction is ACTUALLY going to happen — this point is past every reason not
+  // to. An unconditional label before the decision would tell the person the assistant was compacting
+  // on every turn, which is both wrong and the kind of thing nobody would notice was wrong.
+  const watching = sessionFor(run.conversationId)
+  watching?.send({ type: 'activity', activity: { kind: 'compacting' } })
   try {
     const { model, entry } = resolveRoleModel(settings, 'summarizer')
     const startedAt = Date.now()
@@ -367,6 +374,7 @@ const compactHistory = async (
       coversUpToSeq
     })
     debug('compacted %d messages into a recap (generation %d, covers up to seq %d)', prefixToSummarize.length, decision.generation, coversUpToSeq)
+    watching?.send({ type: 'activity', activity: null })
     return { messages: [recapMessage(summary), ...retained], credits: compactionCredits.total }
   } catch (err) {
     if (abortSignal.aborted) throw err
@@ -379,6 +387,7 @@ const compactHistory = async (
     // in their place: the model then reasons as though it had never asked. Clearing keeps every call and
     // every placeholder, so it can see what it did and that the payload is re-fetchable. The store keeps
     // everything either way; this is only about what the model can still see.
+    watching?.send({ type: 'activity', activity: null })
     const fallback = clearOldToolResults(history, budget, { keep: 0, clearAtLeast: 0 })
     const cleared = fallback.clear ? fallback.history : history
     debug(
@@ -476,7 +485,20 @@ const performTurn = async (run: AutonomousAgentRun, messageSeq: number, messageI
   // provenance envelope, and from here on the loop cannot tell them apart — which is the claim.
   const tools = {
     ...withProvenance(rawTools, name => serverByTool.get(name) ?? 'unknown'),
-    ...(session ? browserToolSet(session) : {})
+    ...(session ? browserToolSet(session) : {}),
+    // `wait_for_user_action`, available only when someone is actually there to act. It is loop-provided
+    // rather than page-provided — the page feeds the store, the loop owns the tool — which is why it
+    // had to move with the loop. The activity callbacks are the store's own, so the label the chat
+    // shows while waiting comes from the same place the wait does.
+    ...(session
+      ? {
+          [WAIT_TOOL_NAME]: createWaitTool({
+            store: session.hostEvents,
+            onWaiting: expecting => { session.send({ type: 'activity', activity: { kind: 'waiting', expecting } }) },
+            onDone: () => { session.send({ type: 'activity', activity: null }) }
+          })
+        }
+      : {})
   }
 
   try {
@@ -662,6 +684,17 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   }
 
   /**
+   * What the assistant is doing, in the vocabulary the chat already renders.
+   *
+   * The server is the only thing that knows this now, and it knows it better than the browser loop did:
+   * it sees the step boundaries, the tool results and the compaction directly rather than inferring
+   * them from a stream. `null` clears the label.
+   */
+  const activity = (value: ChatActivity | null) => {
+    session?.send({ type: 'activity', activity: value })
+  }
+
+  /**
    * Complete a tool call in place, by its id.
    *
    * By ID rather than "the last part": a step may issue several calls in parallel, and their results
@@ -681,6 +714,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   // advances the conversation version, which notifies subscribers, who then fetch the record over
   // HTTP. That makes the partial answer real — a client refetching mid-turn sees the text so far
   // instead of an empty message — and keeps every websocket payload fixed-size.
+  let sawText = false
   let lastPersistAt = 0
   let lastPersistedLength = -1
   const persistPartial = async () => {
@@ -712,6 +746,8 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
     // before. Turn it into a real failure so the caller reports it.
     if (part.type === 'error') throw part.error instanceof Error ? part.error : new Error(String(part.error))
     if (part.type === 'text-delta') {
+      // Visible output means the label has nothing left to explain.
+      if (!sawText) { sawText = true; activity(null) }
       appendText('text', part.text)
       stream('text', part.text)
       await persistPartial()
@@ -748,6 +784,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
       // assistant is doing something, and a call can take seconds. Waiting for the next token would
       // show the chip after the work it describes.
       sendMessageFrame(true)
+      if (part.toolName.startsWith('subagent_')) activity({ kind: 'subagent', name: part.toolName, phase: 'starting' })
     }
     // The RESULT, stored because the conversation is revivable: without it a later turn replays a
     // call with no answer, which providers reject — so the old shape had to drop the call too, and
@@ -769,6 +806,12 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
         truncated: bounded.truncated
       })
       sendMessageFrame(true)
+      // The model now has a result to read. `subAgent` is set when the tool WAS a delegation, so the
+      // label can name it — the one case where the bottom line says more than "analyzing".
+      activity({
+        kind: 'analyzing',
+        ...(part.toolName.startsWith('subagent_') ? { subAgent: part.toolName } : {})
+      })
     }
     // A tool that failed does not stop the turn — the model sees the error and usually keeps
     // talking — so without recording it a failed call reads exactly like a successful one.

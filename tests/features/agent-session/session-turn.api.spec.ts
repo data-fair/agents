@@ -207,6 +207,36 @@ test.describe('A turn over the agent session', () => {
     assert.equal(frames.filter(f => f.type === 'message').length, 0, 'and no history may leak')
   })
 
+  test('the page is told what the assistant is doing, in the vocabulary it already renders', async () => {
+    // `ChatActivity` straight from shared/agent-activity.ts, so the server produces exactly what
+    // `activityLabelKey` consumes and there is no translation layer to drift. The server also knows it
+    // better than the browser loop did: it sees the step boundaries and tool results directly rather
+    // than inferring them from a stream.
+    const conversation = await personalConversation()
+    const session = await open(await cookieOf(orgAdmin))
+    session.send({
+      type: 'hello',
+      conversationId: conversation.id,
+      tools: [{ name: 'select_row', description: 'selects a row', inputSchema: { type: 'object' } }]
+    })
+    await session.next()
+    // Drain the replayed history, if any.
+    session.send({ type: 'prompt', content: 'call tool select_row {}' })
+
+    const activities: any[] = []
+    for (;;) {
+      const frame = await session.next(15000)
+      if (frame.type === 'activity') activities.push(frame.activity)
+      if (frame.type === 'tool-call') session.send({ type: 'tool-result', callId: frame.callId, result: 'row selected' })
+      if (frame.type === 'turn-end') break
+    }
+
+    // A result came back, so the model had something to read.
+    assert.ok(activities.some(a => a?.kind === 'analyzing'), `expected an analyzing label, got ${JSON.stringify(activities)}`)
+    // And the label is cleared once there is visible output, because then it has nothing left to explain.
+    assert.ok(activities.includes(null), 'the label must be cleared when text starts arriving')
+  })
+
   test('a second connection takes the conversation over, and the first is told', async () => {
     // A reload, a second tab, a reconnect — all look the same, and the newest connection is the one the
     // person is looking at. The displaced tab is told rather than silently going deaf.

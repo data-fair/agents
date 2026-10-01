@@ -299,7 +299,7 @@ import { EXPLORE_TOOL_NAME } from '~/utils/tool-exploration'
 import { WAIT_TOOL_NAME } from '@agents/shared/host-events'
 import type { MermaidFailure } from '~/utils/mermaid'
 import type { ChatMessage } from '~/composables/use-agent-chat'
-import { activityLabelKey, type ChatActivity } from '~/composables/agent-activity'
+import { activityLabelKey, type ChatActivity } from '@agents/shared/agent-activity'
 
 const emit = defineEmits<{
   navigate: [url: string]

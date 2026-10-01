@@ -11,7 +11,8 @@
  * never leaves the browser.
  */
 
-import { ref, shallowRef, type Ref } from 'vue'
+import { ref, shallowRef, computed, type Ref } from 'vue'
+import type { ChatActivity } from '@agents/shared/agent-activity'
 import type { Tool } from 'ai'
 import Debug from 'debug'
 import {
@@ -38,6 +39,8 @@ export interface AgentSessionClientOptions {
    * transcript and the stored one cannot drift, because they are the same data through the same code.
    */
   onMessage?: (message: { seq: number, role: 'user' | 'assistant', parts: unknown[], pending: boolean }) => void
+  /** What the assistant is doing, in the vocabulary `activityLabelKey` already renders. */
+  onActivity?: (activity: ChatActivity | null) => void
   onTurnEnd?: (stopReason: string, detail?: string) => void
   onError?: (message: string) => void
 }
@@ -63,6 +66,11 @@ export function toDescriptors (tools: Record<string, Tool>): BrowserToolDescript
 export function useAgentSession (options: AgentSessionClientOptions) {
   const connected = ref(false)
   const attached = ref(false)
+  /**
+   * The current activity, and the answer to `isWaitingForUser` — which is simply
+   * `kind === 'waiting'`, rather than a second piece of state that could disagree with this one.
+   */
+  const activity = shallowRef<ChatActivity | null>(null)
   const conversationId = shallowRef<string | undefined>(options.conversationId)
   let ws: WebSocket | undefined
 
@@ -104,6 +112,10 @@ export function useAgentSession (options: AgentSessionClientOptions) {
       case 'message':
         options.onMessage?.(message)
         return
+      case 'activity':
+        activity.value = message.activity
+        options.onActivity?.(message.activity)
+        return
       case 'tool-call':
         // Not awaited: the socket must keep reading while the page works, so several calls of one
         // parallel step can run at once. The catch is the backstop — serveCall answers its own
@@ -127,6 +139,8 @@ export function useAgentSession (options: AgentSessionClientOptions) {
   return {
     connected,
     attached,
+    activity,
+    isWaitingForUser: computed(() => activity.value?.kind === 'waiting'),
     conversationId,
 
     /**

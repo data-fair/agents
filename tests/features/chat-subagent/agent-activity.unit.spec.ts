@@ -1,6 +1,6 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { activityLabelKey, type ChatActivity } from '../../../ui/src/composables/agent-activity.ts'
+import { activityLabelKey, type ChatActivity } from '@agents/shared/agent-activity'
 
 test.describe('activityLabelKey', () => {
   test('null / undefined → null', () => {

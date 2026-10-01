@@ -72,7 +72,7 @@ test.describe('chat driver composer strings', () => {
     assert.ok(source.includes('data-testid="chat-activity"'), 'the activity element lost its test id')
     assert.ok(source.includes(':data-activity="activity?.kind"'), 'the activity element no longer exposes its kind')
     // And the kind the selector names is one the activity vocabulary still has.
-    const activity = readFileSync('ui/src/composables/agent-activity.ts', 'utf8')
+    const activity = readFileSync('shared/agent-activity.ts', 'utf8')
     assert.match(WAITING_SELECTOR, /data-activity="waiting"/)
     assert.ok(activity.includes("kind: 'waiting'"), "the 'waiting' activity kind is gone")
   })

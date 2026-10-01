@@ -244,9 +244,6 @@ declare global {
   export type { UsageDimension, UsageEntry } from '../src/utils/usage-breakdown'
   import('../src/utils/usage-breakdown')
   // @ts-ignore
-  export type { ChatActivity, ActivityLabel } from '../src/composables/agent-activity'
-  import('../src/composables/agent-activity')
-  // @ts-ignore
   export type { TurnTextState } from '../src/composables/empty-turn'
   import('../src/composables/empty-turn')
   // @ts-ignore
@@ -289,7 +286,6 @@ declare module 'vue' {
     readonly FLAGS_COOKIE: UnwrapRef<typeof import('../src/utils/agent-flags')['FLAGS_COOKIE']>
     readonly MERMAID_AUTO_FIX_BUDGET: UnwrapRef<typeof import('../src/utils/mermaid-fix')['MERMAID_AUTO_FIX_BUDGET']>
     readonly SELECT_TOOL_NAME: UnwrapRef<typeof import('../src/utils/tool-exploration')['SELECT_TOOL_NAME']>
-    readonly activityLabelKey: UnwrapRef<typeof import('../src/composables/agent-activity')['activityLabelKey']>
     readonly appendStreamingCaret: UnwrapRef<typeof import('../src/utils/markdown')['appendStreamingCaret']>
     readonly applyStreamPart: UnwrapRef<typeof import('../src/utils/agent-stream-parts')['applyStreamPart']>
     readonly autonomousAgentEditDraft: UnwrapRef<typeof import('../src/utils/autonomous-agent-draft')['autonomousAgentEditDraft']>

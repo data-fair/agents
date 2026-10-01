@@ -78,6 +78,17 @@ export type ServerMessage =
    * rather than per token.
    */
   | { type: 'message', seq: number, role: 'user' | 'assistant', parts: unknown[], pending: boolean }
+  /**
+   * What the assistant is doing right now, in the vocabulary the chat already renders.
+   *
+   * `ChatActivity` straight from `shared/agent-activity.ts` rather than a wire type of its own: that
+   * module was already free of Vue and of the `~` alias, so the server can produce exactly what
+   * `activityLabelKey` consumes and there is no translation layer to drift. `null` means idle.
+   *
+   * It also answers `isWaitingForUser`, which is `kind === 'waiting'` — one frame rather than two
+   * overlapping ones.
+   */
+  | { type: 'activity', activity: ChatActivity | null }
   | { type: 'turn-end', stopReason: string, detail?: string }
   | { type: 'error', message: string }
 
@@ -241,6 +252,12 @@ export function parseServerMessageForClient (raw: string): ServerMessage | undef
       if (!Array.isArray(parsed.parts)) return undefined
       return { type: 'message', seq: parsed.seq, role: parsed.role, parts: parsed.parts, pending: parsed.pending === true }
     }
+    case 'activity':
+      // Structurally tolerant: the vocabulary may grow a kind, and an older tab should ignore one it
+      // does not know rather than drop the frame — the renderer already returns null for anything it
+      // cannot label.
+      if (parsed.activity !== null && !isRecord(parsed.activity)) return undefined
+      return { type: 'activity', activity: parsed.activity as ChatActivity | null }
     case 'turn-end':
       if (typeof parsed.stopReason !== 'string') return undefined
       return {
