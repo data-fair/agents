@@ -288,6 +288,35 @@ The lesson generalises: of the two pieces the design feared most, one (sub-agent
 large consequences, and the other (host events) was a rename. Fearing the wrong one cost nothing here,
 but it is a reason to read the remaining estimates sceptically.
 
+**7. `systemPrompt` cannot move as it stands, and it is the one hole that would survive.** The browser
+loop takes a system prompt from its caller: `DfAgentChatDrawer` exposes it as a **prop**, so a host
+application gives the assistant its persona, and `ui/src/pages/[type]/[id]/chat.vue` reads it from a
+**URL query parameter**.
+
+Accepting that on a server-held loop would reintroduce exactly what §1's table says the move removes.
+Every other client-controlled input is gone — history, guards, moderation, compaction, model choice —
+and a client-supplied *system prompt* would be the single remaining piece of client-controlled
+**instruction**. From a query string. That is a worse hole than any of the ones being closed, and it
+would quietly undercut the argument that is now the second-strongest reason for the whole change.
+
+**The capability is legitimate and already has the right shape.** A conversation is *with an agent*, and
+an agent's persona is configuration. A host that wants its own assistant persona should name an agent,
+not supply prose — and the mechanism exists: the conversation is created with an `autonomousAgentId`,
+and `hello` already carries `agentId`. The personal assistant is simply the default agent.
+
+So the recommendation is: **`systemPrompt` becomes `agentId`** on the drawer's prop and on the chat
+page's parameter. That preserves what hosts use it for, moves the text server-side where it cannot be
+tampered with, and removes a query-parameter prompt injection that exists today.
+
+It is an integration-surface change, so it is a product decision rather than something to take
+unilaterally — recorded here, not implemented.
+
+By contrast `reset` needed nothing: re-attaching to a new conversation rebinds the registry, replays an
+empty history, and the server's state for the thread is new by construction. The only server-side
+subtlety is that buffered host events are dropped on a rebind to a *different* conversation while
+retained page state survives — the state is still true of the page, the buffer is for a model that will
+never see it.
+
 ## 6. What is knowingly lost
 
 Stated plainly, because a prototype that hides its costs cannot be judged:

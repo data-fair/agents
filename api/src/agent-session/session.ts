@@ -82,6 +82,7 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
   const clearTimer = options.clearTimer ?? ((handle) => { clearTimeout(handle as ReturnType<typeof setTimeout>) })
 
   const hostEvents = new HostEventStore()
+  let boundTo: string | undefined
   let tools: BrowserToolDescriptor[] = []
   let attached = false
   let closed: string | undefined
@@ -110,6 +111,11 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
           // declares is the authority for the page it is on now.
           tools = message.tools
           attached = true
+          // A re-hello naming a DIFFERENT conversation is a reset. The retained page state stays — it
+          // is still true of the page — but anything buffered for a model that will never see it is
+          // dropped, or the first turn of the new thread would open with events from the old one.
+          if (message.conversationId && message.conversationId !== boundTo) hostEvents.clearPending()
+          boundTo = message.conversationId
           if (message.conversationId) options.onAttach?.(message.conversationId)
           // conversationId is echoed back so a client that sent none learns the one it got. The
           // conversation itself is §4.4's work; until then the session reports what it was given.

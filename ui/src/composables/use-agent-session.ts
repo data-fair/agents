@@ -184,6 +184,18 @@ export function useAgentSession (options: AgentSessionClientOptions) {
       send({ type: 'tools-changed', tools: toDescriptors(options.tools.value) })
     },
 
+    /**
+     * Start a fresh conversation on the same socket.
+     *
+     * The caller creates the conversation and passes its id, because this composable owns the socket
+     * and not the HTTP surface. Nothing else is needed: re-attaching rebinds the registry, replays an
+     * empty history, and the server's own state for the thread is new by construction — which is why
+     * `reset` needs no frame of its own.
+     */
+    reset (conversationId: string) {
+      send({ type: 'hello', tools: toDescriptors(options.tools.value), conversationId })
+    },
+
     prompt (content: string) {
       send({ type: 'prompt', content })
     },

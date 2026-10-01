@@ -118,3 +118,29 @@ test.describe('wait_for_user_action, server-side', () => {
     await first
   })
 })
+
+test.describe('reset, as a rebind', () => {
+  test('re-attaching to a DIFFERENT conversation drops buffered events but keeps page state', () => {
+    // Retained state is still true of the page, so it survives; anything buffered for a model that will
+    // never see it is dropped, or the first turn of the new thread would open with the old one's events.
+    const session = sessionWith()
+    session.handle({ type: 'hello', tools: [], conversationId: 'c1' })
+    session.handle({ type: 'host-state', state: { page: 'the datasets list' } })
+    session.handle({ type: 'host-events', events: [{ name: 'clicked save', at: Date.now() }] })
+    assert.equal(session.hostEvents.hasPending(), true)
+
+    session.handle({ type: 'hello', tools: [], conversationId: 'c2' })
+    assert.equal(session.hostEvents.hasPending(), false, 'buffered events must not cross into a new thread')
+    assert.match(formatHostState(session.hostEvents.snapshot()), /- page: the datasets list/)
+  })
+
+  test('re-attaching to the SAME conversation keeps what is buffered', () => {
+    // A reconnect is not a reset. Dropping the buffer here would lose what the person did while the
+    // socket was down — which is exactly what the buffer exists to carry.
+    const session = sessionWith()
+    session.handle({ type: 'hello', tools: [], conversationId: 'c1' })
+    session.handle({ type: 'host-events', events: [{ name: 'clicked save', at: Date.now() }] })
+    session.handle({ type: 'hello', tools: [], conversationId: 'c1' })
+    assert.equal(session.hostEvents.hasPending(), true)
+  })
+})
