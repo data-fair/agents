@@ -221,10 +221,14 @@ if (process.env.NODE_ENV === 'development') {
    * message without axios turning it into a throw.
    */
   app.post('/api/test-env/agent-session-call', async (req, res) => {
+    // durationMs is the SERVER-SIDE WAIT — the quantity the design's latency question is about — timed
+    // around the call itself so this endpoint's own HTTP overhead is not counted into it.
+    const startedAt = performance.now()
     try {
-      res.json({ ok: true, result: await callOnlyLiveAgentSession(req.body.name, req.body.input) })
+      const result = await callOnlyLiveAgentSession(req.body.name, req.body.input)
+      res.json({ ok: true, result, durationMs: performance.now() - startedAt })
     } catch (err: any) {
-      res.json({ ok: false, error: err.message })
+      res.json({ ok: false, error: err.message, durationMs: performance.now() - startedAt })
     }
   })
   app.post('/api/test-env/recover-ownerless-runs', async (req, res) => {

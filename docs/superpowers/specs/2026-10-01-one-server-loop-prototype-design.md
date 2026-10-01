@@ -194,6 +194,34 @@ Fixed now, so the judgement is not retrospective:
 **Revert triggers:** contextual tool latency bad enough to be felt in normal use; sub-agents or host
 events needing more code server-side than they replace; or net code going *up*.
 
+### Reading 1 — contextual tool round trip (2026-10-01, after §4.2)
+
+`node dev/measure-session-latency.ts`, 200 samples, server-side wait, both ends on localhost:
+
+| mean | p50 | p90 | p99 | max |
+| --- | --- | --- | --- | --- |
+| 0.28 ms | 0.23 ms | 0.42 ms | 0.89 ms | 1.46 ms |
+
+**The structural fact this measurement surfaced matters more than the number.** The new path is not an
+*alternative* to the old one, it is the old one **plus one round trip**: in the browser, `serveCall`
+still invokes the aggregator's tool, which still reaches the page's WebMCP server over
+BroadcastChannel/postMessage exactly as today. So there is no "which is faster" comparison to make, and
+no need to measure the old path separately — the delta is precisely one client-to-server round trip per
+contextual tool call.
+
+That makes the cost easy to state honestly: **~0.25 ms of fixed overhead from this code, plus the
+user's own RTT, once per contextual tool call.** For a user at 30 ms RTT and a turn making three
+contextual calls that is +90 ms against model latency measured in hundreds of milliseconds to seconds.
+Parallel calls within one step go out concurrently (the session does not serialise them), so the RTTs
+add up per *step*, not per call.
+
+Correcting an earlier claim of mine: I described the existing path as "microseconds in-process". It is
+not — it is already an MCP round trip over postMessage. The honest framing is the one above.
+
+**Still to measure, once §4.3 exists:** first-token latency, which needs a turn. The "before" side of
+that one is today's gateway path on `feat-autonomous-agents`, so it has to be taken on both branches to
+be a comparison rather than a number.
+
 ## 8. Dependency: consolidating `data-fair/mcp`, which is not this repo's change
 
 The parity invariant in §3 cannot be satisfied by this service alone. `data-fair/mcp` currently deploys
