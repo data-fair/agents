@@ -103,7 +103,7 @@ export async function getUsage (owner: AccountKeys, userId?: string): Promise<Us
   const weeklyPeriod = getWeeklyPeriod()
   const monthlyPeriod = getMonthlyPeriod()
 
-  const filter = { 'owner.type': owner.type, 'owner.id': owner.id, ...(userId ? { userId } : {}) }
+  const filter = { 'owner.type': owner.type, 'owner.id': owner.id, userId: userId ?? { $exists: false } }
 
   const [daily, weekly, monthly] = await Promise.all([
     mongo.usage.findOne({ ...filter, period: dailyPeriod }),
@@ -146,7 +146,7 @@ export async function recordUsage (owner: AccountKeys, record: UsageRecord): Pro
   const weeklyPeriod = getWeeklyPeriod()
   const monthlyPeriod = getMonthlyPeriod()
 
-  const filter = { 'owner.type': owner.type, 'owner.id': owner.id, ...(userId ? { userId } : {}) }
+  const filter = { 'owner.type': owner.type, 'owner.id': owner.id, userId: userId ?? { $exists: false } }
   const setOnInsertBase = { owner: { type: owner.type, id: owner.id }, ...(userId ? { userId } : {}) }
   const setFields: Record<string, string> = { updatedAt: now }
   if (userName) setFields.userName = userName

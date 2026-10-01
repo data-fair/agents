@@ -70,6 +70,9 @@
       :simple-sub-agents="simpleSubAgentsEnabled"
       :mermaid="mermaidEnabled"
       :show-reasoning="showReasoningEnabled"
+      :conversation-cost="chat.conversationCost.value"
+      :usage-version="chat.usageVersion.value"
+      :fetch-self-usage="chat.fetchSelfUsage"
       @update:tool-exploration="handleToolExploration"
       @update:sub-agents="handleSubAgents"
       @update:simple-sub-agents="handleSimpleSubAgents"
@@ -102,6 +105,11 @@ fr:
   moderationRefusal: "Ce message a été refusé par la modération de contenu — il semble sortir du cadre de ce que cet assistant peut faire. Reformulez votre demande si vous pensez qu'il s'agit d'une erreur."
   fixMermaidVisible: "Corrige le diagramme qui n'a pas pu s'afficher."
   fixMermaidAuto: "Le diagramme n'a pas pu s'afficher, correction automatique en cours…"
+  quota_daily: "Votre quota IA du jour est épuisé. Il sera réinitialisé le {date}."
+  quota_weekly: "Votre quota IA de la semaine est épuisé. Il sera réinitialisé le {date}."
+  quota_monthly: "Votre quota IA du mois est épuisé. Il sera réinitialisé le {date}."
+  quotaShared: "Le quota IA partagé par les visiteurs est épuisé. Il sera réinitialisé le {date}."
+  quotaAccount: "Le budget IA de ce compte est épuisé jusqu'au {date}."
 en:
   welcome: How can I help you?
   systemPromptBase: You are a helpful AI assistant for the Data Fair platform.
@@ -122,6 +130,11 @@ en:
   moderationRefusal: "This message was declined by content moderation — it appears to fall outside what this assistant is meant to help with. Try rephrasing if you think this is a mistake."
   fixMermaidVisible: "Please fix the diagram that failed to render."
   fixMermaidAuto: "The diagram failed to render, fixing it automatically…"
+  quota_daily: "Your daily AI quota is used up. It resets on {date}."
+  quota_weekly: "Your weekly AI quota is used up. It resets on {date}."
+  quota_monthly: "Your monthly AI quota is used up. It resets on {date}."
+  quotaShared: "The AI quota shared by visitors is used up. It resets on {date}."
+  quotaAccount: "This account's AI budget is exhausted until {date}."
 </i18n>
 
 <script lang="ts" setup>
@@ -162,7 +175,7 @@ const initConfig = initConfigKey ? getAgentInitConfig(initConfigKey) : undefined
 const initSystemPrompt = initConfig?.prompt
 const chatTitle = computed(() => initConfig?.title ?? props.title)
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const session = useSession()
 
 const finalSystemPrompt = computed(() => {
@@ -212,7 +225,15 @@ const chatResult = useAgentChat({
   initialMessages: props.initialMessages,
   refusalMessage: t('moderationRefusal'),
   toolExploration: explorationEnabled.value,
-  flattenSubAgents: !subAgentsEnabled.value
+  flattenSubAgents: !subAgentsEnabled.value,
+  formatQuotaError: (q) => {
+    // without a reset date the localized sentences would read "resets on ."
+    if (!q.resetsAt) return q.message
+    const date = new Intl.DateTimeFormat(locale.value, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(q.resetsAt))
+    if (q.scope === 'account') return t('quotaAccount', { date })
+    if (q.scope === 'untrusted') return t('quotaShared', { date })
+    return t(`quota_${q.period ?? 'monthly'}`, { date })
+  }
 })
 
 if (!chatResult) {

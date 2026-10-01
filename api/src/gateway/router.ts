@@ -6,8 +6,8 @@ import { getSettings, defaultQuotas } from '../settings/service.ts'
 import { streamedToolCallsBroken, contextBudget, OPENAI_COMPATIBLE_PROVIDER_NAME } from '../models/operations.ts'
 import { resolveRoleModel, resolveRoleEntry, type ResolvedRoleModel } from '../models/service.ts'
 import { recordUsage } from '../usage/service.ts'
-import { computeCreditBreakdown } from '../usage/operations.ts'
-import { resolveUsageIdentity, enforceQuotas } from '../usage/enforce.ts'
+import { computeCreditBreakdown, quotaErrorBody } from '../usage/operations.ts'
+import { resolveUsageIdentity, enforceQuotas, getSelfUsage } from '../usage/enforce.ts'
 import { convertOpenAITools, convertOpenAIMessages, convertToolChoice, mapFinishReason, supportsMediaToolResults, injectMediaAsUserMessages } from './operations.ts'
 import type { OpenAIMessage, OpenAIToolDefinition, OpenAIToolChoice, FinishReason } from './operations.ts'
 import { recordTraceRequest } from '../traces/service.ts'
@@ -21,7 +21,8 @@ import createDebug from 'debug'
 // provider reports them (Anthropic cache read/write, OpenAI cached_tokens, etc.).
 // The AI SDK normalizes these into usage.inputTokenDetails regardless of provider,
 // so the gateway can forward them uniformly for the debug trace.
-function buildUsage (usage: LanguageModelUsage | undefined) {
+// `cost` is the credits billed for the call (moderation included), always present.
+function buildUsage (usage: LanguageModelUsage | undefined, cost: number) {
   if (!usage) return undefined
   const promptTokens = usage.inputTokens ?? 0
   const completionTokens = usage.outputTokens ?? 0
@@ -31,11 +32,14 @@ function buildUsage (usage: LanguageModelUsage | undefined) {
     prompt_tokens: number
     completion_tokens: number
     total_tokens: number
+    // credits billed for this call (OpenRouter's `usage.cost` convention), moderation included
+    cost: number
     prompt_tokens_details?: { cached_tokens: number, cache_creation_tokens: number }
   } = {
     prompt_tokens: promptTokens,
     completion_tokens: completionTokens,
-    total_tokens: promptTokens + completionTokens
+    total_tokens: promptTokens + completionTokens,
+    cost
   }
   if (cacheRead != null || cacheWrite != null) {
     result.prompt_tokens_details = { cached_tokens: cacheRead ?? 0, cache_creation_tokens: cacheWrite ?? 0 }
@@ -52,6 +56,21 @@ type ModelId = typeof MODEL_IDS[number]
 function isValidModelId (id: string): id is ModelId {
   return MODEL_IDS.includes(id as ModelId)
 }
+
+// The caller's own consumption: same identity resolution (and 401/403) as a
+// completion, so it reports exactly the usage that the gateway enforces.
+router.get('/:type/:id/usage', async (req, res, next) => {
+  try {
+    const sessionState = reqSession(req)
+    const owner = req.params as unknown as AccountKeys
+    const settings = await getSettings(owner)
+    const quotas = settings.quotas ?? defaultQuotas
+    const identity = await resolveUsageIdentity(req, owner, quotas, sessionState, isAuthenticated(sessionState))
+    res.json(await getSelfUsage(owner, quotas, identity))
+  } catch (err) {
+    next(err)
+  }
+})
 
 // OpenAI-compatible chat completions endpoint
 router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
@@ -161,16 +180,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
 
     const quotaCheck = await enforceQuotas(owner, quotas, identity)
     if (quotaCheck) {
-      res.status(429).json({
-        error: {
-          message: quotaCheck.reason,
-          type: 'rate_limit_error',
-          scope: quotaCheck.scope,
-          usage: quotaCheck.usage,
-          limit: quotaCheck.limit,
-          resets_at: quotaCheck.resetsAt
-        }
-      })
+      res.status(429).json({ error: quotaErrorBody(quotaCheck, identity.role === 'admin') })
       return
     }
 
@@ -286,8 +296,6 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
       // avoids TypeScript's (here incorrect) control-flow narrowing of the let.
       const gateBlocked = () => gateState === 'blocked'
       const buffered: string[] = []
-      // a finish trace captured while the gate was still pending: only stored if the gate opens
-      let deferredFinishTrace: (() => void) | null = null
       const sseWrite = (payload: string) => {
         if (gateState === 'blocked' || res.writableEnded) return
         if (gateState === 'pending') buffered.push(payload)
@@ -317,8 +325,6 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
             gateState = 'open'
             for (const payload of buffered) res.write(payload)
             buffered.length = 0
-            deferredFinishTrace?.()
-            deferredFinishTrace = null
           }
         })
         moderation.onLateBlock(() => {
@@ -391,14 +397,16 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
               }
             })
           }
-          sseWrite(`data: ${JSON.stringify({ id: completionId, object: 'chat.completion.chunk', created, model: modelId, choices: [{ index: 0, delta: {}, finish_reason: mapFinishReason(gen.finishReason as FinishReason) }], usage: buildUsage(gen.usage) })}\n\n`)
+          if (moderation) await moderation.gate
+          sseWrite(`data: ${JSON.stringify({ id: completionId, object: 'chat.completion.chunk', created, model: modelId, choices: [{ index: 0, delta: {}, finish_reason: mapFinishReason(gen.finishReason as FinishReason) }], usage: buildUsage(gen.usage, credits.total + (moderation?.cost() ?? 0)) })}\n\n`)
           const recordFinishTrace = () => recordTrace(
             { content: streamedText, toolCalls: [...streamedToolCalls.values()], finishReason: mapFinishReason(gen.finishReason as FinishReason) },
             { inputTokens, outputTokens, cacheReadTokens: details?.cacheReadTokens, cacheWriteTokens: details?.cacheWriteTokens },
             ttfc
           )
-          if (gateState === 'pending') deferredFinishTrace = recordFinishTrace
-          else if (gateState === 'open') recordFinishTrace()
+          // the gate is already settled here (awaited above): a block verdict has
+          // recorded its own content-free content_filter trace instead
+          if (gateState === 'open') recordFinishTrace()
         } else {
           for await (const part of result!.fullStream) {
             if (part.type === 'error') {
@@ -493,13 +501,14 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
                 })
               }
 
+              if (moderation) await moderation.gate
               sseWrite(`data: ${JSON.stringify({
               id: completionId,
               object: 'chat.completion.chunk',
               created,
               model: modelId,
               choices: [{ index: 0, delta: {}, finish_reason: mapFinishReason(part.finishReason as FinishReason) }],
-              usage: buildUsage(part.totalUsage)
+              usage: buildUsage(part.totalUsage, credits.total + (moderation?.cost() ?? 0))
             })}\n\n`)
 
               const recordFinishTrace = () => recordTrace(
@@ -507,10 +516,9 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
                 { inputTokens, outputTokens, cacheReadTokens: details?.cacheReadTokens, cacheWriteTokens: details?.cacheWriteTokens },
                 ttfc
               )
-              // While the gate is pending the content must not reach trace storage:
-              // a block verdict records its own content-free content_filter trace.
-              if (gateState === 'pending') deferredFinishTrace = recordFinishTrace
-              else if (gateState === 'open') recordFinishTrace()
+              // the gate is already settled here (awaited above): a block verdict has
+              // recorded its own content-free content_filter trace instead
+              if (gateState === 'open') recordFinishTrace()
             }
           }
         }
@@ -648,7 +656,7 @@ router.post('/:type/:id/v1/chat/completions', async (req, res, next) => {
           message: responseMessage,
           finish_reason: mapFinishReason(result.finishReason as FinishReason)
         }],
-        usage: buildUsage(result.usage)
+        usage: buildUsage(result.usage, credits.total + (moderation?.cost() ?? 0))
       })
 
       recordTrace(
