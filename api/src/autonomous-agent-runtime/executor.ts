@@ -26,7 +26,7 @@ import { summarizeToolArguments } from '@agents/shared/tool-arguments'
 import { compactionSystemPrompt, recapMessage } from '@agents/shared/compaction-prompt'
 import type { AutonomousAgent, AutonomousAgentMessage, AutonomousAgentRun } from '#types'
 import {
-  runStopReasonMessage, buildSystemPrompt, wrapToolResult,
+  runStopReasonMessage, buildSystemPrompt, withProvenance,
   storedTurnsToModelMessages, alignCutToStoredMessage,
   boundToolResult, partsText, withAppendedText,
   type RunStopReason, type UIPart
@@ -384,53 +384,6 @@ const compactHistory = async (
     )
     return { messages: cleared, credits: 0 }
   }
-}
-
-/**
- * Wrap each MCP tool so its result reaches the model inside a provenance envelope.
- *
- * The envelope has to be applied where the result is produced rather than when history is
- * rebuilt, because within a single turn the AI SDK feeds tool results straight back to the
- * model without passing through this module.
- */
-const withProvenance = (tools: Record<string, Tool>, serverOf: (name: string) => string): Record<string, Tool> => {
-  const wrapped: Record<string, Tool> = {}
-  for (const [name, tool] of Object.entries(tools)) {
-    wrapped[name] = {
-      ...tool,
-      execute: tool.execute
-        ? async (args: any, opts: any) => {
-          const result = await tool.execute!(args, opts).catch((err: unknown) => {
-            // A THROWN failure is tool-controlled text too, and it reached the model bare.
-            //
-            // The envelope is the security property: it tells the model where content came from, so a
-            // tool cannot pass its output off as the system or the user. A failure carries the tool's
-            // own words — `isError` results are rethrown with the tool's content in the message — so
-            // without this the one path that hands the model unattributed, tool-authored text was the
-            // failure path.
-            //
-            // Rethrown, not returned: the AI SDK must still see a rejection, or the call would be
-            // recorded `output-available` and a failure would look like a result again. An abort is
-            // passed through untouched — it is ours, not the tool's, and the loop has to recognise it.
-            if (opts?.abortSignal?.aborted) throw err
-            const detail = err instanceof Error ? err.message : String(err)
-            throw new Error(wrapToolResult(serverOf(name), name, detail))
-          })
-          if (typeof result === 'string') return wrapToolResult(serverOf(name), name, result)
-          // A media result is an envelope the rest of the stack rebuilds into real image
-          // parts by its marker. Stringifying it would inline the base64 into text, lose the
-          // marker, and can blow the context window in a single step — so wrap only its text
-          // and keep the object shape intact.
-          if (result && typeof result === 'object' && '_agentsMediaResult' in (result as any)) {
-            const media = result as any
-            return { ...media, text: wrapToolResult(serverOf(name), name, String(media.text ?? '')) }
-          }
-          return wrapToolResult(serverOf(name), name, JSON.stringify(result))
-        }
-        : undefined
-    } as Tool
-  }
-  return wrapped
 }
 
 /**

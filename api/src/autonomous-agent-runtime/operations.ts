@@ -3,7 +3,7 @@
  * should not reference #mongo, #config, store state in memory or import anything else than other operations.ts
  */
 
-import { convertToModelMessages, safeValidateUIMessages, type ModelMessage } from 'ai'
+import { convertToModelMessages, safeValidateUIMessages, type ModelMessage, type Tool } from 'ai'
 import { truncatedToolResultText } from '@agents/shared/compaction-policy'
 
 export type RunStatus = 'running' | 'done' | 'error' | 'aborted' | 'interrupted'
@@ -334,4 +334,56 @@ export function withAppendedText (parts: UIPart[] = [], text: string): UIPart[] 
   // to separate from, and a leading blank line there would render as stray whitespace.
   const separator = partsText(parts).trim() ? '\n\n' : ''
   return [...parts, { type: 'text', text: `${separator}${text}` }]
+}
+
+/**
+ * Wrap each tool so its result reaches the model inside a provenance envelope.
+ *
+ * Moved here from the executor when the agent session needed it too: a page's contextual tools are
+ * untrusted in exactly the same way an MCP server's are, and a second copy of this is how the envelope
+ * would come to differ between the two — the envelope IS the security property, so it has to be one
+ * implementation.
+ *
+ * The envelope has to be applied where the result is produced rather than when history is
+ * rebuilt, because within a single turn the AI SDK feeds tool results straight back to the
+ * model without passing through this module.
+ */
+export const withProvenance = (tools: Record<string, Tool>, serverOf: (name: string) => string): Record<string, Tool> => {
+  const wrapped: Record<string, Tool> = {}
+  for (const [name, tool] of Object.entries(tools)) {
+    wrapped[name] = {
+      ...tool,
+      execute: tool.execute
+        ? async (args: any, opts: any) => {
+          const result = await tool.execute!(args, opts).catch((err: unknown) => {
+            // A THROWN failure is tool-controlled text too, and it reached the model bare.
+            //
+            // The envelope is the security property: it tells the model where content came from, so a
+            // tool cannot pass its output off as the system or the user. A failure carries the tool's
+            // own words — `isError` results are rethrown with the tool's content in the message — so
+            // without this the one path that hands the model unattributed, tool-authored text was the
+            // failure path.
+            //
+            // Rethrown, not returned: the AI SDK must still see a rejection, or the call would be
+            // recorded `output-available` and a failure would look like a result again. An abort is
+            // passed through untouched — it is ours, not the tool's, and the loop has to recognise it.
+            if (opts?.abortSignal?.aborted) throw err
+            const detail = err instanceof Error ? err.message : String(err)
+            throw new Error(wrapToolResult(serverOf(name), name, detail))
+          })
+          if (typeof result === 'string') return wrapToolResult(serverOf(name), name, result)
+          // A media result is an envelope the rest of the stack rebuilds into real image
+          // parts by its marker. Stringifying it would inline the base64 into text, lose the
+          // marker, and can blow the context window in a single step — so wrap only its text
+          // and keep the object shape intact.
+          if (result && typeof result === 'object' && '_agentsMediaResult' in (result as any)) {
+            const media = result as any
+            return { ...media, text: wrapToolResult(serverOf(name), name, String(media.text ?? '')) }
+          }
+          return wrapToolResult(serverOf(name), name, JSON.stringify(result))
+        }
+        : undefined
+    } as Tool
+  }
+  return wrapped
 }

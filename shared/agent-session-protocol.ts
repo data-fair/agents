@@ -3,9 +3,9 @@
  *
  * Pure types and parsing, no I/O, so every branch is unit tested without a socket.
  *
- * It will move to `shared/` the moment the browser client exists — by the contract in
- * `tests/features/shared-contract/`, a module with only an api consumer belongs in `api/src`, and this
- * has one until §4.2 of the prototype design lands. Moving it is then a rename.
+ * In `shared/` because both sides consume it: the server dispatches these frames and the browser
+ * composable speaks them. That is the contract in `tests/features/shared-contract/` — a module with one
+ * consumer belongs in that workspace, and this one has two as of the browser tool bridge.
  *
  * WHY A SECOND SOCKET AT ALL, rather than extending the existing pub/sub one: that one fans a SHARED
  * conversation out to several watchers, which is exactly the capability this design drops. It accepts
@@ -143,6 +143,50 @@ export function parseClientMessage (raw: string): ClientMessage | InvalidMessage
       return { type: 'abort' }
     default:
       return { type: 'invalid', reason: `unknown message type ${JSON.stringify(parsed.type)}` }
+  }
+}
+
+/**
+ * Parse a server frame on the CLIENT, leniently — the mirror image of parseClientMessage.
+ *
+ * Deliberately the opposite posture. The server is strict with a browser because a browser-facing
+ * surface should refuse what it does not recognise. The browser is lenient with the server because an
+ * unrecognised frame means a newer server talking to an older tab, which is normal during a deploy:
+ * ignoring it degrades one feature, while failing hard breaks the whole session.
+ *
+ * Returns undefined for anything it cannot place, so the caller logs and carries on.
+ */
+export function parseServerMessageForClient (raw: string): ServerMessage | undefined {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    return undefined
+  }
+  if (!isRecord(parsed)) return undefined
+  switch (parsed.type) {
+    case 'attached':
+      if (typeof parsed.conversationId !== 'string') return undefined
+      return { type: 'attached', conversationId: parsed.conversationId, anonymous: parsed.anonymous === true }
+    case 'delta':
+      if (parsed.kind !== 'text' && parsed.kind !== 'reasoning') return undefined
+      if (typeof parsed.text !== 'string') return undefined
+      return { type: 'delta', kind: parsed.kind, text: parsed.text }
+    case 'tool-call':
+      if (typeof parsed.callId !== 'string' || typeof parsed.name !== 'string') return undefined
+      return { type: 'tool-call', callId: parsed.callId, name: parsed.name, input: parsed.input }
+    case 'turn-end':
+      if (typeof parsed.stopReason !== 'string') return undefined
+      return {
+        type: 'turn-end',
+        stopReason: parsed.stopReason,
+        ...(typeof parsed.detail === 'string' ? { detail: parsed.detail } : {})
+      }
+    case 'error':
+      if (typeof parsed.message !== 'string') return undefined
+      return { type: 'error', message: parsed.message }
+    default:
+      return undefined
   }
 }
 

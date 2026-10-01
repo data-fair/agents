@@ -163,6 +163,7 @@ declare global {
   const shouldFlattenSubAgent: typeof import('../src/composables/sub-agent-flatten').shouldFlattenSubAgent
   const streamingSafeBuffer: typeof import('../src/utils/markdown').streamingSafeBuffer
   const subAgentModelOutput: typeof import('../src/utils/agent-subagent-output').subAgentModelOutput
+  const toDescriptors: typeof import('../src/composables/use-agent-session').toDescriptors
   const toRaw: typeof import('vue').toRaw
   const toRef: typeof import('vue').toRef
   const toRefs: typeof import('vue').toRefs
@@ -172,6 +173,7 @@ declare global {
   const unref: typeof import('vue').unref
   const useAgentChat: typeof import('../src/composables/use-agent-chat').useAgentChat
   const useAgentEvaluator: typeof import('../src/composables/use-agent-evaluator')['default']
+  const useAgentSession: typeof import('../src/composables/use-agent-session').useAgentSession
   const useAsyncAction: typeof import('@data-fair/lib-vue/async-action.js').useAsyncAction
   const useAttrs: typeof import('vue').useAttrs
   const useAutonomousAgentConversation: typeof import('../src/composables/use-autonomous-agent-conversation').useAutonomousAgentConversation
@@ -259,6 +261,9 @@ declare global {
   // @ts-ignore
   export type { ToolInfo, SubAgentInfo, DebugToolsPartition, UseAgentChatOptions, ChatMessage } from '../src/composables/use-agent-chat'
   import('../src/composables/use-agent-chat')
+  // @ts-ignore
+  export type { AgentSessionClientOptions } from '../src/composables/use-agent-session'
+  import('../src/composables/use-agent-session')
   // @ts-ignore
   export type { AutonomousAgentConversationOptions } from '../src/composables/use-autonomous-agent-conversation'
   import('../src/composables/use-autonomous-agent-conversation')
@@ -390,6 +395,7 @@ declare module 'vue' {
     readonly shouldFlattenSubAgent: UnwrapRef<typeof import('../src/composables/sub-agent-flatten')['shouldFlattenSubAgent']>
     readonly streamingSafeBuffer: UnwrapRef<typeof import('../src/utils/markdown')['streamingSafeBuffer']>
     readonly subAgentModelOutput: UnwrapRef<typeof import('../src/utils/agent-subagent-output')['subAgentModelOutput']>
+    readonly toDescriptors: UnwrapRef<typeof import('../src/composables/use-agent-session')['toDescriptors']>
     readonly toRaw: UnwrapRef<typeof import('vue')['toRaw']>
     readonly toRef: UnwrapRef<typeof import('vue')['toRef']>
     readonly toRefs: UnwrapRef<typeof import('vue')['toRefs']>
@@ -397,6 +403,7 @@ declare module 'vue' {
     readonly triggerRef: UnwrapRef<typeof import('vue')['triggerRef']>
     readonly unref: UnwrapRef<typeof import('vue')['unref']>
     readonly useAgentChat: UnwrapRef<typeof import('../src/composables/use-agent-chat')['useAgentChat']>
+    readonly useAgentSession: UnwrapRef<typeof import('../src/composables/use-agent-session')['useAgentSession']>
     readonly useAsyncAction: UnwrapRef<typeof import('@data-fair/lib-vue/async-action.js')['useAsyncAction']>
     readonly useAttrs: UnwrapRef<typeof import('vue')['useAttrs']>
     readonly useAutonomousAgentConversation: UnwrapRef<typeof import('../src/composables/use-autonomous-agent-conversation')['useAutonomousAgentConversation']>

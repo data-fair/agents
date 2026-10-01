@@ -8,9 +8,9 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { parseClientMessage, isAgentSessionPath } from '../../../api/src/agent-session/protocol.ts'
+import { parseClientMessage, parseServerMessageForClient, isAgentSessionPath } from '@agents/shared/agent-session-protocol'
 import { createAgentSession, BROWSER_CALL_TIMEOUT_MS } from '../../../api/src/agent-session/session.ts'
-import type { ServerMessage } from '../../../api/src/agent-session/protocol.ts'
+import type { ServerMessage } from '@agents/shared/agent-session-protocol'
 
 const parse = (value: unknown) => parseClientMessage(JSON.stringify(value))
 
@@ -89,6 +89,42 @@ test.describe('parseClientMessage', () => {
     // A falsy result is still a result — `undefined` is the only absence.
     assert.equal(parse({ type: 'tool-result', callId: 'c', result: null }).type, 'tool-result')
     assert.equal(parse({ type: 'tool-result', callId: 'c', result: false }).type, 'tool-result')
+  })
+})
+
+test.describe('parseServerMessageForClient — lenient, on purpose', () => {
+  // The mirror image of parseClientMessage, and deliberately the opposite posture. The server refuses
+  // what it does not recognise from a browser; the browser IGNORES what it does not recognise from the
+  // server, because that means a newer server talking to an older tab — normal during a deploy, where
+  // failing hard would break the whole session to protect against one unknown frame.
+  const parseServer = (value: unknown) => parseServerMessageForClient(JSON.stringify(value))
+
+  test('accepts every frame the server actually sends', () => {
+    assert.deepEqual(parseServer({ type: 'attached', conversationId: 'c1', anonymous: false }), { type: 'attached', conversationId: 'c1', anonymous: false })
+    assert.deepEqual(parseServer({ type: 'delta', kind: 'text', text: 'hi' }), { type: 'delta', kind: 'text', text: 'hi' })
+    assert.deepEqual(parseServer({ type: 'tool-call', callId: 'c', name: 'n', input: { a: 1 } }), { type: 'tool-call', callId: 'c', name: 'n', input: { a: 1 } })
+    assert.deepEqual(parseServer({ type: 'turn-end', stopReason: 'completed' }), { type: 'turn-end', stopReason: 'completed' })
+    assert.deepEqual(parseServer({ type: 'error', message: 'nope' }), { type: 'error', message: 'nope' })
+  })
+
+  test('ignores an unknown frame rather than throwing', () => {
+    assert.equal(parseServer({ type: 'something-added-later', payload: 1 }), undefined)
+    assert.equal(parseServerMessageForClient('{not json'), undefined)
+    assert.equal(parseServerMessageForClient('[]'), undefined)
+  })
+
+  test('still refuses a frame of a KNOWN type with a broken shape', () => {
+    // Lenient about vocabulary, not about structure: a `delta` with no text would otherwise append
+    // `undefined` to what the user is reading.
+    assert.equal(parseServer({ type: 'delta', kind: 'text' }), undefined)
+    assert.equal(parseServer({ type: 'delta', kind: 'sideways', text: 'x' }), undefined)
+    assert.equal(parseServer({ type: 'tool-call', callId: 'c' }), undefined)
+    assert.equal(parseServer({ type: 'attached' }), undefined)
+  })
+
+  test('a tool-call with no input is still a call', () => {
+    // A zero-argument page tool is normal, and `input: undefined` must not look like a broken frame.
+    assert.deepEqual(parseServer({ type: 'tool-call', callId: 'c', name: 'refresh' }), { type: 'tool-call', callId: 'c', name: 'refresh', input: undefined })
   })
 })
 

@@ -11,7 +11,7 @@ import type { Duplex } from 'node:stream'
 import { WebSocketServer, type WebSocket } from 'ws'
 import { session as expressSession } from '@data-fair/lib-express'
 import Debug from 'debug'
-import { parseClientMessage, isAgentSessionPath, type ServerMessage } from './protocol.ts'
+import { parseClientMessage, isAgentSessionPath, type ServerMessage } from '@agents/shared/agent-session-protocol'
 import { createAgentSession, type AgentSession } from './session.ts'
 
 const debug = Debug('agents:agent-session')
