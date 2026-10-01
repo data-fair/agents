@@ -157,6 +157,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/_dev/session-chat': RouteRecordInfo<
+      '/_dev/session-chat',
+      '/_dev/session-chat',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/_dev/summary': RouteRecordInfo<
       '/_dev/summary',
       '/_dev/summary',
@@ -365,6 +372,14 @@ declare module 'vue-router/auto-routes' {
     'src/pages/_dev/chat-workflow.vue': {
       routes:
         | '/_dev/chat-workflow'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/_dev/session-chat.vue': {
+      routes:
+        | '/_dev/session-chat'
       views:
         | never
       pathParamNames:

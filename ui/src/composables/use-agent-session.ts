@@ -119,7 +119,14 @@ export function useAgentSession (options: AgentSessionClientOptions) {
     attached,
     conversationId,
 
-    connect () {
+    /**
+     * Open the socket and say hello.
+     *
+     * The conversation id is an argument as well as an option, because a page typically creates the
+     * conversation over HTTP and only then knows which one to bind to.
+     */
+    connect (conversationId?: string) {
+      const bindTo = conversationId ?? options.conversationId
       ws = new WebSocket(options.url)
       ws.onopen = () => {
         connected.value = true
@@ -129,7 +136,7 @@ export function useAgentSession (options: AgentSessionClientOptions) {
         send({
           type: 'hello',
           tools: toDescriptors(options.tools.value),
-          ...(options.conversationId ? { conversationId: options.conversationId } : {}),
+          ...(bindTo ? { conversationId: bindTo } : {}),
           ...(options.agentId ? { agentId: options.agentId } : {})
         })
       }

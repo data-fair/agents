@@ -265,9 +265,24 @@ add up per *step*, not per call.
 Correcting an earlier claim of mine: I described the existing path as "microseconds in-process". It is
 not — it is already an MCP round trip over postMessage. The honest framing is the one above.
 
-**Still to measure, once §4.3 exists:** first-token latency, which needs a turn. The "before" side of
-that one is today's gateway path on `feat-autonomous-agents`, so it has to be taken on both branches to
-be a comparison rather than a number.
+### Reading 2 — first token, in a real browser (2026-10-01, after §4.5a)
+
+From pressing send to the first token rendered, measured in the page itself and reported by the e2e
+spec: **28–31 ms** across runs, localhost, mock model.
+
+Decomposed against reading 1, because the total on its own is not informative: the socket accounts for
+well under 1 ms of it. The rest is the conversation append and the run document (two mongo writes), the
+MCP tool gathering, and the model call itself.
+
+**This is not yet a head-to-head**, and should not be read as one. The browser loop pays neither mongo
+write — it persists nothing — and gathers its tools over postMessage rather than HTTP, so its own floor
+is lower. What the server path buys for those milliseconds is the durable conversation that was the
+point of moving. Against a real provider both are dominated by the model's own latency, measured in
+hundreds of milliseconds upwards, so a ~30 ms floor is not material either way.
+
+The honest head-to-head is still outstanding and needs the same instrument on the gateway path. It is
+cheap to take — the browser loop is untouched on this branch — and is worth doing before the final
+judgement rather than now, since §4.6 and §4.7 will both move work across the line.
 
 ## 8. Dependency: consolidating `data-fair/mcp`, which is not this repo's change
 
