@@ -14,6 +14,7 @@ import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
+const orgMember = await axiosAuth('test1-user1', { org: 'test1' })
 
 const cookieOf = async (ax: any) => await ax.cookieJar.getCookieString(directoryUrl)
 
@@ -157,6 +158,53 @@ test.describe('A turn over the agent session', () => {
       await new Promise(resolve => setTimeout(resolve, 100))
     }
     throw new Error('the turn never reached a terminal state with nobody watching')
+  })
+
+  test('attaching replays the transcript so far, as ordinary message frames', async () => {
+    // Needed for any port of the real chat: the socket only carries what happens from now on, so
+    // without this a reload shows an empty pane. Replayed as `message` frames so a client has one code
+    // path for "render this turn" whether it arrived live or was loaded.
+    const conversation = await personalConversation()
+    const first = await open(await cookieOf(orgAdmin))
+    first.send({ type: 'hello', conversationId: conversation.id, tools: [] })
+    await first.next()
+    first.send({ type: 'prompt', content: 'hello' })
+    for (;;) { if ((await first.next(15000)).type === 'turn-end') break }
+    first.close()
+    await first.closed()
+
+    const second = await open(await cookieOf(orgAdmin))
+    second.send({ type: 'hello', conversationId: conversation.id, tools: [] })
+    const frames: any[] = []
+    for (let i = 0; i < 6; i++) {
+      frames.push(await second.next(5000))
+      if (frames.filter(f => f.type === 'message').length >= 2) break
+    }
+    const messages = frames.filter(f => f.type === 'message')
+    assert.deepEqual(messages.map(m => m.role), ['user', 'assistant'])
+    assert.deepEqual(messages.map(m => m.pending), [false, false], 'a finished turn must not replay as pending')
+    const assistant = messages.find(m => m.role === 'assistant')
+    assert.equal((assistant.parts as any[]).find(p => p.type === 'text')?.text, 'world')
+  })
+
+  test('someone elses conversation cannot be attached to', async () => {
+    // The ownership check the HTTP routes apply, applied on the socket too — and reported rather than
+    // leaving the client to guess why no history arrived.
+    const conversation = await personalConversation()
+    const intruder = await open(await cookieOf(orgMember))
+    intruder.send({ type: 'hello', conversationId: conversation.id, tools: [] })
+    // Collected until the refusal, rather than a fixed count: only `attached` and the error arrive, so
+    // reading a third frame would time out on a passing run.
+    const frames: any[] = []
+    for (let i = 0; i < 4; i++) {
+      const frame = await intruder.next(5000)
+      frames.push(frame)
+      if (frame.type === 'error') break
+    }
+    const error = frames.find(f => f.type === 'error')
+    assert.ok(error, `expected a refusal, got ${JSON.stringify(frames)}`)
+    assert.match(error.message, /belongs to someone else/)
+    assert.equal(frames.filter(f => f.type === 'message').length, 0, 'and no history may leak')
   })
 
   test('a second connection takes the conversation over, and the first is told', async () => {

@@ -14,7 +14,8 @@ import Debug from 'debug'
 import { parseClientMessage, isAgentSessionPath, type ServerMessage } from '@agents/shared/agent-session-protocol'
 import { createAgentSession, type AgentSession } from './session.ts'
 import { attachSession, detachSession } from './registry.ts'
-import { startSessionTurn } from './turn.ts'
+import { requireConversation, assertOwnsConversation } from '../autonomous-agent-runtime/service.ts'
+import { startSessionTurn, sendHistory } from './turn.ts'
 
 const debug = Debug('agents:agent-session')
 
@@ -72,6 +73,16 @@ export const startAgentSessions = (server: Server, options: StartAgentSessionsOp
         if (boundConversationId && boundConversationId !== conversationId) detachSession(boundConversationId, agentSession)
         boundConversationId = conversationId
         attachSession(conversationId, agentSession)
+        // The transcript so far, so a reload or a second tab shows the conversation rather than an
+        // empty pane. Authorization is the ownership check the HTTP routes apply: a session may only
+        // attach to its own conversation, and a failure is reported rather than leaving the client to
+        // guess why nothing arrived.
+        if (sessionState?.user) {
+          sendHistoryFor(conversationId).catch((err: any) => {
+            debug('could not send history: %O', err)
+            send({ type: 'error', message: err.message ?? 'this conversation could not be opened' })
+          })
+        }
       },
       onPrompt: content => {
         if (!boundConversationId) {
@@ -100,6 +111,13 @@ export const startAgentSessions = (server: Server, options: StartAgentSessionsOp
     })
     sessions.set(ws, agentSession)
     debug('session opened, %d live', sessions.size)
+
+    const sendHistoryFor = async (conversationId: string) => {
+      const owner = { type: sessionState.account.type, id: sessionState.account.id }
+      const conversation = await requireConversation(owner, conversationId)
+      assertOwnsConversation(conversation, sessionState)
+      await sendHistory(agentSession, conversationId)
+    }
 
     ws.on('message', (raw) => {
       const message = parseClientMessage(raw.toString())
