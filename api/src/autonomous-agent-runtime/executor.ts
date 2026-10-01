@@ -40,7 +40,7 @@ import { computeCreditBreakdown } from '../usage/operations.ts'
 import { openAutonomousAgentTools } from '../mcp-servers/client.ts'
 import { nhiSessionProvider, forwardedSessionProvider } from '../agent-identity/service.ts'
 import { sessionFor } from '../agent-session/registry.ts'
-import { PERSONAL_AGENT_ID } from '../agent-session/personal-agent.ts'
+import { isStandardAgentId } from '../agent-session/standard-agents.ts'
 import type { AgentSession } from '../agent-session/session.ts'
 import type { ChatActivity } from '@agents/shared/agent-activity'
 import { browserToolSet } from '../agent-session/browser-tools.ts'
@@ -431,10 +431,10 @@ const performTurn = async (run: AutonomousAgentRun, messageSeq: number, messageI
   // A CONFIGURED agent with no enrolment cannot run: its whole tool surface is reached as that
   // identity, so a toolless turn would look like a capability problem rather than a setup one.
   //
-  // The personal assistant is the deliberate exception — it has no non-human identity BY DESIGN and
-  // acts as the person whose socket it is. This guard predates it and would have refused every
-  // personal turn with a message about enrolment, which is how the first end-to-end test failed.
-  if (autonomousAgent.id !== PERSONAL_AGENT_ID && !autonomousAgent.nhi?.clientId) {
+  // A STANDARD agent is the deliberate exception — it has no non-human identity BY DESIGN and acts as
+  // the person whose socket it is. This guard predates them and would have refused every such turn
+  // with a message about enrolment, which is how the first end-to-end test failed.
+  if (!isStandardAgentId(autonomousAgent.id) && !autonomousAgent.nhi?.clientId) {
     return {
       parts: [{ type: 'text', text: 'This autonomous agent has no non-human identity enrolled, so it cannot reach any of its tools. An administrator needs to complete its enrolment before it can run.' }],
       steps: 0,
@@ -471,12 +471,12 @@ const performTurn = async (run: AutonomousAgentRun, messageSeq: number, messageI
   const sessionProvider = autonomousAgent.nhi
     ? nhiSessionProvider(autonomousAgent)
     : forwardedSessionProvider(session?.sessionCookie())
-  // The personal assistant takes the WHOLE catalog, so an unreachable entry is an availability event
-  // rather than a misconfiguration: it is skipped and reported instead of failing the turn. A
-  // configured agent's selection is deliberate, so for it a failure still throws.
+  // A standard agent takes the WHOLE catalog, so an unreachable entry is an availability event rather
+  // than a misconfiguration: it is skipped and reported instead of failing the turn. A configured
+  // agent's selection is deliberate, so for it a failure still throws.
   const { tools: rawTools, serverByTool, annotationsByTool, skippedServers, close: closeTools } =
     await openAutonomousAgentTools(autonomousAgent, sessionProvider, {
-      onServerError: autonomousAgent.id === PERSONAL_AGENT_ID ? 'skip' : 'throw'
+      onServerError: isStandardAgentId(autonomousAgent.id) ? 'skip' : 'throw'
     })
   if (skippedServers.length) {
     debug('skipped %d unreachable server(s): %o', skippedServers.length, skippedServers)

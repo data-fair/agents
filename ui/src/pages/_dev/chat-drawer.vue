@@ -39,7 +39,7 @@
   </v-dialog>
   <df-agent-chat-drawer
     :src="chatSrc"
-    :system-prompt="devSystemPrompt"
+    :agent-id="devAgentId"
     :drawer-props="drawerProps"
   />
   <v-container>
@@ -138,7 +138,7 @@ import DfNavigationRight from '@data-fair/lib-vuetify/navigation-right.vue'
 const { t } = useI18n()
 
 const route = useRoute()
-const devSystemPrompt = computed(() => route.query.systemPrompt as string | undefined)
+const devAgentId = computed(() => route.query.agentId as string | undefined)
 
 const dialogOpen = ref(false)
 const scrolled = ref(false)

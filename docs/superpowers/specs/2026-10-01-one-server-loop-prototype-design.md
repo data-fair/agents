@@ -308,8 +308,26 @@ So the recommendation is: **`systemPrompt` becomes `agentId`** on the drawer's p
 page's parameter. That preserves what hosts use it for, moves the text server-side where it cannot be
 tampered with, and removes a query-parameter prompt injection that exists today.
 
-It is an integration-surface change, so it is a product decision rather than something to take
-unilaterally — recorded here, not implemented.
+It is an integration-surface change, so it was a product decision rather than something to take
+unilaterally.
+
+**Decided and implemented.** Standard agents with fixed ids, personas as static strings in
+`api/src/agent-session/standard-agents.ts` (later from configuration — that changes where the string
+comes from, not the shape of anything around it). `personal` is the default. The three host components
+and both `_dev` pages name an agent; `systemPrompt` is ignored with a one-time warning rather than
+silently dropped, so a host that has not migrated gets told why its persona vanished. The chat route's
+`?systemPrompt=` is gone.
+
+Two things this did NOT fix, stated plainly because the finding is about a hole:
+
+- **On the gateway path the hole is still wide open, and no prop could close it.** The browser loop
+  assembles the instructions and sends them to the gateway as `system:`; the gateway is a model proxy,
+  so its client controls that field by construction. `agentId` is carried through `AgentChat.vue` but
+  not yet consulted there. It becomes load-bearing when that component is pointed at the session — so
+  this hole closes with the swap, not before, and the swap is the only thing that closes it.
+- The e2e guard is an **absence** assertion, which is the only shape available for a removed
+  capability and the shape most likely to pass for the wrong reason. It was falsified: re-wiring the
+  query parameter makes it fail.
 
 By contrast `reset` needed nothing: re-attaching to a new conversation rebinds the registry, replays an
 empty history, and the server's state for the thread is new by construction. The only server-side

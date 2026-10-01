@@ -147,7 +147,15 @@ import { $apiPath } from '~/context'
 const props = defineProps<{
   isAdmin?: boolean
   title?: string
-  systemPrompt?: string
+  /**
+   * Which standard agent to talk to, by id. Replaces the former `systemPrompt` prop.
+   *
+   * Not yet consulted on THIS path: the browser loop assembles its own instructions and sends them to
+   * the gateway as `system`, so the gateway's client has full control of them by construction and no
+   * prop here can take that away. The id is carried so hosts migrate once; it becomes load-bearing when
+   * this component is pointed at the server-held session, which resolves the persona itself.
+   */
+  agentId?: string
   narrowViewport?: boolean
   initialMessages?: ChatMessage[]
   accountType: string
@@ -159,7 +167,6 @@ const props = defineProps<{
 // several chats in one tab don't clobber each other. Takes precedence over props.
 const initConfigKey = new URLSearchParams(window.location.search).get('initConfig')
 const initConfig = initConfigKey ? getAgentInitConfig(initConfigKey) : undefined
-const initSystemPrompt = initConfig?.prompt
 const chatTitle = computed(() => initConfig?.title ?? props.title)
 
 const { t } = useI18n()
@@ -173,9 +180,10 @@ const finalSystemPrompt = computed(() => {
   // The user's name is deliberately omitted: it has no bearing on the assistant's
   // behaviour, it is a privacy concern to send to providers, and keeping it out
   // makes the system prompt prefix homogeneous across users (better prompt caching).
-  const parts = [
-    (initSystemPrompt ?? props.systemPrompt) || t('systemPromptBase')
-  ]
+  // One base prompt for every host. A host used to be able to substitute its own prose here, through a
+  // prop or through this page's query string; it now names an agent instead and the text lives on the
+  // server (api/src/agent-session/standard-agents.ts), which is why there is nothing left to override.
+  const parts = [t('systemPromptBase')]
 
   if (props.accountType === 'organization' && orgName) {
     const depPart = depName ? t('systemPromptDep', { depName }) : ''

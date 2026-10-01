@@ -22,7 +22,7 @@
     >
       <df-agent-chat-block
         :src="chatSrc"
-        :system-prompt="devSystemPrompt"
+        :agent-id="devAgentId"
       />
     </v-card>
   </v-container>
@@ -48,7 +48,7 @@ import personalMenu from '@data-fair/lib-vuetify/personal-menu.vue'
 const { t } = useI18n()
 
 const route = useRoute()
-const devSystemPrompt = computed(() => route.query.systemPrompt as string | undefined)
+const devAgentId = computed(() => route.query.agentId as string | undefined)
 
 const scrolled = ref(false)
 

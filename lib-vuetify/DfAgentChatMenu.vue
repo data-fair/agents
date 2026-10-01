@@ -68,7 +68,7 @@ import { VBtn } from 'vuetify/components/VBtn'
 import { VBadge } from 'vuetify/components/VBadge'
 import { VIcon } from 'vuetify/components/VIcon'
 import('@data-fair/frame/lib/d-frame.js')
-import { setAgentInitConfig } from '@data-fair/lib-vue-agents'
+import { setAgentInitConfig, hostInitConfig } from '@data-fair/lib-vue-agents'
 import { useAgentChatMenu } from './useAgentChatMenu.js'
 import { resolveAgentChatUrl, registerAgentChatRouter } from './useAgentChatBase.js'
 
@@ -85,6 +85,9 @@ const props = withDefaults(defineProps<{
   accountId?: string
   src?: string
   chatTitle?: string
+  /** Which standard agent to talk to, by id. Replaces `systemPrompt`. */
+  agentId?: string
+  /** @deprecated Use `agentId`. Ignored, with a one-time console warning. */
   systemPrompt?: string
   title?: string
   initConfigKey?: string
@@ -113,7 +116,7 @@ watch(() => state.menuOpen.value, async (open) => {
 // variant without clobbering, while keeping sessionStorage bounded — only pass a
 // custom key when mounting several menus in the same tab.
 const initConfigKey = props.initConfigKey ?? 'menu'
-setAgentInitConfig(initConfigKey, { prompt: props.systemPrompt, title: props.chatTitle })
+setAgentInitConfig(initConfigKey, hostInitConfig(props))
 
 const resolvedSrc = computed(() => resolveAgentChatUrl(props, initConfigKey))
 

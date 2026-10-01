@@ -4,7 +4,7 @@
 
 import mongo from '#mongo'
 import config from '#config'
-import { personalAgent, PERSONAL_AGENT_ID } from '../agent-session/personal-agent.ts'
+import { standardAgent } from '../agent-session/standard-agents.ts'
 import { nanoid } from 'nanoid'
 import { type AccountKeys, httpError } from '@data-fair/lib-express'
 import type { AutonomousAgent, AutonomousAgentConversation, AutonomousAgentMessage, AutonomousAgentRun } from '#types'
@@ -70,9 +70,10 @@ export const requireAutonomousAgent = async (owner: AccountKeys, autonomousAgent
  * so it costs no collection and no migration.
  */
 export const resolveAgent = async (owner: AccountKeys, autonomousAgentId: string) => {
-  if (autonomousAgentId === PERSONAL_AGENT_ID) {
-    return { ...personalAgent(config.mcpServers ?? []), owner } as unknown as AutonomousAgent
-  }
+  // Standard agents FIRST, which is also what reserves their ids: a configured agent sharing an id
+  // would otherwise shadow one, and a conversation naming it would resolve to the wrong identity.
+  const standard = standardAgent(autonomousAgentId, config.mcpServers ?? [])
+  if (standard) return { ...standard, owner } as unknown as AutonomousAgent
   return await getAutonomousAgent(owner, autonomousAgentId)
 }
 

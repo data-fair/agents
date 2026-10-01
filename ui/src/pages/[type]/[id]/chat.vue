@@ -3,7 +3,7 @@
     <AgentChat
       :is-admin="debugEnabled"
       :title="chatTitle"
-      :system-prompt="systemPrompt"
+      :agent-id="agentId"
       :narrow-viewport="narrowViewport"
       :account-type="accountType"
       :account-id="accountId"
@@ -33,7 +33,11 @@ const accountType = computed(() => route.params.type as string)
 const accountId = computed(() => route.params.id as string)
 
 const chatTitle = useStringSearchParam('title', { default: t('defaultTitle') })
-const systemPrompt = useStringSearchParam('systemPrompt')
+// Names an agent; it does NOT carry prose. The former `?systemPrompt=` on this route let anyone who
+// could craft a link set the model's instructions — the sharpest form of the client-controlled
+// instruction problem, since it needed no host application at all. An unknown id is refused by the
+// server rather than resolved here.
+const agentId = useStringSearchParam('agentId')
 
 const narrowViewport = ref(window.innerWidth < 500)
 onMounted(() => {
