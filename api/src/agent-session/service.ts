@@ -22,6 +22,20 @@ const sessions = new Map<WebSocket, AgentSession>()
 /** How many browsers are connected. The prototype's cheapest capacity signal. */
 export const liveAgentSessionCount = () => sessions.size
 
+/**
+ * Call a contextual tool on the ONLY live session.
+ *
+ * A test seam, and deliberately a crude one: addressing a session properly means binding it to a
+ * conversation, which is §4.4. Insisting on exactly one connection makes the ambiguity an error rather
+ * than a coin flip — a test that opened two sockets and asserted on "the" session would pass or fail by
+ * iteration order.
+ */
+export const callOnlyLiveAgentSession = async (name: string, input: unknown): Promise<unknown> => {
+  if (sessions.size !== 1) throw new Error(`expected exactly one live agent session, found ${sessions.size}`)
+  const [agentSession] = sessions.values()
+  return await agentSession.callBrowserTool(name, input)
+}
+
 export interface StartAgentSessionsOptions {
   /**
    * Where to send an upgrade this endpoint does not own.

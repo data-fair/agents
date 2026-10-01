@@ -49,3 +49,50 @@ export const openWsClient = async (cookieString?: string): Promise<WsClient> => 
     close: () => ws.close()
   }
 }
+
+export interface AgentSessionClient {
+  send: (message: unknown) => void
+  next: (timeoutMs?: number) => Promise<any>
+  close: () => void
+  closed: () => Promise<void>
+}
+
+/**
+ * A client for the AGENT SESSION endpoint, which is a different socket from the one above.
+ *
+ * Through NGINX rather than straight to dev-api, unlike openWsClient: the upgrade reaches the HTTP
+ * server before Express, so the path carries the deployment's public prefix, and connecting directly
+ * would skip both the proxy's Upgrade headers and the prefix handling — the two things most likely to
+ * be wrong in a real deployment.
+ */
+export const openAgentSession = async (cookieString?: string): Promise<AgentSessionClient> => {
+  const ws = new WebSocket(`ws://localhost:${process.env.NGINX_PORT}/agents/api/agent-session`, {
+    headers: cookieString ? { cookie: cookieString } : {}
+  })
+  const inbox: any[] = []
+  const waiters: ((msg: any) => void)[] = []
+  ws.on('message', raw => {
+    const msg = JSON.parse(raw.toString())
+    const waiter = waiters.shift()
+    if (waiter) waiter(msg)
+    else inbox.push(msg)
+  })
+  await new Promise<void>((resolve, reject) => {
+    ws.once('open', () => resolve())
+    ws.once('error', reject)
+  })
+  const next = async (timeoutMs = 5000): Promise<any> => {
+    const buffered = inbox.shift()
+    if (buffered) return buffered
+    return await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('no agent-session message within timeout')), timeoutMs)
+      waiters.push(msg => { clearTimeout(timer); resolve(msg) })
+    })
+  }
+  return {
+    send: message => ws.send(JSON.stringify(message)),
+    next,
+    close: () => ws.close(),
+    closed: async () => { await new Promise<void>(resolve => { ws.once('close', () => resolve()) }) }
+  }
+}

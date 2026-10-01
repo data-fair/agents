@@ -13,6 +13,7 @@ import { recoverOwnerlessRuns } from './autonomous-agent-runtime/executor.ts'
 import locks from '@data-fair/lib-node/locks.js'
 import nhiRouter from './nhi/router.ts'
 import { clearAutonomousAgentSession } from './nhi/service.ts'
+import { callOnlyLiveAgentSession } from './agent-session/service.ts'
 import summaryRouter from './summary/router.ts'
 import gatewayRouter from './gateway/router.ts'
 import usageRouter from './usage/router.ts'
@@ -208,6 +209,23 @@ if (process.env.NODE_ENV === 'development') {
       messages: await mongo.autonomousAgentMessages.countDocuments({ conversationId: { $in: conversationIds } }),
       runs: await mongo.autonomousAgentRuns.countDocuments({ conversationId: { $in: conversationIds } })
     })
+  })
+  /**
+   * Make the server ask the connected browser to run a contextual tool.
+   *
+   * The only way to exercise the server-to-browser direction over a real socket: nothing in the
+   * product triggers it yet (the loop is §4.3), and the direction is the whole reason this endpoint
+   * exists rather than the pub/sub one.
+   *
+   * Answers 200 either way, with the outcome in the body, so a test can assert on a rejection's
+   * message without axios turning it into a throw.
+   */
+  app.post('/api/test-env/agent-session-call', async (req, res) => {
+    try {
+      res.json({ ok: true, result: await callOnlyLiveAgentSession(req.body.name, req.body.input) })
+    } catch (err: any) {
+      res.json({ ok: false, error: err.message })
+    }
   })
   app.post('/api/test-env/recover-ownerless-runs', async (req, res) => {
     res.json(await recoverOwnerlessRuns())
