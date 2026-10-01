@@ -15,6 +15,8 @@ import { cleanupOldUsage } from './usage/cleanup.ts'
 import { recoverOwnerlessRuns } from './autonomous-agent-runtime/executor.ts'
 import { assertSessionOutlivesRun, ASSERTION_TTL_SECONDS } from './nhi/operations.ts'
 import { canSubscribeAutonomousAgent } from './autonomous-agent-runtime/events.ts'
+import { startAgentSessions } from './agent-session/service.ts'
+import { EventEmitter } from 'node:events'
 
 /**
  * Run pending upgrade/<version>/*.js migrations (see @data-fair/lib-node/upgrade-scripts.js).
@@ -60,6 +62,7 @@ const server = createServer(app)
 const httpTerminator = createHttpTerminator({ server })
 let cleanupInterval: ReturnType<typeof setInterval> | undefined
 let autonomousAgentReaper: ReturnType<typeof setInterval> | undefined
+let agentSessions: ReturnType<typeof startAgentSessions> | undefined
 
 server.keepAliveTimeout = (60 * 1000) + 1000
 server.headersTimeout = (60 * 1000) + 2000
@@ -106,7 +109,23 @@ export const start = async () => {
   // Before server.listen: the emitter's collection must exist before anything publishes, and
   // the ws server must be attached before the http server starts accepting connections.
   await initWsEmitter(mongo.db)
-  await wsServer.start(server, mongo.db, canSubscribeAutonomousAgent)
+
+  // UPGRADE ROUTING, owned here rather than by either ws server.
+  //
+  // `ws` constructed with `{ server }` and no `path` handles every upgrade on that HTTP server, so the
+  // pub/sub server and the agent session server would each write a handshake and corrupt the stream.
+  // The pub/sub one is therefore attached to a stand-in emitter — `ws` registers only `listening`,
+  // `error` and `upgrade` on what it is given, and the first two have no listeners — and the agent
+  // session server dispatches by path, delegating everything else to it.
+  //
+  // This needs no change to @data-fair/lib-express, which is the point: a shared library change has to
+  // be justified with numbers, and routing two endpoints in the service that owns them does not need
+  // one.
+  const pubSubUpgrades = new EventEmitter()
+  await wsServer.start(pubSubUpgrades as any, mongo.db, canSubscribeAutonomousAgent)
+  agentSessions = startAgentSessions(server, {
+    delegateUpgrade: (req, socket, head) => { pubSubUpgrades.emit('upgrade', req, socket, head) }
+  })
 
   server.listen(config.port)
   await eventPromise(server, 'listening')
@@ -133,6 +152,10 @@ export const start = async () => {
 export const stop = async () => {
   if (cleanupInterval) clearInterval(cleanupInterval)
   if (autonomousAgentReaper) clearInterval(autonomousAgentReaper)
+  // Before the HTTP server goes: a connected browser holding a turn open must be told rather than
+  // left with a socket that stops answering, and every pending browser tool call has to fail so the
+  // turn waiting on it can finish.
+  if (agentSessions) await agentSessions.close()
   await httpTerminator.terminate()
   if (config.observer?.active) await stopObserver()
   await wsServer.stop()

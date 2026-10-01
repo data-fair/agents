@@ -1,0 +1,161 @@
+/**
+ * The agent session wire protocol: what a browser and a server-side loop say to each other.
+ *
+ * Pure types and parsing, no I/O, so every branch is unit tested without a socket.
+ *
+ * It will move to `shared/` the moment the browser client exists — by the contract in
+ * `tests/features/shared-contract/`, a module with only an api consumer belongs in `api/src`, and this
+ * has one until §4.2 of the prototype design lands. Moving it is then a rename.
+ *
+ * WHY A SECOND SOCKET AT ALL, rather than extending the existing pub/sub one: that one fans a SHARED
+ * conversation out to several watchers, which is exactly the capability this design drops. It accepts
+ * only `subscribe`/`unsubscribe` from a client (verified in @data-fair/lib-express/ws-server) and
+ * routes through mongo for a fleet. This protocol needs the server to ASK the browser something and
+ * wait for the answer, in the process holding the connection.
+ */
+
+/** A contextual tool the page offers. Only its advertisement — the page keeps the implementation. */
+export interface BrowserToolDescriptor {
+  name: string
+  description?: string
+  /** JSON Schema, passed to the model as-is. Unvalidated here: the model's provider is the judge. */
+  inputSchema?: unknown
+}
+
+export type ClientMessage =
+  /** First message. Binds the connection to a conversation and declares the page's contextual tools. */
+  | { type: 'hello', conversationId?: string, agentId?: string, tools: BrowserToolDescriptor[] }
+  /** The page navigated or its state changed: this is the tool set from now on. */
+  | { type: 'tools-changed', tools: BrowserToolDescriptor[] }
+  /** A user turn. */
+  | { type: 'prompt', content: string }
+  /** The answer to a `tool-call`. Exactly one of result/error. */
+  | { type: 'tool-result', callId: string, result?: unknown, error?: string }
+  /** Stop the turn in flight. */
+  | { type: 'abort' }
+
+export type ServerMessage =
+  | { type: 'attached', conversationId: string, anonymous: boolean }
+  /** Token stream of the turn in progress. */
+  | { type: 'delta', kind: 'text' | 'reasoning', text: string }
+  /** Run this contextual tool and answer with a `tool-result` carrying the same callId. */
+  | { type: 'tool-call', callId: string, name: string, input: unknown }
+  | { type: 'turn-end', stopReason: string, detail?: string }
+  | { type: 'error', message: string }
+
+/** Why a client message was rejected. The client is told, because a silent drop is undebuggable. */
+export interface InvalidMessage { type: 'invalid', reason: string }
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+/**
+ * A tool descriptor list, or undefined when the shape is wrong.
+ *
+ * Tool NAMES are checked here because they end up as model-facing tool identifiers and in a
+ * correlation table; everything else about a tool is the provider's problem. The name charset is
+ * deliberately narrow — the same reason the MCP tool names are sanitised before they reach a prompt.
+ */
+const parseTools = (value: unknown): BrowserToolDescriptor[] | undefined => {
+  if (!Array.isArray(value)) return undefined
+  const tools: BrowserToolDescriptor[] = []
+  for (const raw of value) {
+    if (!isRecord(raw)) return undefined
+    const name = raw.name
+    if (typeof name !== 'string' || !/^[a-zA-Z0-9_-]{1,64}$/.test(name)) return undefined
+    tools.push({
+      name,
+      ...(typeof raw.description === 'string' ? { description: raw.description } : {}),
+      ...(raw.inputSchema !== undefined ? { inputSchema: raw.inputSchema } : {})
+    })
+  }
+  // A page that registers the same name twice would make the correlation table ambiguous and would
+  // give the model two tools it cannot tell apart.
+  if (new Set(tools.map(tool => tool.name)).size !== tools.length) return undefined
+  return tools
+}
+
+/**
+ * Parse one client frame, strictly.
+ *
+ * Strict on purpose: this is a browser-facing surface, so anything not explicitly allowed is refused
+ * rather than coerced. A client that sends nonsense gets told which field was wrong, because the
+ * alternative — dropping it — is the silent failure this project treats as the worst outcome.
+ */
+export function parseClientMessage (raw: string): ClientMessage | InvalidMessage {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    return { type: 'invalid', reason: 'not valid JSON' }
+  }
+  if (!isRecord(parsed)) return { type: 'invalid', reason: 'a message must be an object' }
+
+  switch (parsed.type) {
+    case 'hello': {
+      const tools = parseTools(parsed.tools)
+      if (!tools) return { type: 'invalid', reason: 'tools must be an array of { name, description?, inputSchema? } with unique names matching [a-zA-Z0-9_-]{1,64}' }
+      if (parsed.conversationId !== undefined && typeof parsed.conversationId !== 'string') {
+        return { type: 'invalid', reason: 'conversationId must be a string when present' }
+      }
+      if (parsed.agentId !== undefined && typeof parsed.agentId !== 'string') {
+        return { type: 'invalid', reason: 'agentId must be a string when present' }
+      }
+      return {
+        type: 'hello',
+        tools,
+        ...(typeof parsed.conversationId === 'string' ? { conversationId: parsed.conversationId } : {}),
+        ...(typeof parsed.agentId === 'string' ? { agentId: parsed.agentId } : {})
+      }
+    }
+    case 'tools-changed': {
+      const tools = parseTools(parsed.tools)
+      if (!tools) return { type: 'invalid', reason: 'tools must be an array of { name, description?, inputSchema? } with unique names matching [a-zA-Z0-9_-]{1,64}' }
+      return { type: 'tools-changed', tools }
+    }
+    case 'prompt': {
+      // Non-blank, matching the HTTP route's own rule: an empty turn is refused rather than started,
+      // because a provider rejects a whitespace-only text block anyway.
+      if (typeof parsed.content !== 'string' || !parsed.content.trim()) {
+        return { type: 'invalid', reason: 'content must be a non-blank string' }
+      }
+      return { type: 'prompt', content: parsed.content }
+    }
+    case 'tool-result': {
+      if (typeof parsed.callId !== 'string' || !parsed.callId) {
+        return { type: 'invalid', reason: 'callId must be a non-empty string' }
+      }
+      const hasError = parsed.error !== undefined
+      const hasResult = parsed.result !== undefined
+      // Exactly one. Both would leave "did it work?" to a tie-break, which is how a failed tool came
+      // to be indistinguishable from a successful one elsewhere in this codebase.
+      if (hasError === hasResult) {
+        return { type: 'invalid', reason: 'a tool-result carries exactly one of result or error' }
+      }
+      if (hasError && typeof parsed.error !== 'string') {
+        return { type: 'invalid', reason: 'error must be a string' }
+      }
+      return hasError
+        ? { type: 'tool-result', callId: parsed.callId, error: parsed.error as string }
+        : { type: 'tool-result', callId: parsed.callId, result: parsed.result }
+    }
+    case 'abort':
+      return { type: 'abort' }
+    default:
+      return { type: 'invalid', reason: `unknown message type ${JSON.stringify(parsed.type)}` }
+  }
+}
+
+/**
+ * Whether a raw upgrade url is this protocol's endpoint.
+ *
+ * Matched on the SUFFIX rather than the whole path: the websocket upgrade reaches the HTTP server
+ * before Express, so `req.url` carries whatever public prefix the reverse proxy was configured with
+ * (`/agents/api/...` in dev, something else in another deployment). Anchoring on the deployment's
+ * prefix would make this work in dev and fail in production for an invisible reason.
+ */
+export function isAgentSessionPath (url: string | undefined): boolean {
+  if (!url) return false
+  const pathname = url.split('?')[0].replace(/\/+$/, '')
+  return pathname.endsWith('/api/agent-session')
+}
