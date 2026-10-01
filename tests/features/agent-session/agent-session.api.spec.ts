@@ -69,7 +69,12 @@ test.describe('Agent session socket', () => {
     assert.deepEqual(asked.input, { id: 7 })
     session.send({ type: 'tool-result', callId: asked.callId, result: { selected: 7 } })
 
-    assert.deepEqual(await pending, { ok: true, result: { selected: 7 } })
+    // Field-wise rather than deepEqual: the seam also reports durationMs, which the latency reading
+    // uses and which must not make every assertion here brittle.
+    const outcome = await pending
+    assert.equal(outcome.ok, true)
+    assert.deepEqual(outcome.result, { selected: 7 })
+    assert.equal(typeof outcome.durationMs, 'number')
   })
 
   test('a browser-reported failure comes back as a failure, not as a result', async () => {

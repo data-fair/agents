@@ -58,7 +58,9 @@ export const startAgentSessions = (server: Server, options: StartAgentSessionsOp
       // writing to a closed socket throws rather than no-ops.
       if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(message))
     }
-    const agentSession = createAgentSession({ send })
+    // The cookie is taken from the UPGRADE request, which is the only moment it is available: a
+    // websocket frame carries no headers.
+    const agentSession = createAgentSession({ send, sessionCookie: req.headers.cookie })
     sessions.set(ws, agentSession)
     debug('session opened, %d live', sessions.size)
 

@@ -10,6 +10,7 @@ import { listMcpServerCatalog, unknownMcpServerIds } from '../mcp-servers/operat
 import { getAutonomousAgentSession, clearAutonomousAgentSession, type EnrolledAutonomousAgent } from '../nhi/service.ts'
 import { decodeSessionClaims, autonomousAgentSubject } from '../nhi/operations.ts'
 import { listAutonomousAgentToolDescriptors, type AutonomousAgentForTools } from '../mcp-servers/client.ts'
+import { nhiSessionProvider } from '../agent-identity/service.ts'
 
 // Re-exported so the router (HTTP layer only) never imports ../nhi/service.ts directly —
 // it drops a deleted autonomous agent's cached session the same way assertEnrolmentWorks
@@ -97,7 +98,7 @@ export const assertEnrolmentWorks = async (autonomousAgent: EnrolledAutonomousAg
  * identity. Descriptions and annotations only — never a credential.
  */
 export const describeAutonomousAgentTools = async (autonomousAgent: AutonomousAgentForTools) =>
-  await listAutonomousAgentToolDescriptors(autonomousAgent)
+  await listAutonomousAgentToolDescriptors(autonomousAgent, nhiSessionProvider(autonomousAgent))
 
 /**
  * Erase everything one autonomous agent accumulated: its conversations, their messages, their runs.

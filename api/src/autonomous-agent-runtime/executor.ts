@@ -38,6 +38,7 @@ import { resolveRoleModel } from '../models/service.ts'
 import { contextBudget } from '../models/operations.ts'
 import { computeCreditBreakdown } from '../usage/operations.ts'
 import { openAutonomousAgentTools } from '../mcp-servers/client.ts'
+import { nhiSessionProvider } from '../agent-identity/service.ts'
 import { enforceQuotas, checkAccountCreditCap, type UsageIdentity } from '../usage/enforce.ts'
 import { recordUsage } from '../usage/service.ts'
 
@@ -441,7 +442,7 @@ const performTurn = async (run: AutonomousAgentRun, messageSeq: number, messageI
   // Connections stay OPEN for the whole turn: a tool's execute closes over its client, and
   // the MCP SDK's close() clears the transport, so closing early makes every call reject
   // with 'Not connected'. Released in the finally below.
-  const { tools: rawTools, serverByTool, annotationsByTool, close: closeTools } = await openAutonomousAgentTools(autonomousAgent)
+  const { tools: rawTools, serverByTool, annotationsByTool, close: closeTools } = await openAutonomousAgentTools(autonomousAgent, nhiSessionProvider(autonomousAgent))
   const tools = withProvenance(rawTools, name => serverByTool.get(name) ?? 'unknown')
 
   try {

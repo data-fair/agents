@@ -19,6 +19,14 @@ export const BROWSER_CALL_TIMEOUT_MS = 30_000
 
 export interface AgentSessionOptions {
   send: (message: ServerMessage) => void
+  /**
+   * The cookie header from this connection's upgrade request.
+   *
+   * This is the personal assistant's whole identity: it acts as the person whose browser opened the
+   * socket. Held per connection, never stored, never logged, never in a prompt — the same rule the NHI
+   * session follows. Its useful life is the socket's, because only the browser can renew it.
+   */
+  sessionCookie?: string
   /** Called on a `prompt`. The loop lands here; until then a session is a transport. */
   onPrompt?: (content: string) => void
   onAbort?: () => void
@@ -38,6 +46,8 @@ interface PendingCall {
 export interface AgentSession {
   /** Dispatch one parsed client message. */
   handle: (message: ClientMessage) => void
+  /** The forwarded session of the person on the other end, for tools that want one. */
+  sessionCookie: () => string | undefined
   /**
    * Ask the browser to run one of its contextual tools.
    *
@@ -74,6 +84,7 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
   return {
     tools: () => [...tools],
     attached: () => attached,
+    sessionCookie: () => options.sessionCookie,
 
     handle (message) {
       if (closed) return

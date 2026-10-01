@@ -12,7 +12,7 @@ import { httpError } from '@data-fair/lib-express'
 import Debug from 'debug'
 import { credentialHeaders, type GlobalMcpServer } from './operations.ts'
 import { formatMcpToolResult } from '@agents/shared/tool-result'
-import { getAutonomousAgentSession } from '../nhi/service.ts'
+import type { SessionProvider } from '../agent-identity/operations.ts'
 
 const debug = Debug('agents:mcp-client')
 
@@ -46,18 +46,24 @@ export interface ListedMcpTool {
  * (executable AI SDK tools) and `listAutonomousAgentToolDescriptors` (diagnostic
  * descriptors only) — there is exactly one copy of the connect/list/filter/close loop.
  *
- * A session is obtained lazily and only once: an autonomous agent whose entries are all
- * `none`/`apiKey` performs no exchange at all.
+ * A session is obtained lazily and only once: an agent whose entries are all `none`/`apiKey` performs
+ * no exchange at all.
+ *
+ * WHO it acts as is injected (see ../agent-identity/service.ts) rather than derived from the agent. That
+ * is the one seam a personal assistant needs: it has no non-human identity, and acts as the person using
+ * it through their forwarded session. Everything else about gathering tools is identical, which is the
+ * point — one loop can serve both because only this line differs.
  */
 export const forEachListedTool = async (
   autonomousAgent: AutonomousAgentForTools,
+  sessionProvider: SessionProvider,
   visit: (t: ListedMcpTool, server: GlobalMcpServer, client: Client) => void,
   opts?: { keepConnectionsOpen?: boolean }
 ): Promise<() => Promise<void>> => {
   const catalog = config.mcpServers ?? []
   const refs = autonomousAgent.mcpServers ?? []
   const needsSession = refs.some(ref => catalog.find(s => s.id === ref.serverId)?.auth === 'nhi-session')
-  const cookieHeader = needsSession ? await getAutonomousAgentSession(autonomousAgent) : undefined
+  const cookieHeader = needsSession ? await sessionProvider() : undefined
 
   // Connections the caller is responsible for closing (keepConnectionsOpen only).
   const held: (() => Promise<void>)[] = []
@@ -130,11 +136,14 @@ export interface OpenAutonomousAgentTools {
  * would reject with 'Not connected'. The caller owns the returned `close` and must call it
  * when the turn ends.
  */
-export const openAutonomousAgentTools = async (autonomousAgent: AutonomousAgentForTools): Promise<OpenAutonomousAgentTools> => {
+export const openAutonomousAgentTools = async (
+  autonomousAgent: AutonomousAgentForTools,
+  sessionProvider: SessionProvider
+): Promise<OpenAutonomousAgentTools> => {
   const tools: Record<string, Tool> = {}
   const serverByTool = new Map<string, string>()
   const annotationsByTool = new Map<string, Record<string, unknown>>()
-  const close = await forEachListedTool(autonomousAgent, (t, server, client) => {
+  const close = await forEachListedTool(autonomousAgent, sessionProvider, (t, server, client) => {
     // Last-write-wins on a name collision across servers, matching the browser
     // aggregator's Object.assign semantics — and the provenance map follows the same
     // winner, so the recorded server is the one whose tool will actually run.
@@ -179,9 +188,12 @@ export interface McpToolDescriptor {
  * executable closures over a client connection that this diagnostic endpoint will never
  * call and never keeps open.
  */
-export const listAutonomousAgentToolDescriptors = async (autonomousAgent: AutonomousAgentForTools): Promise<McpToolDescriptor[]> => {
+export const listAutonomousAgentToolDescriptors = async (
+  autonomousAgent: AutonomousAgentForTools,
+  sessionProvider: SessionProvider
+): Promise<McpToolDescriptor[]> => {
   const descriptors: McpToolDescriptor[] = []
-  await forEachListedTool(autonomousAgent, (t, server) => {
+  await forEachListedTool(autonomousAgent, sessionProvider, (t, server) => {
     descriptors.push({
       name: t.name,
       description: t.description ?? '',
