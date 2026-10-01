@@ -301,10 +301,6 @@ declare module 'vue' {
     readonly RECENT_MAX: UnwrapRef<typeof import('../src/composables/host-events')['RECENT_MAX']>
     readonly SELECT_TOOL_NAME: UnwrapRef<typeof import('../src/utils/tool-exploration')['SELECT_TOOL_NAME']>
     readonly STATE_MAX_KEYS: UnwrapRef<typeof import('../src/composables/host-events')['STATE_MAX_KEYS']>
-    readonly SUBAGENT_DONE_FALLBACK: UnwrapRef<typeof import('../src/utils/agent-subagent-output')['SUBAGENT_DONE_FALLBACK']>
-    readonly SUBAGENT_MODERATION_NOTICE: UnwrapRef<typeof import('../src/utils/agent-subagent-output')['SUBAGENT_MODERATION_NOTICE']>
-    readonly SUBAGENT_PARTIAL_PREFIX: UnwrapRef<typeof import('../src/utils/agent-subagent-output')['SUBAGENT_PARTIAL_PREFIX']>
-    readonly SUBAGENT_STEP_LIMIT_NOTICE: UnwrapRef<typeof import('../src/utils/agent-subagent-output')['SUBAGENT_STEP_LIMIT_NOTICE']>
     readonly WAIT_DEFAULT_SECONDS: UnwrapRef<typeof import('../src/composables/host-events')['WAIT_DEFAULT_SECONDS']>
     readonly WAIT_MAX_SECONDS: UnwrapRef<typeof import('../src/composables/host-events')['WAIT_MAX_SECONDS']>
     readonly WAIT_TOOL_NAME: UnwrapRef<typeof import('../src/composables/host-events')['WAIT_TOOL_NAME']>
@@ -394,7 +390,6 @@ declare module 'vue' {
     readonly shouldAutoFixMermaid: UnwrapRef<typeof import('../src/utils/mermaid-fix')['shouldAutoFixMermaid']>
     readonly shouldFlattenSubAgent: UnwrapRef<typeof import('../src/composables/sub-agent-flatten')['shouldFlattenSubAgent']>
     readonly streamingSafeBuffer: UnwrapRef<typeof import('../src/utils/markdown')['streamingSafeBuffer']>
-    readonly subAgentModelOutput: UnwrapRef<typeof import('../src/utils/agent-subagent-output')['subAgentModelOutput']>
     readonly toDescriptors: UnwrapRef<typeof import('../src/composables/use-agent-session')['toDescriptors']>
     readonly toRaw: UnwrapRef<typeof import('vue')['toRaw']>
     readonly toRef: UnwrapRef<typeof import('vue')['toRef']>

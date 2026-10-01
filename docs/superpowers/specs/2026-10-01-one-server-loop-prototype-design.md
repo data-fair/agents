@@ -210,6 +210,29 @@ capability problem. The personal assistant has no NHI *by design*, so the guard 
 one exception. Noted because it is the shape of thing to expect from reusing the loop: not conflicts of
 structure, but guards whose premises were narrower than they looked.
 
+**4. Deleting the gateway and moving sub-agents are ONE decision, not two.** A sub-agent is a model
+loop, and the only way a browser calls a model in this architecture is the gateway. So the attractive
+hybrid — keep workers in the browser, pay one round trip per *delegation* instead of one per inner tool
+call — is unavailable: a browser-side worker needs the gateway to exist.
+
+This matters for the judgement because §7 counts the gateway's deletion as a principal gain, and it is
+now visibly conditional on carrying the heaviest part of the browser loop across. They stand or fall
+together.
+
+**5. The latency exposure of sub-agents inverts, but only if the tool migration happens.** A worker's
+inner calls become round trips when its tools are PAGE tools, and workers are the heaviest tool users by
+design — the reserved-tool partition exists precisely to concentrate tool use in them. That would make
+them the design's real latency cost, far more than reading 1 suggested.
+
+Except that the tools they typically reserve — `query_data`, `get_schema` — are *data* tools, which are
+exactly the ones moving to the published MCP server. In the target architecture a worker's calls are
+server-local and the exposure goes **down** rather than up: a delegation costs one round trip to fetch
+its config, and nothing after that.
+
+So sub-agents are cheap server-side *in the end state* and expensive *during the transition*, while page
+tools still carry data operations. That ordering is now a reason to sequence the tool migration before
+any rollout, not just alongside it.
+
 ## 6. What is knowingly lost
 
 Stated plainly, because a prototype that hides its costs cannot be judged:
