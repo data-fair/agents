@@ -1,14 +1,25 @@
-/** stateful API tests for server-side trace storage */
+/**
+ * stateful API tests for server-side trace storage.
+ *
+ * These used to drive the gateway as an OpenAI endpoint and choose their own conversation id through
+ * an `x-trace-conversation` header. The gateway is gone: a turn is caused by asking for one, the
+ * conversation id is the server's, and consent travels in the cookie both boundaries read.
+ *
+ * What that changed about these tests is worth stating, because it is a narrowing of what they can
+ * check and not just a different spelling: the conversation ids are no longer chosen by the caller,
+ * so every assertion is against the id the server assigned. The two tests covering experimental chat
+ * flags on a trace are GONE rather than rewritten — those flags were read from a cookie by the
+ * gateway, and the server-held loop receives no flags at all, so there is nothing left to assert.
+ */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { generateText } from 'ai'
-import { createOpenAI } from '@ai-sdk/openai'
-import { axiosAuth, superAdmin, clean, directoryUrl, proxyHeaders } from '../../support/axios.ts'
+import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
 import { putSettings } from '../../support/settings.ts'
+import { runTurn, setTraceConsent } from '../../support/turn.ts'
 
 const user = await axiosAuth('test-standalone1')
 const admin = await superAdmin
-// test1-user1 is a member of organization/test1 → trackPerUser=true → userId stored in trace
+// test1-user1 is a member of organization/test1 → trackPerUser=true → userId stored in the trace
 const orgMemberUser = await axiosAuth('test1-user1')
 
 const settingsData = (storeTraces: boolean) => ({
@@ -28,16 +39,12 @@ const settingsData = (storeTraces: boolean) => ({
   storeTraces
 })
 
-async function chat (storeTraces: boolean, headers: Record<string, string>) {
-  await putSettings(admin, 'user/test-standalone1', settingsData(storeTraces))
-  const cookieString = await user.cookieJar.getCookieString(directoryUrl)
-  const provider = createOpenAI({
-    baseURL: `http://localhost:${process.env.DEV_API_PORT}/api/gateway/user/test-standalone1/v1`,
-    apiKey: 'unused',
-    headers: { ...proxyHeaders, ...headers, cookie: [cookieString, (headers as any).cookie].filter(Boolean).join('; ') },
-    name: 'data-fair-gateway'
-  })
-  await generateText({ model: provider.chat('assistant'), messages: [{ role: 'user', content: 'hello' }] })
+/** Configure the account, set consent, and run one turn. Returns the server's conversation id. */
+async function chat (storeTraces: boolean, consented: boolean, owner = 'user/test-standalone1', ax = user) {
+  await putSettings(admin, owner, settingsData(storeTraces))
+  await setTraceConsent(ax, consented)
+  const { conversationId } = await runTurn(ax, owner)
+  return conversationId
 }
 
 async function waitForConversations (ownerType = 'user', ownerId = 'test-standalone1') {
@@ -53,22 +60,25 @@ test.describe('Trace storage API', () => {
   test.beforeEach(async () => { await clean() })
 
   test('stores a trace request when enabled AND consented', async () => {
-    await chat(true, { 'x-trace-consent': 'yes', 'x-trace-conversation': 'conv-A', 'x-trace-ctx': 'turn:t1' })
+    const conversationId = await chat(true, true)
     const list = await waitForConversations()
     assert.equal(list.results.length, 1)
-    assert.equal(list.results[0].conversationId, 'conv-A')
-    assert.equal(list.results[0].requestCount, 1)
+    assert.equal(list.results[0].conversationId, conversationId)
+    assert.ok(list.results[0].requestCount >= 1)
   })
 
   test('stores nothing without consent', async () => {
-    await chat(true, { 'x-trace-conversation': 'conv-B', 'x-trace-ctx': 'turn:t1' })
+    // The gate the gateway enforced as a header, and which the session path had quietly lost: a
+    // trace is visible to org admins while the conversation itself is not, so it needs the
+    // person's yes even when the org has asked for traces.
+    await chat(true, false)
     await new Promise(resolve => setTimeout(resolve, 500))
     const res = await admin.get('/api/traces/user/test-standalone1')
     assert.equal(res.data.results.length, 0)
   })
 
   test('stores nothing when the org setting is off', async () => {
-    await chat(false, { 'x-trace-consent': 'yes', 'x-trace-conversation': 'conv-C', 'x-trace-ctx': 'turn:t1' })
+    await chat(false, true)
     await new Promise(resolve => setTimeout(resolve, 500))
     const res = await admin.get('/api/traces/user/test-standalone1')
     assert.equal(res.data.results.length, 0)
@@ -83,12 +93,14 @@ test.describe('Trace storage API', () => {
   })
 
   test('get + delete a conversation', async () => {
-    await chat(true, { 'x-trace-consent': 'yes', 'x-trace-conversation': 'conv-D', 'x-trace-ctx': 'turn:t1' })
+    const conversationId = await chat(true, true)
     await waitForConversations()
-    const conv = await admin.get('/api/traces/user/test-standalone1/conv-D')
-    assert.equal(conv.data.results.length, 1)
-    assert.equal(conv.data.results[0].request.body.model, 'assistant')
-    await admin.delete('/api/traces/user/test-standalone1/conv-D')
+    const conv = await admin.get(`/api/traces/user/test-standalone1/${conversationId}`)
+    assert.ok(conv.data.results.length >= 1)
+    // The recorded request carries the model actually resolved for the role, which is what makes a
+    // stored trace readable at all.
+    assert.equal(conv.data.results[0].request.model, 'mock-model')
+    await admin.delete(`/api/traces/user/test-standalone1/${conversationId}`)
     const after = await admin.get('/api/traces/user/test-standalone1')
     assert.equal(after.data.results.length, 0)
   })
@@ -102,18 +114,11 @@ test.describe('Trace storage API', () => {
 
   test('paginates the conversation list newest-first', async () => {
     await putSettings(admin, 'organization/test1', settingsData(true))
+    await setTraceConsent(admin, true)
 
-    // Seed two conversations via the gateway with trace headers
-    async function seedTrace (conversationId: string) {
-      await admin.post('/api/gateway/organization/test1/v1/chat/completions', {
-        model: 'assistant',
-        messages: [{ role: 'user', content: 'hello' }]
-      }, { headers: { 'x-trace-conversation': conversationId, 'x-trace-consent': 'yes', 'x-trace-ctx': `turn:${conversationId}` } })
-    }
-    await seedTrace('conv-page-a')
-    await seedTrace('conv-page-b')
+    const first = await runTurn(admin, 'organization/test1')
+    const second = await runTurn(admin, 'organization/test1')
 
-    // Poll until both conversations are visible, failing loudly if they never land
     let res: any
     for (let i = 0; i < 30; i++) {
       res = await admin.get('/api/traces/organization/test1?page=1&size=1')
@@ -123,16 +128,16 @@ test.describe('Trace storage API', () => {
     if ((res?.data?.count ?? 0) < 2) assert.fail(`timed out waiting for 2 conversations, last count: ${res?.data?.count}`)
 
     assert.equal(res.data.results.length, 1, 'size=1 should return only 1 result')
-    assert.equal(typeof res.data.count, 'number', 'count should be a number')
     assert.ok(res.data.count >= 2, `count should be >= 2, got ${res.data.count}`)
-    // newest-first: conv-page-b was seeded last, so it is the most recent
-    assert.equal(res.data.results[0].conversationId, 'conv-page-b', 'first result should be the newest conversation')
+    // newest-first: the second turn is the most recent
+    assert.equal(res.data.results[0].conversationId, second.conversationId, 'first result should be the newest conversation')
+    assert.notEqual(second.conversationId, first.conversationId)
   })
 
   test('fetches a trace by conversation id and returns its owner', async () => {
-    await chat(true, { 'x-trace-consent': 'yes', 'x-trace-conversation': 'conv-byid', 'x-trace-ctx': 'turn:t1' })
+    const conversationId = await chat(true, true)
     await waitForConversations()
-    const res = await admin.get('/api/traces/conversation/conv-byid')
+    const res = await admin.get(`/api/traces/conversation/${conversationId}`)
     assert.deepEqual(res.data.owner, { type: 'user', id: 'test-standalone1' })
     assert.ok(res.data.results.length >= 1)
   })
@@ -143,52 +148,24 @@ test.describe('Trace storage API', () => {
   })
 
   test('by-conversation rejects a non-admin of the owner', async () => {
-    await chat(true, { 'x-trace-consent': 'yes', 'x-trace-conversation': 'conv-byid-2', 'x-trace-ctx': 'turn:t1' })
+    const conversationId = await chat(true, true)
     await waitForConversations()
     const stranger = await axiosAuth('test1-user1')
-    const res = await stranger.get('/api/traces/conversation/conv-byid-2').catch((err: any) => err.response ?? err)
+    const res = await stranger.get(`/api/traces/conversation/${conversationId}`).catch((err: any) => err.response ?? err)
     assert.equal(res.status, 403)
   })
 
-  test('records positive experimental flags from the cookie', async () => {
-    const flags = { toolExploration: true, subAgents: false, mermaid: true }
-    const flagCookie = `agent-chat-flags=${encodeURIComponent(JSON.stringify(flags))}`
-    await chat(true, {
-      'x-trace-consent': 'yes',
-      'x-trace-conversation': 'conv-flags',
-      'x-trace-ctx': 'turn:t1',
-      cookie: flagCookie
-    })
-    await waitForConversations()
-    const res = await admin.get('/api/traces/conversation/conv-flags')
-    assert.deepEqual(res.data.results[0].flags, flags)
-  })
-
-  test('omits flags when no flags cookie is sent', async () => {
-    await chat(true, { 'x-trace-consent': 'yes', 'x-trace-conversation': 'conv-noflags', 'x-trace-ctx': 'turn:t1' })
-    await waitForConversations()
-    const res = await admin.get('/api/traces/conversation/conv-noflags')
-    assert.equal('flags' in res.data.results[0], false)
-  })
-
   test('GDPR per-user erasure deletes all traces for a specific user (org owner)', async () => {
-    // Use organization/test1 as owner: test1-user1 is a member (not the owner), so
-    // trackPerUser=true and their userId ('test1-user1') is stored in the trace document.
-    // This exercises the real per-user deletion path.
-    await putSettings(admin, 'organization/test1', settingsData(true))
-    const cookieString = await orgMemberUser.cookieJar.getCookieString(directoryUrl)
-    const provider = createOpenAI({
-      baseURL: `http://localhost:${process.env.DEV_API_PORT}/api/gateway/organization/test1/v1`,
-      apiKey: 'unused',
-      headers: { ...proxyHeaders, cookie: cookieString, 'x-trace-consent': 'yes', 'x-trace-conversation': 'conv-gdpr', 'x-trace-ctx': 'turn:t1' },
-      name: 'data-fair-gateway'
-    })
-    await generateText({ model: provider.chat('assistant'), messages: [{ role: 'user', content: 'hello' }] })
+    // organization/test1 as owner: test1-user1 is a member rather than the owner, so trackPerUser is
+    // true and their userId is stored on the trace. This exercises the real per-user deletion path.
+    const conversationId = await chat(true, true, 'organization/test1', orgMemberUser)
+    assert.ok(conversationId)
 
     const list = await waitForConversations('organization', 'test1')
     assert.equal(list.results.length, 1)
     const storedUserId = list.results[0].userId
-    assert.equal(typeof storedUserId, 'string', 'expected userId to be stored for org member user')
+    assert.equal(typeof storedUserId, 'string', 'expected userId to be stored for an org member')
+    assert.equal(storedUserId, 'test1-user1', 'the PERSON is attributed, not the agent they talked to')
 
     await admin.delete(`/api/traces/organization/test1?userId=${encodeURIComponent(storedUserId)}`)
     const after = await admin.get('/api/traces/organization/test1')

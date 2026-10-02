@@ -28,6 +28,24 @@ export interface AgentSessionOptions {
    * session follows. Its useful life is the socket's, because only the browser can renew it.
    */
   sessionCookie?: string
+  /**
+   * Whether the person consented to their conversation being stored for admin review.
+   *
+   * Read from the same cookie the gateway read as a header, at upgrade. It exists because the chat's
+   * privacy model has two layers: the conversation is stored so the person can come back to it and is
+   * NOT visible to org admins, while a trace is admin-visible and therefore needs the person's
+   * explicit yes. Moving the loop server-side did not change what is being disclosed to whom, so it
+   * must not change who gets asked.
+   */
+  traceConsent?: boolean
+  /**
+   * Whether this account stores traces at all — advertised to the client on `attached`.
+   *
+   * Replaces the gateway's `x-trace-storage: available` response header. It is what makes the chat
+   * show its consent sheet, so without it nobody can ever answer and the server-side consent gate
+   * fails closed permanently.
+   */
+  traceStorage?: boolean
   /** Called on a `prompt`. The loop lands here; until then a session is a transport. */
   onPrompt?: (content: string, hiddenContext?: string) => void
   onAbort?: () => void
@@ -53,6 +71,8 @@ export interface AgentSession {
   send: (message: ServerMessage) => void
   /** The forwarded session of the person on the other end, for tools that want one. */
   sessionCookie: () => string | undefined
+  /** Whether this person agreed to admin-visible trace storage. */
+  traceConsent: () => boolean
   /**
    * What the page has reported: retained state, and what the person has done.
    *
@@ -82,6 +102,9 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
   const clearTimer = options.clearTimer ?? ((handle) => { clearTimeout(handle as ReturnType<typeof setTimeout>) })
 
   const hostEvents = new HostEventStore()
+  // Seeded from the upgrade's cookie and updated by a `trace-consent` frame, so answering the sheet
+  // takes effect on the NEXT TURN rather than on the next page load.
+  let traceConsent = options.traceConsent === true
   let boundTo: string | undefined
   let tools: BrowserToolDescriptor[] = []
   let attached = false
@@ -102,6 +125,7 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
     tools: () => [...tools],
     attached: () => attached,
     sessionCookie: () => options.sessionCookie,
+    traceConsent: () => traceConsent,
 
     handle (message) {
       if (closed) return
@@ -122,7 +146,8 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
           options.send({
             type: 'attached',
             conversationId: message.conversationId ?? 'pending',
-            anonymous: false
+            anonymous: false,
+            traceStorage: options.traceStorage === true
           })
           return
         case 'tools-changed':
@@ -149,6 +174,9 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
         }
         case 'abort':
           options.onAbort?.()
+          return
+        case 'trace-consent':
+          traceConsent = message.consented
           return
         case 'host-state':
           // Keyed facts, pushed as state-like events so the store's own retention rules apply. A key

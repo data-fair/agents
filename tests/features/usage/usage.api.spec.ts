@@ -4,10 +4,9 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { generateText } from 'ai'
-import { createOpenAI } from '@ai-sdk/openai'
-import { axiosAuth, superAdmin, anonymousAx, clean, directoryUrl, getAnonymousActionToken, proxyHeaders } from '../../support/axios.ts'
+import { axiosAuth, superAdmin, anonymousAx, clean, getAnonymousActionToken } from '../../support/axios.ts'
 import { putSettings } from '../../support/settings.ts'
+import { runTurn } from '../../support/turn.ts'
 
 const user = await axiosAuth('test-standalone1')
 const admin = await superAdmin
@@ -52,18 +51,8 @@ test.describe('Usage API', () => {
     await putSettings(admin, 'user/test-standalone1', settingsData)
   })
 
-  test('should return usage with limits after gateway request', async () => {
-    const cookieString = await user.cookieJar.getCookieString(directoryUrl)
-    const provider = createOpenAI({
-      baseURL: `http://localhost:${process.env.DEV_API_PORT}/api/gateway/user/test-standalone1/v1`,
-      apiKey: 'unused',
-      headers: { ...proxyHeaders, cookie: cookieString },
-      name: 'data-fair-gateway'
-    })
-    await generateText({
-      model: provider.chat('assistant'),
-      messages: [{ role: 'user', content: 'hello' }]
-    })
+  test('should return usage with limits after a turn', async () => {
+    await runTurn(user, 'user/test-standalone1')
 
     const res = await user.get('/api/usage/user/test-standalone1')
     assert.equal(res.status, 200)
@@ -82,18 +71,8 @@ test.describe('Usage API', () => {
     assert.ok(res.data.monthly.resetsAt)
   })
 
-  test('should record usage dimensions for a gateway request', async () => {
-    const cookieString = await user.cookieJar.getCookieString(directoryUrl)
-    const provider = createOpenAI({
-      baseURL: `http://localhost:${process.env.DEV_API_PORT}/api/gateway/user/test-standalone1/v1`,
-      apiKey: 'unused',
-      headers: { ...proxyHeaders, cookie: cookieString },
-      name: 'data-fair-gateway'
-    })
-    await generateText({
-      model: provider.chat('assistant'),
-      messages: [{ role: 'user', content: 'hello' }]
-    })
+  test('should record usage dimensions for a turn', async () => {
+    await runTurn(user, 'user/test-standalone1')
 
     const today = new Date().toISOString().slice(0, 10)
     const todayEntry = (entries: any[]) => entries.find(e => e.label === today)
@@ -152,42 +131,17 @@ test.describe('Anonymous Usage', () => {
     await clean()
   })
 
-  test('should allow anonymous gateway access when anonymous quota is configured', async () => {
-    const settingsWithAnonymous = {
-      ...settingsData,
-      quotas: {
-        ...settingsData.quotas,
-        anonymous: { unlimited: false, monthlyLimit: 10 }
-      }
-    }
-    await putSettings(admin, 'user/test-standalone1', settingsWithAnonymous)
-
-    const token = await getAnonymousActionToken()
-    const provider = createOpenAI({
-      baseURL: `http://localhost:${process.env.DEV_API_PORT}/api/gateway/user/test-standalone1/v1`,
-      apiKey: 'unused',
-      headers: { 'x-anonymous-token': token, 'x-forwarded-for': '203.0.113.7' },
-      name: 'data-fair-gateway'
-    })
-    const result = await generateText({
-      model: provider.chat('assistant'),
-      messages: [{ role: 'user', content: 'hello' }]
-    })
-    assert.ok(result.text)
-  })
-
-  test('should deny anonymous gateway access with default quotas (0/0)', async () => {
-    await putSettings(admin, 'user/test-standalone1', settingsData)
-
-    await assert.rejects(
-      anonymousAx.post('/api/gateway/user/test-standalone1/v1/chat/completions', {
-        model: 'assistant',
-        messages: [{ role: 'user', content: 'hello' }]
-      }),
-      { status: 403 }
-    )
-  })
-
+  // REMOVED WITH THE GATEWAY: anonymous model access.
+  //
+  // Two tests here asserted that an anonymous caller with a signed action token could reach a model
+  // when the `anonymous` quota allowed it, and was refused when it did not. The gateway was the only
+  // endpoint that served an unauthenticated model call; the socket refuses an anonymous turn
+  // outright (`agent-session/service.ts`), so there is no "allowed" case left to assert and the
+  // "refused" case is now true of every path by construction rather than by quota.
+  //
+  // The anonymous quota itself still exists and is still enforced — see the summary endpoint below,
+  // which is the remaining surface an anonymous caller can consume. Restoring anonymous CHAT means
+  // building it on the socket, and this is the test that should come back with it.
   test('should deny anonymous summary access with default quotas', async () => {
     await putSettings(admin, 'user/test-standalone1', settingsData)
 

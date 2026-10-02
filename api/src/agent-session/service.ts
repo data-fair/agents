@@ -16,6 +16,8 @@ import { createAgentSession, type AgentSession } from './session.ts'
 import { attachSession, detachSession } from './registry.ts'
 import { requireConversation, assertOwnsConversation } from '../autonomous-agent-runtime/service.ts'
 import { startSessionTurn, sendHistory } from './turn.ts'
+import { hasTraceConsent } from '@agents/shared/trace-consent'
+import { getSettings } from '../settings/service.ts'
 
 const debug = Debug('agents:agent-session')
 
@@ -55,7 +57,7 @@ export interface StartAgentSessionsOptions {
 export const startAgentSessions = (server: Server, options: StartAgentSessionsOptions) => {
   const wss = new WebSocketServer({ noServer: true })
 
-  wss.on('connection', (ws: WebSocket, req: IncomingMessage, sessionState: any) => {
+  wss.on('connection', (ws: WebSocket, req: IncomingMessage, sessionState: any, traceStorage?: boolean) => {
     const send = (message: ServerMessage) => {
       // readyState is checked because a turn can finish producing after the person closed the tab, and
       // writing to a closed socket throws rather than no-ops.
@@ -69,6 +71,10 @@ export const startAgentSessions = (server: Server, options: StartAgentSessionsOp
     const agentSession: AgentSession = createAgentSession({
       send,
       sessionCookie: req.headers.cookie,
+      // Parsed from the upgrade request's cookies, which is the socket's equivalent of the
+      // `x-trace-consent` header the gateway read per request. Same cookie, same meaning.
+      traceConsent: hasTraceConsent(req.headers.cookie),
+      traceStorage: traceStorage === true,
       onAttach: conversationId => {
         if (boundConversationId && boundConversationId !== conversationId) detachSession(boundConversationId, agentSession)
         boundConversationId = conversationId
@@ -157,10 +163,17 @@ export const startAgentSessions = (server: Server, options: StartAgentSessionsOp
     // the chat is open to anonymous users — but it must be a deliberate decision rather than the
     // consequence of not looking.
     expressSession.req(req as any)
-      .then((sessionState) => {
+      .then(async (sessionState) => {
+        // Whether this account stores traces at all, resolved HERE because the upgrade is the one
+        // async moment before the first frame — `handle` is synchronous, and `attached` has to carry
+        // it so the chat knows whether to ask the person for consent.
+        const account = sessionState?.account
+        const traceStorage = account
+          ? (await getSettings({ type: account.type, id: account.id }).catch(() => undefined))?.storeTraces === true
+          : false
         // The resolved session travels with the connection: a websocket frame carries no cookie, so who
         // this is can only be established once, here.
-        wss.handleUpgrade(req, socket as any, head, (ws) => { wss.emit('connection', ws, req, sessionState) })
+        wss.handleUpgrade(req, socket as any, head, (ws) => { wss.emit('connection', ws, req, sessionState, traceStorage) })
       })
       .catch((err) => {
         debug('rejected an upgrade: %O', err)

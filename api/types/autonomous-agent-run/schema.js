@@ -39,6 +39,16 @@ export default {
     // Stored on the run rather than recomputed by the executor because only the HTTP/socket boundary
     // has the session to derive it from.
     triggeredByRole: { type: 'string', enum: ['admin', 'contrib', 'user', 'external', 'anonymous'] },
+    // Whether the triggering person agreed to admin-visible trace storage.
+    //
+    // Recorded on the run so the executor does not care HOW the turn arrived: both boundaries read
+    // the same cookie (the socket from its upgrade request, the HTTP route from the request), which
+    // is the same cookie the gateway used to read as an `x-trace-consent` header. Consent is a
+    // property of what the person decided, not of the transport that carried the turn.
+    //
+    // Absent means no. Only a standard agent consults it — a configured autonomous agent's
+    // conversation is already stored server-side by design.
+    traceConsent: { type: 'boolean' },
     status: { type: 'string', enum: ['running', 'done', 'error', 'aborted', 'interrupted'] },
     stopReason: { type: 'string', enum: ['completed', 'step-limit', 'repeated-calls', 'budget', 'timeout', 'aborted', 'error'] },
     error: { type: 'string' },

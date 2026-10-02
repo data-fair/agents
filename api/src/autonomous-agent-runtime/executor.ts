@@ -47,6 +47,8 @@ import type { ChatActivity } from '@agents/shared/agent-activity'
 import { browserToolSet } from '../agent-session/browser-tools.ts'
 import { createWaitTool, withHostContext, WAIT_TOOL_NAME } from '@agents/shared/host-events'
 import { enforceQuotas, checkAccountCreditCap } from '../usage/enforce.ts'
+import { extractLastUserMessage, buildModerationContext, moderationApplies, MODERATION_CONTEXT_MAX_MESSAGES, MODERATION_REFUSAL } from '../moderation/operations.ts'
+import { startModeration, isStrikeCooldownActive, recordStrikeRefusal } from '../moderation/service.ts'
 import { recordUsage } from '../usage/service.ts'
 
 const debug = Debug('df-agents:autonomous-agent-executor')
@@ -125,16 +127,88 @@ const nextPendingRun = async (conversationId: string) => {
 }
 
 /**
- * Record one model call of an autonomous run, when the org has asked for traces.
+ * Classify this turn's user message and refuse it when the verdict says so.
  *
- * Gated on `settings.storeTraces` alone, with no consent header — unlike the gateway. That
- * second gate exists because an in-page chat's messages live only in the user's browser, so
- * storing them server-side is a new disclosure needing the person's consent. An autonomous
- * conversation is ALREADY stored server-side by design, so a trace adds prompt/response detail
- * about data the org already holds, not a new category of it. There is also no browser in the
- * loop to ask, and scheduled runs will have no instructing user at all.
+ * Returns a turn result when the turn must not proceed, or undefined to carry on. A fail-open
+ * (timeout or classifier error) carries on by design: the gate must not take the service down with
+ * it, which is the trade the gateway made too and the reason the event records WHY it opened.
+ */
+const moderateTurn = async (
+  run: AutonomousAgentRun,
+  settings: Awaited<ReturnType<typeof getSettings>>,
+  identity: UsageIdentity
+): Promise<{ parts: UIPart[], steps: number, credits: number, stopReason: RunStopReason } | undefined> => {
+  // 'completed', not 'error'. A turn that stopped for any reason other than finishing has
+  // runStopReasonMessage's notice APPENDED to whatever it produced, and "This turn failed and could
+  // not be completed" is false here and unhelpful: the turn did finish, and declining was its
+  // answer. The block is recorded as a moderation event, which is where an admin looks for it.
+  const refuse = (text: string) => ({
+    parts: [{ type: 'text', text }] as UIPart[],
+    steps: 0,
+    credits: 0,
+    stopReason: 'completed' as RunStopReason
+  })
+
+  // A standing cooldown refuses WITHOUT calling the classifier, let alone the model: someone who has
+  // just been blocked five times should not be able to keep spending the account's moderator budget.
+  if (identity.isUntrusted && identity.usageUserId && await isStrikeCooldownActive(run.owner, identity.usageUserId)) {
+    // Recorded as its own action, distinct from a block: an admin reading the events needs to see
+    // that this one cost no classifier call, rather than it looking like a sixth verdict.
+    recordStrikeRefusal(run.owner, identity, 'assistant')
+    return refuse(MODERATION_REFUSAL)
+  }
+
+  // The last few turns, oldest first — enough for the classifier to read a short follow-up in
+  // context. Reference only: the judged unit is the latest user message (see moderation/operations).
+  const recent = (await mongo.autonomousAgentMessages
+    .find({ conversationId: run.conversationId }, { projection: { _id: 0 } })
+    .sort({ seq: -1 })
+    .limit(MODERATION_CONTEXT_MAX_MESSAGES)
+    .toArray())
+    .reverse()
+    .map(message => ({ role: message.role, content: partsText(message.parts ?? []) }))
+
+  const message = extractLastUserMessage(recent)
+  if (!message) return undefined
+
+  const moderation = startModeration({
+    settings,
+    owner: run.owner,
+    identity,
+    message,
+    context: buildModerationContext(recent),
+    modelRole: 'assistant'
+  })
+
+  const result = await moderation.gate
+  if (result.action !== 'block') return undefined
+
+  // The strike itself is armed by startModeration, which owns strike accounting and swallows its own
+  // failures so that accounting can never turn a refusal into an answer.
+  return refuse(MODERATION_REFUSAL)
+}
+
+/**
+ * Record one model call, when the org has asked for traces AND whoever is being traced has agreed.
  *
- * Fire-and-forget with a logged catch, exactly as the gateway treats it: a trace is diagnostic,
+ * TWO GATES, and which ones apply depends on who the agent is:
+ *
+ *  - `settings.storeTraces`, the org's decision, always applies.
+ *  - the person's CONSENT applies to a standard agent, because it is acting as them. A trace is
+ *    visible to org admins, while the conversation itself is not, so a trace is a disclosure about
+ *    the person that the conversation is not — which is the whole reason consent exists.
+ *
+ * A CONFIGURED autonomous agent needs no consent, and the reason is specific rather than
+ * convenient: it is an org-owned service identity, its conversation is already stored server-side
+ * by design, and a trace adds prompt/response detail about data the org already holds rather than a
+ * new category of it. A scheduled run will also have no instructing person to ask.
+ *
+ * This gate used to live in the gateway, as an `x-trace-consent` header per request. The swap moved
+ * the chat onto this path, where the premise of the comment that used to sit here — "there is no
+ * browser in the loop to ask" — had quietly stopped being true. The socket's upgrade request carries
+ * the same cookie the header was built from, so the question is asked in the same place as before.
+ *
+ * Fire-and-forget with a logged catch, exactly as the gateway treated it: a trace is diagnostic,
  * and losing one must never cost a turn.
  */
 const recordAutonomousTrace = (
@@ -142,6 +216,8 @@ const recordAutonomousTrace = (
   input: {
     run: AutonomousAgentRun
     identity: UsageIdentity
+    /** Which agent this call belongs to, because it decides whether consent is required. */
+    autonomousAgentId: string
     contextId: string
     modelRole: string
     entry: ReturnType<typeof resolveRoleModel>['entry']
@@ -152,6 +228,8 @@ const recordAutonomousTrace = (
   }
 ) => {
   if (settings.storeTraces !== true) return
+  // A standard agent acts as a person, so it needs that person's yes. Absent means no.
+  if (isStandardAgentId(input.autonomousAgentId) && input.run.traceConsent !== true) return
   recordTraceRequest({
     owner: input.run.owner,
     userId: input.identity.usageUserId,
@@ -246,7 +324,10 @@ const compactHistory = async (
   loaded: LoadedHistory,
   budget: number,
   settings: Awaited<ReturnType<typeof getSettings>>,
-  abortSignal: AbortSignal
+  abortSignal: AbortSignal,
+  // Only so the compaction's own trace is gated exactly like the turn's — a summarizer call is a
+  // model call on the person's conversation, so it is the same disclosure.
+  tracing: { autonomousAgentId: string }
 ): Promise<{ messages: ModelMessage[], credits: number }> => {
   if (!budget) return { messages: loaded.messages, credits: 0 }
   const { history, clearing, compaction: decision } = decideContextManagement({
@@ -329,6 +410,7 @@ const compactHistory = async (
     // turn beside it.
     recordAutonomousTrace(settings, {
       run,
+      autonomousAgentId: tracing.autonomousAgentId,
       identity,
       contextId: `compaction:${run.id}`,
       modelRole: 'summarizer',
@@ -432,11 +514,36 @@ const performTurn = async (run: AutonomousAgentRun, messageSeq: number, messageI
   if (violation) {
     return {
       // reason/scope/period name WHAT was exceeded; an org admin needs that to act.
-      parts: [{ type: 'text', text: `This autonomous agent could not run: ${violation.reason} (${violation.scope}, ${violation.period} limit ${violation.limit}, used ${violation.usage}). Resets at ${violation.resetsAt}.` }],
+      // Addressed to whoever is reading it, which is not always an org admin looking at an agent:
+      // the standard assistant uses this path too, and "this autonomous agent could not run" is a
+      // confusing thing to say to a person who just asked a question.
+      parts: [{ type: 'text', text: `${isStandardAgentId(autonomousAgent.id) ? 'I could not answer' : 'This autonomous agent could not run'}: ${violation.reason} (${violation.scope}, ${violation.period} limit ${violation.limit}, used ${violation.usage}). Resets at ${violation.resetsAt}.` }],
       steps: 0,
       credits: 0,
       stopReason: 'error'
     }
+  }
+
+  // INPUT MODERATION, before any model call.
+  //
+  // This gate was the gateway's, and it is the one piece of the gateway that was an argument FOR
+  // moving the loop server-side rather than a cost of it — so dropping the gateway without it would
+  // have removed a security control while claiming the move strengthens them.
+  //
+  // A BLOCKING pre-check, where the gateway raced the classifier against the model call and buffered
+  // content until the verdict. The gateway had to: it was a proxy holding an HTTP response open, so
+  // waiting showed up directly as time-to-first-token. A turn here is already asynchronous over a
+  // socket, so waiting for a classifier that is meant to be fast and cheap buys a much simpler
+  // mechanism — no buffering, no discard path, and therefore no way for buffered content to escape
+  // on a block, which was the subtlest thing the gateway had to get right.
+  //
+  // Judged on the STORED user turn, hidden-context wrapper included, exactly as the gateway judged
+  // the full last message: that wrapper can carry client-supplied text, so stripping it would let a
+  // caller smuggle a payload past the gate. The page state folded in later (`withHostContext`) is
+  // composed by this server and is deliberately not part of what gets classified.
+  if (moderationApplies(settings, identity.role)) {
+    const refusal = await moderateTurn(run, settings, identity)
+    if (refusal) return refusal
   }
 
   const { model, entry } = resolveRoleModel(settings, 'assistant')
@@ -524,7 +631,8 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
     await loadHistory(run.conversationId, messageSeq),
     budget,
     settings,
-    abortSignal
+    abortSignal,
+    { autonomousAgentId: autonomousAgent.id }
   )
   // What the page has reported, folded into the last user turn at CALL time.
   //
@@ -828,6 +936,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
 
   recordAutonomousTrace(settings, {
     run,
+    autonomousAgentId: autonomousAgent.id,
     identity,
     contextId: `turn:${run.id}`,
     modelRole: 'assistant',

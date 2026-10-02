@@ -14,11 +14,13 @@ import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin } from '../../support/axios.ts'
 import { putSettings } from '../../support/settings.ts'
+import { runTurn, setTraceConsent } from '../../support/turn.ts'
 
 const admin = await superAdmin
 
-const CONV_A = 'conv-compare-a'
-const CONV_B = 'conv-compare-b'
+// Assigned per test by the turns that create them: the server owns conversation ids.
+let convA = ''
+let convB = ''
 
 const settingsData = {
   providers: [
@@ -45,17 +47,9 @@ const settingsData = {
   storeTraces: true
 }
 
-async function driveConversation (convId: string, message: string) {
-  await admin.post('/api/gateway/organization/test1/v1/chat/completions', {
-    model: 'assistant',
-    messages: [{ role: 'user', content: message }]
-  }, {
-    headers: {
-      'x-trace-consent': 'yes',
-      'x-trace-conversation': convId,
-      'x-trace-ctx': `turn:${convId}`
-    }
-  })
+/** Run a real turn and return the conversation the server created for it. */
+async function driveConversation (message: string) {
+  return (await runTurn(admin, 'organization/test1', message)).conversationId
 }
 
 async function waitForConversation (conversationId: string) {
@@ -71,24 +65,26 @@ test.describe('Trace comparison (/traces/:id/review?compare=)', () => {
   test.beforeEach(async () => {
     await clean()
     await putSettings(admin, 'organization/test1', settingsData)
-    await driveConversation(CONV_A, 'hello trace A')
-    await driveConversation(CONV_B, 'hello trace B')
-    await waitForConversation(CONV_A)
-    await waitForConversation(CONV_B)
+    await setTraceConsent(admin, true)
+    convA = await driveConversation('hello trace A')
+    convB = await driveConversation('hello trace B')
+    await waitForConversation(convA)
+    await waitForConversation(convB)
   })
 
   test('picks a second trace and renders both side by side', async ({ page, goToWithAuth }) => {
-    await goToWithAuth(`/agents/organization/test1/traces/${CONV_A}`, 'superadmin', { adminMode: true })
+    await goToWithAuth(`/agents/organization/test1/traces/${convA}`, 'superadmin', { adminMode: true })
 
     // single view first: one TraceView (one user-message chip)
     await expect(page.getByText('user-message').first()).toBeVisible({ timeout: 15000 })
 
     // open the picker and choose the other conversation
     await page.getByRole('button', { name: 'Compare with…' }).click()
-    await page.getByText('hello trace B').click()
+    // Listed by conversation id, for the same reason as the activity list (see that spec).
+    await page.getByText(convB).click()
 
-    // ?compare= now points at CONV_B
-    await expect(page).toHaveURL(new RegExp(`compare=${CONV_B}`))
+    // ?compare= now points at convB
+    await expect(page).toHaveURL(new RegExp(`compare=${convB}`))
 
     // both traces render: two user-message chips across the two panes
     await expect(page.getByText('user-message')).toHaveCount(2, { timeout: 15000 })

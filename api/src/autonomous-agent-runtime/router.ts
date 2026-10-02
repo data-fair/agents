@@ -12,7 +12,10 @@ import eventsLog from '@data-fair/lib-express/events-log.js'
 import { assertCanOwnAgent } from '../autonomous-agents/service.ts'
 import { assertCanInstruct, assertOwnsConversation, requireAutonomousAgent, requireConversation, appendMessage, createRun } from './service.ts'
 import { startRun, abortRun } from './executor.ts'
-import { getEffectiveRole } from '../auth.ts'
+import { getEffectiveRole, assertCanUseModel } from '../auth.ts'
+import { isStandardAgentId } from '../agent-session/standard-agents.ts'
+import { getSettings } from '../settings/service.ts'
+import { hasTraceConsent } from '@agents/shared/trace-consent'
 
 const router = Router()
 export default router
@@ -104,6 +107,33 @@ const reqOwner = (req: any): AccountKeys => {
   return { type: req.params.type, id: req.params.id } as AccountKeys
 }
 
+/**
+ * Whether this person may open a conversation with this agent — and the two kinds of agent ask
+ * genuinely different questions.
+ *
+ * A CONFIGURED agent lends its own identity: instructing it means borrowing an NHI's permissions, so
+ * the gate is `canInstruct` — an account admin, or someone explicitly listed as an instructor.
+ *
+ * A STANDARD agent lends nothing. It acts as the person, through their own session, so the only
+ * question is whether that person may use this account's models at all — which is the role-quota
+ * gate every model call already answered. Applying `canInstruct` to it was a real regression and the
+ * narrowest kind: a plain member of an organization could not use the assistant embedded in their own
+ * application, because they are not an admin of the org and nobody had listed them as an instructor
+ * of an agent that does not exist as a document.
+ */
+const assertMayTalkTo = async (
+  autonomousAgent: { id: string, owner: AccountKeys, instructors?: { userId: string }[] },
+  owner: AccountKeys,
+  session: Parameters<typeof assertCanInstruct>[1]
+) => {
+  if (!isStandardAgentId(autonomousAgent.id)) {
+    assertCanInstruct(autonomousAgent as Parameters<typeof assertCanInstruct>[0], session)
+    return
+  }
+  const settings = await getSettings(owner)
+  assertCanUseModel(session, owner, settings.quotas ?? {})
+}
+
 router.post('/:type/:id', async (req, res, next) => {
   try {
     const session = reqSessionAuthenticated(req)
@@ -112,7 +142,7 @@ router.post('/:type/:id', async (req, res, next) => {
     if (typeof autonomousAgentId !== 'string' || !autonomousAgentId) throw httpError(400, 'autonomousAgentId is required')
     assertCanOwnAgent(owner, autonomousAgentId)
     const autonomousAgent = await requireAutonomousAgent(owner, autonomousAgentId)
-    assertCanInstruct(autonomousAgent, session)
+    await assertMayTalkTo(autonomousAgent, owner, session)
 
     const title = typeof req.body?.title === 'string' && req.body.title.trim() ? req.body.title.trim() : 'New conversation'
     const now = new Date().toISOString()
@@ -145,7 +175,7 @@ router.get('/:type/:id', async (req, res, next) => {
     if (typeof autonomousAgentId !== 'string' || !autonomousAgentId) throw httpError(400, 'autonomousAgentId query parameter is required')
     assertCanOwnAgent(owner, autonomousAgentId)
     const autonomousAgent = await requireAutonomousAgent(owner, autonomousAgentId)
-    assertCanInstruct(autonomousAgent, session)
+    await assertMayTalkTo(autonomousAgent, owner, session)
 
     // Your own threads only. A conversation belongs to one person, so listing someone else's would be
     // a disclosure — and an org admin's role no longer grants it.
@@ -264,6 +294,8 @@ router.post('/:type/:id/:conversationId/messages', async (req, res, next) => {
       triggeredBy: { userId: session.user.id, userName: session.user.name },
       // See the schema note: only this boundary has the session to derive it from.
       triggeredByRole: getEffectiveRole(session, owner),
+      // The same cookie the socket reads off its upgrade, so consent does not depend on transport.
+      traceConsent: hasTraceConsent(req.headers.cookie),
       status: 'running',
       startedAt: new Date().toISOString()
     })

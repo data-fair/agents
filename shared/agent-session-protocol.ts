@@ -46,6 +46,15 @@ export type ClientMessage =
   /** Stop the turn in flight. */
   | { type: 'abort' }
   /**
+   * The person's answer to the consent sheet.
+   *
+   * Sent as well as written to the cookie, because the cookie is only read at UPGRADE: without this
+   * frame, accepting would have no effect until the page reloaded, which reads as the button not
+   * working. The server trusts it exactly as far as it trusted the gateway's per-request header —
+   * this says what THIS person agreed to about their own conversation, nothing more.
+   */
+  | { type: 'trace-consent', consented: boolean }
+  /**
    * What is true on the page right now — retained, keyed facts.
    *
    * Replaces the previous state wholesale, because it answers "what is true now" rather than "what
@@ -72,7 +81,13 @@ export interface HostEventFrame {
 }
 
 export type ServerMessage =
-  | { type: 'attached', conversationId: string, anonymous: boolean }
+  /**
+   * `traceStorage` is how the person gets ASKED. The gateway advertised it as an
+   * `x-trace-storage: available` response header, and the chat showed its consent sheet off that.
+   * Without an equivalent the sheet never appears, nobody can ever say yes, and the consent gate on
+   * the server fails closed forever — a gate nobody can open is not a gate, it is an outage.
+   */
+  | { type: 'attached', conversationId: string, anonymous: boolean, traceStorage?: boolean }
   /** Token stream of the turn in progress. */
   | { type: 'delta', kind: 'text' | 'reasoning', text: string }
   /** Run this contextual tool and answer with a `tool-result` carrying the same callId. */
@@ -230,6 +245,10 @@ export function parseClientMessage (raw: string): ClientMessage | InvalidMessage
     }
     case 'abort':
       return { type: 'abort' }
+    case 'trace-consent':
+      // Strictly boolean: a truthy string would make "no" read as consent.
+      if (typeof parsed.consented !== 'boolean') return { type: 'invalid', reason: 'consented must be a boolean' }
+      return { type: 'trace-consent', consented: parsed.consented }
     case 'host-state': {
       if (!isRecord(parsed.state)) return { type: 'invalid', reason: 'state must be an object of keyed facts' }
       return { type: 'host-state', state: parsed.state }
@@ -278,7 +297,7 @@ export function parseServerMessageForClient (raw: string): ServerMessage | undef
   switch (parsed.type) {
     case 'attached':
       if (typeof parsed.conversationId !== 'string') return undefined
-      return { type: 'attached', conversationId: parsed.conversationId, anonymous: parsed.anonymous === true }
+      return { type: 'attached', conversationId: parsed.conversationId, anonymous: parsed.anonymous === true, traceStorage: parsed.traceStorage === true }
     case 'delta':
       if (parsed.kind !== 'text' && parsed.kind !== 'reasoning') return undefined
       if (typeof parsed.text !== 'string') return undefined

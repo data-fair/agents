@@ -100,7 +100,7 @@ test.describe('parseServerMessageForClient — lenient, on purpose', () => {
   const parseServer = (value: unknown) => parseServerMessageForClient(JSON.stringify(value))
 
   test('accepts every frame the server actually sends', () => {
-    assert.deepEqual(parseServer({ type: 'attached', conversationId: 'c1', anonymous: false }), { type: 'attached', conversationId: 'c1', anonymous: false })
+    assert.deepEqual(parseServer({ type: 'attached', conversationId: 'c1', anonymous: false }), { type: 'attached', conversationId: 'c1', anonymous: false, traceStorage: false })
     assert.deepEqual(parseServer({ type: 'delta', kind: 'text', text: 'hi' }), { type: 'delta', kind: 'text', text: 'hi' })
     assert.deepEqual(parseServer({ type: 'tool-call', callId: 'c', name: 'n', input: { a: 1 } }), { type: 'tool-call', callId: 'c', name: 'n', input: { a: 1 } })
     assert.deepEqual(parseServer({ type: 'turn-end', stopReason: 'completed' }), { type: 'turn-end', stopReason: 'completed' })
@@ -152,7 +152,9 @@ test.describe('the session', () => {
     const h = harness()
     h.session.handle({ ...hello(), conversationId: 'c1' })
     assert.equal(h.session.attached(), true)
-    assert.deepEqual(h.last(), { type: 'attached', conversationId: 'c1', anonymous: false })
+    // traceStorage: whether this account stores traces, which is what makes the chat ask the person
+    // for consent. Always present so a client never has to distinguish absent from false.
+    assert.deepEqual(h.last(), { type: 'attached', conversationId: 'c1', anonymous: false, traceStorage: false })
     assert.deepEqual(h.session.tools().map(t => t.name), ['select_row'])
   })
 

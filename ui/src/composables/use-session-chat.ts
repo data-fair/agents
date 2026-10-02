@@ -21,7 +21,7 @@
  *   signed-in people until that is built. The gateway path still serves them.
  */
 
-import { ref, shallowRef, computed, onScopeDispose, type Ref } from 'vue'
+import { ref, shallowRef, computed, watch, onScopeDispose, type Ref } from 'vue'
 import type { Tool } from 'ai'
 import type { ChatActivity } from '@agents/shared/agent-activity'
 import { splitHiddenContext } from '@agents/shared/hidden-context'
@@ -34,6 +34,7 @@ import { autonomousAgentMessageToChat } from '~/utils/autonomous-agent-chat-mess
 import { resolveToolsPartition, type DebugToolsPartition } from '~/utils/tools-partition'
 import type { ChatMessage } from '~/utils/chat-message'
 import { $apiPath, $fetch } from '~/context'
+import { traceStorageAvailable, consentRef } from '~/traces/trace-consent'
 
 const debug = Debug('df-agents:use-session-chat')
 
@@ -201,6 +202,22 @@ export function useSessionChat (options: UseSessionChatOptions) {
   })
 
   const conversationId = agent.conversationId
+
+  // The consent sheet's trigger, and the answer's path back.
+  //
+  // Two halves of one loop: the server advertises on `attached` that this account stores traces (the
+  // gateway did it with a response header), which is what makes the sheet appear; and the answer is
+  // sent back over the socket as well as written to the cookie, because the cookie is only read at
+  // UPGRADE — without the frame, accepting would do nothing until the page reloaded.
+  // Held back until the person has actually had an answer, which is when the gateway's response
+  // header used to arrive. Advertising on attach instead would put the sheet over the composer before
+  // they had said anything — asking for consent to store a conversation that does not exist yet.
+  watch([agent.traceStorage, () => turns.value.some(turn => turn.message.role === 'assistant')],
+    ([available, hasAnswer]) => { if (available && hasAnswer) traceStorageAvailable.value = true },
+    { immediate: true })
+  watch(consentRef, consent => {
+    if (consent) agent.reportTraceConsent(consent === 'yes')
+  })
 
   /** Create a conversation over HTTP. The socket binds to one; it does not make them. */
   const createConversation = async (): Promise<string> => {

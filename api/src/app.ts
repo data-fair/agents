@@ -15,7 +15,6 @@ import nhiRouter from './nhi/router.ts'
 import { clearAutonomousAgentSession } from './nhi/service.ts'
 import { callOnlyLiveAgentSession } from './agent-session/service.ts'
 import summaryRouter from './summary/router.ts'
-import gatewayRouter from './gateway/router.ts'
 import usageRouter from './usage/router.ts'
 import tracesRouter from './traces/router.ts'
 import moderationRouter from './moderation/router.ts'
@@ -52,7 +51,6 @@ app.use('/api/autonomous-agents', autonomousAgentsRouter)
 app.use('/api/autonomous-agent-conversations', autonomousAgentRuntimeRouter)
 app.use('/api/autonomous-agent-runs', autonomousAgentRunsRouter)
 app.use('/api/nhi', nhiRouter)
-app.use('/api/gateway', gatewayRouter)
 app.use('/api/summary', summaryRouter)
 app.use('/api/usage', usageRouter)
 app.use('/api/traces', tracesRouter)

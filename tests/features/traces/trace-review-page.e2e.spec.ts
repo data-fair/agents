@@ -13,10 +13,12 @@ import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin } from '../../support/axios.ts'
 import { putSettings } from '../../support/settings.ts'
+import { runTurn, setTraceConsent } from '../../support/turn.ts'
 
 const admin = await superAdmin
 
-const CONV_ID = 'conv-review-page-e2e'
+// Assigned per test by the turn that creates it: the server owns conversation ids.
+let convId = ''
 
 const settingsData = {
   providers: [
@@ -57,25 +59,17 @@ test.describe('Trace review page (/organization/test1/traces/:id)', () => {
     await clean()
     await putSettings(admin, 'organization/test1', settingsData)
 
-    // Drive a gateway request with consent headers to create a stored trace
-    await admin.post('/api/gateway/organization/test1/v1/chat/completions', {
-      model: 'assistant',
-      messages: [{ role: 'user', content: 'hello review page' }]
-    }, {
-      headers: {
-        'x-trace-consent': 'yes',
-        'x-trace-conversation': CONV_ID,
-        'x-trace-ctx': `turn:${CONV_ID}`,
-        cookie: `agent-chat-flags=${encodeURIComponent(JSON.stringify({ toolExploration: true, subAgents: false, mermaid: true }))}`
-      }
-    })
+    // Run a real turn, which is what produces a stored trace now. Consent travels in the cookie
+    // both boundaries read; the conversation id is the server's, not ours to choose.
+    await setTraceConsent(admin, true)
+    convId = (await runTurn(admin, 'organization/test1', 'hello review page')).conversationId
 
     // Wait until the trace is persisted (async write)
-    await waitForConversation(CONV_ID)
+    await waitForConversation(convId)
   })
 
   test('renders the stored trace for an admin', async ({ page, goToWithAuth }) => {
-    await goToWithAuth(`/agents/organization/test1/traces/${CONV_ID}`, 'superadmin', { adminMode: true })
+    await goToWithAuth(`/agents/organization/test1/traces/${convId}`, 'superadmin', { adminMode: true })
 
     // The page must not show the load-error state
     await expect(page.getByText('Trace not found or access denied.', { exact: false })).toHaveCount(0)
@@ -86,12 +80,14 @@ test.describe('Trace review page (/organization/test1/traces/:id)', () => {
   })
 
   test('shows the summary bar, flag chips and view toggle', async ({ page, goToWithAuth }) => {
-    await goToWithAuth(`/agents/organization/test1/traces/${CONV_ID}`, 'superadmin', { adminMode: true })
+    await goToWithAuth(`/agents/organization/test1/traces/${convId}`, 'superadmin', { adminMode: true })
 
-    // summary bar: the request-count metric and a feature-specific flag chip
-    // ('tool exploration' is active per the cookie set in beforeEach).
+    // summary bar: the request-count metric.
+    //
+    // The flag-chip assertion is GONE with its source. Experimental chat flags were read from a
+    // cookie by the gateway and recorded on the trace; the server-held loop receives no flags, so
+    // there is no chip to assert rather than a chip that moved.
     await expect(page.getByText('1 requests', { exact: false })).toBeVisible({ timeout: 15000 })
-    await expect(page.getByText('tool exploration', { exact: false })).toBeVisible()
 
     // default Interpreted view hides physical-request entries
     await expect(page.getByText('physical-request')).toHaveCount(0)

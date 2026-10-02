@@ -1,13 +1,19 @@
 /**
- * stateful API tests: the org-wide credit cap (pushed via the customers
- * ecosystem `/api/v1/limits` endpoint) must block gateway requests, ahead of
- * any per-profile quota check.
+ * stateful API tests: the org-wide credit cap, pushed via the customers ecosystem
+ * `/api/v1/limits` endpoint, must stop a turn — ahead of any per-profile quota check.
+ *
+ * The cap no longer surfaces as an HTTP 429. The gateway was a proxy on the request path, so it could
+ * refuse the request itself. The loop is asynchronous now: posting a message always succeeds, and the
+ * refusal arrives as the turn's own answer with zero steps taken. ENFORCEMENT is unchanged and still
+ * happens before the first model call (`enforceQuotas` in the executor), so a capped account still
+ * spends nothing — what changed is who is told, and how.
  */
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
 import { putSettings } from '../../support/settings.ts'
+import { runTurn } from '../../support/turn.ts'
 
 // matches api/config/development.js secretKeys.limits
 const SECRET = 'secretlimits'
@@ -54,7 +60,13 @@ async function pushLimits (limit: number, consumption: number) {
   assert.equal(res.status, 200)
 }
 
-const gatewayBody = { model: 'assistant', messages: [{ role: 'user', content: 'hello' }] }
+/** The text of the turn's answer, which is where a refusal now arrives. */
+async function lastAssistantText (owner: string, conversationId: string) {
+  const res = await test1Admin.get(`/api/autonomous-agent-conversations/${owner}/${conversationId}/messages`)
+  const messages = res.data.results as any[]
+  const assistant = messages.filter(m => m.role === 'assistant').pop()
+  return (assistant?.parts ?? []).filter((part: any) => part.type === 'text').map((part: any) => part.text).join('')
+}
 
 test.describe('org credit cap enforcement', () => {
   test.beforeEach(async () => {
@@ -62,34 +74,45 @@ test.describe('org credit cap enforcement', () => {
     await putSettings(admin, 'organization/test1', settingsData)
   })
 
-  test('gateway returns 429 when consumption reaches the pushed limit', async () => {
+  test('a turn is refused, naming the account scope, when consumption reaches the pushed limit', async () => {
     await pushLimits(5, 5)
 
-    const res = await test1Admin.post('/api/gateway/organization/test1/v1/chat/completions', gatewayBody)
-      .catch((err: any) => err.response ?? err)
-    assert.equal(res.status, 429)
-    assert.equal(res.data.error.scope, 'account')
-    assert.equal(res.data.error.limit, 5)
-    assert.equal(res.data.error.usage, 5)
+    const { conversationId } = await runTurn(test1Admin, 'organization/test1')
+    const text = await lastAssistantText('organization/test1', conversationId)
+    // The same three facts the 429 body carried, which is what an admin needs in order to act.
+    assert.match(text, /account/)
+    assert.match(text, /limit 5/)
+    assert.match(text, /used 5/)
+  })
+
+  test('nothing is spent when the cap refuses the turn', async () => {
+    // The property that actually matters, and the one a message-shaped refusal could get wrong while
+    // still reading correctly: a refused turn must not reach the model at all.
+    await pushLimits(5, 5)
+    const before = (await test1Admin.get('/api/usage/organization/test1')).data.daily.cost
+
+    await runTurn(test1Admin, 'organization/test1')
+
+    const after = (await test1Admin.get('/api/usage/organization/test1')).data.daily.cost
+    assert.equal(after, before, 'a capped account must spend nothing')
   })
 
   test('limit -1 (default) means unlimited', async () => {
     await pushLimits(-1, 999999)
 
-    const res = await test1Admin.post('/api/gateway/organization/test1/v1/chat/completions', gatewayBody)
-      .catch((err: any) => err.response ?? err)
-    assert.equal(res.status, 200)
+    const { conversationId } = await runTurn(test1Admin, 'organization/test1')
+    // The mock answers "world" to "hello": the turn ran rather than being refused.
+    assert.equal(await lastAssistantText('organization/test1', conversationId), 'world')
   })
 
-  test('org cap is checked before per-profile quotas', async () => {
-    // the caller's own profile quota (admin) is unlimited, yet the exhausted
-    // org-wide cap must still block the request first
+  test('the org cap applies even to a profile whose own quota is unlimited', async () => {
+    // test1-admin1 holds the admin profile, which is unlimited, yet the exhausted org-wide cap must
+    // still stop the turn. The ORDER the gateway asserted — cap checked before the profile quota —
+    // is no longer observable from outside, but the outcome it protected is.
     await pushLimits(5, 5)
 
-    const res = await test1Admin.post('/api/gateway/organization/test1/v1/chat/completions', gatewayBody)
-      .catch((err: any) => err.response ?? err)
-    assert.equal(res.status, 429)
-    assert.equal(res.data.error.scope, 'account')
+    const { conversationId } = await runTurn(test1Admin, 'organization/test1')
+    assert.match(await lastAssistantText('organization/test1', conversationId), /account/)
   })
 
   test('usage endpoint exposes the cap', async () => {

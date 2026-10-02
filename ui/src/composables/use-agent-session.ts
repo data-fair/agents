@@ -79,6 +79,8 @@ export function useAgentSession (options: AgentSessionClientOptions) {
    */
   const activity = shallowRef<ChatActivity | null>(null)
   const conversationId = shallowRef<string | undefined>(options.conversationId)
+  /** Whether this account stores traces at all, as advertised on `attached`. */
+  const traceStorage = ref(false)
   let ws: WebSocket | undefined
 
   /**
@@ -140,6 +142,12 @@ export function useAgentSession (options: AgentSessionClientOptions) {
       case 'attached':
         attached.value = true
         conversationId.value = message.conversationId
+        // Drives the consent sheet. The gateway advertised the same fact as a response header.
+        //
+        // Exposed as state rather than written to ~/traces/trace-consent from here: this module is
+        // also compiled by the root tsc (a unit test imports toDescriptors from it), where the ~
+        // alias does not resolve. The ui-only adapter wires it.
+        if (message.traceStorage) traceStorage.value = true
         debug('attached to %s', message.conversationId)
         return
       case 'message':
@@ -175,6 +183,7 @@ export function useAgentSession (options: AgentSessionClientOptions) {
   return {
     connected,
     attached,
+    traceStorage,
     activity,
     isWaitingForUser: computed(() => activity.value?.kind === 'waiting'),
     conversationId,
@@ -253,6 +262,16 @@ export function useAgentSession (options: AgentSessionClientOptions) {
 
     abort () {
       send({ type: 'abort' })
+    },
+
+    /**
+     * Tell the server what the person answered about trace storage.
+     *
+     * Sent as well as written to the cookie: the cookie is only read at upgrade, so without this the
+     * answer would not take effect until the page reloaded.
+     */
+    reportTraceConsent (consented: boolean) {
+      send({ type: 'trace-consent', consented })
     },
 
     close () {

@@ -92,6 +92,7 @@ export const startSessionTurn = async (request: SessionTurnRequest): Promise<str
     // Recorded here because only this boundary has the session. It is what makes a standard agent's
     // turn bill against the PERSON's quota rather than resolving to 'admin' (see the schema note).
     triggeredByRole: getEffectiveRole(request.session, request.owner),
+    traceConsent: request.echoTo?.traceConsent() === true,
     status: 'running',
     startedAt: new Date().toISOString()
   })

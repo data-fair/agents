@@ -1,6 +1,9 @@
 import { ref } from 'vue'
 
-export const CONSENT_COOKIE = 'agent-chat-trace-consent'
+// The name and the accepted value live in shared/: the SERVER reads this same cookie off the
+// websocket upgrade to decide whether a turn may be traced.
+import { CONSENT_COOKIE } from '@agents/shared/trace-consent'
+export { CONSENT_COOKIE }
 export type Consent = 'yes' | 'no'
 
 // Reactive: set true when the gateway advertises x-trace-storage: available.
