@@ -13,6 +13,7 @@ import config from '#config'
 import mongo from '#mongo'
 import { cleanupOldUsage } from './usage/cleanup.ts'
 import { recoverOwnerlessRuns } from './conversations/executor.ts'
+import { purgeExpiredArchives } from './conversations/service.ts'
 import { assertSessionOutlivesRun, ASSERTION_TTL_SECONDS } from './nhi/operations.ts'
 import { canSubscribeAutonomousAgent } from './conversations/events.ts'
 import { startAgentSessions } from './agent-session/service.ts'
@@ -61,6 +62,7 @@ const runUpgradeScripts = async () => {
 const server = createServer(app)
 const httpTerminator = createHttpTerminator({ server })
 let cleanupInterval: ReturnType<typeof setInterval> | undefined
+let archivePurgeInterval: ReturnType<typeof setInterval> | undefined
 let autonomousAgentReaper: ReturnType<typeof setInterval> | undefined
 let agentSessions: ReturnType<typeof startAgentSessions> | undefined
 
@@ -104,6 +106,15 @@ export const start = async () => {
   cleanupOldUsage().catch(err => console.error('initial usage cleanup failed', err))
   cleanupInterval = setInterval(() => {
     cleanupOldUsage().catch(err => console.error('usage cleanup failed', err))
+  }, 24 * 60 * 60 * 1000)
+
+  // Archived conversations past the review window. A sweep rather than a mongo TTL index because a
+  // TTL deletes only the document it indexes: this thread's messages and runs live in their own
+  // collections and would be left orphaned, still readable by id, which for data that was supposed
+  // to have expired is the whole failure. Daily is ample for a 30-day window.
+  purgeExpiredArchives().catch(err => console.error('initial archive purge failed', err))
+  archivePurgeInterval = setInterval(() => {
+    purgeExpiredArchives().catch(err => console.error('archive purge failed', err))
   }, 24 * 60 * 60 * 1000)
 
   // Before server.listen: the emitter's collection must exist before anything publishes, and
@@ -152,6 +163,7 @@ export const start = async () => {
 export const stop = async () => {
   if (cleanupInterval) clearInterval(cleanupInterval)
   if (autonomousAgentReaper) clearInterval(autonomousAgentReaper)
+  if (archivePurgeInterval) clearInterval(archivePurgeInterval)
   // Before the HTTP server goes: a connected browser holding a turn open must be told rather than
   // left with a socket that stops answering, and every pending browser tool call has to fail so the
   // turn waiting on it can finish.

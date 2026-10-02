@@ -64,6 +64,23 @@ export default {
      */
     consentedToReview: { type: 'boolean' },
     /**
+     * When the person deleted this thread while it was still reviewable.
+     *
+     * ARCHIVED, not deleted, and the reason is a direct consequence of the conversation becoming the
+     * review material. Review used to read a separate copy with its own retention, so what the person
+     * did with their chat could not affect it. Now the two are one document, and an unconditional
+     * delete would let anyone erase the record of a conversation their organization was entitled to
+     * review — which is also the one thing an audit trail must not permit.
+     *
+     * An archived thread is gone FOR THE PERSON: hidden from their list, not readable, not
+     * continuable (`requireConversation` excludes it). It stays visible to review until the window
+     * closes, and is then purged whole.
+     *
+     * NOT the expiry clock. The window runs from `lastMessageAt` (see api/src/retention.ts), so
+     * deleting late cannot extend how long the organization can see it.
+     */
+    archivedAt: { type: 'string', format: 'date-time' },
+    /**
      * The compaction recap: a CACHE, not part of the conversation.
      *
      * The stored messages remain the conversation of record — complete, and never rewritten by a

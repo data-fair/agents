@@ -7,7 +7,7 @@ import type { MessagePart } from '@agents/shared/message-parts'
 import type { ConversationRun } from '#types/conversation-run/index.ts'
 import type { Usage } from './usage/service.ts'
 import type { ModerationEvent, ModerationStrike } from './moderation/types.ts'
-import { RETENTION_SECONDS } from './moderation/operations.ts'
+import { RETENTION_SECONDS } from './retention.ts'
 
 import mongoLib from '@data-fair/lib-node/mongo.js'
 import config from '#config'
@@ -98,7 +98,11 @@ export class AgentsMongo {
       },
       conversations: {
         'main-keys': [{ id: 1 }, { unique: true }],
-        'agent-keys': [{ agentId: 1, lastMessageAt: -1 }, {}]
+        'agent-keys': [{ agentId: 1, lastMessageAt: -1 }, {}],
+        // The admin review list: one account's consented threads, newest activity first.
+        'review-keys': [{ 'owner.type': 1, 'owner.id': 1, consentedToReview: 1, lastMessageAt: -1 }, {}],
+        // The archive sweep, which runs daily over the whole collection and would otherwise scan it.
+        'archive-keys': [{ archivedAt: 1, lastMessageAt: 1 }, {}]
       },
       messages: {
         // the incremental cursor: one conversation's changes after a given version

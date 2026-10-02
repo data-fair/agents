@@ -696,3 +696,41 @@ standard agent's persona and once from `buildSystemPrompt`'s non-NHI clause, add
 day. Removed from the persona, where it was a string every future persona would have had to remember
 to include, and kept where it is derived from the identity. A unit test now asserts its ABSENCE from
 every persona, because the duplication is what went wrong rather than the sentence.
+
+### 10.3b Making the conversation the review material changes what DELETE means
+
+Raised on reviewing §10.3's implementation, and it is the consequence that was missed.
+
+Review used to read a SEPARATE copy with its own 30-day TTL, so what the person did with their chat
+could not touch it. The two are one document now, and an unconditional delete would let anyone erase
+the record of a conversation their organization was entitled to review — which is the one thing an
+audit trail cannot permit.
+
+So a delete now branches, and not on anything the person chooses:
+
+| The thread | DELETE does |
+|---|---|
+| consented, last message inside the window | **archived** — hidden, unreadable and uncontinuable for them; still in the admin review list, flagged; purged whole when the window closes |
+| not consented | purged immediately: nobody else may read it, so there is nothing to retain |
+| consented but past the window | purged immediately: there is nothing left to review |
+
+Three details that are decisions rather than mechanics:
+
+- **The window runs from `lastMessageAt`, not from the archive.** Otherwise deleting late would
+  extend how long the organization can see it. The honest consequence of the conversation being the
+  unit: a trace was one model call with its own clock, so a long thread lost its early turns while
+  its recent ones stayed. Retention is now per THREAD — a thread in active use keeps refreshing its
+  window and does not age out, and one that goes quiet expires whole 30 days later. Coarser.
+- **A sweep, not a mongo TTL index.** A TTL deletes only the document it indexes, and this thread's
+  messages and runs live in their own collections — they would be left orphaned and still readable
+  by id, which for data that was supposed to have expired is the whole failure. It runs at boot and
+  daily, beside the usage cleanup.
+- **An admin erasure reaches archived threads.** The archive stops the PERSON from erasing review
+  material; it must not stop an admin acting on a GDPR request, which is the one instruction that
+  outranks retention.
+
+The consent sheet was also wrong and is fixed: it said "stored conversations are deleted after 30
+days", which described the trace collection. It now says an administrator can review the thread for
+30 days after its last message, and that deleting it during that time leaves it available to them
+until the window closes. The person agreeing to review deserves to know that their delete is not
+immediate.

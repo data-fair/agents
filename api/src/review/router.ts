@@ -25,6 +25,7 @@ import { type AccountKeys, assertAccountRole, httpError, reqSessionAuthenticated
 import eventsLog from '@data-fair/lib-express/events-log.js'
 import { getSettings } from '../settings/service.ts'
 import { partsText } from '../conversations/operations.ts'
+import { purgeConversation } from '../conversations/service.ts'
 
 const router = Router()
 export default router
@@ -86,7 +87,7 @@ router.get('/:type/:id', async (req, res, next) => {
     // trace collection to reconstitute one row per conversation. The rows ARE conversations now.
     const [results, count] = await Promise.all([
       mongo.conversations
-        .find(filter, { projection: { _id: 0, id: 1, title: 1, userId: 1, userName: 1, createdAt: 1, lastMessageAt: 1, agentId: 1 } })
+        .find(filter, { projection: { _id: 0, id: 1, title: 1, userId: 1, userName: 1, createdAt: 1, lastMessageAt: 1, agentId: 1, archivedAt: 1 } })
         .sort({ lastMessageAt: -1 })
         .skip((page - 1) * size)
         .limit(size)
@@ -114,6 +115,10 @@ router.get('/:type/:id', async (req, res, next) => {
         userId: conversation.userId,
         userName: conversation.userName,
         agentId: conversation.agentId,
+        // Surfaced so an admin can see the person has deleted their side of it: the thread is
+        // retained until the review window closes and is then purged, which is worth knowing before
+        // relying on it still being there tomorrow.
+        ...(conversation.archivedAt ? { archivedAt: conversation.archivedAt } : {}),
         preview: previews[i]
       }))
     })
@@ -194,10 +199,11 @@ const deleteConversations = async (filter: Record<string, unknown>) => {
     .find(filter, { projection: { _id: 0, id: 1 } })
     .toArray()
   if (!conversations.length) return
-  const ids = conversations.map(conversation => conversation.id)
-  await Promise.all([
-    mongo.messages.deleteMany({ conversationId: { $in: ids } }),
-    mongo.runs.deleteMany({ conversationId: { $in: ids } }),
-    mongo.conversations.deleteMany({ id: { $in: ids } })
-  ])
+  // Through the shared purge, one thread at a time: an admin erasure and the archive sweep must not
+  // be able to differ about what "delete a conversation" removes.
+  //
+  // ARCHIVED THREADS INCLUDED, deliberately. The archive stops the PERSON from erasing review
+  // material; it must not stop an admin acting on a GDPR request, which is the one instruction that
+  // outranks retention.
+  for (const conversation of conversations) await purgeConversation(conversation.id)
 }

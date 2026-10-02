@@ -34,12 +34,12 @@
 <i18n lang="yaml">
 en:
   message: This assistant can store your conversation on the server so an administrator can review it.
-  details: Your choice is remembered for 1 year. Stored conversations are deleted after 30 days. You can change your choice anytime in the chat settings.
+  details: An administrator can review it for 30 days after the last message. If you delete the conversation during that time, it stays available to them until those 30 days are up and is then removed completely. Your choice is remembered for 1 year and you can change it anytime in the chat settings.
   accept: Accept
   decline: Decline
 fr:
   message: Cet assistant peut enregistrer votre conversation sur le serveur afin qu'un administrateur puisse la consulter.
-  details: Votre choix est conservé pendant 1 an. Les conversations enregistrées sont supprimées au bout de 30 jours. Vous pouvez modifier votre choix à tout moment dans les paramètres du chat.
+  details: Un administrateur peut la consulter pendant 30 jours après le dernier message. Si vous supprimez la conversation durant cette période, elle lui reste accessible jusqu'à la fin de ces 30 jours, puis elle est entièrement supprimée. Votre choix est conservé pendant 1 an et vous pouvez le modifier à tout moment dans les paramètres du chat.
   accept: Accepter
   decline: Refuser
 </i18n>

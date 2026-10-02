@@ -10,9 +10,10 @@ import mongo from '#mongo'
 import { type AccountKeys, httpError, reqSessionAuthenticated } from '@data-fair/lib-express'
 import eventsLog from '@data-fair/lib-express/events-log.js'
 import { assertCanOwnAgent } from '../autonomous-agents/service.ts'
-import { assertCanInstruct, assertOwnsConversation, requireAutonomousAgent, requireConversation, appendMessage, createRun, setReviewConsent } from './service.ts'
+import { assertCanInstruct, assertOwnsConversation, requireAutonomousAgent, requireConversation, appendMessage, createRun, setReviewConsent, archiveConversation, purgeConversation } from './service.ts'
 import { startRun, abortRun } from './executor.ts'
 import { getEffectiveRole, assertCanUseModel } from '../auth.ts'
+import { withinRetention } from '../retention.ts'
 import { isStandardAgentId } from '../agent-session/standard-agents.ts'
 import { getSettings } from '../settings/service.ts'
 import { hasTraceConsent } from '@agents/shared/trace-consent'
@@ -185,6 +186,10 @@ router.get('/:type/:id', async (req, res, next) => {
           agentId,
           'owner.type': owner.type,
           'owner.id': owner.id,
+          // Archived threads are gone FOR THE PERSON. They deleted them; the document survives only
+          // because the organization was entitled to review it, and showing it back here would make
+          // the delete look as though it had not worked.
+          archivedAt: { $exists: false },
           ...(session.user.adminMode ? {} : { userId: session.user.id })
         },
         { projection: { _id: 0 } }
@@ -226,11 +231,29 @@ router.delete('/:type/:id/:conversationId', async (req, res, next) => {
       .toArray()
     for (const run of live) abortRun(run.id)
 
-    const messages = await mongo.messages.deleteMany({ conversationId: conversation.id })
-    const runs = await mongo.runs.deleteMany({ conversationId: conversation.id })
-    await mongo.conversations.deleteOne({ id: conversation.id })
-
-    eventsLog.info('agents.conversation.delete', `conversation ${conversation.id} deleted with ${messages.deletedCount} message(s) and ${runs.deletedCount} run(s)`, { req })
+    // ARCHIVE OR PURGE, and which one is not the person's choice.
+    //
+    // A thread the person consented to having reviewed is the organization's review material now
+    // that there is no separate copy of it. Letting a delete destroy it would mean anyone could
+    // erase the record of a conversation their organization was entitled to see — the one thing an
+    // audit trail cannot allow. So it is archived: gone for them (hidden, unreadable, not
+    // continuable) and still visible to review until the window closes, then purged whole by
+    // `purgeExpiredArchives`.
+    //
+    // Everything else is purged immediately. A thread nobody else may read has nothing to retain,
+    // and one whose review window has already closed has nothing left to show — keeping either
+    // would be retention for its own sake.
+    const reviewable = conversation.consentedToReview === true && withinRetention(conversation.lastMessageAt)
+    if (reviewable) {
+      await archiveConversation(conversation.id)
+      eventsLog.info('agents.conversation.archive', `conversation ${conversation.id} archived: still reviewable`, { req })
+    } else {
+      const purged = await purgeConversation(conversation.id)
+      eventsLog.info('agents.conversation.delete', `conversation ${conversation.id} deleted with ${purged.messages} message(s) and ${purged.runs} run(s)`, { req })
+    }
+    // 204 either way. The person asked for it to be gone and for them it is; telling them their
+    // organization retained a copy is a disclosure decision for the consent sheet, which is where
+    // they agreed to review in the first place, not for the response to a delete.
     res.status(204).send()
   } catch (err) { next(err) }
 })

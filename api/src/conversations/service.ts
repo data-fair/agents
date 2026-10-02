@@ -7,12 +7,16 @@ import config from '#config'
 import { standardAgent } from '../agent-session/standard-agents.ts'
 import { nanoid } from 'nanoid'
 import { type AccountKeys, httpError } from '@data-fair/lib-express'
+import { expiredArchiveFilter } from '../retention.ts'
+import Debug from 'debug'
 import type { AutonomousAgent, Conversation, ConversationRun } from '#types'
 // The stored shape, whose `parts` carry the library's own part type (see mongo.ts).
 import type { StoredMessage } from '#mongo'
 import { canInstruct, type InstructSession } from '../autonomous-agents/operations.ts'
 import { notifyConversationChanged } from './events.ts'
 import { getAutonomousAgent, assertOrganizationOwner } from '../autonomous-agents/service.ts'
+
+const debug = Debug('df-agents:conversations')
 
 /**
  * Authorization for every runtime route.
@@ -90,11 +94,57 @@ export const resolveAgent = async (owner: AccountKeys, agentId: string) => {
  */
 export const requireConversation = async (owner: AccountKeys, conversationId: string) => {
   const conversation = await mongo.conversations.findOne(
-    { id: conversationId, 'owner.type': owner.type, 'owner.id': owner.id },
+    // ARCHIVED threads are excluded, which is what makes "the person deleted it" true for them even
+    // though the document survives for review: this is the lookup behind reading a thread, posting to
+    // it, and binding a socket to it, so excluding it here covers all three at once rather than in
+    // each route. Review reads the collection directly and therefore still sees them.
+    { id: conversationId, 'owner.type': owner.type, 'owner.id': owner.id, archivedAt: { $exists: false } },
     { projection: { _id: 0 } }
   )
   if (!conversation) throw httpError(404, 'unknown conversation')
   return conversation
+}
+
+/**
+ * Hide a thread from the person while keeping it reviewable.
+ *
+ * Returns false when there was nothing to archive, so a caller cannot mistake "already gone" for
+ * "archived".
+ */
+export const archiveConversation = async (conversationId: string): Promise<boolean> => {
+  const result = await mongo.conversations.updateOne(
+    { id: conversationId, archivedAt: { $exists: false } },
+    { $set: { archivedAt: new Date().toISOString() } }
+  )
+  return result.modifiedCount > 0
+}
+
+/** Delete a thread and everything hanging off it. Messages and runs are separate documents. */
+export const purgeConversation = async (conversationId: string): Promise<{ messages: number, runs: number }> => {
+  const messages = await mongo.messages.deleteMany({ conversationId })
+  const runs = await mongo.runs.deleteMany({ conversationId })
+  await mongo.conversations.deleteOne({ id: conversationId })
+  return { messages: messages.deletedCount, runs: runs.deletedCount }
+}
+
+/**
+ * Purge archived threads whose review window has closed.
+ *
+ * A sweep rather than a mongo TTL index, and deliberately: a TTL deletes the document it indexes and
+ * nothing else, so it would leave this conversation's messages and runs orphaned in their own
+ * collections — still readable by id, which for data that was supposed to expire is the whole
+ * failure. Run at boot and daily, beside the usage cleanup.
+ *
+ * Keyed on `lastMessageAt`, not on `archivedAt`: the window is 30 days from when the exchange
+ * happened, so deleting a thread cannot extend how long it stays visible.
+ */
+export const purgeExpiredArchives = async (): Promise<number> => {
+  const expired = await mongo.conversations
+    .find(expiredArchiveFilter(), { projection: { _id: 0, id: 1 } })
+    .toArray()
+  for (const conversation of expired) await purgeConversation(conversation.id)
+  if (expired.length) debug('purged %d archived conversation(s) past the review window', expired.length)
+  return expired.length
 }
 
 /**
