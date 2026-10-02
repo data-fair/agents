@@ -19,6 +19,7 @@ declare module 'vue' {
     AgentChatMessages: typeof import('./src/components/agent-chat/AgentChatMessages.vue')['default']
     AutonomousAgentRunStatus: typeof import('./src/components/AutonomousAgentRunStatus.vue')['default']
     AutonomousAgentsSection: typeof import('./src/components/AutonomousAgentsSection.vue')['default']
+    ConversationReview: typeof import('./src/components/ConversationReview.vue')['default']
     EvaluatorChat: typeof import('./src/components/EvaluatorChat.vue')['default']
     FormActions: typeof import('./src/components/FormActions.vue')['default']
     LiveToolsPanel: typeof import('./src/components/dev/LiveToolsPanel.vue')['default']

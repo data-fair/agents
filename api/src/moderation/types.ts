@@ -1,4 +1,18 @@
+/**
+ * The verdict a moderation check produced.
+ *
+ * Declared here rather than in a trace type: it was `TraceModeration` while a trace document was the
+ * thing that embedded it, and moderation is what actually owns the shape.
+ */
 import type { EffectiveRole } from '../auth.ts'
+
+export interface ModerationVerdictRecord {
+  action: 'allow' | 'block'
+  category?: string
+  reason?: string
+  latencyMs?: number
+  failOpen?: 'timeout' | 'error'
+}
 
 export type ModerationEventAction = 'allow' | 'block' | 'late-block' | 'fail-open-timeout' | 'fail-open-error' | 'strike-refusal'
 

@@ -102,7 +102,7 @@ import { getUiNotif } from '@data-fair/lib-vue/ui-notif.js'
 import { $apiPath, $fetch } from '~/context'
 import { isDynamicToolUIPart } from 'ai'
 import type { StoredAutonomousAgentMessage } from '~/utils/autonomous-agent-chat-message'
-import { summarizeToolArguments } from '@agents/shared/tool-arguments'
+import { summarizeToolArguments } from '~/utils/tool-arguments'
 
 const props = defineProps<{
   accountType: string

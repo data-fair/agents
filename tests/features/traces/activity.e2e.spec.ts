@@ -5,7 +5,7 @@
  * Scenario:
  *   1. PUT settings with storeTraces: true and a mock provider/assistant model.
  *   2. Drive a gateway request with consent headers so a trace gets stored.
- *   3. Poll GET /api/traces/organization/test1 until the conversation appears.
+ *   3. Poll GET /api/review/organization/test1 until the conversation appears.
  *   4. Navigate to /agents/organization/test1 as superadmin in adminMode.
  *   5. Assert the "Stored conversations" heading is visible — the page's
  *      read-only config summary was replaced by the editable org config form,
@@ -50,7 +50,7 @@ const settingsData = {
 
 async function waitForTrace (conversationId: string) {
   for (let i = 0; i < 60; i++) {
-    const res = await admin.get('/api/traces/organization/test1?page=1&size=20').catch(() => null)
+    const res = await admin.get('/api/review/organization/test1?page=1&size=20').catch(() => null)
     if (res && res.data.results?.some((r: any) => r.conversationId === conversationId)) return
     await new Promise(resolve => setTimeout(resolve, 200))
   }
@@ -75,14 +75,10 @@ test.describe('Activity page', () => {
     // The stored conversations are a tab of the activity section
     await page.locator('#activity').getByRole('tab', { name: 'Stored conversations' }).click({ timeout: 15000 })
 
-    // The row is labelled by the conversation id rather than by a message preview.
-    //
-    // KNOWN COSMETIC REGRESSION, asserted as it is rather than as it was: the list preview comes
-    // from the first user message of the stored trace BODY, and the executor deliberately records a
-    // reference to the history (system prompt, message count, seq bound, tool names) instead of
-    // copying the messages it already stores as the conversation. The UI falls back to the id. The
-    // review page itself is unaffected — it reconstructs from the conversation.
-    const convRow = page.getByText(convId)
+    // A real preview again: the list reads the conversation's first user message. While review went
+    // through a copy of the exchange this came from a stored request body, and once the executor
+    // stopped putting messages there it silently became empty and the row fell back to the id.
+    const convRow = page.getByText('activity hello')
     await expect(convRow).toBeVisible({ timeout: 10000 })
 
     // Clicking the row navigates to the review page

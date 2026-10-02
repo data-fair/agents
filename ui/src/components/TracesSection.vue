@@ -22,7 +22,7 @@
           {{ row.preview || row.conversationId }}
         </v-list-item-title>
         <v-list-item-subtitle class="text-caption">
-          {{ row.userName || row.userId || '—' }} · {{ formatDate(row.startedAt) }} · {{ t('requests', row.requestCount) }}
+          {{ row.userName || row.userId || '—' }} · {{ formatDate(row.lastMessageAt || row.startedAt) }} · {{ row.agentId }}
         </v-list-item-subtitle>
         <template #append>
           <v-btn
@@ -46,11 +46,9 @@
 
 <i18n lang="yaml">
 fr:
-  requests: "{n} requête | {n} requêtes"
   noTraces: Aucune conversation enregistrée.
   loadError: Erreur de chargement des traces.
 en:
-  requests: "{n} request | {n} requests"
   noTraces: No stored conversation.
   loadError: Failed to load traces.
 </i18n>
@@ -72,7 +70,7 @@ const loadError = ref('')
 
 const formatDate = (iso: string) => new Date(iso).toLocaleString()
 
-const apiBase = computed(() => `${$apiPath}/traces/${props.accountType}/${props.accountId}`)
+const apiBase = computed(() => `${$apiPath}/review/${props.accountType}/${props.accountId}`)
 
 const fetchTraces = async () => {
   try {

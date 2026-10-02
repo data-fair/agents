@@ -14,7 +14,8 @@ import {
   appendMessage,
   createRun,
   requireConversation,
-  assertOwnsConversation
+  assertOwnsConversation,
+  setReviewConsent
 } from '../autonomous-agent-runtime/service.ts'
 import { startRun } from '../autonomous-agent-runtime/executor.ts'
 import mongo from '#mongo'
@@ -59,6 +60,14 @@ export const startSessionTurn = async (request: SessionTurnRequest): Promise<str
   const conversation = await requireConversation(request.owner, request.conversationId)
   assertOwnsConversation(conversation, request.session)
 
+  // Consent is a property of the THREAD, so it is recorded on the conversation rather than copied
+  // onto every run. Written on each turn because the person can change their mind mid-conversation,
+  // and the socket reports the current answer.
+  const consented = request.echoTo?.traceConsent()
+  if (consented !== undefined && consented !== (conversation.consentedToReview === true)) {
+    await setReviewConsent(conversation.id, consented)
+  }
+
   const content = request.content.trim()
   if (!content) throw httpError(400, 'content is required')
 
@@ -92,7 +101,6 @@ export const startSessionTurn = async (request: SessionTurnRequest): Promise<str
     // Recorded here because only this boundary has the session. It is what makes a standard agent's
     // turn bill against the PERSON's quota rather than resolving to 'admin' (see the schema note).
     triggeredByRole: getEffectiveRole(request.session, request.owner),
-    traceConsent: request.echoTo?.traceConsent() === true,
     status: 'running',
     startedAt: new Date().toISOString()
   })

@@ -16,7 +16,7 @@ import { clearAutonomousAgentSession } from './nhi/service.ts'
 import { callOnlyLiveAgentSession } from './agent-session/service.ts'
 import summaryRouter from './summary/router.ts'
 import usageRouter from './usage/router.ts'
-import tracesRouter from './traces/router.ts'
+import reviewRouter from './review/router.ts'
 import moderationRouter from './moderation/router.ts'
 import limitsRouter from './limits/router.ts'
 import mongo from '#mongo'
@@ -53,7 +53,7 @@ app.use('/api/autonomous-agent-runs', autonomousAgentRunsRouter)
 app.use('/api/nhi', nhiRouter)
 app.use('/api/summary', summaryRouter)
 app.use('/api/usage', usageRouter)
-app.use('/api/traces', tracesRouter)
+app.use('/api/review', reviewRouter)
 app.use('/api/moderation', moderationRouter)
 app.use('/api/v1/limits', limitsRouter)
 app.use('/api/ping', (req, res) => res.send('ok'))

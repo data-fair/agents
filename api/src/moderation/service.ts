@@ -19,8 +19,7 @@ import {
   STRIKE_WINDOW_MS, STRIKE_COOLDOWN_MS, STRIKE_THRESHOLD,
   type ModerationVerdict
 } from './operations.ts'
-import type { ModerationEvent, ModerationEventAction } from './types.ts'
-import type { TraceModeration } from '../traces/types.ts'
+import type { ModerationEvent, ModerationEventAction, ModerationVerdictRecord } from './types.ts'
 
 // Run a moderator generateObject call with thinking disabled: reasoning_effort:none is
 // honoured by OpenAI-compatible reasoning models (Scaleway/GLM, …) so the short token
@@ -108,7 +107,7 @@ export interface ModerationRun {
   // fired if a block verdict arrives after the gate already failed open
   onLateBlock: (cb: () => void) => void
   // best-known verdict info for trace embedding (undefined until the check settles)
-  traceInfo: () => TraceModeration | undefined
+  traceInfo: () => ModerationVerdictRecord | undefined
 }
 
 export function startModeration (params: {
@@ -132,7 +131,7 @@ export function startModeration (params: {
 
   let lateBlockCb: (() => void) | undefined
   let timedOut = false
-  let trace: TraceModeration | undefined
+  let trace: ModerationVerdictRecord | undefined
 
   // Exactly one event per check, written when the check settles.
   const finalize = (action: ModerationEventAction, verdict?: ModerationVerdict, opts?: { failOpen?: 'timeout' | 'error' }) => {

@@ -52,6 +52,18 @@ export default {
     // timestamp-based cursor either skip one or re-deliver it, while an $inc cannot collide.
     version: { type: 'number', minimum: 0 },
     /**
+     * Whether this person agreed that an admin of the account may read this thread.
+     *
+     * ONE FLAG ON THE THREAD, which is what the privacy model actually describes: the conversation
+     * is stored either way so the person can come back to it, and is not visible to org admins; this
+     * is what makes it visible. It used to be a separate `trace-requests` collection holding a COPY
+     * of the content under a 30-day TTL, plus the same consent re-derived onto every run — storing
+     * the same disclosure twice and asking the question twice.
+     *
+     * Absent means no: the right default for a question nobody answered.
+     */
+    consentedToReview: { type: 'boolean' },
+    /**
      * The compaction recap: a CACHE, not part of the conversation.
      *
      * The stored messages remain the conversation of record — complete, and never rewritten by a

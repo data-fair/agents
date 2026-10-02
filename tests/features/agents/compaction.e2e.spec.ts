@@ -89,7 +89,7 @@ test.describe('History Compaction', () => {
     // Poll the list API until the stored conversation appears.
     let conversationId = ''
     for (let i = 0; i < 40; i++) {
-      const res = await admin.get('/api/traces/user/test-standalone1?page=1&size=20').catch(() => null)
+      const res = await admin.get('/api/review/user/test-standalone1?page=1&size=20').catch(() => null)
       if (res && res.data.results.length) { conversationId = res.data.results[0].conversationId; break }
       await new Promise(resolve => setTimeout(resolve, 200))
     }

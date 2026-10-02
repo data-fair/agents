@@ -10,7 +10,7 @@ import mongo from '#mongo'
 import { type AccountKeys, httpError, reqSessionAuthenticated } from '@data-fair/lib-express'
 import eventsLog from '@data-fair/lib-express/events-log.js'
 import { assertCanOwnAgent } from '../autonomous-agents/service.ts'
-import { assertCanInstruct, assertOwnsConversation, requireAutonomousAgent, requireConversation, appendMessage, createRun } from './service.ts'
+import { assertCanInstruct, assertOwnsConversation, requireAutonomousAgent, requireConversation, appendMessage, createRun, setReviewConsent } from './service.ts'
 import { startRun, abortRun } from './executor.ts'
 import { getEffectiveRole, assertCanUseModel } from '../auth.ts'
 import { isStandardAgentId } from '../agent-session/standard-agents.ts'
@@ -265,6 +265,27 @@ router.get('/:type/:id/:conversationId/messages', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
+/**
+ * A thread's runs, in order.
+ *
+ * Authorized exactly like its messages: the one person it belongs to. It carries the per-call
+ * telemetry that replaced the trace collection, so this is where "which model answered, what did it
+ * cost, how much context did it send" is read from for a thread you own.
+ */
+router.get('/:type/:id/:conversationId/runs', async (req, res, next) => {
+  try {
+    const session = reqSessionAuthenticated(req)
+    const owner = reqOwner(req)
+    const conversation = await requireConversation(owner, req.params.conversationId)
+    assertOwnsConversation(conversation, session)
+    const results = await mongo.autonomousAgentRuns
+      .find({ conversationId: conversation.id }, { projection: { _id: 0 } })
+      .sort({ startedAt: 1 })
+      .toArray()
+    res.json({ results, count: results.length })
+  } catch (err) { next(err) }
+})
+
 router.post('/:type/:id/:conversationId/messages', async (req, res, next) => {
   try {
     const session = reqSessionAuthenticated(req)
@@ -277,6 +298,13 @@ router.post('/:type/:id/:conversationId/messages', async (req, res, next) => {
 
     const content = typeof req.body?.content === 'string' ? req.body.content.trim() : ''
     if (!content) throw httpError(400, 'content is required')
+
+    // The same cookie the socket reads off its upgrade, recorded on the THREAD so consent does not
+    // depend on which transport carried the turn.
+    const consented = hasTraceConsent(req.headers.cookie)
+    if (consented !== (conversation.consentedToReview === true)) {
+      await setReviewConsent(conversation.id, consented)
+    }
 
     const message = await appendMessage(conversation, {
       role: 'user',
@@ -294,8 +322,6 @@ router.post('/:type/:id/:conversationId/messages', async (req, res, next) => {
       triggeredBy: { userId: session.user.id, userName: session.user.name },
       // See the schema note: only this boundary has the session to derive it from.
       triggeredByRole: getEffectiveRole(session, owner),
-      // The same cookie the socket reads off its upgrade, so consent does not depend on transport.
-      traceConsent: hasTraceConsent(req.headers.cookie),
       status: 'running',
       startedAt: new Date().toISOString()
     })

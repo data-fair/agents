@@ -23,6 +23,11 @@ export const EXCERPT_MAX_CHARS = 500
 export const INPUT_HEAD_CHARS = 2000
 export const INPUT_TAIL_CHARS = 1000
 
+// Moderation events are kept for 30 days, enforced by a TTL index on `createdAt`. It used to live in
+// `traces/operations.ts` and be shared with the trace collection's TTL; moderation is the only
+// consumer left, so the constant lives with it.
+export const RETENTION_SECONDS = 30 * 24 * 60 * 60
+
 export const MODERATION_CONTEXT_MAX_MESSAGES = 6
 export const MODERATION_CONTEXT_PER_TURN_CHARS = 500
 export const MODERATION_CONTEXT_TOTAL_CHARS = 1500

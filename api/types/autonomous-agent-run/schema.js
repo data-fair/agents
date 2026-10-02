@@ -39,16 +39,59 @@ export default {
     // Stored on the run rather than recomputed by the executor because only the HTTP/socket boundary
     // has the session to derive it from.
     triggeredByRole: { type: 'string', enum: ['admin', 'contrib', 'user', 'external', 'anonymous'] },
-    // Whether the triggering person agreed to admin-visible trace storage.
-    //
-    // Recorded on the run so the executor does not care HOW the turn arrived: both boundaries read
-    // the same cookie (the socket from its upgrade request, the HTTP route from the request), which
-    // is the same cookie the gateway used to read as an `x-trace-consent` header. Consent is a
-    // property of what the person decided, not of the transport that carried the turn.
-    //
-    // Absent means no. Only a standard agent consults it — a configured autonomous agent's
-    // conversation is already stored server-side by design.
-    traceConsent: { type: 'boolean' },
+    /**
+     * Telemetry for each MODEL CALL this turn made.
+     *
+     * The one thing the old `trace-requests` collection held that the conversation cannot: a turn is
+     * N model calls, while the conversation keeps one message for the whole turn, so per-call
+     * provider, model, tokens, cost and duration have no other home. Everything else that collection
+     * stored — who said what, the tool calls and their results — IS the conversation.
+     *
+     * Bounded by the step limit, so this array cannot grow without limit the way a message can.
+     */
+    calls: {
+      type: 'array',
+      default: [],
+      items: {
+        type: 'object',
+        required: ['modelRole', 'model'],
+        properties: {
+          modelRole: { type: 'string' },
+          model: { type: 'string' },
+          provider: { type: 'string' },
+          providerType: { type: 'string' },
+          inputTokens: { type: 'number' },
+          outputTokens: { type: 'number' },
+          cacheReadTokens: { type: 'number' },
+          cacheWriteTokens: { type: 'number' },
+          credits: { type: 'number' },
+          // Split by token class, because the total alone cannot show that cache reads were billed
+          // at the cached rate — which is the thing most easily got wrong and least visible when it
+          // is. `cachedInput` is part of the input spend, not a separate charge.
+          creditsInput: { type: 'number' },
+          creditsCachedInput: { type: 'number' },
+          creditsOutput: { type: 'number' },
+          durationMs: { type: 'number' },
+          finishReason: { type: 'string' },
+          // How much context this call actually sent, which is how context management is diagnosed:
+          // a recap replacing a covered prefix shows up as a messageCount below the number of stored
+          // messages, and clearing shows up as inputTokens far below the stored size. Counts and a
+          // seq bound, so no content.
+          messageCount: { type: 'number' },
+          historyUpToSeq: { type: 'number' },
+          // The system prompt is per TURN, not per call, so it is recorded once below rather than
+          // repeated on every entry.
+          steps: { type: 'number' }
+        }
+      }
+    },
+    /**
+     * The instructions the model was given, recorded once per run.
+     *
+     * Reviewable without a second store, and the thing `reconstruct-trace` used to dig out of a
+     * request body by filtering for a system-role message.
+     */
+    systemPrompt: { type: 'string' },
     status: { type: 'string', enum: ['running', 'done', 'error', 'aborted', 'interrupted'] },
     stopReason: { type: 'string', enum: ['completed', 'step-limit', 'repeated-calls', 'budget', 'timeout', 'aborted', 'error'] },
     error: { type: 'string' },

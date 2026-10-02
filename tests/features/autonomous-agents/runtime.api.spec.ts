@@ -1180,48 +1180,54 @@ test.describe('Autonomous agent run traces', () => {
     return { agent, conv, runId }
   }
 
-  // The three-segment route, not /api/traces/conversation/:id — that one 404s on an empty
-  // result and so cannot express "no trace was stored".
-  const tracesOf = async (conversationId: string) =>
-    (await admin.get(`/api/traces/organization/test1/${conversationId}`)).data.results
+  /**
+   * The run's per-call telemetry, which replaced the `trace-requests` collection.
+   *
+   * Read off the run rather than a second store, because that is the whole change: a turn is N model
+   * calls and the conversation keeps one message for the whole turn, so per-call detail needs a home;
+   * everything else that collection held WAS the conversation.
+   */
+  const callsOf = async (runId: string) =>
+    (await admin.get(`/api/autonomous-agent-runs/organization/test1/${runId}`)).data.calls ?? []
 
-  test('a turn is traced when the org stores traces, keyed to the run and the agent', async () => {
-    await putMockSettings(admin, 'organization/test1', { storeTraces: true })
-    const { agent, conv, runId } = await runTurnFor()
+  /** Every assistant call of a conversation, newest history-bound last. */
+  const assistantCallsOf = async (conversationId: string) => {
+    const runs = (await admin.get(`/api/autonomous-agent-conversations/organization/test1/${conversationId}/runs`)).data.results
+    const calls = runs.flatMap((run: any) => run.calls ?? [])
+    return calls
+      .filter((call: any) => call.modelRole === 'assistant')
+      .sort((a: any, b: any) => (a.historyUpToSeq ?? 0) - (b.historyUpToSeq ?? 0))
+  }
 
-    const traces = await tracesOf(conv.id)
-    assert.ok(traces.length >= 1, 'a traced turn must be retrievable beside its conversation')
-    const turn = traces.find((t: any) => t.contextKind === 'turn')
-    assert.ok(turn, 'expected a trace of contextKind "turn"')
-    // 'turn' is an existing contextKind, so an autonomous run's traces are well-typed without a
-    // schema change — parseContextId keys off the contextId prefix.
-    assert.match(turn.contextId, new RegExp(runId))
-    // Same attribution as usage: the agent, not whoever sent the message, so a trace and a
-    // usage record for one turn cannot disagree about who spent it.
-    assert.equal(turn.userId, `autonomous-agent:${agent.id}`)
-    assert.equal(turn.request.model, 'mock-model')
-    // buildTraceRequestDoc derives these from body.messages / body.tools, so a body shaped
-    // wrongly would store a trace the review UI reads as empty.
-    assert.ok(turn.request.messageCount >= 1, 'the traced body must carry the history')
-    assert.equal(turn.modelRole, 'assistant')
+  test('a turn records its model call on the run', async () => {
+    const { runId } = await runTurnFor()
+
+    const calls = await callsOf(runId)
+    assert.ok(calls.length >= 1, 'a turn must record the model call it made')
+    const assistant = calls.find((c: any) => c.modelRole === 'assistant')
+    assert.ok(assistant, 'expected an assistant call')
+    assert.equal(assistant.model, 'mock-model')
+    assert.ok(assistant.provider, 'the provider that answered must be recorded')
+    assert.ok(assistant.durationMs >= 0)
   })
 
-  test('no trace is stored when the org has not enabled it', async () => {
+  test('telemetry is recorded whether or not the org enabled review', async () => {
+    // The gate moved to what it actually governs. `storeTraces` used to decide whether the exchange
+    // was COPIED into a second collection; there is no copy any more, and a model id with a token
+    // count is the account's own operational record of its own spend, not content about a person.
+    // What the setting gates now is whether an admin may READ THE CONVERSATION.
     await putMockSettings(admin, 'organization/test1', { storeTraces: false })
-    const { conv } = await runTurnFor()
-    assert.equal((await tracesOf(conv.id)).length, 0, 'storeTraces is the only gate, and it is off')
+    const { runId } = await runTurnFor()
+    assert.ok((await callsOf(runId)).length >= 1, 'spend must be attributable even with review off')
   })
 
-  test('a traced turn records the tool calls it made', async () => {
-    await putMockSettings(admin, 'organization/test1', { storeTraces: true })
-    const { conv } = await runTurnFor({ mcpServers: [{ serverId: 'dev-public-mcp' }] }, 'call tool echo {"value":"x"}')
-    const traces = await tracesOf(conv.id)
-    const turn = traces.find((t: any) => t.contextKind === 'turn')
-    // The tool must be visible both as advertised (request) and as called (response).
-    assert.ok(turn.request.toolCount >= 1, 'the traced body must list the tools advertised')
-    const traced = turn.response.toolCalls.find((c: any) => c.name === 'echo')
-    assert.ok(traced, 'the trace must show which tool the turn called')
-    assert.match(traced.arguments, /"value"\s*:\s*"x"/, 'and what it was asked to do — a name alone is not auditable')
+  test('the run also records the instructions the model was given', async () => {
+    // What a reviewer needs that the conversation does not contain. `reconstruct-trace` used to dig
+    // it out of a stored request body by filtering for a system-role message.
+    const { runId } = await runTurnFor()
+    const run = (await admin.get(`/api/autonomous-agent-runs/organization/test1/${runId}`)).data
+    assert.ok(typeof run.systemPrompt === 'string' && run.systemPrompt.length > 0)
+    assert.match(run.systemPrompt, /tool result/i, 'the standing injection warning must be in it')
   })
 
   test('a compaction is BILLED — to the account ledger and to the run', async () => {
@@ -1334,11 +1340,10 @@ test.describe('Autonomous agent run traces', () => {
     // how much context actually reached the model — and it must be far below the stored conversation,
     // because the old payloads were replaced by placeholders on the way in.
     const storedChars = JSON.stringify(messages).length
-    const lastTurn = (await tracesOf(conv.id))
-      .filter((t: any) => t.contextKind === 'turn')
-      .sort((a: any, b: any) => b.request.body.historyUpToSeq - a.request.body.historyUpToSeq)[0]
-    assert.ok(lastTurn, 'expected the last turn to be traced')
-    const sentTokens = lastTurn.usage.inputTokens
+    const assistantCalls = await assistantCallsOf(conv.id)
+    const lastTurn = assistantCalls[assistantCalls.length - 1]
+    assert.ok(lastTurn, 'expected the last turn to have recorded its call')
+    const sentTokens = lastTurn.inputTokens
     assert.ok(
       sentTokens < storedChars / 4 * 0.7,
       `the cleared context must be materially smaller than the stored conversation: sent ${sentTokens} tokens for ~${Math.round(storedChars / 4)} stored`
@@ -1399,29 +1404,24 @@ test.describe('Autonomous agent run traces', () => {
 
     // THE POINT: the covered prefix is no longer sent. The turn's traced messageCount counts
     // [recap, ...tail], so it must be below the number of stored messages the conversation now holds.
-    const turnTraces = (await tracesOf(conv.id)).filter((t: any) => t.contextKind === 'turn')
-    const latest = turnTraces.sort((a: any, b: any) => b.request.body.historyUpToSeq - a.request.body.historyUpToSeq)[0]
+    const assistantCalls = await assistantCallsOf(conv.id)
+    const latest = assistantCalls[assistantCalls.length - 1]
     assert.ok(
-      latest.request.messageCount < messages.length,
-      `the recap must replace the prefix it covers: sent ${latest.request.messageCount} for ${messages.length} stored messages`
+      latest.messageCount < messages.length,
+      `the recap must replace the prefix it covers: sent ${latest.messageCount} for ${messages.length} stored messages`
     )
   })
 
-  test('a trace does NOT duplicate the conversation, and carries no tool payloads', async () => {
-    // The conversation/trace separation. The stored conversation is the complete wire exchange, tool
-    // results included; a trace is per-request observability. Copying the history into the trace would
-    // duplicate the conversation — quadratically, since every request resends the whole thing — and put
-    // MCP payloads into a store that is opt-in, consent-gated and TTL'd precisely to keep them out.
-    await putMockSettings(admin, 'organization/test1', { storeTraces: true })
-    const { conv } = await runTurnFor({ mcpServers: [{ serverId: 'dev-public-mcp' }] }, 'call tool echo {"value":"x"}')
-    const turn = (await tracesOf(conv.id)).find((t: any) => t.contextKind === 'turn')
-    assert.equal(turn.request.body.messages, undefined, 'the trace must not carry a copy of the history')
-    // The tool's answer was `echo:x`; it must appear nowhere in the trace.
-    assert.equal(JSON.stringify(turn).includes('echo:x'), false, 'a tool payload must not reach a trace')
-    // A reference is kept instead, enough to fetch the exact history this request sent.
-    assert.ok(turn.request.messageCount >= 1, 'the trace must still report how many messages were sent')
-    assert.ok(turn.request.body.historyUpToSeq >= 1, 'and the seq bound that identifies them')
-    assert.equal(turn.conversation.id, conv.id)
+  test('telemetry carries NO content at all — not the history, not a tool payload', async () => {
+    // Stronger than the property the trace collection had to work for, and now true by construction
+    // rather than by discipline: there is no field for content to go in. A trace document held the
+    // response text and the tool-call arguments, so it had to be audited for what it duplicated and
+    // what it leaked; this holds a model id, token counts and a duration.
+    const { runId } = await runTurnFor({ mcpServers: [{ serverId: 'dev-public-mcp' }] }, 'call tool echo {"value":"x"}')
+    const flat = JSON.stringify(await callsOf(runId))
+    assert.equal(flat.includes('echo:x'), false, 'no tool payload')
+    assert.equal(flat.includes('hello'), false, 'no prompt text')
+    assert.equal(flat.includes('world'), false, 'no answer text')
   })
 
   test('a traced turn carries the cache token detail, so its cost matches what was billed', async () => {
@@ -1434,32 +1434,28 @@ test.describe('Autonomous agent run traces', () => {
     // is a mock directive matched against the whole prompt; `hello` stays on the last line so the
     // answer is still 'world'.
     await putMockSettings(admin, 'organization/test1', {
-      storeTraces: true,
       models: mockModels({ inputPricePerMillion: 1000, outputPricePerMillion: 1000, cachedInputPricePerMillion: 0 })
     })
-    const { conv } = await runTurnFor({}, 'cache 1000\nhello')
+    const { runId } = await runTurnFor({}, 'cache 1000\nhello')
 
-    const turn = (await tracesOf(conv.id)).find((t: any) => t.contextKind === 'turn')
-    assert.ok(turn, 'expected a turn trace')
-    assert.ok(turn.usage.cacheReadTokens > 0, 'the cache read detail must reach the trace')
-    assert.ok(turn.usage.noCacheTokens >= 0)
-    // With a zero cache tariff, priced input must be strictly less than pricing every input
-    // token at the full rate — which is only possible if the detail survived.
-    const pricedAtFullRate = (turn.usage.inputTokens / 1_000_000) * 1000
+    const assistant = (await callsOf(runId)).find((c: any) => c.modelRole === 'assistant')
+    assert.ok(assistant, 'expected an assistant call')
+    assert.ok(assistant.cacheReadTokens > 0, 'the cache read detail must reach the telemetry')
+    // With a zero cache tariff, the credits charged must be strictly less than pricing every input
+    // token at the full rate — which is only possible if the detail survived into the pricing.
+    // The INPUT portion, not the total: output is priced too, so a total would exceed input-only
+    // pricing whether or not the cache detail survived.
+    const pricedAtFullRate = (assistant.inputTokens / 1_000_000) * 1000
     assert.ok(
-      turn.cost.input < pricedAtFullRate,
-      `cache reads were billed at the full input tariff: ${turn.cost.input} vs ${pricedAtFullRate}`
+      assistant.creditsInput < pricedAtFullRate,
+      `cache reads were billed at the full input tariff: ${assistant.creditsInput} vs ${pricedAtFullRate}`
     )
   })
 
-  test('a trace carries no MCP credential and no tool payload', async () => {
-    // dev-apikey-mcp is the only dev entry with a credential; without it this would pass
-    // trivially. Tool RESULTS are deliberately absent too: the trace is for diagnosing the loop,
-    // not for duplicating fetched data.
-    await putMockSettings(admin, 'organization/test1', { storeTraces: true })
-    const { conv } = await runTurnFor({ mcpServers: [{ serverId: 'dev-apikey-mcp' }] }, 'call tool echo {"value":"x"}')
-    const flat = JSON.stringify(await tracesOf(conv.id))
-    assert.equal(flat.includes('dev-secret-value'), false, 'no MCP credential may reach a trace')
-    assert.equal(flat.includes('echo:x'), false, 'the tool RESULT is not the trace\'s business')
+  test('telemetry carries no MCP credential', async () => {
+    // dev-apikey-mcp is the only dev entry with a credential; without it this would pass trivially.
+    const { runId } = await runTurnFor({ mcpServers: [{ serverId: 'dev-apikey-mcp' }] }, 'call tool echo {"value":"x"}')
+    const flat = JSON.stringify(await callsOf(runId))
+    assert.equal(flat.includes('dev-secret-value'), false, 'no MCP credential may reach the run record')
   })
 })

@@ -4,7 +4,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { nextMessageSeq, isRunTerminal, runStopReasonMessage, buildSystemPrompt, wrapToolResult } from '../../../api/src/autonomous-agent-runtime/operations.ts'
-import { summarizeToolArguments } from '@agents/shared/tool-arguments'
+import { summarizeToolArguments } from '../../../ui/src/utils/tool-arguments.ts'
 import { compactionSystemPrompt, recapMessage } from '../../../api/src/agent-loop/compaction-prompt.ts'
 import { STREAM_IDLE_TIMEOUT_MS } from '../../../api/src/agent-loop/agent-loop-guards.ts'
 import { readFileSync } from 'node:fs'

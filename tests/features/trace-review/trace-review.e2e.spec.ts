@@ -10,10 +10,10 @@
  *   3. Open /agents/user/test-standalone1/chat as test-standalone1 and send
  *      "hello". Wait for the assistant to reply with "world" (mock provider).
  *      With consent active, this conversation is stored server-side.
- *   4. Poll GET /api/traces/user/test-standalone1 until the conversation appears
+ *   4. Poll GET /api/review/user/test-standalone1 until the conversation appears
  *      and grab its conversationId.
  *   5. Navigate to /agents/user/test-standalone1/traces/:id as test-standalone1.
- *   6. Assert the TraceView rendered (a "user-message" chip is visible).
+ *   6. Assert the conversation rendered — both sides of the exchange, not a type label.
  *   7. Use the evaluator: send "call tool getTraceOverview" and assert the
  *      getTraceOverview tool-invocation chip appears.
  */
@@ -80,7 +80,7 @@ test.describe('Trace review flow', () => {
     // Step 4: Poll the list API until the stored conversation appears
     let conversationId = ''
     for (let i = 0; i < 40; i++) {
-      const res = await admin.get('/api/traces/user/test-standalone1?page=1&size=20').catch(() => null)
+      const res = await admin.get('/api/review/user/test-standalone1?page=1&size=20').catch(() => null)
       if (res && res.data.results.length) { conversationId = res.data.results[0].conversationId; break }
       await new Promise(resolve => setTimeout(resolve, 200))
     }
@@ -89,8 +89,11 @@ test.describe('Trace review flow', () => {
     // Step 5: Navigate to the new per-trace review page
     await goToWithAuth(`/agents/user/test-standalone1/traces/${conversationId}`, 'test-standalone1')
 
-    // Step 6: Assert the TraceView populated — a "user-message" type chip is visible
-    await expect(page.getByText('user-message').first()).toBeVisible({ timeout: 10000 })
+    // Step 6: the exchange itself. The old assertion looked for a `user-message` TYPE CHIP, which
+    // the reconstruction layer emitted whether or not the entry had content — it kept passing after
+    // the trace body stopped carrying messages, which is how the review page broke unnoticed.
+    await expect(page.getByText('hello', { exact: true })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('world', { exact: true })).toBeVisible()
 
     // Step 7: the evaluator panel reports that it is out, rather than silently rendering nothing.
     // A reviewer who used it needs to be told it is coming back.
@@ -121,7 +124,7 @@ test.describe('Trace review flow', () => {
     // Trace storage is fire-and-forget, so give it time to flush, then assert the stored-conversation
     // list still holds exactly the one real chat.
     for (let i = 0; i < 15; i++) {
-      const res = await admin.get('/api/traces/user/test-standalone1?page=1&size=20')
+      const res = await admin.get('/api/review/user/test-standalone1?page=1&size=20')
       expect(res.data.results).toHaveLength(1)
       expect(res.data.results[0].conversationId).toBe(conversationId)
       await new Promise(resolve => setTimeout(resolve, 200))

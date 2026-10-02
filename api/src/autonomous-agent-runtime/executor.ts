@@ -22,7 +22,6 @@ import Debug from 'debug'
 import { streamText, generateText, stepCountIs, type ModelMessage, type Tool } from 'ai'
 import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep, STREAM_IDLE_TIMEOUT_MS } from '../agent-loop/agent-loop-guards.ts'
 import { decideContextManagement, clearOldToolResults } from '../agent-loop/compaction-policy.ts'
-import { summarizeToolArguments } from '@agents/shared/tool-arguments'
 import { compactionSystemPrompt, recapMessage } from '../agent-loop/compaction-prompt.ts'
 import type { AutonomousAgent, AutonomousAgentMessage, AutonomousAgentRun } from '#types'
 import {
@@ -32,8 +31,7 @@ import {
   type RunStopReason, type UIPart
 } from './operations.ts'
 import type { UsageIdentity } from '../usage/enforce.ts'
-import { appendMessage, updateMessage, finishRun, incrementRunSpend, saveCompaction, resolveAgent } from './service.ts'
-import { recordTraceRequest } from '../traces/service.ts'
+import { appendMessage, updateMessage, finishRun, incrementRunSpend, saveCompaction, resolveAgent, appendRunCall, setRunSystemPrompt } from './service.ts'
 import { getSettings } from '../settings/service.ts'
 import { resolveRoleModel } from '../models/service.ts'
 import { contextBudget } from '../models/operations.ts'
@@ -189,69 +187,59 @@ const moderateTurn = async (
 }
 
 /**
- * Record one model call, when the org has asked for traces AND whoever is being traced has agreed.
+ * Record one model call's telemetry on the run.
  *
- * TWO GATES, and which ones apply depends on who the agent is:
+ * This replaces a `trace-requests` collection that stored a COPY of the exchange under its own TTL,
+ * consent gate, five indexes and router. It was redundant once the conversation itself became the
+ * record: the only thing it held that a conversation cannot is per-CALL detail, because a turn is N
+ * model calls while the conversation keeps one message for the whole turn. So that is all this keeps,
+ * and it keeps it on the run, which is already the per-turn record.
  *
- *  - `settings.storeTraces`, the org's decision, always applies.
- *  - the person's CONSENT applies to a standard agent, because it is acting as them. A trace is
- *    visible to org admins, while the conversation itself is not, so a trace is a disclosure about
- *    the person that the conversation is not — which is the whole reason consent exists.
+ * Unconditional — no `storeTraces` setting, no consent check. This is operational telemetry about
+ * the account's own spend, not content: a model id, a token count, a duration. What consent governs
+ * is whether an ADMIN MAY READ THE CONVERSATION, which is one flag on the conversation now
+ * (`consentedToReview`) rather than the same question asked in two places.
  *
- * A CONFIGURED autonomous agent needs no consent, and the reason is specific rather than
- * convenient: it is an org-owned service identity, its conversation is already stored server-side
- * by design, and a trace adds prompt/response detail about data the org already holds rather than a
- * new category of it. A scheduled run will also have no instructing person to ask.
- *
- * This gate used to live in the gateway, as an `x-trace-consent` header per request. The swap moved
- * the chat onto this path, where the premise of the comment that used to sit here — "there is no
- * browser in the loop to ask" — had quietly stopped being true. The socket's upgrade request carries
- * the same cookie the header was built from, so the question is asked in the same place as before.
- *
- * Fire-and-forget with a logged catch, exactly as the gateway treated it: a trace is diagnostic,
- * and losing one must never cost a turn.
+ * Fire-and-forget with a logged catch: telemetry must never cost a turn.
  */
-const recordAutonomousTrace = (
-  settings: Awaited<ReturnType<typeof getSettings>>,
-  input: {
-    run: AutonomousAgentRun
-    identity: UsageIdentity
-    /** Which agent this call belongs to, because it decides whether consent is required. */
-    autonomousAgentId: string
-    contextId: string
+const recordCall = (
+  run: AutonomousAgentRun,
+  call: {
     modelRole: string
     entry: ReturnType<typeof resolveRoleModel>['entry']
-    body: unknown
-    response: { content: string, toolCalls: { id: string, name: string, arguments: string }[], finishReason?: string }
-    usage: { inputTokens: number, outputTokens: number, noCacheTokens?: number, cacheReadTokens?: number, cacheWriteTokens?: number }
+    usage: { inputTokens: number, outputTokens: number, cacheReadTokens?: number, cacheWriteTokens?: number }
+    credits: number
+    creditBreakdown?: { input: number, cachedInput: number, output: number }
     durationMs: number
+    finishReason?: string
+    steps?: number
+    messageCount?: number
+    historyUpToSeq?: number
   }
 ) => {
-  if (settings.storeTraces !== true) return
-  // A standard agent acts as a person, so it needs that person's yes. Absent means no.
-  if (isStandardAgentId(input.autonomousAgentId) && input.run.traceConsent !== true) return
-  recordTraceRequest({
-    owner: input.run.owner,
-    userId: input.identity.usageUserId,
-    userName: input.identity.usageUserName,
-    // The conversation id, so a run's traces are retrievable beside its messages.
-    conversationId: input.run.conversationId,
-    contextId: input.contextId,
-    modelRole: input.modelRole,
-    providerName: input.entry.provider.name,
-    providerType: input.entry.provider.type,
-    resolvedModel: input.entry.id,
-    body: input.body,
-    response: input.response,
-    usage: input.usage,
-    prices: {
-      inputPricePerMillion: input.entry.inputPricePerMillion,
-      outputPricePerMillion: input.entry.outputPricePerMillion,
-      cachedInputPricePerMillion: input.entry.cachedInputPricePerMillion
-    },
-    eurosPerCredit: config.eurosPerCredit,
-    timing: { durationMs: input.durationMs }
-  }).catch(err => console.error('autonomous agent trace could not be recorded', err))
+  appendRunCall(run.id, {
+    modelRole: call.modelRole,
+    model: call.entry.id,
+    provider: call.entry.provider.name,
+    providerType: call.entry.provider.type,
+    inputTokens: call.usage.inputTokens,
+    outputTokens: call.usage.outputTokens,
+    ...(call.usage.cacheReadTokens !== undefined ? { cacheReadTokens: call.usage.cacheReadTokens } : {}),
+    ...(call.usage.cacheWriteTokens !== undefined ? { cacheWriteTokens: call.usage.cacheWriteTokens } : {}),
+    credits: call.credits,
+    ...(call.creditBreakdown
+      ? {
+          creditsInput: call.creditBreakdown.input,
+          creditsCachedInput: call.creditBreakdown.cachedInput,
+          creditsOutput: call.creditBreakdown.output
+        }
+      : {}),
+    durationMs: call.durationMs,
+    ...(call.finishReason ? { finishReason: call.finishReason } : {}),
+    ...(call.steps !== undefined ? { steps: call.steps } : {}),
+    ...(call.messageCount !== undefined ? { messageCount: call.messageCount } : {}),
+    ...(call.historyUpToSeq !== undefined ? { historyUpToSeq: call.historyUpToSeq } : {})
+  }).catch(err => console.error('could not record run telemetry', err))
 }
 
 /** The model's context for a turn, with the stored seq behind each message (see loadHistory). */
@@ -406,22 +394,19 @@ const compactHistory = async (
       })
     }
 
-    // Traced too, so its cost is attributable rather than appearing as unexplained spend on the
+    // Recorded too, so its cost is attributable rather than appearing as unexplained spend on the
     // turn beside it.
-    recordAutonomousTrace(settings, {
-      run,
-      autonomousAgentId: tracing.autonomousAgentId,
-      identity,
-      contextId: `compaction:${run.id}`,
+    recordCall(run, {
       modelRole: 'summarizer',
       entry,
-      body: { system, messages: body.messages },
-      response: { content: summary, toolCalls: [], finishReason: generated.finishReason },
       usage: {
         inputTokens: generated.usage?.inputTokens ?? 0,
         outputTokens: generated.usage?.outputTokens ?? 0
       },
-      durationMs: Date.now() - startedAt
+      credits: compactionCredits.total,
+      creditBreakdown: { input: compactionCredits.input, cachedInput: compactionCredits.cachedInput, output: compactionCredits.output },
+      durationMs: Date.now() - startedAt,
+      finishReason: generated.finishReason
     })
     // PERSISTED, so the next turn does not re-summarise the same prefix. Without this, a conversation
     // past the budget paid a full summarizer call on every turn, for ever: nothing was stored, so the
@@ -664,12 +649,14 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   // usage records and the run cannot disagree.
   let inputTokens = 0
   let outputTokens = 0
-  // The cache detail too: priceTokens reads noCacheTokens/cacheReadTokens/cacheWriteTokens, so
-  // dropping them makes a trace price cache reads at the full input tariff and contradict what
-  // was actually billed — the exact regression traces/operations.ts documents having fixed once.
-  let noCacheTokens = 0
+  // The cache detail, which the run's telemetry reports so a reviewer can see that cache reads were
+  // billed at the cached rate. `noCacheTokens` is not accumulated: it was only ever needed to reprice
+  // a trace document from scratch, and the credits are now computed once, where they are charged.
   let cacheReadTokens = 0
   let cacheWriteTokens = 0
+  // Accumulated per token class so the turn's telemetry can show WHERE the cost went, which is the
+  // only way to see that cache reads were priced at the cached rate.
+  const creditBreakdown = { input: 0, cachedInput: 0, output: 0 }
   const startedAt = Date.now()
 
   const result = streamText({
@@ -714,10 +701,12 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
       )
       inputTokens += usage?.inputTokens ?? 0
       outputTokens += usage?.outputTokens ?? 0
-      noCacheTokens += details?.noCacheTokens ?? 0
       cacheReadTokens += details?.cacheReadTokens ?? 0
       cacheWriteTokens += details?.cacheWriteTokens ?? 0
       credits += stepCredits.total
+      creditBreakdown.input += stepCredits.input
+      creditBreakdown.cachedInput += stepCredits.cachedInput
+      creditBreakdown.output += stepCredits.output
       // On the RUN as well as in usage, per step, so an abandoned turn's later steps still
       // show up and the two never disagree.
       await incrementRunSpend(run.id, stepCredits.total, 1)
@@ -928,46 +917,28 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
     }
   }
 
-  const content = partsText(parts)
-  const toolCalls = parts.filter(p => p.type === 'dynamic-tool')
-
   const steps = (await result.steps).length
   const finishReason = await result.finishReason
 
-  recordAutonomousTrace(settings, {
-    run,
-    autonomousAgentId: autonomousAgent.id,
-    identity,
-    contextId: `turn:${run.id}`,
+  // The turn's own model call. `content` and the tool calls are NOT recorded here: they are the
+  // assistant message, already persisted as the conversation. Recording them again is exactly the
+  // duplication the `trace-requests` collection was.
+  recordCall(run, {
     modelRole: 'assistant',
     entry,
-    // The request DESCRIBED, not duplicated: the system prompt, the tool names advertised, and a
-    // REFERENCE to the history rather than the history itself.
-    //
-    // This is the conversation/trace separation. The stored conversation is now the complete wire
-    // exchange, tool results included, so copying `history` in here would (a) duplicate the
-    // conversation in a second place, quadratically since every request resends the whole thing, and
-    // (b) put MCP payloads into traces, which are a different storage decision — opt-in, consent-gated
-    // and TTL'd — and which were deliberately kept free of fetched data. The conversation id and the
-    // seq bound below are enough to fetch the exact history this request sent.
-    body: {
-      system: buildSystemPrompt(autonomousAgent),
-      messageCount: history.length,
-      historyUpToSeq: messageSeq,
-      tools: Object.keys(tools)
-    },
-    response: {
-      content,
-      toolCalls: toolCalls.map(call => ({
-        id: String(call.toolCallId ?? ''),
-        name: String(call.toolName ?? ''),
-        arguments: summarizeToolArguments(call.input)
-      })),
-      finishReason
-    },
-    usage: { inputTokens, outputTokens, noCacheTokens, cacheReadTokens, cacheWriteTokens },
-    durationMs: Date.now() - startedAt
+    usage: { inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens },
+    credits,
+    creditBreakdown,
+    durationMs: Date.now() - startedAt,
+    finishReason,
+    steps,
+    messageCount: history.length,
+    historyUpToSeq: messageSeq
   })
+  // The instructions, recorded ONCE per run rather than on every call: they do not change within a
+  // turn, and they are what a reviewer needs that the conversation does not contain.
+  setRunSystemPrompt(run.id, buildSystemPrompt(autonomousAgent))
+    .catch(err => console.error('could not record the run system prompt', err))
   // A guard-stopped turn is a truncation, not a provider error: the model still wanted to
   // call tools when a cap cut it off. The budget is checked first because it is the reason
   // that is not otherwise visible from the finish reason.
@@ -988,7 +959,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   // the clock has no text by nature (it was mid-tool-chain), and runTurn appends that stop
   // reason's notice as its content. Treating those as empty completions would relabel every
   // truncation as a provider error.
-  const emptyCompletion = stopReason === 'completed' && content.trim().length === 0
+  const emptyCompletion = stopReason === 'completed' && partsText(parts).trim().length === 0
   const finalParts = emptyCompletion ? withAppendedText(parts, EMPTY_COMPLETION_MESSAGE) : parts
   // The last word on this turn's structure, with pending cleared — so a page stops rendering it as in
   // progress without having to infer that from `turn-end`.

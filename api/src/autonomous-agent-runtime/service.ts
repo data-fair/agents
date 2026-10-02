@@ -184,6 +184,32 @@ export const createRun = async (run: Omit<AutonomousAgentRun, 'id'>): Promise<Au
  * are really billed through recordUsage. If the run's own numbers were written once when it
  * was closed out, the run and the usage records would then disagree about what was spent.
  */
+/**
+ * Record whether this thread may be read by an admin of the account.
+ *
+ * One flag on the conversation, which is what the privacy model describes: the thread is stored
+ * either way so the person can return to it and is not admin-visible; this is what makes it visible.
+ */
+export const setReviewConsent = async (conversationId: string, consented: boolean) => {
+  await mongo.autonomousAgentConversations.updateOne({ id: conversationId }, { $set: { consentedToReview: consented } })
+}
+
+/**
+ * Append one model call's telemetry to the run.
+ *
+ * `$push` rather than a read-modify-write: several calls of one turn settle independently (the
+ * summarizer finishes while the assistant is still streaming), and a read-modify-write would lose
+ * whichever landed second.
+ */
+export const appendRunCall = async (id: string, call: NonNullable<AutonomousAgentRun['calls']>[number]) => {
+  await mongo.autonomousAgentRuns.updateOne({ id }, { $push: { calls: call } })
+}
+
+/** The instructions this run gave the model, recorded once. */
+export const setRunSystemPrompt = async (id: string, systemPrompt: string) => {
+  await mongo.autonomousAgentRuns.updateOne({ id }, { $set: { systemPrompt } })
+}
+
 export const incrementRunSpend = async (id: string, credits: number, steps: number) => {
   await mongo.autonomousAgentRuns.updateOne({ id }, { $inc: { credits, steps } })
 }

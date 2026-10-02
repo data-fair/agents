@@ -4,7 +4,7 @@
  * Scenario:
  *   1. PUT settings with storeTraces: true and a mock provider/assistant model.
  *   2. Drive a gateway request with consent headers so a trace gets stored.
- *   3. Poll GET /api/traces/conversation/:id until the trace appears.
+ *   3. Poll GET /api/review/conversation/:id until the trace appears.
  *   4. Navigate to /agents/organization/test1/traces/:id as superadmin.
  *   5. Assert the TraceView rendered (a user-message chip is visible).
  */
@@ -46,9 +46,12 @@ const settingsData = {
 }
 
 async function waitForConversation (conversationId: string) {
+  // Reviewable means BOTH gates are satisfied: the org enabled review and the person consented. The
+  // by-conversation route answers 200 only then, so a 404 here is the consent write not having
+  // landed yet rather than the conversation being absent.
   for (let i = 0; i < 60; i++) {
-    const res = await admin.get(`/api/traces/conversation/${conversationId}`).catch(() => null)
-    if (res && res.data.results.length > 0) return
+    const res = await admin.get(`/api/review/conversation/${conversationId}`).catch(() => null)
+    if (res?.status === 200) return
     await new Promise(resolve => setTimeout(resolve, 200))
   }
   throw new Error(`Timed out waiting for conversation ${conversationId}`)
@@ -68,32 +71,32 @@ test.describe('Trace review page (/organization/test1/traces/:id)', () => {
     await waitForConversation(convId)
   })
 
-  test('renders the stored trace for an admin', async ({ page, goToWithAuth }) => {
+  test('renders the conversation for an admin', async ({ page, goToWithAuth }) => {
     await goToWithAuth(`/agents/organization/test1/traces/${convId}`, 'superadmin', { adminMode: true })
 
-    // The page must not show the load-error state
-    await expect(page.getByText('Trace not found or access denied.', { exact: false })).toHaveCount(0)
+    await expect(page.getByText('Conversation not found or access denied.', { exact: false })).toHaveCount(0)
 
-    // TraceView renders a chip per trace entry; the first user message produces a
-    // "user-message" chip — same assertion used in trace-review.e2e.spec.ts
-    await expect(page.getByText('user-message').first()).toBeVisible({ timeout: 15000 })
+    // The exchange itself, rendered by the SAME component the chat uses — so a reviewer sees what the
+    // person saw. The old assertion looked for a `user-message` TYPE CHIP, which the reconstruction
+    // layer emitted whether or not the entry had any content: it kept passing after the executor
+    // stopped putting messages in the trace body, which is how that feature broke unnoticed.
+    await expect(page.getByText('hello review page')).toBeVisible({ timeout: 15000 })
+    // The mock answers 'world' only to exactly "hello"; this seed gets the fallback. Asserting the
+    // ANSWER and not just the question matters — a reviewer seeing only one side of the exchange is
+    // the failure the old chip assertion could not detect.
+    await expect(page.getByText('what do you mean', { exact: false })).toBeVisible()
   })
 
-  test('shows the summary bar, flag chips and view toggle', async ({ page, goToWithAuth }) => {
+  test('shows the telemetry the conversation cannot carry', async ({ page, goToWithAuth }) => {
     await goToWithAuth(`/agents/organization/test1/traces/${convId}`, 'superadmin', { adminMode: true })
 
-    // summary bar: the request-count metric.
-    //
-    // The flag-chip assertion is GONE with its source. Experimental chat flags were read from a
-    // cookie by the gateway and recorded on the trace; the server-held loop receives no flags, so
-    // there is no chip to assert rather than a chip that moved.
-    await expect(page.getByText('1 requests', { exact: false })).toBeVisible({ timeout: 15000 })
+    // Per-call detail now lives on the run: which model answered, and what the turn cost.
+    await expect(page.getByText('1 turns', { exact: false })).toBeVisible({ timeout: 15000 })
+    await expect(page.getByText('mock-model').first()).toBeVisible()
 
-    // default Interpreted view hides physical-request entries
-    await expect(page.getByText('physical-request')).toHaveCount(0)
-
-    // switching to Raw reveals them
-    await page.getByRole('button', { name: 'Raw' }).click()
-    await expect(page.getByText('physical-request').first()).toBeVisible()
+    // The instructions are behind the detail toggle rather than always on screen.
+    await page.getByRole('button', { name: 'Show detail' }).click()
+    await expect(page.getByText('Instructions given to the model')).toBeVisible()
+    await expect(page.getByText('tool result', { exact: false }).first()).toBeVisible()
   })
 })
