@@ -325,7 +325,7 @@ const props = withDefaults(defineProps<{
   actionVisiblePrompt: string | null
   mermaidEnabled: boolean
   // Default-on: render delegations as a plain tool chip. Callers that want the
-  // full expandable trace (e.g. the evaluator) pass false.
+  // full expandable trace (the admin conversation review) pass false.
   simpleSubAgents?: boolean
   // Render reasoning-model "thinking" as a foldable panel; when false the panel is
   // omitted entirely (compact mode), leaving only the live "Thinking…" activity line.

@@ -3,9 +3,11 @@
 An **autonomous agent** is an org-owned, configured agent that runs its own turns **on the server**,
 against MCP tools it reaches as its own identity, on a conversation several people share.
 
-It is the one part of this service that holds server-side conversation state. Everything else — the
-in-page chat, its sub-agents, its WebMCP tools — runs its loop in the browser and treats the API as a
-gateway (see [Gateway](./gateway.md)).
+It was once the one part of this service that held server-side conversation state. The loop moved to
+the server for every agent, so a configured autonomous agent and the in-page chat now run the same
+executor over the same collections; what still distinguishes an autonomous agent is WHO it acts as (its
+own non-human identity rather than the person's session) and that it is configured rather than
+standard.
 
 ## What it is made of
 

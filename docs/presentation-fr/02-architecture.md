@@ -105,7 +105,6 @@ Un même déploiement adresse plusieurs fournisseurs simultanément. Chaque comp
 | Assistant | Fil conversationnel de haut niveau |
 | Outils | Exécution des appels d'outils enchaînés par les sous-agents |
 | Résumeur | Synthèse compacte du travail des sous-agents |
-| Évaluateur | Contrôle qualité et raisonnement approfondi |
 | Modérateur | Filtrage des messages du trafic non fiable (utilisé en interne par la passerelle, voir la section Sécurité) |
 
 Cette séparation permet d'affecter un modèle rapide et économique aux rôles sensibles à la latence et au coût, et un modèle plus puissant aux tâches de raisonnement. Comme la passerelle normalise les échanges, le code d'orchestration ne dépend d'aucun fournisseur : passer d'un service hébergé à un serveur local ne demande qu'une reconfiguration du compte.

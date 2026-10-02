@@ -15,8 +15,6 @@ export default {
   cipherPassword: undefined,
   upgradeRoot: '/app/',
   requireAnonymousActionToken: true,
-  evaluatorAccount: null,
-  github: { token: undefined },
   providers: [],
   models: [],
   mcpServers: [],

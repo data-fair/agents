@@ -19,9 +19,8 @@ export default {
   },
   cipherPassword: 'test',
   upgradeRoot: '../',
-  evaluatorAccount: { type: 'organization', id: 'test1' },
   providers: [{ type: 'mock', id: 'global-mock', name: 'Global Mock', enabled: true }],
-  models: [{ id: 'mock-model', name: 'Global Mock Model', provider: 'global-mock', usage: ['assistant', 'tools', 'summarizer', 'evaluator', 'moderator'], inputPricePerMillion: 0, outputPricePerMillion: 0 }],
+  models: [{ id: 'mock-model', name: 'Global Mock Model', provider: 'global-mock', usage: ['assistant', 'tools', 'summarizer', 'moderator'], inputPricePerMillion: 0, outputPricePerMillion: 0 }],
   defaultModels: { assistant: { provider: 'global-mock', id: 'mock-model' } },
   // The api-test MCP fixture (tests/support/mcp-fixture.ts) listens on this port. It is
   // DERIVED, not hardcoded: dev/init-env.sh assigns a RANDOM base port and allocates

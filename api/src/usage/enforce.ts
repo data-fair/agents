@@ -65,8 +65,8 @@ export function authenticatedUsageIdentity (sessionState: any, owner: AccountKey
   const session = sessionState
 
   // Admin-mode superadmins may consume any account: treat them as an admin of the owner regardless
-  // of membership. This powers cross-account trace evaluation — the configured evaluator account is
-  // consumed, never the reviewed account. Quotas still apply and usage is still recorded on the owner.
+  // of membership. Quotas still apply and usage is still recorded on the owner, so a superadmin
+  // acting on an account they are not a member of is billed to that account rather than untracked.
   if (session.user?.adminMode) {
     const trackPerUser = owner.type === 'organization'
     return {

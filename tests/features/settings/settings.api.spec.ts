@@ -98,11 +98,10 @@ test.describe('Settings API', () => {
     assert.ok(Array.isArray(res.data.results))
 
     const mockModels = res.data.results.filter((m: any) => m.provider.type === 'mock')
-    assert.equal(mockModels.length, 4)
+    assert.equal(mockModels.length, 3)
     assert.ok(mockModels.some((m: any) => m.id === 'mock-model'))
     assert.ok(mockModels.some((m: any) => m.id === 'mock-tools'))
     assert.ok(mockModels.some((m: any) => m.id === 'mock-summarizer'))
-    assert.ok(mockModels.some((m: any) => m.id === 'evaluator-mock-model'))
   })
 
   test('surfaces per-provider model-listing errors without dropping working providers', async () => {
@@ -123,7 +122,7 @@ test.describe('Settings API', () => {
 
     // the working provider still returns its models
     const mockModels = res.data.results.filter((m: any) => m.provider.type === 'mock')
-    assert.equal(mockModels.length, 4)
+    assert.equal(mockModels.length, 3)
 
     // the failing provider is reported instead of silently dropped
     assert.ok(Array.isArray(res.data.errors))

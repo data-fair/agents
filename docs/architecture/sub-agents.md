@@ -240,7 +240,7 @@ This also reduces pressure on the token budget that triggers history compaction 
 
 ## 7. Telemetry
 
-There is no live in-browser recorder. Instead, each sub-agent's physical LLM requests are tagged with a trace context id via an `x-trace-ctx: sub:<name>:<index>:<parentToolCallId>` header. When [trace storage](./tracing.md) is enabled (org `storeTraces`) and consented (`x-trace-consent`), the gateway stores those requests; at view time `reconstructTrace()` groups them by `contextId` into a sub-agent block, shown alongside the main agent's flow on the review page.
+A sub-agent's work is part of its parent's turn, so it needs no separate record: the delegation is a tool part on the assistant's message, and each of the sub-agent's model calls is an entry in the run's `calls` array with its own `modelRole`. [Review](./conversation-review.md) therefore shows it in place — expandable on the review page, which passes `simpleSubAgents: false` — and the export carries it as the same parts and calls.
 
 ---
 

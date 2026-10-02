@@ -30,9 +30,7 @@ const provider = {
  * Roles a deployment puts on a small model: sub-agents, compaction, the
  * moderation guard. Running them on the assistant's model costs more per case
  * and flatters the product — a sub-agent prompt only a large model can follow
- * reads as working until a real deployment runs it on the cheap tier. The
- * evaluator is a trace-review role no case exercises, so it follows the
- * assistant rather than earning a third setting.
+ * reads as working until a real deployment runs it on the cheap tier.
  */
 export function bridgeSettings (assistantModelId: string, toolsModelId: string) {
   const modelRef = (id: string) => ({
@@ -53,9 +51,9 @@ export function bridgeSettings (assistantModelId: string, toolsModelId: string) 
   // The catalog is keyed by model, not by role, so the two ids collapse to one entry
   // when a run pins the same model to both tiers (SIM_TOOLS_MODEL=sonnet).
   const models = assistantModelId === toolsModelId
-    ? [priced(assistantModelId, ['assistant', 'evaluator', 'tools', 'summarizer', 'moderator'])]
+    ? [priced(assistantModelId, ['assistant', 'tools', 'summarizer', 'moderator'])]
     : [
-        priced(assistantModelId, ['assistant', 'evaluator']),
+        priced(assistantModelId, ['assistant']),
         priced(toolsModelId, ['tools', 'summarizer', 'moderator'])
       ]
   const ref = (id: string) => ({ provider: 'bridge', id, name: id })
@@ -64,7 +62,6 @@ export function bridgeSettings (assistantModelId: string, toolsModelId: string) 
   // instead of the bridge and the case would prove nothing.
   const modelMapping = {
     assistant: ref(assistantModelId),
-    evaluator: ref(assistantModelId),
     tools: ref(toolsModelId),
     summarizer: ref(toolsModelId),
     moderator: ref(toolsModelId)

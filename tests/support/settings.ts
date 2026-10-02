@@ -22,7 +22,7 @@ export const mockModelRef = { id: 'mock-model', name: 'Mock Model', provider: { 
  * 400_000 EUR/M which at the 0.40 EUR/credit peg is exactly one credit per token. */
 export const mockModels = (prices: { inputPricePerMillion: number, outputPricePerMillion: number, cachedInputPricePerMillion?: number } = { inputPricePerMillion: 0, outputPricePerMillion: 0 }) => [{
   model: mockModelRef,
-  usage: ['assistant', 'tools', 'summarizer', 'evaluator', 'moderator'],
+  usage: ['assistant', 'tools', 'summarizer', 'moderator'],
   ...prices
 }]
 

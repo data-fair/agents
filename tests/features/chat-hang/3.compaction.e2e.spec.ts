@@ -1,13 +1,23 @@
 /**
- * E2E test for budget-based compaction.
+ * E2E test for budget-based compaction, on the EMBEDDED chat surface.
  *
- * The account budget is forced small via the sessionStorage override so a handful of
- * mock-provider turns cross it. Asserts that a compaction actually ran — via
- * compactHistory's debug log line, not the transient "Compacting…" activity chip,
- * which proved too short-lived (the mock summarizer round-trip is fast enough that
- * polling the DOM for it misses it more often than not) to catch reliably — and,
- * the point of keeping recent turns verbatim, that the conversation keeps answering
- * afterwards rather than losing its thread.
+ * The property under test is the one that matters to a person: crossing the budget must not break
+ * the thread. A handful of mock turns cross it, and the conversation still answers afterwards with
+ * no error alert — which is what keeping recent turns verbatim buys.
+ *
+ * REWRITTEN for the server-held loop, and the old version is worth recording. It forced the budget
+ * with `sessionStorage.setItem('agent-chat-compaction-threshold', …)` and asserted a
+ * `df-agents:use-agent-chat` console line from `compactHistory`. Both belonged to the browser loop:
+ * the override is read by nothing now, and that composable is deleted. So the test could neither
+ * trigger compaction nor observe it, and it went unnoticed because it sits behind an
+ * alphabetically-earlier failure in a --max-failures=1 suite.
+ *
+ * The budget is now sized server-side off the assistant model's context window, so a tiny
+ * `contextWindow` in settings is the trigger. That compaction REALLY RAN is asserted on the run
+ * telemetry in tests/features/agents/compaction.e2e.spec.ts (a `summarizer` call appears) and in
+ * tests/features/autonomous-agents/runtime.api.spec.ts (the recap is persisted and reused); this
+ * test deliberately does not re-assert it, because on this surface it would need review consent and
+ * the consent sheet would overlay the composer the test has to type into.
  */
 
 import { expect, type Page } from '@playwright/test'
@@ -29,7 +39,9 @@ const summarizerModelRef = {
 const settingsData = {
   providers: [mockProvider],
   models: [
-    { model: mockModelRef, usage: ['assistant', 'tools', 'evaluator', 'moderator'], inputPricePerMillion: 0, outputPricePerMillion: 0 },
+    // contextWindow is the whole trigger: the server compacts above a share of it, so a few wordy
+    // mock turns cross it. There is no client-side override any more.
+    { model: mockModelRef, usage: ['assistant', 'tools', 'moderator'], inputPricePerMillion: 0, outputPricePerMillion: 0, contextWindow: 200 },
     { model: summarizerModelRef, usage: ['summarizer'], inputPricePerMillion: 0, outputPricePerMillion: 0 }
   ],
   modelMapping: {
@@ -63,22 +75,8 @@ test.describe('History compaction', () => {
   })
 
   test('crossing the budget compacts and the conversation keeps answering', async ({ page, goToWithAuth }) => {
-    // Enable the composable's debug namespace before any page script runs (applies to
-    // the chat iframe too — addInitScript re-injects on every navigation/child frame),
-    // so compactHistory's `debug('compacted history from …')` line reaches the console.
-    await page.addInitScript(() => {
-      try { window.localStorage.setItem('debug', 'df-agents:use-agent-chat') } catch { /* ignore */ }
-    })
-    let sawCompactionLog = false
-    page.on('console', msg => {
-      if (msg.text().includes('compacted history from')) sawCompactionLog = true
-    })
-
     await goToWithAuth('/agents/_dev/chat-block', 'test-standalone1')
     const frame = await waitForChatFrame(page)
-
-    // Force a tiny budget. Read live per turn in compactHistory, so no reload needed.
-    await frame.evaluate(() => sessionStorage.setItem('agent-chat-compaction-threshold', '300'))
 
     const input = frame.getByPlaceholder('Type your message...')
     const send = frame.getByRole('button', { name: 'Send' })
@@ -88,16 +86,14 @@ test.describe('History compaction', () => {
     await send.click()
     await expect(frame.getByText('world')).toBeVisible({ timeout: 15000 })
 
-    // Subsequent turns push measured fill past the 300-token budget. Each turn's
-    // real usage.inputTokens (the honest fill measure) grows by roughly the size
-    // of the previous exchange, so several turns are needed to cross the budget.
+    // Subsequent turns push the measured fill past the budget. Each turn's real
+    // usage.inputTokens (the honest fill measure) grows by roughly the size of the
+    // previous exchange, so several turns are needed to cross it.
     for (let i = 0; i < 7; i++) {
       await input.fill(`question number ${i} with enough words to grow the history measurably`)
       await send.click()
       await expect(frame.getByText('what do you mean ?').last()).toBeVisible({ timeout: 15000 })
     }
-
-    expect(sawCompactionLog).toBe(true)
 
     // The conversation still works after compaction — the retained window kept it coherent.
     await input.fill('hello')

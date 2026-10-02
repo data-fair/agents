@@ -52,8 +52,8 @@ export type ApiConfig = {
      * @minItems 1
      */
     usage: [
-      "assistant" | "tools" | "summarizer" | "evaluator" | "moderator",
-      ...("assistant" | "tools" | "summarizer" | "evaluator" | "moderator")[]
+      "assistant" | "tools" | "summarizer" | "moderator",
+      ...("assistant" | "tools" | "summarizer" | "moderator")[]
     ];
     contextWindow?: number;
     inputPricePerMillion: number;
@@ -84,7 +84,6 @@ export type ApiConfig = {
     assistant?: ModelRef;
     tools?: ModelRef;
     summarizer?: ModelRef;
-    evaluator?: ModelRef;
     moderator?: ModelRef;
   };
   eurosPerCredit: number;
@@ -99,10 +98,6 @@ export type ApiConfig = {
   upgradeRoot?: string;
   cipherPassword: string;
   requireAnonymousActionToken: boolean;
-  evaluatorAccount?: {
-    type: "user" | "organization";
-    id: string;
-  } | null;
   github?: {
     token?: string;
   };

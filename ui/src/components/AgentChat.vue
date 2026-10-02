@@ -337,9 +337,9 @@ function persistFlags () {
 
 // Tool exploration and sub-agent flattening are the two flags the server-held loop does not take
 // from the client. Exploration is shelved; flattening is the loop's own decision now. The flags are
-// still persisted — they are read by the evaluator path, which still runs in the browser — but the
-// conversation reset is what used to apply them here, and resetting for a setting that no longer
-// reaches the loop would throw the transcript away for nothing.
+// still persisted — the debug dialog shows them — but the conversation reset is what used to apply
+// them here, and resetting for a setting that no longer reaches the loop would throw the transcript
+// away for nothing.
 function handleToolExploration (enabled: boolean) {
   explorationEnabled.value = enabled
   persistFlags()

@@ -156,4 +156,48 @@ test.describe('Conversation review API', () => {
 
     assert.equal((await admin.get('/api/review/user/test-standalone1')).data.count, 0)
   })
+  test('exports the conversation as a line-addressable JSONL file', async () => {
+    // The download the admin page offers, and what replaced the in-browser trace evaluator. What is
+    // asserted here is the HTTP contract (gate, headers, filename) and that the file the route
+    // produced is the one the format promises — the format itself is pinned in
+    // tests/features/trace-review/conversation-export.unit.spec.ts.
+    const conversationId = await chat(true, true)
+    const res = await admin.get(`/api/review/user/test-standalone1/${conversationId}/export`, { responseType: 'text' })
+    assert.equal(res.status, 200)
+    assert.match(String(res.headers['content-disposition']), new RegExp(`conversation-${conversationId}.jsonl`))
+    assert.match(String(res.headers['content-type']), /jsonl/)
+
+    const lines = String(res.data).replace(/\n$/, '').split('\n')
+    const meta = JSON.parse(lines[0])
+    assert.equal(meta.type, 'meta')
+    assert.equal(meta.conversation.id, conversationId)
+    assert.equal(meta.lines.total, lines.length, 'the header counts the real file')
+
+    // The outline's pointers resolve, against a file the server actually assembled from mongo.
+    const outline = JSON.parse(lines[1]).records
+    assert.ok(outline.length >= 3, 'two messages and at least one run')
+    for (const entry of outline) assert.equal(JSON.parse(lines[entry.line - 1]).type, entry.record)
+
+    // And the content is there: the exchange, and the instructions the model was given.
+    const text = String(res.data)
+    assert.ok(text.includes('hello'), 'what the person said')
+    assert.ok(text.includes('"type":"run"'), 'the run with its per-call telemetry')
+    assert.ok(text.includes('"prompt:1"'), 'the system prompt, stored once and referenced')
+  })
+
+  test('the export is superadmin-only, unlike the review page it is reached from', async () => {
+    // `user` is an admin of their own account, so they may review it — but the export hands over
+    // every tool argument and result verbatim, which is a different disclosure.
+    const conversationId = await chat(true, true)
+    assert.equal((await user.get(`/api/review/user/test-standalone1/${conversationId}`)).status, 200, 'they can review')
+    await assert.rejects(
+      user.get(`/api/review/user/test-standalone1/${conversationId}/export`),
+      (err: any) => err.status === 403 || err.status === 401
+    )
+  })
+
+  test('exporting a thread without consent is 404, like reading it', async () => {
+    const conversationId = await chat(true, false)
+    await assert.rejects(admin.get(`/api/review/user/test-standalone1/${conversationId}/export`), { status: 404 })
+  })
 })

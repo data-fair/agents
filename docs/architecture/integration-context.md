@@ -49,7 +49,7 @@ mutations. The user still reviews and saves the form.
 - **Users** are typically back-office administrators, dataset owners, or portal
   designers exploring or configuring data — not anonymous end-users.
 
-## Quirks an evaluator should weigh
+## Quirks a reviewer should weigh
 
 - **Absolute URLs are intentional.** Tool responses carry full absolute URLs and
   the assistant is told to use them verbatim; relative links break inside the

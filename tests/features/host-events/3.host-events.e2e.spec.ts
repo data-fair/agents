@@ -33,7 +33,7 @@ const summarizerModelRef = {
 
 const settingsOverrides = {
   models: [
-    { model: mockModelRef, usage: ['assistant', 'tools', 'evaluator', 'moderator'], inputPricePerMillion: 0, outputPricePerMillion: 0 },
+    { model: mockModelRef, usage: ['assistant', 'tools', 'moderator'], inputPricePerMillion: 0, outputPricePerMillion: 0 },
     { model: summarizerModelRef, usage: ['summarizer'], inputPricePerMillion: 0, outputPricePerMillion: 0 }
   ],
   modelMapping: {

@@ -181,19 +181,25 @@ test.describe('Advanced Sub-Agent Scenarios', () => {
     // Wait for response to complete
     await expect(page.getByPlaceholder('Type your message...')).toBeEnabled({ timeout: 15000 })
 
-    // Open the stored-trace review page and assert the sub-agent appears. The
-    // main-thread subagent_data_analyst call is linked to the sub-agent's stored
-    // "sub" requests, producing a "sub-agent-start" entry labelled "data_analyst".
+    // Open the review page and assert the delegation appears there.
+    //
+    // It used to look for a `sub-agent-start` entry in `.agent-chat__trace-panels` — an entry
+    // `reconstruct-trace` built by grouping the sub-agent's stored requests by an `x-trace-ctx`
+    // header. All three are gone: a delegation is now a tool part on the assistant's message, and
+    // the review page asks the shared renderer for the FULL sub-agent panel (`simpleSubAgents:
+    // false`) rather than the chip the chat shows. So that panel, named after the sub-agent, is
+    // what proves the delegation is visible to a reviewer.
     const conversationId = await pollConversationId()
     expect(conversationId).toBeTruthy()
 
     await goToWithAuth(`/agents/user/test-standalone1/traces/${conversationId}`, 'test-standalone1')
 
-    const tracePanel = page.locator('.agent-chat__trace-panels')
-    await expect(tracePanel).toBeVisible({ timeout: 10000 })
-    const subAgentEntry = tracePanel.locator('.v-expansion-panel', { hasText: 'sub-agent-start' })
-    await expect(subAgentEntry.first()).toBeVisible({ timeout: 10000 })
-    await expect(tracePanel.locator('.v-expansion-panel', { hasText: 'data_analyst' }).first()).toBeVisible({ timeout: 10000 })
+    const subAgentPanel = page.getByTestId('subagent-panel').filter({ hasText: 'Data Analyst' }).first()
+    await expect(subAgentPanel).toBeVisible({ timeout: 15000 })
+    // And the panel opens onto the sub-agent's own work, which is the point of showing it expanded
+    // here rather than as a chip.
+    await subAgentPanel.getByTestId('subagent-panel-header').click()
+    await expect(subAgentPanel.getByTestId('subagent-panel-body')).toBeVisible({ timeout: 5000 })
   })
 
   test('Two sub-agents delegated in one step render separate panels concurrently', async ({ page, goToWithAuth }) => {
@@ -222,14 +228,19 @@ test.describe('Advanced Sub-Agent Scenarios', () => {
   })
 
   test('Compaction works during subagent conversation', async ({ page, goToWithAuth }) => {
+    // The budget comes from the assistant model's context window, server-side. This test used to set
+    // `agent-chat-compaction-threshold` and `agent-chat-trace` in sessionStorage — both read by the
+    // browser loop, both read by nothing now — so it claimed to force compaction while forcing
+    // nothing. A tiny window in settings is the trigger, and it has to be in place before the first
+    // turn.
+    await putSettings(admin, 'user/test-standalone1', {
+      ...settingsData,
+      models: settingsData.models.map(entry => (
+        entry.usage.includes('assistant') ? { ...entry, contextWindow: 200 } : entry
+      ))
+    })
     await seedChipCookie(page)
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
-    // Set low compaction threshold and enable trace
-    await page.evaluate(() => {
-      sessionStorage.setItem('agent-chat-compaction-threshold', '100')
-      sessionStorage.setItem('agent-chat-trace', '1')
-    })
-    await page.reload()
     await waitForToolsReady(page, 'data_analyst (2 tools)', true)
 
     // First message to build history

@@ -36,7 +36,7 @@ sequenceDiagram
 
 **Probe.** The admin activity page can run a one-off check against the moderator model via `POST /api/moderation/:type/:id/probe` (`runProbe`): it sends 3 canned messages directly to the moderator model, is metered at account level, and writes **no** events — so stats reflect only real traffic. It is independent of the gate (no header, no strikes).
 
-**Trace embedding.** When [trace storage](./tracing.md) is active, the verdict is embedded as a `moderation` field on the stored request — blocked requests are recorded by the gateway itself (`finish_reason: "content_filter"`), so blocked turns appear in the review page with their verdict chip. A streaming turn cut by a late block aborts before any finish event, so it appears in the events collection only — events, not traces, are the authoritative moderation record.
+**The events collection is the record.** A verdict is not copied onto the conversation: `moderation-events` is where every check is recorded, and a turn cut by a late block aborts before producing anything else at all. So moderation is read from the moderation stats and events endpoints, not from [conversation review](./conversation-review.md).
 
 **Client is passive.** The browser performs no moderation; it reacts to `finish_reason: "content_filter"` by dropping the turn from context and showing a localized refusal. A content_filter on a sub-agent call surfaces as that sub-agent's output instead of aborting the turn.
 

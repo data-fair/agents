@@ -3,7 +3,7 @@
  *
  * Scenario:
  *   1. Seed settings for user/test-standalone1 with storeTraces: true, a mock
- *      provider, and both assistant and evaluator models.
+ *      provider and an assistant model.
  *   2. Pre-set the agent-chat-trace-consent cookie to "yes" via the Playwright
  *      browser context so the chat sends the x-trace-consent header and the
  *      consent bottom-sheet never appears.
@@ -14,8 +14,6 @@
  *      and grab its conversationId.
  *   5. Navigate to /agents/user/test-standalone1/traces/:id as test-standalone1.
  *   6. Assert the conversation rendered — both sides of the exchange, not a type label.
- *   7. Use the evaluator: send "call tool getTraceOverview" and assert the
- *      getTraceOverview tool-invocation chip appears.
  */
 
 import { expect } from '@playwright/test'
@@ -35,17 +33,10 @@ const settingsData = {
       usage: ['assistant'],
       inputPricePerMillion: 0,
       outputPricePerMillion: 0
-    },
-    {
-      model: { id: 'mock-evaluator', name: 'Mock Evaluator', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
-      usage: ['evaluator'],
-      inputPricePerMillion: 0,
-      outputPricePerMillion: 0
     }
   ],
   modelMapping: {
-    assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' },
-    evaluator: { provider: 'mock-provider', id: 'mock-evaluator', name: 'Mock Evaluator' }
+    assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' }
   },
   quotas: defaultQuotas,
   storeTraces: true
@@ -95,39 +86,8 @@ test.describe('Trace review flow', () => {
     await expect(page.getByText('hello', { exact: true })).toBeVisible({ timeout: 10000 })
     await expect(page.getByText('world', { exact: true })).toBeVisible()
 
-    // Step 7: the evaluator panel reports that it is out, rather than silently rendering nothing.
-    // A reviewer who used it needs to be told it is coming back.
-    await expect(page.getByText(/evaluator is temporarily unavailable/i)).toBeVisible({ timeout: 10000 })
-  })
-
-  // SKIPPED while the evaluator chat is disabled: it ran on the in-browser loop, which no longer
-  // exists, and needs a full rework against the server-held one rather than a repoint.
-  //
-  // Kept rather than deleted because of what it asserts, which the rework must not lose: the
-  // evaluator's OWN model calls must never be stored as traces. Reviewing a trace would otherwise
-  // record a confusing "meta" conversation of the review itself, and on the old path exactly one
-  // thing prevented that — `disableTraceStorage` suppressing the consent header. Whatever the new
-  // path looks like, it needs an equivalent, and this is the test that will say whether it has one.
-  test.skip('the evaluator does not store its own LLM calls as traces', async ({ page, goToWithAuth }) => {
-    const conversationId = 'set-up-by-the-rework'
-    await goToWithAuth(`/agents/user/test-standalone1/traces/${conversationId}`, 'test-standalone1')
-
-    const evalInput = page.getByPlaceholder('Type your message...')
-    await expect(evalInput).toBeEnabled({ timeout: 10000 })
-    await evalInput.fill('call tool getTraceOverview')
-    await page.getByRole('button', { name: 'Send' }).click()
-
-    await expect(
-      page.locator('.v-chip').filter({ hasText: 'getTraceOverview' }).first()
-    ).toBeVisible({ timeout: 15000 })
-
-    // Trace storage is fire-and-forget, so give it time to flush, then assert the stored-conversation
-    // list still holds exactly the one real chat.
-    for (let i = 0; i < 15; i++) {
-      const res = await admin.get('/api/review/user/test-standalone1?page=1&size=20')
-      expect(res.data.results).toHaveLength(1)
-      expect(res.data.results[0].conversationId).toBe(conversationId)
-      await new Promise(resolve => setTimeout(resolve, 200))
-    }
+    // Step 7: and NO export button, because this reviewer is not in admin mode. The endpoint is
+    // superadmin-only, so rendering it here would offer a button that answers 403.
+    await expect(page.getByRole('link', { name: 'Download' })).toHaveCount(0)
   })
 })

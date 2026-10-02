@@ -19,7 +19,7 @@ interface SummaryRequest {
 // The summarizer system prompt is always pinned server-side. The endpoint is
 // publicly mounted and accepts arbitrary content; a caller-supplied system
 // prompt would be a fully unmoderated injection vector. Callers that need
-// specific instructions (e.g. the trace evaluator) frame them into `content`.
+// specific instructions frame them into `content`.
 const SUMMARY_SYSTEM_PROMPT = 'Summarize the following content concisely:'
 
 router.post('/:type/:id', async (req, res, next) => {

@@ -262,21 +262,6 @@ under the old character-based trigger.
 The autonomous executor has no equivalent override: its budget comes from the agent's assistant model,
 so a test sets a small `contextWindow` on that model in settings instead.
 
-## Known limitations
-
-- **The evaluator chat compacts against the assistant's budget, not its own.** The
-  budget is always computed for the `assistant` role and advertised as
-  `x-context-budget` on every gateway response, regardless of which model role the
-  request actually used (see "The budget" above). `ui/src/components/EvaluatorChat.vue`
-  passes `modelName: 'evaluator'`, but the header it reads back was still sized off
-  `contextBudget(settings, 'assistant')`, so the evaluator chat's history is
-  compacted against the assistant model's context window rather than the
-  evaluator model's. This is the correct default behavior, not a bug to fix:
-  computing the budget per-request-role would let the summarizer's own turn (which
-  also goes through the gateway) overwrite the assistant's budget with the
-  summarizer's, corrupting the value the main chat relies on. Left as-is until the
-  budget is tracked per-role on the client.
-
 ## Where the code is
 
 - `api/src/conversations/compaction-policy.ts` — `decideContextManagement`, `clearOldToolResults`, `decideCompaction`,

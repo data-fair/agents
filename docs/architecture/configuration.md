@@ -1,6 +1,6 @@
 # Configuration: providers, models and credits
 
-AI configuration is split across **three layers**, each owned by a different actor and stored in a different place. A request resolves a role (`assistant`, `tools`, `summarizer`, `evaluator`, `moderator`) to a concrete model by walking the layers from the most specific (org mapping) down to the least specific (global default), then a per-role fallback chain.
+AI configuration is split across **three layers**, each owned by a different actor and stored in a different place. A request resolves a role (`assistant`, `tools`, `summarizer`, `moderator`) to a concrete model by walking the layers from the most specific (org mapping) down to the least specific (global default), then a per-role fallback chain.
 
 ```mermaid
 graph TD
@@ -57,7 +57,7 @@ JSON array of provider definitions. `type` is one of the 9 supported provider ty
 
 ### `MODELS`
 
-JSON array of global model definitions, each referencing a `provider` id from `PROVIDERS`. `usage` flags which roles the model is *allowed* to serve (`assistant`, `tools`, `summarizer`, `evaluator`, `moderator` — at least one, no duplicates).
+JSON array of global model definitions, each referencing a `provider` id from `PROVIDERS`. `usage` flags which roles the model is *allowed* to serve (`assistant`, `tools`, `summarizer`, `moderator` — at least one, no duplicates).
 
 `inputPricePerMillion` and `outputPricePerMillion` are **mandatory**, in euros per million tokens, copied from the provider's own pricing page. `cachedInputPricePerMillion` is optional and means *unknown* when absent, not free — it falls back to the input price (see [Credits](#credits)). `assertGlobalAiConfig` rejects a model referencing an unknown provider id, rejects duplicate `provider/id` pairs, and **exits the process at boot** on a model missing either mandatory price, naming the offending `provider/id`. A price of `0` is legitimate; an absent one is not, because every account on this deployment can resolve a global model (see the [release note](#release-note-every-account-can-now-resolve-a-model-so-credits-are-the-gate) below) and a model free by omission would be an uncapped consumer of the deployment's own keys.
 
@@ -96,7 +96,6 @@ JSON object mapping each role to a `{ provider, id }` ref that must resolve to a
 }
 ```
 
-Note `evaluator` is intentionally omitted above — with no global default and no org mapping, resolution falls through the [fallback chain](#role-resolution-the-catalog) to `assistant`.
 
 ### `EUROS_PER_CREDIT`
 
@@ -219,7 +218,6 @@ This route only ever touches `providers`/`models` (`+ updatedAt`) — it is a pa
 assistant:  assistant
 tools:      tools      -> assistant
 summarizer: summarizer -> assistant
-evaluator:  evaluator  -> assistant
 moderator:  moderator  -> summarizer -> assistant
 ```
 
@@ -227,7 +225,7 @@ So for role `tools`: try `modelMapping.tools`, then `defaultModels.tools`; if ne
 
 ## Credits
 
-Every LLM call — assistant/tools/summarizer/evaluator turns, moderator classification calls, and summary-endpoint calls — is priced in **credits**, not currency:
+Every LLM call — assistant/tools/summarizer turns, moderator classification calls, and summary-endpoint calls — is priced in **credits**, not currency:
 
 ```
 euros   = (noCacheTokens + cacheWriteTokens) × inputPricePerMillion       / 1_000_000

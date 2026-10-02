@@ -40,6 +40,25 @@
           {{ model }}
         </v-chip>
         <v-spacer />
+        <!--
+          The conversation as a file, for analysis by a standalone coding agent — what replaced the
+          in-browser trace evaluator. A plain link rather than a fetch-and-assemble-a-blob: the
+          export of a long thread is megabytes, and the browser's own download handles that without
+          holding it in memory twice.
+
+          Shown only in admin mode, because that is exactly what the endpoint requires: rendering it
+          otherwise would offer a button that answers 403.
+        -->
+        <v-btn
+          v-if="session.state.user?.adminMode"
+          size="small"
+          variant="text"
+          :prepend-icon="mdiDownload"
+          :href="exportUrl"
+          :title="t('downloadExportHint')"
+        >
+          {{ t('downloadExport') }}
+        </v-btn>
         <v-btn
           size="small"
           variant="text"
@@ -108,17 +127,6 @@
         </div>
       </v-expand-transition>
 
-      <!--
-        The evaluator is still out, and a reviewer who used it needs to be told it is coming back
-        rather than left to notice it is missing. It ran on the in-browser loop and needs a rework
-        against the server-held one: its tools closed over a client-side trace recorder that no
-        longer exists, and over architecture docs bundled into the UI, both of which are server-side
-        concerns now.
-      -->
-      <p class="text-caption text-medium-emphasis px-3 pb-2">
-        {{ t('evaluatorReworkPending') }}
-      </p>
-
       <!-- The conversation, through the SAME renderer the chat uses. There is one way to display a
            turn, so a reviewer sees what the person saw rather than a second rendering of it that can
            drift. Read-only: no streaming, no activity, no composer. -->
@@ -143,6 +151,8 @@ fr:
   calls: "{n} appels de modèle"
   credits: "{n} crédits"
   creditsShort: Crédits
+  downloadExport: Télécharger
+  downloadExportHint: Télécharge la conversation complète (messages, résultats d'outils, télémétrie par appel) dans un fichier JSONL, pour analyse par un agent de code.
   hideDetail: Masquer le détail
   showDetail: Voir le détail
   systemPrompt: Instructions données au modèle
@@ -154,12 +164,13 @@ fr:
   duration: Durée
   finish: Fin
   notFound: Conversation introuvable ou accès refusé.
-  evaluatorReworkPending: "L'évaluateur est temporairement indisponible : il tournait dans le navigateur et doit être repensé pour la boucle côté serveur."
 en:
   turns: "{n} turns"
   calls: "{n} model calls"
   credits: "{n} credits"
   creditsShort: Credits
+  downloadExport: Download
+  downloadExportHint: Downloads the whole conversation (messages, tool results, per-call telemetry) as a JSONL file, for analysis by a coding agent.
   hideDetail: Hide detail
   showDetail: Show detail
   systemPrompt: Instructions given to the model
@@ -171,7 +182,6 @@ en:
   duration: Duration
   finish: Finish
   notFound: Conversation not found or access denied.
-  evaluatorReworkPending: "The evaluator is temporarily unavailable: it ran in the browser and needs reworking for the server-held loop."
 </i18n>
 
 <script lang="ts" setup>
@@ -190,6 +200,8 @@ en:
  */
 import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useSession } from '@data-fair/lib-vue/session.js'
+import { mdiDownload } from '@mdi/js'
 import AgentChatMessages from '~/components/agent-chat/AgentChatMessages.vue'
 import { createToolTitleMemo } from '~/composables/tool-titles'
 import { autonomousAgentMessageToChat } from '~/utils/autonomous-agent-chat-message'
@@ -204,6 +216,10 @@ const props = defineProps<{
 const emit = defineEmits<{ loaded: [{ owner: { type: string, id: string }, label: string }] }>()
 
 const { t } = useI18n()
+const session = useSession()
+
+const exportUrl = computed(() =>
+  `${$apiPath}/review/${props.owner.type}/${props.owner.id}/${props.conversationId}/export`)
 
 const loaded = ref(false)
 const loadError = ref('')

@@ -33,8 +33,7 @@ graph LR
 | `assistant` | Primary conversational model |
 | `tools` | Structured data / tool-calling specialist |
 | `summarizer` | Context compaction |
-| `evaluator` | Quality control / reasoning |
-| `moderator` | Input moderation guard (internal, gateway-side) |
+| `moderator` | Input moderation guard (internal, server-side) |
 
 There is no per-role fixed cost ratio. Each model in the catalog (global `MODELS` or an org's `settings.models`) carries its own prices per token class — fresh input, cached input, output — in euros per million tokens, and credits come from actual token counts against those prices divided by the credit peg; see [Configuration → Credits](./configuration.md#credits) for the formula. A cheaper role like `summarizer` is typically *mapped* to a cheaper model, but nothing in the schema ties a role to a fixed ratio.
 

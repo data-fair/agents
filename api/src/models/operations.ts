@@ -14,9 +14,8 @@ import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { createOllama } from 'ai-sdk-ollama'
 import { createDebugFetch } from './debug-fetch.ts'
 import { createMockLanguageModel } from './mock-model.ts'
-import { createEvaluatorMockLanguageModel } from './evaluator-mock-model.ts'
 
-export { createMockLanguageModel, createEvaluatorMockLanguageModel }
+export { createMockLanguageModel }
 
 /**
  * Scaleway's Generative APIs are reached at https://api.scaleway.ai/v1, but an
@@ -70,14 +69,13 @@ export function createModel (provider: Provider, modelId: string): LanguageModel
       return createOpenAI({ apiKey: provider.apiKey, baseURL: provider.baseURL, ...f })(modelId)
     }
     case 'mock':
-      if (modelId === 'evaluator-mock-model') return createEvaluatorMockLanguageModel()
       return createMockLanguageModel(modelId)
     default:
       throw new Error(`Unknown provider type: ${(provider as Provider).type}`)
   }
 }
 
-export type ModelRole = 'assistant' | 'evaluator' | 'summarizer' | 'tools' | 'moderator'
+export type ModelRole = 'assistant' | 'summarizer' | 'tools' | 'moderator'
 
 /**
  * Used when neither the admin nor the provider listing supplies a window. Sized
@@ -289,7 +287,6 @@ const FALLBACK_CHAINS: Record<ModelRole, ModelRole[]> = {
   assistant: ['assistant'],
   tools: ['tools', 'assistant'],
   summarizer: ['summarizer', 'assistant'],
-  evaluator: ['evaluator', 'assistant'],
   moderator: ['moderator', 'summarizer', 'assistant']
 }
 

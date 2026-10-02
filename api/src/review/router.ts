@@ -21,11 +21,12 @@
 
 import mongo from '#mongo'
 import { Router } from 'express'
-import { type AccountKeys, assertAccountRole, httpError, reqSessionAuthenticated } from '@data-fair/lib-express'
+import { type AccountKeys, assertAccountRole, httpError, reqAdminMode, reqSessionAuthenticated } from '@data-fair/lib-express'
 import eventsLog from '@data-fair/lib-express/events-log.js'
 import { getSettings } from '../settings/service.ts'
 import { partsText } from '../conversations/operations.ts'
 import { purgeConversation } from '../conversations/service.ts'
+import { buildConversationExport, exportFilename } from './operations.ts'
 
 const router = Router()
 export default router
@@ -131,32 +132,68 @@ router.get('/:type/:id', async (req, res, next) => {
  * The runs carry what the conversation cannot — the system prompt the model was given and per-call
  * provider, model, tokens, cost and duration — which is the whole of what the trace collection held
  * beyond the content.
+ *
+ * Shared by the two routes below so the rendered page and the downloaded file are the SAME read,
+ * under the same gate: a reviewer comparing them must not be shown two different things.
  */
+const loadForReview = async (owner: AccountKeys, conversationId: string) => {
+  const conversation = await mongo.conversations.findOne(
+    { ...reviewableFilter(owner), id: conversationId },
+    { projection: { _id: 0 } }
+  )
+  // 404 rather than 403 for a thread that exists but was not consented to: an admin has no
+  // business learning which of their members declined.
+  if (!conversation) throw httpError(404, 'no reviewable conversation with this id')
+
+  const [messages, runs] = await Promise.all([
+    mongo.messages
+      .find({ conversationId: conversation.id }, { projection: { _id: 0 } })
+      .sort({ seq: 1 })
+      .toArray(),
+    mongo.runs
+      .find({ conversationId: conversation.id }, { projection: { _id: 0 } })
+      .sort({ startedAt: 1 })
+      .toArray()
+  ])
+
+  return { conversation, messages, runs }
+}
+
 router.get('/:type/:id/:conversationId', async (req, res, next) => {
   try {
     const owner = reqOwner(req)
     await assertMayReview(req, owner)
+    res.json(await loadForReview(owner, req.params.conversationId))
+  } catch (err) { next(err) }
+})
 
-    const conversation = await mongo.conversations.findOne(
-      { ...reviewableFilter(owner), id: req.params.conversationId },
-      { projection: { _id: 0 } }
-    )
-    // 404 rather than 403 for a thread that exists but was not consented to: an admin has no
-    // business learning which of their members declined.
-    if (!conversation) throw httpError(404, 'no reviewable conversation with this id')
+/**
+ * The same conversation as a downloadable JSONL file, for analysis by a standalone coding agent.
+ *
+ * This is what replaced the trace evaluator — an in-browser agent with its own tools, model role and
+ * source-exploration proxy, all of which existed to let someone ask questions about a recorded
+ * conversation. A download plus a skill answers the same questions with none of that surface, and
+ * with a far more capable agent than the one the platform could host. See ./operations.ts for why
+ * the file is line-addressable JSONL, and .claude/skills/conversation-export/SKILL.md for how to
+ * read it.
+ *
+ * SUPERADMIN ONLY, and a tighter gate than the review page it is reached from. The page shows an
+ * account admin a rendered transcript; this hands over a file containing every tool argument and
+ * result verbatim, which is a different disclosure — and the analysis it is for is a platform
+ * engineering task, not an account administration one.
+ */
+router.get('/:type/:id/:conversationId/export', async (req, res, next) => {
+  try {
+    const owner = reqOwner(req)
+    reqAdminMode(req)
+    await assertMayReview(req, owner)
+    const loaded = await loadForReview(owner, req.params.conversationId)
 
-    const [messages, runs] = await Promise.all([
-      mongo.messages
-        .find({ conversationId: conversation.id }, { projection: { _id: 0 } })
-        .sort({ seq: 1 })
-        .toArray(),
-      mongo.runs
-        .find({ conversationId: conversation.id }, { projection: { _id: 0 } })
-        .sort({ startedAt: 1 })
-        .toArray()
-    ])
-
-    res.json({ conversation, messages, runs })
+    eventsLog.info('agents.review.export', `reviewed conversation ${req.params.conversationId} exported`, { req })
+    // `attachment` with the filename: the UI follows this link rather than fetching and assembling a
+    // blob, so the browser's own download handles a file of any size.
+    res.attachment(exportFilename(req.params.conversationId))
+    res.type('application/jsonl').send(buildConversationExport(loaded))
   } catch (err) { next(err) }
 })
 

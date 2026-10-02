@@ -1,6 +1,6 @@
 # Architecture overview
 
-**data-fair/agents** is a multi-provider AI chat service with tool-use capabilities, designed to be embedded into data-fair applications. It provides an OpenAI-compatible API gateway, client-side orchestration with sub-agents, and an embeddable chat widget.
+**data-fair/agents** is a multi-provider AI chat service with tool-use capabilities, designed to be embedded into data-fair applications. The agent loop runs on the server, which also holds the conversation; the browser renders it and contributes page tools. It provides a websocket agent session, server-side orchestration with sub-agents, and an embeddable chat widget.
 
 ```mermaid
 graph TB
@@ -24,7 +24,7 @@ graph TB
 
 | Workspace | Role |
 |-----------|------|
-| `api/` | Stateless Express server: LLM gateway, settings, usage tracking, summarization |
+| `api/` | Express server: the agent loop and conversation store, settings, usage tracking, summarization |
 | `ui/` | Vue 3 + Vuetify 4 SPA: chat interface, tool orchestration, sub-agent rendering |
 | `lib-vue/` | Vue composables: WebMCP tool registration, sub-agent declaration, BroadcastChannel transport |
 | `lib-vuetify/` | Embeddable Vuetify components: chat drawer, menu, action button, toggle FAB |

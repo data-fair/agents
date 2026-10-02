@@ -14,11 +14,6 @@ export default {
   upgradeRoot: 'UPGRADE_ROOT',
   cipherPassword: 'CIPHER_PASSWORD',
   requireAnonymousActionToken: 'REQUIRE_ANONYMOUS_ACTION_TOKEN',
-  evaluatorAccount: {
-    type: 'EVALUATOR_ACCOUNT_TYPE',
-    id: 'EVALUATOR_ACCOUNT_ID'
-  },
-  github: { token: 'GITHUB_TOKEN' },
   providers: { __name: 'PROVIDERS', __format: 'json' },
   models: { __name: 'MODELS', __format: 'json' },
   mcpServers: { __name: 'MCP_SERVERS', __format: 'json' },

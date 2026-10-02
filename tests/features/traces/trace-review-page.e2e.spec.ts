@@ -9,6 +9,7 @@
  *   5. Assert the TraceView rendered (a user-message chip is visible).
  */
 
+import { readFile } from 'node:fs/promises'
 import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin } from '../../support/axios.ts'
@@ -98,5 +99,30 @@ test.describe('Trace review page (/organization/test1/traces/:id)', () => {
     await page.getByRole('button', { name: 'Show detail' }).click()
     await expect(page.getByText('Instructions given to the model')).toBeVisible()
     await expect(page.getByText('tool result', { exact: false }).first()).toBeVisible()
+  })
+
+  test('downloads the conversation as a JSONL file a coding agent can read', async ({ page, goToWithAuth }) => {
+    // The whole replacement for the trace evaluator: one button, one file. Asserted through a real
+    // browser download rather than by fetching the endpoint, because what can break here is the
+    // link (a wrong URL, or a button rendered where the endpoint will 403) rather than the format,
+    // which is pinned in tests/features/trace-review/conversation-export.unit.spec.ts.
+    await goToWithAuth(`/agents/organization/test1/traces/${convId}`, 'superadmin', { adminMode: true })
+    await expect(page.getByText('1 turns', { exact: false })).toBeVisible({ timeout: 15000 })
+
+    const downloadPromise = page.waitForEvent('download')
+    await page.getByRole('link', { name: 'Download' }).click()
+    const download = await downloadPromise
+    expect(download.suggestedFilename()).toBe(`conversation-${convId}.jsonl`)
+
+    const path = await download.path()
+    const lines = (await readFile(path, 'utf8')).replace(/\n$/, '').split('\n')
+    const meta = JSON.parse(lines[0])
+    expect(meta.type).toBe('meta')
+    expect(meta.conversation.id).toBe(convId)
+    expect(meta.lines.total).toBe(lines.length)
+    // And the outline's pointers resolve in the file that actually reached the disk.
+    for (const entry of JSON.parse(lines[1]).records) {
+      expect(JSON.parse(lines[entry.line - 1]).type).toBe(entry.record)
+    }
   })
 })

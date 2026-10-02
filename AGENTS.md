@@ -154,7 +154,7 @@ quota.
 
 ## Code patterns
 
-Topical architecture docs (for understanding the service) live in `docs/architecture/` — one file per concern (gateway, sub-agents, loop-guards, mcp-tools, host-events, providers, configuration, quotas-usage, context-management, autonomous-agents, integration-context, embedding, moderation, tool-exploration, tracing) plus `overview.md`. Read on a need-to-know basis.
+Topical architecture docs (for understanding the service) live in `docs/architecture/` — one file per concern (sub-agents, loop-guards, mcp-tools, host-events, providers, configuration, quotas-usage, context-management, autonomous-agents, integration-context, embedding, moderation, tool-exploration, conversation-review) plus `overview.md`. Read on a need-to-know basis.
 
 When working on this project, read the following files on a need-to-know basis to understand conventions:
 

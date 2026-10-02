@@ -125,7 +125,6 @@ async function fetchModelsForProvider (
       { id: 'mock-model', name: 'Mock Model', contextWindow: 128000 },
       { id: 'mock-tools', name: 'Mock Tools Model', contextWindow: 128000 },
       { id: 'mock-summarizer', name: 'Mock Summarizer Model', contextWindow: 128000 },
-      { id: 'evaluator-mock-model', name: 'Evaluator Mock Model', contextWindow: 128000 }
     ]
   }
 

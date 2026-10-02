@@ -1,14 +1,13 @@
 // The roles a model can be bound to. Each org may pick, per role, any model of
 // its catalog (global models + its own `models` entries); an unmapped role falls
 // back to the global default, then along the role's fallback chain.
-const MODEL_ROLES = ['assistant', 'tools', 'summarizer', 'evaluator', 'moderator']
+const MODEL_ROLES = ['assistant', 'tools', 'summarizer', 'moderator']
 
 /** @type {Record<string, { en: string, fr: string }>} */
 const MODEL_ROLE_TITLES = {
   assistant: { en: 'Assistant', fr: 'Assistant' },
   tools: { en: 'Tools', fr: 'Outils' },
   summarizer: { en: 'Summarizer', fr: 'Résumeur' },
-  evaluator: { en: 'Evaluator', fr: 'Évaluateur' },
   moderator: { en: 'Moderator', fr: 'Modérateur' }
 }
 
@@ -25,10 +24,6 @@ const MODEL_ROLE_DESCRIPTIONS = {
   summarizer: {
     en: 'A "shorthand" specialist. Optimized for quickly distilling key points from small-to-medium text blocks. It focuses on high information density and brevity to keep context windows lean and costs low.',
     fr: "Un spécialiste de la « synthèse ». Optimisé pour extraire rapidement les points clés de blocs de texte petits à moyens. Il privilégie la densité d'information et la concision pour garder les fenêtres de contexte légères et les coûts bas."
-  },
-  evaluator: {
-    en: 'The "quality controller." Analyzes the assistant\'s logic and tool outputs for accuracy and safety. It requires the highest reasoning capabilities to act as a reliable ground truth for system performance.',
-    fr: "Le « contrôleur qualité ». Analyse la logique de l'assistant et les sorties des outils pour vérifier la précision et la sécurité. Il nécessite les capacités de raisonnement les plus élevées pour servir de référence fiable pour les performances du système."
   },
   moderator: {
     en: 'The "gatekeeper." Classifies each new user message for profanity, prompt-injection, persona override, and out-of-scope requests. Should be fast and cheap — it sits on the critical path to the first response token. Dedicated moderation classifiers (Llama Guard, moderation APIs) are not compatible: they use fixed taxonomies and output formats that cannot express this platform\'s custom policy.',
@@ -714,7 +709,6 @@ export default {
                 { const: 'assistant', title: 'Assistant' },
                 { const: 'tools', title: 'Tools', 'x-i18n-title': { en: 'Tools', fr: 'Outils' } },
                 { const: 'summarizer', title: 'Summarizer', 'x-i18n-title': { en: 'Summarizer', fr: 'Résumeur' } },
-                { const: 'evaluator', title: 'Evaluator', 'x-i18n-title': { en: 'Evaluator', fr: 'Évaluateur' } },
                 { const: 'moderator', title: 'Moderator', 'x-i18n-title': { en: 'Moderator', fr: 'Modérateur' } }
               ]
             }
