@@ -409,6 +409,76 @@ The honest head-to-head is still outstanding and needs the same instrument on th
 cheap to take — the browser loop is untouched on this branch — and is worth doing before the final
 judgement rather than now, since §4.6 and §4.7 will both move work across the line.
 
+### Reading 3 — the swap (2026-10-02)
+
+`AgentChat.vue`, the real chat, now runs on the server-held loop. Scoped deliberately to the main
+chat: the gateway and `use-agent-chat` both stay in the tree, for reasons in "what the swap could not
+delete" below.
+
+**Code.** The adapter that replaced the browser loop for this path is **299 lines**
+(`use-session-chat.ts`) plus **93** for the tool partition it shares with the old path, against the
+**1229** of `use-agent-chat.ts`. The comparison is only fair with the reason stated: the adapter
+contains no loop at all. No model call, no tool orchestration, no history management, no compaction,
+no idle watchdog — those exist once, on the server, where the autonomous agents already needed them.
+That is the structural claim this prototype was built to test, and it holds: the second loop was not
+reduced, it was *deleted as a concept*. What remains on the client is assembly, and assembly is the
+size you would expect.
+
+The component itself changed by about forty lines, nearly all of it deletion. That matters more than
+the ratio. If pointing the real chat at the server had required rewriting the chat, the architecture
+would not be a drop-in and this section would be making excuses instead of a measurement.
+
+**Four defects the swap surfaced**, none of which any test had caught, and all of which were invisible
+precisely because the pieces looked wired:
+
+1. **Host state was write-only.** `formatHostState` had no caller anywhere in `api/`. The socket filled
+   the store and `wait_for_user_action` drained its events, so the store looked used — but retained
+   state never reached a model. An assistant asked "what am I looking at?" had the answer in memory
+   beside it and no way to read it. This is the most instructive one: the prototype had been exercised
+   by a dev page that never asked about the page, so the gap had nothing to fail against.
+2. **Frames sent before the socket opened were dropped silently.** The window is wide — the page
+   renders, the composer enables, and the conversation still has to be created over HTTP before the
+   socket is constructed. Someone typing immediately lost their first message with no error anywhere.
+   The dev page's test had happened to wait for `data-attached` first, which is how a real bug hid
+   behind a passing test.
+3. **The system prompt contradicted itself** for standard agents: every agent was told it acts "under
+   its own service identity", two paragraphs after a persona saying it acts as the person.
+4. **The same action was reported to the model twice** once state was sent every turn — caught by a
+   test written for the fix to defect 1, not by the fix itself.
+
+**What the swap could not delete, and why the §7 net-code number is still a projection.** Finding 4
+said `use-agent-chat` and the gateway cannot be split. That was right and incomplete: it is a
+*three-way* coupling, and the third leg is the expensive one.
+
+- `EvaluatorChat.vue` is a second `useAgentChat` consumer. Its tools close over the trace recorder in
+  the browser and over architecture docs bundled by `import.meta.glob`. Moving it server-side is
+  cleaner there in principle — the trace is already stored server-side and the docs are on disk — but
+  it is a rewrite of a working admin feature, not a repoint.
+- Anonymous users are refused by the socket (`agent-session/service.ts`). The gateway still serves
+  them.
+- Moderation does not exist server-side: 16 references in `gateway/router.ts`, none in the session
+  path.
+- Four api suites (`limits-enforcement`, `usage`, `moderation`, `trace-compare`) use the gateway
+  merely as the way to make a billable model call. They would each need a new driver.
+
+**Suite cost: 28 of 140 e2e tests.** This is the number to argue with, so it is itemised rather than
+summarised. Every one of them tests behaviour that lived in the browser loop:
+
+| Group | n | What it means |
+|---|---|---|
+| Host-event activation semantics | 9 | The browser sent state only at activation points (first turn, post-compaction, post-reset) with keyed-event dedupe. The server sends it every turn. Simpler, costs tokens, and the dedupe rules are unimplemented. |
+| Sub-agent panels | 5 | Server-side sub-agents run; the panel wiring and step-cap reporting differ. |
+| Moderation | 4 | Genuinely absent server-side. Not a test to rewrite — a feature to port. |
+| Mid-turn tool refresh | 3 | A tool registered mid-turn becoming callable in the same turn. One of the three is exploration mode, which is shelved. |
+| Compaction / hang / empty-completion | 4 | Assert the browser's own trace entries and indicators. The server does all three; the assertions are about the old mechanism. |
+| Stale frames, trace consent, and two others | 3 | Trace consent rides on the gateway's `x-trace-storage` response header, which the socket has no equivalent of yet. |
+
+Read honestly: roughly nine of these are a feature gap (moderation, activation semantics) and the rest
+are tests pinned to a mechanism that moved. That is a real bill either way, and it is the strongest
+argument the other direction has. It should be weighed against what the first column of this section
+says: the alternative is maintaining both loops indefinitely, which is what produced four invisible
+defects in the half that was supposed to be the simple one.
+
 ## 8. Deployment precondition: consolidating `data-fair/mcp` — NOT an iteration blocker
 
 **Scope of this section, stated first because an earlier revision got it wrong.** This service is
