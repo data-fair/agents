@@ -67,7 +67,7 @@ const EMPTY_COMPLETION_MESSAGE = 'I was not able to produce a response for this 
  * The agent id travels with the controller so a whole agent can be stopped at once — see
  * abortRunsOfAgent.
  */
-const liveRuns = new Map<string, { controller: AbortController, agentId: string }>()
+const liveRuns = new Map<string, { controller: AbortController, agentId: string, conversationId: string }>()
 
 /** True when this process actually aborted a live turn. */
 export const abortRun = (runId: string): boolean => {
@@ -75,6 +75,27 @@ export const abortRun = (runId: string): boolean => {
   if (!live) return false
   live.controller.abort()
   return true
+}
+
+/**
+ * Stop the live turn of one conversation, so a new prompt can take the turn back.
+ *
+ * The case this exists for: the assistant called `wait_for_user_action` and the person, instead of
+ * clicking what it asked for, typed something. Without this the wait runs out its clock — up to ten
+ * minutes — while the person watches their own message do nothing. Speaking IS the answer to
+ * "waiting for the user", so it ends the wait.
+ *
+ * Returns how many this process actually stopped; a conversation has at most one live turn, because
+ * the conversation lock serialises them.
+ */
+export const abortRunsOfConversation = (conversationId: string): number => {
+  let stopped = 0
+  for (const live of liveRuns.values()) {
+    if (live.conversationId !== conversationId) continue
+    live.controller.abort(new Error('the person spoke'))
+    stopped++
+  }
+  return stopped
 }
 
 /**
@@ -676,7 +697,7 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
   }
 
   const abortController = new AbortController()
-  liveRuns.set(run.id, { controller: abortController, agentId: run.agentId })
+  liveRuns.set(run.id, { controller: abortController, agentId: run.agentId, conversationId: run.conversationId })
 
   // The ceiling has to be enforced twice over, because abort() is only a REQUEST.
   // abortController.signal asks the provider and the MCP client to stop, which is what a

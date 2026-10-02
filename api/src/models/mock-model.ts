@@ -184,18 +184,22 @@ function processMockPrompt (lastMessage: string, prompt: string | Array<any>): M
     return { type: 'text', text: 'what do you mean ?' }
   }
 
-  if (lastMessage.toLowerCase() === 'help' || lastMessage === '?') {
+  // endsWithCommand, like every other seam: see the note on the `hello` seam below. Exact equality
+  // stops matching the moment the caller publishes host state, because the fold prepends a block.
+  if (endsWithCommand(lastMessage, 'help') || commandLine(lastMessage) === '?') {
     return { type: 'text', text: 'I respond to:\n- "hello" → returns "world"\n- "call tool <name> <args>" → triggers a tool call\n- Any other text → "what do you mean?"\n- "where am i" / "what happened" → echoes host state/events\n- "select note", "wait for me", "wait briefly" → host-events tool seams' }
   }
 
-  // endsWithCommand (not exact equality): an activation turn on a page that publishes
-  // host state (tests/features/host-events) prepends a hidden-context block ahead of
-  // the visible "hello" — same reason the host-events seams below use endsWithCommand.
+  // endsWithCommand, never exact equality. A page that publishes host state has a hidden-context
+  // block prepended to the visible message, so an exact match stops working the moment that page
+  // reports anything. This bit twice: once when a dev page gained a `useAgentState` call, and again
+  // when the server-held loop's host-context fold started working at all — the real chat publishes
+  // language and surface facts, so EVERY message on it now arrives with a block in front.
   if (endsWithCommand(lastMessage, 'hello')) {
     return { type: 'text', text: 'world' }
   }
 
-  if (lastMessage.toLowerCase() === 'markdown') {
+  if (endsWithCommand(lastMessage, 'markdown')) {
     return { type: 'text', text: 'See [the docs](https://example.com/docs) for details.\n\n' }
   }
 
@@ -317,8 +321,8 @@ function getCalledToolNames (prompt: string | Array<any>): Set<string> {
  * Also supports "call tool" syntax and "hello" → "world" as overrides.
  */
 function processMockToolsPrompt (lastMessage: string, prompt: string | Array<any>): MockPromptResult {
-  // Support explicit overrides first
-  if (lastMessage.toLowerCase() === 'hello') {
+  // Support explicit overrides first. endsWithCommand for the same reason the assistant seam uses it.
+  if (endsWithCommand(lastMessage, 'hello')) {
     return { type: 'text', text: 'world' }
   }
 

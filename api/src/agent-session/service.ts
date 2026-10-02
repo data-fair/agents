@@ -16,6 +16,7 @@ import { createAgentSession, type AgentSession } from './session.ts'
 import { attachSession, detachSession } from './registry.ts'
 import { requireConversation, assertOwnsConversation } from '../conversations/service.ts'
 import { startSessionTurn, sendHistory } from './turn.ts'
+import { abortRunsOfConversation } from '../conversations/executor.ts'
 import { hasTraceConsent } from '@agents/shared/trace-consent'
 import { getSettings } from '../settings/service.ts'
 
@@ -101,6 +102,11 @@ export const startAgentSessions = (server: Server, options: StartAgentSessionsOp
           send({ type: 'error', message: 'an anonymous session cannot run a turn yet' })
           return
         }
+        // Speaking takes the turn back. If a turn is live — most importantly one parked in
+        // `wait_for_user_action` — the person typing IS the answer to it, and letting the wait run
+        // out its clock while their message sits in the composer is the worst reading of "waiting
+        // for the user". Harmless when nothing is live.
+        abortRunsOfConversation(boundConversationId)
         startSessionTurn({
           conversationId: boundConversationId,
           owner: { type: sessionState.account.type, id: sessionState.account.id },

@@ -16,6 +16,7 @@ import { tool, jsonSchema, type Tool } from 'ai'
 import { withProvenance } from '../conversations/operations.ts'
 import type { BrowserToolDescriptor } from '@agents/shared/agent-session-protocol'
 import type { AgentSession } from './session.ts'
+import { appendHostEvents } from '@agents/shared/host-events'
 
 /**
  * The server name a page tool's provenance envelope carries.
@@ -39,7 +40,18 @@ export function browserToolSet (session: AgentSession, descriptors?: BrowserTool
     tools[descriptor.name] = tool({
       description: descriptor.description ?? '',
       inputSchema: jsonSchema((descriptor.inputSchema as any) ?? { type: 'object', properties: {} }),
-      execute: async (input: unknown) => await session.callBrowserTool(descriptor.name, input)
+      execute: async (input: unknown) => {
+        const output = await session.callBrowserTool(descriptor.name, input)
+        // The events the call CAUSED ride back with its result, so they land in history exactly
+        // where they happened — the Playwright shape, where an action returns the resulting page.
+        //
+        // This is why it matters: a tool that changes the page (selecting a type, opening a step)
+        // produces keyed state the model needs in order to decide what to do next. Delivered on the
+        // NEXT turn instead, the model would act on what the page looked like before its own call.
+        // Drained here for the same reason they are drained anywhere: being told twice is worse than
+        // being told late.
+        return appendHostEvents(output, session.hostEvents.takePending())
+      }
     })
   }
   // The same envelope an MCP tool's result gets, from the same implementation. A page's result is

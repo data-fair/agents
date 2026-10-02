@@ -12,7 +12,24 @@ import assert from 'node:assert/strict'
 import { HostEventStore, withHostContext, HOST_STATE_OPEN, HOST_EVENTS_OPEN } from '@agents/shared/host-events'
 import { splitHiddenContext } from '@agents/shared/hidden-context'
 
-const userTurn = (text: string) => ({ role: 'user', content: text })
+/**
+ * A user message in the shape `convertToModelMessages` actually produces: content is an ARRAY of
+ * parts, not a string.
+ *
+ * This file used string content, and that is why it passed while the feature was dead: the fold had
+ * a guard returning the history untouched for non-string content, which is EVERY user message the
+ * real pipeline builds. An api test over the socket is what found it. The string case is still
+ * covered below, because a caller may hand-build one.
+ */
+const userTurn = (text: string) => ({ role: 'user', content: [{ type: 'text', text }] })
+const stringUserTurn = (text: string) => ({ role: 'user', content: text })
+
+/** The text of a decorated message, whichever shape it came back in. */
+const textOf = (message: { content: unknown }): string => {
+  if (typeof message.content === 'string') return message.content
+  return (message.content as Array<{ type?: string, text?: string }>)
+    .filter(part => part?.type === 'text').map(part => part.text ?? '').join('')
+}
 
 test.describe('withHostContext', () => {
   test('retained state is folded into the last user message', () => {
@@ -21,7 +38,7 @@ test.describe('withHostContext', () => {
 
     const history = withHostContext([userTurn('what am I looking at?')], store)
     assert.equal(history.length, 1, 'no message is added; the existing one is decorated')
-    const content = String(history[0].content)
+    const content = textOf(history[0])
     assert.match(content, /the datasets list/)
     assert.ok(content.includes(HOST_STATE_OPEN))
     // And the person's own words survive, which is what the wrapper is for.
@@ -35,11 +52,11 @@ test.describe('withHostContext', () => {
     store.push({ name: 'clicked save', at: Date.now() })
 
     const first = withHostContext([userTurn('did that work?')], store)
-    assert.ok(String(first[0].content).includes(HOST_EVENTS_OPEN))
-    assert.match(String(first[0].content), /clicked save/)
+    assert.ok(textOf(first[0]).includes(HOST_EVENTS_OPEN))
+    assert.match(textOf(first[0]), /clicked save/)
 
     const second = withHostContext([userTurn('and now?')], store)
-    assert.doesNotMatch(String(second[0].content), /clicked save/)
+    assert.doesNotMatch(textOf(second[0]), /clicked save/)
   })
 
   test('the LAST user message is the target, not the first', () => {
@@ -52,8 +69,8 @@ test.describe('withHostContext', () => {
       { role: 'assistant', content: 'ok' },
       userTurn('second')
     ], store)
-    assert.doesNotMatch(String(history[0].content), /one dataset/)
-    assert.match(String(history[2].content), /one dataset/)
+    assert.doesNotMatch(textOf(history[0]), /one dataset/)
+    assert.match(textOf(history[2]), /one dataset/)
   })
 
   test('an empty store leaves the history untouched, by identity', () => {
@@ -71,14 +88,40 @@ test.describe('withHostContext', () => {
     assert.equal(withHostContext(history, store), history)
   })
 
-  test('a multi-part user message is left alone rather than stringified', () => {
-    // Its content is an array of parts (an image, a file). Concatenating a string onto it would need
-    // the array stringified, which destroys the message — losing the attachment to add a note about
-    // the page is the wrong trade.
+  test('a multi-part message is decorated in its FIRST TEXT PART, not stringified', () => {
+    // The shape the real pipeline produces. An earlier version returned the history untouched here
+    // to avoid destroying an attachment — correct instinct, wrong consequence: it is every user
+    // message, so the feature never ran.
     const store = new HostEventStore()
     store.push({ name: 'page', key: 'page', detail: 'somewhere', at: Date.now() })
-    const history = [{ role: 'user', content: [{ type: 'text', text: 'look' }] }]
-    assert.equal(withHostContext(history, store), history)
+    const history = [{ role: 'user', content: [{ type: 'text', text: 'look' }, { type: 'file', url: 'x' }] }]
+    const out = withHostContext(history, store)
+
+    const parts = out[0].content as Array<any>
+    assert.equal(parts.length, 2, 'the attachment survives')
+    assert.equal(parts[1].type, 'file')
+    assert.match(parts[0].text, /somewhere/)
+    assert.equal(splitHiddenContext(parts[0].text).visible, 'look', "and the person's words are recoverable")
+  })
+
+  test('an attachment-only message gets the context as its own part', () => {
+    // Nothing to wrap around, so the blocks are prepended rather than given a fabricated visible half.
+    const store = new HostEventStore()
+    store.push({ name: 'page', key: 'page', detail: 'somewhere', at: Date.now() })
+    const history = [{ role: 'user', content: [{ type: 'file', url: 'x' }] }]
+    const parts = withHostContext(history, store)[0].content as Array<any>
+    assert.equal(parts.length, 2)
+    assert.equal(parts[0].type, 'text')
+    assert.match(parts[0].text, /somewhere/)
+    assert.equal(parts[1].type, 'file')
+  })
+
+  test('a string content message is still handled, for a hand-built history', () => {
+    const store = new HostEventStore()
+    store.push({ name: 'page', key: 'page', detail: 'somewhere', at: Date.now() })
+    const out = withHostContext([stringUserTurn('look')], store)
+    assert.match(String(out[0].content), /somewhere/)
+    assert.equal(splitHiddenContext(String(out[0].content)).visible, 'look')
   })
 
   test('the original history is not mutated', () => {
@@ -87,6 +130,6 @@ test.describe('withHostContext', () => {
     store.push({ name: 'page', key: 'page', detail: 'the datasets list', at: Date.now() })
     const history = [userTurn('hello')]
     withHostContext(history, store)
-    assert.equal(history[0].content, 'hello')
+    assert.deepEqual(history[0].content, [{ type: 'text', text: 'hello' }])
   })
 })

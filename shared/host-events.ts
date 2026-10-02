@@ -275,13 +275,39 @@ export function withHostContext<M extends { role: string, content: unknown }> (
   const at = history.map(message => message.role).lastIndexOf('user')
   if (at === -1) return history
   const target = history[at]
-  // Only the plain-text shape is decorated. A multi-part user message (an image, a file) would need
-  // the block inserted as a part rather than concatenated, and stringifying its content array to make
-  // the concatenation work would destroy the message.
-  if (typeof target.content !== 'string') return history
-
+  const hidden = blocks.join('\n\n')
   const next = [...history]
-  next[at] = { ...target, content: wrapHiddenContext(blocks.join('\n\n'), target.content) }
+
+  // BOTH content shapes, and the array one is the one that matters.
+  //
+  // This originally handled only `content: string` and returned the history untouched otherwise,
+  // reasoning that a multi-part message (an image, a file) needed a part inserted rather than a
+  // string concatenated. That reasoning was right and the consequence was that the feature NEVER
+  // RAN: `convertToModelMessages` gives every user message an array of parts, so the guard rejected
+  // the normal case and the model was never told what was on the page. The unit tests passed because
+  // their fixtures used string content, which the real pipeline does not produce.
+  if (typeof target.content === 'string') {
+    next[at] = { ...target, content: wrapHiddenContext(hidden, target.content) }
+    return next
+  }
+  if (!Array.isArray(target.content)) return history
+
+  const parts = target.content as Array<{ type?: string, text?: string }>
+  const firstText = parts.findIndex(part => part?.type === 'text' && typeof part.text === 'string')
+  if (firstText === -1) {
+    // Nothing to wrap around — an attachment-only turn. The context is prepended as its own part so
+    // the model still gets it, without inventing a visible half for the wrapper to sit above.
+    next[at] = { ...target, content: [{ type: 'text', text: hidden }, ...parts] }
+    return next
+  }
+  // Wrapped around the FIRST text part, so the blocks sit ahead of the person's words exactly as
+  // they do in the string case, and `splitHiddenContext` can still recover the visible half.
+  const decorated = [...parts]
+  decorated[firstText] = {
+    ...parts[firstText],
+    text: wrapHiddenContext(hidden, parts[firstText].text ?? '')
+  }
+  next[at] = { ...target, content: decorated }
   return next
 }
 
