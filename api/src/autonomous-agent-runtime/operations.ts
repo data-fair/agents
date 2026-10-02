@@ -5,12 +5,17 @@
 
 import { convertToModelMessages, safeValidateUIMessages, type ModelMessage, type Tool } from 'ai'
 import { truncatedToolResultText } from '../agent-loop/compaction-policy.ts'
+import { partsText, textPart, type MessagePart } from '@agents/shared/message-parts'
 import type { AccountKeys } from '@data-fair/lib-express'
 // Type-only, so this pure module does not pull in enforce.ts (which reaches mongo and config).
 import type { UsageIdentity } from '../usage/enforce.ts'
 import type { EffectiveRole } from '../auth.ts'
 import { isUntrustedRole, UNTRUSTED_POOL_ID } from '../usage/operations.ts'
 import { isStandardAgentId } from '../agent-session/standard-agents.ts'
+
+// Re-exported: the parts contract is shared/message-parts, and callers here already import from this
+// module. One definition, one import site.
+export { partsText, textPart, type MessagePart } from '@agents/shared/message-parts'
 
 export type RunStatus = 'running' | 'done' | 'error' | 'aborted' | 'interrupted'
 export type RunStopReason = 'completed' | 'step-limit' | 'repeated-calls' | 'budget' | 'timeout' | 'aborted' | 'error'
@@ -195,21 +200,11 @@ export function boundToolResult (
   }
 }
 
-/**
- * A stored part, as loosely as this module needs it.
- *
- * The real contract is the AI SDK's `UIMessagePart` union, which the message schema now mirrors. This
- * alias exists only so the few functions that walk parts by `type` can do so without importing `#types`
- * (operations.ts stays free of the generated types) and without restating the union — restating it is
- * exactly what produced three divergent copies of it.
- */
-export type UIPart = { type: string, [key: string]: unknown }
-
 /** One stored turn, as much of it as the reconstruction needs. */
 export type StoredTurn = {
   id: string
   role: 'user' | 'assistant'
-  parts?: UIPart[]
+  parts?: MessagePart[]
   author?: { userId?: string, userName?: string }
   seq?: number
 }
@@ -309,11 +304,6 @@ export function alignCutToStoredMessage (seqs: number[], cut: number): number {
   return aligned
 }
 
-/** The visible text of a turn: every text part, in order. Reasoning and tool traffic are excluded. */
-export function partsText (parts: UIPart[] = []): string {
-  return parts.filter(p => p.type === 'text').map(p => String(p.text ?? '')).join('')
-}
-
 /**
  * Append a notice to a turn as its own trailing text part.
  *
@@ -322,11 +312,11 @@ export function partsText (parts: UIPart[] = []): string {
  * first text part would move it before results that had already been produced, which misrepresents
  * what the model saw.
  */
-export function withAppendedText (parts: UIPart[] = [], text: string): UIPart[] {
+export function withAppendedText (parts: MessagePart[] = [], text: string): MessagePart[] {
   // Separated from existing TEXT, not from existing parts: a turn that only called tools has no text
   // to separate from, and a leading blank line there would render as stray whitespace.
   const separator = partsText(parts).trim() ? '\n\n' : ''
-  return [...parts, { type: 'text', text: `${separator}${text}` }]
+  return [...parts, textPart(`${separator}${text}`)]
 }
 
 /**

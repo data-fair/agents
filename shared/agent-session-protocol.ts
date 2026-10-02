@@ -15,6 +15,7 @@
  */
 
 import type { ChatActivity } from './agent-activity.ts'
+import type { MessagePart } from '@agents/shared/message-parts'
 
 /** A contextual tool the page offers. Only its advertisement — the page keeps the implementation. */
 export interface BrowserToolDescriptor {
@@ -104,7 +105,7 @@ export type ServerMessage =
    * Throttled on the same clock as the partial persist, because the structure changes per tool call
    * rather than per token.
    */
-  | { type: 'message', seq: number, role: 'user' | 'assistant', parts: unknown[], pending: boolean }
+  | { type: 'message', seq: number, role: 'user' | 'assistant', parts: MessagePart[], pending: boolean }
   /**
    * What the assistant is doing right now, in the vocabulary the chat already renders.
    *
@@ -134,7 +135,7 @@ export type ServerMessage =
    * The lead still sees only the summary — this is the trace the UI shows when a panel is expanded,
    * never something the model reads.
    */
-  | { type: 'subagent', parentToolCallId: string, name: string, parts: unknown[], pending: boolean }
+  | { type: 'subagent', parentToolCallId: string, name: string, parts: MessagePart[], pending: boolean }
   | { type: 'turn-end', stopReason: string, detail?: string }
   | { type: 'error', message: string }
 
@@ -309,7 +310,11 @@ export function parseServerMessageForClient (raw: string): ServerMessage | undef
       if (typeof parsed.seq !== 'number') return undefined
       if (parsed.role !== 'user' && parsed.role !== 'assistant') return undefined
       if (!Array.isArray(parsed.parts)) return undefined
-      return { type: 'message', seq: parsed.seq, role: parsed.role, parts: parsed.parts, pending: parsed.pending === true }
+      // Trusted as `MessagePart[]` beyond being an array, as every field of this lenient parser is:
+      // it reads frames from OUR OWN server, and the shape is checked where it matters — the server
+      // validates on the way into storage and `safeValidateUIMessages` validates on the way back to
+      // a model. A second structural check of the library's union here would be a third copy of it.
+      return { type: 'message', seq: parsed.seq, role: parsed.role, parts: parsed.parts as MessagePart[], pending: parsed.pending === true }
     }
     case 'activity':
       // Structurally tolerant: the vocabulary may grow a kind, and an older tab should ignore one it
@@ -328,7 +333,7 @@ export function parseServerMessageForClient (raw: string): ServerMessage | undef
         type: 'subagent',
         parentToolCallId: parsed.parentToolCallId,
         name: parsed.name,
-        parts: parsed.parts,
+        parts: parsed.parts as MessagePart[],
         pending: parsed.pending === true
       }
     }

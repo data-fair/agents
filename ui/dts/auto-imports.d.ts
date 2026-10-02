@@ -41,6 +41,7 @@ declare global {
   const SUBAGENT_MODERATION_NOTICE: typeof import('../src/utils/agent-subagent-output').SUBAGENT_MODERATION_NOTICE
   const SUBAGENT_PARTIAL_PREFIX: typeof import('../src/utils/agent-subagent-output').SUBAGENT_PARTIAL_PREFIX
   const SUBAGENT_STEP_LIMIT_NOTICE: typeof import('../src/utils/agent-subagent-output').SUBAGENT_STEP_LIMIT_NOTICE
+  const TOOL_ARGUMENTS_LIMIT: typeof import('../src/utils/tool-arguments').TOOL_ARGUMENTS_LIMIT
   const WAIT_DEFAULT_SECONDS: typeof import('../src/composables/host-events').WAIT_DEFAULT_SECONDS
   const WAIT_MAX_SECONDS: typeof import('../src/composables/host-events').WAIT_MAX_SECONDS
   const WAIT_TOOL_NAME: typeof import('../src/composables/host-events').WAIT_TOOL_NAME
@@ -165,6 +166,7 @@ declare global {
   const streamingSafeBuffer: typeof import('../src/utils/markdown').streamingSafeBuffer
   const subAgentModelOutput: typeof import('../src/utils/agent-subagent-output').subAgentModelOutput
   const subscribeHostEvents: typeof import('../src/composables/use-host-events').subscribeHostEvents
+  const summarizeToolArguments: typeof import('../src/utils/tool-arguments').summarizeToolArguments
   const toDescriptors: typeof import('../src/composables/use-agent-session').toDescriptors
   const toRaw: typeof import('vue').toRaw
   const toRef: typeof import('vue').toRef
@@ -232,9 +234,6 @@ declare global {
   export type { AgentFlags } from '../src/utils/agent-flags'
   import('../src/utils/agent-flags')
   // @ts-ignore
-  export type { StoredAutonomousAgentMessage, AutonomousAgentPart } from '../src/utils/autonomous-agent-chat-message'
-  import('../src/utils/autonomous-agent-chat-message')
-  // @ts-ignore
   export type { ChatMessage } from '../src/utils/chat-message'
   import('../src/utils/chat-message')
   // @ts-ignore
@@ -289,10 +288,9 @@ declare module 'vue' {
     readonly FLAGS_COOKIE: UnwrapRef<typeof import('../src/utils/agent-flags')['FLAGS_COOKIE']>
     readonly MERMAID_AUTO_FIX_BUDGET: UnwrapRef<typeof import('../src/utils/mermaid-fix')['MERMAID_AUTO_FIX_BUDGET']>
     readonly SELECT_TOOL_NAME: UnwrapRef<typeof import('../src/utils/tool-exploration')['SELECT_TOOL_NAME']>
+    readonly TOOL_ARGUMENTS_LIMIT: UnwrapRef<typeof import('../src/utils/tool-arguments')['TOOL_ARGUMENTS_LIMIT']>
     readonly appendStreamingCaret: UnwrapRef<typeof import('../src/utils/markdown')['appendStreamingCaret']>
     readonly autonomousAgentEditDraft: UnwrapRef<typeof import('../src/utils/autonomous-agent-draft')['autonomousAgentEditDraft']>
-    readonly autonomousAgentMessageToChat: UnwrapRef<typeof import('../src/utils/autonomous-agent-chat-message')['autonomousAgentMessageToChat']>
-    readonly autonomousAgentMessagesToChat: UnwrapRef<typeof import('../src/utils/autonomous-agent-chat-message')['autonomousAgentMessagesToChat']>
     readonly breadcrumbs: UnwrapRef<typeof import('../src/utils/breadcrumbs')['default']>
     readonly breakdownDatasets: UnwrapRef<typeof import('../src/utils/usage-breakdown')['breakdownDatasets']>
     readonly buildMermaidThemeVariables: UnwrapRef<typeof import('../src/utils/mermaid')['buildMermaidThemeVariables']>
@@ -328,7 +326,6 @@ declare module 'vue' {
     readonly isShallow: UnwrapRef<typeof import('vue')['isShallow']>
     readonly looksLikeIncompleteTable: UnwrapRef<typeof import('../src/utils/markdown')['looksLikeIncompleteTable']>
     readonly markRaw: UnwrapRef<typeof import('vue')['markRaw']>
-    readonly mergeBySeq: UnwrapRef<typeof import('../src/utils/autonomous-agent-chat-message')['mergeBySeq']>
     readonly newlyAvailableTools: UnwrapRef<typeof import('../src/utils/tool-exploration')['newlyAvailableTools']>
     readonly nextTick: UnwrapRef<typeof import('vue')['nextTick']>
     readonly onActivated: UnwrapRef<typeof import('vue')['onActivated']>
@@ -368,6 +365,7 @@ declare module 'vue' {
     readonly shouldAutoFixMermaid: UnwrapRef<typeof import('../src/utils/mermaid-fix')['shouldAutoFixMermaid']>
     readonly streamingSafeBuffer: UnwrapRef<typeof import('../src/utils/markdown')['streamingSafeBuffer']>
     readonly subscribeHostEvents: UnwrapRef<typeof import('../src/composables/use-host-events')['subscribeHostEvents']>
+    readonly summarizeToolArguments: UnwrapRef<typeof import('../src/utils/tool-arguments')['summarizeToolArguments']>
     readonly toDescriptors: UnwrapRef<typeof import('../src/composables/use-agent-session')['toDescriptors']>
     readonly toRaw: UnwrapRef<typeof import('vue')['toRaw']>
     readonly toRef: UnwrapRef<typeof import('vue')['toRef']>

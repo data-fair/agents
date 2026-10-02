@@ -7,7 +7,9 @@ import config from '#config'
 import { standardAgent } from '../agent-session/standard-agents.ts'
 import { nanoid } from 'nanoid'
 import { type AccountKeys, httpError } from '@data-fair/lib-express'
-import type { AutonomousAgent, AutonomousAgentConversation, AutonomousAgentMessage, AutonomousAgentRun } from '#types'
+import type { AutonomousAgent, AutonomousAgentConversation, AutonomousAgentRun } from '#types'
+// The stored shape, whose `parts` carry the library's own part type (see mongo.ts).
+import type { StoredMessage } from '#mongo'
 import { canInstruct, type InstructSession } from '../autonomous-agents/operations.ts'
 import { notifyConversationChanged } from './events.ts'
 import { getAutonomousAgent, assertOrganizationOwner } from '../autonomous-agents/service.ts'
@@ -121,8 +123,8 @@ const bumpConversationVersion = async (conversationId: string): Promise<number |
  */
 export const appendMessage = async (
   conversation: AutonomousAgentConversation,
-  message: Omit<AutonomousAgentMessage, 'id' | 'seq' | 'createdAt' | 'conversationId' | 'autonomousAgentId' | 'owner'>
-): Promise<AutonomousAgentMessage> => {
+  message: Omit<StoredMessage, 'id' | 'seq' | 'createdAt' | 'conversationId' | 'autonomousAgentId' | 'owner'>
+): Promise<StoredMessage> => {
   const updated = await mongo.autonomousAgentConversations.findOneAndUpdate(
     { id: conversation.id },
     // One round trip allocates both: the seq (per message) and the version (per change).
@@ -130,7 +132,7 @@ export const appendMessage = async (
     { returnDocument: 'after', projection: { _id: 0 } }
   )
   if (!updated) throw httpError(404, 'unknown conversation')
-  const doc: AutonomousAgentMessage = {
+  const doc: StoredMessage = {
     ...message,
     id: nanoid(),
     conversationId: conversation.id,
@@ -154,7 +156,7 @@ export const appendMessage = async (
  * findOneAndUpdate rather than updateOne plus a read: the event carries the RESULTING document,
  * and two round trips would let a concurrent write make the event disagree with what is stored.
  */
-export const updateMessage = async (id: string, patch: Partial<AutonomousAgentMessage>) => {
+export const updateMessage = async (id: string, patch: Partial<StoredMessage>) => {
   const existing = await mongo.autonomousAgentMessages.findOne({ id }, { projection: { _id: 0, conversationId: 1 } })
   if (!existing) return
   // The version has to advance for an in-place update too, or an incremental fetch cannot see it:

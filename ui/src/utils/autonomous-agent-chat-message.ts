@@ -8,8 +8,11 @@
  */
 
 import { isDynamicToolUIPart } from 'ai'
-import type { UIMessagePart, UIDataTypes, UITools } from 'ai'
 import type { ChatMessage } from './chat-message.ts'
+
+// Named once in shared/, for both sides of the socket. This file used to declare it, and was the only
+// place that had it right — the server used an open bag and the wire used unknown[].
+import type { MessagePart } from '@agents/shared/message-parts'
 
 /**
  * The stored message as the UI reads it, described structurally so `shared/` needs no `#types`
@@ -34,8 +37,7 @@ export interface StoredAutonomousAgentMessage {
    */
   parts?: AutonomousAgentPart[]
 }
-
-export type AutonomousAgentPart = UIMessagePart<UIDataTypes, UITools>
+export type AutonomousAgentPart = MessagePart
 
 export function autonomousAgentMessageToChat (message: StoredAutonomousAgentMessage): ChatMessage {
   const parts = message.parts ?? []

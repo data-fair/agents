@@ -20,6 +20,8 @@ import config from '#config'
 import locks from '@data-fair/lib-node/locks.js'
 import Debug from 'debug'
 import { streamText, generateText, stepCountIs, type ModelMessage, type Tool } from 'ai'
+// 'ai' does not re-export JSONObject; @ai-sdk/provider is where the library declares it.
+import type { JSONObject } from '@ai-sdk/provider'
 import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep, STREAM_IDLE_TIMEOUT_MS } from '../agent-loop/agent-loop-guards.ts'
 import { decideContextManagement, clearOldToolResults } from '../agent-loop/compaction-policy.ts'
 import { compactionSystemPrompt, recapMessage } from '../agent-loop/compaction-prompt.ts'
@@ -28,7 +30,7 @@ import {
   runStopReasonMessage, buildSystemPrompt, withProvenance,
   storedTurnsToModelMessages, alignCutToStoredMessage, usageIdentityFor,
   boundToolResult, partsText, withAppendedText,
-  type RunStopReason, type UIPart
+  type RunStopReason, type MessagePart
 } from './operations.ts'
 import type { UsageIdentity } from '../usage/enforce.ts'
 import { appendMessage, updateMessage, finishRun, incrementRunSpend, saveCompaction, resolveAgent, appendRunCall, setRunSystemPrompt } from './service.ts'
@@ -103,7 +105,7 @@ const conversationLockId = (conversationId: string) => `autonomous-agent-convers
 /** What one turn produced. The model loop replaces the body that fills this in. */
 interface TurnResult {
   /** The turn's ordered parts — the record itself, not a rendering of it. */
-  parts: UIPart[]
+  parts: MessagePart[]
   steps: number
   credits: number
   stopReason: RunStopReason
@@ -135,13 +137,13 @@ const moderateTurn = async (
   run: AutonomousAgentRun,
   settings: Awaited<ReturnType<typeof getSettings>>,
   identity: UsageIdentity
-): Promise<{ parts: UIPart[], steps: number, credits: number, stopReason: RunStopReason } | undefined> => {
+): Promise<{ parts: MessagePart[], steps: number, credits: number, stopReason: RunStopReason } | undefined> => {
   // 'completed', not 'error'. A turn that stopped for any reason other than finishing has
   // runStopReasonMessage's notice APPENDED to whatever it produced, and "This turn failed and could
   // not be completed" is false here and unhelpful: the turn did finish, and declining was its
   // answer. The block is recorded as a moderation event, which is where an admin looks for it.
   const refuse = (text: string) => ({
-    parts: [{ type: 'text', text }] as UIPart[],
+    parts: [{ type: 'text', text }] as MessagePart[],
     steps: 0,
     credits: 0,
     stopReason: 'completed' as RunStopReason
@@ -748,7 +750,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
 
   // The turn's parts, in the order the model produced them. This IS the record: everything the model
   // saw has to end up here, or a revived conversation is a different conversation.
-  const parts: UIPart[] = []
+  const parts: MessagePart[] = []
   const appendText = (kind: 'text' | 'reasoning', delta: string) => {
     const last = parts[parts.length - 1]
     // Merged into the trailing part of the same kind rather than pushed per delta, or a turn would
@@ -791,12 +793,27 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
    * call first — but if it ever did, appending a resultless part would produce a history the provider
    * rejects, so the update is simply dropped.
    */
-  const settleToolPart = (toolCallId: string, settled: Record<string, unknown>) => {
-    const call = parts.find(p => p.type === 'dynamic-tool' && p.toolCallId === toolCallId)
-    if (!call) return
-    const { truncated, ...rest } = settled
+  const settleToolPart = (
+    toolCallId: string,
+    // Typed rather than `Record<string, unknown>`: the two callers settle a call with exactly these
+    // shapes, and a loose record is how `truncated` arrived as `unknown` and had to be cast back.
+    settled:
+      | { state: 'output-available', output: string, truncated?: { totalChars: number } }
+      | { state: 'output-error', errorText: string }
+  ) => {
+    // Narrowed to the dynamic-tool variant rather than indexed blindly: `toolMetadata` exists only
+    // there, and under the old open `UIPart` this read compiled against any part at all.
+    const call = parts.find(part => part.type === 'dynamic-tool' && part.toolCallId === toolCallId)
+    if (!call || call.type !== 'dynamic-tool') return
+    const { truncated, ...rest } = settled as { truncated?: { totalChars: number } } & Record<string, unknown>
     Object.assign(call, rest)
-    if (truncated) call.toolMetadata = { ...(call.toolMetadata as object), truncated }
+    // `as JSONObject` and not `as any`: the values here ARE json (a server id, a char count, MCP
+    // annotations), but they arrive typed as `Record<string, unknown>` from the MCP client and TS
+    // cannot see through that to the library's JSONValue. The cast is about the declaration, not
+    // about the data.
+    // Written field by field rather than spread: the library types this slot as a JSONObject, and a
+    // spread of the destructured value widens to {} which no longer overlaps it.
+    if (truncated) call.toolMetadata = { ...call.toolMetadata, truncated: { totalChars: truncated.totalChars } }
   }
 
   // Live text: the growing content is PERSISTED, throttled, rather than published. Each write
@@ -813,7 +830,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
     if (length === lastPersistedLength) return
     lastPersistAt = now
     lastPersistedLength = length
-    await updateMessage(messageId, { parts: parts as any, pending: true })
+    await updateMessage(messageId, { parts, pending: true })
     sendMessageFrame(true)
   }
 
@@ -827,7 +844,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
    * rides the persist clock rather than the delta one.
    */
   const sendMessageFrame = (pending: boolean) => {
-    session?.send({ type: 'message', seq: messageSeq, role: 'assistant', parts: parts as unknown[], pending })
+    session?.send({ type: 'message', seq: messageSeq, role: 'assistant', parts, pending })
   }
 
   for await (const part of result.fullStream) {
@@ -863,11 +880,14 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
         // The real arguments, not a summary of them: the stored conversation is the reference copy,
         // so a revived turn has to replay the call the model actually made. The summary is for the
         // trace, which is a description rather than a record.
-        input: (part as any).input,
+        input: part.input,
+        // Built by spreading presence rather than assigning possibly-undefined values: the library
+        // types this slot as a JSONObject, which has no room for `undefined`, and a browser tool has
+        // no catalog server to name.
         toolMetadata: {
-          serverId: serverByTool.get(part.toolName),
+          ...(serverByTool.get(part.toolName) ? { serverId: serverByTool.get(part.toolName) } : {}),
           ...(annotationsByTool.get(part.toolName) ? { annotations: annotationsByTool.get(part.toolName) } : {})
-        }
+        } as JSONObject
       })
       // Immediately, not on the persist clock: a tool chip appearing is what tells the person the
       // assistant is doing something, and a call can take seconds. Waiting for the next token would
@@ -963,7 +983,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   const finalParts = emptyCompletion ? withAppendedText(parts, EMPTY_COMPLETION_MESSAGE) : parts
   // The last word on this turn's structure, with pending cleared — so a page stops rendering it as in
   // progress without having to infer that from `turn-end`.
-  session?.send({ type: 'message', seq: messageSeq, role: 'assistant', parts: finalParts as unknown[], pending: false })
+  session?.send({ type: 'message', seq: messageSeq, role: 'assistant', parts: finalParts, pending: false })
   return {
     parts: finalParts,
     steps,
@@ -1176,7 +1196,7 @@ export const recoverOwnerlessRuns = async (): Promise<{ interrupted: number, res
     // 'error' with the restart named as the detail.
     const notice = runStopReasonMessage('error', 'interrupted by a restart')
     await updateMessage(existing.id, {
-      parts: withAppendedText(existing.parts as any, notice),
+      parts: withAppendedText(existing.parts, notice),
       pending: false
     })
     await finishRun(run.id, { status: 'interrupted', stopReason: 'error', error: 'interrupted by a restart' })

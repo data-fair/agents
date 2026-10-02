@@ -3,6 +3,7 @@ import type { Limits } from '#types/limits/index.ts'
 import type { AutonomousAgent } from '#types/autonomous-agent/index.ts'
 import type { AutonomousAgentConversation } from '#types/autonomous-agent-conversation/index.ts'
 import type { AutonomousAgentMessage } from '#types/autonomous-agent-message/index.ts'
+import type { MessagePart } from '@agents/shared/message-parts'
 import type { AutonomousAgentRun } from '#types/autonomous-agent-run/index.ts'
 import type { Usage } from './usage/service.ts'
 import type { ModerationEvent, ModerationStrike } from './moderation/types.ts'
@@ -10,6 +11,9 @@ import { RETENTION_SECONDS } from './moderation/operations.ts'
 
 import mongoLib from '@data-fair/lib-node/mongo.js'
 import config from '#config'
+
+/** A stored message, with its parts typed by the library that owns them. */
+export type StoredMessage = Omit<AutonomousAgentMessage, 'parts'> & { parts?: MessagePart[] }
 
 export class AgentsMongo {
   get client () {
@@ -49,7 +53,13 @@ export class AgentsMongo {
   }
 
   get autonomousAgentMessages () {
-    return mongoLib.db.collection<AutonomousAgentMessage>('autonomous-agent-messages')
+    // The ONE place the stored parts get their real type.
+    //
+    // The schema exports `parts?: unknown[]` on purpose (see its comment): the shape is the AI SDK's
+    // `UIMessagePart` union, which a JSON Schema can only restate as a lagging copy. Overriding it
+    // here types every read and write of this collection correctly, so neither the executor nor a
+    // test fixture can put a shape in that the library would reject.
+    return mongoLib.db.collection<StoredMessage>('autonomous-agent-messages')
   }
 
   get autonomousAgentRuns () {

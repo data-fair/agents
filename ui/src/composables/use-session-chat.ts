@@ -162,7 +162,7 @@ export function useSessionChat (options: UseSessionChatOptions) {
       const chat = autonomousAgentMessageToChat({
         seq: frame.seq,
         role: frame.role,
-        parts: frame.parts as any,
+        parts: frame.parts,
         pending: frame.pending
       })
       // A user turn is STORED wrapped when an action button supplied hidden context. The person must
@@ -176,7 +176,7 @@ export function useSessionChat (options: UseSessionChatOptions) {
       const chat = autonomousAgentMessageToChat({
         seq: 0,
         role: 'assistant',
-        parts: frame.parts as any,
+        parts: frame.parts,
         pending: frame.pending
       })
       // Replaced, not appended: each frame is the worker's transcript so far, so appending would

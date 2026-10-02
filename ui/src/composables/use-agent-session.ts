@@ -13,6 +13,7 @@
 
 import { ref, shallowRef, computed, type Ref } from 'vue'
 import type { ChatActivity } from '@agents/shared/agent-activity'
+import type { MessagePart } from '@agents/shared/message-parts'
 import type { Tool } from 'ai'
 import Debug from 'debug'
 import {
@@ -38,14 +39,14 @@ export interface AgentSessionClientOptions {
    * Rendered with `autonomousAgentMessageToChat`, the same mapper a reopened thread uses — so the live
    * transcript and the stored one cannot drift, because they are the same data through the same code.
    */
-  onMessage?: (message: { seq: number, role: 'user' | 'assistant', parts: unknown[], pending: boolean }) => void
+  onMessage?: (message: { seq: number, role: 'user' | 'assistant', parts: MessagePart[], pending: boolean }) => void
   /**
    * A sub-agent's transcript, as it runs, keyed by the delegating tool call.
    *
    * Separate from `onMessage` because it is not a message of the conversation: it belongs INSIDE the
    * assistant turn that delegated, which is also how it renders (a panel under the tool call).
    */
-  onSubAgent?: (frame: { parentToolCallId: string, name: string, parts: unknown[], pending: boolean }) => void
+  onSubAgent?: (frame: { parentToolCallId: string, name: string, parts: MessagePart[], pending: boolean }) => void
   /** What the assistant is doing, in the vocabulary `activityLabelKey` already renders. */
   onActivity?: (activity: ChatActivity | null) => void
   onTurnEnd?: (stopReason: string, detail?: string) => void

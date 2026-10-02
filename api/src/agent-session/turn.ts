@@ -88,7 +88,7 @@ export const startSessionTurn = async (request: SessionTurnRequest): Promise<str
     type: 'message',
     seq: stored.seq,
     role: 'user',
-    parts: (stored.parts ?? []) as unknown[],
+    parts: stored.parts ?? [],
     pending: false
   })
 
@@ -133,7 +133,7 @@ export const sendHistory = async (session: AgentSession, conversationId: string)
       type: 'message',
       seq: message.seq,
       role: message.role,
-      parts: (message.parts ?? []) as unknown[],
+      parts: message.parts ?? [],
       // `pending` is the stored flag, not a guess: a turn interrupted by a restart is genuinely still
       // marked pending, and a client should render it that way rather than as finished.
       pending: message.pending === true

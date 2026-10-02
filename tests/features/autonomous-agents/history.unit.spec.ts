@@ -16,7 +16,8 @@ import {
   withAppendedText,
   partsText,
   TOOL_RESULT_LIMIT,
-  type StoredTurn
+  type StoredTurn,
+  type MessagePart
 } from '../../../api/src/autonomous-agent-runtime/operations.ts'
 
 /**
@@ -32,9 +33,20 @@ const userTurn = (text: string, author?: { userId?: string, userName?: string })
 })
 
 /** A tool call and its answer are ONE part in the AI SDK's model, moved through its states. */
-const toolCall = (toolCallId: string, toolName: string, input: unknown, output: string) => ({
-  type: 'dynamic-tool', toolCallId, toolName, state: 'output-available', input, output
-})
+/**
+ * A completed tool call, as a REAL `MessagePart`.
+ *
+ * Typed rather than inferred, which is the point of unifying the parts type: the previous fixtures
+ * built `{ type: 'dynamic-tool', toolName: 'x' }` with no `toolCallId`, and a part whose `type` was
+ * widened to `string`. The open `UIPart` bag accepted both, so the tests described shapes the AI SDK
+ * would reject — and `safeValidateUIMessages` is what the replay actually runs them through.
+ */
+const toolCall = (toolCallId: string, toolName: string, input: unknown, output: string): MessagePart =>
+  ({ type: 'dynamic-tool', toolCallId, toolName, state: 'output-available', input, output })
+
+/** A tool call with no result yet, which is what an interrupted turn stores. */
+const pendingToolCall = (toolCallId: string, toolName: string): MessagePart =>
+  ({ type: 'dynamic-tool', toolCallId, toolName, state: 'input-available', input: {} })
 
 const withIds = (turns: Turn[]): StoredTurn[] => turns.map((turn, index) => ({ id: `m${index}`, ...turn }))
 const replay = async (turns: Turn[]) => (await storedTurnsToModelMessages(withIds(turns))).messages
@@ -186,7 +198,12 @@ test.describe('the stored shape is validated against the library', () => {
       storedTurnsToModelMessages([{
         id: 'm1',
         role: 'assistant',
-        parts: [{ type: 'dynamic-tool', toolCallId: 'c1', toolName: 'echo', state: 'finished-probably' }]
+        // CAST ON PURPOSE, and the only one in this file. The point of the test is that stored data
+        // the library does not define is rejected at REPLAY time, and stored data can be invalid —
+        // written by an older version, or by a bug. Now that `MessagePart` is the library's own union
+        // the shape cannot be expressed without a cast, which is the type system agreeing that
+        // nothing in the code can produce it.
+        parts: [{ type: 'dynamic-tool', toolCallId: 'c1', toolName: 'echo', state: 'finished-probably' } as unknown as MessagePart]
       }]),
       /cannot be replayed/
     )
@@ -259,8 +276,8 @@ test.describe('parts text helpers', () => {
     // A turn that only called tools has no text to separate from; a leading blank line there would
     // render as stray whitespace.
     assert.deepEqual(
-      withAppendedText([{ type: 'dynamic-tool', toolName: 'x' }], 'notice'),
-      [{ type: 'dynamic-tool', toolName: 'x' }, { type: 'text', text: 'notice' }]
+      withAppendedText([pendingToolCall('c1', 'x')], 'notice'),
+      [pendingToolCall('c1', 'x'), { type: 'text', text: 'notice' }]
     )
     assert.equal(partsText(withAppendedText([{ type: 'text', text: 'said' }], 'notice')), 'said\n\nnotice')
   })
@@ -268,7 +285,7 @@ test.describe('parts text helpers', () => {
   test('a notice lands at the END, after the tool traffic it interrupted', () => {
     const parts = withAppendedText([
       { type: 'text', text: 'partial' },
-      { type: 'dynamic-tool', toolName: 'x' }
+      pendingToolCall('c1', 'x')
     ], 'stopped')
     assert.equal(parts[parts.length - 1].type, 'text')
     assert.equal(partsText(parts), 'partial\n\nstopped')

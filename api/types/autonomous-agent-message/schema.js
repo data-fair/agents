@@ -55,42 +55,23 @@ export default {
      * `dynamic-tool` rather than the statically-typed `tool-<name>`: an agent's tools are discovered
      * from its MCP servers at runtime, so the names are not known to the type system.
      */
+    /**
+     * The turn's ordered parts. OPAQUE here, deliberately.
+     *
+     * This schema used to restate the AI SDK's `UIMessagePart` union field by field — text, toolName,
+     * toolCallId, state, input, output, toolMetadata, approval — which made it a hand-maintained copy
+     * of a type the library already owns and evolves. It exported `{ type: string, ... }`, so the
+     * executor had to cast `parts as any` at every write, and the test fixtures could build parts the
+     * SDK would reject (a `dynamic-tool` with no `toolCallId`) without anything noticing.
+     *
+     * This schema is `x-exports: ['types']` — a type source, never a runtime validator — so nothing
+     * is lost by not describing the shape: `safeValidateUIMessages` validates it against the
+     * library's own definition on the way back in, which is a stronger check than this ever was. The
+     * TYPE comes from `shared/message-parts.ts` via the collection's element type (see mongo.ts).
+     */
     parts: {
       type: 'array',
-      default: [],
-      items: {
-        type: 'object',
-        required: ['type'],
-        properties: {
-          type: { type: 'string' },
-          // text / reasoning
-          text: { type: 'string' },
-          // dynamic-tool
-          toolName: { type: 'string' },
-          toolCallId: { type: 'string' },
-          state: { type: 'string' },
-          // Declared without a type on purpose. A tool's arguments and its result are whatever its own
-          // schema says — the library types both as `unknown` — but they must be DECLARED, or a
-          // validator that strips unknown properties would silently empty every tool call in the
-          // record. `input` in particular is what makes a call replayable and auditable.
-          input: { description: "The tool call's arguments, as the tool's own schema defines them." },
-          output: { description: "The tool's result, as the tool's own schema defines it." },
-          providerExecuted: { type: 'boolean' },
-          errorText: { type: 'string' },
-          /**
-           * Where this project's own per-invocation facts live, which is what the library's open
-           * `toolMetadata` slot is for:
-           *  - `serverId`: which catalog MCP server ran the tool, so the record names its provenance;
-           *  - `truncated`: that the result was bounded, with its original size.
-           */
-          toolMetadata: { type: 'object', additionalProperties: true },
-          /**
-           * The approval record for a tool call: the library's `needsApproval` gate, which is what P1's
-           * write-approval feature is built on rather than a bespoke mechanism. Never written yet.
-           */
-          approval: { type: 'object', additionalProperties: true }
-        }
-      }
+      default: []
     },
     runId: { type: 'string' },
     // true while the executor is still appending to this message
