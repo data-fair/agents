@@ -275,7 +275,12 @@ const loadHistory = async (conversationId: string, upToSeq: number): Promise<Loa
   const stored = await mongo.autonomousAgentMessages
     .find(
       { conversationId, seq: recap ? { $gt: recap.coversUpToSeq, $lt: upToSeq } : { $lt: upToSeq } },
-      { projection: { _id: 0 } }
+      // Only what builds the model's context. The whole post-recap window is materialised for every
+      // turn — bounded by compaction, but loaded in full — and `author`, `createdAt`, `updatedAt`,
+      // `version`, `pending`, `runId` and `owner` were coming with it and reaching nothing. `id` and
+      // `seq` stay: the replay reports which message it rejected, and `seqs` maps the compaction cut
+      // back onto stored messages.
+      { projection: { _id: 0, id: 1, role: 1, parts: 1, seq: 1 } }
     )
     .sort({ seq: 1 })
     .toArray()
@@ -583,8 +588,20 @@ const performTurn = async (run: AutonomousAgentRun, messageSeq: number, messageI
   }
 }
 
-/** How often the growing answer is written back, at most. */
-const PARTIAL_PERSIST_INTERVAL_MS = 250
+/**
+ * How often the growing answer is written back, at most.
+ *
+ * DURABILITY only, not publication. It used to be 250ms and it also pushed a `message` frame each
+ * time, so a watching page received the whole parts array four times a second ON TOP of a `delta`
+ * per token — quadratic in the length of an answer, for structure that changes a handful of times a
+ * turn. The frame is event-driven now (see `sendMessageFrame` callers) and this interval only bounds
+ * how much text a crash mid-answer can lose.
+ *
+ * Two seconds rather than 250ms because that is what it is now for: the client already has every
+ * token, so this write is read back only by a RELOAD, and by the interrupted-run sweep after a
+ * restart. Eight times fewer rewrites of a growing document for two seconds of exposure.
+ */
+const PARTIAL_PERSIST_INTERVAL_MS = 2_000
 
 interface ModelLoopContext {
   run: AutonomousAgentRun
@@ -830,8 +847,9 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
     if (length === lastPersistedLength) return
     lastPersistAt = now
     lastPersistedLength = length
+    // No frame: the page is already receiving this text token by token. Publishing the whole parts
+    // array here is what made the socket traffic quadratic.
     await updateMessage(messageId, { parts, pending: true })
-    sendMessageFrame(true)
   }
 
   /**
