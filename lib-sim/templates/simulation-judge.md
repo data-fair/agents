@@ -31,7 +31,11 @@ A case name, the person's goal, and paths to the evidence. Read the files with
   - `consoleErrors` — browser errors during the run
   - `observations` — what the person actually looked at and did, per turn:
     `{ turn, tool, args, result }`. `look` returns the accessibility outline of
-    the screen at that moment.
+    the screen at that moment. `screenshot` showed the person the screen as an
+    image, which the record does not keep: a claim about colours or appearance
+    right after one is plausible but unverifiable — weigh it, do not treat it
+    as fabricated. `press` and `switch_tab` are a key press and a change of
+    browser tab (tab 1 is the application with the chat).
 - `simulations/tmp/sim-<case>.run.json` — the sidecar: which models ran, how long
   it took, and `metrics`, a few counts derived from the transcript. Read them as
   facts, not as a score: nothing in `metrics` is a pass mark, and a number only

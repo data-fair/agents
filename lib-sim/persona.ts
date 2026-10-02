@@ -62,8 +62,10 @@ let neutralCwd: string | undefined
 // genuinely lost persona long before it could wander for minutes.
 export const PERSONA_MAX_TURNS = 25
 
-export const PERCEPTION_INSTRUCTIONS = `You can look at the screen yourself with the look tool, and you can click and type
-on the page. Before you say anything about what is or is not on the screen, look.
+export const PERCEPTION_INSTRUCTIONS = `You can look at the screen yourself with the look tool, and you can click, type and press
+keys (press) on the page. When colours or appearance matter, take a screenshot to see the screen as
+an image. A link may open a new browser tab: you are then looking at it, and switch_tab takes you back.
+Before you say anything about what is or is not on the screen, look.
 Never claim you cannot see something you have not looked for.
 Your tools are the only way you act on the page: never say you did something (reload, scroll, save…)
 that is not in the list of what you did.`
@@ -143,9 +145,15 @@ export type PersonaQuery = (typeof import('@anthropic-ai/claude-agent-sdk'))['qu
  * page » after being told to reload, with no reload among its actions.
  */
 export function actionRecap (observations: Observation[]): string | null {
-  const acts = observations.filter(o => o.tool !== 'look').slice(-10).map(o => {
-    const args = (o.args ?? {}) as { name?: unknown, text?: unknown }
-    const what = o.tool === 'click' ? `clicked "${args.name}"` : o.tool === 'type' ? `typed "${args.text}" into "${args.name}"` : o.tool
+  const acts = observations.filter(o => o.tool !== 'look' && o.tool !== 'screenshot').slice(-10).map(o => {
+    const args = (o.args ?? {}) as { name?: unknown, text?: unknown, key?: unknown, tab?: unknown }
+    const what = o.tool === 'click'
+      ? `clicked "${args.name}"`
+      : o.tool === 'type'
+        ? `typed "${args.text}" into "${args.name}"`
+        : o.tool === 'press'
+          ? (args.name ? `pressed ${args.key} in "${args.name}"` : `pressed ${args.key}`)
+          : o.tool === 'switch_tab' ? `switched to tab ${args.tab}` : o.tool
     return `- ${what} → ${o.result.slice(0, 120)}`
   })
   return acts.length ? ['What you have done on the page so far (nothing else):', ...acts].join('\n') : null
