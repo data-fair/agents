@@ -23,17 +23,30 @@ test.describe('standard agents', () => {
     assert.equal(isStandardAgentId(PERSONAL_AGENT_ID), true)
   })
 
-  test('every standard agent has a persona, and says it acts with the person\'s permissions', () => {
-    // Not decoration: the model has to know its ceiling, because the honest answer to a refused action
-    // is to say so rather than to look for another route. Asserted across the whole registry, so a
-    // persona added later cannot quietly omit it.
+  test('every standard agent has a persona and no identity of its own', () => {
     const ids = Object.keys(STANDARD_AGENTS)
     assert.ok(ids.length >= 1)
     for (const id of ids) {
       const agent = standardAgent(id, CATALOG)!
       assert.ok(agent.persona.length > 0, `${id} needs a persona`)
-      assert.match(agent.persona, /permissions/i, `${id} must state its ceiling`)
       assert.equal(agent.nhi, undefined, `${id} must act as the person, not as itself`)
+    }
+  })
+
+  test('a persona does NOT restate the permission ceiling, which the prompt adds once', () => {
+    // The ceiling still has to be stated — the model needs to know it, because the honest answer to a
+    // refused action is to say so rather than to look for another route. It is stated by
+    // buildSystemPrompt for any agent without an NHI (asserted in the runtime spec), which is derived
+    // from the identity rather than from a sentence each persona has to remember.
+    //
+    // This asserts the ABSENCE because the two together are what went wrong: a persona carrying its
+    // own copy put two near-identical sentences in consecutive paragraphs of the real prompt.
+    for (const id of Object.keys(STANDARD_AGENTS)) {
+      assert.doesNotMatch(
+        standardAgent(id, CATALOG)!.persona,
+        /permissions|never more|not permitted/i,
+        `${id} must not duplicate the permission clause the prompt already adds`
+      )
     }
   })
 
@@ -57,12 +70,6 @@ test.describe('standard agents', () => {
     // A conversation names its agent by id. If a configured agent could be called `personal`, a thread
     // would resolve to the wrong identity.
     assert.equal(PERSONAL_AGENT_ID, 'personal')
-  })
-
-  test('its persona says it acts with the person\'s own permissions', () => {
-    // Not decoration: the model has to know its ceiling, because the honest answer to a refused action
-    // is to say so rather than to look for another route.
-    assert.match(standardAgent(PERSONAL_AGENT_ID, CATALOG)!.persona, /permissions/i)
   })
 
   test('it reaches every catalog entry, unfiltered', () => {

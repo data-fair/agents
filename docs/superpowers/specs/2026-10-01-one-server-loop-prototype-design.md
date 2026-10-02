@@ -537,3 +537,159 @@ It is a second checkout, so it needs its own `npm install`, and exercising it ne
 worktree — its own ports and containers, which the user starts. Until then this branch can be written and
 type-checked but not run. Worth settling before §4 starts rather than at the point of wanting to measure
 latency.
+
+## 10. Design review: what the new design should shed (2026-10-02)
+
+A review of the finished prototype oriented on simplicity and performance, asking in each case
+whether a choice still earns its keep now that there is one loop rather than two. Evidence is cited
+so each item can be argued with.
+
+### 10.1 The naming is the largest stale choice
+
+`autonomous-agent-*` reaches 35 files, three collections (`autonomous-agent-conversations`,
+`-messages`, `-runs`), the generated types (`AutonomousAgentConversation/Message/Run`), the module
+`autonomous-agent-runtime`, the field `autonomousAgentId`, and the usage key
+`autonomous-agent:<id>`. Every one of them now also holds, or describes, **an ordinary person's
+chat** — a conversation whose `autonomousAgentId` is `'personal'`.
+
+This is not cosmetic. It is why `usageIdentityFor` billed every chat turn as the agent at role
+'admin', why the quota refusal said "This autonomous agent could not run" to a person asking a
+question, and why `assertCanInstruct` locked plain org members out of their own assistant. Three
+defects found in one day, all downstream of a name that stopped being true.
+
+**Recommendation:** rename to the general concept — `conversations`, `messages`, `runs`, `agentId` —
+and keep "autonomous" only for what is actually autonomous (the configured agents, their NHIs, their
+schedules). It is mechanical except for the collection names, which need a migration, and it is
+cheapest now: everything built on these names from here inherits the confusion.
+
+### 10.2 `parts` is the one type that is not uniform end to end
+
+There are four representations of the same value:
+
+| Where | Type |
+|---|---|
+| JSON schema (storage) | an open object with a few optional known keys |
+| server, `operations.ts` | `UIPart = { type: string, [key: string]: unknown }` |
+| the wire | `unknown[]` |
+| client, `autonomous-agent-chat-message.ts` | `UIMessagePart<UIDataTypes, UITools>` — the AI SDK's real union |
+
+The authoritative type already exists and is already imported: the client's. The server's is an open
+bag, and the six `parts as any` casts in `executor.ts` (lines 827, 1062, 1111, 1208 and the two
+`as unknown[]` sends) are not incidental sloppiness — they are the places where the open bag has to
+be forced into the generated schema type.
+
+**Recommendation:** adopt the SDK's `UIMessagePart` as the single type across storage, wire and
+client, and stop describing parts in the JSON schema — validation already happens through
+`safeValidateUIMessages` in `storedTurnsToModelMessages`, which is a stronger check than the schema
+performs. That removes a parallel definition and every cast at once.
+
+### 10.3 Trace storage is now largely redundant — and currently broken
+
+**The finding, from a dumped document rather than from reading code:** a stored trace's
+`request.body` is now `{ system, messageCount, historyUpToSeq, tools: <names> }`. There are no
+messages in it, because the executor deliberately records a reference to a history it already stores
+as the conversation.
+
+But `ui/src/traces/reconstruct-trace.ts` reads `body.messages` for the transcript, reads tool
+*definition objects* out of `body.tools` (which is now an array of strings), and derives the system
+prompt from `messages[role === 'system']` (it is now `body.system`). So the review page renders
+entries with empty content. **Its e2e test passes because it asserts that a `user-message` type chip
+is visible — a label that renders whether or not the entry has any content.** Vacuous for its
+purpose, and the third time on this branch that an assertion survived the thing it was guarding.
+
+What a trace uniquely holds, once content is excluded: per-MODEL-CALL provider and resolved model,
+usage, cost, timing, and the moderation verdict. A turn is N model calls, and the conversation keeps
+one message for the whole turn, so that granularity has no other home. Everything else — who said
+what, the tool calls and their results — is the conversation.
+
+**Recommendation: yes, remove trace storage as a content store**, as the question proposes:
+
+1. Admin review becomes a read of the conversation, authorized by the consent flag. Move
+   `traceConsent` from the run to the **conversation**, where it belongs — consent is about the
+   thread, not about each turn, and it is currently copied onto every run.
+2. Keep per-call telemetry only where it has no other home: fold per-step usage/cost/model onto the
+   run (it already carries `steps` and `credits`), and keep the moderation verdict with the
+   moderation event that already exists.
+
+That deletes a collection, five indexes, a TTL, a router, the whole reconstruction layer and the
+duplicate consent concept. It also dissolves the cosmetic regression noted in §9's commit — the
+stored-conversation list shows an id instead of a preview precisely because it reads trace bodies
+rather than conversations.
+
+### 10.4 The storage shape is right; the write pattern is not
+
+One document per message, not one per conversation, and that is the correct call: conversation
+length is unbounded while a document is capped at 16MB, an append is a single insert, and the read
+path is a range scan on the unique `(conversationId, seq)`. The index set is well chosen —
+`version` for the incremental cursor, `seq` unique so a duplicate is a write error rather than a
+silently reordered conversation.
+
+The cost is in the streaming writes. `persistPartial` rewrites **the whole parts array of the
+in-progress message every 250ms**, and `sendMessageFrame` pushes that same whole array over the
+socket at the same rate — on top of a `delta` frame per token. Both are O(n²) bytes in the length of
+an answer. The socket probe taken during §9 shows it plainly: for the five characters of "world"
+there is a delta per character *and* a full `message` frame carrying the parts so far.
+
+**Recommendation:** persist and push the structure on structural change — a step boundary, a tool
+call, a tool result, the end — and let `delta` carry the text it is already carrying. The frames
+exist so the client can render tool calls, which change a handful of times per turn, not four times
+a second. An append-only `$push` on parts is the stronger version of the same fix.
+
+### 10.5 Memory: the whole post-compaction window, two to three times over
+
+`loadHistory` does `.toArray()` on every message since the compaction recap with
+`projection: { _id: 0 }` — every field — then `storedTurnsToModelMessages` builds a second array of
+`ModelMessage`, then `withHostContext` copies the array again to decorate one message. Nothing is
+streamed, and nothing can be: `streamText` takes an array.
+
+It is **bounded**, which is the important part: compaction caps the window at ~70% of the model's
+context, so this is not a leak and does not grow with conversation age. Call it ~2–3× the context
+window per concurrently live turn.
+
+**Recommendation:** project `{ role: 1, parts: 1, seq: 1 }`. The model never sees `author`,
+`createdAt`, `version`, `pending` or `id`, and they are loaded for every message of every turn.
+Cheap, and it also narrows what a bug can leak into a prompt.
+
+### 10.6 Module separation: three splits that no longer pay, one that does
+
+- **`executor.ts` is 1218 lines** and now owns the quota gate, the moderation gate, the account-cap
+  check, the trace recorder, compaction and the model loop. This is the split worth making, and the
+  seam is now obvious: the three pre-loop gates are one concern, and `runTurn` reads as a list of
+  them.
+- **`use-agent-session.ts` (263) + `use-session-chat.ts` (299)** are two layers with one consumer.
+  The split is justified today only by a unit test importing `toDescriptors`. Merging them, keeping
+  that export, would remove a hop that explains nothing.
+- **`api/src/agent-loop/`** exists because the `shared/` contract guard evicted four modules when the
+  browser loop was deleted. It is a holding pen rather than a boundary; the two small ones
+  (`agent-subagent-output.ts` at 54 lines, `compaction-prompt.ts` at 45) belong beside their only
+  caller.
+- **`shared/` is clean.** All nine modules have a consumer on both sides of the socket, which is what
+  the guard is for. No action.
+
+### 10.7 Testability: a real gain, mostly unrealized
+
+141 e2e tests in 39 files take 8.5 minutes, against 256 api and 973 unit. Of the 26 e2e failures the
+swap left, roughly **20 test behaviour that is now server-side and reachable without a browser**:
+
+| Group | n | Where it belongs now |
+|---|---|---|
+| Host events | 9 | The store and `withHostContext` are pure (unit); the frames are api-testable through `tests/support/ws.ts` |
+| Sub-agents | 5 | Orchestration is `agent-session/sub-agents.ts` — api, with the panels left to one e2e |
+| Moderation | 4 | Already covered by the 19 new api tests; e2e needs only "the refusal renders" |
+| Compaction | 2 | Server-side — api |
+| Hang / empty completion | 2 | Server-side watchdog and fallback — api |
+
+What genuinely still needs a browser: a page registering WebMCP tools, frame aggregation across
+iframes, and rendering. That is a handful of tests, not thirty.
+
+**Recommendation:** rewrite that group as api tests against the socket rather than repairing them as
+e2e. It fixes the outstanding 26 and shrinks the slowest suite at the same time — the clearest
+practical dividend of the move, and the one §7 did not think to count.
+
+### 10.8 Fixed during this review
+
+The system prompt stated the permission ceiling **twice in consecutive paragraphs**: once from the
+standard agent's persona and once from `buildSystemPrompt`'s non-NHI clause, added earlier the same
+day. Removed from the persona, where it was a string every future persona would have had to remember
+to include, and kept where it is derived from the identity. A unit test now asserts its ABSENCE from
+every persona, because the duplication is what went wrong rather than the sentence.

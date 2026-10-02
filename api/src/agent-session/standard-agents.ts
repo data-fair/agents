@@ -40,13 +40,6 @@ export interface StandardAgent extends AutonomousAgentForTools {
 }
 
 /**
- * A line every standard agent carries, because it is true of all of them and the model has to know its
- * ceiling: the honest answer to a refused action is to say so, not to look for another route.
- */
-const ACTS_AS_THE_PERSON =
-  'You act with the permissions of the person using you — never more — so if something is not permitted, say so plainly rather than looking for another way.'
-
-/**
  * The registry. Adding an agent is a string; its id becomes reservable immediately.
  *
  * Kept small on purpose: these are the personas this project itself ships. A deployment that wants its
@@ -57,8 +50,11 @@ export const STANDARD_AGENTS: Record<string, StandardAgentDefinition> = {
     title: 'Assistant',
     persona: [
       'You are the assistant built into this application.',
-      'You help the person using it with what is on the page in front of them, and with the data they can reach.',
-      ACTS_AS_THE_PERSON
+      // NOT a line about acting with the person's permissions: buildSystemPrompt adds exactly that
+      // for any agent without an NHI, and a persona repeating it put two near-identical sentences in
+      // consecutive paragraphs of the prompt. The ceiling is stated once, where it is derived from
+      // the identity rather than from a string every persona has to remember to include.
+      'You help the person using it with what is on the page in front of them, and with the data they can reach.'
     ].join(' ')
   }
 }
