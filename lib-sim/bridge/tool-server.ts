@@ -18,11 +18,19 @@ import { MCP_SERVER_NAME, type OpenAIToolDef } from './openai.ts'
 // action button can wait minutes. The default MCP timeout would abort it.
 export const TOOL_TIMEOUT_MS = 600000
 
+// Claude Code spills an MCP result over its default size to a file and hands the model
+// the path — with no tool to read it, since the bridge offers none. A real provider sends
+// the whole result, so the bridge must too: a judged run's form description (~85k
+// characters) never reached the model. The per-tool _meta key lifts the ceiling; past this
+// one the context window is the real limit anyway.
+export const MAX_RESULT_SIZE_CHARS = 1000000
+
 export function listToolsFor (tools: OpenAIToolDef[]) {
   return tools.map(t => ({
     name: t.function.name,
     description: t.function.description ?? '',
-    inputSchema: t.function.parameters ?? { type: 'object', properties: {} }
+    inputSchema: t.function.parameters ?? { type: 'object', properties: {} },
+    _meta: { 'anthropic/maxResultSizeChars': MAX_RESULT_SIZE_CHARS }
   }))
 }
 
