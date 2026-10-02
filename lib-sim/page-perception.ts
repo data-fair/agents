@@ -378,35 +378,43 @@ export function createPagePerception (roots: PerceptionRoot[], opts: { offLimits
     return tabs.length > before
   }
 
+  // Widgets a person clicks, not only buttons and links: an editor's tabs are role=tab, and
+  // a judged run clicked « Barre de navigation » as text — the chat's words — instead.
+  const CONTROL_ROLES = ['button', 'link', 'tab', 'menuitem', 'option', 'checkbox', 'radio', 'switch'] as const
+
   const click = async (name: string) => {
     if (isOffLimits(name)) return OFF_LIMITS_RESULT
-    for (const view of viewRoots()) {
-      for (const scope of scopes(view)) {
-        const match = await firstMatchKind([
-          ['control', () => scope.getByRole('button', { name }).first()],
-          ['control', () => scope.getByRole('link', { name }).first()],
-          ['text', () => scope.getByText(name).first()]
-        ])
-        if (!match) continue
-        try {
-          const before = tabs.length
-          await match.loc.click({ timeout: ACTION_TIMEOUT_MS })
-          actedSinceLook = true
-          if (await newTabAfter(before)) return `clicked "${name}" — it opened a new tab (tab ${current + 1}); you are now looking at it`
-          // Playwright clicks whatever is visible, so the text fallback succeeds
-          // on a paragraph as readily as on a button. Saying which one it was is
-          // the difference between a person learning nothing happened and a
-          // person concluding the product is broken — a recorded run did exactly
-          // that, and the judge filed it as a product failure.
-          return match.kind === 'control'
-            ? `clicked "${name}"`
-            : `clicked the text "${name}", which is not a button or a link — nothing may happen`
-        } catch (err) {
-          return `could not click "${name}": ${err instanceof Error ? err.message : String(err)}`
-        }
+    const scopeList = viewRoots().flatMap(scopes)
+    // Every control in every frame before any text: the same words as plain text in an
+    // earlier frame (a chat reply naming the tab) must not win over the control itself.
+    let match: { kind: 'control' | 'text', loc: any } | null = null
+    for (const scope of scopeList) {
+      match = await firstMatchKind(CONTROL_ROLES.map(role => ['control' as const, () => scope.getByRole(role, { name }).first()]))
+      if (match) break
+    }
+    if (!match) {
+      for (const scope of scopeList) {
+        match = await firstMatchKind([['text' as const, () => scope.getByText(name).first()]])
+        if (match) break
       }
     }
-    return `could not find anything called "${name}" to click`
+    if (!match) return `could not find anything called "${name}" to click`
+    try {
+      const before = tabs.length
+      await match.loc.click({ timeout: ACTION_TIMEOUT_MS })
+      actedSinceLook = true
+      if (await newTabAfter(before)) return `clicked "${name}" — it opened a new tab (tab ${current + 1}); you are now looking at it`
+      // Playwright clicks whatever is visible, so the text fallback succeeds
+      // on a paragraph as readily as on a button. Saying which one it was is
+      // the difference between a person learning nothing happened and a
+      // person concluding the product is broken — a recorded run did exactly
+      // that, and the judge filed it as a product failure.
+      return match.kind === 'control'
+        ? `clicked "${name}"`
+        : `clicked the text "${name}", which is not a button or a link — nothing may happen`
+    } catch (err) {
+      return `could not click "${name}": ${err instanceof Error ? err.message : String(err)}`
+    }
   }
 
   const type = async (name: string, text: string) => {

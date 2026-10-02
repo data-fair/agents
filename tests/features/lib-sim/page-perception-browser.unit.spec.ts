@@ -25,6 +25,17 @@ test.describe('frames', () => {
     assert.match(await p.call('look', {}), /button "Enregistré"/)
   })
 
+  test('a control in a later frame wins over the same words as text in an earlier one', async ({ page }) => {
+    // A judged run: the chat frame's reply mentioned « Barre de navigation », the editor's tab
+    // of that name sat in another frame, and the click landed on the chat's words.
+    await page.setContent(`<iframe srcdoc="<p>Ouvrez l'onglet Barre de navigation</p>"></iframe>
+<iframe srcdoc="<div role=tablist><button role=tab aria-selected=true>Général</button><button role=tab onclick='this.setAttribute(&quot;aria-selected&quot;,&quot;true&quot;);this.previousElementSibling.setAttribute(&quot;aria-selected&quot;,&quot;false&quot;)'>Barre de navigation</button></div>"></iframe>`)
+    await page.frameLocator('iframe').nth(1).getByRole('tab', { name: 'Barre de navigation' }).waitFor()
+    const p = createPagePerception([{ label: 'page', root: page, frames: true }])
+    assert.equal(await p.call('click', { name: 'Barre de navigation' }), 'clicked "Barre de navigation"')
+    assert.match(await p.call('look', {}), /tab "Barre de navigation" \[selected\]/)
+  })
+
   test('a root that does not opt in keeps the plain outline', async ({ page }) => {
     await page.setContent(FRAMED)
     const p = createPagePerception([{ label: 'page', root: page }])
