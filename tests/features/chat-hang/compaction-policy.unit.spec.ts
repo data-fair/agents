@@ -18,7 +18,7 @@ import {
   clearOldToolResults,
   decideContextManagement,
   KEEP_TOOL_RESULTS
-} from '../../../api/src/agent-loop/compaction-policy.ts'
+} from '../../../api/src/conversations/compaction-policy.ts'
 
 const userMsg = (text: string): ModelMessage => ({ role: 'user', content: text })
 const asstMsg = (text: string): ModelMessage => ({ role: 'assistant', content: text })
@@ -435,13 +435,13 @@ test.describe('one policy, one loop', () => {
   // turn-history.ts, not executor.ts: the loop's context management was split out of the executor
   // when it had grown to own the gates, the telemetry, the compaction and the model loop. This guard
   // follows the concern rather than the file it used to live in.
-  const executor = readFileSync(new URL('../../../api/src/autonomous-agent-runtime/turn-history.ts', import.meta.url), 'utf8')
+  const executor = readFileSync(new URL('../../../api/src/conversations/turn-history.ts', import.meta.url), 'utf8')
   const doc = readFileSync(new URL('../../../docs/architecture/context-management.md', import.meta.url), 'utf8')
 
   test('the executor routes through decideContextManagement', () => {
     assert.match(
       executor,
-      /decideContextManagement[\s\S]{0,160}?from '\.\.\/agent-loop\/compaction-policy.ts'/,
+      /decideContextManagement[\s\S]{0,160}?from '\.\/compaction-policy.ts'/,
       'the executor must import the decision from shared/'
     )
     // Assert the CALL, not only the import: an imported-and-unused function passes a weaker check

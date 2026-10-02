@@ -22,7 +22,7 @@ import type { MessagePart } from '@agents/shared/message-parts'
  * the message and the run-status strip reads it — that is where anything the transcript cannot carry
  * is surfaced.
  */
-export interface StoredAutonomousAgentMessage {
+export interface StoredConversationMessage {
   seq: number
   role: 'user' | 'assistant'
   pending?: boolean
@@ -39,7 +39,7 @@ export interface StoredAutonomousAgentMessage {
 }
 export type AutonomousAgentPart = MessagePart
 
-export function autonomousAgentMessageToChat (message: StoredAutonomousAgentMessage): ChatMessage {
+export function autonomousAgentMessageToChat (message: StoredConversationMessage): ChatMessage {
   const parts = message.parts ?? []
   const chat: ChatMessage = {
     role: message.role,
@@ -71,7 +71,7 @@ export function autonomousAgentMessageToChat (message: StoredAutonomousAgentMess
 }
 
 /** In seq order, whatever order they arrived in — an incremental fetch does not promise one. */
-export function autonomousAgentMessagesToChat (messages: StoredAutonomousAgentMessage[]): ChatMessage[] {
+export function messagesToChat (messages: StoredConversationMessage[]): ChatMessage[] {
   return [...messages].sort((a, b) => a.seq - b.seq).map(autonomousAgentMessageToChat)
 }
 

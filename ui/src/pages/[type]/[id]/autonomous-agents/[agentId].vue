@@ -59,7 +59,7 @@
             />
           </div>
 
-          <autonomous-agent-run-status
+          <conversation-run-status
             :account-type="accountType"
             :account-id="accountId"
             :run="latestRun"
@@ -126,8 +126,8 @@ import { computed, onMounted, onUnmounted, ref, shallowRef, watch, effectScope, 
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import AgentChatMessages from '~/components/agent-chat/AgentChatMessages.vue'
-import AutonomousAgentRunStatus from '~/components/AutonomousAgentRunStatus.vue'
-import { useAutonomousAgentConversation } from '~/composables/use-autonomous-agent-conversation'
+import ConversationRunStatus from '~/components/ConversationRunStatus.vue'
+import { useConversation } from '~/composables/use-autonomous-agent-conversation'
 import { setBreadcrumbs } from '~/utils/breadcrumbs'
 import { getUiNotif } from '@data-fair/lib-vue/ui-notif.js'
 import { $apiPath, $fetch } from '~/context'
@@ -146,7 +146,7 @@ const draft = ref('')
 const pageError = ref<string | null>(null)
 const latestRun = ref<any | null>(null)
 
-const conversationsBase = `${$apiPath}/autonomous-agent-conversations/${accountType}/${accountId}`
+const conversationsBase = `${$apiPath}/conversations/${accountType}/${accountId}`
 
 /** The tool chips show the raw tool name: there is no localized catalog for an MCP server's tools. */
 const toolTitle = (toolName: string) => toolName
@@ -158,7 +158,7 @@ const toolTitle = (toolName: string) => toolName
  */
 // shallowRef, not ref: a deep ref would unwrap the composable's own refs and make every access
 // ambiguous between the template and the script. The accessors below are what the template uses.
-const conversation = shallowRef<ReturnType<typeof useAutonomousAgentConversation> | null>(null)
+const conversation = shallowRef<ReturnType<typeof useConversation> | null>(null)
 let scope: EffectScope | null = null
 
 // The scope below is created inside a watcher callback, where no scope is active — so it is detached
@@ -172,7 +172,7 @@ watch(currentId, (id) => {
   if (!id) return
   scope = effectScope()
   scope.run(() => {
-    conversation.value = useAutonomousAgentConversation({ accountType, accountId, conversationId: id })
+    conversation.value = useConversation({ accountType, accountId, conversationId: id })
     conversation.value.refresh().then(() => refreshRun())
   })
 })
@@ -189,7 +189,7 @@ const refreshRun = async () => {
   const runId = [...storedMessages.value].reverse().find((m: any) => m.runId)?.runId
   if (!runId) { latestRun.value = null; return }
   try {
-    latestRun.value = await $fetch(`${$apiPath}/autonomous-agent-runs/${accountType}/${accountId}/${runId}`, { credentials: 'include' })
+    latestRun.value = await $fetch(`${$apiPath}/runs/${accountType}/${accountId}/${runId}`, { credentials: 'include' })
   } catch { latestRun.value = null }
 }
 
@@ -197,7 +197,7 @@ const refreshRun = async () => {
 watch(() => conversation.value?.version.value, () => { refreshRun() })
 
 const loadConversations = async () => {
-  const res = await $fetch<{ results: any[] }>(`${conversationsBase}?autonomousAgentId=${agentId}`, { credentials: 'include' })
+  const res = await $fetch<{ results: any[] }>(`${conversationsBase}?agentId=${agentId}`, { credentials: 'include' })
   conversations.value = res.results ?? []
   if (!currentId.value && conversations.value.length) currentId.value = conversations.value[0].id
 }
@@ -206,7 +206,7 @@ const createConversation = async () => {
   try {
     const created = await $fetch<any>(conversationsBase, {
       method: 'POST',
-      body: { autonomousAgentId: agentId, title: new Date().toLocaleString() },
+      body: { agentId, title: new Date().toLocaleString() },
       credentials: 'include'
     })
     await loadConversations()

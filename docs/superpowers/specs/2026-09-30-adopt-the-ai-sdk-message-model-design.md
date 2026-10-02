@@ -129,15 +129,15 @@ and both the trace and the run-status strip now need the same bounded rendering 
 
 ## Scope
 
-- `api/types/autonomous-agent-message/schema.js` — reduced to `metadata` plus a loose `parts` array; the
+- `api/types/conversation-message/schema.js` — reduced to `metadata` plus a loose `parts` array; the
   parts contract moves to the library.
-- `api/src/autonomous-agent-runtime/executor.ts` — stream accumulation builds `UIMessagePart`s;
+- `api/src/conversations/executor.ts` — stream accumulation builds `UIMessagePart`s;
   `loadHistory` calls `convertToModelMessages`; `compactHistory` keeps its cut alignment.
-- `api/src/autonomous-agent-runtime/operations.ts` — delete `StoredPart`,
+- `api/src/conversations/operations.ts` — delete `StoredPart`,
   `storedTurnsToModelMessages(WithSeqs)`; keep `boundToolResult`, `partsText`, `withAppendedText`,
   `attributedUserText` (retargeted at the new shape).
 - `shared/autonomous-agent-chat-message.ts` — deleted.
-- `ui/src/components/AutonomousAgentRunStatus.vue`, `.../[agentId].vue` — render `UIMessage` parts;
+- `ui/src/components/ConversationRunStatus.vue`, `.../[agentId].vue` — render `UIMessage` parts;
   the failed-tool list reads `state === 'output-error'` instead of joining two parts.
 - `api/src/mcp-servers/client.ts` — carry `annotations` through to `toolMetadata`.
 

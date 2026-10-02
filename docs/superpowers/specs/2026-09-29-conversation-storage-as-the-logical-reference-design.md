@@ -110,11 +110,11 @@ append-only, indefinite) and **the trace** (per-request metadata, opt-in, TTL'd,
 
 ## Scope
 
-- `api/types/autonomous-agent-message/schema.js` — content parts
-- `api/src/autonomous-agent-runtime/executor.ts` — persist parts; bound results at the point they are
+- `api/types/conversation-message/schema.js` — content parts
+- `api/src/conversations/executor.ts` — persist parts; bound results at the point they are
   produced (the same place `withProvenance` wraps them, since within a turn the SDK feeds results back
   without passing through `loadHistory`)
-- `api/src/autonomous-agent-runtime/executor.ts` — `loadHistory` as a straight mapping
+- `api/src/conversations/executor.ts` — `loadHistory` as a straight mapping
 - `shared/autonomous-agent-chat-message.ts` — map parts onto the chat transcript type
 - UI tool-chip rendering
 - `api/src/traces/operations.ts` — drop the duplicated body for autonomous-agent traces

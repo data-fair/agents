@@ -62,7 +62,7 @@ async function pushLimits (limit: number, consumption: number) {
 
 /** The text of the turn's answer, which is where a refusal now arrives. */
 async function lastAssistantText (owner: string, conversationId: string) {
-  const res = await test1Admin.get(`/api/autonomous-agent-conversations/${owner}/${conversationId}/messages`)
+  const res = await test1Admin.get(`/api/conversations/${owner}/${conversationId}/messages`)
   const messages = res.data.results as any[]
   const assistant = messages.filter(m => m.role === 'assistant').pop()
   return (assistant?.parts ?? []).filter((part: any) => part.type === 'text').map((part: any) => part.text).join('')

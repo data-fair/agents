@@ -117,7 +117,7 @@ bus, correctly. The agent session needs request/response *to* the browser, so it
 the same HTTP server. This avoids changing a shared library (which this project requires be justified
 with numbers) and keeps colocation honest: one socket, one process, both directions.
 
-**The loop is the existing executor, generalised — not a new loop.** `api/src/autonomous-agent-runtime/`
+**The loop is the existing executor, generalised — not a new loop.** `api/src/conversations/`
 already is a server-side stateful loop with stored `UIMessage` parts, guards, spend accounting,
 compaction and recovery. The personal assistant becomes an agent whose identity is the user's forwarded
 session instead of an NHI. Writing a second loop would recreate the duplication this whole exercise is
@@ -301,7 +301,7 @@ would quietly undercut the argument that is now the second-strongest reason for 
 
 **The capability is legitimate and already has the right shape.** A conversation is *with an agent*, and
 an agent's persona is configuration. A host that wants its own assistant persona should name an agent,
-not supply prose — and the mechanism exists: the conversation is created with an `autonomousAgentId`,
+not supply prose — and the mechanism exists: the conversation is created with an `agentId`,
 and `hello` already carries `agentId`. The personal assistant is simply the default agent.
 
 So the recommendation is: **`systemPrompt` becomes `agentId`** on the drawer's prop and on the chat
@@ -546,11 +546,11 @@ so each item can be argued with.
 
 ### 10.1 The naming is the largest stale choice
 
-`autonomous-agent-*` reaches 35 files, three collections (`autonomous-agent-conversations`,
-`-messages`, `-runs`), the generated types (`AutonomousAgentConversation/Message/Run`), the module
-`autonomous-agent-runtime`, the field `autonomousAgentId`, and the usage key
+`autonomous-agent-*` reaches 35 files, three collections (`conversations`,
+`-messages`, `-runs`), the generated types (`Conversation/Message/Run`), the module
+`autonomous-agent-runtime`, the field `agentId`, and the usage key
 `autonomous-agent:<id>`. Every one of them now also holds, or describes, **an ordinary person's
-chat** — a conversation whose `autonomousAgentId` is `'personal'`.
+chat** — a conversation whose `agentId` is `'personal'`.
 
 This is not cosmetic. It is why `usageIdentityFor` billed every chat turn as the agent at role
 'admin', why the quota refusal said "This autonomous agent could not run" to a person asking a
@@ -662,7 +662,7 @@ Cheap, and it also narrows what a bug can leak into a prompt.
   (a unit test imports `toDescriptors`), while the adapter has eight `~` imports and cannot be
   reached from a unit test at all. Merging them would take the socket protocol out of the unit
   suite. The reason is now recorded in the file so it is not proposed again.
-- **`api/src/agent-loop/`** exists because the `shared/` contract guard evicted four modules when the
+- **`api/src/conversations/`** exists because the `shared/` contract guard evicted four modules when the
   browser loop was deleted. It is a holding pen rather than a boundary; the two small ones
   (`agent-subagent-output.ts` at 54 lines, `compaction-prompt.ts` at 45) belong beside their only
   caller.

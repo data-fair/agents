@@ -14,10 +14,10 @@
  * thread's subscribers — a real disclosure, since a timeline is shared by several people.
  *
  * The slash form deliberately differs from the conversation LOCK id
- * (`autonomous-agent-conversation:<id>`, colon-separated): sharing a spelling between a lock
+ * (`conversation:<id>`, colon-separated): sharing a spelling between a lock
  * key and a subscribable channel is how one ends up used as the other.
  */
-const CHANNEL_PREFIX = 'autonomous-agent-conversations/'
+const CHANNEL_PREFIX = 'conversations/'
 
 export function conversationChannel (conversationId: string): string {
   return `${CHANNEL_PREFIX}${conversationId}`

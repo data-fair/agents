@@ -11,10 +11,10 @@ import mongo from '#mongo'
 import config from '#config'
 import { generateText, type ModelMessage } from 'ai'
 import Debug from 'debug'
-import type { AutonomousAgentRun } from '#types'
+import type { ConversationRun } from '#types'
 import type { UsageIdentity } from '../usage/enforce.ts'
-import { decideContextManagement, clearOldToolResults } from '../agent-loop/compaction-policy.ts'
-import { compactionSystemPrompt, recapMessage } from '../agent-loop/compaction-prompt.ts'
+import { decideContextManagement, clearOldToolResults } from './compaction-policy.ts'
+import { compactionSystemPrompt, recapMessage } from './compaction-prompt.ts'
 import { storedTurnsToModelMessages, alignCutToStoredMessage } from './operations.ts'
 import { saveCompaction, incrementRunSpend } from './service.ts'
 import { resolveRoleModel } from '../models/service.ts'
@@ -46,14 +46,14 @@ export interface LoadedHistory {
  * storedTurnsToModelMessages for how a turn's steps are grouped back into assistant/tool pairs.
  */
 export const loadHistory = async (conversationId: string, upToSeq: number): Promise<LoadedHistory> => {
-  const conversation = await mongo.autonomousAgentConversations.findOne(
+  const conversation = await mongo.conversations.findOne(
     { id: conversationId },
     { projection: { _id: 0, compaction: 1 } }
   )
   const recap = conversation?.compaction
   // Only what the recap does NOT already cover. The messages it covers stay in the store untouched —
   // this is a cache for the MODEL's context, not a trim of the conversation.
-  const stored = await mongo.autonomousAgentMessages
+  const stored = await mongo.messages
     .find(
       { conversationId, seq: recap ? { $gt: recap.coversUpToSeq, $lt: upToSeq } : { $lt: upToSeq } },
       // Only what builds the model's context. The whole post-recap window is materialised for every
@@ -95,7 +95,7 @@ export const loadHistory = async (conversationId: string, upToSeq: number): Prom
  * to a summarizer hiccup would be worse.
  */
 export const compactHistory = async (
-  run: AutonomousAgentRun,
+  run: ConversationRun,
   identity: UsageIdentity,
   loaded: LoadedHistory,
   budget: number,
@@ -103,7 +103,7 @@ export const compactHistory = async (
   abortSignal: AbortSignal,
   // Only so the compaction's own trace is gated exactly like the turn's — a summarizer call is a
   // model call on the person's conversation, so it is the same disclosure.
-  tracing: { autonomousAgentId: string }
+  tracing: { agentId: string }
 ): Promise<{ messages: ModelMessage[], credits: number }> => {
   if (!budget) return { messages: loaded.messages, credits: 0 }
   const { history, clearing, compaction: decision } = decideContextManagement({

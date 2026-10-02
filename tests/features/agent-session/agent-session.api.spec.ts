@@ -122,7 +122,7 @@ test.describe('Agent session socket', () => {
 
   test('a malformed frame is reported back, not silently dropped', async () => {
     const session = await open(await cookieOf(orgAdmin))
-    session.send({ type: 'subscribe', channel: 'autonomous-agent-conversations/x' })
+    session.send({ type: 'subscribe', channel: 'conversations/x' })
     const answer = await session.next()
     assert.equal(answer.type, 'error')
     // The pub/sub vocabulary is specifically NOT this protocol's, and the client is told which field
@@ -137,13 +137,13 @@ test.describe('Agent session socket', () => {
     // different vocabulary.
     const pubSub = await openWsClient(await cookieOf(orgAdmin))
     sockets.push(pubSub)
-    const answer = await pubSub.subscribe('autonomous-agent-conversations/does-not-exist')
+    const answer = await pubSub.subscribe('conversations/does-not-exist')
 
     // The answer must identify WHICH SERVER sent it, which is the whole point. An earlier version of
     // this test accepted `{type:'error'}` — and the agent-session server answers an unknown message
     // type with exactly that, so it passed even with the path matcher stealing every upgrade. The
     // pub/sub server echoes `channel` and sets a `status`; this protocol's error carries neither.
-    assert.equal(answer.channel, 'autonomous-agent-conversations/does-not-exist', `answered by the wrong server: ${JSON.stringify(answer)}`)
+    assert.equal(answer.channel, 'conversations/does-not-exist', `answered by the wrong server: ${JSON.stringify(answer)}`)
     assert.equal(typeof answer.status, 'number')
     // 403 for an unknown conversation is correct; what is being asserted is the provenance.
     assert.equal(answer.status, 403)

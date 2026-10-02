@@ -199,9 +199,9 @@ onMounted(async () => {
 
   // A conversation with the PERSONAL assistant, created over HTTP before the socket binds to it.
   const account = session.account.value
-  const conversation = await $fetch(`${$apiPath}/autonomous-agent-conversations/${account?.type}/${account?.id}`, {
+  const conversation = await $fetch(`${$apiPath}/conversations/${account?.type}/${account?.id}`, {
     method: 'POST',
-    body: { autonomousAgentId: 'personal', title: 'dev session chat' }
+    body: { agentId: 'personal', title: 'dev session chat' }
   })
   agent.connect(conversation.id)
 })

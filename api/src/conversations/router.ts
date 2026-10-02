@@ -38,7 +38,7 @@ export default router
  */
 
 /**
- * Runs are read through their own mount (/api/autonomous-agent-runs) rather than nested
+ * Runs are read through their own mount (/api/runs) rather than nested
  * under a conversation: a caller holds a runId from the message POST and should not have
  * to remember which conversation it came from.
  */
@@ -52,12 +52,12 @@ runsRouter.post('/:type/:id/:runId/abort', async (req, res, next) => {
   try {
     const session = reqSessionAuthenticated(req)
     const owner = reqOwner(req)
-    const run = await mongo.autonomousAgentRuns.findOne(
+    const run = await mongo.runs.findOne(
       { id: req.params.runId, 'owner.type': owner.type, 'owner.id': owner.id },
       { projection: { _id: 0 } }
     )
     if (!run) throw httpError(404, 'unknown run')
-    await requireAutonomousAgent(owner, run.autonomousAgentId)
+    await requireAutonomousAgent(owner, run.agentId)
     // A run belongs to a conversation, which belongs to ONE person. Guarding this with the agent grant
     // let any instructor of the agent read — or abort — someone else's turn.
     assertOwnsConversation(await requireConversation(owner, run.conversationId), session)
@@ -65,7 +65,7 @@ runsRouter.post('/:type/:id/:runId/abort', async (req, res, next) => {
     // `aborted: false` for a run this process is not holding — it may already have finished,
     // or (with several API processes) be held elsewhere. Reported rather than pretended.
     const aborted = abortRun(run.id)
-    eventsLog.info('agents.autonomous-agent-run.abort', `abort requested for run ${run.id}`, { req })
+    eventsLog.info('agents.run.abort', `abort requested for run ${run.id}`, { req })
     res.json({ aborted })
   } catch (err) { next(err) }
 })
@@ -74,12 +74,12 @@ runsRouter.get('/:type/:id/:runId', async (req, res, next) => {
   try {
     const session = reqSessionAuthenticated(req)
     const owner = reqOwner(req)
-    const run = await mongo.autonomousAgentRuns.findOne(
+    const run = await mongo.runs.findOne(
       { id: req.params.runId, 'owner.type': owner.type, 'owner.id': owner.id },
       { projection: { _id: 0 } }
     )
     if (!run) throw httpError(404, 'unknown run')
-    await requireAutonomousAgent(owner, run.autonomousAgentId)
+    await requireAutonomousAgent(owner, run.agentId)
     // A run belongs to a conversation, which belongs to ONE person. Guarding this with the agent grant
     // let any instructor of the agent read — or abort — someone else's turn.
     assertOwnsConversation(await requireConversation(owner, run.conversationId), session)
@@ -138,17 +138,17 @@ router.post('/:type/:id', async (req, res, next) => {
   try {
     const session = reqSessionAuthenticated(req)
     const owner = reqOwner(req)
-    const autonomousAgentId = req.body?.autonomousAgentId
-    if (typeof autonomousAgentId !== 'string' || !autonomousAgentId) throw httpError(400, 'autonomousAgentId is required')
-    assertCanOwnAgent(owner, autonomousAgentId)
-    const autonomousAgent = await requireAutonomousAgent(owner, autonomousAgentId)
+    const agentId = req.body?.agentId
+    if (typeof agentId !== 'string' || !agentId) throw httpError(400, 'agentId is required')
+    assertCanOwnAgent(owner, agentId)
+    const autonomousAgent = await requireAutonomousAgent(owner, agentId)
     await assertMayTalkTo(autonomousAgent, owner, session)
 
     const title = typeof req.body?.title === 'string' && req.body.title.trim() ? req.body.title.trim() : 'New conversation'
     const now = new Date().toISOString()
     const conversation = {
       id: nanoid(),
-      autonomousAgentId,
+      agentId,
       owner: autonomousAgent.owner,
       // The ONE person this thread belongs to. `owner` stays the ACCOUNT, because that is what quotas
       // and credits are charged to; `userId` is who may read it.
@@ -159,8 +159,8 @@ router.post('/:type/:id', async (req, res, next) => {
       // starts at 0: nextMessageSeq hands out 1 for the first message
       messageSeq: 0
     }
-    await mongo.autonomousAgentConversations.insertOne({ ...conversation })
-    eventsLog.info('agents.autonomous-agent-conversation.create', `conversation created for autonomous agent ${autonomousAgentId}`, { req })
+    await mongo.conversations.insertOne({ ...conversation })
+    eventsLog.info('agents.conversation.create', `conversation created for autonomous agent ${agentId}`, { req })
     res.json(conversation)
   } catch (err) { next(err) }
 })
@@ -171,18 +171,18 @@ router.get('/:type/:id', async (req, res, next) => {
     const owner = reqOwner(req)
     // Required, not optional: it is what the instruct check resolves against, so without
     // it there is no autonomous agent whose instructors list can be consulted.
-    const autonomousAgentId = req.query.autonomousAgentId
-    if (typeof autonomousAgentId !== 'string' || !autonomousAgentId) throw httpError(400, 'autonomousAgentId query parameter is required')
-    assertCanOwnAgent(owner, autonomousAgentId)
-    const autonomousAgent = await requireAutonomousAgent(owner, autonomousAgentId)
+    const agentId = req.query.agentId
+    if (typeof agentId !== 'string' || !agentId) throw httpError(400, 'agentId query parameter is required')
+    assertCanOwnAgent(owner, agentId)
+    const autonomousAgent = await requireAutonomousAgent(owner, agentId)
     await assertMayTalkTo(autonomousAgent, owner, session)
 
     // Your own threads only. A conversation belongs to one person, so listing someone else's would be
     // a disclosure — and an org admin's role no longer grants it.
-    const results = await mongo.autonomousAgentConversations
+    const results = await mongo.conversations
       .find(
         {
-          autonomousAgentId,
+          agentId,
           'owner.type': owner.type,
           'owner.id': owner.id,
           ...(session.user.adminMode ? {} : { userId: session.user.id })
@@ -212,7 +212,7 @@ router.delete('/:type/:id/:conversationId', async (req, res, next) => {
     const session = reqSessionAuthenticated(req)
     const owner = reqOwner(req)
     const conversation = await requireConversation(owner, req.params.conversationId)
-    await requireAutonomousAgent(owner, conversation.autonomousAgentId)
+    await requireAutonomousAgent(owner, conversation.agentId)
     // Your own thread, and nobody else's. This used to be the agent grant, which made erasure available
     // to every instructor of the agent — defensible when the timeline was shared, wrong now that it is
     // one person's.
@@ -221,16 +221,16 @@ router.delete('/:type/:id/:conversationId', async (req, res, next) => {
     // A live turn is stopped first, or it would keep writing messages into a conversation that is being
     // deleted underneath it — and runTurn's "the conversation was deleted under us" path would then be
     // reached with tool calls already in flight.
-    const live = await mongo.autonomousAgentRuns
+    const live = await mongo.runs
       .find({ conversationId: conversation.id, status: 'running' }, { projection: { _id: 0, id: 1 } })
       .toArray()
     for (const run of live) abortRun(run.id)
 
-    const messages = await mongo.autonomousAgentMessages.deleteMany({ conversationId: conversation.id })
-    const runs = await mongo.autonomousAgentRuns.deleteMany({ conversationId: conversation.id })
-    await mongo.autonomousAgentConversations.deleteOne({ id: conversation.id })
+    const messages = await mongo.messages.deleteMany({ conversationId: conversation.id })
+    const runs = await mongo.runs.deleteMany({ conversationId: conversation.id })
+    await mongo.conversations.deleteOne({ id: conversation.id })
 
-    eventsLog.info('agents.autonomous-agent-conversation.delete', `conversation ${conversation.id} deleted with ${messages.deletedCount} message(s) and ${runs.deletedCount} run(s)`, { req })
+    eventsLog.info('agents.conversation.delete', `conversation ${conversation.id} deleted with ${messages.deletedCount} message(s) and ${runs.deletedCount} run(s)`, { req })
     res.status(204).send()
   } catch (err) { next(err) }
 })
@@ -242,7 +242,7 @@ router.get('/:type/:id/:conversationId/messages', async (req, res, next) => {
     const conversation = await requireConversation(owner, req.params.conversationId)
     // Still resolved, so a thread whose agent was deleted 404s rather than half-working; no longer the
     // thing that authorizes the read or the write.
-    await requireAutonomousAgent(owner, conversation.autonomousAgentId)
+    await requireAutonomousAgent(owner, conversation.agentId)
     assertOwnsConversation(conversation, session)
 
     const filter: Record<string, any> = { conversationId: conversation.id }
@@ -254,7 +254,7 @@ router.get('/:type/:id/:conversationId/messages', async (req, res, next) => {
     const sinceSeq = Number(req.query.sinceSeq)
     if (Number.isFinite(sinceVersion)) filter.version = { $gt: sinceVersion }
     else if (Number.isFinite(sinceSeq)) filter.seq = { $gt: sinceSeq }
-    const results = await mongo.autonomousAgentMessages
+    const results = await mongo.messages
       .find(filter, { projection: { _id: 0 } })
       .sort({ seq: 1 })
       .toArray()
@@ -278,7 +278,7 @@ router.get('/:type/:id/:conversationId/runs', async (req, res, next) => {
     const owner = reqOwner(req)
     const conversation = await requireConversation(owner, req.params.conversationId)
     assertOwnsConversation(conversation, session)
-    const results = await mongo.autonomousAgentRuns
+    const results = await mongo.runs
       .find({ conversationId: conversation.id }, { projection: { _id: 0 } })
       .sort({ startedAt: 1 })
       .toArray()
@@ -293,7 +293,7 @@ router.post('/:type/:id/:conversationId/messages', async (req, res, next) => {
     const conversation = await requireConversation(owner, req.params.conversationId)
     // Still resolved, so a thread whose agent was deleted 404s rather than half-working; no longer the
     // thing that authorizes the read or the write.
-    await requireAutonomousAgent(owner, conversation.autonomousAgentId)
+    await requireAutonomousAgent(owner, conversation.agentId)
     assertOwnsConversation(conversation, session)
 
     const content = typeof req.body?.content === 'string' ? req.body.content.trim() : ''
@@ -315,7 +315,7 @@ router.post('/:type/:id/:conversationId/messages', async (req, res, next) => {
     })
 
     const run = await createRun({
-      autonomousAgentId: conversation.autonomousAgentId,
+      agentId: conversation.agentId,
       conversationId: conversation.id,
       owner: conversation.owner,
       trigger: 'user',
@@ -326,7 +326,7 @@ router.post('/:type/:id/:conversationId/messages', async (req, res, next) => {
       startedAt: new Date().toISOString()
     })
 
-    eventsLog.info('agents.autonomous-agent-conversation.message', `message posted to conversation ${conversation.id}`, { req })
+    eventsLog.info('agents.conversation.message', `message posted to conversation ${conversation.id}`, { req })
 
     // Not awaited: the caller gets its runId immediately and follows the run document.
     // A rejection here would otherwise become an unhandled rejection — the executor is

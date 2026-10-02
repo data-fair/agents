@@ -4,7 +4,7 @@
  * The rule is unchanged; what it ranges over is. It used to mean "both LOOPS" — one in the browser,
  * one on the server — and when the browser loop was deleted, four modules (the loop guards, the
  * sub-agent output format, and the two compaction modules) stopped having a ui consumer and moved to
- * `api/src/agent-loop/`, which is this guard having done its job. What legitimately remains is the
+ * `api/src/conversations/`, which is this guard having done its job. What legitimately remains is the
  * wire protocol and the things both ends of it must agree about: host events, the hidden-context
  * wrapper, tool results, activity.
  *

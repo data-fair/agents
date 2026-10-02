@@ -6,7 +6,7 @@
  * one message for the whole turn.
  */
 
-import type { AutonomousAgentRun } from '#types'
+import type { ConversationRun } from '#types'
 import { appendRunCall } from './service.ts'
 import type { resolveRoleModel } from '../models/service.ts'
 
@@ -27,7 +27,7 @@ import type { resolveRoleModel } from '../models/service.ts'
  * Fire-and-forget with a logged catch: telemetry must never cost a turn.
  */
 export const recordCall = (
-  run: AutonomousAgentRun,
+  run: ConversationRun,
   call: {
     modelRole: string
     entry: ReturnType<typeof resolveRoleModel>['entry']

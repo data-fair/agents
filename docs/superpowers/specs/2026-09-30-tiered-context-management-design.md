@@ -176,8 +176,8 @@ the same constant was copied. Concretely:
 
 - `shared/compaction-policy.ts` — the clearing decision and the placeholder, pure, beside
   `decideCompaction`. This is the single source of truth for both loops.
-- `api/src/autonomous-agent-runtime/executor.ts` — apply clearing, re-measure, then compact.
-- `api/src/autonomous-agent-runtime/operations.ts` — `boundToolResult` adopts the placeholder shape.
+- `api/src/conversations/executor.ts` — apply clearing, re-measure, then compact.
+- `api/src/conversations/operations.ts` — `boundToolResult` adopts the placeholder shape.
 - `ui/src/composables/use-agent-chat.ts` — applies the same decision to its in-memory history. Required,
   not optional: a policy that only one loop follows is not a policy.
 - `docs/architecture/context-management.md` — new.

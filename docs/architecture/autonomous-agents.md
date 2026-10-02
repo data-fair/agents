@@ -12,12 +12,12 @@ gateway (see [Gateway](./gateway.md)).
 | Collection | Holds |
 | --- | --- |
 | `autonomous-agents` | the configuration: persona, instructions, MCP server selection, instructors, NHI enrolment, `enabled` |
-| `autonomous-agent-conversations` | one shared thread per agent: title, `messageSeq`, `version`, the cached compaction recap |
-| `autonomous-agent-messages` | the turns, as ordered `UIMessage` parts — **the conversation of record** |
-| `autonomous-agent-runs` | one document per turn: status, stop reason, steps, credits |
+| `conversations` | one shared thread per agent: title, `messageSeq`, `version`, the cached compaction recap |
+| `messages` | the turns, as ordered `UIMessage` parts — **the conversation of record** |
+| `runs` | one document per turn: status, stop reason, steps, credits |
 
 Code: `api/src/autonomous-agents/` (configuration, identity, tool diagnostics) and
-`api/src/autonomous-agent-runtime/` (conversations, messages, runs, the executor).
+`api/src/conversations/` (conversations, messages, runs, the executor).
 
 ## The conversation is the record
 
@@ -106,13 +106,13 @@ Several people instruct one agent on one thread, so attribution is mandatory rat
 
 ## Stopping and erasing
 
-- **Abort** one turn: `POST /api/autonomous-agent-runs/.../:runId/abort`. In-process only — a run does
+- **Abort** one turn: `POST /api/runs/.../:runId/abort`. In-process only — a run does
   not migrate, so the process holding it is the only one that can stop it — and `abort()` is a request,
   which is why the turn is also raced against its deadline.
 - **Disable** the agent: every live turn of it is aborted and its cached session dropped, so a turn
   already inside the loop cannot keep acting with credentials obtained before it was disabled.
 - **Delete** the agent: live turns stopped, then its conversations, messages and runs are erased.
-- **Delete one thread**: `DELETE /api/autonomous-agent-conversations/:type/:id/:conversationId`.
+- **Delete one thread**: `DELETE /api/conversations/:type/:id/:conversationId`.
 
 There is **no TTL** on a conversation, deliberately. It is the conversation of record, so a timer that
 silently destroyed it would take the audit trail with it. What it needs instead is someone who can erase

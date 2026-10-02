@@ -24,7 +24,7 @@ import { Router } from 'express'
 import { type AccountKeys, assertAccountRole, httpError, reqSessionAuthenticated } from '@data-fair/lib-express'
 import eventsLog from '@data-fair/lib-express/events-log.js'
 import { getSettings } from '../settings/service.ts'
-import { partsText } from '../autonomous-agent-runtime/operations.ts'
+import { partsText } from '../conversations/operations.ts'
 
 const router = Router()
 export default router
@@ -64,7 +64,7 @@ const reviewableFilter = (owner: AccountKeys) => ({
 router.get('/conversation/:conversationId', async (req, res, next) => {
   try {
     reqSessionAuthenticated(req)
-    const conversation = await mongo.autonomousAgentConversations.findOne(
+    const conversation = await mongo.conversations.findOne(
       { id: req.params.conversationId, consentedToReview: true },
       { projection: { _id: 0, owner: 1 } }
     )
@@ -85,19 +85,19 @@ router.get('/:type/:id', async (req, res, next) => {
     // A plain find on the conversations collection, where the old version aggregated and grouped the
     // trace collection to reconstitute one row per conversation. The rows ARE conversations now.
     const [results, count] = await Promise.all([
-      mongo.autonomousAgentConversations
-        .find(filter, { projection: { _id: 0, id: 1, title: 1, userId: 1, userName: 1, createdAt: 1, lastMessageAt: 1, autonomousAgentId: 1 } })
+      mongo.conversations
+        .find(filter, { projection: { _id: 0, id: 1, title: 1, userId: 1, userName: 1, createdAt: 1, lastMessageAt: 1, agentId: 1 } })
         .sort({ lastMessageAt: -1 })
         .skip((page - 1) * size)
         .limit(size)
         .toArray(),
-      mongo.autonomousAgentConversations.countDocuments(filter)
+      mongo.conversations.countDocuments(filter)
     ])
 
     // The preview is the first thing the person said, read from the conversation rather than dug out
     // of a stored request body — which is why it is a real preview again.
     const previews = await Promise.all(results.map(async conversation => {
-      const first = await mongo.autonomousAgentMessages.findOne(
+      const first = await mongo.messages.findOne(
         { conversationId: conversation.id, role: 'user' },
         { projection: { _id: 0, parts: 1 }, sort: { seq: 1 } }
       )
@@ -113,7 +113,7 @@ router.get('/:type/:id', async (req, res, next) => {
         lastMessageAt: conversation.lastMessageAt,
         userId: conversation.userId,
         userName: conversation.userName,
-        agentId: conversation.autonomousAgentId,
+        agentId: conversation.agentId,
         preview: previews[i]
       }))
     })
@@ -132,7 +132,7 @@ router.get('/:type/:id/:conversationId', async (req, res, next) => {
     const owner = reqOwner(req)
     await assertMayReview(req, owner)
 
-    const conversation = await mongo.autonomousAgentConversations.findOne(
+    const conversation = await mongo.conversations.findOne(
       { ...reviewableFilter(owner), id: req.params.conversationId },
       { projection: { _id: 0 } }
     )
@@ -141,11 +141,11 @@ router.get('/:type/:id/:conversationId', async (req, res, next) => {
     if (!conversation) throw httpError(404, 'no reviewable conversation with this id')
 
     const [messages, runs] = await Promise.all([
-      mongo.autonomousAgentMessages
+      mongo.messages
         .find({ conversationId: conversation.id }, { projection: { _id: 0 } })
         .sort({ seq: 1 })
         .toArray(),
-      mongo.autonomousAgentRuns
+      mongo.runs
         .find({ conversationId: conversation.id }, { projection: { _id: 0 } })
         .sort({ startedAt: 1 })
         .toArray()
@@ -190,14 +190,14 @@ router.delete('/:type/:id', async (req, res, next) => {
  * orphaned and still readable by id — which for an erasure request is the whole failure.
  */
 const deleteConversations = async (filter: Record<string, unknown>) => {
-  const conversations = await mongo.autonomousAgentConversations
+  const conversations = await mongo.conversations
     .find(filter, { projection: { _id: 0, id: 1 } })
     .toArray()
   if (!conversations.length) return
   const ids = conversations.map(conversation => conversation.id)
   await Promise.all([
-    mongo.autonomousAgentMessages.deleteMany({ conversationId: { $in: ids } }),
-    mongo.autonomousAgentRuns.deleteMany({ conversationId: { $in: ids } }),
-    mongo.autonomousAgentConversations.deleteMany({ id: { $in: ids } })
+    mongo.messages.deleteMany({ conversationId: { $in: ids } }),
+    mongo.runs.deleteMany({ conversationId: { $in: ids } }),
+    mongo.conversations.deleteMany({ id: { $in: ids } })
   ])
 }

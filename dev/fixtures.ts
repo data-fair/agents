@@ -124,7 +124,7 @@ const autonomousAgentBody = {
 // Each entry is one conversation, seeded by posting its message and waiting for the run to settle.
 // The directives are mock-model seams (see api/src/models/mock-model.ts), chosen so the history
 // covers a clean answer, a real tool call, a provider failure and a guard truncation.
-const autonomousAgentConversations = [
+const conversations = [
   { title: 'A plain answer', message: 'hello' },
   { title: 'A tool call', message: 'call tool echo {"value":"Dev Organization"}' },
   { title: 'A failed turn', message: 'stream error' },
@@ -143,24 +143,24 @@ async function seedAutonomousAgent (adminAx: any, orgAx: any) {
   })
   console.log(`seeded autonomous agent ${AUTONOMOUS_AGENT_ID} (organization/dev1, enrolled as ${AUTONOMOUS_AGENT_NHI})`)
 
-  const base = '/api/autonomous-agent-conversations/organization/dev1'
-  const existing = (await orgAx.get(`${base}?autonomousAgentId=${AUTONOMOUS_AGENT_ID}`)).data.results as any[]
+  const base = '/api/conversations/organization/dev1'
+  const existing = (await orgAx.get(`${base}?agentId=${AUTONOMOUS_AGENT_ID}`)).data.results as any[]
 
-  for (const fixture of autonomousAgentConversations) {
+  for (const fixture of conversations) {
     // Idempotent-ish, like the rest of this script: an existing conversation with the same title is
     // reused rather than duplicated, so a re-run does not pile up threads.
     if (existing.some(conversation => conversation.title === fixture.title)) {
       console.log(`  conversation already seeded: ${fixture.title}`)
       continue
     }
-    const conversation = (await orgAx.post(base, { autonomousAgentId: AUTONOMOUS_AGENT_ID, title: fixture.title })).data
+    const conversation = (await orgAx.post(base, { agentId: AUTONOMOUS_AGENT_ID, title: fixture.title })).data
     const { runId } = (await orgAx.post(`${base}/${conversation.id}/messages`, { content: fixture.message })).data
 
     // Wait for the run to settle, so the script's success means the history is really there — the
     // same contract the trace seeding above holds itself to.
     let run: any
     for (let i = 0; i < 150; i++) {
-      run = (await orgAx.get(`/api/autonomous-agent-runs/organization/dev1/${runId}`)).data
+      run = (await orgAx.get(`/api/runs/organization/dev1/${runId}`)).data
       if (run.status !== 'running') break
       await new Promise(resolve => setTimeout(resolve, 100))
     }

@@ -7,7 +7,7 @@ import config from '#config'
 import { standardAgent } from '../agent-session/standard-agents.ts'
 import { nanoid } from 'nanoid'
 import { type AccountKeys, httpError } from '@data-fair/lib-express'
-import type { AutonomousAgent, AutonomousAgentConversation, AutonomousAgentRun } from '#types'
+import type { AutonomousAgent, Conversation, ConversationRun } from '#types'
 // The stored shape, whose `parts` carry the library's own part type (see mongo.ts).
 import type { StoredMessage } from '#mongo'
 import { canInstruct, type InstructSession } from '../autonomous-agents/operations.ts'
@@ -54,8 +54,8 @@ export const assertOwnsConversation = (conversation: { userId?: string }, sessio
 }
 
 /** The autonomous agent behind a request, 404 when it is not this owner's. */
-export const requireAutonomousAgent = async (owner: AccountKeys, autonomousAgentId: string) => {
-  const autonomousAgent = await resolveAgent(owner, autonomousAgentId)
+export const requireAutonomousAgent = async (owner: AccountKeys, agentId: string) => {
+  const autonomousAgent = await resolveAgent(owner, agentId)
   if (!autonomousAgent) throw httpError(404, 'unknown autonomous agent')
   return autonomousAgent
 }
@@ -71,17 +71,17 @@ export const requireAutonomousAgent = async (owner: AccountKeys, autonomousAgent
  * A standard agent is built per call rather than stored,
  * so it costs no collection and no migration (see ../agent-session/standard-agents.ts).
  */
-export const resolveAgent = async (owner: AccountKeys, autonomousAgentId: string) => {
+export const resolveAgent = async (owner: AccountKeys, agentId: string) => {
   // Standard agents FIRST, which is also what reserves their ids: a configured agent sharing an id
   // would otherwise shadow one, and a conversation naming it would resolve to the wrong identity.
-  const standard = standardAgent(autonomousAgentId, config.mcpServers ?? [])
+  const standard = standardAgent(agentId, config.mcpServers ?? [])
   if (standard) return { ...standard, owner } as unknown as AutonomousAgent
   // Anything else is a CONFIGURED agent, and those remain organization-owned: their identity rests on
   // an NHI, which simple-directory binds to exactly one organization. Asserted rather than left to the
   // lookup below returning nothing — it would, since configured agents are stored org-owned, but a 404
   // reads as "no such agent" when the real answer is "not on this kind of account".
   assertOrganizationOwner(owner)
-  return await getAutonomousAgent(owner, autonomousAgentId)
+  return await getAutonomousAgent(owner, agentId)
 }
 
 /**
@@ -89,7 +89,7 @@ export const resolveAgent = async (owner: AccountKeys, autonomousAgentId: string
  * which is why a conversation of another account reads as 404 rather than 403.
  */
 export const requireConversation = async (owner: AccountKeys, conversationId: string) => {
-  const conversation = await mongo.autonomousAgentConversations.findOne(
+  const conversation = await mongo.conversations.findOne(
     { id: conversationId, 'owner.type': owner.type, 'owner.id': owner.id },
     { projection: { _id: 0 } }
   )
@@ -106,7 +106,7 @@ export const requireConversation = async (owner: AccountKeys, conversationId: st
  * it the way a timestamp would in the same millisecond.
  */
 const bumpConversationVersion = async (conversationId: string): Promise<number | undefined> => {
-  const updated = await mongo.autonomousAgentConversations.findOneAndUpdate(
+  const updated = await mongo.conversations.findOneAndUpdate(
     { id: conversationId },
     { $inc: { version: 1 }, $set: { updatedAt: new Date().toISOString() } },
     { returnDocument: 'after', projection: { _id: 0, version: 1 } }
@@ -122,10 +122,10 @@ const bumpConversationVersion = async (conversationId: string): Promise<number |
  * not be handed the same number. The unique { conversationId, seq } index is the backstop.
  */
 export const appendMessage = async (
-  conversation: AutonomousAgentConversation,
-  message: Omit<StoredMessage, 'id' | 'seq' | 'createdAt' | 'conversationId' | 'autonomousAgentId' | 'owner'>
+  conversation: Conversation,
+  message: Omit<StoredMessage, 'id' | 'seq' | 'createdAt' | 'conversationId' | 'agentId' | 'owner'>
 ): Promise<StoredMessage> => {
-  const updated = await mongo.autonomousAgentConversations.findOneAndUpdate(
+  const updated = await mongo.conversations.findOneAndUpdate(
     { id: conversation.id },
     // One round trip allocates both: the seq (per message) and the version (per change).
     { $inc: { messageSeq: 1, version: 1 }, $set: { lastMessageAt: new Date().toISOString(), updatedAt: new Date().toISOString() } },
@@ -136,13 +136,13 @@ export const appendMessage = async (
     ...message,
     id: nanoid(),
     conversationId: conversation.id,
-    autonomousAgentId: conversation.autonomousAgentId,
+    agentId: conversation.agentId,
     owner: conversation.owner,
     seq: updated.messageSeq,
     version: updated.version,
     createdAt: new Date().toISOString()
   }
-  await mongo.autonomousAgentMessages.insertOne({ ...doc })
+  await mongo.messages.insertOne({ ...doc })
   // After the write, never before. The notification carries no content — just "there is
   // something at version N" — so a client always reads the record over HTTP, where authorization
   // is re-checked and nothing is size-capped.
@@ -157,23 +157,23 @@ export const appendMessage = async (
  * and two round trips would let a concurrent write make the event disagree with what is stored.
  */
 export const updateMessage = async (id: string, patch: Partial<StoredMessage>) => {
-  const existing = await mongo.autonomousAgentMessages.findOne({ id }, { projection: { _id: 0, conversationId: 1 } })
+  const existing = await mongo.messages.findOne({ id }, { projection: { _id: 0, conversationId: 1 } })
   if (!existing) return
   // The version has to advance for an in-place update too, or an incremental fetch cannot see it:
   // the assistant message keeps its seq while its content is filled in, so `seq` alone would only
   // ever reveal NEW messages.
   const version = await bumpConversationVersion(existing.conversationId)
-  await mongo.autonomousAgentMessages.updateOne(
+  await mongo.messages.updateOne(
     { id },
     { $set: { ...patch, version, updatedAt: new Date().toISOString() } }
   )
   await notifyConversationChanged(existing.conversationId, version)
 }
 
-export const createRun = async (run: Omit<AutonomousAgentRun, 'id'>): Promise<AutonomousAgentRun> => {
-  const doc: AutonomousAgentRun = { ...run, id: nanoid() }
+export const createRun = async (run: Omit<ConversationRun, 'id'>): Promise<ConversationRun> => {
+  const doc: ConversationRun = { ...run, id: nanoid() }
   const version = await bumpConversationVersion(doc.conversationId)
-  await mongo.autonomousAgentRuns.insertOne({ ...doc, version })
+  await mongo.runs.insertOne({ ...doc, version })
   await notifyConversationChanged(doc.conversationId, version)
   return { ...doc, version }
 }
@@ -193,7 +193,7 @@ export const createRun = async (run: Omit<AutonomousAgentRun, 'id'>): Promise<Au
  * either way so the person can return to it and is not admin-visible; this is what makes it visible.
  */
 export const setReviewConsent = async (conversationId: string, consented: boolean) => {
-  await mongo.autonomousAgentConversations.updateOne({ id: conversationId }, { $set: { consentedToReview: consented } })
+  await mongo.conversations.updateOne({ id: conversationId }, { $set: { consentedToReview: consented } })
 }
 
 /**
@@ -203,17 +203,17 @@ export const setReviewConsent = async (conversationId: string, consented: boolea
  * summarizer finishes while the assistant is still streaming), and a read-modify-write would lose
  * whichever landed second.
  */
-export const appendRunCall = async (id: string, call: NonNullable<AutonomousAgentRun['calls']>[number]) => {
-  await mongo.autonomousAgentRuns.updateOne({ id }, { $push: { calls: call } })
+export const appendRunCall = async (id: string, call: NonNullable<ConversationRun['calls']>[number]) => {
+  await mongo.runs.updateOne({ id }, { $push: { calls: call } })
 }
 
 /** The instructions this run gave the model, recorded once. */
 export const setRunSystemPrompt = async (id: string, systemPrompt: string) => {
-  await mongo.autonomousAgentRuns.updateOne({ id }, { $set: { systemPrompt } })
+  await mongo.runs.updateOne({ id }, { $set: { systemPrompt } })
 }
 
 export const incrementRunSpend = async (id: string, credits: number, steps: number) => {
-  await mongo.autonomousAgentRuns.updateOne({ id }, { $inc: { credits, steps } })
+  await mongo.runs.updateOne({ id }, { $inc: { credits, steps } })
 }
 
 /**
@@ -221,11 +221,11 @@ export const incrementRunSpend = async (id: string, credits: number, steps: numb
  * how a run ended — the boot sweep of another instance racing the instance that is actually
  * executing it, for example. Returns whether this call was the one that closed it.
  */
-export const finishRun = async (id: string, patch: Partial<AutonomousAgentRun>): Promise<boolean> => {
-  const existing = await mongo.autonomousAgentRuns.findOne({ id, status: 'running' }, { projection: { _id: 0, conversationId: 1 } })
+export const finishRun = async (id: string, patch: Partial<ConversationRun>): Promise<boolean> => {
+  const existing = await mongo.runs.findOne({ id, status: 'running' }, { projection: { _id: 0, conversationId: 1 } })
   if (!existing) return false
   const version = await bumpConversationVersion(existing.conversationId)
-  const updated = await mongo.autonomousAgentRuns.findOneAndUpdate(
+  const updated = await mongo.runs.findOneAndUpdate(
     { id, status: 'running' },
     { $set: { ...patch, version, endedAt: new Date().toISOString() } },
     { returnDocument: 'after', projection: { _id: 0 } }
@@ -248,7 +248,7 @@ export const saveCompaction = async (
   conversationId: string,
   compaction: { summary: string, generation: number, coversUpToSeq: number }
 ) => {
-  await mongo.autonomousAgentConversations.updateOne(
+  await mongo.conversations.updateOne(
     { id: conversationId },
     { $set: { compaction: { ...compaction, createdAt: new Date().toISOString() } } }
   )

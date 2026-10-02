@@ -13,7 +13,7 @@ import * as writeReqBody from '#doc/autonomous-agents/autonomous-agent-write-req
 import { getAutonomousAgent, getMcpServerCatalog, reqWriteSession, assertKnownMcpServers, assertOrganizationOwner, describeAutonomousAgentSession, assertEnrolmentWorks, describeAutonomousAgentTools, clearAutonomousAgentSession, deleteAutonomousAgentData } from './service.ts'
 import { nhiIssuerUrl } from '../nhi/operations.ts'
 import { canInstruct } from './operations.ts'
-import { abortRunsOfAgent } from '../autonomous-agent-runtime/executor.ts'
+import { abortRunsOfAgent } from '../conversations/executor.ts'
 
 const router = Router()
 export default router

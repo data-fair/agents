@@ -21,8 +21,8 @@
 
 import { ToolLoopAgent, stepCountIs, tool, jsonSchema, type Tool } from 'ai'
 import Debug from 'debug'
-import { STEP_LIMIT, repeatedCallGuard } from '../agent-loop/agent-loop-guards.ts'
-import { subAgentModelOutput, SUBAGENT_DONE_FALLBACK } from '../agent-loop/agent-subagent-output.ts'
+import { STEP_LIMIT, repeatedCallGuard } from '../conversations/loop-guards.ts'
+import { subAgentModelOutput, SUBAGENT_DONE_FALLBACK } from '../conversations/subagent-output.ts'
 
 const debug = Debug('agents:sub-agents')
 

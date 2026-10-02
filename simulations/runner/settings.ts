@@ -132,7 +132,7 @@ export async function seedSettings (assistantModelId: string, toolsModelId: stri
 export function parseAutonomousAgentRoute (route: string) {
   const match = route.match(/^\/agents\/(user|organization)\/([^/]+)\/autonomous-agents\/([^/?#]+)/)
   if (!match) throw new Error(`an autonomous-agent case's route must look like /agents/organization/<id>/autonomous-agents/<agentId>, got ${route}`)
-  return { owner: { type: match[1], id: match[2] }, autonomousAgentId: match[3] }
+  return { owner: { type: match[1], id: match[2] }, agentId: match[3] }
 }
 
 /**
@@ -148,10 +148,10 @@ export function parseAutonomousAgentRoute (route: string) {
 export async function seedAutonomousAgent (route: string, instructorUserId: string) {
   const { superAdmin } = await import('../../tests/support/axios.ts')
   const admin = await superAdmin
-  const { owner, autonomousAgentId } = parseAutonomousAgentRoute(route)
+  const { owner, agentId } = parseAutonomousAgentRoute(route)
   const siteUrl = `http://localhost:${process.env.NGINX_PORT}`
   await admin.post('/api/test-env/autonomous-agent', {
-    id: autonomousAgentId,
+    id: agentId,
     owner,
     clientId: 'test-autonomous-agent-nhi',
     siteUrl,
@@ -169,7 +169,7 @@ export async function seedAutonomousAgent (route: string, instructorUserId: stri
       enabled: true
     }
   })
-  return { owner, autonomousAgentId }
+  return { owner, agentId }
 }
 
 /** Fail loudly and early: without the bridge every case dies as an opaque timeout. */
@@ -200,9 +200,9 @@ export async function assertBridgeUp () {
 export async function readAutonomousAgentToolCalls (route: string) {
   const { superAdmin } = await import('../../tests/support/axios.ts')
   const admin = await superAdmin
-  const { owner, autonomousAgentId } = parseAutonomousAgentRoute(route)
-  const base = `/api/autonomous-agent-conversations/${owner.type}/${owner.id}`
-  const conversations = (await admin.get(`${base}?autonomousAgentId=${autonomousAgentId}`)).data.results as any[]
+  const { owner, agentId } = parseAutonomousAgentRoute(route)
+  const base = `/api/conversations/${owner.type}/${owner.id}`
+  const conversations = (await admin.get(`${base}?agentId=${agentId}`)).data.results as any[]
   const calls: Array<{ toolName: string, arguments?: string, serverId?: string, failed?: boolean, error?: string }> = []
   for (const conversation of conversations) {
     const messages = (await admin.get(`${base}/${conversation.id}/messages`)).data.results as any[]

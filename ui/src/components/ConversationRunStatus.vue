@@ -4,7 +4,7 @@
     class="pa-2 d-flex align-center flex-wrap"
     color="surface-light"
     rounded
-    data-testid="autonomous-agent-run-status"
+    data-testid="conversation-run-status"
     :data-run-id="run.id"
   >
     <v-chip
@@ -101,14 +101,14 @@ import { useI18n } from 'vue-i18n'
 import { getUiNotif } from '@data-fair/lib-vue/ui-notif.js'
 import { $apiPath, $fetch } from '~/context'
 import { isDynamicToolUIPart } from 'ai'
-import type { StoredAutonomousAgentMessage } from '~/utils/autonomous-agent-chat-message'
+import type { StoredConversationMessage } from '~/utils/autonomous-agent-chat-message'
 import { summarizeToolArguments } from '~/utils/tool-arguments'
 
 const props = defineProps<{
   accountType: string
   accountId: string
   run: any | null
-  messages: StoredAutonomousAgentMessage[]
+  messages: StoredConversationMessage[]
 }>()
 const emit = defineEmits<{ aborted: [] }>()
 
@@ -146,7 +146,7 @@ const failures = computed(() =>
 const abort = async () => {
   aborting.value = true
   try {
-    await $fetch(`${$apiPath}/autonomous-agent-runs/${props.accountType}/${props.accountId}/${props.run.id}/abort`, {
+    await $fetch(`${$apiPath}/runs/${props.accountType}/${props.accountId}/${props.run.id}/abort`, {
       method: 'POST', body: {}, credentials: 'include'
     })
     emit('aborted')

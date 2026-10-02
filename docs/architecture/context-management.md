@@ -4,7 +4,7 @@ What happens to a conversation as it grows past the model's window. **One policy
 in-browser agents and the server-side autonomous agents make the same decision, in the same place, and
 differ only in how they apply it.
 
-The decision is `decideContextManagement` in `api/src/agent-loop/compaction-policy.ts` — pure, stateless, and the
+The decision is `decideContextManagement` in `api/src/conversations/compaction-policy.ts` — pure, stateless, and the
 only thing either loop calls. That is deliberate: before it, two loops *happened* to agree because the
 same constant had been copied into each, and every context bug on this branch came from one of the copies
 having drifted.
@@ -191,7 +191,7 @@ fill = lastTurn.usage.inputTokens + estimateTokens(appendedChars)
 
 This is the browser's measurement. The autonomous executor has no prior response object in hand, so it
 passes `lastInputTokens: 0` and counts the whole rebuilt history as unmeasured — the same decision, a
-different parameter. Both live in the pure decision module **`api/src/agent-loop/compaction-policy.ts`**
+different parameter. Both live in the pure decision module **`api/src/conversations/compaction-policy.ts`**
 (`decideContextManagement`), which each loop's own `compactHistory` calls before every turn — it takes the
 current `history`, `lastInputTokens`, `appendedChars` and `budget` and returns the history to send (with
 any cleared payloads applied) plus either "don't compact" (with a reason) or a prefix to summarise and a
@@ -226,7 +226,7 @@ misleading the model about what's callable.
 ```mermaid
 sequenceDiagram
   participant Loop as either loop (compactHistory)
-  participant Policy as api/src/agent-loop/compaction-policy.decideContextManagement
+  participant Policy as api/src/conversations/compaction-policy.decideContextManagement
   participant LLM as Summarizer model
 
   Loop->>Policy: decideContextManagement({ history, lastInputTokens, appendedChars, budget, generation })
@@ -279,12 +279,12 @@ so a test sets a small `contextWindow` on that model in settings instead.
 
 ## Where the code is
 
-- `api/src/agent-loop/compaction-policy.ts` — `decideContextManagement`, `clearOldToolResults`, `decideCompaction`,
+- `api/src/conversations/compaction-policy.ts` — `decideContextManagement`, `clearOldToolResults`, `decideCompaction`,
   the placeholders, and every constant named above. The single source of truth for both loops.
-- `api/src/agent-loop/compaction-prompt.ts` — the summarizer's system prompt and the recap message.
-- `api/src/autonomous-agent-runtime/executor.ts` — `compactHistory`: applies the decision, bills the
+- `api/src/conversations/compaction-prompt.ts` — the summarizer's system prompt and the recap message.
+- `api/src/conversations/executor.ts` — `compactHistory`: applies the decision, bills the
   summarizer call, persists the recap.
-- `api/src/autonomous-agent-runtime/operations.ts` — `boundToolResult`, tier 0.
+- `api/src/conversations/operations.ts` — `boundToolResult`, tier 0.
 - `ui/src/composables/use-agent-chat.ts` — `compactHistory`: applies the decision to its in-memory
   history and re-prunes tool announcements.
 - `tests/features/chat-hang/compaction-policy.unit.spec.ts` — the policy, including that both loops

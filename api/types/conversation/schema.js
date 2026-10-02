@@ -1,13 +1,13 @@
 export default {
-  $id: 'https://github.com/data-fair/agents/autonomous-agent-conversation',
+  $id: 'https://github.com/data-fair/agents/conversation',
   'x-exports': ['types'],
-  title: 'Autonomous agent conversation',
+  title: 'Conversation',
   type: 'object',
   additionalProperties: false,
-  required: ['id', 'autonomousAgentId', 'owner', 'userId', 'title', 'createdAt', 'messageSeq'],
+  required: ['id', 'agentId', 'owner', 'userId', 'title', 'createdAt', 'messageSeq'],
   properties: {
     id: { type: 'string' },
-    autonomousAgentId: { type: 'string' },
+    agentId: { type: 'string' },
     /**
      * The ONE person this conversation belongs to.
      *

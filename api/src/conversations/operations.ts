@@ -4,7 +4,7 @@
  */
 
 import { convertToModelMessages, safeValidateUIMessages, type ModelMessage, type Tool } from 'ai'
-import { truncatedToolResultText } from '../agent-loop/compaction-policy.ts'
+import { truncatedToolResultText } from './compaction-policy.ts'
 import { partsText, textPart, type MessagePart } from '@agents/shared/message-parts'
 import type { AccountKeys } from '@data-fair/lib-express'
 // Type-only, so this pure module does not pull in enforce.ts (which reaches mongo and config).

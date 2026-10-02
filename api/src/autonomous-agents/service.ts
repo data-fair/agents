@@ -48,8 +48,8 @@ export function assertOrganizationOwner (owner: AccountKeys): asserts owner is A
  * configured one it would be a privilege escalation, which is why that case still goes through the
  * assertion above.
  */
-export function assertCanOwnAgent (owner: AccountKeys, autonomousAgentId: string): void {
-  if (isStandardAgentId(autonomousAgentId)) return
+export function assertCanOwnAgent (owner: AccountKeys, agentId: string): void {
+  if (isStandardAgentId(agentId)) return
   assertOrganizationOwner(owner)
 }
 
@@ -134,15 +134,15 @@ export const describeAutonomousAgentTools = async (autonomousAgent: AutonomousAg
  * rather than messages no conversation can reach: the conversation is what every read path resolves
  * through, so it is the safe thing to have survive a half-completed delete.
  */
-export const deleteAutonomousAgentData = async (autonomousAgentId: string) => {
-  const conversations = await mongo.autonomousAgentConversations
-    .find({ autonomousAgentId }, { projection: { _id: 0, id: 1 } })
+export const deleteAutonomousAgentData = async (agentId: string) => {
+  const conversations = await mongo.conversations
+    .find({ agentId }, { projection: { _id: 0, id: 1 } })
     .toArray()
   const conversationIds = conversations.map(conversation => conversation.id)
   if (!conversationIds.length) return { conversations: 0, messages: 0, runs: 0 }
 
-  const messages = await mongo.autonomousAgentMessages.deleteMany({ conversationId: { $in: conversationIds } })
-  const runs = await mongo.autonomousAgentRuns.deleteMany({ conversationId: { $in: conversationIds } })
-  const removed = await mongo.autonomousAgentConversations.deleteMany({ autonomousAgentId })
+  const messages = await mongo.messages.deleteMany({ conversationId: { $in: conversationIds } })
+  const runs = await mongo.runs.deleteMany({ conversationId: { $in: conversationIds } })
+  const removed = await mongo.conversations.deleteMany({ agentId })
   return { conversations: removed.deletedCount, messages: messages.deletedCount, runs: runs.deletedCount }
 }

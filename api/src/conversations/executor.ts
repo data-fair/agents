@@ -22,8 +22,8 @@ import Debug from 'debug'
 import { streamText, stepCountIs, type Tool } from 'ai'
 // 'ai' does not re-export JSONObject; @ai-sdk/provider is where the library declares it.
 import type { JSONObject } from '@ai-sdk/provider'
-import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep, STREAM_IDLE_TIMEOUT_MS } from '../agent-loop/agent-loop-guards.ts'
-import type { AutonomousAgent, AutonomousAgentMessage, AutonomousAgentRun } from '#types'
+import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep, STREAM_IDLE_TIMEOUT_MS } from './loop-guards.ts'
+import type { AutonomousAgent, ConversationMessage, ConversationRun } from '#types'
 import {
   runStopReasonMessage, buildSystemPrompt, withProvenance,
   usageIdentityFor,
@@ -67,7 +67,7 @@ const EMPTY_COMPLETION_MESSAGE = 'I was not able to produce a response for this 
  * The agent id travels with the controller so a whole agent can be stopped at once — see
  * abortRunsOfAgent.
  */
-const liveRuns = new Map<string, { controller: AbortController, autonomousAgentId: string }>()
+const liveRuns = new Map<string, { controller: AbortController, agentId: string }>()
 
 /** True when this process actually aborted a live turn. */
 export const abortRun = (runId: string): boolean => {
@@ -88,10 +88,10 @@ export const abortRun = (runId: string): boolean => {
  * Best-effort by the same reasoning as abortRun: only this process's turns, and abort() is a request
  * the provider may ignore — the run's own deadline is the hard backstop.
  */
-export const abortRunsOfAgent = (autonomousAgentId: string): number => {
+export const abortRunsOfAgent = (agentId: string): number => {
   let stopped = 0
   for (const live of liveRuns.values()) {
-    if (live.autonomousAgentId !== autonomousAgentId) continue
+    if (live.agentId !== agentId) continue
     live.controller.abort(new Error('autonomous agent stopped'))
     stopped++
   }
@@ -99,7 +99,7 @@ export const abortRunsOfAgent = (autonomousAgentId: string): number => {
 }
 
 /** One conversation is one serialised timeline, so the lock is keyed on it. */
-const conversationLockId = (conversationId: string) => `autonomous-agent-conversation:${conversationId}`
+const conversationLockId = (conversationId: string) => `conversation:${conversationId}`
 
 /** What one turn produced. The model loop replaces the body that fills this in. */
 interface TurnResult {
@@ -119,7 +119,7 @@ interface TurnResult {
  * holds the lock leaves its run `running`, and the holder comes back for it here.
  */
 const nextPendingRun = async (conversationId: string) => {
-  return await mongo.autonomousAgentRuns.findOne(
+  return await mongo.runs.findOne(
     { conversationId, status: 'running' },
     { projection: { _id: 0 }, sort: { startedAt: 1 } }
   )
@@ -132,8 +132,8 @@ const nextPendingRun = async (conversationId: string) => {
  * reached as that identity — so this refuses early with an actionable message rather than
  * producing a toolless turn that looks like a capability problem.
  */
-const performTurn = async (run: AutonomousAgentRun, messageSeq: number, messageId: string, abortSignal: AbortSignal): Promise<TurnResult> => {
-  const autonomousAgent = await resolveAgent(run.owner, run.autonomousAgentId)
+const performTurn = async (run: ConversationRun, messageSeq: number, messageId: string, abortSignal: AbortSignal): Promise<TurnResult> => {
+  const autonomousAgent = await resolveAgent(run.owner, run.agentId)
   if (!autonomousAgent) throw new Error('the autonomous agent no longer exists')
 
   // The session watching this conversation, if any. UNDEFINED IS NORMAL: a turn can run with nobody
@@ -249,7 +249,7 @@ const performTurn = async (run: AutonomousAgentRun, messageSeq: number, messageI
 const PARTIAL_PERSIST_INTERVAL_MS = 2_000
 
 interface ModelLoopContext {
-  run: AutonomousAgentRun
+  run: ConversationRun
   /**
    * The assistant message being produced — created by runTurn, empty and pending, before the turn
    * starts. The seq doubles as the history bound: the message must not be fed back to the model as
@@ -281,7 +281,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
     budget,
     settings,
     abortSignal,
-    { autonomousAgentId: autonomousAgent.id }
+    { agentId: autonomousAgent.id }
   )
   // What the page has reported, folded into the last user turn at CALL time.
   //
@@ -663,8 +663,8 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
  * a reader sees the turn exists while it is being produced, and a throw still has a message
  * to write the failure into rather than needing to invent one afterwards.
  */
-export const runTurn = async (run: AutonomousAgentRun): Promise<void> => {
-  const conversation = await mongo.autonomousAgentConversations.findOne(
+export const runTurn = async (run: ConversationRun): Promise<void> => {
+  const conversation = await mongo.conversations.findOne(
     { id: run.conversationId },
     { projection: { _id: 0 } }
   )
@@ -676,7 +676,7 @@ export const runTurn = async (run: AutonomousAgentRun): Promise<void> => {
   }
 
   const abortController = new AbortController()
-  liveRuns.set(run.id, { controller: abortController, autonomousAgentId: run.autonomousAgentId })
+  liveRuns.set(run.id, { controller: abortController, agentId: run.agentId })
 
   // The ceiling has to be enforced twice over, because abort() is only a REQUEST.
   // abortController.signal asks the provider and the MCP client to stop, which is what a
@@ -692,7 +692,7 @@ export const runTurn = async (run: AutonomousAgentRun): Promise<void> => {
     }, config.autonomousAgentRunTimeoutSeconds * 1000)
   })
 
-  let message: AutonomousAgentMessage | undefined
+  let message: ConversationMessage | undefined
 
   try {
     // Inside the try: appendMessage can fail (the conversation vanished between the findOne
@@ -758,7 +758,7 @@ export const runTurn = async (run: AutonomousAgentRun): Promise<void> => {
       // before the turn, so the partial text and the tool traffic the executor has since written live
       // only in the store — replacing the parts here would delete the record of everything the turn
       // actually did, which is exactly what must survive a failure.
-      const persisted = await mongo.autonomousAgentMessages
+      const persisted = await mongo.messages
         .findOne({ id: message.id }, { projection: { _id: 0, parts: 1 } })
         .catch(() => null)
       await updateMessage(message.id, {
@@ -787,12 +787,12 @@ export const runTurn = async (run: AutonomousAgentRun): Promise<void> => {
  * dropped. The outer loop exists because a post can land between the holder's last
  * nextPendingRun check and its release, which would otherwise orphan that run forever.
  */
-export const startRun = async (run: AutonomousAgentRun): Promise<void> => {
+export const startRun = async (run: ConversationRun): Promise<void> => {
   const lockId = conversationLockId(run.conversationId)
   while (true) {
     if (!await locks.acquire(lockId, LOCK_ORIGIN)) return
     try {
-      let current: AutonomousAgentRun | null = await nextPendingRun(run.conversationId)
+      let current: ConversationRun | null = await nextPendingRun(run.conversationId)
       while (current) {
         await runTurn(current)
         current = await nextPendingRun(run.conversationId)
@@ -829,7 +829,7 @@ export const startRun = async (run: AutonomousAgentRun): Promise<void> => {
  * expires and its runs are recovered on a later pass.
  */
 export const recoverOwnerlessRuns = async (): Promise<{ interrupted: number, resumed: number, skipped: number }> => {
-  const candidates = await mongo.autonomousAgentRuns
+  const candidates = await mongo.runs
     .find({ status: 'running' }, { projection: { _id: 0 } })
     .toArray()
 
@@ -844,7 +844,7 @@ export const recoverOwnerlessRuns = async (): Promise<{ interrupted: number, res
   let interrupted = 0
   let resumed = 0
   for (const run of ownerless) {
-    const existing = await mongo.autonomousAgentMessages.findOne(
+    const existing = await mongo.messages.findOne(
       { runId: run.id, role: 'assistant' },
       { projection: { _id: 0 } }
     )

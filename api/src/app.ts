@@ -8,8 +8,8 @@ import adminRouter from './admin/router.ts'
 import modelsRouter, { getModelsForOwner } from './models/router.ts'
 import catalogRouter from './catalog/router.ts'
 import autonomousAgentsRouter from './autonomous-agents/router.ts'
-import autonomousAgentRuntimeRouter, { runsRouter as autonomousAgentRunsRouter } from './autonomous-agent-runtime/router.ts'
-import { recoverOwnerlessRuns } from './autonomous-agent-runtime/executor.ts'
+import autonomousAgentRuntimeRouter, { runsRouter } from './conversations/router.ts'
+import { recoverOwnerlessRuns } from './conversations/executor.ts'
 import locks from '@data-fair/lib-node/locks.js'
 import nhiRouter from './nhi/router.ts'
 import { clearAutonomousAgentSession } from './nhi/service.ts'
@@ -48,8 +48,8 @@ app.use('/api/settings', settingsRouter)
 app.use('/api/models', modelsRouter)
 app.use('/api/catalog', catalogRouter)
 app.use('/api/autonomous-agents', autonomousAgentsRouter)
-app.use('/api/autonomous-agent-conversations', autonomousAgentRuntimeRouter)
-app.use('/api/autonomous-agent-runs', autonomousAgentRunsRouter)
+app.use('/api/conversations', autonomousAgentRuntimeRouter)
+app.use('/api/runs', runsRouter)
 app.use('/api/nhi', nhiRouter)
 app.use('/api/summary', summaryRouter)
 app.use('/api/usage', usageRouter)
@@ -74,9 +74,9 @@ if (process.env.NODE_ENV === 'development') {
       clearAutonomousAgentSession(agent.id as string)
     }
     await mongo.db.collection('autonomous-agents').deleteMany({ 'owner.id': /^test/ })
-    await mongo.db.collection('autonomous-agent-conversations').deleteMany({ 'owner.id': /^test/ })
-    await mongo.db.collection('autonomous-agent-messages').deleteMany({ 'owner.id': /^test/ })
-    await mongo.db.collection('autonomous-agent-runs').deleteMany({ 'owner.id': /^test/ })
+    await mongo.db.collection('conversations').deleteMany({ 'owner.id': /^test/ })
+    await mongo.db.collection('messages').deleteMany({ 'owner.id': /^test/ })
+    await mongo.db.collection('runs').deleteMany({ 'owner.id': /^test/ })
     res.send()
   })
   // Dev-only seams for the boot sweep. A restart is not reproducible from a test — dev
@@ -155,14 +155,14 @@ if (process.env.NODE_ENV === 'development') {
     res.send()
   })
   app.post('/api/test-env/lock-conversation', async (req, res) => {
-    res.json({ acquired: await locks.acquire(`autonomous-agent-conversation:${req.body.conversationId}`, 'test') })
+    res.json({ acquired: await locks.acquire(`conversation:${req.body.conversationId}`, 'test') })
   })
   app.post('/api/test-env/unlock-conversation', async (req, res) => {
-    await locks.release(`autonomous-agent-conversation:${req.body.conversationId}`)
+    await locks.release(`conversation:${req.body.conversationId}`)
     res.send()
   })
   app.post('/api/test-env/orphan-run', async (req, res) => {
-    await mongo.autonomousAgentRuns.updateOne(
+    await mongo.runs.updateOne(
       { id: req.body.runId },
       { $set: { status: 'running' }, $unset: { endedAt: '', stopReason: '' } }
     )
@@ -170,9 +170,9 @@ if (process.env.NODE_ENV === 'development') {
       // Reproduces the narrower orphan: a process that died between createRun and
       // appendMessage, so the run has no message at all and the sweep must write one. That is
       // half of the "a run always leaves exactly one assistant message" invariant.
-      await mongo.autonomousAgentMessages.deleteMany({ runId: req.body.runId })
+      await mongo.messages.deleteMany({ runId: req.body.runId })
     } else {
-      await mongo.autonomousAgentMessages.updateMany({ runId: req.body.runId }, { $set: { pending: true } })
+      await mongo.messages.updateMany({ runId: req.body.runId }, { $set: { pending: true } })
     }
     res.send()
   })
@@ -184,7 +184,7 @@ if (process.env.NODE_ENV === 'development') {
    * be tested at all.
    */
   app.post('/api/test-env/corrupt-message', async (req, res) => {
-    await mongo.autonomousAgentMessages.updateOne(
+    await mongo.messages.updateOne(
       { conversationId: req.body.conversationId, seq: req.body.seq },
       { $set: { parts: req.body.parts } }
     )
@@ -198,14 +198,14 @@ if (process.env.NODE_ENV === 'development') {
    * orphaned — the state this exists to rule out.
    */
   app.get('/api/test-env/autonomous-agent-data/:agentId', async (req, res) => {
-    const conversations = await mongo.autonomousAgentConversations
-      .find({ autonomousAgentId: req.params.agentId }, { projection: { _id: 0, id: 1 } })
+    const conversations = await mongo.conversations
+      .find({ agentId: req.params.agentId }, { projection: { _id: 0, id: 1 } })
       .toArray()
     const conversationIds = conversations.map(conversation => conversation.id)
     res.json({
       conversations: conversations.length,
-      messages: await mongo.autonomousAgentMessages.countDocuments({ conversationId: { $in: conversationIds } }),
-      runs: await mongo.autonomousAgentRuns.countDocuments({ conversationId: { $in: conversationIds } })
+      messages: await mongo.messages.countDocuments({ conversationId: { $in: conversationIds } }),
+      runs: await mongo.runs.countDocuments({ conversationId: { $in: conversationIds } })
     })
   })
   /**

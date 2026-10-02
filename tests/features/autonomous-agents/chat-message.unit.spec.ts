@@ -4,9 +4,9 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { autonomousAgentMessageToChat, autonomousAgentMessagesToChat, mergeBySeq, type StoredAutonomousAgentMessage } from '../../../ui/src/utils/autonomous-agent-chat-message.ts'
+import { autonomousAgentMessageToChat, messagesToChat, mergeBySeq, type StoredConversationMessage } from '../../../ui/src/utils/autonomous-agent-chat-message.ts'
 
-const base: StoredAutonomousAgentMessage = {
+const base: StoredConversationMessage = {
   seq: 1,
   role: 'user'
 }
@@ -88,7 +88,7 @@ test.describe('autonomousAgentMessageToChat', () => {
   })
 
   test('maps a list in seq order regardless of input order', () => {
-    const chats = autonomousAgentMessagesToChat([
+    const chats = messagesToChat([
       { ...base, seq: 2, parts: [{ type: 'text', text: 'second' }] },
       { ...base, seq: 1, parts: [{ type: 'text', text: 'first' }] }
     ])
@@ -99,7 +99,7 @@ test.describe('autonomousAgentMessageToChat', () => {
 test.describe('mergeBySeq', () => {
   test('replaces a message that came back updated, rather than duplicating it', () => {
     // The whole point of ?sinceVersion=: an in-place update returns the SAME seq.
-    const existing: StoredAutonomousAgentMessage[] = [
+    const existing: StoredConversationMessage[] = [
       { ...base, seq: 1, parts: [{ type: 'text', text: 'hello' }] },
       { ...base, seq: 2, parts: [], pending: true }
     ]
@@ -110,17 +110,17 @@ test.describe('mergeBySeq', () => {
   })
 
   test('appends a genuinely new message', () => {
-    const merged = mergeBySeq<StoredAutonomousAgentMessage>([{ ...base, seq: 1 }], [{ ...base, seq: 2 }])
+    const merged = mergeBySeq<StoredConversationMessage>([{ ...base, seq: 1 }], [{ ...base, seq: 2 }])
     assert.deepEqual(merged.map(m => m.seq), [1, 2])
   })
 
   test('keeps the result sorted by seq even when an update arrives out of order', () => {
-    const merged = mergeBySeq<StoredAutonomousAgentMessage>([{ ...base, seq: 2 }], [{ ...base, seq: 1 }])
+    const merged = mergeBySeq<StoredConversationMessage>([{ ...base, seq: 2 }], [{ ...base, seq: 1 }])
     assert.deepEqual(merged.map(m => m.seq), [1, 2])
   })
 
   test('an empty incoming batch changes nothing', () => {
-    const existing: StoredAutonomousAgentMessage[] = [{ ...base, seq: 1 }]
+    const existing: StoredConversationMessage[] = [{ ...base, seq: 1 }]
     assert.deepEqual(mergeBySeq(existing, []), existing)
   })
 })

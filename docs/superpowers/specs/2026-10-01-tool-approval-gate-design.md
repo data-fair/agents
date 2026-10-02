@@ -93,7 +93,7 @@ This is a real capability that `toolFilter` cannot express: `toolFilter` is per-
 4. **Someone decides** (anyone who can instruct — the same grant as starting a turn, aborting one and
    erasing a thread; an instructor already borrows the agent's permissions, so they could have asked for
    the write directly):
-   `POST /api/autonomous-agent-conversations/:type/:id/:conversationId/approvals/:approvalId`
+   `POST /api/conversations/:type/:id/:conversationId/approvals/:approvalId`
    with `{ approved, reason? }`.
    - approved → the part becomes `approval-responded` (`approved: true`), signature preserved;
    - denied → the part becomes `output-denied` with the reason;
@@ -142,14 +142,14 @@ One guard, in `compactHistory`, where the cut is already aligned to a stored-mes
 
 - `api/types/autonomous-agent/schema.js` — `approvals`, three optional enums.
 - `shared/tool-approval.ts` — `classifyTool(annotations)` and `resolvePolicy(class, approvals)`, pure.
-  In `shared/` only if the browser loop comes to need it; **otherwise `api/src/autonomous-agent-runtime/
+  In `shared/` only if the browser loop comes to need it; **otherwise `api/src/conversations/
   operations.ts`**, per the contract that `shared/` holds what both platforms consume.
 - `api/src/mcp-servers/client.ts` — the tool set honours `deny` and sets `needsApproval`.
-- `api/src/autonomous-agent-runtime/executor.ts` — record the request, finish `awaiting-approval`,
+- `api/src/conversations/executor.ts` — record the request, finish `awaiting-approval`,
   settle a resumed result onto the original part, clamp the compaction cut.
-- `api/src/autonomous-agent-runtime/operations.ts` — the new status and stop reason, and its message.
-- `api/src/autonomous-agent-runtime/router.ts` — the approvals route.
-- `ui/src/components/AutonomousAgentRunStatus.vue` — the pending-approval panel: tool, server,
+- `api/src/conversations/operations.ts` — the new status and stop reason, and its message.
+- `api/src/conversations/router.ts` — the approvals route.
+- `ui/src/components/ConversationRunStatus.vue` — the pending-approval panel: tool, server,
   arguments, Approve / Deny.
 - `docs/architecture/autonomous-agents.md` — a section; the doc exists now.
 

@@ -109,7 +109,7 @@ have been worse; that judgement stands.
 ## `shared/` gets a contract
 
 Measured today: of ten modules, **five have both an API and a UI consumer**
-(`agent-loop-guards`, `compaction-policy`, `compaction-prompt`, `autonomous-agent-channel`,
+(`agent-loop-guards`, `compaction-policy`, `compaction-prompt`, `conversation-channel`,
 `autonomous-agent-identity`) and **five have only the UI** (`agent-stream-parts`,
 `agent-subagent-output`, `chat-message`, `tool-exploration`, `autonomous-agent-chat-message`). So
 `shared/` presently means "where things go" for half its contents, which is why it stopped signalling

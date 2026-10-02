@@ -51,7 +51,6 @@ declare global {
   const applyStreamPart: typeof import('../src/utils/agent-stream-parts').applyStreamPart
   const autonomousAgentEditDraft: typeof import('../src/utils/autonomous-agent-draft').autonomousAgentEditDraft
   const autonomousAgentMessageToChat: typeof import('../src/utils/autonomous-agent-chat-message').autonomousAgentMessageToChat
-  const autonomousAgentMessagesToChat: typeof import('../src/utils/autonomous-agent-chat-message').autonomousAgentMessagesToChat
   const breadcrumbs: typeof import('../src/utils/breadcrumbs').default
   const breakdownDatasets: typeof import('../src/utils/usage-breakdown').breakdownDatasets
   const buildMermaidThemeVariables: typeof import('../src/utils/mermaid').buildMermaidThemeVariables
@@ -116,6 +115,7 @@ declare global {
   const loopGuardPrepareStep: typeof import('../src/composables/agent-loop-guards').loopGuardPrepareStep
   const markRaw: typeof import('vue').markRaw
   const mergeBySeq: typeof import('../src/utils/autonomous-agent-chat-message').mergeBySeq
+  const messagesToChat: typeof import('../src/utils/autonomous-agent-chat-message').messagesToChat
   const newlyAvailableTools: typeof import('../src/utils/tool-exploration').newlyAvailableTools
   const nextTick: typeof import('vue').nextTick
   const onActivated: typeof import('vue').onActivated
@@ -180,10 +180,10 @@ declare global {
   const useAgentSession: typeof import('../src/composables/use-agent-session').useAgentSession
   const useAsyncAction: typeof import('@data-fair/lib-vue/async-action.js').useAsyncAction
   const useAttrs: typeof import('vue').useAttrs
-  const useAutonomousAgentConversation: typeof import('../src/composables/use-autonomous-agent-conversation').useAutonomousAgentConversation
   const useAutonomousAgentEnrolment: typeof import('../src/composables/use-autonomous-agent-enrolment').useAutonomousAgentEnrolment
   const useBooleanSearchParam: typeof import('@data-fair/lib-vue/reactive-search-params.js').useBooleanSearchParam
   const useConceptFilters: typeof import('@data-fair/lib-vue/concept-filters.js').useConceptFilters
+  const useConversation: typeof import('../src/composables/use-autonomous-agent-conversation').useConversation
   const useCssModule: typeof import('vue').useCssModule
   const useCssVars: typeof import('vue').useCssVars
   const useEditFetch: typeof import('@data-fair/lib-vue/edit-fetch.js').useEditFetch
@@ -234,7 +234,7 @@ declare global {
   export type { AgentFlags } from '../src/utils/agent-flags'
   import('../src/utils/agent-flags')
   // @ts-ignore
-  export type { StoredAutonomousAgentMessage, AutonomousAgentPart } from '../src/utils/autonomous-agent-chat-message'
+  export type { StoredConversationMessage, AutonomousAgentPart } from '../src/utils/autonomous-agent-chat-message'
   import('../src/utils/autonomous-agent-chat-message')
   // @ts-ignore
   export type { ChatMessage } from '../src/utils/chat-message'
@@ -261,7 +261,7 @@ declare global {
   export type { AgentSessionClientOptions } from '../src/composables/use-agent-session'
   import('../src/composables/use-agent-session')
   // @ts-ignore
-  export type { AutonomousAgentConversationOptions } from '../src/composables/use-autonomous-agent-conversation'
+  export type { ConversationOptions } from '../src/composables/use-autonomous-agent-conversation'
   import('../src/composables/use-autonomous-agent-conversation')
   // @ts-ignore
   export type { OrgNhi } from '../src/composables/use-autonomous-agent-enrolment'
@@ -295,7 +295,6 @@ declare module 'vue' {
     readonly appendStreamingCaret: UnwrapRef<typeof import('../src/utils/markdown')['appendStreamingCaret']>
     readonly autonomousAgentEditDraft: UnwrapRef<typeof import('../src/utils/autonomous-agent-draft')['autonomousAgentEditDraft']>
     readonly autonomousAgentMessageToChat: UnwrapRef<typeof import('../src/utils/autonomous-agent-chat-message')['autonomousAgentMessageToChat']>
-    readonly autonomousAgentMessagesToChat: UnwrapRef<typeof import('../src/utils/autonomous-agent-chat-message')['autonomousAgentMessagesToChat']>
     readonly breadcrumbs: UnwrapRef<typeof import('../src/utils/breadcrumbs')['default']>
     readonly breakdownDatasets: UnwrapRef<typeof import('../src/utils/usage-breakdown')['breakdownDatasets']>
     readonly buildMermaidThemeVariables: UnwrapRef<typeof import('../src/utils/mermaid')['buildMermaidThemeVariables']>
@@ -332,6 +331,7 @@ declare module 'vue' {
     readonly looksLikeIncompleteTable: UnwrapRef<typeof import('../src/utils/markdown')['looksLikeIncompleteTable']>
     readonly markRaw: UnwrapRef<typeof import('vue')['markRaw']>
     readonly mergeBySeq: UnwrapRef<typeof import('../src/utils/autonomous-agent-chat-message')['mergeBySeq']>
+    readonly messagesToChat: UnwrapRef<typeof import('../src/utils/autonomous-agent-chat-message')['messagesToChat']>
     readonly newlyAvailableTools: UnwrapRef<typeof import('../src/utils/tool-exploration')['newlyAvailableTools']>
     readonly nextTick: UnwrapRef<typeof import('vue')['nextTick']>
     readonly onActivated: UnwrapRef<typeof import('vue')['onActivated']>
@@ -382,10 +382,10 @@ declare module 'vue' {
     readonly useAgentSession: UnwrapRef<typeof import('../src/composables/use-agent-session')['useAgentSession']>
     readonly useAsyncAction: UnwrapRef<typeof import('@data-fair/lib-vue/async-action.js')['useAsyncAction']>
     readonly useAttrs: UnwrapRef<typeof import('vue')['useAttrs']>
-    readonly useAutonomousAgentConversation: UnwrapRef<typeof import('../src/composables/use-autonomous-agent-conversation')['useAutonomousAgentConversation']>
     readonly useAutonomousAgentEnrolment: UnwrapRef<typeof import('../src/composables/use-autonomous-agent-enrolment')['useAutonomousAgentEnrolment']>
     readonly useBooleanSearchParam: UnwrapRef<typeof import('@data-fair/lib-vue/reactive-search-params.js')['useBooleanSearchParam']>
     readonly useConceptFilters: UnwrapRef<typeof import('@data-fair/lib-vue/concept-filters.js')['useConceptFilters']>
+    readonly useConversation: UnwrapRef<typeof import('../src/composables/use-autonomous-agent-conversation')['useConversation']>
     readonly useCssModule: UnwrapRef<typeof import('vue')['useCssModule']>
     readonly useCssVars: UnwrapRef<typeof import('vue')['useCssVars']>
     readonly useEditFetch: UnwrapRef<typeof import('@data-fair/lib-vue/edit-fetch.js')['useEditFetch']>

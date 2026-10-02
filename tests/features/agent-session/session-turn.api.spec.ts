@@ -41,8 +41,8 @@ test.describe('A turn over the agent session', () => {
 
   /** A conversation with the PERSONAL assistant — the reserved agent id, resolved rather than stored. */
   const personalConversation = async () =>
-    (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', {
-      autonomousAgentId: 'personal', title: 'personal'
+    (await orgAdmin.post('/api/conversations/organization/test1', {
+      agentId: 'personal', title: 'personal'
     })).data
 
   /** Collect frames until one of `type` arrives, returning everything seen. */
@@ -57,7 +57,7 @@ test.describe('A turn over the agent session', () => {
 
   test('the personal assistant exists without being stored, and a thread with it belongs to its user', async () => {
     const conversation = await personalConversation()
-    assert.equal(conversation.autonomousAgentId, 'personal')
+    assert.equal(conversation.agentId, 'personal')
     assert.equal(conversation.userId, 'test1-admin1')
   })
 
@@ -78,7 +78,7 @@ test.describe('A turn over the agent session', () => {
     assert.equal(frames[frames.length - 1].stopReason, 'completed')
 
     // And it is stored, because the conversation is the record whether or not anyone was watching.
-    const messages = (await orgAdmin.get(`/api/autonomous-agent-conversations/organization/test1/${conversation.id}/messages`)).data.results
+    const messages = (await orgAdmin.get(`/api/conversations/organization/test1/${conversation.id}/messages`)).data.results
     assert.deepEqual(messages.map((m: any) => m.role), ['user', 'assistant'])
   })
 
@@ -116,7 +116,7 @@ test.describe('A turn over the agent session', () => {
 
     // The record proves the model got the answer: the stored call carries the page's result, inside the
     // provenance envelope, exactly as an MCP tool's would.
-    const messages = (await orgAdmin.get(`/api/autonomous-agent-conversations/organization/test1/${conversation.id}/messages`)).data.results
+    const messages = (await orgAdmin.get(`/api/conversations/organization/test1/${conversation.id}/messages`)).data.results
     const assistant = messages.find((m: any) => m.role === 'assistant')
     const call = (assistant.parts ?? []).find((p: any) => p.type === 'dynamic-tool' && p.toolName === 'select_row')
     assert.ok(call, 'the page tool call must be in the conversation record')
@@ -146,7 +146,7 @@ test.describe('A turn over the agent session', () => {
     await session.closed()
 
     for (let i = 0; i < 100; i++) {
-      const messages = (await orgAdmin.get(`/api/autonomous-agent-conversations/organization/test1/${conversation.id}/messages`)).data.results
+      const messages = (await orgAdmin.get(`/api/conversations/organization/test1/${conversation.id}/messages`)).data.results
       const assistant = messages.find((m: any) => m.role === 'assistant')
       if (assistant && assistant.pending === false) {
         const text = assistant.parts.find((p: any) => p.type === 'text')?.text ?? ''

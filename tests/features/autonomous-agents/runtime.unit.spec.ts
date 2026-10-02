@@ -3,10 +3,10 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { nextMessageSeq, isRunTerminal, runStopReasonMessage, buildSystemPrompt, wrapToolResult } from '../../../api/src/autonomous-agent-runtime/operations.ts'
+import { nextMessageSeq, isRunTerminal, runStopReasonMessage, buildSystemPrompt, wrapToolResult } from '../../../api/src/conversations/operations.ts'
 import { summarizeToolArguments } from '../../../ui/src/utils/tool-arguments.ts'
-import { compactionSystemPrompt, recapMessage } from '../../../api/src/agent-loop/compaction-prompt.ts'
-import { STREAM_IDLE_TIMEOUT_MS } from '../../../api/src/agent-loop/agent-loop-guards.ts'
+import { compactionSystemPrompt, recapMessage } from '../../../api/src/conversations/compaction-prompt.ts'
+import { STREAM_IDLE_TIMEOUT_MS } from '../../../api/src/conversations/loop-guards.ts'
 import { readFileSync } from 'node:fs'
 
 test.describe('nextMessageSeq', () => {
@@ -231,11 +231,11 @@ test.describe('the stream idle watchdog', () => {
   // drift it guarded cannot happen — and the half that still matters is kept rather than deleted
   // with it: the executor must take the bound from shared/ and must actually hand it to the SDK.
   test('the executor takes the watchdog from shared/ and hands it to the SDK', () => {
-    const executor = readFileSync(new URL('../../../api/src/autonomous-agent-runtime/executor.ts', import.meta.url), 'utf8')
+    const executor = readFileSync(new URL('../../../api/src/conversations/executor.ts', import.meta.url), 'utf8')
 
     assert.match(
       executor,
-      /STREAM_IDLE_TIMEOUT_MS[\s\S]{0,120}?from '\.\.\/agent-loop\/agent-loop-guards.ts'/,
+      /STREAM_IDLE_TIMEOUT_MS[\s\S]{0,120}?from '\.\/loop-guards.ts'/,
       'the executor must import the watchdog from shared/, not redeclare it'
     )
     assert.doesNotMatch(executor, /const STREAM_IDLE_TIMEOUT_MS\s*=/, 'the executor must not declare its own copy')

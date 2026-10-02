@@ -11,7 +11,7 @@
  */
 
 import mongo from '#mongo'
-import type { AutonomousAgentRun } from '#types'
+import type { ConversationRun } from '#types'
 import type { UsageIdentity } from '../usage/enforce.ts'
 import { enforceQuotas } from '../usage/enforce.ts'
 import {
@@ -46,14 +46,14 @@ const refuse = (text: string, stopReason: RunStopReason): RefusedTurn =>
  * agent could not run" is a confusing thing to say to a person who just asked a question.
  */
 export const checkQuotas = async (
-  run: AutonomousAgentRun,
+  run: ConversationRun,
   settings: Settings,
   identity: UsageIdentity,
-  autonomousAgentId: string
+  agentId: string
 ): Promise<RefusedTurn | undefined> => {
   const violation = await enforceQuotas(run.owner, settings.quotas ?? {} as any, identity)
   if (!violation) return undefined
-  const lead = isStandardAgentId(autonomousAgentId) ? 'I could not answer' : 'This autonomous agent could not run'
+  const lead = isStandardAgentId(agentId) ? 'I could not answer' : 'This autonomous agent could not run'
   return refuse(
     `${lead}: ${violation.reason} (${violation.scope}, ${violation.period} limit ${violation.limit}, used ${violation.usage}). Resets at ${violation.resetsAt}.`,
     'error'
@@ -68,7 +68,7 @@ export const checkQuotas = async (
  * it, which is the trade the gateway made too and the reason the event records WHY it opened.
  */
 export const moderateTurn = async (
-  run: AutonomousAgentRun,
+  run: ConversationRun,
   settings: Awaited<ReturnType<typeof getSettings>>,
   identity: UsageIdentity
 ): Promise<RefusedTurn | undefined> => {
@@ -88,7 +88,7 @@ export const moderateTurn = async (
 
   // The last few turns, oldest first — enough for the classifier to read a short follow-up in
   // context. Reference only: the judged unit is the latest user message (see moderation/operations).
-  const recent = (await mongo.autonomousAgentMessages
+  const recent = (await mongo.messages
     .find({ conversationId: run.conversationId }, { projection: { _id: 0 } })
     .sort({ seq: -1 })
     .limit(MODERATION_CONTEXT_MAX_MESSAGES)

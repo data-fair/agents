@@ -10,7 +10,7 @@
 import { emit } from '@data-fair/lib-node/ws-emitter.js'
 import mongo from '#mongo'
 import { canInstruct, type InstructSession } from '../autonomous-agents/operations.ts'
-import { conversationChannel, channelConversationId } from '@agents/shared/autonomous-agent-channel'
+import { conversationChannel, channelConversationId } from '@agents/shared/conversation-channel'
 
 /**
  * What a subscriber receives: a bare "this conversation changed, and it is now at version N".
@@ -29,7 +29,7 @@ import { conversationChannel, channelConversationId } from '@agents/shared/auton
  *
  * The client's half is one call: `GET .../messages?sinceVersion=<last seen>`.
  */
-export interface AutonomousAgentConversationChanged {
+export interface ConversationChanged {
   conversationId: string
   version: number
 }
@@ -49,14 +49,14 @@ export const canSubscribeAutonomousAgent = async (channel: string, sessionState:
     if (!conversationId) return false
     if (!sessionState?.user?.id || !sessionState.account) return false
 
-    const conversation = await mongo.autonomousAgentConversations.findOne(
+    const conversation = await mongo.conversations.findOne(
       { id: conversationId },
       { projection: { _id: 0 } }
     )
     if (!conversation) return false
 
     const autonomousAgent = await mongo.autonomousAgents.findOne(
-      { id: conversation.autonomousAgentId },
+      { id: conversation.agentId },
       { projection: { _id: 0 } }
     )
     if (!autonomousAgent) return false
@@ -79,7 +79,7 @@ export const canSubscribeAutonomousAgent = async (channel: string, sessionState:
 export const notifyConversationChanged = async (conversationId: string, version?: number) => {
   if (version === undefined) return
   try {
-    await emit(conversationChannel(conversationId), { conversationId, version } satisfies AutonomousAgentConversationChanged)
+    await emit(conversationChannel(conversationId), { conversationId, version } satisfies ConversationChanged)
   } catch (err) {
     console.error('autonomous agent conversation notification could not be published', err)
   }

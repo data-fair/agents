@@ -10,23 +10,23 @@
 
 import { computed, onScopeDispose, ref, watch } from 'vue'
 import { $apiPath, $fetch } from '~/context'
-import { conversationChannel } from '@agents/shared/autonomous-agent-channel'
-import { autonomousAgentMessagesToChat, mergeBySeq, type StoredAutonomousAgentMessage } from '~/utils/autonomous-agent-chat-message'
+import { conversationChannel } from '@agents/shared/conversation-channel'
+import { messagesToChat, mergeBySeq, type StoredConversationMessage } from '~/utils/autonomous-agent-chat-message'
 import useWS from '@data-fair/lib-vue/ws.js'
 
-export interface AutonomousAgentConversationOptions {
+export interface ConversationOptions {
   accountType: string
   accountId: string
   conversationId: string
 }
 
-export function useAutonomousAgentConversation (opts: AutonomousAgentConversationOptions) {
-  const messages = ref<StoredAutonomousAgentMessage[]>([])
+export function useConversation (opts: ConversationOptions) {
+  const messages = ref<StoredConversationMessage[]>([])
   const version = ref(0)
   const error = ref<string | null>(null)
   const posting = ref(false)
 
-  const base = `${$apiPath}/autonomous-agent-conversations/${opts.accountType}/${opts.accountId}/${opts.conversationId}`
+  const base = `${$apiPath}/conversations/${opts.accountType}/${opts.accountId}/${opts.conversationId}`
 
   let inFlight: Promise<void> | null = null
   let requestedAgain = false
@@ -47,7 +47,7 @@ export function useAutonomousAgentConversation (opts: AutonomousAgentConversatio
       try {
         // Omit the parameter entirely on a cold start, so the first load gets the whole thread.
         const query = version.value ? `?sinceVersion=${version.value}` : ''
-        const res = await $fetch<{ results: StoredAutonomousAgentMessage[], version: number }>(`${base}/messages${query}`, { credentials: 'include' })
+        const res = await $fetch<{ results: StoredConversationMessage[], version: number }>(`${base}/messages${query}`, { credentials: 'include' })
         messages.value = mergeBySeq(messages.value, res.results ?? [])
         // The cursor comes from the RESPONSE, never from the messages received: when the last
         // change was a run transition no message comes back, and deriving it would stall the
@@ -116,7 +116,7 @@ export function useAutonomousAgentConversation (opts: AutonomousAgentConversatio
 
   return {
     messages,
-    chatMessages: computed(() => autonomousAgentMessagesToChat(messages.value)),
+    chatMessages: computed(() => messagesToChat(messages.value)),
     // A pending assistant message carries the text produced so far, so this needs no second
     // request and cannot disagree with what is rendered.
     isStreaming: computed(() => messages.value.some(message => message.pending)),

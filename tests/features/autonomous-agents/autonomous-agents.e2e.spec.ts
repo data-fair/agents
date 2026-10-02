@@ -158,7 +158,7 @@ test.describe('Autonomous agents configuration', () => {
     await page.getByTestId('autonomous-agent-send').click()
 
     await expect(page.getByTestId('autonomous-agent-transcript')).toContainText('world', { timeout: 15000 })
-    await expect(page.getByTestId('autonomous-agent-run-status')).toContainText(/done/i)
+    await expect(page.getByTestId('conversation-run-status')).toContainText(/done/i)
   })
 
   test('an org admin without admin mode is not offered the configuration form', async ({ page, goToWithAuth }) => {
@@ -214,7 +214,7 @@ test.describe('Autonomous agent thread', () => {
     await page.getByTestId('autonomous-agent-composer').locator('textarea:not([aria-hidden="true"])').fill('hello')
     await page.getByTestId('autonomous-agent-send').click()
     await expect(page.getByTestId('autonomous-agent-transcript')).toContainText('world', { timeout: 15000 })
-    await expect(page.getByTestId('autonomous-agent-run-status')).toContainText(/done/i)
+    await expect(page.getByTestId('conversation-run-status')).toContainText(/done/i)
   })
 
   test('a failed turn explains itself instead of leaving an empty bubble', async ({ page, goToWithAuth }) => {
@@ -231,7 +231,7 @@ test.describe('Autonomous agent thread', () => {
     // test claims to drive.
     await expect(page.getByTestId('autonomous-agent-transcript')).toContainText('could not be completed', { timeout: 15000 })
     await expect(page.getByTestId('autonomous-agent-transcript')).toContainText(/\(.*error.*\)/i)
-    await expect(page.getByTestId('autonomous-agent-run-status')).toContainText(/error/i)
+    await expect(page.getByTestId('conversation-run-status')).toContainText(/error/i)
   })
 
   test('two conversations are listed and switching shows different messages', async ({ page, goToWithAuth }) => {

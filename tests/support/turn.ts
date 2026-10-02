@@ -50,14 +50,14 @@ export async function runTurn (
 ): Promise<RunTurnResult> {
   let conversationId = opts?.conversationId
   if (!conversationId) {
-    const created = await ax.post(`/api/autonomous-agent-conversations/${owner}`, {
-      autonomousAgentId: opts?.agentId ?? 'personal',
+    const created = await ax.post(`/api/conversations/${owner}`, {
+      agentId: opts?.agentId ?? 'personal',
       title: opts?.title ?? 'test turn'
     })
     conversationId = created.data.id as string
   }
 
-  const posted = await ax.post(`/api/autonomous-agent-conversations/${owner}/${conversationId}/messages`, { content })
+  const posted = await ax.post(`/api/conversations/${owner}/${conversationId}/messages`, { content })
   const runId = posted.data.runId as string
 
   await waitForTurn(ax, owner, conversationId)
@@ -75,7 +75,7 @@ export async function waitForTurn (ax: AxiosInstance, owner: string, conversatio
   const deadline = Date.now() + RUN_TIMEOUT_MS
   let last: any
   while (Date.now() < deadline) {
-    const res = await ax.get(`/api/autonomous-agent-conversations/${owner}/${conversationId}/messages`)
+    const res = await ax.get(`/api/conversations/${owner}/${conversationId}/messages`)
     const messages = res.data.results as any[]
     last = messages[messages.length - 1]
     if (last && last.role === 'assistant' && last.pending !== true) return

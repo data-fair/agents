@@ -1,13 +1,13 @@
 export default {
-  $id: 'https://github.com/data-fair/agents/autonomous-agent-run',
+  $id: 'https://github.com/data-fair/agents/conversation-run',
   'x-exports': ['types'],
-  title: 'Autonomous agent run',
+  title: 'Conversation run',
   type: 'object',
   additionalProperties: false,
-  required: ['id', 'autonomousAgentId', 'conversationId', 'owner', 'trigger', 'status', 'startedAt'],
+  required: ['id', 'agentId', 'conversationId', 'owner', 'trigger', 'status', 'startedAt'],
   properties: {
     id: { type: 'string' },
-    autonomousAgentId: { type: 'string' },
+    agentId: { type: 'string' },
     conversationId: { type: 'string' },
     owner: {
       type: 'object',

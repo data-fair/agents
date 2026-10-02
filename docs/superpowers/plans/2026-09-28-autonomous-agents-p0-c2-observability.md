@@ -50,7 +50,7 @@ Verified by reading the installed code, not assumed.
 
 ## Decisions
 
-**Ruling C2-1 — one channel per conversation, named `autonomous-agent-conversations/<conversationId>`.** Not per run and not per agent. Per run would make a client subscribe again for every turn and miss anything between them; per agent would broadcast one thread's content to subscribers of another, which the shared-timeline decision makes a real disclosure rather than just noise. The slash form deliberately differs from the conversation *lock* id (`autonomous-agent-conversation:<id>`, colon-separated) so the two namespaces cannot be confused at a glance. *Cost if wrong:* a client following several threads opens several subscriptions on one socket, which the protocol already supports.
+**Ruling C2-1 — one channel per conversation, named `conversations/<conversationId>`.** Not per run and not per agent. Per run would make a client subscribe again for every turn and miss anything between them; per agent would broadcast one thread's content to subscribers of another, which the shared-timeline decision makes a real disclosure rather than just noise. The slash form deliberately differs from the conversation *lock* id (`conversation:<id>`, colon-separated) so the two namespaces cannot be confused at a glance. *Cost if wrong:* a client following several threads opens several subscriptions on one socket, which the protocol already supports.
 
 **Ruling C2-2 — a text event carries the accumulated content and a revision number, not a per-token diff.** Applying a diff requires every prior diff to have arrived in order; applying an accumulated snapshot requires only that the client ignore a revision it has already passed. Since `ws-emitter` inserts a mongo document per emit, events are throttled to ~4/s regardless, so the snapshot's extra bytes cost far less than a resync protocol would. *Cost if wrong:* a very long answer re-sends its prefix a few times per second; if that ever matters, the revision number is already the hook a diff mode would need.
 
@@ -63,14 +63,14 @@ Verified by reading the installed code, not assumed.
 ### Task 1: The websocket channel and its authorization
 
 **Files:**
-- Create: `api/src/autonomous-agent-runtime/events.ts`
+- Create: `api/src/conversations/events.ts`
 - Create: `tests/features/autonomous-agents/events.unit.spec.ts`
 - Create: `tests/support/ws.ts`
 - Modify: `api/src/server.ts` (start/stop the ws server and the emitter)
 - Modify: `tests/features/autonomous-agents/runtime.api.spec.ts`
 
 **Interfaces:**
-- Consumes: `canInstruct` (`api/src/autonomous-agents/operations.ts`), `mongo.autonomousAgentConversations`, `mongo.autonomousAgents`.
+- Consumes: `canInstruct` (`api/src/autonomous-agents/operations.ts`), `mongo.conversations`, `mongo.autonomousAgents`.
 - Produces:
   - pure: `conversationChannel(conversationId: string): string`, `channelConversationId(channel: string): string | undefined`
   - stateful: `canSubscribeAutonomousAgent(channel, sessionState): Promise<boolean>`, `emitConversationEvent(conversationId, event): Promise<void>`
@@ -86,7 +86,7 @@ Create `tests/features/autonomous-agents/events.unit.spec.ts`:
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { conversationChannel, channelConversationId } from '../../../api/src/autonomous-agent-runtime/events.ts'
+import { conversationChannel, channelConversationId } from '../../../api/src/conversations/events.ts'
 
 test.describe('conversationChannel', () => {
   test('round-trips a conversation id', () => {
@@ -95,10 +95,10 @@ test.describe('conversationChannel', () => {
   })
 
   test('is distinct from the conversation LOCK id, which is colon-separated', () => {
-    // The lock id is `autonomous-agent-conversation:<id>`. Sharing a spelling between a lock
+    // The lock id is `conversation:<id>`. Sharing a spelling between a lock
     // key and a subscribable channel is how one ends up used as the other.
     assert.equal(conversationChannel('abc123').includes(':'), false)
-    assert.notEqual(conversationChannel('abc123'), 'autonomous-agent-conversation:abc123')
+    assert.notEqual(conversationChannel('abc123'), 'conversation:abc123')
   })
 
   test('names the feature in full, so a channel list is readable', () => {
@@ -107,13 +107,13 @@ test.describe('conversationChannel', () => {
 
   test('rejects a channel belonging to something else', () => {
     assert.equal(channelConversationId('datasets/abc123'), undefined)
-    assert.equal(channelConversationId('autonomous-agent-conversations/'), undefined)
+    assert.equal(channelConversationId('conversations/'), undefined)
     assert.equal(channelConversationId(''), undefined)
   })
 
   test('rejects a channel with extra path segments rather than guessing', () => {
     // A subscriber must not be able to widen its subscription by appending a segment.
-    assert.equal(channelConversationId('autonomous-agent-conversations/abc123/messages'), undefined)
+    assert.equal(channelConversationId('conversations/abc123/messages'), undefined)
   })
 })
 ```
@@ -121,11 +121,11 @@ test.describe('conversationChannel', () => {
 - [ ] **Step 2: Run to verify it fails**
 
 Run: `npm run test-unit -- tests/features/autonomous-agents/events.unit.spec.ts`
-Expected: FAIL — cannot resolve `api/src/autonomous-agent-runtime/events.ts`.
+Expected: FAIL — cannot resolve `api/src/conversations/events.ts`.
 
 - [ ] **Step 3: Write the pure half plus the authorization**
 
-Create `api/src/autonomous-agent-runtime/events.ts`. The pure functions first:
+Create `api/src/conversations/events.ts`. The pure functions first:
 
 ```ts
 /**
@@ -137,7 +137,7 @@ Create `api/src/autonomous-agent-runtime/events.ts`. The pure functions first:
  * people.
  */
 
-const CHANNEL_PREFIX = 'autonomous-agent-conversations/'
+const CHANNEL_PREFIX = 'conversations/'
 
 export function conversationChannel (conversationId: string): string {
   return `${CHANNEL_PREFIX}${conversationId}`
@@ -165,10 +165,10 @@ Then, in the same file, the stateful half:
 Write the event type as a discriminated union on `type`, with `seq` on every variant that concerns a message:
 
 ```ts
-export type AutonomousAgentConversationEvent =
-  | { type: 'message', seq: number, message: AutonomousAgentMessage }
+export type ConversationEvent =
+  | { type: 'message', seq: number, message: ConversationMessage }
   | { type: 'message-revision', seq: number, revision: number, content: string, reasoning?: string }
-  | { type: 'run', run: AutonomousAgentRun }
+  | { type: 'run', run: ConversationRun }
 ```
 
 Note the comment that must accompany it: every payload reaches every authorized subscriber, so it carries only what the HTTP routes already expose to a reader of that conversation.
@@ -250,7 +250,7 @@ Add a `test.describe('Autonomous agent conversation events')` block to `runtime.
 - a listed instructor gets `subscribe-confirm`, from another account too;
 - **an org member who is NOT listed gets `{type: 'error', status: 403}`** — the same rule as the HTTP routes, through the same `canInstruct`;
 - a channel for a conversation of another account is refused;
-- a malformed channel (`autonomous-agent-conversations/x/y`) is refused;
+- a malformed channel (`conversations/x/y`) is refused;
 - an anonymous client (no cookie) is refused.
 
 Note in the spec that a superadmin in admin mode is **not** a useful test subject here: `ws-server` skips `canSubscribe` entirely for `adminMode`, so such a test would pass without exercising our rule at all.
@@ -260,7 +260,7 @@ Note in the spec that a superadmin in admin mode is **not** a useful test subjec
 Run: `npm run lint-fix && npm run check-types && npm run test-unit && npm run test-api`
 
 ```bash
-git add api/src/autonomous-agent-runtime/events.ts api/src/server.ts tests/support/ws.ts tests/features/autonomous-agents
+git add api/src/conversations/events.ts api/src/server.ts tests/support/ws.ts tests/features/autonomous-agents
 git commit -m "feat(autonomous-agents): websocket channel per conversation, authorized by canInstruct"
 ```
 
@@ -269,9 +269,9 @@ git commit -m "feat(autonomous-agents): websocket channel per conversation, auth
 ### Task 2: Live events from the executor
 
 **Files:**
-- Modify: `api/src/autonomous-agent-runtime/executor.ts`
-- Modify: `api/src/autonomous-agent-runtime/service.ts` (emit where documents change)
-- Modify: `api/src/autonomous-agent-runtime/router.ts` (emit the user's own message)
+- Modify: `api/src/conversations/executor.ts`
+- Modify: `api/src/conversations/service.ts` (emit where documents change)
+- Modify: `api/src/conversations/router.ts` (emit the user's own message)
 - Modify: `tests/features/autonomous-agents/runtime.api.spec.ts`
 
 **Interfaces:**
@@ -293,13 +293,13 @@ Add to `runtime.api.spec.ts`, in the events block:
   test('a subscriber sees the user message, the assistant turn and the run, in order', async () => {
     const agent = await createAgent()
     await enrol(agent.id)
-    const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 't' })).data
+    const conv = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data
     const client = await openWsClient(await orgAdminCookie())
     try {
       const confirm = await client.subscribe(conversationChannel(conv.id))
       assert.equal(confirm.type, 'subscribe-confirm')
 
-      await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })
+      await orgAdmin.post(`/api/conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })
 
       // Collect until the assistant message arrives finished. Asserting on a fixed number of
       // events would pin the throttle's timing, which is not a contract.
@@ -336,11 +336,11 @@ Add to `runtime.api.spec.ts`, in the events block:
     // difference, and the client silently diverges.
     const agent = await createAgent()
     await enrol(agent.id)
-    const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 't' })).data
+    const conv = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data
     const client = await openWsClient(await orgAdminCookie())
     try {
       await client.subscribe(conversationChannel(conv.id))
-      await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })
+      await orgAdmin.post(`/api/conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })
       for (let i = 0; i < 40; i++) {
         const msg = await client.next()
         if (msg.channel !== conversationChannel(conv.id)) continue
@@ -358,11 +358,11 @@ Add to `runtime.api.spec.ts`, in the events block:
     // Every emit is a mongo insert (ws-emitter), so per-token emission would be a write storm.
     const agent = await createAgent()
     await enrol(agent.id)
-    const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 't' })).data
+    const conv = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data
     const client = await openWsClient(await orgAdminCookie())
     try {
       await client.subscribe(conversationChannel(conv.id))
-      await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content: 'long answer' })
+      await orgAdmin.post(`/api/conversations/organization/test1/${conv.id}/messages`, { content: 'long answer' })
       let revisions = 0
       let finalContent = ''
       for (let i = 0; i < 60; i++) {
@@ -412,7 +412,7 @@ Expected: PASS.
 Run: `npm run lint-fix && npm run check-types && npm run test-unit && npm run test-api`
 
 ```bash
-git add api/src/autonomous-agent-runtime api/src/models/mock-model.ts tests/features/autonomous-agents
+git add api/src/conversations api/src/models/mock-model.ts tests/features/autonomous-agents
 git commit -m "feat(autonomous-agents): live conversation events with throttled text revisions"
 ```
 
@@ -421,7 +421,7 @@ git commit -m "feat(autonomous-agents): live conversation events with throttled 
 ### Task 3: Traces for autonomous runs
 
 **Files:**
-- Modify: `api/src/autonomous-agent-runtime/executor.ts`
+- Modify: `api/src/conversations/executor.ts`
 - Modify: `tests/features/autonomous-agents/runtime.api.spec.ts`
 
 **Interfaces:**
@@ -439,8 +439,8 @@ Add to `runtime.api.spec.ts`:
     await putMockSettings(admin, 'organization/test1', { storeTraces: true })
     const agent = await createAgent()
     await enrol(agent.id)
-    const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 't' })).data
-    const { runId } = (await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })).data
+    const conv = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data
+    const { runId } = (await orgAdmin.post(`/api/conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })).data
     await pollRun(runId)
 
     const traces = (await admin.get(`/api/traces/organization/test1/${conv.id}`)).data
@@ -459,8 +459,8 @@ Add to `runtime.api.spec.ts`:
     await putMockSettings(admin, 'organization/test1', { storeTraces: false })
     const agent = await createAgent()
     await enrol(agent.id)
-    const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 't' })).data
-    const { runId } = (await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })).data
+    const conv = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data
+    const { runId } = (await orgAdmin.post(`/api/conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })).data
     await pollRun(runId)
 
     // The three-segment route, not /traces/conversation/:id — that one 404s on an empty result
@@ -473,8 +473,8 @@ Add to `runtime.api.spec.ts`:
     await putMockSettings(admin, 'organization/test1', { storeTraces: true })
     const agent = await createAgent({ mcpServers: [{ serverId: 'dev-public-mcp' }] })
     await enrol(agent.id)
-    const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 't' })).data
-    const { runId } = (await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content: 'call tool echo {"value":"x"}' })).data
+    const conv = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data
+    const { runId } = (await orgAdmin.post(`/api/conversations/organization/test1/${conv.id}/messages`, { content: 'call tool echo {"value":"x"}' })).data
     await pollRun(runId)
 
     const traces = (await admin.get(`/api/traces/organization/test1/${conv.id}`)).data
@@ -516,7 +516,7 @@ Expected: PASS.
 Run: `npm run lint-fix && npm run check-types && npm run test-unit && npm run test-api`
 
 ```bash
-git add api/src/autonomous-agent-runtime tests/features/autonomous-agents
+git add api/src/conversations tests/features/autonomous-agents
 git commit -m "feat(autonomous-agents): trace every model call a run makes"
 ```
 

@@ -8,8 +8,8 @@
  */
 
 /** The `sub` bound on the NHI record. Namespaced so it cannot collide with another subject. */
-export function autonomousAgentSubject (autonomousAgentId: string): string {
-  return `autonomous-agent:${autonomousAgentId}`
+export function autonomousAgentSubject (agentId: string): string {
+  return `autonomous-agent:${agentId}`
 }
 
 /**
@@ -21,7 +21,7 @@ export function autonomousAgentSubject (autonomousAgentId: string): string {
  * drift from the one that matters.
  */
 export function autonomousAgentNhiBody (opts: {
-  autonomousAgentId: string
+  agentId: string
   title: string
   issuer: string
   role?: string
@@ -39,6 +39,6 @@ export function autonomousAgentNhiBody (opts: {
     // "user1"). A reader comparing the two should not conclude the fixtures are wrong.
     role: opts.role ?? 'user',
     provider: { issuer: opts.issuer },
-    subject: autonomousAgentSubject(opts.autonomousAgentId)
+    subject: autonomousAgentSubject(opts.agentId)
   }
 }

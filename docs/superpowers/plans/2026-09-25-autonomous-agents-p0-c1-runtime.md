@@ -166,16 +166,16 @@ git commit -m "refactor(shared): move the agent loop modules into the shared wor
 ### Task 2: Conversation, message and run storage
 
 **Files:**
-- Create: `api/types/autonomous-agent-conversation/schema.js`, `api/types/autonomous-agent-message/schema.js`, `api/types/autonomous-agent-run/schema.js`
-- Create: `api/src/autonomous-agent-runtime/operations.ts`
+- Create: `api/types/conversation/schema.js`, `api/types/conversation-message/schema.js`, `api/types/conversation-run/schema.js`
+- Create: `api/src/conversations/operations.ts`
 - Create: `tests/features/autonomous-agents/runtime.unit.spec.ts`
 - Modify: `api/types/index.ts`, `api/src/mongo.ts`, `api/src/app.ts` (test-env cleanup)
 
 **Interfaces:**
 - Consumes: nothing.
 - Produces:
-  - types `AutonomousAgentConversation`, `AutonomousAgentMessage`, `AutonomousAgentRun`
-  - `mongo.autonomousAgentConversations`, `mongo.autonomousAgentMessages`, `mongo.autonomousAgentRuns`
+  - types `Conversation`, `ConversationMessage`, `ConversationRun`
+  - `mongo.conversations`, `mongo.messages`, `mongo.runs`
   - `nextMessageSeq(conversation: { messageSeq?: number }): number`
   - `isRunTerminal(status: RunStatus): boolean`
   - `runStopReasonMessage(stopReason: RunStopReason, detail?: string): string`
@@ -190,7 +190,7 @@ Create `tests/features/autonomous-agents/runtime.unit.spec.ts`:
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { nextMessageSeq, isRunTerminal, runStopReasonMessage } from '../../../api/src/autonomous-agent-runtime/operations.ts'
+import { nextMessageSeq, isRunTerminal, runStopReasonMessage } from '../../../api/src/conversations/operations.ts'
 
 test.describe('nextMessageSeq', () => {
   test('starts at 1 for a fresh conversation', () => {
@@ -245,11 +245,11 @@ test.describe('runStopReasonMessage', () => {
 - [ ] **Step 2: Run to verify it fails**
 
 Run: `npm run test-unit -- tests/features/autonomous-agents/runtime.unit.spec.ts`
-Expected: FAIL — cannot resolve `api/src/autonomous-agent-runtime/operations.ts`.
+Expected: FAIL — cannot resolve `api/src/conversations/operations.ts`.
 
 - [ ] **Step 3: Write the pure operations**
 
-Create `api/src/autonomous-agent-runtime/operations.ts`:
+Create `api/src/conversations/operations.ts`:
 
 ```ts
 /**
@@ -304,7 +304,7 @@ Expected: PASS (11 tests).
 
 - [ ] **Step 5: Write the three document schemas**
 
-Create `api/types/autonomous-agent-conversation/schema.js`:
+Create `api/types/conversation/schema.js`:
 
 ```js
 export default {
@@ -313,10 +313,10 @@ export default {
   title: 'Autonomous agent conversation',
   type: 'object',
   additionalProperties: false,
-  required: ['id', 'autonomousAgentId', 'owner', 'title', 'createdAt', 'messageSeq'],
+  required: ['id', 'agentId', 'owner', 'title', 'createdAt', 'messageSeq'],
   properties: {
     id: { type: 'string' },
-    autonomousAgentId: { type: 'string' },
+    agentId: { type: 'string' },
     owner: {
       type: 'object',
       additionalProperties: false,
@@ -337,7 +337,7 @@ export default {
 }
 ```
 
-Create `api/types/autonomous-agent-message/schema.js`. Note `author` is **required**: the shared-timeline decision makes attribution non-optional, and it is also what makes per-user erasure possible later.
+Create `api/types/conversation-message/schema.js`. Note `author` is **required**: the shared-timeline decision makes attribution non-optional, and it is also what makes per-user erasure possible later.
 
 ```js
 export default {
@@ -346,11 +346,11 @@ export default {
   title: 'Autonomous agent message',
   type: 'object',
   additionalProperties: false,
-  required: ['id', 'conversationId', 'autonomousAgentId', 'owner', 'seq', 'role', 'author', 'createdAt'],
+  required: ['id', 'conversationId', 'agentId', 'owner', 'seq', 'role', 'author', 'createdAt'],
   properties: {
     id: { type: 'string' },
     conversationId: { type: 'string' },
-    autonomousAgentId: { type: 'string' },
+    agentId: { type: 'string' },
     owner: {
       type: 'object',
       additionalProperties: false,
@@ -403,7 +403,7 @@ export default {
 }
 ```
 
-Create `api/types/autonomous-agent-run/schema.js`:
+Create `api/types/conversation-run/schema.js`:
 
 ```js
 export default {
@@ -412,10 +412,10 @@ export default {
   title: 'Autonomous agent run',
   type: 'object',
   additionalProperties: false,
-  required: ['id', 'autonomousAgentId', 'conversationId', 'owner', 'trigger', 'status', 'startedAt'],
+  required: ['id', 'agentId', 'conversationId', 'owner', 'trigger', 'status', 'startedAt'],
   properties: {
     id: { type: 'string' },
-    autonomousAgentId: { type: 'string' },
+    agentId: { type: 'string' },
     conversationId: { type: 'string' },
     owner: {
       type: 'object',
@@ -453,16 +453,16 @@ Export all three from `api/types/index.ts` beside the existing ones.
 In `api/src/mongo.ts`, add the imports, three accessors, and the index configuration:
 
 ```ts
-      'autonomous-agent-conversations': {
+      'conversations': {
         'main-keys': [{ id: 1 }, { unique: true }],
-        'agent-keys': [{ autonomousAgentId: 1, lastMessageAt: -1 }, {}]
+        'agent-keys': [{ agentId: 1, lastMessageAt: -1 }, {}]
       },
-      'autonomous-agent-messages': {
+      'messages': {
         // the read path: one conversation's messages in order, and the seq lookup C2 needs
         'main-keys': [{ conversationId: 1, seq: 1 }, { unique: true }],
         'id-keys': [{ id: 1 }, { unique: true }]
       },
-      'autonomous-agent-runs': {
+      'runs': {
         'main-keys': [{ id: 1 }, { unique: true }],
         'conversation-keys': [{ conversationId: 1, startedAt: -1 }, {}],
         // the boot sweep that marks orphaned runs interrupted
@@ -483,7 +483,7 @@ Run: `npm run test-unit && npm run test-api`
 - [ ] **Step 8: Commit**
 
 ```bash
-git add api/types api/src/autonomous-agent-runtime api/src/mongo.ts api/src/app.ts tests/features/autonomous-agents/runtime.unit.spec.ts ui/src/components/vjsf
+git add api/types api/src/conversations api/src/mongo.ts api/src/app.ts tests/features/autonomous-agents/runtime.unit.spec.ts ui/src/components/vjsf
 git commit -m "feat(autonomous-agents): conversation, message and run storage"
 ```
 
@@ -492,18 +492,18 @@ git commit -m "feat(autonomous-agents): conversation, message and run storage"
 ### Task 3: Thread and message routes
 
 **Files:**
-- Create: `api/src/autonomous-agent-runtime/service.ts`
-- Create: `api/src/autonomous-agent-runtime/router.ts`
+- Create: `api/src/conversations/service.ts`
+- Create: `api/src/conversations/router.ts`
 - Create: `tests/features/autonomous-agents/runtime.api.spec.ts`
 - Modify: `api/src/app.ts` (mount)
 
 **Interfaces:**
 - Consumes: `canInstruct` (Plan A, `api/src/autonomous-agents/operations.ts`), `getAutonomousAgent`, `assertOrganizationOwner`, `nextMessageSeq`.
 - Produces:
-  - `POST /api/autonomous-agent-conversations/:type/:id` — create a thread
-  - `GET /api/autonomous-agent-conversations/:type/:id?autonomousAgentId=` — list threads
-  - `GET /api/autonomous-agent-conversations/:type/:id/:conversationId/messages?sinceSeq=` — list messages
-  - `POST /api/autonomous-agent-conversations/:type/:id/:conversationId/messages` — append a user message, returns `{ runId }`
+  - `POST /api/conversations/:type/:id` — create a thread
+  - `GET /api/conversations/:type/:id?agentId=` — list threads
+  - `GET /api/conversations/:type/:id/:conversationId/messages?sinceSeq=` — list messages
+  - `POST /api/conversations/:type/:id/:conversationId/messages` — append a user message, returns `{ runId }`
   - `appendMessage(...)`, `getConversation(owner, id)` in `service.ts`
 
 **Authorization:** every route resolves the conversation's autonomous agent and applies `canInstruct` — admins of the owning org implicitly, plus listed `instructors[]`. This is the third call site of that helper (with the abort route in Task 6), which is exactly why the spec insisted it be single-sourced.
@@ -536,22 +536,22 @@ test.describe('Autonomous agent conversations', () => {
 
   test('an org admin creates a thread and lists it', async () => {
     const agent = await createAgent()
-    const created = await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', {
-      autonomousAgentId: agent.id, title: 'First thread'
+    const created = await orgAdmin.post('/api/conversations/organization/test1', {
+      agentId: agent.id, title: 'First thread'
     })
     assert.equal(created.status, 200)
     assert.ok(created.data.id)
     assert.equal(created.data.messageSeq, 0)
 
-    const list = await orgAdmin.get(`/api/autonomous-agent-conversations/organization/test1?autonomousAgentId=${agent.id}`)
+    const list = await orgAdmin.get(`/api/conversations/organization/test1?agentId=${agent.id}`)
     assert.equal(list.data.count, 1)
     assert.equal(list.data.results[0].title, 'First thread')
   })
 
   test('a listed instructor who is not an admin can create a thread', async () => {
     const agent = await createAgent({ instructors: [{ userId: 'test1-user1', userName: 'Test User' }] })
-    const created = await orgMember.post('/api/autonomous-agent-conversations/organization/test1', {
-      autonomousAgentId: agent.id, title: 'Instructor thread'
+    const created = await orgMember.post('/api/conversations/organization/test1', {
+      agentId: agent.id, title: 'Instructor thread'
     })
     assert.equal(created.status, 200)
   })
@@ -559,27 +559,27 @@ test.describe('Autonomous agent conversations', () => {
   test('a plain org member who is NOT listed is refused', async () => {
     const agent = await createAgent()
     await assert.rejects(
-      orgMember.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 'Nope' }),
+      orgMember.post('/api/conversations/organization/test1', { agentId: agent.id, title: 'Nope' }),
       (err: any) => { assert.equal(err.status, 403); assert.match(JSON.stringify(err.data), /instruct/i); return true }
     )
   })
 
   test('a thread for an unknown autonomous agent is refused 404', async () => {
     await assert.rejects(
-      orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: 'no-such-agent', title: 'x' }),
+      orgAdmin.post('/api/conversations/organization/test1', { agentId: 'no-such-agent', title: 'x' }),
       { status: 404 }
     )
   })
 
   test('posting a message appends it, bumps the seq, and returns a runId', async () => {
     const agent = await createAgent()
-    const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 't' })).data
+    const conv = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data
 
-    const posted = await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })
+    const posted = await orgAdmin.post(`/api/conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })
     assert.equal(posted.status, 200)
     assert.ok(posted.data.runId, 'expected a runId so the caller can poll or abort')
 
-    const messages = await orgAdmin.get(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`)
+    const messages = await orgAdmin.get(`/api/conversations/organization/test1/${conv.id}/messages`)
     const user = messages.data.results.find((m: any) => m.role === 'user')
     assert.ok(user)
     assert.equal(user.seq, 1)
@@ -591,20 +591,20 @@ test.describe('Autonomous agent conversations', () => {
 
   test('sinceSeq returns only newer messages, so a poller can page forward', async () => {
     const agent = await createAgent()
-    const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 't' })).data
-    await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })
+    const conv = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data
+    await orgAdmin.post(`/api/conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })
 
-    const all = await orgAdmin.get(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`)
+    const all = await orgAdmin.get(`/api/conversations/organization/test1/${conv.id}/messages`)
     const highest = Math.max(...all.data.results.map((m: any) => m.seq))
-    const since = await orgAdmin.get(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages?sinceSeq=${highest}`)
+    const since = await orgAdmin.get(`/api/conversations/organization/test1/${conv.id}/messages?sinceSeq=${highest}`)
     assert.equal(since.data.results.length, 0)
   })
 
   test('a conversation of another account cannot be reached', async () => {
     const agent = await createAgent()
-    const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 't' })).data
+    const conv = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data
     await assert.rejects(
-      orgAdmin.get(`/api/autonomous-agent-conversations/organization/dev1/${conv.id}/messages`),
+      orgAdmin.get(`/api/conversations/organization/dev1/${conv.id}/messages`),
       { status: 403 }
     )
   })
@@ -620,7 +620,7 @@ Expected: FAIL with 404s — the routes do not exist.
 
 - [ ] **Step 3: Write the service**
 
-Create `api/src/autonomous-agent-runtime/service.ts` with `getConversation(owner, conversationId)`, `assertCanInstructConversation(req, owner, conversation)` (resolves the agent then applies `canInstruct`, throwing 403 with a message naming the instruct requirement), and:
+Create `api/src/conversations/service.ts` with `getConversation(owner, conversationId)`, `assertCanInstructConversation(req, owner, conversation)` (resolves the agent then applies `canInstruct`, throwing 403 with a message naming the instruct requirement), and:
 
 ```ts
 /**
@@ -631,21 +631,21 @@ Create `api/src/autonomous-agent-runtime/service.ts` with `getConversation(owner
  * handed the same number. The unique index on { conversationId, seq } is the backstop.
  */
 export const appendMessage = async (conversation, message) => {
-  const updated = await mongo.autonomousAgentConversations.findOneAndUpdate(
+  const updated = await mongo.conversations.findOneAndUpdate(
     { id: conversation.id },
     { $inc: { messageSeq: 1 }, $set: { lastMessageAt: new Date().toISOString() } },
     { returnDocument: 'after', projection: { _id: 0 } }
   )
   if (!updated) throw httpError(404, 'unknown conversation')
   const doc = { ...message, seq: updated.messageSeq, id: nanoid(), createdAt: new Date().toISOString() }
-  await mongo.autonomousAgentMessages.insertOne({ ...doc })
+  await mongo.messages.insertOne({ ...doc })
   return doc
 }
 ```
 
 - [ ] **Step 4: Write the router**
 
-Create `api/src/autonomous-agent-runtime/router.ts` with the four routes. Each one: `reqSessionAuthenticated` → `assertOrganizationOwner(owner)` → `assertAccountRole(session, owner, 'admin')` **or** `canInstruct` as appropriate → resolve the conversation → act. The message POST appends the user message, creates a `running` run document, kicks the executor **without awaiting it** (Task 4 supplies `startRun`; until then a TODO-free stub is not acceptable — implement Task 3 to call a `startRun` that Task 4 replaces, and have Task 3's tests assert only on the appended message and the returned `runId`).
+Create `api/src/conversations/router.ts` with the four routes. Each one: `reqSessionAuthenticated` → `assertOrganizationOwner(owner)` → `assertAccountRole(session, owner, 'admin')` **or** `canInstruct` as appropriate → resolve the conversation → act. The message POST appends the user message, creates a `running` run document, kicks the executor **without awaiting it** (Task 4 supplies `startRun`; until then a TODO-free stub is not acceptable — implement Task 3 to call a `startRun` that Task 4 replaces, and have Task 3's tests assert only on the appended message and the returned `runId`).
 
 **Sequencing note for the implementer:** Task 3's message POST must create the run document and return its id, but the executor itself arrives in Task 4. Have the POST call an exported `startRun(run)` from `service.ts` that, in this task, only marks the run `done` with `stopReason: 'completed'` and appends nothing. Task 4 replaces that function body. Do not leave a comment promising future work in place of a working call.
 
@@ -654,7 +654,7 @@ Create `api/src/autonomous-agent-runtime/router.ts` with the four routes. Each o
 In `api/src/app.ts`, beside the others and **before** the `/api` 404 catch-all:
 
 ```ts
-app.use('/api/autonomous-agent-conversations', autonomousAgentRuntimeRouter)
+app.use('/api/conversations', autonomousAgentRuntimeRouter)
 ```
 
 - [ ] **Step 6: Run to verify it passes**
@@ -667,7 +667,7 @@ Expected: PASS (7 tests).
 Run: `npm run lint-fix && npm run check-types && npm run test-unit && npm run test-api`
 
 ```bash
-git add api/src/autonomous-agent-runtime api/src/app.ts tests/features/autonomous-agents/runtime.api.spec.ts
+git add api/src/conversations api/src/app.ts tests/features/autonomous-agents/runtime.api.spec.ts
 git commit -m "feat(autonomous-agents): conversation and message routes"
 ```
 
@@ -676,8 +676,8 @@ git commit -m "feat(autonomous-agents): conversation and message routes"
 ### Task 4: The executor spine — lock, lifecycle, pending pickup, failure-as-message
 
 **Files:**
-- Create: `api/src/autonomous-agent-runtime/executor.ts`
-- Modify: `api/src/autonomous-agent-runtime/service.ts` (`startRun` now delegates to the executor)
+- Create: `api/src/conversations/executor.ts`
+- Modify: `api/src/conversations/service.ts` (`startRun` now delegates to the executor)
 - Modify: `api/src/server.ts` (boot sweep)
 - Modify: `tests/features/autonomous-agents/runtime.api.spec.ts`
 
@@ -694,13 +694,13 @@ Append to `tests/features/autonomous-agents/runtime.api.spec.ts`:
 ```ts
   test('a run reaches a terminal status and the assistant message is attributed to the autonomous agent', async () => {
     const agent = await createAgent()
-    const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 't' })).data
-    const { runId } = (await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })).data
+    const conv = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data
+    const { runId } = (await orgAdmin.post(`/api/conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })).data
 
     // poll rather than sleep: the executor is asynchronous and there is no websocket yet
     let run
     for (let i = 0; i < 50; i++) {
-      run = (await orgAdmin.get(`/api/autonomous-agent-runs/organization/test1/${runId}`)).data
+      run = (await orgAdmin.get(`/api/runs/organization/test1/${runId}`)).data
       if (run.status !== 'running') break
       await new Promise(resolve => setTimeout(resolve, 100))
     }
@@ -708,7 +708,7 @@ Append to `tests/features/autonomous-agents/runtime.api.spec.ts`:
     assert.notEqual(run.status, 'running', 'run never reached a terminal status')
     assert.ok(run.endedAt)
 
-    const messages = (await orgAdmin.get(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`)).data.results
+    const messages = (await orgAdmin.get(`/api/conversations/organization/test1/${conv.id}/messages`)).data.results
     const assistant = messages.find((m: any) => m.role === 'assistant')
     assert.ok(assistant, 'a run must always leave an assistant message — failure is a message, not a silence')
     assert.equal(assistant.author.kind, 'autonomous-agent')
@@ -719,16 +719,16 @@ Append to `tests/features/autonomous-agents/runtime.api.spec.ts`:
 
   test('two messages posted back to back both get processed, in order', async () => {
     const agent = await createAgent()
-    const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 't' })).data
+    const conv = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data
 
     // Posted without awaiting the first run: the per-conversation lock must serialise them
     // and the second must be picked up rather than dropped.
-    await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })
-    await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content: 'hello again' })
+    await orgAdmin.post(`/api/conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })
+    await orgAdmin.post(`/api/conversations/organization/test1/${conv.id}/messages`, { content: 'hello again' })
 
     let assistants: any[] = []
     for (let i = 0; i < 80; i++) {
-      const messages = (await orgAdmin.get(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`)).data.results
+      const messages = (await orgAdmin.get(`/api/conversations/organization/test1/${conv.id}/messages`)).data.results
       assistants = messages.filter((m: any) => m.role === 'assistant' && m.pending === false)
       if (assistants.length >= 2) break
       await new Promise(resolve => setTimeout(resolve, 100))
@@ -748,11 +748,11 @@ Expected: FAIL — no run route, and no assistant message is ever produced.
 
 - [ ] **Step 3: Add the run read route**
 
-The tests need to observe a run. In `api/src/autonomous-agent-runtime/router.ts` add `GET /api/autonomous-agent-runs/:type/:id/:runId`, guarded the same way as the message routes, returning the run document. Mount `app.use('/api/autonomous-agent-runs', …)` — it can share the same router module, or be a second mount of it; pick one and be consistent.
+The tests need to observe a run. In `api/src/conversations/router.ts` add `GET /api/runs/:type/:id/:runId`, guarded the same way as the message routes, returning the run document. Mount `app.use('/api/runs', …)` — it can share the same router module, or be a second mount of it; pick one and be consistent.
 
 - [ ] **Step 4: Write the executor**
 
-Create `api/src/autonomous-agent-runtime/executor.ts`:
+Create `api/src/conversations/executor.ts`:
 
 ```ts
 /**
@@ -766,7 +766,7 @@ Create `api/src/autonomous-agent-runtime/executor.ts`:
 
 It must:
 
-1. **Take a per-conversation lock** with `locks.acquire('autonomous-agent-conversation:' + conversationId, 'executor')`. If it returns false another turn is already running: leave the run document `running` and return — the holder will pick the pending message up in step 5. Nobody is rejected and no message is dropped.
+1. **Take a per-conversation lock** with `locks.acquire('conversation:' + conversationId, 'executor')`. If it returns false another turn is already running: leave the run document `running` and return — the holder will pick the pending message up in step 5. Nobody is rejected and no message is dropped.
 2. **Run the turn** and append a terminal assistant message whose content is the turn's output, or `runStopReasonMessage(...)` when the turn produced nothing. Mark it `pending: false` when finished.
 3. **Always finish the run document**: `status`, `stopReason`, `endedAt`, `steps`, `credits`, and `error` when there is one. Wrap the whole body so a thrown exception still produces `status: 'error'` **and** an assistant message — the spec's "failure is a message, not a silence".
 4. **Before releasing the lock, look for pending work:** any user message in this conversation with a `seq` higher than the last message the finished run consumed, whose run is still `running`. If one exists, loop and run it. This is what makes the second concurrent post land rather than hang.
@@ -797,7 +797,7 @@ Expected: PASS (9 tests).
 Run: `npm run lint-fix && npm run check-types && npm run test-unit && npm run test-api`
 
 ```bash
-git add api/src/autonomous-agent-runtime api/src/server.ts tests/features/autonomous-agents/runtime.api.spec.ts
+git add api/src/conversations api/src/server.ts tests/features/autonomous-agents/runtime.api.spec.ts
 git commit -m "feat(autonomous-agents): executor spine with per-conversation locking"
 ```
 
@@ -806,8 +806,8 @@ git commit -m "feat(autonomous-agents): executor spine with per-conversation loc
 ### Task 5: The model loop
 
 **Files:**
-- Modify: `api/src/autonomous-agent-runtime/executor.ts` (real turn body)
-- Modify: `api/src/autonomous-agent-runtime/operations.ts` (prompt assembly, provenance wrapping)
+- Modify: `api/src/conversations/executor.ts` (real turn body)
+- Modify: `api/src/conversations/operations.ts` (prompt assembly, provenance wrapping)
 - Modify: `tests/features/autonomous-agents/runtime.unit.spec.ts`, `runtime.api.spec.ts`
 - Modify: `tests/support/mcp-fixture.ts` (register `get_schema` — see Step 4)
 - Modify: `tests/features/autonomous-agents/mcp-tools.api.spec.ts:29` (the tool-list assertion the line above breaks)
@@ -923,7 +923,7 @@ Leave the `toolFilter` test at line 33 alone — it already narrows to `['echo']
 Run: `npm run lint-fix && npm run check-types && npm run test-unit && npm run test-api`
 
 ```bash
-git add api/src/autonomous-agent-runtime tests/features/autonomous-agents tests/support/mcp-fixture.ts
+git add api/src/conversations tests/features/autonomous-agents tests/support/mcp-fixture.ts
 git commit -m "feat(autonomous-agents): the model loop, with loop guards and tool provenance"
 ```
 
@@ -932,14 +932,14 @@ git commit -m "feat(autonomous-agents): the model loop, with loop guards and too
 ### Task 6: Budgets, quotas, usage and abort
 
 **Files:**
-- Modify: `api/src/autonomous-agent-runtime/executor.ts`
-- Modify: `api/src/autonomous-agent-runtime/router.ts` (abort route)
+- Modify: `api/src/conversations/executor.ts`
+- Modify: `api/src/conversations/router.ts` (abort route)
 - Modify: `api/config/type/schema.json`, `default.js`, `custom-environment-variables.js`
 - Modify: `tests/features/autonomous-agents/runtime.api.spec.ts`
 
 **Interfaces:**
 - Consumes: `enforceQuotas` (`api/src/usage/enforce.ts`), `recordUsage` (`api/src/usage/service.ts`), `computeCredits` (`api/src/usage/operations.ts`), `canInstruct`.
-- Produces: `POST /api/autonomous-agent-runs/:type/:id/:runId/abort`, config `autonomousAgentRunCredits` and `autonomousAgentRunTimeoutSeconds`.
+- Produces: `POST /api/runs/:type/:id/:runId/abort`, config `autonomousAgentRunCredits` and `autonomousAgentRunTimeoutSeconds`.
 
 **Ruling C1-1 applies here.** The executor builds its `UsageIdentity` directly, because `resolveUsageIdentity` needs a `req` it does not have:
 
@@ -1003,7 +1003,7 @@ Then `npm run build-types`, `touch api/index.ts`, confirm dev-api UP.
 Run: `npm run lint-fix && npm run check-types && npm run test-unit && npm run test-api && npm run test-e2e`
 
 ```bash
-git add api/src/autonomous-agent-runtime api/config tests/features/autonomous-agents
+git add api/src/conversations api/config tests/features/autonomous-agents
 git commit -m "feat(autonomous-agents): run budgets, quota enforcement, usage and abort"
 ```
 

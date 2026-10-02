@@ -79,7 +79,7 @@ Do not re-derive these; they are verified.
   - `toPublicJwk(privateJwk: NhiPrivateJwk): NhiPublicJwk`
   - `nhiIssuerUrl(publicUrl: string): string`
   - `nhiAudience(publicUrl: string): string`
-  - `autonomousAgentSubject(autonomousAgentId: string): string`
+  - `autonomousAgentSubject(agentId: string): string`
 
 - [ ] **Step 1: Write the failing test**
 
@@ -281,8 +281,8 @@ export function nhiAudience (publicUrl: string): string {
 }
 
 /** The `sub` bound on the NHI record. Namespaced so it cannot collide with another subject. */
-export function autonomousAgentSubject (autonomousAgentId: string): string {
-  return `autonomous-agent:${autonomousAgentId}`
+export function autonomousAgentSubject (agentId: string): string {
+  return `autonomous-agent:${agentId}`
 }
 ```
 
@@ -915,7 +915,7 @@ git commit -m "refactor(autonomous-agents): derive the nhi issuer from the reque
   - `exchangeForSession(autonomousAgent: EnrolledAutonomousAgent): Promise<{ cookieHeader: string, expiresAtMs: number }>`
   - `getAutonomousAgentSession(autonomousAgent: EnrolledAutonomousAgent): Promise<string>` — returns the `Cookie` header value, cached and refreshed
   - the write routes capture `nhi.siteUrl` / `nhi.issuer` from `reqSiteUrl(req)`
-  - `clearAutonomousAgentSession(autonomousAgentId: string): void`
+  - `clearAutonomousAgentSession(agentId: string): void`
 
 **PREREQUISITE:** the user must have restarted `simple-directory` with `MANAGE_NHIS: true` and `NHIS_ALLOW_INSECURE_ISSUERS: true` (Task 1 step 10). Without it every exchange returns 404 and this task's api test cannot pass. Verify with the probe in step 5 before implementing, and if it 404s, report and STOP.
 
@@ -1115,7 +1115,7 @@ export const exchangeForSession = async (autonomousAgent: EnrolledAutonomousAgen
  */
 const sessions = new Map<string, { cookieHeader: string, expiresAtMs: number }>()
 
-export const clearAutonomousAgentSession = (autonomousAgentId: string) => { sessions.delete(autonomousAgentId) }
+export const clearAutonomousAgentSession = (agentId: string) => { sessions.delete(agentId) }
 
 export const getAutonomousAgentSession = async (autonomousAgent: EnrolledAutonomousAgent): Promise<string> => {
   requireEnrolment(autonomousAgent)

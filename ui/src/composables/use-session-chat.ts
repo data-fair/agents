@@ -222,8 +222,8 @@ export function useSessionChat (options: UseSessionChatOptions) {
   /** Create a conversation over HTTP. The socket binds to one; it does not make them. */
   const createConversation = async (): Promise<string> => {
     const conversation = await $fetch(
-      `${$apiPath}/autonomous-agent-conversations/${options.accountType}/${options.accountId}`,
-      { method: 'POST', body: { autonomousAgentId: options.agentId ?? 'personal', title: options.title ?? 'chat' } }
+      `${$apiPath}/conversations/${options.accountType}/${options.accountId}`,
+      { method: 'POST', body: { agentId: options.agentId ?? 'personal', title: options.title ?? 'chat' } }
     )
     return conversation.id
   }

@@ -16,8 +16,8 @@ import {
   requireConversation,
   assertOwnsConversation,
   setReviewConsent
-} from '../autonomous-agent-runtime/service.ts'
-import { startRun } from '../autonomous-agent-runtime/executor.ts'
+} from '../conversations/service.ts'
+import { startRun } from '../conversations/executor.ts'
 import mongo from '#mongo'
 import type { AgentSession } from './session.ts'
 import type { InstructSession } from '../autonomous-agents/operations.ts'
@@ -93,7 +93,7 @@ export const startSessionTurn = async (request: SessionTurnRequest): Promise<str
   })
 
   const run = await createRun({
-    autonomousAgentId: conversation.autonomousAgentId,
+    agentId: conversation.agentId,
     conversationId: conversation.id,
     owner: conversation.owner,
     trigger: 'user',
@@ -124,7 +124,7 @@ export const startSessionTurn = async (request: SessionTurnRequest): Promise<str
  * Authorization is the caller's: this is reached only after `assertOwnsConversation` on the attach.
  */
 export const sendHistory = async (session: AgentSession, conversationId: string) => {
-  const messages = await mongo.autonomousAgentMessages
+  const messages = await mongo.messages
     .find({ conversationId }, { projection: { _id: 0 } })
     .sort({ seq: 1 })
     .toArray()

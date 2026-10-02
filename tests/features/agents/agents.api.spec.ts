@@ -28,7 +28,7 @@ test.describe('Chat API', () => {
   test('a turn reaches the model and the answer is stored', async () => {
     const { conversationId } = await runTurn(user, 'user/test-standalone1', 'hello')
 
-    const res = await user.get(`/api/autonomous-agent-conversations/user/test-standalone1/${conversationId}/messages`)
+    const res = await user.get(`/api/conversations/user/test-standalone1/${conversationId}/messages`)
     const messages = res.data.results as any[]
 
     // The person's own turn is stored, not only the answer: the server is the single source of the
@@ -49,7 +49,7 @@ test.describe('Chat API', () => {
     assert.ok(runId, 'the POST must return a runId for the caller to follow or abort')
 
     // Runs are read through their own mount, not nested under the conversation.
-    const res = await user.get(`/api/autonomous-agent-runs/user/test-standalone1/${runId}`)
+    const res = await user.get(`/api/runs/user/test-standalone1/${runId}`)
     assert.equal(res.data.status, 'done')
     assert.equal(res.data.stopReason, 'completed')
   })

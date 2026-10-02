@@ -13,7 +13,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { usageIdentityFor } from '../../../api/src/autonomous-agent-runtime/operations.ts'
+import { usageIdentityFor } from '../../../api/src/conversations/operations.ts'
 import { UNTRUSTED_POOL_ID } from '../../../api/src/usage/operations.ts'
 
 const standard = { id: 'personal', title: 'Assistant' }

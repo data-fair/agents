@@ -31,8 +31,8 @@ test.describe('An unreachable catalog entry', () => {
   test.afterEach(() => { for (const socket of sockets.splice(0)) socket.close() })
 
   test('is skipped for the personal assistant, and the turn still answers', async () => {
-    const conversation = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', {
-      autonomousAgentId: 'personal', title: 'personal'
+    const conversation = (await orgAdmin.post('/api/conversations/organization/test1', {
+      agentId: 'personal', title: 'personal'
     })).data
 
     const session = await openAgentSession(await cookieOf(orgAdmin))
@@ -62,17 +62,17 @@ test.describe('An unreachable catalog entry', () => {
     })).data
     await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
 
-    const conv = (await orgAdmin.post('/api/autonomous-agent-conversations/organization/test1', { autonomousAgentId: agent.id, title: 't' })).data
-    const { runId } = (await orgAdmin.post(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })).data
+    const conv = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data
+    const { runId } = (await orgAdmin.post(`/api/conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })).data
 
     let run
     for (let i = 0; i < 100; i++) {
-      run = (await orgAdmin.get(`/api/autonomous-agent-runs/organization/test1/${runId}`)).data
+      run = (await orgAdmin.get(`/api/runs/organization/test1/${runId}`)).data
       if (run.status !== 'running') break
       await new Promise(resolve => setTimeout(resolve, 100))
     }
     assert.equal(run.status, 'error')
-    const messages = (await orgAdmin.get(`/api/autonomous-agent-conversations/organization/test1/${conv.id}/messages`)).data.results
+    const messages = (await orgAdmin.get(`/api/conversations/organization/test1/${conv.id}/messages`)).data.results
     const assistant = messages.find((m: any) => m.role === 'assistant')
     const text = assistant.parts.find((p: any) => p.type === 'text')?.text ?? ''
     assert.match(text, /dev-public-mcp/, 'it must name the server that failed, so an admin can fix it')

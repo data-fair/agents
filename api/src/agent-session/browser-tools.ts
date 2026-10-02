@@ -13,7 +13,7 @@
  */
 
 import { tool, jsonSchema, type Tool } from 'ai'
-import { withProvenance } from '../autonomous-agent-runtime/operations.ts'
+import { withProvenance } from '../conversations/operations.ts'
 import type { BrowserToolDescriptor } from '@agents/shared/agent-session-protocol'
 import type { AgentSession } from './session.ts'
 

@@ -4,7 +4,7 @@
 
 **Goal:** An org admin can create an autonomous agent, send it work, and watch it work — in the browser, with no new rendering or transport code.
 
-**Architecture:** Three thin layers over what C1 and C2 already expose. A pure mapper turns a stored `AutonomousAgentMessage` into the `ChatMessage` the existing `AgentChatMessages.vue` already renders. A composable holds the version cursor: it fetches with `?sinceVersion=`, subscribes to the conversation channel through `@data-fair/lib-vue/ws.js`, and refetches whenever a notification says the conversation moved. Two pages — a config page reusing the vjsf component `build-types` already generates, and a thread page.
+**Architecture:** Three thin layers over what C1 and C2 already expose. A pure mapper turns a stored `ConversationMessage` into the `ChatMessage` the existing `AgentChatMessages.vue` already renders. A composable holds the version cursor: it fetches with `?sinceVersion=`, subscribes to the conversation channel through `@data-fair/lib-vue/ws.js`, and refetches whenever a notification says the conversation moved. Two pages — a config page reusing the vjsf component `build-types` already generates, and a thread page.
 
 **Tech Stack:** Vue 3 + Vuetify, `vue-router/vite` file-based routing, `@data-fair/lib-vue` (`useSession`, `useWS`), `@koumoul/vjsf` (pre-compiled), Playwright (`unit` / `api` / `e2e`).
 
@@ -43,12 +43,12 @@ Verified by reading the code, not assumed.
 - **Components fetch with plain `fetch(…, { credentials: 'include' })`** (`ui/src/components/TracesSection.vue:79`), not a wrapper.
 - **The API surface C3 consumes, all already tested:**
   - `GET|POST /api/autonomous-agents/:type/:id` and `PUT|DELETE /api/autonomous-agents/:type/:id/:agentId` — CRUD (Plan A), admin-gated, plus `…/:agentId/tools` and `…/mcp-servers`.
-  - `POST /api/autonomous-agent-conversations/:type/:id` — create a thread; `GET` the same path with `?autonomousAgentId=` — list threads.
-  - `GET /api/autonomous-agent-conversations/:type/:id/:conversationId/messages?sinceVersion=N` — incremental fetch, returning `{results, count, version}`. **`version` is the cursor to store**; `sinceSeq` exists but cannot see an in-place update.
+  - `POST /api/conversations/:type/:id` — create a thread; `GET` the same path with `?agentId=` — list threads.
+  - `GET /api/conversations/:type/:id/:conversationId/messages?sinceVersion=N` — incremental fetch, returning `{results, count, version}`. **`version` is the cursor to store**; `sinceSeq` exists but cannot see an in-place update.
   - `POST` the same path — append a user message, returns the message plus `runId`.
-  - `GET /api/autonomous-agent-runs/:type/:id/:runId` and `POST …/:runId/abort`.
-  - Websocket channel `autonomous-agent-conversations/<conversationId>`, payload `{conversationId, version}` only.
-- **A stored message maps onto `ChatMessage` with one wrinkle:** `AutonomousAgentMessage.toolCalls` is `{toolCallId?, toolName, serverId?, arguments?, annotations?, failed?, error?}[]`, while `ChatMessage.toolInvocations` is `{toolCallId, toolName, state: 'pending'|'done'}[]`. The mapper has to choose a `state`, and `failed` has no representation in `ChatMessage` at all.
+  - `GET /api/runs/:type/:id/:runId` and `POST …/:runId/abort`.
+  - Websocket channel `conversations/<conversationId>`, payload `{conversationId, version}` only.
+- **A stored message maps onto `ChatMessage` with one wrinkle:** `ConversationMessage.toolCalls` is `{toolCallId?, toolName, serverId?, arguments?, annotations?, failed?, error?}[]`, while `ChatMessage.toolInvocations` is `{toolCallId, toolName, state: 'pending'|'done'}[]`. The mapper has to choose a `state`, and `failed` has no representation in `ChatMessage` at all.
 - **`enabled`, `instructors`, `persona`, `toolDisclosure` and `mcpServers`** are all on the agent document (`api/types/autonomous-agent/schema.js`); `nhi.clientId` is set by enrolment and a PUT that omits `nhi` **drops it**, because the write route rebuilds that field from the body.
 
 ## Decisions
@@ -69,10 +69,10 @@ Verified by reading the code, not assumed.
 - Create: `tests/features/autonomous-agents/chat-message.unit.spec.ts`
 
 **Interfaces:**
-- Consumes: `ChatMessage` (`@agents/shared/chat-message`), `AutonomousAgentMessage` (`#types`), `useWS` (`@data-fair/lib-vue/ws.js`), `conversationChannel` (`api/src/autonomous-agent-runtime/operations.ts`).
+- Consumes: `ChatMessage` (`@agents/shared/chat-message`), `ConversationMessage` (`#types`), `useWS` (`@data-fair/lib-vue/ws.js`), `conversationChannel` (`api/src/conversations/operations.ts`).
 - Produces:
-  - pure: `autonomousAgentMessageToChat(message): ChatMessage`, `autonomousAgentMessagesToChat(messages): ChatMessage[]`, `mergeBySeq(existing, incoming): AutonomousAgentMessage[]`
-  - composable: `useAutonomousAgentConversation({ accountType, accountId, conversationId })` → `{ messages, chatMessages, isStreaming, version, error, refresh, post, connected }`
+  - pure: `autonomousAgentMessageToChat(message): ChatMessage`, `messagesToChat(messages): ChatMessage[]`, `mergeBySeq(existing, incoming): ConversationMessage[]`
+  - composable: `useConversation({ accountType, accountId, conversationId })` → `{ messages, chatMessages, isStreaming, version, error, refresh, post, connected }`
 
 The mapper lives in `shared/` because it bridges two types that both live there or in `#types`, and because a pure function with three awkward decisions in it deserves unit tests that need no browser.
 
@@ -87,10 +87,10 @@ Create `tests/features/autonomous-agents/chat-message.unit.spec.ts`:
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { autonomousAgentMessageToChat, autonomousAgentMessagesToChat, mergeBySeq } from '@agents/shared/autonomous-agent-chat-message'
+import { autonomousAgentMessageToChat, messagesToChat, mergeBySeq } from '@agents/shared/autonomous-agent-chat-message'
 
 const base = {
-  id: 'm1', conversationId: 'c1', autonomousAgentId: 'a1',
+  id: 'm1', conversationId: 'c1', agentId: 'a1',
   owner: { type: 'organization' as const, id: 'test1' },
   seq: 1, role: 'user' as const, author: { kind: 'user' as const, userId: 'u1', userName: 'Alice' },
   createdAt: '2026-09-28T10:00:00Z'
@@ -151,7 +151,7 @@ test.describe('autonomousAgentMessageToChat', () => {
   })
 
   test('maps a list in seq order regardless of input order', () => {
-    const chats = autonomousAgentMessagesToChat([
+    const chats = messagesToChat([
       { ...base, seq: 2, content: 'second' },
       { ...base, seq: 1, content: 'first' }
     ] as any)
@@ -197,7 +197,7 @@ Create `shared/autonomous-agent-chat-message.ts`. Import `ChatMessage` from `./c
 
 ```ts
 /** The stored fields this mapper reads. Structural, so shared/ needs no #types alias. */
-export interface StoredAutonomousAgentMessage {
+export interface StoredConversationMessage {
   seq: number
   role: 'user' | 'assistant'
   content?: string
@@ -225,7 +225,7 @@ Create `ui/src/composables/use-autonomous-agent-conversation.ts`. It owns exactl
 - `post(content)` → the message POST, then `refresh()`.
 - `unsubscribe` and stop on scope dispose, so a page change cannot leave a listener attached.
 
-**Move `conversationChannel` / `channelConversationId` from `api/src/autonomous-agent-runtime/operations.ts` into `shared/` and repoint the server at them** — do not import them from `api/src`, and do not duplicate the channel string. `ui/src` does import from `api/src` today, but only as a TYPE (`ui/src/context.ts:1`), and `ui/tsconfig.json`'s `paths` exposes only `#api/types` and `#api-doc/*`; a runtime value import from outside `ui`'s tree would be new ground for no benefit. `shared/` is already wired into both workspaces, which is what it is for. The server's unit spec that imports these two moves with them.
+**Move `conversationChannel` / `channelConversationId` from `api/src/conversations/operations.ts` into `shared/` and repoint the server at them** — do not import them from `api/src`, and do not duplicate the channel string. `ui/src` does import from `api/src` today, but only as a TYPE (`ui/src/context.ts:1`), and `ui/tsconfig.json`'s `paths` exposes only `#api/types` and `#api-doc/*`; a runtime value import from outside `ui`'s tree would be new ground for no benefit. `shared/` is already wired into both workspaces, which is what it is for. The server's unit spec that imports these two moves with them.
 
 - [ ] **Step 6: Verify and commit**
 
@@ -297,11 +297,11 @@ git commit -m "feat(autonomous-agents): configuration section on the org admin p
 
 **Files:**
 - Create: `ui/src/pages/[type]/[id]/autonomous-agents/[agentId].vue`
-- Create: `ui/src/components/AutonomousAgentRunStatus.vue`
+- Create: `ui/src/components/ConversationRunStatus.vue`
 - Modify: `tests/features/autonomous-agents/autonomous-agents.e2e.spec.ts`
 
 **Interfaces:**
-- Consumes: `useAutonomousAgentConversation` (Task 1), `AgentChatMessages.vue`, the conversation/run routes.
+- Consumes: `useConversation` (Task 1), `AgentChatMessages.vue`, the conversation/run routes.
 - Produces: the thread route, linked from the configuration section.
 
 - [ ] **Step 1: Write the failing e2e test**
@@ -323,7 +323,7 @@ Expected: FAIL — the route does not exist.
 
 - [ ] **Step 3: Write the page**
 
-The page: a conversation list down one side (create a thread, switch), the transcript via `AgentChatMessages.vue` fed from `chatMessages`, a composer, and `AutonomousAgentRunStatus.vue` showing the current or last run — its status, stop reason, steps, credits, and an abort button while it is running.
+The page: a conversation list down one side (create a thread, switch), the transcript via `AgentChatMessages.vue` fed from `chatMessages`, a composer, and `ConversationRunStatus.vue` showing the current or last run — its status, stop reason, steps, credits, and an abort button while it is running.
 
 The status strip is where everything `ChatMessage` cannot carry goes (Ruling C3-1): a stop reason such as `budget` or `repeated-calls`, and any tool call recorded with `failed: true` — with its `arguments`, which C2 added precisely so a reviewer can see what a tool was asked to do.
 

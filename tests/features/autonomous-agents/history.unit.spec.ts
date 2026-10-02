@@ -18,7 +18,7 @@ import {
   TOOL_RESULT_LIMIT,
   type StoredTurn,
   type MessagePart
-} from '../../../api/src/autonomous-agent-runtime/operations.ts'
+} from '../../../api/src/conversations/operations.ts'
 
 /**
  * A stored turn without its id, which the helpers below supply.

@@ -9,7 +9,7 @@ import {
   repeatedCallGuard,
   repeatedCallNudge,
   loopGuardPrepareStep
-} from '../../../api/src/agent-loop/agent-loop-guards.ts'
+} from '../../../api/src/conversations/loop-guards.ts'
 
 /** One step that made one tool call and got one result back. */
 const step = (toolName = 'get_schema', input: unknown = { dataset: 'test' }, output: unknown = { fields: [] }) =>

@@ -195,38 +195,38 @@ build-types` generates the vjsf form and the configuration page is largely free 
 way `settings.vue` already works. The MCP server picker is a `getItems` autocomplete
 against the catalog endpoint, exactly as the model picker is against `/api/catalog`.
 
-### `autonomous-agent-conversations`
+### `conversations`
 
-`{ autonomousAgentId, owner, title, createdAt, lastMessageAt, messageSeq }`
+`{ agentId, owner, title, createdAt, lastMessageAt, messageSeq }`
 
 Multiple threads per autonomous agent rather than one endless timeline, so topics stay
 separable and each thread's context stays boundable. Every authorized instructor sees
 every thread of that autonomous agent.
 
-### `autonomous-agent-messages`
+### `messages`
 
 One document per message — appendable, paginable, and immune to the 16 MB document
 ceiling a long-lived autonomous agent would eventually hit.
 
-`{ conversationId, autonomousAgentId, owner, seq, role, author, content, reasoning?, toolCalls?, toolResults?, runId, createdAt, updatedAt }`
+`{ conversationId, agentId, owner, seq, role, author, content, reasoning?, toolCalls?, toolResults?, runId, createdAt, updatedAt }`
 
 `author` is **mandatory**: `{ userId, userName }` for a user message, the autonomous
 agent for an assistant message, and (in P2) the schedule. That is the shared-timeline
 decision cashing out — attribution cannot be optional when several people share a
 context, and it is also what makes per-user erasure possible later.
 
-### `autonomous-agent-runs`
+### `runs`
 
 Audit metadata, kept even though runs are non-resumable:
 
-`{ autonomousAgentId, conversationId, owner, trigger, status, startedAt, endedAt?, steps, credits, stopReason, error?, toolCalls: [{ name, serverId, annotations }] }`
+`{ agentId, conversationId, owner, trigger, status, startedAt, endedAt?, steps, credits, stopReason, error?, toolCalls: [{ name, serverId, annotations }] }`
 
 At boot, any run still marked `running` is marked `interrupted` — the honest record of a
 restart, given the non-resumable choice.
 
 ## Execution model
 
-**One turn is one run.** `POST /api/autonomous-agent-conversations/:id/messages`
+**One turn is one run.** `POST /api/conversations/:id/messages`
 authorizes the caller with `canInstruct`, appends the user message, and returns
 immediately with a `runId`. A background executor in the same process picks it up.
 
@@ -247,7 +247,7 @@ and the idle watchdog.
 - the existing step backstop and repeated-call guard;
 - a per-run credit budget, checked between steps;
 - a wall-clock ceiling;
-- `POST /api/autonomous-agent-runs/:id/abort`, authorized by the same `canInstruct`
+- `POST /api/runs/:id/abort`, authorized by the same `canInstruct`
   check as posting a message — anyone who can start a turn can stop one;
 - `enforceQuotas()` before the run starts, `recordUsage()` after each model call — so an
   autonomous run consumes the owning org's credits through exactly the path interactive
@@ -264,14 +264,14 @@ loop applies with its empty-turn and timeout fallbacks.
 Mongo is authoritative; websockets carry liveness. Both halves are needed, and neither
 is sufficient alone.
 
-**Mongo as source of truth.** `autonomous-agent-messages` is what the UI loads on open
+**Mongo as source of truth.** `messages` is what the UI loads on open
 and refetches on any doubt. The executor persists the in-flight assistant message
 coarsely — roughly every 2 s — so a late joiner sees work in progress.
 
 **Websockets for notification and deltas**, using the stack's existing pub/sub:
 `@data-fair/lib-express/ws-server.js` + `@data-fair/lib-node/ws-emitter.js` on the
 server, `@data-fair/lib-vue/ws.js` (`useWS`) in the browser. Channel
-`autonomous-agent-conversations/<conversationId>`; `canSubscribe` resolves the
+`conversations/<conversationId>`; `canSubscribe` resolves the
 conversation's autonomous agent and applies `canInstruct`. Message kinds:
 `message-start`, `text-delta`, `tool-call`, `tool-result`, `message-end`, `run-status`.
 
@@ -419,7 +419,7 @@ rebuild.
 "Exhaustive traces" splits into two stores with different rules, and conflating them
 would import a consent model that does not apply here.
 
-**Conversation content is product data.** `autonomous-agent-messages` is the
+**Conversation content is product data.** `messages` is the
 conversation — stored because storing it *is* the feature, visible to every instructor
 by design, and not consent-gated. The UI must say so plainly where a user types: this
 thread is shared with everyone allowed to instruct this autonomous agent, and retained.
@@ -433,7 +433,7 @@ deliberate differences from the in-page assistant:
 - **Storage follows the org's `storeTraces` flag alone.** The per-user
   `x-trace-consent` gate does not apply: there is no browser session to hold a consent
   cookie, and in P2 there will be no user at all. The org, as data controller, decides.
-- Retention stays the existing fixed 30-day TTL. `autonomous-agent-messages` has **no**
+- Retention stays the existing fixed 30-day TTL. `messages` has **no**
   TTL — a conversation persists until deleted, which is what makes it a conversation
   rather than a trace.
 
@@ -447,7 +447,7 @@ implementable at all.
 **What P0 must get right now**, and does:
 
 - every message carries `author.userId`, so a user's contributions are addressable;
-- conversations, messages and runs all carry `conversationId` / `autonomousAgentId` /
+- conversations, messages and runs all carry `conversationId` / `agentId` /
   `owner`, so a cascade delete is a small set of indexed queries;
 - deleting a thread deletes its messages and its runs; the existing per-conversation and
   per-user `trace-requests` deletion routes already cover the trace side.
@@ -546,8 +546,8 @@ those components render autonomous agent conversations **unchanged**.
 
 Not reusable: `useAgentChat` and the `lib-vuetify` chat entry points, because they *are*
 the browser loop. In their place,
-`useAutonomousAgentConversation(conversationId)` — fetch a page of
-`autonomous-agent-messages`, subscribe through `useWS`, apply deltas with the seq-gap
+`useConversation(conversationId)` — fetch a page of
+`messages`, subscribe through `useWS`, apply deltas with the seq-gap
 refetch, expose `messages` / `running` / `send()` / `abort()`. No AI SDK in the browser
 at all: roughly 150 lines against the current 1300.
 
@@ -560,7 +560,7 @@ input), and configuration as a vjsf form generated from
 Per the project's three Playwright projects:
 
 - **unit** — assertion construction, cookie-jar expiry, seq-gap detection,
-  `autonomous-agent-messages` → `ChatMessage` mapping, catalog reference validation,
+  `messages` → `ChatMessage` mapping, catalog reference validation,
   per-`auth`-mode header selection, tool annotation classification, provenance wrapping,
   prompt assembly.
 - **api** — org-admin authorization and the rollout gate, instructor authorization,

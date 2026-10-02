@@ -71,7 +71,7 @@ export function useAutonomousAgentEnrolment (accountType: string, accountId: str
       const issuer = await readIssuer()
       const created = await $crossServiceFetch<{ id: string }>(nhisUrl, {
         method: 'POST',
-        body: autonomousAgentNhiBody({ autonomousAgentId: autonomousAgent.id, title: autonomousAgent.title, issuer, role }),
+        body: autonomousAgentNhiBody({ agentId: autonomousAgent.id, title: autonomousAgent.title, issuer, role }),
         credentials: 'include'
       })
       await attach(autonomousAgent, created.id)

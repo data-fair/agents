@@ -59,7 +59,7 @@ const settingsData = (overrides: any = {}) => ({
 /** The turn's answer, which is where a refusal arrives now. */
 const answerTo = async (ax: any, message: string, conversationId?: string) => {
   const result = await runTurn(ax, OWNER_PATH, message, conversationId ? { conversationId } : undefined)
-  const res = await ax.get(`/api/autonomous-agent-conversations/${OWNER_PATH}/${result.conversationId}/messages`)
+  const res = await ax.get(`/api/conversations/${OWNER_PATH}/${result.conversationId}/messages`)
   const messages = res.data.results as any[]
   const assistant = messages.filter(m => m.role === 'assistant').pop()
   const text = (assistant?.parts ?? []).filter((p: any) => p.type === 'text').map((p: any) => p.text).join('')

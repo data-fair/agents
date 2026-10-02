@@ -117,7 +117,7 @@ export const exchangeForSession = async (autonomousAgent: EnrolledAutonomousAgen
  */
 const sessions = new Map<string, { cookieHeader: string, expiresAtMs: number }>()
 
-export const clearAutonomousAgentSession = (autonomousAgentId: string) => { sessions.delete(autonomousAgentId) }
+export const clearAutonomousAgentSession = (agentId: string) => { sessions.delete(agentId) }
 
 export const getAutonomousAgentSession = async (autonomousAgent: EnrolledAutonomousAgent): Promise<string> => {
   requireEnrolment(autonomousAgent)
