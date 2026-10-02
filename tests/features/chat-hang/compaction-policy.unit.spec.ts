@@ -432,7 +432,10 @@ test.describe('one policy, one loop', () => {
   // What survives is the half that is still falsifiable: the loop must route through the shared policy
   // instead of reimplementing it, and the doc must state the numbers the code uses. The browser-loop
   // half went with the browser loop; it was not relaxed.
-  const executor = readFileSync(new URL('../../../api/src/autonomous-agent-runtime/executor.ts', import.meta.url), 'utf8')
+  // turn-history.ts, not executor.ts: the loop's context management was split out of the executor
+  // when it had grown to own the gates, the telemetry, the compaction and the model loop. This guard
+  // follows the concern rather than the file it used to live in.
+  const executor = readFileSync(new URL('../../../api/src/autonomous-agent-runtime/turn-history.ts', import.meta.url), 'utf8')
   const doc = readFileSync(new URL('../../../docs/architecture/context-management.md', import.meta.url), 'utf8')
 
   test('the executor routes through decideContextManagement', () => {

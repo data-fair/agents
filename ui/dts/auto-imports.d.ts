@@ -234,6 +234,9 @@ declare global {
   export type { AgentFlags } from '../src/utils/agent-flags'
   import('../src/utils/agent-flags')
   // @ts-ignore
+  export type { StoredAutonomousAgentMessage, AutonomousAgentPart } from '../src/utils/autonomous-agent-chat-message'
+  import('../src/utils/autonomous-agent-chat-message')
+  // @ts-ignore
   export type { ChatMessage } from '../src/utils/chat-message'
   import('../src/utils/chat-message')
   // @ts-ignore
@@ -291,6 +294,8 @@ declare module 'vue' {
     readonly TOOL_ARGUMENTS_LIMIT: UnwrapRef<typeof import('../src/utils/tool-arguments')['TOOL_ARGUMENTS_LIMIT']>
     readonly appendStreamingCaret: UnwrapRef<typeof import('../src/utils/markdown')['appendStreamingCaret']>
     readonly autonomousAgentEditDraft: UnwrapRef<typeof import('../src/utils/autonomous-agent-draft')['autonomousAgentEditDraft']>
+    readonly autonomousAgentMessageToChat: UnwrapRef<typeof import('../src/utils/autonomous-agent-chat-message')['autonomousAgentMessageToChat']>
+    readonly autonomousAgentMessagesToChat: UnwrapRef<typeof import('../src/utils/autonomous-agent-chat-message')['autonomousAgentMessagesToChat']>
     readonly breadcrumbs: UnwrapRef<typeof import('../src/utils/breadcrumbs')['default']>
     readonly breakdownDatasets: UnwrapRef<typeof import('../src/utils/usage-breakdown')['breakdownDatasets']>
     readonly buildMermaidThemeVariables: UnwrapRef<typeof import('../src/utils/mermaid')['buildMermaidThemeVariables']>
@@ -326,6 +331,7 @@ declare module 'vue' {
     readonly isShallow: UnwrapRef<typeof import('vue')['isShallow']>
     readonly looksLikeIncompleteTable: UnwrapRef<typeof import('../src/utils/markdown')['looksLikeIncompleteTable']>
     readonly markRaw: UnwrapRef<typeof import('vue')['markRaw']>
+    readonly mergeBySeq: UnwrapRef<typeof import('../src/utils/autonomous-agent-chat-message')['mergeBySeq']>
     readonly newlyAvailableTools: UnwrapRef<typeof import('../src/utils/tool-exploration')['newlyAvailableTools']>
     readonly nextTick: UnwrapRef<typeof import('vue')['nextTick']>
     readonly onActivated: UnwrapRef<typeof import('vue')['onActivated']>

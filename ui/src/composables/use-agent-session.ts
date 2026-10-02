@@ -9,6 +9,17 @@
  *
  * The descriptors go up; the implementations stay here. A page tool's `execute` is the page's, and it
  * never leaves the browser.
+ *
+ * WHY THIS IS SEPARATE from `use-session-chat`, its only consumer: this module imports nothing
+ * through the `~` alias, and that is a requirement rather than an accident. It is compiled by the
+ * ROOT tsc as well as by the ui one, because a unit test imports `toDescriptors` from it, and `~`
+ * does not resolve there. The adapter has eight `~` imports — context, trace consent, the frame
+ * aggregator — and cannot be reached from a unit test at all.
+ *
+ * So the layering is: alias-free and unit-testable here, Vue and app wiring there. A review of this
+ * code proposed merging them as "two layers with one consumer". They are two layers with two
+ * COMPILATION CONTEXTS, and merging them would put the socket protocol out of reach of the unit
+ * suite.
  */
 
 import { ref, shallowRef, computed, type Ref } from 'vue'

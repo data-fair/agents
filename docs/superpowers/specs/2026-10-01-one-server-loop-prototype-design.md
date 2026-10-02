@@ -656,9 +656,12 @@ Cheap, and it also narrows what a bug can leak into a prompt.
   check, the trace recorder, compaction and the model loop. This is the split worth making, and the
   seam is now obvious: the three pre-loop gates are one concern, and `runTurn` reads as a list of
   them.
-- **`use-agent-session.ts` (263) + `use-session-chat.ts` (299)** are two layers with one consumer.
-  The split is justified today only by a unit test importing `toDescriptors`. Merging them, keeping
-  that export, would remove a hop that explains nothing.
+- ~~**`use-agent-session.ts` + `use-session-chat.ts`** are two layers with one consumer and could be
+  merged.~~ **WRONG — retracted while acting on it.** They are two layers with two COMPILATION
+  CONTEXTS: the socket client imports nothing through the `~` alias because the root tsc compiles it
+  (a unit test imports `toDescriptors`), while the adapter has eight `~` imports and cannot be
+  reached from a unit test at all. Merging them would take the socket protocol out of the unit
+  suite. The reason is now recorded in the file so it is not proposed again.
 - **`api/src/agent-loop/`** exists because the `shared/` contract guard evicted four modules when the
   browser loop was deleted. It is a holding pen rather than a boundary; the two small ones
   (`agent-subagent-output.ts` at 54 lines, `compaction-prompt.ts` at 45) belong beside their only

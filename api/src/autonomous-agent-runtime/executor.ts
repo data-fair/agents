@@ -19,21 +19,22 @@ import mongo from '#mongo'
 import config from '#config'
 import locks from '@data-fair/lib-node/locks.js'
 import Debug from 'debug'
-import { streamText, generateText, stepCountIs, type ModelMessage, type Tool } from 'ai'
+import { streamText, stepCountIs, type Tool } from 'ai'
 // 'ai' does not re-export JSONObject; @ai-sdk/provider is where the library declares it.
 import type { JSONObject } from '@ai-sdk/provider'
 import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep, STREAM_IDLE_TIMEOUT_MS } from '../agent-loop/agent-loop-guards.ts'
-import { decideContextManagement, clearOldToolResults } from '../agent-loop/compaction-policy.ts'
-import { compactionSystemPrompt, recapMessage } from '../agent-loop/compaction-prompt.ts'
 import type { AutonomousAgent, AutonomousAgentMessage, AutonomousAgentRun } from '#types'
 import {
   runStopReasonMessage, buildSystemPrompt, withProvenance,
-  storedTurnsToModelMessages, alignCutToStoredMessage, usageIdentityFor,
+  usageIdentityFor,
   boundToolResult, partsText, withAppendedText,
   type RunStopReason, type MessagePart
 } from './operations.ts'
-import type { UsageIdentity } from '../usage/enforce.ts'
-import { appendMessage, updateMessage, finishRun, incrementRunSpend, saveCompaction, resolveAgent, appendRunCall, setRunSystemPrompt } from './service.ts'
+import { checkQuotas, moderateTurn } from './turn-gates.ts'
+import { moderationApplies } from '../moderation/operations.ts'
+import { loadHistory, compactHistory } from './turn-history.ts'
+import { recordCall } from './turn-telemetry.ts'
+import { appendMessage, updateMessage, finishRun, incrementRunSpend, resolveAgent, setRunSystemPrompt } from './service.ts'
 import { getSettings } from '../settings/service.ts'
 import { resolveRoleModel } from '../models/service.ts'
 import { contextBudget } from '../models/operations.ts'
@@ -46,9 +47,7 @@ import type { AgentSession } from '../agent-session/session.ts'
 import type { ChatActivity } from '@agents/shared/agent-activity'
 import { browserToolSet } from '../agent-session/browser-tools.ts'
 import { createWaitTool, withHostContext, WAIT_TOOL_NAME } from '@agents/shared/host-events'
-import { enforceQuotas, checkAccountCreditCap } from '../usage/enforce.ts'
-import { extractLastUserMessage, buildModerationContext, moderationApplies, MODERATION_CONTEXT_MAX_MESSAGES, MODERATION_REFUSAL } from '../moderation/operations.ts'
-import { startModeration, isStrikeCooldownActive, recordStrikeRefusal } from '../moderation/service.ts'
+import { checkAccountCreditCap } from '../usage/enforce.ts'
 import { recordUsage } from '../usage/service.ts'
 
 const debug = Debug('df-agents:autonomous-agent-executor')
@@ -127,334 +126,6 @@ const nextPendingRun = async (conversationId: string) => {
 }
 
 /**
- * Classify this turn's user message and refuse it when the verdict says so.
- *
- * Returns a turn result when the turn must not proceed, or undefined to carry on. A fail-open
- * (timeout or classifier error) carries on by design: the gate must not take the service down with
- * it, which is the trade the gateway made too and the reason the event records WHY it opened.
- */
-const moderateTurn = async (
-  run: AutonomousAgentRun,
-  settings: Awaited<ReturnType<typeof getSettings>>,
-  identity: UsageIdentity
-): Promise<{ parts: MessagePart[], steps: number, credits: number, stopReason: RunStopReason } | undefined> => {
-  // 'completed', not 'error'. A turn that stopped for any reason other than finishing has
-  // runStopReasonMessage's notice APPENDED to whatever it produced, and "This turn failed and could
-  // not be completed" is false here and unhelpful: the turn did finish, and declining was its
-  // answer. The block is recorded as a moderation event, which is where an admin looks for it.
-  const refuse = (text: string) => ({
-    parts: [{ type: 'text', text }] as MessagePart[],
-    steps: 0,
-    credits: 0,
-    stopReason: 'completed' as RunStopReason
-  })
-
-  // A standing cooldown refuses WITHOUT calling the classifier, let alone the model: someone who has
-  // just been blocked five times should not be able to keep spending the account's moderator budget.
-  if (identity.isUntrusted && identity.usageUserId && await isStrikeCooldownActive(run.owner, identity.usageUserId)) {
-    // Recorded as its own action, distinct from a block: an admin reading the events needs to see
-    // that this one cost no classifier call, rather than it looking like a sixth verdict.
-    recordStrikeRefusal(run.owner, identity, 'assistant')
-    return refuse(MODERATION_REFUSAL)
-  }
-
-  // The last few turns, oldest first — enough for the classifier to read a short follow-up in
-  // context. Reference only: the judged unit is the latest user message (see moderation/operations).
-  const recent = (await mongo.autonomousAgentMessages
-    .find({ conversationId: run.conversationId }, { projection: { _id: 0 } })
-    .sort({ seq: -1 })
-    .limit(MODERATION_CONTEXT_MAX_MESSAGES)
-    .toArray())
-    .reverse()
-    .map(message => ({ role: message.role, content: partsText(message.parts ?? []) }))
-
-  const message = extractLastUserMessage(recent)
-  if (!message) return undefined
-
-  const moderation = startModeration({
-    settings,
-    owner: run.owner,
-    identity,
-    message,
-    context: buildModerationContext(recent),
-    modelRole: 'assistant'
-  })
-
-  const result = await moderation.gate
-  if (result.action !== 'block') return undefined
-
-  // The strike itself is armed by startModeration, which owns strike accounting and swallows its own
-  // failures so that accounting can never turn a refusal into an answer.
-  return refuse(MODERATION_REFUSAL)
-}
-
-/**
- * Record one model call's telemetry on the run.
- *
- * This replaces a `trace-requests` collection that stored a COPY of the exchange under its own TTL,
- * consent gate, five indexes and router. It was redundant once the conversation itself became the
- * record: the only thing it held that a conversation cannot is per-CALL detail, because a turn is N
- * model calls while the conversation keeps one message for the whole turn. So that is all this keeps,
- * and it keeps it on the run, which is already the per-turn record.
- *
- * Unconditional — no `storeTraces` setting, no consent check. This is operational telemetry about
- * the account's own spend, not content: a model id, a token count, a duration. What consent governs
- * is whether an ADMIN MAY READ THE CONVERSATION, which is one flag on the conversation now
- * (`consentedToReview`) rather than the same question asked in two places.
- *
- * Fire-and-forget with a logged catch: telemetry must never cost a turn.
- */
-const recordCall = (
-  run: AutonomousAgentRun,
-  call: {
-    modelRole: string
-    entry: ReturnType<typeof resolveRoleModel>['entry']
-    usage: { inputTokens: number, outputTokens: number, cacheReadTokens?: number, cacheWriteTokens?: number }
-    credits: number
-    creditBreakdown?: { input: number, cachedInput: number, output: number }
-    durationMs: number
-    finishReason?: string
-    steps?: number
-    messageCount?: number
-    historyUpToSeq?: number
-  }
-) => {
-  appendRunCall(run.id, {
-    modelRole: call.modelRole,
-    model: call.entry.id,
-    provider: call.entry.provider.name,
-    providerType: call.entry.provider.type,
-    inputTokens: call.usage.inputTokens,
-    outputTokens: call.usage.outputTokens,
-    ...(call.usage.cacheReadTokens !== undefined ? { cacheReadTokens: call.usage.cacheReadTokens } : {}),
-    ...(call.usage.cacheWriteTokens !== undefined ? { cacheWriteTokens: call.usage.cacheWriteTokens } : {}),
-    credits: call.credits,
-    ...(call.creditBreakdown
-      ? {
-          creditsInput: call.creditBreakdown.input,
-          creditsCachedInput: call.creditBreakdown.cachedInput,
-          creditsOutput: call.creditBreakdown.output
-        }
-      : {}),
-    durationMs: call.durationMs,
-    ...(call.finishReason ? { finishReason: call.finishReason } : {}),
-    ...(call.steps !== undefined ? { steps: call.steps } : {}),
-    ...(call.messageCount !== undefined ? { messageCount: call.messageCount } : {}),
-    ...(call.historyUpToSeq !== undefined ? { historyUpToSeq: call.historyUpToSeq } : {})
-  }).catch(err => console.error('could not record run telemetry', err))
-}
-
-/** The model's context for a turn, with the stored seq behind each message (see loadHistory). */
-interface LoadedHistory {
-  messages: ModelMessage[]
-  seqs: number[]
-  /** How many times this conversation has already been compacted. */
-  generation: number
-}
-
-/**
- * The conversation so far, as model messages.
- *
- * A straight mapping, deliberately: the stored parts ARE the wire exchange, so reconstructing them
- * needs no inference and no second source. Completeness is structural rather than something this
- * function has to be careful about.
- *
- * It replaced a lossy flattening that stored tool calls without their RESULTS and dropped any turn
- * with no text — so a resumed conversation replayed `{role:'assistant',content:'done'}` for a turn
- * that had called a tool, and the model saw neither the result nor the fact that it had acted. See
- * storedTurnsToModelMessages for how a turn's steps are grouped back into assistant/tool pairs.
- */
-const loadHistory = async (conversationId: string, upToSeq: number): Promise<LoadedHistory> => {
-  const conversation = await mongo.autonomousAgentConversations.findOne(
-    { id: conversationId },
-    { projection: { _id: 0, compaction: 1 } }
-  )
-  const recap = conversation?.compaction
-  // Only what the recap does NOT already cover. The messages it covers stay in the store untouched —
-  // this is a cache for the MODEL's context, not a trim of the conversation.
-  const stored = await mongo.autonomousAgentMessages
-    .find(
-      { conversationId, seq: recap ? { $gt: recap.coversUpToSeq, $lt: upToSeq } : { $lt: upToSeq } },
-      // Only what builds the model's context. The whole post-recap window is materialised for every
-      // turn — bounded by compaction, but loaded in full — and `author`, `createdAt`, `updatedAt`,
-      // `version`, `pending`, `runId` and `owner` were coming with it and reaching nothing. `id` and
-      // `seq` stay: the replay reports which message it rejected, and `seqs` maps the compaction cut
-      // back onto stored messages.
-      { projection: { _id: 0, id: 1, role: 1, parts: 1, seq: 1 } }
-    )
-    .sort({ seq: 1 })
-    .toArray()
-  const { messages, seqs } = await storedTurnsToModelMessages(stored)
-  if (!recap) return { messages, seqs, generation: 0 }
-  // The recap is tagged with the last seq it covers, so alignCutToStoredMessage never tries to merge it
-  // with the message after it (whose seq is strictly greater).
-  return {
-    messages: [recapMessage(recap.summary), ...messages],
-    seqs: [recap.coversUpToSeq, ...seqs],
-    generation: recap.generation
-  }
-}
-
-/**
- * Bring the history back within budget: clear old tool results, re-measure, then summarise if needed.
- *
- * The decision is `decideContextManagement` in `shared/`, which the browser loop calls too — one policy,
- * not two that happen to agree. Only the APPLICATION is local: this rebuilds from stored parts and
- * persists a recap, the browser rewrites an in-memory array. See
- * docs/architecture/context-management.md.
- *
- * Unlike the browser loop, this has no provider-reported measurement of a previous turn to
- * work from — there is no prior response object in hand — so the whole history counts as
- * unmeasured and the decision runs on the character estimate alone. That is conservative in
- * the safe direction: it can compact slightly early, never slightly late. Expressed as a
- * PARAMETER to the shared decision (`lastInputTokens: 0`), not as a second implementation.
- *
- * A failure here is non-fatal. Continuing with the full history risks a context-overflow
- * error from the provider, which the caller turns into a message; losing the turn entirely
- * to a summarizer hiccup would be worse.
- */
-const compactHistory = async (
-  run: AutonomousAgentRun,
-  identity: UsageIdentity,
-  loaded: LoadedHistory,
-  budget: number,
-  settings: Awaited<ReturnType<typeof getSettings>>,
-  abortSignal: AbortSignal,
-  // Only so the compaction's own trace is gated exactly like the turn's — a summarizer call is a
-  // model call on the person's conversation, so it is the same disclosure.
-  tracing: { autonomousAgentId: string }
-): Promise<{ messages: ModelMessage[], credits: number }> => {
-  if (!budget) return { messages: loaded.messages, credits: 0 }
-  const { history, clearing, compaction: decision } = decideContextManagement({
-    history: loaded.messages,
-    lastInputTokens: 0,
-    appendedChars: JSON.stringify(loaded.messages).length,
-    budget,
-    // The REAL generation, read from the persisted recap. It was hardcoded to 0, which told the
-    // summarizer every time that it was seeing raw exchanges — so a chained compaction was asked to
-    // re-digest an existing recap instead of merging it, which is what compounds loss.
-    generation: loaded.generation
-  })
-  // Clearing leaves the message LIST untouched — only payloads inside it — so `loaded.seqs` still lines
-  // up with `history` and the cut alignment below is unaffected.
-  if (clearing.clear) {
-    debug('cleared %d old tool results, freeing ~%d tokens', clearing.clearedCount, clearing.freedTokens)
-  }
-  if (!decision.compact) {
-    // The saving tier 1 exists for: over budget, brought back under it without a model call.
-    debug('no compaction: %s', decision.reason)
-    return { messages: history, credits: 0 }
-  }
-  // The recap is cached against a STORED MESSAGE boundary, so the cut has to land on one.
-  const cut = alignCutToStoredMessage(loaded.seqs, decision.prefixToSummarize.length)
-  if (cut <= 0) {
-    debug('no compaction: the cut aligned away to nothing')
-    return { messages: history, credits: 0 }
-  }
-  const prefixToSummarize = history.slice(0, cut)
-  const retained = history.slice(cut)
-  const coversUpToSeq = loaded.seqs[cut - 1]
-  // Labelled only when a compaction is ACTUALLY going to happen — this point is past every reason not
-  // to. An unconditional label before the decision would tell the person the assistant was compacting
-  // on every turn, which is both wrong and the kind of thing nobody would notice was wrong.
-  const watching = sessionFor(run.conversationId)
-  watching?.send({ type: 'activity', activity: { kind: 'compacting' } })
-  try {
-    const { model, entry } = resolveRoleModel(settings, 'summarizer')
-    const startedAt = Date.now()
-    const system = compactionSystemPrompt(decision.generation - 1)
-    const body = { messages: [{ role: 'user', content: JSON.stringify(prefixToSummarize) }] }
-    const generated = await generateText({
-      model,
-      system,
-      messages: body.messages as any,
-      abortSignal
-    })
-    const summary = generated.text
-
-    // A compaction is a real model call, so it is BILLED like one. It used to record only a trace —
-    // itself gated on settings.storeTraces, which is off by default — so summarizer tokens reached no
-    // ledger at all: not the run, not the account credit cap, not the usage histogram. The executor
-    // talks to the provider directly rather than through the gateway, so nothing else would have.
-    const compactionCredits = computeCreditBreakdown(
-      {
-        inputTokens: generated.usage?.inputTokens ?? 0,
-        outputTokens: generated.usage?.outputTokens ?? 0
-      },
-      entry,
-      config.eurosPerCredit
-    )
-    // 0 steps: the spend is real but a compaction is not a step of the turn, and inflating the step
-    // count would make the step limit and the run's own record disagree.
-    await incrementRunSpend(run.id, compactionCredits.total, 0)
-    if (compactionCredits.total > 0) {
-      await recordUsage(run.owner, {
-        cost: compactionCredits.total,
-        userId: identity.usageUserId,
-        userName: identity.usageUserName,
-        dimensions: {
-          modelRole: 'summarizer',
-          model: entry.id,
-          profile: identity.role,
-          tokenCosts: { input: compactionCredits.input, cachedInput: compactionCredits.cachedInput, output: compactionCredits.output }
-        }
-      })
-    }
-
-    // Recorded too, so its cost is attributable rather than appearing as unexplained spend on the
-    // turn beside it.
-    recordCall(run, {
-      modelRole: 'summarizer',
-      entry,
-      usage: {
-        inputTokens: generated.usage?.inputTokens ?? 0,
-        outputTokens: generated.usage?.outputTokens ?? 0
-      },
-      credits: compactionCredits.total,
-      creditBreakdown: { input: compactionCredits.input, cachedInput: compactionCredits.cachedInput, output: compactionCredits.output },
-      durationMs: Date.now() - startedAt,
-      finishReason: generated.finishReason
-    })
-    // PERSISTED, so the next turn does not re-summarise the same prefix. Without this, a conversation
-    // past the budget paid a full summarizer call on every turn, for ever: nothing was stored, so the
-    // next turn loaded everything again and was over budget again. Storing tool results made that bite
-    // much sooner, since a single result can be a quarter of the budget.
-    //
-    // After this, the next turn's context is [recap, ...messages after coversUpToSeq], which is small —
-    // so compaction stays quiet until the retained tail itself outgrows the budget.
-    await saveCompaction(run.conversationId, {
-      summary,
-      generation: decision.generation,
-      coversUpToSeq
-    })
-    debug('compacted %d messages into a recap (generation %d, covers up to seq %d)', prefixToSummarize.length, decision.generation, coversUpToSeq)
-    watching?.send({ type: 'activity', activity: null })
-    return { messages: [recapMessage(summary), ...retained], credits: compactionCredits.total }
-  } catch (err) {
-    if (abortSignal.aborted) throw err
-    // A failed compaction used to return the FULL history, which the comment above admits risks a
-    // context-overflow error from the provider. Clear EVERY tool result instead — the same tier-1
-    // mechanism, with `keep: 0` and no minimum, because in this branch the alternative is failing the
-    // turn outright.
-    //
-    // This replaced `pruneMessages`, which removes each call together with its result and leaves nothing
-    // in their place: the model then reasons as though it had never asked. Clearing keeps every call and
-    // every placeholder, so it can see what it did and that the payload is re-fetchable. The store keeps
-    // everything either way; this is only about what the model can still see.
-    watching?.send({ type: 'activity', activity: null })
-    const fallback = clearOldToolResults(history, budget, { keep: 0, clearAtLeast: 0 })
-    const cleared = fallback.clear ? fallback.history : history
-    debug(
-      'compaction failed, continuing with every tool result cleared (%d -> %d chars): %O',
-      JSON.stringify(history).length,
-      JSON.stringify(cleared).length,
-      err
-    )
-    return { messages: cleared, credits: 0 }
-  }
-}
-
-/**
  * Perform the turn itself: resolve the model, gather the agent's tools, and run the loop.
  *
  * An autonomous agent with no verified NHI cannot run at all — its whole tool surface is
@@ -499,42 +170,16 @@ const performTurn = async (run: AutonomousAgentRun, messageSeq: number, messageI
 
   const settings = await getSettings(run.owner)
 
-  // Before any model call: a refused turn must cost nothing. The identity is per agent —
-  // see usageIdentityFor.
+  // BEFORE ANY MODEL CALL: a refused turn must cost nothing.
+  //
+  // Read as a list, which is what extracting them bought. The identity is per agent — a configured
+  // agent bills as itself, a standard one as the person using it (see usageIdentityFor).
   const identity = usageIdentityFor(autonomousAgent, run)
-  const violation = await enforceQuotas(run.owner, settings.quotas ?? {} as any, identity)
-  if (violation) {
-    return {
-      // reason/scope/period name WHAT was exceeded; an org admin needs that to act.
-      // Addressed to whoever is reading it, which is not always an org admin looking at an agent:
-      // the standard assistant uses this path too, and "this autonomous agent could not run" is a
-      // confusing thing to say to a person who just asked a question.
-      parts: [{ type: 'text', text: `${isStandardAgentId(autonomousAgent.id) ? 'I could not answer' : 'This autonomous agent could not run'}: ${violation.reason} (${violation.scope}, ${violation.period} limit ${violation.limit}, used ${violation.usage}). Resets at ${violation.resetsAt}.` }],
-      steps: 0,
-      credits: 0,
-      stopReason: 'error'
-    }
-  }
-
-  // INPUT MODERATION, before any model call.
-  //
-  // This gate was the gateway's, and it is the one piece of the gateway that was an argument FOR
-  // moving the loop server-side rather than a cost of it — so dropping the gateway without it would
-  // have removed a security control while claiming the move strengthens them.
-  //
-  // A BLOCKING pre-check, where the gateway raced the classifier against the model call and buffered
-  // content until the verdict. The gateway had to: it was a proxy holding an HTTP response open, so
-  // waiting showed up directly as time-to-first-token. A turn here is already asynchronous over a
-  // socket, so waiting for a classifier that is meant to be fast and cheap buys a much simpler
-  // mechanism — no buffering, no discard path, and therefore no way for buffered content to escape
-  // on a block, which was the subtlest thing the gateway had to get right.
-  //
-  // Judged on the STORED user turn, hidden-context wrapper included, exactly as the gateway judged
-  // the full last message: that wrapper can carry client-supplied text, so stripping it would let a
-  // caller smuggle a payload past the gate. The page state folded in later (`withHostContext`) is
-  // composed by this server and is deliberately not part of what gets classified.
-  if (moderationApplies(settings, identity.role)) {
-    const refusal = await moderateTurn(run, settings, identity)
+  for (const gate of [
+    () => checkQuotas(run, settings, identity, autonomousAgent.id),
+    () => moderationApplies(settings, identity.role) ? moderateTurn(run, settings, identity) : undefined
+  ]) {
+    const refusal = await gate()
     if (refusal) return refusal
   }
 
