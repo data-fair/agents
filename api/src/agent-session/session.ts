@@ -29,7 +29,7 @@ export interface AgentSessionOptions {
    */
   sessionCookie?: string
   /** Called on a `prompt`. The loop lands here; until then a session is a transport. */
-  onPrompt?: (content: string) => void
+  onPrompt?: (content: string, hiddenContext?: string) => void
   onAbort?: () => void
   /** Called when a `hello` binds this connection to a conversation. The registry is wired here. */
   onAttach?: (conversationId: string) => void
@@ -133,7 +133,7 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
             options.send({ type: 'error', message: 'say hello before prompting' })
             return
           }
-          options.onPrompt?.(message.content)
+          options.onPrompt?.(message.content, message.hiddenContext)
           return
         case 'tool-result': {
           const call = settle(message.callId)

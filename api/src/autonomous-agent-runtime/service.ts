@@ -10,7 +10,7 @@ import { type AccountKeys, httpError } from '@data-fair/lib-express'
 import type { AutonomousAgent, AutonomousAgentConversation, AutonomousAgentMessage, AutonomousAgentRun } from '#types'
 import { canInstruct, type InstructSession } from '../autonomous-agents/operations.ts'
 import { notifyConversationChanged } from './events.ts'
-import { getAutonomousAgent } from '../autonomous-agents/service.ts'
+import { getAutonomousAgent, assertOrganizationOwner } from '../autonomous-agents/service.ts'
 
 /**
  * Authorization for every runtime route.
@@ -66,14 +66,19 @@ export const requireAutonomousAgent = async (owner: AccountKeys, autonomousAgent
  * the same shape; only the reserved id and the absence of an `nhi` distinguish them, and the second is
  * what the identity port keys on.
  *
- * The personal assistant is built per call rather than stored (see ../agent-session/personal-agent.ts),
- * so it costs no collection and no migration.
+ * A standard agent is built per call rather than stored,
+ * so it costs no collection and no migration (see ../agent-session/standard-agents.ts).
  */
 export const resolveAgent = async (owner: AccountKeys, autonomousAgentId: string) => {
   // Standard agents FIRST, which is also what reserves their ids: a configured agent sharing an id
   // would otherwise shadow one, and a conversation naming it would resolve to the wrong identity.
   const standard = standardAgent(autonomousAgentId, config.mcpServers ?? [])
   if (standard) return { ...standard, owner } as unknown as AutonomousAgent
+  // Anything else is a CONFIGURED agent, and those remain organization-owned: their identity rests on
+  // an NHI, which simple-directory binds to exactly one organization. Asserted rather than left to the
+  // lookup below returning nothing — it would, since configured agents are stored org-owned, but a 404
+  // reads as "no such agent" when the real answer is "not on this kind of account".
+  assertOrganizationOwner(owner)
   return await getAutonomousAgent(owner, autonomousAgentId)
 }
 

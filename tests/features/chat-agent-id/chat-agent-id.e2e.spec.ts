@@ -86,11 +86,14 @@ test.describe('Naming an agent instead of handing it a prompt', () => {
 
     await expect(page.getByPlaceholder('Type your message...')).toBeVisible({ timeout: 15000 })
 
-    // The debug dialog opens on the System Prompt tab, so it shows what the model will actually be
-    // told. Wait for the base prompt to be rendered BEFORE asserting the marker's absence — against an
-    // empty or still-loading dialog the absence assertion passes for the wrong reason.
+    // The debug dialog shows everything this PAGE tells the model — the whole client-side
+    // contribution, now that the persona itself lives on the server. If the marker is not in there,
+    // the client did not carry it, which is exactly what the removed capability was.
+    //
+    // Wait for a fact that IS reported before asserting the marker's absence: against an empty or
+    // still-loading dialog the absence assertion would pass for the wrong reason.
     await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
-    await expect(page.locator('.v-dialog')).toContainText('Data Fair', { timeout: 5000 })
+    await expect(page.locator('.v-dialog')).toContainText('language:', { timeout: 5000 })
     await expect(page.locator('.v-dialog')).not.toContainText('SYSPROMPT_E2E_MARKER')
   })
 })

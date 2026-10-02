@@ -39,6 +39,13 @@ export interface AgentSessionClientOptions {
    * transcript and the stored one cannot drift, because they are the same data through the same code.
    */
   onMessage?: (message: { seq: number, role: 'user' | 'assistant', parts: unknown[], pending: boolean }) => void
+  /**
+   * A sub-agent's transcript, as it runs, keyed by the delegating tool call.
+   *
+   * Separate from `onMessage` because it is not a message of the conversation: it belongs INSIDE the
+   * assistant turn that delegated, which is also how it renders (a panel under the tool call).
+   */
+  onSubAgent?: (frame: { parentToolCallId: string, name: string, parts: unknown[], pending: boolean }) => void
   /** What the assistant is doing, in the vocabulary `activityLabelKey` already renders. */
   onActivity?: (activity: ChatActivity | null) => void
   onTurnEnd?: (stopReason: string, detail?: string) => void
@@ -74,8 +81,34 @@ export function useAgentSession (options: AgentSessionClientOptions) {
   const conversationId = shallowRef<string | undefined>(options.conversationId)
   let ws: WebSocket | undefined
 
+  /**
+   * Frames asked for before the socket was open.
+   *
+   * This queue is not a nicety. `send` used to drop anything that arrived before OPEN, silently — and
+   * the window is wide: the page renders, the composer enables, and the conversation still has to be
+   * created over HTTP before the socket is even constructed. Someone typing immediately lost their
+   * first message with no error anywhere, which is the failure mode that is hardest to report and
+   * easiest to blame on the model.
+   */
+  let outbox: ClientMessage[] = []
+
   const send = (message: ClientMessage) => {
-    if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(message))
+    if (ws?.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(message))
+      return
+    }
+    // `hello` is never queued: it is sent from `onopen`, and a queued copy would be a second one
+    // arriving behind the first and rebinding the connection.
+    if (message.type === 'hello') return
+    debug('queued a %s frame until the socket is open', message.type)
+    outbox.push(message)
+  }
+
+  /** Flush after `hello`, so the server has bound the connection before anything references it. */
+  const flush = () => {
+    const queued = outbox
+    outbox = []
+    for (const message of queued) send(message)
   }
 
   /**
@@ -111,6 +144,9 @@ export function useAgentSession (options: AgentSessionClientOptions) {
         return
       case 'message':
         options.onMessage?.(message)
+        return
+      case 'subagent':
+        options.onSubAgent?.(message)
         return
       case 'activity':
         activity.value = message.activity
@@ -163,6 +199,7 @@ export function useAgentSession (options: AgentSessionClientOptions) {
           ...(bindTo ? { conversationId: bindTo } : {}),
           ...(options.agentId ? { agentId: options.agentId } : {})
         })
+        flush()
       }
       ws.onmessage = event => {
         const message = parseServerMessageForClient(String(event.data))
@@ -196,8 +233,22 @@ export function useAgentSession (options: AgentSessionClientOptions) {
       send({ type: 'hello', tools: toDescriptors(options.tools.value), conversationId })
     },
 
-    prompt (content: string) {
-      send({ type: 'prompt', content })
+    prompt (content: string, hiddenContext?: string) {
+      send({ type: 'prompt', content, ...(hiddenContext ? { hiddenContext } : {}) })
+    },
+
+    /**
+     * What is true on the page right now. Replaces the previous report wholesale; a key whose value is
+     * null WITHDRAWS that fact rather than reporting it empty.
+     */
+    reportHostState (state: Record<string, string | null>) {
+      send({ type: 'host-state', state })
+    },
+
+    /** What the person just did. Buffered server-side until the model is told. */
+    reportHostEvents (events: Array<{ name: string, detail?: string, at: number }>) {
+      if (!events.length) return
+      send({ type: 'host-events', events })
     },
 
     abort () {

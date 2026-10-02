@@ -7,7 +7,7 @@ import {
   LOCATION_KEY, resolvesWait
 } from '@agents/shared/host-events'
 import { AGENT_LOCATION_KEY } from '../../../lib-vue/agent-location.ts'
-import { wrapHiddenContext, splitHiddenContext } from '../../../ui/src/traces/hidden-context.ts'
+import { wrapHiddenContext, splitHiddenContext } from '../../../shared/hidden-context.ts'
 
 const ev = (name: string, detail?: string, key?: string, at = 1000) => ({ name, ...(detail ? { detail } : {}), ...(key ? { key } : {}), at })
 

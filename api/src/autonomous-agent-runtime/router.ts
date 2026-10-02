@@ -9,7 +9,7 @@ import { nanoid } from 'nanoid'
 import mongo from '#mongo'
 import { type AccountKeys, httpError, reqSessionAuthenticated } from '@data-fair/lib-express'
 import eventsLog from '@data-fair/lib-express/events-log.js'
-import { assertOrganizationOwner } from '../autonomous-agents/service.ts'
+import { assertCanOwnAgent } from '../autonomous-agents/service.ts'
 import { assertCanInstruct, assertOwnsConversation, requireAutonomousAgent, requireConversation, appendMessage, createRun } from './service.ts'
 import { startRun, abortRun } from './executor.ts'
 
@@ -83,11 +83,24 @@ runsRouter.get('/:type/:id/:runId', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-/** The owner named in the path, rejected early when it cannot own an autonomous agent. */
+/**
+ * The owner named in the path.
+ *
+ * It does NOT assert an organization any more, because on these runtime routes that depends on which
+ * agent is involved: a standard agent runs on a person's own account (see `assertCanOwnAgent`). The
+ * invariant has not been dropped — it moved to where the agent id is known:
+ *
+ *  - the create route calls `assertCanOwnAgent` with the id from the body;
+ *  - every conversation-scoped route reaches its data through `requireConversation(owner, id)`, which
+ *    scopes by owner, so a user-owned conversation is reachable only if it was created through that
+ *    guarded route in the first place;
+ *  - a CONFIGURED agent is still refused on a user account, now by `resolveAgent`.
+ *
+ * The agent CRUD router (../autonomous-agents/router.ts) keeps the blanket assertion in all eight of
+ * its routes: configuring agents stays an organization feature.
+ */
 const reqOwner = (req: any): AccountKeys => {
-  const owner = { type: req.params.type, id: req.params.id } as AccountKeys
-  assertOrganizationOwner(owner)
-  return owner
+  return { type: req.params.type, id: req.params.id } as AccountKeys
 }
 
 router.post('/:type/:id', async (req, res, next) => {
@@ -96,6 +109,7 @@ router.post('/:type/:id', async (req, res, next) => {
     const owner = reqOwner(req)
     const autonomousAgentId = req.body?.autonomousAgentId
     if (typeof autonomousAgentId !== 'string' || !autonomousAgentId) throw httpError(400, 'autonomousAgentId is required')
+    assertCanOwnAgent(owner, autonomousAgentId)
     const autonomousAgent = await requireAutonomousAgent(owner, autonomousAgentId)
     assertCanInstruct(autonomousAgent, session)
 
@@ -128,6 +142,7 @@ router.get('/:type/:id', async (req, res, next) => {
     // it there is no autonomous agent whose instructors list can be consulted.
     const autonomousAgentId = req.query.autonomousAgentId
     if (typeof autonomousAgentId !== 'string' || !autonomousAgentId) throw httpError(400, 'autonomousAgentId query parameter is required')
+    assertCanOwnAgent(owner, autonomousAgentId)
     const autonomousAgent = await requireAutonomousAgent(owner, autonomousAgentId)
     assertCanInstruct(autonomousAgent, session)
 

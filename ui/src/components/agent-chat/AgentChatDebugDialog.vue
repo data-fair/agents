@@ -46,9 +46,16 @@
             </v-btn>
 
             <div class="text-caption font-weight-bold mt-3 mb-1 px-2">
-              {{ t('systemPrompt') }}
+              {{ t('hostContext') }}
             </div>
-            <pre class="agent-chat__pre pa-3">{{ systemPrompt }}</pre>
+            <!--
+              What this PAGE tells the model, not the whole system prompt. The persona lives on the
+              server now (api/src/agent-session/standard-agents.ts) and is not client-readable, so a
+              panel claiming to show "the system prompt" would be showing a fraction of it and
+              labelling it as the whole. This is the client's entire contribution, which is the part a
+              host integrator can actually affect and debug.
+            -->
+            <pre class="agent-chat__pre pa-3">{{ hostContextText }}</pre>
 
             <div class="text-caption font-weight-bold mt-3 mb-1 px-2">
               {{ t('tools') }} ({{ totalToolCount }})
@@ -231,7 +238,7 @@
 fr:
   close: Fermer
   info: Info
-  systemPrompt: Prompt système
+  hostContext: Contexte transmis par la page
   tools: Outils
   noTools: Aucun outil enregistré
   inputSchema: Schéma d'entrée
@@ -253,7 +260,7 @@ fr:
 en:
   close: Close
   info: Info
-  systemPrompt: System Prompt
+  hostContext: Context reported by this page
   tools: Tools
   noTools: No tools registered
   inputSchema: Input Schema
@@ -280,14 +287,15 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { mdiArrowLeft, mdiOpenInNew } from '@mdi/js'
 import DfTutorialAlert from '@data-fair/lib-vuetify/tutorial-alert.vue'
-import type { DebugToolsPartition } from '~/composables/use-agent-chat'
+import type { DebugToolsPartition } from '~/utils/tools-partition'
 import { traceStorageAvailable, consentRef, writeConsent } from '~/traces/trace-consent'
 
 const props = defineProps<{
   modelValue: boolean
-  systemPrompt: string
+  hostContext: Record<string, string | null>
   debugToolsPartition: DebugToolsPartition
-  conversationId: string
+  /** Absent until the socket has attached: the server assigns it, so the client cannot know it earlier. */
+  conversationId?: string
   isAdmin?: boolean
   accountType: string
   accountId: string
@@ -297,6 +305,20 @@ const props = defineProps<{
   mermaid?: boolean
   showReasoning?: boolean
 }>()
+
+/**
+ * The reported facts as lines, with the withdrawn ones left out.
+ *
+ * A null value means "no longer true", so printing it as `surface: null` would read as a fact whose
+ * value is the word null — which is how a panel meant to explain the model's view starts misleading
+ * the person reading it.
+ */
+const hostContextText = computed(() => {
+  const lines = Object.entries(props.hostContext)
+    .filter(([, detail]) => detail !== null && detail !== undefined)
+    .map(([key, detail]) => `${key}: ${detail}`)
+  return lines.length ? lines.join('\n') : '—'
+})
 
 defineEmits<{
   'update:modelValue': [value: boolean]
@@ -321,7 +343,9 @@ const totalToolCount = computed(() => {
 // previous session can flip it back without sending a first message.
 const showConsentToggle = computed(() => traceStorageAvailable.value || consentRef.value !== undefined)
 
-const showReview = computed(() => !!props.isAdmin && traceStorageAvailable.value && consentRef.value === 'yes')
+// `conversationId` gates it too: the review route needs one, and offering a button that resolves to
+// a path with `undefined` in it is worse than not offering it for the moment before attach.
+const showReview = computed(() => !!props.isAdmin && !!props.conversationId && traceStorageAvailable.value && consentRef.value === 'yes')
 
 // Open the review in a new tab at the account-scoped trace route. `router.resolve(...).href`
 // includes the app's base ('/agents'), so this works whether the chat is standalone or

@@ -59,7 +59,9 @@ test.describe('runStopReasonMessage', () => {
 })
 
 test.describe('buildSystemPrompt', () => {
-  const agent = { id: 'a1', title: 'Support triage', persona: 'You triage support questions.', instructions: 'Answer in French.' }
+  // Carries an `nhi`, because that is what selects the identity clause below: this fixture is a
+  // CONFIGURED agent, which is the kind that has a service identity of its own.
+  const agent = { id: 'a1', title: 'Support triage', persona: 'You triage support questions.', instructions: 'Answer in French.', nhi: { clientId: 'c1' } }
 
   test('includes the persona and the instructions', () => {
     const prompt = buildSystemPrompt(agent)
@@ -78,10 +80,22 @@ test.describe('buildSystemPrompt', () => {
     assert.doesNotMatch(prompt, /attribut/i)
   })
 
-  test('still says the agent acts under its OWN identity', () => {
-    // Unchanged by dropping the shared timeline, and still what stops a configured agent assuming its
-    // user's permissions are available to it.
+  test('an agent WITH an nhi is told it acts under its own identity', () => {
+    // Still what stops a configured agent assuming its user's permissions are available to it.
     assert.match(buildSystemPrompt(agent), /own service identity/i)
+  })
+
+  test('an agent WITHOUT an nhi is told it acts as the person instead', () => {
+    // The two clauses are mutually exclusive, and that is the point of the pair. A standard agent has
+    // no non-human identity: it acts as the person through their forwarded session. Telling it that it
+    // acts "under its own service identity, not on behalf of whoever wrote the last message" would
+    // contradict the persona it was just given AND what its tools can actually reach — so it would
+    // explain a refusal by appealing to permissions it does not have, instead of telling the person
+    // that THEY cannot do that.
+    const { nhi, ...standard } = agent
+    const prompt = buildSystemPrompt(standard as any)
+    assert.match(prompt, /act as the person using you/i)
+    assert.doesNotMatch(prompt, /own service identity/i)
   })
 
   test('warns that tool results are data, not instructions', () => {

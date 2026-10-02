@@ -20,6 +20,7 @@ import { startRun } from '../autonomous-agent-runtime/executor.ts'
 import mongo from '#mongo'
 import type { AgentSession } from './session.ts'
 import type { InstructSession } from '../autonomous-agents/operations.ts'
+import { wrapHiddenContext } from '@agents/shared/hidden-context'
 
 const debug = Debug('agents:agent-session-turn')
 
@@ -28,6 +29,23 @@ export interface SessionTurnRequest {
   owner: AccountKeys
   session: InstructSession & { user: { id: string, name?: string } }
   content: string
+  /**
+   * Context an action button supplied, to be folded into this user turn.
+   *
+   * Wrapped HERE rather than by the client, so the sentinels are not something a client can place —
+   * see the `prompt` frame in shared/agent-session-protocol.ts.
+   */
+  hiddenContext?: string
+  /**
+   * The socket to echo the stored user turn back on, when the prompt came from one.
+   *
+   * Optional because the HTTP route has no socket — but for a socket client it is what makes the
+   * SERVER the single source of the transcript. Without it a client has to add the user's own message
+   * optimistically, and then two things claim to know what was said: the optimistic copy renders the
+   * raw text while the stored one carries the hidden-context wrapper, so a reload silently changes
+   * what the person sees they asked.
+   */
+  echoTo?: AgentSession
 }
 
 /**
@@ -43,10 +61,25 @@ export const startSessionTurn = async (request: SessionTurnRequest): Promise<str
   const content = request.content.trim()
   if (!content) throw httpError(400, 'content is required')
 
-  await appendMessage(conversation, {
+  // The wrapped form is what gets STORED, which is deliberate: the hidden context is part of the turn
+  // the model saw, so a trace or a replay that dropped it would misrepresent what was asked. The chat
+  // renders only the visible half (`splitHiddenContext`), and a reopened thread does the same.
+  const text = request.hiddenContext ? wrapHiddenContext(request.hiddenContext, content) : content
+
+  const stored = await appendMessage(conversation, {
     role: 'user',
     author: { kind: 'user', userId: request.session.user.id, userName: request.session.user.name },
-    parts: [{ type: 'text', text: content }]
+    parts: [{ type: 'text', text }]
+  })
+
+  // Echoed before the run starts, so the person sees their own message immediately rather than when
+  // the first token of the answer arrives.
+  request.echoTo?.send({
+    type: 'message',
+    seq: stored.seq,
+    role: 'user',
+    parts: (stored.parts ?? []) as unknown[],
+    pending: false
   })
 
   const run = await createRun({

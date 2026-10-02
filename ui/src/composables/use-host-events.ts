@@ -25,11 +25,19 @@ function sanitizeEvent (raw: any): AgentEvent | null {
 }
 
 /**
- * Feeds a HostEventStore from the tab BroadcastChannel. Posts one agent-state-request on
- * creation so pages that mounted before this chat re-emit their keyed state (retention
- * is rebuilt; transitions that happened before the chat existed are gone by design).
+ * Subscribe to the tab BroadcastChannel's host events, sanitized.
+ *
+ * Split out from `useHostEvents` so the server-held loop can FORWARD the same events up the socket
+ * instead of feeding a local store, without a second copy of the channel protocol or of
+ * `sanitizeEvent`. Two copies of a boundary guard is two places to forget to harden.
+ *
+ * Posts one `agent-state-request` so pages that mounted before this chat re-emit their keyed state
+ * (retention is rebuilt; transitions from before the chat existed are gone by design).
  */
-export function useHostEvents (store: HostEventStore = new HostEventStore()): HostEventStore {
+export function subscribeHostEvents (handlers: {
+  onEvent: (event: AgentEvent) => void
+  onWithdraw: (key: string) => void
+}): () => void {
   const channelId = getTabChannelId()
   const channel = new BroadcastChannel(channelId)
   channel.onmessage = (event: MessageEvent) => {
@@ -39,13 +47,23 @@ export function useHostEvents (store: HostEventStore = new HostEventStore()): Ho
       const safe = sanitizeEvent(data.event)
       if (!safe) { debug('ignoring malformed event %o', data.event); return }
       debug('event %o', safe)
-      store.push(safe)
+      handlers.onEvent(safe)
     } else if (data.type === 'agent-state-withdrawn' && data.key) {
       debug('withdrawn %s', data.key)
-      store.withdraw(data.key)
+      handlers.onWithdraw(data.key)
     }
   }
   channel.postMessage({ channel: channelId, type: 'agent-state-request' })
-  if (getCurrentScope()) onScopeDispose(() => channel.close())
+  const close = () => channel.close()
+  if (getCurrentScope()) onScopeDispose(close)
+  return close
+}
+
+/** Feeds a HostEventStore from the tab BroadcastChannel. The in-browser loop's consumer. */
+export function useHostEvents (store: HostEventStore = new HostEventStore()): HostEventStore {
+  subscribeHostEvents({
+    onEvent: event => store.push(event),
+    onWithdraw: key => store.withdraw(key)
+  })
   return store
 }

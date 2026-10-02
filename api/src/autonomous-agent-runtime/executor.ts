@@ -44,7 +44,7 @@ import { isStandardAgentId } from '../agent-session/standard-agents.ts'
 import type { AgentSession } from '../agent-session/session.ts'
 import type { ChatActivity } from '@agents/shared/agent-activity'
 import { browserToolSet } from '../agent-session/browser-tools.ts'
-import { createWaitTool, WAIT_TOOL_NAME } from '@agents/shared/host-events'
+import { createWaitTool, withHostContext, WAIT_TOOL_NAME } from '@agents/shared/host-events'
 import { enforceQuotas, checkAccountCreditCap, type UsageIdentity } from '../usage/enforce.ts'
 import { recordUsage } from '../usage/service.ts'
 
@@ -546,7 +546,19 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
     settings,
     abortSignal
   )
-  const history = compacted.messages
+  // What the page has reported, folded into the last user turn at CALL time.
+  //
+  // This closes a gap the prototype had: the socket collected host state and host events into the
+  // store, `wait_for_user_action` consumed the events, and the retained state was never told to the
+  // model at all — so an assistant asked "what am I looking at?" had the answer in memory beside it
+  // and no way to read it.
+  //
+  // In the last USER message rather than in the system prompt, which is where the browser loop put it
+  // and for the same two reasons: the system prompt is the stable, cacheable prefix and page state
+  // changes every turn, and state presented as a standing instruction reads to the model as a rule
+  // rather than as an observation. Not persisted — it decorates this request only, so the stored
+  // conversation stays a record of what was said rather than of what was on screen each time.
+  const history = session ? withHostContext(compacted.messages, session.hostEvents) : compacted.messages
 
   // Credits spent so far this turn, accumulated per step so the budget can stop the loop
   // between steps rather than only reporting the overrun afterwards.

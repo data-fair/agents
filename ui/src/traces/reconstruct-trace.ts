@@ -1,5 +1,5 @@
 import type { SessionTrace, TraceSummary, PhysicalRequestTrace, TurnTrace, StepTrace, ToolCallTrace, ToolSnapshot, SubAgentTrace } from './session-recorder.ts'
-import { splitHiddenContext } from './hidden-context.ts'
+import { splitHiddenContext } from '@agents/shared/hidden-context'
 // Relative path (not the ~/ alias) so the root `tsc` pass — which compiles the
 // unit tests that import this module — resolves it; the ~ Vite alias is not
 // configured for that pass. Don't "fix" this to ~/utils/agent-flags.

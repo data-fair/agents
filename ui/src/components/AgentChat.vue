@@ -59,7 +59,7 @@
 
     <agent-chat-debug-dialog
       v-model="showDebugDialog"
-      :system-prompt="finalSystemPrompt"
+      :host-context="hostContext"
       :debug-tools-partition="debugToolsPartition"
       :conversation-id="chat.conversationId.value"
       :is-admin="isAdmin"
@@ -84,41 +84,11 @@
 <i18n lang="yaml">
 fr:
   welcome: Comment puis-je vous aider ?
-  systemPromptBase: Tu es un assistant IA utile pour la plateforme Data Fair.
-  systemPromptLang: La langue de l'utilisateur est {lang}.
-  systemPromptOrg: "L'utilisateur actuel est membre de l'organisation {orgName}{depPart}."
-  systemPromptDep: ", département {depName}"
-  systemPromptCompact: "Tes réponses sont affichées dans un widget de chat étroit. Garde un formatage compact : utilise des paragraphes courts et des listes à puces simples. Évite les tableaux, les blocs de code larges et les sorties verbeuses. Sois concis."
-  systemPromptMermaid: |
-    Tu peux afficher des diagrammes et graphiques en émettant des blocs de code Mermaid (```mermaid). Privilégie les graphiques XY simples (xychart-beta) pour visualiser des données quantitatives (tendances, comparaisons). N'utilise un diagramme que s'il aide vraiment à la compréhension ; sinon réponds en texte ou avec un tableau. Les valeurs d'un graphique doivent provenir de données réellement interrogées via les outils — ne les invente jamais, ne les estime pas et n'utilise pas de nombres d'exemple ; si tu n'as pas les valeurs, ne trace pas le graphique. Pour un graphique XY, suis exactement cette syntaxe :
-    ```mermaid
-    xychart-beta
-      title "Chiffre d'affaires"
-      x-axis [jan, fev, mar]
-      y-axis "EUR" 0 --> 100
-      bar [20, 50, 90]
-      line [20, 50, 90]
-    ```
   moderationRefusal: "Ce message a été refusé par la modération de contenu — il semble sortir du cadre de ce que cet assistant peut faire. Reformulez votre demande si vous pensez qu'il s'agit d'une erreur."
   fixMermaidVisible: "Corrige le diagramme qui n'a pas pu s'afficher."
   fixMermaidAuto: "Le diagramme n'a pas pu s'afficher, correction automatique en cours…"
 en:
   welcome: How can I help you?
-  systemPromptBase: You are a helpful AI assistant for the Data Fair platform.
-  systemPromptLang: The user's language is {lang}.
-  systemPromptOrg: "The current user is a member of the organization {orgName}{depPart}."
-  systemPromptDep: ", department {depName}"
-  systemPromptCompact: "Your responses are displayed in a narrow chat widget. Keep formatting compact: use short paragraphs and simple bullet lists. Avoid tables, wide code blocks, and verbose output. Be concise."
-  systemPromptMermaid: |
-    You can render diagrams and charts by emitting Mermaid fenced code blocks (```mermaid). Prefer simple XY charts (xychart-beta) to visualize quantitative data such as trends and comparisons. Only use a diagram when it genuinely aids understanding; otherwise answer with prose or a table. A chart's values must come from data you actually queried with the tools — never invent or estimate them, and never use placeholder numbers; if you don't have the values, don't draw the chart. When you draw an XY chart, follow this exact syntax:
-    ```mermaid
-    xychart-beta
-      title "Revenue"
-      x-axis [jan, feb, mar]
-      y-axis "USD" 0 --> 100
-      bar [20, 50, 90]
-      line [20, 50, 90]
-    ```
   moderationRefusal: "This message was declined by content moderation — it appears to fall outside what this assistant is meant to help with. Try rephrasing if you think this is a mistake."
   fixMermaidVisible: "Please fix the diagram that failed to render."
   fixMermaidAuto: "The diagram failed to render, fixing it automatically…"
@@ -130,7 +100,8 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSession } from '@data-fair/lib-vue/session.js'
 import { useVueRouterDFrameContent } from '@data-fair/frame/lib/vue-router/d-frame-content.js'
-import { useAgentChat, type ChatMessage } from '~/composables/use-agent-chat'
+import { useSessionChat } from '~/composables/use-session-chat'
+import type { ChatMessage } from '~/utils/chat-message'
 import { formatMermaidFix, shouldAutoFixMermaid, MERMAID_AUTO_FIX_BUDGET } from '~/utils/mermaid-fix'
 import type { MermaidFailure } from '~/utils/mermaid'
 import { getTabChannelId, getAgentInitConfig } from '@data-fair/lib-vue-agents'
@@ -172,35 +143,55 @@ const chatTitle = computed(() => initConfig?.title ?? props.title)
 const { t } = useI18n()
 const session = useSession()
 
-const finalSystemPrompt = computed(() => {
-  const lang = session.state.lang || 'fr'
+/**
+ * Facts about this surface, in ENGLISH and not through i18n.
+ *
+ * They are addressed to the model, not to the person, and they used to be localized — which meant the
+ * assistant's instructions themselves differed by UI language, so a French user and an English user
+ * got measurably different behaviour from the same build. The person's language travels as its own
+ * fact (`language` below) and the model answers in it; how it should format is one instruction for
+ * everyone.
+ */
+const NARROW_SURFACE = 'a narrow chat widget: keep answers compact, with short paragraphs and simple bullet lists, and avoid tables, wide code blocks and verbose output'
+
+const MERMAID_SUPPORT = [
+  'this host renders Mermaid fenced code blocks (```mermaid), so diagrams and charts may be used in answers.',
+  'Prefer simple XY charts (xychart-beta) for quantitative data such as trends and comparisons, and only use a diagram when it genuinely aids understanding — otherwise answer with prose or a table.',
+  // The guardrail, carried over verbatim in substance: it is the part that stops a chart from
+  // inventing its own data, which is the failure that makes a chart worse than no chart.
+  "A chart's values must come from data actually queried with the tools — never invented, estimated, or placeholder numbers; without the values, do not draw the chart.",
+  'XY charts follow this exact syntax:\n```mermaid\nxychart-beta\n  title "Revenue"\n  x-axis [jan, feb, mar]\n  y-axis "USD" 0 --> 100\n  bar [20, 50, 90]\n  line [20, 50, 90]\n```'
+].join(' ')
+
+/**
+ * The context this chat's surroundings add, reported as HOST STATE rather than spliced into a prompt.
+ *
+ * It used to be concatenated onto a client-built system prompt. The prompt is the server's now, and
+ * the server does not know any of this — the person's language, which organization they are in, that
+ * the chat is a narrow strip rather than a page, whether this host renders diagrams. So it travels on
+ * the channel that exists for exactly this: facts the page knows and the model needs.
+ *
+ * This is a better home than the prompt was, for a reason worth recording: these are OBSERVATIONS
+ * about the situation, and they change while a conversation is open. Someone widening the drawer or
+ * switching language used to need a conversation reset for the prompt to be uniform; as state, the
+ * next turn simply sees the new value.
+ *
+ * The user's NAME stays out, as it did before: it has no bearing on the assistant's behaviour and it
+ * is a privacy concern to hand to a provider.
+ */
+const hostContext = computed<Record<string, string | null>>(() => {
   const orgName = session.state.account?.name
   const depName = session.state.account?.departmentName
-
-  // The user's name is deliberately omitted: it has no bearing on the assistant's
-  // behaviour, it is a privacy concern to send to providers, and keeping it out
-  // makes the system prompt prefix homogeneous across users (better prompt caching).
-  // One base prompt for every host. A host used to be able to substitute its own prose here, through a
-  // prop or through this page's query string; it now names an agent instead and the text lives on the
-  // server (api/src/agent-session/standard-agents.ts), which is why there is nothing left to override.
-  const parts = [t('systemPromptBase')]
-
-  if (props.accountType === 'organization' && orgName) {
-    const depPart = depName ? t('systemPromptDep', { depName }) : ''
-    parts.push(t('systemPromptOrg', { orgName, depPart }))
+  return {
+    language: session.state.lang || 'fr',
+    organization: props.accountType === 'organization' && orgName
+      ? (depName ? `${orgName}, department ${depName}` : orgName)
+      : null,
+    // Null WITHDRAWS the fact, which is the difference between "this chat is a wide page" and "nobody
+    // said how wide it is" — only the first should make the assistant stop keeping its answers narrow.
+    surface: props.narrowViewport ? NARROW_SURFACE : null,
+    diagrams: mermaidEnabled.value ? MERMAID_SUPPORT : null
   }
-
-  parts.push(t('systemPromptLang', { lang }))
-
-  if (props.narrowViewport) {
-    parts.push(t('systemPromptCompact'))
-  }
-
-  if (mermaidEnabled.value) {
-    parts.push(t('systemPromptMermaid'))
-  }
-
-  return parts.join(' ')
 })
 
 // Experimental chat flags, persisted in a service-scoped cookie (see agent-flags.ts)
@@ -213,14 +204,12 @@ const simpleSubAgentsEnabled = ref(initialFlags.simpleSubAgents)
 const mermaidEnabled = ref(initialFlags.mermaid)
 const showReasoningEnabled = ref(initialFlags.showReasoning)
 
-const chatResult = useAgentChat({
+const chatResult = useSessionChat({
   accountType: props.accountType,
   accountId: props.accountId,
-  systemPrompt: finalSystemPrompt.value,
+  ...(props.agentId ? { agentId: props.agentId } : {}),
   initialMessages: props.initialMessages,
-  refusalMessage: t('moderationRefusal'),
-  toolExploration: explorationEnabled.value,
-  flattenSubAgents: !subAgentsEnabled.value
+  ...(chatTitle.value ? { title: chatTitle.value } : {})
 })
 
 if (!chatResult) {
@@ -230,9 +219,9 @@ if (!chatResult) {
 // but TypeScript doesn't narrow across script setup scope, so we re-bind
 const chat = chatResult
 
-watch(finalSystemPrompt, (prompt) => {
-  chat.setSystemPrompt(prompt)
-})
+// Reported on attach and whenever it changes. `immediate` matters: the first turn is the one most
+// likely to ask "what is this?", and a report that only fired on CHANGE would leave that turn blind.
+watch(hostContext, context => { chat.reportHostState(context) }, { immediate: true, deep: true })
 
 const actionVisiblePrompt = ref<string | null>(null)
 
@@ -346,20 +335,19 @@ function persistFlags () {
   }, $apiPath)
 }
 
+// Tool exploration and sub-agent flattening are the two flags the server-held loop does not take
+// from the client. Exploration is shelved; flattening is the loop's own decision now. The flags are
+// still persisted — they are read by the evaluator path, which still runs in the browser — but the
+// conversation reset is what used to apply them here, and resetting for a setting that no longer
+// reaches the loop would throw the transcript away for nothing.
 function handleToolExploration (enabled: boolean) {
   explorationEnabled.value = enabled
   persistFlags()
-  chat.setToolExploration(enabled)
-  // Reset the conversation so the new tool set applies from a clean state.
-  handleReset()
 }
 
 function handleSubAgents (enabled: boolean) {
   subAgentsEnabled.value = enabled
   persistFlags()
-  chat.setFlattenSubAgents(!enabled)
-  // Reset the conversation so the new tool set applies from a clean state.
-  handleReset()
 }
 
 function handleSimpleSubAgents (enabled: boolean) {
@@ -371,8 +359,9 @@ function handleSimpleSubAgents (enabled: boolean) {
 function handleMermaid (enabled: boolean) {
   mermaidEnabled.value = enabled
   persistFlags()
-  // Reset so the system prompt is uniform across the whole conversation.
-  handleReset()
+  // No reset: the mermaid instruction used to be part of the client-built system prompt, so the
+  // conversation had to restart for it to be uniform. The prompt is the server's now and this flag is
+  // render-only here.
 }
 
 function handleShowReasoning (enabled: boolean) {
@@ -385,7 +374,7 @@ function handleShowReasoning (enabled: boolean) {
 
 function handleReset () {
   chat.abort()
-  chat.reset(finalSystemPrompt.value)
+  chat.reset()
   actionVisiblePrompt.value = null
   sessionStarted.value = false
   // The transcript is gone; drop the scroll-driven header shadow until it scrolls again.

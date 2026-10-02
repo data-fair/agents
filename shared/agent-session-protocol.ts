@@ -29,8 +29,18 @@ export type ClientMessage =
   | { type: 'hello', conversationId?: string, agentId?: string, tools: BrowserToolDescriptor[] }
   /** The page navigated or its state changed: this is the tool set from now on. */
   | { type: 'tools-changed', tools: BrowserToolDescriptor[] }
-  /** A user turn. */
-  | { type: 'prompt', content: string }
+  /**
+   * A user turn.
+   *
+   * `hiddenContext` is what an action button supplies: context the model should have and the person
+   * should not see rendered back at them. It travels as its OWN field and the server does the wrapping
+   * (see `wrapHiddenContext`), rather than the client sending a pre-wrapped `content`. That is what
+   * keeps the sentinels from being something a client can place: a client that could wrap would be a
+   * client that could forge a false boundary inside its own visible text and smuggle the rest past the
+   * moderation gate, which classifies the whole wrapped message precisely so the wrapper is not an
+   * escape hatch.
+   */
+  | { type: 'prompt', content: string, hiddenContext?: string }
   /** The answer to a `tool-call`. Exactly one of result/error. */
   | { type: 'tool-result', callId: string, result?: unknown, error?: string }
   /** Stop the turn in flight. */
@@ -189,7 +199,16 @@ export function parseClientMessage (raw: string): ClientMessage | InvalidMessage
       if (typeof parsed.content !== 'string' || !parsed.content.trim()) {
         return { type: 'invalid', reason: 'content must be a non-blank string' }
       }
-      return { type: 'prompt', content: parsed.content }
+      // A present-but-wrong hiddenContext is rejected rather than coerced: it ends up inside the
+      // model's user turn, so silently stringifying an object would put "[object Object]" there.
+      if (parsed.hiddenContext !== undefined && typeof parsed.hiddenContext !== 'string') {
+        return { type: 'invalid', reason: 'hiddenContext must be a string when present' }
+      }
+      return {
+        type: 'prompt',
+        content: parsed.content,
+        ...(parsed.hiddenContext ? { hiddenContext: parsed.hiddenContext } : {})
+      }
     }
     case 'tool-result': {
       if (typeof parsed.callId !== 'string' || !parsed.callId) {

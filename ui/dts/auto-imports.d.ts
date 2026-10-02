@@ -151,6 +151,7 @@ declare global {
   const repeatedCallNudge: typeof import('../src/composables/agent-loop-guards').repeatedCallNudge
   const resetAnonymousToken: typeof import('../src/composables/use-anonymous-token').resetAnonymousToken
   const resolveComponent: typeof import('vue').resolveComponent
+  const resolveToolsPartition: typeof import('../src/utils/tools-partition').resolveToolsPartition
   const resolvesWait: typeof import('../src/composables/host-events').resolvesWait
   const retainedToolNames: typeof import('../src/utils/compaction-policy').retainedToolNames
   const selectPromotions: typeof import('../src/utils/tool-exploration').selectPromotions
@@ -163,6 +164,7 @@ declare global {
   const shouldFlattenSubAgent: typeof import('../src/composables/sub-agent-flatten').shouldFlattenSubAgent
   const streamingSafeBuffer: typeof import('../src/utils/markdown').streamingSafeBuffer
   const subAgentModelOutput: typeof import('../src/utils/agent-subagent-output').subAgentModelOutput
+  const subscribeHostEvents: typeof import('../src/composables/use-host-events').subscribeHostEvents
   const toDescriptors: typeof import('../src/composables/use-agent-session').toDescriptors
   const toRaw: typeof import('vue').toRaw
   const toRef: typeof import('vue').toRef
@@ -205,6 +207,7 @@ declare global {
   const useServerSeoMeta: typeof import('@unhead/vue')['useServerSeoMeta']
   const useSession: typeof import('@data-fair/lib-vue/session.js').useSession
   const useSessionAuthenticated: typeof import('@data-fair/lib-vue/session.js').useSessionAuthenticated
+  const useSessionChat: typeof import('../src/composables/use-session-chat').useSessionChat
   const useSettingsForm: typeof import('../src/composables/use-settings-form').useSettingsForm
   const useSlots: typeof import('vue').useSlots
   const useStringSearchParam: typeof import('@data-fair/lib-vue/reactive-search-params.js').useStringSearchParam
@@ -253,7 +256,7 @@ declare global {
   export type { SubAgentFlattenConfig } from '../src/composables/sub-agent-flatten'
   import('../src/composables/sub-agent-flatten')
   // @ts-ignore
-  export type { ToolInfo, SubAgentInfo, DebugToolsPartition, UseAgentChatOptions, ChatMessage } from '../src/composables/use-agent-chat'
+  export type { UseAgentChatOptions, ChatMessage, ToolInfo, SubAgentInfo, DebugToolsPartition } from '../src/composables/use-agent-chat'
   import('../src/composables/use-agent-chat')
   // @ts-ignore
   export type { AgentSessionClientOptions } from '../src/composables/use-agent-session'
@@ -264,6 +267,9 @@ declare global {
   // @ts-ignore
   export type { OrgNhi } from '../src/composables/use-autonomous-agent-enrolment'
   import('../src/composables/use-autonomous-agent-enrolment')
+  // @ts-ignore
+  export type { UseSessionChatOptions } from '../src/composables/use-session-chat'
+  import('../src/composables/use-session-chat')
   // @ts-ignore
   export type { SettingsFormParams } from '../src/composables/use-settings-form'
   import('../src/composables/use-settings-form')
@@ -356,6 +362,7 @@ declare module 'vue' {
     readonly repairInline: UnwrapRef<typeof import('../src/utils/markdown')['repairInline']>
     readonly resetAnonymousToken: UnwrapRef<typeof import('../src/composables/use-anonymous-token')['resetAnonymousToken']>
     readonly resolveComponent: UnwrapRef<typeof import('vue')['resolveComponent']>
+    readonly resolveToolsPartition: UnwrapRef<typeof import('../src/utils/tools-partition')['resolveToolsPartition']>
     readonly selectPromotions: UnwrapRef<typeof import('../src/utils/tool-exploration')['selectPromotions']>
     readonly serializeFlagsCookie: UnwrapRef<typeof import('../src/utils/agent-flags')['serializeFlagsCookie']>
     readonly setBreadcrumbs: UnwrapRef<typeof import('../src/utils/breadcrumbs')['setBreadcrumbs']>
@@ -365,6 +372,7 @@ declare module 'vue' {
     readonly shouldAutoFixMermaid: UnwrapRef<typeof import('../src/utils/mermaid-fix')['shouldAutoFixMermaid']>
     readonly shouldFlattenSubAgent: UnwrapRef<typeof import('../src/composables/sub-agent-flatten')['shouldFlattenSubAgent']>
     readonly streamingSafeBuffer: UnwrapRef<typeof import('../src/utils/markdown')['streamingSafeBuffer']>
+    readonly subscribeHostEvents: UnwrapRef<typeof import('../src/composables/use-host-events')['subscribeHostEvents']>
     readonly toDescriptors: UnwrapRef<typeof import('../src/composables/use-agent-session')['toDescriptors']>
     readonly toRaw: UnwrapRef<typeof import('vue')['toRaw']>
     readonly toRef: UnwrapRef<typeof import('vue')['toRef']>
@@ -401,6 +409,7 @@ declare module 'vue' {
     readonly useSeoMeta: UnwrapRef<typeof import('@unhead/vue')['useSeoMeta']>
     readonly useSession: UnwrapRef<typeof import('@data-fair/lib-vue/session.js')['useSession']>
     readonly useSessionAuthenticated: UnwrapRef<typeof import('@data-fair/lib-vue/session.js')['useSessionAuthenticated']>
+    readonly useSessionChat: UnwrapRef<typeof import('../src/composables/use-session-chat')['useSessionChat']>
     readonly useSettingsForm: UnwrapRef<typeof import('../src/composables/use-settings-form')['useSettingsForm']>
     readonly useSlots: UnwrapRef<typeof import('vue')['useSlots']>
     readonly useStringSearchParam: UnwrapRef<typeof import('@data-fair/lib-vue/reactive-search-params.js')['useStringSearchParam']>

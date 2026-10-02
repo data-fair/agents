@@ -84,7 +84,7 @@ export const startAgentSessions = (server: Server, options: StartAgentSessionsOp
           })
         }
       },
-      onPrompt: content => {
+      onPrompt: (content, hiddenContext) => {
         if (!boundConversationId) {
           send({ type: 'error', message: 'this connection is not bound to a conversation' })
           return
@@ -99,7 +99,9 @@ export const startAgentSessions = (server: Server, options: StartAgentSessionsOp
           conversationId: boundConversationId,
           owner: { type: sessionState.account.type, id: sessionState.account.id },
           session: sessionState,
-          content
+          content,
+          hiddenContext,
+          echoTo: agentSession
         }).catch((err: any) => {
           // Reported on the socket rather than swallowed: the person pressed send, so a refusal has to
           // reach them. The same reasons the HTTP route rejects for — not your conversation, empty

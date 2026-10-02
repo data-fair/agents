@@ -11,6 +11,7 @@ import { getAutonomousAgentSession, clearAutonomousAgentSession, type EnrolledAu
 import { decodeSessionClaims, autonomousAgentSubject } from '../nhi/operations.ts'
 import { listAutonomousAgentToolDescriptors, type AutonomousAgentForTools } from '../mcp-servers/client.ts'
 import { nhiSessionProvider } from '../agent-identity/service.ts'
+import { isStandardAgentId } from '../agent-session/standard-agents.ts'
 
 // Re-exported so the router (HTTP layer only) never imports ../nhi/service.ts directly —
 // it drops a deleted autonomous agent's cached session the same way assertEnrolmentWorks
@@ -29,6 +30,27 @@ export const getMcpServerCatalog = () => listMcpServerCatalog(config.mcpServers 
  */
 export function assertOrganizationOwner (owner: AccountKeys): asserts owner is AccountKeys & { type: 'organization' } {
   if (owner.type !== 'organization') throw httpError(400, 'autonomous agents can only be owned by an organization')
+}
+
+/**
+ * The same invariant, applied where the agent's id is known — which is what lets a STANDARD agent run
+ * on a personal account.
+ *
+ * The rule above is about the identity model: a CONFIGURED agent's rests on an NHI, and
+ * simple-directory binds an NHI to exactly one organization, so a user-owned one is meaningless. A
+ * standard agent has no NHI at all; it acts as the person through their forwarded session. The
+ * personal assistant on someone's own account is the normal case for it, not an edge one, so applying
+ * the org-only rule to it refuses the thing it exists to do.
+ *
+ * What the original guard also protected against still holds and is still handled: a user is always
+ * 'admin' of their own personal account, so `assertAccountRole` cannot reject a user owner. For a
+ * standard agent that is exactly right — the agent's ceiling is the person's own permissions. For a
+ * configured one it would be a privilege escalation, which is why that case still goes through the
+ * assertion above.
+ */
+export function assertCanOwnAgent (owner: AccountKeys, autonomousAgentId: string): void {
+  if (isStandardAgentId(autonomousAgentId)) return
+  assertOrganizationOwner(owner)
 }
 
 export const getAutonomousAgent = async (owner: AccountKeys, id: string) => {

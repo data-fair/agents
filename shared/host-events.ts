@@ -10,6 +10,7 @@ import { tool, jsonSchema } from 'ai'
 import type { Tool } from 'ai'
 import type { AgentEvent } from '@data-fair/lib-vue-agents'
 import { isMediaToolResult } from '@agents/shared/tool-result'
+import { wrapHiddenContext } from '@agents/shared/hidden-context'
 import Debug from 'debug'
 
 const debug = Debug('df-agents:host-events')
@@ -233,10 +234,65 @@ export function hasHostState (snapshot: HostStateSnapshot): boolean {
   return snapshot.state.length > 0 || snapshot.recent.length > 0
 }
 
-export function formatHostState (snapshot: HostStateSnapshot): string {
+/**
+ * Fold what the page has reported into the last user message of a history, for one model call.
+ *
+ * The server-side counterpart of what the browser loop does inline. It exists because moving the loop
+ * left the store write-only: the socket filled it, `wait_for_user_action` drained its events, and the
+ * retained STATE was never told to the model at all — so an assistant asked "what am I looking at?"
+ * had the answer in memory beside it and no way to read it.
+ *
+ * Three decisions, each the one the browser loop already made:
+ *
+ *  - The LAST USER message, not the system prompt. The system prompt is the stable, cacheable prefix
+ *    and page state changes every turn; and state presented as a standing instruction reads to the
+ *    model as a rule rather than as an observation.
+ *  - Inside the hidden-context wrapper, so the moderation gate classifies it as part of the user turn
+ *    (it deliberately does not strip the wrapper) and trace reconstruction splits it back out.
+ *  - Events are DRAINED. Being told twice is worse than being told late: a model shown the same click
+ *    in two consecutive turns will often act on it twice.
+ *
+ * Returns the history unchanged when there is nothing to report, and when there is no user message to
+ * attach to — a decoration with nowhere to go is dropped rather than given a turn of its own, which
+ * would put a message in the history that nobody sent.
+ */
+export function withHostContext<M extends { role: string, content: unknown }> (
+  history: M[],
+  store: { snapshot: () => HostStateSnapshot, hasPending: () => boolean, takePending: () => AgentEvent[] }
+): M[] {
+  const snapshot = store.snapshot()
+  const blocks = [
+    // `state` only, and keyed on `state.length` rather than on `hasHostState` — which is also true for
+    // a store holding nothing but recent actions, and would then emit a state block with no state in
+    // it. Recent actions are left out because this runs EVERY turn: the model is continuously
+    // grounded, so re-listing past actions beside the events block that just reported them tells it
+    // the same thing twice, and a model told an action twice often does it twice.
+    snapshot.state.length ? formatHostState(snapshot, { includeRecent: false }) : null,
+    store.hasPending() ? formatHostEvents(store.takePending()) : null
+  ].filter((block): block is string => !!block)
+  if (!blocks.length) return history
+
+  const at = history.map(message => message.role).lastIndexOf('user')
+  if (at === -1) return history
+  const target = history[at]
+  // Only the plain-text shape is decorated. A multi-part user message (an image, a file) would need
+  // the block inserted as a part rather than concatenated, and stringifying its content array to make
+  // the concatenation work would destroy the message.
+  if (typeof target.content !== 'string') return history
+
+  const next = [...history]
+  next[at] = { ...target, content: wrapHiddenContext(blocks.join('\n\n'), target.content) }
+  return next
+}
+
+export function formatHostState (snapshot: HostStateSnapshot, opts?: { includeRecent?: boolean }): string {
   const lines = [HOST_STATE_OPEN, 'Current state of the application, as reported by the application (not written by the user). These arrive automatically, and cover what the application chose to publish — dialogs and overlays usually are not in it. Work from what is here; where it does not say, tell the user plainly you cannot see that part of their screen:']
   for (const e of snapshot.state) lines.push(`- ${e.key}: ${e.detail ?? ''}`)
-  if (snapshot.recent.length) {
+  // `recent` re-tells what happened, which is what an ACTIVATION turn needs: the model has no history
+  // to integrate from (first turn, after a reset, after compaction) so it has to be re-grounded. A
+  // caller that reports state on EVERY turn must leave it out, or every past action is re-announced
+  // once per turn alongside the host-events block that already announced it once.
+  if ((opts?.includeRecent ?? true) && snapshot.recent.length) {
     lines.push('Recent actions:')
     for (const e of snapshot.recent) lines.push(eventLine(e))
   }
