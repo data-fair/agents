@@ -37,12 +37,13 @@ import { recordCall } from './turn-telemetry.ts'
 import { appendMessage, updateMessage, finishRun, incrementRunSpend, resolveAgent, setRunSystemPrompt } from './service.ts'
 import { getSettings } from '../settings/service.ts'
 import { resolveRoleModel } from '../models/service.ts'
-import { contextBudget } from '../models/operations.ts'
+import { contextBudget, type ModelRole } from '../models/operations.ts'
 import { computeCreditBreakdown } from '../usage/operations.ts'
 import { openAutonomousAgentTools } from '../mcp-servers/client.ts'
 import { nhiSessionProvider, forwardedSessionProvider } from '../agent-identity/service.ts'
 import { sessionFor } from '../agent-session/registry.ts'
 import { isStandardAgentId } from '../agent-session/standard-agents.ts'
+import { partitionSubAgents, subAgentDelegation } from '../agent-session/sub-agents.ts'
 import type { AgentSession } from '../agent-session/session.ts'
 import type { ChatActivity } from '@agents/shared/agent-activity'
 import { browserToolSet } from '../agent-session/browser-tools.ts'
@@ -131,6 +132,28 @@ interface TurnResult {
   stopReason: RunStopReason
   /** Which ceiling stopped it, when the stop reason alone would be ambiguous. */
   stopDetail?: string
+  /**
+   * Set when the parts ALREADY say what went wrong, so no stop-reason notice is appended.
+   *
+   * One turn, one explanation. An empty completion is the case: it reports `error` — the run must
+   * record a fault, and a test and an admin both read that — while its message already carries the
+   * "I was not able to produce a response" fallback. Without this the person got both that sentence
+   * and a generic "this turn failed", which reads as two different failures.
+   */
+  selfExplained?: boolean
+  /**
+   * Set when the model loop already published the settled message frame.
+   *
+   * EXACTLY ONE settled frame per turn, which is a contract and not an optimisation: a client reads
+   * `pending: false` as "this turn is done", so a second identical frame is an extra end-of-turn
+   * signal. A test helper that returns on the first one then reads the duplicate as the NEXT turn's
+   * answer — which is how a passing suite turned into a drained-events failure that had nothing to do
+   * with draining.
+   *
+   * The paths that return before any model call (moderation, quotas, a missing identity) leave this
+   * unset, and `runTurn` publishes for them.
+   */
+  published?: boolean
 }
 
 /**
@@ -344,11 +367,143 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   const creditBreakdown = { input: 0, cachedInput: 0, output: 0 }
   const startedAt = Date.now()
 
+  /**
+   * Sub-agents, discovered in the tool set and replaced by delegations that run HERE.
+   *
+   * This was the missing half of moving the loop: `partitionSubAgents` and `subAgentDelegation`
+   * existed and were unit-tested, and nothing called them — so a `subagent_*` page tool went to the
+   * model as an ordinary tool, the model called it, the browser answered with the sub-agent's JSON
+   * CONFIG, and the lead treated that config as the result. No worker ever ran, the reserved tools
+   * stayed reachable by the lead, and the panel showed "Sub-agent finished." over nothing.
+   *
+   * Inside the loop body rather than beside the other tools, because a worker's spend has to land in
+   * the same accumulators as the lead's: `credits` bounds the whole run, and `budgetExceeded` stops
+   * it. Those live here.
+   *
+   * WORKERS RUN ON THE `tools` SEAT by default: a worker exists to chain tool calls and hand back a
+   * summary, which is that seat's definition, and a deployment maps it to its cheaper
+   * structured-output model.
+   *
+   * A config may PIN A ROLE instead (`model: 'summarizer'`, as lib-vue's `useAgentSubAgent` writes
+   * it), and that is honoured — the value names a ROLE, not a model, so which model serves it stays
+   * the organization's choice and the pin only says what kind of work this worker does. An unknown
+   * value falls back to `tools` rather than failing the turn. Whichever seat it lands on, the spend is
+   * billed and recorded under THAT role, so a pinned worker is as accounted for as any other call.
+   */
+  // One resolution per seat, reused across delegations: resolving walks the catalog and a turn may
+  // delegate several times.
+  const seats = new Map<ModelRole, ReturnType<typeof resolveRoleModel>>()
+  const seatFor = (role: ModelRole) => {
+    const held = seats.get(role)
+    if (held) return held
+    const resolved = resolveRoleModel(settings, role)
+    seats.set(role, resolved)
+    return resolved
+  }
+  // `moderator` is excluded: it is the gate's own seat, internal to this service, and not something a
+  // page may send work to.
+  const WORKER_SEATS: ModelRole[] = ['assistant', 'tools', 'summarizer']
+  // Aborts a worker that is still looping when a ceiling is crossed. `budgetExceeded` stops the LEAD
+  // between its steps, which does nothing for a worker mid-delegation — so the overshoot would be
+  // bounded only by the worker's own step limit. Composed with the run's signal, so a worker also dies
+  // with the turn; once it is aborted every later delegation in this turn fails immediately, which is
+  // correct when the turn is already stopping.
+  const workerAbort = new AbortController()
+  const { mainTools } = await partitionSubAgents(tools, (name, workerConfig, workerTools) => {
+    const pinned = workerConfig.model as ModelRole | undefined
+    const seat: ModelRole = pinned && WORKER_SEATS.includes(pinned) ? pinned : 'tools'
+    const worker = seatFor(seat)
+    return subAgentDelegation({
+      name,
+      config: workerConfig,
+      workerTools,
+      model: worker.model,
+      abortSignal: AbortSignal.any([abortSignal, workerAbort.signal]),
+      // The worker's transcript, streamed to its panel. The lead never sees it — it gets the summary.
+      onTrace: trace => {
+        session?.send({
+          type: 'subagent',
+          parentToolCallId: trace.parentToolCallId,
+          name: trace.name,
+          parts: trace.parts as MessagePart[],
+          pending: trace.pending
+        })
+      },
+      onPhase: (parentToolCallId, phase) => {
+        session?.send({
+          type: 'activity',
+          activity: phase ? { kind: 'subagent', name, phase } : null,
+          parentToolCallId
+        })
+      },
+      // EVERY worker step is billed, exactly as a lead step is: against the run's budget, against the
+      // account's credit cap, and into the usage histogram under the `tools` role so the spend is
+      // attributable to the seat that made it. A delegated turn is often most of the work; leaving it
+      // unmetered would have let any page with a sub-agent spend without limit.
+      onUsage: async usage => {
+        const stepCredits = computeCreditBreakdown(
+          {
+            inputTokens: usage.inputTokens,
+            outputTokens: usage.outputTokens,
+            cacheReadTokens: usage.cacheReadTokens,
+            cacheWriteTokens: usage.cacheWriteTokens
+          },
+          worker.entry,
+          config.eurosPerCredit
+        )
+        credits += stepCredits.total
+        // 0 steps: the spend is real, but a worker step is not a step of the LEAD's loop, and inflating
+        // the count would make the step limit and the run's own record disagree. Same call the
+        // summarizer makes for the same reason.
+        await incrementRunSpend(run.id, stepCredits.total, 0)
+        if (stepCredits.total > 0) {
+          await recordUsage(run.owner, {
+            cost: stepCredits.total,
+            userId: identity.usageUserId,
+            userName: identity.usageUserName,
+            dimensions: {
+              modelRole: 'tools',
+              model: worker.entry.id,
+              profile: identity.role,
+              tokenCosts: { input: stepCredits.input, cachedInput: stepCredits.cachedInput, output: stepCredits.output }
+            }
+          })
+        }
+        // One telemetry entry per worker step, so review and the export show the delegated work rather
+        // than a turn whose cost exceeds the calls that explain it.
+        recordCall(run, {
+          modelRole: seat,
+          entry: worker.entry,
+          usage: {
+            inputTokens: usage.inputTokens,
+            outputTokens: usage.outputTokens,
+            ...(usage.cacheReadTokens !== undefined ? { cacheReadTokens: usage.cacheReadTokens } : {}),
+            ...(usage.cacheWriteTokens !== undefined ? { cacheWriteTokens: usage.cacheWriteTokens } : {})
+          },
+          credits: stepCredits.total,
+          creditBreakdown: { input: stepCredits.input, cachedInput: stepCredits.cachedInput, output: stepCredits.output },
+          durationMs: Date.now() - startedAt,
+          ...(usage.finishReason ? { finishReason: usage.finishReason } : {})
+        })
+        // The two ceilings, checked where the money was just spent. The lead's own `onStepFinish` does
+        // this between ITS steps, which is too late to stop a worker that is still looping.
+        const accountCap = await checkAccountCreditCap(run.owner)
+        if (accountCap) {
+          budgetExceeded = true
+          stopDetail = `${accountCap.reason} (${accountCap.scope}, ${accountCap.period} limit ${accountCap.limit}, used ${accountCap.usage}). Resets at ${accountCap.resetsAt}.`
+        } else if (credits >= config.autonomousAgentRunCredits) {
+          budgetExceeded = true
+        }
+        if (budgetExceeded) workerAbort.abort()
+      }
+    })
+  })
+
   const result = streamText({
     model,
     system: buildSystemPrompt(autonomousAgent),
     messages: history,
-    tools: Object.keys(tools).length ? tools : undefined,
+    tools: Object.keys(mainTools).length ? mainTools : undefined,
     stopWhen: [
       stepCountIs(STEP_LIMIT),
       repeatedCallGuard(),
@@ -531,6 +686,14 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
     session?.send({ type: 'message', seq: messageSeq, role: 'assistant', parts, pending })
   }
 
+  // THINKING, from the moment the turn is handed to the model until it says something.
+  //
+  // The loop cleared this label on the first token and never set it, so the gap before that token —
+  // the only time it has anything to explain — showed nothing at all: a person who asked a question of
+  // a slow provider watched a still, silent chat. The browser loop set it locally, which is why the
+  // regression survived the move: the frame it replaced was never sent.
+  activity({ kind: 'thinking' })
+
   for await (const part of result.fullStream) {
     // 'error' parts do NOT throw — an unhandled one is how a conversation silently dropped
     // before. Turn it into a real failure so the caller reports it.
@@ -665,6 +828,13 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   // truncation as a provider error.
   const emptyCompletion = stopReason === 'completed' && partsText(parts).trim().length === 0
   const finalParts = emptyCompletion ? withAppendedText(parts, EMPTY_COMPLETION_MESSAGE) : parts
+  if (emptyCompletion) {
+    // LOGGED, because it is a provider anomaly rather than a normal turn, and the person only ever
+    // sees the generic fallback. The browser loop warned to the devtools console for exactly this
+    // reason; on the server the operator's log is where that belongs. Ids only — no content, since
+    // this line is for diagnosis, not for a second copy of the conversation.
+    console.warn(`[empty completion] treated as a bug: run ${run.id} of conversation ${run.conversationId} produced no text (model ${entry.id}, ${steps} step(s))`)
+  }
   // The last word on this turn's structure, with pending cleared — so a page stops rendering it as in
   // progress without having to infer that from `turn-end`.
   session?.send({ type: 'message', seq: messageSeq, role: 'assistant', parts: finalParts, pending: false })
@@ -673,7 +843,11 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
     steps,
     credits,
     stopDetail,
-    stopReason: emptyCompletion ? 'error' : stopReason
+    // The frame above was the settled one; runTurn must not send a second.
+    published: true,
+    stopReason: emptyCompletion ? 'error' : stopReason,
+    // The fallback above IS the explanation; a generic notice on top would be a second one.
+    ...(emptyCompletion ? { selfExplained: true } : {})
   }
 }
 
@@ -732,11 +906,28 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
     const result = await Promise.race([performTurn(run, message.seq, message.id, abortController.signal), deadline])
     // A turn that stopped for a reason other than finishing explains itself, appended to
     // whatever it did manage to produce.
-    const notice = result.stopReason === 'completed' ? '' : runStopReasonMessage(result.stopReason, result.stopDetail)
+    const notice = result.stopReason === 'completed' || result.selfExplained
+      ? ''
+      : runStopReasonMessage(result.stopReason, result.stopDetail)
+    const finalParts = notice ? withAppendedText(result.parts, notice) : result.parts
     await updateMessage(message.id, {
-      parts: (notice ? withAppendedText(result.parts, notice) : result.parts) as any,
+      parts: finalParts as any,
       pending: false
     })
+    // PUBLISHED FOR THE PATHS THE LOOP NEVER REACHED: a moderation block, a quota refusal and a
+    // missing non-human identity all return their refusal before any model call, so the loop's own
+    // settled frame never ran — the text was stored and the watching page was told nothing. A blocked
+    // message showed the person an empty turn and a stopped spinner, with the refusal they were
+    // supposed to read sitting in the database until a reload.
+    if (!result.published) {
+      sessionFor(run.conversationId)?.send({
+        type: 'message',
+        seq: message.seq,
+        role: 'assistant',
+        parts: finalParts as any,
+        pending: false
+      })
+    }
 
     // A run stopped by a guard or a budget is still a completed run: it did work and said
     // so. But a turn that REFUSED — no enrolled identity, an exhausted credit cap — returns
@@ -787,6 +978,20 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
         pending: false
       })
         .catch(updateErr => console.error('autonomous agent message could not be finalised', updateErr))
+      // Same reason as the success path: the notice explaining the failure has to reach the page that
+      // is watching, not only the store. `turn-end` alone stops the spinner without saying why.
+      const finalised = await mongo.messages
+        .findOne({ id: message.id }, { projection: { _id: 0, parts: 1, seq: 1 } })
+        .catch(() => null)
+      if (finalised) {
+        sessionFor(run.conversationId)?.send({
+          type: 'message',
+          seq: finalised.seq,
+          role: 'assistant',
+          parts: (finalised.parts ?? []) as any,
+          pending: false
+        })
+      }
     }
     await finishRun(run.id, {
       status: stopReason === 'timeout' ? 'error' : aborted ? 'aborted' : 'error',

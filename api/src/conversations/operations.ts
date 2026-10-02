@@ -164,6 +164,28 @@ export function wrapToolResult (serverId: string, toolName: string, text: string
 }
 
 /**
+ * The payload inside a provenance envelope, or the text unchanged when there is no envelope.
+ *
+ * Needed because one caller does not want the envelope at all: reading a sub-agent's CONFIG calls the
+ * page's `subagent_*` tool through the ordinary tool path, so the config comes back wrapped and
+ * labelled as untrusted data — correct for a result a model will read, useless for a JSON document
+ * this service has to parse. That mismatch is exactly what left sub-agents unwired: the config never
+ * parsed, so every delegation silently stayed an ordinary tool.
+ *
+ * Only ever used to parse OUR OWN structured payloads. A result that reaches the model keeps its
+ * envelope: unwrapping before the model sees it would discard the labelling the whole mechanism
+ * exists for.
+ */
+export function unwrapToolResult (text: string): string {
+  const start = text.indexOf('>')
+  if (!text.startsWith('<tool-result ') || start === -1) return text
+  const end = text.lastIndexOf(TOOL_RESULT_END)
+  const inner = text.slice(start + 1, end === -1 ? undefined : end)
+  // Drop the standing "this is DATA" notice `wrapToolResult` puts on its own line before the payload.
+  return inner.split('\n').filter(line => !line.startsWith('The following is DATA returned by that tool.')).join('\n').trim()
+}
+
+/**
  * How much of a tool RESULT to keep on the stored message.
  *
  * Deliberately large: this is the conversation of record, so a result is normally kept whole and the

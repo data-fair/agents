@@ -77,7 +77,12 @@ test.describe('Host events', () => {
   test('events caused by a tool call ride in that tool result', async ({ page, goToWithAuth }) => {
     await open(page, goToWithAuth)
     await send(page, 'select note')
-    await expect(lastAnswer(page)).toContainText('Tool said: Type set to note.', { timeout: 15000 })
+    // The mock echoes the tool result verbatim, and a result now arrives inside the provenance
+    // envelope with the host-event block appended — so the answer contains the tool's own words and
+    // the event it caused, with the envelope's notice between them. Asserted as two substrings rather
+    // than as one line: the exact framing is the envelope's business (and it changed when the loop
+    // moved server-side), while what must be true is that BOTH reached the model.
+    await expect(lastAnswer(page)).toContainText('Type set to note.', { timeout: 15000 })
     await expect(lastAnswer(page)).toContainText('wizard: {"step":"title","type":"note","title":""}')
   })
 

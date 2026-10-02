@@ -14,10 +14,13 @@
 
 import { expect, type Page } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
-import { clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
+import { axiosAuth, clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
 import { putSettings } from '../../support/settings.ts'
 
 const admin = await superAdmin
+// The PERSON, for reading their own thread: a superadmin is an `external` caller on someone else's
+// account and the conversation routes refuse that (see assertMayTalkTo), admin mode or not.
+const user = await axiosAuth('test-standalone1')
 
 const settingsData = {
   providers: [
@@ -64,21 +67,29 @@ test.describe('Chat silent-drop protection', () => {
     await goToWithAuth('/agents/_dev/chat-block', 'test-standalone1')
     const frame = await waitForChatFrame(page)
 
-    // An empty turn is treated as a bug: the physical request/response is dumped to the
-    // console for diagnosis even though the user only sees the generic fallback bubble.
-    const warnings: string[] = []
-    page.on('console', msg => { if (msg.type() === 'warning') warnings.push(msg.text()) })
-
     await frame.getByPlaceholder('Type your message...').fill('empty')
     await frame.getByRole('button', { name: 'Send' }).click()
 
-    // The model returned no text; the loop must surface a fallback assistant bubble.
+    // The model returned no text; the loop must surface a fallback assistant bubble. The wording is
+    // the server's (EMPTY_COMPLETION_MESSAGE in api/src/conversations/executor.ts) — the browser copy
+    // this used to match went with the in-browser loop.
     await expect(frame.locator('.assistant-content').last())
-      .toContainText("wasn't able to produce a response", { timeout: 10000 })
+      .toContainText('I was not able to produce a response for this turn', { timeout: 10000 })
 
-    // ...and log the anomaly so a developer can inspect what the gateway returned.
-    await expect.poll(() => warnings.some(w => w.includes('empty assistant response (treated as a bug)')), { timeout: 10000 })
-      .toBe(true)
+    // AND it must be recorded as a FAULT, not as a normal answer. The old assertion read a devtools
+    // console warning emitted by the in-browser loop ("empty assistant response (treated as a bug)"),
+    // which no longer exists — the loop is server-side and warns to the operator's log, which a
+    // browser test cannot see. What a test can see is the decision itself: the run ends `error`, so
+    // the anomaly is in the data rather than only in a log line nobody greps.
+    await expect.poll(async () => {
+      // The person's own thread list, not the review list: review needs `storeTraces` plus consent,
+      // neither of which this scenario sets, and the run is readable without them.
+      const list = await user.get('/api/conversations/user/test-standalone1?agentId=personal').catch(() => null)
+      const conversationId = list?.data.results[0]?.id
+      if (!conversationId) return undefined
+      const runs = await user.get(`/api/conversations/user/test-standalone1/${conversationId}/runs`).catch(() => null)
+      return runs?.data.results[0]?.stopReason
+    }, { timeout: 15000 }).toBe('error')
   })
 
   test('A mid-stream error is surfaced instead of silently dropping the turn', async ({ page, goToWithAuth }) => {

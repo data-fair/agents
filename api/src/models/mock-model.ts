@@ -419,7 +419,11 @@ function processSelectToolsSeam (lastMessage: string, tools: Array<any> | undefi
  * what the pre-fix behaviour looks like.
  */
 function processChainSeam (lastMessage: string, prompt: string | Array<any>, tools: Array<any> | undefined): MockPromptResult | null {
-  const match = lastMessage.match(/^chain (\w+) (\w+)$/i)
+  // `commandLine`, not the whole message — the THIRD seam to need this. The page under test publishes
+  // host state, so the fold prepends a `<host-state>` block to the visible text and an anchored match
+  // on the whole message silently stops matching: the mock answered "what do you mean ?" and the test
+  // read it as "the live tool set regressed".
+  const match = commandLine(lastMessage).match(/^chain (\w+) (\w+)$/i)
   if (!match) return null
   const [, first, then] = match
   const called = getCalledToolNames(prompt)

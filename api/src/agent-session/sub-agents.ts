@@ -19,14 +19,24 @@
  * tool migration actually happening.
  */
 
-import { ToolLoopAgent, stepCountIs, tool, jsonSchema, type Tool } from 'ai'
+import { ToolLoopAgent, generateText, stepCountIs, tool, jsonSchema, type Tool } from 'ai'
 import Debug from 'debug'
 import { STEP_LIMIT, repeatedCallGuard } from '../conversations/loop-guards.ts'
 import { subAgentModelOutput, SUBAGENT_DONE_FALLBACK } from '../conversations/subagent-output.ts'
+import { unwrapToolResult } from '../conversations/operations.ts'
 
 const debug = Debug('agents:sub-agents')
 
 export const SUBAGENT_PREFIX = 'subagent_'
+
+/**
+ * The close-out prompt: run once, with no tools, after a worker is stopped mid-chain.
+ *
+ * Verbatim from the browser loop it replaces, and the wording matters twice — it tells the model it
+ * cannot call tools any more and must answer from what it has, and the mock provider keys its
+ * close-out seam on "reached your step budget" so the guard → close-out path is testable.
+ */
+const SUBAGENT_CLOSEOUT_PROMPT = 'You have reached your step budget and can no longer call tools. Using only what you have already gathered, write your final answer now. If part of the task is incomplete, state explicitly what is missing — but still report everything you did obtain. Do not ask to continue.'
 
 /** What a page's `subagent_*` tool returns when called: its configuration, not a result. */
 export interface SubAgentConfig {
@@ -40,13 +50,17 @@ export interface SubAgentConfig {
  * Parse a config out of whatever the page's tool returned.
  *
  * Tolerant, and returns undefined rather than throwing: a `subagent_*` tool whose payload is not a
- * config is a page bug, and the right response is to leave that tool alone — the model then sees an
- * ordinary tool rather than the turn failing over one bad declaration.
+ * config is a page bug, and the right response is to drop that one tool (see `partitionSubAgents`)
+ * rather than fail the whole turn over one bad declaration.
  */
 export function parseSubAgentConfig (payload: unknown): SubAgentConfig | undefined {
   let value: unknown = payload
   if (typeof payload === 'string') {
-    try { value = JSON.parse(payload) } catch { return undefined }
+    // UNWRAPPED FIRST. A page tool's result arrives inside the provenance envelope
+    // (`<tool-result server=… >`), because the config is read through the ordinary tool path — so the
+    // raw string never parsed as JSON and every delegation quietly stayed an ordinary tool. A payload
+    // with no envelope passes through unchanged, which is what the unit tests feed it.
+    try { value = JSON.parse(unwrapToolResult(payload)) } catch { return undefined }
   }
   if (typeof value !== 'object' || value === null) return undefined
   const config = value as Record<string, unknown>
@@ -78,6 +92,8 @@ export interface PartitionedTools {
  *
  * Discovery calls each `subagent_*` tool once. For a page-declared sub-agent that is one socket round
  * trip per turn, which is why the configs are returned for a caller that wants to cache them.
+ *
+ * A tool whose config cannot be read is DROPPED rather than left in place: see the loop below.
  */
 export async function partitionSubAgents (
   allTools: Record<string, Tool>,
@@ -91,7 +107,12 @@ export async function partitionSubAgents (
     if (!candidate.execute) continue
     let payload: unknown
     try {
-      payload = await candidate.execute({} as never, { toolCallId: `config:${name}`, messages: [] })
+      // `{ task: '' }`, not `{}`: a page declares `task` as REQUIRED (see lib-vue/use-agent-sub-agent.ts),
+      // and the browser validates a call against the declared schema, so an empty object is rejected
+      // before the tool runs. The client-side partition this replaced has always called it this way
+      // (ui/src/utils/tools-partition.ts) — the server passing `{}` is why every page-declared
+      // sub-agent read as misconfigured and silently stayed an ordinary tool.
+      payload = await candidate.execute({ task: '' } as never, { toolCallId: `config:${name}`, messages: [] })
     } catch (err) {
       debug('could not read the config of %s: %O', name, err)
       continue
@@ -107,6 +128,11 @@ export async function partitionSubAgents (
 
   const mainTools: Record<string, Tool> = {}
   for (const [name, candidate] of Object.entries(allTools)) {
+    // EVERY `subagent_*` name is removed here, and the readable ones are added back as delegations
+    // below. A tool whose config could not be read is therefore offered to the model NOT AT ALL —
+    // deliberately, and it is the safer of the two failures: calling it would hand the model the
+    // sub-agent's own config as if it were a result. A page declaring a broken sub-agent loses that
+    // one tool, which is a page bug with a bounded consequence.
     if (name.startsWith(SUBAGENT_PREFIX)) continue
     // A reserved tool belongs to its worker and must not be reachable by the lead.
     if (reserved.has(name)) continue
@@ -137,6 +163,15 @@ export async function partitionSubAgents (
  * difference from the browser is that here they are ENFORCING rather than advisory, which was one of the
  * few arguments for moving that survived scrutiny.
  */
+/** One worker step's token usage, in the shape the credit formula takes. */
+export interface WorkerUsage {
+  inputTokens: number
+  outputTokens: number
+  cacheReadTokens?: number
+  cacheWriteTokens?: number
+  finishReason?: string
+}
+
 export interface SubAgentTrace {
   /** The delegating tool call, which is what keys a panel. */
   parentToolCallId: string
@@ -163,6 +198,19 @@ export function subAgentDelegation (opts: {
   onTrace?: (trace: SubAgentTrace) => void
   /** The panel's phase line. Keyed on the same call, so concurrent panels do not share one. */
   onPhase?: (parentToolCallId: string, phase: 'starting' | 'thinking' | 'tool' | 'analyzing' | null) => void
+  /**
+   * What this worker's step just cost, per step, so the caller can bill it.
+   *
+   * A worker is a model loop: it spends the deployment's provider keys exactly as the lead does, and
+   * the executor's own accounting cannot see it because the spend happens inside a tool's `execute`.
+   * So it is handed out here, and the caller (api/src/conversations/executor.ts) does the same three
+   * things it does for its own steps — run budget, account cap, usage record — plus one telemetry
+   * entry per worker call. Without this the whole delegated half of a turn would be free, which is
+   * the one outcome that is never acceptable.
+   *
+   * Awaited: billing a step is a write, and the next step must not start on a stale ledger.
+   */
+  onUsage?: (usage: WorkerUsage) => Promise<void> | void
 }): Tool {
   return tool({
     description: opts.description ?? `Delegate a task to the ${opts.name.replace(SUBAGENT_PREFIX, '')} sub-agent.`,
@@ -204,6 +252,20 @@ export function subAgentDelegation (opts: {
         })
         for await (const part of result.fullStream) {
           if (part.type === 'error') throw part.error instanceof Error ? part.error : new Error(String(part.error))
+          // Billed per step rather than once at the end, for the same reason the lead's steps are: a
+          // worker stopped by its step limit, by an abort or by a provider error still consumed what
+          // it consumed, and `result.steps` after a throw would never be read.
+          if (part.type === 'finish-step') {
+            const usage = (part as any).usage
+            const details = usage?.inputTokenDetails
+            await opts.onUsage?.({
+              inputTokens: usage?.inputTokens ?? 0,
+              outputTokens: usage?.outputTokens ?? 0,
+              ...(details?.cacheReadTokens !== undefined ? { cacheReadTokens: details.cacheReadTokens } : {}),
+              ...(details?.cacheWriteTokens !== undefined ? { cacheWriteTokens: details.cacheWriteTokens } : {}),
+              ...(typeof (part as any).finishReason === 'string' ? { finishReason: (part as any).finishReason } : {})
+            })
+          }
           if (part.type === 'text-delta') {
             appendText(part.text)
             opts.onPhase?.(parentToolCallId, null)
@@ -233,13 +295,57 @@ export function subAgentDelegation (opts: {
         // success. The shape is what carries `stepLimitReached`, and that flag is the difference
         // between "here is the answer" and "here is what I managed before running out".
         const steps = (await result.steps).length
-        const text = await result.text
+        let text = await result.text
+        // A worker STOPPED MID-CHAIN — by the repeated-call guard or by the step limit — finishes on
+        // 'tool-calls' and has produced no closing answer at all. Reporting that as a truncation
+        // throws away work it had already gathered, so one close-out turn is forced, with NO TOOLS:
+        // the model cannot loop, so it must synthesize an answer from its own transcript.
+        //
+        // Ported from the browser loop (commit a86faad), which is where this behaviour was built and
+        // is still what the e2e test describes. The server-side delegation shipped without it, so a
+        // guarded worker reported a bare notice and its findings were lost.
+        const stoppedMidChain = (await result.finishReason) === 'tool-calls'
+        if (stoppedMidChain) {
+          try {
+            const transcript = (await result.response).messages
+            const closeout = await generateText({
+              model: opts.model as any,
+              system: opts.config.prompt,
+              // No `tools` — that is the whole mechanism, not an omission.
+              messages: [...transcript, { role: 'user' as const, content: SUBAGENT_CLOSEOUT_PROMPT }],
+              abortSignal: opts.abortSignal
+            })
+            // Billed like any other call: it is a real model call on the worker's seat.
+            const closeoutDetails = (closeout.usage as any)?.inputTokenDetails
+            await opts.onUsage?.({
+              inputTokens: closeout.usage?.inputTokens ?? 0,
+              outputTokens: closeout.usage?.outputTokens ?? 0,
+              ...(closeoutDetails?.cacheReadTokens !== undefined ? { cacheReadTokens: closeoutDetails.cacheReadTokens } : {}),
+              ...(closeoutDetails?.cacheWriteTokens !== undefined ? { cacheWriteTokens: closeoutDetails.cacheWriteTokens } : {}),
+              ...(closeout.finishReason ? { finishReason: closeout.finishReason } : {})
+            })
+            const recovered = closeout.text.trim()
+            if (recovered) {
+              text = recovered
+              // Into the panel too, so a reviewer sees the answer the lead was given rather than a
+              // transcript that stops at the last tool call.
+              appendText((parts.length ? '\n\n' : '') + recovered)
+              emit(false)
+            }
+          } catch (err: any) {
+            // An abort still tears the turn down; anything else leaves `text` as it was and falls
+            // through to the standalone notice, which reports the truncation rather than inventing a
+            // result.
+            if (err?.name === 'AbortError' || opts.abortSignal?.aborted) throw err
+            debug('close-out of %s failed: %O', opts.name, err)
+          }
+        }
         return subAgentModelOutput([{
           content: text,
-          // A worker stopped by the step limit produced a PARTIAL result. Reported as such, because a
-          // lead told nothing would treat a truncation as a finished answer — the exact conflation the
-          // notice in shared/agent-subagent-output.ts exists to prevent.
-          ...(steps >= STEP_LIMIT ? { stepLimitReached: true } : {})
+          // A worker stopped by a guard or by the step limit produced a PARTIAL result. Reported as
+          // such, because a lead told nothing would treat a truncation as a finished answer — the
+          // exact conflation the notice in ../conversations/subagent-output.ts exists to prevent.
+          ...(stoppedMidChain || steps >= STEP_LIMIT ? { stepLimitReached: true } : {})
         }]) || SUBAGENT_DONE_FALLBACK
       } finally {
         opts.onPhase?.(parentToolCallId, null)

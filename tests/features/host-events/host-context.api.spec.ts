@@ -48,17 +48,28 @@ test.describe('Host context reaching the model', () => {
     sockets.push(socket)
     socket.send({ type: 'hello', tools: [], conversationId: conversation.id })
     await socket.next()
+    // Per conversation: seqs restart at 1 for a fresh thread, so a tracker carried across tests
+    // would reject every frame of the next one.
+    lastAnsweredSeq = 0
     return { socket, conversationId: conversation.id }
   }
 
-  /** Prompt and return the finished assistant text. */
+  /**
+   * Prompt and return the finished assistant text.
+   *
+   * Keyed on a RISING seq, not on "the next settled frame": a settled frame can arrive more than
+   * once for the same turn, and accepting the first one seen made the second question return the
+   * FIRST answer — which read as an event that was never drained. The bug was in the reading.
+   */
+  let lastAnsweredSeq = 0
   const ask = async (socket: AgentSessionClient, content: string) => {
     socket.send({ type: 'prompt', content })
     // Generous, because the echoed blocks stream ONE DELTA PER CHARACTER: a state block is easily
     // several hundred frames, and a cap sized for a short answer reads as "the turn never finished".
     for (let i = 0; i < 5000; i++) {
       const frame = await socket.next(20_000)
-      if (frame.type === 'message' && frame.role === 'assistant' && frame.pending === false) {
+      if (frame.type === 'message' && frame.role === 'assistant' && frame.pending === false && frame.seq > lastAnsweredSeq) {
+        lastAnsweredSeq = frame.seq
         return (frame.parts ?? []).filter((p: any) => p.type === 'text').map((p: any) => p.text).join('')
       }
       if (frame.type === 'error') assert.fail(`the server reported: ${frame.message}`)

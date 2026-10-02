@@ -1,6 +1,8 @@
 # Sub-agent orchestration
 
-The orchestrator-worker pattern runs **entirely in the browser**. The main agent delegates tasks to specialized sub-agents via pseudo-tools (`subagent_*`), each backed by a `ToolLoopAgent` from Vercel AI SDK v6.
+The orchestrator-worker pattern runs **on the server**, in the same loop as the lead. The main agent delegates tasks to specialized sub-agents via pseudo-tools (`subagent_*`), each backed by a `ToolLoopAgent` from Vercel AI SDK v6.
+
+It moved with the loop, and not as a choice: a worker is a model loop, and the only way a browser reached a model in the old architecture was the gateway, so "the gateway goes" and "workers move server-side" were one decision. `api/src/agent-session/sub-agents.ts` holds the partition and the delegation; `api/src/conversations/executor.ts` builds them per turn.
 
 ```mermaid
 flowchart TB
@@ -22,8 +24,8 @@ flowchart TB
 At a glance:
 
 1. **Registration** — Child components call `useAgentSubAgent()` which registers a `subagent_*` MCP tool with a JSON config (prompt, tool list, model).
-2. **Partitioning** — `use-agent-chat.ts` splits tools: sub-agent reserved tools are removed from the main set.
-3. **Execution** — Each sub-agent gets a `ToolLoopAgent` instance with its own tool set and system prompt. It runs autonomously under the [loop guards](./loop-guards.md): a flat 100-step backstop plus a repeated-call guard that nudges at 3 identical steps and stops at 5. Sub-agents run **concurrently** when the main agent requests several in one step — the AI SDK dispatches each tool call without awaiting the previous (`executeToolCall` is fired and tracked, not awaited). Each call streams into its own panel, keyed by the delegating `toolCallId`. There is no special-casing for repeated or same-name calls: every delegation is independent, so concurrent calls to the same sub-agent run in parallel just like calls to different ones.
+2. **Partitioning** — `partitionSubAgents` splits the tool set: each `subagent_*` tool is called once to read its config, its reserved tools are removed from the main set, and it is replaced by a delegation. A tool whose config cannot be read is dropped rather than offered, since calling it would hand the model a config where it expects a result. The config read goes through the ordinary tool path, so it arrives inside the provenance envelope and is unwrapped before parsing, and it is called with `{ task: '' }` because a page declares `task` as required and validates against its own schema.
+3. **Execution** — Each sub-agent gets a `ToolLoopAgent` instance with its own tool set and system prompt, on the **`tools` seat** by default; a config may pin a role instead (`model: 'summarizer'`), which is honoured because the value names a role and not a model, so which model serves it stays the organization's choice. Every worker step is billed on that seat — the run's budget, the account's credit cap and the usage histogram — and recorded as its own entry in the run's `calls`, because the spend happens inside a tool's `execute` where the lead's own accounting cannot see it. A ceiling crossed mid-delegation aborts the worker rather than waiting for its step limit. It runs autonomously under the [loop guards](./loop-guards.md): a flat 100-step backstop plus a repeated-call guard that nudges at 3 identical steps and stops at 5. Sub-agents run **concurrently** when the main agent requests several in one step — the AI SDK dispatches each tool call without awaiting the previous (`executeToolCall` is fired and tracked, not awaited). Each call streams into its own panel, keyed by the delegating `toolCallId`. There is no special-casing for repeated or same-name calls: every delegation is independent, so concurrent calls to the same sub-agent run in parallel just like calls to different ones.
 4. **Stateless workers** — Each delegation is a fresh, single-shot run: the worker keeps no conversation history across calls. The lead holds the state and re-states all needed context in the `task` field.
 5. **Context reduction** — The main agent sees only a compact text summary via `toModelOutput()`. The UI renders the full sub-agent trace in collapsible panels.
 
@@ -137,7 +139,8 @@ reason the orchestrator runs
 the model cannot loop, so it must synthesize a best-effort answer from its own transcript.
 That recovered answer is carried as the trailing message content (flagged `stepLimitReached`)
 and surfaced to the lead as a *partial* result rather than a failure. Only if the close-out
-call itself fails does the worker fall back to the standalone step-limit notice. This mirrors
+call itself fails does the worker fall back to the standalone step-limit notice. The close-out is a
+real model call on the worker's seat and is billed like any other. This mirrors
 AutoGen's `reflection_with_llm` summary mode (force a synthesis) rather than discarding the
 run; see [§6](#6-context-reduction) for how the partial result reaches the lead.
 

@@ -14,7 +14,7 @@ import Debug from 'debug'
 import { parseClientMessage, isAgentSessionPath, type ServerMessage } from '@agents/shared/agent-session-protocol'
 import { createAgentSession, type AgentSession } from './session.ts'
 import { attachSession, detachSession } from './registry.ts'
-import { requireConversation, assertOwnsConversation } from '../conversations/service.ts'
+import { requireConversationById, assertOwnsConversation } from '../conversations/service.ts'
 import { startSessionTurn, sendHistory } from './turn.ts'
 import { abortRunsOfConversation } from '../conversations/executor.ts'
 import { hasTraceConsent } from '@agents/shared/trace-consent'
@@ -107,14 +107,23 @@ export const startAgentSessions = (server: Server, options: StartAgentSessionsOp
         // out its clock while their message sits in the composer is the worst reading of "waiting
         // for the user". Harmless when nothing is live.
         abortRunsOfConversation(boundConversationId)
-        startSessionTurn({
-          conversationId: boundConversationId,
-          owner: { type: sessionState.account.type, id: sessionState.account.id },
+        // Captured, because the narrowing above does not survive into the callback below — and a
+        // rebind mid-flight must not redirect this prompt to a different thread either.
+        const conversationId = boundConversationId
+        // The OWNER IS THE CONVERSATION'S, read from the thread rather than assumed to be the
+        // caller's own account. An embedded chat belongs to the account whose data it is about, so an
+        // external visitor's session account differs from it — and deriving the owner from the session
+        // made every such turn fail with "unknown conversation" while members of the account were
+        // unaffected. `startSessionTurn` still re-reads it under that owner and still checks the
+        // thread belongs to this person.
+        resolveTurnOwner(conversationId).then(owner => startSessionTurn({
+          conversationId,
+          owner,
           session: sessionState,
           content,
           hiddenContext,
           echoTo: agentSession
-        }).catch((err: any) => {
+        })).catch((err: any) => {
           // Reported on the socket rather than swallowed: the person pressed send, so a refusal has to
           // reach them. The same reasons the HTTP route rejects for — not your conversation, empty
           // content — arrive here as a message.
@@ -126,10 +135,21 @@ export const startAgentSessions = (server: Server, options: StartAgentSessionsOp
     sessions.set(ws, agentSession)
     debug('session opened, %d live', sessions.size)
 
-    const sendHistoryFor = async (conversationId: string) => {
-      const owner = { type: sessionState.account.type, id: sessionState.account.id }
-      const conversation = await requireConversation(owner, conversationId)
+    /**
+     * The account a thread belongs to, once the caller has been checked against it.
+     *
+     * Both socket paths — binding to a thread and prompting into one — go through here, so the
+     * ownership rule is stated once: the thread is found by id, and the person must be the one it
+     * belongs to (`assertOwnsConversation`, which is what the HTTP routes apply as well).
+     */
+    const resolveTurnOwner = async (conversationId: string) => {
+      const conversation = await requireConversationById(conversationId)
       assertOwnsConversation(conversation, sessionState)
+      return { type: conversation.owner.type, id: conversation.owner.id }
+    }
+
+    const sendHistoryFor = async (conversationId: string) => {
+      await resolveTurnOwner(conversationId)
       await sendHistory(agentSession, conversationId)
     }
 

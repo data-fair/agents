@@ -106,6 +106,29 @@ export const requireConversation = async (owner: AccountKeys, conversationId: st
 }
 
 /**
+ * A conversation by id alone, for a caller that does not know which account it belongs to.
+ *
+ * THE SOCKET IS THAT CALLER, and getting this wrong broke the embedded case completely. A page embeds
+ * the chat of the account that owns the data — so a person using someone else's portal is an EXTERNAL
+ * caller: their session account is their own, the conversation belongs to the host account, and the
+ * two legitimately differ. The session derived the owner from the session's account, so every turn in
+ * that configuration answered "unknown conversation" while the account's own members were fine.
+ *
+ * Resolving by id is not a weaker gate, it is a different one: a conversation belongs to ONE person,
+ * so the caller is then checked against `userId` by `assertOwnsConversation` — which is the rule the
+ * HTTP routes apply too — and the role quota is enforced per turn by the executor's own gate. What is
+ * gone is only the assumption that a thread lives in the caller's own account.
+ */
+export const requireConversationById = async (conversationId: string) => {
+  const conversation = await mongo.conversations.findOne(
+    { id: conversationId, archivedAt: { $exists: false } },
+    { projection: { _id: 0 } }
+  )
+  if (!conversation) throw httpError(404, 'unknown conversation')
+  return conversation
+}
+
+/**
  * Hide a thread from the person while keeping it reviewable.
  *
  * Returns false when there was nothing to archive, so a caller cannot mistake "already gone" for
