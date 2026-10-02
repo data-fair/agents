@@ -12,7 +12,7 @@
 
 <script lang="ts" setup>
 import AgentChat from '~/components/AgentChat.vue'
-import type { ChatMessage } from '~/composables/use-agent-chat'
+import type { ChatMessage } from '~/utils/chat-message'
 import { useAgentSubAgent, useFrameServer } from '@data-fair/lib-vue-agents'
 import { useSessionAuthenticated } from '@data-fair/lib-vue/session.js'
 

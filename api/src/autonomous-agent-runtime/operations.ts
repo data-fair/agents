@@ -4,7 +4,7 @@
  */
 
 import { convertToModelMessages, safeValidateUIMessages, type ModelMessage, type Tool } from 'ai'
-import { truncatedToolResultText } from '@agents/shared/compaction-policy'
+import { truncatedToolResultText } from '../agent-loop/compaction-policy.ts'
 
 export type RunStatus = 'running' | 'done' | 'error' | 'aborted' | 'interrupted'
 export type RunStopReason = 'completed' | 'step-limit' | 'repeated-calls' | 'budget' | 'timeout' | 'aborted' | 'error'

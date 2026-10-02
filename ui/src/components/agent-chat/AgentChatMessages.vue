@@ -298,7 +298,7 @@ import MarkdownContent from './MarkdownContent.vue'
 import { EXPLORE_TOOL_NAME } from '~/utils/tool-exploration'
 import { WAIT_TOOL_NAME } from '@agents/shared/host-events'
 import type { MermaidFailure } from '~/utils/mermaid'
-import type { ChatMessage } from '~/composables/use-agent-chat'
+import type { ChatMessage } from '~/utils/chat-message'
 import { activityLabelKey, type ChatActivity } from '@agents/shared/agent-activity'
 
 const emit = defineEmits<{

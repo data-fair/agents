@@ -1,6 +1,5 @@
 import { getCurrentScope, onScopeDispose } from 'vue'
 import { getTabChannelId, type AgentEvent } from '@data-fair/lib-vue-agents'
-import { HostEventStore } from '@agents/shared/host-events'
 import Debug from 'debug'
 
 const debug = Debug('df-agents:use-host-events')
@@ -27,9 +26,14 @@ function sanitizeEvent (raw: any): AgentEvent | null {
 /**
  * Subscribe to the tab BroadcastChannel's host events, sanitized.
  *
- * Split out from `useHostEvents` so the server-held loop can FORWARD the same events up the socket
- * instead of feeding a local store, without a second copy of the channel protocol or of
- * `sanitizeEvent`. Two copies of a boundary guard is two places to forget to harden.
+ * The server-held loop FORWARDS these up the socket rather than feeding a local store — the store
+ * lives on the far side now, and it is the same `HostEventStore` class, so forwarding raw events
+ * reproduces the browser's retention and coalescing instead of reimplementing them.
+ *
+ * This was split out of a `useHostEvents` that fed a store here directly. That function is gone with
+ * the in-browser loop; what had to survive the move is the channel protocol and `sanitizeEvent`,
+ * because the BroadcastChannel is still an untrusted boundary: a buggy or hostile host can post
+ * anything on it, and a malformed `at` or a non-string `key` corrupts what the model is told.
  *
  * Posts one `agent-state-request` so pages that mounted before this chat re-emit their keyed state
  * (retention is rebuilt; transitions from before the chat existed are gone by design).
@@ -57,13 +61,4 @@ export function subscribeHostEvents (handlers: {
   const close = () => channel.close()
   if (getCurrentScope()) onScopeDispose(close)
   return close
-}
-
-/** Feeds a HostEventStore from the tab BroadcastChannel. The in-browser loop's consumer. */
-export function useHostEvents (store: HostEventStore = new HostEventStore()): HostEventStore {
-  subscribeHostEvents({
-    onEvent: event => store.push(event),
-    onWithdraw: key => store.withdraw(key)
-  })
-  return store
 }

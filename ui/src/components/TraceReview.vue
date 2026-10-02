@@ -78,22 +78,19 @@
           :md="evaluatorCols"
           class="trace-review__pane trace-review__chat"
         >
-          <evaluator-chat
-            v-if="evaluatorEnabled && evaluatorOwner"
-            :key="recorderB ? 'compare-' + (route.query.compare ?? '') : 'single'"
-            :recorder="recorder"
-            :recorder-b="recorderB ?? undefined"
-            :account-type="evaluatorOwner.type"
-            :account-id="evaluatorOwner.id"
-            :data-account-type="owner.type"
-            :data-account-id="owner.id"
-            :department="owner.department"
-            :is-superadmin="isSuperadmin"
-          />
-          <div
-            v-else
-            class="pa-4 text-body-2 text-medium-emphasis"
-          >
+          <!--
+            The evaluator chat is TEMPORARILY DISABLED. It ran on the in-browser loop, which no
+            longer exists, and it needs a full rework against the server-held one rather than a
+            repoint: its tools close over the trace recorder in this page and over architecture docs
+            bundled by `import.meta.glob`, both of which become server-side concerns (the trace is
+            already stored there, and the docs are on disk).
+
+            The panel stays, with the reason in it, rather than the column disappearing: a reviewer
+            who used this needs to be told it is coming back, not left wondering where it went. Its
+            domain modules (`~/traces/evaluator-*`, `source-tools`, `architecture-docs`) are parked
+            untouched for that rework.
+          -->
+          <div class="pa-4 text-body-2 text-medium-emphasis">
             {{ evaluatorHint }}
           </div>
         </v-col>
@@ -119,8 +116,7 @@ fr:
   hideEvaluator: Masquer l'évaluateur
   showEvaluator: Afficher l'évaluateur
   compareError: Trace de comparaison introuvable ou propriétaire différent.
-  evaluatorNotConfigured: "Aucun compte évaluateur n'est configuré sur cette instance (config.evaluatorAccount avec un modèle évaluateur)."
-  enableAdminMode: "Activez le mode administrateur pour analyser les traces."
+  evaluatorReworkPending: "L'évaluateur est temporairement indisponible : il tournait dans le navigateur et doit être repensé pour la boucle côté serveur. La trace reste consultable à gauche."
 en:
   loadError: Trace not found or access denied.
   review: Review
@@ -130,29 +126,24 @@ en:
   hideEvaluator: Hide evaluator
   showEvaluator: Show evaluator
   compareError: Comparison trace not found or has a different owner.
-  evaluatorNotConfigured: "No evaluator account is configured on this instance (config.evaluatorAccount with an evaluator model)."
-  enableAdminMode: "Enable admin mode to review traces."
+  evaluatorReworkPending: "The evaluator is temporarily unavailable: it ran in the browser and needs reworking for the server-held loop. The trace itself is still readable on the left."
 </i18n>
 
 <script lang="ts" setup>
 import { ref, shallowRef, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import { useSession } from '@data-fair/lib-vue/session.js'
 import { mdiCompareHorizontal, mdiClose, mdiChevronLeft, mdiChevronRight } from '@mdi/js'
 import { SessionRecorder } from '~/traces/session-recorder'
 import type { TraceOverviewEntry } from '~/traces/session-recorder'
 import { reconstructTrace } from '~/traces/reconstruct-trace'
 import { $apiPath } from '~/context'
 import TraceView from '~/components/agent-chat/TraceView.vue'
-import EvaluatorChat from '~/components/EvaluatorChat.vue'
 import TraceComparePicker from '~/components/TraceComparePicker.vue'
 
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
-const session = useSession()
-const isSuperadmin = computed(() => !!session.state.user?.adminMode)
 const props = defineProps<{
   conversationId: string
   promotedEvaluator?: { account: { type: string, id: string } | null, available: boolean }
@@ -160,16 +151,14 @@ const props = defineProps<{
 const emit = defineEmits<{ loaded: [{ owner: { type: string, id: string, department?: string }, label: string }] }>()
 const conversationId = props.conversationId
 
-// In superadmin (promoted) mode the evaluator runs against the configured source
-// account, never the reviewed owner; account-admins keep using their own account.
-const evaluatorOwner = computed(() => props.promotedEvaluator?.account ?? owner.value)
-const evaluatorEnabled = computed(() => {
-  if (!props.promotedEvaluator) return true
-  return props.promotedEvaluator.available && !!session.state.user?.adminMode
-})
-const evaluatorHint = computed(() => props.promotedEvaluator && !props.promotedEvaluator.available
-  ? t('evaluatorNotConfigured')
-  : t('enableAdminMode'))
+// `promotedEvaluator` is still accepted and still plumbed by the pages above, but nothing reads it
+// while the evaluator is out: it selected the ACCOUNT the evaluator ran against (the configured
+// source account in superadmin mode, never the reviewed owner). Kept on the prop rather than ripped
+// out and re-added, because that routing decision is one the rework has to make again.
+// Reported ahead of the other reasons it could be unavailable: "temporarily disabled" is the true
+// answer right now, and showing "enable admin mode" to someone who then enables it and still sees
+// nothing is worse than saying plainly that the feature is out.
+const evaluatorHint = computed(() => t('evaluatorReworkPending'))
 
 const recorder = shallowRef<SessionRecorder | null>(null)
 const recorderB = shallowRef<SessionRecorder | null>(null)

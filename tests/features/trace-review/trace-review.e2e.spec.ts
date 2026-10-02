@@ -57,7 +57,7 @@ test.describe('Trace review flow', () => {
     await putSettings(admin, 'user/test-standalone1', settingsData)
   })
 
-  test('real chat with consent stores a trace that renders on the review page with a working evaluator', async ({ page, context, goToWithAuth }) => {
+  test('real chat with consent stores a trace that renders on the review page', async ({ page, context, goToWithAuth }) => {
     // Step 1: Pre-set the consent cookie so the chat sends x-trace-consent: yes
     // and the consent bottom-sheet never blocks interaction.
     await context.addCookies([{
@@ -92,22 +92,34 @@ test.describe('Trace review flow', () => {
     // Step 6: Assert the TraceView populated — a "user-message" type chip is visible
     await expect(page.getByText('user-message').first()).toBeVisible({ timeout: 10000 })
 
-    // Step 7: Use the evaluator — send a message that triggers the getTraceOverview tool call
+    // Step 7: the evaluator panel reports that it is out, rather than silently rendering nothing.
+    // A reviewer who used it needs to be told it is coming back.
+    await expect(page.getByText(/evaluator is temporarily unavailable/i)).toBeVisible({ timeout: 10000 })
+  })
+
+  // SKIPPED while the evaluator chat is disabled: it ran on the in-browser loop, which no longer
+  // exists, and needs a full rework against the server-held one rather than a repoint.
+  //
+  // Kept rather than deleted because of what it asserts, which the rework must not lose: the
+  // evaluator's OWN model calls must never be stored as traces. Reviewing a trace would otherwise
+  // record a confusing "meta" conversation of the review itself, and on the old path exactly one
+  // thing prevented that — `disableTraceStorage` suppressing the consent header. Whatever the new
+  // path looks like, it needs an equivalent, and this is the test that will say whether it has one.
+  test.skip('the evaluator does not store its own LLM calls as traces', async ({ page, goToWithAuth }) => {
+    const conversationId = 'set-up-by-the-rework'
+    await goToWithAuth(`/agents/user/test-standalone1/traces/${conversationId}`, 'test-standalone1')
+
     const evalInput = page.getByPlaceholder('Type your message...')
     await expect(evalInput).toBeEnabled({ timeout: 10000 })
     await evalInput.fill('call tool getTraceOverview')
     await page.getByRole('button', { name: 'Send' }).click()
 
-    // The tool-invocation chip for getTraceOverview must appear
     await expect(
       page.locator('.v-chip').filter({ hasText: 'getTraceOverview' }).first()
     ).toBeVisible({ timeout: 15000 })
 
-    // Step 8: The evaluator's own LLM calls must NOT be stored as traces.
-    // Reviewing a trace runs the evaluator through the gateway; if it sent the
-    // trace-consent header it would record a confusing "meta" conversation.
-    // Trace storage is fire-and-forget, so give it time to flush, then assert
-    // the stored-conversation list still holds exactly the one real chat.
+    // Trace storage is fire-and-forget, so give it time to flush, then assert the stored-conversation
+    // list still holds exactly the one real chat.
     for (let i = 0; i < 15; i++) {
       const res = await admin.get('/api/traces/user/test-standalone1?page=1&size=20')
       expect(res.data.results).toHaveLength(1)

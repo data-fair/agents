@@ -232,17 +232,20 @@ declare global {
   export type { AgentFlags } from '../src/utils/agent-flags'
   import('../src/utils/agent-flags')
   // @ts-ignore
-  export type { StreamMessage, StreamPart, ActivityPhase, StreamScope } from '../src/utils/agent-stream-parts'
-  import('../src/utils/agent-stream-parts')
-  // @ts-ignore
   export type { StoredAutonomousAgentMessage, AutonomousAgentPart } from '../src/utils/autonomous-agent-chat-message'
   import('../src/utils/autonomous-agent-chat-message')
+  // @ts-ignore
+  export type { ChatMessage } from '../src/utils/chat-message'
+  import('../src/utils/chat-message')
   // @ts-ignore
   export type { MermaidAutoFixState } from '../src/utils/mermaid-fix'
   import('../src/utils/mermaid-fix')
   // @ts-ignore
   export type { MermaidFailure } from '../src/utils/mermaid'
   import('../src/utils/mermaid')
+  // @ts-ignore
+  export type { ToolInfo, SubAgentInfo, DebugToolsPartition } from '../src/utils/tools-partition'
+  import('../src/utils/tools-partition')
   // @ts-ignore
   export type { UsageDimension, UsageEntry } from '../src/utils/usage-breakdown'
   import('../src/utils/usage-breakdown')
@@ -252,12 +255,6 @@ declare global {
   // @ts-ignore
   export type { ToolsDelta } from '../src/composables/live-tools'
   import('../src/composables/live-tools')
-  // @ts-ignore
-  export type { SubAgentFlattenConfig } from '../src/composables/sub-agent-flatten'
-  import('../src/composables/sub-agent-flatten')
-  // @ts-ignore
-  export type { UseAgentChatOptions, ChatMessage, ToolInfo, SubAgentInfo, DebugToolsPartition } from '../src/composables/use-agent-chat'
-  import('../src/composables/use-agent-chat')
   // @ts-ignore
   export type { AgentSessionClientOptions } from '../src/composables/use-agent-session'
   import('../src/composables/use-agent-session')
@@ -293,7 +290,6 @@ declare module 'vue' {
     readonly MERMAID_AUTO_FIX_BUDGET: UnwrapRef<typeof import('../src/utils/mermaid-fix')['MERMAID_AUTO_FIX_BUDGET']>
     readonly SELECT_TOOL_NAME: UnwrapRef<typeof import('../src/utils/tool-exploration')['SELECT_TOOL_NAME']>
     readonly appendStreamingCaret: UnwrapRef<typeof import('../src/utils/markdown')['appendStreamingCaret']>
-    readonly applyStreamPart: UnwrapRef<typeof import('../src/utils/agent-stream-parts')['applyStreamPart']>
     readonly autonomousAgentEditDraft: UnwrapRef<typeof import('../src/utils/autonomous-agent-draft')['autonomousAgentEditDraft']>
     readonly autonomousAgentMessageToChat: UnwrapRef<typeof import('../src/utils/autonomous-agent-chat-message')['autonomousAgentMessageToChat']>
     readonly autonomousAgentMessagesToChat: UnwrapRef<typeof import('../src/utils/autonomous-agent-chat-message')['autonomousAgentMessagesToChat']>
@@ -370,7 +366,6 @@ declare module 'vue' {
     readonly shallowReadonly: UnwrapRef<typeof import('vue')['shallowReadonly']>
     readonly shallowRef: UnwrapRef<typeof import('vue')['shallowRef']>
     readonly shouldAutoFixMermaid: UnwrapRef<typeof import('../src/utils/mermaid-fix')['shouldAutoFixMermaid']>
-    readonly shouldFlattenSubAgent: UnwrapRef<typeof import('../src/composables/sub-agent-flatten')['shouldFlattenSubAgent']>
     readonly streamingSafeBuffer: UnwrapRef<typeof import('../src/utils/markdown')['streamingSafeBuffer']>
     readonly subscribeHostEvents: UnwrapRef<typeof import('../src/composables/use-host-events')['subscribeHostEvents']>
     readonly toDescriptors: UnwrapRef<typeof import('../src/composables/use-agent-session')['toDescriptors']>
@@ -380,7 +375,6 @@ declare module 'vue' {
     readonly toValue: UnwrapRef<typeof import('vue')['toValue']>
     readonly triggerRef: UnwrapRef<typeof import('vue')['triggerRef']>
     readonly unref: UnwrapRef<typeof import('vue')['unref']>
-    readonly useAgentChat: UnwrapRef<typeof import('../src/composables/use-agent-chat')['useAgentChat']>
     readonly useAgentSession: UnwrapRef<typeof import('../src/composables/use-agent-session')['useAgentSession']>
     readonly useAsyncAction: UnwrapRef<typeof import('@data-fair/lib-vue/async-action.js')['useAsyncAction']>
     readonly useAttrs: UnwrapRef<typeof import('vue')['useAttrs']>
@@ -395,7 +389,6 @@ declare module 'vue' {
     readonly useFrameTools: UnwrapRef<typeof import('../src/composables/use-frame-tools')['useFrameTools']>
     readonly useHead: UnwrapRef<typeof import('@unhead/vue')['useHead']>
     readonly useHeadSafe: UnwrapRef<typeof import('@unhead/vue')['useHeadSafe']>
-    readonly useHostEvents: UnwrapRef<typeof import('../src/composables/use-host-events')['useHostEvents']>
     readonly useI18n: UnwrapRef<typeof import('vue-i18n')['useI18n']>
     readonly useId: UnwrapRef<typeof import('vue')['useId']>
     readonly useLeaveGuard: UnwrapRef<typeof import('@data-fair/lib-vue/leave-guard.js')['useLeaveGuard']>

@@ -18,7 +18,7 @@ import {
   clearOldToolResults,
   decideContextManagement,
   KEEP_TOOL_RESULTS
-} from '@agents/shared/compaction-policy'
+} from '../../../api/src/agent-loop/compaction-policy.ts'
 
 const userMsg = (text: string): ModelMessage => ({ role: 'user', content: text })
 const asstMsg = (text: string): ModelMessage => ({ role: 'assistant', content: text })
@@ -424,32 +424,33 @@ test.describe('decideContextManagement — one threshold, two remedies, cheapest
   })
 })
 
-test.describe('one policy, both loops', () => {
-  // The requirement this design was held to: not two loops that happen to agree because a constant was
-  // copied into each, which is the shape every context bug on this branch came from. Assert the CALL,
-  // not the import — an imported-and-unused function passes a weaker check while changing nothing.
+test.describe('one policy, one loop', () => {
+  // The requirement this design was held to was that two loops not agree only by coincidence, because
+  // a constant had been copied into each — the shape every context bug on this branch came from. There
+  // is ONE loop now, which settles that requirement by construction rather than by assertion.
+  //
+  // What survives is the half that is still falsifiable: the loop must route through the shared policy
+  // instead of reimplementing it, and the doc must state the numbers the code uses. The browser-loop
+  // half went with the browser loop; it was not relaxed.
   const executor = readFileSync(new URL('../../../api/src/autonomous-agent-runtime/executor.ts', import.meta.url), 'utf8')
-  const browser = readFileSync(new URL('../../../ui/src/composables/use-agent-chat.ts', import.meta.url), 'utf8')
   const doc = readFileSync(new URL('../../../docs/architecture/context-management.md', import.meta.url), 'utf8')
 
-  for (const [name, source] of [['executor', executor], ['browser loop', browser]] as const) {
-    test(`the ${name} routes through decideContextManagement`, () => {
-      assert.match(
-        source,
-        /decideContextManagement[\s\S]{0,160}?from '@agents\/shared\/compaction-policy'/,
-        `${name} must import the decision from shared/`
-      )
-      assert.match(source, /decideContextManagement\(\{/, `${name} must actually CALL it`)
-      // And must not reach past it to the tier it would otherwise apply alone: calling decideCompaction
-      // directly is how a loop skips clearing and quietly diverges.
-      assert.doesNotMatch(source, /[^e]decideCompaction\(/, `${name} must not call decideCompaction directly`)
-    })
-  }
+  test('the executor routes through decideContextManagement', () => {
+    assert.match(
+      executor,
+      /decideContextManagement[\s\S]{0,160}?from '\.\.\/agent-loop\/compaction-policy.ts'/,
+      'the executor must import the decision from shared/'
+    )
+    // Assert the CALL, not only the import: an imported-and-unused function passes a weaker check
+    // while changing nothing.
+    assert.match(executor, /decideContextManagement\(\{/, 'the executor must actually CALL it')
+    // And it must not reach past it to the tier it would otherwise apply alone: calling
+    // decideCompaction directly is how a loop skips clearing and quietly diverges.
+    assert.doesNotMatch(executor, /[^e]decideCompaction\(/, 'the executor must not call decideCompaction directly')
+  })
 
-  test('neither loop keeps its own copy of a policy constant', () => {
-    for (const [name, source] of [['executor', executor], ['browser loop', browser]] as const) {
-      assert.doesNotMatch(source, /const (KEEP_TOOL_RESULTS|CLEAR_AT_LEAST_SHARE|RETENTION_SHARE|FLOOR_SHARE)\s*=/, name)
-    }
+  test('the loop keeps no copy of a policy constant', () => {
+    assert.doesNotMatch(executor, /const (KEEP_TOOL_RESULTS|CLEAR_AT_LEAST_SHARE|RETENTION_SHARE|FLOOR_SHARE)\s*=/, 'executor')
   })
 
   test('the architecture doc states the numbers the code actually uses', () => {

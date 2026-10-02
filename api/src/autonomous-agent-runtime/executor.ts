@@ -20,10 +20,10 @@ import config from '#config'
 import locks from '@data-fair/lib-node/locks.js'
 import Debug from 'debug'
 import { streamText, generateText, stepCountIs, type ModelMessage, type Tool } from 'ai'
-import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep, STREAM_IDLE_TIMEOUT_MS } from '@agents/shared/agent-loop-guards'
-import { decideContextManagement, clearOldToolResults } from '@agents/shared/compaction-policy'
+import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep, STREAM_IDLE_TIMEOUT_MS } from '../agent-loop/agent-loop-guards.ts'
+import { decideContextManagement, clearOldToolResults } from '../agent-loop/compaction-policy.ts'
 import { summarizeToolArguments } from '@agents/shared/tool-arguments'
-import { compactionSystemPrompt, recapMessage } from '@agents/shared/compaction-prompt'
+import { compactionSystemPrompt, recapMessage } from '../agent-loop/compaction-prompt.ts'
 import type { AutonomousAgent, AutonomousAgentMessage, AutonomousAgentRun } from '#types'
 import {
   runStopReasonMessage, buildSystemPrompt, withProvenance,

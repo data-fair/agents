@@ -55,7 +55,15 @@ const sourceSettings = {
   quotas: defaultQuotas
 }
 
-test.describe('Promoted evaluator (superadmin review)', () => {
+// SKIPPED while the evaluator chat is disabled: it ran on the in-browser loop, which no longer
+// exists, and needs a full rework against the server-held one rather than a repoint.
+//
+// Kept rather than deleted because of the routing decision it pins, which the rework has to make
+// again: in superadmin (promoted) mode the evaluator must bill and run against the CONFIGURED SOURCE
+// account, never the reviewed one. Getting that backwards spends a reviewed customer's credits to
+// review their own conversation — the kind of error that is invisible until an invoice. `TraceReview`
+// still accepts the `promotedEvaluator` prop for the same reason.
+test.describe.skip('Promoted evaluator (superadmin review)', () => {
   test.beforeEach(async () => {
     await clean()
     await putSettings(admin, 'user/test-standalone1', reviewedSettings)
