@@ -18,12 +18,13 @@ import { assertCanUseModel, assertRoleQuota, getEffectiveRole, type EffectiveRol
 import { assertAnonymousActionToken } from '../anonymous-token/service.ts'
 import { getUsage, getMonthlyResetsAt } from './service.ts'
 import { getCreditInfo } from '../limits/service.ts'
-import { firstQuotaViolation, isUntrustedRole, type QuotaCheckInput, type QuotaExceeded } from './operations.ts'
+import { firstQuotaViolation, isUntrustedRole, UNTRUSTED_POOL_ID, type QuotaCheckInput, type QuotaExceeded } from './operations.ts'
 
 type Quotas = NonNullable<Settings['quotas']>
 
 // sentinel userId for the aggregate anonymous + external usage record
-export const UNTRUSTED_POOL_ID = 'pool:untrusted'
+// Declared in ./operations.ts (pure); re-exported here so existing importers are unaffected.
+export { UNTRUSTED_POOL_ID } from './operations.ts'
 
 export interface UsageIdentity {
   trackPerUser: boolean
@@ -49,12 +50,23 @@ export async function resolveUsageIdentity (req: Request, owner: AccountKeys, qu
   }
 
   // Authenticated path
+  return authenticatedUsageIdentity(sessionState, owner, quotas)
+}
+
+/**
+ * The usage identity of an authenticated caller.
+ *
+ * Split out of `resolveUsageIdentity` because it needs no `Request`: only the anonymous branch does
+ * (for the per-IP hash and the signed action token). That makes it callable from the WEBSOCKET path,
+ * where there is a session but no per-turn request — which is what a chat turn on the server-held loop
+ * needs to be billed as the person rather than as the agent it is talking to.
+ */
+export function authenticatedUsageIdentity (sessionState: any, owner: AccountKeys, quotas: Quotas): UsageIdentity {
   const session = sessionState
 
-  // Admin-mode superadmins may consume any account's gateway: treat them as an
-  // admin of the owner regardless of membership. This powers cross-account trace
-  // evaluation — the configured evaluator account is consumed, never the reviewed
-  // account. Quotas still apply and usage is still recorded on the owner below.
+  // Admin-mode superadmins may consume any account: treat them as an admin of the owner regardless
+  // of membership. This powers cross-account trace evaluation — the configured evaluator account is
+  // consumed, never the reviewed account. Quotas still apply and usage is still recorded on the owner.
   if (session.user?.adminMode) {
     const trackPerUser = owner.type === 'organization'
     return {

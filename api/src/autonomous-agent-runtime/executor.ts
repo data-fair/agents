@@ -27,10 +27,11 @@ import { compactionSystemPrompt, recapMessage } from '../agent-loop/compaction-p
 import type { AutonomousAgent, AutonomousAgentMessage, AutonomousAgentRun } from '#types'
 import {
   runStopReasonMessage, buildSystemPrompt, withProvenance,
-  storedTurnsToModelMessages, alignCutToStoredMessage,
+  storedTurnsToModelMessages, alignCutToStoredMessage, usageIdentityFor,
   boundToolResult, partsText, withAppendedText,
   type RunStopReason, type UIPart
 } from './operations.ts'
+import type { UsageIdentity } from '../usage/enforce.ts'
 import { appendMessage, updateMessage, finishRun, incrementRunSpend, saveCompaction, resolveAgent } from './service.ts'
 import { recordTraceRequest } from '../traces/service.ts'
 import { getSettings } from '../settings/service.ts'
@@ -45,29 +46,8 @@ import type { AgentSession } from '../agent-session/session.ts'
 import type { ChatActivity } from '@agents/shared/agent-activity'
 import { browserToolSet } from '../agent-session/browser-tools.ts'
 import { createWaitTool, withHostContext, WAIT_TOOL_NAME } from '@agents/shared/host-events'
-import { enforceQuotas, checkAccountCreditCap, type UsageIdentity } from '../usage/enforce.ts'
+import { enforceQuotas, checkAccountCreditCap } from '../usage/enforce.ts'
 import { recordUsage } from '../usage/service.ts'
-
-/**
- * How an autonomous run's spend is attributed.
- *
- * resolveUsageIdentity needs an Express request, which an executor has not got, so the
- * identity is constructed here. Keyed on the AGENT, not on whoever sent the last message:
- * an autonomous agent is an org-owned service identity, not a person, and P2's scheduled
- * runs will have no instructing user at all. Keying per agent also makes the existing
- * per-user usage histogram read as spend per autonomous agent, which is what an org admin
- * needs. Content attribution stays per person, on each message's `author`.
- *
- * role 'admin' means no per-profile quota applies: the account credit cap and the per-run
- * budget are the real bounds, which is what the spec specifies for autonomous runs.
- */
-const usageIdentityFor = (autonomousAgent: { id: string, title: string }): UsageIdentity => ({
-  trackPerUser: true,
-  usageUserId: `autonomous-agent:${autonomousAgent.id}`,
-  usageUserName: autonomousAgent.title,
-  role: 'admin',
-  isUntrusted: false
-})
 
 const debug = Debug('df-agents:autonomous-agent-executor')
 
@@ -447,7 +427,7 @@ const performTurn = async (run: AutonomousAgentRun, messageSeq: number, messageI
 
   // Before any model call: a refused turn must cost nothing. The identity is per agent —
   // see usageIdentityFor.
-  const identity = usageIdentityFor(autonomousAgent)
+  const identity = usageIdentityFor(autonomousAgent, run)
   const violation = await enforceQuotas(run.owner, settings.quotas ?? {} as any, identity)
   if (violation) {
     return {
@@ -536,7 +516,7 @@ interface ModelLoopContext {
 
 const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   const { run, messageSeq, messageId, abortSignal, model, entry, tools, settings, budget, serverByTool, annotationsByTool, autonomousAgent, session } = ctx
-  const identity = usageIdentityFor(autonomousAgent)
+  const identity = usageIdentityFor(autonomousAgent, run)
 
   const compacted = await compactHistory(
     run,

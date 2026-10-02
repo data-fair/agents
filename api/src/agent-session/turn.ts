@@ -21,6 +21,7 @@ import mongo from '#mongo'
 import type { AgentSession } from './session.ts'
 import type { InstructSession } from '../autonomous-agents/operations.ts'
 import { wrapHiddenContext } from '@agents/shared/hidden-context'
+import { getEffectiveRole } from '../auth.ts'
 
 const debug = Debug('agents:agent-session-turn')
 
@@ -88,6 +89,9 @@ export const startSessionTurn = async (request: SessionTurnRequest): Promise<str
     owner: conversation.owner,
     trigger: 'user',
     triggeredBy: { userId: request.session.user.id, userName: request.session.user.name },
+    // Recorded here because only this boundary has the session. It is what makes a standard agent's
+    // turn bill against the PERSON's quota rather than resolving to 'admin' (see the schema note).
+    triggeredByRole: getEffectiveRole(request.session, request.owner),
     status: 'running',
     startedAt: new Date().toISOString()
   })

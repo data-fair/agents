@@ -5,6 +5,12 @@
 
 import { convertToModelMessages, safeValidateUIMessages, type ModelMessage, type Tool } from 'ai'
 import { truncatedToolResultText } from '../agent-loop/compaction-policy.ts'
+import type { AccountKeys } from '@data-fair/lib-express'
+// Type-only, so this pure module does not pull in enforce.ts (which reaches mongo and config).
+import type { UsageIdentity } from '../usage/enforce.ts'
+import type { EffectiveRole } from '../auth.ts'
+import { isUntrustedRole, UNTRUSTED_POOL_ID } from '../usage/operations.ts'
+import { isStandardAgentId } from '../agent-session/standard-agents.ts'
 
 export type RunStatus = 'running' | 'done' | 'error' | 'aborted' | 'interrupted'
 export type RunStopReason = 'completed' | 'step-limit' | 'repeated-calls' | 'budget' | 'timeout' | 'aborted' | 'error'
@@ -373,4 +379,55 @@ export const withProvenance = (tools: Record<string, Tool>, serverOf: (name: str
     } as Tool
   }
   return wrapped
+}
+
+/**
+ * How an autonomous run's spend is attributed.
+ *
+ * resolveUsageIdentity needs an Express request, which an executor has not got, so the
+ * identity is constructed here. Keyed on the AGENT, not on whoever sent the last message:
+ * an autonomous agent is an org-owned service identity, not a person, and P2's scheduled
+ * runs will have no instructing user at all. Keying per agent also makes the existing
+ * per-user usage histogram read as spend per autonomous agent, which is what an org admin
+ * needs. Content attribution stays per person, on each message's `author`.
+ *
+ * role 'admin' means no per-profile quota applies: the account credit cap and the per-run
+ * budget are the real bounds, which is what the spec specifies for autonomous runs.
+ */
+export const usageIdentityFor = (
+  autonomousAgent: { id: string, title: string },
+  run: { owner: AccountKeys, triggeredBy?: { userId?: string, userName?: string }, triggeredByRole?: EffectiveRole }
+): UsageIdentity => {
+  // A STANDARD agent acts as the person, so the PERSON is who spends. Billing it as the agent — which
+  // is what this function used to do for every agent alike — had two consequences, both silent: role
+  // 'admin' means "no per-profile quota applies", so a `user`/`external` person chatting was bounded
+  // only by the account credit cap; and every person's spend was recorded against one
+  // `autonomous-agent:personal` row, so the per-user histogram an org admin reads to see who spent
+  // what showed a single line for the whole organization.
+  if (isStandardAgentId(autonomousAgent.id)) {
+    const role = run.triggeredByRole ?? 'user'
+    const isUntrusted = isUntrustedRole(role)
+    return {
+      // Per user on an organization; on someone's personal account there is only one person, and the
+      // account's own totals already say what they spent.
+      trackPerUser: run.owner.type === 'organization',
+      ...(run.owner.type === 'organization'
+        ? { usageUserId: run.triggeredBy?.userId, usageUserName: run.triggeredBy?.userName }
+        : {}),
+      role,
+      isUntrusted,
+      ...(isUntrusted ? { poolId: UNTRUSTED_POOL_ID } : {})
+    }
+  }
+  // A CONFIGURED agent is an org-owned service identity, not a person. Keyed per agent so the
+  // per-user histogram reads as spend per agent, which is what an org admin needs; role 'admin'
+  // because no per-profile quota is meant to apply — the account credit cap and the per-run budget
+  // are its real bounds. Content attribution stays per person, on each message's `author`.
+  return {
+    trackPerUser: true,
+    usageUserId: `autonomous-agent:${autonomousAgent.id}`,
+    usageUserName: autonomousAgent.title,
+    role: 'admin',
+    isUntrusted: false
+  }
 }

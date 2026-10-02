@@ -208,6 +208,15 @@ export function firstQuotaViolation (checks: (QuotaCheckInput | null | undefined
  * Untrusted roles are those that share the aggregate "untrusted pool" budget:
  * anonymous (public, per-IP) and external (authenticated but on a different account).
  */
+/**
+ * Sentinel userId of the shared pool that anonymous and external usage both contribute to.
+ *
+ * Lives in the PURE module so a caller that only needs to label a usage identity does not have to
+ * import `enforce.ts`, which reaches mongo and config through its own imports and so cannot be
+ * reached from a unit test.
+ */
+export const UNTRUSTED_POOL_ID = 'pool:untrusted'
+
 export function isUntrustedRole (role: string): boolean {
   return role === 'anonymous' || role === 'external'
 }

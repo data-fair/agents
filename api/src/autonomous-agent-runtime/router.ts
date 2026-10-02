@@ -12,6 +12,7 @@ import eventsLog from '@data-fair/lib-express/events-log.js'
 import { assertCanOwnAgent } from '../autonomous-agents/service.ts'
 import { assertCanInstruct, assertOwnsConversation, requireAutonomousAgent, requireConversation, appendMessage, createRun } from './service.ts'
 import { startRun, abortRun } from './executor.ts'
+import { getEffectiveRole } from '../auth.ts'
 
 const router = Router()
 export default router
@@ -261,6 +262,8 @@ router.post('/:type/:id/:conversationId/messages', async (req, res, next) => {
       owner: conversation.owner,
       trigger: 'user',
       triggeredBy: { userId: session.user.id, userName: session.user.name },
+      // See the schema note: only this boundary has the session to derive it from.
+      triggeredByRole: getEffectiveRole(session, owner),
       status: 'running',
       startedAt: new Date().toISOString()
     })
