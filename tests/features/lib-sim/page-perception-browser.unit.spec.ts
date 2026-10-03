@@ -44,6 +44,20 @@ test.describe('frames', () => {
     assert.equal(await p.call('click', { name: 'Type de lien' }), 'clicked "Type de lien"')
   })
 
+  test('a control covered by its own field is clicked where a person would click', async ({ page }) => {
+    // Vuetify keeps a select's input under the field's div: a judged run's click on « Type de
+    // lien » waited 15 s on « intercepts pointer events » and the person called it broken
+    await page.setContent(`<div style="position:relative;width:200px;height:40px">
+      <input role="combobox" aria-label="Type de lien" style="position:absolute;inset:0;width:100%">
+      <div style="position:absolute;inset:0" onclick="document.body.dataset.opened='1'"></div>
+    </div>`)
+    const p = createPagePerception([{ label: 'page', root: page }])
+    const started = Date.now()
+    assert.equal(await p.call('click', { name: 'Type de lien' }), 'clicked "Type de lien"')
+    assert.equal(await page.evaluate(() => document.body.dataset.opened), '1')
+    assert.ok(Date.now() - started < 10000, 'it does not wait out the whole action timeout')
+  })
+
   test('a root that does not opt in keeps the plain outline', async ({ page }) => {
     await page.setContent(FRAMED)
     const p = createPagePerception([{ label: 'page', root: page }])

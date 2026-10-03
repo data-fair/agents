@@ -241,6 +241,9 @@ export function pruneSnapshot (snapshot: string): string {
  */
 const KEY_PATTERN = /^((Control|Shift|Alt|Meta)\+)*(Enter|Escape|Tab|Backspace|Delete|Space|ArrowUp|ArrowDown|ArrowLeft|ArrowRight|Home|End|PageUp|PageDown|[A-Za-z0-9])$/
 
+/** How long a click checks that its target can take it, before clicking what covers it. */
+export const INTERCEPT_PROBE_MS = 2000
+
 /** How long a click is watched for the new tab it may open. */
 export const NEW_TAB_WAIT_MS = 1000
 
@@ -372,6 +375,24 @@ export function createPagePerception (roots: PerceptionRoot[], opts: { offLimits
     return null
   }
 
+  // A component can cover its own control: Vuetify keeps a select's input under the field's
+  // div, and a judged run's click on « Type de lien » waited out the timeout on « intercepts
+  // pointer events ». A person clicks what is on top at that spot: so does this, once a
+  // short check shows the control itself cannot take the click.
+  const clickAsAPerson = async (loc: any) => {
+    try {
+      await loc.click({ trial: true, timeout: INTERCEPT_PROBE_MS })
+    } catch (err) {
+      // anything else (not yet visible, still animating) gets the normal, longer wait below
+      const box = err instanceof Error && err.message.includes('intercepts pointer events') ? await loc.boundingBox() : null
+      if (box) {
+        await loc.page().mouse.click(box.x + box.width / 2, box.y + box.height / 2)
+        return
+      }
+    }
+    await loc.click({ timeout: ACTION_TIMEOUT_MS })
+  }
+
   const newTabAfter = async (before: number) => {
     const deadline = Date.now() + NEW_TAB_WAIT_MS
     while (Date.now() < deadline && tabs.length === before) await new Promise(resolve => setTimeout(resolve, 100))
@@ -402,7 +423,7 @@ export function createPagePerception (roots: PerceptionRoot[], opts: { offLimits
     if (!match) return `could not find anything called "${name}" to click`
     try {
       const before = tabs.length
-      await match.loc.click({ timeout: ACTION_TIMEOUT_MS })
+      await clickAsAPerson(match.loc)
       actedSinceLook = true
       if (await newTabAfter(before)) return `clicked "${name}" — it opened a new tab (tab ${current + 1}); you are now looking at it`
       // Playwright clicks whatever is visible, so the text fallback succeeds
