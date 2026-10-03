@@ -379,8 +379,9 @@ export function createPagePerception (roots: PerceptionRoot[], opts: { offLimits
   }
 
   // Widgets a person clicks, not only buttons and links: an editor's tabs are role=tab, and
-  // a judged run clicked « Barre de navigation » as text — the chat's words — instead.
-  const CONTROL_ROLES = ['button', 'link', 'tab', 'menuitem', 'option', 'checkbox', 'radio', 'switch'] as const
+  // a judged run clicked « Barre de navigation » as text — the chat's words — instead. A
+  // drop-down shares its name with its label: clicking « Type de lien » hit the label text.
+  const CONTROL_ROLES = ['button', 'link', 'tab', 'menuitem', 'option', 'checkbox', 'radio', 'switch', 'combobox'] as const
 
   const click = async (name: string) => {
     if (isOffLimits(name)) return OFF_LIMITS_RESULT

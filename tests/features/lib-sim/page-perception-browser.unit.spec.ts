@@ -36,6 +36,14 @@ test.describe('frames', () => {
     assert.match(await p.call('look', {}), /tab "Barre de navigation" \[selected\]/)
   })
 
+  test('a drop-down is clicked rather than its label text', async ({ page }) => {
+    // a judged run clicked « Type de lien »: the label text was hit, the drop-down of that
+    // name never opened, and the person reported the product as broken
+    await page.setContent('<label for="t">Type de lien</label><select id="t" onclick="document.body.dataset.opened=1"><option>Page libre</option></select>')
+    const p = createPagePerception([{ label: 'page', root: page }])
+    assert.equal(await p.call('click', { name: 'Type de lien' }), 'clicked "Type de lien"')
+  })
+
   test('a root that does not opt in keeps the plain outline', async ({ page }) => {
     await page.setContent(FRAMED)
     const p = createPagePerception([{ label: 'page', root: page }])
