@@ -91,6 +91,19 @@ export interface StreamScope {
   setActivity: (phase: ActivityPhase, toolName?: string) => void
 }
 
+/**
+ * Settle the waits a finished turn left pending. A wait the person interrupted by writing
+ * never gets a tool result, and its chip kept reading « En attente : … » under the next
+ * replies, long after the turn had ended. Other tools are left alone.
+ */
+export function settleWaitInvocations (messages: StreamMessage[]): void {
+  for (const message of messages) {
+    for (const inv of message.toolInvocations ?? []) {
+      if (inv.toolName === WAIT_TOOL_NAME && inv.state === 'pending') inv.state = 'done'
+    }
+  }
+}
+
 export function applyStreamPart (part: StreamPart, scope: StreamScope): void {
   switch (part.type) {
     case 'reasoning-delta': {

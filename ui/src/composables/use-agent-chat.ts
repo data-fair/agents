@@ -20,7 +20,7 @@ import { wrapHiddenContext } from '~/traces/hidden-context'
 import { decideCompaction, retainedToolNames } from '~/utils/compaction-policy'
 import Debug from 'debug'
 import type { ChatActivity } from './agent-activity.ts'
-import { applyStreamPart, type StreamScope, type StreamPart } from './agent-stream-parts.ts'
+import { applyStreamPart, settleWaitInvocations, type StreamScope, type StreamPart } from './agent-stream-parts.ts'
 import { SUBAGENT_STEP_LIMIT_NOTICE, subAgentModelOutput } from './agent-subagent-output.ts'
 import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep } from './agent-loop-guards.ts'
 import { HostEventStore, createWaitTool, appendHostEvents, formatHostEvents, formatHostState, hasHostState, WAIT_TOOL_NAME } from './host-events'
@@ -1357,6 +1357,8 @@ export function useAgentChat (options: UseAgentChatOptions) {
       // instead of being buffered for the next one. Idempotent: a no-op once the wait
       // has already settled through the signal, as it does today.
       hostEvents?.cancelWait()
+      // no wait outlives its turn: an interrupted one would keep reading « En attente »
+      settleWaitInvocations(messages.value)
       if (commitRunningTurn === commitSteps) commitRunningTurn = null
       if (owns) {
         usageVersion.value++

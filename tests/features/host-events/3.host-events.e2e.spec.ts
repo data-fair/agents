@@ -171,7 +171,7 @@ test.describe('Host events', () => {
     await reachConfirmation(page)
     const requests = countGatewayRequests(page)
     await send(page, 'wait for me')
-    await expect(page.getByTestId('chat-activity')).toContainText('Waiting for: you to click Create', { timeout: 15000 })
+    await expect(page.getByTestId('chat-activity')).toContainText('Waiting for you', { timeout: 15000 })
     await expect(page.getByTestId('tool-chip')).toContainText('Waiting for: you to click Create')
     await page.getByRole('button', { name: 'Create' }).click()
     await expect(lastAnswer(page)).toContainText('You did:', { timeout: 15000 })
@@ -244,11 +244,11 @@ test.describe('Host events', () => {
     // turn with the generic timeout error instead of leaving the wait pending.
     await page.evaluate(() => sessionStorage.setItem('agent-chat-idle-timeout', '1000'))
     await send(page, 'wait for me')
-    await expect(page.getByTestId('chat-activity')).toContainText('Waiting for: you to click Create', { timeout: 15000 })
+    await expect(page.getByTestId('chat-activity')).toContainText('Waiting for you', { timeout: 15000 })
     // Sit well past the shrunk idle timeout while the wait is still pending.
     await page.waitForTimeout(2500)
     // Still waiting, no timeout error alert: the watchdog did not fire during the pause.
-    await expect(page.getByTestId('chat-activity')).toContainText('Waiting for: you to click Create')
+    await expect(page.getByTestId('chat-activity')).toContainText('Waiting for you')
     await expect(page.locator('.v-alert')).toHaveCount(0)
     // The wait still resolves normally afterwards.
     await page.getByRole('button', { name: 'Create' }).click()
@@ -400,7 +400,7 @@ test.describe('Host events', () => {
     await open(page, goToWithAuth)
     await reachConfirmation(page)
     await send(page, 'wait briefly')
-    await expect(page.getByTestId('chat-activity')).toContainText('Waiting for: you to click Create', { timeout: 15000 })
+    await expect(page.getByTestId('chat-activity')).toContainText('Waiting for you', { timeout: 15000 })
     await expect(page.getByTestId('chat-activity')).toHaveCount(0, { timeout: 15000 })
     await expect(lastAnswer(page)).toContainText('No user action within 1 seconds', { timeout: 15000 })
   })

@@ -1,6 +1,6 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { applyStreamPart, WAIT_TOOL_NAME, repairWaitInput, type StreamScope, type ActivityPhase } from '../../../ui/src/composables/agent-stream-parts.ts'
+import { applyStreamPart, settleWaitInvocations, WAIT_TOOL_NAME, repairWaitInput, type StreamScope, type ActivityPhase, type StreamMessage } from '../../../ui/src/composables/agent-stream-parts.ts'
 import { WAIT_TOOL_NAME as HOST_WAIT_TOOL_NAME } from '../../../ui/src/composables/host-events.ts'
 
 function makeScope () {
@@ -169,5 +169,23 @@ test.describe('applyStreamPart', () => {
     assert.equal(scope.messages[0].reasoning, 'plan')
     assert.equal(scope.messages[0].content, 'answer')
     assert.deepEqual(scope.messages[0].toolInvocations, [{ toolCallId: 'c1', toolName: 't', state: 'pending' }])
+  })
+})
+
+// A wait the person interrupted by writing never gets a tool result: its chip kept reading
+// « En attente : … » under the next replies, long after the turn had ended.
+test.describe('settleWaitInvocations', () => {
+  test('settles the waits a finished turn left pending, and only them', () => {
+    const messages: StreamMessage[] = [{
+      role: 'assistant',
+      content: '',
+      toolInvocations: [
+        { toolCallId: 'w', toolName: WAIT_TOOL_NAME, state: 'pending' },
+        { toolCallId: 't', toolName: 'search', state: 'pending' }
+      ]
+    }]
+    settleWaitInvocations(messages)
+    assert.equal(messages[0].toolInvocations?.[0].state, 'done')
+    assert.equal(messages[0].toolInvocations?.[1].state, 'pending')
   })
 })
