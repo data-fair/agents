@@ -183,22 +183,25 @@ message it never wrote. A wait with no message is refused so the model retries w
 small-model slip (the other arguments serialised into the message string) is repaired
 (`repairWaitInput`).
 
-**Speaking during a wait** takes the turn back: `sendMessage` aborts the waiting turn and starts
-a new one. An aborted turn never reaches `result.response`, which is where a turn's messages
-normally enter history, so the turn's finished steps are tracked as they complete and committed
-(`commitRunningTurn`) before the new turn pushes its user message; the step still open — the one
-holding the wait — is recorded with a result saying it was interrupted (`interrupted-turn.ts`).
-The new turn's hidden context then ends with a reminder, just before the person's message: what the
-wait was for, and to declare it again after answering if that action is still to come. The same
-instruction used to live in the interrupted wait's tool result, where it sat in history ahead of the new
-question; judged runs answered the question and never waited again, so the action they had handed
-over went unseen.
-Stop commits the same way, with a result saying the reply was stopped. The open step is reset on
-the `finish-step` part the loop reads, not in `onStepFinish`: the SDK runs that callback on its
-side of the stream, possibly before the loop has read the step's parts, and any call already in
-the finished steps is dropped from the open one so no call id reaches history twice. A result
-that did arrive in the open step goes through its tool's `toModelOutput`, as the SDK would. Without this, judged runs sent the model the person's two messages
-with nothing between, and the assistant denied work it had done and redid it. It resolves on **what the person did, not on the next event whatever it
+**Speaking during a wait** takes the turn back: a prompt arriving on the socket aborts the
+conversation's live turn (`abortRunsOfConversation`, with `PERSON_SPOKE` as the reason) and starts a
+new one, which runs once the aborted turn has released the conversation lock. The server stores every
+turn as it goes, so the aborted turn's finished work is already in the record — except the calls
+still open when it stopped, which have no result, and a call with no result is dropped on replay. So
+the abort path settles every open call with a result saying why it never completed
+(`settleInterruptedParts` in `api/src/conversations/interrupted-turn.ts`, wording from main's #73/#75): the
+interrupted wait says what it was waiting for, any other call that the person spoke, and after Stop
+that the reply was stopped. Calls are persisted the moment they open or settle, off the throttled text
+clock, so the abort path — which reads the store — sees an open wait. The next request then carries a
+reminder at the END of the hidden block, the last thing before the person's words: what the wait was
+for, and to declare it again after answering if that action is still to come (`pendingWaitReminder`,
+read from the settled wait in history, and only for the turn right after). In the interrupted wait's
+own result, that instruction sat in history ahead of the new question; judged runs answered the
+question and never waited again, so the action they had handed over went unseen. Speaking writes no
+stop notice — the person's message answers it, and the notice would be replayed as the assistant's
+own words; Stop, the clock and errors keep theirs. Without any of this, judged runs sent the model
+the person's two messages with nothing between, and the assistant denied work it had done and redid
+it. It resolves on **what the person did, not on the next event whatever it
 is**. The store already separates two kinds of event: an unkeyed transition is something
 that happened, keyed state is what is true now — and state refreshes for many reasons,
 including the assistant's own action finishing late. A wait resolves on a transition, or on

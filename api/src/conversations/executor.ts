@@ -48,6 +48,7 @@ import type { AgentSession } from '../agent-session/session.ts'
 import type { ChatActivity } from '@agents/shared/agent-activity'
 import { browserToolSet } from '../agent-session/browser-tools.ts'
 import { createWaitTool, withHostContext, waitHandover, WAIT_TOOL_NAME } from '@agents/shared/host-events'
+import { PERSON_SPOKE, interruptReason, settleInterruptedParts, pendingWaitReminder } from './interrupted-turn.ts'
 import { checkAccountCreditCap } from '../usage/enforce.ts'
 import { recordUsage } from '../usage/service.ts'
 
@@ -93,7 +94,8 @@ export const abortRunsOfConversation = (conversationId: string): number => {
   let stopped = 0
   for (const live of liveRuns.values()) {
     if (live.conversationId !== conversationId) continue
-    live.controller.abort(new Error('the person spoke'))
+    // The reason is read back when the turn is settled (interruptReason), so it must be the constant.
+    live.controller.abort(new Error(PERSON_SPOKE))
     stopped++
   }
   return stopped
@@ -339,7 +341,15 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   // changes every turn, and state presented as a standing instruction reads to the model as a rule
   // rather than as an observation. Not persisted — it decorates this request only, so the stored
   // conversation stays a record of what was said rather than of what was on screen each time.
-  const history = session ? withHostContext(compacted.messages, session.hostEvents) : compacted.messages
+  //
+  // Plus, when the person's latest message interrupted a wait, the reminder that they were waited on
+  // (port of main's #75): LAST in the hidden block, so it is the final thing the model reads before
+  // their words. In the interrupted wait's own result it sat in history ahead of the new question, and
+  // judged runs answered the question and never waited again.
+  const reminder = pendingWaitReminder(compacted.messages)
+  const history = session || reminder
+    ? withHostContext(compacted.messages, session?.hostEvents ?? null, reminder ? [reminder] : [])
+    : compacted.messages
 
   // Credits spent so far this turn, accumulated per step so the budget can stop the loop
   // between steps rather than only reporting the overrun afterwards.
@@ -665,6 +675,12 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
    * them from a stream. `null` clears the label.
    */
   const activity = (value: ChatActivity | null) => {
+    // WHILE A WAIT IS PENDING, THE WAIT OWNS THE LABEL. The SDK runs a tool as soon as it parses the
+    // call, ahead of this loop reading the stream, so the loop's own updates arrive late: a result
+    // from the step before, read after the wait has started, set "Analyzing tool result…" over
+    // "Waiting for …", and the person was no longer told the turn was theirs. The wait sets and
+    // clears its own label (createWaitTool's onWaiting/onDone, which do not go through here).
+    if (session?.hostEvents.isWaiting()) return
     session?.send({ type: 'activity', activity: value })
   }
 
@@ -729,6 +745,19 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
    */
   const sendMessageFrame = (pending: boolean) => {
     session?.send({ type: 'message', seq: messageSeq, role: 'assistant', parts, pending })
+  }
+
+  /**
+   * Persist the turn's structure NOW, off the throttled text clock, when a call opens or settles.
+   *
+   * Two readers need it. A turn interrupted mid-call is settled from the STORED parts (runTurn's catch
+   * path has nothing else), so a wait the throttled clock had not yet written would be invisible there
+   * and replay would drop it — the model would never learn it had been waiting. And a page reloaded
+   * during a wait has to show the wait. Calls are few per turn, so this costs a write per call, not
+   * per token.
+   */
+  const persistStructure = async () => {
+    await updateMessage(messageId, { parts, pending: true })
   }
 
   // THINKING, from the moment the turn is handed to the model until it says something.
@@ -806,6 +835,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
       // assistant is doing something, and a call can take seconds. Waiting for the next token would
       // show the chip after the work it describes.
       sendMessageFrame(true)
+      await persistStructure()
       if (part.toolName.startsWith('subagent_')) activity({ kind: 'subagent', name: part.toolName, phase: 'starting' })
     }
     // The RESULT, stored because the conversation is revivable: without it a later turn replays a
@@ -828,6 +858,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
         truncated: bounded.truncated
       })
       sendMessageFrame(true)
+      await persistStructure()
       // The model now has a result to read. `subAgent` is set when the tool WAS a delegation, so the
       // label can name it — the one case where the bottom line says more than "analyzing".
       activity({
@@ -846,6 +877,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
       const detail = (part as any).error instanceof Error ? (part as any).error.message : String((part as any).error)
       settleToolPart(part.toolCallId, { state: 'output-error', errorText: boundToolResult(detail).result })
       sendMessageFrame(true)
+      await persistStructure()
       debug('tool failed tool=%s error=%s', part.toolName, detail)
     }
   }
@@ -1017,9 +1049,6 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
     const aborted = abortController.signal.aborted
     const timedOut = aborted && /timeout/i.test(String((abortController.signal as any).reason?.message ?? ''))
     const stopReason: RunStopReason = timedOut ? 'timeout' : aborted ? 'aborted' : 'error'
-    // A failed turn ends the same way for a watcher as a successful one: the page must stop waiting
-    // whatever happened. "Failure is a message, not a silence" applies to the socket too.
-    sessionFor(run.conversationId)?.send({ type: 'turn-end', stopReason, detail })
     // The message is finalised FIRST, and the run closed after, because the terminal `run`
     // event is the end-of-turn signal a subscriber stops listening on: closing the run first
     // would leave every failed, aborted and timed-out turn showing a message stuck `pending`.
@@ -1039,8 +1068,15 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
       const persisted = await mongo.messages
         .findOne({ id: message.id }, { projection: { _id: 0, parts: 1 } })
         .catch(() => null)
+      // Every call still open gets a result saying why it never completed (port of main's #73): a call
+      // with no result is dropped on replay, so the model would never learn what it had been doing —
+      // judged runs then denied work they had done and redid it.
+      const reason = aborted ? interruptReason((abortController.signal as AbortSignal & { reason?: unknown }).reason) : 'ended'
+      const settled = settleInterruptedParts((persisted?.parts ?? []) as MessagePart[], reason)
       await updateMessage(message.id, {
-        parts: withAppendedText((persisted?.parts ?? []) as any, runStopReasonMessage(stopReason, detail)) as any,
+        // No stop notice when the person SPOKE: their message follows and answers it, and the notice
+        // would be replayed to the model as its own words. Stop, the clock and errors keep theirs.
+        parts: (reason === 'message' ? settled : withAppendedText(settled, runStopReasonMessage(stopReason, detail))) as any,
         pending: false
       })
         .catch(updateErr => console.error('autonomous agent message could not be finalised', updateErr))
@@ -1064,6 +1100,14 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
       stopReason,
       error: detail
     }).catch(finishErr => console.error('autonomous agent run could not be closed out', finishErr))
+    // A failed turn ends the same way for a watcher as a successful one: the page must stop waiting
+    // whatever happened. "Failure is a message, not a silence" applies to the socket too.
+    //
+    // LAST, as on the success path, and that order is the contract: `turn-end` means "the record is
+    // final". It used to go out first, before the message was settled — so anything reacting to it,
+    // a client refetching or a test reading the record, could see an interrupted turn's calls still
+    // open. Found by the interrupted-turn api spec, which passed alone and failed in sequence.
+    sessionFor(run.conversationId)?.send({ type: 'turn-end', stopReason, detail })
   } finally {
     if (timeout) clearTimeout(timeout)
     liveRuns.delete(run.id)

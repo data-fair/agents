@@ -53,6 +53,7 @@ declare global {
   const effectScope: typeof import('vue').effectScope
   const enrolmentErrorMessage: typeof import('../src/utils/autonomous-agent-enrolment-error').enrolmentErrorMessage
   const extractErrorMessage: typeof import('../src/utils/error').extractErrorMessage
+  const extractQuotaError: typeof import('../src/utils/error').extractQuotaError
   const formatBreakdownValue: typeof import('../src/utils/usage-breakdown').formatBreakdownValue
   const formatBytes: typeof import('@data-fair/lib-vue/format/bytes.js').formatBytes
   const formatCredits: typeof import('../src/utils/credits').formatCredits
@@ -185,6 +186,9 @@ declare global {
   export type { ChatMessage } from '../src/utils/chat-message'
   import('../src/utils/chat-message')
   // @ts-ignore
+  export type { QuotaErrorInfo } from '../src/utils/error'
+  import('../src/utils/error')
+  // @ts-ignore
   export type { MermaidAutoFixState } from '../src/utils/mermaid-fix'
   import('../src/utils/mermaid-fix')
   // @ts-ignore
@@ -255,6 +259,7 @@ declare module 'vue' {
     readonly effectScope: UnwrapRef<typeof import('vue')['effectScope']>
     readonly enrolmentErrorMessage: UnwrapRef<typeof import('../src/utils/autonomous-agent-enrolment-error')['enrolmentErrorMessage']>
     readonly extractErrorMessage: UnwrapRef<typeof import('../src/utils/error')['extractErrorMessage']>
+    readonly extractQuotaError: UnwrapRef<typeof import('../src/utils/error')['extractQuotaError']>
     readonly formatBreakdownValue: UnwrapRef<typeof import('../src/utils/usage-breakdown')['formatBreakdownValue']>
     readonly formatBytes: UnwrapRef<typeof import('@data-fair/lib-vue/format/bytes.js')['formatBytes']>
     readonly formatCredits: UnwrapRef<typeof import('../src/utils/credits')['formatCredits']>

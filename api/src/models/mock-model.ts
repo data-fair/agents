@@ -230,6 +230,28 @@ function processMockPrompt (lastMessage: string, prompt: string | Array<any>): M
     const events = sentinelBody(lastMessage, 'host-events')
     return { type: 'text', text: events ? `events:\n${events}` : 'nothing' }
   }
+  // What the model was SENT, as JSON: the tool calls in its history, how many results they have, the
+  // ones that say they were interrupted, and whether the reminder to wait again reached the last user
+  // message. The server-side counterpart of reading the browser's /chat/completions request, which
+  // is how main tested interrupted turns (#73, #75) and which no longer exists.
+  if (endsWithCommand(lastMessage, 'what did you see')) {
+    const messages = Array.isArray(prompt) ? prompt : []
+    const content = (role: string) => messages
+      .filter((m: any) => m.role === role && Array.isArray(m.content))
+      .flatMap((m: any) => m.content)
+    const calls = content('assistant').filter((c: any) => c.type === 'tool-call').map((c: any) => c.toolName)
+    const results = content('tool').filter((c: any) => c.type === 'tool-result')
+      .map((c: any) => typeof c.output?.value === 'string' ? c.output.value : JSON.stringify(c.output?.value ?? c.output ?? ''))
+    return {
+      type: 'text',
+      text: JSON.stringify({
+        calls,
+        results: results.length,
+        interrupted: results.filter((r: string) => r.startsWith('Interrupted')),
+        reminder: /You were waiting for the person/.test(lastMessage)
+      })
+    }
+  }
   const toolResult = lastToolResultText(prompt)
   if (toolResult !== undefined && endsWithCommand(lastMessage, 'select note')) {
     return { type: 'text', text: `Tool said: ${toolResult}` }

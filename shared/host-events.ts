@@ -312,17 +312,23 @@ export function hasHostState (snapshot: HostStateSnapshot): boolean {
  */
 export function withHostContext<M extends { role: string, content: unknown }> (
   history: M[],
-  store: { snapshot: () => HostStateSnapshot, hasPending: () => boolean, takePending: () => AgentEvent[] }
+  // Null for a turn with no page attached (an HTTP-driven autonomous turn): it has no host state, but
+  // may still carry `trailing` blocks.
+  store: { snapshot: () => HostStateSnapshot, hasPending: () => boolean, takePending: () => AgentEvent[] } | null,
+  // Appended AFTER the host blocks, so they are the last thing the model reads before the person's
+  // words — which is the position a reminder needs (see interruptedWaitReminder).
+  trailing: string[] = []
 ): M[] {
-  const snapshot = store.snapshot()
+  const snapshot = store?.snapshot()
   const blocks = [
     // `state` only, and keyed on `state.length` rather than on `hasHostState` — which is also true for
     // a store holding nothing but recent actions, and would then emit a state block with no state in
     // it. Recent actions are left out because this runs EVERY turn: the model is continuously
     // grounded, so re-listing past actions beside the events block that just reported them tells it
     // the same thing twice, and a model told an action twice often does it twice.
-    snapshot.state.length ? formatHostState(snapshot, { includeRecent: false }) : null,
-    store.hasPending() ? formatHostEvents(store.takePending()) : null
+    snapshot?.state.length ? formatHostState(snapshot, { includeRecent: false }) : null,
+    store?.hasPending() ? formatHostEvents(store.takePending()) : null,
+    ...trailing
   ].filter((block): block is string => !!block)
   if (!blocks.length) return history
 
