@@ -61,6 +61,8 @@ export interface AgentSessionClientOptions {
   /** What the assistant is doing, in the vocabulary `activityLabelKey` already renders. */
   onActivity?: (activity: ChatActivity | null) => void
   onTurnEnd?: (stopReason: string, detail?: string) => void
+  /** What the conversation has cost so far, in credits — sent once attached and before each turn-end. */
+  onCost?: (conversationCost: number) => void
   onError?: (message: string) => void
 }
 
@@ -185,6 +187,9 @@ export function useAgentSession (options: AgentSessionClientOptions) {
         return
       case 'turn-end':
         options.onTurnEnd?.(message.stopReason, message.detail)
+        return
+      case 'cost':
+        options.onCost?.(message.conversationCost)
         return
       case 'error':
         debug('server error %s', message.message)

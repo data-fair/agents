@@ -34,7 +34,7 @@ import { checkQuotas, moderateTurn } from './turn-gates.ts'
 import { moderationApplies } from '../moderation/operations.ts'
 import { loadHistory, compactHistory } from './turn-history.ts'
 import { recordCall } from './turn-telemetry.ts'
-import { appendMessage, updateMessage, finishRun, incrementRunSpend, resolveAgent, setRunSystemPrompt } from './service.ts'
+import { appendMessage, updateMessage, finishRun, incrementRunSpend, resolveAgent, setRunSystemPrompt, conversationCost } from './service.ts'
 import { getSettings } from '../settings/service.ts'
 import { resolveRoleModel } from '../models/service.ts'
 import { contextBudget, type ModelRole } from '../models/operations.ts'
@@ -120,6 +120,16 @@ export const abortRunsOfAgent = (agentId: string): number => {
     stopped++
   }
   return stopped
+}
+
+/**
+ * Tell a watching page what its conversation has cost so far (see the `cost` frame). Only when
+ * someone is watching: the aggregate is cheap, but there is no reason to run it for nobody.
+ */
+const sendConversationCost = async (conversationId: string) => {
+  const session = sessionFor(conversationId)
+  if (!session) return
+  session.send({ type: 'cost', conversationCost: await conversationCost(conversationId) })
 }
 
 /** One conversation is one serialised timeline, so the lock is keyed on it. */
@@ -1036,6 +1046,10 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
       status: result.stopReason === 'error' ? 'error' : 'done',
       stopReason: result.stopReason
     })
+    // The conversation's total, now including this turn, then the end-of-turn signal — so a page that
+    // refreshes on turn-end already holds the new figure.
+    // Best-effort: a figure for a display must never turn a finished turn into a failed one.
+    await sendConversationCost(run.conversationId).catch(() => {})
     // The end-of-turn signal, so a watching page stops its spinner without polling for it.
     sessionFor(run.conversationId)?.send({
       type: 'turn-end',
@@ -1107,6 +1121,7 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
     // final". It used to go out first, before the message was settled — so anything reacting to it,
     // a client refetching or a test reading the record, could see an interrupted turn's calls still
     // open. Found by the interrupted-turn api spec, which passed alone and failed in sequence.
+    await sendConversationCost(run.conversationId).catch(() => {})
     sessionFor(run.conversationId)?.send({ type: 'turn-end', stopReason, detail })
   } finally {
     if (timeout) clearTimeout(timeout)

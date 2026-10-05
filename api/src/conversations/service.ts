@@ -290,6 +290,21 @@ export const incrementRunSpend = async (id: string, credits: number, steps: numb
 }
 
 /**
+ * What a conversation has cost so far, in credits: the sum of its runs.
+ *
+ * Exact because every model call a turn makes is added to its run as it is billed — the assistant's
+ * steps, compaction, sub-agent workers and the moderation gate. One aggregate over the runs of one
+ * conversation, served by the `conversationId` index.
+ */
+export const conversationCost = async (conversationId: string): Promise<number> => {
+  const [total] = await mongo.runs.aggregate<{ credits: number }>([
+    { $match: { conversationId } },
+    { $group: { _id: null, credits: { $sum: { $ifNull: ['$credits', 0] } } } }
+  ]).toArray()
+  return total?.credits ?? 0
+}
+
+/**
  * Close a run out. Conditional on it still being `running`, so two writers cannot both decide
  * how a run ended — the boot sweep of another instance racing the instance that is actually
  * executing it, for example. Returns whether this call was the one that closed it.

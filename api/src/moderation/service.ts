@@ -110,6 +110,15 @@ export interface ModerationRun {
   traceInfo: () => ModerationVerdictRecord | undefined
   // credits of the classifier call once it settled (0 before, or when it failed)
   cost: () => number
+  // the classifier call itself once it settled, for a caller that records per-call telemetry
+  call: () => ModerationCall | undefined
+}
+
+export interface ModerationCall {
+  entry: ReturnType<typeof resolveRoleModel>['entry']
+  usage: { inputTokens: number, outputTokens: number, cacheReadTokens?: number, cacheWriteTokens?: number }
+  credits: { total: number, input: number, cachedInput: number, output: number }
+  durationMs: number
 }
 
 export function startModeration (params: {
@@ -135,6 +144,7 @@ export function startModeration (params: {
   let timedOut = false
   let trace: ModerationVerdictRecord | undefined
   let cost = 0
+  let call: ModerationCall | undefined
 
   // Exactly one event per check, written when the check settles.
   const finalize = (action: ModerationEventAction, verdict?: ModerationVerdict, opts?: { failOpen?: 'timeout' | 'error' }) => {
@@ -188,6 +198,17 @@ export function startModeration (params: {
       config.eurosPerCredit
     )
     cost = credits.total
+    call = {
+      entry,
+      usage: {
+        inputTokens: usage?.inputTokens ?? 0,
+        outputTokens: usage?.outputTokens ?? 0,
+        ...(details?.cacheReadTokens !== undefined ? { cacheReadTokens: details.cacheReadTokens } : {}),
+        ...(details?.cacheWriteTokens !== undefined ? { cacheWriteTokens: details.cacheWriteTokens } : {})
+      },
+      credits: { total: credits.total, input: credits.input, cachedInput: credits.cachedInput, output: credits.output },
+      durationMs: Date.now() - startedAt
+    }
     if (credits.total > 0) {
       await recordUsage(owner, {
         cost: credits.total,
@@ -239,7 +260,7 @@ export function startModeration (params: {
     })
   ])
 
-  return { gate, onLateBlock: (cb) => { lateBlockCb = cb }, traceInfo: () => trace, cost: () => cost }
+  return { gate, onLateBlock: (cb) => { lateBlockCb = cb }, traceInfo: () => trace, cost: () => cost, call: () => call }
 }
 
 // ---- admin probe ----

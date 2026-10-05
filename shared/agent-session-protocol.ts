@@ -137,6 +137,13 @@ export type ServerMessage =
    */
   | { type: 'subagent', parentToolCallId: string, name: string, parts: MessagePart[], pending: boolean }
   | { type: 'turn-end', stopReason: string, detail?: string }
+  /**
+   * What this conversation has cost so far, in credits: every model call of every turn — moderation,
+   * compaction and sub-agent workers included — summed from the runs. Sent once attached and again
+   * before each `turn-end`, as a total the client simply shows (main's #74 Consumption tab). Exact,
+   * where the browser loop could only add up what each gateway response reported and undercounted.
+   */
+  | { type: 'cost', conversationCost: number }
   | { type: 'error', message: string }
 
 /** Why a client message was rejected. The client is told, because a silent drop is undebuggable. */
@@ -344,6 +351,9 @@ export function parseServerMessageForClient (raw: string): ServerMessage | undef
         stopReason: parsed.stopReason,
         ...(typeof parsed.detail === 'string' ? { detail: parsed.detail } : {})
       }
+    case 'cost':
+      if (typeof parsed.conversationCost !== 'number') return undefined
+      return { type: 'cost', conversationCost: parsed.conversationCost }
     case 'error':
       if (typeof parsed.message !== 'string') return undefined
       return { type: 'error', message: parsed.message }

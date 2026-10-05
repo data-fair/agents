@@ -47,7 +47,18 @@ export interface UseSessionChatOptions {
   initialMessages?: ChatMessage[]
   /** The title the conversation is created with. */
   title?: string
+  /**
+   * The person-facing sentence for a refusal the server recorded (a quota, moderation), in the chat's
+   * own language. The server stores English text beside a structured `data-refusal` part (see
+   * api/src/conversations/turn-gates.ts); return undefined to keep the English.
+   */
+  formatRefusal?: (refusal: RefusalInfo) => string | undefined
 }
+
+/** The structured half of a server refusal — mirrors `RefusalInfo` in api/src/conversations/turn-gates.ts. */
+export type RefusalInfo =
+  | { kind: 'moderation' }
+  | { kind: 'quota', scope: string, period: 'daily' | 'weekly' | 'monthly', resetsAt: string }
 
 /** One entry of the transcript, plus the sequence number the server keys it by. */
 interface Turn {
@@ -60,6 +71,10 @@ export function useSessionChat (options: UseSessionChatOptions) {
   if (typeof window === 'undefined') return undefined
 
   const turns = ref<Turn[]>([])
+  // What this conversation has cost, as the server reports it (the `cost` frame), and a counter the
+  // Consumption tab watches to refetch the caller's quota windows after each turn.
+  const conversationCost = ref(0)
+  const usageVersion = ref(0)
   const status = ref<'ready' | 'streaming' | 'error'>('ready')
   const error = ref<string | null>(null)
   const tools = ref<Record<string, Tool>>({})
@@ -167,9 +182,13 @@ export function useSessionChat (options: UseSessionChatOptions) {
       })
       // A user turn is STORED wrapped when an action button supplied hidden context. The person must
       // see what they asked, not the context the page added on their behalf.
+      // A refusal is stored as English text plus a structured part; the chat says it in its own
+      // language when it can (main's #74 did this for quotas in the browser loop).
+      const refusal = frame.parts.find((part: any) => part?.type === 'data-refusal') as { data?: RefusalInfo } | undefined
+      const localized = refusal?.data ? options.formatRefusal?.(refusal.data) : undefined
       turn.message = frame.role === 'user'
         ? { ...chat, content: splitHiddenContext(chat.content).visible }
-        : chat
+        : localized ? { ...chat, content: localized } : chat
     },
 
     onSubAgent: frame => {
@@ -184,7 +203,11 @@ export function useSessionChat (options: UseSessionChatOptions) {
       subAgentPanels.value = { ...subAgentPanels.value, [frame.parentToolCallId]: { messages: [chat] } }
     },
 
+    onCost: cost => { conversationCost.value = cost },
+
     onTurnEnd: (stopReason, detail) => {
+      // Refetch the caller's own quota windows: this turn spent from them.
+      usageVersion.value++
       status.value = 'ready'
       // A turn that ended badly must say so. Without this the composer simply re-enables and the
       // person is left to infer from an absent answer that something failed.
@@ -281,6 +304,11 @@ export function useSessionChat (options: UseSessionChatOptions) {
     toolsVersion,
     resolvedPartition,
     conversationId,
+    conversationCost,
+    usageVersion,
+
+    /** The caller's own quota windows and the account's status, for the Consumption tab. */
+    fetchSelfUsage: () => $fetch(`${$apiPath}/usage/${options.accountType}/${options.accountId}/self`),
 
     sendMessage (content: string, sendOptions?: { hiddenContext?: string }) {
       if (!content.trim()) return
@@ -302,6 +330,7 @@ export function useSessionChat (options: UseSessionChatOptions) {
       agent.abort()
       turns.value = []
       subAgentPanels.value = {}
+      conversationCost.value = 0
       error.value = null
       status.value = 'ready'
       agent.reset(await createConversation())

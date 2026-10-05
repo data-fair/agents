@@ -70,6 +70,9 @@
       :simple-sub-agents="simpleSubAgentsEnabled"
       :mermaid="mermaidEnabled"
       :show-reasoning="showReasoningEnabled"
+      :conversation-cost="chat.conversationCost.value"
+      :usage-version="chat.usageVersion.value"
+      :fetch-self-usage="chat.fetchSelfUsage"
       @update:tool-exploration="handleToolExploration"
       @update:sub-agents="handleSubAgents"
       @update:simple-sub-agents="handleSimpleSubAgents"
@@ -150,7 +153,7 @@ const initConfigKey = new URLSearchParams(window.location.search).get('initConfi
 const initConfig = initConfigKey ? getAgentInitConfig(initConfigKey) : undefined
 const chatTitle = computed(() => initConfig?.title ?? props.title)
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const session = useSession()
 
 /**
@@ -219,7 +222,18 @@ const chatResult = useSessionChat({
   accountId: props.accountId,
   ...(props.agentId ? { agentId: props.agentId } : {}),
   initialMessages: props.initialMessages,
-  ...(chatTitle.value ? { title: chatTitle.value } : {})
+  ...(chatTitle.value ? { title: chatTitle.value } : {}),
+  // Main's #74 quota sentences, and the moderation refusal, in the chat's language. The server stores
+  // the English text beside these fields, so anything this cannot phrase stays readable.
+  formatRefusal: (refusal) => {
+    if (refusal.kind === 'moderation') return t('moderationRefusal')
+    // Without a reset date the sentences would read "resets on ."
+    if (!refusal.resetsAt) return undefined
+    const date = new Intl.DateTimeFormat(locale.value, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(refusal.resetsAt))
+    if (refusal.scope === 'account') return t('quotaAccount', { date })
+    if (refusal.scope === 'untrusted') return t('quotaShared', { date })
+    return t(`quota_${refusal.period ?? 'monthly'}`, { date })
+  }
 })
 
 if (!chatResult) {

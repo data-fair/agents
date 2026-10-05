@@ -52,8 +52,6 @@ declare global {
   const dfUserAvatar: typeof import('@data-fair/lib-vuetify/ui-user-avatar.vue')['default']
   const effectScope: typeof import('vue').effectScope
   const enrolmentErrorMessage: typeof import('../src/utils/autonomous-agent-enrolment-error').enrolmentErrorMessage
-  const extractErrorMessage: typeof import('../src/utils/error').extractErrorMessage
-  const extractQuotaError: typeof import('../src/utils/error').extractQuotaError
   const formatBreakdownValue: typeof import('../src/utils/usage-breakdown').formatBreakdownValue
   const formatBytes: typeof import('@data-fair/lib-vue/format/bytes.js').formatBytes
   const formatCredits: typeof import('../src/utils/credits').formatCredits
@@ -186,9 +184,6 @@ declare global {
   export type { ChatMessage } from '../src/utils/chat-message'
   import('../src/utils/chat-message')
   // @ts-ignore
-  export type { QuotaErrorInfo } from '../src/utils/error'
-  import('../src/utils/error')
-  // @ts-ignore
   export type { MermaidAutoFixState } from '../src/utils/mermaid-fix'
   import('../src/utils/mermaid-fix')
   // @ts-ignore
@@ -216,7 +211,7 @@ declare global {
   export type { OrgNhi } from '../src/composables/use-autonomous-agent-enrolment'
   import('../src/composables/use-autonomous-agent-enrolment')
   // @ts-ignore
-  export type { UseSessionChatOptions } from '../src/composables/use-session-chat'
+  export type { UseSessionChatOptions, RefusalInfo } from '../src/composables/use-session-chat'
   import('../src/composables/use-session-chat')
   // @ts-ignore
   export type { SettingsFormParams } from '../src/composables/use-settings-form'
@@ -258,8 +253,6 @@ declare module 'vue' {
     readonly defineComponent: UnwrapRef<typeof import('vue')['defineComponent']>
     readonly effectScope: UnwrapRef<typeof import('vue')['effectScope']>
     readonly enrolmentErrorMessage: UnwrapRef<typeof import('../src/utils/autonomous-agent-enrolment-error')['enrolmentErrorMessage']>
-    readonly extractErrorMessage: UnwrapRef<typeof import('../src/utils/error')['extractErrorMessage']>
-    readonly extractQuotaError: UnwrapRef<typeof import('../src/utils/error')['extractQuotaError']>
     readonly formatBreakdownValue: UnwrapRef<typeof import('../src/utils/usage-breakdown')['formatBreakdownValue']>
     readonly formatBytes: UnwrapRef<typeof import('@data-fair/lib-vue/format/bytes.js')['formatBytes']>
     readonly formatCredits: UnwrapRef<typeof import('../src/utils/credits')['formatCredits']>

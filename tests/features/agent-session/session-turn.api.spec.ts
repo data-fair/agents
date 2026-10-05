@@ -248,8 +248,9 @@ test.describe('A turn over the agent session', () => {
     const second = await open(await cookieOf(orgAdmin))
     second.send({ type: 'hello', conversationId: conversation.id, tools: [] })
 
-    const displaced = await first.next()
-    assert.equal(displaced.type, 'error')
+    // Past whatever the attach sent (the history, the conversation's cost): the next ERROR is the one.
+    let displaced = await first.next()
+    while (displaced.type !== 'error') displaced = await first.next()
     assert.match(displaced.message, /opened somewhere else/)
   })
 })

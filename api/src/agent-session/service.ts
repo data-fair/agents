@@ -14,7 +14,7 @@ import Debug from 'debug'
 import { parseClientMessage, isAgentSessionPath, type ServerMessage } from '@agents/shared/agent-session-protocol'
 import { createAgentSession, type AgentSession } from './session.ts'
 import { attachSession, detachSession } from './registry.ts'
-import { requireConversationById, assertOwnsConversation } from '../conversations/service.ts'
+import { requireConversationById, assertOwnsConversation, conversationCost } from '../conversations/service.ts'
 import { startSessionTurn, sendHistory } from './turn.ts'
 import { abortRunsOfConversation } from '../conversations/executor.ts'
 import { hasTraceConsent } from '@agents/shared/trace-consent'
@@ -151,6 +151,8 @@ export const startAgentSessions = (server: Server, options: StartAgentSessionsOp
     const sendHistoryFor = async (conversationId: string) => {
       await resolveTurnOwner(conversationId)
       await sendHistory(agentSession, conversationId)
+      // The total so far, for the chat's Consumption tab; refreshed before every turn-end.
+      agentSession.send({ type: 'cost', conversationCost: await conversationCost(conversationId) })
     }
 
     ws.on('message', (raw) => {

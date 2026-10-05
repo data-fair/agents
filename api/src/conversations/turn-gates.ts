@@ -14,6 +14,7 @@ import mongo from '#mongo'
 import type { ConversationRun } from '#types'
 import type { UsageIdentity } from '../usage/enforce.ts'
 import { enforceQuotas } from '../usage/enforce.ts'
+import { quotaErrorBody } from '../usage/operations.ts'
 import {
   extractLastUserMessage,
   buildModerationContext,
@@ -23,6 +24,8 @@ import {
 import { startModeration, isStrikeCooldownActive, recordStrikeRefusal } from '../moderation/service.ts'
 import { isStandardAgentId } from '../agent-session/standard-agents.ts'
 import { partsText, textPart, type RunStopReason, type MessagePart } from './operations.ts'
+import { incrementRunSpend } from './service.ts'
+import { recordCall } from './turn-telemetry.ts'
 import type { getSettings } from '../settings/service.ts'
 
 /** What every gate returns when it refuses: a finished turn carrying the reason, and no spend. */
@@ -35,8 +38,27 @@ export interface RefusedTurn {
 
 type Settings = Awaited<ReturnType<typeof getSettings>>
 
-const refuse = (text: string, stopReason: RunStopReason): RefusedTurn =>
-  ({ parts: [textPart(text)], steps: 0, credits: 0, stopReason })
+/**
+ * What the chat needs to say a refusal in the person's language, stored beside the English text.
+ *
+ * A `data-refusal` part: the AI SDK validates it without a schema and leaves it out of what the
+ * model is sent, so the model, review and the export read the English text while the chat renders
+ * its own localized sentence. The browser loop localized quota refusals itself (main's #74); on the
+ * server the refusal is stored text, and without this every person read it in English — the
+ * moderation refusal too, ever since the loop moved.
+ *
+ * For a quota, the same fields `quotaErrorBody` discloses: never the shared budgets' numbers.
+ */
+export type RefusalInfo =
+  | { kind: 'moderation' }
+  | { kind: 'quota', scope: string, period: 'daily' | 'weekly' | 'monthly', resetsAt: string }
+
+const refuse = (text: string, stopReason: RunStopReason, info?: RefusalInfo): RefusedTurn => ({
+  parts: [...(info ? [{ type: 'data-refusal', data: info } as MessagePart] : []), textPart(text)],
+  steps: 0,
+  credits: 0,
+  stopReason
+})
 
 /**
  * The quota and credit-cap gate.
@@ -54,9 +76,15 @@ export const checkQuotas = async (
   const violation = await enforceQuotas(run.owner, settings.quotas ?? {} as any, identity)
   if (!violation) return undefined
   const lead = isStandardAgentId(agentId) ? 'I could not answer' : 'This autonomous agent could not run'
+  // REDACTED like main's 429 body (#74), through the same function: the account and the untrusted
+  // pool are budgets shared with everyone else, and an external or anonymous caller has no business
+  // reading their numbers. The text named them for every caller until this port.
+  const body = quotaErrorBody(violation, identity.role === 'admin')
+  const numbers = body.limit !== undefined ? `, ${body.period} limit ${body.limit}, used ${body.usage}` : `, ${body.period}`
   return refuse(
-    `${lead}: ${violation.reason} (${violation.scope}, ${violation.period} limit ${violation.limit}, used ${violation.usage}). Resets at ${violation.resetsAt}.`,
-    'error'
+    `${lead}: ${body.message} (${body.scope}${numbers}). Resets at ${body.resets_at}.`,
+    'error',
+    { kind: 'quota', scope: body.scope, period: body.period, resetsAt: body.resets_at }
   )
 }
 
@@ -83,7 +111,7 @@ export const moderateTurn = async (
     // Recorded as its own action, distinct from a block: an admin reading the events needs to see
     // that this one cost no classifier call, rather than it looking like a sixth verdict.
     recordStrikeRefusal(run.owner, identity, 'assistant')
-    return refuse(MODERATION_REFUSAL, 'completed')
+    return refuse(MODERATION_REFUSAL, 'completed', { kind: 'moderation' })
   }
 
   // The last few turns, oldest first — enough for the classifier to read a short follow-up in
@@ -109,9 +137,29 @@ export const moderateTurn = async (
   })
 
   const result = await moderation.gate
+
+  // The classifier call belongs to THIS turn's spend (port of main's #74, which added it to the
+  // response's reported cost): onto the run, so the per-run budget and the conversation's total see
+  // it, and into the run's telemetry like every other model call. It was already in the usage
+  // ledger — startModeration records it there — but a run whose credits exceeded its calls left the
+  // difference unexplained, and a blocked turn looked free. A verdict that lands AFTER the gate
+  // failed open is in the ledger only: the run has moved on by then.
+  const call = moderation.call()
+  if (call) {
+    await incrementRunSpend(run.id, call.credits.total, 0)
+    recordCall(run, {
+      modelRole: 'moderator',
+      entry: call.entry,
+      usage: call.usage,
+      credits: call.credits.total,
+      creditBreakdown: { input: call.credits.input, cachedInput: call.credits.cachedInput, output: call.credits.output },
+      durationMs: call.durationMs
+    })
+  }
+
   if (result.action !== 'block') return undefined
 
   // The strike itself is armed by startModeration, which owns strike accounting and swallows its own
   // failures so that accounting can never turn a refusal into an answer.
-  return refuse(MODERATION_REFUSAL, 'completed')
+  return refuse(MODERATION_REFUSAL, 'completed', { kind: 'moderation' })
 }

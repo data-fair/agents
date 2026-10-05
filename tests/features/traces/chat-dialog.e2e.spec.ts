@@ -1,7 +1,7 @@
 /**
- * E2E test for the simplified two-tab chat debug dialog.
+ * E2E test for the simplified three-tab chat debug dialog.
  *
- * Validates that the dialog exposes exactly two tabs (Info + Settings) and no
+ * Validates that the dialog exposes exactly three tabs (Info + Settings + Consumption) and no
  * longer has the removed Trace tab.
  */
 
@@ -34,7 +34,7 @@ test.describe('Chat debug dialog', () => {
     await putSettings(admin, 'organization/test1', settingsData)
   })
 
-  test('shows exactly two tabs and no trace tab', async ({ page, goToWithAuth }) => {
+  test('shows Info, Settings and Consumption tabs and no trace tab', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/organization/test1/chat', 'superadmin', { adminMode: true })
 
     // The debug dialog is opened from the admin-only cog button in the chat
@@ -43,10 +43,11 @@ test.describe('Chat debug dialog', () => {
     await expect(opener).toBeVisible({ timeout: 10000 })
     await opener.click()
 
-    // Exactly two tabs, neither labelled Trace
-    await expect(page.getByRole('tab')).toHaveCount(2)
+    // Exactly three tabs, neither labelled Trace
+    await expect(page.getByRole('tab')).toHaveCount(3)
     await expect(page.getByRole('tab', { name: 'Trace' })).toHaveCount(0)
     await expect(page.getByRole('tab', { name: 'Info' })).toBeVisible()
     await expect(page.getByRole('tab', { name: 'Settings' })).toBeVisible()
+    await expect(page.getByRole('tab', { name: 'Consumption' })).toBeVisible()
   })
 })
