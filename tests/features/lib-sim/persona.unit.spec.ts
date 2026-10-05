@@ -73,6 +73,14 @@ test.describe('persona prompting', () => {
     assert.ok(/never claim you cannot see/i.test(p))
   })
 
+  test('the perception instructions say what an unhelpful click result means', () => {
+    // judged runs: a click that hit plain text was reported as the product failing, and a
+    // list said to hold more options was called incomplete without looking further
+    const p = personaSystemPrompt(cases[0], true)
+    assert.match(p, /not a button or a link/)
+    assert.match(p, /holds more options/)
+  })
+
   test('a blind persona keeps its original prompt', () => {
     // Consumers on 0.2.0 must behave exactly as before.
     assert.equal(personaSystemPrompt(cases[0], false), personaSystemPrompt(cases[0]))

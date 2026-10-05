@@ -68,7 +68,10 @@ an image. A link may open a new browser tab: you are then looking at it, and swi
 Before you say anything about what is or is not on the screen, look.
 Never claim you cannot see something you have not looked for.
 Your tools are the only way you act on the page: never say you did something (reload, scroll, save…)
-that is not in the list of what you did.`
+that is not in the list of what you did.
+When a click says it hit text that is "not a button or a link", you have not found the control yet:
+look again for it rather than saying the page did nothing. When the screen says a list holds more
+options than it shows, click the option you want by its name before saying it is not there.`
 
 // Appended only when the caller actually configured createPagePerception's
 // offLimits — otherwise nothing refuses the composer and this sentence would be

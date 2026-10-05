@@ -241,6 +241,12 @@ export function pruneSnapshot (snapshot: string): string {
  */
 const KEY_PATTERN = /^((Control|Shift|Alt|Meta)\+)*(Enter|Escape|Tab|Backspace|Delete|Space|ArrowUp|ArrowDown|ArrowLeft|ArrowRight|Home|End|PageUp|PageDown|[A-Za-z0-9])$/
 
+/** A name's words in order, whatever punctuation and spacing lies between them. */
+export function wordsPattern (name: string): RegExp {
+  const words = name.split(/[^\p{L}\p{N}]+/u).filter(Boolean).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+  return new RegExp(`^\\s*${words.join('[^\\p{L}\\p{N}]+')}\\s*$`, 'iu')
+}
+
 /** How long a click checks that its target can take it, before clicking what covers it. */
 export const INTERCEPT_PROBE_MS = 2000
 
@@ -405,15 +411,17 @@ export function createPagePerception (roots: PerceptionRoot[], opts: { offLimits
   // a judged run read the first 9 options of « Type de page » and told the assistant the
   // catalogue it named was missing. A person scrolls such a list; so do these, and `look`
   // says when an open list holds more than it shows.
-  // Each runs in the page, serialized on its own: the list finder is repeated in both.
+  // Each runs in the page, serialized on its own: the list finder is repeated in both. More
+  // than 16px hidden, about half an option: the note fired on a list of 6 options all in view,
+  // whose box was a few pixels short, and the persona then ignored it where it was true.
   const listsWithMore = async (scope: any): Promise<string[]> => {
     try {
       return await scope.locator('body').evaluate((body: any) => {
         const out: string[] = []
         for (const list of body.querySelectorAll('[role=listbox]')) {
           let box = list
-          for (let i = 0; i < 4 && box && box.scrollHeight <= box.clientHeight + 2; i++) box = box.parentElement
-          if (!box || box.scrollTop + box.clientHeight >= box.scrollHeight - 2) continue
+          for (let i = 0; i < 4 && box && box.scrollHeight <= box.clientHeight + 16; i++) box = box.parentElement
+          if (!box || box.scrollTop + box.clientHeight >= box.scrollHeight - 16) continue
           const labelledBy = list.getAttribute('aria-labelledby')
           out.push(list.getAttribute('aria-label') || (labelledBy ? body.ownerDocument.getElementById(labelledBy)?.textContent?.trim() : '') || '')
         }
@@ -431,8 +439,8 @@ export function createPagePerception (roots: PerceptionRoot[], opts: { offLimits
           moved = await scope.locator('body').evaluate((body: any) => {
             for (const list of body.querySelectorAll('[role=listbox]')) {
               let box = list
-              for (let i = 0; i < 4 && box && box.scrollHeight <= box.clientHeight + 2; i++) box = box.parentElement
-              if (!box || box.scrollTop + box.clientHeight >= box.scrollHeight - 2) continue
+              for (let i = 0; i < 4 && box && box.scrollHeight <= box.clientHeight + 16; i++) box = box.parentElement
+              if (!box || box.scrollTop + box.clientHeight >= box.scrollHeight - 16) continue
               box.scrollTop += Math.max(20, box.clientHeight * 0.8)
               return true
             }
@@ -460,15 +468,19 @@ export function createPagePerception (roots: PerceptionRoot[], opts: { offLimits
     // And the exact name before a longer one holding it: Playwright matches a role's name as
     // a substring, and a judged run's click on the « Page » field hit the « Pages de
     // portails » link of the navigation, throwing away a half-configured menu item.
-    const findControl = async (exact: boolean) => {
+    const findControl = async (by: boolean | RegExp) => {
+      const options = by instanceof RegExp ? { name: by } : { name, exact: by }
       for (const scope of scopeList) {
-        const found = await firstMatchKind(CONTROL_ROLES.map(role => ['control' as const, () => scope.getByRole(role, { name, exact }).first()]))
+        const found = await firstMatchKind(CONTROL_ROLES.map(role => ['control' as const, () => scope.getByRole(role, options).first()]))
         if (found) return found
       }
       return null
     }
     let match: { kind: 'control' | 'text', loc: any } | null = await findControl(true)
     if (!match) match = await scrollListsTo(scopeList, name)
+    // The same words with other punctuation: a persona wrote « Page blanche – Commencer avec une
+    // page vide », a dash the card's name does not have, and the click fell to the chat's text.
+    if (!match) match = await findControl(wordsPattern(name))
     if (!match) match = await findControl(false)
     if (!match) {
       for (const scope of scopeList) {

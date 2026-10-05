@@ -94,6 +94,24 @@ test.describe('long drop-down lists', () => {
     assert.equal(await page.evaluate(() => document.body.dataset.picked), 'Catalogue d\'événements')
   })
 
+  test('a list a few pixels too short for its options is not said to hold more', async ({ page }) => {
+    // the note fired on the 6 fully visible options of « Type de lien », and the persona then
+    // ignored it on the list that did hold more
+    await page.setContent('<div role="listbox" aria-label="Type de lien" style="height:150px;overflow:auto"><div style="height:154px">6 options</div></div>')
+    const p = createPagePerception([{ label: 'page', root: page }])
+    assert.doesNotMatch(await p.call('look', {}), /holds more options/)
+  })
+
+  test('a name with other punctuation than the control\'s still finds the control, not text', async ({ page }) => {
+    // a judged run's persona wrote « Page blanche – Commencer avec une page vide » with a dash
+    // the card's name does not have; the click fell back to the chat's text of that name
+    await page.setContent(`<p>Cliquez sur « Page blanche – Commencer avec une page vide »</p>
+<button onclick="document.body.dataset.hit='card'"><strong>Page blanche</strong> Commencer avec une page vide</button>`)
+    const p = createPagePerception([{ label: 'page', root: page }])
+    assert.equal(await p.call('click', { name: 'Page blanche – Commencer avec une page vide' }), 'clicked "Page blanche – Commencer avec une page vide"')
+    assert.equal(await page.evaluate(() => document.body.dataset.hit), 'card')
+  })
+
   test('a name is matched exactly before it is matched as part of a longer one', async ({ page }) => {
     // a judged run's click on the « Page » field landed on the « Pages de portails » link of
     // the navigation, and threw away a half-configured menu item
