@@ -65,6 +65,45 @@ test.describe('frames', () => {
   })
 })
 
+// A list that renders only its visible options, as Vuetify's select does: 14 options, 5 on screen.
+const VIRTUAL_LIST = `<div role="listbox" aria-label="Type de page" style="height:150px;overflow:auto">
+<div id="pad" style="position:relative;height:420px"></div></div>
+<script>
+const names = ['Accueil', 'Contact', 'Accessibilité', 'Mentions légales', 'Politique de confidentialité', 'Politique de cookies', 'Catalogue de données', 'Catalogue de visualisations', 'Catalogue de réutilisations', 'Catalogue d\\'événements', 'Catalogue d\\'actualités', 'Plan du site', 'Documentation d\\'API', 'Autre']
+const list = document.querySelector('[role=listbox]'), pad = document.getElementById('pad')
+const render = () => {
+  const first = Math.floor(list.scrollTop / 30)
+  pad.innerHTML = names.slice(first, first + 5).map((n, i) => '<div role="option" style="position:absolute;top:' + (first + i) * 30 + 'px;height:30px" onclick="document.body.dataset.picked=this.textContent">' + n + '</div>').join('')
+}
+list.addEventListener('scroll', render); render()
+</script>`
+
+test.describe('long drop-down lists', () => {
+  test('the outline says an open list holds more options than it shows', async ({ page }) => {
+    // a judged run read the first 9 options of « Type de page » and told the assistant the
+    // catalogue it named was not in the list
+    await page.setContent(VIRTUAL_LIST)
+    const p = createPagePerception([{ label: 'page', root: page }])
+    assert.match(await p.call('look', {}), /the list "Type de page" holds more options than it shows: scroll it/)
+  })
+
+  test('clicking an option out of sight scrolls the open list to it, as a person scans for it', async ({ page }) => {
+    await page.setContent(VIRTUAL_LIST)
+    const p = createPagePerception([{ label: 'page', root: page }])
+    assert.equal(await p.call('click', { name: 'Catalogue d\'événements' }), 'clicked "Catalogue d\'événements"')
+    assert.equal(await page.evaluate(() => document.body.dataset.picked), 'Catalogue d\'événements')
+  })
+
+  test('a name is matched exactly before it is matched as part of a longer one', async ({ page }) => {
+    // a judged run's click on the « Page » field landed on the « Pages de portails » link of
+    // the navigation, and threw away a half-configured menu item
+    await page.setContent('<a href="#pages" onclick="document.body.dataset.hit=\'link\'">Pages de portails</a><label for="p">Page</label><select id="p" onclick="document.body.dataset.hit=\'select\'"><option>Agenda</option></select>')
+    const p = createPagePerception([{ label: 'page', root: page }])
+    assert.equal(await p.call('click', { name: 'Page' }), 'clicked "Page"')
+    assert.equal(await page.evaluate(() => document.body.dataset.hit), 'select')
+  })
+})
+
 test.describe('the AI snapshot, normalized', () => {
   test('drops annotations and unnamed wrappers, keeps what a person reads', () => {
     const ai = [

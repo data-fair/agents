@@ -347,7 +347,9 @@ export function createPagePerception (roots: PerceptionRoot[], opts: { offLimits
       // root can consume the whole budget and a second root (e.g. an embedded
       // `## chat panel`) disappears from the log entirely, with no marker
       // hinting it was ever there.
-      parts.push(truncate(`## ${heading}\n${pruneSnapshot(snap)}`, cap))
+      const more = (await Promise.all(scopes({ label, root, cap, frames }).map(listsWithMore))).flat()
+      const notes = more.map(list => `(the list${list ? ` "${list}"` : ''} holds more options than it shows: scroll it, or click an option by its name to find it)`)
+      parts.push(truncate(`## ${heading}\n${pruneSnapshot(snap)}`, cap) + (notes.length ? '\n' + notes.join('\n') : ''))
     }
     const line = tabsLine()
     if (line) parts.push(line)
@@ -399,6 +401,52 @@ export function createPagePerception (roots: PerceptionRoot[], opts: { offLimits
     return tabs.length > before
   }
 
+  // A long drop-down renders only the options in view (Vuetify's select is a virtual list):
+  // a judged run read the first 9 options of « Type de page » and told the assistant the
+  // catalogue it named was missing. A person scrolls such a list; so do these, and `look`
+  // says when an open list holds more than it shows.
+  // Each runs in the page, serialized on its own: the list finder is repeated in both.
+  const listsWithMore = async (scope: any): Promise<string[]> => {
+    try {
+      return await scope.locator('body').evaluate((body: any) => {
+        const out: string[] = []
+        for (const list of body.querySelectorAll('[role=listbox]')) {
+          let box = list
+          for (let i = 0; i < 4 && box && box.scrollHeight <= box.clientHeight + 2; i++) box = box.parentElement
+          if (!box || box.scrollTop + box.clientHeight >= box.scrollHeight - 2) continue
+          const labelledBy = list.getAttribute('aria-labelledby')
+          out.push(list.getAttribute('aria-label') || (labelledBy ? body.ownerDocument.getElementById(labelledBy)?.textContent?.trim() : '') || '')
+        }
+        return out
+      })
+    } catch { return [] }
+  }
+
+  const scrollListsTo = async (scopeList: any[], name: string) => {
+    for (const scope of scopeList) {
+      const option = () => scope.getByRole('option', { name, exact: true }).first()
+      for (let step = 0; step < 50; step++) {
+        let moved = false
+        try {
+          moved = await scope.locator('body').evaluate((body: any) => {
+            for (const list of body.querySelectorAll('[role=listbox]')) {
+              let box = list
+              for (let i = 0; i < 4 && box && box.scrollHeight <= box.clientHeight + 2; i++) box = box.parentElement
+              if (!box || box.scrollTop + box.clientHeight >= box.scrollHeight - 2) continue
+              box.scrollTop += Math.max(20, box.clientHeight * 0.8)
+              return true
+            }
+            return false
+          })
+        } catch { return null }
+        if (!moved) break
+        await new Promise(resolve => setTimeout(resolve, 100))
+        if (await option().count() > 0) return { kind: 'control' as const, loc: option() }
+      }
+    }
+    return null
+  }
+
   // Widgets a person clicks, not only buttons and links: an editor's tabs are role=tab, and
   // a judged run clicked « Barre de navigation » as text — the chat's words — instead. A
   // drop-down shares its name with its label: clicking « Type de lien » hit the label text.
@@ -409,11 +457,19 @@ export function createPagePerception (roots: PerceptionRoot[], opts: { offLimits
     const scopeList = viewRoots().flatMap(scopes)
     // Every control in every frame before any text: the same words as plain text in an
     // earlier frame (a chat reply naming the tab) must not win over the control itself.
-    let match: { kind: 'control' | 'text', loc: any } | null = null
-    for (const scope of scopeList) {
-      match = await firstMatchKind(CONTROL_ROLES.map(role => ['control' as const, () => scope.getByRole(role, { name }).first()]))
-      if (match) break
+    // And the exact name before a longer one holding it: Playwright matches a role's name as
+    // a substring, and a judged run's click on the « Page » field hit the « Pages de
+    // portails » link of the navigation, throwing away a half-configured menu item.
+    const findControl = async (exact: boolean) => {
+      for (const scope of scopeList) {
+        const found = await firstMatchKind(CONTROL_ROLES.map(role => ['control' as const, () => scope.getByRole(role, { name, exact }).first()]))
+        if (found) return found
+      }
+      return null
     }
+    let match: { kind: 'control' | 'text', loc: any } | null = await findControl(true)
+    if (!match) match = await scrollListsTo(scopeList, name)
+    if (!match) match = await findControl(false)
     if (!match) {
       for (const scope of scopeList) {
         match = await firstMatchKind([['text' as const, () => scope.getByText(name).first()]])
