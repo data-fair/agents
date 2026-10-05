@@ -98,9 +98,6 @@ export type ApiConfig = {
   upgradeRoot?: string;
   cipherPassword: string;
   requireAnonymousActionToken: boolean;
-  github?: {
-    token?: string;
-  };
   util?: unknown;
   get?: unknown;
   has?: unknown;

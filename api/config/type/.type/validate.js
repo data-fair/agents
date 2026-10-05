@@ -4,7 +4,7 @@
 "use strict";
 export const validate = validate14;
 export default validate14;
-const schema16 = {"$id":"https://github.com/data-fair/agents/api/config","x-exports":["types","validate"],"x-ajv":{"coerceTypes":"array"},"type":"object","title":"Api config","additionalProperties":false,"required":["privateDirectoryUrl","mongoUrl","port","tmpDir","observer","secretKeys","cipherPassword","requireAnonymousActionToken","eurosPerCredit","defaultLimits","compactionPercent","autonomousAgentRunCredits","autonomousAgentRunTimeoutSeconds"],"$defs":{"modelRef":{"type":"object","additionalProperties":false,"required":["provider","id"],"properties":{"provider":{"type":"string"},"id":{"type":"string"}}}},"properties":{"mongoUrl":{"type":"string"},"port":{"type":"number"},"tmpDir":{"type":"string"},"privateDirectoryUrl":{"type":"string","pattern":"^https?://"},"privateEventsUrl":{"type":"string"},"secretKeys":{"type":"object","additionalProperties":false,"properties":{"events":{"type":"string"},"limits":{"type":"string"}}},"providers":{"type":"array","default":[],"items":{"type":"object","additionalProperties":false,"required":["type","id","name"],"properties":{"type":{"type":"string","enum":["openai","anthropic","google","mistral","openrouter","ollama","scaleway","openai-compatible","mock"]},"id":{"type":"string"},"name":{"type":"string"},"enabled":{"type":"boolean","default":true},"apiKey":{"type":"string"},"baseURL":{"type":"string"},"projectId":{"type":"string"},"compatibility":{"type":"string","enum":["default","compatible"]}}}},"models":{"type":"array","default":[],"items":{"type":"object","additionalProperties":false,"required":["id","name","provider","usage","inputPricePerMillion","outputPricePerMillion"],"properties":{"id":{"type":"string"},"name":{"type":"string"},"provider":{"type":"string"},"usage":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","enum":["assistant","tools","summarizer","moderator"]}},"contextWindow":{"type":"number","minimum":0},"inputPricePerMillion":{"type":"number","minimum":0},"outputPricePerMillion":{"type":"number","minimum":0},"cachedInputPricePerMillion":{"type":"number","minimum":0}}}},"mcpServers":{"type":"array","default":[],"items":{"type":"object","additionalProperties":false,"required":["id","name","url","auth"],"properties":{"id":{"type":"string"},"name":{"type":"string"},"description":{"type":"string"},"url":{"type":"string"},"auth":{"type":"string","enum":["nhi-session","none","apiKey"]},"apiKeyHeader":{"type":"string"},"apiKey":{"type":"string"}}}},"autonomousAgentsRequireAdminMode":{"type":"boolean","default":true},"nhiSigningKey":{"type":"object","required":["kty","crv","x","y","d","kid"],"properties":{"kty":{"type":"string"},"crv":{"type":"string"},"x":{"type":"string"},"y":{"type":"string"},"d":{"type":"string"},"kid":{"type":"string"},"alg":{"type":"string"}}},"defaultModels":{"type":"object","additionalProperties":false,"default":{},"properties":{"assistant":{"$ref":"#/$defs/modelRef"},"tools":{"$ref":"#/$defs/modelRef"},"summarizer":{"$ref":"#/$defs/modelRef"},"moderator":{"$ref":"#/$defs/modelRef"}}},"eurosPerCredit":{"type":"number","exclusiveMinimum":0,"default":0.008},"defaultLimits":{"type":"object","additionalProperties":false,"default":{"credits":0},"properties":{"credits":{"type":"number","default":0}}},"observer":{"type":"object","properties":{"active":{"type":"boolean"},"port":{"type":"number"}}},"upgradeRoot":{"type":"string"},"cipherPassword":{"type":"string"},"requireAnonymousActionToken":{"type":"boolean","default":true},"github":{"type":"object","additionalProperties":false,"properties":{"token":{"type":"string"}}},"util":{},"get":{},"has":{},"compactionPercent":{"type":"number","title":"Compaction percent","description":"Share of the assistant model's context window above which conversation history is compacted.","default":70,"minimum":10,"maximum":100},"autonomousAgentRunCredits":{"type":"number","title":"Autonomous agent run credit budget","description":"Credits one autonomous agent turn may spend before it is stopped. The account credit cap still applies on top of this.","default":5,"minimum":0},"autonomousAgentRunTimeoutSeconds":{"type":"number","title":"Autonomous agent run timeout (seconds)","description":"Wall-clock ceiling for one autonomous agent turn, so a hanging model or MCP server cannot hold a conversation's lock.","default":300,"minimum":10}}};
+const schema16 = {"$id":"https://github.com/data-fair/agents/api/config","x-exports":["types","validate"],"x-ajv":{"coerceTypes":"array"},"type":"object","title":"Api config","additionalProperties":false,"required":["privateDirectoryUrl","mongoUrl","port","tmpDir","observer","secretKeys","cipherPassword","requireAnonymousActionToken","eurosPerCredit","defaultLimits","compactionPercent","autonomousAgentRunCredits","autonomousAgentRunTimeoutSeconds"],"$defs":{"modelRef":{"type":"object","additionalProperties":false,"required":["provider","id"],"properties":{"provider":{"type":"string"},"id":{"type":"string"}}}},"properties":{"mongoUrl":{"type":"string"},"port":{"type":"number"},"tmpDir":{"type":"string"},"privateDirectoryUrl":{"type":"string","pattern":"^https?://"},"privateEventsUrl":{"type":"string"},"secretKeys":{"type":"object","additionalProperties":false,"properties":{"events":{"type":"string"},"limits":{"type":"string"}}},"providers":{"type":"array","default":[],"items":{"type":"object","additionalProperties":false,"required":["type","id","name"],"properties":{"type":{"type":"string","enum":["openai","anthropic","google","mistral","openrouter","ollama","scaleway","openai-compatible","mock"]},"id":{"type":"string"},"name":{"type":"string"},"enabled":{"type":"boolean","default":true},"apiKey":{"type":"string"},"baseURL":{"type":"string"},"projectId":{"type":"string"},"compatibility":{"type":"string","enum":["default","compatible"]}}}},"models":{"type":"array","default":[],"items":{"type":"object","additionalProperties":false,"required":["id","name","provider","usage","inputPricePerMillion","outputPricePerMillion"],"properties":{"id":{"type":"string"},"name":{"type":"string"},"provider":{"type":"string"},"usage":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","enum":["assistant","tools","summarizer","moderator"]}},"contextWindow":{"type":"number","minimum":0},"inputPricePerMillion":{"type":"number","minimum":0},"outputPricePerMillion":{"type":"number","minimum":0},"cachedInputPricePerMillion":{"type":"number","minimum":0}}}},"mcpServers":{"type":"array","default":[],"items":{"type":"object","additionalProperties":false,"required":["id","name","url","auth"],"properties":{"id":{"type":"string"},"name":{"type":"string"},"description":{"type":"string"},"url":{"type":"string"},"auth":{"type":"string","enum":["nhi-session","none","apiKey"]},"apiKeyHeader":{"type":"string"},"apiKey":{"type":"string"}}}},"autonomousAgentsRequireAdminMode":{"type":"boolean","default":true},"nhiSigningKey":{"type":"object","required":["kty","crv","x","y","d","kid"],"properties":{"kty":{"type":"string"},"crv":{"type":"string"},"x":{"type":"string"},"y":{"type":"string"},"d":{"type":"string"},"kid":{"type":"string"},"alg":{"type":"string"}}},"defaultModels":{"type":"object","additionalProperties":false,"default":{},"properties":{"assistant":{"$ref":"#/$defs/modelRef"},"tools":{"$ref":"#/$defs/modelRef"},"summarizer":{"$ref":"#/$defs/modelRef"},"moderator":{"$ref":"#/$defs/modelRef"}}},"eurosPerCredit":{"type":"number","exclusiveMinimum":0,"default":0.008},"defaultLimits":{"type":"object","additionalProperties":false,"default":{"credits":0},"properties":{"credits":{"type":"number","default":0}}},"observer":{"type":"object","properties":{"active":{"type":"boolean"},"port":{"type":"number"}}},"upgradeRoot":{"type":"string"},"cipherPassword":{"type":"string"},"requireAnonymousActionToken":{"type":"boolean","default":true},"util":{},"get":{},"has":{},"compactionPercent":{"type":"number","title":"Compaction percent","description":"Share of the assistant model's context window above which conversation history is compacted.","default":70,"minimum":10,"maximum":100},"autonomousAgentRunCredits":{"type":"number","title":"Autonomous agent run credit budget","description":"Credits one autonomous agent turn may spend before it is stopped. The account credit cap still applies on top of this.","default":5,"minimum":0},"autonomousAgentRunTimeoutSeconds":{"type":"number","title":"Autonomous agent run timeout (seconds)","description":"Wall-clock ceiling for one autonomous agent turn, so a hanging model or MCP server cannot hold a conversation's lock.","default":300,"minimum":10}}};
 const schema17 = {"type":"object","additionalProperties":false,"required":["provider","id"],"properties":{"provider":{"type":"string"},"id":{"type":"string"}}};
 const func2 = Object.prototype.hasOwnProperty;
 const pattern0 = new RegExp("^https?://", "u");
@@ -3026,12 +3026,25 @@ data["requireAnonymousActionToken"] = coerced56;
 }
 }
 }
-if(data.github !== undefined){
-let data69 = data.github;
-if(data69 && typeof data69 == "object" && !Array.isArray(data69)){
-for(const key11 in data69){
-if(!(key11 === "token")){
-const err132 = {instancePath:instancePath+"/github",schemaPath:"#/properties/github/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key11},message:"must NOT have additional properties"};
+if(data.compactionPercent !== undefined){
+let data69 = data.compactionPercent;
+if(!(typeof data69 == "number")){
+let dataType57 = typeof data69;
+let coerced57 = undefined;
+if(dataType57 == 'object' && Array.isArray(data69) && data69.length == 1){
+data69 = data69[0];
+dataType57 = typeof data69;
+if(typeof data69 == "number"){
+coerced57 = data69;
+}
+}
+if(!(coerced57 !== undefined)){
+if(dataType57 == "boolean" || data69 === null
+              || (dataType57 == "string" && data69 && data69 == +data69)){
+coerced57 = +data69;
+}
+else {
+const err132 = {instancePath:instancePath+"/compactionPercent",schemaPath:"#/properties/compactionPercent/type",keyword:"type",params:{type: "number"},message:"must be number"};
 if(vErrors === null){
 vErrors = [err132];
 }
@@ -3041,27 +3054,16 @@ vErrors.push(err132);
 errors++;
 }
 }
-if(data69.token !== undefined){
-let data70 = data69.token;
-if(typeof data70 !== "string"){
-let dataType57 = typeof data70;
-let coerced57 = undefined;
-if(dataType57 == 'object' && Array.isArray(data70) && data70.length == 1){
-data70 = data70[0];
-dataType57 = typeof data70;
-if(typeof data70 === "string"){
-coerced57 = data70;
+if(coerced57 !== undefined){
+data69 = coerced57;
+if(data !== undefined){
+data["compactionPercent"] = coerced57;
 }
 }
-if(!(coerced57 !== undefined)){
-if(dataType57 == "number" || dataType57 == "boolean"){
-coerced57 = "" + data70;
 }
-else if(data70 === null){
-coerced57 = "";
-}
-else {
-const err133 = {instancePath:instancePath+"/github/token",schemaPath:"#/properties/github/properties/token/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(typeof data69 == "number"){
+if(data69 > 100 || isNaN(data69)){
+const err133 = {instancePath:instancePath+"/compactionPercent",schemaPath:"#/properties/compactionPercent/maximum",keyword:"maximum",params:{comparison: "<=", limit: 100},message:"must be <= 100"};
 if(vErrors === null){
 vErrors = [err133];
 }
@@ -3070,18 +3072,8 @@ vErrors.push(err133);
 }
 errors++;
 }
-}
-if(coerced57 !== undefined){
-data70 = coerced57;
-if(data69 !== undefined){
-data69["token"] = coerced57;
-}
-}
-}
-}
-}
-else {
-const err134 = {instancePath:instancePath+"/github",schemaPath:"#/properties/github/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(data69 < 10 || isNaN(data69)){
+const err134 = {instancePath:instancePath+"/compactionPercent",schemaPath:"#/properties/compactionPercent/minimum",keyword:"minimum",params:{comparison: ">=", limit: 10},message:"must be >= 10"};
 if(vErrors === null){
 vErrors = [err134];
 }
@@ -3091,25 +3083,26 @@ vErrors.push(err134);
 errors++;
 }
 }
-if(data.compactionPercent !== undefined){
-let data71 = data.compactionPercent;
-if(!(typeof data71 == "number")){
-let dataType58 = typeof data71;
+}
+if(data.autonomousAgentRunCredits !== undefined){
+let data70 = data.autonomousAgentRunCredits;
+if(!(typeof data70 == "number")){
+let dataType58 = typeof data70;
 let coerced58 = undefined;
-if(dataType58 == 'object' && Array.isArray(data71) && data71.length == 1){
-data71 = data71[0];
-dataType58 = typeof data71;
-if(typeof data71 == "number"){
-coerced58 = data71;
+if(dataType58 == 'object' && Array.isArray(data70) && data70.length == 1){
+data70 = data70[0];
+dataType58 = typeof data70;
+if(typeof data70 == "number"){
+coerced58 = data70;
 }
 }
 if(!(coerced58 !== undefined)){
-if(dataType58 == "boolean" || data71 === null
-              || (dataType58 == "string" && data71 && data71 == +data71)){
-coerced58 = +data71;
+if(dataType58 == "boolean" || data70 === null
+              || (dataType58 == "string" && data70 && data70 == +data70)){
+coerced58 = +data70;
 }
 else {
-const err135 = {instancePath:instancePath+"/compactionPercent",schemaPath:"#/properties/compactionPercent/type",keyword:"type",params:{type: "number"},message:"must be number"};
+const err135 = {instancePath:instancePath+"/autonomousAgentRunCredits",schemaPath:"#/properties/autonomousAgentRunCredits/type",keyword:"type",params:{type: "number"},message:"must be number"};
 if(vErrors === null){
 vErrors = [err135];
 }
@@ -3120,15 +3113,15 @@ errors++;
 }
 }
 if(coerced58 !== undefined){
-data71 = coerced58;
+data70 = coerced58;
 if(data !== undefined){
-data["compactionPercent"] = coerced58;
+data["autonomousAgentRunCredits"] = coerced58;
 }
 }
 }
-if(typeof data71 == "number"){
-if(data71 > 100 || isNaN(data71)){
-const err136 = {instancePath:instancePath+"/compactionPercent",schemaPath:"#/properties/compactionPercent/maximum",keyword:"maximum",params:{comparison: "<=", limit: 100},message:"must be <= 100"};
+if(typeof data70 == "number"){
+if(data70 < 0 || isNaN(data70)){
+const err136 = {instancePath:instancePath+"/autonomousAgentRunCredits",schemaPath:"#/properties/autonomousAgentRunCredits/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
 if(vErrors === null){
 vErrors = [err136];
 }
@@ -3137,8 +3130,27 @@ vErrors.push(err136);
 }
 errors++;
 }
-if(data71 < 10 || isNaN(data71)){
-const err137 = {instancePath:instancePath+"/compactionPercent",schemaPath:"#/properties/compactionPercent/minimum",keyword:"minimum",params:{comparison: ">=", limit: 10},message:"must be >= 10"};
+}
+}
+if(data.autonomousAgentRunTimeoutSeconds !== undefined){
+let data71 = data.autonomousAgentRunTimeoutSeconds;
+if(!(typeof data71 == "number")){
+let dataType59 = typeof data71;
+let coerced59 = undefined;
+if(dataType59 == 'object' && Array.isArray(data71) && data71.length == 1){
+data71 = data71[0];
+dataType59 = typeof data71;
+if(typeof data71 == "number"){
+coerced59 = data71;
+}
+}
+if(!(coerced59 !== undefined)){
+if(dataType59 == "boolean" || data71 === null
+              || (dataType59 == "string" && data71 && data71 == +data71)){
+coerced59 = +data71;
+}
+else {
+const err137 = {instancePath:instancePath+"/autonomousAgentRunTimeoutSeconds",schemaPath:"#/properties/autonomousAgentRunTimeoutSeconds/type",keyword:"type",params:{type: "number"},message:"must be number"};
 if(vErrors === null){
 vErrors = [err137];
 }
@@ -3148,26 +3160,16 @@ vErrors.push(err137);
 errors++;
 }
 }
-}
-if(data.autonomousAgentRunCredits !== undefined){
-let data72 = data.autonomousAgentRunCredits;
-if(!(typeof data72 == "number")){
-let dataType59 = typeof data72;
-let coerced59 = undefined;
-if(dataType59 == 'object' && Array.isArray(data72) && data72.length == 1){
-data72 = data72[0];
-dataType59 = typeof data72;
-if(typeof data72 == "number"){
-coerced59 = data72;
+if(coerced59 !== undefined){
+data71 = coerced59;
+if(data !== undefined){
+data["autonomousAgentRunTimeoutSeconds"] = coerced59;
 }
 }
-if(!(coerced59 !== undefined)){
-if(dataType59 == "boolean" || data72 === null
-              || (dataType59 == "string" && data72 && data72 == +data72)){
-coerced59 = +data72;
 }
-else {
-const err138 = {instancePath:instancePath+"/autonomousAgentRunCredits",schemaPath:"#/properties/autonomousAgentRunCredits/type",keyword:"type",params:{type: "number"},message:"must be number"};
+if(typeof data71 == "number"){
+if(data71 < 10 || isNaN(data71)){
+const err138 = {instancePath:instancePath+"/autonomousAgentRunTimeoutSeconds",schemaPath:"#/properties/autonomousAgentRunTimeoutSeconds/minimum",keyword:"minimum",params:{comparison: ">=", limit: 10},message:"must be >= 10"};
 if(vErrors === null){
 vErrors = [err138];
 }
@@ -3177,82 +3179,15 @@ vErrors.push(err138);
 errors++;
 }
 }
-if(coerced59 !== undefined){
-data72 = coerced59;
-if(data !== undefined){
-data["autonomousAgentRunCredits"] = coerced59;
 }
 }
-}
-if(typeof data72 == "number"){
-if(data72 < 0 || isNaN(data72)){
-const err139 = {instancePath:instancePath+"/autonomousAgentRunCredits",schemaPath:"#/properties/autonomousAgentRunCredits/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
+else {
+const err139 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err139];
 }
 else {
 vErrors.push(err139);
-}
-errors++;
-}
-}
-}
-if(data.autonomousAgentRunTimeoutSeconds !== undefined){
-let data73 = data.autonomousAgentRunTimeoutSeconds;
-if(!(typeof data73 == "number")){
-let dataType60 = typeof data73;
-let coerced60 = undefined;
-if(dataType60 == 'object' && Array.isArray(data73) && data73.length == 1){
-data73 = data73[0];
-dataType60 = typeof data73;
-if(typeof data73 == "number"){
-coerced60 = data73;
-}
-}
-if(!(coerced60 !== undefined)){
-if(dataType60 == "boolean" || data73 === null
-              || (dataType60 == "string" && data73 && data73 == +data73)){
-coerced60 = +data73;
-}
-else {
-const err140 = {instancePath:instancePath+"/autonomousAgentRunTimeoutSeconds",schemaPath:"#/properties/autonomousAgentRunTimeoutSeconds/type",keyword:"type",params:{type: "number"},message:"must be number"};
-if(vErrors === null){
-vErrors = [err140];
-}
-else {
-vErrors.push(err140);
-}
-errors++;
-}
-}
-if(coerced60 !== undefined){
-data73 = coerced60;
-if(data !== undefined){
-data["autonomousAgentRunTimeoutSeconds"] = coerced60;
-}
-}
-}
-if(typeof data73 == "number"){
-if(data73 < 10 || isNaN(data73)){
-const err141 = {instancePath:instancePath+"/autonomousAgentRunTimeoutSeconds",schemaPath:"#/properties/autonomousAgentRunTimeoutSeconds/minimum",keyword:"minimum",params:{comparison: ">=", limit: 10},message:"must be >= 10"};
-if(vErrors === null){
-vErrors = [err141];
-}
-else {
-vErrors.push(err141);
-}
-errors++;
-}
-}
-}
-}
-else {
-const err142 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object"};
-if(vErrors === null){
-vErrors = [err142];
-}
-else {
-vErrors.push(err142);
 }
 errors++;
 }
