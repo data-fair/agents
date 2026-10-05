@@ -2,11 +2,16 @@ import assert from 'node:assert/strict'
 import { spawn } from 'child_process'
 import { axiosBuilder } from '@data-fair/lib-node/axios.js'
 import { test as setup } from '@playwright/test'
+import { takeStatefulLock } from './support/stateful-lock.ts'
 
 const anonymousAx = axiosBuilder()
 
 // Unit block: test pure functions from operations.ts
 setup('Stateful tests setup', async () => {
+  // FIRST, before anything touches the database: a second run must be refused before its first
+  // clean() can delete what the running one just seeded. See tests/support/stateful-lock.ts.
+  takeStatefulLock()
+
   // Check that the server to be up
   await assert.doesNotReject(anonymousAx.get(`http://localhost:${process.env.DEV_API_PORT}/api/ping`),
     `Dev web server seems to be unavailable.

@@ -4,6 +4,8 @@ ui/node_modules/
 api/node_modules/
 shared/node_modules/
 *.log
+# held while a stateful (api/e2e) test run is in progress — see tests/support/stateful-lock.ts
+dev/logs/*.lock
 .env
 .DS_Store
 coverage/
