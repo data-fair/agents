@@ -419,11 +419,15 @@ export const usageIdentityFor = (
   if (isStandardAgentId(autonomousAgent.id)) {
     const role = run.triggeredByRole ?? 'user'
     const isUntrusted = isUntrustedRole(role)
+    // Per user on an organization, and on a personal account for anyone but its owner — the rule
+    // `authenticatedUsageIdentity` applies to a request. Only the owner of a personal account is
+    // covered by the account's own totals: an external person chatting there used to be checked
+    // against the ACCOUNT's spend instead of their own external quota, and their spend was never
+    // attributed to them.
+    const trackPerUser = run.owner.type === 'organization' || run.triggeredBy?.userId !== run.owner.id
     return {
-      // Per user on an organization; on someone's personal account there is only one person, and the
-      // account's own totals already say what they spent.
-      trackPerUser: run.owner.type === 'organization',
-      ...(run.owner.type === 'organization'
+      trackPerUser,
+      ...(trackPerUser
         ? { usageUserId: run.triggeredBy?.userId, usageUserName: run.triggeredBy?.userName }
         : {}),
       role,

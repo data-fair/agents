@@ -60,11 +60,20 @@ test.describe('usageIdentityFor — a standard agent bills the PERSON', () => {
     assert.equal(identity.poolId, undefined)
   })
 
-  test('a personal account is not tracked per user', () => {
-    // There is only one person on it, and the account's own totals already say what they spent.
+  test("a personal account's owner is not tracked per user", () => {
+    // The account's own totals already say what they spent.
     const identity = usageIdentityFor(standard, { owner: personal, triggeredBy: { userId: 'dmeadus0' }, triggeredByRole: 'admin' })
     assert.equal(identity.trackPerUser, false)
     assert.equal(identity.usageUserId, undefined)
+  })
+
+  test('anyone else on a personal account is tracked per user, so their own quota applies', () => {
+    // As on a request (authenticatedUsageIdentity). Untracked, an external person's quota was checked
+    // against the ACCOUNT's spend, and nothing they spent was attributed to them.
+    const identity = usageIdentityFor(standard, { owner: personal, triggeredBy: { userId: 'someone-else', userName: 'Someone' }, triggeredByRole: 'external' })
+    assert.equal(identity.trackPerUser, true)
+    assert.equal(identity.usageUserId, 'someone-else')
+    assert.equal(identity.usageUserName, 'Someone')
   })
 
   test('a missing role falls back to the LEAST privileged of the normal roles, not to admin', () => {
