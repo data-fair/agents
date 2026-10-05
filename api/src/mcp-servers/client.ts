@@ -9,6 +9,7 @@ import { CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js'
 import { tool, jsonSchema, type Tool } from 'ai'
 import config from '#config'
 import { httpError } from '@data-fair/lib-express'
+import { createHash } from 'node:crypto'
 import Debug from 'debug'
 import { credentialHeaders, type GlobalMcpServer } from './operations.ts'
 import { formatMcpToolResult } from '@agents/shared/tool-result'
@@ -46,11 +47,10 @@ export interface ListedMcpTool {
 
 /**
  * Connects, as the autonomous agent's own identity, to every MCP server it references,
- * lists each one's tools (narrowed by that reference's optional toolFilter), and calls
- * `visit` for each surviving tool — with the still-open client it was listed from —
- * before closing the connection. The shared shape behind both `listAutonomousAgentTools`
- * (executable AI SDK tools) and `listAutonomousAgentToolDescriptors` (diagnostic
- * descriptors only) — there is exactly one copy of the connect/list/filter/close loop.
+ * lists each one's tools FRESH (narrowed by that reference's optional toolFilter), and calls
+ * `visit` for each surviving tool. What the diagnostic endpoint shows an admin, so it bypasses the
+ * listing cache that `openAutonomousAgentTools` reads from: an admin checking a fix wants the server's
+ * answer now, not up to a minute old.
  *
  * A session is obtained lazily and only once: an agent whose entries are all `none`/`apiKey` performs
  * no exchange at all.
@@ -63,65 +63,47 @@ export interface ListedMcpTool {
 export const forEachListedTool = async (
   autonomousAgent: AutonomousAgentForTools,
   sessionProvider: SessionProvider,
-  visit: (t: ListedMcpTool, server: GlobalMcpServer, client: Client) => void,
-  opts?: { keepConnectionsOpen?: boolean, onServerError?: 'throw' | 'skip', skipped?: SkippedServer[] }
-): Promise<() => Promise<void>> => {
+  visit: (t: ListedMcpTool, server: GlobalMcpServer) => void,
+  opts?: { onServerError?: 'throw' | 'skip', skipped?: SkippedServer[] }
+): Promise<void> => {
   const catalog = config.mcpServers ?? []
   const refs = autonomousAgent.mcpServers ?? []
   const needsSession = refs.some(ref => catalog.find(s => s.id === ref.serverId)?.auth === 'nhi-session')
   const cookieHeader = needsSession ? await sessionProvider() : undefined
 
-  // Connections the caller is responsible for closing (keepConnectionsOpen only).
-  const held: (() => Promise<void>)[] = []
-  const closeHeld = async () => { for (const close of held.splice(0)) await close().catch(() => {}) }
+  for (const ref of refs) {
+    const server = catalog.find(s => s.id === ref.serverId)
+    if (!server) throw httpError(400, `unknown MCP server "${ref.serverId}"`)
 
-  try {
-    for (const ref of refs) {
-      const server = catalog.find(s => s.id === ref.serverId)
-      if (!server) throw httpError(400, `unknown MCP server "${ref.serverId}"`)
-
-      // A raw connect/list failure names nothing, which is useless when an autonomous
-      // agent references several servers. Wrap and rethrow naming server.id; never
-      // include the credential (cookieHeader) in the message, only the error text.
-      let client: Client | undefined
-      let close: (() => Promise<void>) | undefined
-      try {
-        ({ client, close } = await connectMcpServer(server, cookieHeader))
-        const listed = await client.listTools()
-        for (const t of listed.tools) {
-          if (ref.toolFilter?.length && !ref.toolFilter.includes(t.name)) continue
-          visit(t, server, client)
-        }
-        if (opts?.keepConnectionsOpen) {
-          // Handed to the caller: an executable tool's `execute` closes over this client,
-          // and closing it here would make every call reject with 'Not connected'.
-          held.push(close)
-          close = undefined
-        }
-      } catch (err: any) {
-        // THROW or SKIP, and the two are different semantics rather than a tolerance knob.
-        //
-        // A configured agent's server selection is deliberate, so a failure is a misconfiguration and
-        // must surface loudly — a toolless turn would otherwise read as a capability problem.
-        //
-        // The personal assistant's selection is "everything in the catalog", so the same failure is an
-        // availability event: taking down the whole assistant for a server the person never chose, and
-        // may not need, is the wrong trade. data-fair/mcp's own composer draws this line the same way —
-        // a failing service is excluded and reported, only a bad index throws.
-        if (opts?.onServerError !== 'skip') throw httpError(502, `MCP server "${server.id}" failed: ${err.message}`)
-        debug('skipping server=%s %s', server.id, err.message)
-        opts.skipped?.push({ id: server.id, reason: err.message })
-      } finally {
-        await close?.()
+    // A raw connect/list failure names nothing, which is useless when an autonomous
+    // agent references several servers. Wrap and rethrow naming server.id; never
+    // include the credential (cookieHeader) in the message, only the error text.
+    let close: (() => Promise<void>) | undefined
+    try {
+      let client: Client
+      ({ client, close } = await connectMcpServer(server, cookieHeader))
+      const listed = await client.listTools()
+      for (const t of listed.tools) {
+        if (ref.toolFilter?.length && !ref.toolFilter.includes(t.name)) continue
+        visit(t, server)
       }
+    } catch (err: any) {
+      // THROW or SKIP, and the two are different semantics rather than a tolerance knob.
+      //
+      // A configured agent's server selection is deliberate, so a failure is a misconfiguration and
+      // must surface loudly — a toolless turn would otherwise read as a capability problem.
+      //
+      // The personal assistant's selection is "everything in the catalog", so the same failure is an
+      // availability event: taking down the whole assistant for a server the person never chose, and
+      // may not need, is the wrong trade. data-fair/mcp's own composer draws this line the same way —
+      // a failing service is excluded and reported, only a bad index throws.
+      if (opts?.onServerError !== 'skip') throw httpError(502, `MCP server "${server.id}" failed: ${err.message}`)
+      debug('skipping server=%s %s', server.id, err.message)
+      opts.skipped?.push({ id: server.id, reason: err.message })
+    } finally {
+      await close?.()
     }
-  } catch (err) {
-    // A later server failing must not leak the earlier ones' open connections.
-    await closeHeld()
-    throw err
   }
-
-  return closeHeld
 }
 
 /**
@@ -148,12 +130,65 @@ export interface OpenAutonomousAgentTools {
 }
 
 /**
- * The executable tool set for one autonomous agent, with its connections STILL OPEN.
+ * How long a server's tool LISTING is reused before it is fetched again.
  *
- * The connections cannot be closed before returning: each tool's `execute` closes over the
- * client it was listed from, and the MCP SDK's close() clears the transport, so every call
- * would reject with 'Not connected'. The caller owns the returned `close` and must call it
- * when the turn ends.
+ * Listing used to happen on every turn: connect, initialize, list, for every catalog entry the agent
+ * references — the whole catalog, for the personal assistant. Measured on the dev stack it was half of
+ * an unloaded turn's time to first token (65 of 135ms), and with turns starting together it was the
+ * MCP SDK, zod, ajv and undici share of a CPU-bound burst. A tool set changes when a server is
+ * deployed, not between two turns, so a minute of staleness is the price: a tool added upstream shows
+ * up within it, and one removed fails at call time with the server's own error.
+ */
+export const TOOL_LISTING_TTL_MS = 60_000
+const TOOL_LISTING_MAX_ENTRIES = 1000
+
+/**
+ * Listings by server and credential. The promise itself is cached, so turns starting together share
+ * ONE listing rather than each racing its own — which is the case that mattered under load.
+ *
+ * Keyed on the credential as well as the server, because what a server lists may depend on who asks:
+ * for a session-authenticated entry, a hash of the session cookie (never the cookie itself), so two
+ * identities can never share a listing. A rotated cookie is merely a miss.
+ */
+const listings = new Map<string, { expiresAt: number, tools: Promise<ListedMcpTool[]> }>()
+
+/** Forget every cached listing. The test environment's reset calls it, so specs stay independent. */
+export const clearToolListings = () => { listings.clear() }
+
+const listingKey = (server: GlobalMcpServer, cookieHeader: string | undefined) =>
+  server.auth === 'nhi-session'
+    ? `${server.id}\0${createHash('sha256').update(cookieHeader ?? '').digest('hex')}`
+    : server.id
+
+const listServerTools = (server: GlobalMcpServer, cookieHeader: string | undefined): Promise<ListedMcpTool[]> => {
+  const key = listingKey(server, cookieHeader)
+  const cached = listings.get(key)
+  if (cached && cached.expiresAt > Date.now()) return cached.tools
+  const tools = (async () => {
+    const { client, close } = await connectMcpServer(server, cookieHeader)
+    try {
+      return (await client.listTools()).tools as ListedMcpTool[]
+    } finally {
+      await close().catch(() => {})
+    }
+  })()
+  // A FAILURE is not cached: the next turn tries again, so a server coming back is noticed at once,
+  // and a configured agent keeps failing loudly while its server is down.
+  tools.catch(() => { if (listings.get(key)?.tools === tools) listings.delete(key) })
+  listings.delete(key)
+  listings.set(key, { expiresAt: Date.now() + TOOL_LISTING_TTL_MS, tools })
+  // Oldest first, by insertion order: a re-listed key was deleted and re-set above, so it is young.
+  while (listings.size > TOOL_LISTING_MAX_ENTRIES) listings.delete(listings.keys().next().value!)
+  return tools
+}
+
+/**
+ * The executable tool set for one autonomous agent.
+ *
+ * Listings come from the cache above; CONNECTIONS are opened lazily, on a tool's first call in the
+ * turn, and shared by the turn's later calls to the same server — so a turn that calls no catalog tool
+ * opens none. The caller owns the returned `close` and must call it when the turn ends: until then a
+ * connection opened by a call stays open, because each tool's `execute` reuses it.
  */
 export const openAutonomousAgentTools = async (
   autonomousAgent: AutonomousAgentForTools,
@@ -164,36 +199,89 @@ export const openAutonomousAgentTools = async (
   const serverByTool = new Map<string, string>()
   const annotationsByTool = new Map<string, Record<string, unknown>>()
   const skippedServers: SkippedServer[] = []
-  const close = await forEachListedTool(autonomousAgent, sessionProvider, (t, server, client) => {
-    // Last-write-wins on a name collision across servers, matching the browser
-    // aggregator's Object.assign semantics — and the provenance map follows the same
-    // winner, so the recorded server is the one whose tool will actually run.
-    serverByTool.set(t.name, server.id)
-    if (t.annotations) annotationsByTool.set(t.name, t.annotations as Record<string, unknown>)
-    tools[t.name] = tool({
-      description: t.description ?? '',
-      inputSchema: jsonSchema((t.inputSchema as any) ?? { type: 'object', properties: {} }),
-      execute: async (args: any) => {
-        debug('call tool=%s server=%s', t.name, server.id)
-        // request() rather than callTool(): the latter also validates the result's
-        // structuredContent against the declared outputSchema, and formatMcpToolResult
-        // discards structuredContent, so that check could only reject an otherwise
-        // usable call over a value we throw away.
-        const callResult = await client.request({ method: 'tools/call', params: { name: t.name, arguments: args } }, CallToolResultSchema)
-        const formatted = formatMcpToolResult(callResult as any)
-        // An MCP tool reports its OWN failure with `isError`, which is not a transport error and so
-        // does not reject on its own. Rethrown as one, because that is the only thing the model loop
-        // treats as a failure: returned as a value, the turn recorded a failed call in the exact shape
-        // of a successful one — the conflation that hid a broken tool path for a whole plan. The AI SDK
-        // turns this into a `tool-error` part, so the call is stored `output-error` and the model is
-        // handed it as `error-text` rather than as data.
-        if ((callResult as { isError?: boolean }).isError) {
-          throw new Error(typeof formatted === 'string' ? formatted : formatted.text ?? 'Tool execution failed')
+
+  const catalog = config.mcpServers ?? []
+  const refs = autonomousAgent.mcpServers ?? []
+  const needsSession = refs.some(ref => catalog.find(s => s.id === ref.serverId)?.auth === 'nhi-session')
+  const cookieHeader = needsSession ? await sessionProvider() : undefined
+
+  // This turn's connections, opened by the first call to each server.
+  const connections = new Map<string, ReturnType<typeof connectMcpServer>>()
+  const clientFor = async (server: GlobalMcpServer) => {
+    let connection = connections.get(server.id)
+    if (!connection) {
+      connection = connectMcpServer(server, cookieHeader)
+      connections.set(server.id, connection)
+      // A failed connect is forgotten, so the next call retries rather than replaying the failure.
+      connection.catch(() => { if (connections.get(server.id) === connection) connections.delete(server.id) })
+    }
+    try {
+      return (await connection).client
+    } catch (err: any) {
+      // Named, like a listing failure: "fetch failed" alone does not say which of several servers.
+      throw new Error(`MCP server "${server.id}" failed: ${err.message}`)
+    }
+  }
+
+  // Listed together: a turn waits for its slowest server, not for the sum of them.
+  const listed = await Promise.all(refs.map(async ref => {
+    const server = catalog.find(s => s.id === ref.serverId)
+    if (!server) throw httpError(400, `unknown MCP server "${ref.serverId}"`)
+    try {
+      return { ref, server, tools: await listServerTools(server, cookieHeader) }
+    } catch (err: any) {
+      // THROW or SKIP — see forEachListedTool, whose rule this is.
+      if (opts?.onServerError !== 'skip') throw httpError(502, `MCP server "${server.id}" failed: ${err.message}`)
+      debug('skipping server=%s %s', server.id, err.message)
+      skippedServers.push({ id: server.id, reason: err.message })
+      return undefined
+    }
+  }))
+
+  // In reference order, so a name collision resolves exactly as before.
+  for (const entry of listed) {
+    if (!entry) continue
+    const { ref, server } = entry
+    for (const t of entry.tools) {
+      if (ref.toolFilter?.length && !ref.toolFilter.includes(t.name)) continue
+      // Last-write-wins on a name collision across servers, matching the browser
+      // aggregator's Object.assign semantics — and the provenance map follows the same
+      // winner, so the recorded server is the one whose tool will actually run.
+      serverByTool.set(t.name, server.id)
+      if (t.annotations) annotationsByTool.set(t.name, t.annotations as Record<string, unknown>)
+      else annotationsByTool.delete(t.name)
+      tools[t.name] = tool({
+        description: t.description ?? '',
+        inputSchema: jsonSchema((t.inputSchema as any) ?? { type: 'object', properties: {} }),
+        execute: async (args: any) => {
+          debug('call tool=%s server=%s', t.name, server.id)
+          const client = await clientFor(server)
+          // request() rather than callTool(): the latter also validates the result's
+          // structuredContent against the declared outputSchema, and formatMcpToolResult
+          // discards structuredContent, so that check could only reject an otherwise
+          // usable call over a value we throw away.
+          const callResult = await client.request({ method: 'tools/call', params: { name: t.name, arguments: args } }, CallToolResultSchema)
+          const formatted = formatMcpToolResult(callResult as any)
+          // An MCP tool reports its OWN failure with `isError`, which is not a transport error and so
+          // does not reject on its own. Rethrown as one, because that is the only thing the model loop
+          // treats as a failure: returned as a value, the turn recorded a failed call in the exact shape
+          // of a successful one — the conflation that hid a broken tool path for a whole plan. The AI SDK
+          // turns this into a `tool-error` part, so the call is stored `output-error` and the model is
+          // handed it as `error-text` rather than as data.
+          if ((callResult as { isError?: boolean }).isError) {
+            throw new Error(typeof formatted === 'string' ? formatted : formatted.text ?? 'Tool execution failed')
+          }
+          return formatted
         }
-        return formatted
-      }
-    })
-  }, { keepConnectionsOpen: true, onServerError: opts?.onServerError, skipped: skippedServers })
+      })
+    }
+  }
+
+  const close = async () => {
+    const open = [...connections.values()]
+    connections.clear()
+    for (const connection of open) await connection.then(c => c.close()).catch(() => {})
+  }
   return { tools, serverByTool, annotationsByTool, skippedServers, close }
 }
 

@@ -11,7 +11,7 @@ import eventsLog from '@data-fair/lib-express/events-log.js'
 import * as putReqBody from '#doc/settings/put-req/index.ts'
 import * as orgPutReqBody from '#doc/settings/org-put-req/index.ts'
 import { encryptProviderApiKeys, obfuscateProviderApiKeys } from './operations.ts'
-import { defaultQuotas, defaultModeration, emptySettings, getSettings } from './service.ts'
+import { defaultQuotas, defaultModeration, emptySettings, getSettings, invalidateSettings } from './service.ts'
 import { getCatalog } from '../models/service.ts'
 import type { ModelRole } from '../models/operations.ts'
 import { securityKey } from '../cipher/service.ts'
@@ -67,6 +67,7 @@ router.put('/:type/:id', async (req, res, next) => {
     },
     { upsert: true }
   )
+  invalidateSettings(owner)
 
   eventsLog.info('agents.settings.update', `settings updated for owner ${owner.type}/${owner.id}`, { req })
 
@@ -107,6 +108,7 @@ router.put('/:type/:id/org', async (req, res, next) => {
       },
       { upsert: true }
     )
+    invalidateSettings(owner)
     eventsLog.info('agents.settings.org-update', `org settings updated for owner ${owner.type}/${owner.id}`, { req })
     const updated = await getSettings(owner)
     updated.providers = obfuscateProviderApiKeys(updated.providers)

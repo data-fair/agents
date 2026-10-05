@@ -6,6 +6,8 @@ import { uiConfig } from './ui-config.ts'
 import settingsRouter from './settings/router.ts'
 import adminRouter from './admin/router.ts'
 import modelsRouter, { getModelsForOwner } from './models/router.ts'
+import { clearToolListings } from './mcp-servers/client.ts'
+import { invalidateSettings } from './settings/service.ts'
 import catalogRouter from './catalog/router.ts'
 import autonomousAgentsRouter from './autonomous-agents/router.ts'
 import autonomousAgentRuntimeRouter, { runsRouter } from './conversations/router.ts'
@@ -61,6 +63,8 @@ app.use('/api/ping', (req, res) => res.send('ok'))
 if (process.env.NODE_ENV === 'development') {
   app.delete('/api/test-env', async (req, res) => {
     getModelsForOwner.clear()
+    clearToolListings()
+    invalidateSettings()
     await mongo.db.collection('settings').deleteMany({ 'owner.id': /^test/ })
     await mongo.db.collection('usage').deleteMany({ 'owner.id': /^test/ })
     await mongo.db.collection('trace-requests').deleteMany({ 'owner.id': /^test/ })
@@ -266,6 +270,39 @@ if (process.env.NODE_ENV === 'development') {
       ])
     }
     res.send()
+  })
+  /**
+   * A CPU profile of THIS process, taken while something else loads it (`npm run dev-load-check`).
+   *
+   * A seam rather than `node --cpu-prof` because dev-api is the user's process to start, and a
+   * profile of a second instance would not be the one serving the load. The result is a standard
+   * .cpuprofile (open it in Chrome DevTools, or summarise it with dev/load-check.ts --profile).
+   */
+  app.post('/api/test-env/cpu-profile', async (req, res) => {
+    const { Session } = await import('node:inspector/promises')
+    const session = new Session()
+    session.connect()
+    try {
+      await session.post('Profiler.enable')
+      await session.post('Profiler.setSamplingInterval', { interval: 500 })
+      await session.post('Profiler.start')
+      await new Promise(resolve => setTimeout(resolve, Math.min(Number(req.query.ms) || 5000, 60_000)))
+      const { profile } = await session.post('Profiler.stop')
+      res.json(profile)
+    } finally {
+      session.disconnect()
+    }
+  })
+  app.get('/api/test-env/heap', async (req, res) => {
+    const v8 = await import('node:v8')
+    if (req.query.gc !== undefined) {
+      // A full collection first, so the numbers are what is RETAINED rather than what is merely
+      // not yet collected.
+      v8.setFlagsFromString('--expose-gc')
+      const { runInNewContext } = await import('node:vm')
+      runInNewContext('gc')()
+    }
+    res.json({ ...process.memoryUsage(), heap: v8.getHeapStatistics() })
   })
 }
 

@@ -9,7 +9,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { parseClientMessage, parseServerMessageForClient, isAgentSessionPath } from '@agents/shared/agent-session-protocol'
-import { createAgentSession, BROWSER_CALL_TIMEOUT_MS } from '../../../api/src/agent-session/session.ts'
+import { createAgentSession, BROWSER_CALL_TIMEOUT_MS, DELTA_FLUSH_MS } from '../../../api/src/agent-session/session.ts'
 import type { ServerMessage } from '@agents/shared/agent-session-protocol'
 
 const parse = (value: unknown) => parseClientMessage(JSON.stringify(value))
@@ -276,5 +276,53 @@ test.describe('the session', () => {
     // reasoning the stream idle watchdog is held to.
     assert.ok(BROWSER_CALL_TIMEOUT_MS < 300_000)
     assert.equal(BROWSER_CALL_TIMEOUT_MS, 30_000)
+  })
+})
+
+test.describe('delta batching', () => {
+  const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
+  test('consecutive deltas go out as one frame, within the flush window', async () => {
+    const h = harness()
+    h.session.send({ type: 'delta', kind: 'text', text: 'wor' })
+    h.session.send({ type: 'delta', kind: 'text', text: 'ld' })
+    assert.equal(h.sent.length, 0)
+    await wait(DELTA_FLUSH_MS + 20)
+    assert.deepEqual(h.sent, [{ type: 'delta', kind: 'text', text: 'world' }])
+  })
+
+  test('any other frame flushes the pending delta first, so the order is kept', () => {
+    const h = harness()
+    h.session.send({ type: 'delta', kind: 'text', text: 'before' })
+    h.session.send({ type: 'turn-end', stopReason: 'completed' })
+    assert.deepEqual(h.sent.map(m => m.type), ['delta', 'turn-end'])
+  })
+
+  test('a change of kind is a boundary: reasoning and text are never merged', () => {
+    const h = harness()
+    h.session.send({ type: 'delta', kind: 'reasoning', text: 'thinking' })
+    h.session.send({ type: 'delta', kind: 'text', text: 'answer' })
+    h.session.send({ type: 'turn-end', stopReason: 'completed' })
+    assert.deepEqual(h.sent, [
+      { type: 'delta', kind: 'reasoning', text: 'thinking' },
+      { type: 'delta', kind: 'text', text: 'answer' },
+      { type: 'turn-end', stopReason: 'completed' }
+    ])
+  })
+
+  test('a frame the session sends itself keeps the order too', () => {
+    const h = harness()
+    h.session.handle(hello(['select_row']))
+    h.session.send({ type: 'delta', kind: 'text', text: 'before the call' })
+    h.session.callBrowserTool('select_row', {}).catch(() => {})
+    assert.deepEqual(h.sent.map(m => m.type), ['attached', 'delta', 'tool-call'])
+  })
+
+  test('nothing is sent after the session closes', async () => {
+    const h = harness()
+    h.session.send({ type: 'delta', kind: 'text', text: 'lost' })
+    h.session.close('gone')
+    await wait(DELTA_FLUSH_MS + 20)
+    assert.equal(h.sent.length, 0)
   })
 })

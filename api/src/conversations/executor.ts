@@ -665,10 +665,11 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   /**
    * Stream to the browser, if one is watching.
    *
-   * UNTHROTTLED, unlike the persistence below, and the difference is the point. Persisting every token
-   * would be thousands of writes a turn, so that is throttled and the client refetches; a socket frame
-   * costs a syscall, so the person sees the answer arrive token by token. That is the thing the delta
-   * protocol this branch deleted was trying to do over HTTP.
+   * Barely throttled, unlike the persistence below, and the difference is the point. Persisting every
+   * token would be thousands of writes a turn, so that is throttled and the client refetches; the
+   * session merges deltas only within `DELTA_FLUSH_MS`, below a display frame, so the person still sees
+   * the answer arrive as it is produced. That is the thing the delta protocol this branch deleted was
+   * trying to do over HTTP.
    *
    * Best-effort: send already checks the socket is open, and a person who closed the tab mid-turn must
    * not fail the turn — it finishes and is stored.
@@ -741,7 +742,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
     lastPersistedLength = length
     // No frame: the page is already receiving this text token by token. Publishing the whole parts
     // array here is what made the socket traffic quadratic.
-    await updateMessage(messageId, { parts, pending: true })
+    await updateMessage(run.conversationId, messageId, { parts, pending: true })
   }
 
   /**
@@ -767,7 +768,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
    * per token.
    */
   const persistStructure = async () => {
-    await updateMessage(messageId, { parts, pending: true })
+    await updateMessage(run.conversationId, messageId, { parts, pending: true })
   }
 
   // THINKING, from the moment the turn is handed to the model until it says something.
@@ -974,7 +975,7 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
   if (!conversation) {
     // The conversation was deleted under us; there is nowhere to put a message, so the run
     // is all that can be closed out.
-    await finishRun(run.id, { status: 'error', stopReason: 'error', error: 'conversation no longer exists' })
+    await finishRun(run, { status: 'error', stopReason: 'error', error: 'conversation no longer exists' })
     return
   }
 
@@ -1018,7 +1019,7 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
       ? ''
       : runStopReasonMessage(result.stopReason, result.stopDetail)
     const finalParts = notice ? withAppendedText(result.parts, notice) : result.parts
-    await updateMessage(message.id, {
+    await updateMessage(run.conversationId, message.id, {
       parts: finalParts as any,
       pending: false
     })
@@ -1042,7 +1043,7 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
     // stopReason 'error' without throwing, and must not be reported as done.
     // steps/credits are not written here: incrementRunSpend owns them, so a turn abandoned
     // at its deadline cannot end up reporting less than it actually spent.
-    await finishRun(run.id, {
+    await finishRun(run, {
       status: result.stopReason === 'error' ? 'error' : 'done',
       stopReason: result.stopReason
     })
@@ -1087,7 +1088,7 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
       // judged runs then denied work they had done and redid it.
       const reason = aborted ? interruptReason((abortController.signal as AbortSignal & { reason?: unknown }).reason) : 'ended'
       const settled = settleInterruptedParts((persisted?.parts ?? []) as MessagePart[], reason)
-      await updateMessage(message.id, {
+      await updateMessage(run.conversationId, message.id, {
         // No stop notice when the person SPOKE: their message follows and answers it, and the notice
         // would be replayed to the model as its own words. Stop, the clock and errors keep theirs.
         parts: (reason === 'message' ? settled : withAppendedText(settled, runStopReasonMessage(stopReason, detail))) as any,
@@ -1109,7 +1110,7 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
         })
       }
     }
-    await finishRun(run.id, {
+    await finishRun(run, {
       status: stopReason === 'timeout' ? 'error' : aborted ? 'aborted' : 'error',
       stopReason,
       error: detail
@@ -1209,11 +1210,11 @@ export const recoverOwnerlessRuns = async (): Promise<{ interrupted: number, res
     // stopReason has no 'interrupted' member — the status carries that — so the reason is
     // 'error' with the restart named as the detail.
     const notice = runStopReasonMessage('error', 'interrupted by a restart')
-    await updateMessage(existing.id, {
+    await updateMessage(run.conversationId, existing.id, {
       parts: withAppendedText(existing.parts, notice),
       pending: false
     })
-    await finishRun(run.id, { status: 'interrupted', stopReason: 'error', error: 'interrupted by a restart' })
+    await finishRun(run, { status: 'interrupted', stopReason: 'error', error: 'interrupted by a restart' })
   }
 
   if (interrupted) console.log(`[autonomous-agents] interrupted ${interrupted} started run(s) left behind by a dead process`)

@@ -98,6 +98,15 @@ export interface AgentSession {
   close: (reason: string) => void
 }
 
+/**
+ * How long consecutive deltas are merged into one frame.
+ *
+ * A frame per token was a JSON encoding and a socket write per token: with many turns streaming, the
+ * process spent its time writing tiny frames (measured: the largest single native cost after the
+ * streams themselves). Below a display frame, so text still arrives as it is produced.
+ */
+export const DELTA_FLUSH_MS = 25
+
 export function createAgentSession (options: AgentSessionOptions): AgentSession {
   const timeoutMs = options.callTimeoutMs ?? BROWSER_CALL_TIMEOUT_MS
   const setTimer = options.setTimer ?? ((fn, ms) => setTimeout(fn, ms))
@@ -113,6 +122,30 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
   let closed: string | undefined
   const pending = new Map<string, PendingCall>()
 
+  // The delta being gathered, and when it goes out. Any other frame flushes it first, so the order
+  // the browser sees is the order things happened in.
+  let pendingDelta: { kind: 'text' | 'reasoning', text: string } | undefined
+  let deltaTimer: ReturnType<typeof setTimeout> | undefined
+  const flushDelta = () => {
+    if (deltaTimer) clearTimeout(deltaTimer)
+    deltaTimer = undefined
+    if (!pendingDelta) return
+    const { kind, text } = pendingDelta
+    pendingDelta = undefined
+    options.send({ type: 'delta', kind, text })
+  }
+  const send = (message: ServerMessage) => {
+    if (message.type !== 'delta') {
+      flushDelta()
+      options.send(message)
+      return
+    }
+    if (pendingDelta && pendingDelta.kind !== message.kind) flushDelta()
+    if (pendingDelta) pendingDelta.text += message.text
+    else pendingDelta = { kind: message.kind, text: message.text }
+    deltaTimer ??= setTimeout(flushDelta, DELTA_FLUSH_MS)
+  }
+
   const settle = (callId: string): PendingCall | undefined => {
     const call = pending.get(callId)
     if (!call) return undefined
@@ -122,7 +155,7 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
   }
 
   return {
-    send: options.send,
+    send,
     hostEvents,
     tools: () => [...tools],
     attached: () => attached,
@@ -145,7 +178,7 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
           if (message.conversationId) options.onAttach?.(message.conversationId)
           // conversationId is echoed back so a client that sent none learns the one it got. The
           // conversation itself is §4.4's work; until then the session reports what it was given.
-          options.send({
+          send({
             type: 'attached',
             conversationId: message.conversationId ?? 'pending',
             anonymous: options.anonymous === true,
@@ -157,7 +190,7 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
           return
         case 'prompt':
           if (!attached) {
-            options.send({ type: 'error', message: 'say hello before prompting' })
+            send({ type: 'error', message: 'say hello before prompting' })
             return
           }
           options.onPrompt?.(message.content, message.hiddenContext)
@@ -167,7 +200,7 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
           // An unknown callId is reported, not ignored: it means a timeout already fired, the client is
           // confused, or something is replaying answers — all worth seeing rather than discarding.
           if (!call) {
-            options.send({ type: 'error', message: `no tool call is waiting for callId ${message.callId}` })
+            send({ type: 'error', message: `no tool call is waiting for callId ${message.callId}` })
             return
           }
           if (message.error !== undefined) call.reject(new Error(message.error))
@@ -209,12 +242,16 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
           reject(new Error(`the page did not answer ${name} within ${timeoutMs}ms`))
         }, timeoutMs)
         pending.set(callId, { resolve, reject, timer, name })
-        options.send({ type: 'tool-call', callId, name, input })
+        send({ type: 'tool-call', callId, name, input })
       })
     },
 
     close (reason) {
       closed = reason
+      // Nobody to read it now.
+      if (deltaTimer) clearTimeout(deltaTimer)
+      deltaTimer = undefined
+      pendingDelta = undefined
       attached = false
       for (const callId of [...pending.keys()]) {
         const call = settle(callId)

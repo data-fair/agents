@@ -14,6 +14,12 @@ export interface McpFixture {
   /** Tool names this server actually EXECUTED, in order. Listing does not appear here. */
   invokedTools: () => string[]
   resetInvokedTools: () => void
+  /**
+   * How many times each JSON-RPC method reached this server — `initialize` is a connection,
+   * `tools/list` a listing. What a test of the listing cache, or of lazy connections, counts.
+   */
+  methodCounts: () => Record<string, number>
+  resetMethodCounts: () => void
   close: () => Promise<void>
 }
 
@@ -156,15 +162,26 @@ export const startMcpFixture = async (port: number): Promise<McpFixture> => {
   // Ground truth for "was this tool actually CALLED". Listing tools also reaches this server,
   // so headers alone cannot distinguish a listing from an invocation.
   let invoked: string[] = []
+  let methods: Record<string, number> = {}
 
   const server: Server = createServer((req, res) => {
     lastHeaders = req.headers
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined })
     const mcp = buildMcpServer(name => invoked.push(name))
-    mcp.connect(transport)
-      .then(() => transport.handleRequest(req, res))
-      .catch(() => { if (!res.headersSent) res.statusCode = 500; res.end() })
-      .finally(() => { res.on('close', () => { transport.close().catch(() => {}) }) })
+    // The body is read here, to count methods, and handed to the transport already parsed.
+    const chunks: Buffer[] = []
+    req.on('data', chunk => chunks.push(chunk))
+    req.on('end', () => {
+      let body: any
+      try { body = chunks.length ? JSON.parse(Buffer.concat(chunks).toString()) : undefined } catch { body = undefined }
+      for (const message of Array.isArray(body) ? body : body ? [body] : []) {
+        if (typeof message?.method === 'string') methods[message.method] = (methods[message.method] ?? 0) + 1
+      }
+      mcp.connect(transport)
+        .then(() => transport.handleRequest(req, res, body))
+        .catch(() => { if (!res.headersSent) res.statusCode = 500; res.end() })
+        .finally(() => { res.on('close', () => { transport.close().catch(() => {}) }) })
+    })
   })
   await new Promise<void>(resolve => server.listen(port, '127.0.0.1', resolve))
 
@@ -173,6 +190,8 @@ export const startMcpFixture = async (port: number): Promise<McpFixture> => {
     lastHeaders: () => lastHeaders,
     invokedTools: () => [...invoked],
     resetInvokedTools: () => { invoked = [] },
+    methodCounts: () => ({ ...methods }),
+    resetMethodCounts: () => { methods = {} },
     close: async () => { await new Promise<void>(resolve => server.close(() => resolve())) }
   }
 }

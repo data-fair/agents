@@ -284,18 +284,17 @@ export const appendMessage = async (
  * findOneAndUpdate rather than updateOne plus a read: the event carries the RESULTING document,
  * and two round trips would let a concurrent write make the event disagree with what is stored.
  */
-export const updateMessage = async (id: string, patch: Partial<StoredMessage>) => {
-  const existing = await mongo.messages.findOne({ id }, { projection: { _id: 0, conversationId: 1 } })
-  if (!existing) return
+export const updateMessage = async (conversationId: string, id: string, patch: Partial<StoredMessage>) => {
   // The version has to advance for an in-place update too, or an incremental fetch cannot see it:
   // the assistant message keeps its seq while its content is filled in, so `seq` alone would only
-  // ever reveal NEW messages.
-  const version = await bumpConversationVersion(existing.conversationId)
-  await mongo.messages.updateOne(
-    { id },
+  // ever reveal NEW messages. The conversation is the caller's to name — every caller holds it — which
+  // spares a lookup on each of a turn's incremental writes.
+  const version = await bumpConversationVersion(conversationId)
+  const updated = await mongo.messages.updateOne(
+    { id, conversationId },
     { $set: { ...patch, version, updatedAt: new Date().toISOString() } }
   )
-  await notifyConversationChanged(existing.conversationId, version)
+  if (updated.matchedCount) await notifyConversationChanged(conversationId, version)
 }
 
 export const createRun = async (run: Omit<ConversationRun, 'id'>): Promise<ConversationRun> => {
@@ -364,19 +363,19 @@ export const conversationCost = async (conversationId: string): Promise<number> 
  * how a run ended — the boot sweep of another instance racing the instance that is actually
  * executing it, for example. Returns whether this call was the one that closed it.
  */
-export const finishRun = async (id: string, patch: Partial<ConversationRun>): Promise<boolean> => {
-  const existing = await mongo.runs.findOne({ id, status: 'running' }, { projection: { _id: 0, conversationId: 1 } })
-  if (!existing) return false
-  const version = await bumpConversationVersion(existing.conversationId)
-  const updated = await mongo.runs.findOneAndUpdate(
-    { id, status: 'running' },
-    { $set: { ...patch, version, endedAt: new Date().toISOString() } },
-    { returnDocument: 'after', projection: { _id: 0 } }
+export const finishRun = async (run: { id: string, conversationId: string }, patch: Partial<ConversationRun>): Promise<boolean> => {
+  // Bumped before knowing whether this call wins the close. A losing racer then advances the version
+  // with nothing new behind it, which costs a client one empty refetch — cheaper than the lookup it
+  // took to avoid it on every turn.
+  const version = await bumpConversationVersion(run.conversationId)
+  const updated = await mongo.runs.updateOne(
+    { id: run.id, status: 'running' },
+    { $set: { ...patch, version, endedAt: new Date().toISOString() } }
   )
   // Only the call that actually closed the run notifies, so a losing racer cannot announce a
   // second, contradictory terminal state.
-  if (updated) await notifyConversationChanged(existing.conversationId, version)
-  return !!updated
+  if (updated.modifiedCount) await notifyConversationChanged(run.conversationId, version)
+  return updated.modifiedCount > 0
 }
 
 /**

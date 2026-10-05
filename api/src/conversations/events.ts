@@ -69,18 +69,38 @@ export const canSubscribeAutonomousAgent = async (channel: string, sessionState:
 }
 
 /**
+ * How long a conversation's change notifications are gathered before one is published.
+ *
+ * A turn writes in bursts — the person's message, the run, the pending answer, and at the end the
+ * answer and the run's close, each within milliseconds — and every notification was an insert into
+ * the emitter's collection read back by every subscribed process. A subscriber only ever needs the
+ * LATEST version (it refetches `?sinceVersion=`), so a burst is published once, this much later.
+ */
+export const NOTIFY_COALESCE_MS = 50
+
+const pendingNotifications = new Map<string, number>()
+
+/**
  * Tell subscribers the conversation moved to a new version.
  *
  * Always AFTER the write it describes, so a client that fetches on the notification always finds
- * at least what it was told about. Failures are swallowed and logged: the documents are the source
- * of truth, so a dropped notification costs liveness, not correctness — and a client that also
- * refetches on reconnect or focus recovers on its own.
+ * at least what it was told about — coalescing keeps that, since what is published is the highest
+ * version written so far. Failures are swallowed and logged: the documents are the source of truth,
+ * so a dropped notification costs liveness, not correctness — and a client that also refetches on
+ * reconnect or focus recovers on its own.
  */
 export const notifyConversationChanged = async (conversationId: string, version?: number) => {
   if (version === undefined) return
-  try {
-    await emit(conversationChannel(conversationId), { conversationId, version } satisfies ConversationChanged)
-  } catch (err) {
-    console.error('autonomous agent conversation notification could not be published', err)
+  const pending = pendingNotifications.get(conversationId)
+  if (pending !== undefined) {
+    if (version > pending) pendingNotifications.set(conversationId, version)
+    return
   }
+  pendingNotifications.set(conversationId, version)
+  setTimeout(() => {
+    const latest = pendingNotifications.get(conversationId)!
+    pendingNotifications.delete(conversationId)
+    emit(conversationChannel(conversationId), { conversationId, version: latest } satisfies ConversationChanged)
+      .catch(err => { console.error('autonomous agent conversation notification could not be published', err) })
+  }, NOTIFY_COALESCE_MS)
 }
