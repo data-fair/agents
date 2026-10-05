@@ -11,11 +11,14 @@ import type { Duplex } from 'node:stream'
 import { WebSocketServer, type WebSocket } from 'ws'
 import { session as expressSession } from '@data-fair/lib-express'
 import Debug from 'debug'
-import { parseClientMessage, isAgentSessionPath, type ServerMessage } from '@agents/shared/agent-session-protocol'
+import { parseClientMessage, isAgentSessionPath, type ServerMessage, type ClientMessage } from '@agents/shared/agent-session-protocol'
 import { createAgentSession, type AgentSession } from './session.ts'
 import { attachSession, detachSession } from './registry.ts'
-import { requireConversationById, assertOwnsConversation, conversationCost } from '../conversations/service.ts'
-import { startSessionTurn, sendHistory } from './turn.ts'
+import { requireConversationById, assertOwnsConversation, conversationCost, createAnonymousConversation, purgeConversation } from '../conversations/service.ts'
+import { startSessionTurn, sendHistory, type TurnCaller } from './turn.ts'
+import { verifyAnonymousActionToken } from '../anonymous-token/service.ts'
+import { anonymousUsageUserId } from '../usage/enforce.ts'
+import { PERSONAL_AGENT_ID } from './standard-agents.ts'
 import { abortRunsOfConversation } from '../conversations/executor.ts'
 import { hasTraceConsent } from '@agents/shared/trace-consent'
 import { getSettings } from '../settings/service.ts'
@@ -69,6 +72,8 @@ export const startAgentSessions = (server: Server, options: StartAgentSessionsOp
     // The conversation this connection is bound to, remembered so the close handler can detach the
     // right one. A session may re-attach (a navigation within the same tab), so this is not final.
     let boundConversationId: string | undefined
+    // The one thread an ANONYMOUS socket holds: created by its hello, purged when it closes.
+    let anonymousThread: { id: string, owner: { type: 'user' | 'organization', id: string }, usageUserId: string } | undefined
     const agentSession: AgentSession = createAgentSession({
       send,
       sessionCookie: req.headers.cookie,
@@ -76,6 +81,7 @@ export const startAgentSessions = (server: Server, options: StartAgentSessionsOp
       // `x-trace-consent` header the gateway read per request. Same cookie, same meaning.
       traceConsent: hasTraceConsent(req.headers.cookie),
       traceStorage: traceStorage === true,
+      anonymous: !sessionState?.user,
       onAttach: conversationId => {
         if (boundConversationId && boundConversationId !== conversationId) detachSession(boundConversationId, agentSession)
         boundConversationId = conversationId
@@ -96,10 +102,15 @@ export const startAgentSessions = (server: Server, options: StartAgentSessionsOp
           send({ type: 'error', message: 'this connection is not bound to a conversation' })
           return
         }
-        if (!sessionState?.user) {
-          // Anonymous conversations are not persisted, so there is nothing to append a prompt to yet —
-          // §3 of the design keeps them in memory, which the loop does not serve.
-          send({ type: 'error', message: 'an anonymous session cannot run a turn yet' })
+        // An anonymous visitor may prompt only into the thread this socket created for them: there is
+        // no session to check ownership against, so the socket's own record IS the ownership check.
+        const caller: TurnCaller | undefined = sessionState?.user
+          ? { kind: 'person', session: sessionState }
+          : anonymousThread && anonymousThread.id === boundConversationId
+            ? { kind: 'anonymous', usageUserId: anonymousThread.usageUserId }
+            : undefined
+        if (!caller) {
+          send({ type: 'error', message: 'this conversation belongs to someone else' })
           return
         }
         // Speaking takes the turn back. If a turn is live — most importantly one parked in
@@ -116,10 +127,11 @@ export const startAgentSessions = (server: Server, options: StartAgentSessionsOp
         // made every such turn fail with "unknown conversation" while members of the account were
         // unaffected. `startSessionTurn` still re-reads it under that owner and still checks the
         // thread belongs to this person.
-        resolveTurnOwner(conversationId).then(owner => startSessionTurn({
+        const owner = caller.kind === 'anonymous' ? Promise.resolve(anonymousThread!.owner) : resolveTurnOwner(conversationId)
+        owner.then(owner => startSessionTurn({
           conversationId,
           owner,
-          session: sessionState,
+          caller,
           content,
           hiddenContext,
           echoTo: agentSession
@@ -155,15 +167,64 @@ export const startAgentSessions = (server: Server, options: StartAgentSessionsOp
       agentSession.send({ type: 'cost', conversationCost: await conversationCost(conversationId) })
     }
 
-    ws.on('message', (raw) => {
-      const message = parseClientMessage(raw.toString())
-      if (message.type === 'invalid') {
+    /**
+     * An anonymous visitor's hello: verify their token, and give them a fresh thread.
+     *
+     * The thread is created HERE because an anonymous caller has no HTTP route to create one with
+     * (see the `hello` frame). Any hello not naming the thread this socket already holds starts a new
+     * one and purges the previous — a reset, in the chat's terms — so a socket holds at most one, and
+     * a visitor can never bind to a thread they did not get from this very socket.
+     */
+    const anonymousHello = async (message: Extract<ClientMessage, { type: 'hello' }>): Promise<ClientMessage | undefined> => {
+      if (anonymousThread && message.conversationId === anonymousThread.id) return message
+      await verifyAnonymousActionToken(message.anonymousToken)
+      if (!message.account) throw new Error('an anonymous hello must name the account it talks to')
+      const owner = message.account
+      const settings = await getSettings(owner)
+      // Charged per IP, under the same key the HTTP routes use: the self-usage route reads it back.
+      const usageUserId = anonymousUsageUserId(req)
+      const conversation = await createAnonymousConversation(owner, message.agentId ?? PERSONAL_AGENT_ID, usageUserId, settings.quotas ?? {})
+      await dropAnonymousThread()
+      anonymousThread = { id: conversation.id, owner, usageUserId }
+      return { ...message, conversationId: conversation.id }
+    }
+
+    /** Purge the anonymous thread this socket holds, live turn first. */
+    const dropAnonymousThread = async () => {
+      const thread = anonymousThread
+      if (!thread) return
+      anonymousThread = undefined
+      abortRunsOfConversation(thread.id)
+      await purgeConversation(thread.id)
+    }
+
+    const handleFrame = async (raw: string) => {
+      const parsed = parseClientMessage(raw)
+      if (parsed.type === 'invalid') {
         // Told, not dropped: a browser-facing surface that silently ignores a malformed frame is
         // undebuggable from the other side.
-        send({ type: 'error', message: message.reason })
+        send({ type: 'error', message: parsed.reason })
         return
       }
-      agentSession.handle(message)
+      let message: ClientMessage | undefined = parsed
+      if (message.type === 'hello' && !sessionState?.user) {
+        try {
+          message = await anonymousHello(message)
+        } catch (err: any) {
+          debug('refused an anonymous hello: %O', err)
+          send({ type: 'error', message: err.message ?? 'this conversation could not be opened' })
+          return
+        }
+      }
+      if (message) agentSession.handle(message)
+    }
+
+    // IN ORDER, one at a time. An anonymous hello is asynchronous (it creates the thread), and the
+    // client sends its first prompt straight after the hello without waiting for `attached`; handled
+    // concurrently, that prompt would arrive at a connection not bound to anything yet.
+    let frames: Promise<void> = Promise.resolve()
+    ws.on('message', (raw) => {
+      frames = frames.then(() => handleFrame(raw.toString())).catch(err => { debug('frame failed %O', err) })
     })
 
     ws.on('close', () => {
@@ -171,6 +232,9 @@ export const startAgentSessions = (server: Server, options: StartAgentSessionsOp
       if (boundConversationId) detachSession(boundConversationId, agentSession)
       sessions.delete(ws)
       debug('session closed, %d live', sessions.size)
+      // The anonymous thread lives exactly as long as this socket. After any frame still in flight,
+      // so a hello creating one cannot land after the purge and leave it behind.
+      frames = frames.then(() => dropAnonymousThread()).catch(err => { debug('could not purge an anonymous thread %O', err) })
     })
 
     // An error is not a close: `ws` emits both for a broken connection, but only sometimes in that

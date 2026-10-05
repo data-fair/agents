@@ -63,7 +63,7 @@ Steps 2 and 3 go through `firstQuotaViolation()` (`api/src/usage/operations.ts`)
 
 `getEffectiveRole()` derives the effective role for quota lookup by comparing the request session's account to the settings owner: a different account is always treated as `external`, while a matching account uses `session.accountRole` (defaulting to `user`). Combined with the flowchart above, each request resolves to a role and `userId` as follows:
 
-- **Anonymous (unauthenticated)** → role `anonymous`, userId `anon:sha256-ip`.
+- **Anonymous (unauthenticated)** → role `anonymous`, userId `anon:sha256-ip` (`anonymousUsageUserId()`), behind simple-directory's anonymous action token — sent as the `x-anonymous-token` header, or in the agent session's `hello` frame for a chat turn.
 - **Same account, user-type owner** → role from session, userId omitted (usage aggregated for the account).
 - **Same account, organization member** → role from session, userId `user.id`.
 - **Different account** → role `external`, userId `user.id`.

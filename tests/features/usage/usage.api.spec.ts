@@ -131,17 +131,9 @@ test.describe('Anonymous Usage', () => {
     await clean()
   })
 
-  // REMOVED WITH THE GATEWAY: anonymous model access.
-  //
-  // Two tests here asserted that an anonymous caller with a signed action token could reach a model
-  // when the `anonymous` quota allowed it, and was refused when it did not. The gateway was the only
-  // endpoint that served an unauthenticated model call; the socket refuses an anonymous turn
-  // outright (`agent-session/service.ts`), so there is no "allowed" case left to assert and the
-  // "refused" case is now true of every path by construction rather than by quota.
-  //
-  // The anonymous quota itself still exists and is still enforced — see the summary endpoint below,
-  // which is the remaining surface an anonymous caller can consume. Restoring anonymous CHAT means
-  // building it on the socket, and this is the test that should come back with it.
+  // Anonymous CHAT — allowed and charged per IP when the `anonymous` quota is open, refused when it
+  // is not — is covered where it is served, over the agent session:
+  // tests/features/agent-session/anonymous-chat.api.spec.ts.
   test('should deny anonymous summary access with default quotas', async () => {
     await putSettings(admin, 'user/test-standalone1', settingsData)
 

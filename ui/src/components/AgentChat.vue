@@ -223,6 +223,7 @@ const chatResult = useSessionChat({
   ...(props.agentId ? { agentId: props.agentId } : {}),
   initialMessages: props.initialMessages,
   ...(chatTitle.value ? { title: chatTitle.value } : {}),
+  anonymous: !session.state.user,
   // Main's #74 quota sentences, and the moderation refusal, in the chat's language. The server stores
   // the English text beside these fields, so anything this cannot phrase stays readable.
   formatRefusal: (refusal) => {

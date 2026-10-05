@@ -26,8 +26,23 @@ export interface BrowserToolDescriptor {
 }
 
 export type ClientMessage =
-  /** First message. Binds the connection to a conversation and declares the page's contextual tools. */
-  | { type: 'hello', conversationId?: string, agentId?: string, tools: BrowserToolDescriptor[] }
+  /**
+   * First message. Binds the connection to a conversation and declares the page's contextual tools.
+   *
+   * An ANONYMOUS caller cannot create a conversation over HTTP, so for them the hello does it: one
+   * without `conversationId` starts a fresh thread on `account` with `agentId` (the `attached` reply
+   * names it), and `anonymousToken` is simple-directory's anonymous action token — carried here
+   * because a browser cannot set headers on a websocket upgrade. Both are ignored for a signed-in
+   * caller.
+   */
+  | {
+    type: 'hello',
+    conversationId?: string,
+    agentId?: string,
+    account?: { type: 'user' | 'organization', id: string },
+    anonymousToken?: string,
+    tools: BrowserToolDescriptor[]
+  }
   /** The page navigated or its state changed: this is the tool set from now on. */
   | { type: 'tools-changed', tools: BrowserToolDescriptor[] }
   /**
@@ -204,11 +219,21 @@ export function parseClientMessage (raw: string): ClientMessage | InvalidMessage
       if (parsed.agentId !== undefined && typeof parsed.agentId !== 'string') {
         return { type: 'invalid', reason: 'agentId must be a string when present' }
       }
+      const account = parsed.account as { type?: unknown, id?: unknown } | null | undefined
+      if (account !== undefined && (typeof account !== 'object' || account === null ||
+        (account.type !== 'user' && account.type !== 'organization') || typeof account.id !== 'string' || !account.id)) {
+        return { type: 'invalid', reason: 'account must be { type: "user" | "organization", id } when present' }
+      }
+      if (parsed.anonymousToken !== undefined && typeof parsed.anonymousToken !== 'string') {
+        return { type: 'invalid', reason: 'anonymousToken must be a string when present' }
+      }
       return {
         type: 'hello',
         tools,
         ...(typeof parsed.conversationId === 'string' ? { conversationId: parsed.conversationId } : {}),
-        ...(typeof parsed.agentId === 'string' ? { agentId: parsed.agentId } : {})
+        ...(typeof parsed.agentId === 'string' ? { agentId: parsed.agentId } : {}),
+        ...(account ? { account: { type: account.type as 'user' | 'organization', id: account.id as string } } : {}),
+        ...(typeof parsed.anonymousToken === 'string' ? { anonymousToken: parsed.anonymousToken } : {})
       }
     }
     case 'tools-changed': {

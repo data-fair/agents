@@ -12,13 +12,12 @@
  * frames into the reactive transcript the renderer wants, and turns the renderer's actions into frames.
  * That asymmetry is the whole measurement: compare this file's length to the 1229 lines it replaces.
  *
- * TWO THINGS IT DOES NOT SUPPORT, deliberately and visibly:
+ * ONE THING IT DOES NOT SUPPORT, deliberately and visibly: `setToolExploration` /
+ * `setFlattenSubAgents`. Tool exploration is shelved, and sub-agent flattening is a server decision
+ * now. They are absent from the returned object rather than present as no-ops, so a caller that needs
+ * them fails to type-check instead of silently toggling nothing.
  *
- * - `setToolExploration` / `setFlattenSubAgents`. Tool exploration is shelved, and sub-agent
- *   flattening is a server decision now. They are absent from the returned object rather than present
- *   as no-ops, so a caller that needs them fails to type-check instead of silently toggling nothing.
- * - Anonymous users. The socket refuses their turns (`agent-session/service.ts`), so this path is for
- *   signed-in people until that is built. The gateway path still serves them.
+ * An anonymous visitor is served too (`anonymous`), on a thread that lives as long as the socket.
  */
 
 import { ref, shallowRef, computed, watch, onScopeDispose, type Ref } from 'vue'
@@ -35,6 +34,7 @@ import { resolveToolsPartition, type DebugToolsPartition } from '~/utils/tools-p
 import type { ChatMessage } from '~/utils/chat-message'
 import { $apiPath, $fetch } from '~/context'
 import { traceStorageAvailable, consentRef } from '~/traces/trace-consent'
+import { getAnonymousToken, resetAnonymousToken } from '~/composables/use-anonymous-token'
 
 const debug = Debug('df-agents:use-session-chat')
 
@@ -47,6 +47,12 @@ export interface UseSessionChatOptions {
   initialMessages?: ChatMessage[]
   /** The title the conversation is created with. */
   title?: string
+  /**
+   * No signed-in person: the thread is created by the server on the socket's hello and lives as long
+   * as the socket (see the `hello` frame), and the caller proves it is a browser with
+   * simple-directory's anonymous action token.
+   */
+  anonymous?: boolean
   /**
    * The person-facing sentence for a refusal the server recorded (a quota, moderation), in the chat's
    * own language. The server stores English text beside a structured `data-refusal` part (see
@@ -142,6 +148,9 @@ export function useSessionChat (options: UseSessionChatOptions) {
     url: `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}${$apiPath}/agent-session`,
     tools,
     ...(options.agentId ? { agentId: options.agentId } : {}),
+    ...(options.anonymous
+      ? { anonymous: { account: { type: options.accountType as 'user' | 'organization', id: options.accountId }, token: () => anonymousToken } }
+      : {}),
 
     /**
      * A token arrived. Appended to the streaming turn for immediate feedback.
@@ -242,8 +251,23 @@ export function useSessionChat (options: UseSessionChatOptions) {
     if (consent) agent.reportTraceConsent(consent === 'yes')
   })
 
-  /** Create a conversation over HTTP. The socket binds to one; it does not make them. */
-  const createConversation = async (): Promise<string> => {
+  // An anonymous visitor's action token, fetched before each hello that starts a thread.
+  let anonymousToken: string | undefined
+  const refreshAnonymousToken = async () => {
+    // A fresh one each time: a token is short-lived, and a reset can come long after the page loaded.
+    resetAnonymousToken()
+    anonymousToken = await getAnonymousToken()
+  }
+
+  /**
+   * Create a conversation over HTTP. The socket binds to one; it does not make them — except for an
+   * anonymous visitor, who has no HTTP route to make one with: undefined, and the hello creates it.
+   */
+  const createConversation = async (): Promise<string | undefined> => {
+    if (options.anonymous) {
+      await refreshAnonymousToken()
+      return undefined
+    }
     const conversation = await $fetch(
       `${$apiPath}/conversations/${options.accountType}/${options.accountId}`,
       { method: 'POST', body: { agentId: options.agentId ?? 'personal', title: options.title ?? 'chat' } }
@@ -308,7 +332,8 @@ export function useSessionChat (options: UseSessionChatOptions) {
     usageVersion,
 
     /** The caller's own quota windows and the account's status, for the Consumption tab. */
-    fetchSelfUsage: () => $fetch(`${$apiPath}/usage/${options.accountType}/${options.accountId}/self`),
+    fetchSelfUsage: async () => $fetch(`${$apiPath}/usage/${options.accountType}/${options.accountId}/self`,
+      options.anonymous ? { headers: { 'x-anonymous-token': anonymousToken ?? await getAnonymousToken() } } : {}),
 
     sendMessage (content: string, sendOptions?: { hiddenContext?: string }) {
       if (!content.trim()) return

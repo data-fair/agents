@@ -64,6 +64,19 @@ export default {
      */
     consentedToReview: { type: 'boolean' },
     /**
+     * An anonymous visitor's thread: it lives as long as the socket that created it.
+     *
+     * STORED, though the design says anonymous chat is never persisted, because the loop reads and
+     * writes its turns through these collections and a second, in-memory loop is exactly what this
+     * branch removed. What "not persisted" protects is kept another way: only the socket that created
+     * the thread can read or continue it (no HTTP route serves an anonymous caller), it is purged when
+     * that socket closes, and `purgeAbandonedAnonymous` sweeps any a crash left behind.
+     *
+     * `userId` is then `anon:<ip hash>`, the per-IP usage key the quota is charged to — not an owner
+     * anyone could authenticate as.
+     */
+    anonymous: { type: 'boolean' },
+    /**
      * When the person deleted this thread while it was still reviewable.
      *
      * ARCHIVED, not deleted, and the reason is a direct consequence of the conversation becoming the

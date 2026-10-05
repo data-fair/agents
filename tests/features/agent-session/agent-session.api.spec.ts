@@ -9,7 +9,8 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { axiosAuth, superAdmin, clean, directoryUrl } from '../../support/axios.ts'
+import { axiosAuth, superAdmin, clean, directoryUrl, getAnonymousActionToken } from '../../support/axios.ts'
+import { putMockSettings } from '../../support/settings.ts'
 import { openAgentSession, openWsClient, type AgentSessionClient, type WsClient } from '../../support/ws.ts'
 
 const admin = await superAdmin
@@ -50,10 +51,14 @@ test.describe('Agent session socket', () => {
   test('an anonymous browser is allowed, deliberately', async () => {
     // The chat is open to anonymous users, so the socket must be too. Asserted rather than assumed,
     // because "it happened to work" and "we decided it works" look identical until someone adds a
-    // guard.
+    // guard. On an account open to them, with an action token: anonymous-chat.api.spec.ts covers
+    // the refusals.
+    await putMockSettings(admin, 'organization/test1', { quotas: { anonymous: { unlimited: true, monthlyLimit: 0 } } })
     const session = await open()
-    session.send(helloWith(['select_row']))
-    assert.equal((await session.next()).type, 'attached')
+    session.send({ ...helloWith(['select_row']), account: { type: 'organization', id: 'test1' }, anonymousToken: await getAnonymousActionToken() })
+    const attached = await session.next()
+    assert.equal(attached.type, 'attached')
+    assert.equal(attached.anonymous, true)
   })
 
   test('the server asks the browser to run a tool, and gets its answer back', async () => {

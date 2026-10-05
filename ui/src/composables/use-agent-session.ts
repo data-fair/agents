@@ -43,6 +43,12 @@ export interface AgentSessionClientOptions {
   tools: Ref<Record<string, Tool>>
   conversationId?: string
   agentId?: string
+  /**
+   * For an ANONYMOUS visitor only: the account to talk to, and their anonymous action token. The
+   * server creates their thread from these on `hello` (see the frame), since they cannot create one
+   * over HTTP. A function, because the token is fetched — and refreshed for a reset — after setup.
+   */
+  anonymous?: { account: { type: 'user' | 'organization', id: string }, token: () => string | undefined }
   onDelta?: (kind: 'text' | 'reasoning', text: string) => void
   /**
    * The turn's structure as stored parts: tool calls and their states, step boundaries, reasoning.
@@ -96,6 +102,13 @@ export function useAgentSession (options: AgentSessionClientOptions) {
   /** Whether this account stores traces at all, as advertised on `attached`. */
   const traceStorage = ref(false)
   let ws: WebSocket | undefined
+
+  /** What an anonymous visitor's hello adds. An anonymous reset passes no id: the server starts a thread. */
+  const anonymousHello = () => {
+    if (!options.anonymous) return {}
+    const token = options.anonymous.token()
+    return { account: options.anonymous.account, ...(token ? { anonymousToken: token } : {}) }
+  }
 
   /**
    * Frames asked for before the socket was open.
@@ -223,7 +236,8 @@ export function useAgentSession (options: AgentSessionClientOptions) {
           type: 'hello',
           tools: toDescriptors(options.tools.value),
           ...(bindTo ? { conversationId: bindTo } : {}),
-          ...(options.agentId ? { agentId: options.agentId } : {})
+          ...(options.agentId ? { agentId: options.agentId } : {}),
+          ...anonymousHello()
         })
         flush()
       }
@@ -250,13 +264,20 @@ export function useAgentSession (options: AgentSessionClientOptions) {
     /**
      * Start a fresh conversation on the same socket.
      *
-     * The caller creates the conversation and passes its id, because this composable owns the socket
+     * The caller creates the conversation and passes its id — or, for an anonymous visitor, passes
+     * none and the server creates it, because this composable owns the socket
      * and not the HTTP surface. Nothing else is needed: re-attaching rebinds the registry, replays an
      * empty history, and the server's own state for the thread is new by construction — which is why
      * `reset` needs no frame of its own.
      */
-    reset (conversationId: string) {
-      send({ type: 'hello', tools: toDescriptors(options.tools.value), conversationId })
+    reset (conversationId?: string) {
+      send({
+        type: 'hello',
+        tools: toDescriptors(options.tools.value),
+        ...(conversationId ? { conversationId } : {}),
+        ...(options.agentId ? { agentId: options.agentId } : {}),
+        ...anonymousHello()
+      })
     },
 
     prompt (content: string, hiddenContext?: string) {

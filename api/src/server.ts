@@ -13,7 +13,7 @@ import config from '#config'
 import mongo from '#mongo'
 import { cleanupOldUsage } from './usage/cleanup.ts'
 import { recoverOwnerlessRuns } from './conversations/executor.ts'
-import { purgeExpiredArchives } from './conversations/service.ts'
+import { purgeExpiredArchives, purgeAbandonedAnonymous } from './conversations/service.ts'
 import { assertSessionOutlivesRun, ASSERTION_TTL_SECONDS } from './nhi/operations.ts'
 import { canSubscribeAutonomousAgent } from './conversations/events.ts'
 import { startAgentSessions } from './agent-session/service.ts'
@@ -63,6 +63,7 @@ const server = createServer(app)
 const httpTerminator = createHttpTerminator({ server })
 let cleanupInterval: ReturnType<typeof setInterval> | undefined
 let archivePurgeInterval: ReturnType<typeof setInterval> | undefined
+let anonymousPurgeInterval: ReturnType<typeof setInterval> | undefined
 let autonomousAgentReaper: ReturnType<typeof setInterval> | undefined
 let agentSessions: ReturnType<typeof startAgentSessions> | undefined
 
@@ -117,6 +118,13 @@ export const start = async () => {
     purgeExpiredArchives().catch(err => console.error('archive purge failed', err))
   }, 24 * 60 * 60 * 1000)
 
+  // Anonymous threads whose socket never ran its close handler. Hourly, so one outlives its
+  // abandonment cutoff by an hour at most.
+  purgeAbandonedAnonymous().catch(err => console.error('initial anonymous purge failed', err))
+  anonymousPurgeInterval = setInterval(() => {
+    purgeAbandonedAnonymous().catch(err => console.error('anonymous purge failed', err))
+  }, 60 * 60 * 1000)
+
   // Before server.listen: the emitter's collection must exist before anything publishes, and
   // the ws server must be attached before the http server starts accepting connections.
   await initWsEmitter(mongo.db)
@@ -161,6 +169,7 @@ export const stop = async () => {
   if (cleanupInterval) clearInterval(cleanupInterval)
   if (autonomousAgentReaper) clearInterval(autonomousAgentReaper)
   if (archivePurgeInterval) clearInterval(archivePurgeInterval)
+  if (anonymousPurgeInterval) clearInterval(anonymousPurgeInterval)
   // Before the HTTP server goes: a connected browser holding a turn open must be told rather than
   // left with a socket that stops answering, and every pending browser tool call has to fail so the
   // turn waiting on it can finish.

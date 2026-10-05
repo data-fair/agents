@@ -1,5 +1,5 @@
 /**
- * Shared request-time usage gating for the gateway and summary endpoints.
+ * Shared usage gating for the model-spending routes, the chat turns included.
  *
  * Two responsibilities, kept here so both routers stay in sync:
  * - resolveUsageIdentity: assert the caller may use the model and figure out how
@@ -10,6 +10,7 @@
  */
 
 import crypto from 'node:crypto'
+import type { IncomingMessage } from 'node:http'
 import type { Request } from 'express'
 import type { AccountKeys } from '@data-fair/lib-express'
 import { reqIp } from '@data-fair/lib-express/req-origin.js'
@@ -39,6 +40,17 @@ export interface UsageIdentity {
 }
 
 /**
+ * The per-IP key an anonymous caller's usage is recorded and limited under.
+ *
+ * One function for the HTTP routes and the agent session, so an anonymous visitor's chat turns are
+ * charged to the very key the self-usage route reads back. Takes anything with headers: the socket
+ * only has the upgrade's plain IncomingMessage.
+ */
+export function anonymousUsageUserId (req: IncomingMessage | Request): string {
+  return `anon:${crypto.createHash('sha256').update(reqIp(req)).digest('hex').slice(0, 16)}`
+}
+
+/**
  * Resolve the caller's usage identity and assert they may use the model.
  * Throws 401/403 when the caller is not allowed (mirrors the previous inline gate).
  */
@@ -47,8 +59,7 @@ export async function resolveUsageIdentity (req: Request, owner: AccountKeys, qu
     // Anonymous path: per-IP tracking, requires a signed anonymous-action token
     assertRoleQuota('anonymous', quotas)
     await assertAnonymousActionToken(req)
-    const ipHash = crypto.createHash('sha256').update(reqIp(req)).digest('hex').slice(0, 16)
-    return { trackPerUser: true, usageUserId: `anon:${ipHash}`, role: 'anonymous', isUntrusted: true, poolId: UNTRUSTED_POOL_ID }
+    return { trackPerUser: true, usageUserId: anonymousUsageUserId(req), role: 'anonymous', isUntrusted: true, poolId: UNTRUSTED_POOL_ID }
   }
 
   // Authenticated path

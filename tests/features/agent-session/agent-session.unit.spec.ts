@@ -52,6 +52,19 @@ test.describe('parseClientMessage', () => {
     })
   })
 
+  test('an anonymous hello carries the account and the action token', () => {
+    assert.deepEqual(parse({ type: 'hello', tools: [], account: { type: 'organization', id: 'o1', extra: 1 }, anonymousToken: 't' }), {
+      type: 'hello', tools: [], account: { type: 'organization', id: 'o1' }, anonymousToken: 't'
+    })
+  })
+
+  test('a malformed account or token is refused rather than ignored', () => {
+    assert.equal(parse({ type: 'hello', tools: [], account: { type: 'department', id: 'x' } }).type, 'invalid')
+    assert.equal(parse({ type: 'hello', tools: [], account: { type: 'user', id: '' } }).type, 'invalid')
+    assert.equal(parse({ type: 'hello', tools: [], account: null }).type, 'invalid')
+    assert.equal(parse({ type: 'hello', tools: [], anonymousToken: 42 }).type, 'invalid')
+  })
+
   test('refuses anything that is not valid JSON, or not an object', () => {
     assert.deepEqual(parseClientMessage('{nope'), { type: 'invalid', reason: 'not valid JSON' })
     assert.equal(parseClientMessage('[]').type, 'invalid')

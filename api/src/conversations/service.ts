@@ -4,7 +4,8 @@
 
 import mongo from '#mongo'
 import config from '#config'
-import { standardAgent } from '../agent-session/standard-agents.ts'
+import { standardAgent, isStandardAgentId } from '../agent-session/standard-agents.ts'
+import { assertRoleQuota } from '../auth.ts'
 import { nanoid } from 'nanoid'
 import { type AccountKeys, httpError } from '@data-fair/lib-express'
 import { expiredArchiveFilter } from '../retention.ts'
@@ -148,6 +149,60 @@ export const purgeConversation = async (conversationId: string): Promise<{ messa
   const runs = await mongo.runs.deleteMany({ conversationId })
   await mongo.conversations.deleteOne({ id: conversationId })
   return { messages: messages.deletedCount, runs: runs.deletedCount }
+}
+
+/**
+ * Start an anonymous visitor's thread. It lives as long as the socket that asks for it (see the
+ * `anonymous` field of the conversation schema).
+ *
+ * The checks the HTTP create route applies to a signed-in caller, restated for one who has no
+ * session: a STANDARD agent only — a configured agent's instructors are named people, which an
+ * anonymous visitor is not — and an account whose anonymous quota is open at all.
+ */
+export const createAnonymousConversation = async (
+  owner: AccountKeys,
+  agentId: string,
+  usageUserId: string,
+  quotas: Parameters<typeof assertRoleQuota>[1]
+): Promise<Conversation> => {
+  if (!isStandardAgentId(agentId)) throw httpError(403, 'an anonymous visitor can only talk to a standard agent')
+  assertRoleQuota('anonymous', quotas)
+  const now = new Date().toISOString()
+  const conversation: Conversation = {
+    id: nanoid(),
+    agentId,
+    // Typed organization-only by the schema, but a standard agent's thread may sit on a personal
+    // account as well — the HTTP create route stores whatever account the agent resolved to.
+    owner: owner as Conversation['owner'],
+    userId: usageUserId,
+    userName: 'Anonymous',
+    anonymous: true,
+    title: 'Anonymous conversation',
+    createdAt: now,
+    messageSeq: 0
+  }
+  await mongo.conversations.insertOne({ ...conversation })
+  return conversation
+}
+
+/** How long an anonymous thread survives the socket that created it, when its close never ran. */
+export const ANONYMOUS_ABANDONED_AFTER_MS = 24 * 60 * 60 * 1000
+
+/**
+ * Purge anonymous threads left behind by a socket whose close handler never ran — a crash, a kill.
+ *
+ * Keyed on `updatedAt`, which every message and run transition bumps, so a thread still in use is
+ * not swept from under its socket. Not done at boot by "every anonymous thread": with several API
+ * instances, one booting would delete the threads another is serving.
+ */
+export const purgeAbandonedAnonymous = async (now = new Date()): Promise<number> => {
+  const cutoff = new Date(now.getTime() - ANONYMOUS_ABANDONED_AFTER_MS).toISOString()
+  const abandoned = await mongo.conversations
+    .find({ anonymous: true, $or: [{ updatedAt: { $lt: cutoff } }, { updatedAt: { $exists: false }, createdAt: { $lt: cutoff } }] }, { projection: { _id: 0, id: 1 } })
+    .toArray()
+  for (const conversation of abandoned) await purgeConversation(conversation.id)
+  if (abandoned.length) debug('purged %d abandoned anonymous conversation(s)', abandoned.length)
+  return abandoned.length
 }
 
 /**

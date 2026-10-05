@@ -26,10 +26,19 @@ import { getEffectiveRole } from '../auth.ts'
 
 const debug = Debug('agents:agent-session-turn')
 
+/**
+ * Who is asking: a signed-in person, or an anonymous visitor known only by the per-IP key their usage
+ * is charged to. The visitor has no session, so their ownership of the thread is the socket's (only
+ * the socket that created it may prompt into it) and their role is `anonymous` by definition.
+ */
+export type TurnCaller =
+  | { kind: 'person', session: InstructSession & { user: { id: string, name?: string } } }
+  | { kind: 'anonymous', usageUserId: string }
+
 export interface SessionTurnRequest {
   conversationId: string
   owner: AccountKeys
-  session: InstructSession & { user: { id: string, name?: string } }
+  caller: TurnCaller
   content: string
   /**
    * Context an action button supplied, to be folded into this user turn.
@@ -58,12 +67,19 @@ export interface SessionTurnRequest {
  */
 export const startSessionTurn = async (request: SessionTurnRequest): Promise<string> => {
   const conversation = await requireConversation(request.owner, request.conversationId)
-  assertOwnsConversation(conversation, request.session)
+  const { caller } = request
+  if (caller.kind === 'person') assertOwnsConversation(conversation, caller.session)
+  else if (!conversation.anonymous || conversation.userId !== caller.usageUserId) throw httpError(403, 'this conversation belongs to someone else')
+  const person = caller.kind === 'person'
+    ? { userId: caller.session.user.id, userName: caller.session.user.name }
+    : { userId: caller.usageUserId, userName: 'Anonymous' }
 
   // Consent is a property of the THREAD, so it is recorded on the conversation rather than copied
   // onto every run. Written on each turn because the person can change their mind mid-conversation,
   // and the socket reports the current answer.
-  const consented = request.echoTo?.traceConsent()
+  // Never for an anonymous visitor: their thread is not reviewable (the account's consent sheet is not
+  // offered to them), and a consent cookie left from a signed-in visit must not make it so.
+  const consented = caller.kind === 'person' ? request.echoTo?.traceConsent() : undefined
   if (consented !== undefined && consented !== (conversation.consentedToReview === true)) {
     await setReviewConsent(conversation.id, consented)
   }
@@ -78,7 +94,7 @@ export const startSessionTurn = async (request: SessionTurnRequest): Promise<str
 
   const stored = await appendMessage(conversation, {
     role: 'user',
-    author: { kind: 'user', userId: request.session.user.id, userName: request.session.user.name },
+    author: { kind: 'user', ...person },
     parts: [{ type: 'text', text }]
   })
 
@@ -97,10 +113,11 @@ export const startSessionTurn = async (request: SessionTurnRequest): Promise<str
     conversationId: conversation.id,
     owner: conversation.owner,
     trigger: 'user',
-    triggeredBy: { userId: request.session.user.id, userName: request.session.user.name },
+    triggeredBy: person,
     // Recorded here because only this boundary has the session. It is what makes a standard agent's
-    // turn bill against the PERSON's quota rather than resolving to 'admin' (see the schema note).
-    triggeredByRole: getEffectiveRole(request.session, request.owner),
+    // turn bill against the PERSON's quota rather than resolving to 'admin' (see the schema note) —
+    // and an anonymous visitor's against the per-IP key, in the untrusted pool.
+    triggeredByRole: caller.kind === 'person' ? getEffectiveRole(caller.session, request.owner) : 'anonymous',
     status: 'running',
     startedAt: new Date().toISOString()
   })

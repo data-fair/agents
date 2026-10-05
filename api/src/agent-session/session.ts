@@ -46,6 +46,8 @@ export interface AgentSessionOptions {
    * fails closed permanently.
    */
   traceStorage?: boolean
+  /** Whether the socket has no signed-in person behind it — echoed on `attached`. */
+  anonymous?: boolean
   /** Called on a `prompt`. The loop lands here; until then a session is a transport. */
   onPrompt?: (content: string, hiddenContext?: string) => void
   onAbort?: () => void
@@ -146,7 +148,7 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
           options.send({
             type: 'attached',
             conversationId: message.conversationId ?? 'pending',
-            anonymous: false,
+            anonymous: options.anonymous === true,
             traceStorage: options.traceStorage === true
           })
           return
