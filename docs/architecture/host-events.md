@@ -173,9 +173,15 @@ would only ever end in a bounded, pointless dead turn. Re-checked on every tool-
 rebuild (turn start and every mid-turn rebuild), so a page that starts publishing
 mid-conversation gains the tool at the next one. `{ message, expecting, timeoutSeconds? }`
 (default 300s, max 600s). `message` is the model's reply to the person — what is ready and
-what to press — and the chat shows it after the step's own text, unless that text already
-says it (`applyStreamPart`); `expecting` is only the status label. Before `message` existed, models
-read the « En attente : … » label as their message and handed buttons over in silence.
+what to press — and `expecting` is only the status label. Before `message` existed, models
+read the « En attente : … » label as their message and handed buttons over in silence. The loop adds
+the message to the step's own text when it records the call (`waitHandover` in
+`shared/host-events.ts`), just before the call and unless that text already says it, and streams it —
+so it is part of the stored conversation, and a reloaded or reviewed thread shows the same handover.
+Before the call, not after: text after a tool call is replayed to the model as a separate assistant
+message it never wrote. A wait with no message is refused so the model retries with one, and a known
+small-model slip (the other arguments serialised into the message string) is repaired
+(`repairWaitInput`).
 
 **Speaking during a wait** takes the turn back: `sendMessage` aborts the waiting turn and starts
 a new one. An aborted turn never reaches `result.response`, which is where a turn's messages

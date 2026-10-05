@@ -47,7 +47,7 @@ import { partitionSubAgents, subAgentDelegation } from '../agent-session/sub-age
 import type { AgentSession } from '../agent-session/session.ts'
 import type { ChatActivity } from '@agents/shared/agent-activity'
 import { browserToolSet } from '../agent-session/browser-tools.ts'
-import { createWaitTool, withHostContext, WAIT_TOOL_NAME } from '@agents/shared/host-events'
+import { createWaitTool, withHostContext, waitHandover, WAIT_TOOL_NAME } from '@agents/shared/host-events'
 import { checkAccountCreditCap } from '../usage/enforce.ts'
 import { recordUsage } from '../usage/service.ts'
 
@@ -764,6 +764,27 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
     // assistant/tool message pair from, and it is why a failed call is no longer shaped like a
     // successful one: the failure is the part's STATE, which nothing downstream can drop.
     if (part.type === 'tool-call') {
+      // A WAIT HANDS THE TURN TO THE PERSON, and its `message` is what tells them what to do: it is
+      // added to the step's own text, just before the call, unless the step already says it. Stored,
+      // not only streamed, so a reloaded thread and a reviewed one show the same handover — and
+      // before the call rather than after it, because text after a tool call is replayed to the model
+      // as a separate message it never wrote.
+      if (part.toolName === WAIT_TOOL_NAME) {
+        const stepStart = parts.map(p => p.type).lastIndexOf('step-start')
+        const stepText = partsText(parts.slice(stepStart + 1))
+        const handover = waitHandover(stepText, part.input)
+        if (handover) {
+          // The step's text as main's builder left it: trailing whitespace dropped, so the separator
+          // is exactly one blank line.
+          const last = parts[parts.length - 1]
+          if (last?.type === 'text') last.text = String(last.text ?? '').trimEnd()
+          appendText('text', handover)
+          stream('text', handover)
+          // The activity is deliberately left alone. The SDK starts executing a tool before this loop
+          // reads its call from the stream, so the wait has usually already set "Waiting for …" by
+          // now — clearing the label here, as the first text-delta does, erased exactly that.
+        }
+      }
       parts.push({
         type: 'dynamic-tool',
         toolCallId: part.toolCallId,

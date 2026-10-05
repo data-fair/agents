@@ -83,6 +83,30 @@ test.describe('wait_for_user_action over the socket', () => {
     assert.deepEqual(call.input, { message: 'Ready: click Create.', expecting: 'you to click Create' }, 'stored WITH its input, or a client cannot label it')
   })
 
+  test('the handover message is shown to the person, before the call, and stored', async () => {
+    // Main's #73: `message` is the model's words to the person, `expecting` only the status label.
+    // Rendered by the browser loop there; here the server adds it to the step's text when it records
+    // the call, so the live chat, a reloaded thread and a reviewed one all show the same handover.
+    const socket = await openSession()
+    socket.send({ type: 'prompt', content: 'wait for me' })
+    const frames = await collect(socket, all => sawWaiting(all) && toolParts(all).some(p => p.toolName === 'wait_for_user_action'))
+
+    // Streamed, so the person reads it while the turn waits on them.
+    const streamed = frames.filter(f => f.type === 'delta' && f.kind === 'text').map(f => f.text).join('')
+    assert.match(streamed, /Ready: click Create\./)
+
+    // In the record, as text BEFORE the wait call: after it, the text would be replayed to the model
+    // as a separate message it never wrote.
+    const last = frames.filter(f => f.type === 'message' && f.role === 'assistant').at(-1)
+    const types = last.parts.map((p: any) => p.type)
+    const textAt = last.parts.findIndex((p: any) => p.type === 'text' && /Ready: click Create\./.test(p.text))
+    const waitAt = last.parts.findIndex((p: any) => p.type === 'dynamic-tool' && p.toolName === 'wait_for_user_action')
+    assert.ok(textAt !== -1, `the handover must be in the stored parts: ${JSON.stringify(types)}`)
+    assert.ok(textAt < waitAt, `and come before the call: ${JSON.stringify(types)}`)
+    // Once, not twice.
+    assert.equal(last.parts.filter((p: any) => p.type === 'text' && /Ready: click Create\./.test(p.text)).length, 1)
+  })
+
   test('the next host event resumes the SAME turn', async () => {
     const socket = await openSession()
     socket.send({ type: 'prompt', content: 'wait for me' })

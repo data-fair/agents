@@ -61,6 +61,27 @@ export function repairWaitInput (input: any): WaitInput {
   out.message = message.replace(/\\n/g, '\n').trim()
   return out
 }
+
+/**
+ * The text a wait's handover adds to the step it ends: its `message`, after what the step already
+ * wrote, unless that text already says it. Null when there is nothing to add.
+ *
+ * The message is the model's words to the person — what is ready, what to press — and `expecting` is
+ * only the status label. Before the message existed, models read the « En attente : … » label as
+ * their reply and handed buttons over in silence; and a model that writes the handover as text AND
+ * passes it as the message must not show it twice.
+ *
+ * Pure, so the loop's rendering is testable without a model: `stepText` is the text the current step
+ * has produced so far, and the result is what to append to it — with the blank line that separates
+ * it from that text when there is any.
+ */
+export function waitHandover (stepText: string, input: unknown): string | null {
+  const message = repairWaitInput(input).message
+  if (!message) return null
+  const text = stepText.trim()
+  if (text.includes(message)) return null
+  return text ? `\n\n${message}` : message
+}
 // 300, not 120. The judged run that prompted this looked like a ten-second
 // near-miss — the wait expired just before the person clicked — but that was an
 // artefact of the simulation harness, which runs its simulated person only
