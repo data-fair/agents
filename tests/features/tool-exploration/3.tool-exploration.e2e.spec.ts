@@ -87,7 +87,12 @@ test.describe('Tool exploration E2E', () => {
     await putSettings(admin, 'user/test-standalone1', settingsData)
   })
 
-  test('explore_tools promotes tools then set_display updates the output area', async ({ page, goToWithAuth }) => {
+  test.fixme('explore_tools promotes tools then set_display updates the output area', async ({ page, goToWithAuth }) => {
+    // SHELVED WITH TOOL EXPLORATION, which the server-held loop does not implement: there is no
+    // `explore_tools` in api/src, and every tool is offered on every step. So this cannot pass for the
+    // right reason — and it used to pass for a WRONG one: the model's `explore_tools` call came back
+    // "unavailable tool", the chat still drew its explore skeleton for that name, and the next turn's
+    // tool call succeeded because nothing on the server gates tools at all. Re-enable with the rework.
     // Enable exploration mode via the `agent-chat-flags` cookie that readFlags()
     // consumes (see ui/src/utils/agent-flags.ts); seed it before the app mounts.
     await page.addInitScript(() => {

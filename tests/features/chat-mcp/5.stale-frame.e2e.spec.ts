@@ -37,12 +37,6 @@ test.describe('Tools from a frame that goes away', () => {
     await page.getByRole('button', { name: /Close|Fermer/ }).click()
   }
 
-  function countCompletions (page: any) {
-    let n = 0
-    page.on('request', (r: any) => { if (r.url().includes('/chat/completions')) n++ })
-    return () => n
-  }
-
   test('removing the frame removes its sub-agent tool from the aggregate', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/_dev/chat-stale-frame', USER)
 
@@ -69,15 +63,17 @@ test.describe('Tools from a frame that goes away', () => {
     await expect(page.getByText('Portals config')).toBeVisible({ timeout: 10000 })
     await closeInfo(page)
 
-    const completions = countCompletions(page)
     await page.getByTestId('leave-portals').click()
     await page.getByPlaceholder('Type your message...').fill('hello')
     await page.getByRole('button', { name: 'Send' }).click()
 
-    // Before the fix this waits out the 60s MCP request timeout and surfaces
-    // "MCP error -32001: Request timed out" with zero completion requests.
+    // Before the fix this waited out the 60s MCP request timeout and surfaced
+    // "MCP error -32001: Request timed out". The mock's `world` IS the model being reached — it is the
+    // only thing that can produce it. This also counted browser requests to `/chat/completions`, which
+    // was the proof while the browser called the model through the gateway; the loop is server-side
+    // now, the browser never makes that request, and the count was 0 on every passing run.
     await expect(page.locator('.assistant-content').last()).toContainText('world', { timeout: 15000 })
-    expect(completions()).toBeGreaterThan(0)
+    await expect(page.locator('.v-alert')).toHaveCount(0)
   })
 
   test('the same turn reaches the model when the portal frame was never opened', async ({ page, goToWithAuth }) => {

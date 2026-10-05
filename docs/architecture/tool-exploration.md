@@ -1,5 +1,12 @@
 # Progressive tool disclosure (tool exploration)
 
+> **Status: shelved.** This describes the in-browser loop, which implemented it. The server-held loop
+> does not: there is no `explore_tools` in `api/src`, and every tool is offered on every step (the set
+> is live — refreshed between steps as the page reports changes — but never gated). The flags cookie
+> still carries `toolExploration` and the debug dialog still shows it, but nothing reads it. The two
+> e2e tests that depend on it are `test.fixme`, kept for the rework. What follows is the design to
+> port, not current behaviour.
+
 When many tools are registered (or they churn as the user navigates), sending every tool's full schema on every request bloats context and destabilises any prompt cache. An **opt-in** exploration mode replaces "send all tools" with "discover on demand": the assistant sees only a single always-on `explore_tools` tool plus a catalog of tool *names*, and must call `explore_tools` to make the tools it needs callable.
 
 ```mermaid

@@ -409,7 +409,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   // with the turn; once it is aborted every later delegation in this turn fails immediately, which is
   // correct when the turn is already stopping.
   const workerAbort = new AbortController()
-  const { mainTools } = await partitionSubAgents(tools, (name, workerConfig, workerTools) => {
+  const buildDelegation: Parameters<typeof partitionSubAgents>[1] = (name, workerConfig, workerTools) => {
     const pinned = workerConfig.model as ModelRole | undefined
     const seat: ModelRole = pinned && WORKER_SEATS.includes(pinned) ? pinned : 'tools'
     const worker = seatFor(seat)
@@ -497,13 +497,50 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
         if (budgetExceeded) workerAbort.abort()
       }
     })
-  })
+  }
+
+  /**
+   * THE TOOL SET IS LIVE FOR THE WHOLE TURN, not frozen when it starts.
+   *
+   * A page's tools change while a turn runs — the agent opens a panel, the panel mounts a component,
+   * the component registers a tool — and the page reports it with `tools-changed`. The browser loop
+   * re-read its tools before every step, so the agent could call the tool it had just caused to exist
+   * in the SAME turn. Built once on the server, it could not: the mock's chain seam said "tool
+   * set_display is not available", which is exactly what a real model meets after opening a panel.
+   *
+   * It works because the AI SDK re-reads the `tools` object it was given on every step — the per-step
+   * advertisement is `Object.entries(tools)` and execution looks up `tools[name]` at call time — so a
+   * map refreshed IN PLACE between steps is the live set, with no second loop and no fork of the SDK.
+   * Replacing the object would do nothing; mutating it is the mechanism.
+   *
+   * Only the PAGE's part moves. The catalog's MCP tools and the loop-provided wait tool are fixed for
+   * the turn, so they are set aside once and the page's current tools are laid over them. The
+   * sub-agent partition is re-run on the result, because a newly mounted component may declare a
+   * sub-agent or a tool one reserves — and it is re-run only when the page's tool NAMES changed,
+   * because each pass reads every sub-agent's config over the socket.
+   */
+  const pageToolNames = () => (session?.tools() ?? []).map(descriptor => descriptor.name).sort().join('\n')
+  const startingPageTools = new Set((session?.tools() ?? []).map(descriptor => descriptor.name))
+  const fixedTools = Object.fromEntries(Object.entries(tools).filter(([name]) => !startingPageTools.has(name)))
+  const liveTools: Record<string, Tool> = {}
+  const assembleTools = async () => {
+    const { mainTools } = await partitionSubAgents(
+      { ...fixedTools, ...(session ? browserToolSet(session) : {}) },
+      buildDelegation
+    )
+    for (const name of Object.keys(liveTools)) if (!(name in mainTools)) delete liveTools[name]
+    Object.assign(liveTools, mainTools)
+  }
+  await assembleTools()
+  let assembledFrom = pageToolNames()
 
   const result = streamText({
     model,
     system: buildSystemPrompt(autonomousAgent),
     messages: history,
-    tools: Object.keys(mainTools).length ? mainTools : undefined,
+    // Always the live map, even empty: `undefined` would freeze "no tools" for the whole turn, while an
+    // empty object is "no tools for this step" and fills in when the page registers one.
+    tools: liveTools,
     stopWhen: [
       stepCountIs(STEP_LIMIT),
       repeatedCallGuard(),
@@ -511,7 +548,15 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
       // three and each has its own stop reason.
       () => budgetExceeded
     ],
-    prepareStep: loopGuardPrepareStep,
+    prepareStep: async options => {
+      const current = pageToolNames()
+      if (current !== assembledFrom) {
+        assembledFrom = current
+        await assembleTools()
+        debug('tool set refreshed mid-turn: %d tool(s)', Object.keys(liveTools).length)
+      }
+      return loopGuardPrepareStep(options)
+    },
     // The SDK's own bounds, which are finer than the wall clock this turn is also raced against:
     //
     //  - chunkMs is an IDLE watchdog, and it closes a real gap. The browser loop has had one all along

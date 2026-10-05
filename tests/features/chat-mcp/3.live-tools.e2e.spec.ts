@@ -78,7 +78,12 @@ test.describe('Live tool set (mid-turn refresh)', () => {
     await expect(page.getByRole('button', { name: 'set_display' })).toHaveCount(0)
   })
 
-  test('exploration mode announces a mid-turn tool in the same turn', async ({ page, goToWithAuth }) => {
+  test.fixme('exploration mode announces a mid-turn tool in the same turn', async ({ page, goToWithAuth }) => {
+    // SHELVED WITH TOOL EXPLORATION, which the server-held loop does not implement: there is no
+    // `explore_tools` in api/src, and every tool is offered on every step, so there is no gating for a
+    // mid-turn announcement to get past. The ungated half of this behaviour — a tool registered
+    // mid-turn is callable in the same turn — is covered by the two tests above. Re-enable with the
+    // exploration rework.
     // With exploration on, a tool that appears mid-turn is not immediately callable (it
     // has to be promoted first) — but the model must still be TOLD about it within the
     // turn, otherwise it has no reason to go looking. The notice cannot ride on `history`

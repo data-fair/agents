@@ -248,7 +248,7 @@ fr:
   storeTracesHint: "Vos conversations seront enregistrées sur le serveur pendant 30 jours afin qu'un administrateur puisse les relire. Vous pouvez retirer votre consentement à tout moment."
   experimental: Expérimental
   toolExploration: Exploration des outils
-  toolExplorationHint: "Masque les outils derrière un outil « explore_tools » que l'assistant appelle pour découvrir et activer les outils pertinents à la demande. Changer ce réglage réinitialise la conversation."
+  toolExplorationHint: "Temporairement inactif : l'assistant tourne désormais côté serveur, où l'exploration des outils (l'étape « explore_tools ») n'est pas encore réimplémentée. Tous les outils de la page lui sont proposés à chaque étape. Ce réglage est conservé mais n'a aucun effet."
   subAgents: Sous-agents
   subAgentsHint: "Délègue les tâches complexes à des sous-agents spécialisés (comportement par défaut). Désactivez pour exposer tous les outils des sous-agents directement à l'assistant : chaque sous-agent devient un outil de consigne qui renvoie son prompt. Changer ce réglage réinitialise la conversation."
   simpleSubAgents: Affichage simplifié des sous-agents
@@ -270,7 +270,7 @@ en:
   storeTracesHint: "Your conversations will be stored on the server for 30 days so an administrator can review them. You can withdraw your consent at any time."
   experimental: Experimental
   toolExploration: Tool exploration
-  toolExplorationHint: "Hides tools behind an 'explore_tools' tool the assistant calls to discover and enable relevant tools on demand. Changing this setting resets the conversation."
+  toolExplorationHint: "Temporarily inactive: the assistant now runs on the server, where tool exploration (the 'explore_tools' step) has not been reimplemented yet. Every tool on the page is offered at every step. The setting is kept but has no effect."
   subAgents: Sub-agents
   subAgentsHint: "Delegates complex tasks to specialised sub-agents (the default behaviour). Turn off to expose every sub-agent tool directly to the assistant: each sub-agent becomes a guidance tool that returns its prompt. Changing this setting resets the conversation."
   simpleSubAgents: Simplify sub-agent display
