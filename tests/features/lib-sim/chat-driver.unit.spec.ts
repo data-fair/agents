@@ -129,11 +129,16 @@ test.describe('chat driver composer strings', () => {
 // A fake ChatRoot recording every call, in the style of page-perception's
 // spyRoot: plain object literals matching only the surface sendMessage uses
 // (getByPlaceholder, getByRole, locator), no real Playwright involved.
-const fakeSendRoot = (opts: { failAttempts?: number } = {}) => {
+const fakeSendRoot = (opts: { failAttempts?: number, neverTaken?: boolean } = {}) => {
   const calls: string[] = []
   let attempt = 0
   const failAttempts = opts.failAttempts ?? 0
-  const composer = { fill: async (text: string) => { calls.push(`fill:${text}`) } }
+  let value = ''
+  const composer = {
+    fill: async (text: string) => { calls.push(`fill:${text}`); value = text },
+    // The chat empties its composer when it takes a message; neverTaken keeps it full.
+    inputValue: async () => value
+  }
   const sendButton = {
     // The composer can only take a message once the send control is actually a
     // Send button — while the assistant works it is Stop — so sendMessage waits
@@ -146,6 +151,7 @@ const fakeSendRoot = (opts: { failAttempts?: number } = {}) => {
         throw new Error('element is outside of the viewport')
       }
       calls.push(`click:${attempt}:ok`)
+      if (!opts.neverTaken) value = ''
     }
   }
   const body = { press: async (key: string) => { calls.push(`press:${key}`) } }
@@ -186,6 +192,12 @@ test.describe('sendMessage: bounded, honest recovery from a wedged composer', ()
       }
     )
     assert.deepEqual(calls, ['fill:hello', 'waitFor:send', 'click:1:fail', 'press:Escape', 'fill:hello', 'waitFor:send', 'click:2:fail'])
+  })
+
+  test('a click the chat never took is an error, not a sent message', async () => {
+    const { root } = fakeSendRoot({ neverTaken: true })
+    const chat = createChatDriver(root as any)
+    await assert.rejects(() => chat.sendMessage('hello'), /never sent/)
   })
 
   test('never forces through — no force option on the click/fill calls', () => {

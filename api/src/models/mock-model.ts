@@ -247,13 +247,13 @@ function processMockPrompt (lastMessage: string, prompt: string | Array<any>): M
     const last = Array.isArray(prompt) ? prompt[prompt.length - 1] : undefined
     const waited = last?.content?.some?.((c: any) => c.type === 'tool-result' && c.toolName === 'wait_for_user_action')
     if (waited) return { type: 'text', text: `You did: ${toolResult}` }
-    return { type: 'tool-call', toolName: 'wait_for_user_action', toolArgs: JSON.stringify({ expecting: 'you to click Create' }) }
+    return { type: 'tool-call', toolName: 'wait_for_user_action', toolArgs: JSON.stringify({ message: 'Ready: click Create.', expecting: 'you to click Create' }) }
   }
   if (endsWithCommand(lastMessage, 'wait for me')) {
-    return { type: 'tool-call', toolName: 'wait_for_user_action', toolArgs: JSON.stringify({ expecting: 'you to click Create' }) }
+    return { type: 'tool-call', toolName: 'wait_for_user_action', toolArgs: JSON.stringify({ message: 'Ready: click Create.', expecting: 'you to click Create' }) }
   }
   if (endsWithCommand(lastMessage, 'wait briefly')) {
-    return { type: 'tool-call', toolName: 'wait_for_user_action', toolArgs: JSON.stringify({ expecting: 'you to click Create', timeoutSeconds: 1 }) }
+    return { type: 'tool-call', toolName: 'wait_for_user_action', toolArgs: JSON.stringify({ message: 'Ready: click Create.', expecting: 'you to click Create', timeoutSeconds: 1 }) }
   }
 
   // If the most recent message in the prompt is a tool result, we already called a tool

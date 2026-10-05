@@ -28,6 +28,39 @@ export const HOST_EVENTS_CLOSE = '</host-events>'
 export const HOST_STATE_OPEN = '<host-state>'
 export const HOST_STATE_CLOSE = '</host-state>'
 export const WAIT_TOOL_NAME = 'wait_for_user_action'
+
+export interface WaitInput { message: string, expecting?: string, timeoutSeconds?: number }
+
+/**
+ * Undo a known small-model slip in wait_for_user_action's arguments: the other
+ * arguments serialized into the message string. A Haiku run sent
+ * {"message":"…Cliquez sur « Enregistrer ».\",\"expecting\":\"…\",\"timeoutSeconds\":300"},
+ * with literal \n sequences, and the person read the JSON tail as the handover.
+ * The message is cut where the swallowed arguments begin, they are recovered, and
+ * literal \n become line breaks. Well-formed input comes back unchanged.
+ *
+ * Here, beside the tool it repairs, since the loop moved to the server: it lived in the browser's
+ * stream-part builder, which no longer exists, and both the tool and the loop's rendering of the
+ * handover need it.
+ */
+export function repairWaitInput (input: any): WaitInput {
+  let message = typeof input?.message === 'string' ? input.message : ''
+  const out: WaitInput = { message }
+  if (typeof input?.expecting === 'string') out.expecting = input.expecting
+  if (Number.isFinite(Number(input?.timeoutSeconds))) out.timeoutSeconds = Number(input.timeoutSeconds)
+  const cut = message.search(/"\s*,\s*"(expecting|timeoutSeconds)"\s*:/)
+  if (cut !== -1) {
+    try {
+      // message.slice(cut + 1) is `,"expecting":"…","timeoutSeconds":300`
+      const swallowed = JSON.parse('{' + message.slice(cut + 1).replace(/^\s*,/, '') + '}')
+      if (out.expecting === undefined && typeof swallowed.expecting === 'string') out.expecting = swallowed.expecting
+      if (out.timeoutSeconds === undefined && Number.isFinite(Number(swallowed.timeoutSeconds))) out.timeoutSeconds = Number(swallowed.timeoutSeconds)
+    } catch { /* keep what the message says before the fragment */ }
+    message = message.slice(0, cut)
+  }
+  out.message = message.replace(/\\n/g, '\n').trim()
+  return out
+}
 // 300, not 120. The judged run that prompted this looked like a ten-second
 // near-miss — the wait expired just before the person clicked — but that was an
 // artefact of the simulation harness, which runs its simulated person only
@@ -382,13 +415,19 @@ export function createWaitTool (opts: {
     inputSchema: jsonSchema({
       type: 'object',
       properties: {
-        expecting: { type: 'string', description: 'What you are waiting for, in a few words; shown to the user.' },
+        message: { type: 'string', description: 'Your message to the user, shown in the chat as your reply: what is ready and exactly what they should do (e.g. which button to press). Do not repeat it as text.' },
+        expecting: { type: 'string', description: 'What you are waiting for, in a few words; shown as a status label.' },
         timeoutSeconds: { type: 'integer', minimum: 1, maximum: WAIT_MAX_SECONDS, description: `Seconds to wait before giving up (default ${WAIT_DEFAULT_SECONDS}, max ${WAIT_MAX_SECONDS}).` }
       },
-      required: ['expecting'],
+      required: ['message', 'expecting'],
       additionalProperties: false
     }),
-    execute: async (args: any, options?: { abortSignal?: AbortSignal }) => {
+    execute: async (rawArgs: any, options?: { abortSignal?: AbortSignal }) => {
+      const args = repairWaitInput(rawArgs)
+      // Required by the schema, which the SDK does not enforce: a Haiku run declared a
+      // wait with no arguments at all, the turn went silent, and the person — told
+      // nothing — had to ask what to do. Refused rather than waited on, so it is retried.
+      if (!args.message) return 'Not waiting: message is required — one or two sentences telling the person what is ready and what to press. Call wait_for_user_action again with it.'
       if (store.isWaiting()) return 'Already waiting for the user.'
       const requested = Number(args?.timeoutSeconds)
       const seconds = Number.isFinite(requested) && requested > 0 ? Math.min(WAIT_MAX_SECONDS, Math.floor(requested)) : WAIT_DEFAULT_SECONDS

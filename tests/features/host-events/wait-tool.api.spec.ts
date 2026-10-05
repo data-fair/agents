@@ -78,7 +78,9 @@ test.describe('wait_for_user_action over the socket', () => {
 
     const call = toolParts(frames).find(p => p.toolName === 'wait_for_user_action')
     assert.ok(call, 'the wait must be stored as a tool call')
-    assert.deepEqual(call.input, { expecting: 'you to click Create' }, 'stored WITH its input, or a client cannot label it')
+    // `message` is the model's handover to the person, required since main's #73; `expecting` is only
+    // the status label. Both are stored, or a client can neither show the one nor label the other.
+    assert.deepEqual(call.input, { message: 'Ready: click Create.', expecting: 'you to click Create' }, 'stored WITH its input, or a client cannot label it')
   })
 
   test('the next host event resumes the SAME turn', async () => {

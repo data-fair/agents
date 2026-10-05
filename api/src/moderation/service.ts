@@ -108,6 +108,8 @@ export interface ModerationRun {
   onLateBlock: (cb: () => void) => void
   // best-known verdict info for trace embedding (undefined until the check settles)
   traceInfo: () => ModerationVerdictRecord | undefined
+  // credits of the classifier call once it settled (0 before, or when it failed)
+  cost: () => number
 }
 
 export function startModeration (params: {
@@ -132,6 +134,7 @@ export function startModeration (params: {
   let lateBlockCb: (() => void) | undefined
   let timedOut = false
   let trace: ModerationVerdictRecord | undefined
+  let cost = 0
 
   // Exactly one event per check, written when the check settles.
   const finalize = (action: ModerationEventAction, verdict?: ModerationVerdict, opts?: { failOpen?: 'timeout' | 'error' }) => {
@@ -184,6 +187,7 @@ export function startModeration (params: {
       entry,
       config.eurosPerCredit
     )
+    cost = credits.total
     if (credits.total > 0) {
       await recordUsage(owner, {
         cost: credits.total,
@@ -235,7 +239,7 @@ export function startModeration (params: {
     })
   ])
 
-  return { gate, onLateBlock: (cb) => { lateBlockCb = cb }, traceInfo: () => trace }
+  return { gate, onLateBlock: (cb) => { lateBlockCb = cb }, traceInfo: () => trace, cost: () => cost }
 }
 
 // ---- admin probe ----

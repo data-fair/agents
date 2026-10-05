@@ -79,7 +79,7 @@ test.describe('wait_for_user_action, server-side', () => {
     const session = sessionWith()
     const wait = createWaitTool({ store: session.hostEvents })
 
-    const pending = wait.execute!({ expecting: 'you to save', timeoutSeconds: 5 } as never, { toolCallId: 'w1', messages: [] })
+    const pending = wait.execute!({ message: 'Ready: save the form.', expecting: 'you to save', timeoutSeconds: 5 } as never, { toolCallId: 'w1', messages: [] })
     // The person acts, reported over the socket.
     session.handle({ type: 'host-events', events: [{ name: 'clicked save', detail: 'the dataset form', at: Date.now() }] })
 
@@ -91,7 +91,7 @@ test.describe('wait_for_user_action, server-side', () => {
   test('a wait that nobody answers times out, and says so', async () => {
     const session = sessionWith()
     const wait = createWaitTool({ store: session.hostEvents })
-    const outcome = String(await wait.execute!({ expecting: 'you to save', timeoutSeconds: 1 } as never, { toolCallId: 'w1', messages: [] }))
+    const outcome = String(await wait.execute!({ message: 'Ready: save the form.', expecting: 'you to save', timeoutSeconds: 1 } as never, { toolCallId: 'w1', messages: [] }))
     // The turn must END rather than appear to keep waiting — the lesson a judged run taught, where four
     // timeouts burned 480 seconds while the model wrote "I'm still waiting" after each.
     assert.match(outcome, /No user action within 1 seconds/)
@@ -111,8 +111,8 @@ test.describe('wait_for_user_action, server-side', () => {
     // action twice.
     const session = sessionWith()
     const wait = createWaitTool({ store: session.hostEvents })
-    const first = wait.execute!({ expecting: 'a', timeoutSeconds: 2 } as never, { toolCallId: 'w1', messages: [] })
-    const second = String(await wait.execute!({ expecting: 'b', timeoutSeconds: 2 } as never, { toolCallId: 'w2', messages: [] }))
+    const first = wait.execute!({ message: 'Ready.', expecting: 'a', timeoutSeconds: 2 } as never, { toolCallId: 'w1', messages: [] })
+    const second = String(await wait.execute!({ message: 'Ready.', expecting: 'b', timeoutSeconds: 2 } as never, { toolCallId: 'w2', messages: [] }))
     assert.match(second, /already waiting/i)
     session.handle({ type: 'host-events', events: [{ name: 'done', at: Date.now() }] })
     await first

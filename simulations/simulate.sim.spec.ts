@@ -91,9 +91,30 @@ for (const simCase of selected) {
         { offLimits: chat.offLimits }
       )
 
+      // Set when the assistant ended a turn by declaring wait_for_user_action rather
+      // than by finishing: it handed control to the person, who only exists inside
+      // nextUserMessage — so the next pass is where they act on it.
+      let handedOver = false
+
       for (let i = 0; i < simCase.maxTurns; i++) {
         perception.setTurn(i + 1)
         const message = await nextUserMessage(simCase, conversation, simCase.maxTurns - i, { perception })
+        if (handedOver) {
+          // The pass above was the person's chance to act on the wait. If they took it,
+          // the wait resolved and the assistant is finishing the turn it paused: let it,
+          // rather than speaking over it or ending the run under it. Ignored, the wait is
+          // still armed and this returns 'waiting' at once.
+          handedOver = (await chat.waitForTurn()) === 'waiting'
+          const resumed = await chat.readConversation()
+          const changed = resumed.length !== conversation.length
+          conversation.length = 0
+          conversation.push(...resumed)
+          // Whatever the person wrote in that pass, they wrote it before the reply their
+          // action caused: a judged run ended on the click, others sent "what was just
+          // created?" under the very message that said so, interrupting the next wait.
+          // Drop it and let them read the reply first — stopping included.
+          if (changed) continue
+        }
         if (isDone(message)) break
         if (message === '') {
           // Distinct from a real stop: the persona subprocess produced no text
@@ -104,7 +125,7 @@ for (const simCase of selected) {
           break
         }
         await chat.sendMessage(message)
-        await chat.waitForTurn()
+        handedOver = (await chat.waitForTurn()) === 'waiting'
         // Read first, then replace: clearing up front meant a throw from
         // readConversation left the transcript empty, losing every prior turn.
         const read = await chat.readConversation()

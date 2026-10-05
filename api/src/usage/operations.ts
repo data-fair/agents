@@ -29,45 +29,76 @@ export interface QuotaExceeded {
   resetsAt: string
 }
 
+export interface QuotaWindow {
+  used: number
+  // absent when the quota is not enforced (unlimited, or monthlyLimit <= 0)
+  limit?: number
+  resetsAt: string
+}
+
+export interface SelfQuota {
+  unlimited: boolean
+  daily: QuotaWindow
+  weekly: QuotaWindow
+  monthly: QuotaWindow
+}
+
+export interface SelfUsage {
+  role: 'admin' | 'contrib' | 'user' | 'external' | 'anonymous'
+  quota: SelfQuota
+  account: { status: 'ok' | 'exhausted', resetsAt?: string, used?: number, limit?: number }
+}
+
+/**
+ * The three enforced windows of a quota, derived from its monthly limit
+ * (weekly = monthly / 2, daily = monthly / 4). The single source of these
+ * ratios: checkQuota() enforces exactly what this reports.
+ */
+export function quotaWindows (usage: UsageInfo, limits: UsageLimits | undefined): SelfQuota {
+  const monthlyLimit = limits?.monthlyLimit ?? 0
+  const unlimited = !!limits?.unlimited || monthlyLimit <= 0
+  const window = (period: UsagePeriodInfo, limit: number): QuotaWindow =>
+    unlimited ? { used: period.cost, resetsAt: period.resetsAt } : { used: period.cost, limit, resetsAt: period.resetsAt }
+  return {
+    unlimited,
+    daily: window(usage.daily, monthlyLimit / 4),
+    weekly: window(usage.weekly, monthlyLimit / 2),
+    monthly: window(usage.monthly, monthlyLimit)
+  }
+}
+
+const PERIOD_REASONS = {
+  daily: 'Daily cost quota exceeded',
+  weekly: 'Weekly cost quota exceeded',
+  monthly: 'Monthly cost quota exceeded'
+} as const
+
+// Scopes whose numbers are the account's, not the caller's own.
+const SHARED_SCOPES = new Set(['account', 'untrusted'])
+
+/**
+ * The `error` object of a 429. `usage`/`limit` of a shared budget (the org credit
+ * cap, the anonymous+external pool) are only disclosed to an admin of the owner.
+ */
+export function quotaErrorBody (violation: QuotaExceeded, isAdmin: boolean) {
+  const disclose = isAdmin || !SHARED_SCOPES.has(violation.scope)
+  return {
+    message: violation.reason,
+    type: 'rate_limit_error' as const,
+    scope: violation.scope,
+    period: violation.period,
+    resets_at: violation.resetsAt,
+    ...(disclose ? { usage: violation.usage, limit: violation.limit } : {})
+  }
+}
+
 export function checkQuota (usage: UsageInfo, limits: UsageLimits, scope: string): QuotaExceeded | null {
-  if (limits.unlimited) return null
-  const monthlyLimit = limits.monthlyLimit
-  if (!monthlyLimit || monthlyLimit <= 0) return null
-
-  const weeklyLimit = monthlyLimit / 2
-  const dailyLimit = monthlyLimit / 4
-
-  if (usage.daily.cost >= dailyLimit) {
-    return {
-      allowed: false,
-      reason: 'Daily cost quota exceeded',
-      scope,
-      period: 'daily',
-      usage: usage.daily.cost,
-      limit: dailyLimit,
-      resetsAt: usage.daily.resetsAt
-    }
-  }
-  if (usage.weekly.cost >= weeklyLimit) {
-    return {
-      allowed: false,
-      reason: 'Weekly cost quota exceeded',
-      scope,
-      period: 'weekly',
-      usage: usage.weekly.cost,
-      limit: weeklyLimit,
-      resetsAt: usage.weekly.resetsAt
-    }
-  }
-  if (usage.monthly.cost >= monthlyLimit) {
-    return {
-      allowed: false,
-      reason: 'Monthly cost quota exceeded',
-      scope,
-      period: 'monthly',
-      usage: usage.monthly.cost,
-      limit: monthlyLimit,
-      resetsAt: usage.monthly.resetsAt
+  const windows = quotaWindows(usage, limits)
+  if (windows.unlimited) return null
+  for (const period of ['daily', 'weekly', 'monthly'] as const) {
+    const w = windows[period]
+    if (w.used >= w.limit!) {
+      return { allowed: false, reason: PERIOD_REASONS[period], scope, period, usage: w.used, limit: w.limit!, resetsAt: w.resetsAt }
     }
   }
   return null

@@ -171,8 +171,28 @@ a pending event — not merely "a host store exists"): the tool's own descriptio
 the model to call it, so advertising it to a page that has never published anything
 would only ever end in a bounded, pointless dead turn. Re-checked on every tool-set
 rebuild (turn start and every mid-turn rebuild), so a page that starts publishing
-mid-conversation gains the tool at the next one. `{ expecting, timeoutSeconds? }`
-(default 300s, max 600s). It resolves on **what the person did, not on the next event whatever it
+mid-conversation gains the tool at the next one. `{ message, expecting, timeoutSeconds? }`
+(default 300s, max 600s). `message` is the model's reply to the person — what is ready and
+what to press — and the chat shows it after the step's own text, unless that text already
+says it (`applyStreamPart`); `expecting` is only the status label. Before `message` existed, models
+read the « En attente : … » label as their message and handed buttons over in silence.
+
+**Speaking during a wait** takes the turn back: `sendMessage` aborts the waiting turn and starts
+a new one. An aborted turn never reaches `result.response`, which is where a turn's messages
+normally enter history, so the turn's finished steps are tracked as they complete and committed
+(`commitRunningTurn`) before the new turn pushes its user message; the step still open — the one
+holding the wait — is recorded with a result saying it was interrupted (`interrupted-turn.ts`).
+The new turn's hidden context then ends with a reminder, just before the person's message: what the
+wait was for, and to declare it again after answering if that action is still to come. The same
+instruction used to live in the interrupted wait's tool result, where it sat in history ahead of the new
+question; judged runs answered the question and never waited again, so the action they had handed
+over went unseen.
+Stop commits the same way, with a result saying the reply was stopped. The open step is reset on
+the `finish-step` part the loop reads, not in `onStepFinish`: the SDK runs that callback on its
+side of the stream, possibly before the loop has read the step's parts, and any call already in
+the finished steps is dropped from the open one so no call id reaches history twice. A result
+that did arrive in the open step goes through its tool's `toModelOutput`, as the SDK would. Without this, judged runs sent the model the person's two messages
+with nothing between, and the assistant denied work it had done and redid it. It resolves on **what the person did, not on the next event whatever it
 is**. The store already separates two kinds of event: an unkeyed transition is something
 that happened, keyed state is what is true now — and state refreshes for many reasons,
 including the assistant's own action finishing late. A wait resolves on a transition, or on

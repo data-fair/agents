@@ -4,7 +4,7 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { checkQuota, computeCredits, computeCreditBreakdown, priceTokens, priceTokensBreakdown, toCredits, firstQuotaViolation, isUntrustedRole, encodeBreakdownKey, decodeBreakdownKey, type UsageInfo, type UsageLimits } from '../../../api/src/usage/operations.ts'
+import { checkQuota, computeCredits, computeCreditBreakdown, priceTokens, priceTokensBreakdown, toCredits, firstQuotaViolation, isUntrustedRole, encodeBreakdownKey, decodeBreakdownKey, quotaWindows, quotaErrorBody, type UsageInfo, type UsageLimits } from '../../../api/src/usage/operations.ts'
 
 function mkUsage (daily: number, weekly: number, monthly: number): UsageInfo {
   return {
@@ -229,6 +229,70 @@ test.describe('breakdown key encoding', () => {
   test('round-trips model ids with dots and other special characters', () => {
     for (const value of ['gpt-3.5-turbo', 'meta-llama/Llama-3.1-8B', 'a$b.c%d', 'assistant']) {
       assert.equal(decodeBreakdownKey(encodeBreakdownKey(value)), value)
+    }
+  })
+})
+
+test.describe('quotaWindows', () => {
+  const usage = {
+    daily: { cost: 3, resetsAt: 'D' },
+    weekly: { cost: 7, resetsAt: 'W' },
+    monthly: { cost: 11, resetsAt: 'M' }
+  }
+
+  test('derives daily/weekly limits from the monthly limit', () => {
+    assert.deepEqual(quotaWindows(usage, { unlimited: false, monthlyLimit: 100 }), {
+      unlimited: false,
+      daily: { used: 3, limit: 25, resetsAt: 'D' },
+      weekly: { used: 7, limit: 50, resetsAt: 'W' },
+      monthly: { used: 11, limit: 100, resetsAt: 'M' }
+    })
+  })
+
+  test('unlimited, zero and missing limits all read as unlimited with no limit field', () => {
+    for (const limits of [{ unlimited: true, monthlyLimit: 100 }, { unlimited: false, monthlyLimit: 0 }, undefined]) {
+      const q = quotaWindows(usage, limits)
+      assert.equal(q.unlimited, true)
+      assert.deepEqual(q.daily, { used: 3, resetsAt: 'D' })
+      assert.equal('limit' in q.monthly, false)
+    }
+  })
+
+  test('checkQuota still reports the first exceeded window', () => {
+    const v = checkQuota({ ...usage, daily: { cost: 25, resetsAt: 'D' } }, { monthlyLimit: 100 }, 'user')
+    assert.equal(v?.period, 'daily')
+    assert.equal(v?.limit, 25)
+    assert.equal(v?.reason, 'Daily cost quota exceeded')
+    assert.equal(checkQuota(usage, { monthlyLimit: 100 }, 'user'), null)
+    assert.equal(checkQuota({ ...usage, monthly: { cost: 100, resetsAt: 'M' } }, { monthlyLimit: 100 }, 'user')?.period, 'monthly')
+  })
+})
+
+test.describe('quotaErrorBody', () => {
+  const violation = (scope: string) => ({ allowed: false as const, reason: 'Daily cost quota exceeded', scope, period: 'daily' as const, usage: 5, limit: 4, resetsAt: 'R' })
+
+  test('always carries period and resets_at', () => {
+    const body = quotaErrorBody(violation('user'), false)
+    assert.equal(body.type, 'rate_limit_error')
+    assert.equal(body.period, 'daily')
+    assert.equal(body.resets_at, 'R')
+    assert.equal(body.message, 'Daily cost quota exceeded')
+  })
+
+  test('a personal quota keeps its numbers for anyone', () => {
+    const body = quotaErrorBody(violation('user'), false)
+    assert.equal(body.usage, 5)
+    assert.equal(body.limit, 4)
+  })
+
+  test('account and untrusted numbers are hidden from non-admins only', () => {
+    for (const scope of ['account', 'untrusted']) {
+      const hidden = quotaErrorBody(violation(scope), false)
+      assert.equal('usage' in hidden, false)
+      assert.equal('limit' in hidden, false)
+      const shown = quotaErrorBody(violation(scope), true)
+      assert.equal(shown.usage, 5)
+      assert.equal(shown.limit, 4)
     }
   })
 })

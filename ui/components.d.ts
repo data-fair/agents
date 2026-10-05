@@ -13,6 +13,7 @@ declare module 'vue' {
   export interface GlobalComponents {
     AccountSelector: typeof import('./src/components/AccountSelector.vue')['default']
     AgentChat: typeof import('./src/components/AgentChat.vue')['default']
+    AgentChatConsumption: typeof import('./src/components/agent-chat/AgentChatConsumption.vue')['default']
     AgentChatDebugDialog: typeof import('./src/components/agent-chat/AgentChatDebugDialog.vue')['default']
     AgentChatHeader: typeof import('./src/components/agent-chat/AgentChatHeader.vue')['default']
     AgentChatInput: typeof import('./src/components/agent-chat/AgentChatInput.vue')['default']
