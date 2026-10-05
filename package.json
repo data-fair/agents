@@ -22,7 +22,8 @@
     "prepare": "husky || true",
     "check-types": "tsc && npm -w ui run check-types",
     "quality": "npm run lint && npm run build-types && npm run check-types && npm run test",
-    "dev-mcp": "dotenv -- node dev/mcp-server.ts"
+    "dev-mcp": "dotenv -- node dev/mcp-server.ts",
+    "dev-load-check": "dotenv -- node dev/load-check.ts"
   },
   "repository": {
     "type": "git",
