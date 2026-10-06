@@ -74,7 +74,7 @@
     "typescript": "~5.9.3"
   },
   "dependencies": {
-    "@data-fair/lib-types-builder": "^1.8.3",
+    "@data-fair/lib-types-builder": "^1.14.3",
     "@types/debug": "^4.1.12",
     "tough-cookie": "^5.1.2",
     "ufo": "^1.6.3"

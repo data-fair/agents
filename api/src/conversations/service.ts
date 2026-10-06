@@ -13,7 +13,8 @@ import Debug from 'debug'
 import type { AutonomousAgent, Conversation, ConversationRun } from '#types'
 // The stored shape, whose `parts` carry the library's own part type (see mongo.ts).
 import type { StoredMessage } from '#mongo'
-import { canInstruct, type InstructSession } from '../autonomous-agents/operations.ts'
+import { canInstruct, type InstructableAgent } from '../autonomous-agents/operations.ts'
+import type { SessionStateAuthenticated } from '@data-fair/lib-common-types/session/index.js'
 import { notifyConversationChanged } from './events.ts'
 import { getAutonomousAgent, assertOrganizationOwner } from '../autonomous-agents/service.ts'
 
@@ -34,7 +35,7 @@ const debug = Debug('df-agents:conversations')
  * its OWN non-human identity, which may reach further than the person using it. What this no longer
  * governs is reading or writing an existing conversation — see assertOwnsConversation.
  */
-export const assertCanInstruct = (autonomousAgent: { owner: { type: string, id: string }, instructors?: { userId: string }[] }, session: InstructSession) => {
+export const assertCanInstruct = (autonomousAgent: InstructableAgent, session: SessionStateAuthenticated) => {
   if (!canInstruct(autonomousAgent, session)) {
     throw httpError(403, 'you are not allowed to instruct this autonomous agent')
   }
@@ -52,7 +53,7 @@ export const assertCanInstruct = (autonomousAgent: { owner: { type: string, id: 
  * not an org admin by virtue of their role. An org admin sees nothing by default, which is the privacy
  * position the design takes.
  */
-export const assertOwnsConversation = (conversation: { userId?: string }, session: InstructSession) => {
+export const assertOwnsConversation = (conversation: { userId?: string }, session: SessionStateAuthenticated) => {
   if (session.user.adminMode) return
   if (conversation.userId && conversation.userId === session.user.id) return
   throw httpError(403, 'this conversation belongs to someone else')

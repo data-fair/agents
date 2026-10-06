@@ -162,7 +162,7 @@ test.describe('Autonomous agents API', () => {
 
   test('a listed instructor reads the agent, but not its identity or the other instructors', async () => {
     const created = await admin.post('/api/autonomous-agents/organization/test1', {
-      ...validAgent(), instructors: [{ userId: 'test1-user1', userName: 'Test User' }]
+      ...validAgent(), instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }]
     })
     const res = await orgMember.get(`/api/autonomous-agents/organization/test1/${created.data.id}`)
     assert.equal(res.status, 200)
@@ -183,13 +183,13 @@ test.describe('Autonomous agents API', () => {
       ...validAgent(),
       title: 'Renamed',
       instructions: 'Answer in French.',
-      instructors: [{ userId: 'test1-user1', userName: 'Test User' }]
+      instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }]
     })
 
     assert.equal(updated.status, 200)
     assert.equal(updated.data.title, 'Renamed')
     assert.equal(updated.data.instructions, 'Answer in French.')
-    assert.deepEqual(updated.data.instructors, [{ userId: 'test1-user1', userName: 'Test User' }])
+    assert.deepEqual(updated.data.instructors, [{ mode: 'member', type: 'user', id: 'test1-user1' }])
     assert.equal(updated.data.id, created.data.id)
     assert.equal(updated.data.createdAt, created.data.createdAt)
     assert.notEqual(updated.data.updatedAt, created.data.createdAt)

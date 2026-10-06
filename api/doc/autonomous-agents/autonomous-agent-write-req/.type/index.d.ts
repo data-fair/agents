@@ -28,15 +28,17 @@ export type MCPServers = {
   toolFilter?: OnlyTheseTools;
 }[];
 export type ClientId = string;
-export type UserId = string;
-export type UserName = string;
+export type AccessRef =
+  UnMembreDeLOrganisation | UnEmail | UneOrganisationPartenaire | UnRoleOuDepartementDeMonOrganisation;
+export type Membre = string;
+export type AdresseMail = string;
+export type Partenaire = string;
+export type Departement = string;
+export type Roles = string[];
 /**
- * Admins of the owning organization are always allowed. Anyone listed here borrows this autonomous agent's permissions.
+ * Admins of the owning organization are always allowed. Anyone matched here borrows this autonomous agent's permissions.
  */
-export type UsersAllowedToInstruct = {
-  userId: UserId;
-  userName?: UserName;
-}[];
+export type WhoMayInstruct = AccessRef[];
 export type Enabled = boolean;
 
 export type AutonomousAgent = {
@@ -45,12 +47,36 @@ export type AutonomousAgent = {
   instructions?: Instructions;
   mcpServers: MCPServers;
   nhi?: NonHumanIdentity;
-  instructors?: UsersAllowedToInstruct;
+  instructors?: WhoMayInstruct;
   enabled: Enabled;
 }
 export type NonHumanIdentity = {
   clientId: ClientId;
   siteUrl?: string;
   issuer?: string;
+}
+export type UnMembreDeLOrganisation = {
+  mode: "member";
+  type: "user";
+  id: Membre;
+}
+export type UnEmail = {
+  mode: "member";
+  type: "user";
+  email: AdresseMail;
+}
+export type UneOrganisationPartenaire = {
+  mode: "member";
+  type: "organization";
+  department?: "*";
+  roles?: string[];
+  id: Partenaire;
+}
+export type UnRoleOuDepartementDeMonOrganisation = {
+  mode: "internal";
+  type: "organization";
+  id: string;
+  department?: Departement;
+  roles?: Roles;
 }
 

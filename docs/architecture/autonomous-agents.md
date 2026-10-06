@@ -109,9 +109,14 @@ envelope around each user turn. It is now **one person's** thread (`conversation
 envelope and the system-prompt clause that told the model to trust it were removed together.
 
 - Who may **start** a conversation with a configured agent is still a grant (`canInstruct`): admins of
-  the owning organization, anyone in `instructors` (who may come from another account), and superadmins
-  in admin mode. **Anyone listed borrows the agent's permissions**, which is the sentence that matters
-  when adding someone.
+  the owning organization, anyone matched by `instructors`, and superadmins in admin mode. The list
+  holds uniform **access refs** (lib-common-types) — a member by id or email, a partner organization,
+  or a role/department of the owning organization — matched with `matchAccessRef`, the same rule as
+  every other permission list in the stack. A member-by-id grant comes from any account; a ref that
+  targets an organization matches the person's **active account**. **Anyone matched borrows the
+  agent's permissions**, which is the sentence that matters when adding someone. The implicit
+  owner-admin rule stays exact on department, so an admin of a department cannot instruct an org-root
+  agent.
 - Reading, posting to, aborting a turn of, and erasing an existing thread is the owner's alone
   (`assertOwnsConversation`); a superadmin in admin mode is the only exception. An org admin sees
   nothing by default — reading someone else's thread is [conversation review](./conversation-review.md),

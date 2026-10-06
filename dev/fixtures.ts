@@ -165,7 +165,7 @@ const autonomousAgentBody = {
   // are allowed anyway, so without an instructor there is no way to open this thread as
   // someone who is NOT an admin and see what they are permitted to do. dev1-contrib1 is a
   // contrib, so every "allowed because admin" path is off for them.
-  instructors: [{ userId: 'dev1-contrib1', userName: 'Dev1 Contrib' }],
+  instructors: [{ mode: 'member', type: 'user', id: 'dev1-contrib1' }],
   enabled: true
 }
 

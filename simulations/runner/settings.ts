@@ -162,7 +162,7 @@ export async function seedAutonomousAgent (route: string, instructorUserId: stri
       mcpServers: [{ serverId: 'dev-review-session-mcp' }],
       // A listed instructor, so the case can be driven by someone who is NOT an org admin — which is
       // also the only kind of user the login fixture can address here (it derives <id>@test.com).
-      instructors: [{ userId: instructorUserId, userName: instructorUserId }],
+      instructors: [{ mode: 'member', type: 'user', id: instructorUserId }],
       enabled: true
     }
   })

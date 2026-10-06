@@ -3,23 +3,12 @@
  * should not reference #mongo, #config, store state in memory or import anything else than other operations.ts
  */
 
-/**
- * The minimal session shape canInstruct reads. Structural rather than lib-express's
- * SessionState so the rule stays a pure function with a unit test that constructs its
- * own input.
- */
-export interface InstructSession {
-  // adminMode is widened past `boolean` on purpose: lib-express's SessionStateAuthenticated
-  // types it as `1 | undefined`, and canInstruct only ever reads it for truthiness. Keeping
-  // it `boolean` here forced every real call site to cast.
-  user: { id: string, adminMode?: boolean | number }
-  account: { type: string, id: string, department?: string }
-  accountRole?: string
-}
+import { matchAccessRef, type AccessRef } from '@data-fair/lib-common-types/access-ref/index.js'
+import type { SessionStateAuthenticated } from '@data-fair/lib-common-types/session/index.js'
 
-interface InstructableAgent {
+export interface InstructableAgent {
   owner: { type: string, id: string, department?: string }
-  instructors?: { userId: string, userName?: string }[]
+  instructors?: AccessRef[]
 }
 
 /**
@@ -30,8 +19,14 @@ interface InstructableAgent {
  * Admins of the owning account are implicitly allowed — they configure the autonomous
  * agent anyway. Listed instructors are allowed from any account, because the list is
  * a deliberate grant to borrow this autonomous agent's permissions.
+ *
+ * The list holds uniform access refs (member, email, partner organization, role or
+ * department), matched by lib-common-types' matchAccessRef — the same rule as every other
+ * permission list in the stack. The owner-admin rule above stays separate on purpose:
+ * matchAccessRef treats an absent department as "all departments", while this check is
+ * exact, which is what keeps an admin OF A DEPARTMENT from instructing an org-root agent.
  */
-export function canInstruct (agent: InstructableAgent, session: InstructSession): boolean {
+export function canInstruct (agent: InstructableAgent, session: SessionStateAuthenticated): boolean {
   if (session.user.adminMode) return true
   // The department has to match too, exactly as lib-common-types' matchAccount does for
   // assertAccountRole. Autonomous agents are always stored with a department-less owner, so
@@ -42,5 +37,5 @@ export function canInstruct (agent: InstructableAgent, session: InstructSession)
     session.account.id === agent.owner.id &&
     (session.account.department ?? null) === (agent.owner.department ?? null)
   if (ownsAccount && session.accountRole === 'admin') return true
-  return (agent.instructors ?? []).some(instructor => instructor.userId === session.user.id)
+  return (agent.instructors ?? []).some(accessRef => matchAccessRef(session, accessRef))
 }

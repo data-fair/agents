@@ -123,22 +123,16 @@ export default {
     instructors: {
       type: 'array',
       default: [],
-      title: 'Users allowed to instruct',
-      'x-i18n-title': { en: 'Users allowed to instruct', fr: 'Utilisateurs autorisés à donner des instructions' },
-      description: 'Admins of the owning organization are always allowed. Anyone listed here borrows this autonomous agent\'s permissions.',
+      title: 'Who may instruct',
+      'x-i18n-title': { en: 'Who may instruct', fr: 'Qui peut donner des instructions' },
+      description: 'Admins of the owning organization are always allowed. Anyone matched here borrows this autonomous agent\'s permissions.',
       'x-i18n-description': {
-        en: 'Admins of the owning organization are always allowed. Anyone listed here borrows this autonomous agent\'s permissions.',
-        fr: "Les administrateurs de l'organisation propriétaire sont toujours autorisés. Toute personne listée ici emprunte les permissions de cet agent autonome."
+        en: 'Admins of the owning organization are always allowed. Anyone matched here borrows this autonomous agent\'s permissions.',
+        fr: "Les administrateurs de l'organisation propriétaire sont toujours autorisés. Toute personne correspondant à une référence ci-dessous emprunte les permissions de cet agent autonome."
       },
-      items: {
-        type: 'object',
-        additionalProperties: false,
-        required: ['userId'],
-        properties: {
-          userId: { type: 'string', title: 'User id', 'x-i18n-title': { en: 'User id', fr: 'Identifiant utilisateur' } },
-          userName: { type: 'string', title: 'User name', 'x-i18n-title': { en: 'User name', fr: 'Nom' } }
-        }
-      }
+      // The uniform access reference (member, email, partner organization, role/department), so
+      // who may instruct is expressed the same way as every other permission list in the stack.
+      items: { $ref: 'https://github.com/data-fair/lib/access-ref' }
     },
     enabled: {
       type: 'boolean',

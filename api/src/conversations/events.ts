@@ -8,8 +8,9 @@
  */
 
 import { emit } from '@data-fair/lib-node/ws-emitter.js'
+import type { SessionStateAuthenticated } from '@data-fair/lib-common-types/session/index.js'
 import mongo from '#mongo'
-import { canInstruct, type InstructSession } from '../autonomous-agents/operations.ts'
+import { canInstruct } from '../autonomous-agents/operations.ts'
 import { conversationChannel, channelConversationId } from '@agents/shared/conversation-channel'
 
 /**
@@ -61,7 +62,7 @@ export const canSubscribeAutonomousAgent = async (channel: string, sessionState:
     )
     if (!autonomousAgent) return false
 
-    return canInstruct(autonomousAgent, sessionState as InstructSession)
+    return canInstruct(autonomousAgent, sessionState as SessionStateAuthenticated)
   } catch (err) {
     console.error('autonomous agent subscription check failed', err)
     return false

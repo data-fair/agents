@@ -262,8 +262,9 @@ import { useSession } from '@data-fair/lib-vue/session.js'
 import { getUiNotif } from '@data-fair/lib-vue/ui-notif.js'
 import VjsfAutonomousAgentWriteReq from '~/components/vjsf/vjsf-autonomous-agent-write-req.vue'
 import { autonomousAgentEditDraft } from '~/utils/autonomous-agent-draft'
+import { rewriteSimpleDirectoryUrl } from '~/utils/simple-directory-url'
 import { useAutonomousAgentEnrolment } from '~/composables/use-autonomous-agent-enrolment'
-import { $apiPath, $fetch, $uiConfig } from '~/context'
+import { $apiPath, $fetch, $sdUrl, $uiConfig } from '~/context'
 
 const props = defineProps<{
   id: string
@@ -303,8 +304,14 @@ const valid = ref<boolean | null>(null)
 const saving = ref(false)
 /**
  * `context` is load-bearing, not decoration: the MCP server picker is an autocomplete whose
- * getItems url interpolates ${context.apiPath}/${context.accountType}/${context.accountId}, so
- * without these the picker fetches a broken url and silently offers nothing.
+ * getItems url interpolates ${context.apiPath}/${context.accountType}/${context.accountId}, and
+ * the access-ref variants of the instructors field use ${context.owner.*} and gate their
+ * `layout.if` on context.owner.type — without these the pickers fetch a broken url and silently
+ * offer nothing.
+ *
+ * `fetch` is json-layout's getItems fetcher, not the app's $fetch (which carries our API baseURL
+ * and would prefix simple-directory urls into it, see use-autonomous-agent-enrolment.ts). The
+ * access-ref schema names simple-directory root-absolute, so it is rewritten onto $sitePath here.
  */
 const vjsfOptions = computed(() => ({
   validateOn: 'input' as const,
@@ -316,7 +323,16 @@ const vjsfOptions = computed(() => ({
   titleDepth: 4,
   readOnlyPropertiesMode: 'hide' as const,
   initialValidation: 'always' as const,
-  context: { apiPath: $apiPath, accountType: props.accountType, accountId: props.accountId }
+  context: {
+    apiPath: $apiPath,
+    accountType: props.accountType,
+    accountId: props.accountId,
+    owner: { type: props.accountType, id: props.accountId }
+  },
+  fetch: async (url: string, fetchOptions: RequestInit) => {
+    const response = await globalThis.fetch(rewriteSimpleDirectoryUrl(url, $sdUrl), { credentials: 'include', ...fetchOptions })
+    return await response.json()
+  }
 }))
 
 const startCreate = () => {

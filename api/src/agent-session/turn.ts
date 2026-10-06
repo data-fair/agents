@@ -20,7 +20,7 @@ import {
 import { startRun, liveTurnOf } from '../conversations/executor.ts'
 import mongo from '#mongo'
 import type { AgentSession } from './session.ts'
-import type { InstructSession } from '../autonomous-agents/operations.ts'
+import type { SessionStateAuthenticated } from '@data-fair/lib-common-types/session/index.js'
 import { wrapHiddenContext } from '@agents/shared/hidden-context'
 import { getEffectiveRole } from '../auth.ts'
 
@@ -32,7 +32,7 @@ const debug = Debug('agents:agent-session-turn')
  * the socket that created it may prompt into it) and their role is `anonymous` by definition.
  */
 export type TurnCaller =
-  | { kind: 'person', session: InstructSession & { user: { id: string, name?: string } } }
+  | { kind: 'person', session: SessionStateAuthenticated }
   | { kind: 'anonymous', usageUserId: string }
 
 export interface SessionTurnRequest {

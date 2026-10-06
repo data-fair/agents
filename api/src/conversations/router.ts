@@ -11,6 +11,7 @@ import { type AccountKeys, httpError, reqSessionAuthenticated } from '@data-fair
 import eventsLog from '@data-fair/lib-express/events-log.js'
 import { assertCanOwnAgent } from '../autonomous-agents/service.ts'
 import { assertCanInstruct, assertOwnsConversation, requireAutonomousAgent, requireConversation, appendMessage, createRun, setReviewConsent, archiveConversation, purgeConversation } from './service.ts'
+import type { InstructableAgent } from '../autonomous-agents/operations.ts'
 import { startRun, abortRun } from './executor.ts'
 import { getEffectiveRole, assertCanUseModel } from '../auth.ts'
 import { withinRetention } from '../retention.ts'
@@ -123,12 +124,12 @@ const reqOwner = (req: any): AccountKeys => {
  * of an agent that does not exist as a document.
  */
 const assertMayTalkTo = async (
-  autonomousAgent: { id: string, owner: AccountKeys, instructors?: { userId: string }[] },
+  autonomousAgent: InstructableAgent & { id: string },
   owner: AccountKeys,
   session: Parameters<typeof assertCanInstruct>[1]
 ) => {
   if (!isStandardAgentId(autonomousAgent.id)) {
-    assertCanInstruct(autonomousAgent as Parameters<typeof assertCanInstruct>[0], session)
+    assertCanInstruct(autonomousAgent, session)
     return
   }
   const settings = await getSettings(owner)

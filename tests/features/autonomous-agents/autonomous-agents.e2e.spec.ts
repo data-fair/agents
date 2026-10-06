@@ -265,7 +265,7 @@ test.describe('Autonomous agent thread', () => {
       persona: 'You answer briefly.',
       mcpServers: [],
       enabled: true,
-      instructors: [{ userId: 'test1-user1', userName: 'Test User' }]
+      instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }]
       // nhi is deliberately NOT sent here: supplying it makes the write route rebuild the enrolment,
       // which needs an X-Forwarded-Host this direct client does not send. The PUT therefore drops the
       // enrolment, so re-apply it through the dev seam below.

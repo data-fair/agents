@@ -27,7 +27,7 @@ test.describe('autonomousAgentEditDraft', () => {
     instructions: 'In French.',
     mcpServers: [{ serverId: 'dev-public-mcp' }],
     enabled: true,
-    instructors: [{ userId: 'u1' }],
+    instructors: [{ mode: 'member', type: 'user', id: 'u1' }],
     nhi: { clientId: 'client-1', siteUrl: 'https://example.test/agents', issuer: 'https://example.test/agents/api/nhi' },
     createdAt: '2026-09-28T10:00:00Z'
   }
@@ -59,7 +59,7 @@ test.describe('autonomousAgentEditDraft', () => {
     const draft = autonomousAgentEditDraft(stored)
     assert.equal(draft.title, 'Support triage')
     assert.equal(draft.enabled, true)
-    assert.deepEqual(draft.instructors, [{ userId: 'u1' }])
+    assert.deepEqual(draft.instructors, [{ mode: 'member', type: 'user', id: 'u1' }])
     assert.deepEqual(draft.mcpServers, [{ serverId: 'dev-public-mcp' }])
     assert.equal(draft.instructions, 'In French.')
   })

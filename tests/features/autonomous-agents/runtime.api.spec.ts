@@ -65,7 +65,7 @@ test.describe('Autonomous agent conversations', () => {
   })
 
   test('a listed instructor who is not an admin can create a thread', async () => {
-    const agent = await createAgent({ instructors: [{ userId: 'test1-user1', userName: 'Test User' }] })
+    const agent = await createAgent({ instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }] })
     const created = await orgMember.post('/api/conversations/organization/test1', {
       agentId: agent.id, title: 'Instructor thread'
     })
@@ -119,7 +119,7 @@ test.describe('Autonomous agent conversations', () => {
     // was the capability this design deliberately drops. What survives is the agent-level grant: a
     // listed instructor may still START their own conversation with the agent, because that grant is
     // about borrowing the agent's permissions, which has not changed.
-    const agent = await createAgent({ instructors: [{ userId: 'test1-user1', userName: 'Test User' }] })
+    const agent = await createAgent({ instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }] })
     const conv = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data
     assert.equal(conv.userId, 'test1-admin1', 'a conversation records the one person it belongs to')
 
@@ -854,7 +854,7 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
   test('the person a thread belongs to can erase it without deleting the autonomous agent', async () => {
     // The means to comply with an erasure request while the agent stays in use. The actor is now the
     // thread's OWNER rather than any instructor of the agent — erasure follows ownership, like reading.
-    const agent = await createAgent({ instructors: [{ userId: 'test1-user1', userName: 'Test User' }] })
+    const agent = await createAgent({ instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }] })
     await enrol(agent.id)
     const { conv, runId } = await startTurn(agent.id, 'hello')
     await awaitRun(runId)
@@ -876,7 +876,7 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
   test('erasing someone else\'s thread is refused, even for a listed instructor', async () => {
     // Being allowed to USE the agent is not being allowed to touch another person's conversation with
     // it — the distinction the ownership model introduces.
-    const agent = await createAgent({ instructors: [{ userId: 'test1-user1', userName: 'Test User' }] })
+    const agent = await createAgent({ instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }] })
     await enrol(agent.id)
     const { conv } = await startTurn(agent.id, 'hello')
     await assert.rejects(
@@ -889,7 +889,7 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
     // It used to follow the agent grant, which meant any listed instructor could stop anyone else's
     // turn — and read their run's status and spend. With one person per conversation that is a
     // cross-user action, so it follows ownership like reading and erasing.
-    const agent = await createAgent({ instructors: [{ userId: 'test1-user1', userName: 'Test User' }] })
+    const agent = await createAgent({ instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }] })
     await enrol(agent.id)
     const live = await startTurn(agent.id, 'stall')
     await new Promise(resolve => setTimeout(resolve, 300))
@@ -960,7 +960,7 @@ test.describe('Autonomous agent conversation events', () => {
       persona: agent.persona,
       mcpServers: [],
       enabled: true,
-      instructors: [{ userId: 'test1-user1', userName: 'Test User' }]
+      instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }]
     })
     const allowed = await open(await cookieOf(orgMember))
     assert.equal((await allowed.subscribe(conversationChannel(conv.id))).type, 'subscribe-confirm')
