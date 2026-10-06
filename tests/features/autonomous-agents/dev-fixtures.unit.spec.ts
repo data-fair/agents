@@ -151,3 +151,13 @@ test.describe('dev NHI fixtures', () => {
     assert.equal(new Set(subjects).size, subjects.length, 'two fixtures share a subject')
   })
 })
+
+test.describe('the dev fixtures script', () => {
+  test('loads: a script nothing type-checks must at least parse', async () => {
+    // dev/ is outside every tsconfig, so the script broke silently once — two top-level `conversations`
+    // after a merge — and stayed broken until someone ran it. Importing it is enough to catch that: it
+    // only seeds when run directly, so the import has no side effects.
+    const fixtures = await import('../../../dev/fixtures.ts')
+    assert.equal(typeof fixtures.seedConsumption, 'function')
+  })
+})
