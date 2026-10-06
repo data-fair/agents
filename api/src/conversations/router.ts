@@ -228,9 +228,8 @@ router.post('/:type/:id', async (req, res, next) => {
  * With no agentId, each thread's agent is resolved instead: the account cannot be asked for the
  * blanket assertion (a configured agent is organization-only, a standard one is the normal case on a
  * personal account), and it must not be asked, because a conversation whose agent was deleted or
- * whose grant was revoked is no longer the caller's to see. Empty threads are dropped too: the chat
- * creates a conversation when a turn is first sent, so nothing legitimate has `messageSeq: 0`, and
- * the many that older eager clients left behind would otherwise be history full of "chat".
+ * whose grant was revoked is no longer the caller's to see. Empty threads are dropped too: the
+ * front-office chat creates its thread on open, and one nobody typed into is not history.
  */
 /** How many threads the chat's history lists, newest first. */
 const HISTORY_LIMIT = 50
@@ -241,6 +240,11 @@ router.get('/:type/:id', async (req, res, next) => {
     const owner = reqOwner(req)
     const agentId = typeof req.query.agentId === 'string' && req.query.agentId ? req.query.agentId : undefined
     if (req.query.agentId !== undefined && !agentId) throw httpError(400, 'agentId must be a non-empty string')
+    // One agent's list is unbounded unless asked: the chat resumes a thread with `size=1`.
+    const size = req.query.size === undefined ? undefined : Number(req.query.size)
+    if (size !== undefined && !(Number.isInteger(size) && size > 0 && size <= HISTORY_LIMIT)) {
+      throw httpError(400, `size must be an integer between 1 and ${HISTORY_LIMIT}`)
+    }
 
     if (agentId) {
       assertCanOwnAgent(owner, agentId)
@@ -273,7 +277,7 @@ router.get('/:type/:id', async (req, res, next) => {
         // documents, which API clients read.
         projection: agentId ? { _id: 0 } : { _id: 0, id: 1, agentId: 1, title: 1, createdAt: 1, lastMessageAt: 1, messageSeq: 1 },
         // and bounded: a person's history grows for as long as they use the chat
-        ...(agentId ? {} : { limit: HISTORY_LIMIT })
+        limit: size ?? (agentId ? 0 : HISTORY_LIMIT)
       })
       .sort({ lastMessageAt: -1, createdAt: -1 })
       .toArray()

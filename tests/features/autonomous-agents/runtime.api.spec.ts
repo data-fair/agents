@@ -97,8 +97,8 @@ test.describe('Autonomous agent conversations', () => {
 
   test('listing without an agentId returns this person\'s usable threads, skipping empty ones', async () => {
     const agent = await createAgent()
-    // An empty thread is an artifact of the old eager chat, not history: the unified chat creates a
-    // conversation with its first message.
+    // An empty thread is not history: the front-office chat creates one on open, and it says nothing
+    // until someone types.
     await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 'Empty' })
     const used = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 'Used' })).data
     await orgAdmin.post(`/api/conversations/organization/test1/${used.id}/messages`, { content: 'hello' })
@@ -114,6 +114,19 @@ test.describe('Autonomous agent conversations', () => {
 
     // Rows, not documents: a conversation carries its cached recap, which a history never shows.
     assert.deepEqual(Object.keys(list.data.results[0]).sort(), ['agentId', 'createdAt', 'id', 'lastMessageAt', 'messageSeq', 'title'])
+  })
+
+  test('one agent\'s list can be bounded, which is how the chat resumes its latest thread', async () => {
+    const agent = await createAgent()
+    const older = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 'Older' })).data
+    await orgAdmin.post(`/api/conversations/organization/test1/${older.id}/messages`, { content: 'hello' })
+    // Newer but EMPTY: newest by activity, not by creation, so the thread the person was in wins.
+    await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 'Newer' })
+    const latest = (await orgAdmin.get(`/api/conversations/organization/test1?agentId=${agent.id}&size=1`)).data.results
+    assert.deepEqual(latest.map((c: any) => c.id), [older.id])
+    for (const size of ['0', '51', 'x']) {
+      await assert.rejects(orgAdmin.get(`/api/conversations/organization/test1?agentId=${agent.id}&size=${size}`), { status: 400 })
+    }
   })
 
   test('a superadmin in admin mode gets their OWN history, not everyone\'s', async () => {

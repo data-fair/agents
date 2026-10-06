@@ -313,11 +313,13 @@ export function useSessionChat (options: UseSessionChatOptions) {
   }
 
   /**
-   * The most recent conversation of an agent that has something in it.
+   * The conversation of an agent with the latest activity — an empty one only when none has any.
    *
    * Opening the chat of an agent resumes this instead of forcing a new thread: a person coming back
-   * to the assistant expects the thread they were in the middle of, not another one. Empty threads
-   * are skipped — clients used to create one per page load, and they are not conversations anyone had.
+   * to the assistant expects the thread they were in the middle of, not another one. The server sorts
+   * by last message, so a thread that was spoken in wins over a newer empty one; but an empty one is
+   * still resumed when it is all there is. The eager chat creates its thread on open, and skipping
+   * empty ones made every page load of a person who never typed leave one more behind.
    *
    * Best-effort on purpose: an unknown agent or a revoked grant must surface from conversation
    * creation, with the server's own sentence, not from this lookup.
@@ -325,10 +327,10 @@ export function useSessionChat (options: UseSessionChatOptions) {
   const findLatestConversation = async (agentId: string): Promise<{ id: string } | undefined> => {
     if (options.anonymous) return undefined
     try {
-      const res = await $fetch<{ results: Array<{ id: string, messageSeq?: number }> }>(
-        `${$apiPath}/conversations/${options.accountType}/${options.accountId}?agentId=${encodeURIComponent(agentId)}`
+      const res = await $fetch<{ results: Array<{ id: string }> }>(
+        `${$apiPath}/conversations/${options.accountType}/${options.accountId}?agentId=${encodeURIComponent(agentId)}&size=1`
       )
-      return res.results?.find(conversation => (conversation.messageSeq ?? 0) > 0)
+      return res.results?.[0]
     } catch {
       return undefined
     }
@@ -340,9 +342,14 @@ export function useSessionChat (options: UseSessionChatOptions) {
    * The frames of the thread being left can still be in flight — a turn may be streaming — so the
    * abort is not politeness: without it the last deltas of the old thread would land in the new one's
    * transcript. The server's replay on attach replaces all of this for the thread being opened.
+   *
+   * It unbinds the conversation too. A lazy switch to an agent with no thread leaves nothing bound until
+   * the first send, and that send creates a thread only when nothing is bound — a stale id here sent
+   * the first message to the PREVIOUS agent's thread.
    */
   const clearThread = () => {
     agent.abort()
+    conversationId.value = undefined
     turns.value = []
     subAgentPanels.value = {}
     subAgentActivities.value = {}
@@ -398,6 +405,9 @@ export function useSessionChat (options: UseSessionChatOptions) {
     clearThread()
     activeAgentId.value = agentId
     const latest = await findLatestConversation(agentId)
+    // Switched again (or opened a thread) while the lookup ran: binding this answer now would put the
+    // socket on the previous agent's thread under the picker's new selection.
+    if (activeAgentId.value !== agentId || conversationId.value) return
     if (latest) {
       conversationId.value = latest.id
       agent.reset(latest.id)
@@ -528,7 +538,7 @@ export function useSessionChat (options: UseSessionChatOptions) {
     activeAgentId: readonly(activeAgentId),
     /** Open an existing conversation from the history list. */
     openConversation,
-    /** Another agent means a new conversation with it. */
+    /** Change agent: resume its latest thread, or start one (see switchAgent). */
     switchAgent,
     setActiveAgent,
 

@@ -4,10 +4,11 @@
 
 import { expect, type Page } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
-import { clean, superAdmin } from '../../support/axios.ts'
+import { axiosAuth, clean, superAdmin } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
 
 const admin = await superAdmin
+const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
 
 // The unified chat's composer. The wrapper carries the test id; v-textarea with auto-grow renders a
 // second aria-hidden sizer textarea beside the real control.
@@ -232,6 +233,17 @@ test.describe('Autonomous agent chat', () => {
     await expect(page.getByTestId('agent-chat-transcript')).toContainText('hello')
   })
 
+  test('reopening the chat without typing does not pile up empty threads', async ({ page, goToWithAuth }) => {
+    // This chat creates its thread on open. Resuming skipped empty threads, so each visit by someone
+    // who never typed left one more behind.
+    await openChat(goToWithAuth)
+    await page.getByTestId('agent-chat-input').waitFor({ state: 'visible', timeout: 20000 })
+    await openChat(goToWithAuth)
+    await page.getByTestId('agent-chat-input').waitFor({ state: 'visible', timeout: 20000 })
+    await expect.poll(async () => (await admin.get(`/api/conversations/organization/test1?agentId=${agentId}`)).data.results.length)
+      .toBe(1)
+  })
+
   test('a failed turn explains itself instead of leaving an empty bubble', async ({ page, goToWithAuth }) => {
     // 'stream error' is the mock seam for a provider error that does NOT throw — the class of
     // failure that used to end a conversation silently.
@@ -342,5 +354,26 @@ test.describe('Agent switcher and conversation history', () => {
     await page.getByTestId('agent-chat-agent-picker').click()
     await page.getByTestId('agent-chat-agent-option').filter({ hasText: 'History agent' }).click()
     await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
+  })
+
+  test('the first message after switching to an agent with no thread goes to THAT agent', async ({ page, goToWithAuth }) => {
+    // The switch leaves nothing bound until the first send creates the thread. A stale binding sent that
+    // message into the previous agent's thread instead.
+    await openBackOfficeChat(goToWithAuth)
+    await expect(page.getByTestId('agent-chat-agent-picker')).toBeVisible({ timeout: 20000 })
+    await fillAndSend(page, 'hello')
+    await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
+
+    await page.getByTestId('agent-chat-agent-picker').click()
+    await page.getByTestId('agent-chat-agent-option').filter({ hasText: 'Assistant' }).click()
+    await expect(page.getByTestId('agent-chat-transcript')).toHaveCount(0)
+    await fillAndSend(page, 'hello')
+    await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
+
+    const threadsOf = async (id: string) => (await orgAdmin.get(`/api/conversations/organization/test1?agentId=${id}`)).data.results
+    expect((await threadsOf('personal')).length).toBe(1)
+    const [agentThread] = await threadsOf(agentId)
+    const agentMessages = (await orgAdmin.get(`/api/conversations/organization/test1/${agentThread.id}/messages`)).data.results
+    expect(agentMessages.filter((m: any) => m.role === 'user')).toHaveLength(1)
   })
 })
