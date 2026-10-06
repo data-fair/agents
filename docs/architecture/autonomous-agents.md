@@ -75,8 +75,8 @@ quota or credit cap, a moderation block — is still a message saying so. The qu
 beyond the moderation classifier (see [Moderation](./moderation.md)).
 
 Bounds on a turn, all enforced server-side: `STEP_LIMIT`, the repeated-call guard, a per-run credit
-budget, the account credit cap, the whole-turn deadline, and `STREAM_IDLE_TIMEOUT_MS` as the AI SDK's
-`timeout.chunkMs` (see [Loop guards](./loop-guards.md)).
+budget, the account credit cap, the whole-turn deadline, and the idle watchdog (`STREAM_IDLE_TIMEOUT_MS`,
+paused while a tool runs — see [Loop guards](./loop-guards.md)).
 
 ### Recovery
 

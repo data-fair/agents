@@ -244,9 +244,9 @@ It is loop-provided rather than a page tool because a page-side pending call die
 page on the navigation that follows Create — the exact moment that matters.
 
 The browser loop's idle watchdog, and the machinery that suspended it during a wait, are
-gone with the browser loop. The server's idle bound is the AI SDK's `timeout.chunkMs`
-(`STREAM_IDLE_TIMEOUT_MS`, 90s); nothing suspends it during a wait, and no test holds a
-wait past it (the e2e "idle watchdog" case still sets the dead browser-side knob).
+gone with the browser loop. The server's idle watchdog (`STREAM_IDLE_TIMEOUT_MS`, 90s) is paused
+while any tool call is outstanding, a wait included, so a wait is bounded by its own timeout and by
+the turn's (`turnTimeoutSeconds`), not by the watchdog.
 
 ## Cost
 

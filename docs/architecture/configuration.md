@@ -132,14 +132,14 @@ Plain string, unset by default. Shared secret the external `customers` billing s
 SECRET_LIMITS=a-long-random-shared-secret
 ```
 
-### Turn bounds: `AUTONOMOUS_AGENT_RUN_CREDITS`, `AUTONOMOUS_AGENT_RUN_TIMEOUT_SECONDS`, `COMPACTION_PERCENT`
+### Turn bounds: `TURN_CREDITS`, `TURN_TIMEOUT_SECONDS`, `COMPACTION_PERCENT`
 
-JSON-parsed numbers, global rather than per account. Despite the first two names, they bound **every** turn of the server loop (`api/src/conversations/executor.ts`), the in-page chat's personal assistant included:
+JSON-parsed numbers, global rather than per account. They bound **every** turn of the server loop (`api/src/conversations/executor.ts`), the in-page chat's personal assistant as much as an autonomous agent. The first two were named `AUTONOMOUS_AGENT_RUN_CREDITS` / `AUTONOMOUS_AGENT_RUN_TIMEOUT_SECONDS` (config keys `autonomousAgentRunCredits` / `autonomousAgentRunTimeoutSeconds`); the old names are still read, with a deprecation warning, when the new ones are not set (`api/src/config-aliases.ts`):
 
 | Variable | Default | Effect |
 | --- | --- | --- |
-| `AUTONOMOUS_AGENT_RUN_CREDITS` | `500` | per-run credit ceiling; the turn stops with stop reason `budget` once crossed. A runaway ceiling, not a per-turn allowance — the account credit cap still applies on top. |
-| `AUTONOMOUS_AGENT_RUN_TIMEOUT_SECONDS` | `300` | wall-clock ceiling for one turn, so a hung model or MCP server cannot hold the conversation's lock. Also checked at boot against the NHI assertion TTL (`assertSessionOutlivesRun`). |
+| `TURN_CREDITS` | `500` | per-run credit ceiling; the turn stops with stop reason `budget` once crossed. A runaway ceiling, not a per-turn allowance — the account credit cap still applies on top. |
+| `TURN_TIMEOUT_SECONDS` | `300` | wall-clock ceiling for one turn, so a hung model or MCP server cannot hold the conversation's lock. Also checked at boot against the NHI assertion TTL (`assertSessionOutlivesRun`). |
 | `COMPACTION_PERCENT` | `70` | share of the assistant model's context window above which history is compacted (see [Context management](./context-management.md)). |
 
 ### `MCP_SERVERS`

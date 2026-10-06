@@ -24,7 +24,7 @@ flowchart LR
 
 ## 1. Flat step backstop — `STEP_LIMIT = 100`
 
-One generous constant for both loops. It is **not** a spend control: [quotas](./quotas-usage.md) are checked before the turn, the loop tracks the run's credit budget (`autonomousAgentRunCredits`) in memory and stops between steps once it is crossed, the account's credit cap is re-read after each step that called tools (i.e. only when another step follows), and the person always has Stop (an `abort` frame on the agent session, which aborts the run). Those are what bound cost. A third `stopWhen` condition (`() => budgetExceeded`) sits beside the two guards below for that. The step limit only has to stop a runaway the repeat guard cannot recognise — typically a tool whose output changes on every call.
+One generous constant for both loops. It is **not** a spend control: [quotas](./quotas-usage.md) are checked before the turn, the loop tracks the run's credit budget (`turnCredits`) in memory and stops between steps once it is crossed, the account's credit cap is re-read after each step that called tools (i.e. only when another step follows), and the person always has Stop (an `abort` frame on the agent session, which aborts the run). Those are what bound cost. A third `stopWhen` condition (`() => budgetExceeded`) sits beside the two guards below for that. The step limit only has to stop a runaway the repeat guard cannot recognise — typically a tool whose output changes on every call.
 
 100 matches the runaway backstops of harnesses built for long runs (OpenHands and browser-use default to 100, mini-swe-agent to 250, Google ADK to 500 LLM calls) and sits well above observed successful trajectories: browser tasks run 10–50 steps, coding agents 50–180, form filling a few dozen. Frameworks with much lower defaults (OpenAI Agents SDK 10, AI SDK `ToolLoopAgent` 20, LangGraph.js 25) assume one short loop per call; LangGraph Python raised its default from 25 to 1000 for exactly the reason above.
 
@@ -50,7 +50,7 @@ The nudge is the mildest intervention that works: telling the model plainly what
 
 On the lead loop the same `prepareStep` hook first refreshes the live tool set when the page's tools changed mid-turn, then returns `loopGuardPrepareStep(options)`. Sub-agent workers are built with the two `stopWhen` guards only and no `prepareStep`, so today a looping worker is stopped at 5 without first being nudged at 3.
 
-The same module holds `STREAM_IDLE_TIMEOUT_MS` (90 s), passed to the lead's `streamText` as `timeout.chunkMs`: an idle watchdog rather than a total ceiling, so a provider that accepts a request and then goes silent does not hold the conversation until the run's wall-clock timeout (`autonomousAgentRunTimeoutSeconds`, also passed as `timeout.totalMs`).
+The same module holds `STREAM_IDLE_TIMEOUT_MS` (90 s) and `createIdleWatchdog`: an idle watchdog rather than a total ceiling, so a provider that accepts a request and then goes silent does not hold the conversation until the turn's wall-clock timeout (`turnTimeoutSeconds`, also passed to `streamText` as `timeout.totalMs`). It is re-armed on every stream part and PAUSED while any tool call is outstanding: the AI SDK's own `timeout.chunkMs`, which it replaced, counted a running tool as silence, so a `wait_for_user_action` past 90 s or a slow catalog query was aborted as a stuck provider.
 
 ## 3. Never stop silently
 
