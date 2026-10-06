@@ -94,4 +94,19 @@ test.describe('Purging a conversation', () => {
     await admin.delete(`/api/review/${OWNER}?userId=test-standalone1`)
     assert.deepEqual(await counts(conversationId), { conversations: 0, messages: 0, runs: 0 })
   })
+
+  test('a consented thread is reviewable for 30 days from its last message, then not', async () => {
+    // What the person consented to ("stored for 30 days for admin review"). A thread they keep is
+    // theirs for good, but it used to stay readable by the organization for good too.
+    const { conversationId } = await runTurn(user, OWNER)
+    const listed = async () => (await admin.get(`/api/review/${OWNER}`)).data.results.map((c: any) => c.conversationId ?? c.id)
+    assert.ok((await listed()).includes(conversationId))
+
+    const longAgo = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString()
+    await db.collection('conversations').updateOne({ id: conversationId }, { $set: { lastMessageAt: longAgo } })
+    assert.ok(!(await listed()).includes(conversationId), 'out of the window: not listed')
+    await assert.rejects(admin.get(`/api/review/${OWNER}/${conversationId}`), { status: 404 })
+    // ...and still the person's own thread.
+    assert.equal((await user.get(`/api/conversations/${OWNER}/${conversationId}/messages`)).status, 200)
+  })
 })

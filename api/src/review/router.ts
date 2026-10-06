@@ -27,6 +27,7 @@ import { getSettings } from '../settings/service.ts'
 import { partsText } from '../conversations/operations.ts'
 import { purgeConversation } from '../conversations/service.ts'
 import { buildConversationExport, exportFilename } from './operations.ts'
+import { retentionCutoff } from '../retention.ts'
 
 const router = Router()
 export default router
@@ -51,7 +52,12 @@ const assertMayReview = async (req: any, owner: AccountKeys) => {
 const reviewableFilter = (owner: AccountKeys) => ({
   'owner.type': owner.type,
   'owner.id': owner.id,
-  consentedToReview: true
+  consentedToReview: true,
+  // The window the person consented to: reviewable for RETENTION_SECONDS from the exchange, whether or
+  // not they keep the thread. Without it a thread they never deleted stayed readable by the
+  // organization for good, while the setting promised 30 days. (An archived thread is also purged
+  // whole when its window closes — purgeExpiredArchives.)
+  lastMessageAt: { $gte: retentionCutoff().toISOString() }
 })
 
 /**
