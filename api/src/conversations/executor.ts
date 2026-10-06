@@ -563,7 +563,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
         if (accountCap) {
           budgetExceeded = true
           stopDetail = `${accountCap.reason} (${accountCap.scope}, ${accountCap.period} limit ${accountCap.limit}, used ${accountCap.usage}). Resets at ${accountCap.resetsAt}.`
-        } else if (credits >= config.autonomousAgentRunCredits) {
+        } else if (credits >= config.turnCredits) {
           budgetExceeded = true
         }
         if (budgetExceeded) workerAbort.abort()
@@ -640,7 +640,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
     // bounds only the model stream. The IDLE bound is ours (idleWatchdog below), not the SDK's
     // `chunkMs`, which counted a running tool as silence.
     timeout: {
-      totalMs: config.autonomousAgentRunTimeoutSeconds * 1000
+      totalMs: config.turnTimeoutSeconds * 1000
     },
     onStepFinish: async (step) => {
       const usage = step.usage
@@ -703,7 +703,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
       if (accountCap) {
         budgetExceeded = true
         stopDetail = `${accountCap.reason} (${accountCap.scope}, ${accountCap.period} limit ${accountCap.limit}, used ${accountCap.usage}). Resets at ${accountCap.resetsAt}.`
-      } else if (credits >= config.autonomousAgentRunCredits) {
+      } else if (credits >= config.turnCredits) {
         budgetExceeded = true
       }
     },
@@ -1068,8 +1068,8 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
   const deadline = new Promise<never>((_resolve, reject) => {
     timeout = setTimeout(() => {
       abortController.abort(new Error('run timeout'))
-      reject(new Error(`run exceeded its ${config.autonomousAgentRunTimeoutSeconds}s ceiling`))
-    }, config.autonomousAgentRunTimeoutSeconds * 1000)
+      reject(new Error(`run exceeded its ${config.turnTimeoutSeconds}s ceiling`))
+    }, config.turnTimeoutSeconds * 1000)
   })
 
   let message: ConversationMessage | undefined

@@ -7,13 +7,13 @@ export const schemaExports: string[]
  */
 export type CompactionPercent = number;
 /**
- * Credits one autonomous agent turn may spend before it is stopped. The account credit cap still applies on top of this.
+ * Credits one turn may spend before it is stopped — any turn, the chat's as well as an autonomous agent's. The account credit cap still applies on top of this. Formerly autonomousAgentRunCredits.
  */
-export type AutonomousAgentRunCreditBudget = number;
+export type TurnCreditBudget = number;
 /**
- * Wall-clock ceiling for one autonomous agent turn, so a hanging model or MCP server cannot hold a conversation's lock.
+ * Wall-clock ceiling for one turn, so a hanging model or MCP server cannot hold a conversation's lock. Formerly autonomousAgentRunTimeoutSeconds.
  */
-export type AutonomousAgentRunTimeoutSeconds = number;
+export type TurnTimeoutSeconds = number;
 
 export type ApiConfig = {
   mongoUrl: string;
@@ -102,8 +102,8 @@ export type ApiConfig = {
   get?: unknown;
   has?: unknown;
   compactionPercent: CompactionPercent;
-  autonomousAgentRunCredits: AutonomousAgentRunCreditBudget;
-  autonomousAgentRunTimeoutSeconds: AutonomousAgentRunTimeoutSeconds;
+  turnCredits: TurnCreditBudget;
+  turnTimeoutSeconds: TurnTimeoutSeconds;
 }
 /**
  * This interface was referenced by `ApiConfig`'s JSON-Schema

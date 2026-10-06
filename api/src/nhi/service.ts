@@ -133,7 +133,7 @@ export const getAutonomousAgentSession = async (autonomousAgent: EnrolledAutonom
   // life of a credential that is handed to every `nhi-session` MCP server, and the short TTL is the
   // main thing bounding that blast radius. If the per-client_id exchange rate limit ever becomes the
   // binding constraint, raising the TTL is the lever, with that trade stated.
-  if (cached && !shouldRefreshSession(cached.expiresAtMs, Date.now(), config.autonomousAgentRunTimeoutSeconds * 1000)) {
+  if (cached && !shouldRefreshSession(cached.expiresAtMs, Date.now(), config.turnTimeoutSeconds * 1000)) {
     return cached.cookieHeader
   }
   const session = await exchangeForSession(autonomousAgent)

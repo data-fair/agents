@@ -50,8 +50,8 @@ export default {
   // first value here was 5 credits — €0.04 — which a single step against a €2.50/M model
   // with a 30k-token context blows immediately, so every multi-tool turn would have ended
   // at 'budget' on step one. This is a ceiling for a runaway, not a per-turn allowance.
-  autonomousAgentRunCredits: 500,
+  turnCredits: 500,
   // Wall-clock ceiling for one turn. A model or MCP server that hangs must not hold a
   // conversation's lock until the lock's own TTL expires.
-  autonomousAgentRunTimeoutSeconds: 300
+  turnTimeoutSeconds: 300
 }

@@ -26,12 +26,13 @@ export default {
     __name: 'COMPACTION_PERCENT',
     __format: 'json'
   },
-  autonomousAgentRunCredits: {
-    __name: 'AUTONOMOUS_AGENT_RUN_CREDITS',
+  // Formerly AUTONOMOUS_AGENT_RUN_CREDITS / _TIMEOUT_SECONDS, still read (see api/src/config-aliases.ts).
+  turnCredits: {
+    __name: 'TURN_CREDITS',
     __format: 'json'
   },
-  autonomousAgentRunTimeoutSeconds: {
-    __name: 'AUTONOMOUS_AGENT_RUN_TIMEOUT_SECONDS',
+  turnTimeoutSeconds: {
+    __name: 'TURN_TIMEOUT_SECONDS',
     __format: 'json'
   }
 }

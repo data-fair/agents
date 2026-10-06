@@ -9,7 +9,7 @@
  * WHAT IT NO LONGER PROVES, and why. It used to shorten the watchdog with
  * `sessionStorage['agent-chat-idle-timeout']` and then assert the timeout error. That knob belonged to
  * the browser loop; the watchdog is now server-side — `STREAM_IDLE_TIMEOUT_MS` (90s) passed as
- * `timeout.chunkMs` to `streamText`, with `autonomousAgentRunTimeoutSeconds` (300s) as the outer
+ * `timeout.chunkMs` to `streamText`, with `turnTimeoutSeconds` (300s) as the outer
  * ceiling — and neither is tunable per request, so firing either one inside an e2e would mean a
  * 90-second test. The test kept the assertion and lost the mechanism: it set a key nothing reads and
  * then waited 10s for a timeout that was never going to come at 90.

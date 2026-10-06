@@ -84,7 +84,7 @@ export const start = async () => {
   // request-time dynamic import of ui-config.ts, so a cross-module invariant there takes the UI down
   // with it. config.ts validates config SHAPE; this is a relationship between an api constant and a
   // config value that only the api runtime cares about.
-  assertSessionOutlivesRun(ASSERTION_TTL_SECONDS, config.autonomousAgentRunTimeoutSeconds)
+  assertSessionOutlivesRun(ASSERTION_TTL_SECONDS, config.turnTimeoutSeconds)
 
   await recoverOwnerlessRuns()
 

@@ -4,7 +4,7 @@
 "use strict";
 export const validate = validate14;
 export default validate14;
-const schema16 = {"$id":"https://github.com/data-fair/agents/api/config","x-exports":["types","validate"],"x-ajv":{"coerceTypes":"array"},"type":"object","title":"Api config","additionalProperties":false,"required":["privateDirectoryUrl","mongoUrl","port","tmpDir","observer","secretKeys","cipherPassword","requireAnonymousActionToken","eurosPerCredit","defaultLimits","compactionPercent","autonomousAgentRunCredits","autonomousAgentRunTimeoutSeconds"],"$defs":{"modelRef":{"type":"object","additionalProperties":false,"required":["provider","id"],"properties":{"provider":{"type":"string"},"id":{"type":"string"}}}},"properties":{"mongoUrl":{"type":"string"},"port":{"type":"number"},"tmpDir":{"type":"string"},"privateDirectoryUrl":{"type":"string","pattern":"^https?://"},"privateEventsUrl":{"type":"string"},"secretKeys":{"type":"object","additionalProperties":false,"properties":{"events":{"type":"string"},"limits":{"type":"string"}}},"providers":{"type":"array","default":[],"items":{"type":"object","additionalProperties":false,"required":["type","id","name"],"properties":{"type":{"type":"string","enum":["openai","anthropic","google","mistral","openrouter","ollama","scaleway","openai-compatible","mock"]},"id":{"type":"string"},"name":{"type":"string"},"enabled":{"type":"boolean","default":true},"apiKey":{"type":"string"},"baseURL":{"type":"string"},"projectId":{"type":"string"},"compatibility":{"type":"string","enum":["default","compatible"]}}}},"models":{"type":"array","default":[],"items":{"type":"object","additionalProperties":false,"required":["id","name","provider","usage","inputPricePerMillion","outputPricePerMillion"],"properties":{"id":{"type":"string"},"name":{"type":"string"},"provider":{"type":"string"},"usage":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","enum":["assistant","tools","summarizer","moderator"]}},"contextWindow":{"type":"number","minimum":0},"inputPricePerMillion":{"type":"number","minimum":0},"outputPricePerMillion":{"type":"number","minimum":0},"cachedInputPricePerMillion":{"type":"number","minimum":0}}}},"mcpServers":{"type":"array","default":[],"items":{"type":"object","additionalProperties":false,"required":["id","name","url","auth"],"properties":{"id":{"type":"string"},"name":{"type":"string"},"description":{"type":"string"},"url":{"type":"string"},"auth":{"type":"string","enum":["nhi-session","none","apiKey"]},"apiKeyHeader":{"type":"string"},"apiKey":{"type":"string"}}}},"autonomousAgentsRequireAdminMode":{"type":"boolean","default":true},"nhiSigningKey":{"type":"object","required":["kty","crv","x","y","d","kid"],"properties":{"kty":{"type":"string"},"crv":{"type":"string"},"x":{"type":"string"},"y":{"type":"string"},"d":{"type":"string"},"kid":{"type":"string"},"alg":{"type":"string"}}},"defaultModels":{"type":"object","additionalProperties":false,"default":{},"properties":{"assistant":{"$ref":"#/$defs/modelRef"},"tools":{"$ref":"#/$defs/modelRef"},"summarizer":{"$ref":"#/$defs/modelRef"},"moderator":{"$ref":"#/$defs/modelRef"}}},"eurosPerCredit":{"type":"number","exclusiveMinimum":0,"default":0.008},"defaultLimits":{"type":"object","additionalProperties":false,"default":{"credits":0},"properties":{"credits":{"type":"number","default":0}}},"observer":{"type":"object","properties":{"active":{"type":"boolean"},"port":{"type":"number"}}},"upgradeRoot":{"type":"string"},"cipherPassword":{"type":"string"},"requireAnonymousActionToken":{"type":"boolean","default":true},"util":{},"get":{},"has":{},"compactionPercent":{"type":"number","title":"Compaction percent","description":"Share of the assistant model's context window above which conversation history is compacted.","default":70,"minimum":10,"maximum":100},"autonomousAgentRunCredits":{"type":"number","title":"Autonomous agent run credit budget","description":"Credits one autonomous agent turn may spend before it is stopped. The account credit cap still applies on top of this.","default":5,"minimum":0},"autonomousAgentRunTimeoutSeconds":{"type":"number","title":"Autonomous agent run timeout (seconds)","description":"Wall-clock ceiling for one autonomous agent turn, so a hanging model or MCP server cannot hold a conversation's lock.","default":300,"minimum":10}}};
+const schema16 = {"$id":"https://github.com/data-fair/agents/api/config","x-exports":["types","validate"],"x-ajv":{"coerceTypes":"array"},"type":"object","title":"Api config","additionalProperties":false,"required":["privateDirectoryUrl","mongoUrl","port","tmpDir","observer","secretKeys","cipherPassword","requireAnonymousActionToken","eurosPerCredit","defaultLimits","compactionPercent","turnCredits","turnTimeoutSeconds"],"$defs":{"modelRef":{"type":"object","additionalProperties":false,"required":["provider","id"],"properties":{"provider":{"type":"string"},"id":{"type":"string"}}}},"properties":{"mongoUrl":{"type":"string"},"port":{"type":"number"},"tmpDir":{"type":"string"},"privateDirectoryUrl":{"type":"string","pattern":"^https?://"},"privateEventsUrl":{"type":"string"},"secretKeys":{"type":"object","additionalProperties":false,"properties":{"events":{"type":"string"},"limits":{"type":"string"}}},"providers":{"type":"array","default":[],"items":{"type":"object","additionalProperties":false,"required":["type","id","name"],"properties":{"type":{"type":"string","enum":["openai","anthropic","google","mistral","openrouter","ollama","scaleway","openai-compatible","mock"]},"id":{"type":"string"},"name":{"type":"string"},"enabled":{"type":"boolean","default":true},"apiKey":{"type":"string"},"baseURL":{"type":"string"},"projectId":{"type":"string"},"compatibility":{"type":"string","enum":["default","compatible"]}}}},"models":{"type":"array","default":[],"items":{"type":"object","additionalProperties":false,"required":["id","name","provider","usage","inputPricePerMillion","outputPricePerMillion"],"properties":{"id":{"type":"string"},"name":{"type":"string"},"provider":{"type":"string"},"usage":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","enum":["assistant","tools","summarizer","moderator"]}},"contextWindow":{"type":"number","minimum":0},"inputPricePerMillion":{"type":"number","minimum":0},"outputPricePerMillion":{"type":"number","minimum":0},"cachedInputPricePerMillion":{"type":"number","minimum":0}}}},"mcpServers":{"type":"array","default":[],"items":{"type":"object","additionalProperties":false,"required":["id","name","url","auth"],"properties":{"id":{"type":"string"},"name":{"type":"string"},"description":{"type":"string"},"url":{"type":"string"},"auth":{"type":"string","enum":["nhi-session","none","apiKey"]},"apiKeyHeader":{"type":"string"},"apiKey":{"type":"string"}}}},"autonomousAgentsRequireAdminMode":{"type":"boolean","default":true},"nhiSigningKey":{"type":"object","required":["kty","crv","x","y","d","kid"],"properties":{"kty":{"type":"string"},"crv":{"type":"string"},"x":{"type":"string"},"y":{"type":"string"},"d":{"type":"string"},"kid":{"type":"string"},"alg":{"type":"string"}}},"defaultModels":{"type":"object","additionalProperties":false,"default":{},"properties":{"assistant":{"$ref":"#/$defs/modelRef"},"tools":{"$ref":"#/$defs/modelRef"},"summarizer":{"$ref":"#/$defs/modelRef"},"moderator":{"$ref":"#/$defs/modelRef"}}},"eurosPerCredit":{"type":"number","exclusiveMinimum":0,"default":0.008},"defaultLimits":{"type":"object","additionalProperties":false,"default":{"credits":0},"properties":{"credits":{"type":"number","default":0}}},"observer":{"type":"object","properties":{"active":{"type":"boolean"},"port":{"type":"number"}}},"upgradeRoot":{"type":"string"},"cipherPassword":{"type":"string"},"requireAnonymousActionToken":{"type":"boolean","default":true},"util":{},"get":{},"has":{},"compactionPercent":{"type":"number","title":"Compaction percent","description":"Share of the assistant model's context window above which conversation history is compacted.","default":70,"minimum":10,"maximum":100},"turnCredits":{"type":"number","title":"Turn credit budget","description":"Credits one turn may spend before it is stopped — any turn, the chat's as well as an autonomous agent's. The account credit cap still applies on top of this. Formerly autonomousAgentRunCredits.","default":5,"minimum":0},"turnTimeoutSeconds":{"type":"number","title":"Turn timeout (seconds)","description":"Wall-clock ceiling for one turn, so a hanging model or MCP server cannot hold a conversation's lock. Formerly autonomousAgentRunTimeoutSeconds.","default":300,"minimum":10}}};
 const schema17 = {"type":"object","additionalProperties":false,"required":["provider","id"],"properties":{"provider":{"type":"string"},"id":{"type":"string"}}};
 const func2 = Object.prototype.hasOwnProperty;
 const pattern0 = new RegExp("^https?://", "u");
@@ -124,8 +124,8 @@ vErrors.push(err10);
 }
 errors++;
 }
-if(data.autonomousAgentRunCredits === undefined){
-const err11 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "autonomousAgentRunCredits"},message:"must have required property '"+"autonomousAgentRunCredits"+"'"};
+if(data.turnCredits === undefined){
+const err11 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "turnCredits"},message:"must have required property '"+"turnCredits"+"'"};
 if(vErrors === null){
 vErrors = [err11];
 }
@@ -134,8 +134,8 @@ vErrors.push(err11);
 }
 errors++;
 }
-if(data.autonomousAgentRunTimeoutSeconds === undefined){
-const err12 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "autonomousAgentRunTimeoutSeconds"},message:"must have required property '"+"autonomousAgentRunTimeoutSeconds"+"'"};
+if(data.turnTimeoutSeconds === undefined){
+const err12 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "turnTimeoutSeconds"},message:"must have required property '"+"turnTimeoutSeconds"+"'"};
 if(vErrors === null){
 vErrors = [err12];
 }
@@ -3084,8 +3084,8 @@ errors++;
 }
 }
 }
-if(data.autonomousAgentRunCredits !== undefined){
-let data70 = data.autonomousAgentRunCredits;
+if(data.turnCredits !== undefined){
+let data70 = data.turnCredits;
 if(!(typeof data70 == "number")){
 let dataType58 = typeof data70;
 let coerced58 = undefined;
@@ -3102,7 +3102,7 @@ if(dataType58 == "boolean" || data70 === null
 coerced58 = +data70;
 }
 else {
-const err135 = {instancePath:instancePath+"/autonomousAgentRunCredits",schemaPath:"#/properties/autonomousAgentRunCredits/type",keyword:"type",params:{type: "number"},message:"must be number"};
+const err135 = {instancePath:instancePath+"/turnCredits",schemaPath:"#/properties/turnCredits/type",keyword:"type",params:{type: "number"},message:"must be number"};
 if(vErrors === null){
 vErrors = [err135];
 }
@@ -3115,13 +3115,13 @@ errors++;
 if(coerced58 !== undefined){
 data70 = coerced58;
 if(data !== undefined){
-data["autonomousAgentRunCredits"] = coerced58;
+data["turnCredits"] = coerced58;
 }
 }
 }
 if(typeof data70 == "number"){
 if(data70 < 0 || isNaN(data70)){
-const err136 = {instancePath:instancePath+"/autonomousAgentRunCredits",schemaPath:"#/properties/autonomousAgentRunCredits/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
+const err136 = {instancePath:instancePath+"/turnCredits",schemaPath:"#/properties/turnCredits/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
 if(vErrors === null){
 vErrors = [err136];
 }
@@ -3132,8 +3132,8 @@ errors++;
 }
 }
 }
-if(data.autonomousAgentRunTimeoutSeconds !== undefined){
-let data71 = data.autonomousAgentRunTimeoutSeconds;
+if(data.turnTimeoutSeconds !== undefined){
+let data71 = data.turnTimeoutSeconds;
 if(!(typeof data71 == "number")){
 let dataType59 = typeof data71;
 let coerced59 = undefined;
@@ -3150,7 +3150,7 @@ if(dataType59 == "boolean" || data71 === null
 coerced59 = +data71;
 }
 else {
-const err137 = {instancePath:instancePath+"/autonomousAgentRunTimeoutSeconds",schemaPath:"#/properties/autonomousAgentRunTimeoutSeconds/type",keyword:"type",params:{type: "number"},message:"must be number"};
+const err137 = {instancePath:instancePath+"/turnTimeoutSeconds",schemaPath:"#/properties/turnTimeoutSeconds/type",keyword:"type",params:{type: "number"},message:"must be number"};
 if(vErrors === null){
 vErrors = [err137];
 }
@@ -3163,13 +3163,13 @@ errors++;
 if(coerced59 !== undefined){
 data71 = coerced59;
 if(data !== undefined){
-data["autonomousAgentRunTimeoutSeconds"] = coerced59;
+data["turnTimeoutSeconds"] = coerced59;
 }
 }
 }
 if(typeof data71 == "number"){
 if(data71 < 10 || isNaN(data71)){
-const err138 = {instancePath:instancePath+"/autonomousAgentRunTimeoutSeconds",schemaPath:"#/properties/autonomousAgentRunTimeoutSeconds/minimum",keyword:"minimum",params:{comparison: ">=", limit: 10},message:"must be >= 10"};
+const err138 = {instancePath:instancePath+"/turnTimeoutSeconds",schemaPath:"#/properties/turnTimeoutSeconds/minimum",keyword:"minimum",params:{comparison: ">=", limit: 10},message:"must be >= 10"};
 if(vErrors === null){
 vErrors = [err138];
 }

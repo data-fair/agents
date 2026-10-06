@@ -247,7 +247,7 @@ test.describe('the stream idle watchdog', () => {
 
   test('it is an idle bound, so it must be well under the whole-turn ceiling', () => {
     // If it were not, it could never fire before the wall clock and would be decoration.
-    const runTimeoutMs = 300_000 // api/config/default.js autonomousAgentRunTimeoutSeconds
+    const runTimeoutMs = 300_000 // api/config/default.js turnTimeoutSeconds
     assert.ok(STREAM_IDLE_TIMEOUT_MS < runTimeoutMs, 'an idle watchdog that outlasts the ceiling is dead code')
     assert.equal(STREAM_IDLE_TIMEOUT_MS, 90_000)
   })

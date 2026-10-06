@@ -26,7 +26,7 @@ const agentBody = (over: any = {}) => ({
   title: 'Runtime probe', persona: 'You answer briefly.', mcpServers: [], enabled: true, ...over
 })
 
-/** api/config/default.js autonomousAgentRunCredits — the per-run ceiling this test must NOT trip. */
+/** api/config/default.js turnCredits — the per-run ceiling this test must NOT trip. */
 const PER_RUN_CREDIT_BUDGET = 500
 
 const createAgent = async (over: any = {}) =>
