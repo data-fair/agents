@@ -58,7 +58,7 @@ for (const simCase of selected) {
         await seedSettings(ASSISTANT_MODEL, TOOLS_MODEL, owner)
         // Seeded here rather than assumed present: `npm run dev-fixtures` would be an unstated
         // prerequisite, and its agent lives on an account deliberately wired to the mock model.
-        await seedAutonomousAgent(simCase.route, user)
+        await seedAutonomousAgent(simCase.route, user, simCase.agent)
       } else {
         await seedSettings(ASSISTANT_MODEL, TOOLS_MODEL)
       }
@@ -67,7 +67,10 @@ for (const simCase of selected) {
       // as anyone else would fail every case with "no provider configured".
       // A case may name its own user: one driving an existing autonomous agent needs someone who may
       // instruct it, which the seeded owner is not.
-      await goToWithAuth(simCase.route, user)
+      // Into the agent's ORGANIZATION when it has one: a role is resolved against the session's active
+      // account, so an instructor left on their personal account counted as `external` to the agent's
+      // org — the role its quotas and moderation key on.
+      await goToWithAuth(simCase.route, user, owner.type === 'organization' ? { org: owner.id } : undefined)
       const root = simCase.embedded ? page.frameLocator('iframe') : page
       // The driver owns the composer AND the off-limits list, so the two cannot disagree about what
       // "the composer" is called.

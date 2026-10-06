@@ -10,6 +10,7 @@
 
 import type { SimulationCase, ParsedExport } from '@data-fair/lib-agents-sim'
 import { interruptedWaitResult } from '../../api/src/conversations/interrupted-turn.ts'
+import type { SimulatedAgentConfig } from '../runner/settings.ts'
 
 /**
  * What must have HAPPENED for a run to have tested its case — not what the product should do, which
@@ -25,7 +26,9 @@ export interface Premise {
 // The package's SimulationCase stays primitives-only; embedded is host-specific
 // wiring (whether the chat runs inside an iframe) that only this repo's runner
 // needs to know about, and so is a premise, which reads this service's export.
-export type LocalCase = SimulationCase & { embedded?: boolean, premise?: Premise }
+// `agent` configures the autonomous agent an `autonomous-agent` case drives (see
+// seedAutonomousAgent); any field left out is the default agent's.
+export type LocalCase = SimulationCase & { embedded?: boolean, premise?: Premise, agent?: SimulatedAgentConfig }
 
 /** The person wrote while a wait was pending: a wait settled with the interruption, in the API's own words. */
 const INTERRUPTED_WAIT = interruptedWaitResult('').split(' (')[0]
@@ -97,6 +100,10 @@ export const cases: LocalCase[] = [
     route: '/agents/organization/test1/chat?agentId=test-fixture',
     surface: 'autonomous-agent',
     user: 'test1-user1',
+    // A configured agent's tools are a deliberate selection, as an admin would make it: the dev
+    // server's other tools (wipe_everything, explode…) are fixtures for the api suite, and judged
+    // runs flagged them as noise the agent had no business being offered.
+    agent: { mcpServers: [{ serverId: 'dev-review-session-mcp', toolFilter: ['list_road_closures'] }] },
     persona: 'You are an operations manager at a mid-sized French city. You are comfortable asking for outcomes but you have never heard of MCP, tools, or schemas, and you will not use those words. You say what you need in plain language and you expect the assistant to do the work.',
     // Reachable ON PURPOSE, and verifiable: `list_road_closures` really does return rows for the city
     // centre, so an agent that refuses, paraphrases or invents is distinguishable from one that calls

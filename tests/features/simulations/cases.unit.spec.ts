@@ -10,6 +10,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { cases, spokeDuringWait } from '../../../simulations/cases/index.ts'
+import devConfig from '../../../api/config/development.js'
 import { parseConversationExport } from '../../../lib-sim/conversation-export.ts'
 import { buildConversationExport } from '../../../api/src/review/operations.ts'
 import { interruptedWaitResult } from '../../../api/src/conversations/interrupted-turn.ts'
@@ -42,6 +43,20 @@ test.describe('case registry', () => {
         assert.ok(c.route.startsWith('/agents/_dev/'), `${c.name}: route ${c.route}`)
       }
       assert.ok(c.maxTurns >= 2 && c.maxTurns <= 12, `${c.name}: maxTurns ${c.maxTurns}`)
+    }
+  })
+
+  test('an agent configuration is for autonomous-agent cases, and names servers a run can reach', () => {
+    const catalog = new Set((devConfig as any).mcpServers.map((server: { id: string }) => server.id))
+    for (const c of cases) {
+      if (!c.agent) continue
+      assert.equal(c.surface, 'autonomous-agent', `${c.name}: only an autonomous-agent case seeds an agent`)
+      for (const ref of c.agent.mcpServers ?? []) {
+        assert.ok(catalog.has(ref.serverId), `${c.name}: ${ref.serverId} is not in the dev catalog`)
+        // The per-spec fixture (dev-*-mcp without review) is not running during a simulation; only the
+        // long-running `npm run dev-mcp` is.
+        assert.match(ref.serverId, /^dev-review-/, `${c.name}: ${ref.serverId} is not served during a simulation`)
+      }
     }
   })
 

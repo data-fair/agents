@@ -140,8 +140,31 @@ export function parseAutonomousAgentRoute (route: string) {
   return { owner: { type: match[1], id: match[2] }, agentId }
 }
 
+/** What a case may set about the autonomous agent it drives; anything it leaves out is the default's. */
+export interface SimulatedAgentConfig {
+  title?: string
+  persona?: string
+  instructions?: string
+  /** Catalog entries from `api/config/development.js`, each optionally narrowed by a toolFilter. */
+  mcpServers?: Array<{ serverId: string, toolFilter?: string[] }>
+}
+
+/** The agent a case gets when it configures nothing. */
+export const DEFAULT_SIMULATED_AGENT: Required<SimulatedAgentConfig> = {
+  title: 'Simulated autonomous agent',
+  persona: 'You are a helpful data assistant. You answer briefly and you say plainly when you cannot do something.',
+  instructions: 'Prefer calling a tool over guessing. If a tool fails or you have no tool for what is asked, say so rather than inventing a result.',
+  // The long-running review server (npm run dev-mcp), not the per-spec fixture: a simulation is
+  // not a spec and nothing would be listening on the fixture's port.
+  mcpServers: [{ serverId: 'dev-review-session-mcp' }]
+}
+
 /**
  * Create the autonomous agent a case drives, enrolled with the fixture NHI and granting `instructor`.
+ *
+ * Configured per case: what an agent is given — its persona, its instructions, which servers and tools —
+ * is what shapes its behaviour, so it is what a case should be able to vary. Each field the case sets
+ * replaces the default's; the identity, the instructor grant and `enabled` are the runner's.
  *
  * The sim seeds its own rather than relying on `npm run dev-fixtures`: that would be an unstated
  * prerequisite, it would point the run at organization/dev1 whose settings are deliberately the mock
@@ -150,7 +173,7 @@ export function parseAutonomousAgentRoute (route: string) {
  * The NHI's subject is pinned to `autonomous-agent:<agentId>`, so the agent id is not free — it must
  * be the one the fixture identity names (dev-fixtures.unit.spec.ts pins that pairing).
  */
-export async function seedAutonomousAgent (route: string, instructorUserId: string) {
+export async function seedAutonomousAgent (route: string, instructorUserId: string, agent: SimulatedAgentConfig = {}) {
   const { superAdmin } = await import('../../tests/support/axios.ts')
   const admin = await superAdmin
   const { owner, agentId } = parseAutonomousAgentRoute(route)
@@ -162,12 +185,8 @@ export async function seedAutonomousAgent (route: string, instructorUserId: stri
     siteUrl,
     issuer: `${siteUrl}/agents/api/nhi`,
     autonomousAgent: {
-      title: 'Simulated autonomous agent',
-      persona: 'You are a helpful data assistant. You answer briefly and you say plainly when you cannot do something.',
-      instructions: 'Prefer calling a tool over guessing. If a tool fails or you have no tool for what is asked, say so rather than inventing a result.',
-      // The long-running review server (npm run dev-mcp), not the per-spec fixture: a simulation is
-      // not a spec and nothing would be listening on the fixture's port.
-      mcpServers: [{ serverId: 'dev-review-session-mcp' }],
+      ...DEFAULT_SIMULATED_AGENT,
+      ...agent,
       // A listed instructor, so the case can be driven by someone who is NOT an org admin — which is
       // also the only kind of user the login fixture can address here (it derives <id>@test.com).
       instructors: [{ mode: 'member', type: 'user', id: instructorUserId }],
