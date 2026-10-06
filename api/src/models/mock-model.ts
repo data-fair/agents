@@ -251,6 +251,8 @@ function processMockPrompt (lastMessage: string, prompt: string | Array<any>): M
         calls,
         results: results.length,
         images,
+        // How many of the person's messages reached the model: a moderation-struck exchange must not.
+        userMessages: messages.filter((m: any) => m.role === 'user').length,
         interrupted: results.filter((r: string) => r.startsWith('Interrupted')),
         reminder: /You were waiting for the person/.test(lastMessage)
       })
@@ -486,6 +488,10 @@ const mockDelay = async (ms: number, signal?: AbortSignal): Promise<void> => {
 
 function processForModel (modelId: string, options: { prompt: string | Array<any>, tools?: Array<any> }): MockPromptResult {
   const lastMessage = getLastUserMessage(options)
+  // The classifier only ever JUDGES: its prompt wraps the person's message, so a directive meant for
+  // the assistant ('stall', 'stream error'…) would otherwise hit the moderator too — a message ending in
+  // 'stall' stalled the classifier itself for 30s, and no late verdict could ever be tested.
+  if (modelId === 'mock-moderator') return processMockModeratorPrompt(lastMessage)
   const seam = processSelectToolsSeam(lastMessage, options.tools)
   if (seam) return seam
   const chained = processChainSeam(lastMessage, options.prompt, options.tools)

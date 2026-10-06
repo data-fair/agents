@@ -98,7 +98,10 @@ export const checkQuotas = async (
 export const moderateTurn = async (
   run: ConversationRun,
   settings: Awaited<ReturnType<typeof getSettings>>,
-  identity: UsageIdentity
+  identity: UsageIdentity,
+  // Called when the verdict is a block that lands AFTER the gate failed open: the turn is running by
+  // then, so refusing it means stopping it (see MODERATION_LATE_BLOCK in the executor).
+  onLateBlock?: () => void
 ): Promise<RefusedTurn | undefined> => {
   // 'completed', not 'error', at both refusal points below. A turn that stopped for any reason other
   // than finishing has runStopReasonMessage's notice APPENDED to whatever it produced, and "This turn
@@ -137,6 +140,7 @@ export const moderateTurn = async (
   })
 
   const result = await moderation.gate
+  if (result.timedOut && onLateBlock) moderation.onLateBlock(onLateBlock)
 
   // The classifier call belongs to THIS turn's spend (port of main's #74, which added it to the
   // response's reported cost): onto the run, so the per-run budget and the conversation's total see

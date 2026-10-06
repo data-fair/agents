@@ -2,7 +2,6 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import {
   subAgentModelOutput,
-  SUBAGENT_MODERATION_NOTICE,
   SUBAGENT_STEP_LIMIT_NOTICE,
   SUBAGENT_PARTIAL_PREFIX,
   SUBAGENT_DONE_FALLBACK
@@ -38,13 +37,6 @@ test.describe('subAgentModelOutput (what the lead receives)', () => {
     ])
     assert.equal(out, SUBAGENT_STEP_LIMIT_NOTICE)
     assert.notEqual(out, SUBAGENT_DONE_FALLBACK)
-  })
-
-  test('moderation block takes precedence and yields the moderation notice', () => {
-    const out = subAgentModelOutput([
-      { role: 'assistant', content: 'refused', moderationBlocked: true }
-    ])
-    assert.equal(out, SUBAGENT_MODERATION_NOTICE)
   })
 
   test('falls back to a generic completion when the last message has no text', () => {

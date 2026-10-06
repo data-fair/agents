@@ -171,11 +171,9 @@ export function moderationApplies (settings: Settings, role: string): boolean {
  * rendered its own localized string. With the loop on the server, the refusal IS the turn's stored
  * answer, so the text has to exist server-side.
  *
- * KNOWN GAP, recorded rather than hidden: this is not localized, where the browser's version was. The
- * server does not know the person's language at the point it refuses — the page reports `language` as
- * host state, but that reaches the model's context, not this. Localizing it properly means storing a
- * flag on the message and having the client render from that flag (`ChatMessage.moderationBlocked`
- * already exists for the sub-agent case), which is a UI change rather than a string move.
+ * The English text is what the model, review and the export read. The person reads it in their own
+ * language: the refused turn also stores a `data-refusal` part, which the chat localizes (see
+ * `RefusalInfo` in api/src/conversations/turn-gates.ts).
  */
 export const MODERATION_REFUSAL =
   'This message was declined by content moderation — it appears to fall outside what this assistant is meant to help with. Try rephrasing if you think this is a mistake.'

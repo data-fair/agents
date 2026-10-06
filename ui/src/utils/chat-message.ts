@@ -23,10 +23,6 @@ export interface ChatMessage {
   // instead of clobbering one shared array. Workers are stateless (single-shot), so
   // there is no cross-call turn index — each delegation stands alone.
   subAgentPanels?: Record<string, { messages: ChatMessage[] }>
-  // Set on a sub-agent refusal message so toModelOutput can hand the main agent a
-  // moderation-specific notice instead of the generic user-facing refusal text.
-  // Not rendered; the panel shows `content` like any other message.
-  moderationBlocked?: boolean
   // Set on the trailing sub-agent message when the worker stopped at its step limit
   // while still mid-tool-chain (truncated, not finished). The message content is the
   // best-effort answer recovered by the forced close-out turn (or empty if that failed);

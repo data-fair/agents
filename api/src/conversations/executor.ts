@@ -28,11 +28,11 @@ import type { AutonomousAgent, Conversation, ConversationMessage, ConversationRu
 import {
   runStopReasonMessage, buildSystemPrompt, withProvenance,
   usageIdentityFor,
-  boundToolResult, partsText, withAppendedText,
+  boundToolResult, partsText, withAppendedText, textPart,
   type RunStopReason, type MessagePart
 } from './operations.ts'
 import { checkQuotas, moderateTurn } from './turn-gates.ts'
-import { moderationApplies } from '../moderation/operations.ts'
+import { moderationApplies, MODERATION_REFUSAL } from '../moderation/operations.ts'
 import { loadHistory, compactHistory } from './turn-history.ts'
 import { recordCall } from './turn-telemetry.ts'
 import { appendMessage, updateMessage, finishRun, finishTurn, bufferRunWrites, incrementRunSpend, resolveAgent, setRunSystemPrompt, conversationCost } from './service.ts'
@@ -135,6 +135,13 @@ const sendConversationCost = async (conversationId: string, known?: number) => {
   session.send({ type: 'cost', conversationCost: await conversationCost(conversationId, known === undefined ? undefined : { credits: known }) })
 }
 
+/**
+ * The abort reason of a turn stopped by a LATE moderation block — a verdict that lands after the gate
+ * failed open (it does not wait longer than MODERATION_GATE_TIMEOUT_MS for the classifier). The gateway
+ * aborted the response in that case; the executor's catch path recognises it and stores the refusal.
+ */
+const MODERATION_LATE_BLOCK = 'moderation: a late verdict blocked this message'
+
 /** One conversation is one serialised timeline, so the lock is keyed on it. */
 const conversationLockId = (conversationId: string) => `conversation:${conversationId}`
 
@@ -236,7 +243,9 @@ const performTurn = async (run: ConversationRun, messageSeq: number, abortSignal
   const identity = usageIdentityFor(autonomousAgent, run)
   for (const gate of [
     () => checkQuotas(run, settings, identity, autonomousAgent.id),
-    () => moderationApplies(settings, identity.role) ? moderateTurn(run, settings, identity) : undefined
+    () => moderationApplies(settings, identity.role)
+      ? moderateTurn(run, settings, identity, () => liveRuns.get(run.id)?.controller.abort(new Error(MODERATION_LATE_BLOCK)))
+      : undefined
   ]) {
     const refusal = await gate()
     if (refusal) return refusal
@@ -1106,7 +1115,9 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
     // stop, and from a genuine error, because a reader reacts differently to each.
     const aborted = abortController.signal.aborted
     const timedOut = aborted && /timeout/i.test(String((abortController.signal as any).reason?.message ?? ''))
-    const stopReason: RunStopReason = timedOut ? 'timeout' : aborted ? 'aborted' : 'error'
+    // Refused, not failed: declining WAS the answer, as for an on-time block (see turn-gates).
+    const lateBlocked = aborted && (abortController.signal as any).reason?.message === MODERATION_LATE_BLOCK
+    const stopReason: RunStopReason = lateBlocked ? 'completed' : timedOut ? 'timeout' : aborted ? 'aborted' : 'error'
     // The message is finalised FIRST, and the run closed after, because the terminal `run`
     // event is the end-of-turn signal a subscriber stops listening on: closing the run first
     // would leave every failed, aborted and timed-out turn showing a message stuck `pending`.
@@ -1140,14 +1151,22 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
       const settled = settleInterruptedParts((persisted?.parts ?? []) as MessagePart[], reason)
       // No stop notice when the person SPOKE: their message follows and answers it, and the notice
       // would be replayed to the model as its own words. Stop, the clock and errors keep theirs.
-      finalParts = reason === 'message' ? settled : withAppendedText(settled, runStopReasonMessage(stopReason, detail))
+      finalParts = lateBlocked
+        // A LATE moderation block: the reply to a message that should never have been answered is
+        // dropped, and the person reads the same refusal as an on-time block. The tool calls already
+        // made stay, settled, because they happened — and a call without its result is dropped on
+        // replay, which would hide from the model that it had acted.
+        ? [...settled.filter(part => part.type === 'dynamic-tool'), { type: 'data-refusal', data: { kind: 'moderation' } } as MessagePart, textPart(MODERATION_REFUSAL)]
+        : reason === 'message' ? settled : withAppendedText(settled, runStopReasonMessage(stopReason, detail))
     }
     // The message, then the run, under one bump (finishTurn) — the message write CAUGHT inside it, so
     // whatever failed it still lets the run close.
     const finished = await finishTurn(
       run,
       message && finalParts ? { seq: message.seq, patch: { parts: finalParts as any, pending: false } } : undefined,
-      { status: stopReason === 'timeout' ? 'error' : aborted ? 'aborted' : 'error', stopReason, error: detail }
+      lateBlocked
+        ? { status: 'done', stopReason }
+        : { status: stopReason === 'timeout' ? 'error' : aborted ? 'aborted' : 'error', stopReason, error: detail }
     ).catch(finishErr => { console.error('autonomous agent run could not be closed out', finishErr); return undefined })
     // Same reason as the success path: the notice explaining the failure has to reach the page that
     // is watching, not only the store. `turn-end` alone stops the spinner without saying why. From

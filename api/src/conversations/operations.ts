@@ -298,7 +298,9 @@ export async function storedTurnsToModelMessages (
   }
   const messages: ModelMessage[] = []
   const seqs: number[] = []
-  for (const turn of turns) {
+  const struck = moderationStruck(turns)
+  for (const [index, turn] of turns.entries()) {
+    if (struck.has(index)) continue
     const replayable = replayableTurn(turn)
     if (!replayable) continue
     const converted = await convertToModelMessages([replayable], { ignoreIncompleteToolCalls: true })
@@ -308,6 +310,31 @@ export async function storedTurnsToModelMessages (
     }
   }
   return { messages, seqs }
+}
+
+/**
+ * The turns a moderation block STRUCK from what the model is sent: each refusal, and the message it
+ * refused.
+ *
+ * Both stay stored — the person sees their exchange, a reviewer sees what was blocked — but replaying
+ * them handed the model, on the next turn, the very text the gate had just refused to let it read. The
+ * browser loop dropped a blocked turn from its context; the stored conversation needs the same rule on
+ * replay. Only moderation: a quota refusal is about the account, not the message, and says nothing the
+ * model should not read.
+ */
+export const moderationStruck = (turns: StoredTurn[]): Set<number> => {
+  const struck = new Set<number>()
+  for (const [index, turn] of turns.entries()) {
+    const refused = turn.role === 'assistant' &&
+      (turn.parts ?? []).some((part: any) => part?.type === 'data-refusal' && part.data?.kind === 'moderation')
+    if (!refused) continue
+    struck.add(index)
+    // The person's message it answered: the nearest user turn before it.
+    for (let previous = index - 1; previous >= 0; previous--) {
+      if (turns[previous].role === 'user') { struck.add(previous); break }
+    }
+  }
+  return struck
 }
 
 /**
