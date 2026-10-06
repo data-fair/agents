@@ -95,6 +95,8 @@ export function useSessionChat (options: UseSessionChatOptions) {
    * be wiped by the next frame — which is exactly how they first disappeared mid-run.
    */
   const subAgentPanels = shallowRef<Record<string, { messages: ChatMessage[] }>>({})
+  /** Each panel's own phase line, keyed by the delegating call: they used to overwrite the main one. */
+  const subAgentActivities = ref<Record<string, ChatActivity>>({})
 
   /**
    * The transcript the renderer reads.
@@ -111,7 +113,8 @@ export function useSessionChat (options: UseSessionChatOptions) {
           acc[invocation.toolCallId] = subAgentPanels.value[invocation.toolCallId]
           return acc
         }, {})
-      return Object.keys(panels).length ? { ...turn.message, subAgentPanels: panels } : turn.message
+      // Over the panels the stored message already carries (data-subagent parts): live frames win.
+      return Object.keys(panels).length ? { ...turn.message, subAgentPanels: { ...turn.message.subAgentPanels, ...panels } } : turn.message
     })
   })
 
@@ -198,6 +201,13 @@ export function useSessionChat (options: UseSessionChatOptions) {
       turn.message = frame.role === 'user'
         ? { ...chat, content: splitHiddenContext(chat.content).visible }
         : localized ? { ...chat, content: localized } : chat
+    },
+
+    onSubAgentActivity: (parentToolCallId, activity) => {
+      const next = { ...subAgentActivities.value }
+      if (activity) next[parentToolCallId] = activity
+      else delete next[parentToolCallId]
+      subAgentActivities.value = next
     },
 
     onSubAgent: frame => {
@@ -323,7 +333,7 @@ export function useSessionChat (options: UseSessionChatOptions) {
     error,
     activity: agent.activity as Ref<ChatActivity | null>,
     isWaitingForUser: agent.isWaitingForUser,
-    subAgentActivities: ref<Record<string, ChatActivity>>({}),
+    subAgentActivities,
     tools,
     toolsVersion,
     resolvedPartition,
@@ -355,6 +365,7 @@ export function useSessionChat (options: UseSessionChatOptions) {
       agent.abort()
       turns.value = []
       subAgentPanels.value = {}
+      subAgentActivities.value = {}
       conversationCost.value = 0
       error.value = null
       status.value = 'ready'

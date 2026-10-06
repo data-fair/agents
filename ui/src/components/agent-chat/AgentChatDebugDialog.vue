@@ -185,18 +185,6 @@
                 />
 
                 <df-tutorial-alert
-                  id="agent-settings-subagents"
-                  :text="t('subAgentsHint')"
-                  :initial="false"
-                  persistent
-                />
-                <v-switch
-                  :model-value="subAgents"
-                  :label="t('subAgents')"
-                  @update:model-value="$emit('update:subAgents', $event ?? true)"
-                />
-
-                <df-tutorial-alert
                   id="agent-settings-simple-subagents"
                   :text="t('simpleSubAgentsHint')"
                   :initial="false"
@@ -268,8 +256,6 @@ fr:
   experimental: Expérimental
   toolExploration: Exploration des outils
   toolExplorationHint: "Temporairement inactif : l'assistant tourne désormais côté serveur, où l'exploration des outils (l'étape « explore_tools ») n'est pas encore réimplémentée. Tous les outils de la page lui sont proposés à chaque étape. Ce réglage est conservé mais n'a aucun effet."
-  subAgents: Sous-agents
-  subAgentsHint: "Délègue les tâches complexes à des sous-agents spécialisés (comportement par défaut). Désactivez pour exposer tous les outils des sous-agents directement à l'assistant : chaque sous-agent devient un outil de consigne qui renvoie son prompt. Changer ce réglage réinitialise la conversation."
   simpleSubAgents: Affichage simplifié des sous-agents
   simpleSubAgentsHint: "Affiche les sous-agents délégués sous forme d'une simple puce de statut, au lieu d'un panneau de trace dépliable. Ce réglage ne réinitialise pas la conversation."
   mermaid: Diagrammes Mermaid
@@ -291,8 +277,6 @@ en:
   experimental: Experimental
   toolExploration: Tool exploration
   toolExplorationHint: "Temporarily inactive: the assistant now runs on the server, where tool exploration (the 'explore_tools' step) has not been reimplemented yet. Every tool on the page is offered at every step. The setting is kept but has no effect."
-  subAgents: Sub-agents
-  subAgentsHint: "Delegates complex tasks to specialised sub-agents (the default behaviour). Turn off to expose every sub-agent tool directly to the assistant: each sub-agent becomes a guidance tool that returns its prompt. Changing this setting resets the conversation."
   simpleSubAgents: Simplify sub-agent display
   simpleSubAgentsHint: "Shows delegated sub-agents as a simple status chip instead of an expandable trace panel. This setting does not reset the conversation."
   mermaid: Mermaid diagrams
@@ -322,7 +306,6 @@ const props = defineProps<{
   accountType: string
   accountId: string
   toolExploration?: boolean
-  subAgents?: boolean
   simpleSubAgents?: boolean
   mermaid?: boolean
   showReasoning?: boolean
@@ -350,7 +333,6 @@ const hostContextText = computed(() => {
 defineEmits<{
   'update:modelValue': [value: boolean]
   'update:toolExploration': [value: boolean]
-  'update:subAgents': [value: boolean]
   'update:simpleSubAgents': [value: boolean]
   'update:mermaid': [value: boolean]
   'update:showReasoning': [value: boolean]

@@ -66,6 +66,8 @@ export interface AgentSessionClientOptions {
   onSubAgent?: (frame: { parentToolCallId: string, name: string, parts: MessagePart[], pending: boolean }) => void
   /** What the assistant is doing, in the vocabulary `activityLabelKey` already renders. */
   onActivity?: (activity: ChatActivity | null) => void
+  /** A sub-agent panel's phase line, keyed by the delegating call. Never the main activity line. */
+  onSubAgentActivity?: (parentToolCallId: string, activity: ChatActivity | null) => void
   onTurnEnd?: (stopReason: string, detail?: string) => void
   /** What the conversation has cost so far, in credits — sent once attached and before each turn-end. */
   onCost?: (conversationCost: number) => void
@@ -184,6 +186,12 @@ export function useAgentSession (options: AgentSessionClientOptions) {
         options.onSubAgent?.(message)
         return
       case 'activity':
+        // A PANEL's phase line is its own: it used to land in the main activity line, so a worker's
+        // "thinking" overwrote — and its end cleared — what the lead was doing.
+        if (message.parentToolCallId) {
+          options.onSubAgentActivity?.(message.parentToolCallId, message.activity)
+          return
+        }
         activity.value = message.activity
         options.onActivity?.(message.activity)
         return

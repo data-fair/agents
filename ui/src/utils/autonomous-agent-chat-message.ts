@@ -67,6 +67,15 @@ export function autonomousAgentMessageToChat (message: StoredConversationMessage
       state: (call.state === 'input-streaming' || call.state === 'input-available') ? 'pending' : 'done'
     }))
   }
+  // A worker's stored transcript, under the delegating call — the panel a reloaded thread or the review
+  // page shows. Live, the chat gets the same thing from `subagent` frames, and those win.
+  for (const part of parts as any[]) {
+    if (part?.type !== 'data-subagent' || !part.data?.parentToolCallId) continue
+    chat.subAgentPanels = {
+      ...chat.subAgentPanels,
+      [part.data.parentToolCallId]: { messages: [autonomousAgentMessageToChat({ seq: 0, role: 'assistant', parts: part.data.parts ?? [] })] }
+    }
+  }
   return chat
 }
 

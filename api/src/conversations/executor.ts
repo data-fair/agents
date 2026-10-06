@@ -457,6 +457,22 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   // with the turn; once it is aborted every later delegation in this turn fails immediately, which is
   // correct when the turn is already stopping.
   const workerAbort = new AbortController()
+  /** A worker's final transcript, onto the lead's message — bounded like the lead's own tool results. */
+  const storeSubAgentTrace = (trace: { parentToolCallId: string, name: string, parts: unknown[] }) => {
+    const bounded = (trace.parts as any[]).map(part => {
+      if (part?.type !== 'dynamic-tool') return part
+      const settled = { ...part }
+      if (settled.output !== undefined && !isMediaToolResult(settled.output)) {
+        settled.output = boundToolResult(typeof settled.output === 'string' ? settled.output : JSON.stringify(settled.output)).result
+      }
+      if (typeof settled.errorText === 'string') settled.errorText = boundToolResult(settled.errorText).result
+      return settled
+    })
+    const stored = { type: 'data-subagent', data: { parentToolCallId: trace.parentToolCallId, name: trace.name, parts: bounded } } as MessagePart
+    const at = parts.findIndex(part => part.type === 'data-subagent' && (part as any).data?.parentToolCallId === trace.parentToolCallId)
+    if (at === -1) parts.push(stored)
+    else parts[at] = stored
+  }
   const buildDelegation: Parameters<typeof partitionSubAgents>[1] = (name, workerConfig, workerTools) => {
     const pinned = workerConfig.model as ModelRole | undefined
     const seat: ModelRole = pinned && WORKER_SEATS.includes(pinned) ? pinned : 'tools'
@@ -469,6 +485,11 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
       abortSignal: AbortSignal.any([abortSignal, workerAbort.signal]),
       // The worker's transcript, streamed to its panel. The lead never sees it — it gets the summary.
       onTrace: trace => {
+        // The FINAL transcript is also STORED, on the lead's message, so a reloaded thread and the
+        // review page show what the worker did: it used to be streamed only, and every panel was
+        // empty after a reload. As a `data-subagent` part, which the replay leaves out of what the
+        // model is sent — the lead keeps seeing only the summary, the point of delegating.
+        if (!trace.pending) storeSubAgentTrace(trace)
         watcher()?.send({
           type: 'subagent',
           parentToolCallId: trace.parentToolCallId,
@@ -485,8 +506,8 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
         })
       },
       // EVERY worker step is billed, exactly as a lead step is: against the run's budget, against the
-      // account's credit cap, and into the usage histogram under the `tools` role so the spend is
-      // attributable to the seat that made it. A delegated turn is often most of the work; leaving it
+      // account's credit cap, and into the usage histogram under the seat that served it (`tools`
+      // unless the sub-agent pins another), so the spend is attributable to it. A delegated turn is often most of the work; leaving it
       // unmetered would have let any page with a sub-agent spend without limit.
       onUsage: async usage => {
         const stepCredits = computeCreditBreakdown(
@@ -513,7 +534,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
             // reached the pool, and its cap counted only moderation and the summary endpoint.
             poolId: identity.poolId,
             dimensions: {
-              modelRole: 'tools',
+              modelRole: seat,
               model: worker.entry.id,
               profile: identity.role,
               tokenCosts: { input: stepCredits.input, cachedInput: stepCredits.cachedInput, output: stepCredits.output }

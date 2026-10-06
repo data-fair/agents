@@ -144,6 +144,16 @@ test.describe('A delegation over the agent session', () => {
     assert.ok(outputs.length > 0, 'the delegation produced an output')
     assert.ok(!outputs.includes('You are a data analyst'), 'the lead was NOT handed the sub-agent config')
     assert.ok(/Analysis complete|task completed/i.test(outputs), 'the lead was handed the worker answer')
+
+    // And the worker's transcript is STORED, under the delegating call, so a reload and the review page
+    // can show the panel: it used to be streamed only, and every panel was empty after a reload.
+    const delegation = messages.results.flatMap((message: any) => message.parts ?? [])
+      .find((part: any) => part.type === 'dynamic-tool' && part.toolName === 'subagent_data_analyst')
+    const stored = messages.results.flatMap((message: any) => message.parts ?? [])
+      .find((part: any) => part.type === 'data-subagent' && part.data?.parentToolCallId === delegation.toolCallId)
+    assert.ok(stored, 'the worker transcript is stored on the lead message')
+    assert.equal(stored.data.name, 'subagent_data_analyst')
+    assert.ok(stored.data.parts.filter((part: any) => part.type === 'dynamic-tool').length >= 2, 'with the worker own tool calls')
   })
 
   test('a reserved tool is not reachable by the lead', async () => {

@@ -21,7 +21,7 @@
 
 import { ToolLoopAgent, generateText, stepCountIs, tool, jsonSchema, type Tool } from 'ai'
 import Debug from 'debug'
-import { STEP_LIMIT, repeatedCallGuard } from '../conversations/loop-guards.ts'
+import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep } from '../conversations/loop-guards.ts'
 import { subAgentModelOutput, SUBAGENT_DONE_FALLBACK } from '../conversations/subagent-output.ts'
 import { unwrapToolResult } from '../conversations/operations.ts'
 
@@ -226,7 +226,10 @@ export function subAgentDelegation (opts: {
         // `allowSystemInMessages` is what governs system messages arriving in the prompt instead.
         instructions: opts.config.prompt,
         tools: opts.workerTools,
-        stopWhen: [stepCountIs(STEP_LIMIT), repeatedCallGuard()]
+        stopWhen: [stepCountIs(STEP_LIMIT), repeatedCallGuard()],
+        // The lead's nudge too: a worker repeating itself is told so before the guard stops it, rather
+        // than only stopped — which is what the guard's design assumes for every loop it bounds.
+        prepareStep: loopGuardPrepareStep
       })
       // The delegating call keys the panel. Falling back to the name keeps a trace addressable when no
       // id is supplied, at the cost of two concurrent delegations of the SAME worker sharing a panel —

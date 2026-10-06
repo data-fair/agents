@@ -124,3 +124,32 @@ test.describe('mergeBySeq', () => {
     assert.deepEqual(mergeBySeq(existing, []), existing)
   })
 })
+
+test.describe('a sub-agent transcript stored on the message', () => {
+  test('becomes the panel of its delegating call', () => {
+    const chat = autonomousAgentMessageToChat({
+      seq: 2,
+      role: 'assistant',
+      parts: [
+        { type: 'dynamic-tool', toolCallId: 'd1', toolName: 'subagent_analyst', state: 'output-available', input: {}, output: 'summary' },
+        {
+          type: 'data-subagent',
+          data: {
+            parentToolCallId: 'd1',
+            name: 'subagent_analyst',
+            parts: [
+              { type: 'dynamic-tool', toolCallId: 'w1', toolName: 'query_data', state: 'output-available', input: {}, output: 'rows' },
+              { type: 'text', text: 'Analysis complete' }
+            ]
+          }
+        } as any
+      ]
+    })
+    const panel = chat.subAgentPanels?.d1?.messages[0]
+    assert.equal(panel?.content, 'Analysis complete')
+    assert.deepEqual(panel?.toolInvocations?.map(call => call.toolName), ['query_data'])
+    // and the transcript part is not mistaken for anything of the lead's own
+    assert.equal(chat.content, '')
+    assert.deepEqual(chat.toolInvocations?.map(call => call.toolName), ['subagent_analyst'])
+  })
+})

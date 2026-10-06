@@ -66,7 +66,6 @@
       :account-type="accountType"
       :account-id="accountId"
       :tool-exploration="explorationEnabled"
-      :sub-agents="subAgentsEnabled"
       :simple-sub-agents="simpleSubAgentsEnabled"
       :mermaid="mermaidEnabled"
       :show-reasoning="showReasoningEnabled"
@@ -74,7 +73,6 @@
       :usage-version="chat.usageVersion.value"
       :fetch-self-usage="chat.fetchSelfUsage"
       @update:tool-exploration="handleToolExploration"
-      @update:sub-agents="handleSubAgents"
       @update:simple-sub-agents="handleSimpleSubAgents"
       @update:mermaid="handleMermaid"
       @update:show-reasoning="handleShowReasoning"
@@ -208,11 +206,9 @@ const hostContext = computed<Record<string, string | null>>(() => {
 })
 
 // Experimental chat flags, persisted in a service-scoped cookie (see agent-flags.ts)
-// and toggled from the debug dialog's Settings tab. subAgents is ON by default;
-// turning it off is the "flatten" mode (every sub-agent tool exposed directly).
+// and toggled from the debug dialog's Settings tab.
 const initialFlags = readFlags()
 const explorationEnabled = ref(initialFlags.toolExploration)
-const subAgentsEnabled = ref(initialFlags.subAgents)
 const simpleSubAgentsEnabled = ref(initialFlags.simpleSubAgents)
 const mermaidEnabled = ref(initialFlags.mermaid)
 const showReasoningEnabled = ref(initialFlags.showReasoning)
@@ -353,32 +349,25 @@ function startActionSession (visiblePrompt: string, hiddenContext: string) {
 function persistFlags () {
   writeFlags({
     toolExploration: explorationEnabled.value,
-    subAgents: subAgentsEnabled.value,
     simpleSubAgents: simpleSubAgentsEnabled.value,
     mermaid: mermaidEnabled.value,
     showReasoning: showReasoningEnabled.value
   }, $apiPath)
 }
 
-// Tool exploration and sub-agent flattening are the two flags the server-held loop does not take
-// from the client. Exploration is shelved; flattening is the loop's own decision now. The flags are
-// still persisted — the debug dialog shows them — but the conversation reset is what used to apply
-// them here, and resetting for a setting that no longer reaches the loop would throw the transcript
-// away for nothing.
+// Tool exploration is a flag the server-held loop does not take from the client: it is shelved. The
+// flag is still persisted — the debug dialog shows it — but the conversation reset is what used to
+// apply it here, and resetting for a setting that no longer reaches the loop would throw the
+// transcript away for nothing.
 function handleToolExploration (enabled: boolean) {
   explorationEnabled.value = enabled
-  persistFlags()
-}
-
-function handleSubAgents (enabled: boolean) {
-  subAgentsEnabled.value = enabled
   persistFlags()
 }
 
 function handleSimpleSubAgents (enabled: boolean) {
   simpleSubAgentsEnabled.value = enabled
   persistFlags()
-  // Presentation-only: no conversation reset (unlike mermaid/subAgents/toolExploration).
+  // Presentation-only: no conversation reset (unlike mermaid).
 }
 
 function handleMermaid (enabled: boolean) {
