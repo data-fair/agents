@@ -155,6 +155,9 @@ test.describe('Host context reaching the model', () => {
     const { socket, conversationId } = await openSession()
     socket.send({ type: 'host-state', state: { page: 'the datasets list' } })
     await ask(socket, 'hello')
+    // The answer's settled frame is sent by the loop, BEFORE the run's close writes its telemetry;
+    // `turn-end` is the frame that promises the record is written.
+    for (let i = 0; i < 100 && (await socket.next(20_000)).type !== 'turn-end'; i++);
 
     const runs = (await user.get(`/api/conversations/${OWNER}/${conversationId}/runs`)).data.results as any[]
     const call = runs[0].calls.find((c: any) => c.modelRole === 'assistant')
