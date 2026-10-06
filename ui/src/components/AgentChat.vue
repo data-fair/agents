@@ -216,7 +216,10 @@ const showReasoningEnabled = ref(initialFlags.showReasoning)
 const chatResult = useSessionChat({
   accountType: props.accountType,
   accountId: props.accountId,
-  ...(props.agentId ? { agentId: props.agentId } : {}),
+  // The page's `?agentId=` first, then the embedding component's init config: the drawer, menu and
+  // block write `agentId` there, and it used to be read for `title` only, so an embedded chat always
+  // talked to the personal assistant whatever agent its host had named.
+  ...((props.agentId ?? initConfig?.agentId) ? { agentId: props.agentId ?? initConfig?.agentId } : {}),
   initialMessages: props.initialMessages,
   ...(chatTitle.value ? { title: chatTitle.value } : {}),
   anonymous: !session.state.user,

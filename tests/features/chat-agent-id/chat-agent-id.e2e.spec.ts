@@ -81,6 +81,19 @@ test.describe('Naming an agent instead of handing it a prompt', () => {
     expect(config.prompt).toBeUndefined()
   })
 
+  test('the chat TALKS to the agent the embedding component names', async ({ page, goToWithAuth }) => {
+    // Writing the init config is half of it: the chat read only its `title`, so an embedded chat always
+    // opened the personal assistant whatever its host named. Naming one that does not exist is the
+    // observable proof the id is used: opening the conversation is refused.
+    await goToWithAuth('/agents/_dev/chat-drawer?agentId=no-such-agent', 'test-standalone1')
+    await page.locator(fabSelector).dispatchEvent('click')
+    await expect(async () => {
+      expect(page.frames().find(f => isChatFrameUrl(f.url()))).toBeTruthy()
+    }).toPass({ timeout: 10000 })
+    const frame = page.frames().find(f => isChatFrameUrl(f.url()))!
+    await expect(frame.locator('.v-alert')).toBeVisible({ timeout: 15000 })
+  })
+
   test('prose in a ?systemPrompt= query parameter no longer reaches the system prompt', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/user/test-standalone1/chat?systemPrompt=' + encodeURIComponent(MARKER), 'test-standalone1')
 
