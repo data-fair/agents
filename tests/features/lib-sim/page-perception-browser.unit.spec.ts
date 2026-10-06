@@ -84,7 +84,18 @@ test.describe('long drop-down lists', () => {
     // catalogue it named was not in the list
     await page.setContent(VIRTUAL_LIST)
     const p = createPagePerception([{ label: 'page', root: page }])
-    assert.match(await p.call('look', {}), /the list "Type de page" holds more options than it shows: scroll it/)
+    assert.match(await p.call('look', {}), /the list "Type de page" holds 14 options, not all shown above/)
+  })
+
+  test('the outline lists every option of an open list that holds more than it shows', async ({ page }) => {
+    // the note alone was not enough: a judged run listed the 9 options in view and still told
+    // the assistant « Catalogue d'événements » was missing, without clicking it by its name
+    await page.setContent(VIRTUAL_LIST)
+    const p = createPagePerception([{ label: 'page', root: page }])
+    const outline = await p.call('look', {})
+    assert.match(outline, /the list "Type de page" holds 14 options, not all shown above: Accueil, Contact, .*Catalogue d'événements, .*Autre/)
+    // the list is left where the person had it
+    assert.equal(await page.evaluate(() => document.querySelector('[role=listbox]')!.scrollTop), 0)
   })
 
   test('clicking an option out of sight scrolls the open list to it, as a person scans for it', async ({ page }) => {

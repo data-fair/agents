@@ -253,6 +253,9 @@ export const INTERCEPT_PROBE_MS = 2000
 /** How long a click is watched for the new tab it may open. */
 export const NEW_TAB_WAIT_MS = 1000
 
+/** Scroll steps a look takes through a long list to name its options: some hundreds of options. */
+const MAX_LIST_SCROLL_STEPS = 60
+
 const TOOLS = [
   {
     name: 'look',
@@ -354,7 +357,9 @@ export function createPagePerception (roots: PerceptionRoot[], opts: { offLimits
       // `## chat panel`) disappears from the log entirely, with no marker
       // hinting it was ever there.
       const more = (await Promise.all(scopes({ label, root, cap, frames }).map(listsWithMore))).flat()
-      const notes = more.map(list => `(the list${list ? ` "${list}"` : ''} holds more options than it shows: scroll it, or click an option by its name to find it)`)
+      const notes = more.map(({ list, options }) => options.length
+        ? `(the list${list ? ` "${list}"` : ''} holds ${options.length} options, not all shown above: ${options.join(', ')}. Click one by its name.)`
+        : `(the list${list ? ` "${list}"` : ''} holds more options than it shows: scroll it, or click an option by its name to find it)`)
       parts.push(truncate(`## ${heading}\n${pruneSnapshot(snap)}`, cap) + (notes.length ? '\n' + notes.join('\n') : ''))
     }
     const line = tabsLine()
@@ -414,20 +419,53 @@ export function createPagePerception (roots: PerceptionRoot[], opts: { offLimits
   // Each runs in the page, serialized on its own: the list finder is repeated in both. More
   // than 16px hidden, about half an option: the note fired on a list of 6 options all in view,
   // whose box was a few pixels short, and the persona then ignored it where it was true.
-  const listsWithMore = async (scope: any): Promise<string[]> => {
+  // The note alone was not enough: a judged run listed the 9 options in view and still said
+  // « Catalogue d'événements » was missing, without clicking it by its name. So the look scrolls
+  // such a list through, as a person scanning it would, names every option, and puts the list
+  // back where it was.
+  const listsWithMore = async (scope: any): Promise<Array<{ list: string, options: string[] }>> => {
+    let found: Array<{ index: number, list: string }>
     try {
-      return await scope.locator('body').evaluate((body: any) => {
-        const out: string[] = []
-        for (const list of body.querySelectorAll('[role=listbox]')) {
+      found = await scope.locator('body').evaluate((body: any) => {
+        const out: Array<{ index: number, list: string }> = []
+        body.querySelectorAll('[role=listbox]').forEach((list: any, index: number) => {
           let box = list
           for (let i = 0; i < 4 && box && box.scrollHeight <= box.clientHeight + 16; i++) box = box.parentElement
-          if (!box || box.scrollTop + box.clientHeight >= box.scrollHeight - 16) continue
+          if (!box || box.scrollHeight <= box.clientHeight + 16) return
           const labelledBy = list.getAttribute('aria-labelledby')
-          out.push(list.getAttribute('aria-label') || (labelledBy ? body.ownerDocument.getElementById(labelledBy)?.textContent?.trim() : '') || '')
-        }
+          out.push({ index, list: list.getAttribute('aria-label') || (labelledBy ? body.ownerDocument.getElementById(labelledBy)?.textContent?.trim() : '') || '' })
+        })
         return out
       })
     } catch { return [] }
+    const result: Array<{ list: string, options: string[] }> = []
+    for (const { index, list } of found) {
+      const options: string[] = []
+      try {
+        let start: number | undefined
+        for (let step = 0; step < MAX_LIST_SCROLL_STEPS; step++) {
+          const read = await scope.locator('body').evaluate((body: any, { index, start }: { index: number, start?: number }) => {
+            const list = body.querySelectorAll('[role=listbox]')[index]
+            if (!list) return null
+            let box = list
+            for (let i = 0; i < 4 && box && box.scrollHeight <= box.clientHeight + 16; i++) box = box.parentElement
+            if (start === undefined) { start = box.scrollTop; box.scrollTop = 0 }
+            const names = [...list.querySelectorAll('[role=option]')].map((o: any) => (o.getAttribute('aria-label') || o.textContent || '').replace(/\s+/g, ' ').trim())
+            const atEnd = box.scrollTop + box.clientHeight >= box.scrollHeight - 16
+            if (atEnd) box.scrollTop = start
+            else box.scrollTop += Math.max(20, box.clientHeight * 0.8)
+            return { names, atEnd, start }
+          }, { index, start })
+          if (!read) break
+          start = read.start
+          for (const name of read.names) if (name && !options.includes(name)) options.push(name)
+          if (read.atEnd) break
+          await new Promise(resolve => setTimeout(resolve, 100))
+        }
+      } catch { /* a list that went away while scanned keeps the short note */ }
+      result.push({ list, options })
+    }
+    return result
   }
 
   const scrollListsTo = async (scopeList: any[], name: string) => {
