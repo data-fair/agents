@@ -4,7 +4,7 @@ The system supports **9 provider types** through a unified factory (`createModel
 
 ```mermaid
 graph LR
-  GW[Gateway Router] --> CM[createModel]
+  RM["resolveRoleModel (turn, sub-agents, compaction, summaries, moderation)"] --> CM[createModel]
 
   CM --> OAI["@ai-sdk/openai"]
   CM --> ANT["@ai-sdk/anthropic"]
@@ -26,13 +26,13 @@ graph LR
 
 `scaleway` is its own provider `type` but is routed through `@ai-sdk/openai-compatible` (see `scalewayBaseURL()` and the comment on `createModel()`), same as `openai-compatible` in `compatibility: 'compatible'` mode — both need `reasoning_content` captured, which `@ai-sdk/openai`'s `/v1/responses` client drops.
 
-**Settings map 5 roles to concrete models:**
+**Settings map 4 roles to concrete models** (`resolveRoleModel`, `api/src/models/service.ts`; every model call is made server-side):
 
 | Role | Purpose |
 |------|---------|
 | `assistant` | Primary conversational model |
-| `tools` | Structured data / tool-calling specialist |
-| `summarizer` | Context compaction |
+| `tools` | Structured data / tool-calling specialist; default seat for sub-agent workers |
+| `summarizer` | Context compaction, conversation summaries |
 | `moderator` | Input moderation guard (internal, server-side) |
 
 There is no per-role fixed cost ratio. Each model in the catalog (global `MODELS` or an org's `settings.models`) carries its own prices per token class — fresh input, cached input, output — in euros per million tokens, and credits come from actual token counts against those prices divided by the credit peg; see [Configuration → Credits](./configuration.md#credits) for the formula. A cheaper role like `summarizer` is typically *mapped* to a cheaper model, but nothing in the schema ties a role to a fixed ratio.

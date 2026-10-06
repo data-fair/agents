@@ -1,37 +1,48 @@
 # MCP tool integration
 
-Tools are **decoupled from the chat UI**. Each frame declares its tools through the **WebMCP** standard (`navigator.modelContext`, via the `@mcp-b/webmcp-*` packages); the project adds a **BroadcastChannel transport** on top so those WebMCP servers can be discovered and shared across sibling frames of the same origin — which WebMCP, scoped to a single page, does not cover on its own. This document covers the full lifecycle from tool registration to LLM invocation.
+The model runs in **one loop, on the server** (`runModelLoop` in `api/src/conversations/executor.ts`), and every tool it can call reaches that loop as an AI SDK `Tool`. They come from three places:
+
+| Source | Where it executes | Who it acts as |
+|--------|-------------------|----------------|
+| **Page tools** — declared by the host page through **WebMCP** (`navigator.modelContext`) | in the browser; the server calls them back over the agent-session websocket | the person, with their own browser session |
+| **Catalog tools** — the deployment's MCP servers (`config.mcpServers`) | on the server, over MCP streamable HTTP (`api/src/mcp-servers/client.ts`) | a configured agent: its own non-human identity; the personal assistant: the person, via their forwarded session cookie |
+| **Loop-provided** — `wait_for_user_action` | on the server, against the session's host-event store | — |
+
+Once assembled, the loop cannot tell a page tool from a catalog tool: both get the same provenance envelope, and both are called through `execute`. That is the property that lets one loop serve the in-page personal assistant and configured autonomous agents alike.
+
+Page tools are **decoupled from the chat UI**: each frame declares its tools through WebMCP (the `@mcp-b/webmcp-*` packages), and the project adds a **BroadcastChannel transport** so those WebMCP servers can be discovered across sibling frames of the same origin — which WebMCP, scoped to a single page, does not cover on its own. The chat iframe aggregates them and forwards their *descriptors* to the server; their implementations never leave the browser.
 
 ## Overview
-
-Each frame runs a WebMCP server (`navigator.modelContext`); these servers are discovered dynamically through the BroadcastChannel transport.
 
 ```mermaid
 sequenceDiagram
   participant Host as Host App Frame
   participant BC as BroadcastChannel
-  participant Chat as Chat UI (iframe)
-  participant Agg as FrameClientAggregator
+  participant Chat as Chat iframe (FrameClientAggregator + use-agent-session)
+  participant Srv as Server (agent session + runModelLoop)
+  participant MCP as Catalog MCP server
 
-  Host->>Host: useFrameServer() starts MCP server
+  Host->>Host: useFrameServer() starts a WebMCP server
   Host->>BC: mcp-server-ready {serverId}
-  Agg->>BC: listening...
-  BC-->>Agg: discovers server
-  Agg->>Host: MCP connect + listTools()
-  Host-->>Agg: tool definitions
-  Agg->>Chat: onToolsChanged(mergedTools)
+  BC-->>Chat: discovers server
+  Chat->>Host: MCP connect + listTools()
+  Host-->>Chat: tool definitions
+  Chat->>Srv: hello / tools-changed {descriptors}
 
-  Note over Chat: tools available to LLM
+  Note over Srv: turn starts: catalog listings (cached) + page descriptors + wait tool
 
-  Chat->>Agg: execute tool "query_data"
-  Agg->>Host: MCP callTool()
-  Host-->>Agg: result
-  Agg-->>Chat: tool result
+  Srv->>Chat: tool-call {callId, name, input}
+  Chat->>Host: MCP tools/call
+  Host-->>Chat: result
+  Chat-->>Srv: tool-result {callId, result | error}
+
+  Srv->>MCP: tools/call (connection opened on first call of the turn)
+  MCP-->>Srv: result
 ```
 
 **Why BroadcastChannel over postMessage?** No parent/child relationship needed — any frame on the same origin can expose tools. Multiple MCP servers are aggregated into a single tool map. Servers can appear and disappear dynamically.
 
-The rest of this document drills into each stage: registration & the WebMCP polyfill, the server-side transport, the BroadcastChannel discovery protocol, `FrameClientAggregator` aggregation/merge, the flow to the LLM, gateway tool conversion, and error handling.
+The rest of this document covers the page side (registration, frame transport, discovery, aggregation), the socket bridge to the server, catalog tools, the live tool set within a turn, and error handling.
 
 ---
 
@@ -59,14 +70,14 @@ useAgentTool({
 })
 ```
 
-Under the hood:
+Under the hood (`lib-vue/use-agent-tools.ts`):
 1. `initializeWebMCPPolyfill()` ensures `navigator.modelContext` exists (WebMCP standard API)
-2. The tool is registered via `navigator.modelContext.registerTool(agentTool)`
+2. The tool is registered via `navigator.modelContext.registerTool(agentTool)` — a failure (e.g. a duplicate name) is logged as a warning rather than aborting the caller's `setup()`
 3. `onScopeDispose()` automatically unregisters the tool when the Vue component unmounts
 
 ---
 
-## 2. Server-Side Transport
+## 2. Frame Server Transport
 
 For tools to be visible across frames, the host frame must expose them via `useFrameServer()`:
 
@@ -76,7 +87,7 @@ import { useFrameServer } from '@data-fair/lib-vue-agents'
 useFrameServer('parent')  // unique server ID
 ```
 
-This composable:
+This composable (`lib-vue/use-frame-server.ts`):
 1. Creates a `FrameServerTransport` connected to a BroadcastChannel
 2. Creates a `BrowserMcpServer` wrapping the existing `navigator.modelContext` (preserving already-registered tools)
 3. **Replaces** `navigator.modelContext` with the server — all subsequent `registerTool()` calls go through the MCP server and are automatically exposed via BroadcastChannel
@@ -86,7 +97,7 @@ This composable:
 
 ## 3. BroadcastChannel Protocol
 
-All MCP communication uses a shared `BroadcastChannel` with a tab-specific channel ID (stored in `sessionStorage`, generated by `getTabChannelId()`). This provides tab isolation — multiple browser tabs maintain independent tool namespaces.
+All MCP communication between frames uses a shared `BroadcastChannel` with a tab-specific channel ID (stored in `sessionStorage`, generated by `getTabChannelId()`). This provides tab isolation — multiple browser tabs maintain independent tool namespaces.
 
 ### Message Types
 
@@ -129,9 +140,9 @@ Both sides retry independently at 250ms intervals until they find each other. On
 
 ### Server Shutdown
 
-When a server closes (frame unmounts), it broadcasts `mcp-server-stopped`. The client transport auto-closes upon receiving this message. A document can also be discarded without any Vue unmount hook running — an iframe removed from the DOM by the host's router, a page navigated away — so `FrameServerTransport` also broadcasts on `pagehide`. A `pagehide` with `persisted === true` is a BFCache entry, not a departure, and is ignored.
+When a frame server closes (frame unmounts), it broadcasts `mcp-server-stopped`. The client transport auto-closes upon receiving this message. A document can also be discarded without any Vue unmount hook running — an iframe removed from the DOM by the host's router, a page navigated away — so `FrameServerTransport` also broadcasts on `pagehide`. A `pagehide` with `persisted === true` is a BFCache entry, not a departure, and is ignored.
 
-This is not just cleanup. A server that dies silently leaves its tools in every aggregator's map; the next turn's `resolveSubAgents` then round-trips a `tools/call` to the dead transport and waits out the MCP request timeout (60s, `MCP error -32001`), so the turn never sends a completion request at all. Measured in production as: visiting the portals manager, navigating to a dataset page, then any prompt hanging.
+This is not just cleanup. A frame server that dies silently leaves its tools in the aggregator's map, and so in the descriptors the server holds. Every turn's sub-agent discovery calls each page-declared `subagent_*` tool over the socket *before the first model call* (see [Sub-Agent Orchestration](./sub-agents.md)); routed to a dead frame, that call waits out the server's `BROWSER_CALL_TIMEOUT_MS` (30s), and any other dead tool fails only when called, after the same wait. The original symptom, under the in-browser loop, was visiting the portals manager, navigating to a dataset page, then any prompt hanging.
 
 ### Message Validation
 
@@ -139,9 +150,9 @@ Both transports validate incoming JSON-RPC messages with `JSONRPCMessageSchema.s
 
 ---
 
-## 4. Aggregation
+## 4. Aggregation (in the chat iframe)
 
-The chat UI runs a `FrameClientAggregator` that discovers and connects to all available MCP servers:
+The chat iframe runs a `FrameClientAggregator` (`ui/src/transports/frame-client-aggregator.ts`, started by `use-session-chat.ts` on the per-tab channel) that discovers and connects to all available frame servers:
 
 ```mermaid
 flowchart TB
@@ -156,7 +167,7 @@ flowchart TB
   T1 --> Merge{Object.assign}
   T2 --> Merge
   Merge --> Tools[Aggregated tool map]
-  Tools --> Chat[use-agent-chat]
+  Tools --> Sess[use-agent-session: descriptors to the server]
 ```
 
 For each discovered server:
@@ -164,52 +175,11 @@ For each discovered server:
 2. Creates an MCP `Client` with a `ToolListChangedNotification` handler
 3. Connects and waits for `serverReadyPromise`
 4. Calls `client.listTools()` to fetch available tools
-5. Wraps each MCP tool as an AI SDK `tool()` with an `execute` function that calls `client.callTool()`
-6. Merges all tools from all servers into a single map
-7. Calls `onToolsChanged(aggregatedTools)` to notify the chat composable
+5. Wraps each MCP tool as an AI SDK `tool()` whose `execute` issues `tools/call` to that frame
+6. Merges all tools from all servers into a single map (name collisions: last-write-wins, `Object.assign`)
+7. Calls `onToolsChanged(aggregatedTools)`, which sends the new descriptors to the server (`tools-changed`)
 
-### Tool Wrapping
-
-Each MCP tool is wrapped as an AI SDK tool:
-
-```typescript
-const aiTool = tool({
-  description: t.description || '',
-  inputSchema: jsonSchema(t.inputSchema || { type: 'object', properties: {} }),
-  execute: async (args) => {
-    // request() rather than callTool(): the latter also validates the result's
-    // structuredContent against the tool's declared outputSchema, but we discard
-    // structuredContent (see below), so that check could only break the call.
-    const callResult = await server.client.request(
-      { method: 'tools/call', params: { name: t.name, arguments: args } },
-      CallToolResultSchema
-    )
-    return formatMcpToolResult(callResult)
-  }
-})
-```
-
-`formatMcpToolResult` keeps the text and image `content` parts (and prefixes
-`isError` results) — `structuredContent` is intentionally dropped because the
-OpenAI-compatible wire protocol to the gateway carries tool output as a single
-text string with no structured channel. Since `structuredContent` is never
-consumed, output-schema validation is bypassed (see above) so it cannot reject a
-call over a value that is thrown away.
-
-Text-only results stay a plain string. A result carrying MCP `image` parts
-becomes a **media envelope** (`{_agentsMediaResult: true, text?, media: [{data,
-mediaType}]}`): the AI SDK serializes that object as JSON into the same wire
-string, and the gateway (`convertOpenAIMessages`) rebuilds real image parts from
-it. Providers with a native media channel in their tool-result format
-(anthropic, openai via the Responses API, google) receive the images in the tool
-result itself; for text-only tool-result channels (mistral, and the
-chat-completions paths: scaleway, ollama, openrouter, openai-compatible in
-"compatible" mode) the gateway statelessly rewrites the result to a text stub
-and injects the images as a user message after the tool-message run. The role
-model consuming such results must be vision-capable. Compaction prompts and
-stored traces redact the base64 payloads to size placeholders.
-
-Tool annotations (like `title`) are preserved on the wrapper for UI display.
+The wrapper issues `tools/call` through `client.request(…, CallToolResultSchema)` rather than `client.callTool()`: the latter also validates `structuredContent` against the tool's declared `outputSchema`, but `formatMcpToolResult` (`shared/tool-result.ts`) discards `structuredContent`, so that check could only reject an otherwise usable call over a value that is thrown away. The catalog client on the server makes the same choice for the same reason.
 
 ### Dynamic Lifecycle
 
@@ -220,183 +190,139 @@ Tool annotations (like `title`) are preserved on the wrapper for UI display.
 | `mcp-server-stopped` | Disconnect client, remove tools, re-merge |
 | `tools/list_changed` notification | Re-fetch tools from that server, re-merge |
 
-Tool name collisions across servers are resolved by last-write-wins (`Object.assign`).
+Every re-merge ends in a `tools-changed` frame, so the server always holds the page's current declaration.
 
 ---
 
-## 5. Flow to the LLM
+## 5. The socket bridge
 
-The chat composable (`use-agent-chat.ts`) receives aggregated tools via the `onToolsChanged` callback and passes them to the AI SDK's `streamText()`:
+The browser talks to the server over a websocket at `/api/agent-session` (protocol in `shared/agent-session-protocol.ts`; browser half in `ui/src/composables/use-agent-session.ts`, server half in `api/src/agent-session/`).
 
-```mermaid
-flowchart LR
-  Agg[FrameClientAggregator] -->|onToolsChanged| TV[tools ref]
-  TV --> Part[partitionTools]
-  Part --> Main[mainTools]
-  Part --> SA[subagent pseudo-tools]
-  Main --> LLM[streamText]
-  SA -->|wrapped as ToolLoopAgent| LLM
-```
+- **Declaring.** `hello` carries the page's tool descriptors (name, description, raw JSON input schema — `toDescriptors` unwraps the AI SDK's `jsonSchema()` wrapper, which would otherwise serialise to nothing useful). `tools-changed` replaces them wholesale. A reconnect re-declares, because the page may have navigated while the socket was down.
+- **Calling.** `browserToolSet` (`api/src/agent-session/browser-tools.ts`) turns each descriptor into a `Tool` whose `execute` is `session.callBrowserTool(name, input)`: a `tool-call` frame with a fresh `callId`, resolved by the matching `tool-result`. The browser runs the aggregated tool and answers with either `result` or `error` — never a failure disguised as a result.
+- **Host events ride back.** Events the call caused are drained from the session's host-event store and appended to the tool's result, so the model sees the consequence of its action where it happened. See [Host events](./host-events.md).
 
-1. `tools.value` is updated reactively when `onToolsChanged` fires
-2. Before each `sendMessage()`, tools are partitioned (see [Sub-Agent Orchestration](./sub-agents.md))
-3. `streamText()` receives the tool map — the AI SDK handles tool-call/tool-result cycling until a [loop guard](./loop-guards.md) fires
+Only the descriptors cross the socket. A page tool's implementation is the page's and never leaves the browser.
 
-When the LLM requests a tool call:
-1. AI SDK invokes the tool's `execute()` function
-2. The aggregator's wrapped execute calls `client.callTool()` over BroadcastChannel
-3. The MCP server dispatches to the registered tool's execute function
-4. The result flows back through the same chain
+---
 
-### Mid-turn tool changes
+## 6. Catalog MCP tools (server-side)
 
-The aggregate can change *while a turn runs* — the standard case is the agent calling a
-tool that brings up new UI (a panel, a navigation), whose components register their own
-tools. Those tools used to become callable only on the **next user turn** (measured: the
-same turn kept sending `toolCount=17` after a navigation, the next turn sent 21), and the
-agent concluded it was stuck.
+`openAutonomousAgentTools` (`api/src/mcp-servers/client.ts`) builds the catalog part of a turn's tool set from the agent's `mcpServers` references, each narrowed by its optional `toolFilter`.
 
-Two facts make the fix small:
+- **Which servers.** A configured autonomous agent uses the servers its admin selected. The personal assistant (`standardAgent()` in `api/src/agent-session/standard-agents.ts`) takes **every** catalog entry, unfiltered: it acts as the person, so their own permissions are already the ceiling.
+- **Who it acts as.** Injected as a `SessionProvider` (`api/src/agent-identity/`): `nhiSessionProvider` for a configured agent (its own non-human identity, exchanged and cached), `forwardedSessionProvider` for the personal assistant (the cookie from the person's socket upgrade — held per connection, never stored; it cannot be refreshed server-side, so its life is the socket's). It is only requested when some referenced entry has `auth: 'nhi-session'`.
+- **Listings are cached** for `TOOL_LISTING_TTL_MS` (60s) per server and credential (for session-authenticated entries, keyed by a hash of the cookie, so two identities never share a listing). Listing on every turn was half of an unloaded turn's time to first token. The cached value is the promise, so turns starting together share one listing; failures are not cached. Servers are listed in parallel.
+- **Connections are lazy.** A server is connected on the first call to one of its tools in the turn and the connection is reused by the turn's later calls; the executor closes them all when the turn ends. A turn that calls no catalog tool opens none.
+- **Unreachable servers.** For the personal assistant an unreachable entry is an availability event: it is **skipped** (and logged) rather than failing the turn. For a configured agent the selection is deliberate, so a failure **throws** (502 naming the server).
+- **`isError` results are rethrown**, so the AI SDK records a `tool-error` part and the model receives `error-text` rather than a failure shaped like data.
+- **Annotations** (`readOnlyHint`, `destructiveHint`…) and the originating server are recorded on each stored tool call (`annotationsByTool`, `serverByTool`).
 
-1. **`streamText` does not snapshot `tools`.** It dereferences the object it was given at
-   every step boundary — once via `prepareToolsAndToolChoice` to build the list advertised
-   to the model, and again as `tools[name]` to dispatch a call. So a tool map that is
-   *reconciled in place* is picked up on the next step, with no need to stop and relaunch
-   the stream. `composables/live-tools.ts` holds that reconciliation;
-   `2.sdk-live-tools.unit.spec.ts` pins the SDK behaviour so an `ai` upgrade that started
-   snapshotting fails loudly instead of silently reinstating the bug.
+The diagnostic endpoint `GET /api/autonomous-agents/:type/:id/:agentId/tools` uses `forEachListedTool` instead, which lists **fresh** (bypassing the cache) and returns descriptors only — an admin checking a fix wants the server's answer now.
 
-2. **The update has to land before the next step is built.** It does not, on its own: the
-   registration, the `tools/list_changed` notification, the aggregator's re-list and the
-   client rebuild all complete *after* the tool's own result — measured at ~4ms after, and
-   the SDK starts the next step the moment it has that result. A few milliseconds late is
-   as bad as a whole turn late.
+### Assembly and provenance
 
-So the tool result is held until the aggregate has caught up:
+The executor (`performTurn`) merges the catalog tools, the page tools (when a socket watches the conversation) and `wait_for_user_action` (only when someone is there to act), in that order — a page tool overrides a catalog tool of the same name. Both catalog and page results are wrapped by `withProvenance` (`api/src/conversations/operations.ts`) in a `<tool-result server="…" tool="…">` envelope marking them as untrusted data; a page's server name is the fixed `the-page`, never its URL. Thrown failures are wrapped too. Sub-agents are then partitioned out (see [Sub-Agent Orchestration](./sub-agents.md)).
+
+### Result formatting
+
+`formatMcpToolResult` keeps the text `content` parts (and prefixes `isError` results with `Tool execution failed:`); `structuredContent` is dropped. Text-only results stay a plain string. A result carrying MCP `image` parts becomes a **media envelope** (`{_agentsMediaResult: true, text?, media: [{data, mediaType}]}`); `withProvenance` wraps only its text and keeps the object shape.
+
+Nothing on the server currently rebuilds that envelope into image parts: the gateway's `convertOpenAIMessages` that did so is gone with the gateway, and the executor gives the tools no `toModelOutput`, so the AI SDK hands the envelope to the provider as JSON — base64 included. The redaction helpers in `shared/tool-result.ts` (`redactHistoryMediaToolResults`) are likewise no longer called from `api/src`.
+
+---
+
+## 7. The tool set is live within a turn
+
+A page's tools change *while a turn runs* — the agent calls a tool that opens a panel or navigates, and the newly mounted components register their own tools. The agent must be able to call them in the **same** turn, or it concludes it is stuck.
+
+Two facts make this work without restarting the stream:
+
+1. **`streamText` does not snapshot `tools`.** It re-reads the object it was given at every step — to build the list advertised to the model and to look up `tools[name]` at call time. So `runModelLoop` hands it a `liveTools` map and **mutates it in place**: in `prepareStep`, if the page's tool *names* have changed since the last assembly, the page part is rebuilt from the session's current descriptors over the fixed part (catalog + wait tool), and the sub-agent partition is re-run on the result. Replacing the object would do nothing. Re-assembly is keyed on names only, because each pass reads every sub-agent's config over the socket.
+
+2. **The update must land before the next step is built.** The registration, the `tools/list_changed` notification and the aggregator's re-list all complete *after* the tool's own result unless something orders them. So the browser holds the result back:
 
 ```mermaid
 sequenceDiagram
-  participant SDK as streamText
-  participant Agg as FrameClientAggregator
+  participant Loop as runModelLoop (server)
+  participant Chat as Chat iframe (aggregator)
   participant Host as Host frame
 
-  SDK->>Agg: call open_panel
-  Agg->>Host: tools/call
+  Loop->>Chat: tool-call open_panel
+  Chat->>Host: tools/call
   Host->>Host: panel mounts, registers set_display
-  Host--)Agg: notifications/tools/list_changed
-  Host-->>Agg: tools/call result
-  Note over Agg: settled() — fold the re-list in FIRST
-  Agg-->>SDK: result
-  SDK->>SDK: next step built with the refreshed set
+  Host--)Chat: notifications/tools/list_changed
+  Host-->>Chat: tools/call result
+  Note over Chat: settled(): fold the re-list in FIRST
+  Chat->>Loop: tools-changed (+ set_display)
+  Chat->>Loop: tool-result
+  Loop->>Loop: prepareStep sees new names, rebuilds liveTools
 ```
 
-- `FrameClientAggregator.settled()` resolves once every in-flight `tools/list_changed`
-  refresh has been folded into the aggregate. The tool wrapper awaits it before returning
-  the result. This is ordering, not a timing guess: the host registers its tools *during*
-  its own execution, so the notification is put on the channel before the result, and
-  BroadcastChannel delivery is FIFO per channel.
-- On the client side the `toolsVersion` watch runs with `flush: 'sync'`, so the rebuild is
-  registered as in-flight inside `onToolsChanged` itself; a second barrier waits for that
-  rebuild (it is async — `resolveSubAgents` round-trips to the host) before the tool result
-  is handed back. A 500ms deadline keeps a rebuild that never settles from wedging the turn.
-- Rebuilds carry a generation counter, so a slow rebuild overtaken by a newer one bails
-  instead of reconciling a stale set.
-- In exploration mode the rebuild also announces the new names as a `<tools-available>`
-  message, inserted before this turn's user message. That reaches the model mid-turn for
-  the same reason the tool map does: `history` stays the array `streamText` was given
-  (response messages are folded in only when the turn ends) and each step's prompt is
-  rebuilt as `[...initialMessages, ...responseMessages]`. Announced names are tracked so a
-  moderation block un-announces them along with the history it rolls back.
-- Cross-frame changes that no tool call caused (a frame appearing on its own) are still
-  picked up, just without the ordering guarantee — they land on whichever step comes next.
+- `FrameClientAggregator.settled()` resolves once every in-flight `tools/list_changed` refresh has been folded in (and `onToolsChanged` has sent `tools-changed`). The tool wrapper awaits it before returning. This is ordering, not a timing guess: the host registers its tools *during* its own execution, so the notification is on the channel before the result, and BroadcastChannel delivery is FIFO per channel.
+- The `tools-changed` frame is therefore sent before the `tool-result` frame on the same socket, so the server's descriptors are current by the time the call resolves and the next step is prepared.
+- Cross-frame changes that no tool call caused (a frame appearing on its own) are picked up too, just without the ordering guarantee — on whichever step comes next.
 
-**Why there is no stream restart.** The obvious alternative is to stop the stream when the
-tool set changes and relaunch it on the accumulated history. It is not needed: the tools
-*and* the messages are both live, so the next step already sees the change. It also does
-not work on its own — the change lands a few milliseconds after the step boundary, so the
-step the restart is supposed to catch has already been built with the stale set, and the
-model answers "I cannot do that" and finishes on `stop`, which any sane restart guard
-refuses to relaunch. Ordering the update ahead of the tool result is what actually fixes
-it; a restart on top would only ever re-run a stream it stopped itself.
+The behaviour is exercised end to end by `tests/features/chat-mcp/3.live-tools.e2e.spec.ts` (the `_dev/chat-live-tools` page).
 
-> By default the full aggregated tool map is sent to the LLM on every request. An opt-in **exploration mode** instead discloses tools on demand — see [Tool exploration](./tool-exploration.md).
+> Every tool is offered on every step. The former opt-in **exploration mode** (progressive disclosure through `explore_tools`) belonged to the in-browser loop and is not implemented server-side — see [Tool exploration](./tool-exploration.md).
 
 ---
 
-## 6. Gateway Tool Conversion
-
-When tools are sent to the API gateway, they are converted between OpenAI format and AI SDK format:
-
-```
-Browser (AI SDK tools) → OpenAI wire format → Gateway → AI SDK tools (schema-only) → LLM
-```
-
-The gateway's `convertOpenAITools()` creates tools **without execute functions** — they are schema-only definitions used for the LLM's tool-calling guidance. Tool execution happens client-side; the gateway only sees tool calls in the message history.
-
-`convertToolChoice()` maps between formats:
-- `'none'` / `'auto'` / `'required'` → AI SDK equivalents
-- `{ type: 'function', function: { name } }` → `{ type: 'tool', toolName }`
-
----
-
-## 7. Error Handling
-
-Errors are handled at four layers:
+## 8. Error Handling
 
 | Layer | Mechanism |
 |-------|-----------|
-| **Transport** | `JSONRPCMessageSchema.safeParse()` validates messages; invalid ones trigger `onerror` callback. Sending on a stopped transport throws. |
+| **Frame transport** | `JSONRPCMessageSchema.safeParse()` validates messages; invalid ones trigger the `onerror` callback. Sending on a stopped transport throws. |
 | **Aggregator** | Connection failures are logged and the server is removed. Tool listing failures are logged but the server is retained (retried on next `tools/list_changed`). |
-| **Chat composable** | Stream errors captured via `onError` callback. `AbortError` (user cancel) silently handled. Multi-format error extraction: `e.data.error.message`, `e.responseBody`, `e.message`. |
-| **Gateway** | Model not configured → 404. Stream errors → SSE error frame + `[DONE]`. Usage tracking failures don't block the response. |
-
----
-
-## 8. Progressive Tool Disclosure (Exploration Mode)
-
-By default every aggregated tool is sent on every request. An opt-in **exploration mode** instead discloses tools on demand: the assistant sees only a single constant `explore_tools` tool plus a catalog of tool *names*, and promotes the real tools it needs as it goes. See [Tool exploration](./tool-exploration.md) for the full mechanism.
-
----
-
-## Beyond tools: host events
-
-Tools are how the model acts on the page; host events are how the page tells the model
-what happened and what is true now, on the same tab BroadcastChannel but outside MCP.
-Events caused by a tool call are appended to that tool's result (after the settle barrier
-above), so the model sees the consequence of its action where it happened. See
-[Host events](./host-events.md).
+| **Browser side of the socket** | A call for a tool the page does not have, or whose `execute` throws, is answered with `tool-result { error }`. Calls are served concurrently, so the parallel calls of one step run at once. |
+| **Server side of the socket** | `callBrowserTool` rejects — never hangs — when the page does not currently advertise the tool, after `BROWSER_CALL_TIMEOUT_MS` (30s), on a browser-reported error, and when the socket closes. |
+| **Catalog** | Listing failure: skip (personal assistant) or 502 (configured agent); not cached. Connect failure at call time: error naming the server, retried on the next call. `isError`: rethrown as a tool error. |
+| **Loop** | Tool failures become `tool-error` parts the model sees as `error-text`. Step limits, repeated-call and budget guards, and the stream's idle/total timeouts are in [Loop guards](./loop-guards.md). |
 
 ---
 
 ## Execution context & safety
 
-Tool `execute()` runs **client-side only**, inside the user's own browser session and with exactly the user's permissions — the gateway never runs tools (it forwards schema-only definitions and sees only tool-calls/results in the message history). A tool therefore can do nothing the user could not already do: a prompt injection or a compromised tool descriptor cannot escalate privileges or reach resources the session isn't entitled to. The blast radius of any injection is bounded to the same restricted tool surface already available to the user.
+Every tool runs with an identity no broader than the actor the loop stands for:
 
-That surface is deliberately narrow and **assistive / non-destructive** by design: no generic HTTP client, no arbitrary-code/JS executor — only well-defined actions over page content or read-only API endpoints. Tools never commit writes themselves; at most a tool *prepares* an action (e.g. pre-fills a form), and the actual write is performed by the user, with the UI responsible for surfacing the pending changes before they are committed. This is why a tool call that slips through on a moderation fail-open before a late block lands ([moderation](./moderation.md)) is acceptable — such side effects are reads or staged actions, never validated writes.
+- **Page tools** execute in the person's browser, with exactly their session. A tool can do nothing the person could not already do.
+- **Catalog tools** for the **personal assistant** are called with the person's forwarded session cookie, so the upstream service applies the person's own permissions.
+- **Catalog tools** for a **configured agent** are called as that agent's non-human identity, whose permissions an admin granted when enrolling it.
+
+A prompt injection or a compromised tool descriptor therefore cannot escalate beyond that identity. Results from both sources are treated as untrusted data via the provenance envelope, and the system prompt tells the model to respect it.
+
+Page tools are deliberately **assistive / non-destructive**: no generic HTTP client, no arbitrary-code executor — only well-defined actions over page content or read-only endpoints. At most a page tool *prepares* an action (e.g. pre-fills a form), and the write is performed by the person. Catalog tools are not bound by that convention; their MCP annotations (`readOnlyHint`, `destructiveHint`) are recorded per call so writes are auditable, and are surfaced by the diagnostic endpoint before an agent ever runs. A tool call that slips through on a moderation fail-open before a late block lands is discussed in [moderation](./moderation.md).
 
 ---
 
 ## End-to-End Data Flow
 
 ```
-Registration:
+Registration (browser):
   useAgentTool() → navigator.modelContext.registerTool()
     → BrowserMcpServer → FrameServerTransport
       → BroadcastChannel (mcp-server-ready)
 
-Discovery:
+Discovery (browser → server):
   FrameClientAggregator → FrameClientTransport
     → BroadcastChannel (mcp-check-ready / mcp-server-ready)
       → MCP Client.connect() → Client.listTools()
         → AI SDK tool() wrappers → onToolsChanged()
+          → socket: hello / tools-changed {descriptors}
 
-Execution:
-  LLM tool-call → AI SDK tool.execute()
-    → MCP Client.callTool() → BroadcastChannel (JSON-RPC)
-      → FrameServerTransport → BrowserMcpServer
-        → registered tool.execute() → CallToolResult
-          → text / media-envelope extraction → tool-result → LLM
+Turn assembly (server):
+  performTurn → openAutonomousAgentTools (cached listings, lazy connections)
+    + browserToolSet(session) + wait_for_user_action
+      → withProvenance → partitionSubAgents → liveTools → streamText
+
+Execution, page tool:
+  LLM tool-call → liveTools[name].execute() → session.callBrowserTool()
+    → socket: tool-call → aggregator tool.execute() → MCP tools/call over BroadcastChannel
+      → registered tool.execute() → CallToolResult → formatMcpToolResult
+        → settled() → socket: tool-result → + host events → provenance envelope → LLM
+
+Execution, catalog tool:
+  LLM tool-call → execute() → (connect on first call) → MCP tools/call over HTTP
+    → formatMcpToolResult → provenance envelope → LLM
 ```
-
----
-

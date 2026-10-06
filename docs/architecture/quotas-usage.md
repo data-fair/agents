@@ -29,7 +29,7 @@ flowchart TD
 
 Every call is priced in **credits**, not currency — see [Configuration → Credits](./configuration.md#credits) for the exact formula (token counts against the model's per-class euro prices, divided by `EUROS_PER_CREDIT`). There is no per-role "cost ratio": each model's own prices are what make a cheaper model (e.g. the summarizer's model) consume fewer credits per token than a pricier one, and cache reads cost a fraction of fresh input on the same model.
 
-**Storage:** Three MongoDB documents per user×period in the `usage` collection — `daily:YYYY-MM-DD`, `weekly:YYYY-Www`, `monthly:YYYY-MM` — each with a `cost` field (named for historical reasons; the value stored is credits). Atomic `$inc` upserts for concurrent-safe recording. `recordUsage()` also increments the account's `limits.ai_credits.consumption` counter in the same call, so the credit cap check above always reads consumption recorded by this same path.
+**Storage:** Three MongoDB documents per user×period in the `usage` collection — `daily:YYYY-MM-DD`, `weekly:YYYY-Www`, `monthly:YYYY-MM` — each with a `cost` field (named for historical reasons; the value stored is credits). Atomic `$inc` upserts for concurrent-safe recording, sent as one unordered `bulkWrite` per model call (up to nine upserts: the caller, the account aggregate and the pool, three periods each). The quota check reads a scope's three windows in one `$in` query projected to the cost (`getUsage()`). `recordUsage()` also increments the account's `limits.ai_credits.consumption` counter in the same call, so the credit cap check above always reads consumption recorded by this same path.
 
 **Breakdown flags.** The same `$inc` also feeds a `breakdown` sub-document on each record, one map per dimension: `modelRole` (assistant/tools/summarizer/moderator), `model` (resolved catalog model id), `profile` (the effective role: admin/contrib/user/external/anonymous) and `tokenType` (input/cachedInput/output, from `computeCreditBreakdown()` — the token classes always sum to the total cost). Each request attributes its whole cost to its single model role/model/profile value and splits it by token class, so the monitoring histograms can stack the exact same period shape by any of these dimensions and the layers sum to the unbroken-down total. Model ids routinely contain dots, which MongoDB field paths reject, so map keys go through `encodeBreakdownKey()`/`decodeBreakdownKey()` (percent-escaped, injective). Historical records without a `breakdown` read as zeros; `cost` remains the source of truth.
 
@@ -51,7 +51,7 @@ The same `isUntrusted` flag also gates the [moderation guard](./moderation.md): 
 
 Steps 2 and 3 go through `firstQuotaViolation()` (`api/src/usage/operations.ts`), unchanged from before this refactor. Each is skipped when its `RoleQuota` is `unlimited` or has `monthlyLimit === 0`, so a pool limit of `0` means "no pool cap" — backwards-compatible for accounts that never configure one.
 
-**Recording.** `recordUsage()` takes an optional `poolId`; when set it upserts the `pool:untrusted` daily/weekly/monthly aggregates the same way it already upserts the account aggregate, in addition to the per-user record. Every recording call passes `identity.poolId` so untrusted calls increment all three (per-user + account + pool) — plus the account's `ai_credits.consumption` counter via `incrementConsumption()`, which step 1 above reads back on the next request.
+**Recording.** `recordUsage()` takes an optional `poolId`; when set it upserts the `pool:untrusted` daily/weekly/monthly aggregates the same way it already upserts the account aggregate, in addition to the per-user record. Every recording call — the assistant's steps, sub-agent workers, compaction, the moderation gate, the summary endpoint — passes `identity.poolId`, so untrusted calls increment all three (per-user + account + pool) — plus the account's `ai_credits.consumption` counter via `incrementConsumption()`, which step 1 above reads back on the next request.
 
 **`getOwnerUsage()` is display-only now.** `api/src/usage/router.ts`'s account-usage endpoint (admin dashboard) still calls it to show historical account-wide consumption, but `enforceQuotas()` no longer uses it for enforcement — that moved to `getCreditInfo()`/the `limits` collection.
 
@@ -123,8 +123,16 @@ classifier included — `moderateTurn()` adds it, and records it in the run's
 telemetry as a `moderator` call. A verdict that lands after the gate failed open
 is in the usage ledger only: the run has moved on by then.
 
-`conversationCost()` (`api/src/conversations/service.ts`) sums the runs. The
-agent session sends it as a `cost` frame when a session attaches to the
-conversation and after every turn, before `turn-end`; the Consumption tab shows
-it. It is exact, unlike the browser loop's total, which was summed from response
-`usage` chunks and missed blocked responses.
+A live run's spend and telemetry are held in memory (`bufferRunWrites`) and
+written by the write that closes it (`finishTurn`, `api/src/conversations/service.ts`),
+which adds the run's credits to the conversation's running total (`credits`) on
+the same version bump. `conversationCost()` reads that total — the conversation's
+own document rather than an aggregate over its runs; a conversation from before
+the total existed falls back to the aggregate, and `upgrade/0.12.0/credits-total.js`
+backfills it. The agent session sends it as a `cost` frame when a session
+attaches to the conversation and after every turn, before `turn-end`; the
+Consumption tab shows it. A turn abandoned at its deadline that is still
+spending writes its later spend directly, to the run and the total alike.
+
+The usage ledger is written per call, separately, so a process dying mid-turn
+loses that turn's telemetry on the run but none of its spend.

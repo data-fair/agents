@@ -1,13 +1,15 @@
 # Context management
 
-What happens to a conversation as it grows past the model's window. **One policy, two surfaces**: the
-in-browser agents and the server-side autonomous agents make the same decision, in the same place, and
-differ only in how they apply it.
+What happens to a conversation as it grows past the model's window. **One policy, one loop**: the
+server-side loop (`runModelLoop` in `api/src/conversations/executor.ts`) serves both the in-page chat's
+personal assistant and configured autonomous agents, and the browser does no history management or
+compaction at all.
 
-The decision is `decideContextManagement` in `api/src/conversations/compaction-policy.ts` — pure, stateless, and the
-only thing either loop calls. That is deliberate: before it, two loops *happened* to agree because the
-same constant had been copied into each, and every context bug on this branch came from one of the copies
-having drifted.
+The decision is `decideContextManagement` in `api/src/conversations/compaction-policy.ts` — pure,
+stateless, and the only thing the loop calls. That is deliberate: before it, two loops (the browser's and
+the server's) *happened* to agree because the same constant had been copied into each, and every context
+bug on this branch came from one of the copies having drifted. There is one loop now, which settles that
+by construction.
 
 **Everything here affects only what the MODEL IS SENT.** The stored conversation is the record and is
 never rewritten. A conversation whose context has been cleared and compacted a dozen times still replays
@@ -44,8 +46,8 @@ the saving the ordering exists for.
 Three properties it holds, each load-bearing rather than incidental:
 
 - **The message LIST is never changed**, only a payload inside it. So no tool result is orphaned from
-  its call (which providers reject), `isTurnBoundary` still holds, and the executor's parallel `seqs`
-  array — indexed by position — stays aligned.
+  its call (which providers reject), `isTurnBoundary` still holds, and the loaded history's parallel
+  `seqs` array — indexed by position — stays aligned.
 - **All eligible results are cleared, not merely enough to get back under budget.** Upstream does the
   same. Clearing the minimum would invalidate the cached prefix again next turn for another small saving.
 - **A result smaller than its own placeholder is skipped**, because clearing it would grow the context.
@@ -86,26 +88,29 @@ below that, the blocking call plus the cache invalidation cost more than the con
 Retaining 30% is also the hysteresis — a fresh compaction lands near that fill, so the next turn cannot
 immediately re-trigger.
 
-## What differs between the two surfaces, and why that is fine
+## Where it is applied
 
-The decision is shared; the **application** is not, and forcing the two applications into one shape would
-be worse than leaving them apart.
+Each turn, `runModelLoop` calls `loadHistory` then `compactHistory`
+(`api/src/conversations/turn-history.ts`) once, before the first model step; context is not
+re-evaluated between the steps of a turn.
 
-| | Browser | Autonomous executor |
-| --- | --- | --- |
-| Measurement | provider-reported input tokens of the previous turn, plus characters appended since | no prior response object in hand, so the whole history counts as unmeasured |
-| History | an in-memory array, rewritten in place | rebuilt from stored parts each turn |
-| Recap | held in memory for the session | **persisted** on the conversation (`compaction.summary`, `generation`, `coversUpToSeq`) |
-| After the recap | tool promotion/announcement is pruned to what the retained window still references | the cut is aligned to a stored-message boundary so the recap can be keyed on a `seq` |
+- **History is rebuilt from stored parts** every turn (`storedTurnsToModelMessages`), starting after the
+  persisted recap when there is one, together with a parallel `seqs` array mapping each model message
+  back to its stored message.
+- **Measurement**: there is no prior response object in hand, so the decision is called with
+  `lastInputTokens: 0` and the whole rebuilt history counted as unmeasured characters. It is
+  conservative in the safe direction: the loop can compact slightly early, never slightly late.
+- **The recap is persisted** on the conversation (`compaction.summary`, `generation`, `coversUpToSeq`,
+  via `saveCompaction`), and the cut is aligned to a stored-message boundary (`alignCutToStoredMessage`)
+  so the recap can be keyed on a `seq`.
 
-The measurement difference is a **parameter** to the shared decision (`lastInputTokens: 0`), not a second
-implementation. It is conservative in the safe direction: the executor can compact slightly early, never
-slightly late.
+The recap must be persisted: compaction costs a model call, so without the cache a conversation past the
+budget paid a full summarizer call on every turn for ever. Tier 1 needs no such cache, because it is a
+pure function of the history and the parameters — recomputed every turn for free. That asymmetry is
+exactly why ordering the cheap tier first costs nothing.
 
-Only the executor persists a recap, and it must: compaction costs a model call, so without the cache a
-conversation past the budget paid a full summarizer call on every turn for ever. Tier 1 needs no such
-cache, because it is a pure function of the history and the parameters — recomputed every turn for free.
-That asymmetry is exactly why ordering the cheap tier first costs nothing.
+Sub-agent workers are stateless single-shot runs (see [sub-agents](./sub-agents.md)) and are never
+compacted.
 
 ## Prompt caching
 
@@ -129,9 +134,8 @@ Both are recorded so they are picked up deliberately rather than rediscovered:
 
 ## Reference: how the budget is resolved
 
-For a browser-resident loop the gateway computes the budget and advertises it to the client on every
-response; the autonomous executor computes it directly, from the agent's own assistant model. Both call
-the same `contextBudget()` (`api/src/models/operations.ts`):
+`performTurn` (`api/src/conversations/executor.ts`) resolves the assistant model for the turn and
+computes the budget from it with `contextBudget()` (`api/src/models/operations.ts`):
 
 ```
 budget = floor(contextWindow × compactionPercent / 100)
@@ -143,134 +147,124 @@ budget = floor(contextWindow × compactionPercent / 100)
   reuse and more context kept — not something an org admin should have to reason
   about, so it is deliberately absent from the settings form. `contextBudget()`
   takes it as an argument so `models/operations.ts` stays pure.
-- `contextWindow` resolves in this order: the **assistant role's** `contextWindow`
-  field in settings, then the context length snapshotted on the model when it was
-  picked from the provider's listing, then **128000** tokens
-  (`UNKNOWN_CONTEXT_WINDOW`) when neither is available.
+- `contextWindow` is resolved on the catalog entry (`getModelCatalog`): for an org
+  model, the entry's own `contextWindow` field in settings, then the context length
+  snapshotted on the model when it was picked from the provider's listing, then
+  **128000** tokens (`UNKNOWN_CONTEXT_WINDOW`); for a global model, its configured
+  `contextWindow`, then 128000. A 0 means unset and falls through.
 - The 128000 fallback is sized for the models actually put in the assistant seat —
   Claude Opus/Sonnet (200k), DeepSeek V4 Flash (1M), GLM 5.2 Flash — while sitting
   at or below the floor of that class, so it under-states rather than over-states.
   The trade-off is deliberate: a genuinely small self-hosted model that is never
-  given an explicit window will now overflow its context and have the request
+  given an explicit window will overflow its context and have the request
   rejected by the provider, rather than compacting early and silently. Set the
-  assistant's `contextWindow` for those deployments.
-- That field exists on the assistant role only, because the assistant is the sole
-  role whose history is compacted — `contextBudget()` is always resolved for
-  `'assistant'`. It is not merely an override: the snapshot on the model object is
+  model's `contextWindow` for those deployments.
+- The field belongs to the model entry, not to a role, so any entry may carry it;
+  only the assistant's matters today, because the assistant is the sole seat whose
+  history is compacted — the budget is always computed from the `'assistant'`
+  entry. It is not merely an override: the snapshot on the model object is
   `readOnly` and populated by the autocomplete, so for every provider that reports
   no context length this field is the only way to supply one.
 - Only **OpenRouter** and the mock provider report a context length in their model
   listing today (`api/src/models/router.ts`, `fetchOpenRouterModels`). Every other
   provider — including **Ollama** — falls through to the field-or-128000 path:
   Ollama's `list()` response carries no `context_length` (that only lives in
-  `show()`'s `model_info`, which is never called), so an Ollama-backed role always
-  needs an explicit override to get a larger budget.
-- The budget is always computed for the **`assistant`** role, whichever model role
-  the request actually used — the client only ever compacts the main assistant
-  history. The gateway sets it unconditionally, before any quota/moderation
-  short-circuit, as the `x-context-budget` response header
-  (`api/src/gateway/router.ts`). The client reads it in `noteStorageHeader`
-  (`ui/src/composables/use-agent-chat.ts`) and stores it in `contextBudget`.
+  `show()`'s `model_info`, which is never called), so an Ollama-backed model always
+  needs an explicit value to get a larger budget.
 
 ## Reference: how fill is measured
 
-Compaction cannot re-serialize the whole history to get an exact token count every
-turn without defeating the point of avoiding extra work, so fill is an estimate:
+The decision estimates fill rather than counting tokens exactly:
 
 ```
-fill = lastTurn.usage.inputTokens + estimateTokens(appendedChars)
+fill = lastInputTokens + estimateTokens(appendedChars)
 ```
 
-- `lastTurn.usage.inputTokens` is the provider-reported total prompt size for the
-  previous turn — it already counts the system prompt and tool schemas, which a
-  measure over serialized history alone would miss entirely.
-- `appendedChars` is how many characters have been pushed onto `history` since that
-  measurement was taken (one snapshot of `JSON.stringify(history).length`, not
-  per-message accounting), converted to a token estimate at a fixed 4 characters
-  per token (`CHARS_PER_TOKEN`).
+`estimateTokens` converts characters at a fixed 4 per token (`CHARS_PER_TOKEN`). The formula can take a
+provider-reported measurement of a previous turn (`lastInputTokens`, which would include the system prompt
+and tool schemas), but the server loop never has one: it passes `lastInputTokens: 0` and the length of the
+whole serialized rebuilt history as `appendedChars`. So in practice fill is an estimate over the history
+alone, which leaves out the system prompt and tool schemas — another reason the budget sits well below the
+window. After a tier-1 clear the policy re-measures the cleared history the same way.
 
-This is the browser's measurement. The autonomous executor has no prior response object in hand, so it
-passes `lastInputTokens: 0` and counts the whole rebuilt history as unmeasured — the same decision, a
-different parameter. Both live in the pure decision module **`api/src/conversations/compaction-policy.ts`**
-(`decideContextManagement`), which each loop's own `compactHistory` calls before every turn — it takes the
-current `history`, `lastInputTokens`, `appendedChars` and `budget` and returns the history to send (with
-any cleared payloads applied) plus either "don't compact" (with a reason) or a prefix to summarise and a
-window to retain. It is deliberately free of I/O so every branch is unit tested
-(`tests/features/chat-hang/compaction-policy.unit.spec.ts`).
+The decision module is free of I/O so every branch is unit tested
+(`tests/features/chat-hang/compaction-policy.unit.spec.ts`). It takes `history`, `lastInputTokens`,
+`appendedChars`, `budget` and `generation` and returns the history to send (with any cleared payloads
+applied) plus either "don't compact" (with a reason) or a prefix to summarise and a window to retain.
 
-## Reference: the summarizer call and tool-set pruning
+## Reference: the summarizer call
 
-The summarizer call is an ordinary `generateText` against `provider.chatModel('summarizer')`
-— the same gateway `/v1/chat/completions` route as any other model role, not a
-separate endpoint. It is abortable (the shared per-turn `AbortController` also
-covers this call, so Stop and the idle watchdog can cancel it) and best-effort: any
-failure other than an abort is swallowed and the turn continues with the
-uncompacted history.
+The summarizer call is an ordinary `generateText` against the model resolved for the `summarizer` role,
+with `compactionSystemPrompt(generation - 1)` as system prompt — which adds a merge instruction from the
+second compaction on — and the serialized prefix as a single user message. It shares the turn's abort
+signal, so Stop and an agent's kill switch cancel it. A watching page is sent a `compacting` activity
+label only once a compaction is actually going to run.
 
-On success, history becomes `[recap, ...retained]`, where `recap` is a single user
-message wrapping the summary text (framed as a condensed record of the
-conversation so the model doesn't mistake it for a fresh request — some providers
-also require history to start with a user message).
+It is billed like any model call: its credits seed the run's credit budget, are recorded as usage under
+`modelRole: 'summarizer'`, and appear as their own entry in the run's `calls`.
 
-`promotedTools` and `announcedTools` (the tool-exploration bookkeeping — see
-[Progressive tool disclosure](./tool-exploration.md)) are **not cleared wholesale**.
-They are pruned to `retainedToolNames(retained)`: the set of tool names the
-retained window still provably references, matched by **exact** name only —
-either a `toolName` on a retained `tool-call`/`tool-result` part, or a name listed
-in a retained `<tools-available>` notice. A name that only appears as an ordinary
-word in the recap's prose (e.g. "search" used as a verb) is dropped, never kept by
-a substring match. Dropping a name that's actually still needed just costs a few
-tokens to re-announce it; keeping one that isn't provably referenced risks
-misleading the model about what's callable.
+On success, history becomes `[recap, ...retained]`, where `recap` (`recapMessage`) is a single user
+message wrapping the summary text (framed as a condensed record of the conversation so the model doesn't
+mistake it for a fresh request — some providers also require history to start with a user message), and
+the recap is persisted against `coversUpToSeq`.
+
+A failure other than an abort is non-fatal, and does not fall back to the full history: every tool result
+is cleared instead (`clearOldToolResults` with `keep: 0, clearAtLeast: 0`), keeping each call and its
+placeholder, and the turn continues.
 
 ```mermaid
 sequenceDiagram
-  participant Loop as either loop (compactHistory)
-  participant Policy as api/src/conversations/compaction-policy.decideContextManagement
+  participant Loop as runModelLoop
+  participant Hist as turn-history
+  participant Policy as decideContextManagement
   participant LLM as Summarizer model
+  participant Store as Mongo (conversations, messages)
 
-  Loop->>Policy: decideContextManagement({ history, lastInputTokens, appendedChars, budget, generation })
+  Loop->>Hist: loadHistory(conversationId, messageSeq)
+  Hist->>Store: recap + messages after coversUpToSeq
+  Hist-->>Loop: { messages, seqs, generation }
+  Loop->>Hist: compactHistory(loaded, budget)
+  Hist->>Policy: decideContextManagement({ history, lastInputTokens: 0, appendedChars, budget, generation })
   alt fill <= budget
-    Policy-->>Loop: nothing to do
+    Policy-->>Hist: nothing to do
   else over budget
     Policy->>Policy: tier 1 — clear tool results older than the last `keep`, leaving placeholders
     Policy->>Policy: re-measure the cleared history from characters
     alt now under budget, or nothing left to compact, or prefix below floor
-      Policy-->>Loop: { history: cleared, compact: false, reason }
-      Loop->>Loop: send the cleared history — NO model call, nothing billed
+      Policy-->>Hist: { history: cleared, compact: false, reason }
+      Hist-->>Loop: cleared history — NO model call, nothing billed
     else still over budget
-      Policy-->>Loop: { history: cleared, compact: true, prefixToSummarize, retained, generation+1 }
-      Loop->>LLM: generateText(summarizer, prefixToSummarize [+ merge note if generation > 0])
-      LLM-->>Loop: summary text
-      Loop->>Loop: history = [recap(summary), ...retained]
-      Loop->>Loop: browser: prune promotedTools / announcedTools to retainedToolNames(retained)
-      Loop->>Loop: executor: bill the call, persist the recap against a stored-message boundary
+      Policy-->>Hist: { history: cleared, compact: true, prefixToSummarize, generation+1 }
+      Hist->>Hist: align the cut to a stored-message boundary
+      Hist->>LLM: generateText(summarizer, prefix [+ merge note if generation > 0])
+      LLM-->>Hist: summary text
+      Hist->>Store: saveCompaction({ summary, generation, coversUpToSeq })
+      Hist-->>Loop: [recap(summary), ...retained] + credits spent
     end
   end
-  Loop->>Loop: after any rewrite: lastInputTokens = 0, measuredChars = 0
+  Loop->>Loop: add host context to the last user turn, then streamText
 ```
 
-## Testing override (browser only)
+`retainedToolNames` (the exact tool names a retained window still references) is still exported from the
+policy module and unit tested, but nothing calls it: it served the browser loop's tool-exploration
+bookkeeping, and tool exploration is not implemented on the server loop (see
+[tool exploration](./tool-exploration.md)).
 
-`sessionStorage.setItem('agent-chat-compaction-threshold', ...)` still forces a
-fixed budget for testing, bypassing the gateway-advertised value — but its unit is
-now **tokens**, not characters, since the whole trigger is now token-based. A
-saved override from before this change will be read as a token budget and so mean
-something very different (typically a much larger effective threshold) than it did
-under the old character-based trigger.
+## Testing
 
-The autonomous executor has no equivalent override: its budget comes from the agent's assistant model,
-so a test sets a small `contextWindow` on that model in settings instead.
+There is no runtime override of the budget: it comes from the assistant model, so a test sets a small
+`contextWindow` on that model in settings instead (`tests/features/agents/compaction.e2e.spec.ts`). The
+browser's former `sessionStorage` `agent-chat-compaction-threshold` knob went with the browser loop.
 
 ## Where the code is
 
 - `api/src/conversations/compaction-policy.ts` — `decideContextManagement`, `clearOldToolResults`, `decideCompaction`,
-  the placeholders, and every constant named above. The single source of truth for both loops.
+  the placeholders, and every constant named above. The single source of truth.
 - `api/src/conversations/compaction-prompt.ts` — the summarizer's system prompt and the recap message.
-- `api/src/conversations/executor.ts` — `compactHistory`: applies the decision, bills the
-  summarizer call, persists the recap.
-- `api/src/conversations/operations.ts` — `boundToolResult`, tier 0.
-- `ui/src/composables/use-agent-chat.ts` — `compactHistory`: applies the decision to its in-memory
-  history and re-prunes tool announcements.
-- `tests/features/chat-hang/compaction-policy.unit.spec.ts` — the policy, including that both loops
-  route through it and that the numbers in this document match the constants.
+- `api/src/conversations/turn-history.ts` — `loadHistory` (rebuild from stored parts after the recap) and
+  `compactHistory`: applies the decision, bills the summarizer call, persists the recap.
+- `api/src/conversations/executor.ts` — `performTurn` computes the budget; `runModelLoop` calls the two
+  above before the first step.
+- `api/src/conversations/operations.ts` — `boundToolResult`, tier 0, applied as each tool result is stored.
+- `tests/features/chat-hang/compaction-policy.unit.spec.ts` — the policy, including that the loop routes
+  through it and that the numbers in this document match the constants.

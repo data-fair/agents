@@ -3,7 +3,8 @@
 Every conversation runs on the server and is stored there, so reviewing one is a **read of the
 conversation**, authorized rather than duplicated. This replaced a `trace-requests` collection that
 kept a second copy of each exchange under its own TTL: the copy held the same content plus per-call
-telemetry, and the telemetry now lives on the run.
+telemetry, and the telemetry now lives on the run (`runs.calls`, recorded for every turn whatever
+the consent).
 
 What review gives an admin: the exchange as the person saw it, the instructions the model was given,
 and per-call provider/model/token/credit/duration figures. What it gives a superadmin on top: a
@@ -28,22 +29,28 @@ consent hides a thread that was previously visible.
 
 A person's access to **their own** thread is not this gate — they may always read what they said.
 
+An **anonymous** visitor's thread (`conversation.anonymous`, created per socket) is never
+reviewable: the consent sheet is not offered to them, and a consent cookie left from a signed-in
+visit is ignored. Such a thread lives as long as its socket — purged on close, and by
+`purgeAbandonedAnonymous` (24h after its last update) when the close never ran.
+
 ## Retention, and why deleting archives
 
-`api/src/retention.ts` holds one policy: 30 days, measured from the thread's `lastMessageAt`. A
-thread in active use keeps refreshing the window; a thread that goes quiet expires 30 days later,
-whole. Coarser than the old per-request TTL, and the honest consequence of making the conversation
-the record.
+`api/src/retention.ts` holds one policy: 30 days, measured from the thread's `lastMessageAt` (the
+same `RETENTION_SECONDS` is the TTL of `moderation-events`). It governs what happens when a person
+**deletes** a thread; a thread they keep is their own history and is not expired.
 
 Because the conversation **is** the review material, an unconditional delete would let anyone erase
-a record their organization was entitled to review. So a person deleting a reviewable thread
-**archives** it (`archivedAt`): gone for them — hidden, unreadable, not continuable — still visible
-to review until the window closes. The review list surfaces `archivedAt` so an admin knows the
-thread is on its way out.
+a record their organization was entitled to review. So a person deleting a consented thread whose
+`lastMessageAt` is still inside the window **archives** it (`archivedAt`): gone for them — hidden,
+unreadable, not continuable — still visible to review until the window closes. Any other delete
+purges immediately. The review list surfaces `archivedAt` so an admin knows the thread is on its way
+out.
 
-Expiry is a **sweep**, not a TTL index, because messages and runs are separate documents: a TTL
-deletes only the document it indexes and would leave them orphaned and still readable by id. The
-sweep selects `expiredArchiveFilter` (archived **and** past the cutoff) and calls the same
+Expiry is a **sweep** (`purgeExpiredArchives`, at boot and daily), not a TTL index, because messages
+and runs are separate documents: a TTL deletes only the document it indexes and would leave them
+orphaned and still readable by id. The sweep selects `expiredArchiveFilter` (archived **and**
+`lastMessageAt` past the cutoff, so a late delete cannot extend visibility) and calls the same
 `purgeConversation` an admin erasure calls, so the two cannot differ about what deletion removes.
 
 GDPR erasure (`DELETE /api/review/:type/:id?userId=…`) includes archived threads deliberately: the

@@ -1,28 +1,30 @@
 # Loop guards
 
-Both agent loops — the main chat turn (`streamText` in `use-agent-chat.ts`) and each delegated sub-agent (`ToolLoopAgent`, see [sub-agents](./sub-agents.md)) — run autonomously: the model calls tools, gets results, and decides whether to call more. Two failure shapes have to be bounded without crippling the loop:
+Both model loops — the turn itself (`streamText` in `runModelLoop`, `api/src/conversations/executor.ts`, which serves the in-page chat's personal assistant and configured autonomous agents alike) and each delegated sub-agent (`ToolLoopAgent`, see [sub-agents](./sub-agents.md)) — run server-side and autonomously: the model calls tools, gets results, and decides whether to call more. Two failure shapes have to be bounded without crippling the loop:
 
 - **Runaway** — the model re-issues the same call over and over (the single most common agent failure mode: "step repetition" is 15.7% of failures in the MAST taxonomy, and AgentBench attributes most step-limit exits to repeated content).
 - **Unbounded but productive work** — a page whose tools are deliberately fine-grained needs many steps. A json-layout form is filled one `setFieldValue` per field, plus `getFieldSuggestions` round-trips and `editArray` + N fields per array item, so even a modest form takes several dozen steps.
 
-A single step count cannot serve both. Any value low enough to cut a runaway short (the historical `stepCountIs(10)`) also truncates real work mid-form, and the close-out then reports a half-filled form as the result. So the two concerns are guarded separately, in `ui/src/composables/agent-loop-guards.ts`.
+A single step count cannot serve both. Any value low enough to cut a runaway short (the historical `stepCountIs(10)`) also truncates real work mid-form, and the close-out then reports a half-filled form as the result. So the two concerns are guarded separately, in `api/src/conversations/loop-guards.ts`.
 
 ```mermaid
 flowchart LR
   Step[Model step<br/>tool calls + results] --> Repeat{Same calls,<br/>same results<br/>as previous steps?}
   Repeat -->|"run &lt; 3"| Next[Next step]
-  Repeat -->|"3 ≤ run &lt; 5"| Nudge[prepareStep injects<br/>reminder message] --> Next
+  Repeat -->|"3 ≤ run &lt; 5"| Nudge["prepareStep injects<br/>reminder message<br/>(lead loop only)"] --> Next
   Repeat -->|"run ≥ 5"| Stop[stopWhen: repeatedCallGuard]
   Next --> Count{step ≥ 100?}
   Count -->|no| Step
   Count -->|yes| Stop2[stopWhen: stepCountIs]
   Stop --> Closeout[Sub-agent: no-tools close-out turn<br/>→ partial result]
   Stop2 --> Closeout
+  Stop --> Notice[Lead: turn ends, stop reason<br/>notice appended to the message]
+  Stop2 --> Notice
 ```
 
 ## 1. Flat step backstop — `STEP_LIMIT = 100`
 
-One generous constant for both loops. It is **not** a spend control: the gateway enforces [quotas](./quotas-usage.md) on every request, and the user always has the Stop button (`abort()`), which is what actually bounds cost and gives the user control. The step limit only has to stop a runaway the repeat guard cannot recognise — typically a tool whose output changes on every call.
+One generous constant for both loops. It is **not** a spend control: [quotas](./quotas-usage.md) are checked before the turn, the loop tracks the run's credit budget (`autonomousAgentRunCredits`) in memory and stops between steps once it is crossed, the account's credit cap is re-read after each step that called tools (i.e. only when another step follows), and the person always has Stop (an `abort` frame on the agent session, which aborts the run). Those are what bound cost. A third `stopWhen` condition (`() => budgetExceeded`) sits beside the two guards below for that. The step limit only has to stop a runaway the repeat guard cannot recognise — typically a tool whose output changes on every call.
 
 100 matches the runaway backstops of harnesses built for long runs (OpenHands and browser-use default to 100, mini-swe-agent to 250, Google ADK to 500 LLM calls) and sits well above observed successful trajectories: browser tasks run 10–50 steps, coding agents 50–180, form filling a few dozen. Frameworks with much lower defaults (OpenAI Agents SDK 10, AI SDK `ToolLoopAgent` 20, LangGraph.js 25) assume one short loop per call; LangGraph Python raised its default from 25 to 1000 for exactly the reason above.
 
@@ -41,22 +43,24 @@ Two thresholds, following the OpenHands SDK ladder:
 
 | Trailing run | Mechanism | Effect |
 |---|---|---|
-| `REPEATED_CALL_NUDGE_AT` = 3 | `loopGuardPrepareStep` (a `prepareStep` hook) | Appends a user message to the **next model request only**: "You have called `X` with the same arguments 3 times in a row and got the same result each time…". It never enters the stored transcript, and is re-derived on every step while the run persists. |
+| `REPEATED_CALL_NUDGE_AT` = 3 | `loopGuardPrepareStep` (a `prepareStep` hook, lead loop only — see below) | Appends a user message to the **next model request only**: "You have called `X` with the same arguments 3 times in a row and got the same result each time…". It never enters the stored transcript, and is re-derived on every step while the run persists. |
 | `REPEATED_CALL_LIMIT` = 5 | `repeatedCallGuard()` (a `stopWhen` condition) | Ends the loop on a tool-call step. |
 
 The nudge is the mildest intervention that works: telling the model plainly what it just did. Comparable production thresholds are 3 consecutive identical calls (Roo Code, Reflexion, AWS Strands) to 5 (Gemini CLI, which also detects cycles of length up to 5). Comparing results as well as calls is the refinement most of them converged on after false positives (Gemini CLI had to add an opt-out).
 
-On the main loop the hook is composed with the [tool-exploration](./tool-exploration.md) `activeTools` gating: `prepareStep: (opts) => ({ ...loopGuardPrepareStep(opts), ...explorationPrepareStep() })`.
+On the lead loop the same `prepareStep` hook first refreshes the live tool set when the page's tools changed mid-turn, then returns `loopGuardPrepareStep(options)`. Sub-agent workers are built with the two `stopWhen` guards only and no `prepareStep`, so today a looping worker is stopped at 5 without first being nudged at 3.
+
+The same module holds `STREAM_IDLE_TIMEOUT_MS` (90 s), passed to the lead's `streamText` as `timeout.chunkMs`: an idle watchdog rather than a total ceiling, so a provider that accepts a request and then goes silent does not hold the conversation until the run's wall-clock timeout (`autonomousAgentRunTimeoutSeconds`, also passed as `timeout.totalMs`).
 
 ## 3. Never stop silently
 
 Either guard ends the loop with `finishReason: 'tool-calls'`. For a sub-agent, the orchestrator then runs **one close-out turn with no tools** (`SUBAGENT_CLOSEOUT_PROMPT`) so the model must synthesize a best-effort answer from what it gathered, and surfaces it to the lead as a *partial* result rather than a failure — see [sub-agents §3](./sub-agents.md#loop-guard-close-out). This mirrors smolagents (`provide_final_answer`), CrewAI (`force_final_answer`), browser-use (done-only last step) and Claude Code sub-agents (output "marked partial"); hard-stop-and-throw is the pattern users complain about.
 
-On the main loop the turn simply ends; the "turn ends on a tool-call step" fallback in `use-agent-chat.ts` makes sure the user sees something rather than a blank turn.
+On the lead loop the turn simply ends, and the run records why: `finishReason: 'tool-calls'` maps to the stop reason `budget`, `step-limit` or `repeated-calls`, and `runTurn` appends that reason's notice (`runStopReasonMessage`, `api/src/conversations/operations.ts`) to the assistant message, so the person never sees a turn that just stops.
 
 ## 4. Test seams
 
-The mock model (`api/src/models/mock-model.ts`) answers a task of exactly `loop forever` with the same `get_schema` call on every step and **ignores the injected nudge**, so the e2e test `Sub-agent that loops to its step cap recovers a close-out answer` exercises the whole ladder: 5 identical calls, the guard stops the loop, the close-out recovers an answer. The guard logic itself is covered by the `loop-guards` unit spec.
+The mock model (`api/src/models/mock-model.ts`) answers a task of exactly `loop forever` with the same `get_schema` call on every step and **ignores any injected nudge**, so the e2e test `Sub-agent that loops to its step cap recovers a close-out answer` exercises the whole ladder: 5 identical calls, the guard stops the loop, the close-out recovers an answer. The guard logic itself is covered by `tests/features/chat-subagent/loop-guards.unit.spec.ts`.
 
 ## References
 

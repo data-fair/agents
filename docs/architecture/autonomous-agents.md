@@ -1,25 +1,31 @@
 # Autonomous agents
 
 An **autonomous agent** is an org-owned, configured agent that runs its own turns **on the server**,
-against MCP tools it reaches as its own identity, on a conversation several people share.
+against MCP tools it reaches as its own identity, on conversations that each belong to one person.
 
 It was once the one part of this service that held server-side conversation state. The loop moved to
-the server for every agent, so a configured autonomous agent and the in-page chat now run the same
-executor over the same collections; what still distinguishes an autonomous agent is WHO it acts as (its
-own non-human identity rather than the person's session) and that it is configured rather than
-standard.
+the server for every agent, so a configured autonomous agent and the in-page chat's personal assistant
+(a *standard* agent, `api/src/agent-session/standard-agents.ts`) now run the same executor
+(`api/src/conversations/executor.ts`: `runTurn` → `performTurn` → `runModelLoop`) over the same
+collections. What still distinguishes an autonomous agent is WHO it acts as (its own non-human identity
+rather than the person's forwarded session), WHO it bills as (itself rather than the person), and that
+it is configured rather than built in.
 
 ## What it is made of
 
 | Collection | Holds |
 | --- | --- |
-| `autonomous-agents` | the configuration: persona, instructions, MCP server selection, instructors, NHI enrolment, `enabled` |
-| `conversations` | one shared thread per agent: title, `messageSeq`, `version`, the cached compaction recap |
+| `autonomous-agents` | the configuration: title, persona, instructions, MCP server selection, instructors, NHI enrolment, `enabled` |
+| `conversations` | one thread, of one agent (`agentId`), for one person (`userId`): title, `messageSeq`, `version`, running `credits`, review consent, the cached compaction recap |
 | `messages` | the turns, as ordered `UIMessage` parts — **the conversation of record** |
-| `runs` | one document per turn: status, stop reason, steps, credits |
+| `runs` | one document per turn: status, stop reason, steps, credits, the system prompt and per-call telemetry (`calls`) |
 
-Code: `api/src/autonomous-agents/` (configuration, identity, tool diagnostics) and
-`api/src/conversations/` (conversations, messages, runs, the executor).
+The three conversation collections are shared with every chat conversation, standard agent included
+(renamed from `autonomous-agent-*` by `upgrade/0.12.0/conversations-are-not-autonomous.js`).
+
+Code: `api/src/autonomous-agents/` (configuration, identity, tool diagnostics),
+`api/src/conversations/` (conversations, messages, runs, the executor and its turn gates) and
+`api/src/agent-session/` (the socket the in-page chat drives turns through).
 
 ## The conversation is the record
 
@@ -40,13 +46,13 @@ Consequences worth stating, because they are what the design buys and costs:
 - Reads are validated against the library's own `safeValidateUIMessages` before anything is replayed,
   because the stored `parts` schema is deliberately loose — the state machine belongs to the library.
 
-Context growth is handled by one policy shared with the browser loop: see
-[Context management](./context-management.md).
+Context growth is handled by one tiered policy: see [Context management](./context-management.md).
 
 ## A run, and its two invariants
 
-`POST .../:conversationId/messages` appends the instructor's turn and starts a run. The executor holds a
-lock keyed on the **conversation**, because one conversation is one serialised timeline.
+`POST /api/conversations/:type/:id/:conversationId/messages` (or a prompt over the chat's socket) appends
+the person's turn and starts a run. The executor holds a lock keyed on the **conversation**, because one
+conversation is one serialised timeline.
 
 Two invariants hold for every path through the executor:
 
@@ -55,7 +61,9 @@ Two invariants hold for every path through the executor:
 
 "Failure is a message, not a silence": a conversation that simply stops, or a turn that appears to think
 for ever, is the failure mode this forbids. A refusal — disabled agent, missing enrolment, exhausted
-credit cap — is still a message saying so.
+quota or credit cap, a moderation block — is still a message saying so. The quota and moderation gates
+(`api/src/conversations/turn-gates.ts`) run before any model call, so a refused turn costs nothing
+beyond the moderation classifier (see [Moderation](./moderation.md)).
 
 Bounds on a turn, all enforced server-side: `STEP_LIMIT`, the repeated-call guard, a per-run credit
 budget, the account credit cap, the whole-turn deadline, and `STREAM_IDLE_TIMEOUT_MS` as the AI SDK's
@@ -88,48 +96,57 @@ real proxied request rather than configured, so it is always a url that demonstr
 - `GET .../:agentId/tools` and `.../session` are the diagnostics: they connect as the agent and report
   what it can actually reach. Never a credential in the response.
 
-Tools come from the operator's MCP catalog, never from the instructing user's page. Each result reaches
+MCP tools come from the operator's catalog, never from a URL the org side supplies. When the person is
+watching the turn through the chat's socket, `performTurn` also adds the tools their page registered
+(`browserToolSet`) and `wait_for_user_action`; a turn nobody watches has none. Each result reaches
 the model inside a provenance envelope naming the server and the tool — including a **failure**, whose
 text is the tool's own words — so a tool cannot pass its output off as the system or the user.
 
-## A shared timeline
+## One person per conversation
 
-Several people instruct one agent on one thread, so attribution is mandatory rather than decorative.
+A conversation used to be a shared timeline that several instructors wrote to, with an attribution
+envelope around each user turn. It is now **one person's** thread (`conversation.userId`), so the
+envelope and the system-prompt clause that told the model to trust it were removed together.
 
-- Every message carries an `author`: a user (id and name) or the agent itself.
-- A user turn is replayed to the model inside an envelope — `<message from="…" user-id="…">` — with both
-  delimiters neutralised in the content and the attributes sanitised. An instructor pasting text that
-  *looks* like another instructor's attribution cannot launder a request through it; a listed instructor
-  may come from another account, so that would otherwise let lower trust act as higher.
-- Who may instruct: admins of the owning organization, plus anyone in `instructors`. **Anyone listed
-  borrows the agent's permissions**, which is the sentence that matters when adding someone.
-- The same grant covers aborting a turn and erasing a thread: someone who can make the agent act can
-  stop it and can erase what it did.
+- Who may **start** a conversation with a configured agent is still a grant (`canInstruct`): admins of
+  the owning organization, anyone in `instructors` (who may come from another account), and superadmins
+  in admin mode. **Anyone listed borrows the agent's permissions**, which is the sentence that matters
+  when adding someone.
+- Reading, posting to, aborting a turn of, and erasing an existing thread is the owner's alone
+  (`assertOwnsConversation`); a superadmin in admin mode is the only exception. An org admin sees
+  nothing by default — reading someone else's thread is [conversation review](./conversation-review.md),
+  gated on consent.
+- Every message still carries an `author`: a user (id and name) or the agent itself.
 
 ## Stopping and erasing
 
-- **Abort** one turn: `POST /api/runs/.../:runId/abort`. In-process only — a run does
+- **Abort** one turn: `POST /api/runs/:type/:id/:runId/abort`. In-process only — a run does
   not migrate, so the process holding it is the only one that can stop it — and `abort()` is a request,
   which is why the turn is also raced against its deadline.
 - **Disable** the agent: every live turn of it is aborted and its cached session dropped, so a turn
   already inside the loop cannot keep acting with credentials obtained before it was disabled.
 - **Delete** the agent: live turns stopped, then its conversations, messages and runs are erased.
-- **Delete one thread**: `DELETE /api/conversations/:type/:id/:conversationId`.
+- **Delete one thread**: `DELETE /api/conversations/:type/:id/:conversationId`. A thread the person
+  consented to having reviewed, still inside the review window, is **archived** rather than purged —
+  see [conversation review](./conversation-review.md#retention-and-why-deleting-archives).
 
-There is **no TTL** on a conversation, deliberately. It is the conversation of record, so a timer that
-silently destroyed it would take the audit trail with it. What it needs instead is someone who can erase
-it — which is what the two delete routes are.
+There is **no TTL** on a live conversation, deliberately. It is the conversation of record, so a timer
+that silently destroyed it would take the audit trail with it. What it needs instead is someone who can
+erase it — which is what the delete routes are. (Archived threads and abandoned anonymous threads are
+swept by their own purges.)
 
 ## Spend
 
-The executor talks to providers directly rather than through the gateway, so it does its own accounting:
-per-step credits against the per-run budget, the account credit cap checked before each step, and
-`recordUsage` per model role — the summarizer's compaction call included, which is a real model call and
-is billed like one.
+The executor talks to providers directly and does its own accounting: the quota/credit gate before the
+turn, per-step credits against the per-run budget, the account credit cap re-checked between steps, and
+`recordUsage` per model role — the moderation classifier and the summarizer's compaction call included,
+which are real model calls and are billed like one.
 
-Usage is keyed on the **agent**, not on whoever sent the last message: an autonomous agent is an
-org-owned service identity, and scheduled runs will have no instructing user at all. Content attribution
-stays per person, on each message's `author`.
+Who is billed is decided by `usageIdentityFor` (`api/src/conversations/operations.ts`). A configured
+autonomous agent is keyed on the **agent** (`autonomous-agent:<id>`, role `admin`, so no per-profile
+quota applies — the credit cap and per-run budget are its bounds): it is an org-owned service identity,
+and scheduled runs will have no instructing user at all. A standard agent bills as the **person** using
+it, with their effective role, so per-profile and untrusted-pool quotas apply to them.
 
 ## Where it is going
 
@@ -137,8 +154,8 @@ stays per person, on each message's `author`.
 recorded since:
 
 - the message model is the AI SDK's (`2026-09-30-adopt-the-ai-sdk-message-model-design.md`);
-- context management is one tiered policy shared with the browser
-  (`2026-09-30-tiered-context-management-design.md`);
-- the two loops are **not** merged yet, and the reversal that would move every loop server-side was
-  considered and rejected — with the conditions under which it becomes right
-  (`2026-09-30-one-agent-loop-two-platforms-design.md`).
+- context management is one tiered policy (`2026-09-30-tiered-context-management-design.md`);
+- the browser loop was removed and every agent now runs on the one server loop, one person per
+  conversation (`2026-10-01-one-server-loop-prototype-design.md`, which reverses the earlier
+  `2026-09-30-one-agent-loop-two-platforms-design.md`);
+- an approval gate for write tools is designed but not built (`2026-10-01-tool-approval-gate-design.md`).

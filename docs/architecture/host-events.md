@@ -2,13 +2,13 @@
 
 The chat only learns what it asks for, and only when a message arrives — unless the host
 tells it. This document covers how a host page reports what happened and what is true
-now, how the chat delivers that to the model without ever starting a turn, and the one
-tool that lets the agent hand the next step to the user and get it back.
+now, how that reaches the server-held loop and the model without ever starting a turn,
+and the one tool that lets the agent hand the next step to the user and get it back.
 
 ## The model
 
 The host reports **events**, one primitive. An event is *keyed* when it describes
-something with a current value (the location, a wizard's state): the chat retains only
+something with a current value (the location, a wizard's state): the store retains only
 the last event per key and coalesces pending ones per key. An unkeyed event is a
 transition (creation done, dialog dismissed). Navigation is emitted once, keyed
 `location`: retention holds where the user is, the delivery is the transition.
@@ -19,24 +19,23 @@ a later occurrence supersedes it.** Typing a title is state (keyed `wizard`); pr
 Create is a transition (`item-created`); leaving the page is both (`navigated`, keyed
 `location`).
 
-Retention is consulted only when a conversation *activates* — first turn, after reset,
-after compaction — the moments the model has no history to integrate from. After that
-the model receives events only, each exactly once **per model**, persisted, in
-chronological order. Nothing is re-sent, nothing is ephemeral, and the host never starts
-a turn. "Per model" matters when a sub-agent is involved: a sub-agent's own tool calls
-get their own copy of pending events (appended to that tool's result, inside the
-sub-agent's private history) without draining the shared buffer, so the same events also
-reach the lead — once — on its own next turn. See point 2 under Consuming below.
+The loop runs on the server (`api/src/conversations/executor.ts`), so the store does too.
+The page publishes on the tab BroadcastChannel; the chat iframe forwards each event, raw,
+up its agent-session socket; the server feeds the socket's `HostEventStore`. Retained
+state is told to the model on **every** turn; events are told **once**, drained from the
+pending buffer by whichever delivery reaches them first. Nothing is re-sent, and the host
+never starts a turn.
 
 ```mermaid
 flowchart LR
-  Page["Page: emitAgentEvent / useAgentState"] -->|BroadcastChannel| Store[HostEventStore]
-  Store -->|keyed| Retention["retention: last event per key<br/>+ ring of last 10 unkeyed"]
+  Page["Page: emitAgentEvent / useAgentState"] -->|BroadcastChannel| Iframe["chat iframe: subscribeHostEvents"]
+  Iframe -->|"socket: host-events / host-state frames"| Store["HostEventStore (server, per agent session)"]
+  Store -->|keyed| Retention["retention: last event per key"]
   Store -->|"push()"| Pending[pending buffer, coalesced per key]
   Pending -->|"a wait is outstanding"| Wait["wait_for_user_action resolves"]
-  Pending -->|"caused by a tool call"| ToolResult["appended to that tool's result"]
-  Pending -->|otherwise| NextTurn["drained into the next sendMessage"]
-  Retention -->|"on activation only"| NextTurn
+  Pending -->|"a page tool call returns"| ToolResult["appended to that tool's result"]
+  Pending -->|otherwise| NextTurn["withHostContext: folded into the next turn's last user message"]
+  Retention -->|"every turn"| NextTurn
 ```
 
 ## Publishing (`@data-fair/lib-vue-agents`)
@@ -48,9 +47,8 @@ flowchart LR
   `JSON.stringify` already does for the object branch) and the wrapper sentinels
   (`</hidden-context>`, `</host-events>`, `</host-state>`) neutralised, before the cap —
   otherwise a host mirroring free user text (a wizard title, a description field) could
-  break the line-oriented `<host-events>`/`<host-state>` block format or, worse, forge an
-  early close of the `<hidden-context>` wrapper and have the rest reconstructed and
-  rendered as the user's own message in the trace viewer.
+  break the line-oriented `<host-events>`/`<host-state>` block format or forge an early
+  close of the `<hidden-context>` wrapper.
 - `useAgentState(key, source)` watches a ref/getter (`immediate: true, deep: true`) and
   emits a keyed event when the serialised value changes; on scope dispose it posts
   `agent-state-withdrawn`, which only removes the key from retention (the model is not
@@ -66,91 +64,77 @@ flowchart LR
   a parameter so the emit-on-change logic is unit-testable without a real
   `BroadcastChannel`.
 
-## Consuming (`ui/src/composables/host-events.ts`, `use-host-events.ts`)
+## Forwarding (`ui/src/composables/use-host-events.ts`, `use-session-chat.ts`)
 
-`HostEventStore` holds retention (a `Map` of last event per key, iteration order doubling
-as first-seen key order for `snapshot()`, capped at `STATE_MAX_KEYS` distinct keys —
-oldest dropped first; plus a ring of the last `RECENT_MAX` unkeyed events), the pending
-buffer (undelivered, coalesced per key; unkeyed events additionally ringed at
+`subscribeHostEvents` listens on the tab channel and, on creation, posts one
+`agent-state-request` so pages that mounted earlier re-emit their keyed state. The
+channel is still an untrusted boundary, so it shape-guards each raw `agent-event`
+(`sanitizeEvent`: a string `name`, a finite `at` falling back to `Date.now()`, a
+non-string `key` dropped rather than coerced). `use-session-chat.ts` forwards every event
+verbatim as a `host-events` frame and a withdrawal as a `host-state` frame with that key
+set to `null`. Raw events rather than a digest, because the server holds the same
+`HostEventStore` class: forwarding reproduces its retention and coalescing instead of
+reimplementing them.
+
+The chat also reports facts of its own as host state (`AgentChat.vue`'s `hostContext`:
+the person's language, organization, whether the surface is narrow, whether diagrams
+render). These used to be concatenated into a client-built system prompt; the prompt is
+the server's now, and as state the next turn simply sees a changed value.
+
+## Consuming (`shared/host-events.ts`, `api/src/agent-session/session.ts`)
+
+Each agent session (one socket) owns one `HostEventStore`. `host-events` frames are
+`push()`ed as they come; a `host-state` frame pushes each key as a keyed event, and a
+`null`/absent value withdraws the key. A re-hello naming a different conversation is a
+reset: `clearPending()` drops the buffer (and settles an outstanding wait as `'aborted'`)
+while retention stays — it is still true of the page.
+
+The store holds retention (a `Map` of last event per key, iteration order doubling as
+first-seen key order, capped at `STATE_MAX_KEYS` distinct keys — oldest dropped first;
+plus a ring of the last `RECENT_MAX` unkeyed events, which nothing reports any more), the
+pending buffer (undelivered, coalesced per key; unkeyed events additionally ringed at
 `PENDING_MAX` — keyed ones already self-limit to one slot per key) and at most one
 pending wait (`waitForEvent`/`isWaiting`). `push()` feeds a waiter if one is outstanding
-instead of buffering — an event never both resolves a wait and sits in the pending
-buffer. `clearPending()` drops the buffer *and* settles an outstanding wait as
-`'aborted'` (retention is untouched: the pages are still there); `reset()` in
-`use-agent-chat.ts` calls it after `abort()`, which has usually already resolved the wait
-through the same abort signal, so this is the backstop for whichever one gets there
-first. `cancelWait()` is the narrower, idempotent sibling used at the end of every turn
-(`sendMessage`'s `finally`): it settles an outstanding wait as `'aborted'` without
-touching the pending buffer or retention — a structural backstop for a waiter whose only
-other exit is `options.abortSignal`, which the AI SDK types as optional.
-`useHostEvents` feeds the store from the channel and, on creation, posts one
-`agent-state-request` so pages that mounted earlier re-emit their keyed state; it also
-shape-guards each raw `agent-event` payload at the channel boundary (a string `name`, a
-finite `at` falling back to `Date.now()`, a non-string `key` dropped rather than
-coerced) since a buggy host can post anything on a BroadcastChannel.
-`use-agent-chat.ts` delivers:
+and the event resolves it (see below) instead of buffering — an event never both resolves
+a wait and sits in the pending buffer. A wait otherwise ends through the tool's
+`abortSignal`, which the AI SDK merges from the run's controller and its own timeouts.
+
+Delivery, in `api/src/conversations/executor.ts` and `api/src/agent-session/browser-tools.ts`:
 
 1. **Pending wait** — the event is the result of `wait_for_user_action`.
-2. **Caused by a host tool call** — after the settle barrier (see
-   [MCP tool integration](./mcp-tools.md)) and one macrotask, pending events are appended to the
-   tool's result as a `<host-events>` block: the event lands in history exactly where it
-   happened (the Playwright "action returns the resulting page" shape). Sub-agent tools
-   get the same wrapper (`withHostConsequences` in `use-agent-chat.ts`), but with one
-   difference: the main agent's own tools **drain** the shared buffer (the main agent's
-   history is the shared history the buffer is owed to), while a sub-agent's tools only
-   **peek** it (`HostEventStore.peekPending`, non-destructive) — the sub-agent gets its
-   own copy appended to its own (private) tool result, but the events stay pending in the
-   shared buffer. Draining there would tell only the sub-agent: the lead never sees more
-   than a one-shot text summary of the sub-agent's transcript (`toModelOutput`), and
-   retention doesn't help either, since it's only consulted at activation. Leaving them
-   pending means the lead's own next turn (or its own host tool call) delivers them
-   normally — this is the intended shape of "exactly once per model", not a leak.
-3. **Otherwise** — at the next `sendMessage`, pending events are drained into the
-   `<hidden-context>` wrapper of that user turn (before any action-button context).
-4. **Activation** — when `history` is empty (first turn, after reset) or
-   [compaction](./context-management.md) ran, a `<host-state>` block (retained keys, then recent
-   unkeyed events) is placed in that wrapper ahead of the events.
+2. **Caused by a page tool call** — when the page answers a `tool-call`, pending events
+   are drained and appended to that tool's result as a `<host-events>` block
+   (`appendHostEvents`): the event lands in history exactly where it happened (the
+   Playwright "action returns the resulting page" shape), so the model decides its next
+   step on the page its own call produced. A sub-agent worker's page tools are the same
+   tool objects, so they drain the same shared buffer — the store's non-destructive
+   `peekPending`, which the browser loop used to give workers their own copy, has no
+   caller now.
+3. **Otherwise** — at the start of the next turn, `withHostContext` folds a block set into
+   the `<hidden-context>` wrapper of the **last user message**: a `<host-state>` block of
+   the retained keys (without the recent-actions ring), then the drained `<host-events>`,
+   then any trailing reminder (see the wait section). Into the user turn rather than the
+   system prompt, because the system prompt is the stable cacheable prefix and state
+   presented there reads as a standing rule. It decorates that request only and is not
+   persisted. Both content shapes are handled — `convertToModelMessages` gives every user
+   message an array of parts, which a string-only first version silently skipped.
 
-On an activation turn only, the events drained in step 4 are first filtered against that
-same `<host-state>` snapshot: a keyed event whose key the snapshot already reports is
-dropped, because otherwise the model would see the same fact twice in one turn — once as
-retained state, once as a drained event (this is exactly what happens on mount, where
-`useAgentState`'s `immediate: true` watcher both seeds retention and leaves a pending
-event behind). Unkeyed events are never represented in the state list, so they are never
-filtered — a transition like `item-created` still has to be told, activation or not. Off
-activation there is no state block to duplicate against, so nothing is filtered and every
-pending event is drained as usual. This asymmetry is deliberate, not an oversight: "only
-on activation" and "only keyed" both have to hold, or the fix either stops working
-(non-activation turns already had nothing to duplicate) or starts eating real transitions.
+State is sent every turn rather than only on "activation" (first turn, after reset, after
+compaction), which is what the browser loop did. That removed a whole concept — and the
+activation-only filter that dropped keyed events already shown in the state block. The
+cost: a keyed change is pushed into both retention and the pending buffer, so the turn
+after it reports the same value twice, once in `<host-state>` and once in `<host-events>`.
 
-Both blocks say they are reported by the application, not written by the user; the
-[moderation](./moderation.md) gate and trace reconstruction see them as ordinary hidden
-context — the same `<hidden-context>` sentinel an action button's context rides in, so
-nothing new has to be taught to either.
-
-This has a sharp edge worth writing down: the moderation gate classifies the *whole*
-user message, hidden context included, as the user's. So a wizard title the user typed —
-mirrored through `useAgentState` into a `<host-events>`/`<host-state>` block riding in
-that same turn — can get a turn blocked that the user did not author the offending
-content on directly (they typed it into a form field, not the chat). And because the
-drain (`takePending()`) happens before the gateway call returns its verdict, a blocked
-turn loses those events with it — they are not re-buffered. This is correct per the
-design (a direct API caller could otherwise forge the sentinels to dodge the gate by
-claiming host-authorship — see [moderation](./moderation.md)), but nobody had written it
-down, and it is the kind of thing a first integrator hits and has to puzzle out from
-scratch.
-
-Sub-agent tools crossing the settle barrier (see point 2 above) is a behaviour change
-that reaches beyond host events: before, only the main agent's own tool calls paid the
-`settleTools()` wait; now every sub-agent tool call does too, whether or not it caused
-any host events. The cost is zero when no rebuild is in flight (the common case — it
-resolves immediately), but a sub-agent tool call can now wait on a rebuild the main
-agent's own tool calls provoked, where it previously would not have.
+Both blocks say they are reported by the application, not written by the user. The
+[moderation](./moderation.md) gate classifies the stored last user message — an action
+button's hidden context included, since the server wraps a `prompt` frame's
+`hiddenContext` and stores it — but the host blocks are added after the gates and never
+stored, so moderation does not see them, and a refused turn leaves the events pending.
 
 ## `useAgentLocation`
 
 Nothing here tracks navigation on its own: a host publishes what it knows, and
-retention puts it in the activation snapshot. Every host with a router wants the
+retention puts it in the state block. Every host with a router wants the
 same thing, so `useAgentLocation(() => ({ path, name?, params?, query?,
 breadcrumbs? }))` is that code once, publishing under the canonical `location`
 key.
@@ -165,22 +149,20 @@ publishes without a browser.
 
 ## `wait_for_user_action`
 
-A chat-built-in tool (`WAIT_TOOL_NAME`) merged into the main tool set only — never into
-sub-agents — present once the store has actually heard from the host (retained state or
-a pending event — not merely "a host store exists"): the tool's own description invites
-the model to call it, so advertising it to a page that has never published anything
-would only ever end in a bounded, pointless dead turn. Re-checked on every tool-set
-rebuild (turn start and every mid-turn rebuild), so a page that starts publishing
-mid-conversation gains the tool at the next one. `{ message, expecting, timeoutSeconds? }`
-(default 300s, max 600s). `message` is the model's reply to the person — what is ready and
-what to press — and `expecting` is only the status label. Before `message` existed, models
-read the « En attente : … » label as their message and handed buttons over in silence. The loop adds
-the message to the step's own text when it records the call (`waitHandover` in
-`shared/host-events.ts`), just before the call and unless that text already says it, and streams it —
-so it is part of the stored conversation, and a reloaded or reviewed thread shows the same handover.
-Before the call, not after: text after a tool call is replayed to the model as a separate assistant
-message it never wrote. A wait with no message is refused so the model retries with one, and a known
-small-model slip (the other arguments serialised into the message string) is repaired
+A loop-provided tool (`WAIT_TOOL_NAME`, built by `createWaitTool` in
+`shared/host-events.ts`), added to a turn's tool set whenever an agent session is attached
+— someone is there to act. The page feeds the store; the loop owns the tool. It is a fixed
+tool of the lead's set; sub-agent workers only receive the tools they reserve.
+`{ message, expecting, timeoutSeconds? }` (default 300s, max 600s). `message` is the
+model's reply to the person — what is ready and what to press — and `expecting` is only
+the status label. Before `message` existed, models read the « En attente : … » label as
+their message and handed buttons over in silence. The loop adds the message to the step's
+own text when it records the call (`waitHandover`), just before the call and unless that
+text already says it, and streams it — so it is part of the stored conversation, and a
+reloaded or reviewed thread shows the same handover. Before the call, not after: text
+after a tool call is replayed to the model as a separate assistant message it never wrote.
+A wait with no message is refused so the model retries with one, and a known small-model
+slip (the other arguments serialised into the message string) is repaired
 (`repairWaitInput`).
 
 **Speaking during a wait** takes the turn back: a prompt arriving on the socket aborts the
@@ -201,15 +183,18 @@ question and never waited again, so the action they had handed over went unseen.
 stop notice — the person's message answers it, and the notice would be replayed as the assistant's
 own words; Stop, the clock and errors keep theirs. Without any of this, judged runs sent the model
 the person's two messages with nothing between, and the assistant denied work it had done and redid
-it. It resolves on **what the person did, not on the next event whatever it
+it.
+
+A wait resolves on **what the person did, not on the next event whatever it
 is**. The store already separates two kinds of event: an unkeyed transition is something
 that happened, keyed state is what is true now — and state refreshes for many reasons,
 including the assistant's own action finishing late. A wait resolves on a transition, or on
 a `location` change (the one keyed change that means the person left), whenever either
-arrives — already pending when the tool is called, or later. Other keyed state never
-resolves a wait: it stays pending and is delivered as a follower when the wait completes.
-The chat still knows nothing about expectations — the model judges whether "user navigated
-to /elsewhere" is what it waited for.
+arrives — already pending when the tool is called, or later (`resolvesWait`). Other keyed
+state never resolves a wait: it stays pending and is delivered as a follower when the wait
+completes (after one macrotask, so the followers of the same gesture ride along), or
+appended to the timeout result. The loop still knows nothing about expectations — the
+model judges whether "user navigated to /elsewhere" is what it waited for.
 
 Why by kind and not by time: a judged run had `advance_to_confirmation` report
 `{ready:false}` on its result and `{ready:true}` once a title-conflict API check came back.
@@ -220,111 +205,91 @@ after the wait started" moves the failure around with network latency rather tha
 it. What distinguishes the refresh from a click is what it is, not when it came. Timeout and abort return plain text (`No user action within N seconds…`,
 `Wait cancelled.`); a second call while pending returns `Already waiting for the user.`
 (the store itself would reject a concurrent `waitForEvent`, but the tool checks
-`isWaiting()` first so the model gets a sentence instead of a thrown error). **A reply may wait as often as it is getting somewhere.** There was a cap of one blocking
+`isWaiting()` first so the model gets a sentence instead of a thrown error).
+
+**A reply may wait as often as it is getting somewhere.** There was a cap of one blocking
 wait per turn, on the premise that "the person cannot act while the turn is still open, so
 a second block can only run out the clock" — which is the very thing this tool exists to
 falsify. A workflow needs several: the dialog reports itself, the person saves, the next
 dialog reports itself. The cap refused the third wait of a judged run, the assistant ended
 its reply, the person sat waiting to be told a button was ready, and the run drained to its
-turn cap with the work half done. What the two runs behind that cap actually paid for was
-waiting again *after a timeout*, with nothing having happened in between — refused below,
-on the event sequence rather than on a count. The repeated-call
-[loop guard](./loop-guards.md) does not help here either, because the model rewords
-`expecting` each time and the guard keys on arguments.
-**A wait that timed out does not block again until the host reports something.**
-A per-turn count could not reach this anyway: each new turn would hand out a fresh
-allowance, so an assistant that waits, times out and waits again next turn blocks for the
-full timeout every time. A judged data-fair run spent 480s of a 567s run in four such timeouts,
-writing a new "I'm still waiting" line after each one — while the timeout result was
-already telling it to end its reply and let the user act. The store counts events
-(`eventSeq`); while that count has not moved since the timeout, the person has not acted
-and blocking again can only run out another clock, so the tool returns immediately
-instead. It counts by the same rule `resolvesWait` uses, and for the same reason: a
-refresh that clears the guard re-arms a full timeout on someone who is still away, and
-whether that refresh lands just before or just after the timeout is a matter of network
-latency. Only something the person did clears it.
+turn cap with the work half done. The repeated-call [loop guard](./loop-guards.md) does not
+help here either, because the model rewords `expecting` each time and the guard keys on
+arguments.
 
-`use-agent-chat.ts` supplies the turn identity, which the timeout rule keys on; a host that
-wires no `turnId` keeps the unbounded behaviour. Key withdrawal never resolves a wait (a `v-if` toggling a panel
-must not cancel one). While pending the chat shows a "Waiting for: …" line and chip and
-the embedded host receives `agent-status: waiting-user`. Once it settles the chip reads
-"Waited for: …": it stays in the transcript as a record of the step, and a judged run
-watched a person read a resolved present-tense chip as live page state, conclude the
-assistant had lied about creating their list, and spend four turns hunting a button that
-no longer existed.
+**A wait that timed out should not block again until the host reports something.** A judged
+data-fair run spent 480s of a 567s run in four timeouts, writing a new "I'm still waiting"
+line after each one — while the timeout result was already telling it to end its reply and
+let the user act. `createWaitTool` has the guard: the store counts events that could have
+settled a wait (`eventSeq`, by the same rule as `resolvesWait`, so a late refresh cannot
+re-arm a full timeout on someone who is still away), and while that count has not moved
+since a timeout, the tool returns immediately instead of blocking. It is opt-in through the
+`turnId` option, and the server loop does not pass one: as wired today, a wait after a
+timeout blocks again. The guard's state also lives in the tool instance, which the loop
+builds per turn.
 
-It is chat-built-in rather than a page tool because a page-side pending call dies with
-the page on the navigation that follows Create — the exact moment that matters.
+Key withdrawal never resolves a wait (a `v-if` toggling a panel must not cancel one). While
+pending, the wait owns the activity label: `onWaiting`/`onDone` send `activity` frames
+(`{ kind: 'waiting', expecting }`, then `null`) to whichever socket watches the
+conversation at that moment, and the loop's own activity updates are dropped while
+`isWaiting()` — the SDK starts executing a tool before the loop reads its call from the
+stream, so a late "Analyzing tool result…" would otherwise overwrite "Waiting for …". The
+chat shows a "Waiting for: …" line and chip, and the embedded host receives
+`agent-status: waiting-user`. Once it settles the chip reads "Waited for: …": it stays in
+the transcript as a record of the step, and a judged run watched a person read a resolved
+present-tense chip as live page state, conclude the assistant had lied about creating their
+list, and spend four turns hunting a button that no longer existed.
 
-A pending wait also suspends the chat's own idle watchdog. `use-agent-chat.ts` arms a
-`STREAM_IDLE_TIMEOUT_MS` (90s) timer on every stream part to catch a provider that holds
-the socket open while emitting nothing; a declared wait emits no stream parts by design
-and has its own default timeout of `WAIT_DEFAULT_SECONDS` (300s, `WAIT_MAX_SECONDS` 600
-max), so before this was fixed the watchdog killed every realistic wait — a real run made
-four gateway requests and then the turn simply died, the person's click never seen. The
-fix suspends the watchdog rather than capping the wait: a declared wait is an intentional,
-bounded pause that already has its own timeout and the user's own Stop button, and it
-exists precisely to outlast a human deciding, so capping it under 90 seconds would also
-make the documented 600-second maximum meaningless. Clearing the pending timer in
-`onWaiting` was not enough by itself — `armWatchdog()` is called unconditionally for every
-stream part, including the `finish-step` of the very step that announced the wait, which
-arrives after the tool's `execute()` has already started — so it was re-arming the
-watchdog underneath the wait it had just suspended. What actually holds is an independent
-`waitSuspended` flag that `armWatchdog()` consults and short-circuits on; `onDone` clears
-it and re-arms the watchdog, whichever way the wait ends. The same race threatened the UI
-label: that same trailing `finish-step` also drives `setActivity`, which would otherwise
-reset the chat's activity from `{ kind: 'waiting' }` back to `analyzing` mid-wait. A sticky
-guard at the top of `setActivity` — once the current activity is `'waiting'`, only the
-wait's own `onDone` may clear it — keeps the "Waiting for: …" line and chip up for the
-whole pause.
+It is loop-provided rather than a page tool because a page-side pending call dies with the
+page on the navigation that follows Create — the exact moment that matters.
+
+The browser loop's idle watchdog, and the machinery that suspended it during a wait, are
+gone with the browser loop. The server's idle bound is the AI SDK's `timeout.chunkMs`
+(`STREAM_IDLE_TIMEOUT_MS`, 90s); nothing suspends it during a wait, and no test holds a
+wait past it (the e2e "idle watchdog" case still sets the dead browser-side knob).
 
 ## Cost
 
-Context costs tokens, not turns. Every delivery here is a persisted message that becomes
-cached prefix on later requests; nothing is re-sent. The only turn the host ever resumes
-is a wait the agent itself declared, at most one continuation per wait. This replaces
-the `get_current_location`-every-turn pattern, which spent a whole model request per
-look.
+Context costs tokens, not turns. Events are delivered once, as part of a tool result or a
+user turn; the state block is re-sent each turn but sits in the last user message, after
+the cacheable prefix. The only turn the host ever resumes is a wait the agent itself
+declared, at most one continuation per wait. This replaces the
+`get_current_location`-every-turn pattern, which spent a whole model request per look.
 
 ## Dev page and tests
 
 `ui/src/pages/_dev/chat-workflow.vue` is the data-fair creation wizard in miniature: it
-publishes keyed `location` itself and embeds `WorkflowWizard.vue` (keyed `wizard`, the
-`select_type`/`set_title`/`advance` page tools) and, once created, `WorkflowDetail.vue`
-(keyed `detail`); the wizard emits unkeyed `item-created` and a "Leave page" button is the
-departure a pending wait must survive. Mock seams (`api/src/models/mock-model.ts`):
-`where am i`, `what happened`, `select note`, `wait for me`, `wait briefly`. Tests:
-`tests/features/host-events/` (unit specs for the store and the state emitter, plus a
-twelve-case e2e spec covering activation (twice — once for the retained-state content, once
-pinning that its keyed facts are not also duplicated into a `<host-events>` block),
-coalesced delivery, tool-call delivery, a resumed wait, a wait resolved by leaving the
-page, a timeout, the idle watchdog staying quiet through a wait, the waiting activity
-clearing the instant the wait resolves (the host's `waiting-user`/`working` signal), Stop
-cancelling a wait, and reset re-activating. Simulation case: `workflow-hand-back`.
+publishes keyed `location` itself and embeds `ui/src/components/dev/WorkflowWizard.vue`
+(keyed `wizard`, the `select_type`/`set_title`/`advance` page tools) and, once created,
+`WorkflowDetail.vue` (keyed `detail`); the wizard emits unkeyed `item-created` and a
+"Leave page" button is the departure a pending wait must survive. Mock seams
+(`api/src/models/mock-model.ts`): `where am i`, `what happened`, `select note`,
+`wait for me`, `wait briefly`.
 
-The judged simulation harness still drives its persona only *between* runner turns — their
-click/look/type tools exist inside `nextUserMessage` and nowhere else — but that no longer
-puts the same-turn resume out of reach. `waitForTurn` reports an armed wait as the turn
-handing control back (`lib-sim/chat-driver.ts`, matched on the activity's kind via
-`data-activity`), so the runner lets the person act and the wait resolves on what they did.
-A `workflow-hand-back` run has since been judged doing exactly that: the wait armed
-mid-turn, the person clicked Create, and the same turn continued into a second assistant
-bubble reporting the creation before they said anything.
+Tests in `tests/features/host-events/`: unit specs for the store, the state emitter,
+`withHostContext`, `useAgentLocation`, the handover and the interrupted turn; api specs
+over a real socket — `host-context.api.spec.ts` (state every turn, events drained once,
+withdrawal, supersession, reset) and `wait-tool.api.spec.ts` (announcement, handover, the
+same turn resumed by a `host-events` frame, timeout), plus `interrupted-turn.api.spec.ts`;
+and `3.host-events.e2e.spec.ts` for what needs a browser — the page emitting the events
+(tool-call delivery, a keyed refresh during a wait, a departure, Stop, speaking during a
+wait, the waiting activity clearing). Simulation case: `workflow-hand-back`.
+
+The judged simulation harness drives its persona only *between* runner turns, but
+`waitForTurn` reports an armed wait as the turn handing control back
+(`lib-sim/chat-driver.ts`, matched on the activity's kind via `data-activity`), so the
+runner lets the person act and the wait resolves on what they did; the e2e spec drives that
+driver against a real armed wait. A `workflow-hand-back` run has been judged doing exactly
+that: the wait armed mid-turn, the person clicked Create, and the same turn continued into
+a second assistant bubble reporting the creation before they said anything.
 
 **So an assistant that spends the whole window and falls back to "press Create whenever
-you're ready" is a finding, not the intended hand-back.** It used to be the only shape a
-simulation could produce, which is why this paragraph once said the opposite.
-
-The same-turn path is pinned independently of any model by
-`tests/features/host-events/3.host-events.e2e.spec.ts`, which clicks Create mid-wait and
-asserts exactly two gateway requests for the turn (the call that started the wait, then the
-continuation after it resolves), and whose companion test drives the simulation driver
-itself against a real armed wait.
+you're ready" is a finding, not the intended hand-back.**
 
 ## Rejected alternatives
 
-- A separate "situation" re-sent every turn (duplicated navigation as state and event,
-  needed an ephemeral prepareStep injection, cost more over a long conversation).
+- A separate "situation" re-sent as its own message every turn (duplicated navigation as
+  state and event, needed an ephemeral prepareStep injection).
 - Inserting events into `history` mid-turn (lands before the turn's own messages).
 - Auto-cancelling a wait on key withdrawal.
 - Page-triggered turns (`agent-start-session` stays a user gesture on an action button).
