@@ -115,7 +115,7 @@ All three components (drawer, menu, block) accept:
 | `src` | `string` | Custom iframe URL (overrides account-based URL resolution) |
 | `chatTitle` | `string` | Title displayed in the chat header |
 | `agentId` | `string` | Which agent to talk to (`api/src/agent-session/standard-agents.ts` for the standard ones; `personal` is the default). Replaces `systemPrompt` |
-| `agents` | `boolean` | **Back-office mode**: the chat offers the agent switcher (the personal assistant plus every autonomous agent the caller may instruct in the account) and the person's conversation history. Off — the front-office shape — embeds stay mono-agent and open one thread |
+| `agents` | `boolean` | **Back-office mode**: the chat offers the agent switcher (the personal assistant plus every autonomous agent the caller may instruct in the account). Off — the front-office shape — embeds stay mono-agent. The conversation history is offered to every signed-in person either way |
 | `systemPrompt` | `string` | **Deprecated, ignored** — logs a one-time console warning (`hostInitConfig`) |
 | `initConfigKey` | `string` | Override the per-variant init-config key. Only needed when mounting several instances of the same variant in one tab (defaults to `'drawer'` / `'menu'` / `'block'`) |
 
@@ -321,12 +321,14 @@ The drawer/menu/block components then append `?initConfig=<key>` (see next secti
 
 ### Back-office mode (`agents`)
 
-The same chat window serves both offices. In the front office (portals) it is embedded with no `agents` prop: one agent, one thread, exactly as before. In the back office (data-fair) the host sets `agents`, and the header gains:
+The same chat window serves both offices. In the front office (portals) it is embedded with no `agents` prop: one agent. In the back office (data-fair) the host sets `agents`, and the header gains an **agent picker** fed by `GET /api/conversations/:type/:id/agents` — the standard agents the caller may use plus every enabled configured agent they may instruct (`canInstruct`), so the list cannot offer one the first message would be refused for — and a **New conversation** button in place of Reset.
 
-- an **agent picker** fed by `GET /api/conversations/:type/:id/agents` — the standard agents the caller may use plus every enabled configured agent they may instruct (`canInstruct`), so the list cannot offer one the first message would be refused for;
-- a **history** menu fed by `GET /api/conversations/:type/:id` without an `agentId` — the caller's own non-empty threads across all those agents, newest first, each labelled with its agent. Selecting one rebinds the socket to it and the server replays its stored transcript.
+Both offices, for any signed-in person:
 
-Selecting a different agent starts a **new conversation** with it (a thread's identity is the agent that answered in it; the history is how an older thread is resumed). Conversations are created lazily, on the first message, so opening or switching never leaves an empty thread behind.
+- the **history** menu is fed by `GET /api/conversations/:type/:id` without an `agentId` — the caller's own non-empty threads across the agents they may still use, newest first (at most 50), each labelled with its agent. Selecting one rebinds the socket to it and the server replays its stored transcript. It is always the caller's own threads, a superadmin's included: reading other people's is the review page's job.
+- opening the chat **resumes** the agent's thread with the latest activity (`?agentId=…&size=1`) rather than starting another.
+
+Selecting a different agent resumes ITS latest thread; a conversation never changes agent, since its identity is the agent that answered in it. The back office creates conversations lazily, on the first message, so switching to an agent with no thread leaves nothing behind; the front office creates its thread on open, and resuming it is what keeps reloads from piling up empty ones.
 
 ---
 
