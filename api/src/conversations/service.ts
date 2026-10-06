@@ -287,14 +287,14 @@ export const appendMessage = async (
  * findOneAndUpdate rather than updateOne plus a read: the event carries the RESULTING document,
  * and two round trips would let a concurrent write make the event disagree with what is stored.
  */
-export const updateMessage = async (conversationId: string, id: string, patch: Partial<StoredMessage>) => {
+export const updateMessage = async (conversationId: string, seq: number, patch: Partial<StoredMessage>) => {
   // The version has to advance for an in-place update too, or an incremental fetch cannot see it:
   // the assistant message keeps its seq while its content is filled in, so `seq` alone would only
   // ever reveal NEW messages. The conversation is the caller's to name — every caller holds it — which
   // spares a lookup on each of a turn's incremental writes.
   const { version } = await bumpConversationVersion(conversationId)
   const updated = await mongo.messages.updateOne(
-    { id, conversationId },
+    { conversationId, seq },
     { $set: { ...patch, version, updatedAt: new Date().toISOString() } }
   )
   if (updated.matchedCount) await notifyConversationChanged(conversationId, version)
@@ -431,7 +431,7 @@ export const finishRun = async (run: { id: string, conversationId: string }, pat
  */
 export const finishTurn = async (
   run: { id: string, conversationId: string },
-  message: { id: string, patch: Partial<StoredMessage> } | undefined,
+  message: { seq: number, patch: Partial<StoredMessage> } | undefined,
   patch: Partial<ConversationRun>
 ): Promise<{ closed: boolean, conversationCredits?: number }> => {
   const buffered = drainRunBuffer(run.id)
@@ -442,7 +442,7 @@ export const finishTurn = async (
     // too, and a run left `running` is worse than a message left without its notice — the run is what
     // every reader and the boot sweep key on. So the close below still runs.
     await mongo.messages.updateOne(
-      { id: message.id, conversationId: run.conversationId },
+      { conversationId: run.conversationId, seq: message.seq },
       { $set: { ...message.patch, version, updatedAt: now } }
     ).catch(err => console.error('autonomous agent message could not be finalised', err))
   }

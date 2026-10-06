@@ -36,7 +36,8 @@ const layouts: Layout[] = [
   {
     name: 'A. document per message (today)',
     collection: 'messages',
-    // As in api/src/mongo.ts: version-keys, main-keys, id-keys (+ _id).
+    // version-keys, main-keys and id-keys (+ _id): the set before id-keys was dropped, kept so the bench
+    // still shows what dropping it saved (it was half the index size).
     indexes: [[{ conversationId: 1, version: 1 }, {}], [{ conversationId: 1, seq: 1 }, { unique: true }], [{ id: 1 }, { unique: true }]],
     seed: (conversationId, turns) => Array.from({ length: turns }, (_, i) => [
       { id: id(), conversationId, seq: 2 * i + 1, version: 4 * i + 1, ...userMessage() },

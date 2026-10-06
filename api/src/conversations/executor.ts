@@ -190,7 +190,7 @@ const nextPendingRun = async (conversationId: string) => {
  * reached as that identity — so this refuses early with an actionable message rather than
  * producing a toolless turn that looks like a capability problem.
  */
-const performTurn = async (run: ConversationRun, messageSeq: number, messageId: string, abortSignal: AbortSignal, conversation: Conversation): Promise<TurnResult> => {
+const performTurn = async (run: ConversationRun, messageSeq: number, abortSignal: AbortSignal, conversation: Conversation): Promise<TurnResult> => {
   const autonomousAgent = await resolveAgent(run.owner, run.agentId)
   if (!autonomousAgent) throw new Error('the autonomous agent no longer exists')
 
@@ -284,7 +284,7 @@ const performTurn = async (run: ConversationRun, messageSeq: number, messageId: 
   }
 
   try {
-    return await runModelLoop({ run, messageSeq, messageId, abortSignal, model, entry, tools, settings, budget, serverByTool, annotationsByTool, autonomousAgent, session, conversation })
+    return await runModelLoop({ run, messageSeq, abortSignal, model, entry, tools, settings, budget, serverByTool, annotationsByTool, autonomousAgent, session, conversation })
   } finally {
     // The turn is over (normally, by throw, or by abandonment): release the MCP connections.
     await closeTools()
@@ -320,11 +320,10 @@ interface ModelLoopContext {
   run: ConversationRun
   /**
    * The assistant message being produced — created by runTurn, empty and pending, before the turn
-   * starts. The seq doubles as the history bound: the message must not be fed back to the model as
-   * an empty turn, so history is everything strictly before it.
+   * starts. The seq is also how its writes address it, and the history bound: the message must not
+   * be fed back to the model as an empty turn, so history is everything strictly before it.
    */
   messageSeq: number
-  messageId: string
   abortSignal: AbortSignal
   model: ReturnType<typeof resolveRoleModel>['model']
   entry: ReturnType<typeof resolveRoleModel>['entry']
@@ -341,7 +340,7 @@ interface ModelLoopContext {
 }
 
 const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
-  const { run, messageSeq, messageId, abortSignal, model, entry, tools, settings, budget, serverByTool, annotationsByTool, autonomousAgent, session, conversation } = ctx
+  const { run, messageSeq, abortSignal, model, entry, tools, settings, budget, serverByTool, annotationsByTool, autonomousAgent, session, conversation } = ctx
   // WHO SEES THIS TURN: whoever watches the conversation now, read at each send. `session` is the one
   // the turn started with, and still what its page tools and host events belong to; but a reload or a
   // second tab replaces it mid-turn, and a turn sending to the session it began with went silent for
@@ -773,7 +772,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
     if (length === lastPersistedLength) return
     lastPersistAt = now
     lastPersistedLength = length
-    await updateMessage(run.conversationId, messageId, { parts, pending: true })
+    await updateMessage(run.conversationId, messageSeq, { parts, pending: true })
   }
 
   /**
@@ -799,7 +798,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
    * per token.
    */
   const persistStructure = async () => {
-    await updateMessage(run.conversationId, messageId, { parts, pending: true })
+    await updateMessage(run.conversationId, messageSeq, { parts, pending: true })
   }
 
   // THINKING, from the moment the turn is handed to the model until it says something.
@@ -1045,7 +1044,7 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
 
     // The assistant message's own seq bounds the history: it was created before the turn
     // (empty, pending), so it must not be fed back to the model as an empty turn.
-    const result = await Promise.race([performTurn(run, message.seq, message.id, abortController.signal, conversation), deadline])
+    const result = await Promise.race([performTurn(run, message.seq, abortController.signal, conversation), deadline])
     // A turn that stopped for a reason other than finishing explains itself, appended to
     // whatever it did manage to produce.
     const notice = result.stopReason === 'completed' || result.selfExplained
@@ -1058,7 +1057,7 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
     // without throwing, and must not be reported as done.
     const finished = await finishTurn(
       run,
-      { id: message.id, patch: { parts: finalParts as any, pending: false } },
+      { seq: message.seq, patch: { parts: finalParts as any, pending: false } },
       { status: result.stopReason === 'error' ? 'error' : 'done', stopReason: result.stopReason }
     )
     // PUBLISHED FOR THE PATHS THE LOOP NEVER REACHED: a moderation block, a quota refusal and a
@@ -1133,7 +1132,7 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
     // whatever failed it still lets the run close.
     const finished = await finishTurn(
       run,
-      message && finalParts ? { id: message.id, patch: { parts: finalParts as any, pending: false } } : undefined,
+      message && finalParts ? { seq: message.seq, patch: { parts: finalParts as any, pending: false } } : undefined,
       { status: stopReason === 'timeout' ? 'error' : aborted ? 'aborted' : 'error', stopReason, error: detail }
     ).catch(finishErr => { console.error('autonomous agent run could not be closed out', finishErr); return undefined })
     // Same reason as the success path: the notice explaining the failure has to reach the page that
@@ -1226,8 +1225,10 @@ export const recoverOwnerlessRuns = async (): Promise<{ interrupted: number, res
   let interrupted = 0
   let resumed = 0
   for (const run of ownerless) {
+    // Within the run's conversation, so the lookup rides the {conversationId, seq} index rather than
+    // scanning every message for a runId nothing indexes.
     const existing = await mongo.messages.findOne(
-      { runId: run.id, role: 'assistant' },
+      { conversationId: run.conversationId, runId: run.id, role: 'assistant' },
       { projection: { _id: 0 } }
     )
     if (!existing) {
@@ -1240,7 +1241,7 @@ export const recoverOwnerlessRuns = async (): Promise<{ interrupted: number, res
     // stopReason has no 'interrupted' member — the status carries that — so the reason is
     // 'error' with the restart named as the detail.
     const notice = runStopReasonMessage('error', 'interrupted by a restart')
-    await updateMessage(run.conversationId, existing.id, {
+    await updateMessage(run.conversationId, existing.seq, {
       parts: withAppendedText(existing.parts, notice),
       pending: false
     })

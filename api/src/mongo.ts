@@ -111,7 +111,11 @@ export class AgentsMongo {
         // is a write error rather than a silently reordered conversation — the backstop
         // for the $inc allocation in appendMessage.
         'main-keys': [{ conversationId: 1, seq: 1 }, { unique: true }],
-        'id-keys': [{ id: 1 }, { unique: true }]
+        // DROPPED (null drops it at startup when present). A message is addressed by its conversation
+        // and seq — every reader already went through the conversation — and this index of random ids
+        // compressed nothing: it was half the collection's index size (dev/bench-storage.ts) for two
+        // writes that knew the seq anyway. `id` stays on the document, for clients that key on it.
+        'id-keys': null
       },
       runs: {
         'main-keys': [{ id: 1 }, { unique: true }],
