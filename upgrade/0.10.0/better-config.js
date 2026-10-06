@@ -30,11 +30,11 @@
 // just once. transformSettingsDoc() returning null for anything that is
 // already in the new shape is what makes repeat runs a no-op.
 
-// 'evaluator' is deliberately absent: the role was removed in 0.12.0, so an
+// 'evaluator' is deliberately absent: the role was removed after 0.11.0, so an
 // old role-keyed `models.evaluator` is dropped here rather than carried forward
 // into a shape the current settings schema rejects. Leaving it in would also
-// race the 0.12.0 migration that strips the role, since both scripts re-run on
-// every deploy of the same release.
+// race 0.11.0/remove-evaluator-role.js, which strips the role, since both
+// scripts re-run on every deploy of the same release.
 const ROLES = ['assistant', 'tools', 'summarizer', 'moderator']
 
 // Duplicated from api/src/settings/operations.ts (re-exported by

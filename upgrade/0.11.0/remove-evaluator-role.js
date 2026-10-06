@@ -16,8 +16,9 @@
 //    entry is dropped entirely. It is also the common case: a deployment that bothered to configure
 //    an evaluator usually gave it its own model.
 //
-// IMPORTANT: this folder only runs once the deployed service version is bumped to 0.12.0 or higher
-// (see the upgrade-script runner in api/src/server.ts).
+// In the 0.11.0 folder because 0.11.0 is the released version that stored the role: the runner applies
+// every folder at or above the recorded service version, so a deployment recorded at 0.11.0 runs it on
+// its next deploy, and it stops running once the next release is recorded.
 //
 // exec() MUST be idempotent (see @data-fair/lib-node/upgrade-scripts.js's UpgradeScript contract):
 // the runner re-executes every script whose folder version is >= the recorded service version on

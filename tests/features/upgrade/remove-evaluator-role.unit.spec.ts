@@ -1,5 +1,5 @@
 /**
- * stateless unit tests for the 0.12.0 removal of the evaluator model role.
+ * stateless unit tests for the removal of the evaluator model role (upgrade/0.11.0).
  *
  * The half worth pinning is the one that LOSES DATA: an entry flagged only `usage: ['evaluator']`
  * cannot keep an empty array (the schema's `minItems: 1`), so it is dropped — and a drop that takes
@@ -9,7 +9,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { stripEvaluatorUsage } from '../../../upgrade/0.12.0/remove-evaluator-role.js'
+import { stripEvaluatorUsage } from '../../../upgrade/0.11.0/remove-evaluator-role.js'
 
 const entry = (id: string, usage: string[]) => ({
   model: { id, name: id, provider: { type: 'openai', name: 'OpenAI', id: 'p1' } },
