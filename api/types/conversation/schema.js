@@ -50,9 +50,9 @@ export default {
      */
     credits: { type: 'number', minimum: 0 },
     // Monotonic across EVERY change to the conversation: a message appended, a message updated
-    // in place (the assistant's content as it grows), a run transition. It is what the websocket
-    // notification carries and what `GET .../messages?sinceVersion=` fetches from, so a client
-    // needs nothing but this number to catch up.
+    // in place (the assistant's message finalised at the end of its turn), a run transition. It is
+    // what `GET .../messages?sinceVersion=` fetches from, so a client needs nothing but this number
+    // to catch up.
     //
     // A counter rather than a timestamp on purpose: two writes in the same millisecond make a
     // timestamp-based cursor either skip one or re-deliver it, while an $inc cannot collide.
@@ -69,6 +69,36 @@ export default {
      * Absent means no: the right default for a question nobody answered.
      */
     consentedToReview: { type: 'boolean' },
+    /**
+     * The handover this conversation is waiting on: a turn that ended on `wait_for_user_action`, its
+     * call left open until the person acts, writes, or presses Stop (api/src/conversations/waits.ts).
+     *
+     * On the conversation rather than inferred from the last message, because claiming it is what
+     * decides who settles the wait: the person's action, their message and Stop can race, and an
+     * atomic $unset lets exactly one of them win. `triggeredBy`/`triggeredByRole` are the handover
+     * turn's, carried to the turn the person's action starts — it is their turn, billed as theirs.
+     */
+    pendingWait: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['messageSeq', 'toolCallId', 'since'],
+      properties: {
+        messageSeq: { type: 'number' },
+        toolCallId: { type: 'string' },
+        expecting: { type: 'string' },
+        since: { type: 'string', format: 'date-time' },
+        // Where the page was when the turn handed over. A page reloaded during the wait re-announces it,
+        // and a location report is the one keyed event that answers a wait (the person left) — this is
+        // what tells the two apart.
+        location: { type: 'string' },
+        triggeredBy: {
+          type: 'object',
+          additionalProperties: false,
+          properties: { userId: { type: 'string' }, userName: { type: 'string' } }
+        },
+        triggeredByRole: { type: 'string', enum: ['admin', 'contrib', 'user', 'external', 'anonymous'] }
+      }
+    },
     /**
      * An anonymous visitor's thread: it lives as long as the socket that created it.
      *

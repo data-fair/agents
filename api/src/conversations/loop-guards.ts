@@ -59,9 +59,8 @@ export interface IdleWatchdog {
  *
  * NOT the AI SDK's `timeout.chunkMs`, which it replaced: that timer is reset by every chunk of the step
  * — tool results included — and cleared only when the step ends, so a tool still RUNNING reads as a
- * silent stream. A `wait_for_user_action` longer than the timeout (its default is 300s) or a slow
- * catalog query was aborted as a stuck provider. Only the MODEL going quiet while nothing else is
- * happening is a stall.
+ * silent stream. A slow catalog query, or a browser tool the page takes its time over, was aborted as
+ * a stuck provider. Only the MODEL going quiet while nothing else is happening is a stall.
  */
 export const createIdleWatchdog = (
   timeoutMs: number,

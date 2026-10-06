@@ -26,7 +26,7 @@
 
         <template #append-inner>
           <v-btn
-            v-if="isStreaming && !(waitingForUser && localInput.trim())"
+            v-if="(isStreaming || waitingForUser) && !(waitingForUser && localInput.trim())"
             :icon="mdiStop"
             variant="flat"
             size="x-small"
@@ -66,16 +66,15 @@ en:
 </i18n>
 
 <script lang="ts" setup>
-import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { mdiSend, mdiStop, mdiCreation } from '@mdi/js'
 
 defineProps<{
   isStreaming: boolean
   /**
-   * The assistant is paused on a declared wait. It is streaming, but it is not
-   * working — it is the person's move — so the composer stays usable and a
-   * message takes the turn back.
+   * The assistant handed the turn over (wait_for_user_action): it is the person's
+   * move. A message answers the wait, and Stop — kept on screen while the composer is
+   * empty — declines it.
    */
   waitingForUser?: boolean
 }>()
@@ -87,7 +86,10 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 
-const localInput = ref('')
+// What is being typed, owned by the parent when it binds `v-model:text`: the chat swaps
+// between two composers when the first messages arrive, and a person typing while a
+// resumed thread loads would otherwise lose their words to the swap.
+const localInput = defineModel<string>('text', { default: '' })
 
 const handleSend = () => {
   const userMessage = localInput.value.trim()

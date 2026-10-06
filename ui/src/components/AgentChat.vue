@@ -41,6 +41,7 @@
       />
 
       <agent-chat-input
+        v-model:text="composerText"
         :is-streaming="isStreaming"
         :waiting-for-user="isWaitingForUser"
         @send="handleSend"
@@ -69,6 +70,7 @@
         {{ t('welcome') }}
       </p>
       <agent-chat-input
+        v-model:text="composerText"
         :is-streaming="isStreaming"
         style="width: 100%"
         @send="handleSend"
@@ -545,13 +547,6 @@ watch(() => chat.status.value, (status) => {
   }
 })
 
-// A declared wait is the user's turn even though the stream is still open: tell the
-// host so its FAB shows the same "your move" colour as a finished turn.
-watch(() => chat.activity.value?.kind === 'waiting', (waiting) => {
-  if (chat.status.value !== 'streaming') return
-  sendDFrameMessage({ type: 'agent-status', status: waiting ? 'waiting-user' : 'working' })
-})
-
 watch(() => chat.toolsVersion.value, () => {
   sendDFrameMessage({ type: 'tools-changed' })
 })
@@ -573,11 +568,14 @@ const toolTitle = createToolTitleMemo((toolName: string) => (chat.tools.value[to
 
 // What someone typed while the turn was busy, waiting for it to stop being busy.
 // Dropping it is what this replaces: a judged simulation lost six of its nine
-// turns to messages that went nowhere and said nothing. The composer only offers
-// Send while a wait is armed, so a person rarely meets the guard — but the flag
-// can flip between the button being found and the click landing, and the message
-// fell into that gap.
+// turns to messages that went nowhere and said nothing. The composer offers Send
+// during a turn only once it hands over, so a person rarely meets the guard — but
+// the handover's label can arrive before its turn has ended, and a message sent in
+// that gap is queued rather than dropped.
 const queuedUserMessage = ref<string | null>(null)
+
+// One text for both composers (the empty state's and the transcript's): see AgentChatInput.
+const composerText = ref('')
 
 const deliver = (userMessage: string) => {
   mermaidAutoFixBudget.value = MERMAID_AUTO_FIX_BUDGET

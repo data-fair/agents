@@ -251,7 +251,7 @@ function processMockPrompt (lastMessage: string, prompt: string | Array<any>): M
   if (toolResult !== undefined && endsWithCommand(lastMessage, 'select note')) {
     return { type: 'text', text: `Tool said: ${toolResult}` }
   }
-  if (toolResult !== undefined && (endsWithCommand(lastMessage, 'wait for me') || endsWithCommand(lastMessage, 'wait briefly'))) {
+  if (toolResult !== undefined && endsWithCommand(lastMessage, 'wait for me')) {
     return { type: 'text', text: `You did: ${toolResult}` }
   }
   if (endsWithCommand(lastMessage, 'select note')) {
@@ -268,9 +268,6 @@ function processMockPrompt (lastMessage: string, prompt: string | Array<any>): M
   }
   if (endsWithCommand(lastMessage, 'wait for me')) {
     return { type: 'tool-call', toolName: 'wait_for_user_action', toolArgs: JSON.stringify({ message: 'Ready: click Create.', expecting: 'you to click Create' }) }
-  }
-  if (endsWithCommand(lastMessage, 'wait briefly')) {
-    return { type: 'tool-call', toolName: 'wait_for_user_action', toolArgs: JSON.stringify({ message: 'Ready: click Create.', expecting: 'you to click Create', timeoutSeconds: 1 }) }
   }
 
   // If the most recent message in the prompt is a tool result, we already called a tool

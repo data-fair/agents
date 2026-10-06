@@ -73,7 +73,7 @@ test.describe('An interrupted turn in the history sent next', () => {
     socket.send({ type: 'prompt', content: 'wait for me' })
     await collect(socket, sawWaiting)
 
-    // The person writes instead of pressing the button. That aborts the waiting turn and starts one.
+    // The person writes instead of pressing the button. That answers the wait and starts a turn.
     socket.send({ type: 'prompt', content: 'what did you see' })
     const frames = await collect(socket, all => seen(all) !== undefined)
     const report = seen(frames)
@@ -106,23 +106,19 @@ test.describe('An interrupted turn in the history sent next', () => {
     assert.equal(seen(later).reminder, false)
   })
 
-  test('Stop during a wait: the wait keeps a result saying the reply was stopped, and no reminder', async () => {
+  test('Stop during a wait: the wait keeps a result saying it was declined, and no reminder', async () => {
     const { socket, conversationId } = await openSession()
     socket.send({ type: 'prompt', content: 'wait for me' })
-    await collect(socket, sawWaiting)
+    await collect(socket, all => sawWaiting(all) && all.some(f => f.type === 'turn-end'))
 
-    const runs = (await user.get(`/api/conversations/${OWNER}/${conversationId}/runs`)).data.results
-    const running = runs.find((r: any) => r.status === 'running')
-    assert.ok(running, 'the waiting turn is a running run')
-    await user.post(`/api/runs/${OWNER}/${running.id}/abort`)
-    await collect(socket, all => all.some(f => f.type === 'turn-end'))
+    // The handover ended its turn, so there is no run to stop: Stop declines the wait itself.
+    socket.send({ type: 'abort', dismissWait: true })
+    await collect(socket, all => all.some(f => f.type === 'activity' && f.activity === null))
 
     const [stopped] = await assistantMessages(conversationId)
     const wait = stopped.parts.find((p: any) => p.type === 'dynamic-tool' && p.toolName === 'wait_for_user_action')
     assert.equal(wait.state, 'output-available')
     assert.equal(wait.output, STOPPED)
-    // Stop keeps its notice: unlike speaking, nothing the person sends next explains it.
-    assert.ok(JSON.stringify(stopped.parts).includes('This turn was stopped'))
 
     socket.send({ type: 'prompt', content: 'what did you see' })
     const report = seen(await collect(socket, all => seen(all) !== undefined))

@@ -50,7 +50,9 @@ export interface AgentSessionOptions {
   anonymous?: boolean
   /** Called on a `prompt`. The loop lands here; until then a session is a transport. */
   onPrompt?: (content: string, hiddenContext?: string) => void
-  onAbort?: () => void
+  onAbort?: (dismissWait: boolean) => void
+  /** Called after the page reported something — what may answer a pending wait. */
+  onHostEvents?: () => void
   /** Called when a `hello` binds this connection to a conversation. The registry is wired here. */
   onAttach?: (conversationId: string) => void
   callTimeoutMs?: number
@@ -208,7 +210,7 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
           return
         }
         case 'abort':
-          options.onAbort?.()
+          options.onAbort?.(message.dismissWait === true)
           return
         case 'trace-consent':
           traceConsent = message.consented
@@ -221,9 +223,11 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
             if (detail === null || detail === undefined) hostEvents.withdraw(key)
             else hostEvents.push({ name: key, key, detail: String(detail), at: Date.now() })
           }
+          options.onHostEvents?.()
           return
         case 'host-events':
           for (const event of message.events) hostEvents.push(event)
+          options.onHostEvents?.()
       }
     },
 

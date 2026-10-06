@@ -57,8 +57,14 @@ export type ClientMessage =
   | { type: 'prompt', content: string, hiddenContext?: string }
   /** The answer to a `tool-call`. Exactly one of result/error. */
   | { type: 'tool-result', callId: string, result?: unknown, error?: string }
-  /** Stop the turn in flight. */
-  | { type: 'abort' }
+  /**
+   * Stop the turn in flight.
+   *
+   * `dismissWait`: also settle a pending handover (wait_for_user_action) as stopped, so the person can
+   * decline it. Only the chat's Stop says so — switching threads sends a plain abort, and must leave
+   * the thread being left still waiting.
+   */
+  | { type: 'abort', dismissWait?: boolean }
   /**
    * The person's answer to the consent sheet.
    *
@@ -275,7 +281,7 @@ export function parseClientMessage (raw: string): ClientMessage | InvalidMessage
         : { type: 'tool-result', callId: parsed.callId, result: parsed.result }
     }
     case 'abort':
-      return { type: 'abort' }
+      return parsed.dismissWait === true ? { type: 'abort', dismissWait: true } : { type: 'abort' }
     case 'trace-consent':
       // Strictly boolean: a truthy string would make "no" read as consent.
       if (typeof parsed.consented !== 'boolean') return { type: 'invalid', reason: 'consented must be a boolean' }

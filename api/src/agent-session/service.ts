@@ -18,7 +18,9 @@ import { startSessionTurn, sendHistory, type TurnCaller } from './turn.ts'
 import { verifyAnonymousActionToken } from '../anonymous-token/service.ts'
 import { anonymousUsageUserId } from '../usage/enforce.ts'
 import { PERSONAL_AGENT_ID } from './standard-agents.ts'
-import { abortRunsOfConversation } from '../conversations/executor.ts'
+import { abortRunsOfConversation, wakeIfAnswered } from '../conversations/executor.ts'
+import { settlePendingWait } from '../conversations/waits.ts'
+import { INTERRUPTED_RESULTS } from '../conversations/interrupted-turn.ts'
 import { hasTraceConsent } from '@agents/shared/trace-consent'
 import { getSettings } from '../settings/service.ts'
 
@@ -96,14 +98,27 @@ export const startAgentSessions = (server: Server) => {
       // The chat's Stop. It was never wired: the frame was parsed and dropped, so Stop only changed
       // the page while the turn ran on, spending, and completed in the store. Checked like a prompt,
       // because a socket can NAME any conversation in its hello even when attaching to it is refused.
-      onAbort: () => {
+      onAbort: (dismissWait) => {
         const conversationId = boundConversationId
         if (!conversationId) return
         const allowed = attaching.then(() => sessionState?.user
           ? resolveOwnConversation(conversationId).then(() => true)
           : anonymousThread?.id === conversationId)
-        allowed.then(ok => { if (ok) abortRunsOfConversation(conversationId, 'stop') })
-          .catch((err: any) => { send({ type: 'error', message: err.message ?? 'the turn could not be stopped' }) })
+        allowed.then(async ok => {
+          if (!ok) return
+          abortRunsOfConversation(conversationId, 'stop')
+          // Declining a handover: settled as stopped, and nothing runs — there is nothing to answer.
+          if (dismissWait) await settlePendingWait(conversationId, () => INTERRUPTED_RESULTS.stop)
+        }).catch((err: any) => { send({ type: 'error', message: err.message ?? 'the turn could not be stopped' }) })
+      },
+      // The person acted on the page: if the bound conversation is waiting on them, this answers it.
+      // Only once attached — `wakeIfAnswered` checks this socket is the conversation's watcher, which it
+      // becomes after the ownership check.
+      onHostEvents: () => {
+        const conversationId = boundConversationId
+        if (!conversationId) return
+        attaching.then(() => wakeIfAnswered(conversationId, agentSession))
+          .catch(err => { console.error('could not wake a conversation on its pending wait', err) })
       },
       onPrompt: (content, hiddenContext) => {
         if (!boundConversationId) {
@@ -121,10 +136,8 @@ export const startAgentSessions = (server: Server) => {
           send({ type: 'error', message: 'this conversation belongs to someone else' })
           return
         }
-        // Speaking takes the turn back. If a turn is live — most importantly one parked in
-        // `wait_for_user_action` — the person typing IS the answer to it, and letting the wait run
-        // out its clock while their message sits in the composer is the worst reading of "waiting
-        // for the user". Harmless when nothing is live.
+        // Speaking takes the turn back: a live turn is stopped, and a pending wait is answered by the
+        // message itself (settled in startSessionTurn). Harmless when nothing is live.
         abortRunsOfConversation(boundConversationId)
         // Captured, because the narrowing above does not survive into the callback below — and a
         // rebind mid-flight must not redirect this prompt to a different thread either.
@@ -178,6 +191,8 @@ export const startAgentSessions = (server: Server) => {
       // The total so far, for the chat's Consumption tab; refreshed before every turn-end. Off the
       // document the ownership check just read, rather than a read of its own.
       agentSession.send({ type: 'cost', conversationCost: await conversationCost(conversation.id, conversation) })
+      // A thread waiting on the person says so on reopening, as it did when the handover was made.
+      if (conversation.pendingWait) agentSession.send({ type: 'activity', activity: { kind: 'waiting', expecting: conversation.pendingWait.expecting ?? '' } })
     }
 
     /**

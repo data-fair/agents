@@ -6,7 +6,7 @@ The model runs in **one loop, on the server** (`runModelLoop` in `api/src/conver
 |--------|-------------------|----------------|
 | **Page tools** — declared by the host page through **WebMCP** (`navigator.modelContext`) | in the browser; the server calls them back over the agent-session websocket | the person, with their own browser session |
 | **Catalog tools** — the deployment's MCP servers (`config.mcpServers`) | on the server, over MCP streamable HTTP (`api/src/mcp-servers/client.ts`) | a configured agent: its own non-human identity; the personal assistant: the person, via their forwarded session cookie |
-| **Loop-provided** — `wait_for_user_action` | on the server, against the session's host-event store | — |
+| **Loop-provided** — `wait_for_user_action` | on the server: it ends the turn, and the person's next action on the page (from the session's host-event store) starts the next one | — |
 
 Once assembled, the loop cannot tell a page tool from a catalog tool: both get the same provenance envelope, and both are called through `execute`. That is the property that lets one loop serve the in-page personal assistant and configured autonomous agents alike.
 

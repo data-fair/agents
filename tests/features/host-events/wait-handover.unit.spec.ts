@@ -44,14 +44,17 @@ test.describe('waitHandover', () => {
     const repaired = repairWaitInput(raw)
     assert.equal(repaired.message, "Parfait ! J'ai créé les 11 champs :\n\n**Contact :** Email\n\nCliquez sur « Enregistrer ».")
     assert.equal(repaired.expecting, 'Enregistrement de la structure')
-    assert.equal(repaired.timeoutSeconds, 300)
+    // The swallowed timeout is cut out of the message too, though a wait no longer has a clock to set.
+    assert.ok(!('timeoutSeconds' in repaired))
     // And the handover shows the repaired message, never the swallowed JSON tail.
     const shown = waitHandover('', raw)
     assert.ok(shown && !shown.includes('expecting'), String(shown))
   })
 
   test('leaves well-formed wait arguments alone', () => {
-    const input = { message: 'Appuyez sur "Enregistrer".', expecting: 'Clic', timeoutSeconds: 120 }
+    const input = { message: 'Appuyez sur "Enregistrer".', expecting: 'Clic' }
     assert.deepEqual(repairWaitInput(input), input)
+    // A model still sending the old clock argument is ignored rather than refused.
+    assert.deepEqual(repairWaitInput({ ...input, timeoutSeconds: 120 }), input)
   })
 })

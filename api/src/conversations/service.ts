@@ -234,12 +234,12 @@ export const purgeExpiredArchives = async (): Promise<number> => {
  * and `?sinceVersion=` is enough to catch up. $inc, so two concurrent writers cannot collide on
  * it the way a timestamp would in the same millisecond.
  */
-const bumpConversationVersion = async (conversationId: string, credits = 0): Promise<{ version?: number, credits?: number }> => {
+const bumpConversationVersion = async (conversationId: string, credits = 0, set: Partial<Conversation> = {}): Promise<{ version?: number, credits?: number }> => {
   const updated = await mongo.conversations.findOneAndUpdate(
     { id: conversationId },
     // The conversation's running total rides the same write when a turn's spend is flushed (see
-    // `finishTurn`), so keeping it costs no operation of its own.
-    { $inc: { version: 1, ...(credits ? { credits } : {}) }, $set: { updatedAt: new Date().toISOString() } },
+    // `finishTurn`), so keeping it costs no operation of its own — and so does a handover's pending wait.
+    { $inc: { version: 1, ...(credits ? { credits } : {}) }, $set: { ...set, updatedAt: new Date().toISOString() } },
     { returnDocument: 'after', projection: { _id: 0, version: 1, credits: 1 } }
   )
   return { version: updated?.version, credits: updated?.credits }
@@ -415,10 +415,13 @@ export const finishRun = async (run: { id: string, conversationId: string }, pat
 export const finishTurn = async (
   run: { id: string, conversationId: string },
   message: { seq: number, patch: Partial<StoredMessage> } | undefined,
-  patch: Partial<ConversationRun>
+  patch: Partial<ConversationRun>,
+  // What the turn leaves on the conversation: a handover's `pendingWait`, written by the same bump, so
+  // a reader never sees the turn closed without the wait it is waiting on.
+  conversation: Partial<Conversation> = {}
 ): Promise<{ closed: boolean, conversationCredits?: number }> => {
   const buffered = drainRunBuffer(run.id)
-  const { version, credits } = await bumpConversationVersion(run.conversationId, buffered.credits)
+  const { version, credits } = await bumpConversationVersion(run.conversationId, buffered.credits, conversation)
   const now = new Date().toISOString()
   if (message) {
     // CAUGHT: whatever failed this write (a mongo blip, a shutdown) is likely to fail the next one

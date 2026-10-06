@@ -3,8 +3,8 @@
  *
  * Retention answers "what is true now" at the moments the model has no history to
  * integrate from (first turn, after reset, after compaction). The pending buffer holds
- * what the model has not been told yet; a declared wait takes the next event instead of
- * the buffer. Kept free of Vue and the `~` alias so the node unit runner can import it.
+ * what the model has not been told yet; a pending wait is answered from it by the first
+ * thing the person does. Kept free of Vue and the `~` alias so the node unit runner can import it.
  */
 import { tool, jsonSchema } from 'ai'
 import type { Tool } from 'ai'
@@ -29,7 +29,7 @@ export const HOST_STATE_OPEN = '<host-state>'
 export const HOST_STATE_CLOSE = '</host-state>'
 export const WAIT_TOOL_NAME = 'wait_for_user_action'
 
-export interface WaitInput { message: string, expecting?: string, timeoutSeconds?: number }
+export interface WaitInput { message: string, expecting?: string }
 
 /**
  * Undo a known small-model slip in wait_for_user_action's arguments: the other
@@ -47,14 +47,14 @@ export function repairWaitInput (input: any): WaitInput {
   let message = typeof input?.message === 'string' ? input.message : ''
   const out: WaitInput = { message }
   if (typeof input?.expecting === 'string') out.expecting = input.expecting
-  if (Number.isFinite(Number(input?.timeoutSeconds))) out.timeoutSeconds = Number(input.timeoutSeconds)
+  // `timeoutSeconds` is still recognised in a swallowed fragment, so it is cut out of the message, but
+  // no longer kept: a wait has no clock (see createWaitTool).
   const cut = message.search(/"\s*,\s*"(expecting|timeoutSeconds)"\s*:/)
   if (cut !== -1) {
     try {
       // message.slice(cut + 1) is `,"expecting":"…","timeoutSeconds":300`
       const swallowed = JSON.parse('{' + message.slice(cut + 1).replace(/^\s*,/, '') + '}')
       if (out.expecting === undefined && typeof swallowed.expecting === 'string') out.expecting = swallowed.expecting
-      if (out.timeoutSeconds === undefined && Number.isFinite(Number(swallowed.timeoutSeconds))) out.timeoutSeconds = Number(swallowed.timeoutSeconds)
     } catch { /* keep what the message says before the fragment */ }
     message = message.slice(0, cut)
   }
@@ -82,23 +82,6 @@ export function waitHandover (stepText: string, input: unknown): string | null {
   if (text.includes(message)) return null
   return text ? `\n\n${message}` : message
 }
-// 300, not 120. The judged run that prompted this looked like a ten-second
-// near-miss — the wait expired just before the person clicked — but that was an
-// artefact of the simulation harness, which runs its simulated person only
-// between turns and so could never resolve a wait from inside one. No real
-// evidence survives that story, and the harness now reports an armed wait as the
-// turn handing control back (lib-sim/chat-driver.ts), which makes the window
-// irrelevant there.
-//
-// What remains is a judgement about a real person: 120s is a model's idea of a
-// pause, not a person's, and someone who reads a proposal before acting can
-// easily spend longer. A long window costs little because the composer stays
-// usable during a wait — a message takes the turn back — and Stop is always
-// reachable.
-export const WAIT_DEFAULT_SECONDS = 300
-export const WAIT_MAX_SECONDS = 600
-
-export type WaitOutcome = AgentEvent | 'timeout' | 'aborted'
 export interface HostStateSnapshot { state: AgentEvent[], recent: AgentEvent[] }
 
 /**
@@ -131,25 +114,8 @@ export class HostEventStore {
   private state = new Map<string, AgentEvent>()
   private recent: AgentEvent[] = []
   private pending: AgentEvent[] = []
-  private waiter: ((outcome: WaitOutcome) => void) | null = null
-  /** Whether the most recent `waitForEvent` had to block, rather than being answered from the buffer. */
-  lastWaitBlocked = false
-  /**
-   * Advances on every event that could have settled a wait — the same rule, by
-   * kind, that `resolvesWait` applies. A waiter compares it against the value it
-   * saw when it last timed out, to tell "has the person acted since?" without
-   * holding on to the events themselves.
-   *
-   * Counting refreshes here would undo the rule at the one boundary the guard
-   * cares about: a late `{ready:true}` landing after a timeout would say the
-   * person had acted, re-arm the wait, and spend another full timeout on someone
-   * who is still away. Timing cannot tell that refresh from a click — it lands
-   * before or after the timeout with the network — so this counts by kind too.
-   */
-  eventSeq = 0
 
   push (event: AgentEvent): void {
-    if (resolvesWait(event)) this.eventSeq++
     if (event.key) {
       this.state.set(event.key, event)
       // Map.set keeps an existing key's position, so the first entry is always the
@@ -162,13 +128,7 @@ export class HostEventStore {
       this.recent.push(event)
       if (this.recent.length > RECENT_MAX) this.recent.shift()
     }
-    if (this.waiter && resolvesWait(event)) {
-      const finish = this.waiter
-      this.waiter = null
-      finish(event)
-      return
-    }
-    // A refresh arriving mid-wait is owed to the model as a follower, not as the answer.
+    // A refresh is owed to the model as context — or, to a pending wait, as a follower of its answer.
     if (event.key) {
       const i = this.pending.findIndex(p => p.key === event.key)
       if (i >= 0) { this.pending[i] = event; return }
@@ -203,62 +163,41 @@ export class HostEventStore {
     return pending
   }
 
-  isWaiting (): boolean { return this.waiter !== null }
-
-  waitForEvent (opts: { timeoutMs: number, signal?: AbortSignal }): Promise<WaitOutcome> {
-    if (this.waiter) return Promise.reject(new Error('already-waiting'))
-    // Checked before the pending buffer: a wait declared on an already-aborted turn
-    // must not silently consume an event that is still owed to the model.
-    if (opts.signal?.aborted) return Promise.resolve('aborted' as WaitOutcome)
-    // Answered from the buffer: the event predates the declaration, so this wait
-    // never actually waited for anything. `createWaitTool` needs to know, because
-    // such a call must not consume the turn's one allowed block — it is routinely
-    // a keyed state re-emission the assistant's own tool call produced.
-    // Only something the person did settles a wait from the buffer; a refresh that
-    // was already true when the wait started stays pending, delivered as a follower.
-    const i = this.pending.findIndex(resolvesWait)
-    if (i >= 0) {
-      this.lastWaitBlocked = false
-      return Promise.resolve(this.pending.splice(i, 1)[0] as AgentEvent)
-    }
-    this.lastWaitBlocked = true
-    return new Promise<WaitOutcome>(resolve => {
-      // `timer` is armed first so `finish` can reference it as a `const`; the callback
-      // that reads `finish` back only runs once the timer actually fires, by which time
-      // `finish` is already defined — so neither binding is read before it is set.
-      const timer = setTimeout(() => finish('timeout'), opts.timeoutMs)
-      const finish = (outcome: WaitOutcome) => {
-        clearTimeout(timer)
-        opts.signal?.removeEventListener('abort', onAbort)
-        this.waiter = null
-        resolve(outcome)
-      }
-      const onAbort = () => finish('aborted')
-      opts.signal?.addEventListener('abort', onAbort, { once: true })
-      this.waiter = finish
-    })
+  /**
+   * Whether the pending buffer holds something the person DID — what answers a pending wait.
+   *
+   * By kind, not by time (see `resolvesWait`): a keyed refresh is the page catching up, and it is
+   * delivered as a follower of the answer rather than taken for it.
+   */
+  hasWaitAnswer (ignore?: (event: AgentEvent) => boolean): boolean {
+    return this.pending.some(event => resolvesWait(event) && !ignore?.(event))
   }
 
   /**
-   * Reset: the model owes nothing from before, so the buffer is dropped; an outstanding
-   * wait is dropped with it, settled as `'aborted'` rather than left dangling. Retention
-   * stays (the pages are still there).
+   * Take a pending wait's answer: the first thing the person did, then everything else pending (the
+   * followers of the same gesture, and the refreshes that arrived meanwhile). Null when the person has
+   * not acted, which leaves the buffer untouched.
+   *
+   * `ignore` passes over an event that would answer by kind but is not news — a reloaded page
+   * re-announcing the location it was already at. It stays pending, as context.
    */
+  takeWaitAnswer (ignore?: (event: AgentEvent) => boolean): AgentEvent[] | null {
+    const i = this.pending.findIndex(event => resolvesWait(event) && !ignore?.(event))
+    if (i === -1) return null
+    const answer = this.pending[i]
+    const followers = this.pending.filter((_, j) => j !== i)
+    this.pending = []
+    return [answer, ...followers]
+  }
+
+  /** Put back events taken for a wait that turned out to be answered already, ahead of anything newer. */
+  restorePending (events: AgentEvent[]): void {
+    this.pending = [...events, ...this.pending]
+  }
+
+  /** Reset: the model owes nothing from before, so the buffer is dropped. Retention stays (the pages are still there). */
   clearPending (): void {
     this.pending = []
-    this.waiter?.('aborted')
-  }
-
-  /**
-   * Idempotent: settles an outstanding wait as `'aborted'` (a no-op when nothing is
-   * waiting). Unlike `clearPending`, the pending buffer and retention are untouched —
-   * this is a turn-ending backstop for a waiter whose only other exit is
-   * `options.abortSignal`, which the AI SDK types as optional. Call from the turn's
-   * `finally` so a waiter never outlives its turn even if a future SDK version (or a
-   * bug) stops passing the signal.
-   */
-  cancelWait (): void {
-    this.waiter?.('aborted')
   }
 }
 
@@ -410,95 +349,42 @@ export function appendHostEvents (output: unknown, events: AgentEvent[]): unknow
   }
 }
 
-export function createWaitTool (opts: {
-  store: HostEventStore
-  /**
-   * Identifies the turn in progress. Supplying it opts into the timeout guard
-   * below: after a wait has timed out and the person has not acted since, another
-   * wait returns immediately instead of running out a fresh clock. There is no cap
-   * on how many times a reply may wait while the person keeps acting — a workflow
-   * legitimately needs several waits in one reply. Omit it and the tool keeps its
-   * unlimited behaviour, so a host that never wired it loses nothing.
-   */
-  turnId?: () => string
-  onWaiting?: (expecting: string) => void
-  onDone?: () => void
-}): Tool {
-  const { store } = opts
-  /**
-   * The event count when the last wait timed out, or null if none has. While it
-   * is unchanged the person has done nothing at all, so blocking again can only
-   * run out another timeout — a per-turn count could not catch this anyway,
-   * because each new turn would hand out a fresh allowance. A judged run spent
-   * 480s of 567s in four such timeouts, writing a fresh "I'm still waiting" line
-   * after each one while the timeout result was already telling it to end its
-   * reply.
-   *
-   * It counts only what could have settled a wait, so a refresh arriving between
-   * two turns cannot quietly re-arm the blocking.
-   */
-  let timedOutAtSeq: number | null = null
+/**
+ * What the wait tool returns when it accepts a handover. Never shown to the model: the executor stops
+ * the turn on it and leaves the call open until the person answers (see api/src/conversations/waits.ts).
+ */
+export const WAIT_ACCEPTED = 'wait_for_user_action: handed over'
+
+/**
+ * `wait_for_user_action`: hand the turn to the person.
+ *
+ * It does not block. Calling it ENDS the turn, with the call left open; the person's next action on
+ * the page settles it with what they did and starts the next turn, which continues from that result as
+ * if it had come back in the same one. Blocking inside the turn held a run, its lock and its
+ * connections open on a clock (up to 10 minutes), fought the turn ceiling, and taught the model to
+ * write "I'm still waiting" after every timeout — a judged run spent 480s of 567s that way.
+ */
+export function createWaitTool (): Tool {
   return tool({
-    description: 'Pause and wait for the user to act in the application (click a button, submit a form, navigate…). ' +
-      'Resolves with the next action the application reports, whatever it is — check it is what you expected before continuing; ' +
-      'if the user navigated away or did something else, wrap up. Use it when you have set things up and the next step is the user\'s: ' +
+    description: 'Hand the turn to the user when the next step is theirs to do in the application (click a button, submit a form, navigate…). ' +
+      'Your reply ends here. When they act, you are told what the application reported — check it is what you expected before continuing; ' +
+      'if they navigated away or did something else, wrap up. Use it when you have set things up and the next step is the user\'s: ' +
       'after preparing a form for them to save, or a wizard for them to confirm. Never call it when there is nothing for the user to do.',
     inputSchema: jsonSchema({
       type: 'object',
       properties: {
         message: { type: 'string', description: 'Your message to the user, shown in the chat as your reply: what is ready and exactly what they should do (e.g. which button to press). Do not repeat it as text.' },
-        expecting: { type: 'string', description: 'What you are waiting for, in a few words; shown as a status label.' },
-        timeoutSeconds: { type: 'integer', minimum: 1, maximum: WAIT_MAX_SECONDS, description: `Seconds to wait before giving up (default ${WAIT_DEFAULT_SECONDS}, max ${WAIT_MAX_SECONDS}).` }
+        expecting: { type: 'string', description: 'What you are waiting for, in a few words; shown as a status label.' }
       },
       required: ['message', 'expecting'],
       additionalProperties: false
     }),
-    execute: async (rawArgs: any, options?: { abortSignal?: AbortSignal }) => {
-      const args = repairWaitInput(rawArgs)
+    execute: async (rawArgs: any) => {
       // Required by the schema, which the SDK does not enforce: a Haiku run declared a
       // wait with no arguments at all, the turn went silent, and the person — told
-      // nothing — had to ask what to do. Refused rather than waited on, so it is retried.
-      if (!args.message) return 'Not waiting: message is required — one or two sentences telling the person what is ready and what to press. Call wait_for_user_action again with it.'
-      if (store.isWaiting()) return 'Already waiting for the user.'
-      const requested = Number(args?.timeoutSeconds)
-      const seconds = Number.isFinite(requested) && requested > 0 ? Math.min(WAIT_MAX_SECONDS, Math.floor(requested)) : WAIT_DEFAULT_SECONDS
-      // Supplying turnId is the opt-in for the guard below; the rule keys on the
-      // event sequence, not on the turn.
-      const scoped = opts.turnId !== undefined
-      // There is no cap on how many times a reply may wait, only on waiting for
-      // nothing. A wait that blocked and was then answered is progress — the
-      // person acted — and a workflow legitimately needs several in one reply: a
-      // dialog reports itself, the person saves, the next dialog reports itself.
-      // Capping that refused the third wait of a judged run with "you already
-      // waited in this reply"; the assistant ended its reply, the person was
-      // waiting to be told a button was ready, and the run drained to its turn
-      // cap with the correction never made. What must not repeat is below.
-      if (scoped && timedOutAtSeq !== null && store.eventSeq === timedOutAtSeq) {
-        return 'Your last wait timed out and the user has not acted since, so waiting again would only run out another clock. ' +
-          'End your reply now and let them act; you will be told what they did when the conversation continues.'
-      }
-      opts.onWaiting?.(String(args?.expecting ?? ''))
-      try {
-        const outcome = await store.waitForEvent({ timeoutMs: seconds * 1000, signal: options?.abortSignal })
-        // Remember where the event stream stood, so a repeat before the person
-        // has done anything returns instead of blocking; any event clears it.
-        timedOutAtSeq = outcome === 'timeout' ? store.eventSeq : null
-        if (outcome === 'timeout') {
-          const text = `No user action within ${seconds} seconds. End your reply now and let the user act; you will be told what they did when the conversation continues.`
-          // What the page reported meanwhile is owed to the model now, not on the
-          // next carrier: a keyed refresh that arrived during the wait (correctly
-          // not the answer) used to sit here until the person's next message.
-          const followers = store.takePending()
-          return followers.length ? `${text}\n\n${formatHostEvents(followers)}` : text
-        }
-        if (outcome === 'aborted') return 'Wait cancelled.'
-        // One macrotask so the followers of the same user gesture (a keyed location event
-        // posted right after a creation event) ride in the same result.
-        await new Promise(resolve => setTimeout(resolve, 0))
-        return formatHostEvents([outcome, ...store.takePending()])
-      } finally {
-        opts.onDone?.()
-      }
+      // nothing — had to ask what to do. Refused rather than handed over, so it is retried.
+      if (!repairWaitInput(rawArgs).message) return 'Not waiting: message is required — one or two sentences telling the person what is ready and what to press. Call wait_for_user_action again with it.'
+      return WAIT_ACCEPTED
     }
   })
 }

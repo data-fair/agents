@@ -195,9 +195,10 @@
              (compacting / thinking / analyzing a tool result) instead of an
              ambiguous skeleton. Shown only during a gap with no visible output —
              while text streams, `activity` is null and the markdown cursor is the
-             progress signal. -->
+             progress signal. A pending wait is the exception that outlives the turn: the
+             handover ended it, and the label is what says the next move is the person's. -->
         <div
-          v-if="isStreaming && activityLabel"
+          v-if="(isStreaming || activity?.kind === 'waiting') && activityLabel"
           class="px-2 py-1 px-sm-4 py-sm-2 d-flex align-center text-caption text-medium-emphasis"
           data-testid="chat-activity"
           :data-activity="activity?.kind"

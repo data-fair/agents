@@ -1,15 +1,14 @@
 /**
  * stateless unit tests for host events arriving over the socket, and for the wait that depends on them.
  *
- * The wait is the point. `wait_for_user_action` is the "distributed suspension holding a conversation
- * lock" that the earlier two-platform design rejected this reversal over. With the loop colocated with
- * the socket it is neither distributed nor a lock: it is an in-process promise resolved by the next
- * frame, which is what these tests show.
+ * `wait_for_user_action` ends its turn; what the person does next on the page arrives here, and the
+ * session reports it so a pending wait can be answered (api/src/conversations/waits.ts). Neither a
+ * suspension nor a lock — a frame, and a callback.
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { createAgentSession } from '../../../api/src/agent-session/session.ts'
-import { createWaitTool, formatHostState, WAIT_TOOL_NAME } from '@agents/shared/host-events'
+import { formatHostState, WAIT_TOOL_NAME } from '@agents/shared/host-events'
 import { parseClientMessage } from '@agents/shared/agent-session-protocol'
 
 const sessionWith = () => createAgentSession({ send: () => {} })
@@ -73,49 +72,30 @@ test.describe('the session store', () => {
 })
 
 test.describe('wait_for_user_action, server-side', () => {
-  test('a wait resolves with what the person did next, from a socket frame', async () => {
-    // THE SUSPENSION, discharged. Colocation makes it an in-process promise: the loop waits, the next
-    // frame on the same connection in the same process settles it. No routing, no lock, no rendezvous.
-    const session = sessionWith()
-    const wait = createWaitTool({ store: session.hostEvents })
-
-    const pending = wait.execute!({ message: 'Ready: save the form.', expecting: 'you to save', timeoutSeconds: 5 } as never, { toolCallId: 'w1', messages: [] })
-    // The person acts, reported over the socket.
+  test('what the person does on the page is reported, and can answer a pending wait', () => {
+    let reported = 0
+    const session = createAgentSession({ send: () => {}, onHostEvents: () => { reported++ } })
+    session.handle({ type: 'host-state', state: { wizard: 'step 2' } })
+    // State alone is the page catching up: reported, but no answer to a wait.
+    assert.equal(reported, 1)
+    assert.equal(session.hostEvents.hasWaitAnswer(), false)
     session.handle({ type: 'host-events', events: [{ name: 'clicked save', detail: 'the dataset form', at: Date.now() }] })
-
-    const outcome = String(await pending)
-    assert.match(outcome, /clicked save/)
-    assert.match(outcome, /the dataset form/)
+    assert.equal(reported, 2)
+    assert.equal(session.hostEvents.hasWaitAnswer(), true)
   })
 
-  test('a wait that nobody answers times out, and says so', async () => {
-    const session = sessionWith()
-    const wait = createWaitTool({ store: session.hostEvents })
-    const outcome = String(await wait.execute!({ message: 'Ready: save the form.', expecting: 'you to save', timeoutSeconds: 1 } as never, { toolCallId: 'w1', messages: [] }))
-    // The turn must END rather than appear to keep waiting — the lesson a judged run taught, where four
-    // timeouts burned 480 seconds while the model wrote "I'm still waiting" after each.
-    assert.match(outcome, /No user action within 1 seconds/)
-    // And it tells the model to STOP rather than to keep waiting, which is the lesson the judged run
-    // taught: four timeouts burned 480 of 567 seconds while the model wrote "I'm still waiting" after
-    // each one, the timeout result already telling it to end its reply.
-    assert.match(outcome, /End your reply now/)
+  test('only the person\'s Stop declines a pending wait; a plain abort leaves it', () => {
+    // Leaving a thread sends a plain abort, and must not answer the wait of the thread left behind.
+    const aborts: boolean[] = []
+    const session = createAgentSession({ send: () => {}, onAbort: dismissWait => { aborts.push(dismissWait) } })
+    session.handle(parse({ type: 'abort' }) as any)
+    session.handle(parse({ type: 'abort', dismissWait: true }) as any)
+    assert.deepEqual(aborts, [false, true])
   })
 
   test('the tool is named what the model is told it is named', () => {
     // The name travels into activeTools and into the stream-part handling, so a drift here is silent.
     assert.equal(WAIT_TOOL_NAME, 'wait_for_user_action')
-  })
-
-  test('a second wait while one is pending is refused rather than queued', async () => {
-    // Two waits on one store would both consume the next event, and the model would be told the same
-    // action twice.
-    const session = sessionWith()
-    const wait = createWaitTool({ store: session.hostEvents })
-    const first = wait.execute!({ message: 'Ready.', expecting: 'a', timeoutSeconds: 2 } as never, { toolCallId: 'w1', messages: [] })
-    const second = String(await wait.execute!({ message: 'Ready.', expecting: 'b', timeoutSeconds: 2 } as never, { toolCallId: 'w2', messages: [] }))
-    assert.match(second, /already waiting/i)
-    session.handle({ type: 'host-events', events: [{ name: 'done', at: Date.now() }] })
-    await first
   })
 })
 

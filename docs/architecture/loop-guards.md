@@ -50,13 +50,13 @@ The nudge is the mildest intervention that works: telling the model plainly what
 
 On the lead loop the same `prepareStep` hook first refreshes the live tool set when the page's tools changed mid-turn, then returns `loopGuardPrepareStep(options)`. Sub-agent workers are built with the two `stopWhen` guards only and no `prepareStep`, so today a looping worker is stopped at 5 without first being nudged at 3.
 
-The same module holds `STREAM_IDLE_TIMEOUT_MS` (90 s) and `createIdleWatchdog`: an idle watchdog rather than a total ceiling, so a provider that accepts a request and then goes silent does not hold the conversation until the turn's wall-clock timeout (`turnTimeoutSeconds`, also passed to `streamText` as `timeout.totalMs`). It is re-armed on every stream part and PAUSED while any tool call is outstanding: the AI SDK's own `timeout.chunkMs`, which it replaced, counted a running tool as silence, so a `wait_for_user_action` past 90 s or a slow catalog query was aborted as a stuck provider.
+The same module holds `STREAM_IDLE_TIMEOUT_MS` (90 s) and `createIdleWatchdog`: an idle watchdog rather than a total ceiling, so a provider that accepts a request and then goes silent does not hold the conversation until the turn's wall-clock timeout (`turnTimeoutSeconds`, also passed to `streamText` as `timeout.totalMs`). It is re-armed on every stream part and PAUSED while any tool call is outstanding: the AI SDK's own `timeout.chunkMs`, which it replaced, counted a running tool as silence, so a slow catalog query or a slow page tool was aborted as a stuck provider.
 
 ## 3. Never stop silently
 
 Either guard ends the loop with `finishReason: 'tool-calls'`. For a sub-agent, the orchestrator then runs **one close-out turn with no tools** (`SUBAGENT_CLOSEOUT_PROMPT`) so the model must synthesize a best-effort answer from what it gathered, and surfaces it to the lead as a *partial* result rather than a failure — see [sub-agents §3](./sub-agents.md#loop-guard-close-out). This mirrors smolagents (`provide_final_answer`), CrewAI (`force_final_answer`), browser-use (done-only last step) and Claude Code sub-agents (output "marked partial"); hard-stop-and-throw is the pattern users complain about.
 
-On the lead loop the turn simply ends, and the run records why: `finishReason: 'tool-calls'` maps to the stop reason `budget`, `step-limit` or `repeated-calls`, and `runTurn` appends that reason's notice (`runStopReasonMessage`, `api/src/conversations/operations.ts`) to the assistant message, so the person never sees a turn that just stops.
+On the lead loop the turn simply ends, and the run records why: `finishReason: 'tool-calls'` maps to the stop reason `budget`, `step-limit` or `repeated-calls`, and `runTurn` appends that reason's notice (`runStopReasonMessage`, `api/src/conversations/operations.ts`) to the assistant message, so the person never sees a turn that just stops. A turn that ends on `wait_for_user_action` also stops on a tool call, by design: its stop reason is `waiting`, and it carries no notice — its own handover message says what comes next (see [Host events](./host-events.md#wait_for_user_action)).
 
 ## 4. Test seams
 

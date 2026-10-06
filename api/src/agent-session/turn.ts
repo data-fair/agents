@@ -18,6 +18,8 @@ import {
   setReviewConsent
 } from '../conversations/service.ts'
 import { startRun, liveTurnOf } from '../conversations/executor.ts'
+import { settlePendingWait } from '../conversations/waits.ts'
+import { interruptedWaitResult } from '../conversations/interrupted-turn.ts'
 import mongo from '#mongo'
 import type { AgentSession } from './session.ts'
 import type { SessionStateAuthenticated } from '@data-fair/lib-common-types/session/index.js'
@@ -93,6 +95,11 @@ export const startSessionTurn = async (request: SessionTurnRequest): Promise<str
   // the model saw, so a trace or a replay that dropped it would misrepresent what was asked. The chat
   // renders only the visible half (`splitHiddenContext`), and a reopened thread does the same.
   const text = request.hiddenContext ? wrapHiddenContext(request.hiddenContext, content) : content
+
+  // Writing answers a pending wait: it is settled as interrupted BEFORE the message is stored, so the
+  // history reads handover, interruption, message — and the turn this starts carries the reminder to
+  // wait again (pendingWaitReminder).
+  await settlePendingWait(conversation.id, wait => interruptedWaitResult(wait.expecting))
 
   const stored = await appendMessage(conversation, {
     role: 'user',

@@ -78,6 +78,6 @@ mutations. The user still reviews and saves the form.
   itself reports some host state too: the person's language, organization, whether
   the widget is narrow, whether diagrams render.
   An assistant acting on them ("I see you created the dataset") is reading the
-  application, not inventing; an assistant calling `wait_for_user_action` and resuming
+  application, not inventing; an assistant calling `wait_for_user_action` and continuing
   on the user's click is the intended hand-back, not a stall. See
   [Host events](./host-events.md).

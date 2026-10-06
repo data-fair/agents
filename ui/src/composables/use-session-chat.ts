@@ -236,6 +236,13 @@ export function useSessionChat (options: UseSessionChatOptions) {
 
     onCost: cost => { conversationCost.value = cost },
 
+    // A turn the SERVER started is still a turn: the person's action on a pending wait wakes one, and a
+    // page attaching mid-turn joins one. Its first activity is what says so — not a pending message,
+    // which history replays for a turn a restart left unfinished, and which would leave this stuck.
+    onActivity: activity => {
+      if (activity && activity.kind !== 'waiting' && status.value !== 'streaming') status.value = 'streaming'
+    },
+
     onTurnEnd: (stopReason, detail) => {
       // Refetch the caller's own quota windows: this turn spent from them.
       usageVersion.value++
@@ -524,8 +531,9 @@ export function useSessionChat (options: UseSessionChatOptions) {
       agent.prompt(content, sendOptions?.hiddenContext)
     },
 
+    /** The person's Stop: the turn in flight, or the handover the assistant is waiting on. */
     abort () {
-      agent.abort()
+      agent.abort({ dismissWait: true })
       status.value = 'ready'
     },
 

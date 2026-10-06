@@ -123,14 +123,6 @@ test.describe('Host events', () => {
     await expect(page.getByPlaceholder('Type your message...')).toBeEditable()
   })
 
-  test('a wait times out with the plain text and the turn ends', async ({ page, goToWithAuth }) => {
-    await open(page, goToWithAuth)
-    await reachConfirmation(page)
-    await send(page, 'wait briefly')
-    await expect(lastAnswer(page)).toContainText('No user action within 1 seconds', { timeout: 15000 })
-    await expect(page.getByTestId('chat-activity')).toHaveCount(0)
-  })
-
   test('the simulation driver reads an armed wait as the turn handing control back', async ({ page, goToWithAuth }) => {
     // The harness runs the simulated person only BETWEEN turns, so a driver that
     // waited for the Stop button alone could never let them act on a wait: every
@@ -232,28 +224,30 @@ test.describe('Host events', () => {
     await expect(page.getByText("I wasn't able to produce a response")).toHaveCount(0)
   })
 
-  test('the waiting activity clears once the wait resolves (drives the host\'s waiting-user/working signal)', async ({ page, goToWithAuth }) => {
-    // AgentChat.vue posts `agent-status: waiting-user` / `working` to the embedding host
-    // purely off `chat.activity.value?.kind === 'waiting'` — but `sendDFrameMessage` only
-    // posts when the page is actually embedded in an iframe (`window.parent !== window`),
-    // and this dev page, opened directly by goToWithAuth, is not. So there is no
-    // postMessage to intercept here; instead this pins the one flag that drives that
-    // signal, which is the same thing the host would see either way.
-    //
-    // Resolved via timeout rather than clicking Create: clicking Create also unmounts
-    // WorkflowWizard (swapped for WorkflowDetail), which unregisters that component's
-    // page tools at essentially the same instant the wait resolves. Investigating an
-    // intermittent failure of this assertion on that path (reproduces on unmodified
-    // `use-agent-chat.ts` too, so it predates and is independent of this fix wave)
-    // traced it to that unregister racing the wait's own resolution — a pre-existing
-    // issue outside this fix wave's scope, worth a separate look. Timing out has no
-    // such side effect, so it exercises the same onDone-clears-the-flag behaviour
-    // without that unrelated race.
+  test('the waiting label outlives the handover turn, and clears once the person acts', async ({ page, goToWithAuth }) => {
+    // The label is what tells the person the move is theirs — and what drives the embedding host's
+    // waiting-user signal. The handover ENDS its turn, so the label has to stay up between turns, with
+    // Stop on screen to decline; and once the person acts, it goes.
     await open(page, goToWithAuth)
     await reachConfirmation(page)
-    await send(page, 'wait briefly')
+    await send(page, 'wait for me')
     await expect(page.getByTestId('chat-activity')).toContainText('Waiting for: you to click Create', { timeout: 15000 })
+    await expect(page.getByRole('button', { name: /Stop|Arrêter/ })).toBeVisible()
+    await page.getByRole('button', { name: 'Leave page' }).click()
+    await expect(lastAnswer(page)).toContainText('You did:', { timeout: 15000 })
     await expect(page.getByTestId('chat-activity')).toHaveCount(0, { timeout: 15000 })
-    await expect(lastAnswer(page)).toContainText('No user action within 1 seconds', { timeout: 15000 })
+  })
+
+  test('a reload while waiting shows the wait, and the page can still answer it', async ({ page, goToWithAuth }) => {
+    // Nothing is held open between the handover and the answer, so a reload loses nothing: the thread
+    // says it is waiting, and the person's action on the reloaded page continues it.
+    await open(page, goToWithAuth)
+    await send(page, 'wait for me')
+    await expect(page.getByTestId('chat-activity')).toContainText('Waiting for', { timeout: 15000 })
+    await page.reload()
+    await expect(page.getByTestId('chat-activity')).toContainText('Waiting for', { timeout: 15000 })
+    await reachConfirmation(page)
+    await page.getByRole('button', { name: 'Create' }).click()
+    await expect(lastAnswer(page)).toContainText('You did:', { timeout: 15000 })
   })
 })

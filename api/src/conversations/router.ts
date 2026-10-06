@@ -18,6 +18,8 @@ import { withinRetention } from '../retention.ts'
 import { isStandardAgentId, listStandardAgents } from '../agent-session/standard-agents.ts'
 import { getSettings } from '../settings/service.ts'
 import { hasTraceConsent } from '@agents/shared/trace-consent'
+import { settlePendingWait } from './waits.ts'
+import { interruptedWaitResult } from './interrupted-turn.ts'
 
 const router = Router()
 export default router
@@ -439,6 +441,9 @@ router.post('/:type/:id/:conversationId/messages', async (req, res, next) => {
     if (consented !== (conversation.consentedToReview === true)) {
       await setReviewConsent(conversation.id, consented)
     }
+
+    // A message answers a pending wait, as it does over the socket (see startSessionTurn).
+    await settlePendingWait(conversation.id, wait => interruptedWaitResult(wait.expecting))
 
     const message = await appendMessage(conversation, {
       role: 'user',

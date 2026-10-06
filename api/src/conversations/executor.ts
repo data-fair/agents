@@ -35,7 +35,7 @@ import { checkQuotas, moderateTurn } from './turn-gates.ts'
 import { moderationApplies, MODERATION_REFUSAL } from '../moderation/operations.ts'
 import { loadHistory, compactHistory } from './turn-history.ts'
 import { recordCall } from './turn-telemetry.ts'
-import { appendMessage, updateMessage, finishRun, finishTurn, bufferRunWrites, incrementRunSpend, resolveAgent, setRunSystemPrompt, conversationCost } from './service.ts'
+import { appendMessage, updateMessage, finishRun, finishTurn, bufferRunWrites, incrementRunSpend, resolveAgent, setRunSystemPrompt, conversationCost, createRun } from './service.ts'
 import { getSettings } from '../settings/service.ts'
 import { resolveRoleModel } from '../models/service.ts'
 import { contextBudget, type ModelRole } from '../models/operations.ts'
@@ -48,7 +48,8 @@ import { partitionSubAgents, subAgentDelegation } from '../agent-session/sub-age
 import type { AgentSession } from '../agent-session/session.ts'
 import type { ChatActivity } from '@agents/shared/agent-activity'
 import { browserToolSet } from '../agent-session/browser-tools.ts'
-import { createWaitTool, withHostContext, waitHandover, WAIT_TOOL_NAME } from '@agents/shared/host-events'
+import { createWaitTool, withHostContext, waitHandover, repairWaitInput, formatHostEvents, WAIT_TOOL_NAME, WAIT_ACCEPTED, LOCATION_KEY } from '@agents/shared/host-events'
+import { settlePendingWait } from './waits.ts'
 import { PERSON_SPOKE, interruptReason, settleInterruptedParts, pendingWaitReminder } from './interrupted-turn.ts'
 import { checkAccountCreditCap } from '../usage/enforce.ts'
 import { recordUsage } from '../usage/service.ts'
@@ -83,10 +84,9 @@ export const abortRun = (runId: string): boolean => {
 /**
  * Stop the live turn of one conversation, so a new prompt can take the turn back.
  *
- * The case this exists for: the assistant called `wait_for_user_action` and the person, instead of
- * clicking what it asked for, typed something. Without this the wait runs out its clock — up to ten
- * minutes — while the person watches their own message do nothing. Speaking IS the answer to
- * "waiting for the user", so it ends the wait.
+ * A person who writes while the assistant is still working means to redirect it: their message is
+ * what the next turn answers, and letting the current one run on would answer the question before.
+ * (A pending wait is not a live turn — the message answers it directly, see ./waits.ts.)
  *
  * Returns how many this process actually stopped; a conversation has at most one live turn, because
  * the conversation lock serialises them.
@@ -154,6 +154,8 @@ interface TurnResult {
   stopReason: RunStopReason
   /** Which ceiling stopped it, when the stop reason alone would be ambiguous. */
   stopDetail?: string
+  /** The wait the turn handed over on, left open for the person to answer (stopReason 'waiting'). */
+  handover?: { toolCallId: string, expecting?: string }
   /**
    * Set when the parts ALREADY say what went wrong, so no stop-reason notice is appended.
    *
@@ -243,7 +245,9 @@ const performTurn = async (run: ConversationRun, messageSeq: number, abortSignal
   const identity = usageIdentityFor(autonomousAgent, run)
   for (const gate of [
     () => checkQuotas(run, settings, identity, autonomousAgent.id),
-    () => moderationApplies(settings, identity.role)
+    // A wake has no message of the person's to classify — they acted on the page — and moderating it
+    // would re-judge the message that started the handover.
+    () => run.trigger !== 'wake' && moderationApplies(settings, identity.role)
       ? moderateTurn(run, settings, identity, () => liveRuns.get(run.id)?.controller.abort(new Error(MODERATION_LATE_BLOCK)))
       : undefined
   ]) {
@@ -278,19 +282,9 @@ const performTurn = async (run: ConversationRun, messageSeq: number, abortSignal
   const tools = {
     ...withProvenance(rawTools, name => serverByTool.get(name) ?? 'unknown'),
     ...(session ? browserToolSet(session) : {}),
-    // `wait_for_user_action`, available only when someone is actually there to act. It is loop-provided
-    // rather than page-provided — the page feeds the store, the loop owns the tool — which is why it
-    // had to move with the loop. The activity callbacks are the store's own, so the label the chat
-    // shows while waiting comes from the same place the wait does.
-    ...(session
-      ? {
-          [WAIT_TOOL_NAME]: createWaitTool({
-            store: session.hostEvents,
-            onWaiting: expecting => { sessionFor(run.conversationId)?.send({ type: 'activity', activity: { kind: 'waiting', expecting } }) },
-            onDone: () => { sessionFor(run.conversationId)?.send({ type: 'activity', activity: null }) }
-          })
-        }
-      : {})
+    // `wait_for_user_action`, available only when someone is actually there to act. Loop-provided rather
+    // than page-provided: calling it ends the turn (see `handover` in runModelLoop and ./waits.ts).
+    ...(session ? { [WAIT_TOOL_NAME]: createWaitTool() } : {})
   }
 
   try {
@@ -622,6 +616,10 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
     stopWhen: [
       stepCountIs(STEP_LIMIT),
       repeatedCallGuard(),
+      // A HANDOVER ENDS THE TURN: the wait was accepted, so the next step is the person's. Read from the
+      // step's own results rather than from state the stream loop below sets, which may not have
+      // consumed that part yet when the SDK asks.
+      ({ steps }) => steps[steps.length - 1]?.toolResults.some(result => result.toolName === WAIT_TOOL_NAME && result.output === WAIT_ACCEPTED) ?? false,
       // Appended to the guards, never replacing them: a turn can be stopped by any of the
       // three and each has its own stop reason.
       () => budgetExceeded
@@ -747,14 +745,12 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
    * them from a stream. `null` clears the label.
    */
   const activity = (value: ChatActivity | null) => {
-    // WHILE A WAIT IS PENDING, THE WAIT OWNS THE LABEL. The SDK runs a tool as soon as it parses the
-    // call, ahead of this loop reading the stream, so the loop's own updates arrive late: a result
-    // from the step before, read after the wait has started, set "Analyzing tool result…" over
-    // "Waiting for …", and the person was no longer told the turn was theirs. The wait sets and
-    // clears its own label (createWaitTool's onWaiting/onDone, which do not go through here).
-    if (session?.hostEvents.isWaiting()) return
     watcher()?.send({ type: 'activity', activity: value })
   }
+
+  // The wait this turn handed over on, if it did. The first accepted one; a second in the same step is
+  // settled at once as redundant rather than left as a second open call nothing will answer.
+  let handover: { toolCallId: string, expecting?: string } | undefined
 
   /**
    * Complete a tool call in place, by its id.
@@ -806,10 +802,9 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
    * Persist the turn's structure NOW, when a call opens or settles — the only writes before the end.
    *
    * Two readers need it. A turn interrupted mid-call is settled from the STORED parts (runTurn's catch
-   * path has nothing else), so a wait not yet written would be invisible there
-   * and replay would drop it — the model would never learn it had been waiting. And a page reloaded
-   * during a wait has to show the wait. Calls are few per turn, so this costs a write per call, not
-   * per token.
+   * path has nothing else), so a call not yet written would be invisible there and replay would drop
+   * it — the model would never learn what it had been doing. And a page reloaded mid-turn has to show
+   * the calls already made. Calls are few per turn, so this costs a write per call, not per token.
    */
   const persistStructure = async () => {
     await updateMessage(run.conversationId, messageSeq, { parts, pending: true })
@@ -902,6 +897,18 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
       //
       // Stored as the model received it, envelope included (withProvenance wraps before this point),
       // because the guarantee is that a revived conversation reproduces what the model saw.
+      if (part.type === 'tool-result' && part.toolName === WAIT_TOOL_NAME && (part as any).output === WAIT_ACCEPTED) {
+        if (!handover) {
+          // Left OPEN: the person's answer is its result, and it comes in a later turn (./waits.ts).
+          const call = parts.find(p => p.type === 'dynamic-tool' && p.toolCallId === part.toolCallId)
+          handover = { toolCallId: part.toolCallId, expecting: repairWaitInput(call?.type === 'dynamic-tool' ? call.input : undefined).expecting }
+        } else {
+          settleToolPart(part.toolCallId, { state: 'output-available', output: 'Already waiting for the user.' })
+          sendMessageFrame(true)
+          await persistStructure()
+        }
+        continue
+      }
       if (part.type === 'tool-result') {
         const output = (part as any).output
         // An image-bearing result is stored AS its envelope, only its text bounded: stringified, the base64
@@ -981,9 +988,13 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   // A turn that answered and finished is `completed` even if its last step happened to
   // cross the budget: reporting 'budget' there would tell a reader the answer was cut off
   // when it was not.
-  const stopReason: RunStopReason = finishReason === 'tool-calls'
-    ? (budgetExceeded ? 'budget' : steps >= STEP_LIMIT ? 'step-limit' : 'repeated-calls')
-    : 'completed'
+  // A handover first: it stops on a tool call by design, which the guards' reading below would take for
+  // a turn cut off.
+  const stopReason: RunStopReason = handover
+    ? 'waiting'
+    : finishReason === 'tool-calls'
+      ? (budgetExceeded ? 'budget' : steps >= STEP_LIMIT ? 'step-limit' : 'repeated-calls')
+      : 'completed'
 
   // An empty completion is a known provider failure mode with its own mock seam, and the
   // browser loop had a fallback for it. Without one here the turn persists a blank message
@@ -1012,6 +1023,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
     stopDetail,
     // The frame above was the settled one; runTurn must not send a second.
     published: true,
+    ...(handover ? { handover } : {}),
     stopReason: emptyCompletion ? 'error' : stopReason,
     // The fallback above IS the explanation; a generic notice on top would be a second one.
     ...(emptyCompletion ? { selfExplained: true } : {})
@@ -1075,7 +1087,8 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
     const result = await Promise.race([performTurn(run, message.seq, abortController.signal, conversation), deadline])
     // A turn that stopped for a reason other than finishing explains itself, appended to
     // whatever it did manage to produce.
-    const notice = result.stopReason === 'completed' || result.selfExplained
+    // A handover is not a stop to explain: its own message, already in the parts, says what is next.
+    const notice = result.stopReason === 'completed' || result.stopReason === 'waiting' || result.selfExplained
       ? ''
       : runStopReasonMessage(result.stopReason, result.stopDetail)
     const finalParts = notice ? withAppendedText(result.parts, notice) : result.parts
@@ -1083,10 +1096,27 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
     // A run stopped by a guard or a budget is still a completed run: it did work and said so. But a
     // turn that REFUSED — no enrolled identity, an exhausted credit cap — returns stopReason 'error'
     // without throwing, and must not be reported as done.
+    const handoverLocation = result.handover
+      ? sessionFor(run.conversationId)?.hostEvents.snapshot().state.find(event => event.key === LOCATION_KEY)?.detail
+      : undefined
     const finished = await finishTurn(
       run,
       { seq: message.seq, patch: { parts: finalParts as any, pending: false } },
-      { status: result.stopReason === 'error' ? 'error' : 'done', stopReason: result.stopReason }
+      { status: result.stopReason === 'error' ? 'error' : 'done', stopReason: result.stopReason },
+      result.handover
+        ? {
+            pendingWait: {
+              messageSeq: message.seq,
+              toolCallId: result.handover.toolCallId,
+              ...(result.handover.expecting ? { expecting: result.handover.expecting } : {}),
+              since: new Date().toISOString(),
+              ...(handoverLocation ? { location: handoverLocation } : {}),
+              // The person whose turn handed over: their action starts the next one, billed as theirs.
+              ...(run.triggeredBy ? { triggeredBy: run.triggeredBy } : {}),
+              ...(run.triggeredByRole ? { triggeredByRole: run.triggeredByRole } : {})
+            }
+          }
+        : {}
     )
     // PUBLISHED FOR THE PATHS THE LOOP NEVER REACHED: a moderation block, a quota refusal and a
     // missing non-human identity all return their refusal before any model call, so the loop's own
@@ -1107,12 +1137,22 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
     // end-of-turn signal, so a page that refreshes on turn-end already holds the new figure.
     // Best-effort: a figure for a display must never turn a finished turn into a failed one.
     await sendConversationCost(run.conversationId, finished.conversationCredits).catch(() => {})
+    // A handover's label, BEFORE turn-end: it outlives the turn — it tells the person the next move is
+    // theirs, and keeps Stop on screen to decline it — and sent first there is no instant between the
+    // turn ending and the wait showing, in which the chat would read as simply done.
+    if (result.handover) {
+      sessionFor(run.conversationId)?.send({ type: 'activity', activity: { kind: 'waiting', expecting: result.handover.expecting ?? '' } })
+    }
     // The end-of-turn signal, so a watching page stops its spinner without polling for it.
     sessionFor(run.conversationId)?.send({
       type: 'turn-end',
       stopReason: result.stopReason,
       ...(result.stopDetail ? { detail: result.stopDetail } : {})
     })
+    if (result.handover) {
+      // The person may have acted while the turn was still finishing: that answer is already buffered.
+      await wakeIfAnswered(run.conversationId).catch(err => console.error('could not wake a conversation on its pending wait', err))
+    }
   } catch (err) {
     let finalParts: MessagePart[] | undefined
     const detail = err instanceof Error ? err.message : String(err)
@@ -1222,6 +1262,55 @@ export const startRun = async (run: ConversationRun): Promise<void> => {
     }
     if (!await nextPendingRun(run.conversationId)) return
   }
+}
+
+/**
+ * Continue a conversation whose pending wait the person has just answered on the page.
+ *
+ * Called when the socket receives host events, and when a turn that handed over ends (an answer may
+ * have arrived while it was finishing). The answer is what the wait tool used to return inside the
+ * turn — the first thing the person did, then the followers of the same gesture and the refreshes
+ * that arrived meanwhile — so the settled call and the turn that continues from it read exactly as
+ * before. A `wake` run carries no message of the person's: its history ends on that settled result.
+ *
+ * `session` is the socket the events arrived on, which must be the conversation's watcher: events from
+ * a socket attached elsewhere are not this conversation's to answer with.
+ */
+export const wakeIfAnswered = async (conversationId: string, session: AgentSession | undefined = sessionFor(conversationId)): Promise<void> => {
+  if (!session || sessionFor(conversationId) !== session || !session.hostEvents.hasWaitAnswer()) return
+  // Checked before taking anything: events with no wait to answer stay pending, for the next turn.
+  const waiting = await mongo.conversations.findOne({ id: conversationId, pendingWait: { $exists: true } }, { projection: { _id: 0, pendingWait: 1 } })
+  if (!waiting?.pendingWait) return
+  // The page re-announcing where it already was — a reload during the wait — is not the person leaving.
+  const handedOverAt = waiting.pendingWait.location
+  const notNews = (event: { key?: string, detail?: string }) => event.key === LOCATION_KEY && handedOverAt !== undefined && event.detail === handedOverAt
+  if (!session.hostEvents.hasWaitAnswer(notNews)) return
+  // One macrotask, as the wait tool did, so the followers of the same gesture (a keyed location event
+  // posted right after a creation event) ride in the same answer.
+  await new Promise(resolve => setTimeout(resolve, 0))
+  const events = session.hostEvents.takeWaitAnswer(notNews)
+  if (!events) return
+  const wait = await settlePendingWait(conversationId, () => formatHostEvents(events))
+  if (!wait) {
+    // Another settler won (the person wrote at the same moment): the events are still owed.
+    session.hostEvents.restorePending(events)
+    return
+  }
+  const conversation = await mongo.conversations.findOne({ id: conversationId }, { projection: { _id: 0, agentId: 1, owner: 1 } })
+  if (!conversation) return
+  const run = await createRun({
+    agentId: conversation.agentId,
+    conversationId,
+    owner: conversation.owner,
+    trigger: 'wake',
+    ...(wait.triggeredBy ? { triggeredBy: wait.triggeredBy } : {}),
+    ...(wait.triggeredByRole ? { triggeredByRole: wait.triggeredByRole } : {}),
+    status: 'running',
+    startedAt: new Date().toISOString()
+  })
+  debug('woke conversation %s on its pending wait, run %s', conversationId, run.id)
+  // Not awaited, like a prompt's: the run is followed over the socket.
+  startRun(run).catch(err => console.error('a wake run failed to start', err))
 }
 
 /**

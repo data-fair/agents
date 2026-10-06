@@ -20,8 +20,9 @@ export default {
         department: { type: 'string' }
       }
     },
-    // 'user' now; P2 adds 'schedule'
-    trigger: { type: 'string', enum: ['user'] },
+    // 'user': the person wrote. 'wake': the person ACTED on a handover (wait_for_user_action), and the
+    // turn continues from what they did — no message of theirs, so no moderation. P2 adds 'schedule'.
+    trigger: { type: 'string', enum: ['user', 'wake'] },
     triggeredBy: {
       type: 'object',
       additionalProperties: false,
@@ -101,7 +102,9 @@ export default {
      */
     systemPrompt: { type: 'string' },
     status: { type: 'string', enum: ['running', 'done', 'error', 'aborted', 'interrupted'] },
-    stopReason: { type: 'string', enum: ['completed', 'step-limit', 'repeated-calls', 'budget', 'timeout', 'aborted', 'error'] },
+    // 'waiting': the turn handed over to the person (wait_for_user_action) and ends there; their action
+    // starts the next one. Not 'completed', which would read as work finished.
+    stopReason: { type: 'string', enum: ['completed', 'waiting', 'step-limit', 'repeated-calls', 'budget', 'timeout', 'aborted', 'error'] },
     error: { type: 'string' },
     steps: { type: 'number', minimum: 0 },
     credits: { type: 'number', minimum: 0 },

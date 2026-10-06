@@ -19,7 +19,7 @@ import { isStandardAgentId } from '../agent-session/standard-agents.ts'
 export { partsText, textPart, type MessagePart } from '@agents/shared/message-parts'
 
 export type RunStatus = 'running' | 'done' | 'error' | 'aborted' | 'interrupted'
-export type RunStopReason = 'completed' | 'step-limit' | 'repeated-calls' | 'budget' | 'timeout' | 'aborted' | 'error'
+export type RunStopReason = 'completed' | 'waiting' | 'step-limit' | 'repeated-calls' | 'budget' | 'timeout' | 'aborted' | 'error'
 
 /**
  * Monotonic per-conversation sequence. Starts at 1, never 0: C2's live delta stream
@@ -45,6 +45,8 @@ export function isRunTerminal (status: RunStatus): boolean {
 export function runStopReasonMessage (stopReason: RunStopReason, detail?: string): string {
   const base: Record<RunStopReason, string> = {
     completed: 'Done.',
+    // Never appended in practice — a handover's own message is what the person reads (see runTurn).
+    waiting: 'Over to you.',
     'step-limit': 'I reached my step budget for this turn and stopped. Everything I gathered up to that point is above.',
     'repeated-calls': 'I kept repeating the same tool call without making progress, so I stopped. Everything I gathered up to that point is above.',
     budget: 'This turn reached its credit budget and stopped before finishing.',

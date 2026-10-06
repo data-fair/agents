@@ -55,9 +55,9 @@ export const TURN_TIMEOUT_MS = 10 * 60 * 1000
 export const SEND_TIMEOUT_MS = 15000
 
 /**
- * How a turn ended. `waiting` means the assistant declared
- * `wait_for_user_action` and is holding the turn open for the person — the
- * caller's cue to let them act, then wait again for the turn it resumes.
+ * How a turn ended. `waiting` means the assistant ended it on
+ * `wait_for_user_action`, handing the next move to the person — the caller's
+ * cue to let them act, then wait again for the turn their action starts.
  */
 export type TurnOutcome = 'ended' | 'waiting'
 
@@ -155,12 +155,10 @@ export function createChatDriver (root: ChatRoot, opts: { locale?: ChatDriverLoc
       await stop.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {})
 
       // A turn can finish two ways, and only one of them is the assistant being
-      // done. `wait_for_user_action` holds the turn open on purpose, having handed
-      // control back to the person — and a simulated person only acts between
-      // turns, so a harness that waited for the Stop button alone could never let
-      // them act on it. Every declared wait then ran its whole window and was
-      // recorded as a wedged turn; at a wait window as long as the harness's own
-      // ceiling, that is every run.
+      // done. `wait_for_user_action` ends the turn having handed control to the
+      // person, and the chat keeps Stop on screen while it waits (to decline it) —
+      // so a harness that waited for the Stop button alone would never see a
+      // handover end, and could never let the simulated person act on it.
       const ended = expect(stop).toHaveCount(0, { timeout: timeoutMs }).then(() => 'ended' as const)
       const armed = expect(waiting).toHaveCount(1, { timeout: timeoutMs }).then(
         // Still armed a moment later, not merely armed at the instant we looked.

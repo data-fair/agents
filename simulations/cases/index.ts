@@ -97,7 +97,7 @@ export const cases: LocalCase[] = [
     maxTurns: 5
   },
   // Speaking during a wait: the person writes instead of pressing the button they were
-  // handed, which aborts the waiting turn and starts a new one. That once dropped the
+  // handed, which answers the wait as interrupted and starts a new turn. That once dropped the
   // whole interrupted turn from history — the model saw two user messages and nothing
   // between, denied having prepared anything and rebuilt it. What is under test is the
   // assistant answering from what it already did and handing the same button back.

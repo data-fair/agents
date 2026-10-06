@@ -279,6 +279,9 @@ export function useAgentSession (options: AgentSessionClientOptions) {
      * `reset` needs no frame of its own.
      */
     reset (conversationId?: string) {
+      // The label belonged to the thread being left — a pending wait above all. The new one's is sent
+      // on attach when it has one.
+      activity.value = null
       send({
         type: 'hello',
         tools: toDescriptors(options.tools.value),
@@ -306,8 +309,12 @@ export function useAgentSession (options: AgentSessionClientOptions) {
       send({ type: 'host-events', events })
     },
 
-    abort () {
-      send({ type: 'abort' })
+    /**
+     * Stop the turn in flight. `dismissWait` also declines a pending handover — only the person's own
+     * Stop means that; leaving a thread must not answer its wait.
+     */
+    abort (opts?: { dismissWait?: boolean }) {
+      send({ type: 'abort', ...(opts?.dismissWait ? { dismissWait: true } : {}) })
     },
 
     /**
