@@ -57,7 +57,7 @@ JSON array of provider definitions. `type` is one of the 9 supported provider ty
 
 ### `MODELS`
 
-JSON array of global model definitions, each referencing a `provider` id from `PROVIDERS`. `usage` flags which roles the model is *allowed* to serve (`assistant`, `tools`, `summarizer`, `moderator` — at least one, no duplicates). These four are the only roles: the former `evaluator` role was removed with the trace evaluator, and `upgrade/0.12.0/remove-evaluator-role.js` strips it from stored settings.
+JSON array of global model definitions, each referencing a `provider` id from `PROVIDERS`. `usage` flags which roles the model is *allowed* to serve (`assistant`, `tools`, `summarizer`, `moderator` — at least one, no duplicates). These four are the only roles: the former `evaluator` role was removed with the trace evaluator, and `upgrade/0.11.0/remove-evaluator-role.js` strips it from stored settings.
 
 `inputPricePerMillion` and `outputPricePerMillion` are **mandatory**, in euros per million tokens, copied from the provider's own pricing page. `cachedInputPricePerMillion` is optional and means *unknown* when absent, not free — it falls back to the input price (see [Credits](#credits)). `assertGlobalAiConfig` rejects a model referencing an unknown provider id, rejects duplicate `provider/id` pairs, and **exits the process at boot** on a model missing either mandatory price, naming the offending `provider/id`. A price of `0` is legitimate; an absent one is not, because every account on this deployment can resolve a global model (see the [release note](#release-note-every-account-can-now-resolve-a-model-so-credits-are-the-gate) below) and a model free by omission would be an uncapped consumer of the deployment's own keys.
 

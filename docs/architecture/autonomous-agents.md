@@ -30,8 +30,7 @@ any more, and the agent-session socket is now the service's only websocket endpo
 | `messages` | the turns, as ordered `UIMessage` parts — **the conversation of record** |
 | `runs` | one document per turn: status, stop reason, steps, credits, the system prompt and per-call telemetry (`calls`) |
 
-The three conversation collections are shared with every chat conversation, standard agent included
-(renamed from `autonomous-agent-*` by `upgrade/0.12.0/conversations-are-not-autonomous.js`).
+The three conversation collections are shared with every chat conversation, standard agent included.
 
 Code: `api/src/autonomous-agents/` (configuration, identity, tool diagnostics),
 `api/src/conversations/` (conversations, messages, runs, the executor and its turn gates) and

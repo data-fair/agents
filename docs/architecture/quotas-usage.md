@@ -127,9 +127,7 @@ A live run's spend and telemetry are held in memory (`bufferRunWrites`) and
 written by the write that closes it (`finishTurn`, `api/src/conversations/service.ts`),
 which adds the run's credits to the conversation's running total (`credits`) on
 the same version bump. `conversationCost()` reads that total — the conversation's
-own document rather than an aggregate over its runs; a conversation from before
-the total existed falls back to the aggregate, and `upgrade/0.12.0/credits-total.js`
-backfills it. The agent session sends it as a `cost` frame when a session
+own document rather than an aggregate over its runs. The agent session sends it as a `cost` frame when a session
 attaches to the conversation and after every turn, before `turn-end`; the
 Consumption tab shows it. A turn abandoned at its deadline that is still
 spending writes its later spend directly, to the run and the total alike.

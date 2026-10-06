@@ -381,17 +381,11 @@ const drainRunBuffer = (runId: string) => {
  *
  * Kept as a running total on the conversation, added to by the write that closes each run, so reading
  * it is the conversation's own document rather than an aggregate over its runs on every attach and
- * every turn. A conversation from before the total existed (absent until upgrade/0.12.0 backfills it)
- * falls back to the aggregate.
+ * every turn. Absent until the first run closes, which is a cost of zero.
  */
 export const conversationCost = async (conversationId: string, known?: { credits?: number }): Promise<number> => {
-  const credits = known ?? await mongo.conversations.findOne({ id: conversationId }, { projection: { _id: 0, credits: 1 } })
-  if (typeof credits?.credits === 'number') return credits.credits
-  const [total] = await mongo.runs.aggregate<{ credits: number }>([
-    { $match: { conversationId } },
-    { $group: { _id: null, credits: { $sum: { $ifNull: ['$credits', 0] } } } }
-  ]).toArray()
-  return total?.credits ?? 0
+  const conversation = known ?? await mongo.conversations.findOne({ id: conversationId }, { projection: { _id: 0, credits: 1 } })
+  return conversation?.credits ?? 0
 }
 
 /**
