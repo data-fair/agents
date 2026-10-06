@@ -320,6 +320,11 @@ export function withHostContext<M extends { role: string, content: unknown }> (
   trailing: string[] = []
 ): M[] {
   const snapshot = store?.snapshot()
+  // Drained whole, but only the UNKEYED events are reported: a keyed event is a state change, and the
+  // state block above already says what that state is now. Both used to be sent, so the model read the
+  // same fact twice in one turn — what the browser loop's activation filter had prevented. (Mid-turn,
+  // events appended to a tool result keep their keyed entries: there is no state block there.)
+  const events = store?.hasPending() ? store.takePending().filter(event => !event.key) : []
   const blocks = [
     // `state` only, and keyed on `state.length` rather than on `hasHostState` — which is also true for
     // a store holding nothing but recent actions, and would then emit a state block with no state in
@@ -327,7 +332,7 @@ export function withHostContext<M extends { role: string, content: unknown }> (
     // grounded, so re-listing past actions beside the events block that just reported them tells it
     // the same thing twice, and a model told an action twice often does it twice.
     snapshot?.state.length ? formatHostState(snapshot, { includeRecent: false }) : null,
-    store?.hasPending() ? formatHostEvents(store.takePending()) : null,
+    events.length ? formatHostEvents(events) : null,
     ...trailing
   ].filter((block): block is string => !!block)
   if (!blocks.length) return history

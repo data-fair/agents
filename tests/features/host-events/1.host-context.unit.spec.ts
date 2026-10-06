@@ -59,6 +59,23 @@ test.describe('withHostContext', () => {
     assert.doesNotMatch(textOf(second[0]), /clicked save/)
   })
 
+  test('a keyed change is told ONCE, as state, not again as an event', () => {
+    // It is retained as state and pending as an event; both used to be sent, so the model read the
+    // same fact twice in one turn.
+    const store = new HostEventStore()
+    store.push({ name: 'page', key: 'page', detail: 'the datasets list', at: Date.now() })
+    store.push({ name: 'clicked save', at: Date.now() })
+
+    const content = textOf(withHostContext([userTurn('what now?')], store)[0])
+    assert.equal(content.split('the datasets list').length - 1, 1, 'the page is reported once')
+    assert.ok(content.includes(HOST_STATE_OPEN))
+    // an unkeyed action is still an event
+    assert.ok(content.includes(HOST_EVENTS_OPEN))
+    assert.match(content, /clicked save/)
+    // and the keyed one was drained with the rest, not held for a later turn
+    assert.equal(store.hasPending(), false)
+  })
+
   test('the LAST user message is the target, not the first', () => {
     // A multi-turn history decorated at the top would put the page's current state behind everything
     // that has been said since, which is the opposite of "what is true now".

@@ -134,9 +134,9 @@ test.describe('Host context reaching the model', () => {
   })
 
   test('an event and the retained state arrive as separate blocks, not duplicated', async () => {
-    // The browser loop deduped keyed events against the state block because it sent both; the server
-    // reports state from the store and drains the pending buffer, so "the same fact twice" can only
-    // come from the page reporting it twice.
+    // A keyed report is retained as state AND buffered as an event, so both blocks used to carry it and
+    // the model read the same fact twice in one turn. The state block alone reports it now (unkeyed
+    // events still go in the events block): see withHostContext, and its unit test for the exact rule.
     const { socket } = await openSession()
     socket.send({ type: 'host-state', state: { page: 'datasets' } })
     socket.send({ type: 'host-events', events: [{ name: 'clicked save', at: Date.now() }] })
