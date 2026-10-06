@@ -9,7 +9,10 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { cases } from '../../../simulations/cases/index.ts'
+import { cases, spokeDuringWait } from '../../../simulations/cases/index.ts'
+import { parseConversationExport } from '../../../lib-sim/conversation-export.ts'
+import { buildConversationExport } from '../../../api/src/review/operations.ts'
+import { interruptedWaitResult } from '../../../api/src/conversations/interrupted-turn.ts'
 
 test.describe('case registry', () => {
   test('names are unique and filesystem-safe', () => {
@@ -40,6 +43,22 @@ test.describe('case registry', () => {
       }
       assert.ok(c.maxTurns >= 2 && c.maxTurns <= 12, `${c.name}: maxTurns ${c.maxTurns}`)
     }
+  })
+
+  test('the speak-during-wait premise holds only when the person wrote during a wait', () => {
+    const exportWith = (output: string) => parseConversationExport({
+      conversationId: 'c',
+      jsonl: buildConversationExport({
+        conversation: { id: 'c' },
+        messages: [{ seq: 1, role: 'assistant', parts: [{ type: 'dynamic-tool', toolCallId: 'w', toolName: 'wait_for_user_action', state: 'output-available', input: {}, output }] }],
+        runs: []
+      })
+    })
+    assert.equal(spokeDuringWait.holds([exportWith(interruptedWaitResult('you to click Create'))]), true)
+    // Answered by the click, or declined: the case's situation never happened.
+    assert.equal(spokeDuringWait.holds([exportWith('<host-events>\n- clicked Create\n</host-events>')]), false)
+    assert.equal(spokeDuringWait.holds([]), false)
+    assert.equal(cases.find(c => c.name === 'speak-during-wait')?.premise, spokeDuringWait)
   })
 
   test('no case states an expected result — runs are judged, not diffed', () => {

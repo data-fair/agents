@@ -10,7 +10,7 @@ import { seedSettings, assertBridgeUp, seedAutonomousAgent, parseAutonomousAgent
 import {
   createChatDriver,
   nextUserMessage, isDone, resolveUserModel,
-  writeEvidence, type TranscriptInput,
+  writeEvidence, type TranscriptInput, parseConversationExport,
   selectCases,
   createPagePerception
 } from '@data-fair/lib-agents-sim'
@@ -152,6 +152,16 @@ for (const simCase of selected) {
       exports = await fetchConversationExports(owner, user)
     } catch (err) {
       evidenceErrors.push(`could not export the run's conversations: ${err instanceof Error ? err.message : String(err)}`)
+    }
+
+    // A run that never reached the situation its case is about tested nothing, however it went: invalid,
+    // so it is reported and not judged. Only checked on an otherwise valid run with its evidence in hand.
+    if (!error && simCase.premise && !evidenceErrors.length) {
+      try {
+        if (!simCase.premise.holds(exports.map(parseConversationExport))) error = `premise not met: ${simCase.premise.description}`
+      } catch (err) {
+        evidenceErrors.push(`could not check the premise: ${err instanceof Error ? err.message : String(err)}`)
+      }
     }
 
     const transcript: TranscriptInput = {

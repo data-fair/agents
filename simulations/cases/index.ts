@@ -8,12 +8,32 @@
  * the same WebMCP path a host application uses.
  */
 
-import type { SimulationCase } from '@data-fair/lib-agents-sim'
+import type { SimulationCase, ParsedExport } from '@data-fair/lib-agents-sim'
+import { interruptedWaitResult } from '../../api/src/conversations/interrupted-turn.ts'
+
+/**
+ * What must have HAPPENED for a run to have tested its case — not what the product should do, which
+ * stays the judge's call. A run whose premise did not hold is recorded invalid and never judged: a
+ * speak-during-wait run whose first turn failed before any wait went on to pass on the click path
+ * alone, reported valid, while the path it is named for never ran.
+ */
+export interface Premise {
+  description: string
+  holds: (exports: ParsedExport[]) => boolean
+}
 
 // The package's SimulationCase stays primitives-only; embedded is host-specific
 // wiring (whether the chat runs inside an iframe) that only this repo's runner
-// needs to know about.
-export type LocalCase = SimulationCase & { embedded?: boolean }
+// needs to know about, and so is a premise, which reads this service's export.
+export type LocalCase = SimulationCase & { embedded?: boolean, premise?: Premise }
+
+/** The person wrote while a wait was pending: a wait settled with the interruption, in the API's own words. */
+const INTERRUPTED_WAIT = interruptedWaitResult('').split(' (')[0]
+export const spokeDuringWait: Premise = {
+  description: 'the person wrote while a wait_for_user_action was pending',
+  holds: exports => exports.some(exported => exported.messages.some(message => message.parts.some((part: any) =>
+    part.type === 'dynamic-tool' && part.toolName === 'wait_for_user_action' && typeof part.output === 'string' && part.output.startsWith(INTERRUPTED_WAIT))))
+}
 
 export const cases: LocalCase[] = [
   {
@@ -105,6 +125,7 @@ export const cases: LocalCase[] = [
   // one did, and never learned the list it had prepared was created.
   {
     name: 'speak-during-wait',
+    premise: spokeDuringWait,
     route: '/agents/_dev/chat-workflow',
     persona: 'You are an office worker using an internal tool for the first time. You are not technical and you describe what you want in plain words. You are careful: before pressing a button that creates something, you always first ask a question in the chat to double-check, and you press it only once you have the answer. You never claim to have pressed a button you did not press.',
     goal: 'You want a list called "Team lunch" set up. When the assistant says it is ready, you first ask it in the chat what the list will be called, because you are not sure it got the name right; once it answers, you press the Create button yourself. After pressing it you wait: you expect the assistant to tell you on its own that the list was created, without you having to ask or report it.',
