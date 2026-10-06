@@ -18,7 +18,8 @@ Front-office embeds stay mono-agent; the back office sets `agents` on the embedd
 gets the picker and history (see [Embedding](./embedding.md#back-office-mode-agents)). The standalone
 thread page autonomous agents used to have is gone: it duplicated the chat on a second transport (HTTP
 + pub/sub), and driving turns through the chat's socket is what gives them the page's tools and the
-lived activity/abort signal.
+lived activity/abort signal. The pub/sub change notifications went with it: nothing subscribed to them
+any more, and the agent-session socket is now the service's only websocket endpoint.
 
 ## What it is made of
 
@@ -50,8 +51,13 @@ Consequences worth stating, because they are what the design buys and costs:
 - A failed call is the part's own `output-error` state, so nothing downstream can mistake it for a
   result.
 - `seq` orders the timeline and `version` is the incremental cursor: `?sinceVersion=` catches a message
-  **updated in place**, which is how a client sees the assistant's answer being filled in. `seq` alone
-  can only reveal new messages.
+  **updated in place** — the assistant message is created pending and finalised at the same `seq` —
+  which `seq` alone cannot reveal. An API client polls it; the chat does not need to, since it follows
+  the turn over its socket.
+- The answer is **not written as it streams**. A watching browser gets every token, and a page that
+  attaches mid-turn is served the answer so far from the executor's in-process `liveTurns`. The store
+  gets tool calls as they open and settle, and the text at the end of the turn: a restart mid-answer
+  loses the text of the step in progress, not the work.
 - Reads are validated against the library's own `safeValidateUIMessages` before anything is replayed,
   because the stored `parts` schema is deliberately loose — the state machine belongs to the library.
 

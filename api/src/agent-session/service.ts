@@ -7,7 +7,6 @@
  */
 
 import type { Server, IncomingMessage } from 'node:http'
-import type { Duplex } from 'node:stream'
 import { WebSocketServer, type WebSocket } from 'ws'
 import { session as expressSession } from '@data-fair/lib-express'
 import Debug from 'debug'
@@ -45,20 +44,7 @@ export const callOnlyLiveAgentSession = async (name: string, input: unknown): Pr
   return await agentSession.callBrowserTool(name, input)
 }
 
-export interface StartAgentSessionsOptions {
-  /**
-   * Where to send an upgrade this endpoint does not own.
-   *
-   * Required rather than optional: `ws` constructed with `{ server }` and no `path` handles EVERY
-   * upgrade on that HTTP server (verified in ws/lib/websocket-server.js — it attaches `listening`,
-   * `error` and `upgrade`). Two such servers would each write a handshake and corrupt the stream. So
-   * this service owns upgrade routing and the other ws server is given a stand-in emitter, which is
-   * what this delegates to.
-   */
-  delegateUpgrade: (req: IncomingMessage, socket: Duplex, head: Buffer) => void
-}
-
-export const startAgentSessions = (server: Server, options: StartAgentSessionsOptions) => {
+export const startAgentSessions = (server: Server) => {
   const wss = new WebSocketServer({ noServer: true })
 
   wss.on('connection', (ws: WebSocket, req: IncomingMessage, sessionState: any, traceStorage?: boolean) => {
@@ -273,8 +259,10 @@ export const startAgentSessions = (server: Server, options: StartAgentSessionsOp
   })
 
   server.on('upgrade', (req, socket, head) => {
+    // The only socket this service serves. Anything else is refused at the HTTP layer rather than left
+    // hanging: an upgrade nobody answers holds the connection open until the client gives up.
     if (!isAgentSessionPath(req.url)) {
-      options.delegateUpgrade(req, socket, head)
+      socket.end('HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n')
       return
     }
     // The session is resolved BEFORE the handshake completes, so an unauthenticated connection is

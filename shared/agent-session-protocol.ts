@@ -7,11 +7,9 @@
  * composable speaks them. That is the contract in `tests/features/shared-contract/` — a module with one
  * consumer belongs in that workspace, and this one has two as of the browser tool bridge.
  *
- * WHY A SECOND SOCKET AT ALL, rather than extending the existing pub/sub one: that one fans a SHARED
- * conversation out to several watchers, which is exactly the capability this design drops. It accepts
- * only `subscribe`/`unsubscribe` from a client (verified in @data-fair/lib-express/ws-server) and
- * routes through mongo for a fleet. This protocol needs the server to ASK the browser something and
- * wait for the answer, in the process holding the connection.
+ * WHY NOT @data-fair/lib-express's pub/sub socket: it fans a channel out to several watchers through
+ * mongo and accepts only `subscribe`/`unsubscribe` from a client. This protocol needs the server to ASK
+ * the browser something and wait for the answer, in the process holding the connection.
  */
 
 import type { ChatActivity } from './agent-activity.ts'

@@ -15,7 +15,6 @@ import type { AutonomousAgent, Conversation, ConversationRun } from '#types'
 import type { StoredMessage } from '#mongo'
 import { canInstruct, type InstructableAgent } from '../autonomous-agents/operations.ts'
 import type { SessionStateAuthenticated } from '@data-fair/lib-common-types/session/index.js'
-import { notifyConversationChanged } from './events.ts'
 import { getAutonomousAgent, assertOrganizationOwner } from '../autonomous-agents/service.ts'
 
 const debug = Debug('df-agents:conversations')
@@ -275,37 +274,26 @@ export const appendMessage = async (
     createdAt: new Date().toISOString()
   }
   await mongo.messages.insertOne({ ...doc })
-  // After the write, never before. The notification carries no content — just "there is
-  // something at version N" — so a client always reads the record over HTTP, where authorization
-  // is re-checked and nothing is size-capped.
-  await notifyConversationChanged(conversation.id, doc.version)
   return doc
 }
 
-/**
- * Patch a message in place, for the executor's incremental writes.
- *
- * findOneAndUpdate rather than updateOne plus a read: the event carries the RESULTING document,
- * and two round trips would let a concurrent write make the event disagree with what is stored.
- */
+/** Patch a message in place, for the executor's incremental writes. */
 export const updateMessage = async (conversationId: string, seq: number, patch: Partial<StoredMessage>) => {
   // The version has to advance for an in-place update too, or an incremental fetch cannot see it:
   // the assistant message keeps its seq while its content is filled in, so `seq` alone would only
   // ever reveal NEW messages. The conversation is the caller's to name — every caller holds it — which
   // spares a lookup on each of a turn's incremental writes.
   const { version } = await bumpConversationVersion(conversationId)
-  const updated = await mongo.messages.updateOne(
+  await mongo.messages.updateOne(
     { conversationId, seq },
     { $set: { ...patch, version, updatedAt: new Date().toISOString() } }
   )
-  if (updated.matchedCount) await notifyConversationChanged(conversationId, version)
 }
 
 export const createRun = async (run: Omit<ConversationRun, 'id'>): Promise<ConversationRun> => {
   const doc: ConversationRun = { ...run, id: nanoid() }
   const { version } = await bumpConversationVersion(doc.conversationId)
   await mongo.runs.insertOne({ ...doc, version })
-  await notifyConversationChanged(doc.conversationId, version)
   return { ...doc, version }
 }
 
@@ -416,11 +404,11 @@ export const finishRun = async (run: { id: string, conversationId: string }, pat
 }
 
 /**
- * Close a turn: its final message, if any, and its run — under ONE version bump and one notification.
+ * Close a turn: its final message, if any, and its run — under ONE version bump.
  *
  * The message is written FIRST and the run closed after, as the two separate writes were, because the
- * terminal run state is the end-of-turn signal a subscriber stops listening on: it must already find
- * the finalised message. Both carry the same version, so one `?sinceVersion=` fetch returns both.
+ * terminal run state is the end-of-turn signal a reader polling `?sinceVersion=` stops on: it must
+ * already find the finalised message. Both carry the same version, so one `?sinceVersion=` fetch returns both.
  *
  * The run's buffered telemetry and spend are folded into its closing write, and its spend into the
  * conversation's running total on the same bump — whose result is the total this returns.
@@ -455,9 +443,6 @@ export const finishTurn = async (
   if (!updated.modifiedCount && (Object.keys(buffered.update).length || Object.keys(buffered.set).length)) {
     await mongo.runs.updateOne({ id: run.id }, { ...(Object.keys(buffered.set).length ? { $set: buffered.set } : {}), ...buffered.update })
   }
-  // Only the call that actually closed the run notifies, so a losing racer cannot announce a second,
-  // contradictory terminal state — unless it wrote the message, which a reader must still be told of.
-  if (updated.modifiedCount || message) await notifyConversationChanged(run.conversationId, version)
   return { closed: updated.modifiedCount > 0, conversationCredits: credits }
 }
 
@@ -466,8 +451,8 @@ export const finishTurn = async (
  *
  * A CACHE, deliberately kept on the conversation rather than in the message log: the log is the
  * conversation of record and a compaction must never rewrite it. Writing here does not bump the
- * conversation version, because nothing a reader can see has changed — a version bump would wake every
- * subscriber to refetch a transcript that is byte-identical.
+ * conversation version, because nothing a reader can see has changed — a version bump would make every
+ * `?sinceVersion=` reader refetch a transcript that is byte-identical.
  */
 export const saveCompaction = async (
   conversationId: string,

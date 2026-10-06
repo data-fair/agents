@@ -301,15 +301,11 @@ const performTurn = async (run: ConversationRun, messageSeq: number, abortSignal
   }
 }
 
-/** How often the growing answer is written back, at most, for a turn no agent session watches. */
-const PARTIAL_PERSIST_INTERVAL_MS = 2_000
-
 /**
  * The answer each live turn is producing, by conversation — what a page attaching mid-turn is shown.
  *
- * The growing answer is NOT written back while an agent session watches it: that browser receives
- * every token, and the store gets the answer at the end (a turn followed only over HTTP is written on
- * a clock, see `persistPartial`). This registry is what replaces the write for the watcher's side: a
+ * The growing answer is NOT written back as it streams: a watching browser receives every token, and
+ * the store gets the answer at the end. This registry is what replaces the write for the watcher's side: a
  * page reloaded, or a second tab opened, mid-turn gets the answer so far on attach and the rest live —
  * the turn sends to whoever watches the conversation NOW (`watcher` in runModelLoop), not to the
  * session it started with — and a turn stopped or failing is settled from it. What is given up: a
@@ -793,24 +789,6 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
 
   let sawText = false
 
-  // The growing text, written back on a clock ONLY WHEN NO AGENT SESSION WATCHES. A watching socket
-  // has every token already, and a page attaching to it mid-turn is served from `liveTurns`; but a
-  // reader following over HTTP — an autonomous agent's thread page, which refetches `?sinceVersion=`
-  // on each notification — has only the store, and would otherwise see the answer appear at the end.
-  // So a chat turn writes its text once, and a thread followed over HTTP still sees it grow.
-  let lastPersistAt = 0
-  let lastPersistedLength = -1
-  const persistPartial = async () => {
-    if (watcher()) return
-    const now = Date.now()
-    if (now - lastPersistAt < PARTIAL_PERSIST_INTERVAL_MS) return
-    const length = partsText(parts).length
-    if (length === lastPersistedLength) return
-    lastPersistAt = now
-    lastPersistedLength = length
-    await updateMessage(run.conversationId, messageSeq, { parts, pending: true })
-  }
-
   /**
    * Push the turn's STRUCTURE to a watching page: the stored parts as they stand.
    *
@@ -858,7 +836,6 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
         if (!sawText) { sawText = true; activity(null) }
         appendText('text', part.text)
         stream('text', part.text)
-        await persistPartial()
       }
       if (part.type === 'reasoning-delta') {
         appendText('reasoning', part.text)
@@ -1146,8 +1123,8 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
     // Refused, not failed: declining WAS the answer, as for an on-time block (see turn-gates).
     const lateBlocked = aborted && (abortController.signal as any).reason?.message === MODERATION_LATE_BLOCK
     const stopReason: RunStopReason = lateBlocked ? 'completed' : timedOut ? 'timeout' : aborted ? 'aborted' : 'error'
-    // The message is finalised FIRST, and the run closed after, because the terminal `run`
-    // event is the end-of-turn signal a subscriber stops listening on: closing the run first
+    // The message is finalised FIRST, and the run closed after, because the terminal run state
+    // is the end-of-turn signal a reader stops on: closing the run first
     // would leave every failed, aborted and timed-out turn showing a message stuck `pending`.
     //
     // This does NOT give up the guarantee that sent these two the other way round originally —

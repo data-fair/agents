@@ -214,9 +214,8 @@ if (process.env.NODE_ENV === 'development') {
   /**
    * Make the server ask the connected browser to run a contextual tool.
    *
-   * The only way to exercise the server-to-browser direction over a real socket: nothing in the
-   * product triggers it yet (the loop is §4.3), and the direction is the whole reason this endpoint
-   * exists rather than the pub/sub one.
+   * Exercises the server-to-browser direction over a real socket ON DEMAND: in the product only the
+   * model loop asks, and a test of the socket should not depend on a model choosing to call a tool.
    *
    * Answers 200 either way, with the outcome in the body, so a test can assert on a rejection's
    * message without axios turning it into a throw.

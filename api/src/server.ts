@@ -4,8 +4,6 @@ import { startObserver, stopObserver, internalError } from '@data-fair/lib-node/
 import eventPromise from '@data-fair/lib-utils/event-promise.js'
 import eventsQueue from '@data-fair/lib-node/events-queue.js'
 import locks from '@data-fair/lib-node/locks.js'
-import * as wsServer from '@data-fair/lib-express/ws-server.js'
-import { init as initWsEmitter } from '@data-fair/lib-node/ws-emitter.js'
 import upgradeScripts from '@data-fair/lib-node/upgrade-scripts.js'
 import { createHttpTerminator } from 'http-terminator'
 import { app } from './app.ts'
@@ -15,9 +13,7 @@ import { cleanupOldUsage } from './usage/cleanup.ts'
 import { recoverOwnerlessRuns } from './conversations/executor.ts'
 import { purgeExpiredArchives, purgeAbandonedAnonymous } from './conversations/service.ts'
 import { assertSessionOutlivesRun, ASSERTION_TTL_SECONDS } from './nhi/operations.ts'
-import { canSubscribeAutonomousAgent } from './conversations/events.ts'
 import { startAgentSessions } from './agent-session/service.ts'
-import { EventEmitter } from 'node:events'
 
 /**
  * Run pending upgrade/<version>/*.js migrations (see @data-fair/lib-node/upgrade-scripts.js).
@@ -125,26 +121,8 @@ export const start = async () => {
     purgeAbandonedAnonymous().catch(err => console.error('anonymous purge failed', err))
   }, 60 * 60 * 1000)
 
-  // Before server.listen: the emitter's collection must exist before anything publishes, and
-  // the ws server must be attached before the http server starts accepting connections.
-  await initWsEmitter(mongo.db)
-
-  // UPGRADE ROUTING, owned here rather than by either ws server.
-  //
-  // `ws` constructed with `{ server }` and no `path` handles every upgrade on that HTTP server, so the
-  // pub/sub server and the agent session server would each write a handshake and corrupt the stream.
-  // The pub/sub one is therefore attached to a stand-in emitter — `ws` registers only `listening`,
-  // `error` and `upgrade` on what it is given, and the first two have no listeners — and the agent
-  // session server dispatches by path, delegating everything else to it.
-  //
-  // This needs no change to @data-fair/lib-express, which is the point: a shared library change has to
-  // be justified with numbers, and routing two endpoints in the service that owns them does not need
-  // one.
-  const pubSubUpgrades = new EventEmitter()
-  await wsServer.start(pubSubUpgrades as any, mongo.db, canSubscribeAutonomousAgent)
-  agentSessions = startAgentSessions(server, {
-    delegateUpgrade: (req, socket, head) => { pubSubUpgrades.emit('upgrade', req, socket, head) }
-  })
+  // Before server.listen, so the socket endpoint exists when the http server starts accepting connections.
+  agentSessions = startAgentSessions(server)
 
   server.listen(config.port)
   await eventPromise(server, 'listening')
@@ -176,7 +154,6 @@ export const stop = async () => {
   if (agentSessions) await agentSessions.close()
   await httpTerminator.terminate()
   if (config.observer?.active) await stopObserver()
-  await wsServer.stop()
   await locks.stop()
   await mongo.client.close()
 }

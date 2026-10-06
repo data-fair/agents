@@ -139,8 +139,8 @@ When e2e tests fail, follow this order:
 ### Scenario simulations
 
 `npm run simulate` drives judged browser conversations: a simulated user with a
-persona and a goal talks to the real chat on a `_dev` page, or to an autonomous
-agent's thread page (`surface: 'autonomous-agent'`), whose account and agent the
+persona and a goal talks to the real chat on a `_dev` page, or to the same chat
+opened on an autonomous agent (`surface: 'autonomous-agent'`), whose account and agent the
 runner seeds itself — settings included, since a case driving an account whose
 model mapping points at the mock would be graded on the mock's canned reply while
 still reporting a valid run. The persona can also

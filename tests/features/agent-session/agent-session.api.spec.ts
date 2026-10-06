@@ -4,14 +4,14 @@
  * The unit spec covers correlation, timeouts and dispatch with a fake transport. This covers the things
  * only a real connection can: that nginx proxies the upgrade, that the path survives the deployment's
  * public prefix, that the session resolves from the cookie, that the SERVER-TO-BROWSER direction works
- * at all — the whole reason this endpoint exists rather than the pub/sub one — and that the existing
- * pub/sub socket still works now that this service routes upgrades itself.
+ * at all — the whole reason this endpoint exists — and that an upgrade on any other path is refused.
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean, directoryUrl, getAnonymousActionToken } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
-import { openAgentSession, openWsClient, type AgentSessionClient, type WsClient } from '../../support/ws.ts'
+import WebSocket from 'ws'
+import { openAgentSession, type AgentSessionClient } from '../../support/ws.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
@@ -21,7 +21,7 @@ const cookieOf = async (ax: any) => await ax.cookieJar.getCookieString(directory
 test.describe('Agent session socket', () => {
   // Every socket is closed here: a leaked one holds a dev-api connection open AND would break the next
   // test's "exactly one live session" seam, which is how a leak would surface as an unrelated failure.
-  const sockets: Array<AgentSessionClient | WsClient> = []
+  const sockets: AgentSessionClient[] = []
   const open = async (cookie?: string) => {
     const socket = await openAgentSession(cookie)
     sockets.push(socket)
@@ -135,22 +135,18 @@ test.describe('Agent session socket', () => {
     assert.match(answer.message, /unknown message type "subscribe"/)
   })
 
-  test('the PUB/SUB socket still works now that this service routes upgrades', async () => {
-    // The regression this design risked: `ws` with { server } and no path handles every upgrade, so the
-    // two servers are now dispatched by path. If that routing were wrong, the existing conversation
-    // notifications would break — and they are a different socket, on a different path, with a
-    // different vocabulary.
-    const pubSub = await openWsClient(await cookieOf(orgAdmin))
-    sockets.push(pubSub)
-    const answer = await pubSub.subscribe('conversations/does-not-exist')
-
-    // The answer must identify WHICH SERVER sent it, which is the whole point. An earlier version of
-    // this test accepted `{type:'error'}` — and the agent-session server answers an unknown message
-    // type with exactly that, so it passed even with the path matcher stealing every upgrade. The
-    // pub/sub server echoes `channel` and sets a `status`; this protocol's error carries neither.
-    assert.equal(answer.channel, 'conversations/does-not-exist', `answered by the wrong server: ${JSON.stringify(answer)}`)
-    assert.equal(typeof answer.status, 'number')
-    // 403 for an unknown conversation is correct; what is being asserted is the provenance.
-    assert.equal(answer.status, 403)
+  test('an upgrade on any other path is refused, not left hanging', async () => {
+    // This service owns every upgrade on the HTTP server (`noServer` plus its own `upgrade` handler), so
+    // one it does not serve has to be answered by it too — or the client waits until it gives up.
+    const ws = new WebSocket(`ws://localhost:${process.env.DEV_API_PORT}/api/not-a-socket`, {
+      headers: { cookie: await cookieOf(orgAdmin) }
+    })
+    const status = await new Promise<number | undefined>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('the upgrade was left hanging')), 3000)
+      ws.once('unexpected-response', (_req, res) => { clearTimeout(timer); resolve(res.statusCode) })
+      ws.once('open', () => { clearTimeout(timer); ws.close(); resolve(101) })
+      ws.once('error', () => { clearTimeout(timer); resolve(undefined) })
+    })
+    assert.equal(status, 404)
   })
 })

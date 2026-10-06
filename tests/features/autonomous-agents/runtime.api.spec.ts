@@ -3,11 +3,9 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { axiosAuth, superAdmin, clean, directoryUrl } from '../../support/axios.ts'
+import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
 import { putMockSettings, mockModels, mockModelRef } from '../../support/settings.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
-import { openWsClient, type WsClient } from '../../support/ws.ts'
-import { conversationChannel } from '../../../api/src/conversations/channel.ts'
 import { partsText } from '../../../api/src/conversations/operations.ts'
 
 /**
@@ -36,6 +34,16 @@ const createAgent = async (over: any = {}) =>
 // message, restart sweep. The agents here are deliberately left unconfigured and unenrolled,
 // so their turns refuse; that is fine, because a refusal exercises the same lifecycle. The
 // 'model loop' and 'budgets' blocks below configure a model and cover successful turns.
+/** Wait for a run to reach a terminal state. */
+const awaitRun = async (runId: string, tries = 120) => {
+  for (let i = 0; i < tries; i++) {
+    const run = (await orgAdmin.get(`/api/runs/organization/test1/${runId}`)).data
+    if (run.status !== 'running') return run
+    await new Promise(resolve => setTimeout(resolve, 100))
+  }
+  throw new Error('run never reached a terminal status')
+}
+
 test.describe('Autonomous agent conversations', () => {
   // Conversations this spec locked through the dev seam. The dev-api holds the lock under its
   // OWN pid, and lib-node's Locks refreshes its own pid's locks every 30s forever, so a test
@@ -738,15 +746,6 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
     return { conv, runId }
   }
 
-  const awaitRun = async (runId: string, tries = 120) => {
-    for (let i = 0; i < tries; i++) {
-      const run = (await orgAdmin.get(`/api/runs/organization/test1/${runId}`)).data
-      if (run.status !== 'running') return run
-      await new Promise(resolve => setTimeout(resolve, 100))
-    }
-    throw new Error('run never reached a terminal status')
-  }
-
   const messagesOf = async (conversationId: string) =>
     (await orgAdmin.get(`/api/conversations/organization/test1/${conversationId}/messages`)).data.results
 
@@ -962,92 +961,13 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
   })
 })
 
-test.describe('Autonomous agent conversation events', () => {
-  // Every client is closed here: a leaked socket holds a dev-api connection open and surfaces
-  // later as an unrelated test timing out.
-  const clients: WsClient[] = []
-  const open = async (cookie?: string) => {
-    const client = await openWsClient(cookie)
-    clients.push(client)
-    return client
-  }
-  const cookieOf = async (ax: any) => await ax.cookieJar.getCookieString(directoryUrl)
-
+// What a client polling `?sinceVersion=` can rely on. There are no change notifications: the chat
+// follows a turn over its agent session, and an API client reads the store.
+test.describe('Autonomous agent incremental reads', () => {
   test.beforeEach(async () => {
     await clean()
     await putMockSettings(admin, 'organization/test1')
   })
-  test.afterEach(() => { for (const client of clients.splice(0)) client.close() })
-
-  const newConversation = async (agentId: string) =>
-    (await orgAdmin.post('/api/conversations/organization/test1', { agentId, title: 't' })).data
-
-  test('an admin of the owning org may subscribe to its conversation', async () => {
-    const agent = await createAgent()
-    const conv = await newConversation(agent.id)
-    const client = await open(await cookieOf(orgAdmin))
-    const res = await client.subscribe(conversationChannel(conv.id))
-    assert.equal(res.type, 'subscribe-confirm')
-    assert.equal(res.channel, conversationChannel(conv.id))
-  })
-
-  test('a listed instructor may subscribe, and an unlisted member may not', async () => {
-    // The same rule as the HTTP routes, through the same canInstruct — which is the point of
-    // routing both through it. A superadmin is deliberately NOT tested here: ws-server skips
-    // canSubscribe entirely for a session in admin mode, so it would prove nothing.
-    const agent = await createAgent()
-    const conv = await newConversation(agent.id)
-
-    const refused = await open(await cookieOf(orgMember))
-    const refusal = await refused.subscribe(conversationChannel(conv.id))
-    assert.equal(refusal.type, 'error')
-    assert.equal(refusal.status, 403)
-
-    await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, {
-      title: agent.title,
-      persona: agent.persona,
-      mcpServers: [],
-      enabled: true,
-      instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }]
-    })
-    const allowed = await open(await cookieOf(orgMember))
-    assert.equal((await allowed.subscribe(conversationChannel(conv.id))).type, 'subscribe-confirm')
-  })
-
-  test('a channel naming no conversation is refused', async () => {
-    const client = await open(await cookieOf(orgAdmin))
-    assert.equal((await client.subscribe(conversationChannel('no-such-conversation'))).status, 403)
-  })
-
-  test('a channel with extra segments is refused rather than widened', async () => {
-    const agent = await createAgent()
-    const conv = await newConversation(agent.id)
-    const client = await open(await cookieOf(orgAdmin))
-    assert.equal((await client.subscribe(`${conversationChannel(conv.id)}/messages`)).status, 403)
-  })
-
-  test('an anonymous client is refused', async () => {
-    const agent = await createAgent()
-    const conv = await newConversation(agent.id)
-    const client = await open()
-    assert.equal((await client.subscribe(conversationChannel(conv.id))).status, 403)
-  })
-})
-
-test.describe('Autonomous agent live conversation notifications', () => {
-  const clients: WsClient[] = []
-  const open = async (cookie?: string) => {
-    const client = await openWsClient(cookie)
-    clients.push(client)
-    return client
-  }
-  const cookieOf = async (ax: any) => await ax.cookieJar.getCookieString(directoryUrl)
-
-  test.beforeEach(async () => {
-    await clean()
-    await putMockSettings(admin, 'organization/test1')
-  })
-  test.afterEach(() => { for (const client of clients.splice(0)) client.close() })
 
   const enrol = async (agentId: string) => { await admin.post('/api/test-env/enrol-autonomous-agent', { agentId }) }
   const messagesSince = async (conversationId: string, sinceVersion?: number) => {
@@ -1055,46 +975,15 @@ test.describe('Autonomous agent live conversation notifications', () => {
     return (await orgAdmin.get(`/api/conversations/organization/test1/${conversationId}/messages${query}`)).data
   }
 
-  /** Subscribe, post, and collect notifications until the run reaches a terminal state. */
-  const watchTurn = async (content: string, agentOver: any = {}) => {
-    const agent = await createAgent(agentOver)
+  /** Post a turn and wait for its run to reach a terminal state. */
+  const runTurn = async (content: string) => {
+    const agent = await createAgent()
     await enrol(agent.id)
     const conv = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data
-    const client = await open(await cookieOf(orgAdmin))
-    const channel = conversationChannel(conv.id)
-    assert.equal((await client.subscribe(channel)).type, 'subscribe-confirm')
-
     const { runId } = (await orgAdmin.post(`/api/conversations/organization/test1/${conv.id}/messages`, { content })).data
-
-    const notifications: any[] = []
-    for (let i = 0; i < 400; i++) {
-      const msg = await client.next(8000)
-      if (msg.channel !== channel) continue
-      notifications.push(msg.data)
-      const run = (await orgAdmin.get(`/api/runs/organization/test1/${runId}`)).data
-      if (run.status !== 'running') break
-    }
-    return { agent, conv, runId, notifications, client, channel }
+    const run = await awaitRun(runId)
+    return { conv, run }
   }
-
-  test('a notification carries only the conversation and its version — no content', async () => {
-    const { notifications } = await watchTurn('hello')
-    assert.ok(notifications.length >= 1)
-    for (const notification of notifications) {
-      // The whole point of the redesign: nothing that could leak to a subscriber whose grant was
-      // revoked while its socket stayed open, and nothing that can outgrow ws-emitter's 100 KB
-      // capped queue.
-      assert.deepEqual(Object.keys(notification).sort(), ['conversationId', 'version'])
-      assert.equal(typeof notification.version, 'number')
-    }
-  })
-
-  test('versions are monotonic, so a client can hold one cursor', async () => {
-    const { notifications } = await watchTurn('hello')
-    const versions = notifications.map((n: any) => n.version)
-    assert.deepEqual(versions, [...versions].sort((a, b) => a - b))
-    assert.equal(new Set(versions).size, versions.length, 'a version must never be reused')
-  })
 
   test('sinceVersion fetches an IN-PLACE update, which sinceSeq structurally cannot', async () => {
     // This is the gap that made the notification design need a version at all: the assistant
@@ -1102,8 +991,6 @@ test.describe('Autonomous agent live conversation notifications', () => {
     const agent = await createAgent()
     await enrol(agent.id)
     const conv = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data
-    const client = await open(await cookieOf(orgAdmin))
-    await client.subscribe(conversationChannel(conv.id))
 
     // A turn long enough (~4.5s) that the early catch-up below lands WHILE it runs: with an answer
     // that settles in milliseconds, that read could already see the final message, leaving no in-place
@@ -1141,41 +1028,10 @@ test.describe('Autonomous agent live conversation notifications', () => {
     assert.ok(byVersion.version > cursor, 'the response carries the cursor to store next')
   })
 
-  test('the partial answer is PERSISTED as it streams, so a mid-turn fetch shows real text', async () => {
-    // Publishing the text instead would have made a mid-turn refetch return an empty message and
-    // visibly lose what the reader was just shown.
-    const agent = await createAgent()
-    await enrol(agent.id)
-    const conv = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data
-    const { runId } = (await orgAdmin.post(`/api/conversations/organization/test1/${conv.id}/messages`, { content: 'long answer' })).data
-
-    let sawPartial = false
-    for (let i = 0; i < 100; i++) {
-      const messages = (await messagesSince(conv.id)).results
-      const assistant = messages.find((m: any) => m.role === 'assistant')
-      if (assistant?.pending === true && partsText(assistant.parts).length > 0) { sawPartial = true; break }
-      const run = (await orgAdmin.get(`/api/runs/organization/test1/${runId}`)).data
-      if (run.status !== 'running') break
-      await new Promise(resolve => setTimeout(resolve, 50))
-    }
-    assert.ok(sawPartial, 'a pending assistant message must carry the text produced so far')
-  })
-
-  test('a long answer produces far fewer notifications than characters', async () => {
-    const { conv, notifications } = await watchTurn('long answer')
-    const finished = (await messagesSince(conv.id)).results.find((m: any) => m.role === 'assistant')
-    assert.ok(partsText(finished.parts).length > 200, 'this test needs a long answer to be meaningful')
-    assert.ok(
-      notifications.length < partsText(finished.parts).length / 10,
-      `expected throttling, got ${notifications.length} notifications for ${partsText(finished.parts).length} chars`
-    )
-  })
-
-  test('a FAILING turn notifies its finalised message before the run closes', async () => {
+  test('a FAILING turn finalises its message under the version that closes the run', async () => {
     // The ordering regression this pins: a client that stops at the terminal run state must
-    // already have been told about the finalised message, or it shows one stuck pending forever.
-    const { conv, runId } = await watchTurn('stream error')
-    const run = (await orgAdmin.get(`/api/runs/organization/test1/${runId}`)).data
+    // already find the finalised message, or it shows one stuck pending forever.
+    const { conv, run } = await runTurn('stream error')
     assert.equal(run.status, 'error')
     const assistant = (await messagesSince(conv.id)).results.find((m: any) => m.role === 'assistant')
     assert.equal(assistant.pending, false, 'a failed turn must not leave its message pending')
