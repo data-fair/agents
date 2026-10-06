@@ -22,7 +22,7 @@ few consumers want both. Install only what the half you use needs.
 
 | You want | Install |
 | --- | --- |
-| The **harness** primitives (`createChatDriver`, `captureGateway`, `selectCases`, `reportCases`, `writeEvidence`, …) | `@playwright/test` |
+| The **harness** primitives (`createChatDriver`, `selectCases`, `reportCases`, `writeEvidence`, …) | `@playwright/test` |
 | The **bridge** (`df-agents-bridge`) | `@anthropic-ai/claude-agent-sdk` and `@modelcontextprotocol/sdk` |
 
 ```bash
@@ -83,8 +83,8 @@ not reach would report a success a person could never have had.
 ```ts
 import { test } from '@playwright/test'
 import {
-  createChatDriver, chatDriverStrings, captureGateway, nextUserMessage, isDone,
-  writeEvidence, selectCases, createPagePerception, type Transcript, type SimulationCase
+  createChatDriver, chatDriverStrings, nextUserMessage, isDone,
+  writeEvidence, selectCases, createPagePerception, type TranscriptInput, type SimulationCase
 } from '@data-fair/lib-agents-sim'
 
 const cases: SimulationCase[] = [
@@ -93,7 +93,6 @@ const cases: SimulationCase[] = [
 
 for (const simCase of selectCases(cases, [])) {
   test(`simulation: ${simCase.name}`, async ({ page }) => {
-    const gateway = captureGateway(page)
     await page.goto(simCase.route)
 
     const locale = 'en' as const
@@ -129,7 +128,10 @@ for (const simCase of selectCases(cases, [])) {
       error = err instanceof Error ? err.message : String(err)
     }
 
-    const transcript: Transcript = { case: simCase.name, goal: simCase.goal, persona: simCase.persona, route: simCase.route, conversation, gateway, consoleErrors: [], observations: perception.observations }
+    // The server's record of the run — see "The conversation export" below. `fetchExports` is yours:
+    // it lists the person's reviewable threads and downloads each one's export.
+    const exports = await fetchExports()
+    const transcript: TranscriptInput = { case: simCase.name, goal: simCase.goal, persona: simCase.persona, route: simCase.route, conversation, consoleErrors: [], observations: perception.observations, exports }
     // `valid` is derived, never hardcoded: the sidecar exists to tell a run that
     // really happened apart from one that fell over, so that `reportCases` says
     // "invalid (…)" instead of re-reporting the previous run's verdict.
@@ -209,10 +211,42 @@ from 0.2.0 means adding `observations: perception?.observations ?? []` (or
 `[]` where perception is not used) to the transcript you build; a TypeScript
 compile error will name the field for you.
 
+### The conversation export
+
+The model side of a run is read from the agents service's **conversation export**
+(`GET /api/review/:type/:id/:conversationId/export`) — the same JSONL file a
+maintainer downloads to debug a real session, so a simulation is judged on what a
+production incident would be. It holds every message part (tool calls with their
+arguments and results) and, per run, the system prompt and each model call: role,
+model, tokens, the tools offered, the page context folded in.
+
+Fetching it is the host's job, because it needs the host's accounts. The route
+sits behind the review gates, so the runner has to open them:
+
+- the account's settings must have `storeTraces: true`;
+- the person must have consented — set the `agent-chat-trace-consent=yes` cookie
+  on the page's origin before it loads (it also keeps the consent sheet out of
+  the persona's way);
+- the export itself is a superadmin route, in admin mode.
+
+List the threads with `GET /api/review/:type/:id`, keep the person's own
+(`userId`), download each export as text, and pass them to `writeEvidence` as
+`{ conversationId, agentId, jsonl }`. `parseConversationExport` and
+`recordedToolCalls` are exported for a host that wants its own counts.
+
+**Breaking change in 0.10.0.** `captureGateway` and `Transcript.gateway` are gone,
+and so is `agentToolCalls`. They captured the browser's requests to the model
+gateway, which the agents service no longer makes: its loop runs server-side for
+every chat, so the capture recorded nothing while the run still read valid.
+`Transcript.exports` replaces both, and `RunMetrics` is now derived from the
+exports (`requestsByRole`, `toolCalls`, `failedToolCalls`, `credits`, …); its
+model-side counts are `null` when no export was read, never `0`.
+
 ### Where the evidence goes
 
 `writeEvidence(name, transcript, sidecar, dir?)` writes `sim-<name>.json` (the
-transcript the judge reads) and `sim-<name>.run.json` (the validity sidecar).
+transcript the judge reads), one `sim-<name>.<conversationId>.export.jsonl` per
+export, and `sim-<name>.run.json` (the validity sidecar).
 `dir` defaults to the exported `evidenceDir`, which is
 `path.join(process.cwd(), 'simulations', 'tmp')` — resolved against the host
 repo's working directory, so the default only makes sense if you run your suite

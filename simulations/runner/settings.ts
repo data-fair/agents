@@ -3,6 +3,8 @@
  * test runs on a real model.
  */
 
+import type { ConversationExport } from '@data-fair/lib-agents-sim'
+
 // Derived from the SEEDED BRIDGE_PORT, never a fixed default. dev/init-env.sh randomises the port per
 // worktree precisely so two checkouts cannot collide; a hardcoded 3194 reintroduced the collision in
 // the one place it is least visible — another worktree's bridge answers assertBridgeUp(), the run is
@@ -83,7 +85,10 @@ export function bridgeSettings (assistantModelId: string, toolsModelId: string) 
     models,
     modelMapping,
     quotas,
-    storeTraces: false
+    // ON, so the run can be read back through the conversation export (fetchConversationExports): the
+    // review gate is what that route sits behind, and a simulation is judged on the same file a real
+    // session is debugged with.
+    storeTraces: true
   }
 }
 
@@ -187,48 +192,27 @@ export async function assertBridgeUp () {
 }
 
 /**
- * The tool calls the SERVER recorded for this agent's conversations.
+ * The conversation exports of everything `userId` said on `owner` during the run.
  *
- * An autonomous agent's model calls never touch the browser, so `captureGateway` — which hooks
- * `page.on('request')` — records nothing for this surface: `modelRequests: 0` and an empty tool-call
- * list are structural, not a finding about the product. Read the stored messages instead, which carry
- * `toolName`/`arguments`/`failed` exactly so a run is auditable after the fact.
+ * The SAME file a maintainer downloads to debug a real session, through the same route and the same
+ * gates: the account must store traces (`bridgeSettings` turns it on) and the person must have
+ * consented (the runner sets the consent cookie before the page loads). Every chat surface runs its
+ * loop on the server, so this is the only record of what the model was sent and what it called — a
+ * capture of the browser's requests sees nothing.
  *
- * Without this the judge can only take the assistant's prose for which tools it called — the
- * unverifiable claim the harness exists to check.
+ * `clean()` ran before the case, so every reviewable thread of this person on this account is this
+ * run's.
  */
-export async function readAutonomousAgentToolCalls (route: string) {
+export async function fetchConversationExports (owner: { type: string, id: string }, userId: string): Promise<ConversationExport[]> {
   const { superAdmin } = await import('../../tests/support/axios.ts')
   const admin = await superAdmin
-  const { owner, agentId } = parseAutonomousAgentRoute(route)
-  const base = `/api/conversations/${owner.type}/${owner.id}`
-  const conversations = (await admin.get(`${base}?agentId=${agentId}`)).data.results as any[]
-  const calls: Array<{ toolName: string, arguments?: string, serverId?: string, failed?: boolean, error?: string }> = []
-  for (const conversation of conversations) {
-    const messages = (await admin.get(`${base}/${conversation.id}/messages`)).data.results as any[]
-    // Read from the ordered PARTS, joining each call to its result. The failure now lives on the
-    // result — the model was handed the error as the tool's answer — so a reader that only looked at
-    // calls would report every call as successful. An earlier version of this read `message.toolCalls`,
-    // which the storage model replaced, and silently reported zero tool calls for a run that made
-    // several: the evidence looked like a finding about the agent when it was a bug here.
-    for (const message of messages) {
-      const parts = (message.parts ?? []) as any[]
-      const resultFor = new Map<string, any>()
-      for (const part of parts) {
-        if (part.type === 'tool-result' && part.toolCallId) resultFor.set(part.toolCallId, part)
-      }
-      for (const part of parts) {
-        if (part.type !== 'tool-call') continue
-        const result = part.toolCallId ? resultFor.get(part.toolCallId) : undefined
-        calls.push({
-          toolName: part.toolName,
-          arguments: part.arguments,
-          serverId: part.serverId,
-          failed: result?.failed,
-          error: result?.error
-        })
-      }
-    }
+  const base = `/api/review/${owner.type}/${owner.id}`
+  const listed = (await admin.get(`${base}?size=200`)).data.results as Array<{ conversationId: string, userId?: string, agentId?: string }>
+  const exports: ConversationExport[] = []
+  for (const conversation of listed.filter(c => c.userId === userId)) {
+    // responseType text: the body is JSONL, and axios would otherwise try to parse it as one JSON value.
+    const res = await admin.get(`${base}/${conversation.conversationId}/export`, { responseType: 'text', transformResponse: [(data: string) => data] })
+    exports.push({ conversationId: conversation.conversationId, agentId: conversation.agentId, jsonl: res.data })
   }
-  return calls
+  return exports
 }

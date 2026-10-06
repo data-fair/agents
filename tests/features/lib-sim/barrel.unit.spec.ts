@@ -14,10 +14,10 @@ test.describe('package barrel', () => {
     // a disappearance is a breaking change for two other repositories.
     const expected: string[] = [
       'createNeutralCwd', 'scrubEnv', 'isolationOptions',
-      'captureGateway', 'summariseRequest',
+      'parseConversationExport', 'recordedToolCalls',
       'nextUserMessage', 'personaSystemPrompt', 'personaPrompt', 'isDone', 'DONE',
       'PERSONA_MAX_TURNS', 'PERCEPTION_INSTRUCTIONS', 'DEFAULT_USER_MODEL', 'resolveUserModel',
-      'writeEvidence', 'evidenceDir',
+      'writeEvidence', 'evidenceDir', 'exportFileName',
       'computeMetrics',
       'selectCases',
       'reportCases',

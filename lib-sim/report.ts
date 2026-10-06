@@ -22,30 +22,22 @@ type Verdict = {
 function metricsLine (run: RunSidecar | null): string {
   const m = run?.metrics
   if (!m) return ''
-  // Everything derived from `gateway` is UNMEASURABLE, not zero, when the run's model calls never
-  // passed through the browser — an autonomous agent executes server-side, so captureGateway sees
-  // nothing. Printing "0 model requests" for a run that demonstrably did model work states the
-  // opposite of the truth and makes a cost comparison against the in-page cases meaningless.
-  const gatewayMeasured = m.modelRequests > 0 || m.userMessages === 0
+  // Null, not zero, when no export was read: "0 model requests" for a run whose evidence is missing
+  // would state the opposite of the truth.
+  const measured = m.modelRequests !== null
   const parts = [
     run?.toolsModel ? `[${run.assistantModel} / tools ${run.toolsModel}]` : '',
-    gatewayMeasured
+    measured
       ? `${m.modelRequests} model requests for ${m.userMessages} user messages`
-      : `${m.userMessages} user messages (model requests not measurable: the run executes server-side)`,
-    !gatewayMeasured || m.requestsPerUserMessage === null ? '' : `(${m.requestsPerUserMessage}/message)`,
-    m.requestsByModel
-      ? `(${Object.entries(m.requestsByModel).map(([role, n]) => `${role} ${n}`).join(', ')})`
-      : (m.nonLeadRequests ? `· ${m.nonLeadRequests} non-lead` : ''),
-    m.largestNonLeadPromptChars
-      ? `· largest ${m.largestNonLeadPromptModel ?? 'non-lead'} prompt ${m.largestNonLeadPromptChars} chars`
-      : '',
+      : `${m.userMessages} user messages (no conversation export: model activity not measured)`,
+    m.requestsPerUserMessage === null ? '' : `(${m.requestsPerUserMessage}/message)`,
+    m.requestsByRole ? `(${Object.entries(m.requestsByRole).map(([role, n]) => `${role} ${n}`).join(', ')})` : '',
     `· ${m.textlessAssistantBubbles}/${m.assistantBubbles} bubbles tool-chips only`,
     m.avgVisibleReplyChars === null ? '' : `· avg reply ${m.avgVisibleReplyChars} chars`,
-    m.agentToolCallCount === null || m.agentToolCallCount === undefined
-      ? ''
-      : `· ${m.agentToolCallCount} server-side tool call(s)`,
+    m.toolCalls === null ? '' : `· ${m.toolCalls} tool call(s)${m.failedToolCalls ? `, ${m.failedToolCalls} failed` : ''}`,
     m.duplicateToolCalls ? `· ${m.duplicateToolCalls} repeated tool calls` : '',
-    m.hostBlockChars === null ? '' : `· ${m.hostBlockChars} chars of host blocks`
+    m.hostBlockChars ? `· ${m.hostBlockChars} chars of host blocks` : '',
+    m.credits === null ? '' : `· ${m.credits} credits`
   ]
   return parts.filter(Boolean).join(' ')
 }

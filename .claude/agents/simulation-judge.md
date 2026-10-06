@@ -23,11 +23,14 @@ A case name, the person's goal, and paths to the evidence. Read the files with
 
 - `simulations/tmp/sim-<case>.json` — the transcript:
   - `conversation` — what the person and the assistant said, as rendered on screen
-  - `gateway` — every request the page made, carrying the tools it offered, the
-    tool calls the assistant actually made, and in `toolResults` what each of
-    those calls answered. Use `toolResults` to check an assistant's claim against
-    what the tool really returned; large results are truncated, and both lists are
-    cumulative.
+  - `exports` — one file per conversation the person had, named in `file` and
+    sitting next to the transcript. Each is the server's record, the same export a
+    maintainer downloads to debug a real session: every tool call with its
+    arguments AND its result, and per run the system prompt and each model call
+    (role, model, tokens, the tools offered, the page context folded in). Use it to
+    check an assistant's claim against what a tool really returned.
+  - `evidenceErrors` — when present, why some of that record is missing. A gap
+    there is not a finding about the product.
   - `consoleErrors` — browser errors during the run
   - `observations` — what the person actually looked at and did, per turn:
     `{ turn, tool, args, result }`. `look` returns the accessibility outline of
@@ -46,23 +49,26 @@ the places the implementation diverges from what was written down.
 
 ## How to read the record, and where it misleads
 
-`gateway` records what the browser SENT, and each request resends the whole
-conversation so far — so the assistant's FINAL reply never appears there,
-because no later request carries it. Read the last assistant turn from
-`conversation`. Never conclude "the assistant never answered" from `gateway`.
+An export is JSON Lines, made to be read a line at a time: one record per line,
+so a line number is an address. **Read lines 1 and 2 first** (`Read` with
+`limit: 2`): line 1 is `meta`, whose `guide` explains the file, and line 2 is the
+`outline` — every record with its line number, size and a preview. Then read only
+the lines you need with `offset`/`limit`. A part too large to keep in its message
+was lifted into its own `blob` record; the message keeps a stub with `__ref`,
+`__bytes` and `__preview`, and the blob with that `ref` holds the whole value.
+Never read a large blob whole when its preview answers the question.
 
-`gateway[].toolCalls` is CUMULATIVE: exchange N holds every tool call from
-1..N. That is a history, not repetition. `metrics.duplicateToolCalls` already
-accounts for this; if you count repetition yourself, compare across exchanges
-first.
+A tool call is one `dynamic-tool` part: `toolName`, `input`, and either `output`
+(state `output-available`) or `errorText` (state `output-error`). A sub-agent's
+own work is a `data-subagent` part of the message that dispatched it.
 
-Not every request is the assistant answering the person. Compaction, moderation
-and sub-agents each run on their own model role, with their own short history
-interleaved among the lead's. `metrics.requestsByModel` says which role served
-how many — read it before attributing spend, and never call a request a
-sub-agent dispatch unless a `subagent_*` call appears in `toolCalls`. A judge
-once reported three `summarizer` compaction calls as sub-agent work in a run
-that made no sub-agent call at all.
+Not every model call is the assistant answering the person. Compaction,
+moderation and sub-agents each run on their own model role, recorded as
+`modelRole` on each entry of a run's `calls`. `metrics.requestsByRole` totals
+them — read it before attributing spend, and never call a request a sub-agent
+dispatch unless a `subagent_*` tool call appears in the messages. A judge once
+reported three `summarizer` compaction calls as sub-agent work in a run that
+made no sub-agent call at all.
 
 A claim about what is on screen must be supported by a preceding `look` in
 `observations`. A persona asserting a visual fact it never observed is a
@@ -80,7 +86,7 @@ when the final answer was right.
 
 A friction point names the reply or tool result that misled the person and what
 they did next. Look especially for:
-- the assistant claiming it did something the `gateway` record shows it never did
+- the assistant claiming it did something the export shows it never did
 - a tool offered but never used when it was obviously needed, or called with
   arguments that misread the person's words
 - the same tool called repeatedly with no progress
@@ -101,8 +107,8 @@ rather than about what the person lived through. Anything the record supports:
 
 - **cost** — how much work the run took for what it delivered. `metrics` gives
   you requests per user message, the split by model role, the largest prompt
-  handed to a role other than the lead's, and how many characters the
-  application injected into the conversation. A summarizer legitimately carries
+  (in input tokens) each role was sent, and how many characters of page context
+  the application folded into the prompts. A summarizer legitimately carries
   the whole conversation, so read which role took a big prompt before calling
   it waste. Then go look: which turns spent the requests,
   and was the spending doing anything?

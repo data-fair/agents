@@ -6,16 +6,16 @@
  */
 import { test } from '../tests/fixtures/login.ts'
 import { cases } from './cases/index.ts'
-import { seedSettings, assertBridgeUp, seedAutonomousAgent, parseAutonomousAgentRoute, readAutonomousAgentToolCalls, OWNER } from './runner/settings.ts'
+import { seedSettings, assertBridgeUp, seedAutonomousAgent, parseAutonomousAgentRoute, fetchConversationExports, OWNER } from './runner/settings.ts'
 import {
   createChatDriver,
-  captureGateway,
   nextUserMessage, isDone, resolveUserModel,
-  writeEvidence, type Transcript,
+  writeEvidence, type TranscriptInput,
   selectCases,
   createPagePerception
 } from '@data-fair/lib-agents-sim'
 import { clean } from '../tests/support/axios.ts'
+import { CONSENT_COOKIE, CONSENT_YES } from '../shared/trace-consent.ts'
 
 const ASSISTANT_MODEL = process.env.SIM_ASSISTANT_MODEL ?? 'sonnet'
 // The sub-agent, compaction and moderation roles, pinned separately and lower:
@@ -29,11 +29,20 @@ for (const simCase of selected) {
   test(`simulation: ${simCase.name}`, async ({ page, goToWithAuth }) => {
     const started = Date.now()
     const consoleErrors: string[] = []
+    // An autonomous-agent case drives a thread that belongs to an ORGANIZATION, so the account whose
+    // settings must point at the bridge is that one — not OWNER. Both are derived from the case's
+    // own route, so the account configured and the page opened cannot drift apart.
+    // Parsed inside the try below, so a malformed route is recorded as an invalid run.
+    let owner: { type: string, id: string } = OWNER
+    const user = simCase.user ?? OWNER.id
     let turns = 0
     let error: string | undefined
 
     page.on('console', m => { if (m.type() === 'error') consoleErrors.push(m.text()) })
-    const gateway = captureGateway(page)
+    // Consent answered up front: the run is read back through the conversation export, which only
+    // covers threads the person agreed to have reviewed — and the consent sheet is not what a case is
+    // about, so the persona is not asked.
+    await page.context().addCookies([{ name: CONSENT_COOKIE, value: CONSENT_YES, url: `http://localhost:${process.env.NGINX_PORT}` }])
 
     const conversation: Array<{ role: string, text: string }> = []
     let perception: ReturnType<typeof createPagePerception> | undefined
@@ -44,12 +53,8 @@ for (const simCase of selected) {
       // mistaken for this run's result.
       await assertBridgeUp()
       await clean()
-      // An autonomous-agent case drives a thread that belongs to an ORGANIZATION, so the account whose
-      // settings must point at the bridge is that one — not OWNER. Both are derived from the case's
-      // own route, so the account configured and the page opened cannot drift apart.
-      const user = simCase.user ?? OWNER.id
       if (simCase.surface === 'autonomous-agent') {
-        const { owner } = parseAutonomousAgentRoute(simCase.route)
+        owner = parseAutonomousAgentRoute(simCase.route).owner
         await seedSettings(ASSISTANT_MODEL, TOOLS_MODEL, owner)
         // Seeded here rather than assumed present: `npm run dev-fixtures` would be an unstated
         // prerequisite, and its agent lives on an account deliberately wired to the mock model.
@@ -141,25 +146,24 @@ for (const simCase of selected) {
     // Read AFTER the conversation, and outside the try above so an invalid run still carries whatever
     // the agent managed to do — that is usually the most informative part of a failure. Never allowed
     // to turn a good run into a failed one: this is evidence gathering, not a check.
-    let agentToolCalls: Transcript['agentToolCalls']
-    if (simCase.surface === 'autonomous-agent') {
-      try {
-        agentToolCalls = await readAutonomousAgentToolCalls(simCase.route)
-      } catch (err) {
-        consoleErrors.push(`could not read the server-side tool calls: ${err instanceof Error ? err.message : String(err)}`)
-      }
+    let exports: TranscriptInput['exports'] = []
+    const evidenceErrors: string[] = []
+    try {
+      exports = await fetchConversationExports(owner, user)
+    } catch (err) {
+      evidenceErrors.push(`could not export the run's conversations: ${err instanceof Error ? err.message : String(err)}`)
     }
 
-    const transcript: Transcript = {
+    const transcript: TranscriptInput = {
       case: simCase.name,
       goal: simCase.goal,
       persona: simCase.persona,
       route: simCase.route,
       conversation,
-      gateway,
       consoleErrors,
       observations: perception?.observations ?? [],
-      agentToolCalls
+      exports,
+      ...(evidenceErrors.length ? { evidenceErrors } : {})
     }
     writeEvidence(simCase.name, transcript, {
       case: simCase.name,

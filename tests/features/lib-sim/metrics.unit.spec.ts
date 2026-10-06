@@ -1,269 +1,157 @@
 /**
  * Facts derived from a recorded run. They are evidence handed to the judge, not
- * a score: nothing here decides whether a run was good. The two traps they have
- * to survive are both properties of the gateway record — `toolCalls` is
- * cumulative, and a sub-agent's requests are interleaved with the lead's.
+ * a score: nothing here decides whether a run was good.
+ *
+ * The exports are built by the API's own `buildConversationExport`, not written by hand: the sim reads
+ * the file a maintainer downloads, so a change to that format must break here rather than leave the
+ * harness quietly reporting zero activity.
  */
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import { writeEvidence } from '../../../lib-sim/transcript.ts'
 import { computeMetrics } from '../../../lib-sim/metrics.ts'
-import type { Transcript } from '../../../lib-sim/types.ts'
-import type { GatewayExchange } from '../../../lib-sim/gateway-capture.ts'
+import { parseConversationExport, recordedToolCalls } from '../../../lib-sim/conversation-export.ts'
+import { buildConversationExport, EXTRACT_THRESHOLD } from '../../../api/src/review/operations.ts'
 
-const exchange = (over: Partial<GatewayExchange> = {}): GatewayExchange => ({
-  at: 1,
-  model: 'assistant',
-  toolNames: ['navigate', 'list_pages'],
-  messageCount: 2,
-  lastUserMessage: 'hello',
-  toolCalls: [],
-  hostBlockChars: 0,
-  toolResults: [],
-  ...over
-})
+const toolPart = (toolName: string, input: unknown, over: Record<string, unknown> = {}) =>
+  ({ type: 'dynamic-tool', toolName, toolCallId: `${toolName}-${JSON.stringify(input)}`, state: 'output-available', input, output: 'ok', ...over })
 
-const transcript = (over: Partial<Transcript> = {}): Transcript => ({
-  case: 'c',
-  goal: 'g',
-  persona: 'p',
-  route: '/r',
-  conversation: [],
-  gateway: [],
-  consoleErrors: [],
-  observations: [],
-  ...over
-})
+const call = (modelRole: string, over: Record<string, unknown> = {}) =>
+  ({ modelRole, model: `${modelRole}-model`, inputTokens: 100, outputTokens: 10, ...over })
 
-/** A conversation's requests, as the gateway sees them: the history grows by two. */
-const stream = (count: number, over: Partial<GatewayExchange> = {}) =>
-  Array.from({ length: count }, (_, i) => exchange({ ...over, messageCount: 2 + i * 2 }))
-
-test.describe('computeMetrics — model roles', () => {
-  // The gateway records which ROLE served each request. Inferring roles from
-  // message counts instead got three `summarizer` compaction calls reported as
-  // sub-agent dispatches, and a judge caught it: the run made no sub-agent call
-  // at all. When the record says which role it was, believe the record.
-  test('separates roles by what the request says it ran on', () => {
-    const m = computeMetrics(transcript({
-      conversation: [{ role: 'user', text: 'a' }],
-      gateway: [
-        exchange({ model: 'assistant', messageCount: 2 }),
-        exchange({ model: 'assistant', messageCount: 4 }),
-        exchange({ model: 'summarizer', messageCount: 2, lastUserMessage: 'x'.repeat(31518) }),
-        exchange({ model: 'tools', messageCount: 2, lastUserMessage: 'sub task' })
-      ]
-    }))
-    assert.equal(m.leadModel, 'assistant')
-    assert.equal(m.leadRequests, 2)
-    assert.deepEqual(m.requestsByModel, { assistant: 2, summarizer: 1, tools: 1 })
-  })
-
-  test('reports the largest prompt handed to a non-lead role, and which role took it', () => {
-    const m = computeMetrics(transcript({
-      conversation: [{ role: 'user', text: 'a' }],
-      gateway: [
-        exchange({ model: 'assistant', messageCount: 2 }),
-        exchange({ model: 'summarizer', messageCount: 2, lastUserMessage: 'x'.repeat(31518) })
-      ]
-    }))
-    assert.equal(m.largestNonLeadPromptChars, 31518)
-    assert.equal(m.largestNonLeadPromptModel, 'summarizer')
-  })
-
-  test('reports no non-lead prompt when every request was the lead', () => {
-    const m = computeMetrics(transcript({ gateway: stream(3) }))
-    assert.equal(m.largestNonLeadPromptChars, null)
-    assert.equal(m.largestNonLeadPromptModel, null)
-  })
-
-  test('falls back to the interleaving split when the record names no role', () => {
-    // Older transcripts, and any host that does not echo a model id.
-    const m = computeMetrics(transcript({
-      conversation: [{ role: 'user', text: 'a' }],
-      gateway: [
-        exchange({ model: '', messageCount: 2, toolNames: ['navigate'] }),
-        exchange({ model: '', messageCount: 4, toolNames: ['navigate'] }),
-        exchange({ model: '', messageCount: 2, toolNames: ['query'] })
-      ]
-    }))
-    assert.equal(m.leadRequests, 2)
-    assert.equal(m.requestsByModel, null)
+/** One conversation's export, through the real builder. */
+const exported = (opts: { parts?: unknown[], calls?: unknown[], credits?: number } = {}) => parseConversationExport({
+  conversationId: 'c1',
+  agentId: 'personal',
+  jsonl: buildConversationExport({
+    conversation: { id: 'c1', agentId: 'personal' },
+    messages: [
+      { seq: 1, role: 'user', parts: [{ type: 'text', text: 'hello' }] },
+      { seq: 2, role: 'assistant', parts: [...(opts.parts ?? []), { type: 'text', text: 'done' }] }
+    ],
+    runs: [{ id: 'r1', status: 'done', stopReason: 'completed', credits: opts.credits ?? 0, systemPrompt: 'be brief', calls: opts.calls ?? [call('assistant')] }]
   })
 })
 
-test.describe('computeMetrics — the loop', () => {
-  test('counts model requests against the messages the person actually sent', () => {
-    const m = computeMetrics(transcript({
-      conversation: [
-        { role: 'user', text: 'a' }, { role: 'assistant', text: 'x' },
-        { role: 'user', text: 'b' }, { role: 'assistant', text: 'y' }
-      ],
-      gateway: stream(6)
-    }))
-    assert.equal(m.userMessages, 2)
-    assert.equal(m.modelRequests, 6)
-    assert.equal(m.leadRequests, 6)
+const conversation = (...roles: string[]) => roles.map(role => ({ role, text: role === 'user' ? 'hi' : 'answer' }))
+
+test.describe('parseConversationExport', () => {
+  test('reads the messages and runs the API exports', () => {
+    const parsed = exported({ calls: [call('assistant'), call('summarizer')] })
+    assert.deepEqual(parsed.messages.map(m => m.role), ['user', 'assistant'])
+    assert.equal(parsed.runs.length, 1)
+    assert.deepEqual(parsed.runs[0].calls.map(c => c.modelRole), ['assistant', 'summarizer'])
+  })
+
+  test('refuses a file that is not an export, rather than reporting no activity', () => {
+    assert.throws(() => parseConversationExport({ conversationId: 'x', jsonl: '<html>login</html>' }))
+    assert.throws(() => parseConversationExport({ conversationId: 'x', jsonl: '' }), /not a conversation export/)
+  })
+
+  test('reads a tool call whose part was lifted into a blob', () => {
+    // A large result moves the whole part out of its message; the stub keeps the name but not the
+    // input, so the call has to be read back from the blob.
+    const big = 'x'.repeat(EXTRACT_THRESHOLD + 1)
+    const calls = recordedToolCalls(exported({ parts: [toolPart('list_road_closures', { city: 'Lyon' }, { output: big })] }))
+    assert.deepEqual(calls, [{ toolName: 'list_road_closures', input: { city: 'Lyon' }, failed: false }])
+  })
+})
+
+test.describe('computeMetrics', () => {
+  test('counts model calls by the role the server recorded', () => {
+    const m = computeMetrics({ conversation: conversation('user', 'assistant') }, [exported({
+      calls: [call('assistant'), call('assistant', { inputTokens: 900 }), call('summarizer', { inputTokens: 5000 })]
+    })])
+    assert.equal(m.modelRequests, 3)
+    assert.deepEqual(m.requestsByRole, { assistant: 2, summarizer: 1 })
+    assert.deepEqual(m.largestInputTokensByRole, { assistant: 900, summarizer: 5000 })
     assert.equal(m.requestsPerUserMessage, 3)
   })
 
   test('reports no ratio rather than dividing by zero', () => {
-    const m = computeMetrics(transcript({ gateway: stream(1) }))
-    assert.equal(m.userMessages, 0)
-    assert.equal(m.requestsPerUserMessage, null)
+    assert.equal(computeMetrics({ conversation: [] }, [exported()]).requestsPerUserMessage, null)
   })
 
-  test('separates an interleaved second conversation by its own restarted history', () => {
-    // The real shape, from a recorded run: the lead is three requests in, a
-    // sub-agent runs a fresh two-request conversation of its own, then the lead
-    // resumes where it left off. Counting them as one conversation misreports
-    // both how long the lead's loop was and where the context went.
-    const m = computeMetrics(transcript({
-      conversation: [{ role: 'user', text: 'a' }],
-      gateway: [
-        exchange({ model: '', messageCount: 2, toolNames: ['navigate', 'describe_dataset'] }),
-        exchange({ model: '', messageCount: 4, toolNames: ['navigate', 'describe_dataset'] }),
-        exchange({ model: '', messageCount: 6, toolNames: ['navigate', 'describe_dataset'] }),
-        exchange({ model: '', messageCount: 2, toolNames: ['query'], lastUserMessage: 'sub task' }),
-        exchange({ model: '', messageCount: 4, toolNames: ['query'], lastUserMessage: 'sub task' }),
-        exchange({ model: '', messageCount: 8, toolNames: ['navigate', 'describe_dataset'] })
+  test('counts tool calls, failures and genuine repetition', () => {
+    const m = computeMetrics({ conversation: conversation('user', 'assistant') }, [exported({
+      parts: [
+        toolPart('search', { q: 'a' }),
+        toolPart('search', { q: 'a' }),
+        // the same tool with different arguments is progress, not repetition
+        toolPart('search', { q: 'b' }),
+        toolPart('broken', {}, { state: 'output-error', errorText: 'boom' })
       ]
-    }))
-    assert.equal(m.leadRequests, 4)
-    assert.equal(m.nonLeadRequests, 2)
-  })
-
-  test('keeps the lead as one conversation when navigation changes its tool set', () => {
-    // Page tools come and go with the route: a recorded lead went 14 → 19 → 26
-    // tools without ever restarting. Splitting on the tool set would have
-    // reported two phantom sub-agents.
-    const m = computeMetrics(transcript({
-      conversation: [{ role: 'user', text: 'a' }],
-      gateway: [
-        exchange({ messageCount: 2, toolNames: ['a'] }),
-        exchange({ messageCount: 4, toolNames: ['a', 'b'] }),
-        exchange({ messageCount: 6, toolNames: ['a', 'b', 'c'] })
-      ]
-    }))
-    assert.equal(m.leadRequests, 3)
-    assert.equal(m.nonLeadRequests, 0)
-  })
-
-  test('reports the largest single payload handed to another role', () => {
-    const big = 'x'.repeat(32488)
-    const m = computeMetrics(transcript({
-      conversation: [{ role: 'user', text: 'a' }],
-      gateway: [
-        exchange({ messageCount: 2, toolNames: ['navigate'] }),
-        exchange({ model: 'tools', messageCount: 2, toolNames: ['query'], lastUserMessage: big })
-      ]
-    }))
-    assert.equal(m.largestNonLeadPromptChars, 32488)
-  })
-
-  test('reports no non-lead payload when none ran', () => {
-    const m = computeMetrics(transcript({ gateway: stream(3) }))
-    assert.equal(m.largestNonLeadPromptChars, null)
-  })
-})
-
-test.describe('computeMetrics — what the person saw', () => {
-  test('separates textless (tool-chip) bubbles from replies with prose', () => {
-    const m = computeMetrics(transcript({
-      conversation: [
-        { role: 'user', text: 'a' },
-        { role: 'assistant', text: '' },
-        { role: 'assistant', text: '   ' },
-        { role: 'assistant', text: 'a real reply' }
-      ]
-    }))
-    assert.equal(m.assistantBubbles, 3)
-    assert.equal(m.textlessAssistantBubbles, 2)
-    assert.equal(m.avgVisibleReplyChars, 'a real reply'.length)
-  })
-
-  test('reports no average when the assistant never said anything', () => {
-    const m = computeMetrics(transcript({ conversation: [{ role: 'assistant', text: '' }] }))
-    assert.equal(m.avgVisibleReplyChars, null)
-  })
-})
-
-test.describe('computeMetrics — duplicate tool calls', () => {
-  test('reads the cumulative list as a history, not as repetition', () => {
-    // `toolCalls` on exchange N repeats every call from 1..N. Counting each
-    // exchange's list independently reports the whole history as duplicated.
-    const m = computeMetrics(transcript({
-      conversation: [{ role: 'user', text: 'a' }],
-      gateway: [
-        exchange({ messageCount: 2, toolCalls: [{ name: 'navigate', arguments: '{"path":"/a"}' }] }),
-        exchange({ messageCount: 4, toolCalls: [{ name: 'navigate', arguments: '{"path":"/a"}' }, { name: 'list_pages', arguments: '{}' }] })
-      ]
-    }))
-    assert.equal(m.duplicateToolCalls, 0)
-  })
-
-  test('counts a call genuinely issued twice with the same arguments', () => {
-    const m = computeMetrics(transcript({
-      conversation: [{ role: 'user', text: 'a' }],
-      gateway: [
-        exchange({
-          toolCalls: [
-            { name: 'list_base_applications', arguments: '{}' },
-            { name: 'list_base_applications', arguments: '{}' }
-          ]
-        })
-      ]
-    }))
+    })])
+    assert.equal(m.toolCalls, 4)
+    assert.equal(m.failedToolCalls, 1)
     assert.equal(m.duplicateToolCalls, 1)
   })
 
-  test('the same tool with different arguments is progress, not repetition', () => {
-    const m = computeMetrics(transcript({
-      conversation: [{ role: 'user', text: 'a' }],
-      gateway: [
-        exchange({
-          toolCalls: [
-            { name: 'navigate', arguments: '{"path":"/a"}' },
-            { name: 'navigate', arguments: '{"path":"/b"}' }
-          ]
-        })
-      ]
-    }))
-    assert.equal(m.duplicateToolCalls, 0)
+  test('does not call the same request in two conversations a repetition', () => {
+    const parts = [toolPart('search', { q: 'a' })]
+    assert.equal(computeMetrics({ conversation: [] }, [exported({ parts }), exported({ parts })]).duplicateToolCalls, 0)
   })
 
-  test('counts repetitions by the lead and by a sub-agent together', () => {
-    const m = computeMetrics(transcript({
-      gateway: [
-        exchange({ messageCount: 2, toolNames: ['navigate'], toolCalls: [{ name: 'navigate', arguments: '{}' }, { name: 'navigate', arguments: '{}' }] }),
-        exchange({ messageCount: 2, toolNames: ['query'], toolCalls: [{ name: 'query', arguments: '{}' }, { name: 'query', arguments: '{}' }] })
-      ]
-    }))
-    assert.equal(m.duplicateToolCalls, 2)
+  test('sums host blocks and credits over every call', () => {
+    const m = computeMetrics({ conversation: [] }, [exported({ credits: 0.25, calls: [call('assistant', { hostBlockChars: 120 }), call('assistant', { hostBlockChars: 80 })] })])
+    assert.equal(m.hostBlockChars, 200)
+    assert.equal(m.credits, 0.25)
+  })
+
+  test('reports nothing rather than zero when no export was read', () => {
+    // A run whose evidence could not be fetched did not make no requests.
+    const m = computeMetrics({ conversation: conversation('user', 'assistant') }, [])
+    assert.equal(m.conversations, 0)
+    for (const key of ['modelRequests', 'requestsByRole', 'requestsPerUserMessage', 'toolCalls', 'duplicateToolCalls', 'hostBlockChars', 'credits'] as const) {
+      assert.equal(m[key], null, key)
+    }
+  })
+
+  test('separates textless (tool-chip) bubbles from replies with prose', () => {
+    const m = computeMetrics({
+      conversation: [{ role: 'user', text: 'hi' }, { role: 'assistant', text: '' }, { role: 'assistant', text: 'four' }]
+    }, [])
+    assert.equal(m.assistantBubbles, 2)
+    assert.equal(m.textlessAssistantBubbles, 1)
+    assert.equal(m.avgVisibleReplyChars, 4)
+  })
+
+  test('reports no average when the assistant never said anything', () => {
+    assert.equal(computeMetrics({ conversation: [{ role: 'assistant', text: ' ' }] }, []).avgVisibleReplyChars, null)
   })
 })
 
-test.describe('computeMetrics — what the application reported', () => {
-  test('totals the host blocks a conversation carried, counting each request once', () => {
-    // The count is cumulative like the history, so the last request of a
-    // conversation holds its total.
-    const m = computeMetrics(transcript({
-      gateway: [
-        exchange({ messageCount: 2, hostBlockChars: 400 }),
-        exchange({ messageCount: 4, hostBlockChars: 1715 })
-      ]
-    }))
-    assert.equal(m.hostBlockChars, 1715)
-  })
+test.describe('writeEvidence', () => {
+  test('writes each export beside the transcript and derives the metrics from it', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sim-evidence-'))
+    const jsonl = buildConversationExport({
+      conversation: { id: 'c1' },
+      messages: [{ seq: 1, role: 'user', parts: [{ type: 'text', text: 'hi' }] }],
+      runs: [{ id: 'r1', calls: [call('assistant')] }]
+    })
+    writeEvidence('case-a', {
+      case: 'case-a',
+      goal: 'g',
+      persona: 'p',
+      route: '/r',
+      conversation: conversation('user', 'assistant'),
+      consoleErrors: [],
+      observations: [],
+      exports: [{ conversationId: 'c1', agentId: 'personal', jsonl }, { conversationId: 'c2', jsonl: 'not an export' }]
+    }, { case: 'case-a', valid: true, assistantModel: 'a', userModel: 'u', turns: 1, durationMs: 1, finishedAt: 'now' }, dir)
 
-  test('is zero for a host that publishes nothing', () => {
-    const m = computeMetrics(transcript({ gateway: stream(2) }))
-    assert.equal(m.hostBlockChars, 0)
-  })
-
-  test('reports nothing rather than zero for a run recorded before it was measured', () => {
-    const legacy = { ...exchange(), hostBlockChars: undefined } as unknown as GatewayExchange
-    const m = computeMetrics(transcript({ gateway: [legacy] }))
-    assert.equal(m.hostBlockChars, null)
+    const transcript = JSON.parse(fs.readFileSync(path.join(dir, 'sim-case-a.json'), 'utf8'))
+    assert.deepEqual(transcript.exports.map((e: any) => e.file), ['sim-case-a.c1.export.jsonl', 'sim-case-a.c2.export.jsonl'])
+    // The file the judge reads is the one the server produced, byte for byte.
+    assert.equal(fs.readFileSync(path.join(dir, 'sim-case-a.c1.export.jsonl'), 'utf8'), jsonl)
+    // An unreadable export is named, and leaves the rest of the evidence standing.
+    assert.match(transcript.evidenceErrors[0], /c2: not a conversation export/)
+    const run = JSON.parse(fs.readFileSync(path.join(dir, 'sim-case-a.run.json'), 'utf8'))
+    assert.equal(run.metrics.conversations, 1)
+    assert.equal(run.metrics.modelRequests, 1)
   })
 })

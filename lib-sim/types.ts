@@ -2,7 +2,7 @@
  * The shapes a host repo needs to write cases and read evidence.
  */
 
-import type { GatewayExchange } from './gateway-capture.ts'
+import type { ConversationExport } from './conversation-export.ts'
 import type { Observation } from './page-perception.ts'
 import type { RunMetrics } from './metrics.ts'
 
@@ -18,8 +18,8 @@ export type SimulationCase = {
   maxTurns: number
   /**
    * What the case is dispatched as. Defaults to the in-page assistant; 'autonomous-agent' means the
-   * chat is opened on a configured autonomous agent, so the runner seeds that agent and reads its
-   * tool calls from the server. The UI is the same chat either way.
+   * chat is opened on a configured autonomous agent, so the runner seeds that agent. The UI is the
+   * same chat either way, and so is the evidence.
    */
   surface?: 'in-page-chat' | 'autonomous-agent'
   /**
@@ -35,31 +35,22 @@ export type Transcript = {
   persona: string
   route: string
   conversation: Array<{ role: string, text: string }>
-  gateway: GatewayExchange[]
   consoleErrors: string[]
   observations: Observation[]
   /**
-   * Tool calls as the SERVER recorded them, for surfaces whose model calls do not pass through the
-   * browser.
+   * The conversation exports, one file per conversation the person had, written beside the transcript.
    *
-   * `gateway` is captured with `page.on('request')`, so it sees everything for the in-page chat — where
-   * the browser talks to the gateway — and NOTHING for an autonomous agent, whose executor runs
-   * server-side. Without this the judge could only take the assistant's word for which tools it called,
-   * which is precisely the unverifiable claim this harness exists to check.
+   * What the server recorded: every message part (tool calls with their arguments AND results), and
+   * per run the system prompt and each model call — role, model, tokens, credits, the tools offered,
+   * the page context folded in. The same file a maintainer downloads to debug a real session.
    */
-  agentToolCalls?: Array<{
-    toolName: string
-    arguments?: string
-    serverId?: string
-    failed?: boolean
-    error?: string
-    // NOTE: the tool's RESULT is deliberately absent, because the server does not persist it — the
-    // stored message records only the call, its arguments and whether it failed. So "does what the
-    // agent reported match what the tool returned" still has to be checked against the fixture's own
-    // source. Keep fixture outputs deterministic and distinctive for that reason; the road-closure
-    // fixture's named streets and computed dates are what make that check possible at all.
-  }>
+  exports: Array<{ conversationId: string, agentId?: string, file: string }>
+  /** Why some of that evidence is missing, so a judge reads an absence as a gap, not as a finding. */
+  evidenceErrors?: string[]
 }
+
+/** What the runner hands `writeEvidence`: the transcript, with the exports' contents still in hand. */
+export type TranscriptInput = Omit<Transcript, 'exports'> & { exports: ConversationExport[] }
 
 export type RunSidecar = {
   case: string

@@ -146,7 +146,10 @@ model mapping points at the mock would be graded on the mock's canned reply whil
 still reporting a valid run. The persona can also
 look at, click and type on the page itself (not the composer), so a claim like
 "I don't see it" is checkable against what it actually observed, not invented.
-A judge subagent then reads the transcript, observations included. Needs the
+A judge subagent then reads the transcript, observations included, and the
+server's record of the run: the runner downloads each conversation's export —
+the same file used to debug a real session — so the seeded account stores
+traces and the browser carries the consent cookie. Needs the
 dev stack and built workspace packages — `lib-sim` included: `simulations/`
 imports it by package name, so a stale build silently runs the old code and
 still reports the run valid — and `npm run dev-bridge`. Orchestrated by the

@@ -102,7 +102,7 @@ Ask the user to start anything that is down. Never start or stop dev processes y
    `simulations/tmp/sim-<case>.run.json` for the recorded error instead.
 
 5. **Dispatch one `simulation-judge` subagent per valid case.** Give it paths, not
-   pasted content — transcripts carry every gateway request:
+   pasted content — a run's conversation exports can run to megabytes:
 
    - the case name and its goal
    - the transcript path, `simulations/tmp/sim-<case>.json`
