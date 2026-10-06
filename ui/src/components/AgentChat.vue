@@ -65,14 +65,12 @@
       :is-admin="isAdmin"
       :account-type="accountType"
       :account-id="accountId"
-      :tool-exploration="explorationEnabled"
       :simple-sub-agents="simpleSubAgentsEnabled"
       :mermaid="mermaidEnabled"
       :show-reasoning="showReasoningEnabled"
       :conversation-cost="chat.conversationCost.value"
       :usage-version="chat.usageVersion.value"
       :fetch-self-usage="chat.fetchSelfUsage"
-      @update:tool-exploration="handleToolExploration"
       @update:simple-sub-agents="handleSimpleSubAgents"
       @update:mermaid="handleMermaid"
       @update:show-reasoning="handleShowReasoning"
@@ -208,7 +206,6 @@ const hostContext = computed<Record<string, string | null>>(() => {
 // Experimental chat flags, persisted in a service-scoped cookie (see agent-flags.ts)
 // and toggled from the debug dialog's Settings tab.
 const initialFlags = readFlags()
-const explorationEnabled = ref(initialFlags.toolExploration)
 const simpleSubAgentsEnabled = ref(initialFlags.simpleSubAgents)
 const mermaidEnabled = ref(initialFlags.mermaid)
 const showReasoningEnabled = ref(initialFlags.showReasoning)
@@ -351,20 +348,10 @@ function startActionSession (visiblePrompt: string, hiddenContext: string) {
 
 function persistFlags () {
   writeFlags({
-    toolExploration: explorationEnabled.value,
     simpleSubAgents: simpleSubAgentsEnabled.value,
     mermaid: mermaidEnabled.value,
     showReasoning: showReasoningEnabled.value
   }, $apiPath)
-}
-
-// Tool exploration is a flag the server-held loop does not take from the client: it is shelved. The
-// flag is still persisted — the debug dialog shows it — but the conversation reset is what used to
-// apply it here, and resetting for a setting that no longer reaches the loop would throw the
-// transcript away for nothing.
-function handleToolExploration (enabled: boolean) {
-  explorationEnabled.value = enabled
-  persistFlags()
 }
 
 function handleSimpleSubAgents (enabled: boolean) {

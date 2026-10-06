@@ -36,7 +36,7 @@ test.describe('Mermaid bounded auto-fix (e2e)', () => {
     // cookie that readFlags() consumes (see ui/src/utils/agent-flags.ts); seed it
     // before mount. Path '/' keeps it visible to the UI page.
     await page.addInitScript(() => {
-      const flags = { toolExploration: false, subAgents: true, mermaid: true }
+      const flags = { mermaid: true }
       document.cookie = `agent-chat-flags=${encodeURIComponent(JSON.stringify(flags))}; path=/`
     })
 

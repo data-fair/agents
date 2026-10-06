@@ -26,10 +26,7 @@
           v-for="(message, index) in messages"
           :key="index"
         >
-          <div
-            v-if="!isHiddenExploreStep(message)"
-            class="px-2 py-1 px-sm-4 py-sm-2"
-          >
+          <div class="px-2 py-1 px-sm-4 py-sm-2">
             <div
               v-if="message.role === 'user'"
               class="d-flex justify-end"
@@ -82,7 +79,7 @@
                 @mermaid-error="failures => emit('mermaid-error', { index, failures })"
               />
               <div
-                v-if="hasVisibleTools(message) || isExploring(message)"
+                v-if="hasVisibleTools(message)"
                 class="mt-2"
               >
                 <template
@@ -90,7 +87,7 @@
                   :key="invocation.toolCallId"
                 >
                   <v-chip
-                    v-if="invocation.toolName !== EXPLORE_TOOL_NAME && (simpleSubAgents || !invocation.toolName.startsWith('subagent_'))"
+                    v-if="simpleSubAgents || !invocation.toolName.startsWith('subagent_')"
                     size="small"
                     :color="invocation.state === 'done' ? 'success' : 'warning'"
                     variant="outlined"
@@ -100,16 +97,6 @@
                     {{ chipLabel(invocation) }}
                   </v-chip>
                 </template>
-                <!-- explore_tools is an internal step (deciding which tool to use): show a
-                   placeholder skeleton chip while it runs; the real tool's chip then takes
-                   its place in the next assistant message. The explore_tools name is never shown. -->
-                <v-skeleton-loader
-                  v-if="isExploring(message)"
-                  type="chip"
-                  :aria-label="t('findingTool')"
-                  data-testid="explore-skeleton"
-                  class="agent-chat__tool-skeleton d-inline-flex"
-                />
               </div>
               <!-- Full sub-agent panels (when the simplify flag is off): each
                    delegation is its own v-alert box, collapsed by default, with
@@ -258,7 +245,6 @@ fr:
   reasoning: Raisonnement
   subAgentDone: Sous-agent terminé.
   jumpToBottom: Aller en bas
-  findingTool: Recherche de l'outil adapté…
   activityCompacting: Compression de la conversation…
   activityThinking: Réflexion…
   activityAnalyzing: Analyse du résultat de l'outil…
@@ -274,7 +260,6 @@ en:
   reasoning: Reasoning
   subAgentDone: Sub-agent finished.
   jumpToBottom: Jump to bottom
-  findingTool: Finding the right tool…
   activityCompacting: Compacting conversation…
   activityThinking: Thinking…
   activityAnalyzing: Analyzing tool result…
@@ -295,7 +280,6 @@ import { useAutoScrollBottom } from '@data-fair/lib-vue/auto-scroll-bottom.js'
 import { mdiLoading, mdiArrowDown, mdiSubdirectoryArrowRight, mdiChevronDown, mdiChevronUp, mdiBrain } from '@mdi/js'
 import { streamedLength } from './auto-scroll'
 import MarkdownContent from './MarkdownContent.vue'
-import { EXPLORE_TOOL_NAME } from '~/utils/tool-exploration'
 import { WAIT_TOOL_NAME } from '@agents/shared/host-events'
 import type { MermaidFailure } from '~/utils/mermaid'
 import type { ChatMessage } from '~/utils/chat-message'
@@ -341,27 +325,8 @@ const isActionPrompt = (message: ChatMessage) => {
   return message.role === 'user' && props.actionVisiblePrompt === message.content
 }
 
-// explore_tools is an internal "which tool should I use?" step. It is never shown as a
-// named chip; instead a skeleton placeholder chip is shown while it runs, and the
-// resolved explore-only message bubble is hidden so the real tool chip (emitted in the
-// next assistant message) appears in its place.
-const isExploring = (message: ChatMessage) =>
-  !!message.toolInvocations?.some(ti => ti.toolName === EXPLORE_TOOL_NAME && ti.state !== 'done')
-
 const hasVisibleTools = (message: ChatMessage) =>
-  !!message.toolInvocations?.some(ti => ti.toolName !== EXPLORE_TOOL_NAME && (props.simpleSubAgents || !ti.toolName.startsWith('subagent_')))
-
-const hasSubAgents = (message: ChatMessage) =>
-  !!message.toolInvocations?.some(ti => ti.toolName.startsWith('subagent_'))
-
-// A finished explore-only step (no text, no other tool calls): hide the empty bubble.
-const isHiddenExploreStep = (message: ChatMessage) =>
-  message.role === 'assistant' &&
-  !message.content?.trim() &&
-  !!message.toolInvocations?.some(ti => ti.toolName === EXPLORE_TOOL_NAME) &&
-  !isExploring(message) &&
-  !hasVisibleTools(message) &&
-  !hasSubAgents(message)
+  !!message.toolInvocations?.some(ti => props.simpleSubAgents || !ti.toolName.startsWith('subagent_'))
 
 const { t } = useI18n()
 
@@ -571,17 +536,6 @@ function onContentClick (e: MouseEvent) {
 
 .agent-chat-message .agent-chat__spin {
   animation: agent-chat-spin 1s linear infinite;
-}
-
-/* explore_tools placeholder: a small chip-shaped skeleton sized to match the
-   x-small tool chips it stands in for. */
-.agent-chat-message .agent-chat__tool-skeleton {
-  vertical-align: middle;
-}
-.agent-chat-message .agent-chat__tool-skeleton .v-skeleton-loader__chip {
-  width: 72px;
-  height: 20px;
-  margin: 0 4px 4px 0;
 }
 
 .agent-chat-message .agent-chat__subagent-header {

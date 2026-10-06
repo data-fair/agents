@@ -39,7 +39,7 @@ const openSettings = async (page: Page) => {
 // Pin chip mode before boot. goToWithAuth reuses a cached browser context, so a
 // prior test that toggled/seeded the flag would otherwise leak its cookie here.
 const seedChipCookie = (page: Page) => page.addInitScript(() => {
-  const flags = { toolExploration: false, subAgents: true, mermaid: false, simpleSubAgents: true }
+  const flags = { mermaid: false, simpleSubAgents: true }
   document.cookie = `agent-chat-flags=${encodeURIComponent(JSON.stringify(flags))}; path=/`
 })
 

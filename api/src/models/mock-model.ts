@@ -71,17 +71,6 @@ function isLoopGuardNudge (content: unknown): boolean {
   return /with the same arguments \d+ times in a row/i.test(messageText(content))
 }
 
-/** The client's exploration mode injects <tools-available> notices as user messages. */
-function isToolsAvailableNotice (content: unknown): boolean {
-  return /<tools-available>/.test(messageText(content))
-}
-
-/** Whether the prompt carries a <tools-available> notice naming this tool. */
-function wasAnnounced (prompt: string | Array<any>, toolName: string): boolean {
-  if (!Array.isArray(prompt)) return false
-  return prompt.some((p: any) => isToolsAvailableNotice(p.content) && messageText(p.content).includes(toolName))
-}
-
 /**
  * Unwrap the autonomous runtime's attribution envelope.
  *
@@ -109,7 +98,7 @@ function getLastUserMessage (options: { prompt: string | Array<any> }): string {
     // deliberately ignores it (a runaway model would too), so the seams below keep
     // reading the real user message and the guard's stop + close-out path is exercised.
     const userMessages = options.prompt.filter((p: any) => p.role === 'user' &&
-      !isLoopGuardNudge(p.content) && !isToolsAvailableNotice(p.content))
+      !isLoopGuardNudge(p.content))
     const lastUserMsg = userMessages[userMessages.length - 1]
     if (lastUserMsg) {
       const content = lastUserMsg.content
@@ -419,26 +408,6 @@ function processMockModeratorPrompt (lastMessage: string): MockPromptResult {
 }
 
 /**
- * Exploration test seam: when the request advertises a `select_tools` tool, emit a
- * deterministic select_tools call choosing every tool named inside the prompt's
- * <candidate-tools> block. Lets the explore_tools flow be tested with the mock.
- */
-function processSelectToolsSeam (lastMessage: string, tools: Array<any> | undefined): MockPromptResult | null {
-  const offersSelectTools = Array.isArray(tools) &&
-    tools.some((t: any) => (t?.name ?? t?.function?.name) === 'select_tools')
-  if (!offersSelectTools) return null
-  const block = lastMessage.match(/<candidate-tools>([\s\S]*?)<\/candidate-tools>/)
-  const names = block
-    ? block[1].split('\n').map((l: string) => l.trim()).filter(Boolean).map((l: string) => l.split(':')[0].trim())
-    : []
-  return {
-    type: 'tool-call',
-    toolName: 'select_tools',
-    toolArgs: JSON.stringify({ summary: 'mock selection', toolNames: names })
-  }
-}
-
-/**
  * Mid-turn tool refresh seam: "chain <first> <then>" calls <first>, then <then> — but only
  * if <then> was actually advertised on that later step. The point is that <first> is a tool
  * whose execution registers <then> (a page mounting components), so the second call is
@@ -459,12 +428,7 @@ function processChainSeam (lastMessage: string, prompt: string | Array<any>, too
   if (called.has(then)) return { type: 'text', text: `chained ${first} then ${then}` }
   const advertised = Array.isArray(tools) &&
     tools.some((t: any) => (t?.name ?? t?.function?.name) === then)
-  if (!advertised) {
-    // Exploration mode gates tools behind explore_tools, so a tool that appeared mid-turn
-    // is announced before it is callable. Report both facts so a test can tell "the model
-    // was never told" apart from "the model was told but has not promoted it yet".
-    return { type: 'text', text: `tool ${then} is not available (announced: ${wasAnnounced(prompt, then) ? 'yes' : 'no'})` }
-  }
+  if (!advertised) return { type: 'text', text: `tool ${then} is not available` }
   return { type: 'tool-call', toolName: then, toolArgs: '{}' }
 }
 
@@ -492,8 +456,6 @@ function processForModel (modelId: string, options: { prompt: string | Array<any
   // the assistant ('stall', 'stream error'…) would otherwise hit the moderator too — a message ending in
   // 'stall' stalled the classifier itself for 30s, and no late verdict could ever be tested.
   if (modelId === 'mock-moderator') return processMockModeratorPrompt(lastMessage)
-  const seam = processSelectToolsSeam(lastMessage, options.tools)
-  if (seam) return seam
   const chained = processChainSeam(lastMessage, options.prompt, options.tools)
   if (chained) return chained
   // Silent-drop test seams (apply to every model role): "empty" makes the model

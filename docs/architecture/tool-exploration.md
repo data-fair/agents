@@ -5,14 +5,8 @@
 > on every step (the set is live — refreshed between steps as the page reports changes, see
 > [MCP tool integration §7](./mcp-tools.md#7-the-tool-set-is-live-within-a-turn) — but never gated).
 >
-> What remains is inert: the `toolExploration` flag in the `agent-chat-flags` cookie
-> (`ui/src/utils/agent-flags.ts`) and its toggle in the chat's debug dialog, whose hint says it has no
-> effect; the helpers in `ui/src/utils/tool-exploration.ts` (`createExploreTool` is no longer called;
-> only `EXPLORE_TOOL_NAME` is, to hide such calls in the transcript); `retainedToolNames` in
-> `api/src/conversations/compaction-policy.ts`, exported but only used by its unit test; and the
-> mock model's `explore_tools` handling. The two e2e tests that depend on it are `test.fixme`
-> (`tests/features/tool-exploration/3.tool-exploration.e2e.spec.ts`,
-> `tests/features/chat-mcp/3.live-tools.e2e.spec.ts`). What follows is the design to port, not
+> Its code was removed (the debug switch and flag, the browser helpers, the mock's `select_tools`
+> seam and the tests); the version history holds it. What follows is the design to port, not
 > current behaviour.
 
 When many tools are registered (or they churn as the user navigates), sending every tool's full schema on every request bloats context and destabilises any prompt cache. An **opt-in** exploration mode replaces "send all tools" with "discover on demand": the assistant sees only a single always-on `explore_tools` tool plus a catalog of tool *names*, and must call `explore_tools` to make the tools it needs callable.

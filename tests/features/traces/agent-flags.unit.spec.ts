@@ -5,7 +5,7 @@ import { readFlags, serializeFlagsCookie, DEFAULT_FLAGS, FLAGS_COOKIE } from '..
 test.describe('agent flags cookie (unit)', () => {
   test('reads positive flags from a cookie string (simpleSubAgents default-on when absent)', () => {
     const cookie = `${FLAGS_COOKIE}=${encodeURIComponent(JSON.stringify({ toolExploration: true, subAgents: false, mermaid: true, showReasoning: true }))}`
-    assert.deepEqual(readFlags(cookie), { toolExploration: true, mermaid: true, simpleSubAgents: true, showReasoning: true })
+    assert.deepEqual(readFlags(cookie), { mermaid: true, simpleSubAgents: true, showReasoning: true })
   })
   test('reads simpleSubAgents:false explicitly', () => {
     const cookie = `${FLAGS_COOKIE}=${encodeURIComponent(JSON.stringify({ simpleSubAgents: false }))}`
@@ -16,14 +16,14 @@ test.describe('agent flags cookie (unit)', () => {
     assert.deepEqual(readFlags(`${FLAGS_COOKIE}=not-json`), DEFAULT_FLAGS)
   })
   test('defaults: simpleSubAgents on, others off', () => {
-    assert.deepEqual(DEFAULT_FLAGS, { toolExploration: false, mermaid: false, simpleSubAgents: true, showReasoning: false })
+    assert.deepEqual(DEFAULT_FLAGS, { mermaid: false, simpleSubAgents: true, showReasoning: false })
   })
   test('showReasoning defaults off when absent from an otherwise valid cookie', () => {
     const cookie = `${FLAGS_COOKIE}=${encodeURIComponent(JSON.stringify({ toolExploration: true, subAgents: true, mermaid: false }))}`
     assert.equal(readFlags(cookie).showReasoning, false)
   })
   test('serializes a service-scoped 1-year cookie', () => {
-    const c = serializeFlagsCookie({ toolExploration: false, mermaid: false, simpleSubAgents: true, showReasoning: false }, '/data-fair/agents/api')
+    const c = serializeFlagsCookie({ mermaid: false, simpleSubAgents: true, showReasoning: false }, '/data-fair/agents/api')
     assert.match(c, new RegExp(`^${FLAGS_COOKIE}=`))
     assert.match(c, /Max-Age=31536000/)
     assert.match(c, /SameSite=Lax/)

@@ -8,8 +8,8 @@ const cookieCache = new Map<string, Awaited<ReturnType<import('@playwright/test'
 // everything the context holds, so caching it wholesale also captures the app-level
 // cookies a test sets for itself (agent-chat-flags, agent-chat-trace-consent, …) and
 // replays them into later tests reusing that login. That leak acts at a distance: a
-// test seeding toolExploration:true silently turns exploration on for a later test
-// that expects the default.
+// test seeding mermaid:true silently turns mermaid on for a later test that expects
+// the default.
 // id_token_ex has to stay in this list — a keepalive without it is refused outright
 // (sd.auth.keepalive.fail, "a user without a valid echange token") — but it is also the
 // one cookie here that does not hold still: simple-directory rotates it on every

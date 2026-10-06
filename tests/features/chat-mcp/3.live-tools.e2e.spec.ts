@@ -77,48 +77,4 @@ test.describe('Live tool set (mid-turn refresh)', () => {
     await expect(page.getByRole('button', { name: 'open_panel' })).toBeVisible({ timeout: 5000 })
     await expect(page.getByRole('button', { name: 'set_display' })).toHaveCount(0)
   })
-
-  test.fixme('exploration mode announces a mid-turn tool in the same turn', async ({ page, goToWithAuth }) => {
-    // SHELVED WITH TOOL EXPLORATION, which the server-held loop does not implement: there is no
-    // `explore_tools` in api/src, and every tool is offered on every step, so there is no gating for a
-    // mid-turn announcement to get past. The ungated half of this behaviour — a tool registered
-    // mid-turn is callable in the same turn — is covered by the two tests above. Re-enable with the
-    // exploration rework.
-    // With exploration on, a tool that appears mid-turn is not immediately callable (it
-    // has to be promoted first) — but the model must still be TOLD about it within the
-    // turn, otherwise it has no reason to go looking. The notice cannot ride on `history`
-    // mid-run (the SDK re-reads it only as a prefix, so it would land before the work
-    // already done), so it is injected through prepareStep; this is what covers that path.
-    const admin = await superAdmin
-    await putMockSettings(admin, 'user/test-standalone1')
-
-    await page.addInitScript(() => {
-      const flags = { toolExploration: true, subAgents: true, mermaid: false }
-      document.cookie = `agent-chat-flags=${encodeURIComponent(JSON.stringify(flags))}; path=/`
-    })
-    await goToWithAuth('/agents/_dev/chat-live-tools', 'test-standalone1')
-
-    // Under exploration this wait is not just politeness: explore_tools has no candidates
-    // if the registry is still empty when it runs, so nothing is promoted and the next
-    // turn finds the tool inactive (same guard as 3.tool-exploration.e2e.spec.ts).
-    await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
-    await page.getByRole('tab', { name: 'Info' }).click()
-    await expect(
-      page.locator('.v-dialog .v-window-item--active').getByRole('button', { name: 'open_panel' })
-    ).toBeVisible({ timeout: 10000 })
-    await page.getByRole('button', { name: /Close|Fermer/ }).click()
-
-    // Turn 1: promote open_panel so it is callable at all under exploration gating.
-    await page.getByPlaceholder('Type your message...').fill('call tool explore_tools {"intent":"open the panel"}')
-    await page.getByRole('button', { name: 'Send' }).click()
-    await expect(page.locator('.assistant-content').last()).toContainText('done', { timeout: 20000 })
-
-    // Turn 2: open_panel runs and registers set_display mid-turn. set_display stays
-    // un-callable (not promoted) — the assertion is that the model was told about it on
-    // the very next step, not that it could call it.
-    await page.getByPlaceholder('Type your message...').fill('chain open_panel set_display')
-    await page.getByRole('button', { name: 'Send' }).click()
-    await expect(page.locator('.assistant-content').last())
-      .toContainText('tool set_display is not available (announced: yes)', { timeout: 20000 })
-  })
 })

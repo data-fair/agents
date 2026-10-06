@@ -36,7 +36,7 @@ const mockSettings = {
 // Seed the `agent-chat-flags` cookie readFlags() consumes before the app boots.
 // Path '/' keeps it readable by the UI page (the app writes a gateway-scoped variant).
 const seedFlags = (page: Page, showReasoning: boolean) => page.addInitScript((show) => {
-  const flags = { toolExploration: false, subAgents: true, mermaid: false, showReasoning: show }
+  const flags = { mermaid: false, showReasoning: show }
   document.cookie = `agent-chat-flags=${encodeURIComponent(JSON.stringify(flags))}; path=/`
 }, showReasoning)
 

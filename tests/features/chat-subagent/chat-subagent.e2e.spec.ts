@@ -18,7 +18,7 @@ const admin = await superAdmin
 // mode. goToWithAuth reuses a cached browser context, so a path=/ cookie set by
 // one test leaks into the next — every rendering test must seed explicitly.
 const seedFlagsCookie = (page: Page, simpleSubAgents: boolean) => page.addInitScript((simple) => {
-  const flags = { toolExploration: false, subAgents: true, mermaid: false, simpleSubAgents: simple }
+  const flags = { mermaid: false, simpleSubAgents: simple }
   document.cookie = `agent-chat-flags=${encodeURIComponent(JSON.stringify(flags))}; path=/`
 }, simpleSubAgents)
 // Full v-alert panel rendering (to inspect the inner sub-agent trace).

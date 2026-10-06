@@ -173,18 +173,6 @@
                 </div>
 
                 <df-tutorial-alert
-                  id="agent-settings-tool-exploration"
-                  :text="t('toolExplorationHint')"
-                  :initial="false"
-                  persistent
-                />
-                <v-switch
-                  :model-value="toolExploration"
-                  :label="t('toolExploration')"
-                  @update:model-value="$emit('update:toolExploration', $event ?? false)"
-                />
-
-                <df-tutorial-alert
                   id="agent-settings-simple-subagents"
                   :text="t('simpleSubAgentsHint')"
                   :initial="false"
@@ -254,8 +242,6 @@ fr:
   storeTraces: Enregistrer mes conversations pour relecture
   storeTracesHint: "Vos conversations seront enregistrées sur le serveur pendant 30 jours afin qu'un administrateur puisse les relire. Vous pouvez retirer votre consentement à tout moment."
   experimental: Expérimental
-  toolExploration: Exploration des outils
-  toolExplorationHint: "Temporairement inactif : l'assistant tourne désormais côté serveur, où l'exploration des outils (l'étape « explore_tools ») n'est pas encore réimplémentée. Tous les outils de la page lui sont proposés à chaque étape. Ce réglage est conservé mais n'a aucun effet."
   simpleSubAgents: Affichage simplifié des sous-agents
   simpleSubAgentsHint: "Affiche les sous-agents délégués sous forme d'une simple puce de statut, au lieu d'un panneau de trace dépliable. Ce réglage ne réinitialise pas la conversation."
   mermaid: Diagrammes Mermaid
@@ -275,8 +261,6 @@ en:
   storeTraces: Store my conversations for review
   storeTracesHint: "Your conversations will be stored on the server for 30 days so an administrator can review them. You can withdraw your consent at any time."
   experimental: Experimental
-  toolExploration: Tool exploration
-  toolExplorationHint: "Temporarily inactive: the assistant now runs on the server, where tool exploration (the 'explore_tools' step) has not been reimplemented yet. Every tool on the page is offered at every step. The setting is kept but has no effect."
   simpleSubAgents: Simplify sub-agent display
   simpleSubAgentsHint: "Shows delegated sub-agents as a simple status chip instead of an expandable trace panel. This setting does not reset the conversation."
   mermaid: Mermaid diagrams
@@ -305,7 +289,6 @@ const props = defineProps<{
   isAdmin?: boolean
   accountType: string
   accountId: string
-  toolExploration?: boolean
   simpleSubAgents?: boolean
   mermaid?: boolean
   showReasoning?: boolean
@@ -332,7 +315,6 @@ const hostContextText = computed(() => {
 
 defineEmits<{
   'update:modelValue': [value: boolean]
-  'update:toolExploration': [value: boolean]
   'update:simpleSubAgents': [value: boolean]
   'update:mermaid': [value: boolean]
   'update:showReasoning': [value: boolean]
