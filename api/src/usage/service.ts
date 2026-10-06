@@ -105,11 +105,16 @@ export async function getUsage (owner: AccountKeys, userId?: string): Promise<Us
 
   const filter = { 'owner.type': owner.type, 'owner.id': owner.id, userId: userId ?? { $exists: false } }
 
-  const [daily, weekly, monthly] = await Promise.all([
-    mongo.usage.findOne({ ...filter, period: dailyPeriod }),
-    mongo.usage.findOne({ ...filter, period: weeklyPeriod }),
-    mongo.usage.findOne({ ...filter, period: monthlyPeriod })
-  ])
+  // ONE query for the three windows, and only the figure they need: it was three findOne of whole
+  // documents (their per-dimension breakdowns included), and every turn's quota check makes two or
+  // three of these — measured 3x slower than this (dev/bench-usage.ts).
+  const docs = await mongo.usage
+    .find({ ...filter, period: { $in: [dailyPeriod, weeklyPeriod, monthlyPeriod] } }, { projection: { _id: 0, period: 1, cost: 1 } })
+    .toArray()
+  const byPeriod = (period: string) => docs.find(doc => doc.period === period)
+  const daily = byPeriod(dailyPeriod)
+  const weekly = byPeriod(weeklyPeriod)
+  const monthly = byPeriod(monthlyPeriod)
 
   return {
     daily: { cost: daily?.cost ?? 0, resetsAt: getDailyResetsAt() },
