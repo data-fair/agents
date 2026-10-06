@@ -63,6 +63,22 @@ export function repairWaitInput (input: any): WaitInput {
 }
 
 /**
+ * The share of a message's significant words already present in a text — how much of it the text
+ * already says. Words of four letters or more, any script, case folded: short words are the
+ * connective tissue two phrasings of one sentence differ in.
+ */
+function sayingShare (message: string, text: string): number {
+  const words = (value: string) => new Set(value.toLowerCase().match(/[\p{L}\p{N}]{4,}/gu) ?? [])
+  const said = words(text)
+  const meant = [...words(message)]
+  if (!meant.length) return 0
+  return meant.filter(word => said.has(word)).length / meant.length
+}
+
+/** Above this share, the step's text already says what the message says (see waitHandover). */
+export const HANDOVER_ALREADY_SAID = 0.6
+
+/**
  * The text a wait's handover adds to the step it ends: its `message`, after what the step already
  * wrote, unless that text already says it. Null when there is nothing to add.
  *
@@ -70,6 +86,11 @@ export function repairWaitInput (input: any): WaitInput {
  * only the status label. Before the message existed, models read the « En attente : … » label as
  * their reply and handed buttons over in silence; and a model that writes the handover as text AND
  * passes it as the message must not show it twice.
+ *
+ * "Already says it" is judged on the WORDS, not the exact string: models reword. A judged run's step
+ * said "Go ahead and click Create on the confirmation screen to finish setting it up." and its message
+ * "The list is titled "Team lunch" and ready to go. Click the Create button on the confirmation screen
+ * to finish." — the same instruction twice in a row, which an exact match let through.
  *
  * Pure, so the loop's rendering is testable without a model: `stepText` is the text the current step
  * has produced so far, and the result is what to append to it — with the blank line that separates
@@ -79,7 +100,7 @@ export function waitHandover (stepText: string, input: unknown): string | null {
   const message = repairWaitInput(input).message
   if (!message) return null
   const text = stepText.trim()
-  if (text.includes(message)) return null
+  if (text.includes(message) || sayingShare(message, text) >= HANDOVER_ALREADY_SAID) return null
   return text ? `\n\n${message}` : message
 }
 export interface HostStateSnapshot { state: AgentEvent[], recent: AgentEvent[] }

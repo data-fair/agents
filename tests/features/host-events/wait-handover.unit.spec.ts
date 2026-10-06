@@ -22,6 +22,20 @@ test.describe('waitHandover', () => {
     assert.equal(waitHandover('Le formulaire est prêt : appuyez sur Enregistrer.', { message: 'appuyez sur Enregistrer.', expecting: 'x' }), null)
   })
 
+  test('a wait does not repeat a message the step already said in other words', () => {
+    // A judged run, verbatim: the instruction was read twice in a row.
+    const step = 'Yes, confirmed — the list will be called "Team lunch". That earlier error was just a hiccup on my end reporting back to you, but the wizard did advance correctly, as you can see.\n\nGo ahead and click **Create** on the confirmation screen to finish setting it up.'
+    const message = 'The list is titled "Team lunch" and ready to go. Click the **Create** button on the confirmation screen to finish.'
+    assert.equal(waitHandover(step, { message, expecting: 'user clicks Create' }), null)
+  })
+
+  test('a step that only describes the setup still gets the instruction', () => {
+    // The overlap that matters is with what the MESSAGE asks; a step about the same list that never
+    // says what to press must not swallow the handover.
+    const step = 'I selected the list type and set the title to "Team lunch".'
+    assert.equal(waitHandover(step, { message: 'Click Create to finish.', expecting: 'x' }), '\n\nClick Create to finish.')
+  })
+
   test('a wait adds its message after text that does not say it, with one blank line between', () => {
     assert.equal(waitHandover('Voilà.', { message: 'Appuyez sur Enregistrer.', expecting: 'x' }), '\n\nAppuyez sur Enregistrer.')
     // Trailing whitespace in the step's text does not count as text, nor multiply the separator: the
