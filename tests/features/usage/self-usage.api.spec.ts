@@ -144,6 +144,24 @@ test.describe('self usage endpoint', () => {
     assert.equal(res.status, 403)
   })
 
+  test('an external person\'s chat spend fills the untrusted pool, which then refuses them', async () => {
+    // The pool's whole point: untrusted traffic combined cannot drain the account. It only counted the
+    // moderation gate and the summary endpoint — a chat turn's own model calls never reached it.
+    await putSettings(admin, 'user/test-standalone1', settingsData({
+      external: { unlimited: false, monthlyLimit: 100_000 },
+      untrusted: { unlimited: false, monthlyLimit: 40 }
+    }))
+    assert.equal((await externalUser.get('/api/usage/user/test-standalone1/self')).data.account.status, 'ok')
+
+    await runTurn(externalUser, 'user/test-standalone1')
+    assert.equal((await externalUser.get('/api/usage/user/test-standalone1/self')).data.account.status, 'exhausted')
+
+    const { conversationId } = await runTurn(externalUser, 'user/test-standalone1')
+    const messages = (await externalUser.get(`/api/conversations/user/test-standalone1/${conversationId}/messages`)).data.results as any[]
+    const refusal = messages.filter(m => m.role === 'assistant').pop().parts.find((p: any) => p.type === 'data-refusal')
+    assert.equal(refusal?.data?.scope, 'untrusted')
+  })
+
   test('the owner of a user account records into its own document, never an external user\'s', async () => {
     await putSettings(admin, 'user/test-standalone1', settingsData({ external: { unlimited: false, monthlyLimit: 1000 } }))
     // the external user's record exists alone (no account aggregate yet): an owner write

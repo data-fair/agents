@@ -498,6 +498,9 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
             cost: stepCredits.total,
             userId: identity.usageUserId,
             userName: identity.usageUserName,
+            // The untrusted pool too (anonymous + external combined): without it, their chat spend never
+            // reached the pool, and its cap counted only moderation and the summary endpoint.
+            poolId: identity.poolId,
             dimensions: {
               modelRole: 'tools',
               model: worker.entry.id,
@@ -639,6 +642,9 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
           cost: stepCredits.total,
           userId: identity.usageUserId,
           userName: identity.usageUserName,
+          // The untrusted pool too (anonymous + external combined): without it, their chat spend never
+          // reached the pool, and its cap counted only moderation and the summary endpoint.
+          poolId: identity.poolId,
           dimensions: {
             modelRole: 'assistant',
             model: entry.id,
