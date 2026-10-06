@@ -242,11 +242,15 @@ function processMockPrompt (lastMessage: string, prompt: string | Array<any>): M
     const calls = content('assistant').filter((c: any) => c.type === 'tool-call').map((c: any) => c.toolName)
     const results = content('tool').filter((c: any) => c.type === 'tool-result')
       .map((c: any) => typeof c.output?.value === 'string' ? c.output.value : JSON.stringify(c.output?.value ?? c.output ?? ''))
+    // Images a tool result delivered AS images (content parts), not as base64 inside text.
+    const images = content('tool').filter((c: any) => c.type === 'tool-result' && c.output?.type === 'content')
+      .flatMap((c: any) => c.output.value).filter((item: any) => item?.type === 'image-data').length
     return {
       type: 'text',
       text: JSON.stringify({
         calls,
         results: results.length,
+        images,
         interrupted: results.filter((r: string) => r.startsWith('Interrupted')),
         reminder: /You were waiting for the person/.test(lastMessage)
       })

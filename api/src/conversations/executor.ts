@@ -22,7 +22,8 @@ import Debug from 'debug'
 import { streamText, stepCountIs, type Tool } from 'ai'
 // 'ai' does not re-export JSONObject; @ai-sdk/provider is where the library declares it.
 import type { JSONObject } from '@ai-sdk/provider'
-import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep, STREAM_IDLE_TIMEOUT_MS } from './loop-guards.ts'
+import { isMediaToolResult, type MediaToolResult } from '@agents/shared/tool-result'
+import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep, STREAM_IDLE_TIMEOUT_MS, createIdleWatchdog } from './loop-guards.ts'
 import type { AutonomousAgent, Conversation, ConversationMessage, ConversationRun } from '#types'
 import {
   runStopReasonMessage, buildSystemPrompt, withProvenance,
@@ -575,6 +576,12 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   await assembleTools()
   let assembledFrom = pageToolNames()
 
+  // A provider that accepted the request and then went quiet would otherwise hold the conversation's
+  // lock until the run ceiling. Paused while a tool runs: that silence is the tool's, not the model's.
+  const idleAbort = new AbortController()
+  const idleWatchdog = createIdleWatchdog(STREAM_IDLE_TIMEOUT_MS, () => {
+    idleAbort.abort(new Error(`the model stream went silent for ${STREAM_IDLE_TIMEOUT_MS / 1000}s`))
+  })
   const result = streamText({
     model,
     system: buildSystemPrompt(autonomousAgent),
@@ -598,18 +605,12 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
       }
       return loopGuardPrepareStep(options)
     },
-    // The SDK's own bounds, which are finer than the wall clock this turn is also raced against:
-    //
-    //  - chunkMs is an IDLE watchdog, and it closes a real gap. The browser loop has had one all along
-    //    (it arms a timer per stream part); the server had only the whole-turn ceiling, so a provider
-    //    that accepted the request and then went quiet held the conversation's lock for the full
-    //    autonomousAgentRunTimeoutSeconds. Same constant on both sides, from shared/.
-    //  - totalMs is defence in depth. The outer Promise.race in runTurn still exists and is not
-    //    redundant: it covers the whole turn — resolving the agent, opening MCP connections, compaction
-    //    — whereas this bounds only the model stream.
+    // totalMs is defence in depth. The outer Promise.race in runTurn still exists and is not redundant:
+    // it covers the whole turn — resolving the agent, opening MCP connections, compaction — whereas this
+    // bounds only the model stream. The IDLE bound is ours (idleWatchdog below), not the SDK's
+    // `chunkMs`, which counted a running tool as silence.
     timeout: {
-      totalMs: config.autonomousAgentRunTimeoutSeconds * 1000,
-      chunkMs: STREAM_IDLE_TIMEOUT_MS
+      totalMs: config.autonomousAgentRunTimeoutSeconds * 1000
     },
     onStepFinish: async (step) => {
       const usage = step.usage
@@ -676,7 +677,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
         budgetExceeded = true
       }
     },
-    abortSignal
+    abortSignal: AbortSignal.any([abortSignal, idleAbort.signal])
   })
 
   // The turn's parts, in the order the model produced them. This IS the record: everything the model
@@ -737,7 +738,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
     // Typed rather than `Record<string, unknown>`: the two callers settle a call with exactly these
     // shapes, and a loose record is how `truncated` arrived as `unknown` and had to be cast back.
     settled:
-      | { state: 'output-available', output: string, truncated?: { totalChars: number } }
+      | { state: 'output-available', output: string | MediaToolResult, truncated?: { totalChars: number } }
       | { state: 'output-error', errorText: string }
   ) => {
     // Narrowed to the dynamic-tool variant rather than indexed blindly: `toolMetadata` exists only
@@ -809,118 +810,131 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   // regression survived the move: the frame it replaced was never sent.
   activity({ kind: 'thinking' })
 
-  for await (const part of result.fullStream) {
-    // 'error' parts do NOT throw — an unhandled one is how a conversation silently dropped
-    // before. Turn it into a real failure so the caller reports it.
-    if (part.type === 'error') throw part.error instanceof Error ? part.error : new Error(String(part.error))
-    if (part.type === 'text-delta') {
+  try {
+    for await (const part of result.fullStream) {
+      idleWatchdog.activity()
+      if (part.type === 'tool-call') idleWatchdog.toolStarted(part.toolCallId)
+      if (part.type === 'tool-result' || part.type === 'tool-error') idleWatchdog.toolEnded(part.toolCallId)
+      // 'error' parts do NOT throw — an unhandled one is how a conversation silently dropped
+      // before. Turn it into a real failure so the caller reports it.
+      if (part.type === 'error') throw part.error instanceof Error ? part.error : new Error(String(part.error))
+      if (part.type === 'text-delta') {
       // Visible output means the label has nothing left to explain.
-      if (!sawText) { sawText = true; activity(null) }
-      appendText('text', part.text)
-      stream('text', part.text)
-      await persistPartial()
-    }
-    if (part.type === 'reasoning-delta') {
-      appendText('reasoning', part.text)
-      stream('reasoning', part.text)
-    }
-    // A step boundary, recorded as a part. LOAD-BEARING, not decoration: it is what
-    // `convertToModelMessages` splits the turn's assistant messages on, so without it text the model
-    // produced AFTER a tool result is replayed inside the assistant message that made the call —
-    // before the tool message answering it. A leading one is harmless; it emits no empty message.
-    if (part.type === 'start-step') parts.push({ type: 'step-start' })
-    // ONE part per tool call, moved through the library's states — not a call part followed by a
-    // result part. That pairing is what `convertToModelMessages` reconstructs the
-    // assistant/tool message pair from, and it is why a failed call is no longer shaped like a
-    // successful one: the failure is the part's STATE, which nothing downstream can drop.
-    if (part.type === 'tool-call') {
+        if (!sawText) { sawText = true; activity(null) }
+        appendText('text', part.text)
+        stream('text', part.text)
+        await persistPartial()
+      }
+      if (part.type === 'reasoning-delta') {
+        appendText('reasoning', part.text)
+        stream('reasoning', part.text)
+      }
+      // A step boundary, recorded as a part. LOAD-BEARING, not decoration: it is what
+      // `convertToModelMessages` splits the turn's assistant messages on, so without it text the model
+      // produced AFTER a tool result is replayed inside the assistant message that made the call —
+      // before the tool message answering it. A leading one is harmless; it emits no empty message.
+      if (part.type === 'start-step') parts.push({ type: 'step-start' })
+      // ONE part per tool call, moved through the library's states — not a call part followed by a
+      // result part. That pairing is what `convertToModelMessages` reconstructs the
+      // assistant/tool message pair from, and it is why a failed call is no longer shaped like a
+      // successful one: the failure is the part's STATE, which nothing downstream can drop.
+      if (part.type === 'tool-call') {
       // A WAIT HANDS THE TURN TO THE PERSON, and its `message` is what tells them what to do: it is
       // added to the step's own text, just before the call, unless the step already says it. Stored,
       // not only streamed, so a reloaded thread and a reviewed one show the same handover — and
       // before the call rather than after it, because text after a tool call is replayed to the model
       // as a separate message it never wrote.
-      if (part.toolName === WAIT_TOOL_NAME) {
-        const stepStart = parts.map(p => p.type).lastIndexOf('step-start')
-        const stepText = partsText(parts.slice(stepStart + 1))
-        const handover = waitHandover(stepText, part.input)
-        if (handover) {
+        if (part.toolName === WAIT_TOOL_NAME) {
+          const stepStart = parts.map(p => p.type).lastIndexOf('step-start')
+          const stepText = partsText(parts.slice(stepStart + 1))
+          const handover = waitHandover(stepText, part.input)
+          if (handover) {
           // The step's text as main's builder left it: trailing whitespace dropped, so the separator
           // is exactly one blank line.
-          const last = parts[parts.length - 1]
-          if (last?.type === 'text') last.text = String(last.text ?? '').trimEnd()
-          appendText('text', handover)
-          stream('text', handover)
+            const last = parts[parts.length - 1]
+            if (last?.type === 'text') last.text = String(last.text ?? '').trimEnd()
+            appendText('text', handover)
+            stream('text', handover)
           // The activity is deliberately left alone. The SDK starts executing a tool before this loop
           // reads its call from the stream, so the wait has usually already set "Waiting for …" by
           // now — clearing the label here, as the first text-delta does, erased exactly that.
+          }
         }
+        parts.push({
+          type: 'dynamic-tool',
+          toolCallId: part.toolCallId,
+          toolName: part.toolName,
+          state: 'input-available',
+          // The real arguments, not a summary of them: the stored conversation is the reference copy,
+          // so a revived turn has to replay the call the model actually made. The summary is for the
+          // trace, which is a description rather than a record.
+          input: part.input,
+          // Built by spreading presence rather than assigning possibly-undefined values: the library
+          // types this slot as a JSONObject, which has no room for `undefined`, and a browser tool has
+          // no catalog server to name.
+          toolMetadata: {
+            ...(serverByTool.get(part.toolName) ? { serverId: serverByTool.get(part.toolName) } : {}),
+            ...(annotationsByTool.get(part.toolName) ? { annotations: annotationsByTool.get(part.toolName) } : {})
+          } as JSONObject
+        })
+        // Immediately, not on the persist clock: a tool chip appearing is what tells the person the
+        // assistant is doing something, and a call can take seconds. Waiting for the next token would
+        // show the chip after the work it describes.
+        sendMessageFrame(true)
+        await persistStructure()
+        if (part.toolName.startsWith('subagent_')) activity({ kind: 'subagent', name: part.toolName, phase: 'starting' })
       }
-      parts.push({
-        type: 'dynamic-tool',
-        toolCallId: part.toolCallId,
-        toolName: part.toolName,
-        state: 'input-available',
-        // The real arguments, not a summary of them: the stored conversation is the reference copy,
-        // so a revived turn has to replay the call the model actually made. The summary is for the
-        // trace, which is a description rather than a record.
-        input: part.input,
-        // Built by spreading presence rather than assigning possibly-undefined values: the library
-        // types this slot as a JSONObject, which has no room for `undefined`, and a browser tool has
-        // no catalog server to name.
-        toolMetadata: {
-          ...(serverByTool.get(part.toolName) ? { serverId: serverByTool.get(part.toolName) } : {}),
-          ...(annotationsByTool.get(part.toolName) ? { annotations: annotationsByTool.get(part.toolName) } : {})
-        } as JSONObject
-      })
-      // Immediately, not on the persist clock: a tool chip appearing is what tells the person the
-      // assistant is doing something, and a call can take seconds. Waiting for the next token would
-      // show the chip after the work it describes.
-      sendMessageFrame(true)
-      await persistStructure()
-      if (part.toolName.startsWith('subagent_')) activity({ kind: 'subagent', name: part.toolName, phase: 'starting' })
+      // The RESULT, stored because the conversation is revivable: without it a later turn replays a
+      // call with no answer, which providers reject — so the old shape had to drop the call too, and
+      // the model resumed unable to see either the data or the fact that it had acted.
+      //
+      // Stored as the model received it, envelope included (withProvenance wraps before this point),
+      // because the guarantee is that a revived conversation reproduces what the model saw.
+      if (part.type === 'tool-result') {
+        const output = (part as any).output
+        // An image-bearing result is stored AS its envelope, only its text bounded: stringified, the base64
+        // was cut at the result limit and replayed as text — the image lost from the record and garbage to
+        // the model on the next turn (see mediaModelOutput).
+        const media = isMediaToolResult(output)
+        const text = media
+          ? String(output.text ?? '')
+          : typeof output === 'string'
+            ? output
+            : (output && typeof output === 'object' && 'value' in output)
+                ? String((output as any).value)
+                : JSON.stringify(output ?? '')
+        const bounded = boundToolResult(text)
+        settleToolPart(part.toolCallId, {
+          state: 'output-available',
+          output: media ? { ...output, text: bounded.result } : bounded.result,
+          truncated: bounded.truncated
+        })
+        sendMessageFrame(true)
+        await persistStructure()
+        // The model now has a result to read. `subAgent` is set when the tool WAS a delegation, so the
+        // label can name it — the one case where the bottom line says more than "analyzing".
+        activity({
+          kind: 'analyzing',
+          ...(part.toolName.startsWith('subagent_') ? { subAgent: part.toolName } : {})
+        })
+      }
+      // A tool that failed does not stop the turn — the model sees the error and usually keeps
+      // talking — so without recording it a failed call reads exactly like a successful one.
+      // That is not hypothetical: it hid a broken tool path for the whole of this plan.
+      //
+      // `output-error` is the library's own state for it, so the distinction survives every conversion:
+      // the previous shape carried it as an extra `failed` flag on a result part, which
+      // `convertToModelMessages` has no reason to look at.
+      if (part.type === 'tool-error') {
+        const detail = (part as any).error instanceof Error ? (part as any).error.message : String((part as any).error)
+        settleToolPart(part.toolCallId, { state: 'output-error', errorText: boundToolResult(detail).result })
+        sendMessageFrame(true)
+        await persistStructure()
+        debug('tool failed tool=%s error=%s', part.toolName, detail)
+      }
     }
-    // The RESULT, stored because the conversation is revivable: without it a later turn replays a
-    // call with no answer, which providers reject — so the old shape had to drop the call too, and
-    // the model resumed unable to see either the data or the fact that it had acted.
-    //
-    // Stored as the model received it, envelope included (withProvenance wraps before this point),
-    // because the guarantee is that a revived conversation reproduces what the model saw.
-    if (part.type === 'tool-result') {
-      const output = (part as any).output
-      const text = typeof output === 'string'
-        ? output
-        : (output && typeof output === 'object' && 'value' in output)
-            ? String((output as any).value)
-            : JSON.stringify(output ?? '')
-      const bounded = boundToolResult(text)
-      settleToolPart(part.toolCallId, {
-        state: 'output-available',
-        output: bounded.result,
-        truncated: bounded.truncated
-      })
-      sendMessageFrame(true)
-      await persistStructure()
-      // The model now has a result to read. `subAgent` is set when the tool WAS a delegation, so the
-      // label can name it — the one case where the bottom line says more than "analyzing".
-      activity({
-        kind: 'analyzing',
-        ...(part.toolName.startsWith('subagent_') ? { subAgent: part.toolName } : {})
-      })
-    }
-    // A tool that failed does not stop the turn — the model sees the error and usually keeps
-    // talking — so without recording it a failed call reads exactly like a successful one.
-    // That is not hypothetical: it hid a broken tool path for the whole of this plan.
-    //
-    // `output-error` is the library's own state for it, so the distinction survives every conversion:
-    // the previous shape carried it as an extra `failed` flag on a result part, which
-    // `convertToModelMessages` has no reason to look at.
-    if (part.type === 'tool-error') {
-      const detail = (part as any).error instanceof Error ? (part as any).error.message : String((part as any).error)
-      settleToolPart(part.toolCallId, { state: 'output-error', errorText: boundToolResult(detail).result })
-      sendMessageFrame(true)
-      await persistStructure()
-      debug('tool failed tool=%s error=%s', part.toolName, detail)
-    }
+  } finally {
+    idleWatchdog.stop()
   }
 
   const steps = (await result.steps).length

@@ -39,12 +39,53 @@ export const STEP_LIMIT = 100
  * duration, so bounding total time would cut off honest work, while a stream that has gone quiet is
  * stuck whatever its total elapsed time.
  *
- * Shared because both loops need the same number. The browser arms its own timer per stream part; the
- * server passes it to the AI SDK as `timeout.chunkMs`. The P0 spec claimed the server "reuses the idle
- * watchdog" and it did not — it had only a whole-turn wall clock, so a provider that accepted a request
- * and then went silent held the conversation until that ceiling.
+ * Silence while a TOOL runs does not count: see createIdleWatchdog.
  */
 export const STREAM_IDLE_TIMEOUT_MS = 90_000
+
+export interface IdleWatchdog {
+  /** The stream produced a part: the silence starts over. */
+  activity: () => void
+  /** A tool call began: the stream is expected to be quiet until it ends. */
+  toolStarted: (toolCallId: string) => void
+  toolEnded: (toolCallId: string) => void
+  stop: () => void
+}
+
+/**
+ * The idle watchdog of a model stream, paused while any tool call is outstanding.
+ *
+ * NOT the AI SDK's `timeout.chunkMs`, which it replaced: that timer is reset by every chunk of the step
+ * — tool results included — and cleared only when the step ends, so a tool still RUNNING reads as a
+ * silent stream. A `wait_for_user_action` longer than the timeout (its default is 300s) or a slow
+ * catalog query was aborted as a stuck provider. Only the MODEL going quiet while nothing else is
+ * happening is a stall.
+ */
+export const createIdleWatchdog = (
+  timeoutMs: number,
+  onIdle: () => void,
+  timers: { set: (fn: () => void, ms: number) => unknown, clear: (handle: unknown) => void } = {
+    set: (fn, ms) => setTimeout(fn, ms),
+    clear: handle => { clearTimeout(handle as ReturnType<typeof setTimeout>) }
+  }
+): IdleWatchdog => {
+  const running = new Set<string>()
+  let handle: unknown
+  let stopped = false
+  const disarm = () => { if (handle !== undefined) timers.clear(handle); handle = undefined }
+  const arm = () => {
+    disarm()
+    if (stopped || running.size) return
+    handle = timers.set(() => { handle = undefined; if (!stopped) onIdle() }, timeoutMs)
+  }
+  arm()
+  return {
+    activity: arm,
+    toolStarted: id => { running.add(id); disarm() },
+    toolEnded: id => { running.delete(id); arm() },
+    stop: () => { stopped = true; disarm() }
+  }
+}
 
 /** Consecutive identical tool-call steps after which the model is reminded it is repeating itself. */
 export const REPEATED_CALL_NUDGE_AT = 3

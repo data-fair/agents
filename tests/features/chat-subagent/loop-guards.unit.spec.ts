@@ -8,7 +8,8 @@ import {
   isRepeatingCalls,
   repeatedCallGuard,
   repeatedCallNudge,
-  loopGuardPrepareStep
+  loopGuardPrepareStep,
+  createIdleWatchdog
 } from '../../../api/src/conversations/loop-guards.ts'
 
 /** One step that made one tool call and got one result back. */
@@ -127,5 +128,74 @@ test.describe('repeatedCallNudge / loopGuardPrepareStep (reminder before the sto
     assert.match(String(result.messages?.[1]?.content), /same arguments/)
     // The caller's array is not mutated: the nudge lives only in that step's request.
     assert.equal(messages.length, 1)
+  })
+})
+
+// The idle watchdog replaced the AI SDK's `chunkMs`, which counted a RUNNING tool as a silent stream: a
+// wait_for_user_action past 90s, or a slow catalog query, was aborted as a stuck provider.
+test.describe('the idle watchdog', () => {
+  /** Timers we fire by hand: `pending` is what is armed right now. */
+  const clock = () => {
+    const armed = new Map<number, () => void>()
+    let next = 0
+    return {
+      timers: {
+        set: (fn: () => void) => { armed.set(++next, fn); return next },
+        clear: (handle: unknown) => { armed.delete(handle as number) }
+      },
+      pending: () => armed.size,
+      fire: () => { for (const [handle, fn] of [...armed]) { armed.delete(handle); fn() } }
+    }
+  }
+
+  test('fires when the model goes silent', () => {
+    const c = clock()
+    let idle = 0
+    createIdleWatchdog(1000, () => { idle++ }, c.timers)
+    c.fire()
+    assert.equal(idle, 1)
+  })
+
+  test('every part starts the silence over', () => {
+    const c = clock()
+    const watchdog = createIdleWatchdog(1000, () => {}, c.timers)
+    watchdog.activity()
+    watchdog.activity()
+    assert.equal(c.pending(), 1, 'one timer, re-armed, never several')
+  })
+
+  test('never fires while a tool runs, however long — and resumes when it ends', () => {
+    const c = clock()
+    let idle = 0
+    const watchdog = createIdleWatchdog(1000, () => { idle++ }, c.timers)
+    watchdog.toolStarted('wait')
+    watchdog.activity() // a part arriving mid-tool (another call settling) must not re-arm it
+    assert.equal(c.pending(), 0)
+    c.fire()
+    assert.equal(idle, 0)
+    watchdog.toolEnded('wait')
+    c.fire()
+    assert.equal(idle, 1)
+  })
+
+  test('parallel tools: silent until the LAST one ends', () => {
+    const c = clock()
+    const watchdog = createIdleWatchdog(1000, () => {}, c.timers)
+    watchdog.toolStarted('a')
+    watchdog.toolStarted('b')
+    watchdog.toolEnded('a')
+    assert.equal(c.pending(), 0)
+    watchdog.toolEnded('b')
+    assert.equal(c.pending(), 1)
+  })
+
+  test('stopped, it never fires', () => {
+    const c = clock()
+    let idle = 0
+    const watchdog = createIdleWatchdog(1000, () => { idle++ }, c.timers)
+    watchdog.stop()
+    watchdog.activity()
+    c.fire()
+    assert.equal(idle, 0)
   })
 })

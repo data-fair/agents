@@ -240,7 +240,9 @@ test.describe('the stream idle watchdog', () => {
     )
     assert.doesNotMatch(executor, /const STREAM_IDLE_TIMEOUT_MS\s*=/, 'the executor must not declare its own copy')
     // A constant imported and unused would pass both checks above while changing nothing.
-    assert.match(executor, /chunkMs: STREAM_IDLE_TIMEOUT_MS/)
+    assert.match(executor, /createIdleWatchdog\(STREAM_IDLE_TIMEOUT_MS/)
+    // And NOT the SDK's chunkMs, which counted a running tool as silence: a wait past 90s was aborted.
+    assert.doesNotMatch(executor, /chunkMs:/)
   })
 
   test('it is an idle bound, so it must be well under the whole-turn ceiling', () => {

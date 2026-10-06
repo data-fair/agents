@@ -150,12 +150,30 @@ const buildMcpServer = (record: (toolName: string) => void): McpServer => {
     async () => { record('wipe_everything'); return { content: [{ type: 'text', text: 'wiped nothing' }] } }
   )
   mcp.registerTool(
+    'snapshot',
+    // The only tool here that returns an IMAGE, which is what an image-bearing result can only be tested
+    // with: such a result is stored and replayed as an envelope, and reaches the model as image parts.
+    { description: 'Returns a tiny PNG chart and a caption', inputSchema: {} },
+    async () => {
+      record('snapshot')
+      return {
+        content: [
+          { type: 'text' as const, text: 'a chart of closures' },
+          { type: 'image' as const, data: SNAPSHOT_PNG, mimeType: 'image/png' }
+        ]
+      }
+    }
+  )
+  mcp.registerTool(
     'ignored',
     { description: 'Exists so toolFilter has something to exclude', inputSchema: {} },
     async () => { record('ignored'); return { content: [{ type: 'text', text: 'ignored' }] } }
   )
   return mcp
 }
+
+/** A 1x1 PNG, what the `snapshot` tool returns as its image. */
+export const SNAPSHOT_PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
 
 export const startMcpFixture = async (port: number): Promise<McpFixture> => {
   let lastHeaders: Record<string, string | string[] | undefined> = {}
