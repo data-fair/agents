@@ -98,6 +98,13 @@ test.describe('usage and errors', () => {
     })
   })
 
+  test('counts cached and cache-written input as prompt tokens, with the cached share broken out', () => {
+    // Anthropic reports only the uncached remainder as input_tokens; alone it read as a 4-token prompt.
+    assert.deepEqual(mapUsage({ input_tokens: 4, cache_read_input_tokens: 9000, cache_creation_input_tokens: 500, output_tokens: 80 }), {
+      prompt_tokens: 9504, completion_tokens: 80, total_tokens: 9584, prompt_tokens_details: { cached_tokens: 9000 }
+    })
+  })
+
   test('returns undefined when the SDK reported no usage', () => {
     assert.equal(mapUsage(undefined), undefined)
   })

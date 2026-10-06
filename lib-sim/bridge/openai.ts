@@ -105,11 +105,20 @@ export function finalChunk (id: string, model: string, finishReason: 'stop' | 't
  * bookkeeping, while consumption is actually against the plan's rate limits. Showing
  * it in the usage UI would invite reading it as real spend.
  */
-export function mapUsage (usage: { input_tokens?: number, output_tokens?: number } | undefined) {
+export function mapUsage (usage: { input_tokens?: number, output_tokens?: number, cache_read_input_tokens?: number, cache_creation_input_tokens?: number } | undefined) {
   if (!usage) return undefined
-  const prompt = usage.input_tokens ?? 0
+  // Anthropic's `input_tokens` is only the UNCACHED remainder, and Claude Code caches nearly every
+  // prompt — so on its own it reported a handful of tokens for calls carrying a whole system prompt
+  // and tool list. OpenAI's `prompt_tokens` is the whole prompt, with the cached share broken out.
+  const cached = usage.cache_read_input_tokens ?? 0
+  const prompt = (usage.input_tokens ?? 0) + cached + (usage.cache_creation_input_tokens ?? 0)
   const completion = usage.output_tokens ?? 0
-  return { prompt_tokens: prompt, completion_tokens: completion, total_tokens: prompt + completion }
+  return {
+    prompt_tokens: prompt,
+    completion_tokens: completion,
+    total_tokens: prompt + completion,
+    ...(cached ? { prompt_tokens_details: { cached_tokens: cached } } : {})
+  }
 }
 
 export function errorBody (message: string, type = 'api_error') {
