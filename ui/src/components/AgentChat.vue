@@ -7,11 +7,12 @@
       :is-admin="isAdmin"
       :title="chatTitle"
       :elevated="headerElevated"
-      :agents="multiAgent ? agents : undefined"
+      :agents="agents"
+      :agent-picker-enabled="multiAgent"
       :active-agent-id="chat.activeAgentId.value"
-      :conversations="multiAgent ? conversations : undefined"
+      :conversations="conversations"
       :active-conversation-id="chat.conversationId.value"
-      :history-enabled="multiAgent"
+      :history-enabled="signedIn"
       @show-debug="showDebugDialog = true"
       @reset="handleReset"
       @select-agent="handleSelectAgent"
@@ -289,17 +290,24 @@ if (!chatResult) {
 const chat = chatResult
 
 /**
- * The switcher's data, back-office only.
+ * The header's agent list and the person's conversation history.
  *
- * Both lists are conveniences over the chat itself: a failure to read either leaves the chat usable,
- * so neither is allowed to surface as the chat's error. What the person sees is the single agent the
- * chat was opened with and no history, which is the front-office shape rather than a broken page.
+ * History is offered to every signed-in person, front office included: it costs nothing to a visitor
+ * who never opens it, and "where was I with this agent" is the same question whatever the embed. The
+ * PICKER stays back-office — portals keep the mono-agent shape.
+ *
+ * Both are conveniences over the chat itself: a failure to read either leaves the chat usable, so
+ * neither is allowed to surface as the chat's error.
  */
 const agents = ref<AgentOption[]>([])
 const conversations = ref<ConversationSummary[]>([])
 
+// History is for people, not visitors: an anonymous thread lives only as long as its socket, so
+// there is never one to list. The agent list doubles as the history's label source.
+const signedIn = computed(() => !!session.state.user)
+
 const loadConversations = async () => {
-  if (!props.multiAgent) return
+  if (!signedIn.value) return
   try {
     const res = await $fetch<{ results: ConversationSummary[] }>(
       `${$apiPath}/conversations/${props.accountType}/${props.accountId}`,
@@ -309,29 +317,30 @@ const loadConversations = async () => {
 }
 
 const loadAgents = async () => {
-  if (!props.multiAgent) return
+  if (!signedIn.value) return
   try {
     const res = await $fetch<{ results: AgentOption[] }>(
       `${$apiPath}/conversations/${props.accountType}/${props.accountId}/agents`,
       { credentials: 'include' })
     agents.value = res.results ?? []
     // The chat may have been opened naming an agent the caller can no longer use (a revoked grant, a
-    // host link built by an admin). Land on one that is actually offered rather than letting the
-    // first message fail on a conversation creation the picker said was possible.
+    // host link built by an admin). With no conversation open yet, land on one that is actually
+    // offered rather than letting the first message fail on a creation the picker said was possible.
+    // A conversation already resumed from the server names its own agent and must not be relabelled.
     const active = chat.activeAgentId.value
-    if (agents.value.length && !agents.value.some(agent => agent.id === active)) {
+    if (props.multiAgent && !chat.conversationId.value && agents.value.length && !agents.value.some(agent => agent.id === active)) {
       chat.setActiveAgent(agents.value[0].id)
     }
   } catch { /* the single agent the chat was opened with stays the fallback */ }
 }
 
 /**
- * Mono mode's name lookup: who was this chat opened on?
+ * Who was this chat opened on?
  *
- * The multi-agent picker's list already carries titles — and only for the agents it offers — while
- * this mode may have been pointed at one disabled agent (the admin's Open link), which still has a
- * name even though it must not run. The configured-agent route answers for both. A standard agent
- * has no document there; its name is the built-in one the fallback title uses, so it is not asked.
+ * The picker's list carries titles too, but only for the agents it offers — a chat may have been
+ * pointed at one disabled agent (the admin's Open link), which still has a name even though it must
+ * not run, and the list drops it. The configured-agent route answers for both. A standard agent has
+ * no document there; its name is the built-in one the fallback title uses, so it is not asked.
  */
 const resolveAgentTitle = async () => {
   const agentId = props.agentId ?? initConfig?.agentId
@@ -407,10 +416,9 @@ onMounted(() => {
       welcomeDelayDone.value = true
     }, 200)
   }
-  if (props.multiAgent) {
+  if (signedIn.value) {
     loadAgents()
     loadConversations()
-  } else {
     resolveAgentTitle()
   }
 })

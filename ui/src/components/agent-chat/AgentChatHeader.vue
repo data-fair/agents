@@ -9,7 +9,7 @@
       class="mr-2 text-secondary flex-shrink-0"
     />
 
-    <v-menu v-if="agents && agents.length > 1">
+    <v-menu v-if="agentPickerEnabled && agents && agents.length > 1">
       <template #activator="{ props: menuProps }">
         <v-btn
           v-bind="menuProps"
@@ -89,10 +89,12 @@
     </v-menu>
 
     <!-- One control, two modes. They mean the same thing — drop this thread and start another with
-         the current agent (use-session-chat's newConversation) — but the back-office needs the
-         history-aware wording, and the front-office must keep exactly the header it always had. -->
+         the current agent (use-session-chat's newConversation) — but the back-office gets the
+         conversation-aware wording, and the front-office must keep exactly the header it always had.
+         Keyed on the PICKER, not on history: history is offered to every signed-in person, mono
+         embeds included, so keying on it silently took the Reset button away from them. -->
     <v-btn
-      v-if="historyEnabled"
+      v-if="agentPickerEnabled"
       :icon="mdiPlus"
       variant="flat"
       density="compact"
@@ -151,8 +153,11 @@ const props = defineProps<{
   // Raised (box-shadow) when the transcript is scrolled under the header, mirroring
   // v-app-bar's scroll-behavior="elevate". Driven by the messages container's scroll.
   elevated?: boolean
-  /** The agents this person may chat with, when the host asked for the switcher. */
+  /** The agents this person may chat with. Always passed when signed in — the history labels its rows
+   * with these titles — but only rendered as a PICKER in back-office mode. */
   agents?: AgentOption[]
+  /** Whether the header offers the picker at all. Portals leave this off and keep the plain title. */
+  agentPickerEnabled?: boolean
   activeAgentId?: string
   /** The person's threads, newest first, across every suggested agent. */
   conversations?: ConversationSummary[]

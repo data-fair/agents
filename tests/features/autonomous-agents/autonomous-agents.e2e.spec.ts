@@ -170,6 +170,9 @@ test.describe('Autonomous agents configuration', () => {
     await fillAndSend(page, 'hello')
 
     await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
+    // History is offered in mono mode too: the thread just used is listed and can be reopened.
+    await page.getByTestId('agent-chat-history').click()
+    await expect(page.getByTestId('agent-chat-conversation')).toHaveCount(1)
   })
 
   test('an org admin without admin mode is not offered the configuration form', async ({ page, goToWithAuth }) => {
@@ -215,6 +218,18 @@ test.describe('Autonomous agent chat', () => {
     await expect(page.getByTestId('agent-chat-transcript')).toContainText('hello')
     // 'world' is the mock model's answer to 'hello'
     await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
+  })
+
+  test('opening the chat again resumes the conversation that was in progress', async ({ page, goToWithAuth }) => {
+    await openChat(goToWithAuth)
+    await page.getByTestId('agent-chat-input').waitFor({ state: 'visible', timeout: 20000 })
+    await fillAndSend(page, 'hello')
+    await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
+
+    // A fresh page load on the same agent continues that thread instead of opening an empty one.
+    await openChat(goToWithAuth)
+    await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
+    await expect(page.getByTestId('agent-chat-transcript')).toContainText('hello')
   })
 
   test('a failed turn explains itself instead of leaving an empty bubble', async ({ page, goToWithAuth }) => {
@@ -307,7 +322,7 @@ test.describe('Agent switcher and conversation history', () => {
     await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
   })
 
-  test('switching agent starts a new conversation with it', async ({ page, goToWithAuth }) => {
+  test('switching agent opens its ongoing conversation, or an empty one when it has none', async ({ page, goToWithAuth }) => {
     await openBackOfficeChat(goToWithAuth)
     await expect(page.getByTestId('agent-chat-agent-picker')).toBeVisible({ timeout: 20000 })
     await fillAndSend(page, 'hello')
@@ -316,9 +331,16 @@ test.describe('Agent switcher and conversation history', () => {
     await page.getByTestId('agent-chat-agent-picker').click()
     await page.getByTestId('agent-chat-agent-option').filter({ hasText: 'Assistant' }).click()
 
-    // Another agent means a new thread: the autonomous agent's transcript is gone, and the picker
-    // now names the personal assistant.
+    // The personal assistant has no thread yet: an empty pane, and the picker names it.
     await expect(page.getByTestId('agent-chat-transcript')).toHaveCount(0)
     await expect(page.getByTestId('agent-chat-agent-picker')).toContainText('Assistant')
+
+    // Back to the autonomous agent: its ongoing conversation is reopened, not a third one started.
+    // The first menu's content must be gone before reopening: clicking through its closing transition
+    // aims at a list item that is about to be detached.
+    await expect(page.getByTestId('agent-chat-agent-option')).toHaveCount(0)
+    await page.getByTestId('agent-chat-agent-picker').click()
+    await page.getByTestId('agent-chat-agent-option').filter({ hasText: 'History agent' }).click()
+    await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
   })
 })

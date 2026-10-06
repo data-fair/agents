@@ -313,6 +313,28 @@ export function useSessionChat (options: UseSessionChatOptions) {
   }
 
   /**
+   * The most recent conversation of an agent that has something in it.
+   *
+   * Opening the chat of an agent resumes this instead of forcing a new thread: a person coming back
+   * to the assistant expects the thread they were in the middle of, not another one. Empty threads
+   * are skipped — clients used to create one per page load, and they are not conversations anyone had.
+   *
+   * Best-effort on purpose: an unknown agent or a revoked grant must surface from conversation
+   * creation, with the server's own sentence, not from this lookup.
+   */
+  const findLatestConversation = async (agentId: string): Promise<{ id: string } | undefined> => {
+    if (options.anonymous) return undefined
+    try {
+      const res = await $fetch<{ results: Array<{ id: string, messageSeq?: number }> }>(
+        `${$apiPath}/conversations/${options.accountType}/${options.accountId}?agentId=${encodeURIComponent(agentId)}`
+      )
+      return res.results?.find(conversation => (conversation.messageSeq ?? 0) > 0)
+    } catch {
+      return undefined
+    }
+  }
+
+  /**
    * Drop the local transcript before the socket is rebound.
    *
    * The frames of the thread being left can still be in flight — a turn may be streaming — so the
@@ -360,17 +382,28 @@ export function useSessionChat (options: UseSessionChatOptions) {
   }
 
   /**
-   * The agent picker's move: another agent means a new conversation with it.
+   * The agent picker's move: land on the agent's ongoing conversation, or on nothing yet.
    *
    * Conversations never change agent. A thread's identity is the agent that answered in it, so
-   * re-running older turns under a new persona would misrepresent both; the picker therefore starts a
-   * fresh thread, and the history list is how an older one is resumed. Re-selecting the current agent
-   * is a no-op — a new thread with it is what the dedicated control is for, and doing it here would
-   * create an empty conversation for a click that changed nothing.
+   * re-running older turns under a new persona would misrepresent both; switching therefore opens the
+   * new agent's most recent thread, and an agent that has none starts fresh on the first message. A
+   * lazy chat gets no empty thread out of a switch; the eager one creates it now, which is also what
+   * reports a revoked grant immediately.
+   *
+   * Re-selecting the current agent is a no-op — a new thread with it is what the dedicated control is
+   * for, and doing it here would create an empty conversation for a click that changed nothing.
    */
   const switchAgent = async (agentId: string) => {
     if (agentId === activeAgentId.value) return
-    await newConversation(agentId)
+    clearThread()
+    activeAgentId.value = agentId
+    const latest = await findLatestConversation(agentId)
+    if (latest) {
+      conversationId.value = latest.id
+      agent.reset(latest.id)
+    } else if (!options.lazyConversation) {
+      await newConversation(agentId)
+    }
   }
 
   /** Select the next conversation's agent WITHOUT creating one: what the picker lands on when the
@@ -415,12 +448,19 @@ export function useSessionChat (options: UseSessionChatOptions) {
       // returning undefined, and this branch would otherwise skip.
       await refreshAnonymousToken()
       agent.connect()
-    } else if (options.lazyConversation) {
-      // No conversation yet: the first send creates one, so `conversationId` stays undefined until then.
-      agent.connect()
     } else {
-      conversationId.value = await createConversation(activeAgentId.value)
-      agent.connect(conversationId.value)
+      // Opening the chat of an agent resumes the thread this person was in the middle of, if any.
+      const latest = await findLatestConversation(activeAgentId.value)
+      if (latest) {
+        conversationId.value = latest.id
+        agent.connect(latest.id)
+      } else if (options.lazyConversation) {
+        // No conversation yet: the first send creates one, so `conversationId` stays undefined.
+        agent.connect()
+      } else {
+        conversationId.value = await createConversation(activeAgentId.value)
+        agent.connect(conversationId.value)
+      }
     }
   }
 
