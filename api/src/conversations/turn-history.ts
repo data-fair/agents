@@ -15,7 +15,7 @@ import type { Conversation, ConversationRun } from '#types'
 import type { UsageIdentity } from '../usage/enforce.ts'
 import { decideContextManagement, clearOldToolResults } from './compaction-policy.ts'
 import { compactionSystemPrompt, recapMessage } from './compaction-prompt.ts'
-import { storedTurnsToModelMessages, alignCutToStoredMessage } from './operations.ts'
+import { storedTurnsToModelMessages, alignCutToStoredMessage, redactModelMedia } from './operations.ts'
 import { saveCompaction, incrementRunSpend } from './service.ts'
 import { resolveRoleModel } from '../models/service.ts'
 import { computeCreditBreakdown } from '../usage/operations.ts'
@@ -115,7 +115,8 @@ export const compactHistory = async (
   const { history, clearing, compaction: decision } = decideContextManagement({
     history: loaded.messages,
     lastInputTokens: 0,
-    appendedChars: JSON.stringify(loaded.messages).length,
+    // Measured with images as placeholders: base64 counted as text would overstate the fill wildly.
+    appendedChars: JSON.stringify(redactModelMedia(loaded.messages)).length,
     budget,
     // The REAL generation, read from the persisted recap. It was hardcoded to 0, which told the
     // summarizer every time that it was seeing raw exchanges — so a chained compaction was asked to
@@ -150,7 +151,8 @@ export const compactHistory = async (
     const { model, entry } = resolveRoleModel(settings, 'summarizer')
     const startedAt = Date.now()
     const system = compactionSystemPrompt(decision.generation - 1)
-    const body = { messages: [{ role: 'user', content: JSON.stringify(prefixToSummarize) }] }
+    // Images as placeholders: the summarizer reads the history as text, where base64 is pure waste.
+    const body = { messages: [{ role: 'user', content: JSON.stringify(redactModelMedia(prefixToSummarize)) }] }
     const generated = await generateText({
       model,
       system,

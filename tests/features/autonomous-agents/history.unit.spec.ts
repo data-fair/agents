@@ -16,6 +16,9 @@ import {
   withAppendedText,
   partsText,
   TOOL_RESULT_LIMIT,
+  toolModelOutput,
+  withProvenance,
+  redactModelMedia,
   type StoredTurn,
   type MessagePart
 } from '../../../api/src/conversations/operations.ts'
@@ -339,5 +342,46 @@ test.describe('the seq map', () => {
     assert.deepEqual(messages.map(m => m.role), ['user', 'assistant', 'tool', 'assistant'])
     assert.deepEqual(seqs, [1, 2, 2, 2])
     assert.equal(messages.length, seqs.length, 'one seq per model message, or the cut cannot be mapped')
+  })
+})
+
+// IMAGES from an MCP tool. formatMcpToolResult keeps a result carrying image parts as an envelope, and
+// turning that into image parts was the gateway's job: without it, the model was sent the envelope as
+// JSON — the base64 inline as text, unseeable as an image and able to fill a window in one call.
+test.describe('image tool results', () => {
+  const envelope = { _agentsMediaResult: true as const, text: 'a chart of closures', media: [{ data: 'iVBORw0KGgo=', mediaType: 'image/png' }] }
+
+  test('reach the model as image parts, live', async () => {
+    const wrapped = withProvenance({ chart: { execute: async () => envelope } as any }, () => 'srv')
+    const output = await (wrapped.chart as any).toModelOutput({ toolCallId: 'c1', input: {}, output: envelope })
+    assert.equal(output.type, 'content')
+    assert.deepEqual(output.value.map((item: any) => item.type), ['text', 'image-data'])
+    assert.equal(output.value[1].data, envelope.media[0].data)
+  })
+
+  test('reach the model as image parts on replay too', async () => {
+    const messages = await replay([
+      userTurn('show me'),
+      { role: 'assistant', parts: [{ type: 'dynamic-tool', toolCallId: 'c1', toolName: 'chart', state: 'output-available', input: {}, output: envelope } as MessagePart] }
+    ])
+    const result = (messages.find(m => m.role === 'tool')!.content as any[])[0]
+    assert.equal(result.output.type, 'content')
+    assert.equal(result.output.value[1].type, 'image-data')
+  })
+
+  test('a plain result is unchanged: text stays text, an object stays JSON', () => {
+    assert.deepEqual(toolModelOutput('rows'), { type: 'text', value: 'rows' })
+    assert.deepEqual(toolModelOutput({ a: 1 }), { type: 'json', value: { a: 1 } })
+  })
+
+  test('where the history becomes text, the payload is a placeholder', async () => {
+    const messages = await replay([
+      userTurn('show me'),
+      { role: 'assistant', parts: [{ type: 'dynamic-tool', toolCallId: 'c1', toolName: 'chart', state: 'output-available', input: {}, output: envelope } as MessagePart] }
+    ])
+    const text = JSON.stringify(redactModelMedia(messages))
+    assert.ok(!text.includes(envelope.media[0].data))
+    assert.match(text, /\[image image\/png ~\d+kB omitted\]/)
+    assert.ok(text.includes('a chart of closures'))
   })
 })

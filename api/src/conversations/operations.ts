@@ -6,6 +6,7 @@
 import { convertToModelMessages, safeValidateUIMessages, type ModelMessage, type Tool } from 'ai'
 import { truncatedToolResultText } from './compaction-policy.ts'
 import { partsText, textPart, type MessagePart } from '@agents/shared/message-parts'
+import { isMediaToolResult, type MediaToolResult } from '@agents/shared/tool-result'
 import type { AccountKeys } from '@data-fair/lib-express'
 // Type-only, so this pure module does not pull in enforce.ts (which reaches mongo and config).
 import type { UsageIdentity } from '../usage/enforce.ts'
@@ -302,7 +303,7 @@ export async function storedTurnsToModelMessages (
     if (!replayable) continue
     const converted = await convertToModelMessages([replayable], { ignoreIncompleteToolCalls: true })
     for (const message of converted) {
-      messages.push(message)
+      messages.push(withMediaOutputs(message))
       seqs.push(turn.seq ?? 0)
     }
   }
@@ -342,6 +343,73 @@ export function withAppendedText (parts: MessagePart[] = [], text: string): Mess
 }
 
 /**
+ * An image-bearing MCP result, as the model needs it: text, then real image (or file) parts.
+ *
+ * `formatMcpToolResult` keeps a result with MCP image parts as an envelope object rather than text.
+ * Turning that envelope into image parts was the GATEWAY's job; with the gateway gone nothing did it,
+ * and the AI SDK sent the object to the model as JSON — the base64 inline as text, which a model
+ * cannot see as an image and which could fill a context window in one call.
+ */
+export const mediaModelOutput = (value: MediaToolResult) => ({
+  type: 'content' as const,
+  value: [
+    ...(value.text ? [{ type: 'text' as const, text: value.text }] : []),
+    ...value.media.map(m => m.mediaType.startsWith('image/')
+      ? { type: 'image-data' as const, data: m.data, mediaType: m.mediaType }
+      : { type: 'file-data' as const, data: m.data, mediaType: m.mediaType })
+  ]
+})
+
+/** What a tool's result becomes for the model: the SDK's own default, except for a media envelope. */
+export const toolModelOutput = (output: unknown) => {
+  if (isMediaToolResult(output)) return mediaModelOutput(output)
+  if (typeof output === 'string') return { type: 'text' as const, value: output }
+  return { type: 'json' as const, value: (output ?? null) as any }
+}
+
+/**
+ * A replayed message with its media envelopes turned into image parts — the history path of the same
+ * conversion `withProvenance` applies live. The replay converts without the tools (see
+ * storedTurnsToModelMessages), so their `toModelOutput` is not there to do it.
+ */
+export const withMediaOutputs = (message: ModelMessage): ModelMessage => {
+  if (message.role !== 'tool' || !Array.isArray(message.content)) return message
+  let changed = false
+  const content = message.content.map((part: any) => {
+    if (part?.type === 'tool-result' && part.output?.type === 'json' && isMediaToolResult(part.output.value)) {
+      changed = true
+      return { ...part, output: mediaModelOutput(part.output.value) }
+    }
+    return part
+  })
+  return changed ? { ...message, content } as ModelMessage : message
+}
+
+/**
+ * The history with every image and file payload replaced by a size placeholder — for where it is
+ * turned back into TEXT: the summarizer's prompt, and the measure of how full the window is. As text,
+ * a 100kB image reads as ~25k tokens and would trigger a compaction for nothing.
+ */
+export const redactModelMedia = (messages: ModelMessage[]): ModelMessage[] => messages.map(message => {
+  if (message.role !== 'tool' || !Array.isArray(message.content)) return message
+  let changed = false
+  const content = message.content.map((part: any) => {
+    if (part?.type !== 'tool-result' || part.output?.type !== 'content') return part
+    changed = true
+    return {
+      ...part,
+      output: {
+        ...part.output,
+        value: part.output.value.map((item: any) => item.type === 'image-data' || item.type === 'file-data'
+          ? { type: 'text', text: `[${item.type === 'image-data' ? 'image' : 'file'} ${item.mediaType} ~${Math.round(String(item.data).length * 3 / 4 / 1024)}kB omitted]` }
+          : item)
+      }
+    }
+  })
+  return changed ? { ...message, content } as ModelMessage : message
+})
+
+/**
  * Wrap each tool so its result reaches the model inside a provenance envelope.
  *
  * Moved here from the executor when the agent session needed it too: a page's contextual tools are
@@ -358,6 +426,8 @@ export const withProvenance = (tools: Record<string, Tool>, serverOf: (name: str
   for (const [name, tool] of Object.entries(tools)) {
     wrapped[name] = {
       ...tool,
+      // An image-bearing result reaches the model as image parts (see mediaModelOutput).
+      toModelOutput: tool.toModelOutput ?? (({ output }: { output: unknown }) => toolModelOutput(output)),
       execute: tool.execute
         ? async (args: any, opts: any) => {
           const result = await tool.execute!(args, opts).catch((err: unknown) => {
@@ -377,10 +447,9 @@ export const withProvenance = (tools: Record<string, Tool>, serverOf: (name: str
             throw new Error(wrapToolResult(serverOf(name), name, detail))
           })
           if (typeof result === 'string') return wrapToolResult(serverOf(name), name, result)
-          // A media result is an envelope the rest of the stack rebuilds into real image
-          // parts by its marker. Stringifying it would inline the base64 into text, lose the
-          // marker, and can blow the context window in a single step — so wrap only its text
-          // and keep the object shape intact.
+          // A media result is an envelope `toModelOutput` (above) turns into real image parts by
+          // its marker. Stringifying it would inline the base64 into text, lose the marker, and can
+          // blow the context window in a single step — so wrap only its text and keep the shape.
           if (result && typeof result === 'object' && '_agentsMediaResult' in (result as any)) {
             const media = result as any
             return { ...media, text: wrapToolResult(serverOf(name), name, String(media.text ?? '')) }

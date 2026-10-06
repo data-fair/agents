@@ -7,10 +7,9 @@
 // prefix the text so the model plainly sees the call failed and can react, instead of
 // silently treating an error (or an empty error body) as a successful result.
 //
-// Results carrying MCP image parts return a `MediaToolResult` envelope object instead.
-// The AI SDK serializes an object tool result as JSON into that same wire string, and
-// the gateway recognizes the `_agentsMediaResult` marker to rebuild real image parts
-// for the provider (see api/src/gateway/operations.ts). Kept pure for unit tests.
+// Results carrying MCP image parts return a `MediaToolResult` envelope object instead, which
+// the server turns into real image parts for the model by its `_agentsMediaResult` marker
+// (`mediaModelOutput` in api/src/conversations/operations.ts). Kept pure for unit tests.
 
 export interface McpCallResult {
   content?: Array<{ type: string, text?: string, data?: string, mimeType?: string }>
