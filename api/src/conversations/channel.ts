@@ -1,9 +1,11 @@
 /**
- * The websocket channel naming for an autonomous agent conversation.
+ * The websocket channel naming for a conversation.
  *
- * In `shared/` because BOTH sides need it: the server authorizes and publishes on it, and the UI
- * subscribes to it. Duplicating the string in two workspaces is how a publisher and a subscriber
- * come to disagree silently.
+ * It lived in `shared/` while the UI subscribed to these channels directly. The unified chat runs on
+ * the agent-session socket and no longer does, so the publisher is the only consumer left — and the
+ * shared-contract test says exactly this: a shared module without a UI consumer belongs under
+ * `api/src`. Kept as its own module rather than inlined in events.ts because the tests exercise the
+ * parser against the same prefix the publisher builds.
  */
 
 /**

@@ -120,16 +120,19 @@ export async function seedSettings (assistantModelId: string, toolsModelId: stri
 }
 
 /**
- * The account and autonomous agent a thread-page route addresses, e.g.
- * `/agents/organization/test1/autonomous-agents/test-fixture`.
+ * The account and autonomous agent a chat route addresses, e.g.
+ * `/agents/organization/test1/chat?agentId=test-fixture`.
  *
  * Parsed from the route rather than restated as extra case fields, so the account whose settings get
- * seeded and the page actually opened cannot disagree.
+ * seeded and the page actually opened cannot disagree. It points at the chat page the autonomous
+ * agent's thread was merged into; the standalone thread page no longer exists.
  */
 export function parseAutonomousAgentRoute (route: string) {
-  const match = route.match(/^\/agents\/(user|organization)\/([^/]+)\/autonomous-agents\/([^/?#]+)/)
-  if (!match) throw new Error(`an autonomous-agent case's route must look like /agents/organization/<id>/autonomous-agents/<agentId>, got ${route}`)
-  return { owner: { type: match[1], id: match[2] }, agentId: match[3] }
+  const url = new URL(route, 'http://localhost')
+  const match = url.pathname.match(/^\/agents\/(user|organization)\/([^/]+)\/chat\/?$/)
+  const agentId = url.searchParams.get('agentId')
+  if (!match || !agentId) throw new Error(`an autonomous-agent case's route must look like /agents/organization/<id>/chat?agentId=<agentId>, got ${route}`)
+  return { owner: { type: match[1], id: match[2] }, agentId }
 }
 
 /**

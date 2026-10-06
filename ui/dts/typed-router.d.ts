@@ -178,13 +178,6 @@ declare module 'vue-router/auto-routes' {
       { id: ParamValue<false>, type: ParamValue<false> },
       | never
     >,
-    '/[type]/[id]/autonomous-agents/[agentId]': RouteRecordInfo<
-      '/[type]/[id]/autonomous-agents/[agentId]',
-      '/:type/:id/autonomous-agents/:agentId',
-      { agentId: ParamValue<true>, id: ParamValue<true>, type: ParamValue<true> },
-      { agentId: ParamValue<false>, id: ParamValue<false>, type: ParamValue<false> },
-      | never
-    >,
     '/[type]/[id]/chat': RouteRecordInfo<
       '/[type]/[id]/chat',
       '/:type/:id/chat',
@@ -400,14 +393,6 @@ declare module 'vue-router/auto-routes' {
         | never
       pathParamNames:
         | never
-    }
-    'src/pages/[type]/[id]/autonomous-agents/[agentId].vue': {
-      routes:
-        | '/[type]/[id]/autonomous-agents/[agentId]'
-      views:
-        | never
-      pathParamNames:
-        | 'agentId'
     }
     'src/pages/[type]/[id]/chat.vue': {
       routes:

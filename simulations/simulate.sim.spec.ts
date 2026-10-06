@@ -65,11 +65,9 @@ for (const simCase of selected) {
       await goToWithAuth(simCase.route, user)
       const root = simCase.embedded ? page.frameLocator('iframe') : page
       // The driver owns the composer AND the off-limits list, so the two cannot disagree about what
-      // "the composer" is called — which matters more now that there are two different composers.
+      // "the composer" is called.
       const locale = 'en' as const
-      const chat = createChatDriver(root, { locale, surface: simCase.surface })
-      // Per-surface readiness: the autonomous agent thread page has no composer until a conversation
-      // exists, so the driver owns getting there rather than the runner assuming one shape.
+      const chat = createChatDriver(root, { locale })
       await chat.prepare()
 
       // A person sees the whole viewport, not one frame: when the chat is embedded,

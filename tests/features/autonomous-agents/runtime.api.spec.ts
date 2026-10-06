@@ -7,7 +7,7 @@ import { axiosAuth, superAdmin, clean, directoryUrl } from '../../support/axios.
 import { putMockSettings, mockModels, mockModelRef } from '../../support/settings.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 import { openWsClient, type WsClient } from '../../support/ws.ts'
-import { conversationChannel } from '@agents/shared/conversation-channel'
+import { conversationChannel } from '../../../api/src/conversations/channel.ts'
 import { partsText } from '../../../api/src/conversations/operations.ts'
 
 /**
@@ -87,13 +87,46 @@ test.describe('Autonomous agent conversations', () => {
     )
   })
 
-  test('listing threads without naming an autonomous agent is refused', async () => {
-    // agentId is what the instruct check resolves against, so it cannot be
-    // optional: without it there is no agent whose instructors list can be consulted.
-    await assert.rejects(
-      orgAdmin.get('/api/conversations/organization/test1'),
-      { status: 400 }
-    )
+  test('listing without an agentId returns this person\'s usable threads, skipping empty ones', async () => {
+    const agent = await createAgent()
+    // An empty thread is an artifact of the old eager chat, not history: the unified chat creates a
+    // conversation with its first message.
+    await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 'Empty' })
+    const used = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 'Used' })).data
+    await orgAdmin.post(`/api/conversations/organization/test1/${used.id}/messages`, { content: 'hello' })
+
+    const list = await orgAdmin.get('/api/conversations/organization/test1')
+    assert.equal(list.status, 200)
+    assert.deepEqual(list.data.results.map((c: any) => c.id), [used.id])
+
+    // The caller's own threads only — a member with no grant sees nothing of an agent they cannot use,
+    // which is the same privacy rule the per-agent list applies.
+    const memberList = await orgMember.get('/api/conversations/organization/test1')
+    assert.equal(memberList.data.count, 0)
+  })
+
+  test('the agents list offers the standard agent and the enabled autonomous agents this person may instruct', async () => {
+    await putMockSettings(admin, 'organization/test1')
+    const agent = await createAgent({ instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }] })
+    await createAgent({ title: 'Disabled', enabled: false })
+    await createAgent({ title: 'Hidden' })
+
+    const adminList = (await orgAdmin.get('/api/conversations/organization/test1/agents')).data.results
+    // The personal assistant is offered because the mock settings grant every role a model quota; it
+    // is exactly the gate conversation creation applies.
+    assert.ok(adminList.some((a: any) => a.id === 'personal' && a.kind === 'standard'))
+    assert.ok(adminList.some((a: any) => a.id === agent.id && a.kind === 'configured'))
+    assert.ok(adminList.some((a: any) => a.title === 'Hidden'), 'an account admin may instruct every enabled agent')
+    assert.ok(!adminList.some((a: any) => a.title === 'Disabled'), 'a disabled agent must not be offered')
+
+    // A listed instructor sees their agent, not the agents they were not granted: being able to
+    // enumerate every configured agent is itself a disclosure. The personal assistant is absent for
+    // them here because defaultQuotas grants no `user` quota — the same gate that would refuse their
+    // first personal-assistant message, so the picker not offering it is the honest answer.
+    const memberList = (await orgMember.get('/api/conversations/organization/test1/agents')).data.results
+    assert.ok(memberList.some((a: any) => a.id === agent.id))
+    assert.ok(!memberList.some((a: any) => a.id === 'personal'))
+    assert.ok(!memberList.some((a: any) => a.title === 'Hidden'))
   })
 
   test('posting a message appends it, bumps the seq, and returns a runId', async () => {

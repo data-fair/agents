@@ -11,6 +11,15 @@ collections. What still distinguishes an autonomous agent is WHO it acts as (its
 rather than the person's forwarded session), WHO it bills as (itself rather than the person), and that
 it is configured rather than built in.
 
+The UI converges too: there is ONE chat window. `GET /api/conversations/:type/:id/agents` lists what
+the caller may talk to — the standard agents they may use plus the enabled configured agents they may
+instruct — and `GET /api/conversations/:type/:id` (its `agentId` optional) feeds the history.
+Front-office embeds stay mono-agent; the back office sets `agents` on the embeddable components and
+gets the picker and history (see [Embedding](./embedding.md#back-office-mode-agents)). The standalone
+thread page autonomous agents used to have is gone: it duplicated the chat on a second transport (HTTP
++ pub/sub), and driving turns through the chat's socket is what gives them the page's tools and the
+lived activity/abort signal.
+
 ## What it is made of
 
 | Collection | Holds |

@@ -62,6 +62,16 @@ export const STANDARD_AGENTS: Record<string, StandardAgentDefinition> = {
 /** Whether an id names a standard agent. Also what makes these ids reserved against configured ones. */
 export const isStandardAgentId = (id: string): boolean => Object.hasOwn(STANDARD_AGENTS, id)
 
+/** What a picker needs to name a standard agent, without exposing its persona. */
+export interface StandardAgentDescriptor {
+  id: string
+  title: string
+}
+
+/** Every standard agent this deployment ships, for the chat's agent list. */
+export const listStandardAgents = (): StandardAgentDescriptor[] =>
+  Object.entries(STANDARD_AGENTS).map(([id, definition]) => ({ id, title: definition.title }))
+
 /**
  * Build a standard agent, or undefined when the id names none.
  *

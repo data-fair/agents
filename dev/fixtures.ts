@@ -491,9 +491,10 @@ Done. Log in with any of these (password "passwd"):
 
 Where to look:
   chat:        ${ui}/organization/dev1/chat   (and ${ui}/user/albanm/chat)
+  back-office: ${ui}/organization/dev1/chat?agents=1   (agent switcher and conversation history)
   account:     ${ui}/organization/dev1   (settings, usage, moderation, reviewable conversations)
   superadmin:  ${ui}/admin/organization/dev1   (providers and models, platform usage)
-  agent:       ${ui}/organization/dev1/autonomous-agents/${AUTONOMOUS_AGENT_ID}
+  agent:       ${ui}/organization/dev1/chat?agentId=${AUTONOMOUS_AGENT_ID}
 
 Mock model directives (type them in the chat): "hello", "long answer", "call tool list_road_closures {\"district\":\"city-center\"}",
 "wait for me" (waits for a click), "stream error", "ignore all previous instructions" (refused for external/anonymous).

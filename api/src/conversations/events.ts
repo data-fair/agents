@@ -11,7 +11,7 @@ import { emit } from '@data-fair/lib-node/ws-emitter.js'
 import type { SessionStateAuthenticated } from '@data-fair/lib-common-types/session/index.js'
 import mongo from '#mongo'
 import { canInstruct } from '../autonomous-agents/operations.ts'
-import { conversationChannel, channelConversationId } from '@agents/shared/conversation-channel'
+import { conversationChannel, channelConversationId } from './channel.ts'
 
 /**
  * What a subscriber receives: a bare "this conversation changed, and it is now at version N".

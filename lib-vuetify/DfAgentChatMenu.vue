@@ -89,6 +89,8 @@ const props = withDefaults(defineProps<{
   agentId?: string
   /** @deprecated Use `agentId`. Ignored, with a one-time console warning. */
   systemPrompt?: string
+  /** Back-office: show the agent switcher and the person's conversation history. */
+  agents?: boolean
   title?: string
   initConfigKey?: string
   btnProps?: BtnProps

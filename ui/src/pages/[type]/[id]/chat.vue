@@ -5,39 +5,39 @@
       :title="chatTitle"
       :agent-id="agentId"
       :narrow-viewport="narrowViewport"
+      :multi-agent="multiAgent"
       :account-type="accountType"
       :account-id="accountId"
     />
   </div>
 </template>
 
-<i18n lang="yaml">
-fr:
-  defaultTitle: Assistant
-en:
-  defaultTitle: Assistant
-</i18n>
-
 <script lang="ts" setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { getAccountRole, useSession } from '@data-fair/lib-vue/session.js'
 import AgentChat from '~/components/AgentChat.vue'
 
-const { t } = useI18n()
 const route = useRoute('/[type]/[id]/chat')
 const session = useSession()
 
 const accountType = computed(() => route.params.type as string)
 const accountId = computed(() => route.params.id as string)
 
-const chatTitle = useStringSearchParam('title', { default: t('defaultTitle') })
+// No default: a title the host did not choose must stay absent, so `AgentChat` can name an agent
+// this page was pointed at (`?agentId=`) rather than always falling back to a generic "Assistant".
+const chatTitle = useStringSearchParam('title')
 // Names an agent; it does NOT carry prose. The former `?systemPrompt=` on this route let anyone who
 // could craft a link set the model's instructions — the sharpest form of the client-controlled
 // instruction problem, since it needed no host application at all. An unknown id is refused by the
 // server rather than resolved here.
 const agentId = useStringSearchParam('agentId')
+
+// The back-office asks for the switcher; the front-office does not and keeps the mono-agent shape.
+// A query parameter rather than a route of its own, because the two are the same chat: same socket,
+// same transcript, same composer — only the window's chrome differs.
+const agentsParam = useStringSearchParam('agents')
+const multiAgent = computed(() => agentsParam.value === '1' || agentsParam.value === 'true')
 
 const narrowViewport = ref(window.innerWidth < 500)
 onMounted(() => {

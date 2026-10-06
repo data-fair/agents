@@ -129,15 +129,21 @@ export function resolveAgentChatUrl (props: {
   src?: string
   accountType?: string
   accountId?: string
+  /**
+   * Back-office mode: the chat offers the agent switcher and the person's conversation history.
+   * Off (the default) is the front-office shape — one agent, one thread — and is what portals embed.
+   */
+  agents?: boolean
 }, initConfigKey?: string): string {
   let url: string
   if (props.src) url = props.src
   else if (props.accountType && props.accountId) url = `${window.location.origin}/agents/${props.accountType}/${props.accountId}/chat`
   else return ''
 
-  if (initConfigKey) {
+  if (initConfigKey || props.agents) {
     const parsed = new URL(url, window.location.origin)
-    parsed.searchParams.set('initConfig', initConfigKey)
+    if (initConfigKey) parsed.searchParams.set('initConfig', initConfigKey)
+    if (props.agents) parsed.searchParams.set('agents', '1')
     url = parsed.toString()
   }
   return url

@@ -79,8 +79,12 @@
                     :title="agent.nhi.clientId"
                     :text="t('enrolled')"
                   />
+                  <!-- Mono-agent, exactly like a host embed: this is the agent's own page, not the
+                       back-office switcher (which belongs to data-fair's layout and asks for it with
+                       `agents=1`). A disabled agent is still openable — the turn refusal is the
+                       message an admin checking the kill switch needs to see. -->
                   <v-btn
-                    :to="`/${accountType}/${accountId}/autonomous-agents/${agent.id}`"
+                    :to="{ path: `/${accountType}/${accountId}/chat`, query: { agentId: agent.id } }"
                     variant="text"
                     size="small"
                     :text="t('open')"

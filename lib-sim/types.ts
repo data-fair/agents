@@ -17,8 +17,9 @@ export type SimulationCase = {
   /** Give up after this many user turns; the judge sees how far it got. */
   maxTurns: number
   /**
-   * Which surface the persona operates. Defaults to the in-page assistant, so existing cases are
-   * untouched; 'autonomous-agent' drives an autonomous agent's thread page instead.
+   * What the case is dispatched as. Defaults to the in-page assistant; 'autonomous-agent' means the
+   * chat is opened on a configured autonomous agent, so the runner seeds that agent and reads its
+   * tool calls from the server. The UI is the same chat either way.
    */
   surface?: 'in-page-chat' | 'autonomous-agent'
   /**

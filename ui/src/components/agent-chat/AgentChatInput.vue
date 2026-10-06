@@ -3,6 +3,7 @@
     <v-form @submit.prevent="handleSend">
       <v-textarea
         v-model="localInput"
+        data-testid="agent-chat-input"
         :placeholder="t('placeholder')"
         color="secondary"
         variant="outlined"
@@ -31,6 +32,7 @@
             size="x-small"
             color="error"
             class="composer-action"
+            data-testid="agent-chat-stop"
             :title="t('stop')"
             @click="$emit('abort')"
           />
@@ -41,6 +43,7 @@
             size="x-small"
             color="secondary"
             class="composer-action"
+            data-testid="agent-chat-send"
             :disabled="!localInput.trim()"
             :title="t('send')"
             @click="handleSend"

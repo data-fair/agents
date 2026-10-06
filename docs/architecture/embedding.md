@@ -114,7 +114,8 @@ All three components (drawer, menu, block) accept:
 | `accountId` | `string` | Account ID for the chat session |
 | `src` | `string` | Custom iframe URL (overrides account-based URL resolution) |
 | `chatTitle` | `string` | Title displayed in the chat header |
-| `agentId` | `string` | Which standard agent to talk to (`api/src/agent-session/standard-agents.ts`; `personal` is the default). Replaces `systemPrompt` — but see [Initial Configuration](#initial-configuration-agentid--title) for how far it currently reaches |
+| `agentId` | `string` | Which agent to talk to (`api/src/agent-session/standard-agents.ts` for the standard ones; `personal` is the default). Replaces `systemPrompt` |
+| `agents` | `boolean` | **Back-office mode**: the chat offers the agent switcher (the personal assistant plus every autonomous agent the caller may instruct in the account) and the person's conversation history. Off — the front-office shape — embeds stay mono-agent and open one thread |
 | `systemPrompt` | `string` | **Deprecated, ignored** — logs a one-time console warning (`hostInitConfig`) |
 | `initConfigKey` | `string` | Override the per-variant init-config key. Only needed when mounting several instances of the same variant in one tab (defaults to `'drawer'` / `'menu'` / `'block'`) |
 
@@ -314,9 +315,18 @@ The iframe URL is resolved as follows:
 1. If `src` prop is provided → use it directly
 2. Otherwise → `{origin}/agents/{accountType}/{accountId}/chat`
 
-The drawer/menu/block components then append a single `?initConfig=<key>` query parameter (see next section).
+The drawer/menu/block components then append `?initConfig=<key>` (see next section) and, when the `agents` prop is set, `&agents=1`.
 
-> **Direct-URL embeds:** the chat page reads `?title=` and `?agentId=` query params directly. The former `?systemPrompt=` is gone: it let anyone who could craft a link set the model's instructions. An unknown agent id is refused by the server.
+> **Direct-URL embeds:** the chat page reads `?title=`, `?agentId=` and `?agents=1` query params directly. The former `?systemPrompt=` is gone: it let anyone who could craft a link set the model's instructions. An unknown agent id is refused by the server.
+
+### Back-office mode (`agents`)
+
+The same chat window serves both offices. In the front office (portals) it is embedded with no `agents` prop: one agent, one thread, exactly as before. In the back office (data-fair) the host sets `agents`, and the header gains:
+
+- an **agent picker** fed by `GET /api/conversations/:type/:id/agents` — the standard agents the caller may use plus every enabled configured agent they may instruct (`canInstruct`), so the list cannot offer one the first message would be refused for;
+- a **history** menu fed by `GET /api/conversations/:type/:id` without an `agentId` — the caller's own non-empty threads across all those agents, newest first, each labelled with its agent. Selecting one rebinds the socket to it and the server replays its stored transcript.
+
+Selecting a different agent starts a **new conversation** with it (a thread's identity is the agent that answered in it; the history is how an older thread is resumed). Conversations are created lazily, on the first message, so opening or switching never leaves an empty thread behind.
 
 ---
 
@@ -329,7 +339,7 @@ The mechanism was introduced to carry an arbitrarily long `systemPrompt` past ng
 How it works:
 1. Each component writes `{ agentId, title }` to sessionStorage under a per-variant key via `setAgentInitConfig(key, hostInitConfig(props))` (`hostInitConfig` drops `systemPrompt` with a one-time warning).
 2. The component appends `?initConfig=<key>` to the iframe URL.
-3. The chat iframe (`AgentChat.vue`) reads its key from the URL and loads the config via `getAgentInitConfig(key)`. Today it takes only `title` from it (in precedence over its props): the agent id it uses is its `agentId` prop, which the chat page fills from `?agentId=`, so an `agentId` written to the init config does not reach the session yet.
+3. The chat iframe (`AgentChat.vue`) reads its key from the URL and loads the config via `getAgentInitConfig(key)`. It takes both fields: the title (init config wins over props) and the agent id (the page's `?agentId=` wins, then the init config), which is what makes an embedded chat actually talk to the agent its host named.
 
 The key defaults to the variant name (`'drawer'` / `'menu'` / `'block'`), so one of each can coexist in a tab without clobbering. Mounting several of the **same** variant in one tab requires distinct `initConfigKey` props.
 

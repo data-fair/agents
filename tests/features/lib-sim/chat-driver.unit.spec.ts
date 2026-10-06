@@ -77,52 +77,16 @@ test.describe('chat driver composer strings', () => {
     assert.ok(activity.includes("kind: 'waiting'"), "the 'waiting' activity kind is gone")
   })
 
-  test('the in-page surface keeps the composer and the reset button off-limits', () => {
+  test('the chat keeps the composer and the reset button off-limits', () => {
     // Drift guard on the harness side, complementing page-perception's own off-limits tests. The list
-    // now lives on the driver, beside the controls it names, so the two cannot disagree about what
-    // "the composer" is — which matters more with two different composers. Asserted from the driver's
-    // value rather than by scanning the runner's source, which broke the moment the list moved.
+    // lives on the driver, beside the controls it names, so the two cannot disagree about what "the
+    // composer" is. Asserted from the driver's value rather than by scanning the runner's source,
+    // which broke the moment the list moved.
     const driver = createChatDriver({} as any)
     const strings = chatDriverStrings('en')
     for (const name of [strings.input, strings.send, strings.stop, strings.reset]) {
       assert.ok(driver.offLimits.includes(name), `${name} must stay off-limits to the persona`)
     }
-  })
-
-  test('the autonomous agent surface keeps ITS composer off-limits, in BOTH locales', () => {
-    // A new surface with a composer nobody had listed would silently let the persona type its own
-    // message into the page and press Send — the harness would then report a conversation the person
-    // never had. Asserting the driver's own English literals could not catch that: the list ignored
-    // `locale` entirely, so a French run left Send and New conversation reachable.
-    //
-    // So the labels are read from the PAGE, not restated here. A rename of an i18n value (or a new
-    // locale added to the page but not to the driver) fails this test instead of silently handing the
-    // persona a control it must not touch.
-    const page = readFileSync(new URL('../../../ui/src/pages/[type]/[id]/autonomous-agents/[agentId].vue', import.meta.url), 'utf8')
-    const i18n = page.match(/<i18n lang="yaml">([\s\S]*?)<\/i18n>/)?.[1]
-    assert.ok(i18n, 'the thread page must still carry an <i18n> block for this test to read')
-
-    for (const locale of ['en', 'fr'] as const) {
-      const block = i18n.split(new RegExp(`^${locale}:$`, 'm'))[1]
-      assert.ok(block, `the thread page must define the ${locale} locale`)
-      const labels = ['composer', 'send', 'newConversation'].map(key => {
-        const value = block.match(new RegExp(`^\\s+${key}:\\s*(.+)$`, 'm'))?.[1]?.trim()
-        assert.ok(value, `the thread page must define ${locale}.${key}`)
-        return value
-      })
-      const driver = createChatDriver({} as any, { surface: 'autonomous-agent', locale })
-      for (const label of labels) {
-        assert.ok(
-          driver.offLimits.includes(label),
-          `${locale}: "${label}" is a control on the thread page, so it must be off-limits (have: ${driver.offLimits.join(', ')})`
-        )
-      }
-    }
-  })
-
-  test('an unknown surface is refused rather than silently treated as the default', () => {
-    // A typo in a case would otherwise drive the wrong composer and time out with no diagnosis.
-    assert.throws(() => createChatDriver({} as any, { surface: 'autonomus-agent' as any }))
   })
 })
 

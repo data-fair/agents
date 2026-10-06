@@ -65,8 +65,8 @@ export const cases: LocalCase[] = [
     maxTurns: 6
   },
   {
-    // Drives an autonomous agent's own thread page rather than an in-page chat: a different composer
-    // and a different end-of-turn signal, same transcript component underneath.
+    // Drives the chat opened on an autonomous agent rather than on the personal assistant. Same
+    // composer and transcript as any other case now — the standalone thread page was removed.
     name: 'autonomous-agent-tool-use',
     // Needs `npm run dev-mcp` (the agent's tools). The agent itself is seeded by the runner, on the
     // TEST org: pointing at dev1's hand-review fixture would run on the mock model its settings map
@@ -74,7 +74,7 @@ export const cases: LocalCase[] = [
     // test1-user1 is a LISTED INSTRUCTOR, not an admin — the realistic shape, and the one that
     // exercises the grant. An org admin could not be used anyway: the login fixture derives the
     // address as `<id>@test.com`, which test1's admin has but dev1's two (albanm, dmeadus0) do not.
-    route: '/agents/organization/test1/autonomous-agents/test-fixture',
+    route: '/agents/organization/test1/chat?agentId=test-fixture',
     surface: 'autonomous-agent',
     user: 'test1-user1',
     persona: 'You are an operations manager at a mid-sized French city. You are comfortable asking for outcomes but you have never heard of MCP, tools, or schemas, and you will not use those words. You say what you need in plain language and you expect the assistant to do the work.',
@@ -89,7 +89,7 @@ export const cases: LocalCase[] = [
   {
     // The other half of "uses its tools and reports usefully": what it does when it cannot.
     name: 'autonomous-agent-cannot-answer',
-    route: '/agents/organization/test1/autonomous-agents/test-fixture',
+    route: '/agents/organization/test1/chat?agentId=test-fixture',
     surface: 'autonomous-agent',
     user: 'test1-user1',
     persona: 'You are a finance officer who assumes any assistant can look anything up. You are polite but persistent, and you dislike vague answers.',

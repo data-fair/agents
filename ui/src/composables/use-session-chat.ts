@@ -20,7 +20,7 @@
  * An anonymous visitor is served too (`anonymous`), on a thread that lives as long as the socket.
  */
 
-import { ref, shallowRef, computed, watch, onScopeDispose, type Ref } from 'vue'
+import { ref, shallowRef, computed, watch, onScopeDispose, readonly, type Ref } from 'vue'
 import type { Tool } from 'ai'
 import type { ChatActivity } from '@agents/shared/agent-activity'
 import { splitHiddenContext } from '@agents/shared/hidden-context'
@@ -35,6 +35,7 @@ import type { ChatMessage } from '~/utils/chat-message'
 import { $apiPath, $fetch } from '~/context'
 import { traceStorageAvailable, consentRef } from '~/traces/trace-consent'
 import { getAnonymousToken, resetAnonymousToken } from '~/composables/use-anonymous-token'
+import { apiErrorMessage } from '~/utils/api-error'
 
 const debug = Debug('df-agents:use-session-chat')
 
@@ -45,8 +46,19 @@ export interface UseSessionChatOptions {
   agentId?: string
   /** Shown before anything has been said. Never sent anywhere. */
   initialMessages?: ChatMessage[]
-  /** The title the conversation is created with. */
+  /** The title a created conversation is stored with. Falls back to the creation date, which is what
+   * the history list shows, so two threads of the same agent are distinguishable. */
   title?: string
+  /** Bind the socket to this conversation instead of creating one. */
+  initialConversationId?: string
+  /**
+   * Do not create a conversation up front: the first message creates one.
+   *
+   * This is what the multi-agent chat needs. It opens with the composer and a history list, and an
+   * eagerly created thread would appear in that list — empty — before the person has said anything,
+   * once per visit. A conversation that was never spoken into is noise, not history.
+   */
+  lazyConversation?: boolean
   /**
    * No signed-in person: the thread is created by the server on the socket's hello and lives as long
    * as the socket (see the `hello` frame), and the caller proves it is a browser with
@@ -243,7 +255,22 @@ export function useSessionChat (options: UseSessionChatOptions) {
     }
   })
 
-  const conversationId = agent.conversationId
+  /**
+   * The conversation this chat believes it is bound to.
+   *
+   * Its own ref, not the socket's `attached` echo: the echo is `'pending'` between a conversation-less
+   * hello and the first reset (the lazy path), and treating that as an id would make the first send
+   * skip creation and prompt into nothing. The one case where the server is the only source is an
+   * anonymous visitor, whose thread it creates — hence the watch.
+   */
+  const conversationId = ref<string | undefined>(options.initialConversationId)
+  watch(agent.conversationId, id => {
+    if (options.anonymous && id && id !== 'pending') conversationId.value = id
+  })
+
+  /** Which agent subsequent conversations and turns use. The socket's hello names it only for the
+   * anonymous path — a signed-in conversation carries its own agent. */
+  const activeAgentId = ref(options.agentId ?? 'personal')
 
   // The consent sheet's trigger, and the answer's path back.
   //
@@ -273,17 +300,82 @@ export function useSessionChat (options: UseSessionChatOptions) {
    * Create a conversation over HTTP. The socket binds to one; it does not make them — except for an
    * anonymous visitor, who has no HTTP route to make one with: undefined, and the hello creates it.
    */
-  const createConversation = async (): Promise<string | undefined> => {
+  const createConversation = async (agentId: string): Promise<string | undefined> => {
     if (options.anonymous) {
       await refreshAnonymousToken()
       return undefined
     }
     const conversation = await $fetch(
       `${$apiPath}/conversations/${options.accountType}/${options.accountId}`,
-      { method: 'POST', body: { agentId: options.agentId ?? 'personal', title: options.title ?? 'chat' } }
+      { method: 'POST', body: { agentId, title: options.title ?? new Date().toLocaleString() } }
     )
     return conversation.id
   }
+
+  /**
+   * Drop the local transcript before the socket is rebound.
+   *
+   * The frames of the thread being left can still be in flight — a turn may be streaming — so the
+   * abort is not politeness: without it the last deltas of the old thread would land in the new one's
+   * transcript. The server's replay on attach replaces all of this for the thread being opened.
+   */
+  const clearThread = () => {
+    agent.abort()
+    turns.value = []
+    subAgentPanels.value = {}
+    subAgentActivities.value = {}
+    conversationCost.value = 0
+    error.value = null
+    status.value = 'ready'
+  }
+
+  /**
+   * Start a fresh conversation with an agent — the current one by default.
+   *
+   * A failure to create is recorded as the chat's error rather than thrown: every caller is a click
+   * or the first message of a lazy thread, and an unhandled rejection would leave the composer
+   * enabled over a conversation that does not exist.
+   */
+  const newConversation = async (agentId: string = activeAgentId.value): Promise<string | undefined> => {
+    clearThread()
+    activeAgentId.value = agentId
+    try {
+      const id = await createConversation(agentId)
+      conversationId.value = id
+      agent.reset(id)
+      return id
+    } catch (err: any) {
+      status.value = 'error'
+      error.value = apiErrorMessage(err) ?? 'this conversation could not be opened'
+      return undefined
+    }
+  }
+
+  /** Open an existing conversation, binding the socket to it so it replays its history. */
+  const openConversation = (agentId: string, id: string) => {
+    clearThread()
+    activeAgentId.value = agentId
+    conversationId.value = id
+    agent.reset(id)
+  }
+
+  /**
+   * The agent picker's move: another agent means a new conversation with it.
+   *
+   * Conversations never change agent. A thread's identity is the agent that answered in it, so
+   * re-running older turns under a new persona would misrepresent both; the picker therefore starts a
+   * fresh thread, and the history list is how an older one is resumed. Re-selecting the current agent
+   * is a no-op — a new thread with it is what the dedicated control is for, and doing it here would
+   * create an empty conversation for a click that changed nothing.
+   */
+  const switchAgent = async (agentId: string) => {
+    if (agentId === activeAgentId.value) return
+    await newConversation(agentId)
+  }
+
+  /** Select the next conversation's agent WITHOUT creating one: what the picker lands on when the
+   * agent the chat was opened with is not offered, and creation is deferred to the first message. */
+  const setActiveAgent = (agentId: string) => { activeAgentId.value = agentId }
 
   /**
    * The page's own events, forwarded up the socket instead of into a local store.
@@ -314,12 +406,29 @@ export function useSessionChat (options: UseSessionChatOptions) {
       }
     })
     aggregator.start()
-    agent.connect(await createConversation())
+    if (options.initialConversationId) {
+      conversationId.value = options.initialConversationId
+      agent.connect(options.initialConversationId)
+    } else if (options.anonymous) {
+      // The server creates the thread on this hello, but only for a browser that proves itself with a
+      // fresh anonymous action token — which `createConversation` used to fetch as a side effect of
+      // returning undefined, and this branch would otherwise skip.
+      await refreshAnonymousToken()
+      agent.connect()
+    } else if (options.lazyConversation) {
+      // No conversation yet: the first send creates one, so `conversationId` stays undefined until then.
+      agent.connect()
+    } else {
+      conversationId.value = await createConversation(activeAgentId.value)
+      agent.connect(conversationId.value)
+    }
   }
 
   start().catch(err => {
     status.value = 'error'
-    error.value = err?.message ?? 'this conversation could not be opened'
+    // The server's sentence (a 403 naming the missing grant, for instance) is in the response body;
+    // `message` on a lib-express error is only the HTTP status text.
+    error.value = apiErrorMessage(err) ?? 'this conversation could not be opened'
   })
 
   onScopeDispose(() => {
@@ -345,8 +454,18 @@ export function useSessionChat (options: UseSessionChatOptions) {
     fetchSelfUsage: async () => $fetch(`${$apiPath}/usage/${options.accountType}/${options.accountId}/self`,
       options.anonymous ? { headers: { 'x-anonymous-token': anonymousToken ?? await getAnonymousToken() } } : {}),
 
-    sendMessage (content: string, sendOptions?: { hiddenContext?: string }) {
+    /**
+     * Send a turn. The first message of a lazy or just-switched chat creates its conversation here,
+     * so a failure to create (a quota, a revoked grant) is reported as this send's error rather than
+     * surfacing as an unhandled rejection with the composer still enabled.
+     */
+    async sendMessage (content: string, sendOptions?: { hiddenContext?: string }) {
       if (!content.trim()) return
+      if (!conversationId.value && !options.anonymous) {
+        // An error was already recorded by newConversation; do not prompt into a thread that is not
+        // bound, which the server would refuse with a second, less useful message.
+        if (!await newConversation()) return
+      }
       error.value = null
       status.value = 'streaming'
       // The user turn is NOT added locally. The server stores it and sends it back as a `message`
@@ -360,17 +479,18 @@ export function useSessionChat (options: UseSessionChatOptions) {
       status.value = 'ready'
     },
 
-    /** Start a fresh thread: a new conversation, and the socket rebound to it. */
-    async reset () {
-      agent.abort()
-      turns.value = []
-      subAgentPanels.value = {}
-      subAgentActivities.value = {}
-      conversationCost.value = 0
-      error.value = null
-      status.value = 'ready'
-      agent.reset(await createConversation())
+    /** Start a fresh thread with the current agent: a new conversation, and the socket rebound to it. */
+    reset () {
+      return newConversation()
     },
+
+    /** The chat's current agent — the picker's selection, and what a new conversation is created with. */
+    activeAgentId: readonly(activeAgentId),
+    /** Open an existing conversation from the history list. */
+    openConversation,
+    /** Another agent means a new conversation with it. */
+    switchAgent,
+    setActiveAgent,
 
     /** Report what is true on the page, for the model's context. */
     reportHostState: agent.reportHostState,

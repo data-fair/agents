@@ -19,6 +19,7 @@ declare global {
   const FLAGS_COOKIE: typeof import('../src/utils/agent-flags').FLAGS_COOKIE
   const MERMAID_AUTO_FIX_BUDGET: typeof import('../src/utils/mermaid-fix').MERMAID_AUTO_FIX_BUDGET
   const TOOL_ARGUMENTS_LIMIT: typeof import('../src/utils/tool-arguments').TOOL_ARGUMENTS_LIMIT
+  const apiErrorMessage: typeof import('../src/utils/api-error').apiErrorMessage
   const appendStreamingCaret: typeof import('../src/utils/markdown').appendStreamingCaret
   const autonomousAgentEditDraft: typeof import('../src/utils/autonomous-agent-draft').autonomousAgentEditDraft
   const autonomousAgentMessageToChat: typeof import('../src/utils/autonomous-agent-chat-message').autonomousAgentMessageToChat
@@ -100,6 +101,7 @@ declare global {
   const resetAnonymousToken: typeof import('../src/composables/use-anonymous-token').resetAnonymousToken
   const resolveComponent: typeof import('vue').resolveComponent
   const resolveToolsPartition: typeof import('../src/utils/tools-partition').resolveToolsPartition
+  const rewriteSimpleDirectoryUrl: typeof import('../src/utils/simple-directory-url').rewriteSimpleDirectoryUrl
   const serializeFlagsCookie: typeof import('../src/utils/agent-flags').serializeFlagsCookie
   const setBreadcrumbs: typeof import('../src/utils/breadcrumbs').setBreadcrumbs
   const shallowReactive: typeof import('vue').shallowReactive
@@ -175,6 +177,9 @@ declare global {
   export type { StoredConversationMessage, AutonomousAgentPart } from '../src/utils/autonomous-agent-chat-message'
   import('../src/utils/autonomous-agent-chat-message')
   // @ts-ignore
+  export type { AgentOption, ConversationSummary } from '../src/utils/chat-agents'
+  import('../src/utils/chat-agents')
+  // @ts-ignore
   export type { ChatMessage } from '../src/utils/chat-message'
   import('../src/utils/chat-message')
   // @ts-ignore
@@ -198,9 +203,6 @@ declare global {
   // @ts-ignore
   export type { AgentSessionClientOptions } from '../src/composables/use-agent-session'
   import('../src/composables/use-agent-session')
-  // @ts-ignore
-  export type { ConversationOptions } from '../src/composables/use-autonomous-agent-conversation'
-  import('../src/composables/use-autonomous-agent-conversation')
   // @ts-ignore
   export type { OrgNhi } from '../src/composables/use-autonomous-agent-enrolment'
   import('../src/composables/use-autonomous-agent-enrolment')
@@ -228,6 +230,7 @@ declare module 'vue' {
     readonly FLAGS_COOKIE: UnwrapRef<typeof import('../src/utils/agent-flags')['FLAGS_COOKIE']>
     readonly MERMAID_AUTO_FIX_BUDGET: UnwrapRef<typeof import('../src/utils/mermaid-fix')['MERMAID_AUTO_FIX_BUDGET']>
     readonly TOOL_ARGUMENTS_LIMIT: UnwrapRef<typeof import('../src/utils/tool-arguments')['TOOL_ARGUMENTS_LIMIT']>
+    readonly apiErrorMessage: UnwrapRef<typeof import('../src/utils/api-error')['apiErrorMessage']>
     readonly appendStreamingCaret: UnwrapRef<typeof import('../src/utils/markdown')['appendStreamingCaret']>
     readonly autonomousAgentEditDraft: UnwrapRef<typeof import('../src/utils/autonomous-agent-draft')['autonomousAgentEditDraft']>
     readonly autonomousAgentMessageToChat: UnwrapRef<typeof import('../src/utils/autonomous-agent-chat-message')['autonomousAgentMessageToChat']>
@@ -294,6 +297,7 @@ declare module 'vue' {
     readonly resetAnonymousToken: UnwrapRef<typeof import('../src/composables/use-anonymous-token')['resetAnonymousToken']>
     readonly resolveComponent: UnwrapRef<typeof import('vue')['resolveComponent']>
     readonly resolveToolsPartition: UnwrapRef<typeof import('../src/utils/tools-partition')['resolveToolsPartition']>
+    readonly rewriteSimpleDirectoryUrl: UnwrapRef<typeof import('../src/utils/simple-directory-url')['rewriteSimpleDirectoryUrl']>
     readonly serializeFlagsCookie: UnwrapRef<typeof import('../src/utils/agent-flags')['serializeFlagsCookie']>
     readonly setBreadcrumbs: UnwrapRef<typeof import('../src/utils/breadcrumbs')['setBreadcrumbs']>
     readonly shallowReactive: UnwrapRef<typeof import('vue')['shallowReactive']>
@@ -316,7 +320,6 @@ declare module 'vue' {
     readonly useAutonomousAgentEnrolment: UnwrapRef<typeof import('../src/composables/use-autonomous-agent-enrolment')['useAutonomousAgentEnrolment']>
     readonly useBooleanSearchParam: UnwrapRef<typeof import('@data-fair/lib-vue/reactive-search-params.js')['useBooleanSearchParam']>
     readonly useConceptFilters: UnwrapRef<typeof import('@data-fair/lib-vue/concept-filters.js')['useConceptFilters']>
-    readonly useConversation: UnwrapRef<typeof import('../src/composables/use-autonomous-agent-conversation')['useConversation']>
     readonly useCssModule: UnwrapRef<typeof import('vue')['useCssModule']>
     readonly useCssVars: UnwrapRef<typeof import('vue')['useCssVars']>
     readonly useEditFetch: UnwrapRef<typeof import('@data-fair/lib-vue/edit-fetch.js')['useEditFetch']>

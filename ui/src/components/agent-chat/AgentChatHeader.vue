@@ -8,10 +8,101 @@
       size="small"
       class="mr-2 text-secondary flex-shrink-0"
     />
-    <span class="text-title-medium text-truncate text-secondary">
-      {{ title }}
+
+    <v-menu v-if="agents && agents.length > 1">
+      <template #activator="{ props: menuProps }">
+        <v-btn
+          v-bind="menuProps"
+          variant="text"
+          class="agent-chat-agent-picker text-none px-1"
+          data-testid="agent-chat-agent-picker"
+        >
+          <span class="text-title-medium text-truncate text-secondary">{{ activeAgentTitle }}</span>
+          <v-icon
+            :icon="mdiChevronDown"
+            size="small"
+            class="ml-1"
+          />
+        </v-btn>
+      </template>
+      <v-list density="compact">
+        <v-list-item
+          v-for="agent of agents"
+          :key="agent.id"
+          :active="agent.id === activeAgentId"
+          :title="agent.title"
+          data-testid="agent-chat-agent-option"
+          @click="$emit('selectAgent', agent.id)"
+        />
+      </v-list>
+    </v-menu>
+    <span
+      v-else
+      class="text-title-medium text-truncate text-secondary"
+      data-testid="agent-chat-title"
+    >
+      {{ activeAgentTitle }}
     </span>
+
+    <v-menu
+      v-if="historyEnabled"
+      location="bottom end"
+    >
+      <template #activator="{ props: menuProps }">
+        <v-btn
+          v-bind="menuProps"
+          :icon="mdiHistory"
+          variant="flat"
+          density="compact"
+          :title="t('history')"
+          class="ml-2"
+          data-testid="agent-chat-history"
+        />
+      </template>
+      <v-list
+        density="compact"
+        min-width="280"
+        max-height="420"
+        class="overflow-y-auto"
+        data-testid="agent-chat-conversations"
+      >
+        <v-list-item
+          v-for="conversation of conversations"
+          :key="conversation.id"
+          :active="conversation.id === activeConversationId"
+          data-testid="agent-chat-conversation"
+          @click="$emit('selectConversation', conversation)"
+        >
+          <v-list-item-title class="text-body-medium text-truncate">
+            {{ conversation.title || t('untitled') }}
+          </v-list-item-title>
+          <v-list-item-subtitle class="text-caption">
+            {{ agentTitle(conversation.agentId) }} · {{ formatDate(conversation.lastMessageAt ?? conversation.createdAt) }}
+          </v-list-item-subtitle>
+        </v-list-item>
+        <v-list-item
+          v-if="!conversations?.length"
+          :title="t('noConversations')"
+          disabled
+        />
+      </v-list>
+    </v-menu>
+
+    <!-- One control, two modes. They mean the same thing — drop this thread and start another with
+         the current agent (use-session-chat's newConversation) — but the back-office needs the
+         history-aware wording, and the front-office must keep exactly the header it always had. -->
     <v-btn
+      v-if="historyEnabled"
+      :icon="mdiPlus"
+      variant="flat"
+      density="compact"
+      :title="t('newConversation')"
+      class="ml-2"
+      data-testid="agent-chat-new-conversation"
+      @click="$emit('newConversation')"
+    />
+    <v-btn
+      v-else
       :icon="mdiRefresh"
       variant="flat"
       density="compact"
@@ -35,29 +126,65 @@
 fr:
   settings: Paramètres
   reset: Réinitialiser la conversation
+  history: Historique des conversations
+  newConversation: Nouvelle conversation
+  noConversations: Aucune conversation
+  untitled: Sans titre
 en:
   settings: Settings
   reset: Reset conversation
+  history: Conversation history
+  newConversation: New conversation
+  noConversations: No conversations
+  untitled: Untitled
 </i18n>
 
 <script lang="ts" setup>
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { mdiCog, mdiRefresh, mdiRobotOutline } from '@mdi/js'
+import { mdiCog, mdiRefresh, mdiRobotOutline, mdiHistory, mdiPlus, mdiChevronDown } from '@mdi/js'
+import type { AgentOption, ConversationSummary } from '~/utils/chat-agents'
 
-defineProps<{
+const props = defineProps<{
   isAdmin?: boolean
   title?: string
   // Raised (box-shadow) when the transcript is scrolled under the header, mirroring
   // v-app-bar's scroll-behavior="elevate". Driven by the messages container's scroll.
   elevated?: boolean
+  /** The agents this person may chat with, when the host asked for the switcher. */
+  agents?: AgentOption[]
+  activeAgentId?: string
+  /** The person's threads, newest first, across every suggested agent. */
+  conversations?: ConversationSummary[]
+  activeConversationId?: string
+  /** Show the history control. Distinct from a populated `conversations`: an empty list is a valid
+   * answer and the control must stay there to say so. */
+  historyEnabled?: boolean
 }>()
 
 defineEmits<{
   showDebug: []
   reset: []
+  selectAgent: [agentId: string]
+  selectConversation: [conversation: ConversationSummary]
+  newConversation: []
 }>()
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
+
+const activeAgentTitle = computed(() => {
+  const agent = props.agents?.find(candidate => candidate.id === props.activeAgentId)
+  return agent?.title ?? props.title ?? ''
+})
+
+const agentTitle = (agentId: string) => {
+  return props.agents?.find(agent => agent.id === agentId)?.title ?? agentId
+}
+
+const formatDate = (value?: string) => {
+  if (!value) return ''
+  return new Intl.DateTimeFormat(locale.value, { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value))
+}
 </script>
 
 <style scoped>
@@ -67,5 +194,11 @@ const { t } = useI18n()
   position: relative;
   z-index: 1;
   transition: box-shadow 0.2s ease;
+}
+/* Menus render in a body-level overlay: keep a menu from growing wider than the chat when a
+   conversation title is long. */
+.agent-chat-agent-picker {
+  max-width: 100%;
+  min-width: 0;
 }
 </style>

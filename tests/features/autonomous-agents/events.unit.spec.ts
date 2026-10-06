@@ -3,7 +3,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { conversationChannel, channelConversationId } from '@agents/shared/conversation-channel'
+import { conversationChannel, channelConversationId } from '../../../api/src/conversations/channel.ts'
 
 test.describe('conversationChannel', () => {
   test('round-trips a conversation id', () => {

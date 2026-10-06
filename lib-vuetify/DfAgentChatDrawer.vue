@@ -41,6 +41,11 @@ const props = withDefaults(defineProps<{
   agentId?: string
   /** @deprecated Use `agentId`. Ignored, with a one-time console warning. */
   systemPrompt?: string
+  /**
+   * Back-office: show the agent switcher and the person's conversation history. The back-office host
+   * (data-fair) sets it; portals leave it off and keep the mono-agent assistant.
+   */
+  agents?: boolean
   initConfigKey?: string
   drawerProps?: DrawerProps
 }>(), {

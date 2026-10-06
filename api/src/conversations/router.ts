@@ -9,13 +9,13 @@ import { nanoid } from 'nanoid'
 import mongo from '#mongo'
 import { type AccountKeys, httpError, reqSessionAuthenticated } from '@data-fair/lib-express'
 import eventsLog from '@data-fair/lib-express/events-log.js'
-import { assertCanOwnAgent } from '../autonomous-agents/service.ts'
+import { assertCanOwnAgent, getAutonomousAgent } from '../autonomous-agents/service.ts'
 import { assertCanInstruct, assertOwnsConversation, requireAutonomousAgent, requireConversation, appendMessage, createRun, setReviewConsent, archiveConversation, purgeConversation } from './service.ts'
-import type { InstructableAgent } from '../autonomous-agents/operations.ts'
+import { canInstruct, type InstructableAgent } from '../autonomous-agents/operations.ts'
 import { startRun, abortRun } from './executor.ts'
 import { getEffectiveRole, assertCanUseModel } from '../auth.ts'
 import { withinRetention } from '../retention.ts'
-import { isStandardAgentId } from '../agent-session/standard-agents.ts'
+import { isStandardAgentId, listStandardAgents } from '../agent-session/standard-agents.ts'
 import { getSettings } from '../settings/service.ts'
 import { hasTraceConsent } from '@agents/shared/trace-consent'
 
@@ -136,6 +136,54 @@ const assertMayTalkTo = async (
   assertCanUseModel(session, owner, settings.quotas ?? {})
 }
 
+/**
+ * The agents this caller may chat with on this account, standard first.
+ *
+ * This is the back-office chat's picker, and it exists because neither half of the list was
+ * reachable: standard agents are synthetic and therefore not enumerable from any collection, and the
+ * autonomous-agents list route is admin-gated while the people who may run an agent are exactly the
+ * non-admin instructors. `canInstruct` is the same predicate every runtime route applies, so the list
+ * cannot offer an agent the caller would then be refused.
+ *
+ * A standard agent is listed only when the caller may use this account's models at all
+ * (`assertCanUseModel`), which is the same gate conversation creation applies — otherwise the picker
+ * would offer a personal assistant whose every conversation 403s. A configured agent is listed only
+ * when it is enabled, since a disabled one keeps its configuration but must not run: the executor's
+ * kill switch would turn any conversation started here into an error.
+ */
+router.get('/:type/:id/agents', async (req, res, next) => {
+  try {
+    const session = reqSessionAuthenticated(req)
+    const owner = reqOwner(req)
+    const settings = await getSettings(owner)
+
+    const results: Array<{ id: string, title: string, kind: 'standard' | 'configured' }> = []
+    for (const definition of listStandardAgents()) {
+      try {
+        assertCanUseModel(session, owner, settings.quotas ?? {})
+        results.push({ ...definition, kind: 'standard' })
+      } catch { /* not usable with these quotas: not offered */ }
+    }
+
+    // Configured agents are organizations only (their identity rests on an NHI), so on a personal
+    // account the list is just the standard agents.
+    if (owner.type === 'organization') {
+      const configured = await mongo.autonomousAgents
+        .find(
+          { 'owner.type': owner.type, 'owner.id': owner.id, enabled: { $ne: false } },
+          { projection: { _id: 0, id: 1, title: 1, owner: 1, instructors: 1, enabled: 1 } }
+        )
+        .sort({ title: 1 })
+        .toArray()
+      for (const agent of configured) {
+        if (canInstruct(agent, session)) results.push({ id: agent.id, title: agent.title, kind: 'configured' })
+      }
+    }
+
+    res.json({ results, count: results.length })
+  } catch (err) { next(err) }
+})
+
 router.post('/:type/:id', async (req, res, next) => {
   try {
     const session = reqSessionAuthenticated(req)
@@ -168,36 +216,81 @@ router.post('/:type/:id', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
+/**
+ * A person's conversations on this account, newest first, for the chat's history.
+ *
+ * `agentId` is optional. With it, this is one agent's threads and the agent is resolved and
+ * authorized first, exactly as before. Without it, the chat asks for the whole history at once —
+ * across the personal assistant and every autonomous agent the caller may use — because that is the
+ * list its switcher shows and one request per agent would make the panel's latency depend on how many
+ * agents an account has configured.
+ *
+ * With no agentId, each thread's agent is resolved instead: the account cannot be asked for the
+ * blanket assertion (a configured agent is organization-only, a standard one is the normal case on a
+ * personal account), and it must not be asked, because a conversation whose agent was deleted or
+ * whose grant was revoked is no longer the caller's to see. Empty threads are dropped too: the chat
+ * creates a conversation when a turn is first sent, so nothing legitimate has `messageSeq: 0`, and
+ * the many that older eager clients left behind would otherwise be history full of "chat".
+ */
 router.get('/:type/:id', async (req, res, next) => {
   try {
     const session = reqSessionAuthenticated(req)
     const owner = reqOwner(req)
-    // Required, not optional: it is what the instruct check resolves against, so without
-    // it there is no autonomous agent whose instructors list can be consulted.
-    const agentId = req.query.agentId
-    if (typeof agentId !== 'string' || !agentId) throw httpError(400, 'agentId query parameter is required')
-    assertCanOwnAgent(owner, agentId)
-    const autonomousAgent = await requireAutonomousAgent(owner, agentId)
-    await assertMayTalkTo(autonomousAgent, owner, session)
+    const agentId = typeof req.query.agentId === 'string' && req.query.agentId ? req.query.agentId : undefined
+    if (req.query.agentId !== undefined && !agentId) throw httpError(400, 'agentId must be a non-empty string')
+
+    if (agentId) {
+      assertCanOwnAgent(owner, agentId)
+      const autonomousAgent = await requireAutonomousAgent(owner, agentId)
+      await assertMayTalkTo(autonomousAgent, owner, session)
+    }
 
     // Your own threads only. A conversation belongs to one person, so listing someone else's would be
     // a disclosure — and an org admin's role no longer grants it.
-    const results = await mongo.conversations
-      .find(
-        {
-          agentId,
-          'owner.type': owner.type,
-          'owner.id': owner.id,
-          // Archived threads are gone FOR THE PERSON. They deleted them; the document survives only
-          // because the organization was entitled to review it, and showing it back here would make
-          // the delete look as though it had not worked.
-          archivedAt: { $exists: false },
-          ...(session.user.adminMode ? {} : { userId: session.user.id })
-        },
-        { projection: { _id: 0 } }
-      )
+    const filter: Record<string, any> = {
+      'owner.type': owner.type,
+      'owner.id': owner.id,
+      // Archived threads are gone FOR THE PERSON. They deleted them; the document survives only
+      // because the organization was entitled to review it, and showing it back here would make
+      // the delete look as though it had not worked.
+      archivedAt: { $exists: false },
+      ...(session.user.adminMode ? {} : { userId: session.user.id })
+    }
+    if (agentId) filter.agentId = agentId
+
+    let results = await mongo.conversations
+      .find(filter, { projection: { _id: 0 } })
       .sort({ lastMessageAt: -1, createdAt: -1 })
       .toArray()
+
+    if (!agentId) {
+      const settings = await getSettings(owner)
+      // One answer per agent, not one per thread: the account may have many threads of the same few
+      // agents, and resolving an agent reads its document.
+      const usable = new Map<string, boolean>()
+      const filtered: typeof results = []
+      for (const conversation of results) {
+        // A thread is created with a user turn, so an empty one is an artifact of an older client
+        // that created conversations up front. It has nothing to show and would be noise.
+        if (!conversation.messageSeq) continue
+        let ok = usable.get(conversation.agentId)
+        if (ok === undefined) {
+          if (isStandardAgentId(conversation.agentId)) {
+            try {
+              assertCanUseModel(session, owner, settings.quotas ?? {})
+              ok = true
+            } catch { ok = false }
+          } else if (owner.type === 'organization') {
+            const agent = await getAutonomousAgent(owner, conversation.agentId)
+            ok = !!agent && agent.enabled !== false && canInstruct(agent, session)
+          } else ok = false
+          usable.set(conversation.agentId, ok)
+        }
+        if (ok) filtered.push(conversation)
+      }
+      results = filtered
+    }
+
     res.json({ results, count: results.length })
   } catch (err) { next(err) }
 })

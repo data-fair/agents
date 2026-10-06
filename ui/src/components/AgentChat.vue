@@ -7,12 +7,21 @@
       :is-admin="isAdmin"
       :title="chatTitle"
       :elevated="headerElevated"
+      :agents="multiAgent ? agents : undefined"
+      :active-agent-id="chat.activeAgentId.value"
+      :conversations="multiAgent ? conversations : undefined"
+      :active-conversation-id="chat.conversationId.value"
+      :history-enabled="multiAgent"
       @show-debug="showDebugDialog = true"
       @reset="handleReset"
+      @select-agent="handleSelectAgent"
+      @select-conversation="handleSelectConversation"
+      @new-conversation="handleNewConversation"
     />
 
     <template v-if="messages.length">
       <agent-chat-messages
+        data-testid="agent-chat-transcript"
         :messages="messages"
         :is-streaming="isStreaming"
         :activity="activity"
@@ -43,6 +52,15 @@
       class="flex-grow-1 d-flex flex-column align-center justify-center"
       style="min-height: 0"
     >
+      <v-alert
+        v-if="chatError"
+        type="error"
+        variant="tonal"
+        density="comfortable"
+        class="mx-4 mb-4"
+        data-testid="agent-chat-error"
+        :text="chatError"
+      />
       <p
         v-if="showWelcome"
         class="text-body-medium text-medium-emphasis text-center mb-4"
@@ -82,6 +100,7 @@
 
 <i18n lang="yaml">
 fr:
+  defaultTitle: Assistant
   welcome: Comment puis-je vous aider ?
   moderationRefusal: "Ce message a été refusé par la modération de contenu — il semble sortir du cadre de ce que cet assistant peut faire. Reformulez votre demande si vous pensez qu'il s'agit d'une erreur."
   fixMermaidVisible: "Corrige le diagramme qui n'a pas pu s'afficher."
@@ -92,6 +111,7 @@ fr:
   quotaShared: "Le quota IA partagé par les visiteurs est épuisé. Il sera réinitialisé le {date}."
   quotaAccount: "Le budget IA de ce compte est épuisé jusqu'au {date}."
 en:
+  defaultTitle: Assistant
   welcome: How can I help you?
   moderationRefusal: "This message was declined by content moderation — it appears to fall outside what this assistant is meant to help with. Try rephrasing if you think this is a mistake."
   fixMermaidVisible: "Please fix the diagram that failed to render."
@@ -122,7 +142,8 @@ import AgentChatDebugDialog from './agent-chat/AgentChatDebugDialog.vue'
 import TraceConsentSheet from './agent-chat/TraceConsentSheet.vue'
 import { readFlags, writeFlags } from '~/utils/agent-flags'
 import { canSendNow } from '~/composables/chat-send'
-import { $apiPath } from '~/context'
+import type { AgentOption, ConversationSummary } from '~/utils/chat-agents'
+import { $apiPath, $fetch } from '~/context'
 
 const props = defineProps<{
   isAdmin?: boolean
@@ -140,6 +161,13 @@ const props = defineProps<{
   initialMessages?: ChatMessage[]
   accountType: string
   accountId: string
+  /**
+   * Back-office mode: offer the agent switcher and the person's conversation history.
+   *
+   * The host sets it (the embeddable components carry an `agents` prop that lands here as a query
+   * parameter). Front-office embeds leave it off and stay exactly as they were: one agent, one thread.
+   */
+  multiAgent?: boolean
 }>()
 
 // Initial configuration written by the host page (drawer/menu) before this iframe
@@ -147,10 +175,27 @@ const props = defineProps<{
 // several chats in one tab don't clobber each other. Takes precedence over props.
 const initConfigKey = new URLSearchParams(window.location.search).get('initConfig')
 const initConfig = initConfigKey ? getAgentInitConfig(initConfigKey) : undefined
-const chatTitle = computed(() => initConfig?.title ?? props.title)
 
 const { t, locale } = useI18n()
 const session = useSession()
+
+/**
+ * The name of the agent this chat was opened on, read from the server.
+ *
+ * Without it a page pointed at an autonomous agent still says "Assistant": the header had only the
+ * host's window title, and the back-office picker's titles come from a list only the multi-agent mode
+ * loads. The title is not merely cosmetic — it is how a person confirms WHICH agent answered.
+ *
+ * Precedence stays host-first (`initConfig.title`, then `?title=`), because a host that named its
+ * window meant it; only when nobody named it does the agent name the chat.
+ */
+const resolvedAgentTitle = ref<string | null>(null)
+// `||`, not `??`: the page's search-param helper yields '' when the parameter is absent, so a nullish
+// check would stop at an empty host title and never reach the agent's name.
+const chatTitle = computed(() => {
+  const named = initConfig?.title?.trim() || props.title?.trim()
+  return named || resolvedAgentTitle.value || t('defaultTitle')
+})
 
 /**
  * Facts about this surface, in ENGLISH and not through i18n.
@@ -218,7 +263,10 @@ const chatResult = useSessionChat({
   // talked to the personal assistant whatever agent its host had named.
   ...((props.agentId ?? initConfig?.agentId) ? { agentId: props.agentId ?? initConfig?.agentId } : {}),
   initialMessages: props.initialMessages,
-  ...(chatTitle.value ? { title: chatTitle.value } : {}),
+  // The picker's own conversations are titled by the date; a host chat title would name every
+  // thread of an agent identically, which is exactly what a history list cannot afford.
+  ...(chatTitle.value && !props.multiAgent ? { title: chatTitle.value } : {}),
+  lazyConversation: props.multiAgent,
   anonymous: !session.state.user,
   // Main's #74 quota sentences, and the moderation refusal, in the chat's language. The server stores
   // the English text beside these fields, so anything this cannot phrase stays readable.
@@ -239,6 +287,81 @@ if (!chatResult) {
 // chatResult is guaranteed to be defined after the throw guard above
 // but TypeScript doesn't narrow across script setup scope, so we re-bind
 const chat = chatResult
+
+/**
+ * The switcher's data, back-office only.
+ *
+ * Both lists are conveniences over the chat itself: a failure to read either leaves the chat usable,
+ * so neither is allowed to surface as the chat's error. What the person sees is the single agent the
+ * chat was opened with and no history, which is the front-office shape rather than a broken page.
+ */
+const agents = ref<AgentOption[]>([])
+const conversations = ref<ConversationSummary[]>([])
+
+const loadConversations = async () => {
+  if (!props.multiAgent) return
+  try {
+    const res = await $fetch<{ results: ConversationSummary[] }>(
+      `${$apiPath}/conversations/${props.accountType}/${props.accountId}`,
+      { credentials: 'include' })
+    conversations.value = res.results ?? []
+  } catch { /* history is convenience, not a gate */ }
+}
+
+const loadAgents = async () => {
+  if (!props.multiAgent) return
+  try {
+    const res = await $fetch<{ results: AgentOption[] }>(
+      `${$apiPath}/conversations/${props.accountType}/${props.accountId}/agents`,
+      { credentials: 'include' })
+    agents.value = res.results ?? []
+    // The chat may have been opened naming an agent the caller can no longer use (a revoked grant, a
+    // host link built by an admin). Land on one that is actually offered rather than letting the
+    // first message fail on a conversation creation the picker said was possible.
+    const active = chat.activeAgentId.value
+    if (agents.value.length && !agents.value.some(agent => agent.id === active)) {
+      chat.setActiveAgent(agents.value[0].id)
+    }
+  } catch { /* the single agent the chat was opened with stays the fallback */ }
+}
+
+/**
+ * Mono mode's name lookup: who was this chat opened on?
+ *
+ * The multi-agent picker's list already carries titles — and only for the agents it offers — while
+ * this mode may have been pointed at one disabled agent (the admin's Open link), which still has a
+ * name even though it must not run. The configured-agent route answers for both. A standard agent
+ * has no document there; its name is the built-in one the fallback title uses, so it is not asked.
+ */
+const resolveAgentTitle = async () => {
+  const agentId = props.agentId ?? initConfig?.agentId
+  if (!agentId || agentId === 'personal' || !session.state.user) return
+  try {
+    const agent = await $fetch<{ title: string }>(
+      `${$apiPath}/autonomous-agents/${props.accountType}/${props.accountId}/${agentId}`,
+      { credentials: 'include' })
+    resolvedAgentTitle.value = agent.title
+  } catch { /* not a configured agent on this account, or not ours to read: the default stands */ }
+}
+
+const handleSelectAgent = async (agentId: string) => {
+  await chat.switchAgent(agentId)
+  await loadConversations()
+}
+
+const handleNewConversation = async () => {
+  await chat.reset()
+  await loadConversations()
+}
+
+const handleSelectConversation = (conversation: ConversationSummary) => {
+  chat.openConversation(conversation.agentId, conversation.id)
+}
+
+// A thread becomes history once its first message is stored. The composed transcript arrives as
+// frames, so the end of a turn is the moment the list can gain a row (a lazy chat's first send) or
+// change order — and it is the only moment either can happen.
+watch(() => chat.status.value, status => { if (status === 'ready') loadConversations() })
 
 // Reported on attach and whenever it changes. `immediate` matters: the first turn is the one most
 // likely to ask "what is this?", and a report that only fired on CHANGE would leave that turn blind.
@@ -283,6 +406,12 @@ onMounted(() => {
     welcomeTimeout = setTimeout(() => {
       welcomeDelayDone.value = true
     }, 200)
+  }
+  if (props.multiAgent) {
+    loadAgents()
+    loadConversations()
+  } else {
+    resolveAgentTitle()
   }
 })
 

@@ -2,12 +2,21 @@
  * stateful E2E tests, validate UI using playwright pages
  */
 
-import { expect } from '@playwright/test'
+import { expect, type Page } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
 
 const admin = await superAdmin
+
+// The unified chat's composer. The wrapper carries the test id; v-textarea with auto-grow renders a
+// second aria-hidden sizer textarea beside the real control.
+const composer = (page: Page) => page.getByTestId('agent-chat-input').locator('textarea:not([aria-hidden="true"])')
+
+const fillAndSend = async (page: Page, text: string) => {
+  await composer(page).fill(text)
+  await page.getByTestId('agent-chat-send').click()
+}
 
 test.describe('Autonomous agents configuration', () => {
   test.beforeEach(async () => {
@@ -149,16 +158,18 @@ test.describe('Autonomous agents configuration', () => {
     expect(journeyAgent).toBeTruthy()
     await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: journeyAgent.id })
 
-    // Follow the link a person would, rather than navigating by url.
+    // Follow the link a person would, rather than navigating by url. It lands on the shared chat,
+    // mono-agent on that agent — the standalone thread page was removed.
     await page.reload()
     await page.getByTestId('autonomous-agent-list').getByRole('link', { name: 'Open' }).first().click()
 
-    await page.getByTestId('autonomous-agent-new-conversation').click({ timeout: 20000 })
-    await page.getByTestId('autonomous-agent-composer').locator('textarea:not([aria-hidden="true"])').fill('hello')
-    await page.getByTestId('autonomous-agent-send').click()
+    await page.getByTestId('agent-chat-input').waitFor({ state: 'visible', timeout: 20000 })
+    // The chat names the agent it was opened on. Without this, a page pointed at an autonomous agent
+    // still said "Assistant", because only the back-office picker ever read an agent's title.
+    await expect(page.getByTestId('agent-chat-title')).toContainText('Journey agent', { timeout: 20000 })
+    await fillAndSend(page, 'hello')
 
-    await expect(page.getByTestId('autonomous-agent-transcript')).toContainText('world', { timeout: 15000 })
-    await expect(page.getByTestId('conversation-run-status')).toContainText(/done/i)
+    await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
   })
 
   test('an org admin without admin mode is not offered the configuration form', async ({ page, goToWithAuth }) => {
@@ -171,13 +182,13 @@ test.describe('Autonomous agents configuration', () => {
   })
 })
 
-test.describe('Autonomous agent thread', () => {
+test.describe('Autonomous agent chat', () => {
   let agentId: string
 
   test.beforeEach(async () => {
     await clean()
     await putMockSettings(admin, 'organization/test1')
-    // Created through the API rather than the UI: this block is about the thread, and driving the
+    // Created through the API rather than the UI: this block is about the chat, and driving the
     // configuration form again would make every failure here ambiguous.
     const created = await admin.post('/api/autonomous-agents/organization/test1', {
       title: 'Thread agent', persona: 'You answer briefly.', mcpServers: [], enabled: true
@@ -191,75 +202,48 @@ test.describe('Autonomous agent thread', () => {
     expect(enrolled.data.nhi?.clientId).toBeTruthy()
   })
 
-  const openThread = async (goToWithAuth: any, user = 'superadmin', opts: any = { adminMode: true }) =>
-    await goToWithAuth(`/agents/organization/test1/autonomous-agents/${agentId}`, user, opts)
+  const openChat = async (goToWithAuth: any, user = 'superadmin', opts: any = { adminMode: true }) =>
+    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agentId}`, user, opts)
 
   test('posting a message shows the answer without a reload', async ({ page, goToWithAuth }) => {
-    // The single most valuable assertion here: it can only pass if the notification and the
-    // incremental fetch both work. Auto-waiting, never a fixed timeout — a fixed wait would also
-    // pass on a page that secretly polls, hiding a broken socket.
-    await openThread(goToWithAuth)
-    await page.getByTestId('autonomous-agent-new-conversation').click({ timeout: 20000 })
-    await page.getByTestId('autonomous-agent-composer').locator('textarea:not([aria-hidden="true"])').fill('hello')
-    await page.getByTestId('autonomous-agent-send').click()
+    // The single most valuable assertion here: the user turn and the answer can only both appear if
+    // the socket stored them and echoed them back.
+    await openChat(goToWithAuth)
+    await page.getByTestId('agent-chat-input').waitFor({ state: 'visible', timeout: 20000 })
+    await fillAndSend(page, 'hello')
 
-    await expect(page.getByTestId('autonomous-agent-transcript')).toContainText('hello')
+    await expect(page.getByTestId('agent-chat-transcript')).toContainText('hello')
     // 'world' is the mock model's answer to 'hello'
-    await expect(page.getByTestId('autonomous-agent-transcript')).toContainText('world', { timeout: 15000 })
-  })
-
-  test('the run reaches a terminal state that is shown', async ({ page, goToWithAuth }) => {
-    await openThread(goToWithAuth)
-    await page.getByTestId('autonomous-agent-new-conversation').click({ timeout: 20000 })
-    await page.getByTestId('autonomous-agent-composer').locator('textarea:not([aria-hidden="true"])').fill('hello')
-    await page.getByTestId('autonomous-agent-send').click()
-    await expect(page.getByTestId('autonomous-agent-transcript')).toContainText('world', { timeout: 15000 })
-    await expect(page.getByTestId('conversation-run-status')).toContainText(/done/i)
+    await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
   })
 
   test('a failed turn explains itself instead of leaving an empty bubble', async ({ page, goToWithAuth }) => {
     // 'stream error' is the mock seam for a provider error that does NOT throw — the class of
     // failure that used to end a conversation silently.
-    await openThread(goToWithAuth)
-    await page.getByTestId('autonomous-agent-new-conversation').click({ timeout: 20000 })
-    await page.getByTestId('autonomous-agent-composer').locator('textarea:not([aria-hidden="true"])').fill('stream error')
-    await page.getByTestId('autonomous-agent-send').click()
+    await openChat(goToWithAuth)
+    await page.getByTestId('agent-chat-input').waitFor({ state: 'visible', timeout: 20000 })
+    await fillAndSend(page, 'stream error')
 
     // The generic 'This turn failed and could not be completed.' is appended for EVERY stopReason
     // 'error' — a disabled agent, a missing enrolment, an exhausted quota, an empty completion. Only
     // the parenthetical detail runStopReasonMessage appends distinguishes the provider error this
     // test claims to drive.
-    await expect(page.getByTestId('autonomous-agent-transcript')).toContainText('could not be completed', { timeout: 15000 })
-    await expect(page.getByTestId('autonomous-agent-transcript')).toContainText(/\(.*error.*\)/i)
-    await expect(page.getByTestId('conversation-run-status')).toContainText(/error/i)
-  })
-
-  test('two conversations are listed and switching shows different messages', async ({ page, goToWithAuth }) => {
-    await openThread(goToWithAuth)
-    await page.getByTestId('autonomous-agent-new-conversation').click({ timeout: 20000 })
-    await page.getByTestId('autonomous-agent-composer').locator('textarea:not([aria-hidden="true"])').fill('hello')
-    await page.getByTestId('autonomous-agent-send').click()
-    await expect(page.getByTestId('autonomous-agent-transcript')).toContainText('world', { timeout: 15000 })
-
-    await page.getByTestId('autonomous-agent-new-conversation').click()
-    // The fresh thread must not show the first one's messages.
-    await expect(page.getByTestId('autonomous-agent-transcript')).not.toContainText('world')
-    await expect(page.getByTestId('autonomous-agent-conversation-list').getByRole('listitem')).toHaveCount(2)
+    await expect(page.getByTestId('agent-chat-transcript')).toContainText('could not be completed', { timeout: 15000 })
+    await expect(page.getByTestId('agent-chat-transcript')).toContainText(/\(.*error.*\)/i)
   })
 
   test('an org member who may not instruct is told exactly that', async ({ page, goToWithAuth }) => {
-    // Asserting the TEXT, not merely that some alert appeared: pageError is set on any rejection, so
-    // a 404, a 500 or a typo in the url all satisfied the old assertion. This message is the only
-    // thing that pins the forbidden branch.
-    await openThread(goToWithAuth, 'test1-user1', { org: 'test1' })
-    await expect(page.getByTestId('autonomous-agent-error'))
-      .toContainText('You are not allowed to instruct this autonomous agent', { timeout: 15000 })
+    // Asserting the TEXT, not merely that some alert appeared: the chat's error is set on any
+    // rejection, so a 404, a 500 or a typo in the url would satisfy a bare visibility assertion. This
+    // message is the only thing that pins the forbidden branch.
+    await openChat(goToWithAuth, 'test1-user1', { org: 'test1' })
+    await expect(page.getByTestId('agent-chat-error'))
+      .toContainText('not allowed to instruct this autonomous agent', { timeout: 15000 })
   })
 
-  test('a listed instructor who is NOT an admin can open the thread and post', async ({ page, goToWithAuth }) => {
-    // The capability the cross-account instructor grant exists for. It was unreachable: the page's
-    // first request was admin-gated, so every instructor saw the refusal above — and the refusal test
-    // passed BECAUSE of that gate, never touching canInstruct at all.
+  test('a listed instructor who is NOT an admin can open the chat and post', async ({ page, goToWithAuth }) => {
+    // The capability the cross-account instructor grant exists for, now on the same chat every other
+    // person uses.
     await admin.put(`/api/autonomous-agents/organization/test1/${agentId}`, {
       title: 'Thread agent',
       persona: 'You answer briefly.',
@@ -272,11 +256,69 @@ test.describe('Autonomous agent thread', () => {
     })
     await admin.post('/api/test-env/enrol-autonomous-agent', { agentId })
 
-    await openThread(goToWithAuth, 'test1-user1', { org: 'test1' })
-    await expect(page.getByTestId('autonomous-agent-error')).toBeHidden()
-    await page.getByTestId('autonomous-agent-new-conversation').click({ timeout: 20000 })
-    await page.getByTestId('autonomous-agent-composer').locator('textarea:not([aria-hidden="true"])').fill('hello')
-    await page.getByTestId('autonomous-agent-send').click()
-    await expect(page.getByTestId('autonomous-agent-transcript')).toContainText('world', { timeout: 15000 })
+    await openChat(goToWithAuth, 'test1-user1', { org: 'test1' })
+    await expect(page.getByTestId('agent-chat-error')).toBeHidden()
+    await page.getByTestId('agent-chat-input').waitFor({ state: 'visible', timeout: 20000 })
+    await fillAndSend(page, 'hello')
+    await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
+  })
+})
+
+test.describe('Agent switcher and conversation history', () => {
+  let agentId: string
+
+  test.beforeEach(async () => {
+    await clean()
+    await putMockSettings(admin, 'organization/test1')
+    const created = await admin.post('/api/autonomous-agents/organization/test1', {
+      title: 'History agent', persona: 'You answer briefly.', mcpServers: [], enabled: true
+    })
+    agentId = created.data.id
+    await admin.post('/api/test-env/enrol-autonomous-agent', { agentId })
+  })
+
+  // The account's own admin, not the superadmin: quota roles are resolved against the ACTIVE account,
+  // so a superadmin in admin mode on someone else's org counts as `external` and the personal
+  // assistant is (correctly) not offered there.
+  const openBackOfficeChat = async (goToWithAuth: any) =>
+    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agentId}&agents=1`, 'test1-admin1', { org: 'test1' })
+
+  test('a new conversation starts empty, threads are listed and resuming one restores it', async ({ page, goToWithAuth }) => {
+    await openBackOfficeChat(goToWithAuth)
+    // The picker is the proof the agents list came back with more than the agent named in the url:
+    // it renders only when there is a choice, and the personal assistant is the other entry.
+    await expect(page.getByTestId('agent-chat-agent-picker')).toBeVisible({ timeout: 20000 })
+
+    await fillAndSend(page, 'hello')
+    await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
+
+    // A fresh conversation must not show the first one's messages.
+    await page.getByTestId('agent-chat-new-conversation').click()
+    await expect(page.getByTestId('agent-chat-transcript')).toHaveCount(0)
+
+    await fillAndSend(page, 'hello')
+    await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
+
+    // Both threads are now history, and resuming the older one replays its stored transcript instead
+    // of leaving an empty pane.
+    await page.getByTestId('agent-chat-history').click()
+    await expect(page.getByTestId('agent-chat-conversation')).toHaveCount(2)
+    await page.getByTestId('agent-chat-conversation').last().click()
+    await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
+  })
+
+  test('switching agent starts a new conversation with it', async ({ page, goToWithAuth }) => {
+    await openBackOfficeChat(goToWithAuth)
+    await expect(page.getByTestId('agent-chat-agent-picker')).toBeVisible({ timeout: 20000 })
+    await fillAndSend(page, 'hello')
+    await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
+
+    await page.getByTestId('agent-chat-agent-picker').click()
+    await page.getByTestId('agent-chat-agent-option').filter({ hasText: 'Assistant' }).click()
+
+    // Another agent means a new thread: the autonomous agent's transcript is gone, and the picker
+    // now names the personal assistant.
+    await expect(page.getByTestId('agent-chat-transcript')).toHaveCount(0)
+    await expect(page.getByTestId('agent-chat-agent-picker')).toContainText('Assistant')
   })
 })
