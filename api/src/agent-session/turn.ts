@@ -17,7 +17,7 @@ import {
   assertOwnsConversation,
   setReviewConsent
 } from '../conversations/service.ts'
-import { startRun } from '../conversations/executor.ts'
+import { startRun, liveTurnOf } from '../conversations/executor.ts'
 import mongo from '#mongo'
 import type { AgentSession } from './session.ts'
 import type { InstructSession } from '../autonomous-agents/operations.ts'
@@ -156,5 +156,10 @@ export const sendHistory = async (session: AgentSession, conversationId: string)
       pending: message.pending === true
     })
   }
+  // A turn running here has more than the store: its answer is written at the end, not as it
+  // streams. Same seq as the stored pending message, so the client replaces that one with it, and
+  // the rest arrives live — the turn sends to whoever watches the conversation now.
+  const live = liveTurnOf(conversationId)
+  if (live) session.send({ type: 'message', seq: live.messageSeq, role: 'assistant', parts: live.parts, pending: true })
   debug('sent %d stored message(s) for %s', messages.length, conversationId)
 }

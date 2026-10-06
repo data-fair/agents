@@ -90,12 +90,14 @@ export const abortRun = (runId: string): boolean => {
  * Returns how many this process actually stopped; a conversation has at most one live turn, because
  * the conversation lock serialises them.
  */
-export const abortRunsOfConversation = (conversationId: string): number => {
+export const abortRunsOfConversation = (conversationId: string, why: 'spoke' | 'stop' = 'spoke'): number => {
   let stopped = 0
   for (const live of liveRuns.values()) {
     if (live.conversationId !== conversationId) continue
     // The reason is read back when the turn is settled (interruptReason), so it must be the constant.
-    live.controller.abort(new Error(PERSON_SPOKE))
+    // A Stop carries none, like the HTTP route's abort: the settled calls then say the reply was
+    // stopped, rather than that the person wrote.
+    live.controller.abort(why === 'spoke' ? new Error(PERSON_SPOKE) : undefined)
     stopped++
   }
   return stopped
@@ -274,8 +276,8 @@ const performTurn = async (run: ConversationRun, messageSeq: number, messageId: 
       ? {
           [WAIT_TOOL_NAME]: createWaitTool({
             store: session.hostEvents,
-            onWaiting: expecting => { session.send({ type: 'activity', activity: { kind: 'waiting', expecting } }) },
-            onDone: () => { session.send({ type: 'activity', activity: null }) }
+            onWaiting: expecting => { sessionFor(run.conversationId)?.send({ type: 'activity', activity: { kind: 'waiting', expecting } }) },
+            onDone: () => { sessionFor(run.conversationId)?.send({ type: 'activity', activity: null }) }
           })
         }
       : {})
@@ -289,20 +291,30 @@ const performTurn = async (run: ConversationRun, messageSeq: number, messageId: 
   }
 }
 
-/**
- * How often the growing answer is written back, at most.
- *
- * DURABILITY only, not publication. It used to be 250ms and it also pushed a `message` frame each
- * time, so a watching page received the whole parts array four times a second ON TOP of a `delta`
- * per token — quadratic in the length of an answer, for structure that changes a handful of times a
- * turn. The frame is event-driven now (see `sendMessageFrame` callers) and this interval only bounds
- * how much text a crash mid-answer can lose.
- *
- * Two seconds rather than 250ms because that is what it is now for: the client already has every
- * token, so this write is read back only by a RELOAD, and by the interrupted-run sweep after a
- * restart. Eight times fewer rewrites of a growing document for two seconds of exposure.
- */
+/** How often the growing answer is written back, at most, for a turn no agent session watches. */
 const PARTIAL_PERSIST_INTERVAL_MS = 2_000
+
+/**
+ * The answer each live turn is producing, by conversation — what a page attaching mid-turn is shown.
+ *
+ * The growing answer is NOT written back while an agent session watches it: that browser receives
+ * every token, and the store gets the answer at the end (a turn followed only over HTTP is written on
+ * a clock, see `persistPartial`). This registry is what replaces the write for the watcher's side: a
+ * page reloaded, or a second tab opened, mid-turn gets the answer so far on attach and the rest live —
+ * the turn sends to whoever watches the conversation NOW (`watcher` in runModelLoop), not to the
+ * session it started with — and a turn stopped or failing is settled from it. What is given up: a
+ * restart mid-answer loses the text of the step in progress. Tool calls and their results are still
+ * written as they happen (`persistStructure`), and those are the work worth keeping.
+ *
+ * In-process, like the sessions themselves: the turn runs in the process holding the socket.
+ */
+const liveTurns = new Map<string, { messageSeq: number, parts: () => MessagePart[] }>()
+
+/** The answer a live turn of this conversation has produced so far, if one is running here. */
+export const liveTurnOf = (conversationId: string) => {
+  const live = liveTurns.get(conversationId)
+  return live && { messageSeq: live.messageSeq, parts: structuredClone(live.parts()) }
+}
 
 interface ModelLoopContext {
   run: ConversationRun
@@ -328,6 +340,11 @@ interface ModelLoopContext {
 
 const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   const { run, messageSeq, messageId, abortSignal, model, entry, tools, settings, budget, serverByTool, annotationsByTool, autonomousAgent, session } = ctx
+  // WHO SEES THIS TURN: whoever watches the conversation now, read at each send. `session` is the one
+  // the turn started with, and still what its page tools and host events belong to; but a reload or a
+  // second tab replaces it mid-turn, and a turn sending to the session it began with went silent for
+  // the page actually open — not even its `turn-end` arrived.
+  const watcher = () => sessionFor(run.conversationId)
   const identity = usageIdentityFor(autonomousAgent, run)
 
   const compacted = await compactHistory(
@@ -441,7 +458,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
       abortSignal: AbortSignal.any([abortSignal, workerAbort.signal]),
       // The worker's transcript, streamed to its panel. The lead never sees it — it gets the summary.
       onTrace: trace => {
-        session?.send({
+        watcher()?.send({
           type: 'subagent',
           parentToolCallId: trace.parentToolCallId,
           name: trace.name,
@@ -450,7 +467,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
         })
       },
       onPhase: (parentToolCallId, phase) => {
-        session?.send({
+        watcher()?.send({
           type: 'activity',
           activity: phase ? { kind: 'subagent', name, phase } : null,
           parentToolCallId
@@ -654,6 +671,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   // The turn's parts, in the order the model produced them. This IS the record: everything the model
   // saw has to end up here, or a revived conversation is a different conversation.
   const parts: MessagePart[] = []
+  liveTurns.set(run.conversationId, { messageSeq, parts: () => parts })
   const appendText = (kind: 'text' | 'reasoning', delta: string) => {
     const last = parts[parts.length - 1]
     // Merged into the trailing part of the same kind rather than pushed per delta, or a turn would
@@ -665,17 +683,17 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   /**
    * Stream to the browser, if one is watching.
    *
-   * Barely throttled, unlike the persistence below, and the difference is the point. Persisting every
-   * token would be thousands of writes a turn, so that is throttled and the client refetches; the
-   * session merges deltas only within `DELTA_FLUSH_MS`, below a display frame, so the person still sees
-   * the answer arrive as it is produced. That is the thing the delta protocol this branch deleted was
-   * trying to do over HTTP.
+   * The text is not persisted as it streams — the store gets it at the end, and a page attaching
+   * mid-turn is served from `liveTurns` — so this is the only way it reaches anyone before then. The
+   * session merges deltas only within `DELTA_FLUSH_MS`, below a display frame, so the person still
+   * sees the answer arrive as it is produced. That is the thing the delta protocol this branch deleted
+   * was trying to do over HTTP.
    *
    * Best-effort: send already checks the socket is open, and a person who closed the tab mid-turn must
    * not fail the turn — it finishes and is stored.
    */
   const stream = (kind: 'text' | 'reasoning', delta: string) => {
-    session?.send({ type: 'delta', kind, text: delta })
+    watcher()?.send({ type: 'delta', kind, text: delta })
   }
 
   /**
@@ -692,7 +710,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
     // "Waiting for …", and the person was no longer told the turn was theirs. The wait sets and
     // clears its own label (createWaitTool's onWaiting/onDone, which do not go through here).
     if (session?.hostEvents.isWaiting()) return
-    session?.send({ type: 'activity', activity: value })
+    watcher()?.send({ type: 'activity', activity: value })
   }
 
   /**
@@ -726,22 +744,23 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
     if (truncated) call.toolMetadata = { ...call.toolMetadata, truncated: { totalChars: truncated.totalChars } }
   }
 
-  // Live text: the growing content is PERSISTED, throttled, rather than published. Each write
-  // advances the conversation version, which notifies subscribers, who then fetch the record over
-  // HTTP. That makes the partial answer real — a client refetching mid-turn sees the text so far
-  // instead of an empty message — and keeps every websocket payload fixed-size.
   let sawText = false
+
+  // The growing text, written back on a clock ONLY WHEN NO AGENT SESSION WATCHES. A watching socket
+  // has every token already, and a page attaching to it mid-turn is served from `liveTurns`; but a
+  // reader following over HTTP — an autonomous agent's thread page, which refetches `?sinceVersion=`
+  // on each notification — has only the store, and would otherwise see the answer appear at the end.
+  // So a chat turn writes its text once, and a thread followed over HTTP still sees it grow.
   let lastPersistAt = 0
   let lastPersistedLength = -1
   const persistPartial = async () => {
+    if (watcher()) return
     const now = Date.now()
     if (now - lastPersistAt < PARTIAL_PERSIST_INTERVAL_MS) return
     const length = partsText(parts).length
     if (length === lastPersistedLength) return
     lastPersistAt = now
     lastPersistedLength = length
-    // No frame: the page is already receiving this text token by token. Publishing the whole parts
-    // array here is what made the socket traffic quadratic.
     await updateMessage(run.conversationId, messageId, { parts, pending: true })
   }
 
@@ -755,14 +774,14 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
    * rides the persist clock rather than the delta one.
    */
   const sendMessageFrame = (pending: boolean) => {
-    session?.send({ type: 'message', seq: messageSeq, role: 'assistant', parts, pending })
+    watcher()?.send({ type: 'message', seq: messageSeq, role: 'assistant', parts, pending })
   }
 
   /**
-   * Persist the turn's structure NOW, off the throttled text clock, when a call opens or settles.
+   * Persist the turn's structure NOW, when a call opens or settles — the only writes before the end.
    *
    * Two readers need it. A turn interrupted mid-call is settled from the STORED parts (runTurn's catch
-   * path has nothing else), so a wait the throttled clock had not yet written would be invisible there
+   * path has nothing else), so a wait not yet written would be invisible there
    * and replay would drop it — the model would never learn it had been waiting. And a page reloaded
    * during a wait has to show the wait. Calls are few per turn, so this costs a write per call, not
    * per token.
@@ -946,7 +965,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   }
   // The last word on this turn's structure, with pending cleared — so a page stops rendering it as in
   // progress without having to infer that from `turn-end`.
-  session?.send({ type: 'message', seq: messageSeq, role: 'assistant', parts: finalParts, pending: false })
+  watcher()?.send({ type: 'message', seq: messageSeq, role: 'assistant', parts: finalParts, pending: false })
   return {
     parts: finalParts,
     steps,
@@ -1080,9 +1099,16 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
       // before the turn, so the partial text and the tool traffic the executor has since written live
       // only in the store — replacing the parts here would delete the record of everything the turn
       // actually did, which is exactly what must survive a failure.
-      const persisted = await mongo.messages
-        .findOne({ id: message.id }, { projection: { _id: 0, parts: 1 } })
-        .catch(() => null)
+      // From MEMORY when the turn ran here, which is the common case: the answer's text is written
+      // only at the end, so the store holds the tool traffic but not what was said around it — a
+      // reply stopped mid-sentence would lose its words from the record. The store is the fallback for
+      // a turn that never got as far as producing parts.
+      const live = liveTurns.get(run.conversationId)
+      const persisted = live && live.messageSeq === message.seq
+        ? { parts: structuredClone(live.parts()) }
+        : await mongo.messages
+          .findOne({ id: message.id }, { projection: { _id: 0, parts: 1 } })
+          .catch(() => null)
       // Every call still open gets a result saying why it never completed (port of main's #73): a call
       // with no result is dropped on replay, so the model would never learn what it had been doing —
       // judged runs then denied work they had done and redid it.
@@ -1127,6 +1153,9 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
   } finally {
     if (timeout) clearTimeout(timeout)
     liveRuns.delete(run.id)
+    // Only now: the catch path above settles the turn FROM it. Keyed by the message, so a later turn
+    // of the same conversation that already registered is left alone.
+    if (message && liveTurns.get(run.conversationId)?.messageSeq === message.seq) liveTurns.delete(run.conversationId)
   }
 }
 

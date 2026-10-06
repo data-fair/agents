@@ -72,6 +72,9 @@ export const startAgentSessions = (server: Server, options: StartAgentSessionsOp
     // The conversation this connection is bound to, remembered so the close handler can detach the
     // right one. A session may re-attach (a navigation within the same tab), so this is not final.
     let boundConversationId: string | undefined
+    // The attach in progress: a prompt sent right behind the hello waits for it, or its turn could
+    // start before this socket is registered as the watcher, without the page's tools.
+    let attaching: Promise<void> = Promise.resolve()
     // The one thread an ANONYMOUS socket holds: created by its hello, purged when it closes.
     let anonymousThread: { id: string, owner: { type: 'user' | 'organization', id: string }, usageUserId: string } | undefined
     const agentSession: AgentSession = createAgentSession({
@@ -85,17 +88,36 @@ export const startAgentSessions = (server: Server, options: StartAgentSessionsOp
       onAttach: conversationId => {
         if (boundConversationId && boundConversationId !== conversationId) detachSession(boundConversationId, agentSession)
         boundConversationId = conversationId
-        attachSession(conversationId, agentSession)
-        // The transcript so far, so a reload or a second tab shows the conversation rather than an
-        // empty pane. Authorization is the ownership check the HTTP routes apply: a session may only
-        // attach to its own conversation, and a failure is reported rather than leaving the client to
-        // guess why nothing arrived.
-        if (sessionState?.user) {
-          sendHistoryFor(conversationId).catch((err: any) => {
-            debug('could not send history: %O', err)
+        // Registered as the conversation's watcher only ONCE THE OWNERSHIP CHECK HAS PASSED. It used to
+        // be registered first and checked after, which only gated the history: a socket naming someone
+        // else's conversation became its watcher anyway, and received the stream of their next turn.
+        // Authorization is the ownership check the HTTP routes apply; an anonymous socket's thread was
+        // checked by its hello, which only ever binds it to the thread it created.
+        attaching = (sessionState?.user ? resolveTurnOwner(conversationId) : Promise.resolve())
+          .then(async () => {
+            if (boundConversationId !== conversationId) return // rebound in the meantime
+            attachSession(conversationId, agentSession)
+            // The transcript so far, so a reload or a second tab shows the conversation rather than
+            // an empty pane.
+            if (sessionState?.user) await sendHistoryFor(conversationId)
+          })
+          .catch((err: any) => {
+            // Reported rather than leaving the client to guess why nothing arrived.
+            debug('could not attach: %O', err)
             send({ type: 'error', message: err.message ?? 'this conversation could not be opened' })
           })
-        }
+      },
+      // The chat's Stop. It was never wired: the frame was parsed and dropped, so Stop only changed
+      // the page while the turn ran on, spending, and completed in the store. Checked like a prompt,
+      // because a socket can NAME any conversation in its hello even when attaching to it is refused.
+      onAbort: () => {
+        const conversationId = boundConversationId
+        if (!conversationId) return
+        const allowed = attaching.then(() => sessionState?.user
+          ? resolveTurnOwner(conversationId).then(() => true)
+          : anonymousThread?.id === conversationId)
+        allowed.then(ok => { if (ok) abortRunsOfConversation(conversationId, 'stop') })
+          .catch((err: any) => { send({ type: 'error', message: err.message ?? 'the turn could not be stopped' }) })
       },
       onPrompt: (content, hiddenContext) => {
         if (!boundConversationId) {
@@ -127,7 +149,7 @@ export const startAgentSessions = (server: Server, options: StartAgentSessionsOp
         // made every such turn fail with "unknown conversation" while members of the account were
         // unaffected. `startSessionTurn` still re-reads it under that owner and still checks the
         // thread belongs to this person.
-        const owner = caller.kind === 'anonymous' ? Promise.resolve(anonymousThread!.owner) : resolveTurnOwner(conversationId)
+        const owner = attaching.then(() => caller.kind === 'anonymous' ? anonymousThread!.owner : resolveTurnOwner(conversationId))
         owner.then(owner => startSessionTurn({
           conversationId,
           owner,
@@ -161,7 +183,6 @@ export const startAgentSessions = (server: Server, options: StartAgentSessionsOp
     }
 
     const sendHistoryFor = async (conversationId: string) => {
-      await resolveTurnOwner(conversationId)
       await sendHistory(agentSession, conversationId)
       // The total so far, for the chat's Consumption tab; refreshed before every turn-end.
       agentSession.send({ type: 'cost', conversationCost: await conversationCost(conversationId) })

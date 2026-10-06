@@ -191,8 +191,8 @@ still open when it stopped, which have no result, and a call with no result is d
 the abort path settles every open call with a result saying why it never completed
 (`settleInterruptedParts` in `api/src/conversations/interrupted-turn.ts`, wording from main's #73/#75): the
 interrupted wait says what it was waiting for, any other call that the person spoke, and after Stop
-that the reply was stopped. Calls are persisted the moment they open or settle, off the throttled text
-clock, so the abort path — which reads the store — sees an open wait. The next request then carries a
+that the reply was stopped. Calls are persisted the moment they open or settle (the streamed text of a
+chat watched over the socket only when the turn ends), so the abort path — which reads the store — sees an open wait. The next request then carries a
 reminder at the END of the hidden block, the last thing before the person's words: what the wait was
 for, and to declare it again after answering if that action is still to come (`pendingWaitReminder`,
 read from the settled wait in history, and only for the turn right after). In the interrupted wait's
