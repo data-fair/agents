@@ -43,6 +43,12 @@ export default {
     lastMessageAt: { type: 'string', format: 'date-time' },
     // monotonic, starts at 1 — see nextMessageSeq
     messageSeq: { type: 'number', minimum: 0 },
+    /**
+     * What this conversation has cost so far, in credits: the sum of its runs, kept as a running total
+     * by the write that closes each run (see `finishTurn`). Read on every attach and after every turn,
+     * so the total is stored rather than aggregated over the runs each time.
+     */
+    credits: { type: 'number', minimum: 0 },
     // Monotonic across EVERY change to the conversation: a message appended, a message updated
     // in place (the assistant's content as it grows), a run transition. It is what the websocket
     // notification carries and what `GET .../messages?sinceVersion=` fetches from, so a client

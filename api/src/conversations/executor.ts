@@ -23,7 +23,7 @@ import { streamText, stepCountIs, type Tool } from 'ai'
 // 'ai' does not re-export JSONObject; @ai-sdk/provider is where the library declares it.
 import type { JSONObject } from '@ai-sdk/provider'
 import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep, STREAM_IDLE_TIMEOUT_MS } from './loop-guards.ts'
-import type { AutonomousAgent, ConversationMessage, ConversationRun } from '#types'
+import type { AutonomousAgent, Conversation, ConversationMessage, ConversationRun } from '#types'
 import {
   runStopReasonMessage, buildSystemPrompt, withProvenance,
   usageIdentityFor,
@@ -34,7 +34,7 @@ import { checkQuotas, moderateTurn } from './turn-gates.ts'
 import { moderationApplies } from '../moderation/operations.ts'
 import { loadHistory, compactHistory } from './turn-history.ts'
 import { recordCall } from './turn-telemetry.ts'
-import { appendMessage, updateMessage, finishRun, incrementRunSpend, resolveAgent, setRunSystemPrompt, conversationCost } from './service.ts'
+import { appendMessage, updateMessage, finishRun, finishTurn, bufferRunWrites, incrementRunSpend, resolveAgent, setRunSystemPrompt, conversationCost } from './service.ts'
 import { getSettings } from '../settings/service.ts'
 import { resolveRoleModel } from '../models/service.ts'
 import { contextBudget, type ModelRole } from '../models/operations.ts'
@@ -128,10 +128,10 @@ export const abortRunsOfAgent = (agentId: string): number => {
  * Tell a watching page what its conversation has cost so far (see the `cost` frame). Only when
  * someone is watching: the aggregate is cheap, but there is no reason to run it for nobody.
  */
-const sendConversationCost = async (conversationId: string) => {
+const sendConversationCost = async (conversationId: string, known?: number) => {
   const session = sessionFor(conversationId)
   if (!session) return
-  session.send({ type: 'cost', conversationCost: await conversationCost(conversationId) })
+  session.send({ type: 'cost', conversationCost: await conversationCost(conversationId, known === undefined ? undefined : { credits: known }) })
 }
 
 /** One conversation is one serialised timeline, so the lock is keyed on it. */
@@ -190,7 +190,7 @@ const nextPendingRun = async (conversationId: string) => {
  * reached as that identity — so this refuses early with an actionable message rather than
  * producing a toolless turn that looks like a capability problem.
  */
-const performTurn = async (run: ConversationRun, messageSeq: number, messageId: string, abortSignal: AbortSignal): Promise<TurnResult> => {
+const performTurn = async (run: ConversationRun, messageSeq: number, messageId: string, abortSignal: AbortSignal, conversation: Conversation): Promise<TurnResult> => {
   const autonomousAgent = await resolveAgent(run.owner, run.agentId)
   if (!autonomousAgent) throw new Error('the autonomous agent no longer exists')
 
@@ -284,7 +284,7 @@ const performTurn = async (run: ConversationRun, messageSeq: number, messageId: 
   }
 
   try {
-    return await runModelLoop({ run, messageSeq, messageId, abortSignal, model, entry, tools, settings, budget, serverByTool, annotationsByTool, autonomousAgent, session })
+    return await runModelLoop({ run, messageSeq, messageId, abortSignal, model, entry, tools, settings, budget, serverByTool, annotationsByTool, autonomousAgent, session, conversation })
   } finally {
     // The turn is over (normally, by throw, or by abandonment): release the MCP connections.
     await closeTools()
@@ -336,10 +336,12 @@ interface ModelLoopContext {
   /** The browser watching this conversation, if one is. */
   session?: AgentSession
   autonomousAgent: AutonomousAgent
+  /** As runTurn read it under the conversation's lock: its compaction recap is current. */
+  conversation: Conversation
 }
 
 const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
-  const { run, messageSeq, messageId, abortSignal, model, entry, tools, settings, budget, serverByTool, annotationsByTool, autonomousAgent, session } = ctx
+  const { run, messageSeq, messageId, abortSignal, model, entry, tools, settings, budget, serverByTool, annotationsByTool, autonomousAgent, session, conversation } = ctx
   // WHO SEES THIS TURN: whoever watches the conversation now, read at each send. `session` is the one
   // the turn started with, and still what its page tools and host events belong to; but a reload or a
   // second tab replaces it mid-turn, and a turn sending to the session it began with went silent for
@@ -350,7 +352,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   const compacted = await compactHistory(
     run,
     identity,
-    await loadHistory(run.conversationId, messageSeq),
+    await loadHistory(run.conversationId, messageSeq, conversation),
     budget,
     settings,
     abortSignal,
@@ -663,7 +665,11 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
       //
       // Checked BEFORE the per-run budget so that when both ceilings are crossed by the same step, the
       // reader is told the one an admin can act on. Either way the turn stops.
-      const accountCap = await checkAccountCreditCap(run.owner)
+      //
+      // Only when another step is coming: after a step that answered rather than called a tool, the
+      // turn ends anyway, and reading the cap to stop it is a query for nothing — which, for a plain
+      // question, was every turn's second read of the same document the gate had just read.
+      const accountCap = step.finishReason === 'tool-calls' ? await checkAccountCreditCap(run.owner) : undefined
       if (accountCap) {
         budgetExceeded = true
         stopDetail = `${accountCap.reason} (${accountCap.scope}, ${accountCap.period} limit ${accountCap.limit}, used ${accountCap.usage}). Resets at ${accountCap.resetsAt}.`
@@ -1006,6 +1012,8 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
 
   const abortController = new AbortController()
   liveRuns.set(run.id, { controller: abortController, agentId: run.agentId, conversationId: run.conversationId })
+  // The run's telemetry and spend are held from here until finishTurn writes them (see bufferRunWrites).
+  bufferRunWrites(run.id)
 
   // The ceiling has to be enforced twice over, because abort() is only a REQUEST.
   // abortController.signal asks the provider and the MCP client to stop, which is what a
@@ -1037,17 +1045,22 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
 
     // The assistant message's own seq bounds the history: it was created before the turn
     // (empty, pending), so it must not be fed back to the model as an empty turn.
-    const result = await Promise.race([performTurn(run, message.seq, message.id, abortController.signal), deadline])
+    const result = await Promise.race([performTurn(run, message.seq, message.id, abortController.signal, conversation), deadline])
     // A turn that stopped for a reason other than finishing explains itself, appended to
     // whatever it did manage to produce.
     const notice = result.stopReason === 'completed' || result.selfExplained
       ? ''
       : runStopReasonMessage(result.stopReason, result.stopDetail)
     const finalParts = notice ? withAppendedText(result.parts, notice) : result.parts
-    await updateMessage(run.conversationId, message.id, {
-      parts: finalParts as any,
-      pending: false
-    })
+    // The answer and the run's close in one write sequence under one version bump — see finishTurn.
+    // A run stopped by a guard or a budget is still a completed run: it did work and said so. But a
+    // turn that REFUSED — no enrolled identity, an exhausted credit cap — returns stopReason 'error'
+    // without throwing, and must not be reported as done.
+    const finished = await finishTurn(
+      run,
+      { id: message.id, patch: { parts: finalParts as any, pending: false } },
+      { status: result.stopReason === 'error' ? 'error' : 'done', stopReason: result.stopReason }
+    )
     // PUBLISHED FOR THE PATHS THE LOOP NEVER REACHED: a moderation block, a quota refusal and a
     // missing non-human identity all return their refusal before any model call, so the loop's own
     // settled frame never ran — the text was stored and the watching page was told nothing. A blocked
@@ -1063,19 +1076,10 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
       })
     }
 
-    // A run stopped by a guard or a budget is still a completed run: it did work and said
-    // so. But a turn that REFUSED — no enrolled identity, an exhausted credit cap — returns
-    // stopReason 'error' without throwing, and must not be reported as done.
-    // steps/credits are not written here: incrementRunSpend owns them, so a turn abandoned
-    // at its deadline cannot end up reporting less than it actually spent.
-    await finishRun(run, {
-      status: result.stopReason === 'error' ? 'error' : 'done',
-      stopReason: result.stopReason
-    })
-    // The conversation's total, now including this turn, then the end-of-turn signal — so a page that
-    // refreshes on turn-end already holds the new figure.
+    // The conversation's total, now including this turn — returned by the close itself — then the
+    // end-of-turn signal, so a page that refreshes on turn-end already holds the new figure.
     // Best-effort: a figure for a display must never turn a finished turn into a failed one.
-    await sendConversationCost(run.conversationId).catch(() => {})
+    await sendConversationCost(run.conversationId, finished.conversationCredits).catch(() => {})
     // The end-of-turn signal, so a watching page stops its spinner without polling for it.
     sessionFor(run.conversationId)?.send({
       type: 'turn-end',
@@ -1083,6 +1087,7 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
       ...(result.stopDetail ? { detail: result.stopDetail } : {})
     })
   } catch (err) {
+    let finalParts: MessagePart[] | undefined
     const detail = err instanceof Error ? err.message : String(err)
     // An abort is not a failure of the turn: distinguish the clock from a caller pressing
     // stop, and from a genuine error, because a reader reacts differently to each.
@@ -1120,33 +1125,23 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
       // judged runs then denied work they had done and redid it.
       const reason = aborted ? interruptReason((abortController.signal as AbortSignal & { reason?: unknown }).reason) : 'ended'
       const settled = settleInterruptedParts((persisted?.parts ?? []) as MessagePart[], reason)
-      await updateMessage(run.conversationId, message.id, {
-        // No stop notice when the person SPOKE: their message follows and answers it, and the notice
-        // would be replayed to the model as its own words. Stop, the clock and errors keep theirs.
-        parts: (reason === 'message' ? settled : withAppendedText(settled, runStopReasonMessage(stopReason, detail))) as any,
-        pending: false
-      })
-        .catch(updateErr => console.error('autonomous agent message could not be finalised', updateErr))
-      // Same reason as the success path: the notice explaining the failure has to reach the page that
-      // is watching, not only the store. `turn-end` alone stops the spinner without saying why.
-      const finalised = await mongo.messages
-        .findOne({ id: message.id }, { projection: { _id: 0, parts: 1, seq: 1 } })
-        .catch(() => null)
-      if (finalised) {
-        sessionFor(run.conversationId)?.send({
-          type: 'message',
-          seq: finalised.seq,
-          role: 'assistant',
-          parts: (finalised.parts ?? []) as any,
-          pending: false
-        })
-      }
+      // No stop notice when the person SPOKE: their message follows and answers it, and the notice
+      // would be replayed to the model as its own words. Stop, the clock and errors keep theirs.
+      finalParts = reason === 'message' ? settled : withAppendedText(settled, runStopReasonMessage(stopReason, detail))
     }
-    await finishRun(run, {
-      status: stopReason === 'timeout' ? 'error' : aborted ? 'aborted' : 'error',
-      stopReason,
-      error: detail
-    }).catch(finishErr => console.error('autonomous agent run could not be closed out', finishErr))
+    // The message, then the run, under one bump (finishTurn) — the message write CAUGHT inside it, so
+    // whatever failed it still lets the run close.
+    const finished = await finishTurn(
+      run,
+      message && finalParts ? { id: message.id, patch: { parts: finalParts as any, pending: false } } : undefined,
+      { status: stopReason === 'timeout' ? 'error' : aborted ? 'aborted' : 'error', stopReason, error: detail }
+    ).catch(finishErr => { console.error('autonomous agent run could not be closed out', finishErr); return undefined })
+    // Same reason as the success path: the notice explaining the failure has to reach the page that
+    // is watching, not only the store. `turn-end` alone stops the spinner without saying why. From
+    // the parts just written, rather than read back.
+    if (message && finalParts) {
+      sessionFor(run.conversationId)?.send({ type: 'message', seq: message.seq, role: 'assistant', parts: finalParts as any, pending: false })
+    }
     // A failed turn ends the same way for a watcher as a successful one: the page must stop waiting
     // whatever happened. "Failure is a message, not a silence" applies to the socket too.
     //
@@ -1154,7 +1149,7 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
     // final". It used to go out first, before the message was settled — so anything reacting to it,
     // a client refetching or a test reading the record, could see an interrupted turn's calls still
     // open. Found by the interrupted-turn api spec, which passed alone and failed in sequence.
-    await sendConversationCost(run.conversationId).catch(() => {})
+    await sendConversationCost(run.conversationId, finished?.conversationCredits).catch(() => {})
     sessionFor(run.conversationId)?.send({ type: 'turn-end', stopReason, detail })
   } finally {
     if (timeout) clearTimeout(timeout)

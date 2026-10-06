@@ -158,7 +158,8 @@ router.post('/:type/:id', async (req, res, next) => {
       title,
       createdAt: now,
       // starts at 0: nextMessageSeq hands out 1 for the first message
-      messageSeq: 0
+      messageSeq: 0,
+      credits: 0
     }
     await mongo.conversations.insertOne({ ...conversation })
     eventsLog.info('agents.conversation.create', `conversation created for autonomous agent ${agentId}`, { req })

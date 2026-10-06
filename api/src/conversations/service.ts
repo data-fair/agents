@@ -179,7 +179,8 @@ export const createAnonymousConversation = async (
     anonymous: true,
     title: 'Anonymous conversation',
     createdAt: now,
-    messageSeq: 0
+    messageSeq: 0,
+    credits: 0
   }
   await mongo.conversations.insertOne({ ...conversation })
   return conversation
@@ -233,13 +234,15 @@ export const purgeExpiredArchives = async (): Promise<number> => {
  * and `?sinceVersion=` is enough to catch up. $inc, so two concurrent writers cannot collide on
  * it the way a timestamp would in the same millisecond.
  */
-const bumpConversationVersion = async (conversationId: string): Promise<number | undefined> => {
+const bumpConversationVersion = async (conversationId: string, credits = 0): Promise<{ version?: number, credits?: number }> => {
   const updated = await mongo.conversations.findOneAndUpdate(
     { id: conversationId },
-    { $inc: { version: 1 }, $set: { updatedAt: new Date().toISOString() } },
-    { returnDocument: 'after', projection: { _id: 0, version: 1 } }
+    // The conversation's running total rides the same write when a turn's spend is flushed (see
+    // `finishTurn`), so keeping it costs no operation of its own.
+    { $inc: { version: 1, ...(credits ? { credits } : {}) }, $set: { updatedAt: new Date().toISOString() } },
+    { returnDocument: 'after', projection: { _id: 0, version: 1, credits: 1 } }
   )
-  return updated?.version
+  return { version: updated?.version, credits: updated?.credits }
 }
 
 /**
@@ -289,7 +292,7 @@ export const updateMessage = async (conversationId: string, id: string, patch: P
   // the assistant message keeps its seq while its content is filled in, so `seq` alone would only
   // ever reveal NEW messages. The conversation is the caller's to name — every caller holds it — which
   // spares a lookup on each of a turn's incremental writes.
-  const version = await bumpConversationVersion(conversationId)
+  const { version } = await bumpConversationVersion(conversationId)
   const updated = await mongo.messages.updateOne(
     { id, conversationId },
     { $set: { ...patch, version, updatedAt: new Date().toISOString() } }
@@ -299,7 +302,7 @@ export const updateMessage = async (conversationId: string, id: string, patch: P
 
 export const createRun = async (run: Omit<ConversationRun, 'id'>): Promise<ConversationRun> => {
   const doc: ConversationRun = { ...run, id: nanoid() }
-  const version = await bumpConversationVersion(doc.conversationId)
+  const { version } = await bumpConversationVersion(doc.conversationId)
   await mongo.runs.insertOne({ ...doc, version })
   await notifyConversationChanged(doc.conversationId, version)
   return { ...doc, version }
@@ -331,26 +334,70 @@ export const setReviewConsent = async (conversationId: string, consented: boolea
  * whichever landed second.
  */
 export const appendRunCall = async (id: string, call: NonNullable<ConversationRun['calls']>[number]) => {
+  const buffer = runBuffers.get(id)
+  if (buffer) { buffer.calls.push(call); return }
   await mongo.runs.updateOne({ id }, { $push: { calls: call } })
 }
 
 /** The instructions this run gave the model, recorded once. */
 export const setRunSystemPrompt = async (id: string, systemPrompt: string) => {
+  const buffer = runBuffers.get(id)
+  if (buffer) { buffer.systemPrompt = systemPrompt; return }
   await mongo.runs.updateOne({ id }, { $set: { systemPrompt } })
 }
 
 export const incrementRunSpend = async (id: string, credits: number, steps: number) => {
-  await mongo.runs.updateOne({ id }, { $inc: { credits, steps } })
+  const buffer = runBuffers.get(id)
+  if (buffer) { buffer.credits += credits; buffer.steps += steps; return }
+  // Unbuffered: a turn abandoned at its deadline, still spending after its run was closed. The run
+  // and the conversation's total are both kept true, at two writes — rare enough not to matter.
+  const run = await mongo.runs.findOneAndUpdate({ id }, { $inc: { credits, steps } }, { projection: { _id: 0, conversationId: 1 } })
+  if (run && credits) await mongo.conversations.updateOne({ id: run.conversationId }, { $inc: { credits } })
+}
+
+/**
+ * A live run's telemetry and spend, held until it closes instead of written as they happen.
+ *
+ * A turn wrote its system prompt, then a call record and a spend increment PER STEP, each a write of
+ * its own — for data only read after the turn (review, the export, the cost). The executor's budget is
+ * tracked in memory, so nothing reads them mid-turn. `finishTurn`/`finishRun` fold them into the write
+ * that closes the run; after that the buffer is gone and a late writer (a turn abandoned at its
+ * deadline, still spending) writes directly. The price: a process dying mid-turn loses that turn's
+ * telemetry. Its spend is not lost — the usage ledger is written per call, separately.
+ */
+interface RunBuffer { calls: NonNullable<ConversationRun['calls']>, credits: number, steps: number, systemPrompt?: string }
+const runBuffers = new Map<string, RunBuffer>()
+
+export const bufferRunWrites = (runId: string) => {
+  if (!runBuffers.has(runId)) runBuffers.set(runId, { calls: [], credits: 0, steps: 0 })
+}
+
+/** The run update that applies a drained buffer, and its spend. */
+const drainRunBuffer = (runId: string) => {
+  const buffer = runBuffers.get(runId)
+  runBuffers.delete(runId)
+  if (!buffer) return { set: {}, update: {}, credits: 0 }
+  return {
+    set: buffer.systemPrompt !== undefined ? { systemPrompt: buffer.systemPrompt } : {},
+    update: {
+      ...(buffer.calls.length ? { $push: { calls: { $each: buffer.calls } } } : {}),
+      ...(buffer.credits || buffer.steps ? { $inc: { credits: buffer.credits, steps: buffer.steps } } : {})
+    },
+    credits: buffer.credits
+  }
 }
 
 /**
  * What a conversation has cost so far, in credits: the sum of its runs.
  *
- * Exact because every model call a turn makes is added to its run as it is billed — the assistant's
- * steps, compaction, sub-agent workers and the moderation gate. One aggregate over the runs of one
- * conversation, served by the `conversationId` index.
+ * Kept as a running total on the conversation, added to by the write that closes each run, so reading
+ * it is the conversation's own document rather than an aggregate over its runs on every attach and
+ * every turn. A conversation from before the total existed (absent until upgrade/0.12.0 backfills it)
+ * falls back to the aggregate.
  */
-export const conversationCost = async (conversationId: string): Promise<number> => {
+export const conversationCost = async (conversationId: string, known?: { credits?: number }): Promise<number> => {
+  const credits = known ?? await mongo.conversations.findOne({ id: conversationId }, { projection: { _id: 0, credits: 1 } })
+  if (typeof credits?.credits === 'number') return credits.credits
   const [total] = await mongo.runs.aggregate<{ credits: number }>([
     { $match: { conversationId } },
     { $group: { _id: null, credits: { $sum: { $ifNull: ['$credits', 0] } } } }
@@ -364,18 +411,53 @@ export const conversationCost = async (conversationId: string): Promise<number> 
  * executing it, for example. Returns whether this call was the one that closed it.
  */
 export const finishRun = async (run: { id: string, conversationId: string }, patch: Partial<ConversationRun>): Promise<boolean> => {
-  // Bumped before knowing whether this call wins the close. A losing racer then advances the version
-  // with nothing new behind it, which costs a client one empty refetch — cheaper than the lookup it
-  // took to avoid it on every turn.
-  const version = await bumpConversationVersion(run.conversationId)
+  return (await finishTurn(run, undefined, patch)).closed
+}
+
+/**
+ * Close a turn: its final message, if any, and its run — under ONE version bump and one notification.
+ *
+ * The message is written FIRST and the run closed after, as the two separate writes were, because the
+ * terminal run state is the end-of-turn signal a subscriber stops listening on: it must already find
+ * the finalised message. Both carry the same version, so one `?sinceVersion=` fetch returns both.
+ *
+ * The run's buffered telemetry and spend are folded into its closing write, and its spend into the
+ * conversation's running total on the same bump — whose result is the total this returns.
+ *
+ * Conditional on the run still being `running`, so two writers cannot both decide how a run ended —
+ * the boot sweep of another instance racing the instance that is actually executing it, for example.
+ * The version is bumped before knowing whether this call wins: a losing racer advances it with nothing
+ * new behind it, which costs a client one empty refetch — cheaper than a lookup on every turn.
+ */
+export const finishTurn = async (
+  run: { id: string, conversationId: string },
+  message: { id: string, patch: Partial<StoredMessage> } | undefined,
+  patch: Partial<ConversationRun>
+): Promise<{ closed: boolean, conversationCredits?: number }> => {
+  const buffered = drainRunBuffer(run.id)
+  const { version, credits } = await bumpConversationVersion(run.conversationId, buffered.credits)
+  const now = new Date().toISOString()
+  if (message) {
+    // CAUGHT: whatever failed this write (a mongo blip, a shutdown) is likely to fail the next one
+    // too, and a run left `running` is worse than a message left without its notice — the run is what
+    // every reader and the boot sweep key on. So the close below still runs.
+    await mongo.messages.updateOne(
+      { id: message.id, conversationId: run.conversationId },
+      { $set: { ...message.patch, version, updatedAt: now } }
+    ).catch(err => console.error('autonomous agent message could not be finalised', err))
+  }
   const updated = await mongo.runs.updateOne(
     { id: run.id, status: 'running' },
-    { $set: { ...patch, version, endedAt: new Date().toISOString() } }
+    { $set: { ...patch, ...buffered.set, version, endedAt: now }, ...buffered.update }
   )
-  // Only the call that actually closed the run notifies, so a losing racer cannot announce a
-  // second, contradictory terminal state.
-  if (updated.modifiedCount) await notifyConversationChanged(run.conversationId, version)
-  return updated.modifiedCount > 0
+  // A losing racer still owes the run what it buffered: the spend happened either way.
+  if (!updated.modifiedCount && (Object.keys(buffered.update).length || Object.keys(buffered.set).length)) {
+    await mongo.runs.updateOne({ id: run.id }, { ...(Object.keys(buffered.set).length ? { $set: buffered.set } : {}), ...buffered.update })
+  }
+  // Only the call that actually closed the run notifies, so a losing racer cannot announce a second,
+  // contradictory terminal state — unless it wrote the message, which a reader must still be told of.
+  if (updated.modifiedCount || message) await notifyConversationChanged(run.conversationId, version)
+  return { closed: updated.modifiedCount > 0, conversationCredits: credits }
 }
 
 /**

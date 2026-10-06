@@ -39,6 +39,8 @@ export interface SessionTurnRequest {
   conversationId: string
   owner: AccountKeys
   caller: TurnCaller
+  /** The conversation, when the caller has just read it to check ownership — spares reading it again. */
+  conversation?: Awaited<ReturnType<typeof requireConversation>>
   content: string
   /**
    * Context an action button supplied, to be folded into this user turn.
@@ -66,7 +68,7 @@ export interface SessionTurnRequest {
  * someone else's conversation is a 403, not a silently dropped frame.
  */
 export const startSessionTurn = async (request: SessionTurnRequest): Promise<string> => {
-  const conversation = await requireConversation(request.owner, request.conversationId)
+  const conversation = request.conversation ?? await requireConversation(request.owner, request.conversationId)
   const { caller } = request
   if (caller.kind === 'person') assertOwnsConversation(conversation, caller.session)
   else if (!conversation.anonymous || conversation.userId !== caller.usageUserId) throw httpError(403, 'this conversation belongs to someone else')

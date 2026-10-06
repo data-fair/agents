@@ -11,7 +11,7 @@ import mongo from '#mongo'
 import config from '#config'
 import { generateText, type ModelMessage } from 'ai'
 import Debug from 'debug'
-import type { ConversationRun } from '#types'
+import type { Conversation, ConversationRun } from '#types'
 import type { UsageIdentity } from '../usage/enforce.ts'
 import { decideContextManagement, clearOldToolResults } from './compaction-policy.ts'
 import { compactionSystemPrompt, recapMessage } from './compaction-prompt.ts'
@@ -45,8 +45,14 @@ export interface LoadedHistory {
  * that had called a tool, and the model saw neither the result nor the fact that it had acted. See
  * storedTurnsToModelMessages for how a turn's steps are grouped back into assistant/tool pairs.
  */
-export const loadHistory = async (conversationId: string, upToSeq: number): Promise<LoadedHistory> => {
-  const conversation = await mongo.conversations.findOne(
+export const loadHistory = async (
+  conversationId: string,
+  upToSeq: number,
+  // The conversation as the turn read it, under the conversation's lock — so its recap is current and
+  // need not be read a second time. Omitted, it is read here.
+  known?: { compaction?: Conversation['compaction'] }
+): Promise<LoadedHistory> => {
+  const conversation = known ?? await mongo.conversations.findOne(
     { id: conversationId },
     { projection: { _id: 0, compaction: 1 } }
   )

@@ -4,15 +4,30 @@
  *
  *   npx dotenv -- node dev/mongo-ops.ts [--anonymous]
  *
+ * It sets organization/test1's settings first — the mock model PRICED, because a model call's usage
+ * accounting only runs when the call costs something, and an unpriced profile hides it entirely.
+ *
  * Signed in by default (test1-admin1, a thread created over HTTP first, so its creation is not
  * counted); `--anonymous` drives the anonymous path, whose hello creates the thread and whose close
  * purges it — both counted, since they are that path's per-thread cost.
  */
 import { MongoClient } from 'mongodb'
-import { axiosAuth, getAnonymousActionToken, directoryUrl } from '../tests/support/axios.ts'
+import { axiosAuth, superAdmin, getAnonymousActionToken, directoryUrl, defaultQuotas } from '../tests/support/axios.ts'
+import { putSettings } from '../tests/support/settings.ts'
 import { openAgentSession } from '../tests/support/ws.ts'
 
 const anonymous = process.argv.includes('--anonymous')
+await putSettings(await superAdmin, 'organization/test1', {
+  providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
+  models: [{
+    model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
+    usage: ['assistant', 'tools', 'summarizer'],
+    inputPricePerMillion: 8,
+    outputPricePerMillion: 8
+  }],
+  modelMapping: { assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' } },
+  quotas: { ...defaultQuotas, contrib: { unlimited: true, monthlyLimit: 0 }, anonymous: { unlimited: true, monthlyLimit: 0 } }
+})
 const mongo = await MongoClient.connect(`mongodb://localhost:${process.env.MONGO_PORT}/data-fair-agents-development`)
 const db = mongo.db()
 

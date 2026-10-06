@@ -151,54 +151,44 @@ export async function recordUsage (owner: AccountKeys, record: UsageRecord): Pro
   const setFields: Record<string, string> = { updatedAt: now }
   if (userName) setFields.userName = userName
 
-  const upsertFor = (period: string) => mongo.usage.updateOne(
-    { ...filter, period },
-    {
-      $inc: inc,
-      $set: setFields,
-      $setOnInsert: { ...setOnInsertBase, period }
-    },
-    { upsert: true }
-  )
+  // The period documents written by one call: daily, weekly and monthly, for the caller — and again
+  // for the account aggregate (per-user tracking) and the untrusted pool, when they apply. Up to nine
+  // upserts, sent as ONE bulk write: they were nine round trips per model call, which made usage
+  // accounting the largest single share of a turn's database traffic.
+  const periods = [dailyPeriod, weeklyPeriod, monthlyPeriod]
+  const upserts = (scopeFilter: Record<string, unknown>, setOnInsert: Record<string, unknown>, set: Record<string, string>) =>
+    periods.map(period => ({
+      updateOne: {
+        filter: { ...scopeFilter, period },
+        update: { $inc: inc, $set: set, $setOnInsert: { ...setOnInsert, period } },
+        upsert: true
+      }
+    }))
 
-  const ops: Promise<unknown>[] = [upsertFor(dailyPeriod), upsertFor(weeklyPeriod), upsertFor(monthlyPeriod)]
-
+  const writes = upserts(filter, setOnInsertBase, setFields)
   // for org owners with per-user tracking, also upsert account-level aggregate records
   if (userId) {
-    const accountFilter = { 'owner.type': owner.type, 'owner.id': owner.id, userId: { $exists: false } } as any
-    const accountSetOnInsert = { owner: { type: owner.type, id: owner.id } }
-    const accountUpsertFor = (period: string) => mongo.usage.updateOne(
-      { ...accountFilter, period },
-      {
-        $inc: inc,
-        $set: { updatedAt: now },
-        $setOnInsert: { ...accountSetOnInsert, period }
-      },
-      { upsert: true }
-    )
-    ops.push(accountUpsertFor(dailyPeriod), accountUpsertFor(weeklyPeriod), accountUpsertFor(monthlyPeriod))
+    writes.push(...upserts(
+      { 'owner.type': owner.type, 'owner.id': owner.id, userId: { $exists: false } },
+      { owner: { type: owner.type, id: owner.id } },
+      { updatedAt: now }
+    ))
   }
-
   // also upsert the shared pool aggregate (e.g. combined anonymous + external usage)
   if (poolId) {
-    const poolFilter = { 'owner.type': owner.type, 'owner.id': owner.id, userId: poolId }
-    const poolSetOnInsert = { owner: { type: owner.type, id: owner.id }, userId: poolId }
-    const poolUpsertFor = (period: string) => mongo.usage.updateOne(
-      { ...poolFilter, period },
-      {
-        $inc: inc,
-        $set: { updatedAt: now },
-        $setOnInsert: { ...poolSetOnInsert, period }
-      },
-      { upsert: true }
-    )
-    ops.push(poolUpsertFor(dailyPeriod), poolUpsertFor(weeklyPeriod), poolUpsertFor(monthlyPeriod))
+    writes.push(...upserts(
+      { 'owner.type': owner.type, 'owner.id': owner.id, userId: poolId },
+      { owner: { type: owner.type, id: owner.id }, userId: poolId },
+      { updatedAt: now }
+    ))
   }
 
-  // keep the customers-facing credit consumption counter in sync
-  ops.push(incrementConsumption(owner, cost))
-
-  await Promise.all(ops)
+  await Promise.all([
+    // Unordered: the documents are independent, so one failing must not stop the others.
+    mongo.usage.bulkWrite(writes as any, { ordered: false }),
+    // keep the customers-facing credit consumption counter in sync — another collection, so its own write
+    incrementConsumption(owner, cost)
+  ])
 }
 
 export async function getOwnerUsage (owner: AccountKeys): Promise<UsageInfo> {

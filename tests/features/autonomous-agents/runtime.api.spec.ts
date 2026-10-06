@@ -1057,7 +1057,10 @@ test.describe('Autonomous agent live conversation notifications', () => {
     const client = await open(await cookieOf(orgAdmin))
     await client.subscribe(conversationChannel(conv.id))
 
-    const { runId } = (await orgAdmin.post(`/api/conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })).data
+    // A turn long enough (~4.5s) that the early catch-up below lands WHILE it runs: with an answer
+    // that settles in milliseconds, that read could already see the final message, leaving no in-place
+    // update for sinceVersion to return — a race the test lost once turns got faster.
+    const { runId } = (await orgAdmin.post(`/api/conversations/organization/test1/${conv.id}/messages`, { content: 'long answer' })).data
     // Catch up once, early, then wait for the turn to finish. The assistant message is created by
     // the executor, which the POST does not await, so wait for it to appear rather than assuming
     // it is there the instant the POST returns.
@@ -1069,6 +1072,7 @@ test.describe('Autonomous agent live conversation notifications', () => {
     }
     const assistantEarly = early.results.find((m: any) => m.role === 'assistant')
     assert.ok(assistantEarly, 'the assistant message must exist from the start of the turn')
+    assert.equal(assistantEarly.pending, true, 'the catch-up must happen mid-turn for this test to mean anything')
     const cursor = early.version
     const highestSeq = Math.max(...early.results.map((m: any) => m.seq))
 
@@ -1085,7 +1089,7 @@ test.describe('Autonomous agent live conversation notifications', () => {
     const refreshed = byVersion.results.find((m: any) => m.role === 'assistant')
     assert.ok(refreshed, 'the finished assistant message must come back through sinceVersion')
     assert.equal(refreshed.pending, false)
-    assert.equal(partsText(refreshed.parts), 'world')
+    assert.ok(partsText(refreshed.parts).length > 200, 'the whole answer, filled in at the same seq')
     assert.ok(byVersion.version > cursor, 'the response carries the cursor to store next')
   })
 
@@ -1128,7 +1132,10 @@ test.describe('Autonomous agent live conversation notifications', () => {
     const assistant = (await messagesSince(conv.id)).results.find((m: any) => m.role === 'assistant')
     assert.equal(assistant.pending, false, 'a failed turn must not leave its message pending')
     assert.ok(partsText(assistant.parts).length > 0)
-    assert.ok(assistant.version < run.version, 'the message must reach its final version BEFORE the run closes')
+    // Closed under ONE version (finishTurn), the message written first: a client that stops at the
+    // terminal run state fetched it in the same `?sinceVersion=` response as the run — it cannot have
+    // the run's end without the message's.
+    assert.equal(assistant.version, run.version, 'the finalised message and the run\'s close must share one version')
   })
 
   test('an aborted turn also finalises its message before the run closes', async () => {
@@ -1148,7 +1155,7 @@ test.describe('Autonomous agent live conversation notifications', () => {
     assert.equal(run.status, 'aborted')
     const assistant = (await messagesSince(conv.id)).results.find((m: any) => m.role === 'assistant')
     assert.equal(assistant.pending, false)
-    assert.ok(assistant.version < run.version)
+    assert.equal(assistant.version, run.version)
   })
 })
 

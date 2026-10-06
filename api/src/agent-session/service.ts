@@ -93,13 +93,13 @@ export const startAgentSessions = (server: Server, options: StartAgentSessionsOp
         // else's conversation became its watcher anyway, and received the stream of their next turn.
         // Authorization is the ownership check the HTTP routes apply; an anonymous socket's thread was
         // checked by its hello, which only ever binds it to the thread it created.
-        attaching = (sessionState?.user ? resolveTurnOwner(conversationId) : Promise.resolve())
-          .then(async () => {
+        attaching = (sessionState?.user ? resolveOwnConversation(conversationId) : Promise.resolve(undefined))
+          .then(async conversation => {
             if (boundConversationId !== conversationId) return // rebound in the meantime
             attachSession(conversationId, agentSession)
             // The transcript so far, so a reload or a second tab shows the conversation rather than
             // an empty pane.
-            if (sessionState?.user) await sendHistoryFor(conversationId)
+            if (conversation) await sendHistoryFor(conversation)
           })
           .catch((err: any) => {
             // Reported rather than leaving the client to guess why nothing arrived.
@@ -114,7 +114,7 @@ export const startAgentSessions = (server: Server, options: StartAgentSessionsOp
         const conversationId = boundConversationId
         if (!conversationId) return
         const allowed = attaching.then(() => sessionState?.user
-          ? resolveTurnOwner(conversationId).then(() => true)
+          ? resolveOwnConversation(conversationId).then(() => true)
           : anonymousThread?.id === conversationId)
         allowed.then(ok => { if (ok) abortRunsOfConversation(conversationId, 'stop') })
           .catch((err: any) => { send({ type: 'error', message: err.message ?? 'the turn could not be stopped' }) })
@@ -149,10 +149,15 @@ export const startAgentSessions = (server: Server, options: StartAgentSessionsOp
         // made every such turn fail with "unknown conversation" while members of the account were
         // unaffected. `startSessionTurn` still re-reads it under that owner and still checks the
         // thread belongs to this person.
-        const owner = attaching.then(() => caller.kind === 'anonymous' ? anonymousThread!.owner : resolveTurnOwner(conversationId))
-        owner.then(owner => startSessionTurn({
+        // A person's thread is read once here, for the ownership check, and handed on: the turn starting
+        // below has no reason to read it again. An anonymous visitor's is checked inside the turn start.
+        const resolved = attaching.then(async () => caller.kind === 'anonymous'
+          ? { owner: anonymousThread!.owner, conversation: undefined }
+          : await resolveOwnConversation(conversationId).then(conversation => ({ owner: { type: conversation.owner.type, id: conversation.owner.id }, conversation })))
+        resolved.then(({ owner, conversation }) => startSessionTurn({
           conversationId,
           owner,
+          ...(conversation ? { conversation } : {}),
           caller,
           content,
           hiddenContext,
@@ -176,16 +181,17 @@ export const startAgentSessions = (server: Server, options: StartAgentSessionsOp
      * ownership rule is stated once: the thread is found by id, and the person must be the one it
      * belongs to (`assertOwnsConversation`, which is what the HTTP routes apply as well).
      */
-    const resolveTurnOwner = async (conversationId: string) => {
+    const resolveOwnConversation = async (conversationId: string) => {
       const conversation = await requireConversationById(conversationId)
       assertOwnsConversation(conversation, sessionState)
-      return { type: conversation.owner.type, id: conversation.owner.id }
+      return conversation
     }
 
-    const sendHistoryFor = async (conversationId: string) => {
-      await sendHistory(agentSession, conversationId)
-      // The total so far, for the chat's Consumption tab; refreshed before every turn-end.
-      agentSession.send({ type: 'cost', conversationCost: await conversationCost(conversationId) })
+    const sendHistoryFor = async (conversation: Awaited<ReturnType<typeof requireConversationById>>) => {
+      await sendHistory(agentSession, conversation.id)
+      // The total so far, for the chat's Consumption tab; refreshed before every turn-end. Off the
+      // document the ownership check just read, rather than a read of its own.
+      agentSession.send({ type: 'cost', conversationCost: await conversationCost(conversation.id, conversation) })
     }
 
     /**
