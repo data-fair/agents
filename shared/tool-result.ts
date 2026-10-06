@@ -1,9 +1,9 @@
 // Flattens an MCP CallToolResult into what the AI SDK tool wrapper returns.
 //
 // Text-only results stay a plain string. MCP carries an `isError` flag on the result,
-// but the OpenAI-compatible wire protocol the chat uses to reach the gateway has no
-// tool-error channel — a tool message is just `{ role: 'tool', content: string }`. So a
-// failure has to be surfaced inside that string, here, where the flag still exists: we
+// and the flag does not survive this flattening (the caller rethrows on it separately,
+// see api/src/mcp-servers/client.ts). So a failure is also surfaced inside the string,
+// here, where the flag still exists: we
 // prefix the text so the model plainly sees the call failed and can react, instead of
 // silently treating an error (or an empty error body) as a successful result.
 //

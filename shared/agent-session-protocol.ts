@@ -138,7 +138,7 @@ export type ServerMessage =
      * Present when this is a sub-agent PANEL's phase line rather than the main one.
      *
      * Keyed on the delegating tool call, because several workers run concurrently when the lead
-     * delegates more than once in a step — the browser loop keys its panels the same way, and without
+     * delegates more than once in a step — the browser loop keyed its panels the same way, and without
      * the key two panels would share one phase line.
      */
     parentToolCallId?: string

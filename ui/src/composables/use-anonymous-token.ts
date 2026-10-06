@@ -12,7 +12,8 @@ export async function getAnonymousToken (): Promise<string> {
     if (!res.ok) throw new Error(`failed to get anonymous action token: ${res.status}`)
     const token = (await res.text()).trim()
     // Cached as soon as issued. Callers prefetch on init so SD's notBefore window
-    // has elapsed by first use; the gateway fetch also refetches once on a 401.
+    // has elapsed by first use; use-session-chat also resets and refetches it before
+    // each hello that starts a thread.
     cached = token
     return token
   })()

@@ -148,6 +148,21 @@ test.describe('Host context reaching the model', () => {
     assert.doesNotMatch(await ask(socket, 'what happened'), /clicked save/, 'already delivered')
   })
 
+  test('the run records what the page said and what the model could call', async () => {
+    // Neither is in the conversation: host blocks are folded in at call time and not stored, and the
+    // stored turn records the calls made, never the tools offered. So the run's telemetry is the only
+    // place a reader — the export, a simulation judge — can learn either.
+    const { socket, conversationId } = await openSession()
+    socket.send({ type: 'host-state', state: { page: 'the datasets list' } })
+    await ask(socket, 'hello')
+
+    const runs = (await user.get(`/api/conversations/${OWNER}/${conversationId}/runs`)).data.results as any[]
+    const call = runs[0].calls.find((c: any) => c.modelRole === 'assistant')
+    assert.ok(call.hostBlockChars > 'the datasets list'.length, `host blocks measured, got ${call.hostBlockChars}`)
+    assert.ok(call.toolNames.includes('wait_for_user_action'), `the offered tools, got ${JSON.stringify(call.toolNames)}`)
+    assert.deepEqual(call.toolNames, [...call.toolNames].sort())
+  })
+
   test('nothing reported means nothing added to the turn', async () => {
     // The turn must not carry an empty block, which would be noise in every prompt of every
     // conversation that never reports anything.

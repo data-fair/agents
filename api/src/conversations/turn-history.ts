@@ -85,12 +85,11 @@ export const loadHistory = async (
 /**
  * Bring the history back within budget: clear old tool results, re-measure, then summarise if needed.
  *
- * The decision is `decideContextManagement` in `shared/`, which the browser loop calls too — one policy,
- * not two that happen to agree. Only the APPLICATION is local: this rebuilds from stored parts and
- * persists a recap, the browser rewrites an in-memory array. See
+ * The decision is `decideContextManagement` in ./compaction-policy.ts — a pure policy, kept apart so it
+ * is unit tested. This is where it is APPLIED: it rebuilds from stored parts and persists a recap. See
  * docs/architecture/context-management.md.
  *
- * Unlike the browser loop, this has no provider-reported measurement of a previous turn to
+ * There is no provider-reported measurement of a previous turn to
  * work from — there is no prior response object in hand — so the whole history counts as
  * unmeasured and the decision runs on the character estimate alone. That is conservative in
  * the safe direction: it can compact slightly early, never slightly late. Expressed as a
@@ -164,7 +163,7 @@ export const compactHistory = async (
     // A compaction is a real model call, so it is BILLED like one. It used to record only a trace —
     // itself gated on settings.storeTraces, which is off by default — so summarizer tokens reached no
     // ledger at all: not the run, not the account credit cap, not the usage histogram. The executor
-    // talks to the provider directly rather than through the gateway, so nothing else would have.
+    // talks to the provider directly — there is no gateway in between any more — so nothing else would have.
     const compactionCredits = computeCreditBreakdown(
       {
         inputTokens: generated.usage?.inputTokens ?? 0,

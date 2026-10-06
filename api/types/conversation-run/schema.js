@@ -79,6 +79,14 @@ export default {
           // seq bound, so no content.
           messageCount: { type: 'number' },
           historyUpToSeq: { type: 'number' },
+          // What the model COULD do, which the conversation cannot show: it records the calls made,
+          // never the tools offered. The union over the turn's steps, since the page's tools are live
+          // and may change between steps. Names only, sorted.
+          toolNames: { type: 'array', items: { type: 'string' } },
+          // How much page state and page events this call carried (the host blocks folded into the
+          // person's message at call time, which are not stored with it). The one measure of how
+          // much a host page talks to the model.
+          hostBlockChars: { type: 'number' },
           // The system prompt is per TURN, not per call, so it is recorded once below rather than
           // repeated on every entry.
           steps: { type: 'number' }

@@ -248,8 +248,8 @@ export function clearOldToolResults (
   }, 0)
   if (freedTokens < clearAtLeast) return { clear: false, reason: 'below-clear-at-least' }
 
-  // Copied down to the parts touched, never mutated: the caller's history — the browser's live array,
-  // the executor's loaded window — must not change under it.
+  // Copied down to the parts touched, never mutated: the caller's history — the executor's loaded
+  // window — must not change under it.
   const cleared = history.slice()
   for (const ref of eligible) {
     const message = cleared[ref.message]
@@ -276,7 +276,7 @@ export type ContextDecision = {
 /**
  * THE context-management policy: one threshold, two remedies, cheapest first.
  *
- * Both loops call this and nothing else, which is the point — the previous shape was two loops that
+ * The loop calls this and nothing else, which is the point — a previous shape was two loops that
  * happened to agree because the same constant had been copied into each, and every context bug on this
  * branch came from one of them having drifted.
  *
@@ -301,8 +301,8 @@ export function decideContextManagement (input: ContextDecisionInput): ContextDe
 
   // RE-MEASURED from characters, not adjusted by the freed estimate: a clear invalidates the basis of
   // `lastInputTokens`, since the prefix it measured no longer exists. Counting the rebuilt history is
-  // the only honest measurement available, and it is what both loops already fall back to after a
-  // compaction.
+  // the only honest measurement available, and it is what the executor already works from (it passes
+  // `lastInputTokens: 0`, see compactHistory in ./turn-history.ts).
   const compaction = decideCompaction(clearing.clear
     ? { ...input, history, lastInputTokens: 0, appendedChars: JSON.stringify(history).length }
     : input)

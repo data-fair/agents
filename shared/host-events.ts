@@ -203,11 +203,6 @@ export class HostEventStore {
     return pending
   }
 
-  /** Read the pending buffer without draining it — see `withHostConsequences` in use-agent-chat.ts. */
-  peekPending (): AgentEvent[] {
-    return [...this.pending]
-  }
-
   isWaiting (): boolean { return this.waiter !== null }
 
   waitForEvent (opts: { timeoutMs: number, signal?: AbortSignal }): Promise<WaitOutcome> {
@@ -291,12 +286,12 @@ export function hasHostState (snapshot: HostStateSnapshot): boolean {
 /**
  * Fold what the page has reported into the last user message of a history, for one model call.
  *
- * The server-side counterpart of what the browser loop does inline. It exists because moving the loop
+ * The server-side counterpart of what the browser loop did inline. It exists because moving the loop
  * left the store write-only: the socket filled it, `wait_for_user_action` drained its events, and the
  * retained STATE was never told to the model at all — so an assistant asked "what am I looking at?"
  * had the answer in memory beside it and no way to read it.
  *
- * Three decisions, each the one the browser loop already made:
+ * Three decisions, each the one the browser loop had already made:
  *
  *  - The LAST USER message, not the system prompt. The system prompt is the stable, cacheable prefix
  *    and page state changes every turn; and state presented as a standing instruction reads to the
@@ -317,7 +312,10 @@ export function withHostContext<M extends { role: string, content: unknown }> (
   store: { snapshot: () => HostStateSnapshot, hasPending: () => boolean, takePending: () => AgentEvent[] } | null,
   // Appended AFTER the host blocks, so they are the last thing the model reads before the person's
   // words — which is the position a reminder needs (see interruptedWaitReminder).
-  trailing: string[] = []
+  trailing: string[] = [],
+  // Told how many characters were folded in, for the run's telemetry: the blocks are not stored with
+  // the message, so this is the only record of how much the page said to the model.
+  measure?: { chars: number }
 ): M[] {
   const snapshot = store?.snapshot()
   // Drained whole, but only the UNKEYED events are reported: a keyed event is a state change, and the
@@ -341,6 +339,7 @@ export function withHostContext<M extends { role: string, content: unknown }> (
   if (at === -1) return history
   const target = history[at]
   const hidden = blocks.join('\n\n')
+  if (measure) measure.chars = hidden.length
   const next = [...history]
 
   // BOTH content shapes, and the array one is the one that matters.

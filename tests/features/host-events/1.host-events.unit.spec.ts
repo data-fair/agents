@@ -84,19 +84,6 @@ test.describe('HostEventStore pending buffer', () => {
     assert.equal(pending.filter(e => e.key === 'wizard').length, 1)
     assert.equal(pending.filter(e => !e.key).length, PENDING_MAX)
   })
-
-  test('peekPending reads the buffer without draining it', () => {
-    const s = new HostEventStore()
-    s.push(ev('item-created', '1'))
-    s.push(ev('wizard', 'a', 'wizard'))
-    const peeked = s.peekPending()
-    assert.deepEqual(peeked.map(e => e.name), ['item-created', 'wizard'])
-    // Still there afterwards, and still there for a real drain.
-    assert.equal(s.hasPending(), true)
-    assert.deepEqual(s.peekPending().map(e => e.name), ['item-created', 'wizard'])
-    assert.deepEqual(s.takePending().map(e => e.name), ['item-created', 'wizard'])
-    assert.equal(s.hasPending(), false)
-  })
 })
 
 test.describe('HostEventStore waits', () => {

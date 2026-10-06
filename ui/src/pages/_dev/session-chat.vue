@@ -89,10 +89,11 @@
 /**
  * A development page for the server-side loop.
  *
- * It exists to make the prototype observable in a real browser, and to measure first-token latency
- * against the gateway path. It uses `useAgentSession` DIRECTLY rather than going through
- * `use-agent-chat`: that composable still owns sub-agents, host events and tool exploration, which move
- * server-side in §4.6 and §4.7 of the design, so porting it now would leave it half-migrated.
+ * It exists to make the server-side loop observable in a real browser, and to measure first-token
+ * latency (originally against the gateway path, since removed). It uses `useAgentSession` DIRECTLY
+ * rather than going through the chat composable: when it was written, that was `use-agent-chat` (since
+ * removed), which still owned sub-agents, host events and tool exploration before they moved
+ * server-side in §4.6 and §4.7 of the design.
  *
  * What this page proves is the whole browser half: the page registers WebMCP tools, the aggregator
  * discovers them exactly as today, their descriptors go up the socket, and the loop running on the
@@ -123,7 +124,7 @@ const toolChips = ref<string[]>([])
  */
 const sawPending = ref(false)
 
-/** The page's own WebMCP tools, discovered by the aggregator exactly as the in-browser loop does. */
+/** The page's own WebMCP tools, discovered by the aggregator exactly as the real chat does. */
 const pageTools = ref<Record<string, Tool>>({})
 let aggregator: FrameClientAggregator | null = null
 
@@ -183,7 +184,7 @@ onMounted(async () => {
     }
   } as any)
 
-  // The same aggregator the in-browser loop uses. Its output is the cut point: descriptors go up the
+  // The same aggregator the real chat uses. Its output is the cut point: descriptors go up the
   // socket, implementations stay here.
   aggregator = new FrameClientAggregator({
     // The PER-TAB channel, not the default one. `useFrameServer` announces on the tab's channel so two

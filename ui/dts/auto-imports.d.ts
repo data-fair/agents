@@ -92,7 +92,6 @@ declare global {
   const reactive: typeof import('vue').reactive
   const readFlags: typeof import('../src/utils/agent-flags')['readFlags']
   const readonly: typeof import('vue').readonly
-  const reconcileTools: typeof import('../src/composables/live-tools').reconcileTools
   const ref: typeof import('vue').ref
   const renderMarkdown: typeof import('../src/utils/markdown').renderMarkdown
   const renderMermaidIn: typeof import('../src/utils/mermaid').renderMermaidIn
@@ -198,9 +197,6 @@ declare global {
   export type { TurnTextState } from '../src/composables/empty-turn'
   import('../src/composables/empty-turn')
   // @ts-ignore
-  export type { ToolsDelta } from '../src/composables/live-tools'
-  import('../src/composables/live-tools')
-  // @ts-ignore
   export type { AgentSessionClientOptions } from '../src/composables/use-agent-session'
   import('../src/composables/use-agent-session')
   // @ts-ignore
@@ -288,7 +284,6 @@ declare module 'vue' {
     readonly provide: UnwrapRef<typeof import('vue')['provide']>
     readonly reactive: UnwrapRef<typeof import('vue')['reactive']>
     readonly readonly: UnwrapRef<typeof import('vue')['readonly']>
-    readonly reconcileTools: UnwrapRef<typeof import('../src/composables/live-tools')['reconcileTools']>
     readonly ref: UnwrapRef<typeof import('vue')['ref']>
     readonly renderMarkdown: UnwrapRef<typeof import('../src/utils/markdown')['renderMarkdown']>
     readonly renderMermaidIn: UnwrapRef<typeof import('../src/utils/mermaid')['renderMermaidIn']>

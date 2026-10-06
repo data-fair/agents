@@ -3,12 +3,12 @@
  *
  * A page declares one with `useAgentSubAgent`, which registers a `subagent_<name>` tool whose `execute`
  * returns not a result but a JSON CONFIG — prompt, tool names, model. The loop reads that config, builds
- * a worker with the named tools, and replaces the tool with one that runs it. The browser loop does
- * exactly this today; this is the same mechanism with the worker on the server.
+ * a worker with the named tools, and replaces the tool with one that runs it. The browser loop did
+ * exactly this; this is the same mechanism with the worker on the server.
  *
  * WHY IT HAD TO MOVE, which is worth stating because it is not a free choice: a worker is a model loop,
- * and the only way a browser calls a model in this architecture is the gateway. So "the gateway goes"
- * and "sub-agents move server-side" are one decision, not two. The hybrid — keep workers in the browser
+ * and the only way a browser could call a model was the gateway. So "the gateway goes" and
+ * "sub-agents move server-side" were one decision, not two. The hybrid — keep workers in the browser
  * and pay one round trip per delegation instead of one per inner call — is unavailable for that reason.
  *
  * WHAT IT COSTS, conditionally: a worker's inner tool calls become round trips when its tools are PAGE
@@ -233,7 +233,7 @@ export function subAgentDelegation (opts: {
       })
       // The delegating call keys the panel. Falling back to the name keeps a trace addressable when no
       // id is supplied, at the cost of two concurrent delegations of the SAME worker sharing a panel —
-      // which is the browser loop's own fallback, and the id is always present in practice.
+      // which was the browser loop's own fallback, and the id is always present in practice.
       const parentToolCallId = options?.toolCallId ?? opts.name
       debug('delegating to %s with %d tool(s)', opts.name, Object.keys(opts.workerTools).length)
       opts.onPhase?.(parentToolCallId, 'starting')

@@ -31,7 +31,7 @@ function serializePrompt (prompt: string | Array<any>): string {
 /**
  * `cache <n>` anywhere in the prompt makes the mock report n of its input tokens as
  * cache reads (clamped to the total). The mock is the only way any test can reach the
- * gateway's cache-pricing branch — real providers are never called from the suite.
+ * cache-pricing branch of the credit computation — real providers are never called from the suite.
  *
  * Matched against the WHOLE prompt rather than commandLine() on purpose: a caller
  * keeps its real directive on the last line (`cache 100000\nhello` still answers
@@ -383,7 +383,7 @@ function processMockSummarizerPrompt (): MockPromptResult {
 
 /**
  * mock-moderator: returns a deterministic moderation verdict as JSON text
- * (parseable by generateObject). When the gateway wraps conversation context,
+ * (parseable by generateObject). When the moderation run wraps conversation context,
  * it judges ONLY the <message_to_moderate> portion — mirroring the real prompt's
  * isolation rule. Messages containing "jailbreak" or an "ignore (all/previous)
  * instructions" phrase are blocked as prompt-injection, "fuck" as profanity;
@@ -469,11 +469,12 @@ function processForModel (modelId: string, options: { prompt: string | Array<any
   if (directive === 'empty') return { type: 'text', text: '' }
   if (directive === 'stream error') return { type: 'error' }
   // Hang seam: "stall" holds the response open far longer than any test idle-watchdog
-  // timeout, simulating a provider/gateway that keeps the socket open but emits
-  // nothing — the client's watchdog must abort the turn with a recoverable timeout.
+  // timeout, simulating a provider that keeps the socket open but emits
+  // nothing — the server loop's idle watchdog (createIdleWatchdog) must abort the turn
+  // with a recoverable timeout.
   if (directive === 'stall') return { type: 'text', text: 'too late', delayMs: 30_000 }
-  // Reasoning seam: emit reasoning tokens before the answer (exercises the gateway's
-  // reasoning_content forwarding and the client's reasoning capture).
+  // Reasoning seam: emit reasoning tokens before the answer (exercises the loop's
+  // reasoning capture and its streaming to the page).
   if (directive === 'reason') return { type: 'text', text: 'world', reasoning: 'Let me think about it.' }
   // Streaming seam: the mock emits one text-delta per CHARACTER every 10ms, so a long string is
   // all that is needed to produce a few hundred deltas — enough for a consumer to prove it
@@ -550,7 +551,7 @@ export function createMockLanguageModel (modelId: string = 'mock-model'): Langua
                 // raw provider payload, and the SDK parses and validates it itself (it calls
                 // .trim() on this). Emitting an object made every SDK-side tool execution
                 // fail with "toolCall.input.trim is not a function" — invisible until now,
-                // because the gateway hands tool calls to the browser to execute and no test
+                // because the gateway handed tool calls to the browser to execute and no test
                 // had ever let the SDK run one server-side.
                 input: call.toolArgs || '{}'
               } as any)

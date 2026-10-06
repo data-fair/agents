@@ -146,7 +146,7 @@ export class FrameClientAggregator {
             // callTool() additionally enforces the tool's declared outputSchema against
             // the result's `structuredContent`, throwing when it is absent or mismatched.
             // But formatMcpToolResult discards structuredContent entirely — it keeps only
-            // text and image parts (the latter as a media envelope the gateway decodes) —
+            // text and image parts (the latter as a media envelope the server turns into image parts) —
             // so that validation can only ever break an otherwise-usable call over a value
             // we throw away. Going through request() keeps the identical request path while
             // leaving validation coherent with the payload we actually consume.

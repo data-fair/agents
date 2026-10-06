@@ -92,9 +92,10 @@ export const UNKNOWN_CONTEXT_WINDOW = 128_000
  * while the identical `stream:false` request returns the tool call correctly. Every
  * other Scaleway model tested (qwen3.5-397b, qwen3-235b, gpt-oss-120b — itself a
  * reasoning model — and devstral-2-123b) streams tool calls fine, so this is a
- * model-specific serving bug, not a provider-wide one. The gateway works around it by
- * issuing the upstream call non-streaming when tools are present (it still streams SSE
- * to the client). Covers both the direct `scaleway` provider (model id "glm-5.2") and
+ * model-specific serving bug, not a provider-wide one. The gateway worked around it by
+ * issuing the upstream call non-streaming when tools were present. The gateway is gone and
+ * nothing in the server loop calls this any more (only its unit test does), so the loop
+ * currently streams regardless. Covers both the direct `scaleway` provider (model id "glm-5.2") and
  * the `openai-compatible` → LiteLLM passthrough (model id "glm-5.2-scw").
  *
  * Re-check whether the upstream is still broken with `dev/scripts/scw-toolcall-probe.mjs`;
@@ -273,7 +274,7 @@ export function getModelCatalog (globalProviders: GlobalAiProvider[], globalMode
 }
 
 /**
- * Token budget above which the chat client compacts history. Callers resolve the
+ * Token budget above which the server loop compacts history. Callers resolve the
  * seat whose history is actually compacted (the assistant) and pass its entry, so
  * the window is the one of the model that will have to swallow it. `percent` is
  * deployment-global config (`compactionPercent`), passed in rather than read here

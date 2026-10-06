@@ -385,9 +385,13 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   // their words. In the interrupted wait's own result it sat in history ahead of the new question, and
   // judged runs answered the question and never waited again.
   const reminder = pendingWaitReminder(compacted.messages)
+  const hostBlocks = { chars: 0 }
   const history = session || reminder
-    ? withHostContext(compacted.messages, session?.hostEvents ?? null, reminder ? [reminder] : [])
+    ? withHostContext(compacted.messages, session?.hostEvents ?? null, reminder ? [reminder] : [], hostBlocks)
     : compacted.messages
+
+  // Every tool offered on any step of the turn, for its telemetry (see the run schema's `toolNames`).
+  const offeredTools = new Set<string>()
 
   // Credits spent so far this turn, accumulated per step so the budget can stop the loop
   // between steps rather than only reporting the overrun afterwards.
@@ -633,6 +637,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
         await assembleTools()
         debug('tool set refreshed mid-turn: %d tool(s)', Object.keys(liveTools).length)
       }
+      for (const name of Object.keys(liveTools)) offeredTools.add(name)
       return loopGuardPrepareStep(options)
     },
     // totalMs is defence in depth. The outer Promise.race in runTurn still exists and is not redundant:
@@ -983,7 +988,9 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
     finishReason,
     steps,
     messageCount: history.length,
-    historyUpToSeq: messageSeq
+    historyUpToSeq: messageSeq,
+    toolNames: [...offeredTools].sort(),
+    hostBlockChars: hostBlocks.chars
   })
   // The instructions, recorded ONCE per run rather than on every call: they do not change within a
   // turn, and they are what a reviewer needs that the conversation does not contain.
@@ -1002,7 +1009,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
     : 'completed'
 
   // An empty completion is a known provider failure mode with its own mock seam, and the
-  // browser loop has a fallback for it. Without one here the turn persists a blank message
+  // browser loop had a fallback for it. Without one here the turn persists a blank message
   // and a green run — the "conversation that simply stops" this module forbids.
   //
   // Only when the turn OTHERWISE COMPLETED, though: a turn cut off by a guard, a budget or

@@ -39,6 +39,8 @@ export const recordCall = (
     steps?: number
     messageCount?: number
     historyUpToSeq?: number
+    toolNames?: string[]
+    hostBlockChars?: number
   }
 ) => {
   appendRunCall(run.id, {
@@ -62,6 +64,8 @@ export const recordCall = (
     ...(call.finishReason ? { finishReason: call.finishReason } : {}),
     ...(call.steps !== undefined ? { steps: call.steps } : {}),
     ...(call.messageCount !== undefined ? { messageCount: call.messageCount } : {}),
-    ...(call.historyUpToSeq !== undefined ? { historyUpToSeq: call.historyUpToSeq } : {})
+    ...(call.historyUpToSeq !== undefined ? { historyUpToSeq: call.historyUpToSeq } : {}),
+    ...(call.toolNames ? { toolNames: call.toolNames } : {}),
+    ...(call.hostBlockChars !== undefined ? { hostBlockChars: call.hostBlockChars } : {})
   }).catch(err => console.error('could not record run telemetry', err))
 }

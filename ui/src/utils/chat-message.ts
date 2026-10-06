@@ -1,11 +1,10 @@
 /**
- * The shape of one message in an agent conversation, as both the in-page chat and the
- * server-side autonomous agent runtime understand it.
+ * The shape of one message in an agent conversation, as the chat renders it.
  *
- * It lives in the shared workspace rather than in the UI composable that used to own it
- * so the render components and the server-side runtime can agree on one type. Moved
- * verbatim from ui/src/composables/use-agent-chat.ts, which re-exports it for its
- * existing consumers.
+ * It lives here rather than in the UI composable that used to own it so the render
+ * components, the session chat and the review page agree on one type. Moved verbatim
+ * from the browser loop's composable (use-agent-chat, since removed); stored parts are
+ * mapped onto it by ./autonomous-agent-chat-message.ts.
  */
 
 export interface ChatMessage {

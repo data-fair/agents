@@ -36,7 +36,7 @@ export function readFlags (cookieString = document.cookie): AgentFlags {
 export function serializeFlagsCookie (flags: AgentFlags, apiPath: string): string {
   const v = encodeURIComponent(JSON.stringify(flags))
   // Scope to the agents service root ("…/agents"), derived by dropping the "/api"
-  // suffix, rather than the narrower gateway endpoint: this keeps the cookie off
+  // suffix, rather than a narrower API path: this keeps the cookie off
   // sibling stack services while letting the UI pages read it back on load.
   const servicePath = apiPath.replace(/\/api$/, '')
   return `${FLAGS_COOKIE}=${v}; Max-Age=31536000; Path=${servicePath}; SameSite=Lax`

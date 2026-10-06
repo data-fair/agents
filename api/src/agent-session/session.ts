@@ -78,7 +78,7 @@ export interface AgentSession {
   /**
    * What the page has reported: retained state, and what the person has done.
    *
-   * The SAME store the browser loop uses — `shared/host-events.ts` turned out to be free of Vue and of
+   * The SAME store the browser loop used — `shared/host-events.ts` turned out to be free of Vue and of
    * every browser API, so moving host events server-side was a move rather than a rewrite. The page now
    * feeds it over the socket instead of directly, and `createWaitTool` works against it unchanged.
    */

@@ -155,8 +155,9 @@ export function isInCooldown (strike: StrikeState | null | undefined, now: Date)
 
 /**
  * Whether the input-moderation gate applies to a request, given the account
- * settings and the caller's effective role. Pure: drives the gateway and the
- * summary endpoint identically. Off unless the org enabled moderation AND the
+ * settings and the caller's effective role. Pure: the conversation executor reads
+ * it to decide whether a turn goes through the moderation gate (moderateTurn in
+ * conversations/turn-gates.ts). Off unless the org enabled moderation AND the
  * caller's role is in the configured category list.
  */
 export function moderationApplies (settings: Settings, role: string): boolean {

@@ -4,7 +4,7 @@
  * so they can be unit-tested directly by the node test runner.
  *
  * `ScrollMessage` is a structural subset of `ChatMessage` (from
- * `~/composables/use-agent-chat`): the real type is assignable to it, so the
+ * `~/utils/chat-message`): the real type is assignable to it, so the
  * component can pass its `ChatMessage[]` straight in.
  */
 export interface ScrollMessage {

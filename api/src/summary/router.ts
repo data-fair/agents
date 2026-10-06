@@ -44,7 +44,7 @@ router.post('/:type/:id', async (req, res, next) => {
     }
     const { model, entry } = resolved
 
-    // Permission check + quota enforcement (shared with the gateway)
+    // Permission check + quota enforcement (the same enforceQuotas a conversation turn's gate uses)
     const quotas = settings.quotas ?? defaultQuotas
 
     const identity = await resolveUsageIdentity(req, owner, quotas, sessionState, authenticated)

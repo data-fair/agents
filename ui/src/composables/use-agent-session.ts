@@ -3,7 +3,7 @@
  * server-side loop makes against them.
  *
  * The cut is at the `Record<string, Tool>` the FrameClientAggregator already produces — the same value
- * `use-agent-chat` hands its in-browser loop today. Everything below that line is untouched: WebMCP
+ * the in-browser loop (`use-agent-chat`, since removed) used to consume. Everything below that line is untouched: WebMCP
  * registration in `lib-vue`, the frame transports, the aggregator, the per-page tool surface. What
  * changes is who CALLS them, which is why moving the loop does not touch the WebMCP integration story.
  *
@@ -301,7 +301,7 @@ export function useAgentSession (options: AgentSessionClientOptions) {
     },
 
     /** What the person just did. Buffered server-side until the model is told. */
-    reportHostEvents (events: Array<{ name: string, detail?: string, at: number }>) {
+    reportHostEvents (events: Array<{ name: string, key?: string, detail?: string, at: number }>) {
       if (!events.length) return
       send({ type: 'host-events', events })
     },

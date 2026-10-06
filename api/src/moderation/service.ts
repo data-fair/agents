@@ -1,6 +1,6 @@
 /**
  * service.ts contains stateful moderation logic: strike accounting, event
- * recording, the gateway-facing moderation run and the admin probe.
+ * recording, the moderation run behind the turn gate and the admin probe.
  */
 import mongo from '#mongo'
 import { generateObject } from 'ai'
@@ -94,7 +94,7 @@ export function recordStrikeRefusal (owner: AccountKeys, identity: UsageIdentity
   })
 }
 
-// ---- the gateway-facing moderation run ----
+// ---- the moderation run behind the turn gate (conversations/turn-gates.ts) ----
 
 export interface ModerationGateResult {
   action: 'allow' | 'block'

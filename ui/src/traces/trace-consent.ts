@@ -6,7 +6,8 @@ import { CONSENT_COOKIE } from '@agents/shared/trace-consent'
 export { CONSENT_COOKIE }
 export type Consent = 'yes' | 'no'
 
-// Reactive: set true when the gateway advertises x-trace-storage: available.
+// Reactive: set true when the agent session's `attached` frame says `traceStorage` (see
+// shared/agent-session-protocol.ts).
 export const traceStorageAvailable = ref(false)
 
 export function readConsent (cookieString = document.cookie): Consent | undefined {

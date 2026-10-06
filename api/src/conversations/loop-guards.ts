@@ -8,8 +8,10 @@
  * truncates real work. So the two concerns are guarded separately, the way long-run
  * harnesses (OpenHands, Gemini CLI, Roo Code, browser-use) do it:
  *
- *  1. STEP_LIMIT — one flat, generous backstop. Spend is NOT its job: the gateway enforces
- *     quotas on every request, and the user has a Stop button. It only has to bound a
+ *  1. STEP_LIMIT — one flat, generous backstop. Spend is NOT its job: quotas are checked
+ *     before every turn (turn-gates.ts), the per-turn credit budget (`turnCredits`) and the
+ *     account cap stop the loop between steps (executor.ts), and the user has a Stop button.
+ *     It only has to bound a
  *     runaway that the repeat guard cannot recognise (e.g. a tool whose output changes on
  *     every call).
  *  2. Repeated-call guard — the actual runaway shape: the same tool calls, with the same

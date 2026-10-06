@@ -1,10 +1,9 @@
 /**
  * The summarizer instruction and recap framing used when history is compacted.
  *
- * Shared because BOTH loops compact: the in-page chat (which compacts in the browser) and
- * the server-side autonomous agent runtime. The wording is load-bearing — a recap that
- * drops an identifier silently costs the assistant the ability to keep acting — so it
- * must not exist as two copies that can drift.
+ * Kept in its own module because the wording is load-bearing — a recap that drops an
+ * identifier silently costs the assistant the ability to keep acting — so it must exist
+ * as exactly one copy, used by the server-side loop's compaction (./turn-history.ts).
  */
 
 import type { ModelMessage } from 'ai'
