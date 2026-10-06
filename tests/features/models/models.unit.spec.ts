@@ -4,7 +4,9 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { scalewayBaseURL, streamedToolCallsBroken, errorMessage, describeFetchError, contextBudget, type CatalogModel } from '../../../api/src/models/operations.ts'
+import { scalewayBaseURL, streamedToolCallsBroken, nonStreamingWithTools, errorMessage, describeFetchError, contextBudget, type CatalogModel } from '../../../api/src/models/operations.ts'
+import { MockLanguageModelV3, simulateReadableStream } from 'ai/test'
+import { streamText, wrapLanguageModel, tool, jsonSchema } from 'ai'
 import { commandLine } from '../../../api/src/models/mock-model.ts'
 
 test.describe('Scaleway base URL', () => {
@@ -167,5 +169,48 @@ test.describe('mock directives survive a prepended host block', () => {
 
   test('is empty for a message that is only a host block', () => {
     assert.equal(commandLine('   \n\n  '), '')
+  })
+})
+
+// The workaround itself, not only its predicate: it was left unapplied when the gateway went, so a
+// tool-using turn on GLM through Scaleway ended silently with its tool call dropped.
+test.describe('nonStreamingWithTools', () => {
+  const usage = { inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 1, text: 1, reasoning: 0 } }
+  /** A model whose STREAM drops the tool call, as the upstream does, while generate returns it. */
+  const brokenUpstream = () => new MockLanguageModelV3({
+    doGenerate: async () => ({
+      content: [{ type: 'tool-call', toolCallId: 'c1', toolName: 'lookup', input: '{}' }],
+      finishReason: { unified: 'tool-calls', raw: undefined },
+      usage,
+      warnings: []
+    }) as any,
+    doStream: async () => ({
+      stream: simulateReadableStream({
+        chunks: [
+          { type: 'text-start', id: 't' },
+          { type: 'text-delta', id: 't', delta: 'streamed' },
+          { type: 'text-end', id: 't' },
+          { type: 'finish', finishReason: { unified: 'stop', raw: undefined }, usage }
+        ]
+      })
+    }) as any
+  })
+
+  test('a request offering tools is served non-streaming, so the tool call survives', async () => {
+    const model = wrapLanguageModel({ model: brokenUpstream(), middleware: nonStreamingWithTools })
+    const result = streamText({
+      model,
+      prompt: 'find it',
+      tools: { lookup: tool({ inputSchema: jsonSchema({ type: 'object', properties: {} }), execute: async () => 'found' }) },
+      stopWhen: () => true
+    })
+    const calls = await result.toolCalls
+    assert.deepEqual(calls.map(c => c.toolName), ['lookup'])
+  })
+
+  test('a request without tools still streams', async () => {
+    const model = wrapLanguageModel({ model: brokenUpstream(), middleware: nonStreamingWithTools })
+    const result = streamText({ model, prompt: 'hello' })
+    assert.equal(await result.text, 'streamed')
   })
 })

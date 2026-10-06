@@ -67,7 +67,6 @@ if (process.env.NODE_ENV === 'development') {
     invalidateSettings()
     await mongo.db.collection('settings').deleteMany({ 'owner.id': /^test/ })
     await mongo.db.collection('usage').deleteMany({ 'owner.id': /^test/ })
-    await mongo.db.collection('trace-requests').deleteMany({ 'owner.id': /^test/ })
     await mongo.db.collection('moderation-events').deleteMany({ 'owner.id': /^test/ })
     await mongo.db.collection('moderation-strikes').deleteMany({ 'owner.id': /^test/ })
     await mongo.db.collection('limits').deleteMany({ id: /^test/ })

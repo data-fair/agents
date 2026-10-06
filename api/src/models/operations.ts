@@ -4,7 +4,7 @@
  */
 
 import type { Provider } from '#types'
-import type { LanguageModel } from 'ai'
+import { simulateStreamingMiddleware, wrapLanguageModel, type LanguageModel, type LanguageModelMiddleware } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { createAnthropic } from '@ai-sdk/anthropic'
@@ -33,7 +33,34 @@ export function scalewayBaseURL (projectId?: string): string {
 // so keep it a single constant rather than per-provider names.
 export const OPENAI_COMPATIBLE_PROVIDER_NAME = 'openai-compatible'
 
+/**
+ * The model for a provider entry, with the one serving workaround applied where it is needed.
+ *
+ * Every model is built here, so every role gets it — the turn, sub-agent workers, compaction.
+ */
 export function createModel (provider: Provider, modelId: string): LanguageModel {
+  const model = buildProviderModel(provider, modelId)
+  if (!streamedToolCallsBroken(provider.type, modelId)) return model
+  return wrapLanguageModel({ model: model as any, middleware: nonStreamingWithTools })
+}
+
+/**
+ * A request that offers TOOLS is served by a non-streaming call, replayed as a stream; any other
+ * request streams as usual. See streamedToolCallsBroken: the gateway did this for those models, and
+ * the server loop lost it with the gateway — a tool-using turn on GLM through Scaleway then ended
+ * silently, its tool call dropped by the upstream.
+ */
+export const nonStreamingWithTools: LanguageModelMiddleware = (() => {
+  const simulated = simulateStreamingMiddleware()
+  return {
+    specificationVersion: 'v3',
+    wrapStream: options => options.params.tools?.length
+      ? simulated.wrapStream!(options)
+      : options.doStream()
+  } as LanguageModelMiddleware
+})()
+
+function buildProviderModel (provider: Provider, modelId: string): LanguageModel {
   // Wrap the provider's fetch with the provider-scoped debug logger. When the
   // DEBUG namespace is off this returns the global fetch unchanged, so there is
   // no added cost.
@@ -92,10 +119,9 @@ export const UNKNOWN_CONTEXT_WINDOW = 128_000
  * while the identical `stream:false` request returns the tool call correctly. Every
  * other Scaleway model tested (qwen3.5-397b, qwen3-235b, gpt-oss-120b — itself a
  * reasoning model — and devstral-2-123b) streams tool calls fine, so this is a
- * model-specific serving bug, not a provider-wide one. The gateway worked around it by
- * issuing the upstream call non-streaming when tools were present. The gateway is gone and
- * nothing in the server loop calls this any more (only its unit test does), so the loop
- * currently streams regardless. Covers both the direct `scaleway` provider (model id "glm-5.2") and
+ * model-specific serving bug, not a provider-wide one. Worked around by serving a request that
+ * offers tools from a NON-streaming call (`nonStreamingWithTools`, applied by createModel) — what
+ * the gateway did, until it was removed and with it the workaround, for a while. Covers both the direct `scaleway` provider (model id "glm-5.2") and
  * the `openai-compatible` → LiteLLM passthrough (model id "glm-5.2-scw").
  *
  * Re-check whether the upstream is still broken with `dev/scripts/scw-toolcall-probe.mjs`;
