@@ -45,7 +45,11 @@ export function autonomousAgentMessageToChat (message: StoredConversationMessage
     role: message.role,
     // Required by ChatMessage, and a pending assistant message legitimately has none yet — the
     // renderer indexes into this, so it must never be undefined.
-    content: parts.filter(p => p.type === 'text').map(p => p.text).join('')
+    //
+    // Separate parts are separate paragraphs. The loop merges a step's text into one part, so a new
+    // text part means a step or a tool call came between — joined with nothing, the sentences on
+    // either side ran together ("…levels.Now let me…").
+    content: parts.filter(p => p.type === 'text').map(p => p.text).join('\n\n')
   }
   const reasoning = parts.filter(p => p.type === 'reasoning').map(p => p.text).join('')
   if (reasoning) chat.reasoning = reasoning
@@ -59,6 +63,9 @@ export function autonomousAgentMessageToChat (message: StoredConversationMessage
     chat.toolInvocations = calls.map(call => ({
       toolCallId: call.toolCallId,
       toolName: call.toolName,
+      // What the chip is labelled from: a wait's chip names what it waits for. Dropped here, every
+      // wait chip read "Waiting for: " with nothing after it.
+      input: call.input,
       // PER CALL, not per message. The states before an output arrives are exactly the ones still
       // running, so a parallel step now shows each call finishing as it finishes, instead of every
       // chip waiting on the slowest. A failed call is 'done', because ChatMessage has no failure

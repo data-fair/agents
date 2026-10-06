@@ -16,6 +16,8 @@ export interface ChatMessage {
     toolCallId: string
     toolName: string
     state: 'pending' | 'done'
+    /** The call's arguments: what a chip is labelled from (a wait's `expecting`). */
+    input?: unknown
   }>
   // Per delegating tool-call id: the sub-agent's transcript. Keyed by toolCallId so
   // concurrent sub-agent calls under one assistant message render in separate panels

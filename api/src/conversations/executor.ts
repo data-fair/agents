@@ -1082,6 +1082,12 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
       pending: true
     })
 
+    // Announced at once, empty and pending, so the turn's first streamed words land in ITS bubble. The
+    // client adds a delta to the last assistant bubble it has; a turn that follows another assistant
+    // message with no message of the person's between — a wake, after a handover — had its reply
+    // glued onto the handover's bubble, then shown again once its own frame arrived.
+    sessionFor(run.conversationId)?.send({ type: 'message', seq: message.seq, role: 'assistant', parts: [], pending: true })
+
     // The assistant message's own seq bounds the history: it was created before the turn
     // (empty, pending), so it must not be fed back to the model as an empty turn.
     const result = await Promise.race([performTurn(run, message.seq, abortController.signal, conversation), deadline])

@@ -124,6 +124,11 @@ test.describe('wait_for_user_action over the socket', () => {
 
     const frames = await collect(socket, all => turnEnds(all).length > 0)
     assert.equal(turnEnds(frames)[0].stopReason, 'completed')
+    // The wake turn's own bubble is announced BEFORE its first words: a client adds a delta to the last
+    // assistant bubble it has, which here would be the handover's, and the reply was shown glued onto it.
+    const firstDelta = frames.findIndex(f => f.type === 'delta')
+    const announced = frames.findIndex(f => f.type === 'message' && f.role === 'assistant' && f.pending === true && f.parts.length === 0)
+    assert.ok(announced !== -1 && announced < firstDelta, 'the new turn\'s message comes before its text')
     const settled = waitPart(frames, 'output-available')
     assert.ok(settled, 'the wait is settled')
     assert.match(String(settled.output), /clicked Create/, 'with what the person did')

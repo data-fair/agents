@@ -42,7 +42,31 @@ test.describe('autonomousAgentMessageToChat', () => {
         { type: 'dynamic-tool', toolCallId: 't1', toolName: 'echo', state: 'output-available', input: {}, output: 'r' }
       ]
     })
-    assert.deepEqual(chat.toolInvocations, [{ toolCallId: 't1', toolName: 'echo', state: 'done' }])
+    assert.deepEqual(chat.toolInvocations, [{ toolCallId: 't1', toolName: 'echo', state: 'done', input: {} }])
+  })
+
+  test('a call carries its arguments, so a wait chip can say what it waits for', () => {
+    const chat = autonomousAgentMessageToChat({
+      ...base,
+      role: 'assistant',
+      parts: [{ type: 'dynamic-tool', toolCallId: 'w1', toolName: 'wait_for_user_action', state: 'input-available', input: { message: 'Ready.', expecting: 'you to click Create' } }]
+    })
+    assert.equal((chat.toolInvocations?.[0].input as any).expecting, 'you to click Create')
+  })
+
+  test('text from separate steps reads as separate paragraphs, not one run-on sentence', () => {
+    const chat = autonomousAgentMessageToChat({
+      ...base,
+      role: 'assistant',
+      parts: [
+        { type: 'step-start' },
+        { type: 'text', text: 'I found the levels.' },
+        { type: 'dynamic-tool', toolCallId: 't1', toolName: 'set_display', state: 'output-available', input: {}, output: 'ok' },
+        { type: 'step-start' },
+        { type: 'text', text: 'It is on screen now.' }
+      ]
+    })
+    assert.equal(chat.content, 'I found the levels.\n\nIt is on screen now.')
   })
 
   test('a call still waiting for its output is pending, so the spinner is honest', () => {
