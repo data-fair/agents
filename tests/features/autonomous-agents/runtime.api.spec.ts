@@ -103,6 +103,21 @@ test.describe('Autonomous agent conversations', () => {
     // which is the same privacy rule the per-agent list applies.
     const memberList = await orgMember.get('/api/conversations/organization/test1')
     assert.equal(memberList.data.count, 0)
+
+    // Rows, not documents: a conversation carries its cached recap, which a history never shows.
+    assert.deepEqual(Object.keys(list.data.results[0]).sort(), ['agentId', 'createdAt', 'id', 'lastMessageAt', 'messageSeq', 'title'])
+  })
+
+  test('a superadmin in admin mode gets their OWN history, not everyone\'s', async () => {
+    // The list is what the chat resumes from: with the old admin-mode exemption, a superadmin's chat
+    // reopened whichever person's thread was the latest on the account.
+    const agent = await createAgent()
+    const theirs = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 'Theirs' })).data
+    await orgAdmin.post(`/api/conversations/organization/test1/${theirs.id}/messages`, { content: 'hello' })
+    const history = (await admin.get('/api/conversations/organization/test1')).data
+    assert.equal(history.results.some((c: any) => c.id === theirs.id), false)
+    const oneAgent = (await admin.get(`/api/conversations/organization/test1?agentId=${agent.id}`)).data
+    assert.equal(oneAgent.results.some((c: any) => c.id === theirs.id), false)
   })
 
   test('the agents list offers the standard agent and the enabled autonomous agents this person may instruct', async () => {

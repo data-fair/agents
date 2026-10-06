@@ -232,6 +232,9 @@ router.post('/:type/:id', async (req, res, next) => {
  * creates a conversation when a turn is first sent, so nothing legitimate has `messageSeq: 0`, and
  * the many that older eager clients left behind would otherwise be history full of "chat".
  */
+/** How many threads the chat's history lists, newest first. */
+const HISTORY_LIMIT = 50
+
 router.get('/:type/:id', async (req, res, next) => {
   try {
     const session = reqSessionAuthenticated(req)
@@ -245,21 +248,33 @@ router.get('/:type/:id', async (req, res, next) => {
       await assertMayTalkTo(autonomousAgent, owner, session)
     }
 
-    // Your own threads only. A conversation belongs to one person, so listing someone else's would be
-    // a disclosure — and an org admin's role no longer grants it.
+    // Your own threads only, whoever you are. A conversation belongs to one person, so listing someone
+    // else's would be a disclosure — an org admin's role does not grant it, and neither does a
+    // superadmin's admin mode any more: this list is the chat's history and what it RESUMES, and a
+    // superadmin's chat opened someone else's latest thread. Reading other people's threads is the
+    // review page's job, under its consent rules.
     const filter: Record<string, any> = {
       'owner.type': owner.type,
       'owner.id': owner.id,
+      userId: session.user.id,
       // Archived threads are gone FOR THE PERSON. They deleted them; the document survives only
       // because the organization was entitled to review it, and showing it back here would make
       // the delete look as though it had not worked.
-      archivedAt: { $exists: false },
-      ...(session.user.adminMode ? {} : { userId: session.user.id })
+      archivedAt: { $exists: false }
     }
     if (agentId) filter.agentId = agentId
+    // The history skips empty threads IN the query, so they cannot use up its bounded window.
+    else filter.messageSeq = { $gt: 0 }
 
     let results = await mongo.conversations
-      .find(filter, { projection: { _id: 0 } })
+      .find(filter, {
+        // The whole history is a picker list: its rows, not the documents — a conversation carries its
+        // cached compaction recap, which the history never shows. One agent's list keeps whole
+        // documents, which API clients read.
+        projection: agentId ? { _id: 0 } : { _id: 0, id: 1, agentId: 1, title: 1, createdAt: 1, lastMessageAt: 1, messageSeq: 1 },
+        // and bounded: a person's history grows for as long as they use the chat
+        ...(agentId ? {} : { limit: HISTORY_LIMIT })
+      })
       .sort({ lastMessageAt: -1, createdAt: -1 })
       .toArray()
 
@@ -270,9 +285,6 @@ router.get('/:type/:id', async (req, res, next) => {
       const usable = new Map<string, boolean>()
       const filtered: typeof results = []
       for (const conversation of results) {
-        // A thread is created with a user turn, so an empty one is an artifact of an older client
-        // that created conversations up front. It has nothing to show and would be noise.
-        if (!conversation.messageSeq) continue
         let ok = usable.get(conversation.agentId)
         if (ok === undefined) {
           if (isStandardAgentId(conversation.agentId)) {
