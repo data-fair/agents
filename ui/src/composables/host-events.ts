@@ -370,7 +370,10 @@ export function createWaitTool (opts: {
         // One macrotask so the followers of the same user gesture (a keyed location event
         // posted right after a creation event) ride in the same result.
         await new Promise(resolve => setTimeout(resolve, 0))
-        return formatHostEvents([outcome, ...store.takePending()])
+        // In the order they happened: the followers are older states as often as consequences,
+        // and listed after the event that resolved the wait, a judged run's stale « unpublished
+        // changes » read as the state that followed « draft-validated ».
+        return formatHostEvents([outcome, ...store.takePending()].sort((a, b) => a.at - b.at))
       } finally {
         opts.onDone?.()
       }
