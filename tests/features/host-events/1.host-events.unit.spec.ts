@@ -284,6 +284,19 @@ test.describe('createWaitTool', () => {
     assert.equal(store.hasPending(), false)
   })
 
+  test('lists the event that resolved it and its followers in the order they happened', async () => {
+    // a judged portal run: the result listed « draft-validated » first, then the older
+    // « unpublished changes: the person must press « Valider le brouillon » » state, which reads
+    // as the current state once the validation is past
+    const store = new HostEventStore()
+    const t = createWaitTool({ store })
+    store.push(ev('draft', 'unpublished changes', 'draft', 1000))
+    const p = exec(t, { message: 'Ready.', expecting: 'a click' })
+    store.push(ev('draft-validated', '{"page":"x"}', undefined, 2000))
+    const out = await p as string
+    assert.ok(out.indexOf('unpublished changes') < out.indexOf('draft-validated'), out)
+  })
+
   test('times out with the verbatim text', async () => {
     const store = new HostEventStore()
     const t = createWaitTool({ store })
