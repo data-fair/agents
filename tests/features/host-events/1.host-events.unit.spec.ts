@@ -120,6 +120,30 @@ test.describe('HostEventStore waits', () => {
     assert.deepEqual(s.takePending().map(e => e.name), ['b'])
   })
 
+  test('an event of the gesture that settled a wait does not settle the next one', async () => {
+    // A judged run: one click on a portal produced breadcrumbs then location, the first
+    // settled a wait, and the location left in the buffer ended the next wait at once —
+    // the person had done nothing, and got three instructions in a row.
+    const s = new HostEventStore()
+    const first = s.waitForEvent({ timeoutMs: 1000 })
+    const settledAt = Date.now()
+    s.push({ name: 'breadcrumbs', detail: 'Portail', at: settledAt })
+    await first
+    s.push({ name: LOCATION_KEY, key: LOCATION_KEY, detail: '/portals/x', at: settledAt + 300 })
+    assert.equal(await s.waitForEvent({ timeoutMs: 50 }), 'timeout')
+    assert.ok(s.peekPending().some(e => e.key === LOCATION_KEY), 'it is still reported to the model')
+  })
+
+  test('a later action still settles a wait from the buffer', async () => {
+    const s = new HostEventStore()
+    const first = s.waitForEvent({ timeoutMs: 1000 })
+    const settledAt = Date.now()
+    s.push({ name: 'clicked', at: settledAt })
+    await first
+    s.push({ name: 'saved', at: settledAt + 5000 })
+    assert.equal(((await s.waitForEvent({ timeoutMs: 1000 })) as any).name, 'saved')
+  })
+
   test('times out', async () => {
     const s = new HostEventStore()
     assert.equal(await s.waitForEvent({ timeoutMs: 10 }), 'timeout')
@@ -282,6 +306,19 @@ test.describe('createWaitTool', () => {
     assert.match(out, /item-created/)
     assert.match(out, /navigated: \/x/)
     assert.equal(store.hasPending(), false)
+  })
+
+  test('lists the event that resolved it and its followers in the order they happened', async () => {
+    // a judged portal run: the result listed « draft-validated » first, then the older
+    // « unpublished changes: the person must press « Valider le brouillon » » state, which reads
+    // as the current state once the validation is past
+    const store = new HostEventStore()
+    const t = createWaitTool({ store })
+    store.push(ev('draft', 'unpublished changes', 'draft', 1000))
+    const p = exec(t, { message: 'Ready.', expecting: 'a click' })
+    store.push(ev('draft-validated', '{"page":"x"}', undefined, 2000))
+    const out = await p as string
+    assert.ok(out.indexOf('unpublished changes') < out.indexOf('draft-validated'), out)
   })
 
   test('times out with the verbatim text', async () => {

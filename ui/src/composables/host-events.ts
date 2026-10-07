@@ -71,6 +71,14 @@ export function resolvesWait (event: AgentEvent): boolean {
   return !event.key || event.key === LOCATION_KEY
 }
 
+/**
+ * How close to the event that settled a wait another event is taken for part of the same
+ * gesture. One click on a portal reported breadcrumbs then location: the first settled a
+ * wait, and the second, left in the buffer, ended the next wait before the person did
+ * anything — a judged run got three instructions in a row.
+ */
+export const SAME_GESTURE_MS = 1000
+
 export class HostEventStore {
   // Map keeps a key's original insertion position when its value is replaced, which is
   // the "first-seen key order" the snapshot relies on.
@@ -80,6 +88,15 @@ export class HostEventStore {
   private waiter: ((outcome: WaitOutcome) => void) | null = null
   /** Whether the most recent `waitForEvent` had to block, rather than being answered from the buffer. */
   lastWaitBlocked = false
+  /** When the event that settled the last wait happened (see SAME_GESTURE_MS). */
+  private lastSettledAt: number | null = null
+
+  private settlesFromBuffer (event: AgentEvent): boolean {
+    if (!resolvesWait(event)) return false
+    // part of the gesture that settled the previous wait: reported, but not a new action
+    return this.lastSettledAt === null || event.at - this.lastSettledAt >= SAME_GESTURE_MS
+  }
+
   /**
    * Advances on every event that could have settled a wait — the same rule, by
    * kind, that `resolvesWait` applies. A waiter compares it against the value it
@@ -111,6 +128,7 @@ export class HostEventStore {
     if (this.waiter && resolvesWait(event)) {
       const finish = this.waiter
       this.waiter = null
+      this.lastSettledAt = event.at
       finish(event)
       return
     }
@@ -167,10 +185,12 @@ export class HostEventStore {
     // a keyed state re-emission the assistant's own tool call produced.
     // Only something the person did settles a wait from the buffer; a refresh that
     // was already true when the wait started stays pending, delivered as a follower.
-    const i = this.pending.findIndex(resolvesWait)
+    const i = this.pending.findIndex(e => this.settlesFromBuffer(e))
     if (i >= 0) {
       this.lastWaitBlocked = false
-      return Promise.resolve(this.pending.splice(i, 1)[0] as AgentEvent)
+      const event = this.pending.splice(i, 1)[0] as AgentEvent
+      this.lastSettledAt = event.at
+      return Promise.resolve(event)
     }
     this.lastWaitBlocked = true
     return new Promise<WaitOutcome>(resolve => {
@@ -350,7 +370,10 @@ export function createWaitTool (opts: {
         // One macrotask so the followers of the same user gesture (a keyed location event
         // posted right after a creation event) ride in the same result.
         await new Promise(resolve => setTimeout(resolve, 0))
-        return formatHostEvents([outcome, ...store.takePending()])
+        // In the order they happened: the followers are older states as often as consequences,
+        // and listed after the event that resolved the wait, a judged run's stale « unpublished
+        // changes » read as the state that followed « draft-validated ».
+        return formatHostEvents([outcome, ...store.takePending()].sort((a, b) => a.at - b.at))
       } finally {
         opts.onDone?.()
       }
