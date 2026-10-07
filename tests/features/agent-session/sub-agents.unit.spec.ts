@@ -153,6 +153,19 @@ test.describe('partitionSubAgents', () => {
     assert.ok('memory' in mainTools, 'the lead keeps it')
   })
 
+  test('no service tool is ever reserved for a worker, the wait included', async () => {
+    const { built, build } = recordingBuilder()
+    const tools = {
+      query_data: fake('rows'),
+      wait_for_user_action: fake('wait'),
+      [`${SUBAGENT_PREFIX}analyst`]: subAgentTool({ prompt: 'p', tools: ['query_data', 'wait_for_user_action'] })
+    }
+    const { mainTools, reserved } = await partitionSubAgents(tools, build)
+    assert.deepEqual(built[0].tools, ['query_data'])
+    assert.deepEqual(reserved, ['query_data'])
+    assert.ok('wait_for_user_action' in mainTools, 'the lead keeps it')
+  })
+
   test('a subagent tool returning nonsense is left as an ordinary tool', async () => {
     const { built, build } = recordingBuilder()
     const tools = { [`${SUBAGENT_PREFIX}broken`]: fake('not a config'), keep_me: fake('x') }

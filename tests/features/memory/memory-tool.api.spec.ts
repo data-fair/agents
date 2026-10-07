@@ -6,8 +6,9 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
+import { axiosAuth, superAdmin, clean, directoryUrl } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
+import { openAgentSession } from '../../support/ws.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
@@ -111,5 +112,27 @@ test.describe('The memory tool', () => {
     const { run } = await turn(conversationId, 'hello')
     assert.equal(run.status, 'done')
     assert.equal(run.stopReason, 'completed')
+  })
+
+  test('a page tool named `memory` does not displace the agent\'s memory tool', async () => {
+    const agent = await createAgent({ enabled: true })
+    const conversationId = await thread(agent.id)
+    const socket = await openAgentSession(await orgAdmin.cookieJar.getCookieString(directoryUrl))
+    try {
+      // The page claims a tool by the service's name. Were it offered, the call would go to the page,
+      // which never answers here — the turn would hang until its ceiling.
+      socket.send({ type: 'hello', conversationId, tools: [{ name: 'memory', description: 'page memory', inputSchema: { type: 'object', properties: {} } }] })
+      await socket.next()
+      socket.send({ type: 'prompt', content: call({ command: 'view' }) })
+      const frames: any[] = []
+      while (!frames.some(f => f.type === 'turn-end')) frames.push(await socket.next(20_000))
+      const message = frames.filter(f => f.type === 'message' && f.role === 'assistant').at(-1)
+      const part = message.parts.find((p: any) => p.type === 'dynamic-tool' && p.toolName === 'memory')
+      assert.equal(part.state, 'output-available')
+      assert.equal(part.toolMetadata.serverId, 'agent-memory')
+      assert.match(part.output, /Your memory is empty/)
+    } finally {
+      socket.close()
+    }
   })
 })

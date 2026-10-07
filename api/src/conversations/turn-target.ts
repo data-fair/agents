@@ -67,10 +67,10 @@ export interface TurnTarget {
  * The growing answer is NOT written back as it streams: a watching browser receives every token, and
  * the store gets the answer at the end. This registry is what replaces the write for the watcher's side: a
  * page reloaded, or a second tab opened, mid-turn gets the answer so far on attach and the rest live —
- * the turn sends to whoever watches the conversation NOW (`watcher` in runModelLoop), not to the
+ * the turn sends to whoever watches the conversation NOW (`watcher` in conversationTarget), not to the
  * session it started with — and a turn stopped or failing is settled from it. What is given up: a
  * restart mid-answer loses the text of the step in progress. Tool calls and their results are still
- * written as they happen (`persistStructure`), and those are the work worth keeping.
+ * written as they happen (`persist`), and those are the work worth keeping.
  *
  * In-process, like the sessions themselves: the turn runs in the process holding the socket.
  */

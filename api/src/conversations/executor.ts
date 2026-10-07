@@ -50,14 +50,14 @@ import { partitionSubAgents, subAgentDelegation } from '../agent-session/sub-age
 import type { AgentSession } from '../agent-session/session.ts'
 import type { ChatActivity } from '@agents/shared/agent-activity'
 import { browserToolSet } from '../agent-session/browser-tools.ts'
-import { createWaitTool, waitHandover, repairWaitInput, formatHostEvents, WAIT_TOOL_NAME, WAIT_ACCEPTED, LOCATION_KEY } from '@agents/shared/host-events'
+import { waitHandover, repairWaitInput, formatHostEvents, WAIT_TOOL_NAME, WAIT_ACCEPTED, LOCATION_KEY } from '@agents/shared/host-events'
 import { settlePendingWait } from './waits.ts'
 import { PERSON_SPOKE, interruptReason, settleInterruptedParts } from './interrupted-turn.ts'
 import { checkAccountCreditCap } from '../usage/enforce.ts'
 import { recordUsage } from '../usage/service.ts'
-import { agentStoreId, memoryEnabledFor, MEMORY_TOOL_NAME, MEMORY_SERVER_ID, MEMORY_TOOL_ANNOTATIONS, type MemoryDocument } from '../memory/operations.ts'
-import { loadMemory } from '../memory/service.ts'
-import { createMemoryTool } from '../memory/tool.ts'
+import type { MemoryDocument } from '../memory/operations.ts'
+import { buildServiceTools } from './service-tools.ts'
+import { SERVICE_TOOL_NAMES } from './service-tool-names.ts'
 import { maybeReflect } from '../memory/reflection.ts'
 
 const debug = Debug('df-agents:autonomous-agent-executor')
@@ -218,9 +218,10 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
   const autonomousAgent = await resolveAgent(run.owner, run.agentId)
   if (!autonomousAgent) throw new Error('the autonomous agent no longer exists')
 
-  // The session watching this conversation as the turn started (looked up by its target), if any. UNDEFINED IS NORMAL: a turn can run with nobody
-  // there — a tab closed mid-turn, and later a scheduled run that never had one. Such a turn has no
-  // page tools and streams to nobody; the stored message is still the record.
+  // The session watching this conversation as the turn started (looked up by its target), if any.
+  // UNDEFINED IS NORMAL: a turn can run with nobody there — a tab closed mid-turn, and later a scheduled
+  // run that never had one. Such a turn has no page tools and streams to nobody; the stored message is
+  // still the record.
   //
   // This lookup is the whole of what colocation buys. The loop runs in the process holding the socket,
   // so "who is watching, and what can their page do?" is a Map read.
@@ -301,35 +302,16 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
     : applyApprovalPolicy(rawTools, annotationsByTool, autonomousAgent.approvals)
   const tools = {
     ...withProvenance(catalogTools, name => serverByTool.get(name) ?? 'unknown'),
-    ...(session ? browserToolSet(session) : {}),
-    // `wait_for_user_action`, available only when someone is actually there to act. Loop-provided rather
-    // than page-provided: calling it ends the turn (see `handover` in runModelLoop and ./waits.ts).
-    ...(session ? { [WAIT_TOOL_NAME]: createWaitTool() } : {})
+    ...(session ? browserToolSet(session) : {})
   }
 
-  // THE AGENT'S MEMORY, when it has one (docs/architecture/agent-memory.md). Read ONCE, here: the block
-  // rendered from it is part of the system prompt, which is the run's stable prefix — writes made
-  // during the turn land in the store at once and appear in the prompt from the next run.
-  //
-  // Added AFTER the approval gate and the catalog/page tools: the gate never applies to it (it only
-  // writes the agent's own audited store), and a catalog tool called `memory` cannot stand in for it.
-  // Session-independent: a headless (or, later, scheduled) run has it too.
-  let memory: MemoryDocument[] | undefined
-  if (memoryEnabledFor(autonomousAgent)) {
-    const storeId = agentStoreId(autonomousAgent.id)
-    memory = await loadMemory(storeId)
-    Object.assign(tools, withProvenance({
-      [MEMORY_TOOL_NAME]: createMemoryTool({
-        storeId,
-        owner: run.owner,
-        allowDelete: true,
-        author: toolCallId => ({ kind: 'agent', agentId: autonomousAgent.id, runId: run.id, conversationId: run.conversationId, ...(toolCallId ? { toolCallId } : {}) })
-      })
-    }, () => MEMORY_SERVER_ID))
-    // So the stored call names its source like a catalog call does (toolMetadata.serverId/annotations).
-    serverByTool.set(MEMORY_TOOL_NAME, MEMORY_SERVER_ID)
-    annotationsByTool.set(MEMORY_TOOL_NAME, MEMORY_TOOL_ANNOTATIONS)
-  }
+  // The service's own tools, from the registry (./service-tools.ts): spread LAST, so a catalog tool that
+  // happens to share a name cannot stand in for one, and recorded like a catalog call's source.
+  const service = await buildServiceTools({ agent: autonomousAgent, run, surface: 'chat', session })
+  Object.assign(tools, service.tools)
+  for (const [name, server] of service.serverByTool) serverByTool.set(name, server)
+  for (const [name, annotations] of service.annotationsByTool) annotationsByTool.set(name, annotations)
+  const memory = service.memory
 
   try {
     return await runModelLoop({ run, abortSignal, model, entry, tools, settings, budget, serverByTool, annotationsByTool, autonomousAgent, target, memory })
@@ -564,8 +546,9 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
    */
   const pageToolNames = () => (session?.tools() ?? []).map(descriptor => descriptor.name).sort().join('\n')
   const startingPageTools = new Set((session?.tools() ?? []).map(descriptor => descriptor.name))
-  // The agent's own memory tool is never a page tool, even when a page registers one by that name.
-  const mayBePageTool = (name: string) => !(memory && name === MEMORY_TOOL_NAME)
+  // The service's own tools are never page tools, even when a page registers one by that name
+  // (./service-tool-names.ts): the page's would answer under the service's name.
+  const mayBePageTool = (name: string) => !SERVICE_TOOL_NAMES.has(name)
   const fixedTools = Object.fromEntries(Object.entries(tools).filter(([name]) => !startingPageTools.has(name) || !mayBePageTool(name)))
   const liveTools: Record<string, Tool> = {}
   const assembleTools = async () => {
