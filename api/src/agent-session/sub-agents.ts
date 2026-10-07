@@ -19,6 +19,7 @@
  * tool migration actually happening.
  */
 
+import { MEMORY_TOOL_NAME } from '../memory/operations.ts'
 import { ToolLoopAgent, generateText, stepCountIs, tool, jsonSchema, type Tool } from 'ai'
 import Debug from 'debug'
 import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep } from '../conversations/loop-guards.ts'
@@ -126,7 +127,11 @@ export async function partitionSubAgents (
     // A tool needing APPROVAL is never reserved: a worker's call would stop the worker's own loop with an
     // approval request nobody can see or decide — the call would not run (no bypass), it would just fail
     // silently. Left with the lead instead, where the gate asks the person.
-    for (const reservedName of config.tools) if (!allTools[reservedName]?.needsApproval) reserved.add(reservedName)
+    // The agent's own `memory` tool is never reserved either: a page config must not hand the agent's
+    // audited memory to a worker (or hide it from the lead).
+    for (const reservedName of config.tools) {
+      if (reservedName !== MEMORY_TOOL_NAME && !allTools[reservedName]?.needsApproval) reserved.add(reservedName)
+    }
   }
 
   const mainTools: Record<string, Tool> = {}

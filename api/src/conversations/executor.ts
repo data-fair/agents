@@ -634,11 +634,13 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
    */
   const pageToolNames = () => (session?.tools() ?? []).map(descriptor => descriptor.name).sort().join('\n')
   const startingPageTools = new Set((session?.tools() ?? []).map(descriptor => descriptor.name))
-  const fixedTools = Object.fromEntries(Object.entries(tools).filter(([name]) => !startingPageTools.has(name)))
+  // The agent's own memory tool is never a page tool, even when a page registers one by that name.
+  const isPageTool = (name: string) => !(memory && name === MEMORY_TOOL_NAME)
+  const fixedTools = Object.fromEntries(Object.entries(tools).filter(([name]) => !startingPageTools.has(name) || !isPageTool(name)))
   const liveTools: Record<string, Tool> = {}
   const assembleTools = async () => {
     const { mainTools } = await partitionSubAgents(
-      { ...fixedTools, ...(session ? browserToolSet(session) : {}) },
+      { ...fixedTools, ...(session ? Object.fromEntries(Object.entries(browserToolSet(session)).filter(([name]) => isPageTool(name))) : {}) },
       buildDelegation
     )
     for (const name of Object.keys(liveTools)) if (!(name in mainTools)) delete liveTools[name]
