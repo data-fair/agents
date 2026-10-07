@@ -164,7 +164,7 @@ export const abortRunsOfAgent = async (agentId: string): Promise<number> => {
  */
 const watchStopRequests = (runId: string, controller: AbortController): (() => void) => {
   let reading = false
-  const timer = setInterval(async () => {
+  const check = async () => {
     if (reading || controller.signal.aborted) return
     reading = true
     try {
@@ -178,7 +178,11 @@ const watchStopRequests = (runId: string, controller: AbortController): (() => v
     } finally {
       reading = false
     }
-  }, STOP_POLL_MS)
+  }
+  // Once at once, then on the clock: a stop recorded while the run was still queued (it waited for its
+  // conversation's lock, or for recovery) must not let the turn start and fire tools until the first tick.
+  check()
+  const timer = setInterval(check, STOP_POLL_MS)
   timer.unref()
   return () => clearInterval(timer)
 }
