@@ -161,6 +161,12 @@ interface TurnResult {
   /** The turn ended on a call needing the person's approval (stopReason 'awaiting-approval'). */
   awaitingApproval?: true
   /**
+   * The idle watchdog aborted the stream. The SDK ends an aborted stream without throwing, so the turn
+   * still returns — but approved calls run before any part is emitted, unseen by the watchdog, and one
+   * slower than its timeout may have run (or still be running) when it fired.
+   */
+  idleAborted?: true
+  /**
    * Set when the parts ALREADY say what went wrong, so no stop-reason notice is appended.
    *
    * One turn, one explanation. An empty completion is the case: it reports `error` — the run must
@@ -1105,6 +1111,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
     published: true,
     ...(handover ? { handover } : {}),
     ...(awaitingApproval ? { awaitingApproval: true as const } : {}),
+    ...(idleAbort.signal.aborted ? { idleAborted: true as const } : {}),
     stopReason: emptyCompletion ? 'error' : stopReason,
     // The fallback above IS the explanation; a generic notice on top would be a second one.
     ...(emptyCompletion ? { selfExplained: true } : {})
@@ -1214,12 +1221,15 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
     // Both wordings say "did not run", because on THIS path it is certain: the SDK executes approved
     // calls before the first step and reports every one of them (a result, an error or a denial), so a
     // call still `approval-responded` after a run that RETURNED was never executed — its replay ended
-    // on another message (one posted before the run started).
+    // on another message (one posted before the run started). Except after an idle abort, which ends
+    // the stream without throwing while a slow approved call may still be executing.
     if (run.trigger === 'approval') {
-      await settleApprovedWithoutRunning(run.conversationId, message.seq, result.published
-        ? APPROVED_NOT_RUN
+      await settleApprovedWithoutRunning(run.conversationId, message.seq, !result.published
         // REFUSED before the model was reached.
-        : `Approved, but the turn could not run: ${partsText(result.parts).trim() || 'it was refused'}`)
+        ? `Approved, but the turn could not run: ${partsText(result.parts).trim() || 'it was refused'}`
+        : result.idleAborted
+          ? unknownApprovedOutcome('the model stream went silent')
+          : APPROVED_NOT_RUN)
     }
     // A turn that stopped for a reason other than finishing explains itself, appended to
     // whatever it did manage to produce.
