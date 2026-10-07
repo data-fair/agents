@@ -79,6 +79,15 @@
                     :title="agent.nhi.clientId"
                     :text="t('enrolled')"
                   />
+                  <!-- Memory is the agent's own and admin-only: it can hold what other instructors said. -->
+                  <v-btn
+                    v-if="agent.memory?.enabled"
+                    variant="text"
+                    size="small"
+                    :data-testid="`autonomous-agent-memory-${agent.id}`"
+                    :text="t('memory')"
+                    @click="memoryAgent = agent; memoryDialog = true"
+                  />
                   <!-- Mono-agent, exactly like a host embed: this is the agent's own page, not the
                        back-office switcher (which belongs to data-fair's layout and asks for it with
                        `agents=1`). A disabled agent is still openable — the turn refusal is the
@@ -205,10 +214,19 @@
       </v-card-actions>
     </v-card>
   </v-dialog>
+
+  <agent-memory-dialog
+    v-model="memoryDialog"
+    :agent="memoryAgent"
+    :account-type="accountType"
+    :account-id="accountId"
+    :can-configure="canConfigure"
+  />
 </template>
 
 <i18n lang="yaml">
 en:
+  memory: Memory
   autonomousAgents: Autonomous agents
   list: Autonomous agents
   add: Create an autonomous agent
@@ -232,6 +250,7 @@ en:
   gated: Autonomous agents are still being rolled out. A superadmin in admin mode configures them for now.
   servers: "{count} MCP server(s)"
 fr:
+  memory: Mémoire
   autonomousAgents: Agents autonomes
   list: Agents autonomes
   add: Créer un agent autonome
@@ -264,6 +283,7 @@ import DfSectionTabs from '@data-fair/lib-vuetify/section-tabs.vue'
 import { useFetch } from '@data-fair/lib-vue/fetch.js'
 import { useSession } from '@data-fair/lib-vue/session.js'
 import { getUiNotif } from '@data-fair/lib-vue/ui-notif.js'
+import AgentMemoryDialog from '~/components/AgentMemoryDialog.vue'
 import VjsfAutonomousAgentWriteReq from '~/components/vjsf/vjsf-autonomous-agent-write-req.vue'
 import { autonomousAgentEditDraft } from '~/utils/autonomous-agent-draft'
 import { rewriteSimpleDirectoryUrl } from '~/utils/simple-directory-url'
@@ -279,6 +299,9 @@ const props = defineProps<{
 const { t, locale } = useI18n()
 const session = useSession()
 const { sendUiNotif } = getUiNotif()
+
+const memoryDialog = ref(false)
+const memoryAgent = ref<any | null>(null)
 
 const tab = ref('list')
 const tabs = computed(() => [{ key: 'list', title: t('list'), icon: mdiRobotOutline }])
