@@ -35,7 +35,7 @@ import { checkQuotas, moderateTurn } from './turn-gates.ts'
 import { moderationApplies, MODERATION_REFUSAL } from '../moderation/operations.ts'
 import { loadHistory, compactHistory } from './turn-history.ts'
 import { recordCall } from './turn-telemetry.ts'
-import { appendMessage, updateMessage, finishRun, finishTurn, bufferRunWrites, incrementRunSpend, resolveAgent, setRunSystemPrompt, conversationCost, createRun } from './service.ts'
+import { appendMessage, updateMessage, finishRun, finishTurn, bufferRunWrites, incrementRunSpend, resolveAgent, setRunSystemPrompt, conversationCost, createRun, settleStoredToolPart } from './service.ts'
 import { getSettings } from '../settings/service.ts'
 import { resolveRoleModel } from '../models/service.ts'
 import { contextBudget, type ModelRole } from '../models/operations.ts'
@@ -831,6 +831,18 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   // regression survived the move: the frame it replaced was never sent.
   activity({ kind: 'thinking' })
 
+  /**
+   * A result for a call this turn did not make: an approved call from the previous turn, executed by the
+   * SDK on replay, before this turn's first step and without a `tool-call` part of its own. Settled on
+   * the message that made the call (see settleStoredToolPart), and the watching page is sent that
+   * message again.
+   */
+  const settleEarlierCall = async (toolCallId: string, settled: Parameters<typeof settleStoredToolPart>[2]) => {
+    const message = await settleStoredToolPart(run.conversationId, toolCallId, settled)
+    if (message) watcher()?.send({ type: 'message', seq: message.seq, role: 'assistant', parts: message.parts as MessagePart[], pending: false })
+  }
+  const isThisTurns = (toolCallId: string) => parts.some(p => p.type === 'dynamic-tool' && p.toolCallId === toolCallId)
+
   try {
     for await (const part of result.fullStream) {
       idleWatchdog.activity()
@@ -952,6 +964,10 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
                 ? String((output as any).value)
                 : JSON.stringify(output ?? '')
         const bounded = boundToolResult(text)
+        if (!isThisTurns(part.toolCallId)) {
+          await settleEarlierCall(part.toolCallId, { state: 'output-available', output: media ? { ...output, text: bounded.result } : bounded.result })
+          continue
+        }
         settleToolPart(part.toolCallId, {
           state: 'output-available',
           output: media ? { ...output, text: bounded.result } : bounded.result,
@@ -975,10 +991,28 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
       // `convertToModelMessages` has no reason to look at.
       if (part.type === 'tool-error') {
         const detail = (part as any).error instanceof Error ? (part as any).error.message : String((part as any).error)
+        if (!isThisTurns(part.toolCallId)) {
+          await settleEarlierCall(part.toolCallId, { state: 'output-error', errorText: boundToolResult(detail).result })
+          continue
+        }
         settleToolPart(part.toolCallId, { state: 'output-error', errorText: boundToolResult(detail).result })
         sendMessageFrame(true)
         await persistStructure()
         debug('tool failed tool=%s error=%s', part.toolName, detail)
+      }
+      // AN APPROVED CALL THE SDK REFUSED TO RUN on replay. It re-checks every approved call against the
+      // tools of THIS turn and denies, rather than executes, one whose tool is gone (its class was set to
+      // `deny` since) or no longer needs approval (set to `allow`) — a `tool-output-denied` part, not a
+      // throw and not a `tool-error`. Stored as an error on the call's own part: left `approval-responded`,
+      // every later replay would carry an approved call with no result after it. A call denied by the
+      // person never comes through here, its stored `output-denied` already replays with its result.
+      if (part.type === 'tool-output-denied' && !isThisTurns(part.toolCallId)) {
+        await settleEarlierCall(part.toolCallId, {
+          state: 'output-error',
+          errorText: part.toolName in liveTools
+            ? 'the approval policy of this tool changed since the request, so the approved call was not run'
+            : 'this tool is no longer available'
+        })
       }
     }
   } finally {

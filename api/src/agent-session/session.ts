@@ -51,6 +51,8 @@ export interface AgentSessionOptions {
   /** Called on a `prompt`. The loop lands here; until then a session is a transport. */
   onPrompt?: (content: string, hiddenContext?: string) => void
   onAbort?: (dismissWait: boolean) => void
+  /** Called on an `approval`: the person's decision on a call the approval gate stopped. */
+  onApproval?: (approvalId: string, approved: boolean, reason?: string) => void
   /** Called after the page reported something — what may answer a pending wait. */
   onHostEvents?: () => void
   /** Called when a `hello` binds this connection to a conversation. The registry is wired here. */
@@ -211,6 +213,9 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
         }
         case 'abort':
           options.onAbort?.(message.dismissWait === true)
+          return
+        case 'approval':
+          options.onApproval?.(message.approvalId, message.approved, message.reason)
           return
         case 'trace-consent':
           traceConsent = message.consented

@@ -4,7 +4,8 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
+import { axiosAuth, superAdmin, clean, directoryUrl } from '../../support/axios.ts'
+import { openAgentSession } from '../../support/ws.ts'
 import { putMockSettings } from '../../support/settings.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 
@@ -77,5 +78,152 @@ test.describe('The approval gate', () => {
     assert.ok(!offered.includes('echo'), 'a denied write tool is never offered')
     assert.ok(offered.includes('wipe_everything'), 'the destructive one, still on approve, is offered')
     assert.deepEqual(fixture.invokedTools(), [])
+  })
+
+  const pendingApproval = async () => {
+    const agent = await createGatedAgent()
+    const conv = (await orgAdmin.post(BASE, { agentId: agent.id, title: 't' })).data
+    const { assistant } = await turn(conv.id, 'call tool wipe_everything {}')
+    return { agent, conv, approvalId: callPart(assistant, 'wipe_everything').approval.id as string, seq: assistant.seq as number }
+  }
+  const decide = (conversationId: string, approvalId: string, body: any) =>
+    orgAdmin.post(`${BASE}/${conversationId}/approvals/${approvalId}`, body)
+  const messageAt = async (conversationId: string, seq: number) =>
+    (await orgAdmin.get(`${BASE}/${conversationId}/messages`)).data.results.find((m: any) => m.seq === seq)
+
+  test('approving runs the call exactly once, settled on its original message', async () => {
+    const { conv, approvalId, seq } = await pendingApproval()
+    const { runId } = (await decide(conv.id, approvalId, { approved: true })).data
+    const run = await awaitRun(runId)
+    assert.equal(run.trigger, 'approval')
+    assert.equal(run.stopReason, 'completed')
+    assert.deepEqual(fixture.invokedTools(), ['wipe_everything'])
+    const part = callPart(await messageAt(conv.id, seq), 'wipe_everything')
+    assert.equal(part.state, 'output-available', 'the result is settled on the call\'s own part')
+    assert.equal(part.toolMetadata.decision.userId, 'test1-admin1')
+    // The SDK executes an approved call on replay without announcing it again, so the continuation's own
+    // message carries no second part for it.
+    const continuation = (await orgAdmin.get(`${BASE}/${conv.id}/messages`)).data.results.find((m: any) => m.runId === runId)
+    assert.equal(callPart(continuation, 'wipe_everything'), undefined, 'no duplicate call part')
+
+    // A further turn replays an approved call WITH its result, so it must not run again.
+    await turn(conv.id, 'hello')
+    assert.deepEqual(fixture.invokedTools(), ['wipe_everything'], 'the double-execution guard')
+  })
+
+  test('a second decision is refused, and the tool still ran once', async () => {
+    const { conv, approvalId } = await pendingApproval()
+    const { runId } = (await decide(conv.id, approvalId, { approved: true })).data
+    await assert.rejects(decide(conv.id, approvalId, { approved: true }), { status: 409 })
+    await awaitRun(runId)
+    assert.deepEqual(fixture.invokedTools(), ['wipe_everything'])
+  })
+
+  test('rejecting tells the model why, and nothing runs', async () => {
+    const { conv, approvalId, seq } = await pendingApproval()
+    const { runId } = (await decide(conv.id, approvalId, { approved: false, reason: 'not today' })).data
+    await awaitRun(runId)
+    assert.deepEqual(fixture.invokedTools(), [])
+    const part = callPart(await messageAt(conv.id, seq), 'wipe_everything')
+    assert.equal(part.state, 'output-denied')
+    assert.equal(part.approval.reason, 'not today')
+  })
+
+  test('a new message rejects a pending approval before it is answered', async () => {
+    const { conv, seq } = await pendingApproval()
+    await turn(conv.id, 'hello')
+    const part = callPart(await messageAt(conv.id, seq), 'wipe_everything')
+    assert.equal(part.state, 'output-denied')
+    assert.equal(part.approval.reason, 'The person sent a new message instead of deciding.')
+    assert.deepEqual(fixture.invokedTools(), [])
+  })
+
+  test('only the person whose conversation it is decides', async () => {
+    const { conv, approvalId } = await pendingApproval()
+    const member = await axiosAuth('test1-user1', { org: 'test1' })
+    await assert.rejects(member.post(`${BASE}/${conv.id}/approvals/${approvalId}`, { approved: true }), { status: 403 })
+    assert.deepEqual(fixture.invokedTools(), [])
+  })
+
+  test('a reason is bounded', async () => {
+    const { conv, approvalId } = await pendingApproval()
+    await assert.rejects(decide(conv.id, approvalId, { approved: false, reason: 'x'.repeat(1001) }), { status: 400 })
+  })
+
+  test('an autonomous agent disabled before the decision does not run the approved call', async () => {
+    const { agent, conv, approvalId } = await pendingApproval()
+    await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, { title: agent.title, persona: agent.persona, mcpServers: agent.mcpServers, enabled: false })
+    const { runId } = (await decide(conv.id, approvalId, { approved: true })).data
+    await awaitRun(runId)
+    assert.deepEqual(fixture.invokedTools(), [])
+  })
+
+  // If the SDK throws on replaying an approved call whose tool is gone (rather than emitting a
+  // `tool-error`), catch that in runModelLoop's stream handling and settle the part with
+  // settleStoredToolPart(…, { state: 'output-error', errorText: 'this tool is no longer available' }).
+  test('a tool no longer offered when approved ends as an error on its own part', async () => {
+    const { agent, conv, approvalId, seq } = await pendingApproval()
+    await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, { title: agent.title, persona: agent.persona, mcpServers: agent.mcpServers, enabled: true, approvals: { destructive: 'deny' } })
+    await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
+    const { runId } = (await decide(conv.id, approvalId, { approved: true })).data
+    await awaitRun(runId)
+    assert.deepEqual(fixture.invokedTools(), [])
+    const part = callPart(await messageAt(conv.id, seq), 'wipe_everything')
+    assert.equal(part.state, 'output-error')
+    assert.equal(part.errorText, 'this tool is no longer available')
+  })
+
+  test('a decision flips only the call it names', async () => {
+    const agent = await createGatedAgent()
+    const conv = (await orgAdmin.post(BASE, { agentId: agent.id, title: 't' })).data
+    const { assistant } = await turn(conv.id, 'call tools wipe_everything wipe_everything')
+    const [first, second] = assistant.parts.filter((p: any) => p.state === 'approval-requested')
+    assert.ok(first && second, 'two calls stopped in one step')
+    const { runId } = (await decide(conv.id, first.approval.id, { approved: false })).data
+    await awaitRun(runId)
+    const parts = (await messageAt(conv.id, assistant.seq)).parts
+    assert.equal(parts.find((p: any) => p.toolCallId === first.toolCallId).state, 'output-denied')
+    assert.equal(parts.find((p: any) => p.toolCallId === second.toolCallId).state, 'approval-requested')
+  })
+})
+
+test.describe('Deciding over the socket', () => {
+  let fixture: McpFixture
+  test.beforeAll(async () => { fixture = await startMcpFixture(Number(process.env.NGINX_PORT) + 30) })
+  test.afterAll(async () => { await fixture.close() })
+  test.beforeEach(async () => { await clean(); fixture.resetInvokedTools(); await putMockSettings(admin, 'organization/test1') })
+
+  const collectUntil = async (socket: any, done: (frames: any[]) => boolean) => {
+    const frames: any[] = []
+    for (let i = 0; i < 3000; i++) { frames.push(await socket.next(20_000)); if (done(frames)) return frames }
+    throw new Error('never happened')
+  }
+
+  test('the frame decides; a socket bound to another conversation cannot', async () => {
+    const agent = await createGatedAgent()
+    const conv = (await orgAdmin.post(BASE, { agentId: agent.id, title: 't' })).data
+    const other = (await orgAdmin.post(BASE, { agentId: agent.id, title: 'other' })).data
+    const socket = await openAgentSession(await orgAdmin.cookieJar.getCookieString(directoryUrl))
+    socket.send({ type: 'hello', tools: [], conversationId: conv.id })
+    await socket.next()
+    socket.send({ type: 'prompt', content: 'call tool wipe_everything {}' })
+    const frames = await collectUntil(socket, fs => fs.some(f => f.type === 'turn-end'))
+    assert.ok(frames.some(f => f.type === 'activity' && f.activity?.kind === 'approval'))
+    const approvalId = frames.filter(f => f.type === 'message' && f.role === 'assistant').at(-1)
+      .parts.find((p: any) => p.state === 'approval-requested').approval.id
+
+    const stranger = await openAgentSession(await orgAdmin.cookieJar.getCookieString(directoryUrl))
+    stranger.send({ type: 'hello', tools: [], conversationId: other.id })
+    await stranger.next()
+    stranger.send({ type: 'approval', approvalId, approved: true })
+    // Past the history the attach sends (a `cost` frame, for this empty thread), the refusal.
+    const refused = await collectUntil(stranger, fs => fs.some(f => f.type === 'error' || f.type === 'turn-end'))
+    assert.equal(refused.at(-1).type, 'error')
+    assert.deepEqual(fixture.invokedTools(), [])
+
+    socket.send({ type: 'approval', approvalId, approved: true })
+    await collectUntil(socket, fs => fs.some(f => f.type === 'turn-end'))
+    assert.deepEqual(fixture.invokedTools(), ['wipe_everything'])
+    socket.close(); stranger.close()
   })
 })

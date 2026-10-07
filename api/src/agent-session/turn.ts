@@ -15,7 +15,8 @@ import {
   createRun,
   requireConversation,
   assertOwnsConversation,
-  setReviewConsent
+  setReviewConsent,
+  rejectPendingApprovals
 } from '../conversations/service.ts'
 import { startRun, liveTurnOf } from '../conversations/executor.ts'
 import { settlePendingWait } from '../conversations/waits.ts'
@@ -100,6 +101,8 @@ export const startSessionTurn = async (request: SessionTurnRequest): Promise<str
   // history reads handover, interruption, message — and the turn this starts carries the reminder to
   // wait again (pendingWaitReminder).
   await settlePendingWait(conversation.id, wait => interruptedWaitResult(wait.expecting))
+  // And rejects a pending approval: the person moved on without deciding (as the HTTP route does).
+  await rejectPendingApprovals(conversation.id)
 
   const stored = await appendMessage(conversation, {
     role: 'user',

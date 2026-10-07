@@ -10,7 +10,7 @@ import mongo from '#mongo'
 import { type AccountKeys, httpError, reqSessionAuthenticated } from '@data-fair/lib-express'
 import eventsLog from '@data-fair/lib-express/events-log.js'
 import { assertCanOwnAgent, getAutonomousAgent } from '../autonomous-agents/service.ts'
-import { assertCanInstruct, assertOwnsConversation, requireAutonomousAgent, requireConversation, appendMessage, createRun, setReviewConsent, archiveConversation, purgeConversation } from './service.ts'
+import { assertCanInstruct, assertOwnsConversation, requireAutonomousAgent, requireConversation, appendMessage, createRun, setReviewConsent, archiveConversation, purgeConversation, rejectPendingApprovals } from './service.ts'
 import { canInstruct, type InstructableAgent } from '../autonomous-agents/operations.ts'
 import { startRun, abortRun } from './executor.ts'
 import { getEffectiveRole, assertCanUseModel } from '../auth.ts'
@@ -20,6 +20,7 @@ import { getSettings } from '../settings/service.ts'
 import { hasTraceConsent } from '@agents/shared/trace-consent'
 import { settlePendingWait } from './waits.ts'
 import { interruptedWaitResult } from './interrupted-turn.ts'
+import { decideAndContinue } from './approvals.ts'
 
 const router = Router()
 export default router
@@ -444,6 +445,8 @@ router.post('/:type/:id/:conversationId/messages', async (req, res, next) => {
 
     // A message answers a pending wait, as it does over the socket (see startSessionTurn).
     await settlePendingWait(conversation.id, wait => interruptedWaitResult(wait.expecting))
+    // A message also rejects a pending approval: the person moved on without deciding.
+    await rejectPendingApprovals(conversation.id)
 
     const message = await appendMessage(conversation, {
       role: 'user',
@@ -474,5 +477,29 @@ router.post('/:type/:id/:conversationId/messages', async (req, res, next) => {
     startRun(run).catch(err => console.error('autonomous agent run failed to start', err))
 
     res.json({ ...message, runId: run.id })
+  } catch (err) { next(err) }
+})
+
+/**
+ * The person's decision on a call the approval gate stopped. The turn continues from it in a new run,
+ * whose id is returned to follow, as a posted message's is.
+ */
+router.post('/:type/:id/:conversationId/approvals/:approvalId', async (req, res, next) => {
+  try {
+    const session = reqSessionAuthenticated(req)
+    const owner = reqOwner(req)
+    const conversation = await requireConversation(owner, req.params.conversationId)
+    assertOwnsConversation(conversation, session)
+    const approved = req.body?.approved
+    if (typeof approved !== 'boolean') throw httpError(400, 'approved must be a boolean')
+    const reason = req.body?.reason
+    if (reason !== undefined && (typeof reason !== 'string' || reason.length > 1000)) throw httpError(400, 'reason must be a string of at most 1000 characters')
+    res.json(await decideAndContinue({
+      conversation,
+      session,
+      approvalId: req.params.approvalId,
+      approved,
+      ...(reason ? { reason } : {})
+    }))
   } catch (err) { next(err) }
 })

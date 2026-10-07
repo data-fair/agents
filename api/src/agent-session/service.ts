@@ -19,6 +19,7 @@ import { verifyAnonymousActionToken } from '../anonymous-token/service.ts'
 import { anonymousUsageUserId } from '../usage/enforce.ts'
 import { PERSONAL_AGENT_ID } from './standard-agents.ts'
 import { abortRunsOfConversation, wakeIfAnswered } from '../conversations/executor.ts'
+import { decideAndContinue } from '../conversations/approvals.ts'
 import { settlePendingWait } from '../conversations/waits.ts'
 import { INTERRUPTED_RESULTS } from '../conversations/interrupted-turn.ts'
 import { hasTraceConsent } from '@agents/shared/trace-consent'
@@ -110,6 +111,29 @@ export const startAgentSessions = (server: Server) => {
           // Declining a handover: settled as stopped, and nothing runs — there is nothing to answer.
           if (dismissWait) await settlePendingWait(conversationId, () => INTERRUPTED_RESULTS.stop)
         }).catch((err: any) => { send({ type: 'error', message: err.message ?? 'the turn could not be stopped' }) })
+      },
+      // A decision on a call the approval gate stopped, for the conversation this socket is bound to —
+      // never one named in the frame, so a socket cannot decide on someone else's thread. An anonymous
+      // visitor has none to decide: approvals exist only on configured autonomous agents.
+      onApproval: (approvalId, approved, reason) => {
+        const conversationId = boundConversationId
+        if (!conversationId || !sessionState?.user) {
+          send({ type: 'error', message: 'only a signed-in person decides on an approval' })
+          return
+        }
+        const session = sessionState
+        attaching.then(() => resolveOwnConversation(conversationId))
+          .then(conversation => decideAndContinue({
+            conversation,
+            session,
+            approvalId,
+            approved,
+            ...(reason ? { reason } : {})
+          }))
+          .catch((err: any) => {
+            debug('approval refused: %O', err)
+            send({ type: 'error', message: err.message ?? 'the decision could not be recorded' })
+          })
       },
       // The person acted on the page: if the bound conversation is waiting on them, this answers it.
       // Only once attached — `wakeIfAnswered` checks this socket is the conversation's watcher, which it

@@ -5,6 +5,7 @@
 import mongo from '#mongo'
 import config from '#config'
 import { standardAgent, isStandardAgentId } from '../agent-session/standard-agents.ts'
+import { sessionFor } from '../agent-session/registry.ts'
 import { assertRoleQuota } from '../auth.ts'
 import { nanoid } from 'nanoid'
 import { type AccountKeys, httpError } from '@data-fair/lib-express'
@@ -13,6 +14,7 @@ import Debug from 'debug'
 import type { AutonomousAgent, Conversation, ConversationRun } from '#types'
 // The stored shape, whose `parts` carry the library's own part type (see mongo.ts).
 import type { StoredMessage } from '#mongo'
+import type { MessagePart } from '@agents/shared/message-parts'
 import { canInstruct, type InstructableAgent } from '../autonomous-agents/operations.ts'
 import type { SessionStateAuthenticated } from '@data-fair/lib-common-types/session/index.js'
 import { getAutonomousAgent, assertOrganizationOwner } from '../autonomous-agents/service.ts'
@@ -288,6 +290,96 @@ export const updateMessage = async (conversationId: string, seq: number, patch: 
     { conversationId, seq },
     { $set: { ...patch, version, updatedAt: new Date().toISOString() } }
   )
+}
+
+/**
+ * Settle a call on the message that MADE it, when its result arrives in a later turn — an approved call
+ * the SDK executes on the next run's replay. Left on the earlier message without a result, the next
+ * replay would see an approved call with nothing after it and execute it again.
+ *
+ * Only a part still `approval-responded` is settled: that is the one state a later turn completes, and
+ * restricting to it means a result can never overwrite a call that already has one.
+ */
+export const settleStoredToolPart = async (
+  conversationId: string,
+  toolCallId: string,
+  settled: { state: 'output-available', output: unknown } | { state: 'output-error', errorText: string }
+): Promise<StoredMessage | null> => {
+  const awaiting = { toolCallId, state: 'approval-responded' }
+  if (!await mongo.messages.findOne({ conversationId, parts: { $elemMatch: awaiting } }, { projection: { _id: 1 } })) return null
+  const { version } = await bumpConversationVersion(conversationId)
+  const set: Record<string, unknown> = Object.fromEntries(Object.entries(settled).map(([key, value]) => [`parts.$[p].${key}`, value]))
+  return await mongo.messages.findOneAndUpdate(
+    { conversationId, parts: { $elemMatch: awaiting } },
+    { $set: { ...set, version, updatedAt: new Date().toISOString() } },
+    { arrayFilters: [{ 'p.toolCallId': toolCallId, 'p.state': 'approval-responded' }], returnDocument: 'after', projection: { _id: 0 } }
+  )
+}
+
+/**
+ * Record a decision on a pending approval, atomically: only a part still `approval-requested` flips, so
+ * two decisions racing (two tabs, a double click) settle it once. Null when nothing was pending under
+ * that id — already decided, or never asked.
+ */
+export const decideApproval = async (
+  conversationId: string,
+  approvalId: string,
+  decision: { approved: boolean, reason?: string, by: { userId: string, userName?: string } }
+): Promise<StoredMessage | null> => {
+  const at = new Date().toISOString()
+  const pending = { 'approval.id': approvalId, state: 'approval-requested' }
+  if (!await mongo.messages.findOne({ conversationId, parts: { $elemMatch: pending } }, { projection: { _id: 1 } })) return null
+  const { version } = await bumpConversationVersion(conversationId)
+  return await mongo.messages.findOneAndUpdate(
+    { conversationId, parts: { $elemMatch: pending } },
+    {
+      $set: {
+        // Approved: `approval-responded`, which the SDK executes on replay. Rejected: `output-denied`,
+        // which replays as a refusal carrying the reason, so the model is told and can react.
+        'parts.$[p].state': decision.approved ? 'approval-responded' : 'output-denied',
+        'parts.$[p].approval.approved': decision.approved,
+        ...(decision.reason ? { 'parts.$[p].approval.reason': decision.reason } : {}),
+        'parts.$[p].toolMetadata.decision': { ...decision.by, approved: decision.approved, at },
+        version,
+        updatedAt: at
+      }
+    },
+    { arrayFilters: [{ 'p.approval.id': approvalId, 'p.state': 'approval-requested' }], returnDocument: 'after', projection: { _id: 0 } }
+  )
+}
+
+/** The reason a pending approval is rejected with when the person writes instead of deciding. */
+export const PENDING_APPROVAL_SUPERSEDED = 'The person sent a new message instead of deciding.'
+
+/**
+ * Reject every pending approval of a conversation — what a new message from the person does. Keeps a
+ * pending approval the conversation's latest step, so no undecided call can be compacted away or
+ * approved out of order. Returns how many messages held one (a step's parallel calls share a message).
+ */
+export const rejectPendingApprovals = async (conversationId: string, reason: string = PENDING_APPROVAL_SUPERSEDED): Promise<number> => {
+  if (!await mongo.messages.findOne({ conversationId, 'parts.state': 'approval-requested' }, { projection: { _id: 1 } })) return 0
+  const { version } = await bumpConversationVersion(conversationId)
+  const result = await mongo.messages.updateMany(
+    { conversationId, 'parts.state': 'approval-requested' },
+    {
+      $set: {
+        'parts.$[p].state': 'output-denied',
+        'parts.$[p].approval.approved': false,
+        'parts.$[p].approval.reason': reason,
+        version,
+        updatedAt: new Date().toISOString()
+      }
+    },
+    { arrayFilters: [{ 'p.state': 'approval-requested' }] }
+  )
+  // The watching page is shown the refusal and loses the "awaiting approval" label, as for a decision.
+  const watcher = sessionFor(conversationId)
+  if (watcher && result.modifiedCount) {
+    const rejected = await mongo.messages.find({ conversationId, version }, { projection: { _id: 0, seq: 1, parts: 1 } }).toArray()
+    for (const message of rejected) watcher.send({ type: 'message', seq: message.seq, role: 'assistant', parts: message.parts as MessagePart[], pending: false })
+    watcher.send({ type: 'activity', activity: null })
+  }
+  return result.modifiedCount
 }
 
 export const createRun = async (run: Omit<ConversationRun, 'id'>): Promise<ConversationRun> => {

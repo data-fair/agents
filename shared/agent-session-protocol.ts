@@ -84,6 +84,11 @@ export type ClientMessage =
   | { type: 'host-state', state: Record<string, unknown> }
   /** Things the person did. Appended, coalesced and capped by the store, not by the wire. */
   | { type: 'host-events', events: HostEventFrame[] }
+  /**
+   * The person's decision on a call the approval gate stopped. `reason` is optional, at most 1000
+   * characters. It names no conversation: it decides for the one this socket is bound to.
+   */
+  | { type: 'approval', approvalId: string, approved: boolean, reason?: string }
 
 /**
  * One thing that happened on the page, as it travels.
@@ -308,6 +313,12 @@ export function parseClientMessage (raw: string): ClientMessage | InvalidMessage
       }
       return { type: 'host-events', events }
     }
+    case 'approval':
+      if (typeof parsed.approvalId !== 'string' || !parsed.approvalId) return { type: 'invalid', reason: 'approvalId must be a non-empty string' }
+      // Strictly boolean, as for consent: a truthy string must not read as an approval.
+      if (typeof parsed.approved !== 'boolean') return { type: 'invalid', reason: 'approved must be a boolean' }
+      if (parsed.reason !== undefined && (typeof parsed.reason !== 'string' || parsed.reason.length > 1000)) return { type: 'invalid', reason: 'reason must be a string of at most 1000 characters' }
+      return { type: 'approval', approvalId: parsed.approvalId, approved: parsed.approved, ...(parsed.reason ? { reason: parsed.reason } : {}) }
     default:
       return { type: 'invalid', reason: `unknown message type ${JSON.stringify(parsed.type)}` }
   }
