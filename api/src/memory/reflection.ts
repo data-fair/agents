@@ -282,6 +282,7 @@ export const maybeReflectTaskRun = async (runId: string, closing?: Partial<Conve
   }
 }
 
+// A deferred (credit cap) or failed task-run reflection is deliberately not retried: "once, at its end".
 const reflectTaskRun = async (run: ConversationRun, agent: AutonomousAgent): Promise<ReflectionResult> => {
   if (await checkAccountCreditCap(run.owner)) return { reflected: false, reason: 'credit-cap' }
   await runReflectionPass(

@@ -78,4 +78,31 @@ test.describe('Run history', () => {
     await assert.rejects(member.get(`${agentBase(agent.id)}/runs/${attention}/export`), { status: 403 })
     await assert.rejects(member.get(`${agentBase(agent.id)}/runs/${attention}`), { status: 403 })
   })
+
+  test('a run of another agent, a conversation run export and a bad since are refused', async () => {
+    const make = async (title: string) => {
+      const agent = (await admin.post('/api/autonomous-agents/organization/test1', {
+        title, persona: 'x', mcpServers: [], enabled: true
+      })).data
+      await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
+      return agent
+    }
+    const agent = await make('First')
+    const other = await make('Second')
+    const task = (await admin.post(`${agentBase(other.id)}/tasks`, { title: 'Probe', prompt: 'hello', scheduling: [daily] })).data
+    const otherRun = (await admin.post(`${agentBase(other.id)}/tasks/${task.id}/run`)).data.runId as string
+    await awaitRun(otherRun)
+    await assert.rejects(orgAdmin.get(`${agentBase(agent.id)}/runs/${otherRun}`), { status: 404 })
+
+    const conversationId = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data.id
+    const { runId } = (await orgAdmin.post(`/api/conversations/organization/test1/${conversationId}/messages`, { content: 'hello' })).data
+    await awaitRun(runId)
+    await assert.rejects(orgAdmin.get(`${agentBase(agent.id)}/runs/${runId}/export`), { status: 404 })
+    const meta = (await orgAdmin.get(`${agentBase(agent.id)}/runs/${runId}`)).data
+    assert.equal(meta.conversationId, conversationId)
+    assert.equal(meta.systemPrompt, undefined)
+    assert.equal(meta.calls, undefined)
+
+    await assert.rejects(orgAdmin.get(`${agentBase(agent.id)}/runs`, { params: { since: 'not-a-date' } }), { status: 400 })
+  })
 })

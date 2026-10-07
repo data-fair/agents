@@ -105,7 +105,11 @@ router.get('/:type/:id/:agentId/runs/:runId', async (req, res, next) => {
     assertOrganizationOwner(owner)
     assertAccountRole(session, owner, 'admin')
     const agent = await loadAgent(owner, req.params.agentId)
-    res.json(await loadRun(owner, agent.id, req.params.runId))
+    const run = await loadRun(owner, agent.id, req.params.runId)
+    // A conversation run is metadata only here (its content is the conversation's, read elsewhere): without
+    // the telemetry and system prompt, as in the list.
+    if (run.kind === 'task') res.json(run)
+    else { const { systemPrompt, calls, ...metadata } = run; res.json(metadata) }
   } catch (err) { next(err) }
 })
 
