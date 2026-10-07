@@ -27,6 +27,12 @@ export default {
         summary: { type: 'string' }
       }
     },
+    // A task run, reflected into the agent's memory once at its end: when, and what that pass cost.
+    memoryReflection: {
+      type: 'object',
+      additionalProperties: false,
+      properties: { at: { type: 'string', format: 'date-time' }, credits: { type: 'number' } }
+    },
     // A task run: the slot it was due for.
     scheduledFor: { type: 'string', format: 'date-time' },
     owner: {

@@ -201,4 +201,24 @@ test.describe('Memory reflection and the approval gate', () => {
     await admin.post('/api/test-env/sweep-reflections', { now: later, batch: 1 })
     assert.match((await core(agent.id))?.content ?? '', /not starved/)
   })
+
+  test('a task run is reflected once, at its end, attributed to the run and its task', async () => {
+    const agent = await createAgent()
+    const daily = { type: 'daily', month: '*', dayOfWeek: '*', dayOfMonth: '*', hour: 8, minute: 0, timeZone: 'Europe/Paris' }
+    const tasks = `/api/autonomous-agents/organization/test1/${agent.id}/tasks`
+    const task = (await admin.post(tasks, { title: 'Weekly', prompt: 'remember: the weekly report goes to finance', scheduling: [daily] })).data
+    const runId = (await admin.post(`${tasks}/${task.id}/run`)).data.runId as string
+    let content = ''
+    for (let i = 0; i < 100 && !content.includes('the weekly report goes to finance'); i++) {
+      await new Promise(resolve => setTimeout(resolve, 100))
+      content = (await core(agent.id))?.content ?? ''
+    }
+    assert.match(content, /- the weekly report goes to finance/)
+    const versions = (await orgAdmin.get(`/api/memory/organization/test1/${agent.id}/versions`)).data
+    const author = versions.results[0].author
+    assert.deepEqual({ kind: author.kind, taskId: author.taskId, runId: author.runId }, { kind: 'reflection', taskId: task.id, runId })
+    // the run records that it was reflected
+    const run = (await orgAdmin.get(`/api/autonomous-agents/organization/test1/${agent.id}/runs/${runId}`)).data
+    assert.ok(run.memoryReflection?.at)
+  })
 })

@@ -16,6 +16,7 @@ import { driveTurn } from '../conversations/executor.ts'
 import { taskTarget } from './task-target.ts'
 import { taskEvent, failedInARow } from './operations.ts'
 import { pushTaskEvent } from './notifications.ts'
+import { maybeReflectTaskRun } from '../memory/reflection.ts'
 
 const LOCK_ORIGIN = 'agents-task-run'
 
@@ -101,6 +102,10 @@ export const afterTaskRun = async (run: ConversationRun, task?: Pick<AutonomousA
   const taskId = task?.id ?? run.taskId
   const current = taskId ? await mongo.autonomousAgentTasks.findOne({ id: taskId }, { projection: { _id: 0 } }) : null
   if (!current) return
+
+  // Fire-and-forget: reflection is a model call, and neither the close nor the notifications wait for it.
+  // A run that did not complete has nothing worth remembering; maybeReflectTaskRun checks the agent has memory.
+  if (run.status === 'done') maybeReflectTaskRun(run.id, run).catch(err => console.error(`task run ${run.id} could not be reflected`, err))
 
   if (run.outcome?.status === 'needs-attention') pushTaskEvent(taskEvent('needs-attention', current, run))
   // A timeout is an `error`; an abort is an admin's act, not a failure.
