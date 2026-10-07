@@ -170,7 +170,8 @@ export function applyMemoryCommand (documents: MemoryDocument[], input: unknown,
   const args = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>
   switch (args.command) {
     case 'view': {
-      if (args.path === undefined || args.path === '' || args.path === '/' || args.path === '/memories' || args.path === '/memories/') {
+      const loose = typeof args.path === 'string' ? args.path.trim().replace(/^\/+/, '').replace(/^memories(\/|$)/, '').replace(/\/+$/, '') : undefined
+      if (args.path === undefined || loose === '') {
         return { result: viewIndex(documents) }
       }
       return { result: viewDocument(existingOrThrow(documents, normalizeMemoryPath(args.path)), args.view_range) }
@@ -249,9 +250,10 @@ export function userWriteChange (documents: MemoryDocument[], rawPath: string, b
   return { op: existing ? 'update' : 'create', path, description, content, expectedVersion: existing?.version ?? 0 }
 }
 
-const neutralise = (text: string, tag: string) => text
-  .split(`</${tag}`).join(`<\\/${tag}`)
-  .split(`<${tag}`).join(`<\\${tag}`)
+/** Defuses every opening or closing tag of the block's vocabulary, whatever its case. */
+const neutraliseBlockTags = (text: string) => text
+  .replace(/<\/(agent-memory|core|index)/gi, '<\\/$1')
+  .replace(/<(agent-memory|core|index)/gi, '<\\$1')
 
 const MEMORY_CLAUSE = [
   'You have a persistent memory: notes you wrote in earlier conversations, kept across all of them and shared by everyone who instructs you. It is shown below as it was when this conversation turn started.',
@@ -268,8 +270,8 @@ export function renderMemoryBlock (documents: MemoryDocument[]): string {
   const index = renderIndex(documents)
   const body = documents.length
     ? [
-        core ? `<core path="${CORE_PATH}" updated="${day(core.updatedAt)}">\n${neutralise(neutralise(core.content, 'agent-memory'), 'core')}\n</core>` : '',
-        index ? `<index>\n${neutralise(neutralise(index, 'agent-memory'), 'core')}\n</index>` : ''
+        core ? `<core path="${CORE_PATH}" updated="${day(core.updatedAt)}">\n${neutraliseBlockTags(core.content)}\n</core>` : '',
+        index ? `<index>\n${neutraliseBlockTags(index)}\n</index>` : ''
       ].filter(Boolean).join('\n')
     : 'Your memory is empty.'
   return [
