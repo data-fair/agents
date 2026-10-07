@@ -14,6 +14,7 @@ import eventsLog from '@data-fair/lib-express/events-log.js'
 import * as writeReqBody from '#doc/autonomous-agents/task-write-req/index.ts'
 import { getAutonomousAgent, reqWriteSession, assertOrganizationOwner } from '../autonomous-agents/service.ts'
 import { canInstruct } from '../autonomous-agents/operations.ts'
+import mongo from '#mongo'
 import { listTasks, getTask, createTask, updateTask, deleteTask } from './service.ts'
 import { startTaskRun, isTaskRunning, PREVIOUS_RUN_STILL_RUNNING } from './execution.ts'
 
@@ -52,6 +53,33 @@ router.get('/:type/:id/:agentId/tasks/:taskId', async (req, res, next) => {
     const agent = await loadAgent(owner, req.params.agentId)
     if (!canInstruct(agent, session)) throw httpError(403, 'you are not allowed to instruct this autonomous agent')
     res.json(await getTask(owner, agent.id, req.params.taskId))
+  } catch (err) { next(err) }
+})
+
+// Runs of an agent, newest first, without their content (prompt, parts, calls): a list to scan, not to read.
+router.get('/:type/:id/:agentId/runs', async (req, res, next) => {
+  try {
+    const session = reqSessionAuthenticated(req)
+    const owner = { type: req.params.type, id: req.params.id } as AccountKeys
+    assertOrganizationOwner(owner)
+    assertAccountRole(session, owner, 'admin')
+    const agent = await loadAgent(owner, req.params.agentId)
+    const filter: Record<string, unknown> = { 'owner.type': owner.type, 'owner.id': owner.id, agentId: agent.id }
+    for (const key of ['taskId', 'kind', 'status'] as const) {
+      if (typeof req.query[key] === 'string') filter[key] = req.query[key]
+    }
+    const size = Math.min(Math.max(parseInt(String(req.query.size ?? '20'), 10) || 20, 1), 100)
+    const page = Math.max(parseInt(String(req.query.page ?? '1'), 10) || 1, 1)
+    const [results, count] = await Promise.all([
+      mongo.runs
+        .find(filter, { projection: { _id: 0, parts: 0, prompt: 0, systemPrompt: 0, calls: 0 } })
+        .sort({ startedAt: -1 })
+        .skip((page - 1) * size)
+        .limit(size)
+        .toArray(),
+      mongo.runs.countDocuments(filter)
+    ])
+    res.json({ results, count })
   } catch (err) { next(err) }
 })
 

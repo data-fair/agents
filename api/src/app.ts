@@ -15,6 +15,7 @@ import { agentStoreId, MemoryCommandError, MemoryConflictError, type MemoryAutho
 import memoryRouter from './memory/router.ts'
 import { maybeReflect, sweepIdleReflections } from './memory/reflection.ts'
 import tasksRouter from './tasks/router.ts'
+import { runSchedulerPass } from './tasks/scheduler.ts'
 import { pushedTaskEvents, clearPushedTaskEvents } from './tasks/notifications.ts'
 import autonomousAgentsRouter from './autonomous-agents/router.ts'
 import autonomousAgentRuntimeRouter, { runsRouter } from './conversations/router.ts'
@@ -314,6 +315,14 @@ if (process.env.NODE_ENV === 'development') {
   })
   app.post('/api/test-env/sweep-reflections', async (req, res) => {
     res.json({ reflected: await sweepIdleReflections(req.body?.now ? new Date(req.body.now) : undefined, req.body?.batch, testOwnerScope(req.body?.owner)) })
+  })
+  // Dev-only: one scheduler pass as of a chosen time, and a task's next slot set directly.
+  app.post('/api/test-env/scheduler-pass', async (req, res) => {
+    res.json(await runSchedulerPass(req.body?.now ? new Date(req.body.now) : new Date(), testOwnerScope(req.body?.owner)))
+  })
+  app.post('/api/test-env/task-next-run', async (req, res) => {
+    await mongo.autonomousAgentTasks.updateOne({ id: req.body.taskId }, { $set: { nextRunAt: req.body.nextRunAt } })
+    res.send()
   })
   app.post('/api/test-env/recover-ownerless-runs', async (req, res) => {
     res.json(await recoverOwnerlessRuns())

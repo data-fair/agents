@@ -15,6 +15,7 @@ import { purgeExpiredArchives, purgeAbandonedAnonymous } from './conversations/s
 import { assertSessionOutlivesRun, ASSERTION_TTL_SECONDS } from './nhi/operations.ts'
 import { startAgentSessions } from './agent-session/service.ts'
 import { sweepIdleReflections } from './memory/reflection.ts'
+import { runSchedulerPass } from './tasks/scheduler.ts'
 
 /**
  * Run pending upgrade/<version>/*.js migrations (see @data-fair/lib-node/upgrade-scripts.js).
@@ -63,6 +64,7 @@ let archivePurgeInterval: ReturnType<typeof setInterval> | undefined
 let anonymousPurgeInterval: ReturnType<typeof setInterval> | undefined
 let autonomousAgentReaper: ReturnType<typeof setInterval> | undefined
 let memoryReflectionSweep: ReturnType<typeof setInterval> | undefined
+let taskScheduler: ReturnType<typeof setInterval> | undefined
 let agentSessions: ReturnType<typeof startAgentSessions> | undefined
 
 server.keepAliveTimeout = (60 * 1000) + 1000
@@ -131,6 +133,15 @@ export const start = async () => {
     sweepIdleReflections().catch(err => console.error('memory reflection sweep failed', err))
   }, 5 * 60 * 1000)
 
+  // PLANNED TASKS: every pollSeconds, claim and fire the tasks that are due (api/src/tasks/scheduler.ts).
+  // Every instance polls; the claim is an atomic advance of nextRunAt, so exactly one fires a slot.
+  // In development the poll leaves `test*` owners alone: the api specs drive their tasks through the
+  // scheduler-pass seam with an injected clock, and a real-clock poll would claim their due slots first.
+  const schedulerScope = process.env.NODE_ENV === 'development' ? { 'owner.id': { $not: /^test/ } } : {}
+  taskScheduler = setInterval(() => {
+    runSchedulerPass(new Date(), schedulerScope).catch(err => console.error('task scheduler pass failed', err))
+  }, config.tasks.pollSeconds * 1000)
+
   // Before server.listen, so the socket endpoint exists when the http server starts accepting connections.
   agentSessions = startAgentSessions(server)
 
@@ -159,6 +170,8 @@ export const stop = async () => {
   if (archivePurgeInterval) clearInterval(archivePurgeInterval)
   if (anonymousPurgeInterval) clearInterval(anonymousPurgeInterval)
   if (memoryReflectionSweep) clearInterval(memoryReflectionSweep)
+  if (taskScheduler) clearInterval(taskScheduler)
+  await eventsQueue.stop?.()
   // Before the HTTP server goes: a connected browser holding a turn open must be told rather than
   // left with a socket that stops answering, and every pending browser tool call has to fail so the
   // turn waiting on it can finish.
