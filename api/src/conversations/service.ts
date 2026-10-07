@@ -352,9 +352,20 @@ export const decideApproval = async (
 export const PENDING_APPROVAL_SUPERSEDED = 'The person sent a new message instead of deciding.'
 
 /**
+ * The error an APPROVED call is settled with when the person wrote before deciding the rest of its step.
+ * No run was started for that step (one starts only once every call of it is decided), and the SDK
+ * executes approvals only from the last message, which is now the person's.
+ */
+export const APPROVED_STEP_SUPERSEDED = 'Approved, but the person sent a new message before every call of the step was decided, so it did not run.'
+
+/**
  * Reject every pending approval of a conversation — what a new message from the person does. Keeps a
  * pending approval the conversation's latest step, so no undecided call can be compacted away or
  * approved out of order. Returns how many messages held one (a step's parallel calls share a message).
+ *
+ * The calls of the same step already APPROVED are settled too, as errors: they were waiting for the
+ * rest of the step, which is now refused, so nothing will ever run them. Only in a message that still
+ * has an undecided call — a fully decided step has its continuation run, which settles its own.
  */
 export const rejectPendingApprovals = async (conversationId: string, reason: string = PENDING_APPROVAL_SUPERSEDED): Promise<number> => {
   if (!await mongo.messages.findOne({ conversationId, 'parts.state': 'approval-requested' }, { projection: { _id: 1 } })) return 0
@@ -366,11 +377,13 @@ export const rejectPendingApprovals = async (conversationId: string, reason: str
         'parts.$[p].state': 'output-denied',
         'parts.$[p].approval.approved': false,
         'parts.$[p].approval.reason': reason,
+        'parts.$[q].state': 'output-error',
+        'parts.$[q].errorText': APPROVED_STEP_SUPERSEDED,
         version,
         updatedAt: new Date().toISOString()
       }
     },
-    { arrayFilters: [{ 'p.state': 'approval-requested' }] }
+    { arrayFilters: [{ 'p.state': 'approval-requested' }, { 'q.state': 'approval-responded' }] }
   )
   // The watching page is shown the refusal and loses the "awaiting approval" label, as for a decision.
   const watcher = sessionFor(conversationId)

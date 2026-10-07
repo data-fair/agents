@@ -219,6 +219,50 @@ test.describe('The approval gate', () => {
     await turn(conv.id, 'hello')
     assert.deepEqual(fixture.invokedTools(), ['wipe_everything', 'wipe_everything'], 'neither runs again')
   })
+
+  const noApprovedCallLeft = async (conversationId: string) => {
+    const messages = (await orgAdmin.get(`${BASE}/${conversationId}/messages`)).data.results
+    assert.ok(!messages.some((m: any) => (m.parts ?? []).some((p: any) => p.state === 'approval-responded' || p.state === 'approval-requested')),
+      'no approved or pending call left without a result')
+  }
+
+  test('writing before a step is fully decided settles the call already approved', async () => {
+    const { conv, seq, first, second } = await twoPending()
+    assert.deepEqual((await decide(conv.id, first.approval.id, { approved: true })).data, { pending: 1 })
+    await turn(conv.id, 'hello')
+    const parts = (await messageAt(conv.id, seq)).parts
+    const approved = parts.find((p: any) => p.toolCallId === first.toolCallId)
+    assert.equal(approved.state, 'output-error')
+    assert.equal(approved.errorText, 'Approved, but the person sent a new message before every call of the step was decided, so it did not run.')
+    assert.equal(parts.find((p: any) => p.toolCallId === second.toolCallId).state, 'output-denied')
+    assert.deepEqual(fixture.invokedTools(), [])
+    await noApprovedCallLeft(conv.id)
+
+    const { run } = await turn(conv.id, 'hello')
+    assert.equal(run.stopReason, 'completed')
+    assert.deepEqual(fixture.invokedTools(), [])
+  })
+
+  test('an approval run that fails before the model settles the approved call as an error', async () => {
+    const { agent, conv, approvalId, seq } = await pendingApproval()
+    // The autonomous agent now reaches its tools through a catalog entry never listed in this test (so
+    // no cached listing), on the fixture's address, with the fixture down: gathering its tools throws.
+    await fixture.close()
+    try {
+      await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, { title: agent.title, persona: agent.persona, mcpServers: [{ serverId: 'dev-apikey-mcp' }], enabled: true })
+      await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
+      const { runId } = (await decide(conv.id, approvalId, { approved: true })).data
+      const run = await awaitRun(runId)
+      assert.equal(run.status, 'error')
+      const part = callPart(await messageAt(conv.id, seq), 'wipe_everything')
+      assert.equal(part.state, 'output-error')
+      assert.match(part.errorText, /^Approved, but its outcome is unknown: the turn ended before it reported \(.*dev-apikey-mcp.*\)\.$/)
+      assert.deepEqual(fixture.invokedTools(), [])
+      await noApprovedCallLeft(conv.id)
+    } finally {
+      fixture = await startMcpFixture(Number(process.env.NGINX_PORT) + 30)
+    }
+  })
 })
 
 test.describe('Deciding over the socket', () => {

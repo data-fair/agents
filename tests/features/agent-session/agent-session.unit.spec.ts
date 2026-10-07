@@ -65,6 +65,24 @@ test.describe('parseClientMessage', () => {
     assert.equal(parse({ type: 'hello', tools: [], anonymousToken: 42 }).type, 'invalid')
   })
 
+  test('accepts an approval decision, with or without a reason', () => {
+    assert.deepEqual(parse({ type: 'approval', approvalId: 'a1', approved: true }), { type: 'approval', approvalId: 'a1', approved: true })
+    assert.deepEqual(parse({ type: 'approval', approvalId: 'a1', approved: false, reason: 'not today', extra: 1 }), {
+      type: 'approval', approvalId: 'a1', approved: false, reason: 'not today'
+    })
+    assert.deepEqual(parse({ type: 'approval', approvalId: 'a1', approved: false, reason: 'x'.repeat(1000) }).type, 'approval')
+  })
+
+  test('refuses a malformed approval decision', () => {
+    // Strictly boolean: a truthy string must not read as an approval.
+    assert.equal(parse({ type: 'approval', approvalId: 'a1', approved: 'yes' }).type, 'invalid')
+    assert.equal(parse({ type: 'approval', approvalId: 'a1' }).type, 'invalid')
+    assert.equal(parse({ type: 'approval', approved: true }).type, 'invalid')
+    assert.equal(parse({ type: 'approval', approvalId: '', approved: true }).type, 'invalid')
+    assert.equal(parse({ type: 'approval', approvalId: 'a1', approved: false, reason: 'x'.repeat(1001) }).type, 'invalid')
+    assert.equal(parse({ type: 'approval', approvalId: 'a1', approved: false, reason: 42 }).type, 'invalid')
+  })
+
   test('refuses anything that is not valid JSON, or not an object', () => {
     assert.deepEqual(parseClientMessage('{nope'), { type: 'invalid', reason: 'not valid JSON' })
     assert.equal(parseClientMessage('[]').type, 'invalid')

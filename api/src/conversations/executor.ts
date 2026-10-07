@@ -249,9 +249,10 @@ const performTurn = async (run: ConversationRun, messageSeq: number, abortSignal
   const identity = usageIdentityFor(autonomousAgent, run)
   for (const gate of [
     () => checkQuotas(run, settings, identity, autonomousAgent.id),
-    // A wake has no message of the person's to classify — they acted on the page — and moderating it
-    // would re-judge the message that started the handover.
-    () => run.trigger !== 'wake' && moderationApplies(settings, identity.role)
+    // A wake or an approval continuation has no message of the person's to classify — they acted on
+    // the page, or decided on a call — and moderating it would re-judge the message that started the
+    // turn: a moderator call for nothing, and possibly a second strike for the same message.
+    () => run.trigger !== 'wake' && run.trigger !== 'approval' && moderationApplies(settings, identity.role)
       ? moderateTurn(run, settings, identity, () => liveRuns.get(run.id)?.controller.abort(new Error(MODERATION_LATE_BLOCK)))
       : undefined
   ]) {
@@ -1097,15 +1098,25 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
 }
 
 /**
- * Settle every approved call of a conversation still waiting for its result as an error.
+ * Settle, as an error, every approved call an approval run leaves without a result.
  *
- * For a continuation that was refused before any model call (the autonomous agent disabled, no
- * identity, a quota, moderation): left `approval-responded`, every later replay would carry an approved
- * call with no result after it — which providers reject — and none would ever execute it.
+ * ONE RULE AT THE END OF EVERY `approval` RUN, whatever the path. Only that run could execute those
+ * calls (the SDK does it from the last message on replay), so once it is over, a call still
+ * `approval-responded` never will be — refused before the model (disabled, no identity, a quota), a
+ * run that threw before it (an unreachable MCP server), or a message posted before the run started, so
+ * that the replay ended on it instead. Left as it is, every later replay would carry an approved call
+ * with no result after it, which providers reject.
+ *
+ * Bounded to messages BEFORE the run's own (`beforeSeq`): a call this run made and stopped may already
+ * have been approved by the person while the run was finishing, and belongs to the next continuation.
+ * And settleStoredToolPart matches only `approval-responded`, so a call the run did settle is untouched.
  */
-const settleApprovedWithoutRunning = async (conversationId: string, errorText: string) => {
+const settleApprovedWithoutRunning = async (conversationId: string, beforeSeq: number | undefined, errorText: string) => {
   const messages = await mongo.messages
-    .find({ conversationId, 'parts.state': 'approval-responded' }, { projection: { _id: 0, parts: 1 } })
+    .find(
+      { conversationId, 'parts.state': 'approval-responded', ...(beforeSeq !== undefined ? { seq: { $lt: beforeSeq } } : {}) },
+      { projection: { _id: 0, parts: 1 } }
+    )
     .toArray()
   for (const message of messages) {
     for (const part of message.parts as MessagePart[]) {
@@ -1115,6 +1126,9 @@ const settleApprovedWithoutRunning = async (conversationId: string, errorText: s
     }
   }
 }
+
+/** The error an approved call is settled with when its run ended without it reporting. */
+const unknownApprovedOutcome = (detail: string) => `Approved, but its outcome is unknown: the turn ended before it reported (${detail}).`
 
 /**
  * Run one turn to a terminal state.
@@ -1177,11 +1191,13 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
     // The assistant message's own seq bounds the history: it was created before the turn
     // (empty, pending), so it must not be fed back to the model as an empty turn.
     const result = await Promise.race([performTurn(run, message.seq, abortController.signal, conversation), deadline])
-    // A continuation REFUSED before the model was reached: the approved calls never ran, and will not
-    // (the SDK executes them only from the last message, which this one now is). Settled as errors
-    // before the run closes, so a reader stopping on the closed run already finds them settled.
-    if (run.trigger === 'approval' && !result.published) {
-      await settleApprovedWithoutRunning(run.conversationId, `Approved, but the turn could not run: ${partsText(result.parts).trim()}`)
+    // An approval run leaves no approved call without a result (see settleApprovedWithoutRunning).
+    // Before the run closes, so a reader stopping on the closed run already finds them settled.
+    if (run.trigger === 'approval') {
+      await settleApprovedWithoutRunning(run.conversationId, message.seq, result.published
+        ? unknownApprovedOutcome(result.stopReason)
+        // REFUSED before the model was reached: the calls certainly did not run.
+        : `Approved, but the turn could not run: ${partsText(result.parts).trim() || 'it was refused'}`)
     }
     // A turn that stopped for a reason other than finishing explains itself, appended to
     // whatever it did manage to produce.
@@ -1305,6 +1321,12 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
         // replay, which would hide from the model that it had acted.
         ? [...settled.filter(part => part.type === 'dynamic-tool'), { type: 'data-refusal', data: { kind: 'moderation' } } as MessagePart, textPart(MODERATION_REFUSAL)]
         : reason === 'message' ? settled : withAppendedText(settled, runStopReasonMessage(stopReason, detail))
+    }
+    // The same rule as the success path, for a run that threw: whether a call ran before the throw is
+    // not known here, so it says so. Caught, like the message write below: the run must still close.
+    if (run.trigger === 'approval') {
+      await settleApprovedWithoutRunning(run.conversationId, message?.seq, unknownApprovedOutcome(detail))
+        .catch(settleErr => console.error('approved calls could not be settled', settleErr))
     }
     // The message, then the run, under one bump (finishTurn) — the message write CAUGHT inside it, so
     // whatever failed it still lets the run close.
