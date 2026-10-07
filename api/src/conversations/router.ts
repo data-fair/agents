@@ -69,8 +69,11 @@ const assertMayReachRun = async (owner: AccountKeys, run: ConversationRun, sessi
 }
 
 /**
- * Stop a running turn. Guarded by canInstruct, not by who started it: anyone who can send
- * this autonomous agent a message can stop what it is doing.
+ * Stop a running turn. Guarded by assertMayReachRun: a conversation run by the conversation's owner,
+ * a task run by an admin of the owning account.
+ *
+ * Reaches the turn wherever it is held: aborted at once when this process holds it, and recorded on the
+ * run (`abortRequestedAt`) so the process that does hold it stops it within a few seconds.
  */
 runsRouter.post('/:type/:id/:runId/abort', async (req, res, next) => {
   try {
@@ -83,9 +86,9 @@ runsRouter.post('/:type/:id/:runId/abort', async (req, res, next) => {
     if (!run) throw httpError(404, 'unknown run')
     await assertMayReachRun(owner, run, session)
 
-    // `aborted: false` for a run this process is not holding — it may already have finished,
-    // or (with several API processes) be held elsewhere. Reported rather than pretended.
-    const aborted = abortRun(run.id)
+    // `aborted: true` when this process stopped the turn or a stop was recorded on a still-running run
+    // (another process holds it and stops it at its next poll); false for a run that has already ended.
+    const aborted = await abortRun(run.id)
     eventsLog.info('agents.run.abort', `abort requested for run ${run.id}`, { req })
     res.json({ aborted })
   } catch (err) { next(err) }
@@ -356,7 +359,7 @@ router.delete('/:type/:id/:conversationId', async (req, res, next) => {
     const live = await mongo.runs
       .find({ conversationId: conversation.id, status: 'running' }, { projection: { _id: 0, id: 1 } })
       .toArray()
-    for (const run of live) abortRun(run.id)
+    for (const run of live) await abortRun(run.id)
 
     // ARCHIVE OR PURGE, and which one is not the person's choice.
     //

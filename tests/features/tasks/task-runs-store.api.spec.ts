@@ -61,10 +61,15 @@ test.describe('Task runs in the store', () => {
     assert.equal(data.runs, 0)
   })
 
-  test('aborting a task run this process is not running answers as for a conversation run', async () => {
+  // The stop is recorded on a running run this process does not hold, for the process that holds it to
+  // read (I4 ruling); a run that has ended answers false, as for a conversation run.
+  test('aborting a task run this process is not running records the stop; an ended run answers false', async () => {
     const agent = await createAgent()
     const run = await insertTaskRun(agent.id)
     const res = await orgAdmin.post(`/api/runs/organization/test1/${run.id}/abort`)
-    assert.equal(res.data.aborted, false)
+    assert.equal(res.data.aborted, true)
+    assert.ok((await orgAdmin.get(`/api/runs/organization/test1/${run.id}`)).data.abortRequestedAt)
+    const ended = await insertTaskRun(agent.id, { status: 'done' })
+    assert.equal((await orgAdmin.post(`/api/runs/organization/test1/${ended.id}/abort`)).data.aborted, false)
   })
 })

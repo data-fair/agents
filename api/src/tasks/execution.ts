@@ -17,6 +17,7 @@ import { taskTarget } from './task-target.ts'
 import { taskEvent, failedInARow } from './operations.ts'
 import { pushTaskEvent } from './notifications.ts'
 import { maybeReflectTaskRun } from '../memory/reflection.ts'
+import { checkAccountCreditCap } from '../usage/enforce.ts'
 
 const LOCK_ORIGIN = 'agents-task-run'
 
@@ -28,6 +29,22 @@ export const PREVIOUS_RUN_STILL_RUNNING = 'the previous run of this task was sti
 /** Whether a run of this task is going right now. */
 export const isTaskRunning = async (taskId: string) =>
   !!await mongo.runs.findOne({ kind: 'task', taskId, status: 'running' }, { projection: { _id: 0, id: 1 } })
+
+const LOCK_RETRIES = 3
+const LOCK_RETRY_MS = 200
+
+/**
+ * Take the task's lock. A run that has just closed still holds it for the moment between its close and
+ * the release, so a lock held while no run is `running` is retried briefly: a start right after a run
+ * ended (run now pressed as the previous run finished) must not be recorded as skipped.
+ */
+const acquireTaskLock = async (taskId: string) => {
+  for (let attempt = 0; ; attempt++) {
+    if (await locks.acquire(taskLockId(taskId), LOCK_ORIGIN)) return true
+    if (attempt >= LOCK_RETRIES || await isTaskRunning(taskId)) return false
+    await new Promise(resolve => setTimeout(resolve, LOCK_RETRY_MS))
+  }
+}
 
 /** Drive one task run to a terminal state. The caller holds the task's lock. */
 export const executeTaskRun = async (run: ConversationRun, task: AutonomousAgentTask) => {
@@ -48,6 +65,8 @@ export type StartedTaskRun = { run: ConversationRun } | { refused: string }
  * Returns the run as soon as it is recorded; the turn itself is not awaited, the run is how a caller
  * follows it. Refused, with the reason, when the agent cannot run at all: nothing is recorded then, as
  * the executor's kill switch would only record the same refusal as a failed run, counted toward a pause.
+ * Recorded `skipped`, with the reason as its `error`, when the account's credit cap is exhausted or the
+ * previous run is still going.
  */
 export const startTaskRun = async (
   task: AutonomousAgentTask,
@@ -73,8 +92,17 @@ export const startTaskRun = async (
     ...(opts.by ? { triggeredBy: opts.by } : {})
   }
 
+  // An exhausted account credit cap is the account's state, not the task failing: the slot is recorded
+  // skipped with the reason — no notification, no step toward a pause — and the task runs again once
+  // credit returns. Checked before the lock, so a capped account takes no lock at all.
+  const accountCap = await checkAccountCreditCap(task.owner)
+  if (accountCap) {
+    const reason = `${accountCap.reason} (${accountCap.scope}, ${accountCap.period} limit ${accountCap.limit}, used ${accountCap.usage}). Resets at ${accountCap.resetsAt}.`
+    return { run: await createTaskRun({ ...base, status: 'skipped', endedAt: now, error: reason }) }
+  }
+
   const lockId = taskLockId(task.id)
-  if (!await locks.acquire(lockId, LOCK_ORIGIN)) {
+  if (!await acquireTaskLock(task.id)) {
     return { run: await createTaskRun({ ...base, status: 'skipped', endedAt: now, error: PREVIOUS_RUN_STILL_RUNNING }) }
   }
   let run: ConversationRun

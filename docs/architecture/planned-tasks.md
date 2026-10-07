@@ -50,9 +50,10 @@ In development the poll excludes `test*` owners (`schedulerScope` in `server.ts`
 `startTaskRun` (`api/src/tasks/execution.ts`):
 
 1. Refused, with a reason and nothing recorded, when the agent no longer exists or is disabled (the executor's kill switch would otherwise record the same refusal as a failed run, counted toward a pause).
-2. **Takes the lock `task:<taskId>` BEFORE inserting the running run.** Recovery interrupts a `running` task run whose lock nobody holds, so a run inserted first could be interrupted in the gap.
-3. If the lock is held, records a `skipped` run (error `PREVIOUS_RUN_STILL_RUNNING`) instead, so a slot that did not run is visible rather than silently lost.
-4. Otherwise inserts the `running` run and starts `executeTaskRun` WITHOUT awaiting it: the run is how a caller follows it. The lock is released in a `finally`, so a throw cannot wedge the task.
+2. When the account's credit cap is exhausted (`checkAccountCreditCap`), records a `skipped` run whose `error` names the cap, and stops there: an empty wallet is the account's state, not the task failing, so there is no notification and no step toward a pause, and the task runs again on its next slot once credit returns. A quota refusal that still happens at the turn's own gate (the cap reached between this check and the turn, or a role quota) is closed the same way by the task target: `skipped`, its refusal text as `error`.
+3. **Takes the lock `task:<taskId>` BEFORE inserting the running run.** Recovery interrupts a `running` task run whose lock nobody holds, so a run inserted first could be interrupted in the gap.
+4. If the lock is held, records a `skipped` run (error `PREVIOUS_RUN_STILL_RUNNING`) instead, so a slot that did not run is visible rather than silently lost. A lock held while no run of the task is `running` is the moment between a run's close and its lock release, so it is retried briefly (3 × 200 ms) first: run now pressed just as a run ended is not recorded skipped.
+5. Otherwise inserts the `running` run and starts `executeTaskRun` WITHOUT awaiting it: the run is how a caller follows it. The lock is released in a `finally`, so a throw cannot wedge the task.
 
 `executeTaskRun` calls `driveTurn(run, open, closeBare)` with a `taskTarget`.
 
@@ -65,6 +66,7 @@ In development the poll excludes `test*` owners (`schedulerScope` in `server.ts`
 - history is the task's prompt as one user message (`Planned task "<title>": ...`); no frames, no page, no approvals to settle;
 - `persist` writes the parts to the run, conditionally on it still being `running`;
 - `close` and `fail` build the terminal patch (status, stop reason, parts with the stop explained, `outcome` if reported), run the follow-up, then finish the run (below);
+- a turn **cut short** by a guard or a ceiling (`step-limit`, `repeated-calls`, `budget` — the run's own budget or the account cap reached mid-run) is closed `error`, its stop reason kept and the stop notice as its `error`: in a chat the person reads the notice, but nobody reads a task run, which did not do its task. It is notified and counts toward the pause, so a looping task pauses;
 - moderation is a chat rule and does not apply: the prompt is admin-authored.
 
 **Unattended tool policy.** Nobody is present, so a task run is offered only what cannot need a person:
@@ -98,11 +100,13 @@ Notifications (`taskEvent` in `operations.ts`, `pushTaskEvent` in `api/src/tasks
 | `GET /tasks`, `GET /tasks/:taskId` | whoever may instruct the agent | list and read |
 | `POST /tasks`, `PUT /tasks/:taskId`, `DELETE /tasks/:taskId` | admin of the account, behind the rollout gate (`reqWriteSession`) | `201`, `200`, `204` |
 | `POST /tasks/:taskId/run` | admin, rollout gate | **run now**: `202 { runId }` |
-| `GET /runs` | admin | runs of the agent, newest first, without `parts`, `prompt`, `systemPrompt`, `calls`; filters `taskId`, `kind`, `status`, `outcome`, `since`; paged (`size` up to 100, `page`) |
+| `GET /runs` | admin | runs of the agent, newest first, without `parts`, `prompt`, `systemPrompt`, `calls`; filters `taskId`, `kind` (`task`, or `conversation` — matched as "not `task`", since a conversation run carries no `kind`; any other value is a `400`), `status`, `outcome`, `since`; paged (`size` up to 100, `page`) |
 | `GET /runs/:runId` | admin | a task run with its content; a conversation run as metadata only (it points at its `conversationId`) |
 | `GET /runs/:runId/export` | admin | a task run's JSONL, the same file as a conversation's export, its content presented as two messages by `runAsMessages` (`404` for a conversation run) |
 
-Run now is the same run a slot starts, with trigger `manual`. It is **refused** (`409`) rather than queued or skipped while one is going, and also when the agent is disabled or gone. It IS allowed on a paused or disabled TASK: it is how an admin checks a fix before resuming. A task run is aborted with `POST /api/runs/:type/:id/:runId/abort`, by an admin of the account (`assertMayReachRun` in `api/src/conversations/router.ts`): it is the organization's audit record, not a person's thread.
+Run now is the same run a slot starts, with trigger `manual`. It is **refused** (`409`) rather than queued while one is going, and when the agent is disabled (an unknown agent is a `404`). When the account's credit cap is exhausted it is also refused (`409`, the cap as the reason), and that start is recorded as a `skipped` run like a slot's. It IS allowed on a paused or disabled TASK: it is how an admin checks a fix before resuming.
+
+**Stopping a task run.** A task run is aborted with `POST /api/runs/:type/:id/:runId/abort`, by an admin of the account (`assertMayReachRun` in `api/src/conversations/router.ts`): it is the organization's audit record, not a person's thread. It has no socket, so this route is its only stop, and it works across API instances: `abortRun` aborts the turn at once when this process holds it, and records `abortRequestedAt` on the run while it is still `running`. Every live turn polls its own run every 2 s (`watchStopRequests` in `driveTurn`, `STOP_POLL_MS`) and aborts itself when the field is set, or when its run document is gone (its agent or conversation was deleted). The route answers `{ aborted: true }` when it aborted locally or recorded the request, `false` for a run that already ended. Disabling or deleting the agent does the same for all its running runs (`abortRunsOfAgent`, with `abortReason: 'agent-stopped'`, so the turn is settled as a local kill switch settles it).
 
 ## What the next plans add
 

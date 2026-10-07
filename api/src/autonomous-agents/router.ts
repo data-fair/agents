@@ -208,7 +208,7 @@ router.put('/:type/:id/:agentId', async (req, res, next) => {
     // The cached NHI session is dropped at the same time, or a turn already inside the loop could keep
     // acting as the agent with credentials obtained before it was disabled.
     if (updated.enabled === false && existing.enabled !== false) {
-      const stopped = abortRunsOfAgent(existing.id)
+      const stopped = await abortRunsOfAgent(existing.id)
       clearAutonomousAgentSession(existing.id)
       if (stopped) {
         eventsLog.info('agents.autonomous-agent.disable-stopped-runs', `disabling autonomous agent ${existing.id} stopped ${stopped} live run(s)`, { req })
@@ -232,7 +232,7 @@ router.delete('/:type/:id/:agentId', async (req, res, next) => {
     if (!result.deletedCount) throw httpError(404, 'unknown autonomous agent')
     // Stop before deleting: a turn still in flight would otherwise keep calling tools as an agent that
     // no longer exists, and would write messages into a conversation on its way out.
-    abortRunsOfAgent(req.params.agentId)
+    await abortRunsOfAgent(req.params.agentId)
     clearAutonomousAgentSession(req.params.agentId)
     // CASCADE. Deleting the agent used to leave its conversations, their messages and their runs behind
     // for ever, with no route that could reach them — the agent they belonged to was gone, and every

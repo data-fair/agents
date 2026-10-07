@@ -33,6 +33,8 @@ const awaitRun = async (runId: string) => {
   throw new Error('run never ended')
 }
 const events = async () => (await admin.get('/api/test-env/pushed-events')).data as any[]
+// matches api/config/development.js secretKeys.limits
+const LIMITS_SECRET = 'secretlimits'
 
 test.describe('Task runs', () => {
   let fixture: McpFixture
@@ -102,6 +104,71 @@ test.describe('Task runs', () => {
     assert.equal((await orgAdmin.post(`/api/runs/organization/test1/${runId}/abort`)).data.aborted, true)
     const run = await awaitRun(runId)
     assert.equal(run.status, 'aborted')
+  })
+
+  test('a stop recorded by another process stops the running task run within a few seconds', async () => {
+    const agent = await createAgent()
+    const runId = await runNow(agent.id, (await createTask(agent.id, 'stall')).id)
+    await new Promise(resolve => setTimeout(resolve, 300))
+    // Only the field, as another API process would write it: this process's controller is not touched.
+    await admin.post('/api/test-env/request-abort', { runId })
+    const requestedAt = Date.now()
+    const run = await awaitRun(runId)
+    assert.equal(run.status, 'aborted')
+    assert.equal(run.stopReason, 'aborted')
+    assert.ok(Date.now() - requestedAt < 5000, 'the turn polls its run every couple of seconds')
+  })
+
+  test('disabling the agent aborts its running task run, and marks it for any other process', async () => {
+    const agent = await createAgent()
+    const runId = await runNow(agent.id, (await createTask(agent.id, 'stall')).id)
+    await new Promise(resolve => setTimeout(resolve, 300))
+    await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, { title: 'Tasker', persona: 'You answer briefly.', mcpServers: [{ serverId: 'dev-public-mcp' }], enabled: false })
+    const run = await awaitRun(runId)
+    assert.equal(run.status, 'aborted')
+    assert.ok(run.abortRequestedAt)
+    assert.equal(run.abortReason, 'agent-stopped')
+    assert.deepEqual(await events(), [], 'an abort is an admin\'s act, not a failure')
+  })
+
+  test('a run cut short by a guard is a failure: error, stop reason kept, notified', async () => {
+    const agent = await createAgent()
+    const task = await createTask(agent.id, 'loop forever')
+    const run = await awaitRun(await runNow(agent.id, task.id))
+    assert.equal(run.status, 'error')
+    assert.equal(run.stopReason, 'repeated-calls')
+    assert.match(run.error, /repeating the same tool call/)
+    assert.ok((await events()).some(e => e.topic.key === `agents:task-failed:${task.id}`))
+  })
+
+  test('an exhausted account credit cap skips the run: recorded with the reason, refused, not notified', async () => {
+    const agent = await createAgent()
+    const task = await createTask(agent.id, 'hello')
+    await orgAdmin.post(`/api/v1/limits/organization/test1?key=${LIMITS_SECRET}`, {
+      name: 'Test 1', lastUpdate: new Date().toISOString(), ai_credits: { limit: 5, consumption: 5 }
+    })
+    await assert.rejects(admin.post(`${base(agent.id)}/${task.id}/run`), (err: any) => {
+      assert.equal(err.status, 409)
+      assert.match(JSON.stringify(err.data), /credit limit/i)
+      return true
+    })
+    const runs = (await orgAdmin.get(`/api/autonomous-agents/organization/test1/${agent.id}/runs`)).data.results
+    assert.equal(runs.length, 1)
+    assert.equal(runs[0].status, 'skipped')
+    assert.match(runs[0].error, /credit limit/i)
+    assert.deepEqual(await events(), [])
+  })
+
+  test('a quota refusal at the turn\'s gate skips the run rather than failing it', async () => {
+    const agent = await createAgent()
+    // The agent bills as role admin under its own usage id: cap that role, and spend past it.
+    await putMockSettings(admin, 'organization/test1', { quotas: { admin: { unlimited: false, monthlyLimit: 1 } } })
+    await admin.post('/api/test-env/usage', { owner: { type: 'organization', id: 'test1' }, userId: `autonomous-agent:${agent.id}`, cost: 5 })
+    const task = await createTask(agent.id, 'hello')
+    const run = await awaitRun(await runNow(agent.id, task.id))
+    assert.equal(run.status, 'skipped')
+    assert.match(run.error, /could not run/)
+    assert.deepEqual(await events(), [])
   })
 
   test('a start that finds the task locked records a skipped run, and run now is refused', async () => {

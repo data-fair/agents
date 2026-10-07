@@ -10,7 +10,7 @@
 import mongo from '#mongo'
 import type { ConversationRun } from '#types'
 import type { AutonomousAgentTask } from '#types/autonomous-agent-task/index.ts'
-import { runStopReasonMessage, withAppendedText, type MessagePart } from '../conversations/operations.ts'
+import { runStopReasonMessage, withAppendedText, partsText, type MessagePart } from '../conversations/operations.ts'
 import { settleInterruptedParts } from '../conversations/interrupted-turn.ts'
 import { finishTaskRun } from '../conversations/service.ts'
 import type { TurnTarget } from '../conversations/turn-target.ts'
@@ -18,6 +18,12 @@ import type { TaskOutcome } from '../conversations/service-tools.ts'
 
 /** Why a task run that ended on a wait or an approval request is recorded as failed. */
 export const CANNOT_WAIT = 'a task run cannot wait on a person'
+
+/** The text of the turn gate's quota refusal (see checkQuotas' `data-refusal` part), when that is what the turn was. */
+const quotaRefusalText = (parts: MessagePart[]): string | undefined => {
+  if (!parts.some(part => part.type === 'data-refusal' && (part as { data?: { kind?: string } }).data?.kind === 'quota')) return undefined
+  return partsText(parts)
+}
 
 /** What happens once a task run's outcome is known: notifications and the pause (./execution.ts). */
 export type TaskRunFollowUp = (run: ConversationRun, task: AutonomousAgentTask) => Promise<void>
@@ -74,17 +80,28 @@ export const taskTarget = (run: ConversationRun, task: AutonomousAgentTask, foll
     reportOutcome: (reported) => { outcome = reported },
 
     close: async (result) => {
+      // A quota refusal at the turn's gate is the account's state, not the task failing: recorded skipped,
+      // like a start refused on the account cap (startTaskRun) — no notification, no step toward a pause.
+      const quotaRefusal = quotaRefusalText(result.parts)
+      if (quotaRefusal !== undefined) {
+        await closeWith({ status: 'skipped', parts: result.parts, error: quotaRefusal })
+        return
+      }
       const cannotWait = !!(result.awaitingApproval || result.handover)
       const stopReason = cannotWait ? 'error' : result.stopReason
       // A turn that stopped for a reason other than finishing explains itself, as a conversation's does.
       const notice = !cannotWait && (stopReason === 'completed' || result.selfExplained)
         ? ''
         : runStopReasonMessage(stopReason, cannotWait ? CANNOT_WAIT : result.stopDetail)
+      // Cut short by a guard or a ceiling (step limit, repeated calls, the run's budget or the account cap
+      // reached mid-run): in a chat the person reads the notice, but nobody reads a task run — it did not
+      // do its task, so it is a failure, notified and counted toward the pause, its stopReason kept.
+      const cutShort = stopReason === 'budget' || stopReason === 'step-limit' || stopReason === 'repeated-calls'
       await closeWith({
-        status: stopReason === 'error' ? 'error' : 'done',
+        status: stopReason === 'error' || cutShort ? 'error' : 'done',
         stopReason,
         parts: notice ? withAppendedText(result.parts, notice) : result.parts,
-        ...(cannotWait ? { error: CANNOT_WAIT } : {}),
+        ...(cannotWait ? { error: CANNOT_WAIT } : cutShort ? { error: notice } : {}),
         ...(outcome ? { outcome } : {})
       })
     },

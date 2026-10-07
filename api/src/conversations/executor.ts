@@ -73,21 +73,39 @@ const EMPTY_COMPLETION_MESSAGE = 'I was not able to produce a response for this 
 /**
  * Live turns, by run id, so the abort route can stop one.
  *
- * In-process only, which matches the executor: a run is not resumable and does not migrate,
- * so the process that holds the turn is the only one that can stop it. An abort for a run
- * this process is not running is reported as such rather than silently accepted.
+ * In-process, like the executor: a run is not resumable and does not migrate, so only the process that
+ * holds the turn can abort its controller. A stop received by ANOTHER process reaches it through the run
+ * document instead — `abortRequestedAt`, which every live turn polls for (see watchStopRequests).
  *
  * The agent id travels with the controller so a whole agent can be stopped at once — see
  * abortRunsOfAgent.
  */
 const liveRuns = new Map<string, { controller: AbortController, agentId: string, conversationId?: string, taskId?: string }>()
 
-/** True when this process actually aborted a live turn. */
-export const abortRun = (runId: string): boolean => {
+/** The abort reason of a turn whose agent was disabled or deleted: interruptReason reads it as `ended`. */
+const AGENT_STOPPED = 'autonomous agent stopped'
+
+/** The abort reason of a turn whose run document was deleted under it (its agent or conversation was). */
+const RUN_DELETED = 'the run was deleted'
+
+/** How often a live turn reads its own run for a stop requested through another process. */
+export const STOP_POLL_MS = 2000
+
+/**
+ * Stop one run, wherever it is held. True when this process aborted it OR a stop was recorded on it.
+ *
+ * Aborted here when this process holds the turn; recorded on the run while it is still `running`, so
+ * the process that does hold it stops it at its next poll (watchStopRequests). With no reason, like a
+ * person's Stop: the settled calls say the reply was stopped. False for a run that has already ended.
+ */
+export const abortRun = async (runId: string): Promise<boolean> => {
   const live = liveRuns.get(runId)
-  if (!live) return false
-  live.controller.abort()
-  return true
+  live?.controller.abort()
+  const requested = await mongo.runs.updateOne(
+    { id: runId, status: 'running' },
+    { $set: { abortRequestedAt: new Date().toISOString() } }
+  )
+  return !!live || requested.modifiedCount > 0
 }
 
 /**
@@ -121,17 +139,48 @@ export const abortRunsOfConversation = (conversationId: string, why: 'spoke' | '
  * whose entire purpose is "make it stop", the gap between "stop" and "stops eventually" is the bug: an
  * admin disabling a misbehaving agent means now.
  *
- * Best-effort by the same reasoning as abortRun: only this process's turns, and abort() is a request
- * the provider may ignore — the run's own deadline is the hard backstop.
+ * Every `running` run of the agent is also marked, so a turn held by another API process stops at its
+ * next poll (watchStopRequests) with the same reason. abort() remains a request the provider may
+ * ignore — the run's own deadline is the hard backstop.
  */
-export const abortRunsOfAgent = (agentId: string): number => {
+export const abortRunsOfAgent = async (agentId: string): Promise<number> => {
   let stopped = 0
   for (const live of liveRuns.values()) {
     if (live.agentId !== agentId) continue
-    live.controller.abort(new Error('autonomous agent stopped'))
+    live.controller.abort(new Error(AGENT_STOPPED))
     stopped++
   }
+  await mongo.runs.updateMany(
+    { agentId, status: 'running' },
+    { $set: { abortRequestedAt: new Date().toISOString(), abortReason: 'agent-stopped' } }
+  )
   return stopped
+}
+
+/**
+ * Abort this turn's controller when a stop is recorded on its run by another process (abortRun,
+ * abortRunsOfAgent), or when its run document is gone — its agent or conversation was deleted. One read
+ * of one run every STOP_POLL_MS for as long as the turn lives; the returned function stops watching.
+ */
+const watchStopRequests = (runId: string, controller: AbortController): (() => void) => {
+  let reading = false
+  const timer = setInterval(async () => {
+    if (reading || controller.signal.aborted) return
+    reading = true
+    try {
+      const stored = await mongo.runs.findOne({ id: runId }, { projection: { _id: 0, abortRequestedAt: 1, abortReason: 1 } })
+      if (controller.signal.aborted) return
+      // The reasons the local paths give, so the turn is settled the same wherever it was stopped.
+      if (!stored) controller.abort(new Error(RUN_DELETED))
+      else if (stored.abortRequestedAt) controller.abort(stored.abortReason === 'agent-stopped' ? new Error(AGENT_STOPPED) : undefined)
+    } catch (err) {
+      debug('could not read the stop requests of run %s: %o', runId, err)
+    } finally {
+      reading = false
+    }
+  }, STOP_POLL_MS)
+  timer.unref()
+  return () => clearInterval(timer)
 }
 
 /**
@@ -1034,6 +1083,8 @@ export const driveTurn = async (
 ): Promise<void> => {
   const abortController = new AbortController()
   liveRuns.set(run.id, { controller: abortController, agentId: run.agentId, conversationId: run.conversationId, taskId: run.taskId })
+  // A stop received by another API process reaches this turn through its run document.
+  const stopWatching = watchStopRequests(run.id, abortController)
   // The run's telemetry and spend are held from here until finishTurn writes them (see bufferRunWrites).
   bufferRunWrites(run.id)
 
@@ -1084,6 +1135,7 @@ export const driveTurn = async (
     else await closeBare(failure)
   } finally {
     if (timeout) clearTimeout(timeout)
+    stopWatching()
     liveRuns.delete(run.id)
   }
 }

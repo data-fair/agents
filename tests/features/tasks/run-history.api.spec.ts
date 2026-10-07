@@ -105,4 +105,23 @@ test.describe('Run history', () => {
 
     await assert.rejects(orgAdmin.get(`${agentBase(agent.id)}/runs`, { params: { since: 'not-a-date' } }), { status: 400 })
   })
+
+  test('the kind filter lists task runs or conversation runs, which carry no kind', async () => {
+    const agent = (await admin.post('/api/autonomous-agents/organization/test1', {
+      title: 'Both', persona: 'x', mcpServers: [], enabled: true
+    })).data
+    await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
+    const task = (await admin.post(`${agentBase(agent.id)}/tasks`, { title: 'Probe', prompt: 'hello', scheduling: [daily] })).data
+    const taskRun = (await admin.post(`${agentBase(agent.id)}/tasks/${task.id}/run`)).data.runId as string
+    await awaitRun(taskRun)
+    const conversationId = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data.id
+    const { runId: conversationRun } = (await orgAdmin.post(`/api/conversations/organization/test1/${conversationId}/messages`, { content: 'hello' })).data
+    await awaitRun(conversationRun)
+
+    const ids = async (kind: string) =>
+      (await orgAdmin.get(`${agentBase(agent.id)}/runs`, { params: { kind } })).data.results.map((r: any) => r.id)
+    assert.deepEqual(await ids('task'), [taskRun])
+    assert.deepEqual(await ids('conversation'), [conversationRun])
+    await assert.rejects(orgAdmin.get(`${agentBase(agent.id)}/runs`, { params: { kind: 'other' } }), { status: 400 })
+  })
 })

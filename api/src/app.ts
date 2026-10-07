@@ -206,6 +206,12 @@ if (process.env.NODE_ENV === 'development') {
     await mongo.runs.insertOne({ ...run })
     res.json(run)
   })
+  // A stop as another API process records it: ONLY the field, never this process's controller, so a
+  // test proves the turn's own poll is what stops it.
+  app.post('/api/test-env/request-abort', async (req, res) => {
+    await mongo.runs.updateOne({ id: req.body.runId }, { $set: { abortRequestedAt: new Date().toISOString() } })
+    res.send()
+  })
   app.post('/api/test-env/lock-task', async (req, res) => {
     res.json({ acquired: await locks.acquire(`task:${req.body.taskId}`, 'test') })
   })

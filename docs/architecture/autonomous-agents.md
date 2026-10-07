@@ -144,10 +144,14 @@ envelope and the system-prompt clause that told the model to trust it were remov
 
 ## Stopping and erasing
 
-- **Abort** one turn: `POST /api/runs/:type/:id/:runId/abort`. In-process only — a run does
-  not migrate, so the process holding it is the only one that can stop it — and `abort()` is a request,
+- **Abort** one turn: `POST /api/runs/:type/:id/:runId/abort`. A run does not migrate, so only the
+  process holding it can abort its controller: the route aborts it at once when that is this process,
+  and otherwise records `abortRequestedAt` on the still-`running` run, which the holding process reads
+  within 2 s (every live turn polls its own run, `watchStopRequests` in `driveTurn`). It answers
+  `{ aborted: true }` in both cases, `false` for a run that already ended. `abort()` is a request,
   which is why the turn is also raced against its deadline.
-- **Disable** the agent: every live turn of it is aborted and its cached session dropped, so a turn
+- **Disable** the agent: every live turn of it is aborted — on every instance, through the same
+  `abortRequestedAt` mark (`abortReason: 'agent-stopped'`) — and its cached session dropped, so a turn
   already inside the loop cannot keep acting with credentials obtained before it was disabled.
 - **Delete** the agent: live turns stopped, then its memory (documents and version log), conversations, messages and runs are erased, as are its planned tasks and their task runs ([planned tasks](./planned-tasks.md)).
 - **Delete one thread**: `DELETE /api/conversations/:type/:id/:conversationId`. A thread of a configured

@@ -67,9 +67,13 @@ router.get('/:type/:id/:agentId/runs', async (req, res, next) => {
     assertAccountRole(session, owner, 'admin')
     const agent = await loadAgent(owner, req.params.agentId)
     const filter: Record<string, unknown> = { 'owner.type': owner.type, 'owner.id': owner.id, agentId: agent.id }
-    for (const key of ['taskId', 'kind', 'status'] as const) {
+    for (const key of ['taskId', 'status'] as const) {
       if (typeof req.query[key] === 'string') filter[key] = req.query[key]
     }
+    // A conversation run carries no `kind` (absent means conversation), so that value is "not a task".
+    if (req.query.kind === 'task') filter.kind = 'task'
+    else if (req.query.kind === 'conversation') filter.kind = { $ne: 'task' }
+    else if (req.query.kind !== undefined) throw httpError(400, '"kind" must be "task" or "conversation"')
     if (typeof req.query.outcome === 'string') filter['outcome.status'] = req.query.outcome
     if (typeof req.query.since === 'string') {
       if (Number.isNaN(Date.parse(req.query.since))) throw httpError(400, '"since" must be a date')
@@ -181,8 +185,9 @@ router.post('/:type/:id/:agentId/tasks/:taskId/run', async (req, res, next) => {
     if (await isTaskRunning(task.id)) throw httpError(409, PREVIOUS_RUN_STILL_RUNNING)
     const started = await startTaskRun(task, 'manual', { by: actorOf(req) })
     if ('refused' in started) throw httpError(409, started.refused)
-    // Lost the race for the lock to another start: recorded skipped, and refused like the check above.
-    if (started.run.status === 'skipped') throw httpError(409, PREVIOUS_RUN_STILL_RUNNING)
+    // Skipped — the account's credit cap is exhausted, or another start won the lock: recorded, and
+    // refused with the reason the run carries.
+    if (started.run.status === 'skipped') throw httpError(409, started.run.error ?? PREVIOUS_RUN_STILL_RUNNING)
     eventsLog.info('agents.task.run', `planned task ${task.id} of agent ${agent.id} of ${owner.type}/${owner.id} run now as ${started.run.id}`, { req })
     res.status(202).json({ runId: started.run.id })
   } catch (err) { next(err) }
