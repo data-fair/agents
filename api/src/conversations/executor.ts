@@ -24,7 +24,7 @@ import { streamText, stepCountIs, InvalidToolApprovalSignatureError, type Tool }
 import type { JSONObject } from '@ai-sdk/provider'
 import { isMediaToolResult, type MediaToolResult } from '@agents/shared/tool-result'
 import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep, STREAM_IDLE_TIMEOUT_MS, createIdleWatchdog } from './loop-guards.ts'
-import type { AutonomousAgent, Conversation, ConversationMessage, ConversationRun } from '#types'
+import type { AutonomousAgent, ConversationMessage, ConversationRun } from '#types'
 import {
   runStopReasonMessage, buildSystemPrompt, withProvenance,
   usageIdentityFor,
@@ -33,7 +33,7 @@ import {
 } from './operations.ts'
 import { checkQuotas, moderateTurn } from './turn-gates.ts'
 import { moderationApplies, MODERATION_REFUSAL } from '../moderation/operations.ts'
-import { loadHistory, compactHistory } from './turn-history.ts'
+import { conversationTarget, liveParts, releaseLiveTurn, type TurnTarget } from './turn-target.ts'
 import { recordCall } from './turn-telemetry.ts'
 import { appendMessage, updateMessage, finishRun, finishTurn, bufferRunWrites, incrementRunSpend, resolveAgent, setRunSystemPrompt, conversationCost, createRun, settleStoredToolPart, rejectPendingApprovals, PENDING_APPROVAL_ACTED, APPROVED_STEP_ACTED } from './service.ts'
 import { getSettings } from '../settings/service.ts'
@@ -50,9 +50,9 @@ import { partitionSubAgents, subAgentDelegation } from '../agent-session/sub-age
 import type { AgentSession } from '../agent-session/session.ts'
 import type { ChatActivity } from '@agents/shared/agent-activity'
 import { browserToolSet } from '../agent-session/browser-tools.ts'
-import { createWaitTool, withHostContext, waitHandover, repairWaitInput, formatHostEvents, WAIT_TOOL_NAME, WAIT_ACCEPTED, LOCATION_KEY } from '@agents/shared/host-events'
+import { createWaitTool, waitHandover, repairWaitInput, formatHostEvents, WAIT_TOOL_NAME, WAIT_ACCEPTED, LOCATION_KEY } from '@agents/shared/host-events'
 import { settlePendingWait } from './waits.ts'
-import { PERSON_SPOKE, interruptReason, settleInterruptedParts, pendingWaitReminder } from './interrupted-turn.ts'
+import { PERSON_SPOKE, interruptReason, settleInterruptedParts } from './interrupted-turn.ts'
 import { checkAccountCreditCap } from '../usage/enforce.ts'
 import { recordUsage } from '../usage/service.ts'
 import { agentStoreId, memoryEnabledFor, MEMORY_TOOL_NAME, MEMORY_SERVER_ID, MEMORY_TOOL_ANNOTATIONS, type MemoryDocument } from '../memory/operations.ts'
@@ -214,17 +214,17 @@ const nextPendingRun = async (conversationId: string) => {
  * reached as that identity — so this refuses early with an actionable message rather than
  * producing a toolless turn that looks like a capability problem.
  */
-const performTurn = async (run: ConversationRun, messageSeq: number, abortSignal: AbortSignal, conversation: Conversation): Promise<TurnResult> => {
+const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, target: TurnTarget): Promise<TurnResult> => {
   const autonomousAgent = await resolveAgent(run.owner, run.agentId)
   if (!autonomousAgent) throw new Error('the autonomous agent no longer exists')
 
-  // The session watching this conversation, if any. UNDEFINED IS NORMAL: a turn can run with nobody
+  // The session watching this conversation as the turn started (looked up by its target), if any. UNDEFINED IS NORMAL: a turn can run with nobody
   // there — a tab closed mid-turn, and later a scheduled run that never had one. Such a turn has no
   // page tools and streams to nobody; the stored message is still the record.
   //
   // This lookup is the whole of what colocation buys. The loop runs in the process holding the socket,
   // so "who is watching, and what can their page do?" is a Map read.
-  const session = sessionFor(run.conversationId)
+  const session = target.session
   // The kill switch. Disabling an autonomous agent must actually stop it answering, calling
   // tools as its identity, and spending credits.
   if (autonomousAgent.enabled === false) {
@@ -332,42 +332,15 @@ const performTurn = async (run: ConversationRun, messageSeq: number, abortSignal
   }
 
   try {
-    return await runModelLoop({ run, messageSeq, abortSignal, model, entry, tools, settings, budget, serverByTool, annotationsByTool, autonomousAgent, session, conversation, memory })
+    return await runModelLoop({ run, abortSignal, model, entry, tools, settings, budget, serverByTool, annotationsByTool, autonomousAgent, target, memory })
   } finally {
     // The turn is over (normally, by throw, or by abandonment): release the MCP connections.
     await closeTools()
   }
 }
 
-/**
- * The answer each live turn is producing, by conversation — what a page attaching mid-turn is shown.
- *
- * The growing answer is NOT written back as it streams: a watching browser receives every token, and
- * the store gets the answer at the end. This registry is what replaces the write for the watcher's side: a
- * page reloaded, or a second tab opened, mid-turn gets the answer so far on attach and the rest live —
- * the turn sends to whoever watches the conversation NOW (`watcher` in runModelLoop), not to the
- * session it started with — and a turn stopped or failing is settled from it. What is given up: a
- * restart mid-answer loses the text of the step in progress. Tool calls and their results are still
- * written as they happen (`persistStructure`), and those are the work worth keeping.
- *
- * In-process, like the sessions themselves: the turn runs in the process holding the socket.
- */
-const liveTurns = new Map<string, { messageSeq: number, parts: () => MessagePart[] }>()
-
-/** The answer a live turn of this conversation has produced so far, if one is running here. */
-export const liveTurnOf = (conversationId: string) => {
-  const live = liveTurns.get(conversationId)
-  return live && { messageSeq: live.messageSeq, parts: structuredClone(live.parts()) }
-}
-
 interface ModelLoopContext {
   run: ConversationRun
-  /**
-   * The assistant message being produced — created by runTurn, empty and pending, before the turn
-   * starts. The seq is also how its writes address it, and the history bound: the message must not
-   * be fed back to the model as an empty turn, so history is everything strictly before it.
-   */
-  messageSeq: number
   abortSignal: AbortSignal
   model: ReturnType<typeof resolveRoleModel>['model']
   entry: ReturnType<typeof resolveRoleModel>['entry']
@@ -378,55 +351,21 @@ interface ModelLoopContext {
   annotationsByTool: Map<string, Record<string, unknown>>
   /** The agent's memory as of run start, when it has one; rendered into the system prompt. */
   memory?: MemoryDocument[]
-  /** The browser watching this conversation, if one is. */
-  session?: AgentSession
   autonomousAgent: AutonomousAgent
-  /** As runTurn read it under the conversation's lock: its compaction recap is current. */
-  conversation: Conversation
+  /** Where the turn reads its context from and writes its record to (see ./turn-target.ts). */
+  target: TurnTarget
 }
 
 const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
-  const { run, messageSeq, abortSignal, model, entry, tools, settings, budget, serverByTool, annotationsByTool, autonomousAgent, session, conversation, memory } = ctx
+  const { run, abortSignal, model, entry, tools, settings, budget, serverByTool, annotationsByTool, autonomousAgent, target, memory } = ctx
+  // The page in front of the person as the turn started: its tools (below) and host events (folded into
+  // the history by the target).
+  const session = target.session
   // Computed ONCE: the prompt the model gets and the prompt recorded on the run must be the same string.
   const systemPrompt = buildSystemPrompt(autonomousAgent, memory)
-  // WHO SEES THIS TURN: whoever watches the conversation now, read at each send. `session` is the one
-  // the turn started with, and still what its page tools and host events belong to; but a reload or a
-  // second tab replaces it mid-turn, and a turn sending to the session it began with went silent for
-  // the page actually open — not even its `turn-end` arrived.
-  const watcher = () => sessionFor(run.conversationId)
   const identity = usageIdentityFor(autonomousAgent, run)
 
-  const compacted = await compactHistory(
-    run,
-    identity,
-    await loadHistory(run.conversationId, messageSeq, conversation),
-    budget,
-    settings,
-    abortSignal,
-    { agentId: autonomousAgent.id }
-  )
-  // What the page has reported, folded into the last user turn at CALL time.
-  //
-  // This closes a gap the prototype had: the socket collected host state and host events into the
-  // store, `wait_for_user_action` consumed the events, and the retained state was never told to the
-  // model at all — so an assistant asked "what am I looking at?" had the answer in memory beside it
-  // and no way to read it.
-  //
-  // In the last USER message rather than in the system prompt, which is where the browser loop put it
-  // and for the same two reasons: the system prompt is the stable, cacheable prefix and page state
-  // changes every turn, and state presented as a standing instruction reads to the model as a rule
-  // rather than as an observation. Not persisted — it decorates this request only, so the stored
-  // conversation stays a record of what was said rather than of what was on screen each time.
-  //
-  // Plus, when the person's latest message interrupted a wait, the reminder that they were waited on
-  // (port of main's #75): LAST in the hidden block, so it is the final thing the model reads before
-  // their words. In the interrupted wait's own result it sat in history ahead of the new question, and
-  // judged runs answered the question and never waited again.
-  const reminder = pendingWaitReminder(compacted.messages)
-  const hostBlocks = { chars: 0 }
-  const history = session || reminder
-    ? withHostContext(compacted.messages, session?.hostEvents ?? null, reminder ? [reminder] : [], hostBlocks)
-    : compacted.messages
+  const { messages: history, credits: compactionCredits, hostBlockChars } = await target.history({ run, identity, budget, settings, abortSignal, agentId: autonomousAgent.id })
 
   // Every tool offered on any step of the turn, for its telemetry (see the run schema's `toolNames`).
   const offeredTools = new Set<string>()
@@ -437,7 +376,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   // SEEDED with what compaction just cost, so the per-run budget bounds everything the run spent
   // rather than only the assistant's steps. A compaction is charged to the account either way; this is
   // what makes it count against the ceiling too.
-  let credits = compacted.credits
+  let credits = compactionCredits
   // Why the loop stopped spending, when it did. The per-run budget and the ACCOUNT cap both stop the
   // turn, and a reader needs to know which: one is this turn being greedy, the other is the
   // organization being out of credit, and only the second is actionable by an admin.
@@ -532,20 +471,10 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
         // empty after a reload. As a `data-subagent` part, which the replay leaves out of what the
         // model is sent — the lead keeps seeing only the summary, the point of delegating.
         if (!trace.pending) storeSubAgentTrace(trace)
-        watcher()?.send({
-          type: 'subagent',
-          parentToolCallId: trace.parentToolCallId,
-          name: trace.name,
-          parts: trace.parts as MessagePart[],
-          pending: trace.pending
-        })
+        target.frames.subAgent({ parentToolCallId: trace.parentToolCallId, name: trace.name, parts: trace.parts as MessagePart[], pending: trace.pending })
       },
       onPhase: (parentToolCallId, phase) => {
-        watcher()?.send({
-          type: 'activity',
-          activity: phase ? { kind: 'subagent', name, phase } : null,
-          parentToolCallId
-        })
+        target.frames.activity(phase ? { kind: 'subagent', name, phase } : null, parentToolCallId)
       },
       // EVERY worker step is billed, exactly as a lead step is: against the run's budget, against the
       // account's credit cap, and into the usage histogram under the seat that served it (`tools`
@@ -765,7 +694,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   // The turn's parts, in the order the model produced them. This IS the record: everything the model
   // saw has to end up here, or a revived conversation is a different conversation.
   const parts: MessagePart[] = []
-  liveTurns.set(run.conversationId, { messageSeq, parts: () => parts })
+  target.track(() => parts)
   const appendText = (kind: 'text' | 'reasoning', delta: string) => {
     const last = parts[parts.length - 1]
     // Merged into the trailing part of the same kind rather than pushed per delta, or a turn would
@@ -778,7 +707,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
    * Stream to the browser, if one is watching.
    *
    * The text is not persisted as it streams — the store gets it at the end, and a page attaching
-   * mid-turn is served from `liveTurns` — so this is the only way it reaches anyone before then. The
+   * mid-turn is served from the target's `track` — so this is the only way it reaches anyone before then. The
    * session merges deltas only within `DELTA_FLUSH_MS`, below a display frame, so the person still
    * sees the answer arrive as it is produced. That is the thing the delta protocol this branch deleted
    * was trying to do over HTTP.
@@ -787,7 +716,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
    * not fail the turn — it finishes and is stored.
    */
   const stream = (kind: 'text' | 'reasoning', delta: string) => {
-    watcher()?.send({ type: 'delta', kind, text: delta })
+    target.frames.delta(kind, delta)
   }
 
   /**
@@ -798,7 +727,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
    * them from a stream. `null` clears the label.
    */
   const activity = (value: ChatActivity | null) => {
-    watcher()?.send({ type: 'activity', activity: value })
+    target.frames.activity(value)
   }
 
   // The wait this turn handed over on, if it did. The first accepted one; a second in the same step is
@@ -849,7 +778,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
    * rides the persist clock rather than the delta one.
    */
   const sendMessageFrame = (pending: boolean) => {
-    watcher()?.send({ type: 'message', seq: messageSeq, role: 'assistant', parts, pending })
+    target.frames.message(parts, pending)
   }
 
   /**
@@ -861,7 +790,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
    * the calls already made. Calls are few per turn, so this costs a write per call, not per token.
    */
   const persistStructure = async () => {
-    await updateMessage(run.conversationId, messageSeq, { parts, pending: true })
+    await target.persist(parts)
   }
 
   // THINKING, from the moment the turn is handed to the model until it says something.
@@ -872,16 +801,6 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   // regression survived the move: the frame it replaced was never sent.
   activity({ kind: 'thinking' })
 
-  /**
-   * A result for a call this turn did not make: an approved call from the previous turn, executed by the
-   * SDK on replay, before this turn's first step and without a `tool-call` part of its own. Settled on
-   * the message that made the call (see settleStoredToolPart), and the watching page is sent that
-   * message again.
-   */
-  const settleEarlierCall = async (toolCallId: string, settled: Parameters<typeof settleStoredToolPart>[2]) => {
-    const message = await settleStoredToolPart(run.conversationId, toolCallId, settled)
-    if (message) watcher()?.send({ type: 'message', seq: message.seq, role: 'assistant', parts: message.parts as MessagePart[], pending: false })
-  }
   const isThisTurns = (toolCallId: string) => parts.some(p => p.type === 'dynamic-tool' && p.toolCallId === toolCallId)
 
   try {
@@ -1012,7 +931,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
                 : JSON.stringify(output ?? '')
         const bounded = boundToolResult(text)
         if (!isThisTurns(part.toolCallId)) {
-          await settleEarlierCall(part.toolCallId, {
+          await target.settleEarlierCall(part.toolCallId, {
             state: 'output-available',
             output: media ? { ...output, text: bounded.result } : bounded.result,
             ...(bounded.truncated ? { truncated: bounded.truncated } : {})
@@ -1043,7 +962,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
       if (part.type === 'tool-error') {
         const detail = (part as any).error instanceof Error ? (part as any).error.message : String((part as any).error)
         if (!isThisTurns(part.toolCallId)) {
-          await settleEarlierCall(part.toolCallId, { state: 'output-error', errorText: boundToolResult(detail).result })
+          await target.settleEarlierCall(part.toolCallId, { state: 'output-error', errorText: boundToolResult(detail).result })
           continue
         }
         settleToolPart(part.toolCallId, { state: 'output-error', errorText: boundToolResult(detail).result })
@@ -1058,7 +977,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
       // every later replay would carry an approved call with no result after it. A call denied by the
       // person never comes through here, its stored `output-denied` already replays with its result.
       if (part.type === 'tool-output-denied' && !isThisTurns(part.toolCallId)) {
-        await settleEarlierCall(part.toolCallId, {
+        await target.settleEarlierCall(part.toolCallId, {
           state: 'output-error',
           errorText: part.toolName in liveTools
             ? 'the approval policy of this tool changed since the request, so the approved call was not run'
@@ -1086,9 +1005,9 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
     finishReason,
     steps,
     messageCount: history.length,
-    historyUpToSeq: messageSeq,
+    ...(target.historyUpToSeq !== undefined ? { historyUpToSeq: target.historyUpToSeq } : {}),
     toolNames: [...offeredTools].sort(),
-    hostBlockChars: hostBlocks.chars
+    hostBlockChars
   })
   // The instructions, recorded ONCE per run rather than on every call: they do not change within a
   // turn, and they are what a reviewer needs that the conversation does not contain.
@@ -1135,7 +1054,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   // Except when it asks for an approval: the message is closed only by finishTurn, and a decision is
   // refused until then (see decideApproval), so the card must not offer one before. runTurn sends the
   // closed frame once the message really is.
-  watcher()?.send({ type: 'message', seq: messageSeq, role: 'assistant', parts: finalParts, pending: awaitingApproval })
+  target.frames.message(finalParts, awaitingApproval)
   return {
     parts: finalParts,
     steps,
@@ -1255,7 +1174,8 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
 
     // The assistant message's own seq bounds the history: it was created before the turn
     // (empty, pending), so it must not be fed back to the model as an empty turn.
-    const result = await Promise.race([performTurn(run, message.seq, abortController.signal, conversation), deadline])
+    const target = conversationTarget(run, message.seq, conversation)
+    const result = await Promise.race([performTurn(run, abortController.signal, target), deadline])
     // An approval run leaves no approved call without a result (see settleApprovedWithoutRunning).
     // Before the run closes, so a reader stopping on the closed run already finds them settled.
     //
@@ -1382,9 +1302,9 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
       // only at the end, so the store holds the tool traffic but not what was said around it — a
       // reply stopped mid-sentence would lose its words from the record. The store is the fallback for
       // a turn that never got as far as producing parts.
-      const live = liveTurns.get(run.conversationId)
-      const persisted = live && live.messageSeq === message.seq
-        ? { parts: structuredClone(live.parts()) }
+      const live = liveParts(run.conversationId, message.seq)
+      const persisted = live
+        ? { parts: live }
         : await mongo.messages
           .findOne({ id: message.id }, { projection: { _id: 0, parts: 1 } })
           .catch(() => null)
@@ -1442,7 +1362,7 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
     liveRuns.delete(run.id)
     // Only now: the catch path above settles the turn FROM it. Keyed by the message, so a later turn
     // of the same conversation that already registered is left alone.
-    if (message && liveTurns.get(run.conversationId)?.messageSeq === message.seq) liveTurns.delete(run.conversationId)
+    if (message) releaseLiveTurn(run.conversationId, message.seq)
   }
 }
 

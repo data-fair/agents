@@ -18,7 +18,8 @@ import {
   setReviewConsent,
   rejectPendingApprovals
 } from '../conversations/service.ts'
-import { startRun, liveTurnOf } from '../conversations/executor.ts'
+import { startRun } from '../conversations/executor.ts'
+import { liveTurnOf } from '../conversations/turn-target.ts'
 import { settlePendingWait } from '../conversations/waits.ts'
 import { interruptedWaitResult } from '../conversations/interrupted-turn.ts'
 import mongo from '#mongo'
