@@ -7,8 +7,9 @@
 import { isAuditedAgentId } from '@agents/shared/agent-audit'
 import { Router } from 'express'
 import { nanoid } from 'nanoid'
+import type { ConversationRun } from '#types'
 import mongo from '#mongo'
-import { type AccountKeys, httpError, reqSessionAuthenticated } from '@data-fair/lib-express'
+import { type AccountKeys, assertAccountRole, httpError, reqSessionAuthenticated, type SessionStateAuthenticated } from '@data-fair/lib-express'
 import eventsLog from '@data-fair/lib-express/events-log.js'
 import { assertCanOwnAgent, getAutonomousAgent } from '../autonomous-agents/service.ts'
 import { assertCanInstruct, assertOwnsConversation, requireAutonomousAgent, requireConversation, appendMessage, createRun, setReviewConsent, archiveConversation, purgeConversation, rejectPendingApprovals } from './service.ts'
@@ -51,6 +52,23 @@ export default router
 export const runsRouter = Router()
 
 /**
+ * Who may read or abort a run.
+ *
+ * A conversation run belongs to a conversation, which belongs to ONE person: guarding it with the
+ * agent grant let any instructor of the agent read — or abort — someone else's turn. A TASK run has no
+ * conversation: it is the organization's audit record of what its agent did on its own, so an admin of
+ * the account reads it.
+ */
+const assertMayReachRun = async (owner: AccountKeys, run: ConversationRun, session: SessionStateAuthenticated) => {
+  await requireAutonomousAgent(owner, run.agentId)
+  if (run.kind === 'task') {
+    assertAccountRole(session, owner, 'admin')
+    return
+  }
+  assertOwnsConversation(await requireConversation(owner, run.conversationId!), session)
+}
+
+/**
  * Stop a running turn. Guarded by canInstruct, not by who started it: anyone who can send
  * this autonomous agent a message can stop what it is doing.
  */
@@ -63,10 +81,7 @@ runsRouter.post('/:type/:id/:runId/abort', async (req, res, next) => {
       { projection: { _id: 0 } }
     )
     if (!run) throw httpError(404, 'unknown run')
-    await requireAutonomousAgent(owner, run.agentId)
-    // A run belongs to a conversation, which belongs to ONE person. Guarding this with the agent grant
-    // let any instructor of the agent read — or abort — someone else's turn.
-    assertOwnsConversation(await requireConversation(owner, run.conversationId), session)
+    await assertMayReachRun(owner, run, session)
 
     // `aborted: false` for a run this process is not holding — it may already have finished,
     // or (with several API processes) be held elsewhere. Reported rather than pretended.
@@ -85,10 +100,7 @@ runsRouter.get('/:type/:id/:runId', async (req, res, next) => {
       { projection: { _id: 0 } }
     )
     if (!run) throw httpError(404, 'unknown run')
-    await requireAutonomousAgent(owner, run.agentId)
-    // A run belongs to a conversation, which belongs to ONE person. Guarding this with the agent grant
-    // let any instructor of the agent read — or abort — someone else's turn.
-    assertOwnsConversation(await requireConversation(owner, run.conversationId), session)
+    await assertMayReachRun(owner, run, session)
     res.json(run)
   } catch (err) { next(err) }
 })

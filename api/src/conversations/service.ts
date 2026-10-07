@@ -13,6 +13,7 @@ import { expiredArchiveFilter } from '../retention.ts'
 import Debug from 'debug'
 import type { AutonomousAgent, Conversation, ConversationRun } from '#types'
 // The stored shape, whose `parts` carry the library's own part type (see mongo.ts).
+import type { ConversationTurnRun } from './operations.ts'
 import type { StoredMessage } from '#mongo'
 import type { MessagePart } from '@agents/shared/message-parts'
 import { canInstruct, type InstructableAgent } from '../autonomous-agents/operations.ts'
@@ -441,11 +442,21 @@ export const rejectPendingApprovals = async (
   return result.modifiedCount
 }
 
-export const createRun = async (run: Omit<ConversationRun, 'id'>): Promise<ConversationRun> => {
-  const doc: ConversationRun = { ...run, id: nanoid() }
-  const { version } = await bumpConversationVersion(doc.conversationId)
+export const createRun = async (run: Omit<ConversationRun, 'id'> & { conversationId: string }): Promise<ConversationTurnRun> => {
+  const doc = { ...run, id: nanoid() }
+  const { version } = await bumpConversationVersion(run.conversationId)
   await mongo.runs.insertOne({ ...doc, version })
   return { ...doc, version }
+}
+
+/**
+ * A TASK run (kind 'task'): no conversation to bump, its content lives on the run itself. Created
+ * already `running` by the scheduler or run-now, or `skipped`.
+ */
+export const createTaskRun = async (run: Omit<ConversationRun, 'id' | 'version'> & { kind: 'task', taskId: string }): Promise<ConversationRun> => {
+  const doc: ConversationRun = { ...run, id: nanoid(), version: 1 }
+  await mongo.runs.insertOne({ ...doc })
+  return doc
 }
 
 /**
@@ -492,7 +503,8 @@ export const incrementRunSpend = async (id: string, credits: number, steps: numb
   // Unbuffered: a turn abandoned at its deadline, still spending after its run was closed. The run
   // and the conversation's total are both kept true, at two writes — rare enough not to matter.
   const run = await mongo.runs.findOneAndUpdate({ id }, { $inc: { credits, steps } }, { projection: { _id: 0, conversationId: 1 } })
-  if (run && credits) await mongo.conversations.updateOne({ id: run.conversationId }, { $inc: { credits } })
+  // A task run has no conversation to add to.
+  if (run?.conversationId && credits) await mongo.conversations.updateOne({ id: run.conversationId }, { $inc: { credits } })
 }
 
 /**
@@ -592,6 +604,23 @@ export const finishTurn = async (
     await mongo.runs.updateOne({ id: run.id }, { ...(Object.keys(buffered.set).length ? { $set: buffered.set } : {}), ...buffered.update })
   }
   return { closed: updated.modifiedCount > 0, conversationCredits: credits }
+}
+
+/**
+ * Close a task run once, while it is still running, with its buffered spend: finishTurn minus the
+ * conversation (no message, no version bump, no credits total). Returns whether this call closed it.
+ */
+export const finishTaskRun = async (run: { id: string }, patch: Partial<ConversationRun>): Promise<boolean> => {
+  const buffered = drainRunBuffer(run.id)
+  const updated = await mongo.runs.updateOne(
+    { id: run.id, status: 'running' },
+    { $set: { ...patch, ...buffered.set, endedAt: new Date().toISOString() }, ...buffered.update }
+  )
+  // A losing racer still owes the run what it buffered: the spend happened either way.
+  if (!updated.modifiedCount && (Object.keys(buffered.update).length || Object.keys(buffered.set).length)) {
+    await mongo.runs.updateOne({ id: run.id }, { ...(Object.keys(buffered.set).length ? { $set: buffered.set } : {}), ...buffered.update })
+  }
+  return updated.modifiedCount > 0
 }
 
 /**

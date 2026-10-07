@@ -135,7 +135,9 @@ export class AgentsMongo {
         'main-keys': [{ id: 1 }, { unique: true }],
         'conversation-keys': [{ conversationId: 1, startedAt: -1 }, {}],
         // the boot sweep that marks orphaned runs interrupted
-        'status-keys': [{ status: 1 }, {}]
+        'status-keys': [{ status: 1 }, {}],
+        'task-keys': [{ taskId: 1, startedAt: -1 }, {}],
+        'agent-keys': [{ agentId: 1, startedAt: -1 }, {}]
       },
       'agent-memories': {
         // One document per path of a store, and the unique index is the create-race backstop.

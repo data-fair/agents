@@ -4,11 +4,31 @@ export default {
   title: 'Conversation run',
   type: 'object',
   additionalProperties: false,
-  required: ['id', 'agentId', 'conversationId', 'owner', 'trigger', 'status', 'startedAt'],
+  required: ['id', 'agentId', 'owner', 'trigger', 'status', 'startedAt'],
   properties: {
     id: { type: 'string' },
     agentId: { type: 'string' },
+    // A run is of one of two kinds. A 'conversation' run is one turn of a conversation and carries its
+    // `conversationId`. A 'task' run is one execution of a planned task: no conversation, its content
+    // (`prompt`, `parts`, `outcome`) lives on the run itself. Absent means 'conversation'.
+    kind: { type: 'string', enum: ['conversation', 'task'] },
     conversationId: { type: 'string' },
+    taskId: { type: 'string' },
+    // A task run: the message the task gave the model, and what the model produced.
+    prompt: { type: 'string' },
+    parts: { type: 'array', items: { type: 'object' } },
+    // What a task run reported through report_outcome.
+    outcome: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['status', 'summary'],
+      properties: {
+        status: { type: 'string', enum: ['done', 'nothing-to-do', 'needs-attention'] },
+        summary: { type: 'string' }
+      }
+    },
+    // A task run: the slot it was due for.
+    scheduledFor: { type: 'string', format: 'date-time' },
     owner: {
       type: 'object',
       additionalProperties: false,
@@ -21,9 +41,10 @@ export default {
       }
     },
     // 'user': the person wrote. 'wake': the person ACTED on a handover (wait_for_user_action), and the
-    // turn continues from what they did — no message of theirs, so no moderation. P2 adds 'schedule'.
+    // turn continues from what they did — no message of theirs, so no moderation.
+    // 'schedule' and 'manual' are the triggers of a TASK run: its slot came due, or an admin ran it now.
     // 'approval': a person decided on a pending approval, and the turn continues from the decision.
-    trigger: { type: 'string', enum: ['user', 'wake', 'approval'] },
+    trigger: { type: 'string', enum: ['user', 'wake', 'approval', 'schedule', 'manual'] },
     triggeredBy: {
       type: 'object',
       additionalProperties: false,
@@ -102,7 +123,7 @@ export default {
      * request body by filtering for a system-role message.
      */
     systemPrompt: { type: 'string' },
-    status: { type: 'string', enum: ['running', 'done', 'error', 'aborted', 'interrupted'] },
+    status: { type: 'string', enum: ['running', 'done', 'error', 'aborted', 'interrupted', 'skipped'] },
     // 'waiting': the turn handed over to the person (wait_for_user_action) and ends there; their action
     // starts the next one. Not 'completed', which would read as work finished.
     // 'awaiting-approval': a call needs the person's approval; the turn ends there and their decision starts the next one.

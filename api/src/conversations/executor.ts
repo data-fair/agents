@@ -24,18 +24,19 @@ import { streamText, stepCountIs, InvalidToolApprovalSignatureError, type Tool }
 import type { JSONObject } from '@ai-sdk/provider'
 import { isMediaToolResult, type MediaToolResult } from '@agents/shared/tool-result'
 import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep, STREAM_IDLE_TIMEOUT_MS, createIdleWatchdog } from './loop-guards.ts'
-import type { AutonomousAgent, ConversationMessage, ConversationRun } from '#types'
+import type { AutonomousAgent, ConversationMessage } from '#types'
 import {
   runStopReasonMessage, buildSystemPrompt, withProvenance,
   usageIdentityFor,
   boundToolResult, partsText, withAppendedText, textPart,
-  type RunStopReason, type MessagePart
+  type RunStopReason, type MessagePart,
+  type ConversationTurnRun
 } from './operations.ts'
 import { checkQuotas, moderateTurn } from './turn-gates.ts'
 import { moderationApplies, MODERATION_REFUSAL } from '../moderation/operations.ts'
 import { conversationTarget, liveParts, releaseLiveTurn, type TurnTarget } from './turn-target.ts'
 import { recordCall } from './turn-telemetry.ts'
-import { appendMessage, updateMessage, finishRun, finishTurn, bufferRunWrites, incrementRunSpend, resolveAgent, setRunSystemPrompt, conversationCost, createRun, settleStoredToolPart, rejectPendingApprovals, PENDING_APPROVAL_ACTED, APPROVED_STEP_ACTED } from './service.ts'
+import { appendMessage, updateMessage, finishRun, finishTaskRun, finishTurn, bufferRunWrites, incrementRunSpend, resolveAgent, setRunSystemPrompt, conversationCost, createRun, settleStoredToolPart, rejectPendingApprovals, PENDING_APPROVAL_ACTED, APPROVED_STEP_ACTED } from './service.ts'
 import { getSettings } from '../settings/service.ts'
 import { resolveRoleModel } from '../models/service.ts'
 import { contextBudget, type ModelRole } from '../models/operations.ts'
@@ -77,7 +78,7 @@ const EMPTY_COMPLETION_MESSAGE = 'I was not able to produce a response for this 
  * The agent id travels with the controller so a whole agent can be stopped at once — see
  * abortRunsOfAgent.
  */
-const liveRuns = new Map<string, { controller: AbortController, agentId: string, conversationId: string }>()
+const liveRuns = new Map<string, { controller: AbortController, agentId: string, conversationId?: string, taskId?: string }>()
 
 /** True when this process actually aborted a live turn. */
 export const abortRun = (runId: string): boolean => {
@@ -204,7 +205,7 @@ const nextPendingRun = async (conversationId: string) => {
   return await mongo.runs.findOne(
     { conversationId, status: 'running' },
     { projection: { _id: 0 }, sort: { startedAt: 1 } }
-  )
+  ) as ConversationTurnRun | null
 }
 
 /**
@@ -214,7 +215,7 @@ const nextPendingRun = async (conversationId: string) => {
  * reached as that identity — so this refuses early with an actionable message rather than
  * producing a toolless turn that looks like a capability problem.
  */
-const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, target: TurnTarget): Promise<TurnResult> => {
+const performTurn = async (run: ConversationTurnRun, abortSignal: AbortSignal, target: TurnTarget): Promise<TurnResult> => {
   const autonomousAgent = await resolveAgent(run.owner, run.agentId)
   if (!autonomousAgent) throw new Error('the autonomous agent no longer exists')
 
@@ -322,7 +323,7 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
 }
 
 interface ModelLoopContext {
-  run: ConversationRun
+  run: ConversationTurnRun
   abortSignal: AbortSignal
   model: ReturnType<typeof resolveRoleModel>['model']
   entry: ReturnType<typeof resolveRoleModel>['entry']
@@ -1096,7 +1097,7 @@ const unknownApprovedOutcome = (detail: string) => `Approved, but its outcome is
  * a reader sees the turn exists while it is being produced, and a throw still has a message
  * to write the failure into rather than needing to invent one afterwards.
  */
-export const runTurn = async (run: ConversationRun): Promise<void> => {
+export const runTurn = async (run: ConversationTurnRun): Promise<void> => {
   const conversation = await mongo.conversations.findOne(
     { id: run.conversationId },
     { projection: { _id: 0 } }
@@ -1361,12 +1362,12 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
  * dropped. The outer loop exists because a post can land between the holder's last
  * nextPendingRun check and its release, which would otherwise orphan that run forever.
  */
-export const startRun = async (run: ConversationRun): Promise<void> => {
+export const startRun = async (run: ConversationTurnRun): Promise<void> => {
   const lockId = conversationLockId(run.conversationId)
   while (true) {
     if (!await locks.acquire(lockId, LOCK_ORIGIN)) return
     try {
-      let current: ConversationRun | null = await nextPendingRun(run.conversationId)
+      let current: ConversationTurnRun | null = await nextPendingRun(run.conversationId)
       while (current) {
         await runTurn(current)
         current = await nextPendingRun(run.conversationId)
@@ -1459,16 +1460,16 @@ export const wakeIfAnswered = async (conversationId: string, session: AgentSessi
  */
 export const recoverOwnerlessRuns = async (): Promise<{ interrupted: number, resumed: number, skipped: number }> => {
   const candidates = await mongo.runs
-    .find({ status: 'running' }, { projection: { _id: 0 } })
-    .toArray()
+    .find({ status: 'running', kind: { $ne: 'task' } }, { projection: { _id: 0 } })
+    .toArray() as ConversationTurnRun[]
 
   const heldLocks = new Set(
     (await mongo.db.collection<{ _id: string }>('locks')
       .find({ _id: { $regex: `^${conversationLockId('')}` } }, { projection: { _id: 1 } }).toArray())
       .map(doc => String(doc._id).slice(conversationLockId('').length))
   )
-  const ownerless = candidates.filter(run => !heldLocks.has(run.conversationId) && !liveRuns.has(run.id))
-  const skipped = candidates.length - ownerless.length
+  const ownerless = candidates.filter(run => !heldLocks.has(run.conversationId!) && !liveRuns.has(run.id))
+  let skipped = candidates.length - ownerless.length
 
   let interrupted = 0
   let resumed = 0
@@ -1505,6 +1506,18 @@ export const recoverOwnerlessRuns = async (): Promise<{ interrupted: number, res
       pending: false
     })
     await finishRun(run, { status: 'interrupted', stopReason: 'error', error: 'interrupted by a restart' })
+  }
+
+  // TASK runs: never resumed — a task run that began may have fired its tools, and one that did not is
+  // simply the next slot's to run. Ownerless when nobody holds its task's lock and this process is not
+  // running it. Closed `interrupted`; the scheduler counts it toward the task's pause.
+  const taskCandidates = await mongo.runs.find({ status: 'running', kind: 'task' }, { projection: { _id: 0 } }).toArray()
+  const heldTaskLocks = new Set((await mongo.db.collection<{ _id: string }>('locks')
+    .find({ _id: { $regex: '^task:' } }, { projection: { _id: 1 } }).toArray()).map(doc => String(doc._id).slice('task:'.length)))
+  for (const run of taskCandidates) {
+    if (liveRuns.has(run.id) || (run.taskId && heldTaskLocks.has(run.taskId))) { skipped++; continue }
+    await finishTaskRun(run, { status: 'interrupted', stopReason: 'error', error: 'interrupted by a restart' })
+    interrupted++
   }
 
   if (interrupted) console.log(`[autonomous-agents] interrupted ${interrupted} started run(s) left behind by a dead process`)

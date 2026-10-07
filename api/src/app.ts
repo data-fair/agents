@@ -7,6 +7,7 @@ import settingsRouter from './settings/router.ts'
 import adminRouter from './admin/router.ts'
 import modelsRouter, { getModelsForOwner } from './models/router.ts'
 import { clearToolListings } from './mcp-servers/client.ts'
+import { nanoid } from 'nanoid'
 import { invalidateSettings } from './settings/service.ts'
 import catalogRouter from './catalog/router.ts'
 import { executeMemoryCommand } from './memory/service.ts'
@@ -182,6 +183,30 @@ if (process.env.NODE_ENV === 'development') {
     await locks.release(`conversation:${req.body.conversationId}`)
     res.send()
   })
+  app.post('/api/test-env/task-run', async (req, res) => {
+    const { agentId, taskId, status, ...rest } = req.body
+    const run = {
+      id: nanoid(),
+      kind: 'task' as const,
+      agentId,
+      taskId,
+      owner: { type: 'organization' as const, id: 'test1' },
+      trigger: 'manual' as const,
+      status,
+      startedAt: new Date().toISOString(),
+      version: 1,
+      ...rest
+    }
+    await mongo.runs.insertOne({ ...run })
+    res.json(run)
+  })
+  app.post('/api/test-env/lock-task', async (req, res) => {
+    res.json({ acquired: await locks.acquire(`task:${req.body.taskId}`, 'test') })
+  })
+  app.post('/api/test-env/unlock-task', async (req, res) => {
+    await locks.release(`task:${req.body.taskId}`)
+    res.send()
+  })
   app.post('/api/test-env/orphan-run', async (req, res) => {
     await mongo.runs.updateOne(
       { id: req.body.runId },
@@ -240,7 +265,7 @@ if (process.env.NODE_ENV === 'development') {
     res.json({
       conversations: conversations.length,
       messages: await mongo.messages.countDocuments({ conversationId: { $in: conversationIds } }),
-      runs: await mongo.runs.countDocuments({ conversationId: { $in: conversationIds } }),
+      runs: await mongo.runs.countDocuments({ agentId: req.params.agentId }),
       memories: await mongo.agentMemories.countDocuments({ storeId: `agent:${req.params.agentId}` }),
       memoryVersions: await mongo.agentMemoryVersions.countDocuments({ storeId: `agent:${req.params.agentId}` })
     })

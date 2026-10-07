@@ -11,11 +11,11 @@ import mongo from '#mongo'
 import config from '#config'
 import { generateText, type ModelMessage } from 'ai'
 import Debug from 'debug'
-import type { Conversation, ConversationRun } from '#types'
+import type { Conversation } from '#types'
 import type { UsageIdentity } from '../usage/enforce.ts'
 import { decideContextManagement, clearOldToolResults } from './compaction-policy.ts'
 import { compactionSystemPrompt, recapMessage } from './compaction-prompt.ts'
-import { storedTurnsToModelMessages, alignCutToStoredMessage, redactModelMedia } from './operations.ts'
+import { storedTurnsToModelMessages, alignCutToStoredMessage, redactModelMedia, type ConversationTurnRun } from './operations.ts'
 import { saveCompaction, incrementRunSpend } from './service.ts'
 import { resolveRoleModel } from '../models/service.ts'
 import { computeCreditBreakdown } from '../usage/operations.ts'
@@ -100,7 +100,7 @@ export const loadHistory = async (
  * to a summarizer hiccup would be worse.
  */
 export const compactHistory = async (
-  run: ConversationRun,
+  run: ConversationTurnRun,
   identity: UsageIdentity,
   loaded: LoadedHistory,
   budget: number,

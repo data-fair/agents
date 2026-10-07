@@ -15,8 +15,8 @@
  */
 
 import type { ModelMessage } from 'ai'
-import type { Conversation, ConversationRun } from '#types'
-import type { MessagePart } from './operations.ts'
+import type { Conversation } from '#types'
+import type { MessagePart, ConversationTurnRun } from './operations.ts'
 import type { ChatActivity } from '@agents/shared/agent-activity'
 import type { UsageIdentity } from '../usage/enforce.ts'
 import type { getSettings } from '../settings/service.ts'
@@ -37,7 +37,7 @@ export interface TurnFrames {
 }
 
 export interface TurnHistoryRequest {
-  run: ConversationRun
+  run: ConversationTurnRun
   identity: UsageIdentity
   budget: number
   settings: Awaited<ReturnType<typeof getSettings>>
@@ -97,7 +97,7 @@ export const releaseLiveTurn = (conversationId: string, messageSeq: number) => {
  * A conversation's turn: history from its messages, the record on its assistant message (`messageSeq`,
  * created empty and pending by runTurn), frames to whoever watches it NOW.
  */
-export const conversationTarget = (run: ConversationRun, messageSeq: number, conversation: Conversation): TurnTarget => {
+export const conversationTarget = (run: ConversationTurnRun, messageSeq: number, conversation: Conversation): TurnTarget => {
   // WHO SEES THIS TURN: whoever watches the conversation now, read at each send. The session the turn
   // started with is still what its page tools and host events belong to; but a reload or a second tab
   // replaces it mid-turn, and a turn sending to the session it began with went silent for the page

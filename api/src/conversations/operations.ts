@@ -9,6 +9,7 @@ import { partsText, textPart, type MessagePart } from '@agents/shared/message-pa
 import { isMediaToolResult, type MediaToolResult } from '@agents/shared/tool-result'
 import type { AccountKeys } from '@data-fair/lib-express'
 // Type-only, so this pure module does not pull in enforce.ts (which reaches mongo and config).
+import type { ConversationRun } from '#types'
 import type { UsageIdentity } from '../usage/enforce.ts'
 import type { EffectiveRole } from '../auth.ts'
 import { isUntrustedRole, UNTRUSTED_POOL_ID } from '../usage/operations.ts'
@@ -19,7 +20,9 @@ import { isStandardAgentId } from '../agent-session/standard-agents.ts'
 // module. One definition, one import site.
 export { partsText, textPart, type MessagePart } from '@agents/shared/message-parts'
 
-export type RunStatus = 'running' | 'done' | 'error' | 'aborted' | 'interrupted'
+/** A run that is a turn of a conversation, as opposed to a task run, which has none. */
+export type ConversationTurnRun = ConversationRun & { conversationId: string }
+export type RunStatus = 'running' | 'done' | 'error' | 'aborted' | 'interrupted' | 'skipped'
 export type RunStopReason = 'completed' | 'waiting' | 'awaiting-approval' | 'step-limit' | 'repeated-calls' | 'budget' | 'timeout' | 'aborted' | 'error'
 
 /**

@@ -143,9 +143,13 @@ export const deleteAutonomousAgentData = async (agentId: string) => {
     .find({ agentId }, { projection: { _id: 0, id: 1 } })
     .toArray()
   const conversationIds = conversations.map(conversation => conversation.id)
+  // Every run of the agent, of either kind: a task run has no conversation to reach it through. Before
+  // the early return below, which an agent that only ever ran tasks would take. (Its planned tasks are
+  // erased here too once the tasks collection exists.)
+  const agentRuns = await mongo.runs.deleteMany({ agentId })
   if (!conversationIds.length) {
     const late = await deleteMemoryStore(agentStoreId(agentId))
-    return { conversations: 0, messages: 0, runs: 0, memories: memory.documents + late.documents, memoryVersions: memory.versions + late.versions }
+    return { conversations: 0, messages: 0, runs: agentRuns.deletedCount, memories: memory.documents + late.documents, memoryVersions: memory.versions + late.versions }
   }
 
   const messages = await mongo.messages.deleteMany({ conversationId: { $in: conversationIds } })
@@ -154,5 +158,5 @@ export const deleteAutonomousAgentData = async (agentId: string) => {
   // Again: a turn on another instance, or one mid-call here, can write memory after the first pass,
   // and nothing could reach that store once the agent is gone.
   const late = await deleteMemoryStore(agentStoreId(agentId))
-  return { conversations: removed.deletedCount, messages: messages.deletedCount, runs: runs.deletedCount, memories: memory.documents + late.documents, memoryVersions: memory.versions + late.versions }
+  return { conversations: removed.deletedCount, messages: messages.deletedCount, runs: agentRuns.deletedCount + runs.deletedCount, memories: memory.documents + late.documents, memoryVersions: memory.versions + late.versions }
 }
