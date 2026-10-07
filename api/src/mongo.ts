@@ -5,6 +5,8 @@ import type { Conversation } from '#types/conversation/index.ts'
 import type { ConversationMessage } from '#types/conversation-message/index.ts'
 import type { MessagePart } from '@agents/shared/message-parts'
 import type { ConversationRun } from '#types/conversation-run/index.ts'
+import type { AgentMemory } from '#types/agent-memory/index.ts'
+import type { AgentMemoryVersion } from '#types/agent-memory-version/index.ts'
 import type { Usage } from './usage/service.ts'
 import type { ModerationEvent, ModerationStrike } from './moderation/types.ts'
 import { RETENTION_SECONDS } from './retention.ts'
@@ -64,6 +66,14 @@ export class AgentsMongo {
 
   get runs () {
     return mongoLib.db.collection<ConversationRun>('runs')
+  }
+
+  get agentMemories () {
+    return mongoLib.db.collection<AgentMemory>('agent-memories')
+  }
+
+  get agentMemoryVersions () {
+    return mongoLib.db.collection<AgentMemoryVersion>('agent-memory-versions')
   }
 
   async connect () {
@@ -126,6 +136,16 @@ export class AgentsMongo {
         'conversation-keys': [{ conversationId: 1, startedAt: -1 }, {}],
         // the boot sweep that marks orphaned runs interrupted
         'status-keys': [{ status: 1 }, {}]
+      },
+      'agent-memories': {
+        // One document per path of a store, and the unique index is the create-race backstop.
+        'main-keys': [{ storeId: 1, path: 1 }, { unique: true }]
+      },
+      'agent-memory-versions': {
+        'main-keys': [{ id: 1 }, { unique: true }],
+        // One document's history, newest first; and a whole store's, for the admin history tab.
+        'path-keys': [{ storeId: 1, path: 1, createdAt: -1 }, {}],
+        'store-keys': [{ storeId: 1, createdAt: -1 }, {}]
       }
     })
   }

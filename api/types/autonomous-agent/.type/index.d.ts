@@ -47,6 +47,10 @@ export type Destructive = (Allow2 | ApproveEachCall2 | NeverOffer2) & string;
 export type Allow2 = "allow";
 export type ApproveEachCall2 = "approve";
 export type NeverOffer2 = "deny";
+/**
+ * The agent keeps notes it reuses in every later conversation, and reviews its past conversations to update them. Administrators can read, edit and restore this memory.
+ */
+export type KeepAMemoryAcrossConversations = boolean;
 export type Enabled = boolean;
 
 export type AutonomousAgent = {
@@ -64,6 +68,7 @@ export type AutonomousAgent = {
   nhi?: NonHumanIdentity;
   instructors?: WhoMayInstruct;
   approvals?: Approvals;
+  memory?: Memory;
   enabled: Enabled;
   createdAt?: string;
   updatedAt?: string;
@@ -108,5 +113,8 @@ export type Approvals = {
   readOnly?: Reading;
   write?: Writing;
   destructive?: Destructive;
+}
+export type Memory = {
+  enabled: KeepAMemoryAcrossConversations;
 }
 

@@ -6,13 +6,18 @@ import conversationSchema from './conversation/schema.js'
 import conversationMessageSchema from './conversation-message/schema.js'
 import conversationRunSchema from './conversation-run/schema.js'
 
+import agentMemorySchema from './agent-memory/schema.js'
+import agentMemoryVersionSchema from './agent-memory-version/schema.js'
+
 export * from './settings/index.ts'
+export type { AgentMemory } from './agent-memory/index.ts'
+export type { AgentMemoryVersion } from './agent-memory-version/index.ts'
 export type { Limits } from './limits/index.ts'
 export type { AutonomousAgent } from './autonomous-agent/index.ts'
 export type { Conversation } from './conversation/index.ts'
 export type { ConversationMessage } from './conversation-message/index.ts'
 export type { ConversationRun } from './conversation-run/index.ts'
-export { settingsSchema, modelSchema, limitsSchema, autonomousAgentSchema, conversationSchema, conversationMessageSchema, conversationRunSchema }
+export { settingsSchema, modelSchema, limitsSchema, autonomousAgentSchema, conversationSchema, conversationMessageSchema, conversationRunSchema, agentMemorySchema, agentMemoryVersionSchema }
 
 export type ModelInfo = {
   id: string

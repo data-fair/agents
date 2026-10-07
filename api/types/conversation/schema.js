@@ -34,6 +34,18 @@ export default {
       }
     },
     title: { type: 'string' },
+    // Memory reflection bookkeeping (api/src/memory/reflection.ts). Server-written; absent until the
+    // first reflection of a thread whose agent has memory.
+    memoryReflection: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        upToSeq: { type: 'number' },
+        at: { type: 'string', format: 'date-time' },
+        credits: { type: 'number' },
+        failedAt: { type: 'string', format: 'date-time' }
+      }
+    },
     createdAt: { type: 'string', format: 'date-time' },
     // Declared because the service WRITES it — bumpConversationVersion and appendMessage both $set it.
     // With additionalProperties: false and no declaration, every stored conversation violated its own

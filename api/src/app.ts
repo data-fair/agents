@@ -81,6 +81,8 @@ if (process.env.NODE_ENV === 'development') {
     await mongo.db.collection('conversations').deleteMany({ 'owner.id': /^test/ })
     await mongo.db.collection('messages').deleteMany({ 'owner.id': /^test/ })
     await mongo.db.collection('runs').deleteMany({ 'owner.id': /^test/ })
+    await mongo.db.collection('agent-memories').deleteMany({ 'owner.id': /^test/ })
+    await mongo.db.collection('agent-memory-versions').deleteMany({ 'owner.id': /^test/ })
     res.send()
   })
   // Dev-only seams for the boot sweep. A restart is not reproducible from a test — dev

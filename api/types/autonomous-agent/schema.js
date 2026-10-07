@@ -160,6 +160,26 @@ export default {
         ]
       }]))
     },
+    memory: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['enabled'],
+      title: 'Memory',
+      'x-i18n-title': { en: 'Memory', fr: 'Mémoire' },
+      properties: {
+        enabled: {
+          type: 'boolean',
+          default: false,
+          title: 'Keep a memory across conversations',
+          'x-i18n-title': { en: 'Keep a memory across conversations', fr: 'Conserver une mémoire entre les conversations' },
+          description: 'The agent keeps notes it reuses in every later conversation, and reviews its past conversations to update them. Administrators can read, edit and restore this memory.',
+          'x-i18n-description': {
+            en: 'The agent keeps notes it reuses in every later conversation, and reviews its past conversations to update them. Administrators can read, edit and restore this memory.',
+            fr: "L'agent conserve des notes qu'il réutilise dans toutes ses conversations suivantes, et relit ses conversations passées pour les mettre à jour. Les administrateurs peuvent lire, modifier et restaurer cette mémoire."
+          }
+        }
+      }
+    },
     enabled: {
       type: 'boolean',
       default: true,
