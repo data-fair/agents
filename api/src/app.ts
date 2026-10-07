@@ -10,7 +10,7 @@ import { clearToolListings } from './mcp-servers/client.ts'
 import { invalidateSettings } from './settings/service.ts'
 import catalogRouter from './catalog/router.ts'
 import { executeMemoryCommand } from './memory/service.ts'
-import { agentStoreId, MemoryCommandError } from './memory/operations.ts'
+import { agentStoreId, MemoryCommandError, MemoryConflictError, type MemoryAuthor } from './memory/operations.ts'
 import memoryRouter from './memory/router.ts'
 import autonomousAgentsRouter from './autonomous-agents/router.ts'
 import autonomousAgentRuntimeRouter, { runsRouter } from './conversations/router.ts'
@@ -95,9 +95,9 @@ if (process.env.NODE_ENV === 'development') {
     try {
       const agent = await mongo.autonomousAgents.findOne({ id: req.params.agentId }, { projection: { _id: 0 } })
       if (!agent) throw httpError(404, 'unknown autonomous agent')
-      const author = { kind: 'agent', agentId: agent.id } as const
-      res.json({ result: await executeMemoryCommand(agentStoreId(agent.id), agent.owner, req.body.input, author as any, { allowDelete: true }) })
-    } catch (err) { next(err instanceof MemoryCommandError ? httpError(400, err.message) : err) }
+      const author: MemoryAuthor = { kind: 'agent', agentId: agent.id }
+      res.json({ result: await executeMemoryCommand(agentStoreId(agent.id), agent.owner, req.body.input, author, { allowDelete: true }) })
+    } catch (err) { next(err instanceof MemoryConflictError ? httpError(409, err.message) : err instanceof MemoryCommandError ? httpError(400, err.message) : err) }
   })
   // Dev-only seams for the boot sweep. A restart is not reproducible from a test — dev
   // processes are user-managed — so `orphan-run` manufactures the state a dead process

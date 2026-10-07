@@ -123,6 +123,25 @@ test.describe('Agent memory admin API', () => {
     await admin.post(`${base(agent.id)}/versions/${v1.id}/redact`)
   })
 
+  test('redacting twice is refused and the first stamp and the description are kept/blanked', async () => {
+    const agent = await createAgent()
+    await put(agent.id, 'x.md', { description: 'about secret', content: 'secret' })
+    await put(agent.id, 'y.md', { description: 'd', content: 'other' })
+    await put(agent.id, 'x.md', { description: 'd', content: 'public', version: 1 })
+    await put(agent.id, 'y.md', { description: 'd', content: 'other2', version: 1 })
+    const rows = (await orgAdmin.get(`${base(agent.id)}/versions`)).data.results
+    const old = rows.find((v: any) => v.path === 'x.md' && v.version === 1)
+    const otherOld = rows.find((v: any) => v.path === 'y.md' && v.version === 1)
+    await admin.post(`${base(agent.id)}/versions/${old.id}/redact`)
+    const read = async (id: string) => (await orgAdmin.get(`${base(agent.id)}/versions`)).data.results.find((v: any) => v.id === id)
+    const first = await read(old.id)
+    assert.equal(first.description, '[redacted]')
+    await assert.rejects(admin.post(`${base(agent.id)}/versions/${old.id}/redact`), { status: 400 })
+    assert.deepEqual((await read(old.id)).redacted, first.redacted)
+    // an unrelated row is untouched
+    assert.equal((await read(otherOld.id)).content, 'other')
+  })
+
   test('a deleted document can be restored from its history', async () => {
     const agent = await createAgent()
     await put(agent.id, 'x.md', { description: 'd', content: 'keep me' })

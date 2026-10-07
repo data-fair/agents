@@ -35,6 +35,7 @@ const persistChange = async (storeId: string, owner: AccountKeys, change: Memory
   // The version row goes FIRST, carrying the version the document will get. Without transactions, an
   // interruption can then leave a row for a change that never landed (reconcilable against the
   // document) but never a change with no record — which is the one that cannot be reconstructed.
+  // Accepted window: the row is visible (history, restore, redact) before its document write lands.
   // It is removed again when the precondition is lost or the document write throws.
   const version: AgentMemoryVersion = {
     id: nanoid(),
@@ -142,12 +143,21 @@ export const restoreMemoryVersion = async (storeId: string, owner: AccountKeys, 
 export const redactMemoryVersion = async (storeId: string, versionId: string, user: { id: string, name?: string }) => {
   const version = await mongo.agentMemoryVersions.findOne({ storeId, id: versionId }, { projection: { _id: 0 } })
   if (!version) throw new MemoryCommandError('unknown version')
+  if (version.redacted) throw new MemoryCommandError('this version is already redacted')
   if (version.content === undefined) throw new MemoryCommandError('this version has no content to redact')
   const holder = await mongo.agentMemories.findOne({ storeId, content: version.content }, { projection: { _id: 0, path: 1 } })
   if (holder) throw new MemoryCommandError(`${holder.path} currently holds this text; edit the document first, then redact this version`)
+  const stamp = { at: new Date().toISOString(), by: { id: user.id, ...(user.name ? { name: user.name } : {}) } }
+  // A pipeline update: the description is blanked only where there is one, as it can carry the same text.
   await mongo.agentMemoryVersions.updateMany(
-    { storeId, content: version.content },
-    { $set: { content: '[redacted]', redacted: { at: new Date().toISOString(), by: { id: user.id, ...(user.name ? { name: user.name } : {}) } } } }
+    { storeId, content: version.content, redacted: { $exists: false } },
+    [{
+      $set: {
+        content: '[redacted]',
+        description: { $cond: [{ $eq: [{ $type: '$description' }, 'string'] }, '[redacted]', '$$REMOVE'] },
+        redacted: { $literal: stamp }
+      }
+    }]
   )
 }
 
