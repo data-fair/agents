@@ -911,7 +911,7 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
     assert.deepEqual(left, { conversations: 0, messages: 0, runs: 0 })
   })
 
-  test('the person a thread belongs to can erase it without deleting the autonomous agent', async () => {
+  test('the person a thread belongs to can delete it without deleting the autonomous agent, and it is archived', async () => {
     // The means to comply with an erasure request while the agent stays in use. The actor is now the
     // thread's OWNER rather than any instructor of the agent — erasure follows ownership, like reading.
     const agent = await createAgent({ instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }] })
@@ -924,13 +924,16 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
     const res = await orgAdmin.delete(`/api/conversations/organization/test1/${conv.id}`)
     assert.equal(res.status, 204)
 
+    // A configured agent's thread is never private (shared/agent-audit.ts): the person's delete
+    // ARCHIVES it, so it is gone for them but not purged — the organization's record stays.
     const left = (await admin.get(`/api/test-env/autonomous-agent-data/${agent.id}`)).data
-    assert.equal(left.conversations, 1, 'only the named thread is erased')
-    // And the messages went with it, rather than being left unreachable behind a deleted conversation.
+    assert.equal(left.conversations, 2, 'the archived thread is kept beside the untouched one')
+    await assert.rejects(orgAdmin.get(`/api/conversations/organization/test1/${conv.id}/messages`), { status: 404 })
+    const reviewed = await orgAdmin.get(`/api/review/organization/test1/${conv.id}`)
+    assert.ok(reviewed.data.conversation.archivedAt, 'still reviewable by an org admin')
+    assert.ok(reviewed.data.messages.length >= 2)
     const remaining = await messagesOf(other.conv.id)
     assert.ok(remaining.length >= 2)
-    assert.equal(left.messages, remaining.length)
-    await assert.rejects(orgAdmin.get(`/api/conversations/organization/test1/${conv.id}/messages`), { status: 404 })
   })
 
   test('erasing someone else\'s thread is refused, even for a listed instructor', async () => {

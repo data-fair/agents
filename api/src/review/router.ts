@@ -10,7 +10,8 @@
  * conversation became the record: a trace held the same content, plus per-call telemetry that now
  * lives on the run. So review is a READ of the conversation, authorized rather than duplicated.
  *
- * TWO GATES, both required, and they are different questions:
+ * Conversations with a CONFIGURED autonomous agent are always reviewable (shared/agent-audit.ts). For
+ * the personal assistant, TWO GATES, both required, and they are different questions:
  *  - `settings.storeTraces` — does this ORGANIZATION want review capability at all. Off by default.
  *  - `conversation.consentedToReview` — did THIS PERSON agree to this thread being read. Absent
  *    means no.
@@ -28,6 +29,8 @@ import { partsText } from '../conversations/operations.ts'
 import { purgeConversation } from '../conversations/service.ts'
 import { buildConversationExport, exportFilename } from './operations.ts'
 import { retentionCutoff } from '../retention.ts'
+import { reviewableFilter } from './reviewable.ts'
+import { STANDARD_AGENT_IDS } from '@agents/shared/agent-audit'
 
 const router = Router()
 export default router
@@ -35,30 +38,19 @@ export default router
 const reqOwner = (req: any): AccountKeys => ({ type: req.params.type, id: req.params.id })
 
 /**
- * Assert the caller may review this account's conversations at all.
+ * Assert the caller may review this account's conversations, and return what the filter needs.
  *
- * The org setting is checked as well as the role, because an admin of an account that never asked
- * for review capability should not get it by virtue of being an admin — that setting is the
- * disclosure the organization made to its members.
+ * The role is still required. The org setting no longer gates the route itself: conversations with
+ * configured autonomous agents are reviewable whatever it says (shared/agent-audit.ts), so an account
+ * that never enabled review still has something to review. The setting now only decides whether the
+ * PERSONAL ASSISTANT's consented threads are part of it.
  */
 const assertMayReview = async (req: any, owner: AccountKeys) => {
   const session = reqSessionAuthenticated(req)
   assertAccountRole(session, owner, 'admin')
   const settings = await getSettings(owner)
-  if (settings.storeTraces !== true) throw httpError(403, 'conversation review is not enabled for this account')
+  return { storeTraces: settings.storeTraces === true, cutoff: retentionCutoff().toISOString() }
 }
-
-/** Only threads whose owner may be reviewed AND whose person agreed. */
-const reviewableFilter = (owner: AccountKeys) => ({
-  'owner.type': owner.type,
-  'owner.id': owner.id,
-  consentedToReview: true,
-  // The window the person consented to: reviewable for RETENTION_SECONDS from the exchange, whether or
-  // not they keep the thread. Without it a thread they never deleted stayed readable by the
-  // organization for good, while the setting promised 30 days. (An archived thread is also purged
-  // whole when its window closes — purgeExpiredArchives.)
-  lastMessageAt: { $gte: retentionCutoff().toISOString() }
-})
 
 /**
  * Resolve a conversation by id alone, for a review link that does not carry the account.
@@ -73,7 +65,7 @@ router.get('/conversation/:conversationId', async (req, res, next) => {
   try {
     reqSessionAuthenticated(req)
     const conversation = await mongo.conversations.findOne(
-      { id: req.params.conversationId, consentedToReview: true },
+      { id: req.params.conversationId, $or: [{ consentedToReview: true }, { agentId: { $nin: [...STANDARD_AGENT_IDS] } }] },
       { projection: { _id: 0, owner: 1 } }
     )
     if (!conversation) throw httpError(404, 'no reviewable conversation with this id')
@@ -84,11 +76,11 @@ router.get('/conversation/:conversationId', async (req, res, next) => {
 router.get('/:type/:id', async (req, res, next) => {
   try {
     const owner = reqOwner(req)
-    await assertMayReview(req, owner)
+    const scope = await assertMayReview(req, owner)
 
     const size = Math.min(Math.max(parseInt(String(req.query.size ?? '20'), 10) || 20, 1), 200)
     const page = Math.max(parseInt(String(req.query.page ?? '1'), 10) || 1, 1)
-    const filter = reviewableFilter(owner)
+    const filter = reviewableFilter(owner, scope)
 
     // A plain find on the conversations collection, where the old version aggregated and grouped the
     // trace collection to reconstitute one row per conversation. The rows ARE conversations now.
@@ -142,9 +134,9 @@ router.get('/:type/:id', async (req, res, next) => {
  * Shared by the two routes below so the rendered page and the downloaded file are the SAME read,
  * under the same gate: a reviewer comparing them must not be shown two different things.
  */
-const loadForReview = async (owner: AccountKeys, conversationId: string) => {
+const loadForReview = async (owner: AccountKeys, scope: { storeTraces: boolean, cutoff: string }, conversationId: string) => {
   const conversation = await mongo.conversations.findOne(
-    { ...reviewableFilter(owner), id: conversationId },
+    { ...reviewableFilter(owner, scope), id: conversationId },
     { projection: { _id: 0 } }
   )
   // 404 rather than 403 for a thread that exists but was not consented to: an admin has no
@@ -168,8 +160,8 @@ const loadForReview = async (owner: AccountKeys, conversationId: string) => {
 router.get('/:type/:id/:conversationId', async (req, res, next) => {
   try {
     const owner = reqOwner(req)
-    await assertMayReview(req, owner)
-    res.json(await loadForReview(owner, req.params.conversationId))
+    const scope = await assertMayReview(req, owner)
+    res.json(await loadForReview(owner, scope, req.params.conversationId))
   } catch (err) { next(err) }
 })
 
@@ -192,8 +184,8 @@ router.get('/:type/:id/:conversationId/export', async (req, res, next) => {
   try {
     const owner = reqOwner(req)
     reqAdminMode(req)
-    await assertMayReview(req, owner)
-    const loaded = await loadForReview(owner, req.params.conversationId)
+    const scope = await assertMayReview(req, owner)
+    const loaded = await loadForReview(owner, scope, req.params.conversationId)
 
     eventsLog.info('agents.review.export', `reviewed conversation ${req.params.conversationId} exported`, { req })
     // `attachment` with the filename: the UI follows this link rather than fetching and assembling a
@@ -206,8 +198,8 @@ router.get('/:type/:id/:conversationId/export', async (req, res, next) => {
 router.delete('/:type/:id/:conversationId', async (req, res, next) => {
   try {
     const owner = reqOwner(req)
-    await assertMayReview(req, owner)
-    await deleteConversations({ ...reviewableFilter(owner), id: req.params.conversationId })
+    const scope = await assertMayReview(req, owner)
+    await deleteConversations({ ...reviewableFilter(owner, scope), id: req.params.conversationId })
     eventsLog.info('agents.review.delete', `reviewed conversation ${req.params.conversationId} deleted`, { req })
     res.status(204).send()
   } catch (err) { next(err) }

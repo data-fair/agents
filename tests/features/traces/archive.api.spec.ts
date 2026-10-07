@@ -87,7 +87,7 @@ test.describe('Deleting a reviewable conversation', () => {
   test('a thread is purged when the ORGANIZATION never enabled review either', async () => {
     const conversationId = await chat(false, true)
     await user.delete(`/api/conversations/${OWNER}/${conversationId}`)
-    // storeTraces off makes the whole review surface 403, so assert on the person's side.
+    // storeTraces off leaves no personal-assistant thread reviewable, so assert on the person's side.
     const read = await user.get(`/api/conversations/${OWNER}/${conversationId}/messages`).catch((err: any) => err.response ?? err)
     assert.equal(read.status, 404)
   })

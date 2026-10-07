@@ -3,7 +3,7 @@ export const schemaExports: string[]
 
 // see https://github.com/bcherny/json-schema-to-typescript/issues/439 if some types are not exported
 /**
- * When enabled, conversations of consenting users are stored on the server for 30 days for admin review. Each user must explicitly accept.
+ * When enabled, conversations of consenting users with the personal assistant are stored on the server for 30 days for admin review. Each user must explicitly accept. Conversations with autonomous agents are always reviewable and need no consent.
  */
 export type StoreConversationTraces = boolean;
 export type Provider = OpenAI | Anthropic | Google | Mistral | OpenRouter | Ollama | Scaleway | OpenAICompatible | Mock;

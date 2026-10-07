@@ -10,7 +10,21 @@ What review gives an admin: the exchange as the person saw it, the instructions 
 and per-call provider/model/token/credit/duration figures. What it gives a superadmin on top: a
 download of the whole thing as a file, for analysis by a standalone coding agent.
 
-## Two gates, both required
+## Audited conversations
+
+A conversation with a **configured** autonomous agent is never private (`shared/agent-audit.ts`,
+`isAuditedAgentId`): such an agent is an organization's service, its memory is agent-wide, and the
+organization answers for what it does. The consent model below belongs to the personal assistant only.
+
+| Thread with | Reviewable by an org admin | Person's delete | Expires |
+| --- | --- | --- | --- |
+| a configured agent | always, whatever `storeTraces` says, no consent needed | archives (never purges) | never; removed by agent deletion or GDPR erasure |
+| a standard agent (`personal`) | only with `storeTraces` + consent + inside the window | archives if consented and inside the window, else purges | 30 days after the last message once archived |
+
+The review filter is `reviewableFilter` (`api/src/review/reviewable.ts`); the chat shows a
+non-dismissible notice on an audited thread and never offers the consent sheet there.
+
+## The personal assistant: two gates, both required
 
 They are different questions, and each fails closed.
 
@@ -20,8 +34,8 @@ They are different questions, and each fails closed.
 | `conversation.consentedToReview` | did **this person** agree to this thread being read | absent = no |
 
 `storeTraces` is an org-admin setting (`PUT /api/settings/:type/:id/org`) whose description states
-the contract: *"conversations of consenting users are stored on the server for 30 days for admin
-review. Each user must explicitly accept."* When it is on, the session advertises availability and
+the contract: *"conversations of consenting users with the personal assistant are stored on the server for 30 days for admin
+review. Each user must explicitly accept. Conversations with autonomous agents are always reviewable and need no consent."* When it is on, the session advertises availability and
 the chat asks the person once; their answer is a 1-year `agent-chat-trace-consent` cookie
 (`shared/trace-consent.ts`), read server-side on the websocket upgrade and on the HTTP message route
 and recorded as one flag on the thread. One flag, so the person can change their mind: withdrawing
@@ -43,7 +57,8 @@ same `RETENTION_SECONDS` is the TTL of `moderation-events`). It governs what hap
 Because the conversation **is** the review material, an unconditional delete would let anyone erase
 a record their organization was entitled to review. So a person deleting a consented thread whose
 `lastMessageAt` is still inside the window **archives** it (`archivedAt`): gone for them — hidden,
-unreadable, not continuable — still visible to review until the window closes. Any other delete
+unreadable, not continuable — still visible to review until the window closes. An audited thread is archived on delete whatever its age, with no expiry (the sweep only selects
+the personal assistant's threads). Any other delete
 purges immediately. The review list surfaces `archivedAt` so an admin knows the thread is on its way
 out.
 

@@ -1,3 +1,5 @@
+import { STANDARD_AGENT_IDS } from '@agents/shared/agent-audit'
+
 /**
  * How long this service keeps data that exists only so an admin can review it.
  *
@@ -37,8 +39,13 @@ export const withinRetention = (lastMessageAt: string | undefined, now = new Dat
  * Both clauses are load-bearing. `archivedAt` present: a thread the person still has is their own
  * history and never expires, however old. `lastMessageAt` past the cutoff: the window runs from when
  * the exchange happened, so deleting a thread late cannot extend how long it stays visible.
+ * `agentId` a standard agent: only the personal assistant's threads expire. An archived thread with a
+ * configured agent is kept for as long as the agent exists: it is the record of what the agent was
+ * told, and its memory may have been written from it (shared/agent-audit.ts). Agent deletion and GDPR
+ * erasure remove it.
  */
 export const expiredArchiveFilter = (now = new Date()) => ({
   archivedAt: { $exists: true },
-  lastMessageAt: { $lt: retentionCutoff(now).toISOString() }
+  lastMessageAt: { $lt: retentionCutoff(now).toISOString() },
+  agentId: { $in: [...STANDARD_AGENT_IDS] }
 })

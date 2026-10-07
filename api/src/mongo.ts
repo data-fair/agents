@@ -101,6 +101,8 @@ export class AgentsMongo {
         'agent-keys': [{ agentId: 1, lastMessageAt: -1 }, {}],
         // A person's threads on an account, newest first: the chat's history and what it resumes.
         'user-keys': [{ 'owner.type': 1, 'owner.id': 1, userId: 1, lastMessageAt: -1 }, {}],
+        // The review list's audited half: one account's configured-agent threads, newest activity first.
+        'review-agent-keys': [{ 'owner.type': 1, 'owner.id': 1, agentId: 1, lastMessageAt: -1 }, {}],
         // The admin review list: one account's consented threads, newest activity first.
         'review-keys': [{ 'owner.type': 1, 'owner.id': 1, consentedToReview: 1, lastMessageAt: -1 }, {}],
         // The archive sweep, which runs daily over the whole collection and would otherwise scan it.

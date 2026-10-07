@@ -12,6 +12,7 @@ import catalogRouter from './catalog/router.ts'
 import autonomousAgentsRouter from './autonomous-agents/router.ts'
 import autonomousAgentRuntimeRouter, { runsRouter } from './conversations/router.ts'
 import { recoverOwnerlessRuns } from './conversations/executor.ts'
+import { purgeExpiredArchives } from './conversations/service.ts'
 import locks from '@data-fair/lib-node/locks.js'
 import nhiRouter from './nhi/router.ts'
 import { clearAutonomousAgentSession } from './nhi/service.ts'
@@ -247,6 +248,10 @@ if (process.env.NODE_ENV === 'development') {
   })
   app.post('/api/test-env/recover-ownerless-runs', async (req, res) => {
     res.json(await recoverOwnerlessRuns())
+  })
+  // Dev-only: run the archive sweep as if it were `now`, so a test can prove what it keeps.
+  app.post('/api/test-env/purge-expired-archives', async (req, res) => {
+    res.json({ purged: await purgeExpiredArchives(typeof req.body?.now === 'string' ? new Date(req.body.now) : new Date()) })
   })
   app.post('/api/test-env/usage', async (req, res) => {
     const { owner, cost, userId, userName, period: explicitPeriod, breakdown } = req.body

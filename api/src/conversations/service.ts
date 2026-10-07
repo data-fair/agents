@@ -219,9 +219,9 @@ export const purgeAbandonedAnonymous = async (now = new Date()): Promise<number>
  * Keyed on `lastMessageAt`, not on `archivedAt`: the window is 30 days from when the exchange
  * happened, so deleting a thread cannot extend how long it stays visible.
  */
-export const purgeExpiredArchives = async (): Promise<number> => {
+export const purgeExpiredArchives = async (now = new Date()): Promise<number> => {
   const expired = await mongo.conversations
-    .find(expiredArchiveFilter(), { projection: { _id: 0, id: 1 } })
+    .find(expiredArchiveFilter(now), { projection: { _id: 0, id: 1 } })
     .toArray()
   for (const conversation of expired) await purgeConversation(conversation.id)
   if (expired.length) debug('purged %d archived conversation(s) past the review window', expired.length)

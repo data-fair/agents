@@ -69,9 +69,12 @@ test.describe('Conversation review API', () => {
     assert.equal(res.data.count, 0)
   })
 
-  test('nothing is reviewable when the organization has not enabled review', async () => {
+  test('without storeTraces, a consented personal-assistant thread is not reviewable', async () => {
+    // The route itself is no longer refused — configured-agent threads are always reviewable
+    // (shared/agent-audit.ts) — but the personal assistant's still need the org setting.
     await chat(false, true)
-    await assert.rejects(admin.get('/api/review/user/test-standalone1'), { status: 403 })
+    const res = await admin.get('/api/review/user/test-standalone1')
+    assert.equal(res.data.count, 0)
   })
 
   test('a non-admin cannot review', async () => {

@@ -20,6 +20,17 @@
       @new-conversation="handleNewConversation"
     />
 
+    <!-- Not dismissible: it states a standing fact about every message sent here (shared/agent-audit.ts). -->
+    <v-alert
+      v-if="audited"
+      data-testid="agent-chat-audited-notice"
+      type="info"
+      variant="tonal"
+      density="compact"
+      class="mx-2 mb-2 text-caption"
+      :text="t('auditedNotice')"
+    />
+
     <template v-if="messages.length">
       <agent-chat-messages
         data-testid="agent-chat-transcript"
@@ -98,12 +109,13 @@
       @update:show-reasoning="handleShowReasoning"
     />
 
-    <trace-consent-sheet />
+    <trace-consent-sheet :audited="audited" />
   </v-card>
 </template>
 
 <i18n lang="yaml">
 fr:
+  auditedNotice: Les conversations avec cet agent ne sont pas privées. Les administrateurs de l'organisation peuvent les consulter, et l'agent peut se souvenir de ce qui est dit ici lors de ses conversations suivantes.
   defaultTitle: Assistant
   welcome: Comment puis-je vous aider ?
   moderationRefusal: "Ce message a été refusé par la modération de contenu — il semble sortir du cadre de ce que cet assistant peut faire. Reformulez votre demande si vous pensez qu'il s'agit d'une erreur."
@@ -115,6 +127,7 @@ fr:
   quotaShared: "Le quota IA partagé par les visiteurs est épuisé. Il sera réinitialisé le {date}."
   quotaAccount: "Le budget IA de ce compte est épuisé jusqu'au {date}."
 en:
+  auditedNotice: Conversations with this agent are not private. Administrators of the organization can review them, and the agent may remember what is said here in its later conversations.
   defaultTitle: Assistant
   welcome: How can I help you?
   moderationRefusal: "This message was declined by content moderation — it appears to fall outside what this assistant is meant to help with. Try rephrasing if you think this is a mistake."
@@ -133,6 +146,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSession } from '@data-fair/lib-vue/session.js'
 import { useVueRouterDFrameContent } from '@data-fair/frame/lib/vue-router/d-frame-content.js'
+import { isAuditedAgentId } from '@agents/shared/agent-audit'
 import { useSessionChat } from '~/composables/use-session-chat'
 import type { ChatMessage } from '~/utils/chat-message'
 import { formatMermaidFix, shouldAutoFixMermaid, MERMAID_AUTO_FIX_BUDGET } from '~/utils/mermaid-fix'
@@ -291,6 +305,8 @@ if (!chatResult) {
 // chatResult is guaranteed to be defined after the throw guard above
 // but TypeScript doesn't narrow across script setup scope, so we re-bind
 const chat = chatResult
+
+const audited = computed(() => isAuditedAgentId(chat.activeAgentId.value))
 
 /**
  * The header's agent list and the person's conversation history.

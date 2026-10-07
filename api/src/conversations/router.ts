@@ -4,6 +4,7 @@
  * it is tested by api integration tests
  */
 
+import { isAuditedAgentId } from '@agents/shared/agent-audit'
 import { Router } from 'express'
 import { nanoid } from 'nanoid'
 import mongo from '#mongo'
@@ -357,7 +358,11 @@ router.delete('/:type/:id/:conversationId', async (req, res, next) => {
     // Everything else is purged immediately. A thread nobody else may read has nothing to retain,
     // and one whose review window has already closed has nothing left to show — keeping either
     // would be retention for its own sake.
-    const reviewable = conversation.consentedToReview === true && withinRetention(conversation.lastMessageAt)
+    //
+    // An AUDITED thread (a configured agent's) is always archived, never purged by the person: it is the
+    // organization's record of what its agent was told, with no review window to wait out.
+    const reviewable = isAuditedAgentId(conversation.agentId) ||
+      (conversation.consentedToReview === true && withinRetention(conversation.lastMessageAt))
     if (reviewable) {
       await archiveConversation(conversation.id)
       eventsLog.info('agents.conversation.archive', `conversation ${conversation.id} archived: still reviewable`, { req })

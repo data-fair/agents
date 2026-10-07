@@ -148,10 +148,10 @@ export default {
         en: 'Store conversation traces',
         fr: 'Enregistrer les traces de conversation'
       },
-      description: 'When enabled, conversations of consenting users are stored on the server for 30 days for admin review. Each user must explicitly accept.',
+      description: 'When enabled, conversations of consenting users with the personal assistant are stored on the server for 30 days for admin review. Each user must explicitly accept. Conversations with autonomous agents are always reviewable and need no consent.',
       'x-i18n-description': {
-        en: 'When enabled, conversations of consenting users are stored on the server for 30 days for admin review. Each user must explicitly accept.',
-        fr: 'Si activé, les conversations des utilisateurs consentants sont enregistrées sur le serveur pendant 30 jours pour relecture par un administrateur. Chaque utilisateur doit explicitement accepter.'
+        en: 'When enabled, conversations of consenting users with the personal assistant are stored on the server for 30 days for admin review. Each user must explicitly accept. Conversations with autonomous agents are always reviewable and need no consent.',
+        fr: "Si activé, les conversations des utilisateurs consentants avec l'assistant personnel sont enregistrées sur le serveur pendant 30 jours pour relecture par un administrateur. Chaque utilisateur doit explicitement accepter. Les conversations avec les agents autonomes sont toujours consultables et ne demandent pas de consentement."
       },
       default: false
     },

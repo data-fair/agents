@@ -49,8 +49,10 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { traceStorageAvailable, consentRef, writeConsent, type Consent } from '~/traces/trace-consent'
 
+// Never asked on an audited chat: consent is meaningless where the conversation is reviewable anyway.
+const props = defineProps<{ audited?: boolean }>()
 const { t } = useI18n()
-const show = computed(() => traceStorageAvailable.value && consentRef.value === undefined)
+const show = computed(() => !props.audited && traceStorageAvailable.value && consentRef.value === undefined)
 
 const choose = (value: Consent) => {
   writeConsent(value)
