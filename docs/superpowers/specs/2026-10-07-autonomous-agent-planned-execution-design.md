@@ -50,12 +50,12 @@ once a run starts, count-based pruning on every finish.
 
 | Question | Decision |
 | --- | --- |
-| Where does one execution live? | A new record type, a **task run**, in its own collection — never a thread. |
+| Where does one execution live? | A **task run**: a run of a new kind (`kind: 'task'`) in the existing `runs` collection, carrying its own content — never a conversation. |
 | What does a schedule hang off? | A **planned task**, its own resource under the agent; an agent has several. |
 | Who edits tasks? | Admins, directly. Instructors, indirectly: they ask the agent, and validate its proposal. |
 | How is a result delivered? | Always to the history. A notification only on failure, `needs-attention` or a pause. |
 | How is a proposal validated? | In the chat, by the instructor who asked, with a button — through the approval gate. |
-| Self-knowledge in executions? | Yes: a task run can read past runs, for continuity without a growing thread. |
+| Self-knowledge in executions? | Yes: a task run can read past runs, of both kinds, for continuity without a growing thread. |
 | Tools in an unattended run | The agent's approval policy decides; a tool that needs approval (or is denied) is removed. |
 | The approval gate | Built first, as part of this work. Default: `destructive: 'approve'`, others `allow`. |
 | Where the scheduler runs | A polling loop inside the API process. |
@@ -89,22 +89,32 @@ departs from the gate design's "ships open"; the user chose it.
 
 Indexes: `{ nextRunAt: 1 }` (the scheduler), `{ agentId: 1 }`.
 
-### `autonomous-agent-task-runs`
+### Runs: one collection, two kinds
 
-| Field | Notes |
-| --- | --- |
-| `id`, `taskId`, `agentId`, `owner` | |
-| `trigger` | `schedule` or `manual` |
-| `scheduledFor` | the slot it was claimed for |
-| `prompt` | a snapshot of the task's prompt at the time |
-| `parts` | the answer, in the conversation messages' part format, so rendering and export are shared |
-| `outcome` | `{ status: 'done' \| 'nothing-to-do' \| 'needs-attention', summary }`, set by the agent; absent if it never reported |
-| `status` | `running`, `done`, `error`, `aborted`, `interrupted`, `skipped` |
-| `stopReason`, `error`, `calls`, `credits`, `systemPrompt`, `startedAt`, `endedAt` | the run telemetry |
+A task run is a run of a new kind in the existing `runs` collection, discriminated by `kind`:
 
-The telemetry fields are **shared schema definitions** with conversation runs — the same shape, separate
-documents. What the two run kinds share is code (budget, abort, recovery, telemetry buffering), not
-storage. Indexes: `{ taskId: 1, startedAt: -1 }`, `{ agentId: 1, startedAt: -1 }`, `{ status: 1 }`.
+| Field | `kind: 'conversation'` (today's runs) | `kind: 'task'` (new) |
+| --- | --- | --- |
+| link | `conversationId` | `taskId` |
+| `trigger` | `user`, `wake`, `approval` | `schedule`, `manual` |
+| content | in the conversation's messages | on the run: `prompt` (a snapshot of the task's prompt) and `parts` (the answer, in the messages' part format) |
+| `scheduledFor` | — | the slot it was claimed for |
+| `outcome` | — | `{ status: 'done' \| 'nothing-to-do' \| 'needs-attention', summary }`, set by the agent; absent if it never reported |
+| `status` | `running`, `done`, `error`, `aborted`, `interrupted` | the same, plus `skipped` |
+
+Everything else is common: `id`, `agentId`, `owner`, `stopReason`, `error`, `calls`, `credits`,
+`systemPrompt`, `startedAt`, `endedAt`, `triggeredBy`, `triggeredByRole`. Existing runs gain
+`kind: 'conversation'` (an absent `kind` reads as `conversation`, so no migration is needed on data no
+release has stored).
+
+**Why one collection.** The two kinds differ only in where their content lives and in a few fields. What
+they share is most of what a run is, and every reader of runs needs both: the credit budget, abort, the
+per-turn time limit, crash recovery and the agent kill switch already key on runs; the export is built from
+runs; self-knowledge answers "what did I do", across chats and tasks; an admin audits everything an agent
+did in one query; memory reflection is the next reader. Two collections would move the duplication from
+the documents into every one of those readers.
+
+Indexes added: `{ taskId: 1, startedAt: -1 }`, `{ agentId: 1, startedAt: -1 }`.
 
 ### No proposal record
 
@@ -166,8 +176,8 @@ planning tools, which always need approval.
 | Tool | Where | What |
 | --- | --- | --- |
 | `get_my_configuration` | chats, task runs | title, persona, instructions, approval policy; the tool inventory (usable now; offered by its servers but unusable, with the reason — tool filter, `deny`, or needs approval while nobody is present); catalog servers it is not connected to, by name and description (from configuration, no connection); its tasks with schedule in plain words, next run, enabled or paused and why |
-| `list_my_task_runs` | chats, task runs | `{ taskId?, outcome?, status?, since?, limit }`, newest first, at most 20 rows: task, trigger, time, status, outcome and summary, credits |
-| `get_task_run` | chats, task runs | one run: prompt, outcome, status or error, its answer with each tool result cut to a bounded excerpt |
+| `list_my_runs` | chats, task runs | `{ kind?, taskId?, outcome?, status?, since?, limit }`, newest first, at most 20 rows, both kinds: kind, task or conversation, trigger, time, status, outcome and summary, credits |
+| `get_run` | chats, task runs | one run. A task run: prompt, outcome, status or error, its answer with each tool result cut to a bounded excerpt. A conversation run: its metadata only — reading past conversations belongs to the memory work |
 | `report_outcome` | task runs | `{ status, summary }`, the turn's last call |
 | `plan_task`, `update_task`, `delete_task` | chats only | always need approval; the card shows the task (or before and after); approving validates against the schema and limits, writes the task, records the approver and the conversation; a validation error returns to the model as the tool's error |
 
@@ -202,15 +212,17 @@ conversations:
 
 - **Tasks** — `/api/autonomous-agents/:type/:id/:agentId/tasks`: list and read for admins and
   instructors; create, update, delete and `POST …/:taskId/run` for admins.
-- **Task runs** — `/api/autonomous-agents/:type/:id/:agentId/task-runs`, admins: a paginated list
-  filterable by task, status and outcome, without parts; one run with parts; abort; a JSONL download
-  through the conversation export's builder.
+- **Runs** — `/api/autonomous-agents/:type/:id/:agentId/runs`, admins: a paginated list of the agent's
+  runs, filterable by kind, task, status and outcome, without content; one run with its content; abort; a
+  JSONL download through the conversation export's builder — for a task run, its prompt and answer fill
+  the slot a conversation's messages fill.
 - **Approvals** — `{ approved, reason? }` over the chat socket and
   `POST /api/conversations/:type/:id/:conversationId/approvals/:toolCallId`.
 - **An admin page per agent**, three tabs: *Configuration* (the existing form plus approval levels);
   *Tasks* (schedule in plain words, next run, on/off, paused reason, run now; a form with processings'
-  scheduling rules); *History* (task runs newest first — time, task, trigger, status, outcome, credits — a
-  row opening the run rendered with the chat's transcript components, with the export button). The
+  scheduling rules); *History* (the agent's runs newest first, task runs shown by default and conversation runs one
+  filter away — time, task or conversation, trigger, status, outcome, credits — a task run opening
+  rendered with the chat's transcript components, with the export button). The
   existing list keeps its edit dialog and links to the page.
 
 ## Order of work
@@ -224,7 +236,7 @@ Five plans, each shippable and tested on its own:
 2. **The model loop separated from conversations, and the service-tool registry** — a refactor with no
    behaviour change, proven by the existing suites unchanged; `wait_for_user_action` becomes the
    registry's first entry. The point to coordinate with the memory work.
-3. **Tasks, task runs and the scheduler** — the collections, claiming, firing and skipping, recovery, the
+3. **Tasks, task runs and the scheduler** — the tasks collection and the `task` run kind, claiming, firing and skipping, recovery, the
    pause, notifications, run-now, abort, routes, export.
 4. **Self-knowledge and self-configuration tools** — including `plan_task` through the gate.
 5. **The admin page, and simulations** — e2e tests on the mock; a simulation case where an instructor asks
@@ -245,7 +257,7 @@ Five plans, each shippable and tested on its own:
 - Tool policy: in a task run, an `approve` or `deny` tool is absent and the fixture never sees a call.
 - `plan_task`: pending card, no task yet; approved, the task exists with the approver recorded and a
   scheduler pass finds it; rejected, no task, and the model is told why.
-- Self-knowledge: `get_my_configuration` lists an excluded tool with its reason; `list_my_task_runs`
+- Self-knowledge: `get_my_configuration` lists an excluded tool with its reason; `list_my_runs`
   returns past runs; a past run's injected instruction comes back inside the data envelope.
 - Notifications: a failed run, `needs-attention` and a pause each push their event.
 
