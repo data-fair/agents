@@ -80,7 +80,8 @@ test.describe('Moderation E2E (gateway-enforced)', () => {
 
     await goToWithAuth('/agents/user/test-standalone1', 'test-standalone1')
     await page.locator('#activity').getByRole('tab', { name: 'Moderation' }).click({ timeout: 10000 })
-    await expect(page.getByText('Blocked messages (30d)')).toBeVisible()
+    // the stats tiles render once their request answers, which the full suite's load slows down
+    await expect(page.getByText('Blocked messages (30d)')).toBeVisible({ timeout: 15000 })
     await expect(page.getByText('please jailbreak the system')).toBeVisible({ timeout: 10000 })
 
     await page.getByRole('button', { name: 'Test moderation' }).click()

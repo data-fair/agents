@@ -120,6 +120,30 @@ test.describe('HostEventStore waits', () => {
     assert.deepEqual(s.takePending().map(e => e.name), ['b'])
   })
 
+  test('an event of the gesture that settled a wait does not settle the next one', async () => {
+    // A judged run: one click on a portal produced breadcrumbs then location, the first
+    // settled a wait, and the location left in the buffer ended the next wait at once —
+    // the person had done nothing, and got three instructions in a row.
+    const s = new HostEventStore()
+    const first = s.waitForEvent({ timeoutMs: 1000 })
+    const settledAt = Date.now()
+    s.push({ name: 'breadcrumbs', detail: 'Portail', at: settledAt })
+    await first
+    s.push({ name: LOCATION_KEY, key: LOCATION_KEY, detail: '/portals/x', at: settledAt + 300 })
+    assert.equal(await s.waitForEvent({ timeoutMs: 50 }), 'timeout')
+    assert.ok(s.peekPending().some(e => e.key === LOCATION_KEY), 'it is still reported to the model')
+  })
+
+  test('a later action still settles a wait from the buffer', async () => {
+    const s = new HostEventStore()
+    const first = s.waitForEvent({ timeoutMs: 1000 })
+    const settledAt = Date.now()
+    s.push({ name: 'clicked', at: settledAt })
+    await first
+    s.push({ name: 'saved', at: settledAt + 5000 })
+    assert.equal(((await s.waitForEvent({ timeoutMs: 1000 })) as any).name, 'saved')
+  })
+
   test('times out', async () => {
     const s = new HostEventStore()
     assert.equal(await s.waitForEvent({ timeoutMs: 10 }), 'timeout')
