@@ -57,7 +57,7 @@ import { checkAccountCreditCap } from '../usage/enforce.ts'
 import { recordUsage } from '../usage/service.ts'
 import type { MemoryDocument } from '../memory/operations.ts'
 import { buildServiceTools } from './service-tools.ts'
-import { SERVICE_TOOL_NAMES } from './service-tool-names.ts'
+import { mayBePageTool } from './service-tool-names.ts'
 import { maybeReflect } from '../memory/reflection.ts'
 
 const debug = Debug('df-agents:autonomous-agent-executor')
@@ -548,7 +548,6 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   const startingPageTools = new Set((session?.tools() ?? []).map(descriptor => descriptor.name))
   // The service's own tools are never page tools, even when a page registers one by that name
   // (./service-tool-names.ts): the page's would answer under the service's name.
-  const mayBePageTool = (name: string) => !SERVICE_TOOL_NAMES.has(name)
   const fixedTools = Object.fromEntries(Object.entries(tools).filter(([name]) => !startingPageTools.has(name) || !mayBePageTool(name)))
   const liveTools: Record<string, Tool> = {}
   const assembleTools = async () => {

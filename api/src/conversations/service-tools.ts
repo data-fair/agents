@@ -36,7 +36,6 @@ export interface BuiltServiceTools {
 }
 
 interface ServiceToolEntry {
-  name: string
   applies: (ctx: ServiceToolContext) => boolean
   build: (ctx: ServiceToolContext, into: BuiltServiceTools) => Promise<void>
 }
@@ -46,7 +45,6 @@ const ENTRIES: ServiceToolEntry[] = [
     // `wait_for_user_action`: only when someone is actually there to act. Calling it ends the turn (see
     // `handover` in runModelLoop and ./waits.ts). Unwrapped, as before: its result is the loop's own
     // handover marker, not data from a server.
-    name: WAIT_TOOL_NAME,
     applies: ctx => ctx.surface === 'chat' && !!ctx.session,
     build: async (_ctx, into) => { into.tools[WAIT_TOOL_NAME] = createWaitTool() }
   },
@@ -54,7 +52,6 @@ const ENTRIES: ServiceToolEntry[] = [
     // THE AGENT'S MEMORY (docs/architecture/agent-memory.md). Read ONCE, here: the block rendered from it
     // is part of the system prompt, the run's stable prefix — writes made during the turn appear from the
     // next run. On every surface: it does not need anyone watching.
-    name: MEMORY_TOOL_NAME,
     applies: ctx => memoryEnabledFor(ctx.agent),
     build: async ({ agent, run }, into) => {
       const storeId = agentStoreId(agent.id)

@@ -9,3 +9,6 @@ import { WAIT_TOOL_NAME } from '@agents/shared/host-events'
 import { MEMORY_TOOL_NAME } from '../memory/operations.ts'
 
 export const SERVICE_TOOL_NAMES: ReadonlySet<string> = new Set([WAIT_TOOL_NAME, MEMORY_TOOL_NAME])
+
+/** Whether a tool a page registers by this name may be offered: never a service tool's name. */
+export const mayBePageTool = (name: string): boolean => !SERVICE_TOOL_NAMES.has(name)
