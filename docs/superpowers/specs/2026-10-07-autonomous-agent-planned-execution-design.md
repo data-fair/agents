@@ -132,11 +132,17 @@ apply. Changes:
 - the UI target it named (`ConversationRunStatus.vue`) was removed with the merged chat: the approval is a
   **card in the transcript** — the tool's title and server and its arguments (for `plan_task`, the task in
   readable form), Approve and Reject with an optional reason — and the activity line reads "Awaiting your
-  approval". After the decision the card stays, as a record of who decided what;
+  approval". After the decision the card is gone: the call becomes a tool chip ("Declined: …" when
+  refused). Who decided, and when, is stored on the call (`toolMetadata.decision`) for audit, and read by
+  the admin history (plan 5), not shown in the chat;
 - the decision arrives over the **chat socket** as well as HTTP, like Stop; only the person whose
-  conversation it is decides;
+  conversation it is decides (ownership, and the grant to instruct the agent); a decision on a message the
+  turn is still writing is refused (409, "the turn is still finishing") and the card is locked until then;
 - the run that follows a decision has trigger **`approval`**, beside `user` and `wake`;
-- a new message from the person **rejects** any pending approval (reason "The person sent a new message instead of deciding."), so a pending approval is always the conversation's latest step: no undecided call can be compacted away or approved out of order, and the gate design's compaction clamp is not needed.
+- a new message from the person **rejects** any pending approval (reason "The person sent a new message instead of deciding."), and so does acting on the page a wait handed over when a gated call shared the wait's step ("The person acted on the page instead of deciding."), so a pending approval is always the conversation's latest step: no undecided call can be compacted away or approved out of order, and the gate design's compaction clamp is not needed.
+- no approved call is ever left without a result, whatever ends the `approval` run — refused, returned, thrown, or
+  interrupted by a restart — and the replay sends one that slipped through as an error rather than bare;
+- a sub-agent worker is never handed a tool needing approval: such a tool stays with the lead.
 - the same shape as the wait handover (`2026-10-06-wait-ends-the-turn-design.md`): a turn ends with a
   call left open, and a button settles it.
 

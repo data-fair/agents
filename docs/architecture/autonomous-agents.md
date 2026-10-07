@@ -94,7 +94,9 @@ no assistant message     -> it died before doing anything        -> resume
 
 `recoverOwnerlessRuns` runs at boot and on a 30s interval. A started turn is **never** resumed: MCP
 tools are not required to be idempotent and the operator catalog may contain writes, so re-running a
-turn would be at-least-once execution of real side effects.
+turn would be at-least-once execution of real side effects. An interrupted run with trigger `approval`
+also settles the approved calls it left without a result, "outcome is unknown" (see
+[the approval gate](#the-approval-gate)).
 
 ## Identity: the agent acts as itself
 
@@ -172,8 +174,13 @@ agents** only: a standard agent's browser tools and the service's own tools are 
 
 **The decision** is `{ approved, reason? }`, over the chat socket (frame `{ type: 'approval', approvalId, approved,
 reason? }`) or `POST /api/conversations/:type/:id/:conversationId/approvals/:approvalId`. Only the person whose
-conversation it is may decide (`assertCanInstruct`), and it is atomic: a second decision on the same approval is a
-`409`. `decideAndContinue` (`api/src/conversations/approvals.ts`) records it on the part, then starts a run with
+conversation it is may decide — ownership (`assertOwnsConversation` on the route, `resolveOwnConversation` on the
+socket) **and** the grant to instruct the agent (`assertCanInstruct`, checked in `decideAndContinue`), both apply —
+and it is atomic: a second decision on the same approval is a `409`. So is a decision on a message **still being
+written** (`pending`), with "the turn is still finishing": the AI SDK asks for an approval before the step's other
+calls return, and the run's own last writes put the message's whole parts array back, which would restore the
+request over the decision and erase who made it. The run sends the message closed (`pending: false`) only once
+`finishTurn` has written it, and the card is shown locked until then. `decideAndContinue` (`api/src/conversations/approvals.ts`) records it on the part, then starts a run with
 trigger `approval` **only once no `approval-requested` part remains in the message**; while another call of the same
 step is undecided it returns `{ pending: n }` instead of `{ runId }`. Two calls in one step are therefore decided
 one by one and the model resumes once, after the last.
@@ -184,18 +191,41 @@ run again. A call the person rejected is stored `output-denied` and replays with
 approval run: there is no new user text, and the decision is not something to classify.
 
 A run that does not reach the model must not leave an approved call without a result. `settleApprovedWithoutRunning`
-runs at the end of every approval run: when the run was refused (quota, credit cap, disabled agent...) it settles the
-approved calls "Approved, but the turn could not run: <reason>"; otherwise, for a call the stream ended without
-settling, "outcome is unknown" — an honest answer for a write that may or may not have happened.
+runs at the end of every approval run, on messages before the run's own:
+
+- refused before the model (quota, credit cap, disabled agent...): "Approved, but the turn could not run: <reason>";
+- returned normally: "Approved, but it did not run" — certain, because the SDK executes approved calls before the first
+  step and reports each one, so a call still `approval-responded` was never reached (its replay ended on another
+  message, one posted before the run started);
+- threw or timed out: "outcome is unknown" — an honest answer for a write that may or may not have happened — except
+  for an `InvalidToolApprovalSignatureError`, thrown before anything executes (a secret rotated since the request),
+  which is "did not run" again;
+- interrupted by a restart: `recoverOwnerlessRuns` applies the same rule, "outcome is unknown".
+
+Behind all of these, the replay itself (`storedTurnsToModelMessages`, `settleStrandedApproval`) sends an approved call
+with no result **outside the last message** as an error ("outcome is unknown: no turn reported it") rather than bare:
+the conversion keeps such a call, and a call with no result is a 400 from the provider on every later turn.
 
 A **new message** from the person rejects every pending approval (`rejectPendingApprovals`, reason
-`PENDING_APPROVAL_SUPERSEDED`, and it settles approved calls of a superseded step the same way). A pending approval
-is therefore always the conversation's latest step, so no undecided call can be compacted away or approved out of
-order, and the compaction policy needs no guard for it.
+`PENDING_APPROVAL_SUPERSEDED`, and it settles approved calls of a superseded step the same way). So does a **wake**:
+when the model called `wait_for_user_action` and a gated tool in one step, the handover wins and the turn ends
+`waiting` with the request beside it; the person acting on the page rejects it (`PENDING_APPROVAL_ACTED`) before the
+wait is settled. A pending approval is therefore always the conversation's latest step, so no undecided call can be
+compacted away or approved out of order, and the compaction policy needs no guard for it.
+
+A **sub-agent worker** is never handed a tool needing approval (`partitionSubAgents`): its request would stop the
+worker's own loop, where nobody can see or decide it. Such a tool is not reserved — it stays with the lead, where the
+gate asks the person.
+
+An approved call's result, settled on its original part by the next run, keeps `toolMetadata.truncated` when it was
+cut at the result bound, beside `toolMetadata.decision`.
 
 In the chat the call is an **approval card** (`ui/src/components/agent-chat/ApprovalCard.vue`): the tool, its server
-and arguments, Approve and Reject with an optional reason. It locks while the decision is sending (released on a chat
-error) and once decided stays as a record; a rejection shows as a "Declined: <tool>" chip. While waiting, the activity
+and arguments, Approve and Reject with an optional reason. It is locked while the message asking is still pending
+(`approvalLocked`, set by the mapper) and while the decision is sending (released on a chat error). Once decided the
+card is gone: the call becomes an ordinary tool chip, and a rejection a "Declined: <tool>" chip. Who decided, and
+when, is not shown in the chat; it is stored on the part (`toolMetadata.decision`) for audit, and read by the admin
+history (plan 5). While waiting, the activity
 label reads "Awaiting your approval", with a static icon rather than a spinner, since nothing is running.
 
 ## Spend
