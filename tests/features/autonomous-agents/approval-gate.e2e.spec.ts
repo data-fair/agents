@@ -40,7 +40,15 @@ test.describe('Approval card', () => {
     await expect(page.getByTestId('approval-card')).toBeVisible({ timeout: 15000 })
     await expect(page.getByTestId('chat-activity')).toContainText('Awaiting your approval')
 
-    await page.getByTestId('approval-approve').click()
+    // Click, then look at the buttons in the same browser task: the server's answer (which removes the
+    // card) cannot have arrived yet, so this is the locked state and not a race against it.
+    const lockedAfterClick = await page.getByTestId('approval-approve').evaluate(async (button: HTMLButtonElement) => {
+      button.click()
+      await new Promise(resolve => setTimeout(resolve, 0))
+      const reject = document.querySelector('[data-testid="approval-reject"]') as HTMLButtonElement | null
+      return button.disabled && !!reject?.disabled
+    })
+    expect(lockedAfterClick).toBe(true)
     await expect(page.getByTestId('approval-card')).toHaveCount(0, { timeout: 15000 })
     await expect.poll(() => fixture.invokedTools()).toEqual(['wipe_everything'])
   })
@@ -52,7 +60,7 @@ test.describe('Approval card', () => {
     await page.getByTestId('approval-reason').locator('input').fill('not today')
     await page.getByTestId('approval-confirm-reject').click()
     await expect(page.getByTestId('approval-card')).toHaveCount(0, { timeout: 15000 })
-    await expect(page.getByTestId('tool-chip').first()).toBeVisible()
+    await expect(page.getByTestId('tool-chip').first()).toContainText('Declined')
     expect(fixture.invokedTools()).toEqual([])
   })
 })

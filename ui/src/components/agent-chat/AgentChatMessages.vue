@@ -91,6 +91,7 @@
                     :title="toolTitle(invocation.toolName)"
                     :input="invocation.input"
                     :server-id="invocation.serverId"
+                    :failure="chatError"
                     @decide="decision => emit('decide-approval', { approvalId: invocation.approvalId!, ...decision })"
                   />
                   <v-chip
@@ -210,7 +211,15 @@
           data-testid="chat-activity"
           :data-activity="activity?.kind"
         >
+          <!-- Still while the turn is stopped on the person: a spinner would say it is working. -->
           <v-icon
+            v-if="activity?.kind === 'waiting' || activity?.kind === 'approval'"
+            :icon="mdiAccountClock"
+            size="x-small"
+            class="mr-2"
+          />
+          <v-icon
+            v-else
             :icon="mdiLoading"
             size="x-small"
             class="agent-chat__spin mr-2"
@@ -264,6 +273,7 @@ fr:
   activityWaiting: "En attente : {name}"
   activityApproval: "En attente de votre approbation : {name}"
   waitingChip: "En attente : {name}"
+  declinedChip: "Refusé : {name}"
   waitedChip: "A attendu : {name}"
 en:
   reasoning: Reasoning
@@ -280,6 +290,7 @@ en:
   activityWaiting: "Waiting for: {name}"
   activityApproval: "Awaiting your approval: {name}"
   waitingChip: "Waiting for: {name}"
+  declinedChip: "Declined: {name}"
   waitedChip: "Waited for: {name}"
 </i18n>
 
@@ -287,7 +298,7 @@ en:
 import { ref, reactive, watch, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAutoScrollBottom } from '@data-fair/lib-vue/auto-scroll-bottom.js'
-import { mdiLoading, mdiArrowDown, mdiSubdirectoryArrowRight, mdiChevronDown, mdiChevronUp, mdiBrain } from '@mdi/js'
+import { mdiLoading, mdiAccountClock, mdiArrowDown, mdiSubdirectoryArrowRight, mdiChevronDown, mdiChevronUp, mdiBrain } from '@mdi/js'
 import { streamedLength } from './auto-scroll'
 import MarkdownContent from './MarkdownContent.vue'
 import ApprovalCard from './ApprovalCard.vue'
@@ -469,6 +480,7 @@ const chipLabel = (invocation: { toolName: string, input?: unknown, state?: stri
     const name = (invocation.input as any)?.expecting ?? ''
     return invocation.state === 'done' ? t('waitedChip', { name }) : t('waitingChip', { name })
   }
+  if (invocation.state === 'denied') return t('declinedChip', { name: props.toolTitle(invocation.toolName) })
   return invocation.toolName.startsWith('subagent_') ? subAgentTitle(invocation.toolName) : props.toolTitle(invocation.toolName)
 }
 

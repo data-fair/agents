@@ -30,13 +30,16 @@
           color="success"
           variant="flat"
           data-testid="approval-approve"
-          @click="$emit('decide', { approved: true })"
+          :loading="sending === 'approve'"
+          :disabled="!!sending"
+          @click="decide({ approved: true }, 'approve')"
         >
           {{ t('approve') }}
         </v-btn>
         <v-btn
           variant="text"
           data-testid="approval-reject"
+          :disabled="!!sending"
           @click="rejecting = true"
         >
           {{ t('reject') }}
@@ -47,12 +50,15 @@
           color="error"
           variant="flat"
           data-testid="approval-confirm-reject"
-          @click="$emit('decide', { approved: false, ...(reason.trim() ? { reason: reason.trim() } : {}) })"
+          :loading="sending === 'reject'"
+          :disabled="!!sending"
+          @click="decide({ approved: false, ...(reason.trim() ? { reason: reason.trim() } : {}) }, 'reject')"
         >
           {{ t('confirmReject') }}
         </v-btn>
         <v-btn
           variant="text"
+          :disabled="!!sending"
           @click="rejecting = false"
         >
           {{ t('cancel') }}
@@ -82,15 +88,25 @@ en:
 </i18n>
 
 <script lang="ts" setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-const props = defineProps<{ title: string, input?: unknown, serverId?: string }>()
-defineEmits<{ decide: [decision: { approved: boolean, reason?: string }] }>()
+const props = defineProps<{ title: string, input?: unknown, serverId?: string, failure?: string | null }>()
+const emit = defineEmits<{ decide: [decision: { approved: boolean, reason?: string }] }>()
 
 const { t } = useI18n()
 const rejecting = ref(false)
 const reason = ref('')
+// Set once a decision is sent: the card stays, locked, until the server re-sends the message with the
+// call decided (which removes the card). Only a failure — the chat's error — gives it back, so the
+// person can read why and retry.
+const sending = ref<'approve' | 'reject' | null>(null)
+const decide = (decision: { approved: boolean, reason?: string }, which: 'approve' | 'reject') => {
+  if (sending.value) return
+  sending.value = which
+  emit('decide', decision)
+}
+watch(() => props.failure, failure => { if (failure) sending.value = null })
 // The arguments as the model sent them: what the person is approving is this exact call.
 const formattedInput = computed(() => JSON.stringify(props.input ?? {}, null, 2))
 </script>
