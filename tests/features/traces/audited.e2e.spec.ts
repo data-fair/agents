@@ -18,6 +18,24 @@ test.describe('Audited chat notice', () => {
     const agent = (await admin.post('/api/autonomous-agents/organization/test1', { title: 'Audited', persona: 'x', mcpServers: [], enabled: true })).data
     await goToWithAuth(`/agents/organization/test1/chat?agentId=${agent.id}`, 'test1-admin1', { org: 'test1' })
     await expect(page.getByTestId('agent-chat-audited-notice')).toBeVisible({ timeout: 20000 })
+    await expect(page.getByText('This assistant can store your conversation on the server')).toHaveCount(0)
+  })
+
+  test('the debug dialog of an audited chat offers the review link and no consent toggle, whatever storeTraces says', async ({ page, goToWithAuth }) => {
+    await putMockSettings(admin, 'organization/test1', { storeTraces: false })
+    const agent = (await admin.post('/api/autonomous-agents/organization/test1', { title: 'Audited', persona: 'x', mcpServers: [], enabled: true })).data
+    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agent.id}`, 'test1-admin1', { org: 'test1' })
+    await expect(page.getByTestId('agent-chat-input')).toBeVisible({ timeout: 20000 })
+    const input = page.getByPlaceholder('Type your message...')
+    await expect(input).toBeEnabled({ timeout: 10000 })
+    await input.fill('hello')
+    await page.getByRole('button', { name: 'Send' }).click()
+    // the turn itself fails (the agent is not enrolled); only that the conversation exists matters here
+    await expect(page.locator('.assistant-content').last()).toBeVisible({ timeout: 20000 })
+    await page.getByRole('button', { name: /^Settings$|^Paramètres$/ }).click()
+    await expect(page.getByRole('button', { name: 'Open review' })).toBeVisible()
+    await page.getByRole('tab', { name: 'Settings' }).click()
+    await expect(page.getByText('Store my conversations for review')).toHaveCount(0)
   })
 
   test('the personal assistant shows no audited notice', async ({ page, goToWithAuth }) => {

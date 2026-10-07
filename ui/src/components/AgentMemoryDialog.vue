@@ -198,7 +198,7 @@ en:
   byAgent: written by the agent during a conversation
   byReflection: written while reviewing a conversation
   byUser: 'edited by {name}'
-  confirmRedact: Redact this version? Its content is replaced for good; who changed what, and when, is kept.
+  confirmRedact: "Redact this version? This blanks the text in the memory history (who changed what, and when, is kept). It does NOT remove copies elsewhere - the conversations' recorded tool calls and, for MEMORY.md, the recorded system prompts of runs that saw it. To remove those, delete the conversations."
 fr:
   title: Mémoire de {agent}
   documents: Documents
@@ -220,7 +220,7 @@ fr:
   byAgent: écrit par l'agent pendant une conversation
   byReflection: écrit en relisant une conversation
   byUser: 'modifié par {name}'
-  confirmRedact: Caviarder cette version ? Son contenu est remplacé définitivement ; qui a modifié quoi, et quand, est conservé.
+  confirmRedact: "Caviarder cette version ? Cela efface le texte dans l'historique de la mémoire (qui a modifié quoi, et quand, est conservé). Cela ne supprime PAS les copies ailleurs : les appels d'outils enregistrés dans les conversations et, pour MEMORY.md, les prompts système enregistrés des exécutions qui l'ont vu. Pour les supprimer, supprimez les conversations."
 </i18n>
 
 <script lang="ts" setup>

@@ -57,8 +57,8 @@ same `RETENTION_SECONDS` is the TTL of `moderation-events`). It governs what hap
 Because the conversation **is** the review material, an unconditional delete would let anyone erase
 a record their organization was entitled to review. So a person deleting a consented thread whose
 `lastMessageAt` is still inside the window **archives** it (`archivedAt`): gone for them — hidden,
-unreadable, not continuable — still visible to review until the window closes. An audited thread is archived on delete whatever its age, with no expiry (the sweep only selects
-the personal assistant's threads). Any other delete
+unreadable, not continuable — still visible to review until the window closes. An audited thread is archived on delete whatever its age, with no
+expiry (the sweep only selects the personal assistant's threads). Any other delete
 purges immediately. The review list surfaces `archivedAt` so an admin knows the thread is on its way
 out.
 
@@ -74,19 +74,20 @@ erasure request.
 
 ## The API
 
-All routes are account-admin gated, and additionally require `storeTraces` — an admin of an account
-that never asked for review capability should not get it by virtue of being an admin.
+All routes are account-admin gated. `storeTraces` no longer gates them: it only decides whether the
+personal assistant's consented threads are included. Threads of configured agents are audited and
+always reviewable (`assertMayReview` no longer refuses).
 
 | Route | What it does |
 | --- | --- |
-| `GET /api/review/:type/:id` | paginated, newest-first list of consented threads, each with a real preview of the first user message |
+| `GET /api/review/:type/:id` | paginated, newest-first list of audited threads plus, with `storeTraces`, consented personal-assistant threads inside the window, each with a real preview of the first user message |
 | `GET /api/review/:type/:id/:conversationId` | one thread: `{ conversation, messages, runs }` |
 | `GET /api/review/:type/:id/:conversationId/export` | the same, as a JSONL file — **superadmin (admin mode) only** |
 | `GET /api/review/conversation/:conversationId` | resolve which account a thread lives in, for a link that does not carry it |
 | `DELETE /api/review/:type/:id/:conversationId` | purge one thread and everything hanging off it |
 | `DELETE /api/review/:type/:id?userId=…` | per-user erasure; `userId` is required so it cannot silently erase the account |
 
-A thread that exists but was not consented to answers **404, not 403**: an admin has no business
+A personal-assistant thread that exists but was not consented to answers **404, not 403**: an admin has no business
 learning which of their members declined.
 
 `GET /review/conversation/:id` is declared **before** `/:type/:id` and that is load-bearing — two

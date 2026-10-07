@@ -96,6 +96,7 @@
       :debug-tools-partition="debugToolsPartition"
       :conversation-id="chat.conversationId.value"
       :is-admin="isAdmin"
+      :audited="audited"
       :account-type="accountType"
       :account-id="accountId"
       :simple-sub-agents="simpleSubAgentsEnabled"

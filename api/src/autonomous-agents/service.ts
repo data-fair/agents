@@ -143,10 +143,16 @@ export const deleteAutonomousAgentData = async (agentId: string) => {
     .find({ agentId }, { projection: { _id: 0, id: 1 } })
     .toArray()
   const conversationIds = conversations.map(conversation => conversation.id)
-  if (!conversationIds.length) return { conversations: 0, messages: 0, runs: 0, memories: memory.documents, memoryVersions: memory.versions }
+  if (!conversationIds.length) {
+    const late = await deleteMemoryStore(agentStoreId(agentId))
+    return { conversations: 0, messages: 0, runs: 0, memories: memory.documents + late.documents, memoryVersions: memory.versions + late.versions }
+  }
 
   const messages = await mongo.messages.deleteMany({ conversationId: { $in: conversationIds } })
   const runs = await mongo.runs.deleteMany({ conversationId: { $in: conversationIds } })
   const removed = await mongo.conversations.deleteMany({ agentId })
-  return { conversations: removed.deletedCount, messages: messages.deletedCount, runs: runs.deletedCount, memories: memory.documents, memoryVersions: memory.versions }
+  // Again: a turn on another instance, or one mid-call here, can write memory after the first pass,
+  // and nothing could reach that store once the agent is gone.
+  const late = await deleteMemoryStore(agentStoreId(agentId))
+  return { conversations: removed.deletedCount, messages: messages.deletedCount, runs: runs.deletedCount, memories: memory.documents + late.documents, memoryVersions: memory.versions + late.versions }
 }

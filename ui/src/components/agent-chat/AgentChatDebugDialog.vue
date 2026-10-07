@@ -287,6 +287,8 @@ const props = defineProps<{
   /** Absent until the socket has attached: the server assigns it, so the client cannot know it earlier. */
   conversationId?: string
   isAdmin?: boolean
+  /** A configured agent's chat: reviewable by the admins whatever the consent, so none is asked. */
+  audited?: boolean
   accountType: string
   accountId: string
   simpleSubAgents?: boolean
@@ -332,11 +334,11 @@ const totalToolCount = computed(() => {
 // Show the consent toggle as soon as storage is advertised, OR if a prior
 // decision is already stored in the cookie — so a user who consented in a
 // previous session can flip it back without sending a first message.
-const showConsentToggle = computed(() => traceStorageAvailable.value || consentRef.value !== undefined)
+const showConsentToggle = computed(() => !props.audited && (traceStorageAvailable.value || consentRef.value !== undefined))
 
 // `conversationId` gates it too: the review route needs one, and offering a button that resolves to
 // a path with `undefined` in it is worse than not offering it for the moment before attach.
-const showReview = computed(() => !!props.isAdmin && !!props.conversationId && traceStorageAvailable.value && consentRef.value === 'yes')
+const showReview = computed(() => !!props.isAdmin && !!props.conversationId && (props.audited || (traceStorageAvailable.value && consentRef.value === 'yes')))
 
 // Open the review in a new tab at the account-scoped trace route. `router.resolve(...).href`
 // includes the app's base ('/agents'), so this works whether the chat is standalone or

@@ -48,7 +48,7 @@ export type Allow2 = "allow";
 export type ApproveEachCall2 = "approve";
 export type NeverOffer2 = "deny";
 /**
- * The agent keeps notes it reuses in every later conversation, and reviews its past conversations to update them. Administrators can read, edit and restore this memory.
+ * The agent keeps notes it reuses in every later conversation, and reviews its past conversations to update them. Administrators can read, edit and restore this memory. Memory writes are not subject to the approval settings: every change is versioned and can be restored.
  */
 export type KeepAMemoryAcrossConversations = boolean;
 export type Enabled = boolean;

@@ -172,10 +172,10 @@ export default {
           default: false,
           title: 'Keep a memory across conversations',
           'x-i18n-title': { en: 'Keep a memory across conversations', fr: 'Conserver une mémoire entre les conversations' },
-          description: 'The agent keeps notes it reuses in every later conversation, and reviews its past conversations to update them. Administrators can read, edit and restore this memory.',
+          description: 'The agent keeps notes it reuses in every later conversation, and reviews its past conversations to update them. Administrators can read, edit and restore this memory. Memory writes are not subject to the approval settings: every change is versioned and can be restored.',
           'x-i18n-description': {
-            en: 'The agent keeps notes it reuses in every later conversation, and reviews its past conversations to update them. Administrators can read, edit and restore this memory.',
-            fr: "L'agent conserve des notes qu'il réutilise dans toutes ses conversations suivantes, et relit ses conversations passées pour les mettre à jour. Les administrateurs peuvent lire, modifier et restaurer cette mémoire."
+            en: 'The agent keeps notes it reuses in every later conversation, and reviews its past conversations to update them. Administrators can read, edit and restore this memory. Memory writes are not subject to the approval settings: every change is versioned and can be restored.',
+            fr: "L'agent conserve des notes qu'il réutilise dans toutes ses conversations suivantes, et relit ses conversations passées pour les mettre à jour. Les administrateurs peuvent lire, modifier et restaurer cette mémoire. Les écritures en mémoire ne sont pas soumises aux réglages d'approbation : chaque modification est versionnée et peut être restaurée."
           }
         }
       }

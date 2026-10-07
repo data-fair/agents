@@ -114,9 +114,9 @@ router.get('/:type/:id', async (req, res, next) => {
         userId: conversation.userId,
         userName: conversation.userName,
         agentId: conversation.agentId,
-        // Surfaced so an admin can see the person has deleted their side of it: the thread is
-        // retained until the review window closes and is then purged, which is worth knowing before
-        // relying on it still being there tomorrow.
+        // Surfaced so an admin can see the person has deleted their side of it. An audited thread is
+        // kept as the organization's record; a personal assistant's is purged when its review window
+        // closes, which is worth knowing before relying on it still being there tomorrow.
         ...(conversation.archivedAt ? { archivedAt: conversation.archivedAt } : {}),
         preview: previews[i]
       }))

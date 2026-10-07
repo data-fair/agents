@@ -265,19 +265,23 @@ if (process.env.NODE_ENV === 'development') {
       res.json({ ok: false, error: err.message, durationMs: performance.now() - startedAt })
     }
   })
+  // The sweep seams act on `test*` owners unless a test names another filter, so a run never touches
+  // (or bills, with the dev bridge) the real dev accounts' data — the same rule as clean().
+  const testOwnerScope = (owner: unknown): Record<string, unknown> =>
+    owner && typeof owner === 'object' ? { 'owner.id': (owner as any).id } : { 'owner.id': /^test/ }
   // Dev-only: reflect one conversation now, or run the idle sweep as of a chosen time.
   app.post('/api/test-env/reflect-conversation', async (req, res) => {
     res.json(await maybeReflect(String(req.body.conversationId), req.body.trigger ?? 'manual', req.body.now ? new Date(req.body.now) : undefined))
   })
   app.post('/api/test-env/sweep-reflections', async (req, res) => {
-    res.json({ reflected: await sweepIdleReflections(req.body?.now ? new Date(req.body.now) : undefined, req.body?.batch) })
+    res.json({ reflected: await sweepIdleReflections(req.body?.now ? new Date(req.body.now) : undefined, req.body?.batch, testOwnerScope(req.body?.owner)) })
   })
   app.post('/api/test-env/recover-ownerless-runs', async (req, res) => {
     res.json(await recoverOwnerlessRuns())
   })
   // Dev-only: run the archive sweep as if it were `now`, so a test can prove what it keeps.
   app.post('/api/test-env/purge-expired-archives', async (req, res) => {
-    res.json({ purged: await purgeExpiredArchives(typeof req.body?.now === 'string' ? new Date(req.body.now) : new Date()) })
+    res.json({ purged: await purgeExpiredArchives(typeof req.body?.now === 'string' ? new Date(req.body.now) : new Date(), testOwnerScope(req.body?.owner)) })
   })
   app.post('/api/test-env/usage', async (req, res) => {
     const { owner, cost, userId, userName, period: explicitPeriod, breakdown } = req.body

@@ -79,9 +79,10 @@
                     :title="agent.nhi.clientId"
                     :text="t('enrolled')"
                   />
-                  <!-- Memory is the agent's own and admin-only: it can hold what other instructors said. -->
+                  <!-- Memory is the agent's own and admin-only: it can hold what other instructors said.
+                       Offered even with memory turned off: the store keeps its notes, and the way to
+                       inspect or clean a suspect one is to switch memory off and then open it here. -->
                   <v-btn
-                    v-if="agent.memory?.enabled"
                     variant="text"
                     size="small"
                     :data-testid="`autonomous-agent-memory-${agent.id}`"

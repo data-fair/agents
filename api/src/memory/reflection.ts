@@ -212,8 +212,8 @@ const bill = async (conversation: Conversation, agent: AutonomousAgent, entry: R
  * unreflected messages. Bounded per pass, oldest activity first — the threads closest to leaving the
  * lookback — and the next pass picks up the rest. `batch` is a parameter for tests only.
  */
-export const sweepIdleReflections = async (now = new Date(), batch = SWEEP_BATCH): Promise<number> => {
-  const agents = await mongo.autonomousAgents.find({ 'memory.enabled': true, enabled: { $ne: false } }, { projection: { _id: 0, id: 1 } }).toArray()
+export const sweepIdleReflections = async (now = new Date(), batch = SWEEP_BATCH, scope: Record<string, unknown> = {}): Promise<number> => {
+  const agents = await mongo.autonomousAgents.find({ 'memory.enabled': true, enabled: { $ne: false }, ...scope }, { projection: { _id: 0, id: 1 } }).toArray()
   if (!agents.length) return 0
   const idleBefore = new Date(now.getTime() - REFLECT_IDLE_MINUTES * 60000).toISOString()
   const notBefore = new Date(now.getTime() - REFLECT_LOOKBACK_DAYS * 24 * 60 * 60000).toISOString()

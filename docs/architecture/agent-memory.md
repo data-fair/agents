@@ -2,7 +2,7 @@
 
 A configured autonomous agent may keep a **memory**: markdown documents it wrote in earlier conversations, shown to it at the start of every later run and shared by everyone who instructs it. It is opt-in per agent (`memory.enabled` on the agent, see `api/types/autonomous-agent/schema.js`) and exists only for configured agents: `memoryEnabledFor` (`api/src/memory/operations.ts`) requires an audited agent id, so the personal assistant, which acts as the person, remembers nothing. Because one instructor's words can shape every later run, memory is agent-wide and **audited**: every change is attributed and versioned, administrators can read, edit, restore and redact it, and the conversations it is learnt from are never private (below). Memory is data, not instructions: the prompt clause says it may be wrong and that the agent's instructions always take precedence.
 
-One store per agent, `agent:<agentId>` (`agentStoreId`), in two collections: `agentMemories` (the live documents) and `agentMemoryVersions` (the append-only log).
+One store per agent, `agent:<agentId>` (`agentStoreId`), in two collections: `agent-memories` (the live documents) and `agent-memory-versions` (the append-only log).
 
 ## The tool and its limits
 
@@ -18,7 +18,7 @@ One provider-neutral tool, `memory`, with the commands of Anthropic's memory too
 | path | 120 characters |
 | one `view` | 16,000 characters (truncated, with a hint to use `view_range`) |
 
-A write over a cap is **refused**, never truncated, with the cap and what to do (consolidate, then retry). From 80% of the document or total cap the prompt block asks the agent to consolidate. Text with invisible or control characters (zero-width, bidi, tag characters) is refused. Everything a command can decide is decided in the pure `applyMemoryCommand`, against the store as it would be after the change.
+Store-wide caps (document count, total characters) are checked against a snapshot, so concurrent creates of different paths can overshoot them slightly; the next write is then refused until the agent consolidates. A write over a cap is **refused**, never truncated, with the cap and what to do (consolidate, then retry). From 80% of the document or total cap the prompt block asks the agent to consolidate. Text with invisible or control characters (zero-width, bidi, tag characters) is refused. Everything a command can decide is decided in the pure `applyMemoryCommand`, against the store as it would be after the change.
 
 Wiring (`api/src/conversations/executor.ts`):
 
@@ -36,7 +36,7 @@ The **version row is written first**, carrying the version the document will get
 Each row records the op (`create`, `update`, `delete`, `rename`, `restore`), the content and description, and the author: the agent (run, conversation, tool call), a reflection (conversation and message range), or a user.
 
 - **Restore** writes a logged version's content again as a NEW version (history is never rewound), through `restoreChange`, under the same limits as any write: an old version may exceed caps tightened since. A redacted version cannot be restored.
-- **Redaction** is by **content**, not version number (`redactMemoryVersion`). It is refused while any live document of the store holds that exact text, and once only (an already-redacted row is refused). When allowed it blanks the content and the description of every row of the store carrying that identical text (renames and restores are copies), stamping who and when. Version numbers restart after a delete, so a number alone says nothing about which copies exist.
+- **Redaction** is by **content**, not version number (`redactMemoryVersion`). It is refused while any live document of the store holds that exact text, and once only (an already-redacted row is refused). When allowed it blanks the content and the description of every row of the store carrying that identical text (renames and restores are copies), stamping who and when. **What it does NOT remove:** the same text also lives in the conversations' recorded tool calls (the agent's `file_text` / `new_str` / `insert_text` inputs and later `view` outputs) and, for `MEMORY.md`, in the recorded system prompts of every run that saw it. An admin removes those by deleting the conversations; a real scrub is left to the security session (architecture plan §8.4). The dialog's confirm text says the same. Version numbers restart after a delete, so a number alone says nothing about which copies exist.
 
 ## Reflection
 
@@ -70,7 +70,7 @@ The triggers are decided by the pure `reflectionDue`. Rules:
 | `POST /versions/:versionId/restore` | restore |
 | `POST /versions/:versionId/redact` | redact |
 
-Writes also require the progressive-rollout session (`reqWriteSession`: admin mode while `autonomousAgentsRequireAdminMode` is on); reads do not. A refusal is a 400 with its reason, a lost precondition a 409. Deleting the agent erases its store first: memory is derived from the conversations and must not outlive them. The UI is `ui/src/components/AgentMemoryDialog.vue`, opened from the agent's section: documents with edit and delete, and a history tab with restore and redact.
+Writes also require the progressive-rollout session (`reqWriteSession`: admin mode while `autonomousAgentsRequireAdminMode` is on); reads do not. A refusal is a 400 with its reason, a lost precondition a 409. Deleting the agent erases its store first, and again at the end of the cascade (a turn on another instance, or one mid-call, can write after the first pass): memory is derived from the conversations and must not outlive them. The UI is `ui/src/components/AgentMemoryDialog.vue`, opened from the agent's section by a Memory button shown to admins for every configured agent, memory on or off (the dialog's banner says when it is off: the notes are kept, not used): documents with edit and delete, and a history tab with restore and redact.
 
 ## Audited conversations
 

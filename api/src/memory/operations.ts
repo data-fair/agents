@@ -278,8 +278,8 @@ const MEMORY_CLAUSE = [
   'Save a durable learning as soon as you learn it — assume you may be interrupted. MEMORY.md is always shown to you; put detail in topic documents and read them with `view` when relevant.'
 ].join(' ')
 
-/** The block appended to the system prompt. Frozen per run (it is part of the recorded system prompt). */
-export function renderMemoryBlock (documents: MemoryDocument[]): string {
+/** The memory itself, as data: what both the agent's prompt block and the reflection message embed. */
+function renderMemoryBody (documents: MemoryDocument[]): string {
   const total = documents.reduce((sum, d) => sum + d.content.length, 0)
   const nearlyFull = documents.length >= MEMORY_LIMITS.documents * NEAR_FULL_SHARE || total >= MEMORY_LIMITS.totalChars * NEAR_FULL_SHARE
   const core = find(documents, CORE_PATH)
@@ -291,10 +291,14 @@ export function renderMemoryBlock (documents: MemoryDocument[]): string {
       ].filter(Boolean).join('\n')
     : 'Your memory is empty.'
   return [
-    MEMORY_CLAUSE,
     nearlyFull ? `Your memory is nearly full (${documents.length}/${MEMORY_LIMITS.documents} documents, ${fmt(total)}/${fmt(MEMORY_LIMITS.totalChars)} characters): consolidate it — merge duplicates, drop what is stale — before adding more.` : '',
     `<agent-memory>\n${body}\n</agent-memory>`
   ].filter(Boolean).join('\n\n')
+}
+
+/** The block appended to the system prompt. Frozen per run (it is part of the recorded system prompt). */
+export function renderMemoryBlock (documents: MemoryDocument[]): string {
+  return `${MEMORY_CLAUSE}\n\n${renderMemoryBody(documents)}`
 }
 
 export const MEMORY_TOOL_DESCRIPTION = [
@@ -441,7 +445,7 @@ export function reflectionSystemPrompt (agentTitle: string): string {
 export function reflectionUserMessage (documents: MemoryDocument[], transcript: { text: string, truncated: boolean }): string {
   return [
     'Current memory:',
-    renderMemoryBlock(documents),
+    renderMemoryBody(documents),
     'The conversation to learn from:',
     `${REFLECTION_MARKER}\n${transcript.text}\n</conversation-transcript>`
   ].join('\n\n')

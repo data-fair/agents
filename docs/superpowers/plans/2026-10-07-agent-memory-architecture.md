@@ -392,6 +392,11 @@ These are recorded, not resolved. The order is roughly how much each one matters
 7. **Admin edit as an injection vector.** An admin can write anything into memory, which is by
    design: they can write the instructions too. Their edits are versioned with their identity.
 8. **Path and size abuse.** Covered by normalisation and caps. Worth fuzzing in the session.
+9. **Redaction does not scrub copies.** Redacting a version blanks `agent-memory-versions` rows only. The
+   text remains in the conversations' recorded memory tool calls and `view` outputs and, for `MEMORY.md`,
+   in `runs.systemPrompt` of runs that saw it (shown on the review page and in the export). The admin
+   dialog says so; a scrub (or deleting the conversations) belongs with 8.4 erasure, ideally one
+   "find the text across versions, messages and run prompts" utility serving both.
 
 ## 9. Toward shared memory (next iteration)
 
