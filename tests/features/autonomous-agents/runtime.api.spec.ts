@@ -908,7 +908,7 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
     // Nothing resolves through the deleted agent any more, so the only honest check is the store — read
     // through the dev seam rather than through a route that now 404s for the wrong reason.
     const left = (await admin.get(`/api/test-env/autonomous-agent-data/${agent.id}`)).data
-    assert.deepEqual(left, { conversations: 0, messages: 0, runs: 0 })
+    assert.deepEqual(left, { conversations: 0, messages: 0, runs: 0, memories: 0, memoryVersions: 0 })
   })
 
   test('the person a thread belongs to can delete it without deleting the autonomous agent, and it is archived', async () => {

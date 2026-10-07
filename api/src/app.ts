@@ -9,6 +9,7 @@ import modelsRouter, { getModelsForOwner } from './models/router.ts'
 import { clearToolListings } from './mcp-servers/client.ts'
 import { invalidateSettings } from './settings/service.ts'
 import catalogRouter from './catalog/router.ts'
+import memoryRouter from './memory/router.ts'
 import autonomousAgentsRouter from './autonomous-agents/router.ts'
 import autonomousAgentRuntimeRouter, { runsRouter } from './conversations/router.ts'
 import { recoverOwnerlessRuns } from './conversations/executor.ts'
@@ -57,6 +58,7 @@ app.use('/api/nhi', nhiRouter)
 app.use('/api/summary', summaryRouter)
 app.use('/api/usage', usageRouter)
 app.use('/api/review', reviewRouter)
+app.use('/api/memory', memoryRouter)
 app.use('/api/moderation', moderationRouter)
 app.use('/api/v1/limits', limitsRouter)
 app.use('/api/ping', (req, res) => res.send('ok'))
@@ -225,7 +227,9 @@ if (process.env.NODE_ENV === 'development') {
     res.json({
       conversations: conversations.length,
       messages: await mongo.messages.countDocuments({ conversationId: { $in: conversationIds } }),
-      runs: await mongo.runs.countDocuments({ conversationId: { $in: conversationIds } })
+      runs: await mongo.runs.countDocuments({ conversationId: { $in: conversationIds } }),
+      memories: await mongo.agentMemories.countDocuments({ storeId: `agent:${req.params.agentId}` }),
+      memoryVersions: await mongo.agentMemoryVersions.countDocuments({ storeId: `agent:${req.params.agentId}` })
     })
   })
   /**

@@ -11,6 +11,8 @@ import { getAutonomousAgentSession, clearAutonomousAgentSession, type EnrolledAu
 import { decodeSessionClaims, autonomousAgentSubject } from '../nhi/operations.ts'
 import { listAutonomousAgentToolDescriptors, type AutonomousAgentForTools } from '../mcp-servers/client.ts'
 import { nhiSessionProvider } from '../agent-identity/service.ts'
+import { agentStoreId } from '../memory/operations.ts'
+import { deleteMemoryStore } from '../memory/service.ts'
 import { isStandardAgentId } from '../agent-session/standard-agents.ts'
 
 // Re-exported so the router (HTTP layer only) never imports ../nhi/service.ts directly —
@@ -123,7 +125,7 @@ export const describeAutonomousAgentTools = async (autonomousAgent: AutonomousAg
   await listAutonomousAgentToolDescriptors(autonomousAgent, nhiSessionProvider(autonomousAgent))
 
 /**
- * Erase everything one autonomous agent accumulated: its conversations, their messages, their runs.
+ * Erase everything one autonomous agent accumulated: its memory, its conversations, their messages, their runs.
  *
  * A CASCADE rather than a TTL, deliberately. The stored conversation is the conversation of record —
  * that is the whole point of the storage model, and the reason it holds complete tool results — so a
@@ -135,14 +137,16 @@ export const describeAutonomousAgentTools = async (autonomousAgent: AutonomousAg
  * through, so it is the safe thing to have survive a half-completed delete.
  */
 export const deleteAutonomousAgentData = async (agentId: string) => {
+  // Memory first: it is derived from the conversations, and must not outlive them.
+  const memory = await deleteMemoryStore(agentStoreId(agentId))
   const conversations = await mongo.conversations
     .find({ agentId }, { projection: { _id: 0, id: 1 } })
     .toArray()
   const conversationIds = conversations.map(conversation => conversation.id)
-  if (!conversationIds.length) return { conversations: 0, messages: 0, runs: 0 }
+  if (!conversationIds.length) return { conversations: 0, messages: 0, runs: 0, memories: memory.documents, memoryVersions: memory.versions }
 
   const messages = await mongo.messages.deleteMany({ conversationId: { $in: conversationIds } })
   const runs = await mongo.runs.deleteMany({ conversationId: { $in: conversationIds } })
   const removed = await mongo.conversations.deleteMany({ agentId })
-  return { conversations: removed.deletedCount, messages: messages.deletedCount, runs: runs.deletedCount }
+  return { conversations: removed.deletedCount, messages: messages.deletedCount, runs: runs.deletedCount, memories: memory.documents, memoryVersions: memory.versions }
 }
