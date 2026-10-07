@@ -55,6 +55,9 @@ import { settlePendingWait } from './waits.ts'
 import { PERSON_SPOKE, interruptReason, settleInterruptedParts, pendingWaitReminder } from './interrupted-turn.ts'
 import { checkAccountCreditCap } from '../usage/enforce.ts'
 import { recordUsage } from '../usage/service.ts'
+import { agentStoreId, memoryEnabledFor, MEMORY_TOOL_NAME, MEMORY_SERVER_ID, MEMORY_TOOL_ANNOTATIONS, type MemoryDocument } from '../memory/operations.ts'
+import { loadMemory } from '../memory/service.ts'
+import { createMemoryTool } from '../memory/tool.ts'
 
 const debug = Debug('df-agents:autonomous-agent-executor')
 
@@ -303,8 +306,32 @@ const performTurn = async (run: ConversationRun, messageSeq: number, abortSignal
     ...(session ? { [WAIT_TOOL_NAME]: createWaitTool() } : {})
   }
 
+  // THE AGENT'S MEMORY, when it has one (docs/architecture/agent-memory.md). Read ONCE, here: the block
+  // rendered from it is part of the system prompt, which is the run's stable prefix — writes made
+  // during the turn land in the store at once and appear in the prompt from the next run.
+  //
+  // Added AFTER the approval gate and the catalog/page tools: the gate never applies to it (it only
+  // writes the agent's own audited store), and a catalog tool called `memory` cannot stand in for it.
+  // Session-independent: a headless (or, later, scheduled) run has it too.
+  let memory: MemoryDocument[] | undefined
+  if (memoryEnabledFor(autonomousAgent)) {
+    const storeId = agentStoreId(autonomousAgent.id)
+    memory = await loadMemory(storeId)
+    Object.assign(tools, withProvenance({
+      [MEMORY_TOOL_NAME]: createMemoryTool({
+        storeId,
+        owner: run.owner,
+        allowDelete: true,
+        author: toolCallId => ({ kind: 'agent', agentId: autonomousAgent.id, runId: run.id, conversationId: run.conversationId, ...(toolCallId ? { toolCallId } : {}) })
+      })
+    }, () => MEMORY_SERVER_ID))
+    // So the stored call names its source like a catalog call does (toolMetadata.serverId/annotations).
+    serverByTool.set(MEMORY_TOOL_NAME, MEMORY_SERVER_ID)
+    annotationsByTool.set(MEMORY_TOOL_NAME, MEMORY_TOOL_ANNOTATIONS)
+  }
+
   try {
-    return await runModelLoop({ run, messageSeq, abortSignal, model, entry, tools, settings, budget, serverByTool, annotationsByTool, autonomousAgent, session, conversation })
+    return await runModelLoop({ run, messageSeq, abortSignal, model, entry, tools, settings, budget, serverByTool, annotationsByTool, autonomousAgent, session, conversation, memory })
   } finally {
     // The turn is over (normally, by throw, or by abandonment): release the MCP connections.
     await closeTools()
@@ -348,6 +375,8 @@ interface ModelLoopContext {
   budget: number
   serverByTool: Map<string, string>
   annotationsByTool: Map<string, Record<string, unknown>>
+  /** The agent's memory as of run start, when it has one; rendered into the system prompt. */
+  memory?: MemoryDocument[]
   /** The browser watching this conversation, if one is. */
   session?: AgentSession
   autonomousAgent: AutonomousAgent
@@ -356,7 +385,9 @@ interface ModelLoopContext {
 }
 
 const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
-  const { run, messageSeq, abortSignal, model, entry, tools, settings, budget, serverByTool, annotationsByTool, autonomousAgent, session, conversation } = ctx
+  const { run, messageSeq, abortSignal, model, entry, tools, settings, budget, serverByTool, annotationsByTool, autonomousAgent, session, conversation, memory } = ctx
+  // Computed ONCE: the prompt the model gets and the prompt recorded on the run must be the same string.
+  const systemPrompt = buildSystemPrompt(autonomousAgent, memory)
   // WHO SEES THIS TURN: whoever watches the conversation now, read at each send. `session` is the one
   // the turn started with, and still what its page tools and host events belong to; but a reload or a
   // second tab replaces it mid-turn, and a turn sending to the session it began with went silent for
@@ -624,7 +655,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   })
   const result = streamText({
     model,
-    system: buildSystemPrompt(autonomousAgent),
+    system: systemPrompt,
     messages: history,
     // Always the live map, even empty: `undefined` would freeze "no tools" for the whole turn, while an
     // empty object is "no tools for this step" and fills in when the page registers one.
@@ -1058,7 +1089,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   })
   // The instructions, recorded ONCE per run rather than on every call: they do not change within a
   // turn, and they are what a reviewer needs that the conversation does not contain.
-  setRunSystemPrompt(run.id, buildSystemPrompt(autonomousAgent))
+  setRunSystemPrompt(run.id, systemPrompt)
     .catch(err => console.error('could not record the run system prompt', err))
   // A guard-stopped turn is a truncation, not a provider error: the model still wanted to
   // call tools when a cap cut it off. The budget is checked first because it is the reason
