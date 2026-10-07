@@ -470,6 +470,10 @@ function processForModel (modelId: string, options: { prompt: string | Array<any
   // nothing — the server loop's idle watchdog (createIdleWatchdog) must abort the turn
   // with a recoverable timeout.
   if (directive === 'stall') return { type: 'text', text: 'too late', delayMs: 30_000 }
+  // Late-reply seam: "slow hello" answers like "hello", but only after the page has had time to
+  // do something first (close the chat drawer, say) — the model loop runs on the server, so a
+  // browser-side route can no longer hold the reply back.
+  if (directive === 'slow hello') return { type: 'text', text: 'world', delayMs: 2000 }
   // Reasoning seam: emit reasoning tokens before the answer (exercises the loop's
   // reasoning capture and its streaming to the page).
   if (directive === 'reason') return { type: 'text', text: 'world', reasoning: 'Let me think about it.' }

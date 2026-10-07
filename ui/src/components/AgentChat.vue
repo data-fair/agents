@@ -552,12 +552,16 @@ watch(() => chat.toolsVersion.value, () => {
   sendDFrameMessage({ type: 'tools-changed' })
 })
 
-watch(() => chat.messages.value.length, () => {
+// Unread once the reply has something to read, not when its turn opens: the server announces an
+// empty pending message at the start of every run, which arrives while the person who just sent is
+// still looking — and the parent ignores an unread raised while it is open.
+watch(() => {
   const msgs = chat.messages.value
   const lastMsg = msgs[msgs.length - 1]
-  if (lastMsg && lastMsg.role === 'assistant') {
-    sendDFrameMessage({ type: 'unread', unread: true })
-  }
+  const readable = lastMsg?.role === 'assistant' && !!(lastMsg.content || lastMsg.toolInvocations?.length)
+  return readable ? msgs.length : 0
+}, (readableAt) => {
+  if (readableAt) sendDFrameMessage({ type: 'unread', unread: true })
 })
 
 const debugToolsPartition = computed(() => chat.resolvedPartition.value)
