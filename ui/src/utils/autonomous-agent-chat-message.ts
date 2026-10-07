@@ -71,7 +71,15 @@ export function autonomousAgentMessageToChat (message: StoredConversationMessage
       // chip waiting on the slowest. A failed call is 'done', because ChatMessage has no failure
       // state and a spinner turning for a call that will never return is worse than a plain chip —
       // the failure is shown outside the transcript, with its arguments and error.
-      state: (call.state === 'input-streaming' || call.state === 'input-available') ? 'pending' : 'done'
+      // Awaiting approval and denied are their own states: the first renders as a card the person acts
+      // on, the second as a declined chip. An approved call still running is pending.
+      ...(call.state === 'approval-requested' ? { approvalId: call.approval.id } : {}),
+      ...(typeof (call as any).toolMetadata?.serverId === 'string' ? { serverId: (call as any).toolMetadata.serverId } : {}),
+      state: call.state === 'approval-requested'
+        ? 'awaiting-approval'
+        : call.state === 'output-denied'
+          ? 'denied'
+          : (call.state === 'input-streaming' || call.state === 'input-available' || call.state === 'approval-responded') ? 'pending' : 'done'
     }))
   }
   // A worker's stored transcript, under the delegating call — the panel a reloaded thread or the review

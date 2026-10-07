@@ -86,10 +86,17 @@
                   v-for="invocation in message.toolInvocations"
                   :key="invocation.toolCallId"
                 >
+                  <approval-card
+                    v-if="invocation.state === 'awaiting-approval' && invocation.approvalId"
+                    :title="toolTitle(invocation.toolName)"
+                    :input="invocation.input"
+                    :server-id="invocation.serverId"
+                    @decide="decision => emit('decide-approval', { approvalId: invocation.approvalId!, ...decision })"
+                  />
                   <v-chip
-                    v-if="simpleSubAgents || !invocation.toolName.startsWith('subagent_')"
+                    v-else-if="simpleSubAgents || !invocation.toolName.startsWith('subagent_')"
                     size="small"
-                    :color="invocation.state === 'done' ? 'success' : 'warning'"
+                    :color="invocation.state === 'done' ? 'success' : invocation.state === 'denied' ? 'error' : 'warning'"
                     variant="outlined"
                     class="mr-1 mb-1"
                     :data-testid="invocation.toolName.startsWith('subagent_') ? 'subagent-chip' : 'tool-chip'"
@@ -198,7 +205,7 @@
              progress signal. A pending wait is the exception that outlives the turn: the
              handover ended it, and the label is what says the next move is the person's. -->
         <div
-          v-if="(isStreaming || activity?.kind === 'waiting') && activityLabel"
+          v-if="(isStreaming || activity?.kind === 'waiting' || activity?.kind === 'approval') && activityLabel"
           class="px-2 py-1 px-sm-4 py-sm-2 d-flex align-center text-caption text-medium-emphasis"
           data-testid="chat-activity"
           :data-activity="activity?.kind"
@@ -283,6 +290,7 @@ import { useAutoScrollBottom } from '@data-fair/lib-vue/auto-scroll-bottom.js'
 import { mdiLoading, mdiArrowDown, mdiSubdirectoryArrowRight, mdiChevronDown, mdiChevronUp, mdiBrain } from '@mdi/js'
 import { streamedLength } from './auto-scroll'
 import MarkdownContent from './MarkdownContent.vue'
+import ApprovalCard from './ApprovalCard.vue'
 import { WAIT_TOOL_NAME } from '@agents/shared/host-events'
 import type { MermaidFailure } from '~/utils/mermaid'
 import type { ChatMessage } from '~/utils/chat-message'
@@ -297,6 +305,7 @@ const emit = defineEmits<{
   // True once the transcript is scrolled down from the very top, so the header can
   // raise its elevation (mirrors v-app-bar's scroll-behavior="elevate").
   'update:scrolled': [scrolled: boolean]
+  'decide-approval': [payload: { approvalId: string, approved: boolean, reason?: string }]
 }>()
 
 const props = withDefaults(defineProps<{

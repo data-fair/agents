@@ -15,9 +15,13 @@ export interface ChatMessage {
   toolInvocations?: Array<{
     toolCallId: string
     toolName: string
-    state: 'pending' | 'done'
-    /** The call's arguments: what a chip is labelled from (a wait's `expecting`). */
+    state: 'pending' | 'done' | 'awaiting-approval' | 'denied'
+    /** The call's arguments: what a chip is labelled from (a wait's `expecting`), and what an approval card shows. */
     input?: unknown
+    /** Set while the call awaits the person's approval: what their decision names. */
+    approvalId?: string
+    /** The catalog server the call goes to, shown on an approval card. */
+    serverId?: string
   }>
   // Per delegating tool-call id: the sub-agent's transcript. Keyed by toolCallId so
   // concurrent sub-agent calls under one assistant message render in separate panels

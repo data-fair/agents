@@ -120,6 +120,23 @@ test.describe('autonomousAgentMessageToChat', () => {
   })
 })
 
+test.describe('approval states', () => {
+  test('a call awaiting approval carries its approval id; a rejected one reads as denied', () => {
+    const chat = autonomousAgentMessageToChat({
+      ...base,
+      role: 'assistant',
+      parts: [
+        { type: 'dynamic-tool', toolCallId: 'a', toolName: 'wipe', state: 'approval-requested', input: {}, approval: { id: 'ap1' }, toolMetadata: { serverId: 'dev' } } as any,
+        { type: 'dynamic-tool', toolCallId: 'b', toolName: 'wipe', state: 'output-denied', input: {}, approval: { id: 'ap2', approved: false } } as any
+      ]
+    })
+    assert.equal(chat.toolInvocations?.[0].state, 'awaiting-approval')
+    assert.equal(chat.toolInvocations?.[0].approvalId, 'ap1')
+    assert.equal(chat.toolInvocations?.[0].serverId, 'dev')
+    assert.equal(chat.toolInvocations?.[1].state, 'denied')
+  })
+})
+
 test.describe('mergeBySeq', () => {
   test('replaces a message that came back updated, rather than duplicating it', () => {
     // The whole point of ?sinceVersion=: an in-place update returns the SAME seq.

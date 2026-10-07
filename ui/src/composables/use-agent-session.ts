@@ -309,6 +309,11 @@ export function useAgentSession (options: AgentSessionClientOptions) {
       send({ type: 'host-events', events })
     },
 
+    /** The person's decision on a call the approval gate stopped. */
+    decideApproval (approvalId: string, approved: boolean, reason?: string) {
+      send({ type: 'approval', approvalId, approved, ...(reason ? { reason } : {}) })
+    },
+
     /**
      * Stop the turn in flight. `dismissWait` also declines a pending handover — only the person's own
      * Stop means that; leaving a thread must not answer its wait.

@@ -531,6 +531,9 @@ export function useSessionChat (options: UseSessionChatOptions) {
       agent.prompt(content, sendOptions?.hiddenContext)
     },
 
+    /** The person's decision on a call the approval gate stopped. */
+    decideApproval: (approvalId: string, approved: boolean, reason?: string) => { agent.decideApproval(approvalId, approved, reason) },
+
     /** The person's Stop: the turn in flight, or the handover the assistant is waiting on. */
     abort () {
       agent.abort({ dismissWait: true })
