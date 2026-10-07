@@ -165,6 +165,12 @@ export const sendHistory = async (session: AgentSession, conversationId: string)
       pending: message.pending === true
     })
   }
+  // A turn that ended on an approval says so on reopening, as it did when it ended.
+  const last = messages[messages.length - 1]
+  const pending = last?.role === 'assistant'
+    ? (last.parts ?? []).find((p: any) => p.type === 'dynamic-tool' && p.state === 'approval-requested') as { toolName?: string } | undefined
+    : undefined
+  if (pending) session.send({ type: 'activity', activity: { kind: 'approval', toolName: pending.toolName ?? '' } })
   // A turn running here has more than the store: its answer is written at the end, not as it
   // streams. Same seq as the stored pending message, so the client replaces that one with it, and
   // the rest arrives live — the turn sends to whoever watches the conversation now.

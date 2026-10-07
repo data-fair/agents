@@ -594,7 +594,7 @@ test.describe('Autonomous agent model loop', () => {
     // readOnlyHint / destructiveHint are what make a write auditable after the fact, and they are the
     // input P1's approval gate reads. They were listed by the diagnostic endpoint and dropped on the
     // path that actually runs a tool — the one path where they matter.
-    const agent = await createAgent({ mcpServers: [{ serverId: 'dev-public-mcp' }] })
+    const agent = await createAgent({ mcpServers: [{ serverId: 'dev-public-mcp' }], approvals: { destructive: 'allow' } })
     await enrol(agent.id)
     const { assistant } = await runOnce(agent.id, 'call tool wipe_everything {}')
     const call = toolCalls(assistant).find((c: any) => c.toolName === 'wipe_everything')

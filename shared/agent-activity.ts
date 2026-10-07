@@ -20,6 +20,8 @@ export type ChatActivity =
   // The main agent declared a wait for the user (wait_for_user_action); `expecting`
   // is its own words for what it is waiting for.
   | { kind: 'waiting', expecting: string }
+  // A call needs the person's approval; the turn ended on it (see the approval gate).
+  | { kind: 'approval', toolName: string }
 
 export interface ActivityLabel {
   key: string
@@ -36,6 +38,7 @@ export function activityLabelKey (activity: ChatActivity | null | undefined): Ac
       ? { key: 'activityAnalyzingSubAgent', name: activity.subAgent }
       : { key: 'activityAnalyzing' }
     case 'waiting': return { key: 'activityWaiting', name: activity.expecting }
+    case 'approval': return { key: 'activityApproval', name: activity.toolName }
     case 'subagent':
       switch (activity.phase) {
         case 'starting': return { key: 'activitySubAgentStarting' }

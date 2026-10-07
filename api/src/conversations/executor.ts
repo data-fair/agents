@@ -41,6 +41,8 @@ import { resolveRoleModel } from '../models/service.ts'
 import { contextBudget, type ModelRole } from '../models/operations.ts'
 import { computeCreditBreakdown } from '../usage/operations.ts'
 import { openAutonomousAgentTools } from '../mcp-servers/client.ts'
+import { applyApprovalPolicy } from './approval-policy.ts'
+import { securityKey } from '../cipher/service.ts'
 import { nhiSessionProvider, forwardedSessionProvider } from '../agent-identity/service.ts'
 import { sessionFor } from '../agent-session/registry.ts'
 import { isStandardAgentId } from '../agent-session/standard-agents.ts'
@@ -156,6 +158,8 @@ interface TurnResult {
   stopDetail?: string
   /** The wait the turn handed over on, left open for the person to answer (stopReason 'waiting'). */
   handover?: { toolCallId: string, expecting?: string }
+  /** The turn ended on a call needing the person's approval (stopReason 'awaiting-approval'). */
+  awaitingApproval?: true
   /**
    * Set when the parts ALREADY say what went wrong, so no stop-reason notice is appended.
    *
@@ -279,8 +283,13 @@ const performTurn = async (run: ConversationRun, messageSeq: number, abortSignal
   }
   // The catalog's tools, plus whatever the page in front of the person can do. Both already carry the
   // provenance envelope, and from here on the loop cannot tell them apart — which is the claim.
+  // THE APPROVAL GATE, on the catalog tools of a configured autonomous agent only. The personal assistant
+  // has no policy, page tools act in the person's own browser, and service tools are the loop's own.
+  const catalogTools = isStandardAgentId(autonomousAgent.id)
+    ? rawTools
+    : applyApprovalPolicy(rawTools, annotationsByTool, autonomousAgent.approvals)
   const tools = {
-    ...withProvenance(rawTools, name => serverByTool.get(name) ?? 'unknown'),
+    ...withProvenance(catalogTools, name => serverByTool.get(name) ?? 'unknown'),
     ...(session ? browserToolSet(session) : {}),
     // `wait_for_user_action`, available only when someone is actually there to act. Loop-provided rather
     // than page-provided: calling it ends the turn (see `handover` in runModelLoop and ./waits.ts).
@@ -613,6 +622,9 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
     // Always the live map, even empty: `undefined` would freeze "no tools" for the whole turn, while an
     // empty object is "no tools for this step" and fills in when the page registers one.
     tools: liveTools,
+    // Signs each approval request when it is issued and verifies it on replay, so a stored
+    // `approved: true` that did not come through the decision route fails instead of executing.
+    experimental_toolApprovalSecret: securityKey,
     stopWhen: [
       stepCountIs(STEP_LIMIT),
       repeatedCallGuard(),
@@ -751,6 +763,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   // The wait this turn handed over on, if it did. The first accepted one; a second in the same step is
   // settled at once as redundant rather than left as a second open call nothing will answer.
   let handover: { toolCallId: string, expecting?: string } | undefined
+  let awaitingApproval = false
 
   /**
    * Complete a tool call in place, by its id.
@@ -897,6 +910,22 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
       //
       // Stored as the model received it, envelope included (withProvenance wraps before this point),
       // because the guarantee is that a revived conversation reproduces what the model saw.
+      // THE GATE STOPPED A CALL. The SDK has not executed it and will not this turn; it ends the turn
+      // itself (finishReason 'other'). The call part already exists (the 'tool-call' part came first):
+      // it becomes `approval-requested`, carrying the id and the signature the decision must present.
+      if (part.type === 'tool-approval-request') {
+        const call = parts.find(p => p.type === 'dynamic-tool' && p.toolCallId === part.toolCall.toolCallId)
+        if (call && call.type === 'dynamic-tool') {
+          Object.assign(call, {
+            state: 'approval-requested',
+            approval: { id: part.approvalId, ...(part.signature ? { signature: part.signature } : {}) }
+          })
+          awaitingApproval = true
+          sendMessageFrame(true)
+          await persistStructure()
+        }
+        continue
+      }
       if (part.type === 'tool-result' && part.toolName === WAIT_TOOL_NAME && (part as any).output === WAIT_ACCEPTED) {
         if (!handover) {
           // Left OPEN: the person's answer is its result, and it comes in a later turn (./waits.ts).
@@ -992,9 +1021,11 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   // a turn cut off.
   const stopReason: RunStopReason = handover
     ? 'waiting'
-    : finishReason === 'tool-calls'
-      ? (budgetExceeded ? 'budget' : steps >= STEP_LIMIT ? 'step-limit' : 'repeated-calls')
-      : 'completed'
+    : awaitingApproval
+      ? 'awaiting-approval'
+      : finishReason === 'tool-calls'
+        ? (budgetExceeded ? 'budget' : steps >= STEP_LIMIT ? 'step-limit' : 'repeated-calls')
+        : 'completed'
 
   // An empty completion is a known provider failure mode with its own mock seam, and the
   // browser loop had a fallback for it. Without one here the turn persists a blank message
@@ -1024,6 +1055,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
     // The frame above was the settled one; runTurn must not send a second.
     published: true,
     ...(handover ? { handover } : {}),
+    ...(awaitingApproval ? { awaitingApproval: true as const } : {}),
     stopReason: emptyCompletion ? 'error' : stopReason,
     // The fallback above IS the explanation; a generic notice on top would be a second one.
     ...(emptyCompletion ? { selfExplained: true } : {})
@@ -1094,7 +1126,7 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
     // A turn that stopped for a reason other than finishing explains itself, appended to
     // whatever it did manage to produce.
     // A handover is not a stop to explain: its own message, already in the parts, says what is next.
-    const notice = result.stopReason === 'completed' || result.stopReason === 'waiting' || result.selfExplained
+    const notice = result.stopReason === 'completed' || result.stopReason === 'waiting' || result.stopReason === 'awaiting-approval' || result.selfExplained
       ? ''
       : runStopReasonMessage(result.stopReason, result.stopDetail)
     const finalParts = notice ? withAppendedText(result.parts, notice) : result.parts
@@ -1148,6 +1180,10 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
     // turn ending and the wait showing, in which the chat would read as simply done.
     if (result.handover) {
       sessionFor(run.conversationId)?.send({ type: 'activity', activity: { kind: 'waiting', expecting: result.handover.expecting ?? '' } })
+    }
+    if (result.awaitingApproval) {
+      const pending = finalParts.find(p => p.type === 'dynamic-tool' && p.state === 'approval-requested')
+      sessionFor(run.conversationId)?.send({ type: 'activity', activity: { kind: 'approval', toolName: pending?.type === 'dynamic-tool' ? pending.toolName : '' } })
     }
     // The end-of-turn signal, so a watching page stops its spinner without polling for it.
     sessionFor(run.conversationId)?.send({

@@ -255,6 +255,7 @@ fr:
   activitySubAgentTool: Exécution d'un outil…
   activitySubAgentAnalyzing: Analyse du résultat de l'outil…
   activityWaiting: "En attente : {name}"
+  activityApproval: "En attente de votre approbation : {name}"
   waitingChip: "En attente : {name}"
   waitedChip: "A attendu : {name}"
 en:
@@ -270,6 +271,7 @@ en:
   activitySubAgentTool: Running a tool…
   activitySubAgentAnalyzing: Analyzing tool result…
   activityWaiting: "Waiting for: {name}"
+  activityApproval: "Awaiting your approval: {name}"
   waitingChip: "Waiting for: {name}"
   waitedChip: "Waited for: {name}"
 </i18n>

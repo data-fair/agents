@@ -22,7 +22,8 @@ export default {
     },
     // 'user': the person wrote. 'wake': the person ACTED on a handover (wait_for_user_action), and the
     // turn continues from what they did — no message of theirs, so no moderation. P2 adds 'schedule'.
-    trigger: { type: 'string', enum: ['user', 'wake'] },
+    // 'approval': a person decided on a pending approval, and the turn continues from the decision.
+    trigger: { type: 'string', enum: ['user', 'wake', 'approval'] },
     triggeredBy: {
       type: 'object',
       additionalProperties: false,
@@ -104,7 +105,8 @@ export default {
     status: { type: 'string', enum: ['running', 'done', 'error', 'aborted', 'interrupted'] },
     // 'waiting': the turn handed over to the person (wait_for_user_action) and ends there; their action
     // starts the next one. Not 'completed', which would read as work finished.
-    stopReason: { type: 'string', enum: ['completed', 'waiting', 'step-limit', 'repeated-calls', 'budget', 'timeout', 'aborted', 'error'] },
+    // 'awaiting-approval': a call needs the person's approval; the turn ends there and their decision starts the next one.
+    stopReason: { type: 'string', enum: ['completed', 'waiting', 'awaiting-approval', 'step-limit', 'repeated-calls', 'budget', 'timeout', 'aborted', 'error'] },
     error: { type: 'string' },
     steps: { type: 'number', minimum: 0 },
     credits: { type: 'number', minimum: 0 },
