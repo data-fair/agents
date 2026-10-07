@@ -58,6 +58,7 @@ import { recordUsage } from '../usage/service.ts'
 import { agentStoreId, memoryEnabledFor, MEMORY_TOOL_NAME, MEMORY_SERVER_ID, MEMORY_TOOL_ANNOTATIONS, type MemoryDocument } from '../memory/operations.ts'
 import { loadMemory } from '../memory/service.ts'
 import { createMemoryTool } from '../memory/tool.ts'
+import { maybeReflect } from '../memory/reflection.ts'
 
 const debug = Debug('df-agents:autonomous-agent-executor')
 
@@ -1334,6 +1335,12 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
       stopReason: result.stopReason,
       ...(result.stopDetail ? { detail: result.stopDetail } : {})
     })
+    // MEMORY REFLECTION, off the person's path: a long thread is reflected once it has grown enough;
+    // a thread that simply ends is caught by the idle sweep (api/src/memory/reflection.ts). Not on a
+    // handover nor on an approval request — the exchange is mid-way, and the next turn comes back here.
+    if (!result.handover && !result.awaitingApproval) {
+      maybeReflect(run.conversationId, 'turn').catch(err => console.error('memory reflection could not start', err))
+    }
     if (result.handover) {
       // The person may have acted while the turn was still finishing: that answer is already buffered.
       await wakeIfAnswered(run.conversationId).catch(err => console.error('could not wake a conversation on its pending wait', err))

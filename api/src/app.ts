@@ -12,6 +12,7 @@ import catalogRouter from './catalog/router.ts'
 import { executeMemoryCommand } from './memory/service.ts'
 import { agentStoreId, MemoryCommandError, MemoryConflictError, type MemoryAuthor } from './memory/operations.ts'
 import memoryRouter from './memory/router.ts'
+import { maybeReflect, sweepIdleReflections } from './memory/reflection.ts'
 import autonomousAgentsRouter from './autonomous-agents/router.ts'
 import autonomousAgentRuntimeRouter, { runsRouter } from './conversations/router.ts'
 import { recoverOwnerlessRuns } from './conversations/executor.ts'
@@ -263,6 +264,13 @@ if (process.env.NODE_ENV === 'development') {
     } catch (err: any) {
       res.json({ ok: false, error: err.message, durationMs: performance.now() - startedAt })
     }
+  })
+  // Dev-only: reflect one conversation now, or run the idle sweep as of a chosen time.
+  app.post('/api/test-env/reflect-conversation', async (req, res) => {
+    res.json(await maybeReflect(String(req.body.conversationId), req.body.trigger ?? 'manual', req.body.now ? new Date(req.body.now) : undefined))
+  })
+  app.post('/api/test-env/sweep-reflections', async (req, res) => {
+    res.json({ reflected: await sweepIdleReflections(req.body?.now ? new Date(req.body.now) : undefined) })
   })
   app.post('/api/test-env/recover-ownerless-runs', async (req, res) => {
     res.json(await recoverOwnerlessRuns())

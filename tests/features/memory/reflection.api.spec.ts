@@ -1,0 +1,165 @@
+/**
+ * stateful API tests: reflection maintains memory from the stored conversation.
+ *
+ * The mock model's reflection seam records every `remember: <fact>` line of the transcript in
+ * MEMORY.md (api/src/models/mock-model.ts).
+ */
+import { test } from 'playwright/test'
+import assert from 'node:assert/strict'
+import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
+import { putMockSettings } from '../../support/settings.ts'
+import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
+
+const admin = await superAdmin
+const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
+const BASE = '/api/conversations/organization/test1'
+
+const createAgent = async (memory = true, over: any = {}) => {
+  const agent = (await admin.post('/api/autonomous-agents/organization/test1', {
+    title: 'Reflective', persona: 'x', mcpServers: [], enabled: true, memory: { enabled: memory }, ...over
+  })).data
+  await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
+  return agent
+}
+const thread = async (agentId: string) => (await orgAdmin.post(BASE, { agentId, title: 't' })).data.id as string
+const awaitRun = async (runId: string) => {
+  for (let i = 0; i < 100; i++) {
+    if ((await orgAdmin.get(`/api/runs/organization/test1/${runId}`)).data.status !== 'running') return
+    await new Promise(resolve => setTimeout(resolve, 100))
+  }
+  throw new Error('run never ended')
+}
+const say = async (conversationId: string, content: string) => {
+  const { runId } = (await orgAdmin.post(`${BASE}/${conversationId}/messages`, { content })).data
+  await awaitRun(runId)
+}
+const messages = async (conversationId: string) => (await orgAdmin.get(`${BASE}/${conversationId}/messages`)).data.results
+const reflect = async (conversationId: string, extra: any = {}) => (await admin.post('/api/test-env/reflect-conversation', { conversationId, ...extra })).data
+const core = async (agentId: string) => (await orgAdmin.get(`/api/memory/organization/test1/${agentId}/document`, { params: { path: 'MEMORY.md' } }).catch(() => ({ data: undefined }))).data
+
+test.describe('Memory reflection', () => {
+  test.beforeEach(async () => {
+    await clean()
+    await putMockSettings(admin, 'organization/test1')
+  })
+
+  test('learns from the stored conversation, attributed to the reflection', async () => {
+    const agent = await createAgent()
+    const conversationId = await thread(agent.id)
+    await say(conversationId, 'remember: the sales dataset is ventes')
+    const result = await reflect(conversationId)
+    assert.equal(result.reflected, true)
+    assert.match((await core(agent.id)).content, /- the sales dataset is ventes/)
+    const versions = (await orgAdmin.get(`/api/memory/organization/test1/${agent.id}/versions`)).data
+    assert.deepEqual({ kind: versions.results[0].author.kind, conversationId: versions.results[0].author.conversationId, fromSeq: versions.results[0].author.fromSeq },
+      { kind: 'reflection', conversationId, fromSeq: 1 })
+    // the next run sees it
+    await say(conversationId, 'hello')
+    const review = (await orgAdmin.get(`/api/review/organization/test1/${conversationId}`)).data
+    assert.match(review.runs[review.runs.length - 1].systemPrompt, /the sales dataset is ventes/)
+  })
+
+  test('a range is reflected once', async () => {
+    const agent = await createAgent()
+    const conversationId = await thread(agent.id)
+    await say(conversationId, 'remember: x')
+    assert.equal((await reflect(conversationId)).reflected, true)
+    assert.deepEqual(await reflect(conversationId), { reflected: false, reason: 'nothing-new' })
+  })
+
+  test('memory off, or the agent deleted, means no reflection and nothing written', async () => {
+    // Review Focus 5
+    const off = await createAgent(false)
+    const offThread = await thread(off.id)
+    await say(offThread, 'remember: nope')
+    assert.equal((await reflect(offThread)).reason, 'memory-off')
+
+    const gone = await createAgent()
+    const goneThread = await thread(gone.id)
+    await say(goneThread, 'remember: nope')
+    await admin.delete(`/api/autonomous-agents/organization/test1/${gone.id}`)
+    assert.equal((await reflect(goneThread)).reflected, false)
+    const data = (await admin.get(`/api/test-env/autonomous-agent-data/${gone.id}`)).data
+    assert.equal(data.memories, 0)
+  })
+
+  test('an agent deleted while its reflection is in flight gets nothing written after the cascade', async () => {
+    const agent = await createAgent()
+    const conversationId = await thread(agent.id)
+    // the seam holds the reflection's memory write back 1.5s
+    await say(conversationId, 'remember: written too late. reflect slowly')
+    const reflecting = reflect(conversationId)
+    await new Promise(resolve => setTimeout(resolve, 300))
+    await admin.delete(`/api/autonomous-agents/organization/test1/${agent.id}`)
+    assert.deepEqual(await reflecting, { reflected: false, reason: 'memory-off' })
+    const data = (await admin.get(`/api/test-env/autonomous-agent-data/${agent.id}`)).data
+    assert.equal(data.memories, 0)
+    assert.equal(data.memoryVersions, 0)
+  })
+
+  test('the idle sweep reflects a thread that went quiet, and only then', async () => {
+    const agent = await createAgent()
+    const conversationId = await thread(agent.id)
+    await say(conversationId, 'remember: idle fact')
+    // Counts are global to the dev database, so what is asserted is THIS thread's memory.
+    await admin.post('/api/test-env/sweep-reflections', {}) // still active
+    assert.equal(await core(agent.id), undefined)
+    const later = new Date(Date.now() + 31 * 60000).toISOString()
+    assert.ok((await admin.post('/api/test-env/sweep-reflections', { now: later })).data.reflected >= 1)
+    assert.match((await core(agent.id)).content, /idle fact/)
+  })
+
+  test('a long thread is reflected after the turn that crosses the threshold', async () => {
+    const agent = await createAgent()
+    const conversationId = await thread(agent.id)
+    await say(conversationId, 'remember: long thread fact')
+    // 1 exchange = 2 messages; 10 exchanges reach REFLECT_EVERY_MESSAGES (20)
+    for (let i = 0; i < 8; i++) await say(conversationId, 'hello')
+    // one exchange short of the threshold: nothing yet
+    await new Promise(resolve => setTimeout(resolve, 300))
+    assert.equal(await core(agent.id), undefined)
+    await say(conversationId, 'hello')
+    let content: string | undefined
+    for (let i = 0; i < 50 && !content; i++) {
+      content = (await core(agent.id))?.content
+      if (!content) await new Promise(resolve => setTimeout(resolve, 100))
+    }
+    assert.match(content ?? '', /long thread fact/)
+  })
+})
+
+test.describe('Memory reflection and the approval gate', () => {
+  let fixture: McpFixture
+  test.beforeAll(async () => { fixture = await startMcpFixture(Number(process.env.NGINX_PORT) + 30) })
+  test.afterAll(async () => { await fixture.close() })
+  test.beforeEach(async () => {
+    await clean()
+    fixture.resetInvokedTools()
+    await putMockSettings(admin, 'organization/test1')
+  })
+
+  test('a thread stopped on an approval is reflected only up to before that message', async () => {
+    const agent = await createAgent(true, { mcpServers: [{ serverId: 'dev-public-mcp' }] })
+    const conversationId = await thread(agent.id)
+    await say(conversationId, 'remember: before the approval')
+    await say(conversationId, 'call tool wipe_everything {}')
+    const asking = (await messages(conversationId)).find((m: any) => m.role === 'assistant' &&
+      m.parts.some((p: any) => p.type === 'dynamic-tool' && p.state === 'approval-requested'))
+    assert.ok(asking, 'the turn stopped on an approval request')
+
+    const result = await reflect(conversationId)
+    assert.equal(result.reflected, true)
+    assert.equal(result.toSeq, asking.seq - 1, 'the step whose result is still to come is not read')
+    assert.match((await core(agent.id)).content, /before the approval/)
+    // Nothing new until it is decided.
+    assert.deepEqual(await reflect(conversationId), { reflected: false, reason: 'nothing-new' })
+
+    const approvalId = asking.parts.find((p: any) => p.state === 'approval-requested').approval.id
+    const { runId } = (await orgAdmin.post(`${BASE}/${conversationId}/approvals/${approvalId}`, { approved: true })).data
+    await awaitRun(runId)
+    assert.deepEqual(fixture.invokedTools(), ['wipe_everything'])
+    const after = await reflect(conversationId)
+    assert.equal(after.reflected, true)
+    assert.ok(after.toSeq >= asking.seq, 'once settled, the step is read')
+  })
+})

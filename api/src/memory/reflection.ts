@@ -1,0 +1,210 @@
+/**
+ * Memory reflection: an out-of-loop pass that reads a conversation of an agent with memory and updates
+ * that memory (docs/architecture/agent-memory.md §5.2).
+ *
+ * It reads the STORED conversation, which is complete and never rewritten — so nothing has to be
+ * flushed before the turn's context is compacted, and the person never waits for it. It writes through
+ * the same `memory` tool as the agent, minus delete, so every change it makes is versioned and
+ * attributed like any other and can be restored.
+ *
+ * ARCHIVED threads are reflected too (no `archivedAt` check): an audited thread is the organization's
+ * record whatever the person did with it in their own list (Arch D2).
+ */
+import mongo from '#mongo'
+import config from '#config'
+import locks from '@data-fair/lib-node/locks.js'
+import Debug from 'debug'
+import { generateText, stepCountIs, type Tool } from 'ai'
+import { isAuditedAgentId } from '@agents/shared/agent-audit'
+import type { AutonomousAgent, Conversation } from '#types'
+import {
+  agentStoreId, memoryEnabledFor, reflectionDue, reflectableMessages, transcriptForReflection, reflectionSystemPrompt, reflectionUserMessage,
+  MemoryCommandError, MEMORY_TOOL_NAME, MEMORY_SERVER_ID, REFLECTION_STEP_LIMIT, REFLECT_IDLE_MINUTES, REFLECT_LOOKBACK_DAYS, REFLECT_RETRY_MINUTES
+} from './operations.ts'
+import { loadMemory } from './service.ts'
+import { createMemoryTool } from './tool.ts'
+import { withProvenance, usageIdentityFor } from '../conversations/operations.ts'
+import { getSettings } from '../settings/service.ts'
+import { resolveRoleModel } from '../models/service.ts'
+import { computeCreditBreakdown } from '../usage/operations.ts'
+import { recordUsage } from '../usage/service.ts'
+import { checkAccountCreditCap } from '../usage/enforce.ts'
+
+const debug = Debug('df-agents:memory-reflection')
+const LOCK_ORIGIN = 'memory-reflection'
+/** A reflection is bounded by steps and input; this bounds a provider that hangs. */
+const REFLECTION_TIMEOUT_MS = 120_000
+/** Candidates per sweep pass; the next pass picks up the rest. */
+const SWEEP_BATCH = 50
+
+type ReflectionResult = { reflected: boolean, reason: string, toSeq?: number }
+
+/** The agent as reflection needs it: still there, still enabled, memory still on. */
+const findMemoryAgent = async (agentId: string, owner: Conversation['owner']) => {
+  const agent = await mongo.autonomousAgents.findOne(
+    { id: agentId, 'owner.type': owner.type, 'owner.id': owner.id },
+    { projection: { _id: 0 } }
+  )
+  return agent && agent.enabled !== false && memoryEnabledFor(agent) ? agent : null
+}
+
+/** Thrown out of a memory write once the agent lost its memory mid-reflection: ends the pass, not a failure. */
+class MemoryWithdrawnError extends Error {}
+
+export const maybeReflect = async (conversationId: string, trigger: 'turn' | 'idle' | 'manual', now = new Date()): Promise<ReflectionResult> => {
+  const conversation = await mongo.conversations.findOne({ id: conversationId }, { projection: { _id: 0 } })
+  if (!conversation || conversation.anonymous || !isAuditedAgentId(conversation.agentId)) return { reflected: false, reason: 'not-audited' }
+  // Re-read the agent every time: memory disabled, the agent disabled or deleted since the turn — all
+  // mean no reflection, and nothing written (Review Focus 5).
+  const agent = await findMemoryAgent(conversation.agentId, conversation.owner)
+  if (!agent) return { reflected: false, reason: 'memory-off' }
+  const due = reflectionDue(conversation, trigger, now)
+  if (!due.due) return { reflected: false, reason: due.reason }
+
+  const lockId = `memory-reflection:${conversationId}`
+  if (!await locks.acquire(lockId, LOCK_ORIGIN)) return { reflected: false, reason: 'locked' }
+  try {
+    return await reflect(conversation, agent)
+  } catch (err) {
+    if (err instanceof MemoryWithdrawnError) return { reflected: false, reason: 'memory-off' }
+    // Never surfaces in the conversation; backs off the automatic triggers (reflectionDue).
+    console.error(`memory reflection failed for conversation ${conversationId}`, err)
+    await mongo.conversations.updateOne({ id: conversationId }, { $set: { 'memoryReflection.failedAt': new Date().toISOString() } })
+    return { reflected: false, reason: 'failed' }
+  } finally {
+    await locks.release(lockId)
+  }
+}
+
+/**
+ * The memory tool as reflection uses it: delete disabled (Arch D11 — losing information is the one
+ * thing a consolidator must not do), and every command preceded by a re-check that the agent still
+ * exists with memory on. A reflection in flight while its agent is deleted would otherwise write into a
+ * store the cascade has just erased, leaving memory that outlives its agent. A refusal ABORTS the pass
+ * rather than being handed to the model as a tool error: there is nothing left for it to do.
+ *
+ * A write already past its check when the agent is deleted can still land; that window is one
+ * findOne wide, and the next reflection of that agent never comes.
+ */
+const reflectionMemoryTool = (agent: AutonomousAgent, conversation: Conversation, fromSeq: number, toSeq: number, abort: AbortController): Tool => {
+  const memoryTool = createMemoryTool({
+    storeId: agentStoreId(agent.id),
+    owner: conversation.owner,
+    allowDelete: false,
+    author: () => ({ kind: 'reflection', agentId: agent.id, conversationId: conversation.id, fromSeq: fromSeq + 1, toSeq })
+  })
+  return {
+    ...memoryTool,
+    execute: async (args: any, opts: any) => {
+      if (!await findMemoryAgent(agent.id, conversation.owner)) {
+        const err = new MemoryWithdrawnError(`memory was withdrawn from agent ${agent.id} during a reflection`)
+        abort.abort(err)
+        throw new MemoryCommandError('Memory is no longer enabled for this agent; nothing was written.')
+      }
+      return await memoryTool.execute!(args, opts)
+    }
+  }
+}
+
+const reflect = async (conversation: Conversation, agent: AutonomousAgent): Promise<ReflectionResult> => {
+  const fromSeq = conversation.memoryReflection?.upToSeq ?? 0
+  const unread = await mongo.messages
+    .find({ conversationId: conversation.id, seq: { $gt: fromSeq }, pending: { $ne: true } }, { projection: { _id: 0, seq: 1, role: 1, parts: 1 } })
+    .sort({ seq: 1 })
+    .toArray()
+  // Up to, excluding, a step whose approved result is still to be written into its own seq.
+  const messages = reflectableMessages(unread)
+  if (!messages.length) return { reflected: false, reason: 'nothing-new' }
+  const toSeq = messages[messages.length - 1].seq
+
+  // A reflection is a real model call billed to the organization, so it never runs past the cap.
+  if (await checkAccountCreditCap(conversation.owner)) return { reflected: false, reason: 'credit-cap' }
+
+  const settings = await getSettings(conversation.owner)
+  const { model, entry } = resolveRoleModel(settings, 'tools')
+  const documents = await loadMemory(agentStoreId(agent.id))
+  const withdrawn = new AbortController()
+  const tools = withProvenance({ [MEMORY_TOOL_NAME]: reflectionMemoryTool(agent, conversation, fromSeq, toSeq, withdrawn) }, () => MEMORY_SERVER_ID)
+
+  let generated
+  try {
+    generated = await generateText({
+      model,
+      system: reflectionSystemPrompt(agent.title),
+      messages: [{ role: 'user', content: reflectionUserMessage(documents, transcriptForReflection(messages)) }],
+      tools,
+      stopWhen: stepCountIs(REFLECTION_STEP_LIMIT),
+      abortSignal: AbortSignal.any([withdrawn.signal, AbortSignal.timeout(REFLECTION_TIMEOUT_MS)])
+    })
+  } catch (err) {
+    if (withdrawn.signal.aborted) throw withdrawn.signal.reason
+    throw err
+  }
+  // Settled after a refusal that the model loop happened to swallow: still nothing more to record.
+  if (withdrawn.signal.aborted) throw withdrawn.signal.reason
+
+  // At the tools model's prices, under the agent's own identity — the accounting compaction uses
+  // (turn-history.ts), minus the run: a reflection has none, so its cost lives in usage and on the conversation.
+  const usage = generated.totalUsage
+  const details = usage?.inputTokenDetails
+  const credits = computeCreditBreakdown({
+    inputTokens: usage?.inputTokens ?? 0,
+    outputTokens: usage?.outputTokens ?? 0,
+    noCacheTokens: details?.noCacheTokens,
+    cacheReadTokens: details?.cacheReadTokens,
+    cacheWriteTokens: details?.cacheWriteTokens
+  }, entry, config.eurosPerCredit)
+  if (credits.total > 0) {
+    const identity = usageIdentityFor(agent, { owner: conversation.owner })
+    await recordUsage(conversation.owner, {
+      cost: credits.total,
+      userId: identity.usageUserId,
+      userName: identity.usageUserName,
+      poolId: identity.poolId,
+      dimensions: {
+        modelRole: 'tools',
+        model: entry.id,
+        profile: identity.role,
+        tokenCosts: { input: credits.input, cachedInput: credits.cachedInput, output: credits.output }
+      }
+    })
+  }
+  await mongo.conversations.updateOne(
+    { id: conversation.id },
+    {
+      $set: { 'memoryReflection.upToSeq': toSeq, 'memoryReflection.at': new Date().toISOString() },
+      $unset: { 'memoryReflection.failedAt': '' },
+      $inc: { 'memoryReflection.credits': credits.total }
+    }
+  )
+  // A refused write is the model's to handle (it is told why), so it does not fail the pass — but it
+  // leaves no trace anywhere else.
+  const refused = generated.steps.flatMap(step => step.content).filter(part => part.type === 'tool-error').length
+  debug('reflected conversation %s seq %d..%d in %d step(s), %d refused write(s)', conversation.id, fromSeq + 1, toSeq, generated.steps.length, refused)
+  return { reflected: true, reason: 'done', toSeq }
+}
+
+/**
+ * The idle trigger: every thread of an agent with memory that went quiet inside the lookback and has
+ * unreflected messages. Bounded per pass; the next pass picks up the rest.
+ */
+export const sweepIdleReflections = async (now = new Date()): Promise<number> => {
+  const agents = await mongo.autonomousAgents.find({ 'memory.enabled': true, enabled: { $ne: false } }, { projection: { _id: 0, id: 1 } }).toArray()
+  if (!agents.length) return 0
+  const idleBefore = new Date(now.getTime() - REFLECT_IDLE_MINUTES * 60000).toISOString()
+  const notBefore = new Date(now.getTime() - REFLECT_LOOKBACK_DAYS * 24 * 60 * 60000).toISOString()
+  const retryAfter = new Date(now.getTime() - REFLECT_RETRY_MINUTES * 60000).toISOString()
+  const candidates = await mongo.conversations.find({
+    agentId: { $in: agents.map(agent => agent.id) },
+    lastMessageAt: { $lt: idleBefore, $gte: notBefore },
+    // A thread in its failure backoff would be refused anyway; left in, a batch of them could fill
+    // every slot of the pass and starve the threads that are due.
+    'memoryReflection.failedAt': { $not: { $gte: retryAfter } },
+    $expr: { $gt: ['$messageSeq', { $ifNull: ['$memoryReflection.upToSeq', 0] }] }
+  }, { projection: { _id: 0, id: 1 } }).limit(SWEEP_BATCH).toArray()
+  let reflected = 0
+  for (const candidate of candidates) {
+    if ((await maybeReflect(candidate.id, 'idle', now)).reflected) reflected++
+  }
+  return reflected
+}

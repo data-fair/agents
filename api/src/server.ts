@@ -14,6 +14,7 @@ import { recoverOwnerlessRuns } from './conversations/executor.ts'
 import { purgeExpiredArchives, purgeAbandonedAnonymous } from './conversations/service.ts'
 import { assertSessionOutlivesRun, ASSERTION_TTL_SECONDS } from './nhi/operations.ts'
 import { startAgentSessions } from './agent-session/service.ts'
+import { sweepIdleReflections } from './memory/reflection.ts'
 
 /**
  * Run pending upgrade/<version>/*.js migrations (see @data-fair/lib-node/upgrade-scripts.js).
@@ -61,6 +62,7 @@ let cleanupInterval: ReturnType<typeof setInterval> | undefined
 let archivePurgeInterval: ReturnType<typeof setInterval> | undefined
 let anonymousPurgeInterval: ReturnType<typeof setInterval> | undefined
 let autonomousAgentReaper: ReturnType<typeof setInterval> | undefined
+let memoryReflectionSweep: ReturnType<typeof setInterval> | undefined
 let agentSessions: ReturnType<typeof startAgentSessions> | undefined
 
 server.keepAliveTimeout = (60 * 1000) + 1000
@@ -121,6 +123,12 @@ export const start = async () => {
     purgeAbandonedAnonymous().catch(err => console.error('anonymous purge failed', err))
   }, 60 * 60 * 1000)
 
+  // Memory reflection of threads that went quiet. Every 5 minutes against a 30-minute idle threshold;
+  // per-conversation locks make concurrent instances harmless (api/src/memory/reflection.ts).
+  memoryReflectionSweep = setInterval(() => {
+    sweepIdleReflections().catch(err => console.error('memory reflection sweep failed', err))
+  }, 5 * 60 * 1000)
+
   // Before server.listen, so the socket endpoint exists when the http server starts accepting connections.
   agentSessions = startAgentSessions(server)
 
@@ -148,6 +156,7 @@ export const stop = async () => {
   if (autonomousAgentReaper) clearInterval(autonomousAgentReaper)
   if (archivePurgeInterval) clearInterval(archivePurgeInterval)
   if (anonymousPurgeInterval) clearInterval(anonymousPurgeInterval)
+  if (memoryReflectionSweep) clearInterval(memoryReflectionSweep)
   // Before the HTTP server goes: a connected browser holding a turn open must be told rather than
   // left with a socket that stops answering, and every pending browser tool call has to fail so the
   // turn waiting on it can finish.
