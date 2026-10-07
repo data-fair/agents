@@ -18,6 +18,7 @@ const createAgent = async () => (await admin.post('/api/autonomous-agents/organi
   instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }]
 })).data
 const base = (agentId: string) => `/api/memory/organization/test1/${agentId}`
+const command = (agentId: string, input: any) => admin.post(`/api/test-env/memory-command/${agentId}`, { input })
 const put = (agentId: string, path: string, body: any) => admin.put(`${base(agentId)}/document`, body, { params: { path } })
 
 test.describe('Agent memory admin API', () => {
@@ -90,6 +91,83 @@ test.describe('Agent memory admin API', () => {
     // writes follow the agent configuration's progressive-rollout gate (reqWriteSession)
     const agent = await createAgent()
     await assert.rejects(orgAdmin.put(`${base(agent.id)}/document`, { description: 'd', content: 'a' }, { params: { path: 'x.md' } }), { status: 403 })
+  })
+
+  test('redaction follows the CONTENT: refused while another path holds the text', async () => {
+    const agent = await createAgent()
+    await put(agent.id, 'a.md', { description: 'd', content: 'secret' })
+    await command(agent.id, { command: 'rename', path: 'a.md', new_path: 'b.md' })
+    const versions = (await orgAdmin.get(`${base(agent.id)}/versions`)).data.results
+    const created = versions.find((v: any) => v.path === 'a.md' && v.op === 'create')
+    await assert.rejects(admin.post(`${base(agent.id)}/versions/${created.id}/redact`), { status: 400 })
+    // once the live copy is gone, redaction blanks every row carrying the text
+    await admin.delete(`${base(agent.id)}/document`, { params: { path: 'b.md', version: 2 } })
+    await admin.post(`${base(agent.id)}/versions/${created.id}/redact`)
+    const after = (await orgAdmin.get(`${base(agent.id)}/versions`)).data.results
+    for (const v of after.filter((v: any) => v.op !== 'delete')) assert.equal(v.content, '[redacted]')
+    // a delete row has no content to redact
+    const del = after.find((v: any) => v.op === 'delete')
+    await assert.rejects(admin.post(`${base(agent.id)}/versions/${del.id}/redact`), { status: 400 })
+  })
+
+  test('redacting the version a restore copied is refused, delete then recreate allows it', async () => {
+    const agent = await createAgent()
+    await put(agent.id, 'x.md', { description: 'd', content: 'first' })
+    await put(agent.id, 'x.md', { description: 'd', content: 'second', version: 1 })
+    const v1 = (await orgAdmin.get(`${base(agent.id)}/versions`, { params: { path: 'x.md' } })).data.results[1]
+    await admin.post(`${base(agent.id)}/versions/${v1.id}/restore`)
+    await assert.rejects(admin.post(`${base(agent.id)}/versions/${v1.id}/redact`), { status: 400 })
+    // delete, recreate with other text: version numbers restart at 1, the old row is still redactable
+    await admin.delete(`${base(agent.id)}/document`, { params: { path: 'x.md', version: 3 } })
+    await put(agent.id, 'x.md', { description: 'd', content: 'brand new' })
+    await admin.post(`${base(agent.id)}/versions/${v1.id}/redact`)
+  })
+
+  test('a deleted document can be restored from its history', async () => {
+    const agent = await createAgent()
+    await put(agent.id, 'x.md', { description: 'd', content: 'keep me' })
+    const created = (await orgAdmin.get(`${base(agent.id)}/versions`)).data.results[0]
+    await admin.delete(`${base(agent.id)}/document`, { params: { path: 'x.md', version: 1 } })
+    const restored = (await admin.post(`${base(agent.id)}/versions/${created.id}/restore`)).data
+    assert.equal(restored.content, 'keep me')
+    assert.equal(restored.version, 1)
+  })
+
+  test('the agent-side rename moves the document and logs it', async () => {
+    const agent = await createAgent()
+    await put(agent.id, 'old.md', { description: 'd', content: 'text' })
+    await command(agent.id, { command: 'rename', path: 'old.md', new_path: 'new.md' })
+    const list = (await orgAdmin.get(base(agent.id))).data
+    assert.deepEqual(list.documents.map((d: any) => d.path), ['new.md'])
+    const versions = (await orgAdmin.get(`${base(agent.id)}/versions`, { params: { path: 'new.md' } })).data
+    assert.equal(versions.results[0].op, 'rename')
+    assert.equal(versions.results[0].previousPath, 'old.md')
+  })
+
+  test('two concurrent stale writes: exactly one wins, the other is a 409', async () => {
+    const agent = await createAgent()
+    await put(agent.id, 'x.md', { description: 'd', content: 'v1' })
+    const results = await Promise.allSettled([
+      put(agent.id, 'x.md', { description: 'd', content: 'A', version: 1 }),
+      put(agent.id, 'x.md', { description: 'd', content: 'B', version: 1 })
+    ])
+    assert.equal(results.filter(r => r.status === 'fulfilled').length, 1)
+    const lost = results.find(r => r.status === 'rejected') as PromiseRejectedResult
+    assert.equal(lost.reason.status, 409)
+    // the lost write left no version row behind
+    assert.equal((await orgAdmin.get(`${base(agent.id)}/versions`, { params: { path: 'x.md' } })).data.count, 2)
+  })
+
+  test('another account\'s agent addressed through this account\'s route is a 404', async () => {
+    const agent = await createAgent()
+    await assert.rejects(admin.get(`/api/memory/organization/test2/${agent.id}`), { status: 404 })
+  })
+
+  test('a loose /memories/ path reads the same document', async () => {
+    const agent = await createAgent()
+    await put(agent.id, 'MEMORY.md', { description: 'd', content: 'core' })
+    const read = (await orgAdmin.get(`${base(agent.id)}/document`, { params: { path: '/memories/MEMORY.md' } })).data
+    assert.equal(read.path, 'MEMORY.md')
   })
 
   test('deleting the agent erases its memory and history', async () => {

@@ -5,17 +5,21 @@
  * An agent's memory, for the administrators of the organization that owns it. NOT for instructors who
  * are not admins: an agent-wide memory can hold what OTHER instructors said.
  */
+import mongo from '#mongo'
 import { Router } from 'express'
 import { type AccountKeys, assertAccountRole, httpError, reqSessionAuthenticated } from '@data-fair/lib-express'
 import eventsLog from '@data-fair/lib-express/events-log.js'
 import { assertOrganizationOwner, getAutonomousAgent, reqWriteSession } from '../autonomous-agents/service.ts'
-import { agentStoreId, MEMORY_LIMITS, MemoryCommandError, MemoryConflictError } from './operations.ts'
+import { agentStoreId, MEMORY_LIMITS, normalizeMemoryPath, MemoryCommandError, MemoryConflictError } from './operations.ts'
 import { loadMemory, writeMemoryAsUser, deleteMemoryAsUser, listMemoryVersions, restoreMemoryVersion, redactMemoryVersion } from './service.ts'
 
 const router = Router()
 export default router
 
-/** Resolve the agent for an admin of its owner; returns its store id. */
+/**
+ * Resolve the agent for an admin of its owner; returns its store id. An admin write racing the agent's
+ * deletion by another admin can leave an orphan store: accepted (a re-created agent has a new id).
+ */
 const requireAgentAdmin = async (req: any, write: boolean) => {
   const session = reqSessionAuthenticated(req)
   const owner = { type: req.params.type, id: req.params.id } as AccountKeys
@@ -56,7 +60,7 @@ router.get('/:type/:id/:agentId/document', async (req, res, next) => {
   try {
     const { storeId } = await requireAgentAdmin(req, false)
     const path = queryPath(req)
-    const document = (await loadMemory(storeId)).find(d => d.path === path)
+    const document = await mongo.agentMemories.findOne({ storeId, path: normalizeMemoryPath(path) }, { projection: { _id: 0 } })
     if (!document) throw httpError(404, 'unknown memory document')
     res.json(document)
   } catch (err) { next(mapError(err)) }
@@ -76,8 +80,9 @@ router.delete('/:type/:id/:agentId/document', async (req, res, next) => {
     const { owner, storeId, user } = await requireAgentAdmin(req, true)
     const version = Number(req.query.version)
     if (!Number.isInteger(version)) throw httpError(400, 'version is required')
-    await deleteMemoryAsUser(storeId, owner, queryPath(req), version, user)
-    eventsLog.info('agents.memory.delete', `memory document ${req.query.path} of agent ${req.params.agentId} deleted`, { req })
+    const path = normalizeMemoryPath(queryPath(req))
+    await deleteMemoryAsUser(storeId, owner, path, version, user)
+    eventsLog.info('agents.memory.delete', `memory document ${path} of agent ${req.params.agentId} deleted`, { req })
     res.status(204).send()
   } catch (err) { next(mapError(err)) }
 })

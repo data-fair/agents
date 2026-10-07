@@ -11,7 +11,7 @@ import { nanoid } from 'nanoid'
 import type { AccountKeys } from '@data-fair/lib-express'
 import type { AgentMemory, AgentMemoryVersion } from '#types'
 import {
-  applyMemoryCommand, userWriteChange, normalizeMemoryPath, MEMORY_LIMITS, MemoryCommandError, MemoryConflictError,
+  applyMemoryCommand, userWriteChange, restoreChange, normalizeMemoryPath, MEMORY_LIMITS, MemoryCommandError, MemoryConflictError,
   type MemoryAuthor, type MemoryChange
 } from './operations.ts'
 
@@ -31,31 +31,11 @@ const isDuplicateKey = (err: any) => err?.code === 11000
  */
 const persistChange = async (storeId: string, owner: AccountKeys, change: MemoryChange, author: MemoryAuthor): Promise<AgentMemory | false> => {
   const now = new Date().toISOString()
-  let written: AgentMemory | undefined
-  if (change.op === 'delete') {
-    const deleted = await mongo.agentMemories.deleteOne({ storeId, path: change.path, version: change.expectedVersion })
-    if (!deleted.deletedCount) return false
-  } else if (change.op === 'rename') {
-    // No multi-document transaction (the dev mongo is standalone): insert the new path first, then
-    // remove the old one under its version, and undo the insert if that precondition was lost.
-    const doc: AgentMemory = { storeId, owner, path: change.path, description: change.description, content: change.content, version: change.expectedVersion + 1, createdAt: now, updatedAt: now, updatedBy: author }
-    try { await mongo.agentMemories.insertOne({ ...doc }) } catch (err) { if (isDuplicateKey(err)) return false; throw err }
-    const removed = await mongo.agentMemories.deleteOne({ storeId, path: change.previousPath, version: change.expectedVersion })
-    if (!removed.deletedCount) { await mongo.agentMemories.deleteOne({ storeId, path: change.path, version: doc.version }); return false }
-    written = doc
-  } else if (change.expectedVersion === 0) {
-    const doc: AgentMemory = { storeId, owner, path: change.path, description: change.description, content: change.content, version: 1, createdAt: now, updatedAt: now, updatedBy: author }
-    try { await mongo.agentMemories.insertOne({ ...doc }) } catch (err) { if (isDuplicateKey(err)) return false; throw err }
-    written = doc
-  } else {
-    const updated = await mongo.agentMemories.findOneAndUpdate(
-      { storeId, path: change.path, version: change.expectedVersion },
-      { $set: { description: change.description, content: change.content, updatedAt: now, updatedBy: author }, $inc: { version: 1 } },
-      { returnDocument: 'after', projection: { _id: 0 } }
-    )
-    if (!updated) return false
-    written = updated
-  }
+  const newVersion = change.op === 'delete' ? 0 : change.expectedVersion + 1
+  // The version row goes FIRST, carrying the version the document will get. Without transactions, an
+  // interruption can then leave a row for a change that never landed (reconcilable against the
+  // document) but never a change with no record — which is the one that cannot be reconstructed.
+  // It is removed again when the precondition is lost or the document write throws.
   const version: AgentMemoryVersion = {
     id: nanoid(),
     storeId,
@@ -63,13 +43,51 @@ const persistChange = async (storeId: string, owner: AccountKeys, change: Memory
     path: change.path,
     ...(change.op === 'rename' ? { previousPath: change.previousPath } : {}),
     op: change.op === 'create' || change.op === 'update' ? (change.expectedVersion === 0 ? 'create' : 'update') : change.op,
-    version: written?.version ?? 0,
+    version: change.op === 'delete' ? change.expectedVersion : newVersion,
     ...(change.op !== 'delete' ? { description: change.description, content: change.content } : {}),
     author,
     createdAt: now
   }
   await mongo.agentMemoryVersions.insertOne({ ...version })
-  return written ?? ({ storeId, owner, path: change.path } as AgentMemory)
+  let written: AgentMemory | false
+  try {
+    written = await writeDocument(storeId, owner, change, author, now)
+  } catch (err) {
+    await mongo.agentMemoryVersions.deleteOne({ storeId, id: version.id }).catch(() => {})
+    throw err
+  }
+  if (!written) await mongo.agentMemoryVersions.deleteOne({ storeId, id: version.id })
+  return written
+}
+
+/**
+ * The document write under its precondition. A rename is the one non-transactional window left (the
+ * dev mongo is standalone): insert the new path, then remove the old under its version, undoing the
+ * insert if that precondition was lost. A crash BETWEEN the two leaves both paths; the log row exists.
+ */
+const writeDocument = async (storeId: string, owner: AccountKeys, change: MemoryChange, author: MemoryAuthor, now: string): Promise<AgentMemory | false> => {
+  if (change.op === 'delete') {
+    const deleted = await mongo.agentMemories.deleteOne({ storeId, path: change.path, version: change.expectedVersion })
+    return deleted.deletedCount ? ({ storeId, owner, path: change.path } as AgentMemory) : false
+  }
+  if (change.op === 'rename') {
+    const doc: AgentMemory = { storeId, owner, path: change.path, description: change.description, content: change.content, version: change.expectedVersion + 1, createdAt: now, updatedAt: now, updatedBy: author }
+    try { await mongo.agentMemories.insertOne({ ...doc }) } catch (err) { if (isDuplicateKey(err)) return false; throw err }
+    const removed = await mongo.agentMemories.deleteOne({ storeId, path: change.previousPath, version: change.expectedVersion })
+    if (!removed.deletedCount) { await mongo.agentMemories.deleteOne({ storeId, path: change.path, version: doc.version }); return false }
+    return doc
+  }
+  if (change.expectedVersion === 0) {
+    const doc: AgentMemory = { storeId, owner, path: change.path, description: change.description, content: change.content, version: 1, createdAt: now, updatedAt: now, updatedBy: author }
+    try { await mongo.agentMemories.insertOne({ ...doc }) } catch (err) { if (isDuplicateKey(err)) return false; throw err }
+    return doc
+  }
+  const updated = await mongo.agentMemories.findOneAndUpdate(
+    { storeId, path: change.path, version: change.expectedVersion },
+    { $set: { description: change.description, content: change.content, updatedAt: now, updatedBy: author }, $inc: { version: 1 } },
+    { returnDocument: 'after', projection: { _id: 0 } }
+  )
+  return updated ?? false
 }
 
 /** What the `memory` tool runs. Returns the model-facing result; throws MemoryCommandError. */
@@ -100,7 +118,7 @@ export const deleteMemoryAsUser = async (storeId: string, owner: AccountKeys, ra
 export const listMemoryVersions = async (storeId: string, opts: { path?: string, skip: number, limit: number }) => {
   const filter = { storeId, ...(opts.path ? { path: normalizeMemoryPath(opts.path) } : {}) }
   const [results, count] = await Promise.all([
-    mongo.agentMemoryVersions.find(filter, { projection: { _id: 0 } }).sort({ createdAt: -1 }).skip(opts.skip).limit(opts.limit).toArray(),
+    mongo.agentMemoryVersions.find(filter, { projection: { _id: 0 } }).sort({ createdAt: -1, _id: -1 }).skip(opts.skip).limit(opts.limit).toArray(),
     mongo.agentMemoryVersions.countDocuments(filter)
   ])
   return { count, results }
@@ -109,24 +127,26 @@ export const listMemoryVersions = async (storeId: string, opts: { path?: string,
 /** Restore = write that version's content again, as a NEW version. History is never rewound. */
 export const restoreMemoryVersion = async (storeId: string, owner: AccountKeys, versionId: string, user: { id: string, name?: string }) => {
   const version = await mongo.agentMemoryVersions.findOne({ storeId, id: versionId }, { projection: { _id: 0 } })
-  if (!version || version.content === undefined || version.redacted) throw new MemoryCommandError('this version has no content to restore')
-  const current = (await loadMemory(storeId)).find(d => d.path === version.path)
-  const written = await persistChange(storeId, owner, {
-    op: 'restore', path: version.path, description: version.description ?? current?.description ?? version.path, content: version.content, expectedVersion: current?.version ?? 0
-  }, { kind: 'user', userId: user.id, ...(user.name ? { userName: user.name } : {}) })
+  if (!version) throw new MemoryCommandError('unknown version')
+  const change = restoreChange(await loadMemory(storeId), version)
+  const written = await persistChange(storeId, owner, change, { kind: 'user', userId: user.id, ...(user.name ? { userName: user.name } : {}) })
   if (!written) throw new MemoryConflictError(`${version.path} was changed concurrently; retry.`)
   return written
 }
 
+/**
+ * Redaction is by CONTENT: the point is that the text is gone. Refused while any live document holds
+ * it (a rename or restore row is a copy of the same text, and version numbers restart after a delete,
+ * so the number says nothing); when allowed, every row of the store carrying that text is redacted.
+ */
 export const redactMemoryVersion = async (storeId: string, versionId: string, user: { id: string, name?: string }) => {
   const version = await mongo.agentMemoryVersions.findOne({ storeId, id: versionId }, { projection: { _id: 0 } })
   if (!version) throw new MemoryCommandError('unknown version')
-  const current = await mongo.agentMemories.findOne({ storeId, path: version.path }, { projection: { _id: 0, version: 1 } })
-  // The live document IS this version's content: redacting only the history would leave the text in
-  // place while claiming it was removed. The admin edits the document first, then redacts.
-  if (current && current.version === version.version) throw new MemoryCommandError('this version is the current content; edit the document first, then redact this version')
-  await mongo.agentMemoryVersions.updateOne(
-    { storeId, id: versionId },
+  if (version.content === undefined) throw new MemoryCommandError('this version has no content to redact')
+  const holder = await mongo.agentMemories.findOne({ storeId, content: version.content }, { projection: { _id: 0, path: 1 } })
+  if (holder) throw new MemoryCommandError(`${holder.path} currently holds this text; edit the document first, then redact this version`)
+  await mongo.agentMemoryVersions.updateMany(
+    { storeId, content: version.content },
     { $set: { content: '[redacted]', redacted: { at: new Date().toISOString(), by: { id: user.id, ...(user.name ? { name: user.name } : {}) } } } }
   )
 }

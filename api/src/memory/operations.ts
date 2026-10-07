@@ -250,6 +250,17 @@ export function userWriteChange (documents: MemoryDocument[], rawPath: string, b
   return { op: existing ? 'update' : 'create', path, description, content, expectedVersion: existing?.version ?? 0 }
 }
 
+/**
+ * Restore = write a logged version's content again, under the same limits as any other write (an old
+ * version may be over caps that were tightened since, or push the store over its totals).
+ */
+export function restoreChange (documents: MemoryDocument[], version: { path: string, description?: string, content?: string, redacted?: unknown }): MemoryChange {
+  if (version.content === undefined || version.redacted) throw new MemoryCommandError('this version has no content to restore')
+  const existing = find(documents, version.path)
+  assertWithinLimits(documents, { path: version.path, content: version.content })
+  return { op: 'restore', path: version.path, description: version.description ?? existing?.description ?? version.path, content: version.content, expectedVersion: existing?.version ?? 0 }
+}
+
 /** Defuses every opening or closing tag of the block's vocabulary, whatever its case. */
 const neutraliseBlockTags = (text: string) => text
   .replace(/<\/(agent-memory|core|index)/gi, '<\\/$1')

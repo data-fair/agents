@@ -5,7 +5,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import {
   CORE_PATH, MEMORY_LIMITS, agentStoreId, memoryEnabledFor, normalizeMemoryPath, applyMemoryCommand,
-  userWriteChange, renderMemoryBlock, MemoryCommandError, MemoryConflictError, type MemoryDocument
+  userWriteChange, restoreChange, renderMemoryBlock, MemoryCommandError, MemoryConflictError, type MemoryDocument
 } from '../../../api/src/memory/operations.ts'
 import { buildSystemPrompt } from '../../../api/src/conversations/operations.ts'
 
@@ -201,5 +201,19 @@ test.describe('memory scope', () => {
     assert.equal(memoryEnabledFor({ id: 'abc', memory: { enabled: true } }), true)
     assert.equal(memoryEnabledFor({ id: 'abc' }), false)
     assert.equal(memoryEnabledFor({ id: 'personal', memory: { enabled: true } }), false)
+  })
+})
+
+test.describe('restoreChange', () => {
+  const doc = (path: string, content: string): MemoryDocument => ({ path, description: 'd', content, version: 3, updatedAt: '2026-01-01T00:00:00.000Z' })
+  test('restores onto the live version, or from nothing for a deleted document', () => {
+    assert.deepEqual(restoreChange([doc('a.md', 'now')], { path: 'a.md', description: 'd', content: 'before' }), { op: 'restore', path: 'a.md', description: 'd', content: 'before', expectedVersion: 3 })
+    assert.equal(restoreChange([], { path: 'a.md', description: 'd', content: 'before' }).expectedVersion, 0)
+  })
+  test('refuses a restore over the limits, and a redacted or content-less version', () => {
+    assert.throws(() => restoreChange([], { path: 'a.md', description: 'd', content: 'x'.repeat(MEMORY_LIMITS.documentChars + 1) }), MemoryCommandError)
+    assert.throws(() => restoreChange([], { path: 'MEMORY.md', description: 'd', content: 'x'.repeat(MEMORY_LIMITS.coreChars + 1) }), MemoryCommandError)
+    assert.throws(() => restoreChange([], { path: 'a.md', content: '[redacted]', redacted: { at: 'x' } }), MemoryCommandError)
+    assert.throws(() => restoreChange([], { path: 'a.md' }), MemoryCommandError)
   })
 })
