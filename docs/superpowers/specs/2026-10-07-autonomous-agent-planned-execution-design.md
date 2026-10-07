@@ -185,9 +185,18 @@ It, these tools and the memory tools of the sibling work go through one small re
 when it applies (chat or task run; personal assistant or configured agent) and builds its tools for that
 turn.
 
-**Boundary with agent memory** (sibling work, branch `feat-agent-memory`): these tools read records the
-service keeps — configuration, tasks, task runs. What the agent chooses to write down, and search over its
-past conversations, belong to the memory work. Both use the registry.
+**Boundary with agent memory** (P3, planned in `docs/superpowers/plans/2026-10-07-agent-memory.md` and
+`…-agent-memory-architecture.md`): these tools read records the service keeps — configuration, tasks, task
+runs. What the agent chooses to write down, and search over its past conversations, belong to the memory
+work. Both use the registry. Two adjustments to the memory architecture follow from task runs not being
+conversations:
+
+- the `memory` tool is offered in task runs too — it already does not depend on a watching socket, and the
+  registry's "applies to task runs" makes that explicit;
+- the memory architecture assumes scheduled tasks "produce conversations" that its reflection pass picks up
+  when they go idle. They do not: a task run is its own record. A task run is complete when it ends, so it
+  is reflected **once, at its end**, by the same pass reading the task run's parts instead of a
+  conversation's new messages. Whichever of the two features lands second wires this.
 
 ## Routes and UI
 
