@@ -451,7 +451,8 @@ router.post('/:type/:id/:conversationId/messages', async (req, res, next) => {
     // A message answers a pending wait, as it does over the socket (see startSessionTurn).
     await settlePendingWait(conversation.id, wait => interruptedWaitResult(wait.expecting))
     // A message also rejects a pending approval: the person moved on without deciding.
-    await rejectPendingApprovals(conversation.id)
+    // Undecided calls only: an approved one may be executing in an `approval` run, whose result must survive.
+    await rejectPendingApprovals(conversation.id, undefined, undefined, { undecidedOnly: true })
 
     const message = await appendMessage(conversation, {
       role: 'user',

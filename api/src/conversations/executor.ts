@@ -52,7 +52,7 @@ import type { ChatActivity } from '@agents/shared/agent-activity'
 import { browserToolSet } from '../agent-session/browser-tools.ts'
 import { waitHandover, repairWaitInput, formatHostEvents, WAIT_TOOL_NAME, WAIT_ACCEPTED, LOCATION_KEY } from '@agents/shared/host-events'
 import { settlePendingWait } from './waits.ts'
-import { PERSON_SPOKE, interruptReason, settleInterruptedParts } from './interrupted-turn.ts'
+import { PERSON_SPOKE, interruptedWaitResult, interruptReason, settleInterruptedParts } from './interrupted-turn.ts'
 import { checkAccountCreditCap } from '../usage/enforce.ts'
 import { recordUsage } from '../usage/service.ts'
 import type { MemoryDocument } from '../memory/operations.ts'
@@ -1136,6 +1136,10 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
     // under the conversation's lock, that turn has closed its message. Idempotent: usually there is
     // nothing left to reject.
     if (run.trigger === 'user') await rejectPendingApprovals(run.conversationId)
+
+    // And a wait handed over by a turn that was still finishing when the message was posted: the post found
+    // no `pendingWait` to settle, then that turn's close wrote one. The person answered it by writing.
+    if (run.trigger === 'user') await settlePendingWait(run.conversationId, wait => interruptedWaitResult(wait.expecting))
 
     // Inside the try: appendMessage can fail (the conversation vanished between the findOne
     // above and the $inc, a duplicate seq, a transient mongo error) and that must still

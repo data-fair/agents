@@ -169,6 +169,31 @@ test.describe('wait_for_user_action over the socket', () => {
     assert.equal((await conversation(conversationId)).pendingWait, undefined)
   })
 
+  test('a message written as the turn hands over leaves no stale wait behind', async () => {
+    // The post lands while the handing-over turn is still finishing: it finds no pending wait to settle,
+    // and the turn's close then records one. The user run that answers the message settles it at its start.
+    // The window is narrow, so this is also a regression guard for that start-of-run settle.
+    const { socket, conversationId } = await openSession()
+    socket.send({ type: 'prompt', content: 'wait for me' })
+    const early = await collect(socket, all => !!waitPart(all, 'input-available'))
+    socket.send({ type: 'prompt', content: 'never mind' })
+    await collect(socket, all => turnEnds([...early, ...all]).length >= 2)
+    // let any trailing run close out
+    for (let i = 0; i < 100; i++) {
+      if ((await runs(conversationId)).every(r => r.status !== 'running')) break
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
+    assert.equal((await conversation(conversationId)).pendingWait, undefined, 'no wait is left pending')
+    const messages = (await user.get(`/api/conversations/${OWNER}/${conversationId}/messages`)).data.results
+    const open = messages.flatMap((m: any) => m.parts ?? []).filter((p: any) => p.toolName === 'wait_for_user_action' && p.state === 'input-available')
+    assert.equal(open.length, 0, 'no wait call is left open')
+
+    const before = (await runs(conversationId)).length
+    socket.send({ type: 'host-events', events: [{ name: 'clicked Create', at: Date.now() }] })
+    await new Promise(resolve => setTimeout(resolve, 1500))
+    assert.equal((await runs(conversationId)).length, before, 'a later page action wakes nothing')
+  })
+
   test('a keyed refresh is the page catching up: it does not wake, and rides along with the answer', async () => {
     const { socket, conversationId } = await handOver()
     socket.send({ type: 'host-state', state: { wizard: '{"ready":true}' } })

@@ -392,28 +392,44 @@ export const APPROVED_STEP_SUPERSEDED = 'Approved, but the person sent a new mes
  * The calls of the same step already APPROVED are settled too, as errors: they were waiting for the
  * rest of the step, which is now refused, so nothing will ever run them. Only in a message that still
  * has an undecided call — a fully decided step has its continuation run, which settles its own.
+ *
+ * `undecidedOnly` leaves those approved calls alone: the post-time callers use it, because a call
+ * already approved may be executing in an `approval` run right now, and only the run-start rejection,
+ * under the conversation lock, may settle it.
  */
 export const rejectPendingApprovals = async (
   conversationId: string,
   reason: string = PENDING_APPROVAL_SUPERSEDED,
-  approvedError: string = APPROVED_STEP_SUPERSEDED
+  approvedError: string = APPROVED_STEP_SUPERSEDED,
+  opts?: { undecidedOnly?: boolean }
 ): Promise<number> => {
-  if (!await mongo.messages.findOne({ conversationId, 'parts.state': 'approval-requested' }, { projection: { _id: 1 } })) return 0
+  // A message still holding an undecided call. Unless `undecidedOnly`, also one whose undecided calls an
+  // earlier post-time rejection already refused (with this same reason) while approved calls remain: those
+  // are what the run-start rejection must still settle.
+  const filter = opts?.undecidedOnly
+    ? { conversationId, 'parts.state': 'approval-requested' }
+    : {
+        conversationId,
+        $or: [
+          { 'parts.state': 'approval-requested' },
+          { 'parts.state': 'approval-responded', parts: { $elemMatch: { state: 'output-denied', 'approval.reason': reason } } }
+        ]
+      }
+  if (!await mongo.messages.findOne(filter, { projection: { _id: 1 } })) return 0
   const { version } = await bumpConversationVersion(conversationId)
   const result = await mongo.messages.updateMany(
-    { conversationId, 'parts.state': 'approval-requested' },
+    filter,
     {
       $set: {
         'parts.$[p].state': 'output-denied',
         'parts.$[p].approval.approved': false,
         'parts.$[p].approval.reason': reason,
-        'parts.$[q].state': 'output-error',
-        'parts.$[q].errorText': approvedError,
+        ...(opts?.undecidedOnly ? {} : { 'parts.$[q].state': 'output-error', 'parts.$[q].errorText': approvedError }),
         version,
         updatedAt: new Date().toISOString()
       }
     },
-    { arrayFilters: [{ 'p.state': 'approval-requested' }, { 'q.state': 'approval-responded' }] }
+    { arrayFilters: opts?.undecidedOnly ? [{ 'p.state': 'approval-requested' }] : [{ 'p.state': 'approval-requested' }, { 'q.state': 'approval-responded' }] }
   )
   // The watching page is shown the refusal and loses the "awaiting approval" label, as for a decision.
   const watcher = sessionFor(conversationId)

@@ -91,6 +91,23 @@ test.describe('The approval gate', () => {
   const messageAt = async (conversationId: string, seq: number) =>
     (await orgAdmin.get(`${BASE}/${conversationId}/messages`)).data.results.find((m: any) => m.seq === seq)
 
+  test('a message posted while an approved call runs does not overwrite its result', async () => {
+    // The approval run executes the approved slow_lookup; a message posted meanwhile must reject only calls
+    // still undecided — the approved one finishes and keeps its real result.
+    const agent = await createGatedAgent({ approvals: { readOnly: 'approve' } })
+    const conv = (await orgAdmin.post(BASE, { agentId: agent.id, title: 't' })).data
+    const { assistant } = await turn(conv.id, 'call tool slow_lookup {}')
+    const approvalId = callPart(assistant, 'slow_lookup').approval.id
+    const { runId: continuation } = (await decide(conv.id, approvalId, { approved: true })).data
+    await new Promise(resolve => setTimeout(resolve, 500)) // slow_lookup takes 2s
+    const { runId: answering } = (await orgAdmin.post(`${BASE}/${conv.id}/messages`, { content: 'hello' })).data
+    await awaitRun(continuation)
+    await awaitRun(answering)
+    const part = callPart(await messageAt(conv.id, assistant.seq), 'slow_lookup')
+    assert.equal(part.state, 'output-available', JSON.stringify(part))
+    assert.deepEqual(fixture.invokedTools(), ['slow_lookup'])
+  })
+
   test('approving runs the call exactly once, settled on its original message', async () => {
     const { conv, approvalId, seq } = await pendingApproval()
     const { runId } = (await decide(conv.id, approvalId, { approved: true })).data

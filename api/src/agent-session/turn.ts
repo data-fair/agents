@@ -103,7 +103,7 @@ export const startSessionTurn = async (request: SessionTurnRequest): Promise<str
   // wait again (pendingWaitReminder).
   await settlePendingWait(conversation.id, wait => interruptedWaitResult(wait.expecting))
   // And rejects a pending approval: the person moved on without deciding (as the HTTP route does).
-  await rejectPendingApprovals(conversation.id)
+  await rejectPendingApprovals(conversation.id, undefined, undefined, { undecidedOnly: true })
 
   const stored = await appendMessage(conversation, {
     role: 'user',
