@@ -371,6 +371,35 @@ test.describe('The approval gate', () => {
     assert.ok(part.toolMetadata.truncated?.totalChars > 150000, 'the size it had before the cut')
     assert.equal(part.toolMetadata.decision.userId, 'test1-admin1', 'beside the decision, not instead of it')
   })
+
+  test('a message posted while the asking turn is still finishing still rejects its approval', async () => {
+    // Posting rejects pending approvals at once, but the turn that asked still owns its message: its own
+    // last writes put `approval-requested` back. The turn answering the message rejects again when it
+    // starts, under the conversation's lock, once the asking turn has closed its message.
+    const agent = await createGatedAgent()
+    const conv = (await orgAdmin.post(BASE, { agentId: agent.id, title: 't' })).data
+    const { runId } = (await orgAdmin.post(`${BASE}/${conv.id}/messages`, { content: 'call tools slow_lookup wipe_everything' })).data
+    let asking: any
+    for (let i = 0; i < 100 && !asking; i++) {
+      const messages = (await orgAdmin.get(`${BASE}/${conv.id}/messages`)).data.results
+      const message = messages.find((m: any) => m.runId === runId)
+      if (message && callPart(message, 'wipe_everything')?.state === 'approval-requested') asking = message
+      else await new Promise(resolve => setTimeout(resolve, 50))
+    }
+    assert.ok(asking, 'the approval request is stored while the step still runs')
+    assert.equal(asking.pending, true)
+
+    const { runId: answering } = (await orgAdmin.post(`${BASE}/${conv.id}/messages`, { content: 'hello' })).data
+    await awaitRun(runId)
+    await awaitRun(answering)
+
+    const part = callPart(await messageAt(conv.id, asking.seq), 'wipe_everything')
+    assert.equal(part.state, 'output-denied')
+    assert.equal(part.approval.reason, 'The person sent a new message instead of deciding.')
+    const messages = (await orgAdmin.get(`${BASE}/${conv.id}/messages`)).data.results
+    assert.ok(!messages.some((m: any) => (m.parts ?? []).some((p: any) => p.state === 'approval-requested')))
+    assert.ok(!fixture.invokedTools().includes('wipe_everything'))
+  })
 })
 
 test.describe('Deciding over the socket', () => {

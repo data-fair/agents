@@ -1229,6 +1229,13 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
   let message: ConversationMessage | undefined
 
   try {
+    // A turn answering the person's MESSAGE rejects whatever approval is still pending, again. Posting
+    // already did, but the turn that asked may then still have been finishing — its own last writes put
+    // `approval-requested` back, and the card reappeared in a message that is no longer the last. Here,
+    // under the conversation's lock, that turn has closed its message. Idempotent: usually there is
+    // nothing left to reject.
+    if (run.trigger === 'user') await rejectPendingApprovals(run.conversationId)
+
     // Inside the try: appendMessage can fail (the conversation vanished between the findOne
     // above and the $inc, a duplicate seq, a transient mongo error) and that must still
     // close the run out rather than escape and leave it `running` forever.
