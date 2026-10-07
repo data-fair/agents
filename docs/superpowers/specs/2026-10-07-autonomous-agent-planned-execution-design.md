@@ -116,6 +116,15 @@ the documents into every one of those readers.
 
 Indexes added: `{ taskId: 1, startedAt: -1 }`, `{ agentId: 1, startedAt: -1 }`.
 
+**Content stays where its size puts it; readers see one shape.** A conversation's content is unbounded
+and lives in `messages`. A task run's is bounded — one prompt, one answer, read whole, never appended to
+later — so it is embedded on the run. That is MongoDB's usual rule (embed what is bounded and read
+together, reference what grows), and it is preferred to making every message hang off a run, which would
+normalise the model relationally for no storage gain. Homogeneity is had at the read layer instead: one
+function presents any run's content as stored messages — a conversation run's own messages, or, for a
+task run, two synthetic ones built from `prompt` and `parts`. The export builder, the history
+transcript, `get_run` and memory reflection consume that one shape, as the replay converter already does.
+
 ### No proposal record
 
 Planning from a chat is a tool call that always needs approval. The pending call is the proposal; its
@@ -221,8 +230,8 @@ conversations:
   instructors; create, update, delete and `POST …/:taskId/run` for admins.
 - **Runs** — `/api/autonomous-agents/:type/:id/:agentId/runs`, admins: a paginated list of the agent's
   runs, filterable by kind, task, status and outcome, without content; one run with its content; abort; a
-  JSONL download through the conversation export's builder — for a task run, its prompt and answer fill
-  the slot a conversation's messages fill.
+  JSONL download through the conversation export's builder, fed by the read-layer function that presents a
+  task run's prompt and answer as messages (see "Runs: one collection, two kinds").
 - **Approvals** — `{ approved, reason? }` over the chat socket and
   `POST /api/conversations/:type/:id/:conversationId/approvals/:toolCallId`.
 - **An admin page per agent**, three tabs: *Configuration* (the existing form plus approval levels);
