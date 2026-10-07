@@ -46,14 +46,16 @@ Each row records the op (`create`, `update`, `delete`, `rename`, `restore`), the
 | --- | --- |
 | after a turn | 20 or more unreflected messages; not on a handover nor when the turn awaits an approval |
 | idle sweep | every 5 minutes (`api/src/server.ts`), threads idle for 30 minutes and no older than 7 days, 50 per pass, oldest activity first |
+| a task run's end | once, when a planned task's run closes `done` (fire-and-forget from `afterTaskRun`) |
 | manual | tests only |
 
-The triggers are decided by the pure `reflectionDue`. Rules:
+The triggers are decided by the pure `reflectionDue`; a task run is the exception, below. Rules:
 
 - **Reads up to before the first unsettled approval.** A call awaiting its approval or its approved execution is written later into the same message seq, so `reflectableMessages` stops before that message and `upToSeq` is the seq before it. A new message from the person rejects a pending approval, so this never stalls for long.
 - **Re-checks the agent before each write**: it must still exist, be enabled and have memory on. Otherwise the pass is aborted and nothing is written, so a reflection in flight cannot write after the agent's delete cascade (a one-`findOne` window remains).
 - **Deferral and backoff.** A pass that cannot proceed (account credit cap reached, or nothing readable because of an approval) stamps `memoryReflection.deferredAt`; a failure stamps `failedAt`. Both back the automatic triggers off for 60 minutes and are filtered out of the sweep. A completed pass clears them.
 - **Cost.** One locked pass per conversation (`memory-reflection:<id>`), at most 6 steps, a 120 s timeout, a transcript of at most 60,000 characters (the most recent part is kept; tool results are clipped to 1,500; reasoning is left out; transcript tags are defused). It runs with the `tools` role model and is billed to the account under the agent's identity. Every completed step is billed, also when the pass fails or is withdrawn, and the total accumulates in `memoryReflection.credits` on the conversation.
+- **A task run is reflected once, at its end** (`maybeReflectTaskRun`). Its content is one prompt and one answer (read through `runAsMessages`), so there is no range to track: `memoryReflection.at` on the run is the mark. Only a `done` run is reflected, and only when the agent still has memory. It is NOT retried: a failure, or a deferral for the account's credit cap, is logged and the run stays as it closed. It takes the lock `memory-reflection:run:<runId>`, and what it writes is attributed to the run and its task (`taskId`). See [planned tasks](./planned-tasks.md).
 - **Archived audited threads are reflected**: an audited thread is the organization's record whatever the person did with it in their own list.
 
 ## Admin surface

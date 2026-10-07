@@ -254,7 +254,7 @@ Five plans, each shippable and tested on its own:
    behaviour change, proven by the existing suites unchanged; `wait_for_user_action` becomes the
    registry's first entry. The point to coordinate with the memory work. — done (2026-10): turn-target.ts and service-tools.ts.
 3. **Tasks, task runs and the scheduler** — the tasks collection and the `task` run kind, claiming, firing and skipping, recovery, the
-   pause, notifications, run-now, abort, routes, export.
+   pause, notifications, run-now, abort, routes, export. — done (2026-10): see docs/architecture/planned-tasks.md.
 4. **Self-knowledge and self-configuration tools** — including `plan_task` through the gate.
 5. **The admin page, and simulations** — e2e tests on the mock; a simulation case where an instructor asks
    the agent to plan a weekly report and approves it, with the premise that an approval happened. Judging

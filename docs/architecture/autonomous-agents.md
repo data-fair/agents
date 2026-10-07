@@ -149,7 +149,7 @@ envelope and the system-prompt clause that told the model to trust it were remov
   which is why the turn is also raced against its deadline.
 - **Disable** the agent: every live turn of it is aborted and its cached session dropped, so a turn
   already inside the loop cannot keep acting with credentials obtained before it was disabled.
-- **Delete** the agent: live turns stopped, then its memory (documents and version log), conversations, messages and runs are erased.
+- **Delete** the agent: live turns stopped, then its memory (documents and version log), conversations, messages and runs are erased, as are its planned tasks and their task runs ([planned tasks](./planned-tasks.md)).
 - **Delete one thread**: `DELETE /api/conversations/:type/:id/:conversationId`. A thread of a configured
   agent is audited, so it is always **archived** rather than purged, with no expiry: gone for the person,
   still reviewable by the organization's admins until the agent is deleted — see
@@ -162,7 +162,7 @@ swept by their own purges.)
 
 ## The turn and its target
 
-`runModelLoop` (`api/src/conversations/executor.ts`) produces a turn's parts and knows nothing of conversations. Everything that makes those parts a conversation's goes through a `TurnTarget` (`api/src/conversations/turn-target.ts`); `conversationTarget(run, messageSeq, conversation)` is the one implementation today:
+`runModelLoop` (`api/src/conversations/executor.ts`) produces a turn's parts and knows nothing of conversations. Everything that makes those parts a conversation's goes through a `TurnTarget` (`api/src/conversations/turn-target.ts`); `conversationTarget(run, message, conversation, wakeIfAnswered)` is a chat's, and `taskTarget(run, task, followUp)` (`api/src/tasks/task-target.ts`) a planned task's. Both are driven by `driveTurn` (`executor.ts`), which owns the abort controller, telemetry, deadline and failure classification, whatever the turn is of. The conversation target:
 
 - `session` and `historyUpToSeq`: the page in front of the person as the turn started (its tools and host events; undefined is normal), and the history bound recorded on the turn's telemetry.
 - `history`: the stored messages up to the turn's own, compacted within the budget, with the page's context (host events, the pending-wait reminder) folded into the last user message at call time and never persisted.
@@ -171,14 +171,15 @@ swept by their own purges.)
 - `settleEarlierCall`: the result of a call an earlier turn made, an approved call the SDK executed on replay, settled on its original part.
 - `track`: exposes the answer so far in a registry (`liveTurnOf`, `liveParts`, `releaseLiveTurn`), so a page attaching mid-turn gets it on attach and the rest live, and a stopped or failing turn is settled from it.
 
-Plan 3 adds a task-run target: its record is the run itself and nobody watches it.
+A task run's target is the other implementation: its record is the run itself (`prompt`, `parts`, `outcome`) and nobody watches it; see [planned tasks](./planned-tasks.md#the-turn).
 
 ## The service's own tools
 
-`buildServiceTools` (`api/src/conversations/service-tools.ts`) is a registry of the service's own tools, each entry declaring when it applies (the surface and the agent) and how it is built. Two entries:
+`buildServiceTools` (`api/src/conversations/service-tools.ts`) is a registry of the service's own tools, each entry declaring when it applies (the surface and the agent) and how it is built. Three entries:
 
 - `wait_for_user_action`: only in a chat with someone watching (a session). Unwrapped: its result is the loop's own handover.
 - `memory`: a configured agent with memory enabled (`memoryEnabledFor`), on every surface. Provenance server `agent-memory`.
+- `report_outcome`: the task surface only, how a planned task's run reports its outcome. Provenance server `agent-service`.
 
 Service tools are added after the approval policy is applied, so they are outside the approval gate. None can be displaced: `api/src/conversations/service-tool-names.ts` holds `SERVICE_TOOL_NAMES` and the pure `mayBePageTool`, so a page tool of such a name is not treated as a page tool, a catalog tool does not stand in for one, and a sub-agent configuration never reserves one.
 

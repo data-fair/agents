@@ -53,6 +53,7 @@ AI provider/model configuration and credit-based quotas are layered across deplo
 | Delegating to workers | [Sub-agent orchestration](./sub-agents.md) |
 | Configured agents with their own identity | [Autonomous agents](./autonomous-agents.md) |
 | What an agent remembers across conversations | [Agent memory](./agent-memory.md) |
+| Prompts an agent runs on a schedule, unattended | [Planned tasks](./planned-tasks.md) |
 | Providers, models, roles | [Multi-provider AI abstraction](./providers.md), [Configuration](./configuration.md) |
 | Who may spend what, and what it cost | [Quotas & usage](./quotas-usage.md) |
 | Refusing abusive input | [Input moderation guard](./moderation.md) |
