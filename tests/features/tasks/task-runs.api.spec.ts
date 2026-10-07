@@ -137,4 +137,26 @@ test.describe('Task runs', () => {
     assert.match(paused.pausedReason, /5 consecutive failed runs/)
     assert.equal(paused.nextRunAt, undefined)
   })
+
+  test('a resumed task is not re-paused by its first new failure', async () => {
+    const agent = await createAgent()
+    const failing = await createTask(agent.id, 'stream error')
+    for (let i = 0; i < 5; i++) await awaitRun(await runNow(agent.id, failing.id))
+    assert.ok((await admin.get(`${base(agent.id)}/${failing.id}`)).data.pausedReason)
+
+    // The admin resumes it by saving it enabled: the failures that paused it no longer count.
+    const resumed = (await admin.put(`${base(agent.id)}/${failing.id}`, { title: 'Probe', prompt: 'stream error', scheduling: [daily], enabled: true })).data
+    assert.equal(resumed.pausedReason, undefined)
+    assert.ok(resumed.resumedAt)
+    assert.ok(resumed.nextRunAt)
+
+    await admin.delete('/api/test-env/pushed-events')
+    await awaitRun(await runNow(agent.id, failing.id))
+    const after = (await admin.get(`${base(agent.id)}/${failing.id}`)).data
+    assert.equal(after.pausedReason, undefined)
+    assert.ok(after.nextRunAt)
+    const topics = (await events()).map(e => e.topic.key)
+    assert.ok(topics.includes(`agents:task-failed:${failing.id}`))
+    assert.ok(!topics.includes(`agents:task-paused:${failing.id}`))
+  })
 })

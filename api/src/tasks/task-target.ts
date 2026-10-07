@@ -34,12 +34,18 @@ export const taskTarget = (run: ConversationRun, task: AutonomousAgentTask, foll
   /**
    * Notify and pause BEFORE the run closes, for the reason a conversation's message is finalised before
    * its run: the terminal status is what a reader stops on, and it must already find what followed.
-   * The follow-up is caught: the run must close whatever happened to a notification.
+   *
+   * INVARIANT: the run always reaches its terminal status. The follow-up can never prevent the close: its
+   * failure is caught and logged, and the close runs in the finally whatever happened.
    */
   const closeWith = async (patch: Partial<ConversationRun>) => {
-    await followUp({ ...run, ...patch }, task)
-      .catch(err => console.error(`task run ${run.id} could not be followed up`, err))
-    await finishTaskRun(run, patch)
+    try {
+      await followUp({ ...run, ...patch }, task)
+    } catch (err) {
+      console.error(`task run ${run.id} could not be followed up`, err)
+    } finally {
+      await finishTaskRun(run, patch)
+    }
   }
 
   return {

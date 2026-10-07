@@ -5,7 +5,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { taskEvent, failedInARow } from '../../../api/src/tasks/operations.ts'
 
-const task = { id: 'task-1', title: 'Weekly check', owner: { type: 'organization' as const, id: 'test1', name: 'Test 1' }, pausedReason: 'paused after 5 consecutive failed runs' }
+const task = { id: 'task-1', title: 'Weekly check', owner: { type: 'organization' as const, id: 'test1', name: 'Test 1' } }
 const run = { id: 'run-1', status: 'error' as const, error: 'mock stream error', outcome: { status: 'needs-attention' as const, summary: 'two datasets are stale' } }
 
 test.describe('taskEvent', () => {
@@ -21,13 +21,19 @@ test.describe('taskEvent', () => {
     })
   }
 
+  test('titles are in French, like processings\' notifications', () => {
+    assert.equal(taskEvent('failed', task, run).title, 'La tâche planifiée « Weekly check » a échoué.')
+    assert.equal(taskEvent('needs-attention', task, run).title, 'La tâche planifiée « Weekly check » demande votre attention : two datasets are stale')
+    assert.equal(taskEvent('paused', task, run, { failures: 5 }).title, 'La tâche planifiée « Weekly check » a été mise en pause après 5 exécutions en échec consécutives.')
+  })
+
   test('a needs-attention body carries the outcome summary', () => {
     assert.match(String(taskEvent('needs-attention', task, run).body), /two datasets are stale/)
   })
 
-  test('a failed body says what failed, and a paused body why', () => {
+  test('a failed or paused body says what failed last', () => {
     assert.match(String(taskEvent('failed', task, run).body), /mock stream error/)
-    assert.match(String(taskEvent('paused', task, run).body), /5 consecutive failed runs/)
+    assert.match(String(taskEvent('paused', task, run, { failures: 5 }).body), /mock stream error/)
   })
 })
 

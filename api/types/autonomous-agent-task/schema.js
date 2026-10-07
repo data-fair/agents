@@ -121,6 +121,9 @@ export default {
     },
     enabled: { type: 'boolean', default: true, title: 'Enabled', 'x-i18n-title': { en: 'Enabled', fr: 'Activée' } },
     pausedReason: { type: 'string', readOnly: true },
+    // When an admin last resumed the task from a pause: the failure streak that pauses it counts only
+    // runs started after this, so a resumed task is not re-paused by the failures that paused it.
+    resumedAt: { type: 'string', format: 'date-time', readOnly: true },
     nextRunAt: { type: 'string', format: 'date-time', readOnly: true },
     createdBy: actor,
     updatedBy: actor,

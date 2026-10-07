@@ -8,14 +8,10 @@
 import { WAIT_TOOL_NAME } from '@agents/shared/host-events'
 import { MEMORY_TOOL_NAME } from '../memory/operations.ts'
 
-export const SERVICE_TOOL_NAMES: ReadonlySet<string> = new Set([WAIT_TOOL_NAME, MEMORY_TOOL_NAME])
-
-/**
- * How a planned task's run reports what it found or did. NOT reserved above: it exists only on the task
- * surface, which has no page and so no page tool or sub-agent config that could take its name — and
- * reserving it would only forbid a chat page a name the service never uses there.
- */
+/** How a planned task's run reports what it found or did (the task surface only). */
 export const REPORT_OUTCOME_TOOL_NAME = 'report_outcome'
+
+export const SERVICE_TOOL_NAMES: ReadonlySet<string> = new Set([WAIT_TOOL_NAME, MEMORY_TOOL_NAME, REPORT_OUTCOME_TOOL_NAME])
 
 /** Whether a tool a page registers by this name may be offered: never a service tool's name. */
 export const mayBePageTool = (name: string): boolean => !SERVICE_TOOL_NAMES.has(name)

@@ -88,29 +88,31 @@ export type TaskEventKind = 'failed' | 'needs-attention' | 'paused'
 /** An event as pushed to the events service, which stamps the date itself. */
 export type TaskEvent = Omit<Event, 'date'> & { topic: { key: string } }
 
-const EVENT_TITLES: Record<TaskEventKind, (title: string) => string> = {
-  failed: title => `The planned task "${title}" failed.`,
-  'needs-attention': title => `The planned task "${title}" needs attention.`,
-  paused: title => `The planned task "${title}" was paused.`
-}
-
 /**
  * The notification one task run pushes, by kind. Keyed per task (processings' `<service>:<kind>:<id>`
- * shape), so an admin can subscribe to one task or, by prefix, to all of them. The body is what the reader
- * needs to act on it: the run's error, the agent's own summary, the pause reason.
+ * shape), so an admin can subscribe to one task or, by prefix, to all of them. In French, like data-fair
+ * processings' notifications. The body is what the reader needs to act on it: the run's error, or the
+ * agent's own summary.
+ *
+ * `failures` is the streak that paused the task, for the `paused` title.
  */
 export const taskEvent = (
   kind: TaskEventKind,
-  task: Pick<AutonomousAgentTask, 'id' | 'title' | 'owner' | 'pausedReason'>,
-  run: Pick<ConversationRun, 'error' | 'outcome' | 'parts'>
+  task: Pick<AutonomousAgentTask, 'id' | 'title' | 'owner'>,
+  run: Pick<ConversationRun, 'error' | 'outcome' | 'parts'>,
+  opts: { failures?: number } = {}
 ): TaskEvent => {
-  const body = kind === 'needs-attention'
-    ? run.outcome?.summary
+  const subject = `La tâche planifiée « ${task.title} »`
+  const error = run.error ?? (partsText((run.parts ?? []) as MessagePart[]).trim() || undefined)
+  const summary = run.outcome?.summary
+  const title = kind === 'needs-attention'
+    ? (summary ? `${subject} demande votre attention : ${summary}` : `${subject} demande votre attention.`)
     : kind === 'paused'
-      ? task.pausedReason
-      : run.error ?? (partsText((run.parts ?? []) as MessagePart[]).trim() || undefined)
+      ? `${subject} a été mise en pause après ${opts.failures ?? 'plusieurs'} exécutions en échec consécutives.`
+      : `${subject} a échoué.`
+  const body = kind === 'needs-attention' ? summary : error
   return {
-    title: EVENT_TITLES[kind](task.title),
+    title,
     topic: { key: `agents:task-${kind}:${task.id}` },
     sender: task.owner,
     visibility: 'private',

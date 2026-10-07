@@ -93,11 +93,13 @@ export const startTaskRun = async (
 /**
  * What follows a task run's outcome: notifications, and the pause after too many failures in a row.
  *
- * Called by the task target as the run closes, and by recovery for a run it interrupts (it then passes no
- * task, and one deleted since is simply not followed up). `run` carries its terminal status.
+ * Called by the task target as the run closes, and by recovery for a run it interrupts. `run` carries its
+ * terminal status. The task is read afresh — an admin may have resumed or edited it while the run went —
+ * and one deleted since is simply not followed up.
  */
-export const afterTaskRun = async (run: ConversationRun, task?: AutonomousAgentTask): Promise<void> => {
-  const current = task ?? (run.taskId ? await mongo.autonomousAgentTasks.findOne({ id: run.taskId }, { projection: { _id: 0 } }) : null)
+export const afterTaskRun = async (run: ConversationRun, task?: Pick<AutonomousAgentTask, 'id'>): Promise<void> => {
+  const taskId = task?.id ?? run.taskId
+  const current = taskId ? await mongo.autonomousAgentTasks.findOne({ id: taskId }, { projection: { _id: 0 } }) : null
   if (!current) return
 
   if (run.outcome?.status === 'needs-attention') pushTaskEvent(taskEvent('needs-attention', current, run))
@@ -107,11 +109,18 @@ export const afterTaskRun = async (run: ConversationRun, task?: AutonomousAgentT
 
   // This run and the ones before it, newest first; skipped runs did nothing, so they neither fail nor
   // succeed. This run may still be `running` in the store (the target follows up before closing it), so
-  // it is taken from the argument and left out of the query.
+  // it is taken from the argument and left out of the query. Only runs started since the task was last
+  // resumed from a pause count: the failures that paused it must not re-pause it on its first new one.
   const max = config.tasks.maxConsecutiveFailures
   const earlier = max > 1
     ? await mongo.runs
-      .find({ kind: 'task', taskId: current.id, id: { $ne: run.id }, status: { $nin: ['running', 'skipped'] } }, { projection: { _id: 0, status: 1 } })
+      .find({
+        kind: 'task',
+        taskId: current.id,
+        id: { $ne: run.id },
+        status: { $nin: ['running', 'skipped'] },
+        ...(current.resumedAt ? { startedAt: { $gt: current.resumedAt } } : {})
+      }, { projection: { _id: 0, status: 1 } })
       .sort({ startedAt: -1 })
       .limit(max - 1)
       .toArray()
@@ -125,5 +134,5 @@ export const afterTaskRun = async (run: ConversationRun, task?: AutonomousAgentT
     { id: current.id, pausedReason: { $exists: false } },
     { $set: { pausedReason }, $unset: { nextRunAt: '' } }
   )
-  if (paused.modifiedCount) pushTaskEvent(taskEvent('paused', { ...current, pausedReason }, run))
+  if (paused.modifiedCount) pushTaskEvent(taskEvent('paused', current, run, { failures: max }))
 }

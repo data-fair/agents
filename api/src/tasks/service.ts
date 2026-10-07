@@ -106,6 +106,8 @@ export const updateTask = async (owner: AccountKeys, agent: { id: string }, task
     $set.nextRunAt = nextRunAt.toISOString()
   }
   if (reEnabled) $unset.pausedReason = ''
+  // Resumed from a pause: the failures that paused it no longer count toward the next one (afterTaskRun).
+  if (reEnabled && existing.pausedReason) $set.resumedAt = now.toISOString()
 
   await mongo.autonomousAgentTasks.updateOne(
     { id: taskId, agentId: agent.id },
