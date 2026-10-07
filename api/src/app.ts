@@ -270,7 +270,7 @@ if (process.env.NODE_ENV === 'development') {
     res.json(await maybeReflect(String(req.body.conversationId), req.body.trigger ?? 'manual', req.body.now ? new Date(req.body.now) : undefined))
   })
   app.post('/api/test-env/sweep-reflections', async (req, res) => {
-    res.json({ reflected: await sweepIdleReflections(req.body?.now ? new Date(req.body.now) : undefined) })
+    res.json({ reflected: await sweepIdleReflections(req.body?.now ? new Date(req.body.now) : undefined, req.body?.batch) })
   })
   app.post('/api/test-env/recover-ownerless-runs', async (req, res) => {
     res.json(await recoverOwnerlessRuns())

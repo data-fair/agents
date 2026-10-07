@@ -32,6 +32,13 @@ test.describe('reflectionDue', () => {
     assert.equal(reflectionDue(failed, 'manual', now).due, true)
     assert.equal(reflectionDue({ ...failed, memoryReflection: { failedAt: minutesAgo(61) } }, 'idle', now).due, true)
   })
+  test('a recent deferral (a pass that could not proceed) backs off the same way', () => {
+    const deferred = { messageSeq: 40, lastMessageAt: minutesAgo(45), memoryReflection: { deferredAt: minutesAgo(20) } }
+    assert.deepEqual(reflectionDue(deferred, 'idle', now), { due: false, reason: 'backoff' })
+    assert.equal(reflectionDue(deferred, 'turn', now).due, false)
+    assert.equal(reflectionDue(deferred, 'manual', now).due, true)
+    assert.equal(reflectionDue({ ...deferred, memoryReflection: { deferredAt: minutesAgo(61) } }, 'idle', now).due, true)
+  })
 })
 
 test.describe('transcriptForReflection', () => {

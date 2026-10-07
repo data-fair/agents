@@ -7,7 +7,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
-import { putMockSettings } from '../../support/settings.ts'
+import { putMockSettings, mockModels } from '../../support/settings.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 
 const admin = await superAdmin
@@ -97,6 +97,24 @@ test.describe('Memory reflection', () => {
     assert.equal(data.memoryVersions, 0)
   })
 
+  test('a pass withdrawn after a model step still bills that step', async () => {
+    await putMockSettings(admin, 'organization/test1', {
+      models: mockModels({ inputPricePerMillion: 1000, outputPricePerMillion: 1000 }),
+      modelMapping: { tools: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' } }
+    })
+    const body = { title: 'Reflective', persona: 'x', mcpServers: [], enabled: true, memory: { enabled: true } }
+    const agent = await createAgent()
+    const conversationId = await thread(agent.id)
+    await say(conversationId, 'remember: billed anyway. reflect slowly')
+    const reflecting = reflect(conversationId)
+    await new Promise(resolve => setTimeout(resolve, 300))
+    await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, { ...body, memory: { enabled: false } })
+    assert.deepEqual(await reflecting, { reflected: false, reason: 'memory-off' })
+    const { conversation } = (await orgAdmin.get(`/api/review/organization/test1/${conversationId}`)).data
+    assert.ok(conversation.memoryReflection?.credits > 0, 'the step the model completed is billed')
+    assert.equal(conversation.memoryReflection?.upToSeq, undefined, 'and nothing is marked reflected')
+  })
+
   test('the idle sweep reflects a thread that went quiet, and only then', async () => {
     const agent = await createAgent()
     const conversationId = await thread(agent.id)
@@ -161,5 +179,26 @@ test.describe('Memory reflection and the approval gate', () => {
     const after = await reflect(conversationId)
     assert.equal(after.reflected, true)
     assert.ok(after.toSeq >= asking.seq, 'once settled, the step is read')
+  })
+
+  test('threads blocked on an approval are deferred and do not starve a reflectable one', async () => {
+    const agent = await createAgent(true, { mcpServers: [{ serverId: 'dev-public-mcp' }] })
+    // The OLDEST activity, so the oldest-first sweep meets it first: blocked on an undecided approval,
+    // everything before it already reflected.
+    const blocked = await thread(agent.id)
+    await say(blocked, 'call tool wipe_everything {}')
+    assert.equal((await reflect(blocked)).toSeq, 1)
+    const reflectable = await thread(agent.id)
+    await say(reflectable, 'remember: not starved')
+
+    // One candidate per pass: the first pass meets the blocked thread and defers it…
+    const later = new Date(Date.now() + 31 * 60000).toISOString()
+    await admin.post('/api/test-env/sweep-reflections', { now: later, batch: 1 })
+    const { conversation } = (await orgAdmin.get(`/api/review/organization/test1/${blocked}`)).data
+    assert.ok(conversation.memoryReflection.deferredAt, 'the blocked thread is deferred')
+    assert.equal(await core(agent.id), undefined)
+    // …so the next pass skips it and reaches the reflectable one.
+    await admin.post('/api/test-env/sweep-reflections', { now: later, batch: 1 })
+    assert.match((await core(agent.id))?.content ?? '', /not starved/)
   })
 })

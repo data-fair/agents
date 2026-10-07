@@ -64,7 +64,7 @@ export const maybeReflect = async (conversationId: string, trigger: 'turn' | 'id
   const lockId = `memory-reflection:${conversationId}`
   if (!await locks.acquire(lockId, LOCK_ORIGIN)) return { reflected: false, reason: 'locked' }
   try {
-    return await reflect(conversation, agent)
+    return await reflect(conversation, agent, now)
   } catch (err) {
     if (err instanceof MemoryWithdrawnError) return { reflected: false, reason: 'memory-off' }
     // Never surfaces in the conversation; backs off the automatic triggers (reflectionDue).
@@ -106,7 +106,19 @@ const reflectionMemoryTool = (agent: AutonomousAgent, conversation: Conversation
   }
 }
 
-const reflect = async (conversation: Conversation, agent: AutonomousAgent): Promise<ReflectionResult> => {
+/**
+ * Stamp a pass that could not proceed, so automatic triggers back off it like a failure (reflectionDue)
+ * and the sweep stops spending a slot on it every pass.
+ */
+const defer = async (conversationId: string, now: Date, reason: string): Promise<ReflectionResult> => {
+  await mongo.conversations.updateOne({ id: conversationId }, { $set: { 'memoryReflection.deferredAt': now.toISOString() } })
+  return { reflected: false, reason }
+}
+
+type TokenCounts = { inputTokens: number, outputTokens: number, noCacheTokens?: number, cacheReadTokens?: number, cacheWriteTokens?: number }
+const addOptional = (a: number | undefined, b: number | undefined) => a === undefined && b === undefined ? undefined : (a ?? 0) + (b ?? 0)
+
+const reflect = async (conversation: Conversation, agent: AutonomousAgent, now: Date): Promise<ReflectionResult> => {
   const fromSeq = conversation.memoryReflection?.upToSeq ?? 0
   const unread = await mongo.messages
     .find({ conversationId: conversation.id, seq: { $gt: fromSeq }, pending: { $ne: true } }, { projection: { _id: 0, seq: 1, role: 1, parts: 1 } })
@@ -114,11 +126,13 @@ const reflect = async (conversation: Conversation, agent: AutonomousAgent): Prom
     .toArray()
   // Up to, excluding, a step whose approved result is still to be written into its own seq.
   const messages = reflectableMessages(unread)
-  if (!messages.length) return { reflected: false, reason: 'nothing-new' }
+  // reflectionDue saw unreflected messages, so none being readable means they are blocked (an approval
+  // still to decide or run, a message still being written): deferred, not merely empty.
+  if (!messages.length) return await defer(conversation.id, now, 'nothing-new')
   const toSeq = messages[messages.length - 1].seq
 
   // A reflection is a real model call billed to the organization, so it never runs past the cap.
-  if (await checkAccountCreditCap(conversation.owner)) return { reflected: false, reason: 'credit-cap' }
+  if (await checkAccountCreditCap(conversation.owner)) return await defer(conversation.id, now, 'credit-cap')
 
   const settings = await getSettings(conversation.owner)
   const { model, entry } = resolveRoleModel(settings, 'tools')
@@ -126,6 +140,9 @@ const reflect = async (conversation: Conversation, agent: AutonomousAgent): Prom
   const withdrawn = new AbortController()
   const tools = withProvenance({ [MEMORY_TOOL_NAME]: reflectionMemoryTool(agent, conversation, fromSeq, toSeq, withdrawn) }, () => MEMORY_SERVER_ID)
 
+  // Accumulated per COMPLETED step and billed in `finally`: a pass that fails or is withdrawn after a
+  // step has still spent that step's tokens, and model spend must always reach the ledger.
+  const spent: TokenCounts = { inputTokens: 0, outputTokens: 0 }
   let generated
   try {
     generated = await generateText({
@@ -134,47 +151,30 @@ const reflect = async (conversation: Conversation, agent: AutonomousAgent): Prom
       messages: [{ role: 'user', content: reflectionUserMessage(documents, transcriptForReflection(messages)) }],
       tools,
       stopWhen: stepCountIs(REFLECTION_STEP_LIMIT),
-      abortSignal: AbortSignal.any([withdrawn.signal, AbortSignal.timeout(REFLECTION_TIMEOUT_MS)])
+      abortSignal: AbortSignal.any([withdrawn.signal, AbortSignal.timeout(REFLECTION_TIMEOUT_MS)]),
+      onStepFinish: ({ usage }) => {
+        const details = usage?.inputTokenDetails
+        spent.inputTokens += usage?.inputTokens ?? 0
+        spent.outputTokens += usage?.outputTokens ?? 0
+        spent.noCacheTokens = addOptional(spent.noCacheTokens, details?.noCacheTokens)
+        spent.cacheReadTokens = addOptional(spent.cacheReadTokens, details?.cacheReadTokens)
+        spent.cacheWriteTokens = addOptional(spent.cacheWriteTokens, details?.cacheWriteTokens)
+      }
     })
   } catch (err) {
     if (withdrawn.signal.aborted) throw withdrawn.signal.reason
     throw err
+  } finally {
+    await bill(conversation, agent, entry, spent).catch(err => console.error(`memory reflection usage not recorded for conversation ${conversation.id}`, err))
   }
   // Settled after a refusal that the model loop happened to swallow: still nothing more to record.
   if (withdrawn.signal.aborted) throw withdrawn.signal.reason
 
-  // At the tools model's prices, under the agent's own identity — the accounting compaction uses
-  // (turn-history.ts), minus the run: a reflection has none, so its cost lives in usage and on the conversation.
-  const usage = generated.totalUsage
-  const details = usage?.inputTokenDetails
-  const credits = computeCreditBreakdown({
-    inputTokens: usage?.inputTokens ?? 0,
-    outputTokens: usage?.outputTokens ?? 0,
-    noCacheTokens: details?.noCacheTokens,
-    cacheReadTokens: details?.cacheReadTokens,
-    cacheWriteTokens: details?.cacheWriteTokens
-  }, entry, config.eurosPerCredit)
-  if (credits.total > 0) {
-    const identity = usageIdentityFor(agent, { owner: conversation.owner })
-    await recordUsage(conversation.owner, {
-      cost: credits.total,
-      userId: identity.usageUserId,
-      userName: identity.usageUserName,
-      poolId: identity.poolId,
-      dimensions: {
-        modelRole: 'tools',
-        model: entry.id,
-        profile: identity.role,
-        tokenCosts: { input: credits.input, cachedInput: credits.cachedInput, output: credits.output }
-      }
-    })
-  }
   await mongo.conversations.updateOne(
     { id: conversation.id },
     {
       $set: { 'memoryReflection.upToSeq': toSeq, 'memoryReflection.at': new Date().toISOString() },
-      $unset: { 'memoryReflection.failedAt': '' },
-      $inc: { 'memoryReflection.credits': credits.total }
+      $unset: { 'memoryReflection.failedAt': '', 'memoryReflection.deferredAt': '' }
     }
   )
   // A refused write is the model's to handle (it is told why), so it does not fail the pass — but it
@@ -185,10 +185,34 @@ const reflect = async (conversation: Conversation, agent: AutonomousAgent): Prom
 }
 
 /**
- * The idle trigger: every thread of an agent with memory that went quiet inside the lookback and has
- * unreflected messages. Bounded per pass; the next pass picks up the rest.
+ * At the tools model's prices, under the agent's own identity — the accounting compaction uses
+ * (turn-history.ts), minus the run: a reflection has none, so its cost lives in usage and on the conversation.
  */
-export const sweepIdleReflections = async (now = new Date()): Promise<number> => {
+const bill = async (conversation: Conversation, agent: AutonomousAgent, entry: ReturnType<typeof resolveRoleModel>['entry'], spent: TokenCounts) => {
+  const credits = computeCreditBreakdown(spent, entry, config.eurosPerCredit)
+  if (!(credits.total > 0)) return
+  const identity = usageIdentityFor(agent, { owner: conversation.owner })
+  await recordUsage(conversation.owner, {
+    cost: credits.total,
+    userId: identity.usageUserId,
+    userName: identity.usageUserName,
+    poolId: identity.poolId,
+    dimensions: {
+      modelRole: 'tools',
+      model: entry.id,
+      profile: identity.role,
+      tokenCosts: { input: credits.input, cachedInput: credits.cachedInput, output: credits.output }
+    }
+  })
+  await mongo.conversations.updateOne({ id: conversation.id }, { $inc: { 'memoryReflection.credits': credits.total } })
+}
+
+/**
+ * The idle trigger: every thread of an agent with memory that went quiet inside the lookback and has
+ * unreflected messages. Bounded per pass, oldest activity first — the threads closest to leaving the
+ * lookback — and the next pass picks up the rest. `batch` is a parameter for tests only.
+ */
+export const sweepIdleReflections = async (now = new Date(), batch = SWEEP_BATCH): Promise<number> => {
   const agents = await mongo.autonomousAgents.find({ 'memory.enabled': true, enabled: { $ne: false } }, { projection: { _id: 0, id: 1 } }).toArray()
   if (!agents.length) return 0
   const idleBefore = new Date(now.getTime() - REFLECT_IDLE_MINUTES * 60000).toISOString()
@@ -197,11 +221,12 @@ export const sweepIdleReflections = async (now = new Date()): Promise<number> =>
   const candidates = await mongo.conversations.find({
     agentId: { $in: agents.map(agent => agent.id) },
     lastMessageAt: { $lt: idleBefore, $gte: notBefore },
-    // A thread in its failure backoff would be refused anyway; left in, a batch of them could fill
-    // every slot of the pass and starve the threads that are due.
+    // A thread in its failure or deferral backoff would be refused anyway; left in, a batch of them
+    // could fill every slot of the pass and starve the threads that are due.
     'memoryReflection.failedAt': { $not: { $gte: retryAfter } },
+    'memoryReflection.deferredAt': { $not: { $gte: retryAfter } },
     $expr: { $gt: ['$messageSeq', { $ifNull: ['$memoryReflection.upToSeq', 0] }] }
-  }, { projection: { _id: 0, id: 1 } }).limit(SWEEP_BATCH).toArray()
+  }, { projection: { _id: 0, id: 1 } }).sort({ lastMessageAt: 1 }).limit(batch).toArray()
   let reflected = 0
   for (const candidate of candidates) {
     if ((await maybeReflect(candidate.id, 'idle', now)).reflected) reflected++

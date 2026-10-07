@@ -43,7 +43,10 @@ export default {
         upToSeq: { type: 'number' },
         at: { type: 'string', format: 'date-time' },
         credits: { type: 'number' },
-        failedAt: { type: 'string', format: 'date-time' }
+        failedAt: { type: 'string', format: 'date-time' },
+        // Last automatic pass that could not proceed (credit cap, a step still awaiting its approval):
+        // backed off like a failure, so such threads do not take every sweep slot.
+        deferredAt: { type: 'string', format: 'date-time' }
       }
     },
     createdAt: { type: 'string', format: 'date-time' },

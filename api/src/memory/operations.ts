@@ -343,18 +343,21 @@ const MINUTE = 60000
  * `turn` = right after a turn, only once the unreflected part is big (a long, active thread must not
  * lag far behind); `idle` = the sweep, once the thread has gone quiet (it most likely ended) and only
  * inside the lookback, so enabling memory on an agent with a long history does not bill a reflection
- * over all of it; `manual` = a test or an admin asked. A recent failure backs off the automatic ones.
+ * over all of it; `manual` = a test or an admin asked. A recent failure or deferral backs off the automatic ones.
  */
 export function reflectionDue (
-  conversation: { messageSeq?: number, lastMessageAt?: string, memoryReflection?: { upToSeq?: number, failedAt?: string } },
+  conversation: { messageSeq?: number, lastMessageAt?: string, memoryReflection?: { upToSeq?: number, failedAt?: string, deferredAt?: string } },
   trigger: 'turn' | 'idle' | 'manual',
   now: Date
 ): { due: boolean, reason: string } {
   const unreflected = (conversation.messageSeq ?? 0) - (conversation.memoryReflection?.upToSeq ?? 0)
   if (unreflected <= 0) return { due: false, reason: 'nothing-new' }
   if (trigger === 'manual') return { due: true, reason: 'manual' }
-  const failedAt = conversation.memoryReflection?.failedAt
-  if (failedAt && now.getTime() - Date.parse(failedAt) < REFLECT_RETRY_MINUTES * MINUTE) return { due: false, reason: 'backoff' }
+  // A failure, or a pass that could not proceed (deferral), backs off alike: retrying sooner would most
+  // likely meet the same cause, and a thread retried every pass would take a sweep slot every pass.
+  for (const at of [conversation.memoryReflection?.failedAt, conversation.memoryReflection?.deferredAt]) {
+    if (at && now.getTime() - Date.parse(at) < REFLECT_RETRY_MINUTES * MINUTE) return { due: false, reason: 'backoff' }
+  }
   if (trigger === 'turn') {
     return unreflected >= REFLECT_EVERY_MESSAGES ? { due: true, reason: 'size' } : { due: false, reason: 'below-threshold' }
   }
