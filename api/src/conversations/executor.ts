@@ -19,24 +19,27 @@ import mongo from '#mongo'
 import config from '#config'
 import locks from '@data-fair/lib-node/locks.js'
 import Debug from 'debug'
-import { streamText, stepCountIs, InvalidToolApprovalSignatureError, type Tool } from 'ai'
+import { streamText, stepCountIs, type Tool } from 'ai'
 // 'ai' does not re-export JSONObject; @ai-sdk/provider is where the library declares it.
 import type { JSONObject } from '@ai-sdk/provider'
 import { isMediaToolResult, type MediaToolResult } from '@agents/shared/tool-result'
 import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep, STREAM_IDLE_TIMEOUT_MS, createIdleWatchdog } from './loop-guards.ts'
-import type { AutonomousAgent, ConversationMessage } from '#types'
+import type { AutonomousAgent, ConversationRun } from '#types'
 import {
   runStopReasonMessage, buildSystemPrompt, withProvenance,
   usageIdentityFor,
-  boundToolResult, partsText, withAppendedText, textPart,
+  boundToolResult, partsText, withAppendedText,
   type RunStopReason, type MessagePart,
   type ConversationTurnRun
 } from './operations.ts'
 import { checkQuotas, moderateTurn } from './turn-gates.ts'
-import { moderationApplies, MODERATION_REFUSAL } from '../moderation/operations.ts'
-import { conversationTarget, liveParts, releaseLiveTurn, type TurnTarget } from './turn-target.ts'
+import { moderationApplies } from '../moderation/operations.ts'
+import {
+  conversationTarget, closeConversationRunBare, settleApprovedWithoutRunning, unknownApprovedOutcome,
+  type TurnTarget, type TurnResult, type TurnFailure
+} from './turn-target.ts'
 import { recordCall } from './turn-telemetry.ts'
-import { appendMessage, updateMessage, finishRun, finishTaskRun, finishTurn, bufferRunWrites, incrementRunSpend, resolveAgent, setRunSystemPrompt, conversationCost, createRun, settleStoredToolPart, rejectPendingApprovals, PENDING_APPROVAL_ACTED, APPROVED_STEP_ACTED } from './service.ts'
+import { appendMessage, updateMessage, finishRun, finishTaskRun, bufferRunWrites, incrementRunSpend, resolveAgent, setRunSystemPrompt, createRun, rejectPendingApprovals, PENDING_APPROVAL_ACTED, APPROVED_STEP_ACTED } from './service.ts'
 import { getSettings } from '../settings/service.ts'
 import { resolveRoleModel } from '../models/service.ts'
 import { contextBudget, type ModelRole } from '../models/operations.ts'
@@ -53,13 +56,12 @@ import type { ChatActivity } from '@agents/shared/agent-activity'
 import { browserToolSet } from '../agent-session/browser-tools.ts'
 import { waitHandover, repairWaitInput, formatHostEvents, WAIT_TOOL_NAME, WAIT_ACCEPTED, LOCATION_KEY } from '@agents/shared/host-events'
 import { settlePendingWait } from './waits.ts'
-import { PERSON_SPOKE, interruptedWaitResult, interruptReason, settleInterruptedParts } from './interrupted-turn.ts'
+import { PERSON_SPOKE, interruptedWaitResult, interruptReason } from './interrupted-turn.ts'
 import { checkAccountCreditCap } from '../usage/enforce.ts'
 import { recordUsage } from '../usage/service.ts'
 import type { MemoryDocument } from '../memory/operations.ts'
 import { buildServiceTools } from './service-tools.ts'
 import { mayBePageTool } from './service-tool-names.ts'
-import { maybeReflect } from '../memory/reflection.ts'
 
 const debug = Debug('df-agents:autonomous-agent-executor')
 
@@ -133,16 +135,6 @@ export const abortRunsOfAgent = (agentId: string): number => {
 }
 
 /**
- * Tell a watching page what its conversation has cost so far (see the `cost` frame). Only when
- * someone is watching: the aggregate is cheap, but there is no reason to run it for nobody.
- */
-const sendConversationCost = async (conversationId: string, known?: number) => {
-  const session = sessionFor(conversationId)
-  if (!session) return
-  session.send({ type: 'cost', conversationCost: await conversationCost(conversationId, known === undefined ? undefined : { credits: known }) })
-}
-
-/**
  * The abort reason of a turn stopped by a LATE moderation block — a verdict that lands after the gate
  * failed open (it does not wait longer than MODERATION_GATE_TIMEOUT_MS for the classifier). The gateway
  * aborted the response in that case; the executor's catch path recognises it and stores the refusal.
@@ -151,49 +143,6 @@ const MODERATION_LATE_BLOCK = 'moderation: a late verdict blocked this message'
 
 /** One conversation is one serialised timeline, so the lock is keyed on it. */
 const conversationLockId = (conversationId: string) => `conversation:${conversationId}`
-
-/** What one turn produced. The model loop replaces the body that fills this in. */
-interface TurnResult {
-  /** The turn's ordered parts — the record itself, not a rendering of it. */
-  parts: MessagePart[]
-  steps: number
-  credits: number
-  stopReason: RunStopReason
-  /** Which ceiling stopped it, when the stop reason alone would be ambiguous. */
-  stopDetail?: string
-  /** The wait the turn handed over on, left open for the person to answer (stopReason 'waiting'). */
-  handover?: { toolCallId: string, expecting?: string }
-  /** The turn ended on a call needing the person's approval (stopReason 'awaiting-approval'). */
-  awaitingApproval?: true
-  /**
-   * The idle watchdog aborted the stream. The SDK ends an aborted stream without throwing, so the turn
-   * still returns — but approved calls run before any part is emitted, unseen by the watchdog, and one
-   * slower than its timeout may have run (or still be running) when it fired.
-   */
-  idleAborted?: true
-  /**
-   * Set when the parts ALREADY say what went wrong, so no stop-reason notice is appended.
-   *
-   * One turn, one explanation. An empty completion is the case: it reports `error` — the run must
-   * record a fault, and a test and an admin both read that — while its message already carries the
-   * "I was not able to produce a response" fallback. Without this the person got both that sentence
-   * and a generic "this turn failed", which reads as two different failures.
-   */
-  selfExplained?: boolean
-  /**
-   * Set when the model loop already published the settled message frame.
-   *
-   * EXACTLY ONE settled frame per turn, which is a contract and not an optimisation: a client reads
-   * `pending: false` as "this turn is done", so a second identical frame is an extra end-of-turn
-   * signal. A test helper that returns on the first one then reads the duplicate as the NEXT turn's
-   * answer — which is how a passing suite turned into a drained-events failure that had nothing to do
-   * with draining.
-   *
-   * The paths that return before any model call (moderation, quotas, a missing identity) leave this
-   * unset, and `runTurn` publishes for them.
-   */
-  published?: boolean
-}
 
 /**
  * The oldest run of this conversation that still needs doing.
@@ -215,7 +164,7 @@ const nextPendingRun = async (conversationId: string) => {
  * reached as that identity — so this refuses early with an actionable message rather than
  * producing a toolless turn that looks like a capability problem.
  */
-const performTurn = async (run: ConversationTurnRun, abortSignal: AbortSignal, target: TurnTarget): Promise<TurnResult> => {
+const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, target: TurnTarget): Promise<TurnResult> => {
   const autonomousAgent = await resolveAgent(run.owner, run.agentId)
   if (!autonomousAgent) throw new Error('the autonomous agent no longer exists')
 
@@ -308,7 +257,7 @@ const performTurn = async (run: ConversationTurnRun, abortSignal: AbortSignal, t
 
   // The service's own tools, from the registry (./service-tools.ts): spread LAST, so a catalog tool that
   // happens to share a name cannot stand in for one, and recorded like a catalog call's source.
-  const service = await buildServiceTools({ agent: autonomousAgent, run, surface: 'chat', session })
+  const service = await buildServiceTools({ agent: autonomousAgent, run, surface: target.surface, session })
   Object.assign(tools, service.tools)
   for (const [name, server] of service.serverByTool) serverByTool.set(name, server)
   for (const [name, annotations] of service.annotationsByTool) annotationsByTool.set(name, annotations)
@@ -323,7 +272,7 @@ const performTurn = async (run: ConversationTurnRun, abortSignal: AbortSignal, t
 }
 
 interface ModelLoopContext {
-  run: ConversationTurnRun
+  run: ConversationRun
   abortSignal: AbortSignal
   model: ReturnType<typeof resolveRoleModel>['model']
   entry: ReturnType<typeof resolveRoleModel>['entry']
@@ -348,7 +297,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   const systemPrompt = buildSystemPrompt(autonomousAgent, memory)
   const identity = usageIdentityFor(autonomousAgent, run)
 
-  const { messages: history, credits: compactionCredits, hostBlockChars } = await target.history({ run, identity, budget, settings, abortSignal, agentId: autonomousAgent.id })
+  const { messages: history, credits: compactionCredits, hostBlockChars } = await target.history({ identity, budget, settings, abortSignal, agentId: autonomousAgent.id })
 
   // Every tool offered on any step of the turn, for its telemetry (see the run schema's `toolNames`).
   const offeredTools = new Set<string>()
@@ -1055,43 +1004,79 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
 }
 
 /**
- * Settle, as an error, every approved call an approval run leaves without a result.
+ * Run one turn to a terminal state, whatever it is a turn OF.
  *
- * ONE RULE AT THE END OF EVERY `approval` RUN, whatever the path. Only that run could execute those
- * calls (the SDK does it from the last message on replay), so once it is over, a call still
- * `approval-responded` never will be — refused before the model (disabled, no identity, a quota), a
- * run that threw before it (an unreachable MCP server), or a message posted before the run started, so
- * that the replay ended on it instead. Left as it is, every later replay would carry an approved call
- * with no result after it, which providers reject.
+ * What every kind of run needs lives here: the abort controller the abort routes reach, the buffered
+ * telemetry, the deadline, the turn itself, and the classification of a throw — abort, timeout, a late
+ * moderation block or a genuine error. What the turn's record IS lives behind the target (see
+ * ./turn-target.ts): writing it, closing the run, telling a watcher.
  *
- * Bounded to messages BEFORE the run's own (`beforeSeq`): a call this run made and stopped may already
- * have been approved by the person while the run was finishing, and belongs to the next continuation.
- * And settleStoredToolPart matches only `approval-responded`, so a call the run did settle is untouched.
+ * `open` runs inside the try, because opening the record can fail (appending a conversation's message);
+ * `closeBare` closes the run when no target was ever opened.
  */
-const settleApprovedWithoutRunning = async (conversationId: string, beforeSeq: number | undefined, errorText: string) => {
-  const messages = await mongo.messages
-    .find(
-      { conversationId, 'parts.state': 'approval-responded', ...(beforeSeq !== undefined ? { seq: { $lt: beforeSeq } } : {}) },
-      { projection: { _id: 0, parts: 1 } }
-    )
-    .toArray()
-  for (const message of messages) {
-    for (const part of message.parts as MessagePart[]) {
-      if (part.type !== 'dynamic-tool' || part.state !== 'approval-responded') continue
-      const settled = await settleStoredToolPart(conversationId, part.toolCallId, { state: 'output-error', errorText })
-      if (settled) sessionFor(conversationId)?.send({ type: 'message', seq: settled.seq, role: 'assistant', parts: settled.parts as MessagePart[], pending: false })
+export const driveTurn = async (
+  run: ConversationRun,
+  open: () => Promise<TurnTarget>,
+  closeBare: (patch: Partial<ConversationRun>) => Promise<unknown>
+): Promise<void> => {
+  const abortController = new AbortController()
+  liveRuns.set(run.id, { controller: abortController, agentId: run.agentId, conversationId: run.conversationId, taskId: run.taskId })
+  // The run's telemetry and spend are held from here until finishTurn writes them (see bufferRunWrites).
+  bufferRunWrites(run.id)
+
+  // The ceiling has to be enforced twice over, because abort() is only a REQUEST.
+  // abortController.signal asks the provider and the MCP client to stop, which is what a
+  // well-behaved fetch-based client does; but a client that ignores the signal would hold
+  // the conversation's lock until the lock's own TTL expired. So the turn is also raced
+  // against the deadline and abandoned if it overruns. Abandoning is safe: performTurn only
+  // returns a value, it never writes — all persistence happens in the target's close and fail.
+  let timeout: ReturnType<typeof setTimeout> | undefined
+  const deadline = new Promise<never>((_resolve, reject) => {
+    timeout = setTimeout(() => {
+      abortController.abort(new Error('run timeout'))
+      reject(new Error(`run exceeded its ${config.turnTimeoutSeconds}s ceiling`))
+    }, config.turnTimeoutSeconds * 1000)
+  })
+
+  let target: TurnTarget | undefined
+
+  try {
+    // Inside the try: opening can fail (the conversation vanished, a duplicate seq, a transient mongo
+    // error) and that must still close the run out rather than escape and leave it `running` forever.
+    target = await open()
+    const result = await Promise.race([performTurn(run, abortController.signal, target), deadline])
+    await target.close(result)
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err)
+    // An abort is not a failure of the turn: distinguish the clock from a caller pressing
+    // stop, and from a genuine error, because a reader reacts differently to each.
+    const aborted = abortController.signal.aborted
+    const timedOut = aborted && /timeout/i.test(String((abortController.signal as any).reason?.message ?? ''))
+    // Refused, not failed: declining WAS the answer, as for an on-time block (see turn-gates).
+    const lateBlocked = aborted && (abortController.signal as any).reason?.message === MODERATION_LATE_BLOCK
+    const stopReason: RunStopReason = lateBlocked ? 'completed' : timedOut ? 'timeout' : aborted ? 'aborted' : 'error'
+    const status = lateBlocked ? 'done' : stopReason === 'timeout' ? 'error' : aborted ? 'aborted' : 'error'
+    const failure: TurnFailure = {
+      stopReason,
+      status,
+      ...(lateBlocked ? {} : { error: detail }),
+      detail,
+      aborted,
+      lateBlocked,
+      interrupt: aborted ? interruptReason((abortController.signal as AbortSignal & { reason?: unknown }).reason) : 'ended',
+      cause: err
     }
+    // No target if opening itself failed; the run then carries the failure alone.
+    if (target) await target.fail(failure)
+    else await closeBare({ status, stopReason, ...(failure.error !== undefined ? { error: failure.error } : {}) })
+  } finally {
+    if (timeout) clearTimeout(timeout)
+    liveRuns.delete(run.id)
   }
 }
 
-/** The error an approved call is settled with when its run ended normally without executing it. */
-const APPROVED_NOT_RUN = 'Approved, but it did not run: the turn continuing from the decision ended without reaching it.'
-
-/** The error an approved call is settled with when its run ended — threw, timed out, died — without it reporting. */
-const unknownApprovedOutcome = (detail: string) => `Approved, but its outcome is unknown: the turn ended before it reported (${detail}).`
-
 /**
- * Run one turn to a terminal state.
+ * Run one turn of a conversation to a terminal state.
  *
  * The assistant message is created BEFORE the turn runs, `pending: true`, for two reasons:
  * a reader sees the turn exists while it is being produced, and a throw still has a message
@@ -1109,28 +1094,7 @@ export const runTurn = async (run: ConversationTurnRun): Promise<void> => {
     return
   }
 
-  const abortController = new AbortController()
-  liveRuns.set(run.id, { controller: abortController, agentId: run.agentId, conversationId: run.conversationId })
-  // The run's telemetry and spend are held from here until finishTurn writes them (see bufferRunWrites).
-  bufferRunWrites(run.id)
-
-  // The ceiling has to be enforced twice over, because abort() is only a REQUEST.
-  // abortController.signal asks the provider and the MCP client to stop, which is what a
-  // well-behaved fetch-based client does; but a client that ignores the signal would hold
-  // the conversation's lock until the lock's own TTL expired. So the turn is also raced
-  // against the deadline and abandoned if it overruns. Abandoning is safe: performTurn only
-  // returns a value, it never writes — all persistence happens here.
-  let timeout: ReturnType<typeof setTimeout> | undefined
-  const deadline = new Promise<never>((_resolve, reject) => {
-    timeout = setTimeout(() => {
-      abortController.abort(new Error('run timeout'))
-      reject(new Error(`run exceeded its ${config.turnTimeoutSeconds}s ceiling`))
-    }, config.turnTimeoutSeconds * 1000)
-  })
-
-  let message: ConversationMessage | undefined
-
-  try {
+  await driveTurn(run, async () => {
     // A turn answering the person's MESSAGE rejects whatever approval is still pending, again. Posting
     // already did, but the turn that asked may then still have been finishing — its own last writes put
     // `approval-requested` back, and the card reappeared in a message that is no longer the last. Here,
@@ -1142,10 +1106,9 @@ export const runTurn = async (run: ConversationTurnRun): Promise<void> => {
     // no `pendingWait` to settle, then that turn's close wrote one. The person answered it by writing.
     if (run.trigger === 'user') await settlePendingWait(run.conversationId, wait => interruptedWaitResult(wait.expecting))
 
-    // Inside the try: appendMessage can fail (the conversation vanished between the findOne
-    // above and the $inc, a duplicate seq, a transient mongo error) and that must still
-    // close the run out rather than escape and leave it `running` forever.
-    message = await appendMessage(conversation, {
+    // Can fail (the conversation vanished between the findOne above and the $inc, a duplicate seq, a
+    // transient mongo error): the driver then closes the run bare.
+    const message = await appendMessage(conversation, {
       role: 'assistant',
       author: { kind: 'autonomous-agent', userName: conversation.title },
       parts: [],
@@ -1161,196 +1124,8 @@ export const runTurn = async (run: ConversationTurnRun): Promise<void> => {
 
     // The assistant message's own seq bounds the history: it was created before the turn
     // (empty, pending), so it must not be fed back to the model as an empty turn.
-    const target = conversationTarget(run, message.seq, conversation)
-    const result = await Promise.race([performTurn(run, abortController.signal, target), deadline])
-    // An approval run leaves no approved call without a result (see settleApprovedWithoutRunning).
-    // Before the run closes, so a reader stopping on the closed run already finds them settled.
-    //
-    // Both wordings say "did not run", because on THIS path it is certain: the SDK executes approved
-    // calls before the first step and reports every one of them (a result, an error or a denial), so a
-    // call still `approval-responded` after a run that RETURNED was never executed — its replay ended
-    // on another message (one posted before the run started). Except after an idle abort, which ends
-    // the stream without throwing while a slow approved call may still be executing.
-    if (run.trigger === 'approval') {
-      await settleApprovedWithoutRunning(run.conversationId, message.seq, !result.published
-        // REFUSED before the model was reached.
-        ? `Approved, but the turn could not run: ${partsText(result.parts).trim() || 'it was refused'}`
-        : result.idleAborted
-          ? unknownApprovedOutcome('the model stream went silent')
-          : APPROVED_NOT_RUN)
-    }
-    // A turn that stopped for a reason other than finishing explains itself, appended to
-    // whatever it did manage to produce.
-    // A handover is not a stop to explain: its own message, already in the parts, says what is next.
-    const notice = result.stopReason === 'completed' || result.stopReason === 'waiting' || result.stopReason === 'awaiting-approval' || result.selfExplained
-      ? ''
-      : runStopReasonMessage(result.stopReason, result.stopDetail)
-    const finalParts = notice ? withAppendedText(result.parts, notice) : result.parts
-    // The answer and the run's close in one write sequence under one version bump — see finishTurn.
-    // A run stopped by a guard or a budget is still a completed run: it did work and said so. But a
-    // turn that REFUSED — no enrolled identity, an exhausted credit cap — returns stopReason 'error'
-    // without throwing, and must not be reported as done.
-    const handoverLocation = result.handover
-      ? sessionFor(run.conversationId)?.hostEvents.snapshot().state.find(event => event.key === LOCATION_KEY)?.detail
-      : undefined
-    const finished = await finishTurn(
-      run,
-      { seq: message.seq, patch: { parts: finalParts as any, pending: false } },
-      { status: result.stopReason === 'error' ? 'error' : 'done', stopReason: result.stopReason },
-      result.handover
-        ? {
-            pendingWait: {
-              messageSeq: message.seq,
-              toolCallId: result.handover.toolCallId,
-              ...(result.handover.expecting ? { expecting: result.handover.expecting } : {}),
-              since: new Date().toISOString(),
-              ...(handoverLocation ? { location: handoverLocation } : {}),
-              // The person whose turn handed over: their action starts the next one, billed as theirs.
-              ...(run.triggeredBy ? { triggeredBy: run.triggeredBy } : {}),
-              ...(run.triggeredByRole ? { triggeredByRole: run.triggeredByRole } : {})
-            }
-          }
-        : {}
-    )
-    // PUBLISHED FOR THE PATHS THE LOOP NEVER REACHED: a moderation block, a quota refusal and a
-    // missing non-human identity all return their refusal before any model call, so the loop's own
-    // settled frame never ran — the text was stored and the watching page was told nothing. A blocked
-    // message showed the person an empty turn and a stopped spinner, with the refusal they were
-    // supposed to read sitting in the database until a reload.
-    // An approval request's card becomes decidable here, once the message is closed in the store — not
-    // at the loop's last frame, which went out before finishTurn (see decideApproval).
-    if (!result.published || result.awaitingApproval) {
-      sessionFor(run.conversationId)?.send({
-        type: 'message',
-        seq: message.seq,
-        role: 'assistant',
-        parts: finalParts as any,
-        pending: false
-      })
-    }
-
-    // The conversation's total, now including this turn — returned by the close itself — then the
-    // end-of-turn signal, so a page that refreshes on turn-end already holds the new figure.
-    // Best-effort: a figure for a display must never turn a finished turn into a failed one.
-    await sendConversationCost(run.conversationId, finished.conversationCredits).catch(() => {})
-    // A handover's label, BEFORE turn-end: it outlives the turn — it tells the person the next move is
-    // theirs, and keeps Stop on screen to decline it — and sent first there is no instant between the
-    // turn ending and the wait showing, in which the chat would read as simply done.
-    if (result.handover) {
-      sessionFor(run.conversationId)?.send({ type: 'activity', activity: { kind: 'waiting', expecting: result.handover.expecting ?? '' } })
-    }
-    if (result.awaitingApproval) {
-      const pending = finalParts.find(p => p.type === 'dynamic-tool' && p.state === 'approval-requested')
-      sessionFor(run.conversationId)?.send({ type: 'activity', activity: { kind: 'approval', toolName: pending?.type === 'dynamic-tool' ? pending.toolName : '' } })
-    }
-    // The end-of-turn signal, so a watching page stops its spinner without polling for it.
-    sessionFor(run.conversationId)?.send({
-      type: 'turn-end',
-      stopReason: result.stopReason,
-      ...(result.stopDetail ? { detail: result.stopDetail } : {})
-    })
-    // MEMORY REFLECTION, off the person's path: a long thread is reflected once it has grown enough;
-    // a thread that simply ends is caught by the idle sweep (api/src/memory/reflection.ts). Not on a
-    // handover nor on an approval request — the exchange is mid-way, and the next turn comes back here.
-    if (!result.handover && !result.awaitingApproval) {
-      maybeReflect(run.conversationId, 'turn').catch(err => console.error('memory reflection could not start', err))
-    }
-    if (result.handover) {
-      // The person may have acted while the turn was still finishing: that answer is already buffered.
-      await wakeIfAnswered(run.conversationId).catch(err => console.error('could not wake a conversation on its pending wait', err))
-    }
-  } catch (err) {
-    let finalParts: MessagePart[] | undefined
-    const detail = err instanceof Error ? err.message : String(err)
-    // An abort is not a failure of the turn: distinguish the clock from a caller pressing
-    // stop, and from a genuine error, because a reader reacts differently to each.
-    const aborted = abortController.signal.aborted
-    const timedOut = aborted && /timeout/i.test(String((abortController.signal as any).reason?.message ?? ''))
-    // Refused, not failed: declining WAS the answer, as for an on-time block (see turn-gates).
-    const lateBlocked = aborted && (abortController.signal as any).reason?.message === MODERATION_LATE_BLOCK
-    const stopReason: RunStopReason = lateBlocked ? 'completed' : timedOut ? 'timeout' : aborted ? 'aborted' : 'error'
-    // The message is finalised FIRST, and the run closed after, because the terminal run state
-    // is the end-of-turn signal a reader stops on: closing the run first
-    // would leave every failed, aborted and timed-out turn showing a message stuck `pending`.
-    //
-    // This does NOT give up the guarantee that sent these two the other way round originally —
-    // that whatever brought us here (a mongo blip, a shutdown) is likely to fail the message
-    // write too, and a run left `running` is worse than a message left without its notice,
-    // since the run is what every reader and the boot sweep key on. That is preserved by
-    // CATCHING the message write rather than by ordering it last: finishRun still runs.
-    //
-    // No message exists if appendMessage itself failed; the run then carries the failure alone.
-    if (message) {
-      // APPENDED to what was persisted, not replacing it. `message` is the empty document created
-      // before the turn, so the partial text and the tool traffic the executor has since written live
-      // only in the store — replacing the parts here would delete the record of everything the turn
-      // actually did, which is exactly what must survive a failure.
-      // From MEMORY when the turn ran here, which is the common case: the answer's text is written
-      // only at the end, so the store holds the tool traffic but not what was said around it — a
-      // reply stopped mid-sentence would lose its words from the record. The store is the fallback for
-      // a turn that never got as far as producing parts.
-      const live = liveParts(run.conversationId, message.seq)
-      const persisted = live
-        ? { parts: live }
-        : await mongo.messages
-          .findOne({ id: message.id }, { projection: { _id: 0, parts: 1 } })
-          .catch(() => null)
-      // Every call still open gets a result saying why it never completed (port of main's #73): a call
-      // with no result is dropped on replay, so the model would never learn what it had been doing —
-      // judged runs then denied work they had done and redid it.
-      const reason = aborted ? interruptReason((abortController.signal as AbortSignal & { reason?: unknown }).reason) : 'ended'
-      const settled = settleInterruptedParts((persisted?.parts ?? []) as MessagePart[], reason)
-      // No stop notice when the person SPOKE: their message follows and answers it, and the notice
-      // would be replayed to the model as its own words. Stop, the clock and errors keep theirs.
-      finalParts = lateBlocked
-        // A LATE moderation block: the reply to a message that should never have been answered is
-        // dropped, and the person reads the same refusal as an on-time block. The tool calls already
-        // made stay, settled, because they happened — and a call without its result is dropped on
-        // replay, which would hide from the model that it had acted.
-        ? [...settled.filter(part => part.type === 'dynamic-tool'), { type: 'data-refusal', data: { kind: 'moderation' } } as MessagePart, textPart(MODERATION_REFUSAL)]
-        : reason === 'message' ? settled : withAppendedText(settled, runStopReasonMessage(stopReason, detail))
-    }
-    // The same rule as the success path, for a run that threw: whether a call ran before the throw is
-    // not known here, so it says so — except for a signature that failed verification, which the SDK
-    // checks before executing anything (a secret rotated between the request and the decision): those
-    // calls certainly did not run. Caught, like the message write below: the run must still close.
-    if (run.trigger === 'approval') {
-      await settleApprovedWithoutRunning(run.conversationId, message?.seq, InvalidToolApprovalSignatureError.isInstance(err)
-        ? `Approved, but it did not run: the approval could not be verified (${detail}).`
-        : unknownApprovedOutcome(detail))
-        .catch(settleErr => console.error('approved calls could not be settled', settleErr))
-    }
-    // The message, then the run, under one bump (finishTurn) — the message write CAUGHT inside it, so
-    // whatever failed it still lets the run close.
-    const finished = await finishTurn(
-      run,
-      message && finalParts ? { seq: message.seq, patch: { parts: finalParts as any, pending: false } } : undefined,
-      lateBlocked
-        ? { status: 'done', stopReason }
-        : { status: stopReason === 'timeout' ? 'error' : aborted ? 'aborted' : 'error', stopReason, error: detail }
-    ).catch(finishErr => { console.error('autonomous agent run could not be closed out', finishErr); return undefined })
-    // Same reason as the success path: the notice explaining the failure has to reach the page that
-    // is watching, not only the store. `turn-end` alone stops the spinner without saying why. From
-    // the parts just written, rather than read back.
-    if (message && finalParts) {
-      sessionFor(run.conversationId)?.send({ type: 'message', seq: message.seq, role: 'assistant', parts: finalParts as any, pending: false })
-    }
-    // A failed turn ends the same way for a watcher as a successful one: the page must stop waiting
-    // whatever happened. "Failure is a message, not a silence" applies to the socket too.
-    //
-    // LAST, as on the success path, and that order is the contract: `turn-end` means "the record is
-    // final". It used to go out first, before the message was settled — so anything reacting to it,
-    // a client refetching or a test reading the record, could see an interrupted turn's calls still
-    // open. Found by the interrupted-turn api spec, which passed alone and failed in sequence.
-    await sendConversationCost(run.conversationId, finished?.conversationCredits).catch(() => {})
-    sessionFor(run.conversationId)?.send({ type: 'turn-end', stopReason, detail })
-  } finally {
-    if (timeout) clearTimeout(timeout)
-    liveRuns.delete(run.id)
-    // Only now: the catch path above settles the turn FROM it. Keyed by the message, so a later turn
-    // of the same conversation that already registered is left alone.
-    if (message) releaseLiveTurn(run.conversationId, message.seq)
-  }
+    return conversationTarget(run, message, conversation, wakeIfAnswered)
+  }, patch => closeConversationRunBare(run, patch))
 }
 
 /**
