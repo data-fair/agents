@@ -151,10 +151,21 @@ test.describe('The approval gate', () => {
   })
 
   test('an autonomous agent disabled before the decision does not run the approved call', async () => {
-    const { agent, conv, approvalId } = await pendingApproval()
+    const { agent, conv, approvalId, seq } = await pendingApproval()
     await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, { title: agent.title, persona: agent.persona, mcpServers: agent.mcpServers, enabled: false })
     const { runId } = (await decide(conv.id, approvalId, { approved: true })).data
     await awaitRun(runId)
+    assert.deepEqual(fixture.invokedTools(), [])
+    // Settled as an error rather than left approved with no result, which every later replay would carry.
+    const part = callPart(await messageAt(conv.id, seq), 'wipe_everything')
+    assert.equal(part.state, 'output-error')
+    assert.match(part.errorText, /^Approved, but the turn could not run: This autonomous agent is currently disabled/)
+
+    // Re-enabled, a further turn replays the call WITH that result, so it does not run late.
+    await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, { title: agent.title, persona: agent.persona, mcpServers: agent.mcpServers, enabled: true })
+    await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
+    const { run } = await turn(conv.id, 'hello')
+    assert.equal(run.stopReason, 'completed')
     assert.deepEqual(fixture.invokedTools(), [])
   })
 
@@ -173,17 +184,40 @@ test.describe('The approval gate', () => {
     assert.equal(part.errorText, 'this tool is no longer available')
   })
 
-  test('a decision flips only the call it names', async () => {
+  const twoPending = async () => {
     const agent = await createGatedAgent()
     const conv = (await orgAdmin.post(BASE, { agentId: agent.id, title: 't' })).data
     const { assistant } = await turn(conv.id, 'call tools wipe_everything wipe_everything')
     const [first, second] = assistant.parts.filter((p: any) => p.state === 'approval-requested')
     assert.ok(first && second, 'two calls stopped in one step')
-    const { runId } = (await decide(conv.id, first.approval.id, { approved: false })).data
-    await awaitRun(runId)
-    const parts = (await messageAt(conv.id, assistant.seq)).parts
+    return { conv, seq: assistant.seq as number, first, second }
+  }
+
+  test('a decision flips only the call it names', async () => {
+    const { conv, seq, first, second } = await twoPending()
+    assert.deepEqual((await decide(conv.id, first.approval.id, { approved: false })).data, { pending: 1 })
+    const parts = (await messageAt(conv.id, seq)).parts
     assert.equal(parts.find((p: any) => p.toolCallId === first.toolCallId).state, 'output-denied')
     assert.equal(parts.find((p: any) => p.toolCallId === second.toolCallId).state, 'approval-requested')
+  })
+
+  test('calls stopped in one step continue once all are decided, each running once', async () => {
+    const { conv, seq, first, second } = await twoPending()
+    assert.deepEqual((await decide(conv.id, first.approval.id, { approved: true })).data, { pending: 1 })
+    const runs = (await orgAdmin.get(`${BASE}/${conv.id}/runs`)).data.results
+    assert.ok(!runs.some((r: any) => r.trigger === 'approval'), 'no continuation while a call is undecided')
+    assert.deepEqual(fixture.invokedTools(), [])
+
+    const { runId } = (await decide(conv.id, second.approval.id, { approved: true })).data
+    const run = await awaitRun(runId)
+    assert.equal(run.stopReason, 'completed')
+    assert.deepEqual(fixture.invokedTools(), ['wipe_everything', 'wipe_everything'])
+    const parts = (await messageAt(conv.id, seq)).parts
+    assert.equal(parts.find((p: any) => p.toolCallId === first.toolCallId).state, 'output-available')
+    assert.equal(parts.find((p: any) => p.toolCallId === second.toolCallId).state, 'output-available')
+
+    await turn(conv.id, 'hello')
+    assert.deepEqual(fixture.invokedTools(), ['wipe_everything', 'wipe_everything'], 'neither runs again')
   })
 })
 

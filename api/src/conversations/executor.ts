@@ -1097,6 +1097,26 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
 }
 
 /**
+ * Settle every approved call of a conversation still waiting for its result as an error.
+ *
+ * For a continuation that was refused before any model call (the autonomous agent disabled, no
+ * identity, a quota, moderation): left `approval-responded`, every later replay would carry an approved
+ * call with no result after it — which providers reject — and none would ever execute it.
+ */
+const settleApprovedWithoutRunning = async (conversationId: string, errorText: string) => {
+  const messages = await mongo.messages
+    .find({ conversationId, 'parts.state': 'approval-responded' }, { projection: { _id: 0, parts: 1 } })
+    .toArray()
+  for (const message of messages) {
+    for (const part of message.parts as MessagePart[]) {
+      if (part.type !== 'dynamic-tool' || part.state !== 'approval-responded') continue
+      const settled = await settleStoredToolPart(conversationId, part.toolCallId, { state: 'output-error', errorText })
+      if (settled) sessionFor(conversationId)?.send({ type: 'message', seq: settled.seq, role: 'assistant', parts: settled.parts as MessagePart[], pending: false })
+    }
+  }
+}
+
+/**
  * Run one turn to a terminal state.
  *
  * The assistant message is created BEFORE the turn runs, `pending: true`, for two reasons:
@@ -1157,6 +1177,12 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
     // The assistant message's own seq bounds the history: it was created before the turn
     // (empty, pending), so it must not be fed back to the model as an empty turn.
     const result = await Promise.race([performTurn(run, message.seq, abortController.signal, conversation), deadline])
+    // A continuation REFUSED before the model was reached: the approved calls never ran, and will not
+    // (the SDK executes them only from the last message, which this one now is). Settled as errors
+    // before the run closes, so a reader stopping on the closed run already finds them settled.
+    if (run.trigger === 'approval' && !result.published) {
+      await settleApprovedWithoutRunning(run.conversationId, `Approved, but the turn could not run: ${partsText(result.parts).trim()}`)
+    }
     // A turn that stopped for a reason other than finishing explains itself, appended to
     // whatever it did manage to produce.
     // A handover is not a stop to explain: its own message, already in the parts, says what is next.
