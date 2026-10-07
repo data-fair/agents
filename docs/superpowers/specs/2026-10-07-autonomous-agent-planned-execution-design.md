@@ -136,6 +136,7 @@ apply. Changes:
 - the decision arrives over the **chat socket** as well as HTTP, like Stop; only the person whose
   conversation it is decides;
 - the run that follows a decision has trigger **`approval`**, beside `user` and `wake`;
+- a new message from the person **rejects** any pending approval (reason "The person sent a new message instead of deciding."), so a pending approval is always the conversation's latest step: no undecided call can be compacted away or approved out of order, and the gate design's compaction clamp is not needed.
 - the same shape as the wait handover (`2026-10-06-wait-ends-the-turn-design.md`): a turn ends with a
   call left open, and a button settles it.
 
@@ -267,8 +268,6 @@ Five plans, each shippable and tested on its own:
   interval, the task cap, the five-failure pause and the account's credit cap.
 - **Approval fatigue** — `destructive: 'approve'` gates only tools declared destructive; `write` stays
   `allow` unless an admin raises it.
-- **A pending approval sits for ever** — accepted, as in the gate design: nothing is held, and it is
-  visible in the chat.
 - **Poisoned continuity** — past runs are returned as data, and task runs cannot change configuration.
 - **The executor refactor** — the largest change; isolated in its own plan and proven by the existing
   suites passing unchanged.

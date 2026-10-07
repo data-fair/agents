@@ -1,6 +1,6 @@
 # The tool approval gate
 
-**Status:** proposed, awaiting approval to implement
+**Status:** implemented (2026-10), with the changes recorded in 2026-10-07-autonomous-agent-planned-execution-design.md
 **Date:** 2026-10-01
 **Implements:** the P1 row of `2026-09-22-autonomous-agents-p0-design.md` — "approval gate enabled".
 P0 promised "plumbing present, gate open, so enabling it in P1 is configuration rather than surgery".

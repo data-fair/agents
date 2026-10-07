@@ -154,6 +154,50 @@ that silently destroyed it would take the audit trail with it. What it needs ins
 erase it — which is what the delete routes are. (Archived threads and abandoned anonymous threads are
 swept by their own purges.)
 
+## The approval gate
+
+A tool call is classified from the MCP `annotations` its server declares (`api/src/conversations/approval-policy.ts`,
+`classifyTool`): `destructiveHint` wins and makes it **destructive**, `readOnlyHint` makes it **readOnly**, and
+an unannotated tool is a **write** — the safe reading of a tool that said nothing. Each agent carries
+`approvals`, one of `allow` / `approve` / `deny` per class; the defaults are `readOnly: 'allow'`,
+`write: 'allow'` and `destructive: 'approve'`. It applies to the **catalog tools of configured autonomous
+agents** only: a standard agent's browser tools and the service's own tools are exempt.
+
+- `deny` **removes** the tool from the set the model sees, so it cannot be asked for.
+- `approve` **stops the turn**: the call is stored in the AI SDK's `approval-requested` state and the run ends
+  with `stopReason: 'awaiting-approval'`. Nothing is held in memory; the pending call is simply the latest step
+  of the conversation.
+- Approvals are **signed** by the AI SDK (`experimental_toolApprovalSecret` = the service `securityKey`), so a
+  stored approval cannot be forged by editing a message.
+
+**The decision** is `{ approved, reason? }`, over the chat socket (frame `{ type: 'approval', approvalId, approved,
+reason? }`) or `POST /api/conversations/:type/:id/:conversationId/approvals/:approvalId`. Only the person whose
+conversation it is may decide (`assertCanInstruct`), and it is atomic: a second decision on the same approval is a
+`409`. `decideAndContinue` (`api/src/conversations/approvals.ts`) records it on the part, then starts a run with
+trigger `approval` **only once no `approval-requested` part remains in the message**; while another call of the same
+step is undecided it returns `{ pending: n }` instead of `{ runId }`. Two calls in one step are therefore decided
+one by one and the model resumes once, after the last.
+
+The `approval` run **replays** the conversation and the AI SDK executes the approved call, **settled on its original
+part** — that is the double-execution guard: the call has exactly one part, and a part that holds a result is never
+run again. A call the person rejected is stored `output-denied` and replays with its reason as its result. An approved call the SDK refuses to run on replay — its class was set to `deny`, or to `allow`, since the request — is settled `output-error` on its own part ("this tool is no longer available", or that the policy changed), never left open. Moderation is **skipped** on an
+approval run: there is no new user text, and the decision is not something to classify.
+
+A run that does not reach the model must not leave an approved call without a result. `settleApprovedWithoutRunning`
+runs at the end of every approval run: when the run was refused (quota, credit cap, disabled agent...) it settles the
+approved calls "Approved, but the turn could not run: <reason>"; otherwise, for a call the stream ended without
+settling, "outcome is unknown" — an honest answer for a write that may or may not have happened.
+
+A **new message** from the person rejects every pending approval (`rejectPendingApprovals`, reason
+`PENDING_APPROVAL_SUPERSEDED`, and it settles approved calls of a superseded step the same way). A pending approval
+is therefore always the conversation's latest step, so no undecided call can be compacted away or approved out of
+order, and the compaction policy needs no guard for it.
+
+In the chat the call is an **approval card** (`ui/src/components/agent-chat/ApprovalCard.vue`): the tool, its server
+and arguments, Approve and Reject with an optional reason. It locks while the decision is sending (released on a chat
+error) and once decided stays as a record; a rejection shows as a "Declined: <tool>" chip. While waiting, the activity
+label reads "Awaiting your approval", with a static icon rather than a spinner, since nothing is running.
+
 ## Spend
 
 The executor talks to providers directly and does its own accounting: the quota/credit gate before the
@@ -177,4 +221,4 @@ recorded since:
 - the browser loop was removed and every agent now runs on the one server loop, one person per
   conversation (`2026-10-01-one-server-loop-prototype-design.md`, which reverses the earlier
   `2026-09-30-one-agent-loop-two-platforms-design.md`);
-- an approval gate for write tools is designed but not built (`2026-10-01-tool-approval-gate-design.md`).
+- the approval gate for write tools is built (`2026-10-01-tool-approval-gate-design.md`, with the changes recorded in `2026-10-07-autonomous-agent-planned-execution-design.md`).
