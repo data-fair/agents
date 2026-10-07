@@ -152,6 +152,7 @@ apply. Changes:
 - no approved call is ever left without a result, whatever ends the `approval` run — refused, returned, thrown, or
   interrupted by a restart — and the replay sends one that slipped through as an error rather than bare;
 - a sub-agent worker is never handed a tool needing approval: such a tool stays with the lead.
+- deciding on a call the gate stopped in the same step a wait handed over settles that wait ("The person did not act on the page: they decided on the approval request instead."), and a turn answering a new message rejects pending approvals again when it starts, so a rejection cannot be lost to the asking turn's last writes.
 - the same shape as the wait handover (`2026-10-06-wait-ends-the-turn-design.md`): a turn ends with a
   call left open, and a button settles it.
 
@@ -251,7 +252,7 @@ Five plans, each shippable and tested on its own:
    approvals before anything is scheduled.
 2. **The model loop separated from conversations, and the service-tool registry** — a refactor with no
    behaviour change, proven by the existing suites unchanged; `wait_for_user_action` becomes the
-   registry's first entry. The point to coordinate with the memory work.
+   registry's first entry. The point to coordinate with the memory work. — done (2026-10): turn-target.ts and service-tools.ts.
 3. **Tasks, task runs and the scheduler** — the tasks collection and the `task` run kind, claiming, firing and skipping, recovery, the
    pause, notifications, run-now, abort, routes, export.
 4. **Self-knowledge and self-configuration tools** — including `plan_task` through the gate.

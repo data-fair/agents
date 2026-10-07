@@ -20,7 +20,7 @@ One provider-neutral tool, `memory`, with the commands of Anthropic's memory too
 
 Store-wide caps (document count, total characters) are checked against a snapshot, so concurrent creates of different paths can overshoot them slightly; the next write is then refused until the agent consolidates. A write over a cap is **refused**, never truncated, with the cap and what to do (consolidate, then retry). From 80% of the document or total cap the prompt block asks the agent to consolidate. Text with invisible or control characters (zero-width, bidi, tag characters) is refused. Everything a command can decide is decided in the pure `applyMemoryCommand`, against the store as it would be after the change.
 
-Wiring (`api/src/conversations/executor.ts`):
+Wiring (the `memory` entry of the service-tool registry, `api/src/conversations/service-tools.ts`, run by `executor.ts`):
 
 - **Frozen at run start.** The store is read once; the block rendered by `renderMemoryBlock` is part of the system prompt, which is the run's stable prefix. Writes made during the turn land in the store at once and show in the prompt from the next run. Tags of the block's vocabulary inside a document are defused so it cannot forge the envelope.
 - **Outside the approval gate.** The tool is added after `applyApprovalPolicy`: it writes only the agent's own audited store. Its annotations are explicit (`MEMORY_TOOL_ANNOTATIONS`) and recorded on the stored call, with provenance server `agent-memory`.

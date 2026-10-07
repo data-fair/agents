@@ -160,6 +160,28 @@ that silently destroyed it would take the audit trail with it. What it needs ins
 erase it — which is what the delete routes are. (Archived threads and abandoned anonymous threads are
 swept by their own purges.)
 
+## The turn and its target
+
+`runModelLoop` (`api/src/conversations/executor.ts`) produces a turn's parts and knows nothing of conversations. Everything that makes those parts a conversation's goes through a `TurnTarget` (`api/src/conversations/turn-target.ts`); `conversationTarget(run, messageSeq, conversation)` is the one implementation today:
+
+- `session` and `historyUpToSeq`: the page in front of the person as the turn started (its tools and host events; undefined is normal), and the history bound recorded on the turn's telemetry.
+- `history`: the stored messages up to the turn's own, compacted within the budget, with the page's context (host events, the pending-wait reminder) folded into the last user message at call time and never persisted.
+- `persist`: writes the turn's structure to its assistant message each time a call opens or settles. Streamed text is not written as it goes.
+- `frames`: deltas, activity, the message so far and sub-agent frames, sent to whoever watches the conversation **now** (read at each send), not to the session the turn started with, so a reload or a second tab does not silence it.
+- `settleEarlierCall`: the result of a call an earlier turn made, an approved call the SDK executed on replay, settled on its original part.
+- `track`: exposes the answer so far in a registry (`liveTurnOf`, `liveParts`, `releaseLiveTurn`), so a page attaching mid-turn gets it on attach and the rest live, and a stopped or failing turn is settled from it.
+
+Plan 3 adds a task-run target: its record is the run itself and nobody watches it.
+
+## The service's own tools
+
+`buildServiceTools` (`api/src/conversations/service-tools.ts`) is a registry of the service's own tools, each entry declaring when it applies (the surface and the agent) and how it is built. Two entries:
+
+- `wait_for_user_action`: only in a chat with someone watching (a session). Unwrapped: its result is the loop's own handover.
+- `memory`: a configured agent with memory enabled (`memoryEnabledFor`), on every surface. Provenance server `agent-memory`.
+
+Service tools are added after the approval policy is applied, so they are outside the approval gate. None can be displaced: `api/src/conversations/service-tool-names.ts` holds `SERVICE_TOOL_NAMES` and the pure `mayBePageTool`, so a page tool of such a name is not treated as a page tool, a catalog tool does not stand in for one, and a sub-agent configuration never reserves one.
+
 ## The approval gate
 
 A tool call is classified from the MCP `annotations` its server declares (`api/src/conversations/approval-policy.ts`,
@@ -214,7 +236,7 @@ A **new message** from the person rejects every pending approval (`rejectPending
 `PENDING_APPROVAL_SUPERSEDED`, and it settles approved calls of a superseded step the same way). So does a **wake**:
 when the model called `wait_for_user_action` and a gated tool in one step, the handover wins and the turn ends
 `waiting` with the request beside it; the person acting on the page rejects it (`PENDING_APPROVAL_ACTED`) before the
-wait is settled. A pending approval is therefore always the conversation's latest step, so no undecided call can be
+wait is settled. Two guards keep this true: a turn answering a message (`user` run) rejects pending approvals again when it starts, so a rejection cannot be lost to the asking turn's last writes; and `decideAndContinue` settles a wait handed over in the same step as the gated call with `WAIT_SUPERSEDED_BY_DECISION`. A pending approval is therefore always the conversation's latest step, so no undecided call can be
 compacted away or approved out of order, and the compaction policy needs no guard for it.
 
 A **sub-agent worker** is never handed a tool needing approval (`partitionSubAgents`): its request would stop the
