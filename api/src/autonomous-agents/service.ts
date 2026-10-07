@@ -143,10 +143,12 @@ export const deleteAutonomousAgentData = async (agentId: string) => {
     .find({ agentId }, { projection: { _id: 0, id: 1 } })
     .toArray()
   const conversationIds = conversations.map(conversation => conversation.id)
-  // Every run of the agent, of either kind: a task run has no conversation to reach it through. Before
-  // the early return below, which an agent that only ever ran tasks would take. (Its planned tasks are
-  // erased here too once the tasks collection exists.)
-  const agentRuns = await mongo.runs.deleteMany({ agentId })
+  // Every TASK run of the agent: it has no conversation to reach it through, and an agent that only ever ran
+  // tasks takes the early return below. Conversation runs are deleted by conversation, further down, in the
+  // documented order.
+  const agentRuns = await mongo.runs.deleteMany({ agentId, kind: 'task' })
+  // The agent's planned tasks go with it, so nothing is left for the scheduler to run as a deleted agent.
+  await mongo.autonomousAgentTasks.deleteMany({ agentId })
   if (!conversationIds.length) {
     const late = await deleteMemoryStore(agentStoreId(agentId))
     return { conversations: 0, messages: 0, runs: agentRuns.deletedCount, memories: memory.documents + late.documents, memoryVersions: memory.versions + late.versions }

@@ -1,6 +1,7 @@
 import type { Settings } from '#types/settings/index.ts'
 import type { Limits } from '#types/limits/index.ts'
 import type { AutonomousAgent } from '#types/autonomous-agent/index.ts'
+import type { AutonomousAgentTask } from '#types/autonomous-agent-task/index.ts'
 import type { Conversation } from '#types/conversation/index.ts'
 import type { ConversationMessage } from '#types/conversation-message/index.ts'
 import type { MessagePart } from '@agents/shared/message-parts'
@@ -44,6 +45,10 @@ export class AgentsMongo {
 
   get moderationStrikes () {
     return mongoLib.db.collection<ModerationStrike>('moderation-strikes')
+  }
+
+  get autonomousAgentTasks () {
+    return mongoLib.db.collection<AutonomousAgentTask>('autonomous-agent-tasks')
   }
 
   get autonomousAgents () {
@@ -105,6 +110,12 @@ export class AgentsMongo {
       'autonomous-agents': {
         'main-keys': [{ id: 1 }, { unique: true }],
         'owner-keys': [{ 'owner.type': 1, 'owner.id': 1, updatedAt: -1 }, {}]
+      },
+      'autonomous-agent-tasks': {
+        'main-keys': [{ id: 1 }, { unique: true }],
+        // the scheduler's poll: what is due
+        'due-keys': [{ nextRunAt: 1 }, {}],
+        'agent-keys': [{ agentId: 1 }, {}]
       },
       conversations: {
         'main-keys': [{ id: 1 }, { unique: true }],

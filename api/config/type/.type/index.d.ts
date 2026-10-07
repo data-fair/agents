@@ -70,6 +70,24 @@ export type ApiConfig = {
     apiKey?: string;
   }[];
   autonomousAgentsRequireAdminMode?: boolean;
+  tasks: {
+    /**
+     * A task schedule may not fire more often than this.
+     */
+    minIntervalSeconds: number;
+    /**
+     * Planned tasks one autonomous agent may hold.
+     */
+    maxPerAgent: number;
+    /**
+     * How often the scheduler looks for due tasks.
+     */
+    pollSeconds: number;
+    /**
+     * Failed runs in a row after which a task is paused.
+     */
+    maxConsecutiveFailures: number;
+  };
   nhiSigningKey?: {
     kty: string;
     crv: string;

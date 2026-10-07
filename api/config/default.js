@@ -23,6 +23,10 @@ export default {
   // nothing in the document is durably superadmin-owned, and flipping this to false
   // opens configuration to org admins with no schema change and no migration.
   autonomousAgentsRequireAdminMode: true,
+  // Planned tasks: the scheduler polls every pollSeconds, a schedule may not fire more often than
+  // minIntervalSeconds, an agent holds at most maxPerAgent tasks, and a task is paused after
+  // maxConsecutiveFailures failed runs in a row.
+  tasks: { minIntervalSeconds: 3600, maxPerAgent: 20, pollSeconds: 10, maxConsecutiveFailures: 5 },
   // ES256 private JWK used to sign NHI assertions. Absent = the autonomous agent NHI
   // feature is off: the issuer routes 404 and no assertion can be minted. The issuer
   // identifier is captured per-request from the proxied request that enrols an

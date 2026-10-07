@@ -1,0 +1,100 @@
+/**
+ * router.ts contains the HTTP layer logic and stateful logic
+ * it should not be imported anywhere else than app.ts
+ * it is tested by api integration tests
+ *
+ * Mounted at /api/autonomous-agents BEFORE the autonomous agents router, though the `/tasks` segment
+ * cannot be taken for an agent id by its param routes (they have no such depth) — keeping the order
+ * explicit means a later `/:type/:id/:agentId/:something` route cannot shadow it silently.
+ */
+
+import { Router, type Request } from 'express'
+import { type AccountKeys, assertAccountRole, httpError, reqSessionAuthenticated } from '@data-fair/lib-express'
+import eventsLog from '@data-fair/lib-express/events-log.js'
+import * as writeReqBody from '#doc/autonomous-agents/task-write-req/index.ts'
+import { getAutonomousAgent, reqWriteSession, assertOrganizationOwner } from '../autonomous-agents/service.ts'
+import { canInstruct } from '../autonomous-agents/operations.ts'
+import { listTasks, getTask, createTask, updateTask, deleteTask } from './service.ts'
+
+const router = Router()
+export default router
+
+const actorOf = (req: Request) => {
+  const session = reqSessionAuthenticated(req)
+  return { userId: session.user.id, userName: session.user.name }
+}
+
+const loadAgent = async (owner: AccountKeys, agentId: string) => {
+  const agent = await getAutonomousAgent(owner, agentId)
+  if (!agent) throw httpError(404, 'unknown autonomous agent')
+  return agent
+}
+
+// Reads: whoever may instruct the agent may see what it is planned to do on its own.
+router.get('/:type/:id/:agentId/tasks', async (req, res, next) => {
+  try {
+    const session = reqSessionAuthenticated(req)
+    const owner = { type: req.params.type, id: req.params.id } as AccountKeys
+    assertOrganizationOwner(owner)
+    const agent = await loadAgent(owner, req.params.agentId)
+    if (!canInstruct(agent, session)) throw httpError(403, 'you are not allowed to instruct this autonomous agent')
+    const results = await listTasks(owner, agent.id)
+    res.json({ results, count: results.length })
+  } catch (err) { next(err) }
+})
+
+router.get('/:type/:id/:agentId/tasks/:taskId', async (req, res, next) => {
+  try {
+    const session = reqSessionAuthenticated(req)
+    const owner = { type: req.params.type, id: req.params.id } as AccountKeys
+    assertOrganizationOwner(owner)
+    const agent = await loadAgent(owner, req.params.agentId)
+    if (!canInstruct(agent, session)) throw httpError(403, 'you are not allowed to instruct this autonomous agent')
+    res.json(await getTask(owner, agent.id, req.params.taskId))
+  } catch (err) { next(err) }
+})
+
+// Writes: admin of the owning account, behind the progressive-rollout gate (last, see reqWriteSession).
+router.post('/:type/:id/:agentId/tasks', async (req, res, next) => {
+  try {
+    const session = reqSessionAuthenticated(req)
+    const owner = { type: req.params.type, id: req.params.id } as AccountKeys
+    assertOrganizationOwner(owner)
+    assertAccountRole(session, owner, 'admin')
+    reqWriteSession(req)
+    const body = writeReqBody.returnValid(req.body, { name: 'body' })
+    const agent = await loadAgent(owner, req.params.agentId)
+    const task = await createTask(owner, agent, body, actorOf(req))
+    eventsLog.info('agents.task.create', `planned task ${task.id} created for agent ${agent.id} of ${owner.type}/${owner.id}`, { req })
+    res.status(201).json(task)
+  } catch (err) { next(err) }
+})
+
+router.put('/:type/:id/:agentId/tasks/:taskId', async (req, res, next) => {
+  try {
+    const session = reqSessionAuthenticated(req)
+    const owner = { type: req.params.type, id: req.params.id } as AccountKeys
+    assertOrganizationOwner(owner)
+    assertAccountRole(session, owner, 'admin')
+    reqWriteSession(req)
+    const body = writeReqBody.returnValid(req.body, { name: 'body' })
+    const agent = await loadAgent(owner, req.params.agentId)
+    const task = await updateTask(owner, agent, req.params.taskId, body, actorOf(req))
+    eventsLog.info('agents.task.update', `planned task ${task.id} updated for agent ${agent.id} of ${owner.type}/${owner.id}`, { req })
+    res.json(task)
+  } catch (err) { next(err) }
+})
+
+router.delete('/:type/:id/:agentId/tasks/:taskId', async (req, res, next) => {
+  try {
+    const session = reqSessionAuthenticated(req)
+    const owner = { type: req.params.type, id: req.params.id } as AccountKeys
+    assertOrganizationOwner(owner)
+    assertAccountRole(session, owner, 'admin')
+    reqWriteSession(req)
+    const agent = await loadAgent(owner, req.params.agentId)
+    await deleteTask(owner, agent.id, req.params.taskId)
+    eventsLog.info('agents.task.delete', `planned task ${req.params.taskId} deleted for agent ${agent.id} of ${owner.type}/${owner.id}`, { req })
+    res.status(204).send()
+  } catch (err) { next(err) }
+})

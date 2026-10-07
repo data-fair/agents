@@ -14,6 +14,7 @@ import { executeMemoryCommand } from './memory/service.ts'
 import { agentStoreId, MemoryCommandError, MemoryConflictError, type MemoryAuthor } from './memory/operations.ts'
 import memoryRouter from './memory/router.ts'
 import { maybeReflect, sweepIdleReflections } from './memory/reflection.ts'
+import tasksRouter from './tasks/router.ts'
 import autonomousAgentsRouter from './autonomous-agents/router.ts'
 import autonomousAgentRuntimeRouter, { runsRouter } from './conversations/router.ts'
 import { recoverOwnerlessRuns } from './conversations/executor.ts'
@@ -55,6 +56,8 @@ app.use('/api/admin', adminRouter)
 app.use('/api/settings', settingsRouter)
 app.use('/api/models', modelsRouter)
 app.use('/api/catalog', catalogRouter)
+// tasks first: see tasks/router.ts
+app.use('/api/autonomous-agents', tasksRouter)
 app.use('/api/autonomous-agents', autonomousAgentsRouter)
 app.use('/api/conversations', autonomousAgentRuntimeRouter)
 app.use('/api/runs', runsRouter)
@@ -83,6 +86,7 @@ if (process.env.NODE_ENV === 'development') {
     for (const agent of await mongo.db.collection('autonomous-agents').find({ 'owner.id': /^test/ }, { projection: { id: 1 } }).toArray()) {
       clearAutonomousAgentSession(agent.id as string)
     }
+    await mongo.db.collection('autonomous-agent-tasks').deleteMany({ 'owner.id': /^test/ })
     await mongo.db.collection('autonomous-agents').deleteMany({ 'owner.id': /^test/ })
     await mongo.db.collection('conversations').deleteMany({ 'owner.id': /^test/ })
     await mongo.db.collection('messages').deleteMany({ 'owner.id': /^test/ })

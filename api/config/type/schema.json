@@ -23,7 +23,8 @@
     "defaultLimits",
     "compactionPercent",
     "turnCredits",
-    "turnTimeoutSeconds"
+    "turnTimeoutSeconds",
+    "tasks"
   ],
   "$defs": {
     "modelRef": {
@@ -122,6 +123,17 @@
       }
     },
     "autonomousAgentsRequireAdminMode": { "type": "boolean", "default": true },
+    "tasks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minIntervalSeconds", "maxPerAgent", "pollSeconds", "maxConsecutiveFailures"],
+      "properties": {
+        "minIntervalSeconds": { "type": "integer", "minimum": 60, "default": 3600, "description": "A task schedule may not fire more often than this." },
+        "maxPerAgent": { "type": "integer", "minimum": 1, "default": 20, "description": "Planned tasks one autonomous agent may hold." },
+        "pollSeconds": { "type": "integer", "minimum": 1, "default": 10, "description": "How often the scheduler looks for due tasks." },
+        "maxConsecutiveFailures": { "type": "integer", "minimum": 1, "default": 5, "description": "Failed runs in a row after which a task is paused." }
+      }
+    },
     "nhiSigningKey": {
       "type": "object",
       "required": ["kty", "crv", "x", "y", "d", "kid"],
