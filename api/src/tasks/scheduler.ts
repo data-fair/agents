@@ -27,12 +27,24 @@ export const runSchedulerPass = async (now: Date = new Date(), scope: Record<str
   for (const task of due) {
     try {
       const slot = task.nextRunAt!
-      const next = nextRunAfter(task.scheduling, now).toISOString()
+      let next: string
+      try {
+        next = nextRunAfter(task.scheduling, now).toISOString()
+      } catch (err: any) {
+        // A stored schedule that cannot be computed would be retried and logged every pass: pause the task
+        // instead, so it leaves the due set. Conditional on the slot read, so only one instance logs it.
+        const paused = await mongo.autonomousAgentTasks.updateOne(
+          { id: task.id, nextRunAt: slot },
+          { $set: { pausedReason: `its schedule cannot be computed: ${err.message}` }, $unset: { nextRunAt: '' } }
+        )
+        if (paused.modifiedCount === 1) console.error(`task scheduler: task ${task.id} paused, its schedule cannot be computed`, err)
+        continue
+      }
       const claim = await mongo.autonomousAgentTasks.updateOne({ id: task.id, nextRunAt: slot }, { $set: { nextRunAt: next } })
       if (claim.modifiedCount !== 1) continue
       const started = await startTaskRun(task, 'schedule', { scheduledFor: slot })
       // The slot is spent either way: a disabled agent's task must not fire for a stale slot on re-enable.
-      if ('refused' in started) skipped++
+      if ('refused' in started || started.run.status === 'skipped') skipped++
       else fired++
     } catch (err) {
       console.error(`task scheduler: task ${task.id} failed`, err)

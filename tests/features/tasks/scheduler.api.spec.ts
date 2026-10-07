@@ -80,6 +80,29 @@ test.describe('The scheduler', () => {
     assert.deepEqual(runs.map((r: any) => r.status).sort(), ['done', 'skipped'])
   })
 
+  test('a task whose schedule cannot be computed is paused, and the pass goes on', async () => {
+    const agent = await createAgent()
+    const bad = await dueTask(agent.id)
+    await admin.post('/api/test-env/task-next-run', { taskId: bad.id, nextRunAt: '2026-01-15T09:00:00.000Z', scheduling: [{ ...hourly, timeZone: 'Not/AZone' }] })
+    const good = await dueTask(agent.id)
+    assert.equal((await pass('2026-01-15T10:00:30.000Z')).fired, 1)
+    await settle(agent.id, good.id)
+    const paused = (await admin.get(`${base(agent.id)}/${bad.id}`)).data
+    assert.match(paused.pausedReason, /^its schedule cannot be computed/)
+    assert.equal(paused.nextRunAt, undefined)
+    assert.equal((await runsOf(agent.id, bad.id)).length, 0)
+  })
+
+  test('an overlap is counted skipped, not fired', async () => {
+    const agent = await createAgent()
+    const task = await dueTask(agent.id, 'slow hello')
+    assert.equal((await pass('2026-01-15T10:00:30.000Z')).fired, 1)
+    await admin.post('/api/test-env/task-next-run', { taskId: task.id, nextRunAt: '2026-01-15T11:00:00.000Z' })
+    const second = await pass('2026-01-15T11:00:10.000Z')
+    assert.deepEqual(second, { fired: 0, skipped: 1 })
+    await settle(agent.id, task.id)
+  })
+
   test('a paused task, a disabled task and a disabled agent\'s task do not fire', async () => {
     const agent = await createAgent()
     const task = await dueTask(agent.id)

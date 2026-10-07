@@ -321,7 +321,7 @@ if (process.env.NODE_ENV === 'development') {
     res.json(await runSchedulerPass(req.body?.now ? new Date(req.body.now) : new Date(), testOwnerScope(req.body?.owner)))
   })
   app.post('/api/test-env/task-next-run', async (req, res) => {
-    await mongo.autonomousAgentTasks.updateOne({ id: req.body.taskId }, { $set: { nextRunAt: req.body.nextRunAt } })
+    await mongo.autonomousAgentTasks.updateOne({ id: req.body.taskId }, { $set: { nextRunAt: req.body.nextRunAt, ...(req.body.scheduling ? { scheduling: req.body.scheduling } : {}) } })
     res.send()
   })
   app.post('/api/test-env/recover-ownerless-runs', async (req, res) => {
