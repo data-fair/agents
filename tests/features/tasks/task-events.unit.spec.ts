@@ -27,6 +27,14 @@ test.describe('taskEvent', () => {
     assert.equal(taskEvent('paused', task, run, { failures: 5 }).title, 'La tâche planifiée « Weekly check » a été mise en pause après 5 exécutions en échec consécutives.')
   })
 
+  test('a long summary is truncated in the title, and kept whole in the body', () => {
+    const long = { ...run, outcome: { status: 'needs-attention' as const, summary: 'x'.repeat(1000) } }
+    const event = taskEvent('needs-attention', task, long)
+    assert.ok(String(event.title).length < 250)
+    assert.match(String(event.title), /…$/)
+    assert.equal(event.body, 'x'.repeat(1000))
+  })
+
   test('a needs-attention body carries the outcome summary', () => {
     assert.match(String(taskEvent('needs-attention', task, run).body), /two datasets are stale/)
   })

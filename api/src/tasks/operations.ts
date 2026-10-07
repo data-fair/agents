@@ -83,6 +83,32 @@ const describeRule = (rule: Scheduling, locale: 'en' | 'fr'): string => {
 export const describeScheduling = (rules: Scheduling[], locale: 'en' | 'fr'): string =>
   rules.map(rule => describeRule(rule, locale)).join('; ')
 
+export type TaskOutcome = NonNullable<ConversationRun['outcome']>
+export const TASK_OUTCOME_STATUSES: TaskOutcome['status'][] = ['done', 'nothing-to-do', 'needs-attention']
+export const TASK_OUTCOME_SUMMARY_MAX = 1000
+
+/**
+ * What `report_outcome` was called with, checked. The AI SDK does not validate a tool's input against
+ * its JSON schema, so this is the only check: it throws a message the model reads as the call's error
+ * (an `output-error`) and can retry from, rather than storing an outcome the run's schema forbids.
+ */
+export const validateTaskOutcome = (input: unknown): TaskOutcome => {
+  const { status, summary } = (input ?? {}) as Record<string, unknown>
+  if (typeof status !== 'string' || !(TASK_OUTCOME_STATUSES as string[]).includes(status)) {
+    throw new Error(`status must be one of ${TASK_OUTCOME_STATUSES.join(', ')}`)
+  }
+  if (typeof summary !== 'string' || !summary.trim()) throw new Error('summary must be a non-empty string')
+  const trimmed = summary.trim()
+  if (trimmed.length > TASK_OUTCOME_SUMMARY_MAX) {
+    throw new Error(`summary must be at most ${TASK_OUTCOME_SUMMARY_MAX} characters (it has ${trimmed.length}): shorten it`)
+  }
+  return { status: status as TaskOutcome['status'], summary: trimmed }
+}
+
+/** A notification title carries at most this much of a summary; the body carries all of it. */
+const TITLE_SUMMARY_MAX = 150
+const truncate = (text: string, max: number) => text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text
+
 export type TaskEventKind = 'failed' | 'needs-attention' | 'paused'
 
 /** An event as pushed to the events service, which stamps the date itself. */
@@ -106,7 +132,7 @@ export const taskEvent = (
   const error = run.error ?? (partsText((run.parts ?? []) as MessagePart[]).trim() || undefined)
   const summary = run.outcome?.summary
   const title = kind === 'needs-attention'
-    ? (summary ? `${subject} demande votre attention : ${summary}` : `${subject} demande votre attention.`)
+    ? (summary ? `${subject} demande votre attention : ${truncate(summary, TITLE_SUMMARY_MAX)}` : `${subject} demande votre attention.`)
     : kind === 'paused'
       ? `${subject} a été mise en pause après ${opts.failures ?? 'plusieurs'} exécutions en échec consécutives.`
       : `${subject} a échoué.`

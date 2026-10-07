@@ -84,8 +84,8 @@ export const start = async () => {
   // config value that only the api runtime cares about.
   assertSessionOutlivesRun(ASSERTION_TTL_SECONDS, config.turnTimeoutSeconds)
 
-  await recoverOwnerlessRuns()
-
+  // BEFORE the recovery pass: a task run it interrupts is notified (tasks/execution.ts, afterTaskRun),
+  // and pushing to a queue not yet started throws.
   if (config.privateEventsUrl) {
     if (!config.secretKeys?.events) {
       internalError('agents', 'Missing secretKeys.events in config')
@@ -93,6 +93,8 @@ export const start = async () => {
       await eventsQueue.start({ eventsUrl: config.privateEventsUrl, eventsSecret: config.secretKeys.events })
     }
   }
+
+  await recoverOwnerlessRuns()
 
   // A queued run whose holder died is only picked up when someone posts to that conversation
   // again, which may be never. This reaper makes "running with nobody running it" recoverable

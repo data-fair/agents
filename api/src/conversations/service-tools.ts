@@ -17,8 +17,9 @@ import { agentStoreId, memoryEnabledFor, MEMORY_TOOL_NAME, MEMORY_SERVER_ID, MEM
 import { loadMemory } from '../memory/service.ts'
 import { createMemoryTool } from '../memory/tool.ts'
 import { REPORT_OUTCOME_TOOL_NAME } from './service-tool-names.ts'
+import { validateTaskOutcome, TASK_OUTCOME_STATUSES, TASK_OUTCOME_SUMMARY_MAX, type TaskOutcome } from '../tasks/operations.ts'
 
-export type TaskOutcome = NonNullable<ConversationRun['outcome']>
+export type { TaskOutcome }
 
 /** The source a stored `report_outcome` call names: the service itself, not a catalog server. */
 const AGENT_SERVICE_ID = 'agent-service'
@@ -93,17 +94,19 @@ const ENTRIES: ServiceToolEntry[] = [
       Object.assign(into.tools, withProvenance({
         [REPORT_OUTCOME_TOOL_NAME]: tool({
           description: 'Report the outcome of this planned task run, once you are done: "done" when you did what the task asks, "nothing-to-do" when there was nothing to do, "needs-attention" when a person should look at something. The summary is what an administrator reads.',
-          inputSchema: jsonSchema<TaskOutcome>({
+          inputSchema: jsonSchema<unknown>({
             type: 'object',
             additionalProperties: false,
             required: ['status', 'summary'],
             properties: {
-              status: { type: 'string', enum: ['done', 'nothing-to-do', 'needs-attention'] },
-              summary: { type: 'string', maxLength: 1000 }
+              status: { type: 'string', enum: TASK_OUTCOME_STATUSES },
+              summary: { type: 'string', maxLength: TASK_OUTCOME_SUMMARY_MAX }
             }
           }),
-          execute: async (input: TaskOutcome) => {
-            reportOutcome!({ status: input.status, summary: input.summary })
+          // The schema above is advertised, not enforced, by the AI SDK: validated here, and a bad input
+          // throws, so the call is stored `output-error` and the model reads why and can retry.
+          execute: async (input: unknown) => {
+            reportOutcome!(validateTaskOutcome(input))
             return 'Outcome recorded.'
           }
         })

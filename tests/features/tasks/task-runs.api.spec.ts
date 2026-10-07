@@ -71,6 +71,12 @@ test.describe('Task runs', () => {
     const part = run.parts.find((p: any) => p.type === 'dynamic-tool' && p.toolName === 'wipe_everything')
     assert.notEqual(part?.state, 'output-available')
     assert.deepEqual(fixture.invokedTools(), [])
+    // REMOVED, not gated: a gated call would end the turn on an approval nobody can give (recorded as an
+    // error), and the tool would show among those offered.
+    assert.equal(run.status, 'done')
+    const offered = run.calls.flatMap((call: any) => call.toolNames ?? [])
+    assert.ok(offered.includes('echo'), 'the telemetry lists the tools offered')
+    assert.ok(!offered.includes('wipe_everything'))
   })
 
   test('an allowed catalog tool runs', async () => {

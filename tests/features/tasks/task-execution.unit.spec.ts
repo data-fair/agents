@@ -8,6 +8,7 @@ import { tool, jsonSchema } from 'ai'
 import { withoutGatedTools } from '../../../api/src/conversations/approval-policy.ts'
 import { buildSystemPrompt } from '../../../api/src/conversations/operations.ts'
 import { renderMemoryBlock } from '../../../api/src/memory/operations.ts'
+import { validateTaskOutcome } from '../../../api/src/tasks/operations.ts'
 
 const t = () => tool({ description: 'x', inputSchema: jsonSchema({ type: 'object', properties: {} }), execute: async () => 'ok' })
 
@@ -33,6 +34,29 @@ test.describe('withoutGatedTools', () => {
 
   test('a class gated for approval is dropped, whatever the class', () => {
     assert.deepEqual(Object.keys(withoutGatedTools(tools, annotations, { readOnly: 'approve' })).sort(), ['write'])
+  })
+
+  test('an unannotated tool is a write: dropped when writes need approval', () => {
+    // `write` carries no annotation at all, which is most hand-written servers' case.
+    assert.deepEqual(Object.keys(withoutGatedTools(tools, annotations, { write: 'approve' })).sort(), ['read'])
+  })
+})
+
+test.describe('validateTaskOutcome', () => {
+  test('a valid outcome is kept, its summary trimmed', () => {
+    assert.deepEqual(validateTaskOutcome({ status: 'needs-attention', summary: '  look  ' }), { status: 'needs-attention', summary: 'look' })
+  })
+
+  test('a bad status is refused with the allowed values', () => {
+    assert.throws(() => validateTaskOutcome({ status: 'great', summary: 'x' }), /status must be one of done, nothing-to-do, needs-attention/)
+    assert.throws(() => validateTaskOutcome(undefined), /status must be one of/)
+  })
+
+  test('an over-long or empty summary is refused', () => {
+    assert.throws(() => validateTaskOutcome({ status: 'done', summary: 'x'.repeat(1001) }), /at most 1000 characters/)
+    assert.doesNotThrow(() => validateTaskOutcome({ status: 'done', summary: `${'x'.repeat(1000)}   ` }))
+    assert.throws(() => validateTaskOutcome({ status: 'done', summary: '   ' }), /non-empty string/)
+    assert.throws(() => validateTaskOutcome({ status: 'done', summary: 42 }), /non-empty string/)
   })
 })
 

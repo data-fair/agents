@@ -105,8 +105,16 @@ export const afterTaskRun = async (run: ConversationRun, task?: Pick<AutonomousA
   if (run.outcome?.status === 'needs-attention') pushTaskEvent(taskEvent('needs-attention', current, run))
   // A timeout is an `error`; an abort is an admin's act, not a failure.
   if (run.status !== 'error' && run.status !== 'interrupted') return
-  pushTaskEvent(taskEvent('failed', current, run))
 
+  // THE PAUSE FIRST, the notifications after it: a notification is best-effort (pushTaskEvent never
+  // throws) and the pause must never depend on one.
+  const paused = await pauseAfterFailures(run, current)
+  pushTaskEvent(taskEvent('failed', current, run))
+  if (paused) pushTaskEvent(taskEvent('paused', current, run, { failures: paused }))
+}
+
+/** Pause the task if this failed run completes a streak; returns the streak length when it paused it. */
+const pauseAfterFailures = async (run: ConversationRun, current: AutonomousAgentTask): Promise<number | undefined> => {
   // This run and the ones before it, newest first; skipped runs did nothing, so they neither fail nor
   // succeed. This run may still be `running` in the store (the target follows up before closing it), so
   // it is taken from the argument and left out of the query. Only runs started since the task was last
@@ -125,7 +133,7 @@ export const afterTaskRun = async (run: ConversationRun, task?: Pick<AutonomousA
       .limit(max - 1)
       .toArray()
     : []
-  if (!failedInARow([run.status, ...earlier.map(earlierRun => earlierRun.status)], max)) return
+  if (!failedInARow([run.status, ...earlier.map(earlierRun => earlierRun.status)], max)) return undefined
 
   // A paused task keeps its schedule but has no slot to claim; an admin resumes it by saving it enabled.
   // Conditional, so two failures closing together pause it, and notify, once.
@@ -134,5 +142,5 @@ export const afterTaskRun = async (run: ConversationRun, task?: Pick<AutonomousA
     { id: current.id, pausedReason: { $exists: false } },
     { $set: { pausedReason }, $unset: { nextRunAt: '' } }
   )
-  if (paused.modifiedCount) pushTaskEvent(taskEvent('paused', current, run, { failures: max }))
+  return paused.modifiedCount ? max : undefined
 }

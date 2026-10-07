@@ -38,9 +38,14 @@ export const taskTarget = (run: ConversationRun, task: AutonomousAgentTask, foll
    * INVARIANT: the run always reaches its terminal status. The follow-up can never prevent the close: its
    * failure is caught and logged, and the close runs in the finally whatever happened.
    */
+  // Once per run: a close whose write throws is followed by `fail`, which must not notify a second time.
+  let followedUp = false
   const closeWith = async (patch: Partial<ConversationRun>) => {
     try {
-      await followUp({ ...run, ...patch }, task)
+      if (!followedUp) {
+        followedUp = true
+        await followUp({ ...run, ...patch }, task)
+      }
     } catch (err) {
       console.error(`task run ${run.id} could not be followed up`, err)
     } finally {
