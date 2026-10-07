@@ -1,22 +1,24 @@
 /**
- * Where a turn reads its context from and writes its record to: the seam between the model loop and a
- * conversation.
+ * Where a turn reads its context from and writes its record to: the seam between the model loop and
+ * what the turn is a turn OF.
  *
- * The loop (executor.ts, runModelLoop) produces a turn's parts and nothing else. Everything that makes
- * those parts a CONVERSATION's lives here:
+ * The loop (executor.ts, runModelLoop) produces a turn's parts and nothing else, and the driver
+ * (executor.ts, driveTurn) runs it to a terminal state. Everything that makes those parts a
+ * CONVERSATION's lives here:
  *  - loading and compacting the stored history, and folding the page's context into it;
  *  - persisting the structure mid-turn;
  *  - streaming frames to whoever watches;
  *  - settling a call an earlier turn made;
- *  - exposing the answer so far to a page attaching mid-turn.
- * One implementation today. A planned task's run is the second (docs/superpowers/specs/
- * 2026-10-07-autonomous-agent-planned-execution-design.md): its record is the run itself, and nobody
- * watches it.
+ *  - exposing the answer so far to a page attaching mid-turn;
+ *  - writing the final record and closing the run, on both ends of a turn: `close` when it returned,
+ *    `fail` when it threw.
+ * A planned task's run is the other implementation (../tasks/task-target.ts): its record is the run
+ * itself, and nobody watches it.
  */
 
 import mongo from '#mongo'
 import { InvalidToolApprovalSignatureError, type ModelMessage } from 'ai'
-import type { Conversation, ConversationMessage, ConversationRun } from '#types'
+import type { Conversation, ConversationMessage } from '#types'
 import {
   runStopReasonMessage, partsText, withAppendedText, textPart,
   type MessagePart, type ConversationTurnRun, type RunStopReason
@@ -25,7 +27,7 @@ import type { ChatActivity } from '@agents/shared/agent-activity'
 import type { UsageIdentity } from '../usage/enforce.ts'
 import type { getSettings } from '../settings/service.ts'
 import type { AgentSession } from '../agent-session/session.ts'
-import type { TurnSurface } from './service-tools.ts'
+import type { TurnSurface, TaskOutcome } from './service-tools.ts'
 import { withHostContext, LOCATION_KEY } from '@agents/shared/host-events'
 import { MODERATION_REFUSAL } from '../moderation/operations.ts'
 import { loadHistory, compactHistory } from './turn-history.ts'
@@ -133,6 +135,8 @@ export interface TurnTarget {
   track: (parts: () => MessagePart[]) => void
   /** The parts tracked so far, when the turn got as far as producing any: what a failure is settled from. */
   partsSoFar: () => MessagePart[] | undefined
+  /** Where `report_outcome` lands: only a task run has an outcome to report (see ./service-tools.ts). */
+  reportOutcome?: (outcome: TaskOutcome) => void
   /** The normal end: write the record and close the run. */
   close: (result: TurnResult) => Promise<void>
   /** The end of a turn that threw: settle the record from what it produced, and close the run. */
@@ -222,16 +226,17 @@ export const unknownApprovedOutcome = (detail: string) => `Approved, but its out
  * (appendMessage itself failed), so the run carries the failure alone. Otherwise the same rules as
  * `fail`: an approval run settles its approved calls, and a watcher is told the turn ended.
  */
-export const closeConversationRunBare = async (run: ConversationTurnRun, patch: Partial<ConversationRun>) => {
-  const detail = patch.error ?? ''
+export const closeConversationRunBare = async (run: ConversationTurnRun, failure: TurnFailure) => {
+  const { status, stopReason, error } = failure
+  const detail = error ?? ''
   if (run.trigger === 'approval') {
     await settleApprovedWithoutRunning(run.conversationId, undefined, unknownApprovedOutcome(detail))
       .catch(settleErr => console.error('approved calls could not be settled', settleErr))
   }
-  const finished = await finishTurn(run, undefined, patch)
+  const finished = await finishTurn(run, undefined, { status, stopReason, ...(error !== undefined ? { error } : {}) })
     .catch(finishErr => { console.error('autonomous agent run could not be closed out', finishErr); return undefined })
   await sendConversationCost(run.conversationId, finished?.conversationCredits).catch(() => {})
-  sessionFor(run.conversationId)?.send({ type: 'turn-end', stopReason: patch.stopReason ?? 'error', detail })
+  sessionFor(run.conversationId)?.send({ type: 'turn-end', stopReason, detail })
 }
 
 /**

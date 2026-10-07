@@ -47,3 +47,20 @@ export const applyApprovalPolicy = (
   }
   return gated
 }
+
+/**
+ * The tool set of an UNATTENDED turn (a planned task's run): only what the policy lets the agent use
+ * freely. A tool needing approval is dropped rather than gated — nobody is there to decide, so a gated
+ * call could only end the turn on a card no one will ever see — and a denied one is dropped as always.
+ */
+export const withoutGatedTools = (
+  tools: Record<string, Tool>,
+  annotationsByTool: Map<string, Record<string, unknown>>,
+  approvals?: Approvals
+): Record<string, Tool> => {
+  const allowed: Record<string, Tool> = {}
+  for (const [name, tool] of Object.entries(tools)) {
+    if (resolveApproval(classifyTool(annotationsByTool.get(name)), approvals) === 'allow') allowed[name] = tool
+  }
+  return allowed
+}

@@ -7,6 +7,9 @@
  */
 import { Cron } from 'croner'
 import type { AutonomousAgentTask } from '#types/autonomous-agent-task/index.ts'
+import type { ConversationRun } from '#types'
+import type { Event } from '@data-fair/lib-common-types/event/index.js'
+import { partsText, type MessagePart } from '@agents/shared/message-parts'
 
 export type Scheduling = AutonomousAgentTask['scheduling'][number]
 
@@ -79,3 +82,47 @@ const describeRule = (rule: Scheduling, locale: 'en' | 'fr'): string => {
 /** One phrase per rule, joined: read by the agent about its own schedule and by the UI. */
 export const describeScheduling = (rules: Scheduling[], locale: 'en' | 'fr'): string =>
   rules.map(rule => describeRule(rule, locale)).join('; ')
+
+export type TaskEventKind = 'failed' | 'needs-attention' | 'paused'
+
+/** An event as pushed to the events service, which stamps the date itself. */
+export type TaskEvent = Omit<Event, 'date'> & { topic: { key: string } }
+
+const EVENT_TITLES: Record<TaskEventKind, (title: string) => string> = {
+  failed: title => `The planned task "${title}" failed.`,
+  'needs-attention': title => `The planned task "${title}" needs attention.`,
+  paused: title => `The planned task "${title}" was paused.`
+}
+
+/**
+ * The notification one task run pushes, by kind. Keyed per task (processings' `<service>:<kind>:<id>`
+ * shape), so an admin can subscribe to one task or, by prefix, to all of them. The body is what the reader
+ * needs to act on it: the run's error, the agent's own summary, the pause reason.
+ */
+export const taskEvent = (
+  kind: TaskEventKind,
+  task: Pick<AutonomousAgentTask, 'id' | 'title' | 'owner' | 'pausedReason'>,
+  run: Pick<ConversationRun, 'error' | 'outcome' | 'parts'>
+): TaskEvent => {
+  const body = kind === 'needs-attention'
+    ? run.outcome?.summary
+    : kind === 'paused'
+      ? task.pausedReason
+      : run.error ?? (partsText((run.parts ?? []) as MessagePart[]).trim() || undefined)
+  return {
+    title: EVENT_TITLES[kind](task.title),
+    topic: { key: `agents:task-${kind}:${task.id}` },
+    sender: task.owner,
+    visibility: 'private',
+    resource: { type: 'autonomous-agent-task', id: task.id, title: task.title },
+    originator: { internalProcess: { id: 'agents-scheduler', name: 'Agents scheduler' } },
+    ...(body ? { body } : {})
+  }
+}
+
+/**
+ * Whether a task's latest runs, newest first and skipped ones left out, are `max` failures in a row. An
+ * aborted run is an admin's act, not a failure: it breaks the streak as a success does.
+ */
+export const failedInARow = (statuses: string[], max: number): boolean =>
+  statuses.length >= max && statuses.slice(0, max).every(status => status === 'error' || status === 'interrupted')

@@ -15,6 +15,7 @@ import { agentStoreId, MemoryCommandError, MemoryConflictError, type MemoryAutho
 import memoryRouter from './memory/router.ts'
 import { maybeReflect, sweepIdleReflections } from './memory/reflection.ts'
 import tasksRouter from './tasks/router.ts'
+import { pushedTaskEvents, clearPushedTaskEvents } from './tasks/notifications.ts'
 import autonomousAgentsRouter from './autonomous-agents/router.ts'
 import autonomousAgentRuntimeRouter, { runsRouter } from './conversations/router.ts'
 import { recoverOwnerlessRuns } from './conversations/executor.ts'
@@ -209,6 +210,15 @@ if (process.env.NODE_ENV === 'development') {
   })
   app.post('/api/test-env/unlock-task', async (req, res) => {
     await locks.release(`task:${req.body.taskId}`)
+    res.send()
+  })
+  // The notifications pushed by planned tasks (see tasks/notifications.ts): a test reads what was
+  // notified here rather than through the events service's own API.
+  app.get('/api/test-env/pushed-events', (req, res) => {
+    res.json(pushedTaskEvents())
+  })
+  app.delete('/api/test-env/pushed-events', (req, res) => {
+    clearPushedTaskEvents()
     res.send()
   })
   app.post('/api/test-env/orphan-run', async (req, res) => {

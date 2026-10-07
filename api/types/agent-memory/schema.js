@@ -9,6 +9,8 @@ const author = {
     agentId: { type: 'string' },
     runId: { type: 'string' },
     conversationId: { type: 'string' },
+    // A write made during a planned task's run, which has no conversation.
+    taskId: { type: 'string' },
     toolCallId: { type: 'string' },
     fromSeq: { type: 'number' },
     toSeq: { type: 'number' },

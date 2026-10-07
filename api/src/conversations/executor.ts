@@ -45,7 +45,7 @@ import { resolveRoleModel } from '../models/service.ts'
 import { contextBudget, type ModelRole } from '../models/operations.ts'
 import { computeCreditBreakdown } from '../usage/operations.ts'
 import { openAutonomousAgentTools } from '../mcp-servers/client.ts'
-import { applyApprovalPolicy } from './approval-policy.ts'
+import { applyApprovalPolicy, withoutGatedTools } from './approval-policy.ts'
 import { securityKey } from '../cipher/service.ts'
 import { nhiSessionProvider, forwardedSessionProvider } from '../agent-identity/service.ts'
 import { sessionFor } from '../agent-session/registry.ts'
@@ -210,10 +210,12 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
   const identity = usageIdentityFor(autonomousAgent, run)
   for (const gate of [
     () => checkQuotas(run, settings, identity, autonomousAgent.id),
-    // A wake or an approval continuation has no message of the person's to classify — they acted on
-    // the page, or decided on a call — and moderating it would re-judge the message that started the
-    // turn: a moderator call for nothing, and possibly a second strike for the same message.
-    () => run.trigger !== 'wake' && run.trigger !== 'approval' && moderationApplies(settings, identity.role)
+    // Moderation is a CHAT rule: it judges what a person wrote. A planned task's prompt is admin-authored
+    // and its turn runs as the agent's own identity, so there is nothing of a person's to classify.
+    // Within a chat, a wake or an approval continuation has no message of the person's either — they
+    // acted on the page, or decided on a call — and moderating it would re-judge the message that started
+    // the turn: a moderator call for nothing, and possibly a second strike for the same message.
+    () => target.surface === 'chat' && run.trigger !== 'wake' && run.trigger !== 'approval' && moderationApplies(settings, identity.role)
       ? moderateTurn(run, settings, identity, () => liveRuns.get(run.id)?.controller.abort(new Error(MODERATION_LATE_BLOCK)))
       : undefined
   ]) {
@@ -247,9 +249,13 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
   // provenance envelope, and from here on the loop cannot tell them apart — which is the claim.
   // THE APPROVAL GATE, on the catalog tools of a configured autonomous agent only. The personal assistant
   // has no policy, page tools act in the person's own browser, and service tools are the loop's own.
+  // An UNATTENDED turn (a planned task's run) is offered only what the policy allows outright: nobody is
+  // there to decide on a gated call. A standard agent has no tasks; its branch stays first regardless.
   const catalogTools = isStandardAgentId(autonomousAgent.id)
     ? rawTools
-    : applyApprovalPolicy(rawTools, annotationsByTool, autonomousAgent.approvals)
+    : target.surface === 'task'
+      ? withoutGatedTools(rawTools, annotationsByTool, autonomousAgent.approvals)
+      : applyApprovalPolicy(rawTools, annotationsByTool, autonomousAgent.approvals)
   const tools = {
     ...withProvenance(catalogTools, name => serverByTool.get(name) ?? 'unknown'),
     ...(session ? browserToolSet(session) : {})
@@ -257,7 +263,13 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
 
   // The service's own tools, from the registry (./service-tools.ts): spread LAST, so a catalog tool that
   // happens to share a name cannot stand in for one, and recorded like a catalog call's source.
-  const service = await buildServiceTools({ agent: autonomousAgent, run, surface: target.surface, session })
+  const service = await buildServiceTools({
+    agent: autonomousAgent,
+    run,
+    surface: target.surface,
+    session,
+    ...(target.reportOutcome ? { reportOutcome: target.reportOutcome } : {})
+  })
   Object.assign(tools, service.tools)
   for (const [name, server] of service.serverByTool) serverByTool.set(name, server)
   for (const [name, annotations] of service.annotationsByTool) annotationsByTool.set(name, annotations)
@@ -294,7 +306,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   // the history by the target).
   const session = target.session
   // Computed ONCE: the prompt the model gets and the prompt recorded on the run must be the same string.
-  const systemPrompt = buildSystemPrompt(autonomousAgent, memory)
+  const systemPrompt = buildSystemPrompt(autonomousAgent, memory, target.surface)
   const identity = usageIdentityFor(autonomousAgent, run)
 
   const { messages: history, credits: compactionCredits, hostBlockChars } = await target.history({ identity, budget, settings, abortSignal, agentId: autonomousAgent.id })
@@ -978,7 +990,8 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
     // sees the generic fallback. The browser loop warned to the devtools console for exactly this
     // reason; on the server the operator's log is where that belongs. Ids only — no content, since
     // this line is for diagnosis, not for a second copy of the conversation.
-    console.warn(`[empty completion] treated as a bug: run ${run.id} of conversation ${run.conversationId} produced no text (model ${entry.id}, ${steps} step(s))`)
+    const of = run.kind === 'task' ? `task ${run.taskId}` : `conversation ${run.conversationId}`
+    console.warn(`[empty completion] treated as a bug: ${run.kind ?? 'conversation'} run ${run.id} of ${of} produced no text (model ${entry.id}, ${steps} step(s))`)
   }
   // The last word on this turn's structure, with pending cleared — so a page stops rendering it as in
   // progress without having to infer that from `turn-end`.
@@ -1012,12 +1025,12 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
  * ./turn-target.ts): writing it, closing the run, telling a watcher.
  *
  * `open` runs inside the try, because opening the record can fail (appending a conversation's message);
- * `closeBare` closes the run when no target was ever opened.
+ * `closeBare` closes the run from the classified failure when no target was ever opened.
  */
 export const driveTurn = async (
   run: ConversationRun,
   open: () => Promise<TurnTarget>,
-  closeBare: (patch: Partial<ConversationRun>) => Promise<unknown>
+  closeBare: (failure: TurnFailure) => Promise<unknown>
 ): Promise<void> => {
   const abortController = new AbortController()
   liveRuns.set(run.id, { controller: abortController, agentId: run.agentId, conversationId: run.conversationId, taskId: run.taskId })
@@ -1068,7 +1081,7 @@ export const driveTurn = async (
     }
     // No target if opening itself failed; the run then carries the failure alone.
     if (target) await target.fail(failure)
-    else await closeBare({ status, stopReason, ...(failure.error !== undefined ? { error: failure.error } : {}) })
+    else await closeBare(failure)
   } finally {
     if (timeout) clearTimeout(timeout)
     liveRuns.delete(run.id)
@@ -1125,7 +1138,7 @@ export const runTurn = async (run: ConversationTurnRun): Promise<void> => {
     // The assistant message's own seq bounds the history: it was created before the turn
     // (empty, pending), so it must not be fed back to the model as an empty turn.
     return conversationTarget(run, message, conversation, wakeIfAnswered)
-  }, patch => closeConversationRunBare(run, patch))
+  }, failure => closeConversationRunBare(run, failure))
 }
 
 /**
@@ -1285,13 +1298,19 @@ export const recoverOwnerlessRuns = async (): Promise<{ interrupted: number, res
 
   // TASK runs: never resumed — a task run that began may have fired its tools, and one that did not is
   // simply the next slot's to run. Ownerless when nobody holds its task's lock and this process is not
-  // running it. Closed `interrupted`; the scheduler counts it toward the task's pause.
+  // running it. Closed `interrupted`, which notifies and counts toward the task's pause like any failure.
   const taskCandidates = await mongo.runs.find({ status: 'running', kind: 'task' }, { projection: { _id: 0 } }).toArray()
   const heldTaskLocks = new Set((await mongo.db.collection<{ _id: string }>('locks')
     .find({ _id: { $regex: '^task:' } }, { projection: { _id: 1 } }).toArray()).map(doc => String(doc._id).slice('task:'.length)))
   for (const run of taskCandidates) {
     if (liveRuns.has(run.id) || (run.taskId && heldTaskLocks.has(run.taskId))) { skipped++; continue }
-    await finishTaskRun(run, { status: 'interrupted', stopReason: 'error', error: 'interrupted by a restart' })
+    const patch = { status: 'interrupted', stopReason: 'error', error: 'interrupted by a restart' } as const
+    if (await finishTaskRun(run, patch)) {
+      // Imported lazily: ../tasks/execution.ts drives its turns through this module, so a static import
+      // would be a cycle. Caught: one task's notification must not stop the others being recovered.
+      const { afterTaskRun } = await import('../tasks/execution.ts')
+      await afterTaskRun({ ...run, ...patch }).catch(err => console.error('an interrupted task run could not be followed up', err))
+    }
     interrupted++
   }
 
