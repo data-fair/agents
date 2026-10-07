@@ -6,8 +6,10 @@ import { httpError } from '@data-fair/lib-express'
 import type { SessionStateAuthenticated } from '@data-fair/lib-common-types/session/index.js'
 import type { Conversation } from '#types'
 import type { MessagePart } from '@agents/shared/message-parts'
-import { createRun, decideApproval, requireAutonomousAgent, assertCanInstruct } from './service.ts'
+import mongo from '#mongo'
+import { createRun, decideApproval, WAIT_SUPERSEDED_BY_DECISION, requireAutonomousAgent, assertCanInstruct } from './service.ts'
 import { startRun } from './executor.ts'
+import { settlePendingWait } from './waits.ts'
 import { sessionFor } from '../agent-session/registry.ts'
 import { getEffectiveRole } from '../auth.ts'
 
@@ -52,6 +54,13 @@ export const decideAndContinue = async (input: {
   const pending = (message.parts as MessagePart[]).filter(p => p.type === 'dynamic-tool' && p.state === 'approval-requested').length
   if (pending) return { pending }
   watcher?.send({ type: 'activity', activity: null })
+  // A WAIT HANDED OVER IN THE SAME STEP is settled by the decision, as acting on the page settles the
+  // approval (executor.ts wakeIfAnswered): the person moved, and the continuation must replay a step
+  // whose every call has a result. Only the wait of THIS message — a wait elsewhere is not this step's.
+  const waiting = await mongo.conversations.findOne({ id: conversation.id }, { projection: { _id: 0, pendingWait: 1 } })
+  if (waiting?.pendingWait?.messageSeq === message.seq) {
+    await settlePendingWait(conversation.id, () => WAIT_SUPERSEDED_BY_DECISION)
+  }
   const run = await createRun({
     agentId: conversation.agentId,
     conversationId: conversation.id,

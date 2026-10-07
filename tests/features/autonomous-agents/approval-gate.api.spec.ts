@@ -414,6 +414,9 @@ test.describe('Deciding over the socket', () => {
     throw new Error('never happened')
   }
 
+  const messageAt = async (conversationId: string, seq: number) =>
+    (await orgAdmin.get(`${BASE}/${conversationId}/messages`)).data.results.find((m: any) => m.seq === seq)
+
   test('the frame decides; a socket bound to another conversation cannot', async () => {
     const agent = await createGatedAgent()
     const conv = (await orgAdmin.post(BASE, { agentId: agent.id, title: 't' })).data
@@ -466,6 +469,40 @@ test.describe('Deciding over the socket', () => {
     assert.equal(part.approval.reason, 'The person acted on the page instead of deciding.')
     assert.ok(!messages.some((m: any) => (m.parts ?? []).some((p: any) => p.state === 'approval-requested' || p.state === 'approval-responded')))
     assert.deepEqual(fixture.invokedTools(), [])
+    socket.close()
+  })
+
+  test('deciding on a call stopped beside a wait settles the wait, and the call runs once', async () => {
+    // The wait handed the turn over and the gate stopped a call in the same step. Deciding is the person's
+    // move: the wait is settled (nothing is left waiting, no later page action wakes the thread), and the
+    // continuation replays a step whose every call has a result.
+    const agent = await createGatedAgent()
+    const conv = (await orgAdmin.post(BASE, { agentId: agent.id, title: 't' })).data
+    const socket = await openAgentSession(await orgAdmin.cookieJar.getCookieString(directoryUrl))
+    socket.send({ type: 'hello', tools: [], conversationId: conv.id })
+    await socket.next()
+    socket.send({ type: 'prompt', content: 'wait and call wipe_everything' })
+    const asked = await collectUntil(socket, fs => fs.some(f => f.type === 'turn-end'))
+    assert.equal(asked.find(f => f.type === 'turn-end').stopReason, 'waiting')
+    const pending = asked.filter(f => f.type === 'message' && f.role === 'assistant').at(-1)
+    const approvalId = pending.parts.find((p: any) => p.toolName === 'wipe_everything').approval.id
+
+    socket.send({ type: 'approval', approvalId, approved: true })
+    const continued = await collectUntil(socket, fs => fs.some(f => f.type === 'turn-end'))
+    assert.equal(continued.find(f => f.type === 'turn-end').stopReason, 'completed')
+
+    const message = await messageAt(conv.id, pending.seq)
+    const wait = message.parts.find((p: any) => p.toolName === 'wait_for_user_action')
+    assert.equal(wait.state, 'output-available')
+    assert.equal(wait.output, 'The person did not act on the page: they decided on the approval request instead.')
+    assert.equal(callPart(message, 'wipe_everything').state, 'output-available')
+    assert.deepEqual(fixture.invokedTools(), ['wipe_everything'])
+
+    // Nothing is left waiting: an action on the page now wakes nothing.
+    socket.send({ type: 'host-events', events: [{ name: 'clicked Create', detail: 'the wizard', at: Date.now() }] })
+    await new Promise(resolve => setTimeout(resolve, 1500))
+    const runs = (await orgAdmin.get(`${BASE}/${conv.id}/runs`)).data.results
+    assert.equal(runs.filter((r: any) => r.trigger === 'wake').length, 0)
     socket.close()
   })
 })

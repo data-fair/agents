@@ -368,6 +368,12 @@ export const PENDING_APPROVAL_SUPERSEDED = 'The person sent a new message instea
 /** The reason a pending approval is rejected with when the person acts on the page a wait handed them. */
 export const PENDING_APPROVAL_ACTED = 'The person acted on the page instead of deciding.'
 
+/**
+ * The result a pending wait is settled with when the person decided on an approval stopped in the same
+ * step instead of acting on the page: the decision is their move, and the turn continues from it.
+ */
+export const WAIT_SUPERSEDED_BY_DECISION = 'The person did not act on the page: they decided on the approval request instead.'
+
 /** APPROVED_STEP_SUPERSEDED's counterpart, when it was an action on the page that moved on. */
 export const APPROVED_STEP_ACTED = 'Approved, but the person acted on the page before every call of the step was decided, so it did not run.'
 
