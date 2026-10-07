@@ -36,6 +36,9 @@ Code: `api/src/autonomous-agents/` (configuration, identity, tool diagnostics),
 `api/src/conversations/` (conversations, messages, runs, the executor and its turn gates) and
 `api/src/agent-session/` (the socket the in-page chat drives turns through).
 
+An agent may keep a memory, notes reused in every later conversation ([agent memory](./agent-memory.md)); its
+conversations are audited, always readable by the owning organization's admins ([conversation review](./conversation-review.md)).
+
 ## The conversation is the record
 
 A turn is stored as the AI SDK's `UIMessagePart[]` — text, reasoning, and one `dynamic-tool` part per
@@ -146,10 +149,11 @@ envelope and the system-prompt clause that told the model to trust it were remov
   which is why the turn is also raced against its deadline.
 - **Disable** the agent: every live turn of it is aborted and its cached session dropped, so a turn
   already inside the loop cannot keep acting with credentials obtained before it was disabled.
-- **Delete** the agent: live turns stopped, then its conversations, messages and runs are erased.
-- **Delete one thread**: `DELETE /api/conversations/:type/:id/:conversationId`. A thread the person
-  consented to having reviewed, still inside the review window, is **archived** rather than purged —
-  see [conversation review](./conversation-review.md#retention-and-why-deleting-archives).
+- **Delete** the agent: live turns stopped, then its memory (documents and version log), conversations, messages and runs are erased.
+- **Delete one thread**: `DELETE /api/conversations/:type/:id/:conversationId`. A thread of a configured
+  agent is audited, so it is always **archived** rather than purged, with no expiry: gone for the person,
+  still reviewable by the organization's admins until the agent is deleted — see
+  [conversation review](./conversation-review.md#retention-and-why-deleting-archives).
 
 There is **no TTL** on a live conversation, deliberately. It is the conversation of record, so a timer
 that silently destroyed it would take the audit trail with it. What it needs instead is someone who can

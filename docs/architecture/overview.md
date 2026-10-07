@@ -52,6 +52,7 @@ AI provider/model configuration and credit-based quotas are layered across deplo
 | What stops a turn: step and repetition guards, budgets, the clock | [Loop guards](./loop-guards.md) |
 | Delegating to workers | [Sub-agent orchestration](./sub-agents.md) |
 | Configured agents with their own identity | [Autonomous agents](./autonomous-agents.md) |
+| What an agent remembers across conversations | [Agent memory](./agent-memory.md) |
 | Providers, models, roles | [Multi-provider AI abstraction](./providers.md), [Configuration](./configuration.md) |
 | Who may spend what, and what it cost | [Quotas & usage](./quotas-usage.md) |
 | Refusing abusive input | [Input moderation guard](./moderation.md) |

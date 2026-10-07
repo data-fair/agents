@@ -1,9 +1,7 @@
 # Autonomous agent memory: architecture
 
-Status: **target architecture, not yet implemented.** It is the reference for
-`2026-10-07-agent-memory.md` (the implementation plan) and for later iterations. Once the plan has
-landed, `docs/architecture/agent-memory.md` is the short as-built version, and this file keeps the
-rationale and the sources.
+Status: **implemented** — as-built summary in `docs/architecture/agent-memory.md`. This file keeps the
+rationale, the sources and the security notes.
 
 Scope: memory for **one** configured autonomous agent. Sharing memories, wikis or skills between
 agents comes next, and section 9 lists what this design keeps open for it. Security gets its own
