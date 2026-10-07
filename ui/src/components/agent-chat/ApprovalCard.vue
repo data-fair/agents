@@ -31,7 +31,7 @@
           variant="flat"
           data-testid="approval-approve"
           :loading="sending === 'approve'"
-          :disabled="!!sending"
+          :disabled="!!sending || locked"
           @click="decide({ approved: true }, 'approve')"
         >
           {{ t('approve') }}
@@ -39,7 +39,7 @@
         <v-btn
           variant="text"
           data-testid="approval-reject"
-          :disabled="!!sending"
+          :disabled="!!sending || locked"
           @click="rejecting = true"
         >
           {{ t('reject') }}
@@ -51,14 +51,14 @@
           variant="flat"
           data-testid="approval-confirm-reject"
           :loading="sending === 'reject'"
-          :disabled="!!sending"
+          :disabled="!!sending || locked"
           @click="decide({ approved: false, ...(reason.trim() ? { reason: reason.trim() } : {}) }, 'reject')"
         >
           {{ t('confirmReject') }}
         </v-btn>
         <v-btn
           variant="text"
-          :disabled="!!sending"
+          :disabled="!!sending || locked"
           @click="rejecting = false"
         >
           {{ t('cancel') }}
@@ -91,7 +91,8 @@ en:
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-const props = defineProps<{ title: string, input?: unknown, serverId?: string, failure?: string | null }>()
+// `locked`: the turn that asked is still finishing, and the server refuses a decision until it has.
+const props = defineProps<{ title: string, input?: unknown, serverId?: string, locked?: boolean, failure?: string | null }>()
 const emit = defineEmits<{ decide: [decision: { approved: boolean, reason?: string }] }>()
 
 const { t } = useI18n()
@@ -102,7 +103,7 @@ const reason = ref('')
 // person can read why and retry.
 const sending = ref<'approve' | 'reject' | null>(null)
 const decide = (decision: { approved: boolean, reason?: string }, which: 'approve' | 'reject') => {
-  if (sending.value) return
+  if (sending.value || props.locked) return
   sending.value = which
   emit('decide', decision)
 }

@@ -91,6 +91,7 @@
                     :title="toolTitle(invocation.toolName)"
                     :input="invocation.input"
                     :server-id="invocation.serverId"
+                    :locked="!!invocation.approvalLocked"
                     :failure="chatError"
                     @decide="decision => emit('decide-approval', { approvalId: invocation.approvalId!, ...decision })"
                   />

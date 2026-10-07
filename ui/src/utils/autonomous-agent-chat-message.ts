@@ -74,6 +74,9 @@ export function autonomousAgentMessageToChat (message: StoredConversationMessage
       // Awaiting approval and denied are their own states: the first renders as a card the person acts
       // on, the second as a declined chip. An approved call still running is pending.
       ...(call.state === 'approval-requested' ? { approvalId: call.approval.id } : {}),
+      // Shown but not yet decidable while the message asking is still being written: the server refuses
+      // a decision until the turn has closed it (it would be overwritten by the turn's last writes).
+      ...(call.state === 'approval-requested' && message.pending ? { approvalLocked: true } : {}),
       ...(typeof (call as any).toolMetadata?.serverId === 'string' ? { serverId: (call as any).toolMetadata.serverId } : {}),
       state: call.state === 'approval-requested'
         ? 'awaiting-approval'

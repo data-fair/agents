@@ -53,6 +53,21 @@ test.describe('Approval card', () => {
     await expect.poll(() => fixture.invokedTools()).toEqual(['wipe_everything'])
   })
 
+  test('the card shows locked while the turn that asked finishes, then becomes decidable without a reload', async ({ page, goToWithAuth }) => {
+    // `slow_lookup` holds the step open after the approval request: the server refuses a decision until
+    // the turn has closed its message, so the card must not offer one before.
+    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agentId}`, 'test1-admin1', { org: 'test1' })
+    await ask(page, 'call tools slow_lookup wipe_everything')
+    await expect(page.getByTestId('approval-card')).toBeVisible({ timeout: 15000 })
+    await expect(page.getByTestId('approval-approve')).toBeDisabled()
+    await expect(page.getByTestId('approval-reject')).toBeDisabled()
+
+    await expect(page.getByTestId('approval-approve')).toBeEnabled({ timeout: 15000 })
+    await page.getByTestId('approval-approve').click()
+    await expect(page.getByTestId('approval-card')).toHaveCount(0, { timeout: 15000 })
+    await expect.poll(() => [...fixture.invokedTools()].sort()).toEqual(['slow_lookup', 'wipe_everything'])
+  })
+
   test('rejecting with a reason leaves a declined chip, and nothing runs', async ({ page, goToWithAuth }) => {
     await goToWithAuth(`/agents/organization/test1/chat?agentId=${agentId}`, 'test1-admin1', { org: 'test1' })
     await ask(page, 'call tool wipe_everything {}')

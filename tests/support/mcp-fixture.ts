@@ -165,6 +165,22 @@ const buildMcpServer = (record: (toolName: string) => void): McpServer => {
     }
   )
   mcp.registerTool(
+    'slow_lookup',
+    // A read that takes its time. Beside a gated call in one step, it holds the step open after the SDK
+    // has already emitted the approval request — the window in which the message asking is still being
+    // written, and a decision must be refused (see decideApproval).
+    {
+      description: 'Reads slowly, and returns nothing of interest',
+      inputSchema: {},
+      annotations: { readOnlyHint: true }
+    },
+    async () => {
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      record('slow_lookup')
+      return { content: [{ type: 'text', text: 'looked up slowly' }] }
+    }
+  )
+  mcp.registerTool(
     'ignored',
     { description: 'Exists so toolFilter has something to exclude', inputSchema: {} },
     async () => { record('ignored'); return { content: [{ type: 'text', text: 'ignored' }] } }

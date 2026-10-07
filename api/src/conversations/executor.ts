@@ -19,7 +19,7 @@ import mongo from '#mongo'
 import config from '#config'
 import locks from '@data-fair/lib-node/locks.js'
 import Debug from 'debug'
-import { streamText, stepCountIs, type Tool } from 'ai'
+import { streamText, stepCountIs, InvalidToolApprovalSignatureError, type Tool } from 'ai'
 // 'ai' does not re-export JSONObject; @ai-sdk/provider is where the library declares it.
 import type { JSONObject } from '@ai-sdk/provider'
 import { isMediaToolResult, type MediaToolResult } from '@agents/shared/tool-result'
@@ -35,7 +35,7 @@ import { checkQuotas, moderateTurn } from './turn-gates.ts'
 import { moderationApplies, MODERATION_REFUSAL } from '../moderation/operations.ts'
 import { loadHistory, compactHistory } from './turn-history.ts'
 import { recordCall } from './turn-telemetry.ts'
-import { appendMessage, updateMessage, finishRun, finishTurn, bufferRunWrites, incrementRunSpend, resolveAgent, setRunSystemPrompt, conversationCost, createRun, settleStoredToolPart } from './service.ts'
+import { appendMessage, updateMessage, finishRun, finishTurn, bufferRunWrites, incrementRunSpend, resolveAgent, setRunSystemPrompt, conversationCost, createRun, settleStoredToolPart, rejectPendingApprovals, PENDING_APPROVAL_ACTED, APPROVED_STEP_ACTED } from './service.ts'
 import { getSettings } from '../settings/service.ts'
 import { resolveRoleModel } from '../models/service.ts'
 import { contextBudget, type ModelRole } from '../models/operations.ts'
@@ -917,25 +917,25 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
         await persistStructure()
         if (part.toolName.startsWith('subagent_')) activity({ kind: 'subagent', name: part.toolName, phase: 'starting' })
       }
-      // The RESULT, stored because the conversation is revivable: without it a later turn replays a
-      // call with no answer, which providers reject — so the old shape had to drop the call too, and
-      // the model resumed unable to see either the data or the fact that it had acted.
-      //
-      // Stored as the model received it, envelope included (withProvenance wraps before this point),
-      // because the guarantee is that a revived conversation reproduces what the model saw.
       // THE GATE STOPPED A CALL. The SDK has not executed it and will not this turn; it ends the turn
       // itself (finishReason 'other'). The call part already exists (the 'tool-call' part came first):
       // it becomes `approval-requested`, carrying the id and the signature the decision must present.
       if (part.type === 'tool-approval-request') {
+        // The turn awaits approval WHATEVER happens below: the SDK has stopped the call either way, and a
+        // run recorded `completed` would tell the person there was nothing left to do.
+        awaitingApproval = true
         const call = parts.find(p => p.type === 'dynamic-tool' && p.toolCallId === part.toolCall.toolCallId)
         if (call && call.type === 'dynamic-tool') {
           Object.assign(call, {
             state: 'approval-requested',
             approval: { id: part.approvalId, ...(part.signature ? { signature: part.signature } : {}) }
           })
-          awaitingApproval = true
           sendMessageFrame(true)
           await persistStructure()
+        } else {
+          // Unreachable while the stream announces a call before asking about it — LOUD if that ever
+          // changes, because the person then has nothing on screen to decide.
+          console.error(`[approval gate] run ${run.id}: approval ${part.approvalId} names call ${part.toolCall.toolCallId}, which this turn never announced`)
         }
         continue
       }
@@ -951,6 +951,12 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
         }
         continue
       }
+      // The RESULT, stored because the conversation is revivable: without it a later turn replays a
+      // call with no answer, which providers reject — so the old shape had to drop the call too, and
+      // the model resumed unable to see either the data or the fact that it had acted.
+      //
+      // Stored as the model received it, envelope included (withProvenance wraps before this point),
+      // because the guarantee is that a revived conversation reproduces what the model saw.
       if (part.type === 'tool-result') {
         const output = (part as any).output
         // An image-bearing result is stored AS its envelope, only its text bounded: stringified, the base64
@@ -966,7 +972,11 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
                 : JSON.stringify(output ?? '')
         const bounded = boundToolResult(text)
         if (!isThisTurns(part.toolCallId)) {
-          await settleEarlierCall(part.toolCallId, { state: 'output-available', output: media ? { ...output, text: bounded.result } : bounded.result })
+          await settleEarlierCall(part.toolCallId, {
+            state: 'output-available',
+            output: media ? { ...output, text: bounded.result } : bounded.result,
+            ...(bounded.truncated ? { truncated: bounded.truncated } : {})
+          })
           continue
         }
         settleToolPart(part.toolCallId, {
@@ -1081,7 +1091,11 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   }
   // The last word on this turn's structure, with pending cleared — so a page stops rendering it as in
   // progress without having to infer that from `turn-end`.
-  watcher()?.send({ type: 'message', seq: messageSeq, role: 'assistant', parts: finalParts, pending: false })
+  //
+  // Except when it asks for an approval: the message is closed only by finishTurn, and a decision is
+  // refused until then (see decideApproval), so the card must not offer one before. runTurn sends the
+  // closed frame once the message really is.
+  watcher()?.send({ type: 'message', seq: messageSeq, role: 'assistant', parts: finalParts, pending: awaitingApproval })
   return {
     parts: finalParts,
     steps,
@@ -1127,7 +1141,10 @@ const settleApprovedWithoutRunning = async (conversationId: string, beforeSeq: n
   }
 }
 
-/** The error an approved call is settled with when its run ended without it reporting. */
+/** The error an approved call is settled with when its run ended normally without executing it. */
+const APPROVED_NOT_RUN = 'Approved, but it did not run: the turn continuing from the decision ended without reaching it.'
+
+/** The error an approved call is settled with when its run ended — threw, timed out, died — without it reporting. */
 const unknownApprovedOutcome = (detail: string) => `Approved, but its outcome is unknown: the turn ended before it reported (${detail}).`
 
 /**
@@ -1193,10 +1210,15 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
     const result = await Promise.race([performTurn(run, message.seq, abortController.signal, conversation), deadline])
     // An approval run leaves no approved call without a result (see settleApprovedWithoutRunning).
     // Before the run closes, so a reader stopping on the closed run already finds them settled.
+    //
+    // Both wordings say "did not run", because on THIS path it is certain: the SDK executes approved
+    // calls before the first step and reports every one of them (a result, an error or a denial), so a
+    // call still `approval-responded` after a run that RETURNED was never executed — its replay ended
+    // on another message (one posted before the run started).
     if (run.trigger === 'approval') {
       await settleApprovedWithoutRunning(run.conversationId, message.seq, result.published
-        ? unknownApprovedOutcome(result.stopReason)
-        // REFUSED before the model was reached: the calls certainly did not run.
+        ? APPROVED_NOT_RUN
+        // REFUSED before the model was reached.
         : `Approved, but the turn could not run: ${partsText(result.parts).trim() || 'it was refused'}`)
     }
     // A turn that stopped for a reason other than finishing explains itself, appended to
@@ -1237,7 +1259,9 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
     // settled frame never ran — the text was stored and the watching page was told nothing. A blocked
     // message showed the person an empty turn and a stopped spinner, with the refusal they were
     // supposed to read sitting in the database until a reload.
-    if (!result.published) {
+    // An approval request's card becomes decidable here, once the message is closed in the store — not
+    // at the loop's last frame, which went out before finishTurn (see decideApproval).
+    if (!result.published || result.awaitingApproval) {
       sessionFor(run.conversationId)?.send({
         type: 'message',
         seq: message.seq,
@@ -1323,9 +1347,13 @@ export const runTurn = async (run: ConversationRun): Promise<void> => {
         : reason === 'message' ? settled : withAppendedText(settled, runStopReasonMessage(stopReason, detail))
     }
     // The same rule as the success path, for a run that threw: whether a call ran before the throw is
-    // not known here, so it says so. Caught, like the message write below: the run must still close.
+    // not known here, so it says so — except for a signature that failed verification, which the SDK
+    // checks before executing anything (a secret rotated between the request and the decision): those
+    // calls certainly did not run. Caught, like the message write below: the run must still close.
     if (run.trigger === 'approval') {
-      await settleApprovedWithoutRunning(run.conversationId, message?.seq, unknownApprovedOutcome(detail))
+      await settleApprovedWithoutRunning(run.conversationId, message?.seq, InvalidToolApprovalSignatureError.isInstance(err)
+        ? `Approved, but it did not run: the approval could not be verified (${detail}).`
+        : unknownApprovedOutcome(detail))
         .catch(settleErr => console.error('approved calls could not be settled', settleErr))
     }
     // The message, then the run, under one bump (finishTurn) — the message write CAUGHT inside it, so
@@ -1414,6 +1442,12 @@ export const wakeIfAnswered = async (conversationId: string, session: AgentSessi
   await new Promise(resolve => setTimeout(resolve, 0))
   const events = session.hostEvents.takeWaitAnswer(notNews)
   if (!events) return
+  // A call the gate stopped in the SAME step as the wait (the handover won, so the turn ended `waiting`)
+  // is rejected, as a new message rejects it: the person moved on without deciding, and the wake turn
+  // continues without that call — its card, left pending in a message that is no longer the last, could
+  // never run if approved later. Before the wait is settled, whose write replaces the message's parts
+  // and would otherwise race a decision landing meanwhile.
+  await rejectPendingApprovals(conversationId, PENDING_APPROVAL_ACTED, APPROVED_STEP_ACTED)
   const wait = await settlePendingWait(conversationId, () => formatHostEvents(events))
   if (!wait) {
     // Another settler won (the person wrote at the same moment): the events are still owed.
@@ -1489,6 +1523,17 @@ export const recoverOwnerlessRuns = async (): Promise<{ interrupted: number, res
       continue
     }
     interrupted++
+    // An approval run cut by the restart leaves no approved call without a result either: the rule
+    // runTurn applies on both of its own paths. Nothing else would ever settle it — a new message only
+    // touches calls still awaiting a decision — and every later replay would carry a call with no result,
+    // which providers reject: the conversation would fail on every turn from then on. Outcome UNKNOWN,
+    // not "did not run": the process may have died after the tool did its work.
+    if (run.trigger === 'approval') {
+      // Caught: one conversation's failure must not stop the others being recovered. The replay's own
+      // safety net (storedTurnsToModelMessages) still keeps such a call from reaching a provider bare.
+      await settleApprovedWithoutRunning(run.conversationId, existing.seq, unknownApprovedOutcome('interrupted by a restart'))
+        .catch(err => console.error('approved calls of an interrupted run could not be settled', err))
+    }
     // stopReason has no 'interrupted' member — the status carries that — so the reason is
     // 'error' with the restart named as the detail.
     const notice = runStopReasonMessage('error', 'interrupted by a restart')

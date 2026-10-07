@@ -276,6 +276,19 @@ function processMockPrompt (lastMessage: string, prompt: string | Array<any>): M
     return { type: 'text', text: 'done' }
   }
 
+  // "wait and call <name>" → a wait AND another call in one step: the handover wins and ends the turn,
+  // leaving the other call (a gated one, stopped for approval) beside it.
+  const waitAndCallMatch = commandLine(lastMessage).match(/^wait and call (\S+)$/i)
+  if (waitAndCallMatch) {
+    return {
+      type: 'tool-call',
+      toolCalls: [
+        { toolName: 'wait_for_user_action', toolArgs: JSON.stringify({ message: 'Ready: click Create.', expecting: 'you to click Create' }) },
+        { toolName: waitAndCallMatch[1], toolArgs: '{}' }
+      ]
+    }
+  }
+
   // "call tools <name> <name> ..." → several parallel tool calls in one step
   const callToolsMatch = commandLine(lastMessage).match(/^call tools (.+)$/i)
   if (callToolsMatch) {

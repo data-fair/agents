@@ -134,6 +134,17 @@ test.describe('approval states', () => {
     assert.equal(chat.toolInvocations?.[0].approvalId, 'ap1')
     assert.equal(chat.toolInvocations?.[0].serverId, 'dev')
     assert.equal(chat.toolInvocations?.[1].state, 'denied')
+    assert.equal(chat.toolInvocations?.[0].approvalLocked, undefined, 'a closed message is decidable')
+  })
+
+  test('a card is locked while the message asking is still being written, and unlocked once it is closed', () => {
+    // The server refuses a decision on a pending message (it would be overwritten by the turn's last writes).
+    const parts = [{ type: 'dynamic-tool', toolCallId: 'a', toolName: 'wipe', state: 'approval-requested', input: {}, approval: { id: 'ap1' } } as any]
+    const finishing = autonomousAgentMessageToChat({ ...base, role: 'assistant', pending: true, parts })
+    assert.equal(finishing.toolInvocations?.[0].state, 'awaiting-approval')
+    assert.equal(finishing.toolInvocations?.[0].approvalLocked, true)
+    const closed = autonomousAgentMessageToChat({ ...base, role: 'assistant', pending: false, parts })
+    assert.equal(closed.toolInvocations?.[0].approvalLocked, undefined)
   })
 })
 

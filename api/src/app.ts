@@ -177,6 +177,20 @@ if (process.env.NODE_ENV === 'development') {
     } else {
       await mongo.messages.updateMany({ runId: req.body.runId }, { $set: { pending: true } })
     }
+    if (req.body.reopenApproved) {
+      // Reproduces an APPROVAL run that died after the decision and before its approved call reported:
+      // the conversation's approved calls are put back to `approval-responded`, with no result.
+      const run = await mongo.runs.findOne({ id: req.body.runId }, { projection: { _id: 0, conversationId: 1 } })
+      const messages = await mongo.messages.find({ conversationId: run?.conversationId, 'parts.approval.approved': true }).toArray()
+      for (const message of messages) {
+        const parts = (message.parts as any[]).map(part => {
+          if (part?.type !== 'dynamic-tool' || part.approval?.approved !== true) return part
+          const { output, errorText, ...rest } = part
+          return { ...rest, state: 'approval-responded' }
+        })
+        await mongo.messages.updateOne({ conversationId: message.conversationId, seq: message.seq }, { $set: { parts } })
+      }
+    }
     res.send()
   })
   /**

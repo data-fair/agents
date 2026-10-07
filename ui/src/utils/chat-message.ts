@@ -20,6 +20,8 @@ export interface ChatMessage {
     input?: unknown
     /** Set while the call awaits the person's approval: what their decision names. */
     approvalId?: string
+    /** Set while the turn that asked is still finishing: the card shows, but cannot be decided yet. */
+    approvalLocked?: boolean
     /** The catalog server the call goes to, shown on an approval card. */
     serverId?: string
   }>

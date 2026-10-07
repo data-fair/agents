@@ -236,6 +236,25 @@ export type StoredTurn = {
   seq?: number
 }
 
+/** What an approved call no turn ever reported is replayed with (see settleStrandedApproval). */
+export const STRANDED_APPROVED_CALL = 'Approved, but its outcome is unknown: no turn reported it.'
+
+/**
+ * An APPROVED call with no result, outside the last stored message, replayed as an error.
+ *
+ * The SDK executes approved calls from the last message only, so such a call never will be — and the
+ * conversion KEEPS it (`ignoreIncompleteToolCalls` drops only calls with no decision): the assistant
+ * message carries the call and the tool message only the approval, a call with no result, which
+ * providers reject with a 400 on every turn from then on. Every path that ends an approval run settles
+ * these in the store; this is the safety net for one that could not (a failed write, a crash before the
+ * write), so a gap in the record degrades to an honest "unknown" rather than a conversation that no
+ * longer works. Outcome unknown, because nothing here says whether it ran.
+ */
+export const settleStrandedApproval = (part: MessagePart): MessagePart =>
+  part.type === 'dynamic-tool' && part.state === 'approval-responded'
+    ? { ...part, state: 'output-error', errorText: STRANDED_APPROVED_CALL } as MessagePart
+    : part
+
 /**
  * A stored turn as the library's input: attributed, and carrying only what may be replayed.
  *
@@ -250,8 +269,9 @@ export type StoredTurn = {
  * Both are subtractions from what is SENT only. The stored parts keep the reasoning and whatever else
  * the turn contained — the conversation of record is not rewritten.
  */
-const replayableTurn = (turn: StoredTurn): { role: 'user' | 'assistant', parts: any[] } | undefined => {
+const replayableTurn = (turn: StoredTurn, last: boolean): { role: 'user' | 'assistant', parts: any[] } | undefined => {
   const parts = (turn.parts ?? [])
+    .map(part => last ? part : settleStrandedApproval(part))
     .filter(part => part.type !== 'reasoning')
     .filter(part => part.type !== 'text' || String(part.text ?? '').trim())
 
@@ -305,7 +325,7 @@ export async function storedTurnsToModelMessages (
   const struck = moderationStruck(turns)
   for (const [index, turn] of turns.entries()) {
     if (struck.has(index)) continue
-    const replayable = replayableTurn(turn)
+    const replayable = replayableTurn(turn, index === turns.length - 1)
     if (!replayable) continue
     const converted = await convertToModelMessages([replayable], { ignoreIncompleteToolCalls: true })
     for (const message of converted) {

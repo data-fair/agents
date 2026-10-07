@@ -123,7 +123,10 @@ export async function partitionSubAgents (
       continue
     }
     configs[name] = config
-    for (const reservedName of config.tools) reserved.add(reservedName)
+    // A tool needing APPROVAL is never reserved: a worker's call would stop the worker's own loop with an
+    // approval request nobody can see or decide — the call would not run (no bypass), it would just fail
+    // silently. Left with the lead instead, where the gate asks the person.
+    for (const reservedName of config.tools) if (!allTools[reservedName]?.needsApproval) reserved.add(reservedName)
   }
 
   const mainTools: Record<string, Tool> = {}
@@ -144,7 +147,7 @@ export async function partitionSubAgents (
     // the page never registered must not make the worker unbuildable.
     const workerTools: Record<string, Tool> = {}
     for (const reservedName of config.tools) {
-      if (allTools[reservedName]) workerTools[reservedName] = allTools[reservedName]
+      if (reserved.has(reservedName) && allTools[reservedName]) workerTools[reservedName] = allTools[reservedName]
     }
     mainTools[name] = buildWorker(name, config, workerTools)
   }

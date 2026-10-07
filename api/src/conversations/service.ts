@@ -303,12 +303,16 @@ export const updateMessage = async (conversationId: string, seq: number, patch: 
 export const settleStoredToolPart = async (
   conversationId: string,
   toolCallId: string,
-  settled: { state: 'output-available', output: unknown } | { state: 'output-error', errorText: string }
+  settled: { state: 'output-available', output: unknown, truncated?: { totalChars: number } } | { state: 'output-error', errorText: string }
 ): Promise<StoredMessage | null> => {
   const awaiting = { toolCallId, state: 'approval-responded' }
   if (!await mongo.messages.findOne({ conversationId, parts: { $elemMatch: awaiting } }, { projection: { _id: 1 } })) return null
   const { version } = await bumpConversationVersion(conversationId)
-  const set: Record<string, unknown> = Object.fromEntries(Object.entries(settled).map(([key, value]) => [`parts.$[p].${key}`, value]))
+  // `truncated` is metadata, beside the decision in `toolMetadata`, as on a call settled in its own turn:
+  // an approved call is precisely the audited write, and a review must be able to tell its result was cut.
+  const { truncated, ...fields } = settled as typeof settled & { truncated?: { totalChars: number } }
+  const set: Record<string, unknown> = Object.fromEntries(Object.entries(fields).map(([key, value]) => [`parts.$[p].${key}`, value]))
+  if (truncated) set['parts.$[p].toolMetadata.truncated'] = { totalChars: truncated.totalChars }
   return await mongo.messages.findOneAndUpdate(
     { conversationId, parts: { $elemMatch: awaiting } },
     { $set: { ...set, version, updatedAt: new Date().toISOString() } },
@@ -320,18 +324,28 @@ export const settleStoredToolPart = async (
  * Record a decision on a pending approval, atomically: only a part still `approval-requested` flips, so
  * two decisions racing (two tabs, a double click) settle it once. Null when nothing was pending under
  * that id — already decided, or never asked.
+ *
+ * `'still-finishing'` when the message asking is still being written (`pending`). The SDK emits the
+ * approval request before the step's other calls have returned, so the card can show while the run
+ * that asked still owns the message's parts in memory — and its next write (a slow call of the same
+ * step settling, then the turn's own close) puts the WHOLE array back, restoring `approval-requested`
+ * over the decision and erasing who made it. Refused rather than merged: the run closes the message
+ * moments later, and the page is told the card is decidable when it does.
  */
 export const decideApproval = async (
   conversationId: string,
   approvalId: string,
   decision: { approved: boolean, reason?: string, by: { userId: string, userName?: string } }
-): Promise<StoredMessage | null> => {
+): Promise<StoredMessage | 'still-finishing' | null> => {
   const at = new Date().toISOString()
   const pending = { 'approval.id': approvalId, state: 'approval-requested' }
-  if (!await mongo.messages.findOne({ conversationId, parts: { $elemMatch: pending } }, { projection: { _id: 1 } })) return null
+  const asking = await mongo.messages.findOne({ conversationId, parts: { $elemMatch: pending } }, { projection: { _id: 0, pending: 1 } })
+  if (!asking) return null
+  if (asking.pending) return 'still-finishing'
   const { version } = await bumpConversationVersion(conversationId)
   return await mongo.messages.findOneAndUpdate(
-    { conversationId, parts: { $elemMatch: pending } },
+    // `pending` again, in the write itself: the check above is only the reason given.
+    { conversationId, pending: { $ne: true }, parts: { $elemMatch: pending } },
     {
       $set: {
         // Approved: `approval-responded`, which the SDK executes on replay. Rejected: `output-denied`,
@@ -351,6 +365,12 @@ export const decideApproval = async (
 /** The reason a pending approval is rejected with when the person writes instead of deciding. */
 export const PENDING_APPROVAL_SUPERSEDED = 'The person sent a new message instead of deciding.'
 
+/** The reason a pending approval is rejected with when the person acts on the page a wait handed them. */
+export const PENDING_APPROVAL_ACTED = 'The person acted on the page instead of deciding.'
+
+/** APPROVED_STEP_SUPERSEDED's counterpart, when it was an action on the page that moved on. */
+export const APPROVED_STEP_ACTED = 'Approved, but the person acted on the page before every call of the step was decided, so it did not run.'
+
 /**
  * The error an APPROVED call is settled with when the person wrote before deciding the rest of its step.
  * No run was started for that step (one starts only once every call of it is decided), and the SDK
@@ -367,7 +387,11 @@ export const APPROVED_STEP_SUPERSEDED = 'Approved, but the person sent a new mes
  * rest of the step, which is now refused, so nothing will ever run them. Only in a message that still
  * has an undecided call — a fully decided step has its continuation run, which settles its own.
  */
-export const rejectPendingApprovals = async (conversationId: string, reason: string = PENDING_APPROVAL_SUPERSEDED): Promise<number> => {
+export const rejectPendingApprovals = async (
+  conversationId: string,
+  reason: string = PENDING_APPROVAL_SUPERSEDED,
+  approvedError: string = APPROVED_STEP_SUPERSEDED
+): Promise<number> => {
   if (!await mongo.messages.findOne({ conversationId, 'parts.state': 'approval-requested' }, { projection: { _id: 1 } })) return 0
   const { version } = await bumpConversationVersion(conversationId)
   const result = await mongo.messages.updateMany(
@@ -378,7 +402,7 @@ export const rejectPendingApprovals = async (conversationId: string, reason: str
         'parts.$[p].approval.approved': false,
         'parts.$[p].approval.reason': reason,
         'parts.$[q].state': 'output-error',
-        'parts.$[q].errorText': APPROVED_STEP_SUPERSEDED,
+        'parts.$[q].errorText': approvedError,
         version,
         updatedAt: new Date().toISOString()
       }

@@ -126,6 +126,20 @@ test.describe('partitionSubAgents', () => {
     assert.deepEqual(built[0].tools, ['query_data'])
   })
 
+  test('a tool needing approval is never handed to a worker: it stays with the lead', async () => {
+    // A worker's approval request would stop the worker's own loop where nobody can see or decide it.
+    const { built, build } = recordingBuilder()
+    const tools = {
+      query_data: fake('rows'),
+      wipe: { ...fake('wiped'), needsApproval: true } as Tool,
+      [`${SUBAGENT_PREFIX}analyst`]: subAgentTool({ prompt: 'p', tools: ['query_data', 'wipe'] })
+    }
+    const { mainTools, reserved } = await partitionSubAgents(tools, build)
+    assert.deepEqual(built[0].tools, ['query_data'])
+    assert.deepEqual(reserved, ['query_data'])
+    assert.ok('wipe' in mainTools, 'the lead keeps it, where the gate asks the person')
+  })
+
   test('a subagent tool returning nonsense is left as an ordinary tool', async () => {
     const { built, build } = recordingBuilder()
     const tools = { [`${SUBAGENT_PREFIX}broken`]: fake('not a config'), keep_me: fake('x') }

@@ -40,6 +40,7 @@ export const decideAndContinue = async (input: {
     ...(input.reason ? { reason: input.reason } : {}),
     by
   })
+  if (message === 'still-finishing') throw httpError(409, 'the turn is still finishing: decide once it has ended')
   if (!message) throw httpError(409, 'no pending approval with this id: it was already decided, or never asked')
   // The page shows the decision at once.
   const watcher = sessionFor(conversation.id)

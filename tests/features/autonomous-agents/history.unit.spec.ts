@@ -19,6 +19,7 @@ import {
   toolModelOutput,
   withProvenance,
   redactModelMedia,
+  STRANDED_APPROVED_CALL,
   type StoredTurn,
   type MessagePart
 } from '../../../api/src/conversations/operations.ts'
@@ -87,6 +88,24 @@ test.describe('storedTurnsToModelMessages', () => {
     assert.equal(result.toolCallId, 'c1')
     assert.equal(result.output.value, '{"closures":[]}')
     assert.deepEqual((messages[3].content as any[])[0], { type: 'text', text: 'Nothing is closed.' })
+  })
+
+  test('an approved call no turn reported is replayed with an error, never as a call with no result', async () => {
+    // The safety net behind every path that settles an approval run in the store: a call left
+    // `approval-responded` outside the last message is kept by the conversion (a decision is not an
+    // "incomplete" call), and replayed bare it is a call with no result, which providers reject.
+    const approved = { type: 'dynamic-tool', toolCallId: 'c1', toolName: 'wipe', state: 'approval-responded', input: {}, approval: { id: 'ap1', approved: true } } as MessagePart
+    const stranded = await replay([userTurn('wipe it'), { role: 'assistant', parts: [approved] }, userTurn('hello')])
+    assert.deepEqual(stranded.map(m => m.role), ['user', 'assistant', 'tool', 'user'])
+    const result = (stranded[2].content as any[]).find(c => c.type === 'tool-result')
+    assert.ok(result, 'the call is answered')
+    assert.equal(result.toolCallId, 'c1')
+    assert.equal(result.output.type, 'error-text')
+    assert.equal(result.output.value, STRANDED_APPROVED_CALL)
+
+    // In the LAST message it is left alone: that is the one the SDK executes approvals from.
+    const pending = await replay([userTurn('wipe it'), { role: 'assistant', parts: [approved] }])
+    assert.ok(!pending.flatMap(m => (Array.isArray(m.content) ? m.content : []) as any[]).some((c: any) => c.type === 'tool-result'), 'the approval stays to be executed')
   })
 
   test('a turn that ONLY called tools still appears in history', async () => {
