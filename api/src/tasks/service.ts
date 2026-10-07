@@ -8,7 +8,7 @@ import { nanoid } from 'nanoid'
 import { type AccountKeys, httpError } from '@data-fair/lib-express'
 import type { AutonomousAgentTask } from '#types/autonomous-agent-task/index.ts'
 import type { PlannedTask as TaskWriteReq } from '#doc/autonomous-agents/task-write-req/index.ts'
-import { minGapSeconds, nextRunAfter, type Scheduling } from './operations.ts'
+import { minGapSeconds, nextRunAfter, toCron, type Scheduling } from './operations.ts'
 
 export type TaskActor = { userId: string, userName?: string, conversationId?: string }
 
@@ -45,6 +45,9 @@ const assertSchedule = (scheduling: Scheduling[], now: Date): Date => {
   return next
 }
 
+/** A schedule's identity, insensitive to key order: what each rule fires at, in which zone. */
+const scheduleKey = (rules: Scheduling[]) => JSON.stringify(rules.map(rule => [toCron(rule), (rule as any).timeZone || 'Europe/Paris']))
+
 const actorOf = (user: TaskActor, now: Date) => ({
   userId: user.userId,
   ...(user.userName ? { userName: user.userName } : {}),
@@ -80,11 +83,12 @@ export const createTask = async (owner: AccountKeys, agent: { id: string }, body
 export const updateTask = async (owner: AccountKeys, agent: { id: string }, taskId: string, body: TaskWriteReq, user: TaskActor) => {
   const existing = await getTask(owner, agent.id, taskId)
   const now = new Date()
-  const nextRunAt = assertSchedule(body.scheduling as Scheduling[], now)
-
   const enabled = body.enabled ?? existing.enabled
   const reEnabled = enabled && (!existing.enabled || !!existing.pausedReason)
-  const scheduleChanged = JSON.stringify(existing.scheduling) !== JSON.stringify(body.scheduling)
+  const scheduleChanged = scheduleKey(existing.scheduling as Scheduling[]) !== scheduleKey(body.scheduling as Scheduling[])
+  // Validated only when the schedule itself is being set: raising the minimum interval must not block
+  // editing the prompt of a task that already exists.
+  const nextRunAt = scheduleChanged || reEnabled || !existing.nextRunAt ? assertSchedule(body.scheduling as Scheduling[], now) : undefined
 
   const $set: Record<string, unknown> = {
     title: body.title,
@@ -98,7 +102,7 @@ export const updateTask = async (owner: AccountKeys, agent: { id: string }, task
   if (!enabled) {
     // A disabled task has no slot to claim: the scheduler's poll is on nextRunAt.
     $unset.nextRunAt = ''
-  } else if (reEnabled || scheduleChanged || !existing.nextRunAt) {
+  } else if (nextRunAt) {
     $set.nextRunAt = nextRunAt.toISOString()
   }
   if (reEnabled) $unset.pausedReason = ''

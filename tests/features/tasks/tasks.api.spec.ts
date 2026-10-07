@@ -78,4 +78,14 @@ test.describe('Planned tasks', () => {
     assert.equal((await admin.delete(`${tasks(agent.id)}/${task.id}`)).status, 204)
     assert.equal((await admin.get(tasks(agent.id))).data.count, 0)
   })
+
+  test('a title-only edit keeps the planned next run', async () => {
+    const agent = await createAgent()
+    const task = (await admin.post(tasks(agent.id), { title: 't', prompt: 'p', scheduling: [daily] })).data
+    // same rule, keys in another order
+    const reordered = { timeZone: 'Europe/Paris', minute: 0, hour: 8, dayOfMonth: '*', dayOfWeek: '*', month: '*', type: 'daily' }
+    const edited = (await admin.put(`${tasks(agent.id)}/${task.id}`, { title: 'renamed', prompt: 'p', scheduling: [reordered] })).data
+    assert.equal(edited.title, 'renamed')
+    assert.equal(edited.nextRunAt, task.nextRunAt)
+  })
 })
