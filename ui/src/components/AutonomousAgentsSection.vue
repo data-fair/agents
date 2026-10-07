@@ -282,7 +282,7 @@ import { mdiPencil, mdiRobotOffOutline, mdiRobotOutline } from '@mdi/js'
 import DfSectionTabs from '@data-fair/lib-vuetify/section-tabs.vue'
 import { useFetch } from '@data-fair/lib-vue/fetch.js'
 import { useSession } from '@data-fair/lib-vue/session.js'
-import { getUiNotif } from '@data-fair/lib-vue/ui-notif.js'
+import { useUiNotif } from '@data-fair/lib-vue/ui-notif.js'
 import AgentMemoryDialog from '~/components/AgentMemoryDialog.vue'
 import VjsfAutonomousAgentWriteReq from '~/components/vjsf/vjsf-autonomous-agent-write-req.vue'
 import { autonomousAgentEditDraft } from '~/utils/autonomous-agent-draft'
@@ -298,7 +298,7 @@ const props = defineProps<{
 
 const { t, locale } = useI18n()
 const session = useSession()
-const { sendUiNotif } = getUiNotif()
+const { sendUiNotif } = useUiNotif()
 
 const memoryDialog = ref(false)
 const memoryAgent = ref<any | null>(null)

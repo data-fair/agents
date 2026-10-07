@@ -38,6 +38,26 @@ test.describe('Agent memory dialog', () => {
     await expect(editor).toHaveValue('- first fact')
   })
 
+  test('a save over a document changed underneath is refused and says so', async ({ page, goToWithAuth }) => {
+    const agent = (await admin.post('/api/autonomous-agents/organization/test1', { title: 'Mem agent', persona: 'x', mcpServers: [], enabled: true, memory: { enabled: true } })).data
+    const url = `/api/memory/organization/test1/${agent.id}/document`
+    const created = (await admin.put(url, { description: 'Core facts', content: '- first fact' }, { params: { path: 'MEMORY.md' } })).data
+
+    await goToWithAuth('/agents/organization/test1', 'superadmin', { adminMode: true })
+    await page.getByTestId(`autonomous-agent-memory-${agent.id}`).click({ timeout: 20000 })
+    await page.getByTestId('memory-document-MEMORY.md').click()
+    const editor = page.getByTestId('memory-content').locator('textarea:not([aria-hidden="true"])')
+    await expect(editor).toHaveValue('- first fact')
+
+    await admin.put(url, { description: 'Core facts', content: '- changed elsewhere', version: created.version }, { params: { path: 'MEMORY.md' } })
+    await editor.fill('- my edit')
+    await page.getByTestId('memory-save').click()
+
+    // the refusal is shown, and the dialog re-reads the document instead of pretending it saved
+    await expect(page.locator('.ui-notif')).toContainText('was changed since it was loaded')
+    await expect(editor).toHaveValue('- changed elsewhere')
+  })
+
   test('the agent form offers the memory switch', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/organization/test1', 'superadmin', { adminMode: true })
     await page.getByTestId('autonomous-agents-add').click({ timeout: 20000 })

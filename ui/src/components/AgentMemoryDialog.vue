@@ -79,7 +79,7 @@
                     :label="t('content')"
                     :readonly="!canConfigure"
                     rows="14"
-                    class="font-monospace"
+                    style="font-family: monospace"
                   />
                   <div class="text-caption text-medium-emphasis">
                     {{ selected.updatedBy ? authorLabel(selected.updatedBy) : '' }}
@@ -154,6 +154,13 @@
                 >{{ version.content }}</pre>
               </v-list-item>
             </v-list>
+            <v-btn
+              v-if="versions.length < versionsCount"
+              variant="text"
+              data-testid="memory-load-more"
+              :text="t('loadMore')"
+              @click="loadMore()"
+            />
           </v-tabs-window-item>
         </v-tabs-window>
       </v-card-text>
@@ -187,6 +194,7 @@ en:
   restore: Restore
   redact: Redact
   close: Close
+  loadMore: Load more
   byAgent: written by the agent during a conversation
   byReflection: written while reviewing a conversation
   byUser: 'edited by {name}'
@@ -208,6 +216,7 @@ fr:
   restore: Restaurer
   redact: Caviarder
   close: Fermer
+  loadMore: Charger plus
   byAgent: écrit par l'agent pendant une conversation
   byReflection: écrit en relisant une conversation
   byUser: 'modifié par {name}'
@@ -217,7 +226,7 @@ fr:
 <script lang="ts" setup>
 import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { getUiNotif } from '@data-fair/lib-vue/ui-notif.js'
+import { useUiNotif } from '@data-fair/lib-vue/ui-notif.js'
 import { $apiPath, $fetch } from '~/context'
 
 const props = defineProps<{
@@ -230,51 +239,102 @@ const props = defineProps<{
 const emit = defineEmits<{ 'update:modelValue': [value: boolean] }>()
 
 const { t, locale } = useI18n()
-const { sendUiNotif } = getUiNotif()
+const { sendUiNotif } = useUiNotif()
 
 const tab = ref('documents')
 const memory = ref<any>(null)
 const versions = ref<any[]>([])
+const versionsCount = ref(0)
+const versionsPage = ref(1)
 const selected = ref<any>(null)
 const busy = ref(false)
 
-const base = () => `${$apiPath}/memory/${props.accountType}/${props.accountId}/${props.agent?.id}`
+const PAGE_SIZE = 100
+const base = (agentId: string | undefined) => `${$apiPath}/memory/${props.accountType}/${props.accountId}/${agentId}`
+const errorMessage = (error: any) => String(error?.data?.message ?? error?.data ?? error?.message ?? error)
+const report = (error: unknown) => sendUiNotif({ type: 'error', msg: errorMessage(error), error: error as any })
 
+// Responses are applied only while the dialog still shows the agent they were fetched for, so a slow
+// answer for the previous agent never lands in the next one's dialog.
 const load = async () => {
-  if (!props.agent) return
-  memory.value = await $fetch(base(), { credentials: 'include' })
-  versions.value = (await $fetch<{ results: any[] }>(`${base()}/versions`, { query: { size: 100 }, credentials: 'include' })).results
+  const agentId = props.agent?.id
+  if (!agentId) return
+  const [mem, vers] = await Promise.all([
+    $fetch<any>(base(agentId), { credentials: 'include' }),
+    $fetch<{ count: number, results: any[] }>(`${base(agentId)}/versions`, { query: { page: 1, size: PAGE_SIZE }, credentials: 'include' })
+  ])
+  if (props.agent?.id !== agentId) return
+  memory.value = mem
+  versions.value = vers.results
+  versionsCount.value = vers.count
+  versionsPage.value = 1
+}
+
+const loadMore = async () => {
+  const agentId = props.agent?.id
+  if (!agentId) return
+  try {
+    const page = versionsPage.value + 1
+    const vers = await $fetch<{ count: number, results: any[] }>(`${base(agentId)}/versions`, { query: { page, size: PAGE_SIZE }, credentials: 'include' })
+    if (props.agent?.id !== agentId) return
+    versions.value = [...versions.value, ...vers.results]
+    versionsCount.value = vers.count
+    versionsPage.value = page
+  } catch (error) { report(error) }
+}
+
+const open = async (path: string) => {
+  const agentId = props.agent?.id
+  if (!agentId) return
+  try {
+    const doc = await $fetch(`${base(agentId)}/document`, { query: { path }, credentials: 'include' })
+    if (props.agent?.id === agentId) selected.value = doc
+  } catch (error) { report(error) }
 }
 
 watch(() => [props.modelValue, props.agent?.id], () => {
-  if (props.modelValue) { selected.value = null; tab.value = 'documents'; load() }
+  if (!props.modelValue) return
+  selected.value = null
+  memory.value = null
+  versions.value = []
+  versionsCount.value = 0
+  tab.value = 'documents'
+  load().catch(report)
 }, { immediate: true })
 
-const open = async (path: string) => {
-  selected.value = await $fetch(`${base()}/document`, { query: { path }, credentials: 'include' })
-}
 const startNew = () => { selected.value = { isNew: true, path: '', description: '', content: '' } }
 
 // Every action reports its failure: a 409 (someone, or the agent, changed it meanwhile) or a 400 (a
-// limit) must reach the admin rather than leave the dialog looking as if it saved.
+// limit) must reach the admin rather than leave the dialog looking as if it saved. The reload is
+// reported on its own, so a failed refresh is not mistaken for a failed write.
 const act = async (fn: () => Promise<void>) => {
   busy.value = true
-  try { await fn(); await load() } catch (error) { sendUiNotif({ type: 'error', msg: String((error as any)?.data?.message ?? (error as any)?.data ?? (error as any)?.message ?? error), error }) } finally { busy.value = false }
+  try { await fn() } catch (error) { report(error) }
+  try {
+    await load()
+    // The selection follows the refreshed state: a document that still exists is re-read, one that
+    // vanished is dropped, and an unsaved new one is left alone.
+    const current = selected.value
+    if (current && !current.isNew) {
+      if (memory.value?.documents.some((d: any) => d.path === current.path)) await open(current.path)
+      else selected.value = null
+    }
+  } catch (error) { report(error) } finally { busy.value = false }
 }
 
 const save = () => act(async () => {
   const { path, description, content, version, isNew } = selected.value
-  const written = await $fetch<any>(`${base()}/document`, { method: 'PUT', query: { path }, body: { description, content, ...(isNew ? {} : { version }) }, credentials: 'include' })
+  const written = await $fetch<any>(`${base(props.agent?.id)}/document`, { method: 'PUT', query: { path }, body: { description, content, ...(isNew ? {} : { version }) }, credentials: 'include' })
   selected.value = written
 })
 const remove = () => act(async () => {
-  await $fetch(`${base()}/document`, { method: 'DELETE', query: { path: selected.value.path, version: selected.value.version }, credentials: 'include' })
+  await $fetch(`${base(props.agent?.id)}/document`, { method: 'DELETE', query: { path: selected.value.path, version: selected.value.version }, credentials: 'include' })
   selected.value = null
 })
-const restore = (id: string) => act(async () => { await $fetch(`${base()}/versions/${id}/restore`, { method: 'POST', credentials: 'include' }) })
+const restore = (id: string) => act(async () => { await $fetch(`${base(props.agent?.id)}/versions/${id}/restore`, { method: 'POST', credentials: 'include' }) })
 const redact = (id: string) => act(async () => {
   if (!window.confirm(t('confirmRedact'))) return
-  await $fetch(`${base()}/versions/${id}/redact`, { method: 'POST', credentials: 'include' })
+  await $fetch(`${base(props.agent?.id)}/versions/${id}/redact`, { method: 'POST', credentials: 'include' })
 })
 
 const authorLabel = (author: any) => author.kind === 'agent'
