@@ -1,7 +1,7 @@
 /**
  * stateful E2E tests: the approval card reads as plain language — a planning call shows the task it
  * plans, changes or deletes, and any other gated call shows its tool's title, description and arguments.
- * Mock model, configured autonomous agent.
+ * Mock model, configured autonomous agent; planning calls are an administrator's of the organization.
  */
 import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
@@ -44,7 +44,7 @@ test.describe('Readable approval cards', () => {
 
   test('plan_task shows the task in words, and approving it plans the task', async ({ page, goToWithAuth }) => {
     const agent = await createAgent()
-    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agent.id}`, 'test1-user1', { org: 'test1' })
+    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agent.id}`, 'test1-admin1', { org: 'test1' })
     await ask(page, `call tool plan_task ${JSON.stringify(digest)}`)
 
     const card = page.getByTestId('approval-card')
@@ -70,14 +70,14 @@ test.describe('Readable approval cards', () => {
   test('update_task shows the task before and after the change', async ({ page, goToWithAuth }) => {
     const agent = await createAgent()
     const task = (await admin.post(`${AGENTS}/${agent.id}/tasks`, digest)).data
-    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agent.id}`, 'test1-user1', { org: 'test1' })
+    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agent.id}`, 'test1-admin1', { org: 'test1' })
     await ask(page, `call tool update_task ${JSON.stringify({ taskId: task.id, ...digest, title: 'Renamed digest' })}`)
 
     const card = page.getByTestId('approval-card')
     await expect(card).toBeVisible({ timeout: 15000 })
     await expect(card).toContainText('Before')
     await expect(card).toContainText('After')
-    // The Before column is the task as stored, read from the API by the instructor.
+    // The Before column is the task as stored, read from the API by the administrator deciding.
     await expect(card).toContainText('Weekly digest')
     await expect(card).toContainText('Renamed digest')
   })
@@ -85,7 +85,7 @@ test.describe('Readable approval cards', () => {
   test('update_task without "enabled" keeps a disabled task disabled in the After column', async ({ page, goToWithAuth }) => {
     const agent = await createAgent()
     const task = (await admin.post(`${AGENTS}/${agent.id}/tasks`, { ...digest, enabled: false })).data
-    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agent.id}`, 'test1-user1', { org: 'test1' })
+    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agent.id}`, 'test1-admin1', { org: 'test1' })
     await ask(page, `call tool update_task ${JSON.stringify({ taskId: task.id, ...digest, title: 'Renamed digest' })}`)
 
     const states = page.getByTestId('approval-card').getByTestId('approval-task-state')
@@ -102,7 +102,7 @@ test.describe('Readable approval cards', () => {
     await admin.post('/api/test-env/scheduler-pass', { now: '2026-01-15T10:00:00.000Z' })
     await expect.poll(async () => (await admin.get(`${AGENTS}/${agent.id}/tasks/${task.id}`)).data.pausedReason).toBeTruthy()
 
-    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agent.id}`, 'test1-user1', { org: 'test1' })
+    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agent.id}`, 'test1-admin1', { org: 'test1' })
     await ask(page, `call tool update_task ${JSON.stringify({ taskId: task.id, ...digest, title: 'Renamed digest' })}`)
 
     const card = page.getByTestId('approval-card')

@@ -13,6 +13,18 @@ import { settlePendingWait } from './waits.ts'
 import { sessionFor } from '../agent-session/registry.ts'
 import { getEffectiveRole } from '../auth.ts'
 import { REQUEST_WEB_ACCESS_TOOL_NAME } from '../web/operations.ts'
+import { PLANNING_TOOL_NAMES } from '../self-knowledge/operations.ts'
+
+/**
+ * The calls whose approval is an administrator's of the organization, not any instructor's, and why.
+ * Allowing more of the web widens who can, in effect, instruct the agent (every author of the pages it may
+ * then read). Planning writes the agent's standing tasks, which the task routes leave to administrators.
+ * The service-tool registry offers these tools only in a turn an administrator started, for the same reason.
+ */
+const ADMIN_DECISIONS: Record<string, string> = {
+  [REQUEST_WEB_ACCESS_TOOL_NAME]: 'only an administrator of the organization can allow more web addresses',
+  ...Object.fromEntries(PLANNING_TOOL_NAMES.map(name => [name, 'only an administrator of the organization can change the agent\'s planned tasks']))
+}
 
 /**
  * The socket's `approval` frame is the only way in, and the grant is checked here: approvals
@@ -37,15 +49,15 @@ export const decideAndContinue = async (input: {
 }): Promise<{ runId: string } | { pending: number }> => {
   const { conversation, session } = input
   assertCanInstruct(await requireAutonomousAgent(conversation.owner, conversation.agentId), session)
-  // ALLOWING MORE OF THE WEB is an administrator's decision, not any instructor's: it widens who can, in
-  // effect, instruct the agent (every author of the pages it may then read). Refused before anything is
+  // An administrator's call (ADMIN_DECISIONS) approved by anyone else is refused before anything is
   // recorded, so the call stays pending for an administrator. Rejecting it is anyone's.
   if (input.approved && getEffectiveRole(session, conversation.owner) !== 'admin') {
-    const asksForWeb = await mongo.messages.findOne(
-      { conversationId: conversation.id, parts: { $elemMatch: { 'approval.id': input.approvalId, toolName: REQUEST_WEB_ACCESS_TOOL_NAME } } },
-      { projection: { _id: 1 } }
+    const asking = await mongo.messages.findOne(
+      { conversationId: conversation.id, parts: { $elemMatch: { 'approval.id': input.approvalId, toolName: { $in: Object.keys(ADMIN_DECISIONS) } } } },
+      { projection: { _id: 0, 'parts.$': 1 } }
     )
-    if (asksForWeb) throw httpError(403, 'only an administrator of the organization can allow more web addresses')
+    const toolName = (asking?.parts?.[0] as { toolName?: string } | undefined)?.toolName
+    if (toolName) throw httpError(403, ADMIN_DECISIONS[toolName])
   }
   const by = { userId: session.user.id, userName: session.user.name }
   const message = await decideApproval(conversation.id, input.approvalId, {

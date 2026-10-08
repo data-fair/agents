@@ -1,17 +1,21 @@
 /**
  * stateful API tests: a configured autonomous agent plans, changes and deletes its own tasks in a chat,
- * each change approved by the person through the approval gate, driven by the mock model.
+ * each change approved by an administrator of the organization through the approval gate, driven by the
+ * mock model.
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
-import { decideOverSocketToRun, runOf, turnOverSocket } from '../../../dev/socket-turn.ts'
+import { decideOverSocket, decideOverSocketToRun, runOf, turnOverSocket } from '../../../dev/socket-turn.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
-// Not an admin of the organization: approving a planning tool is the instructor's own decision.
+// An instructor, not an admin of the organization: never offered the planning tools, which only an
+// administrator may approve.
 const instructor = await axiosAuth('test1-user1', { org: 'test1' })
+// The same administrator from their personal account: their role there is not the organization's.
+const adminElsewhere = await axiosAuth('test1-admin1')
 const AGENTS = '/api/autonomous-agents/organization/test1'
 const PLANNING_TOOLS = ['plan_task', 'update_task', 'delete_task']
 const weekly = { type: 'weekly', month: '*', dayOfWeek: '1', dayOfMonth: '*', hour: 8, minute: 0, timeZone: 'Europe/Paris' }
@@ -24,7 +28,8 @@ const createAgent = async (over: any = {}) => {
     persona: 'You answer briefly.',
     mcpServers: [],
     enabled: true,
-    instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }],
+    // test1-admin1 by name too, so the same person may instruct from their personal account.
+    instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }, { mode: 'member', type: 'user', id: 'test1-admin1' }],
     ...over
   })).data
   await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
@@ -34,25 +39,25 @@ const tasksOf = async (agentId: string) => (await admin.get(`${AGENTS}/${agentId
 const callPart = (message: any, toolName: string) => message.parts.find((p: any) => p.type === 'dynamic-tool' && p.toolName === toolName)
 const offeredTools = (run: any): string[] => run.calls.flatMap((c: any) => c.toolNames ?? [])
 const messageAt = async (conversationId: string, seq: number) =>
-  (await instructor.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results.find((m: any) => m.seq === seq)
+  (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results.find((m: any) => m.seq === seq)
 const awaitRun = async (conversationId: string, runId: string) => {
   for (let i = 0; i < 120; i++) {
-    const run = await runOf(instructor, conversationId, runId)
+    const run = await runOf(orgAdmin, conversationId, runId)
     if (run.status !== 'running') return run
     await new Promise(resolve => setTimeout(resolve, 100))
   }
   throw new Error('run never ended')
 }
 
-/** The instructor asks for a call; the turn ends on its approval card. */
+/** An administrator asks for a call; the turn ends on its approval card. */
 const ask = async (agentId: string, toolName: string, input: unknown) => {
-  const { run, conversationId, assistant } = await turnOverSocket(instructor, { agentId }, `call tool ${toolName} ${JSON.stringify(input)}`)
+  const { run, conversationId, assistant } = await turnOverSocket(orgAdmin, { agentId }, `call tool ${toolName} ${JSON.stringify(input)}`)
   const part = callPart(assistant, toolName)
   return { run, conversationId, seq: assistant.seq as number, part }
 }
 /** Decide the pending call and wait for the continuation; the call's part as settled on its message. */
 const decide = async (asked: Awaited<ReturnType<typeof ask>>, toolName: string, decision: { approved: boolean, reason?: string }) => {
-  const { runId } = await decideOverSocketToRun(instructor, asked.conversationId, asked.part.approval.id, decision)
+  const { runId } = await decideOverSocketToRun(orgAdmin, asked.conversationId, asked.part.approval.id, decision)
   const run = await awaitRun(asked.conversationId, runId)
   return { run, part: callPart(await messageAt(asked.conversationId, asked.seq), toolName) }
 }
@@ -71,7 +76,7 @@ test.describe('Planning tools', () => {
     assert.deepEqual(await tasksOf(agent.id), [])
   })
 
-  test('approved by the instructor, the task exists, records who and where, and the scheduler fires it', async () => {
+  test('approved by the administrator, the task exists, records who and where, and the scheduler fires it', async () => {
     const agent = await createAgent()
     const asked = await ask(agent.id, 'plan_task', digest)
     const { run, part } = await decide(asked, 'plan_task', { approved: true })
@@ -81,7 +86,7 @@ test.describe('Planning tools', () => {
     const [task] = await tasksOf(agent.id)
     assert.ok(task, 'the task was created')
     assert.equal(task.title, 'Weekly digest')
-    assert.equal(task.createdBy.userId, 'test1-user1')
+    assert.equal(task.createdBy.userId, 'test1-admin1')
     assert.equal(task.createdBy.conversationId, asked.conversationId)
     assert.ok(part.output.includes(`Task "Weekly digest" planned (id ${task.id}): every Monday at 08:00 (Europe/Paris), next run ${task.nextRunAt}.`), part.output)
 
@@ -142,7 +147,7 @@ test.describe('Planning tools', () => {
     assert.equal(updated.part.state, 'output-available', JSON.stringify(updated.part))
     const [stored] = await tasksOf(agent.id)
     assert.equal(stored.title, 'Renamed digest')
-    assert.equal(stored.updatedBy.userId, 'test1-user1')
+    assert.equal(stored.updatedBy.userId, 'test1-admin1')
     assert.ok(updated.part.output.includes(`Task "Renamed digest" planned (id ${task.id}): every Monday at 08:00 (Europe/Paris), next run ${stored.nextRunAt}.`), updated.part.output)
 
     const deleted = await decide(await ask(agent.id, 'delete_task', { taskId: task.id }), 'delete_task', { approved: true })
@@ -154,7 +159,7 @@ test.describe('Planning tools', () => {
   test('a task run is offered none of the planning tools, even with every approval on allow', async () => {
     const agent = await createAgent({ approvals: { readOnly: 'allow', write: 'allow', destructive: 'allow' } })
     // In a chat they are offered, which is what makes their absence below meaningful.
-    const chat = await turnOverSocket(instructor, { agentId: agent.id }, 'hello')
+    const chat = await turnOverSocket(orgAdmin, { agentId: agent.id }, 'hello')
     for (const name of PLANNING_TOOLS) assert.ok(offeredTools(chat.run).includes(name), name)
 
     const task = (await admin.post(`${AGENTS}/${agent.id}/tasks`, { title: 'Probe', prompt: 'hello', scheduling: [daily(8, 0)] })).data
@@ -168,6 +173,29 @@ test.describe('Planning tools', () => {
     assert.equal(run.status, 'done')
     assert.ok(offeredTools(run).length, 'the run recorded its tool list')
     for (const name of PLANNING_TOOLS) assert.ok(!offeredTools(run).includes(name), name)
+  })
+
+  test('an instructor who is not an administrator is offered none of the planning tools', async () => {
+    const agent = await createAgent()
+    const { run } = await turnOverSocket(instructor, { agentId: agent.id }, 'hello')
+    assert.ok(offeredTools(run).includes('get_my_configuration'), 'the run recorded its tool list')
+    for (const name of PLANNING_TOOLS) assert.ok(!offeredTools(run).includes(name), name)
+  })
+
+  test('approving a planning call from where one is not an administrator is refused, and it stays pending', async () => {
+    const agent = await createAgent()
+    const asked = await ask(agent.id, 'plan_task', digest)
+    await assert.rejects(decideOverSocket(adminElsewhere, asked.conversationId, asked.part.approval.id, { approved: true }), (err: any) => {
+      assert.equal(err.status, 403)
+      assert.match(String(err.message ?? err.data), /only an administrator of the organization can change the agent's planned tasks/)
+      return true
+    })
+    assert.equal(callPart(await messageAt(asked.conversationId, asked.seq), 'plan_task').state, 'approval-requested')
+    assert.deepEqual(await tasksOf(agent.id), [])
+    // Rejecting stays anyone's who may decide.
+    const { runId } = await decideOverSocketToRun(adminElsewhere, asked.conversationId, asked.part.approval.id, { approved: false })
+    await awaitRun(asked.conversationId, runId)
+    assert.equal(callPart(await messageAt(asked.conversationId, asked.seq), 'plan_task').state, 'output-denied')
   })
 
   test('the personal assistant is offered none of the planning tools', async () => {

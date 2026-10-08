@@ -3,7 +3,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { renderConfiguration, renderRunRow, renderRun, SELF_KNOWLEDGE_TOOL_NAMES, PLANNING_TOOL_NAMES, type ConfigurationView } from '../../../api/src/self-knowledge/operations.ts'
+import { renderConfiguration, renderRunRow, renderRun, SELF_KNOWLEDGE_TOOL_NAMES, PLANNING_TOOL_NAMES, PLANNING_NEEDS_ADMIN, type ConfigurationView } from '../../../api/src/self-knowledge/operations.ts'
 import { SERVICE_TOOL_NAMES } from '../../../api/src/conversations/service-tool-names.ts'
 import { buildSystemPrompt } from '../../../api/src/conversations/operations.ts'
 
@@ -59,6 +59,14 @@ test.describe('renderConfiguration', () => {
     assert.ok(all.includes('- report_outcome'), text)
     assert.ok(all.includes('- t1: Morning check — every day at 08:00 (Europe/Paris) — next run: none — paused: paused after 3 consecutive failed runs'), text)
     assert.match(text, /## Memory\nOff/)
+  })
+
+  test('a chat turn not offered the planning tools says why; one offered them, or a task run, does not', () => {
+    assert.ok(lines(renderConfiguration(view('chat'))).includes(PLANNING_NEEDS_ADMIN))
+    const offered = view('chat')
+    offered.serviceTools = [...offered.serviceTools, ...PLANNING_TOOL_NAMES]
+    assert.ok(!renderConfiguration(offered).includes(PLANNING_NEEDS_ADMIN))
+    assert.ok(!renderConfiguration(view('task')).includes(PLANNING_NEEDS_ADMIN))
   })
 
   test('a task disabled by an admin, not paused, reads as disabled', () => {

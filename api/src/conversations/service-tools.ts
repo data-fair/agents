@@ -146,9 +146,11 @@ const ENTRIES: ServiceToolEntry[] = [
   {
     // PLANNING (api/src/self-knowledge/planning.ts): a configured agent plans, changes and deletes its own
     // tasks. Only in a chat: every call needs the person's approval, and a task run has nobody to give it.
-    // Decided by whoever may instruct the agent, like any other approval (conversations/approvals.ts):
-    // the admin routes stay the way to undo it.
-    applies: ctx => ctx.agent.id !== PERSONAL_AGENT_ID && ctx.surface === 'chat',
+    // And only in a turn an administrator of the organization started: only an administrator may approve
+    // these calls (conversations/approvals.ts), as only one may write tasks through the routes, so offering
+    // them to anyone else would end their turn on a card they cannot decide. A run continuing from a
+    // decision was started by the decider, so the approved call finds its tool there.
+    applies: ctx => ctx.agent.id !== PERSONAL_AGENT_ID && ctx.surface === 'chat' && ctx.run.triggeredByRole === 'admin',
     build: async (ctx, into) => {
       const tools = createPlanningTools(ctx)
       Object.assign(into.tools, withProvenance(tools, () => SELF_KNOWLEDGE_SERVER_ID))

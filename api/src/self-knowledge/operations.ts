@@ -18,6 +18,9 @@ export const SELF_KNOWLEDGE_TOOL_NAMES = ['get_my_configuration', 'list_my_runs'
 /** The planning tools (./planning.ts): the agent's writes to its own tasks, each approved in the chat. */
 export const PLANNING_TOOL_NAMES = ['plan_task', 'update_task', 'delete_task'] as const
 
+/** What a chat turn's configuration says when the planning tools were not offered. */
+export const PLANNING_NEEDS_ADMIN = 'Planning tasks needs an administrator of the organization in the chat.'
+
 /** The source a stored self-knowledge or planning call names. */
 export const SELF_KNOWLEDGE_SERVER_ID = 'agent-self'
 
@@ -77,6 +80,9 @@ export const renderConfiguration = (view: ConfigurationView): string => {
     bullets(view.notConnected.map(server => `${server.id}: ${server.name}${server.description ? ` — ${server.description}` : ''}`)),
     '## Planned tasks',
     bullets(tasks),
+    // The planning tools are offered only in a turn an administrator of the organization started
+    // (conversations/service-tools.ts): without this line the agent could only guess why it cannot plan.
+    ...(surface === 'chat' && !view.serviceTools.includes(PLANNING_TOOL_NAMES[0]) ? [PLANNING_NEEDS_ADMIN] : []),
     '## Memory',
     agent.memoryEnabled ? 'On' : 'Off'
   ].join('\n')
