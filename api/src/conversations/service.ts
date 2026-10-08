@@ -13,7 +13,6 @@ import { expiredArchiveFilter } from '../retention.ts'
 import Debug from 'debug'
 import type { AutonomousAgent, Conversation, ConversationRun } from '#types'
 // The stored shape, whose `parts` carry the library's own part type (see mongo.ts).
-import type { ConversationTurnRun } from './operations.ts'
 import type { StoredMessage } from '#mongo'
 import type { MessagePart } from '@agents/shared/message-parts'
 import { canInstruct, type InstructableAgent } from '../autonomous-agents/operations.ts'
@@ -183,7 +182,7 @@ export const ANONYMOUS_ABANDONED_AFTER_MS = 24 * 60 * 60 * 1000
 /**
  * Purge anonymous threads left behind by a socket whose close handler never ran — a crash, a kill.
  *
- * Keyed on `updatedAt`, which every message and run transition bumps, so a thread still in use is
+ * Keyed on `updatedAt`, which every new message and every turn's close writes, so a thread in use is
  * not swept from under its socket. Not done at boot by "every anonymous thread": with several API
  * instances, one booting would delete the threads another is serving.
  */
@@ -218,25 +217,6 @@ export const purgeExpiredArchives = async (now = new Date(), scope: Record<strin
 }
 
 /**
- * Advance the conversation's version and return the new value.
- *
- * Every change a client might need to see goes through here — a message appended, a message
- * updated in place, a run transition — so one number is enough for a client to know it is behind,
- * and `?sinceVersion=` is enough to catch up. $inc, so two concurrent writers cannot collide on
- * it the way a timestamp would in the same millisecond.
- */
-const bumpConversationVersion = async (conversationId: string, credits = 0, set: Partial<Conversation> = {}): Promise<{ version?: number, credits?: number }> => {
-  const updated = await mongo.conversations.findOneAndUpdate(
-    { id: conversationId },
-    // The conversation's running total rides the same write when a turn's spend is flushed (see
-    // `finishTurn`), so keeping it costs no operation of its own — and so does a handover's pending wait.
-    { $inc: { version: 1, ...(credits ? { credits } : {}) }, $set: { ...set, updatedAt: new Date().toISOString() } },
-    { returnDocument: 'after', projection: { _id: 0, version: 1, credits: 1 } }
-  )
-  return { version: updated?.version, credits: updated?.credits }
-}
-
-/**
  * Append a message and allocate its sequence in one step.
  *
  * The seq comes from a findOneAndUpdate $inc on the conversation rather than a read
@@ -249,8 +229,7 @@ export const appendMessage = async (
 ): Promise<StoredMessage> => {
   const updated = await mongo.conversations.findOneAndUpdate(
     { id: conversation.id },
-    // One round trip allocates both: the seq (per message) and the version (per change).
-    { $inc: { messageSeq: 1, version: 1 }, $set: { lastMessageAt: new Date().toISOString(), updatedAt: new Date().toISOString() } },
+    { $inc: { messageSeq: 1 }, $set: { lastMessageAt: new Date().toISOString(), updatedAt: new Date().toISOString() } },
     { returnDocument: 'after', projection: { _id: 0 } }
   )
   if (!updated) throw httpError(404, 'unknown conversation')
@@ -261,7 +240,6 @@ export const appendMessage = async (
     agentId: conversation.agentId,
     owner: conversation.owner,
     seq: updated.messageSeq,
-    version: updated.version,
     createdAt: new Date().toISOString()
   }
   await mongo.messages.insertOne({ ...doc })
@@ -270,14 +248,9 @@ export const appendMessage = async (
 
 /** Patch a message in place, for the executor's incremental writes. */
 export const updateMessage = async (conversationId: string, seq: number, patch: Partial<StoredMessage>) => {
-  // The version has to advance for an in-place update too, or an incremental fetch cannot see it:
-  // the assistant message keeps its seq while its content is filled in, so `seq` alone would only
-  // ever reveal NEW messages. The conversation is the caller's to name — every caller holds it — which
-  // spares a lookup on each of a turn's incremental writes.
-  const { version } = await bumpConversationVersion(conversationId)
   await mongo.messages.updateOne(
     { conversationId, seq },
-    { $set: { ...patch, version, updatedAt: new Date().toISOString() } }
+    { $set: { ...patch, updatedAt: new Date().toISOString() } }
   )
 }
 
@@ -296,7 +269,6 @@ export const settleStoredToolPart = async (
 ): Promise<StoredMessage | null> => {
   const awaiting = { toolCallId, state: 'approval-responded' }
   if (!await mongo.messages.findOne({ conversationId, parts: { $elemMatch: awaiting } }, { projection: { _id: 1 } })) return null
-  const { version } = await bumpConversationVersion(conversationId)
   // `truncated` is metadata, beside the decision in `toolMetadata`, as on a call settled in its own turn:
   // an approved call is precisely the audited write, and a review must be able to tell its result was cut.
   const { truncated, ...fields } = settled as typeof settled & { truncated?: { totalChars: number } }
@@ -304,7 +276,7 @@ export const settleStoredToolPart = async (
   if (truncated) set['parts.$[p].toolMetadata.truncated'] = { totalChars: truncated.totalChars }
   return await mongo.messages.findOneAndUpdate(
     { conversationId, parts: { $elemMatch: awaiting } },
-    { $set: { ...set, version, updatedAt: new Date().toISOString() } },
+    { $set: { ...set, updatedAt: new Date().toISOString() } },
     { arrayFilters: [{ 'p.toolCallId': toolCallId, 'p.state': 'approval-responded' }], returnDocument: 'after', projection: { _id: 0 } }
   )
 }
@@ -331,7 +303,6 @@ export const decideApproval = async (
   const asking = await mongo.messages.findOne({ conversationId, parts: { $elemMatch: pending } }, { projection: { _id: 0, pending: 1 } })
   if (!asking) return null
   if (asking.pending) return 'still-finishing'
-  const { version } = await bumpConversationVersion(conversationId)
   return await mongo.messages.findOneAndUpdate(
     // `pending` again, in the write itself: the check above is only the reason given.
     { conversationId, pending: { $ne: true }, parts: { $elemMatch: pending } },
@@ -343,7 +314,6 @@ export const decideApproval = async (
         'parts.$[p].approval.approved': decision.approved,
         ...(decision.reason ? { 'parts.$[p].approval.reason': decision.reason } : {}),
         'parts.$[p].toolMetadata.decision': { ...decision.by, approved: decision.approved, at },
-        version,
         updatedAt: at
       }
     },
@@ -404,8 +374,9 @@ export const rejectPendingApprovals = async (
           { 'parts.state': 'approval-responded', parts: { $elemMatch: { state: 'output-denied', 'approval.reason': reason } } }
         ]
       }
-  if (!await mongo.messages.findOne(filter, { projection: { _id: 1 } })) return 0
-  const { version } = await bumpConversationVersion(conversationId)
+  // The messages it will change, by seq, so the watching page can be sent exactly those afterwards.
+  const seqs = (await mongo.messages.find(filter, { projection: { _id: 0, seq: 1 } }).toArray()).map(m => m.seq)
+  if (!seqs.length) return 0
   const result = await mongo.messages.updateMany(
     filter,
     {
@@ -414,7 +385,6 @@ export const rejectPendingApprovals = async (
         'parts.$[p].approval.approved': false,
         'parts.$[p].approval.reason': reason,
         ...(opts?.undecidedOnly ? {} : { 'parts.$[q].state': 'output-error', 'parts.$[q].errorText': approvedError }),
-        version,
         updatedAt: new Date().toISOString()
       }
     },
@@ -423,26 +393,19 @@ export const rejectPendingApprovals = async (
   // The watching page is shown the refusal and loses the "awaiting approval" label, as for a decision.
   const watcher = sessionFor(conversationId)
   if (watcher && result.modifiedCount) {
-    const rejected = await mongo.messages.find({ conversationId, version }, { projection: { _id: 0, seq: 1, parts: 1 } }).toArray()
+    const rejected = await mongo.messages.find({ conversationId, seq: { $in: seqs } }, { projection: { _id: 0, seq: 1, parts: 1 } }).sort({ seq: 1 }).toArray()
     for (const message of rejected) watcher.send({ type: 'message', seq: message.seq, role: 'assistant', parts: message.parts as MessagePart[], pending: false })
     watcher.send({ type: 'activity', activity: null })
   }
   return result.modifiedCount
 }
 
-export const createRun = async (run: Omit<ConversationRun, 'id'> & { conversationId: string }): Promise<ConversationTurnRun> => {
-  const doc = { ...run, id: nanoid() }
-  const { version } = await bumpConversationVersion(run.conversationId)
-  await mongo.runs.insertOne({ ...doc, version })
-  return { ...doc, version }
-}
-
 /**
- * A TASK run (kind 'task'): no conversation to bump, its content lives on the run itself. Created
- * already `running` by the scheduler or run-now, or `skipped`.
+ * Record a run, of either kind: a conversation's turn, or a task's run (`kind: 'task'`), whose content
+ * lives on the run itself. Created `running`, or already `skipped` for a task slot that did not run.
  */
-export const createTaskRun = async (run: Omit<ConversationRun, 'id' | 'version'> & { kind: 'task', taskId: string }): Promise<ConversationRun> => {
-  const doc: ConversationRun = { ...run, id: nanoid(), version: 1 }
+export const createRun = async <R extends Omit<ConversationRun, 'id'>>(run: R): Promise<R & { id: string }> => {
+  const doc = { ...run, id: nanoid() }
   await mongo.runs.insertOne({ ...doc })
   return doc
 }
@@ -493,7 +456,7 @@ export const incrementRunSpend = async (id: string, credits: number, steps: numb
  *
  * A turn wrote its system prompt, then a call record and a spend increment PER STEP, each a write of
  * its own — for data only read after the turn (review, the export, the cost). The executor's budget is
- * tracked in memory, so nothing reads them mid-turn. `finishTurn`/`finishRun` fold them into the write
+ * tracked in memory, so nothing reads them mid-turn. `finishRun` folds them into the write
  * that closes the run; after that the buffer is gone and a late writer (a turn abandoned at its
  * deadline, still spending) writes directly. The price: a process dying mid-turn loses that turn's
  * telemetry. Its spend is not lost — the usage ledger is written per call, separately.
@@ -533,84 +496,56 @@ export const conversationCost = async (conversationId: string, known?: { credits
 }
 
 /**
- * Close a run out. Conditional on it still being `running`, so two writers cannot both decide
- * how a run ended — the boot sweep of another instance racing the instance that is actually
- * executing it, for example. Returns whether this call was the one that closed it.
+ * Close a run, of either kind: once, while it is still `running`, so two writers cannot both decide how
+ * it ended — the boot sweep of another instance racing the instance that is actually executing it, for
+ * example. The run's buffered telemetry and spend are folded into its closing write.
+ *
+ * A conversation's turn also closes on its conversation: the turn's spend is added to the conversation's
+ * running total (returned), with whatever the turn leaves there (a handover's `pendingWait`), so a reader
+ * never sees the turn closed without the wait it is waiting on; then its final message, if any, is
+ * written — both BEFORE the run's close, which is what every reader and the boot sweep key on.
  */
-export const finishRun = async (run: { id: string, conversationId: string }, patch: Partial<ConversationRun>): Promise<boolean> => {
-  return (await finishTurn(run, undefined, patch)).closed
-}
-
-/**
- * Close a turn: its final message, if any, and its run — under ONE version bump.
- *
- * The message is written FIRST and the run closed after, as the two separate writes were, because the
- * terminal run state is the end-of-turn signal a reader polling `?sinceVersion=` stops on: it must
- * already find the finalised message. Both carry the same version, so one `?sinceVersion=` fetch returns both.
- *
- * The run's buffered telemetry and spend are folded into its closing write, and its spend into the
- * conversation's running total on the same bump — whose result is the total this returns.
- *
- * Conditional on the run still being `running`, so two writers cannot both decide how a run ended —
- * the boot sweep of another instance racing the instance that is actually executing it, for example.
- * The version is bumped before knowing whether this call wins: a losing racer advances it with nothing
- * new behind it, which costs a client one empty refetch — cheaper than a lookup on every turn.
- */
-export const finishTurn = async (
-  run: { id: string, conversationId: string },
-  message: { seq: number, patch: Partial<StoredMessage> } | undefined,
+export const finishRun = async (
+  run: { id: string, conversationId?: string },
   patch: Partial<ConversationRun>,
-  // What the turn leaves on the conversation: a handover's `pendingWait`, written by the same bump, so
-  // a reader never sees the turn closed without the wait it is waiting on.
-  conversation: Partial<Conversation> = {}
+  turn: { message?: { seq: number, patch: Partial<StoredMessage> }, conversation?: Partial<Conversation> } = {}
 ): Promise<{ closed: boolean, conversationCredits?: number }> => {
   const buffered = drainRunBuffer(run.id)
-  const { version, credits } = await bumpConversationVersion(run.conversationId, buffered.credits, conversation)
   const now = new Date().toISOString()
-  if (message) {
-    // CAUGHT: whatever failed this write (a mongo blip, a shutdown) is likely to fail the next one
-    // too, and a run left `running` is worse than a message left without its notice — the run is what
-    // every reader and the boot sweep key on. So the close below still runs.
-    await mongo.messages.updateOne(
-      { conversationId: run.conversationId, seq: message.seq },
-      { $set: { ...message.patch, version, updatedAt: now } }
-    ).catch(err => console.error('autonomous agent message could not be finalised', err))
+  let conversationCredits: number | undefined
+  if (run.conversationId) {
+    const updated = await mongo.conversations.findOneAndUpdate(
+      { id: run.conversationId },
+      { ...(buffered.credits ? { $inc: { credits: buffered.credits } } : {}), $set: { ...turn.conversation, updatedAt: now } },
+      { returnDocument: 'after', projection: { _id: 0, credits: 1 } }
+    )
+    conversationCredits = updated?.credits
+    if (turn.message) {
+      // CAUGHT: whatever failed this write (a mongo blip, a shutdown) is likely to fail the next one
+      // too, and a run left `running` is worse than a message left without its notice — the run is what
+      // every reader and the boot sweep key on. So the close below still runs.
+      await mongo.messages.updateOne(
+        { conversationId: run.conversationId, seq: turn.message.seq },
+        { $set: { ...turn.message.patch, updatedAt: now } }
+      ).catch(err => console.error('autonomous agent message could not be finalised', err))
+    }
   }
   const updated = await mongo.runs.updateOne(
     { id: run.id, status: 'running' },
-    { $set: { ...patch, ...buffered.set, version, endedAt: now }, ...buffered.update }
+    { $set: { ...patch, ...buffered.set, endedAt: now }, ...buffered.update }
   )
   // A losing racer still owes the run what it buffered: the spend happened either way.
   if (!updated.modifiedCount && (Object.keys(buffered.update).length || Object.keys(buffered.set).length)) {
     await mongo.runs.updateOne({ id: run.id }, { ...(Object.keys(buffered.set).length ? { $set: buffered.set } : {}), ...buffered.update })
   }
-  return { closed: updated.modifiedCount > 0, conversationCredits: credits }
-}
-
-/**
- * Close a task run once, while it is still running, with its buffered spend: finishTurn minus the
- * conversation (no message, no version bump, no credits total). Returns whether this call closed it.
- */
-export const finishTaskRun = async (run: { id: string }, patch: Partial<ConversationRun>): Promise<boolean> => {
-  const buffered = drainRunBuffer(run.id)
-  const updated = await mongo.runs.updateOne(
-    { id: run.id, status: 'running' },
-    { $set: { ...patch, ...buffered.set, endedAt: new Date().toISOString() }, ...buffered.update }
-  )
-  // A losing racer still owes the run what it buffered: the spend happened either way.
-  if (!updated.modifiedCount && (Object.keys(buffered.update).length || Object.keys(buffered.set).length)) {
-    await mongo.runs.updateOne({ id: run.id }, { ...(Object.keys(buffered.set).length ? { $set: buffered.set } : {}), ...buffered.update })
-  }
-  return updated.modifiedCount > 0
+  return { closed: updated.modifiedCount > 0, conversationCredits }
 }
 
 /**
  * Persist the compaction recap for a conversation.
  *
  * A CACHE, deliberately kept on the conversation rather than in the message log: the log is the
- * conversation of record and a compaction must never rewrite it. Writing here does not bump the
- * conversation version, because nothing a reader can see has changed — a version bump would make every
- * `?sinceVersion=` reader refetch a transcript that is byte-identical.
+ * conversation of record and a compaction must never rewrite it.
  */
 export const saveCompaction = async (
   conversationId: string,

@@ -26,7 +26,8 @@ import { createMemoryTool } from './tool.ts'
 import { withProvenance, usageIdentityFor } from '../conversations/operations.ts'
 import { getSettings } from '../settings/service.ts'
 import { resolveRoleModel } from '../models/service.ts'
-import { chargeModelCall } from '../usage/service.ts'
+import { chargeModelCall } from '../usage/charge.ts'
+import type { TokenCounts } from '../usage/operations.ts'
 import { checkAccountCreditCap } from '../usage/enforce.ts'
 
 const debug = Debug('df-agents:memory-reflection')
@@ -114,7 +115,6 @@ const defer = async (conversationId: string, now: Date, reason: string): Promise
   return { reflected: false, reason }
 }
 
-type TokenCounts = { inputTokens: number, outputTokens: number, noCacheTokens?: number, cacheReadTokens?: number, cacheWriteTokens?: number }
 const addOptional = (a: number | undefined, b: number | undefined) => a === undefined && b === undefined ? undefined : (a ?? 0) + (b ?? 0)
 
 /**

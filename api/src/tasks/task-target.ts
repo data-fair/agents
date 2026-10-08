@@ -12,7 +12,7 @@ import type { ConversationRun } from '#types'
 import type { AutonomousAgentTask } from '#types/autonomous-agent-task/index.ts'
 import { runStopReasonMessage, withAppendedText, partsText, type MessagePart } from '../conversations/operations.ts'
 import { settleInterruptedParts } from '../conversations/interrupted-turn.ts'
-import { finishTaskRun } from '../conversations/service.ts'
+import { finishRun } from '../conversations/service.ts'
 import type { TurnTarget } from '../conversations/turn-target.ts'
 import type { TaskOutcome } from '../conversations/service-tools.ts'
 import { afterTaskRun } from './follow-up.ts'
@@ -49,7 +49,7 @@ export const taskTarget = (run: ConversationRun, task: AutonomousAgentTask): Tur
     } catch (err) {
       console.error(`task run ${run.id} could not be followed up`, err)
     } finally {
-      await finishTaskRun(run, patch)
+      await finishRun(run, patch)
     }
   }
 

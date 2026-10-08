@@ -7,9 +7,8 @@
 import { isAuditedAgentId } from '@agents/shared/agent-audit'
 import { Router } from 'express'
 import { nanoid } from 'nanoid'
-import type { ConversationRun } from '#types'
 import mongo from '#mongo'
-import { type AccountKeys, assertAccountRole, httpError, reqSessionAuthenticated, type SessionStateAuthenticated } from '@data-fair/lib-express'
+import { type AccountKeys, httpError, reqSessionAuthenticated } from '@data-fair/lib-express'
 import eventsLog from '@data-fair/lib-express/events-log.js'
 import { assertCanOwnAgent, getAutonomousAgent } from '../autonomous-agents/service.ts'
 import { assertCanInstruct, assertOwnsConversation, requireAutonomousAgent, requireConversation, archiveConversation, purgeConversation } from './service.ts'
@@ -39,72 +38,6 @@ export default router
  * What the flag therefore means is "org admins cannot CONFIGURE autonomous agents yet", not
  * "nobody may use one".
  */
-
-/**
- * Runs are read through their own mount (/api/runs) rather than nested
- * under a conversation: a caller holds a runId (a task run has no conversation) and should not have
- * to remember which conversation it came from.
- */
-export const runsRouter = Router()
-
-/**
- * Who may read a run, or abort a task run.
- *
- * A conversation run belongs to a conversation, which belongs to ONE person: guarding it with the
- * agent grant let any instructor of the agent read — or abort — someone else's turn. A TASK run has no
- * conversation: it is the organization's audit record of what its agent did on its own, so an admin of
- * the account reads it.
- */
-const assertMayReachRun = async (owner: AccountKeys, run: ConversationRun, session: SessionStateAuthenticated) => {
-  await requireAutonomousAgent(owner, run.agentId)
-  if (run.kind === 'task') {
-    assertAccountRole(session, owner, 'admin')
-    return
-  }
-  assertOwnsConversation(await requireConversation(owner, run.conversationId!), session)
-}
-
-/**
- * Stop a running TASK run, by an admin of the owning account (assertMayReachRun).
- *
- * Reaches the turn wherever it is held: aborted at once when this process holds it, and recorded on the
- * run (`abortRequestedAt`) so the process that does hold it stops it within a few seconds.
- */
-runsRouter.post('/:type/:id/:runId/abort', async (req, res, next) => {
-  try {
-    const session = reqSessionAuthenticated(req)
-    const owner = reqOwner(req)
-    const run = await mongo.runs.findOne(
-      { id: req.params.runId, 'owner.type': owner.type, 'owner.id': owner.id },
-      { projection: { _id: 0 } }
-    )
-    if (!run) throw httpError(404, 'unknown run')
-    await assertMayReachRun(owner, run, session)
-    // A conversation turn is stopped from its chat (the socket's `abort` frame), which also settles a
-    // pending handover; this route would be a second, partial way to do the same thing.
-    if (run.kind !== 'task') throw httpError(404, 'a conversation turn is stopped from its chat')
-
-    // `aborted: true` when this process stopped the turn or a stop was recorded on a still-running run
-    // (another process holds it and stops it at its next poll); false for a run that has already ended.
-    const aborted = await abortRun(run.id)
-    eventsLog.info('agents.run.abort', `abort requested for run ${run.id}`, { req })
-    res.json({ aborted })
-  } catch (err) { next(err) }
-})
-
-runsRouter.get('/:type/:id/:runId', async (req, res, next) => {
-  try {
-    const session = reqSessionAuthenticated(req)
-    const owner = reqOwner(req)
-    const run = await mongo.runs.findOne(
-      { id: req.params.runId, 'owner.type': owner.type, 'owner.id': owner.id },
-      { projection: { _id: 0 } }
-    )
-    if (!run) throw httpError(404, 'unknown run')
-    await assertMayReachRun(owner, run, session)
-    res.json(run)
-  } catch (err) { next(err) }
-})
 
 /**
  * The owner named in the path.
@@ -397,23 +330,11 @@ router.get('/:type/:id/:conversationId/messages', async (req, res, next) => {
     await requireAutonomousAgent(owner, conversation.agentId)
     assertOwnsConversation(conversation, session)
 
-    const filter: Record<string, any> = { conversationId: conversation.id }
-    // sinceVersion is the incremental cursor: it catches a message UPDATED in place — the
-    // assistant's answer being filled in keeps its seq — which sinceSeq structurally cannot.
-    // sinceSeq is kept for "only messages newer than the one I have", which is a different
-    // question and still the cheaper one when that is what a caller means.
-    const sinceVersion = Number(req.query.sinceVersion)
-    const sinceSeq = Number(req.query.sinceSeq)
-    if (Number.isFinite(sinceVersion)) filter.version = { $gt: sinceVersion }
-    else if (Number.isFinite(sinceSeq)) filter.seq = { $gt: sinceSeq }
     const results = await mongo.messages
-      .find(filter, { projection: { _id: 0 } })
+      .find({ conversationId: conversation.id }, { projection: { _id: 0 } })
       .sort({ seq: 1 })
       .toArray()
-    // The conversation's current version travels with the response so a client can store exactly
-    // the cursor it has caught up to, rather than inferring it from the messages it happened to
-    // receive — which would be wrong whenever the last change was to a run.
-    res.json({ results, count: results.length, version: conversation.version ?? 0 })
+    res.json({ results, count: results.length })
   } catch (err) { next(err) }
 })
 

@@ -19,6 +19,7 @@ import { listTasks, getTask, createTask, updateTask, deleteTask } from './servic
 import { buildConversationExport } from '../review/operations.ts'
 import { runAsMessages } from './run-messages.ts'
 import { startTaskRun, isTaskRunning, PREVIOUS_RUN_STILL_RUNNING } from './execution.ts'
+import { abortRun } from '../conversations/executor.ts'
 
 const router = Router()
 export default router
@@ -137,6 +138,26 @@ router.get('/:type/:id/:agentId/runs/:runId/export', async (req, res, next) => {
       messages: runAsMessages(run),
       runs: [runWithoutContent]
     }))
+  } catch (err) { next(err) }
+})
+
+// Stop a running task run. It has no socket, so this is its only stop. Reaches the run wherever it is
+// held: aborted at once when this process holds it, and recorded on the run (`abortRequestedAt`) so the
+// process that does hold it stops it within a few seconds. A conversation turn is stopped from its chat.
+router.post('/:type/:id/:agentId/runs/:runId/abort', async (req, res, next) => {
+  try {
+    const session = reqSessionAuthenticated(req)
+    const owner = { type: req.params.type, id: req.params.id } as AccountKeys
+    assertOrganizationOwner(owner)
+    assertAccountRole(session, owner, 'admin')
+    const agent = await loadAgent(owner, req.params.agentId)
+    const run = await loadRun(owner, agent.id, req.params.runId)
+    if (run.kind !== 'task') throw httpError(404, 'a conversation turn is stopped from its chat')
+    // `aborted: true` when this process stopped the run or a stop was recorded on a still-running run
+    // (another process holds it and stops it at its next poll); false for a run that has already ended.
+    const aborted = await abortRun(run.id)
+    eventsLog.info('agents.run.abort', `abort requested for task run ${run.id} of agent ${agent.id} of ${owner.type}/${owner.id}`, { req })
+    res.json({ aborted })
   } catch (err) { next(err) }
 })
 

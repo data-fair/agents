@@ -14,9 +14,9 @@ const member = await axiosAuth('test1-user1', { org: 'test1' })
 const daily = { type: 'daily', month: '*', dayOfWeek: '*', dayOfMonth: '*', hour: 8, minute: 0, timeZone: 'Europe/Paris' }
 const agentBase = (agentId: string) => `/api/autonomous-agents/organization/test1/${agentId}`
 
-const awaitRun = async (runId: string) => {
+const awaitRun = async (agentId: string, runId: string) => {
   for (let i = 0; i < 150; i++) {
-    const run = (await orgAdmin.get(`/api/runs/organization/test1/${runId}`)).data
+    const run = (await orgAdmin.get(`${agentBase(agentId)}/runs/${runId}`)).data
     if (run.status !== 'running') return run
     await new Promise(resolve => setTimeout(resolve, 100))
   }
@@ -40,7 +40,7 @@ test.describe('Run history', () => {
     const create = async (prompt: string) => (await admin.post(`${agentBase(agent.id)}/tasks`, { title: 'Probe', prompt, scheduling: [daily] })).data
     const run = async (task: any) => {
       const id = (await admin.post(`${agentBase(agent.id)}/tasks/${task.id}/run`)).data.runId as string
-      await awaitRun(id)
+      await awaitRun(agent.id, id)
       return id
     }
     const attention = await run(await create('call tool report_outcome {"status":"needs-attention","summary":"look"}'))
@@ -92,12 +92,12 @@ test.describe('Run history', () => {
     const other = await make('Second')
     const task = (await admin.post(`${agentBase(other.id)}/tasks`, { title: 'Probe', prompt: 'hello', scheduling: [daily] })).data
     const otherRun = (await admin.post(`${agentBase(other.id)}/tasks/${task.id}/run`)).data.runId as string
-    await awaitRun(otherRun)
+    await awaitRun(other.id, otherRun)
     await assert.rejects(orgAdmin.get(`${agentBase(agent.id)}/runs/${otherRun}`), { status: 404 })
 
     const conversationId = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data.id
     const { runId } = await startTurnOverSocket(orgAdmin, conversationId, 'hello')
-    await awaitRun(runId)
+    await awaitRun(agent.id, runId)
     await assert.rejects(orgAdmin.get(`${agentBase(agent.id)}/runs/${runId}/export`), { status: 404 })
     const meta = (await orgAdmin.get(`${agentBase(agent.id)}/runs/${runId}`)).data
     assert.equal(meta.conversationId, conversationId)
@@ -114,10 +114,10 @@ test.describe('Run history', () => {
     await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
     const task = (await admin.post(`${agentBase(agent.id)}/tasks`, { title: 'Probe', prompt: 'hello', scheduling: [daily] })).data
     const taskRun = (await admin.post(`${agentBase(agent.id)}/tasks/${task.id}/run`)).data.runId as string
-    await awaitRun(taskRun)
+    await awaitRun(agent.id, taskRun)
     const conversationId = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data.id
     const { runId: conversationRun } = await startTurnOverSocket(orgAdmin, conversationId, 'hello')
-    await awaitRun(conversationRun)
+    await awaitRun(agent.id, conversationRun)
 
     const ids = async (kind: string) =>
       (await orgAdmin.get(`${agentBase(agent.id)}/runs`, { params: { kind } })).data.results.map((r: any) => r.id)

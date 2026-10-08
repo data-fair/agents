@@ -230,7 +230,7 @@ This also reduces pressure on the token budget that triggers history compaction 
 
 ## 7. Telemetry
 
-A sub-agent's work is part of its parent's turn, so it needs no separate record: the delegation is a tool part on the assistant's message, and each of the sub-agent's model calls (close-out included) is an entry in the run's `calls` array with its own `modelRole`. Run spend and telemetry are buffered in memory during the turn and written when the run closes (`finishTurn`, `api/src/conversations/service.ts`). [Review](./conversation-review.md) shows the delegation call and its summary in place, and the export carries the same parts and calls; the worker's own transcript is not stored (see §4), so it is not available there.
+A sub-agent's work is part of its parent's turn, so it needs no separate record: the delegation is a tool part on the assistant's message, and each of the sub-agent's model calls (close-out included) is an entry in the run's `calls` array with its own `modelRole`. Run spend and telemetry are buffered in memory during the turn and written when the run closes (`finishRun`, `api/src/conversations/service.ts`). [Review](./conversation-review.md) shows the delegation call and its summary in place, and the export carries the same parts and calls; the worker's own transcript is not stored (see §4), so it is not available there.
 
 ---
 

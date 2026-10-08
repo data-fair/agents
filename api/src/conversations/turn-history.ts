@@ -17,7 +17,7 @@ import { compactionSystemPrompt, recapMessage } from './compaction-prompt.ts'
 import { storedTurnsToModelMessages, alignCutToStoredMessage, redactModelMedia, type ConversationTurnRun } from './operations.ts'
 import { saveCompaction } from './service.ts'
 import { resolveRoleModel } from '../models/service.ts'
-import { chargeModelCall } from '../usage/service.ts'
+import { chargeModelCall } from '../usage/charge.ts'
 import { sessionFor } from '../agent-session/registry.ts'
 import type { getSettings } from '../settings/service.ts'
 
@@ -61,7 +61,7 @@ export const loadHistory = async (
       { conversationId, seq: recap ? { $gt: recap.coversUpToSeq, $lt: upToSeq } : { $lt: upToSeq } },
       // Only what builds the model's context. The whole post-recap window is materialised for every
       // turn — bounded by compaction, but loaded in full — and `createdAt`, `updatedAt`,
-      // `version`, `pending`, `runId` and `owner` were coming with it and reaching nothing. `id` and
+      // `pending`, `runId` and `owner` were coming with it and reaching nothing. `id` and
       // `seq` stay: the replay reports which message it rejected, and `seqs` maps the compaction cut
       // back onto stored messages.
       { projection: { _id: 0, id: 1, role: 1, parts: 1, seq: 1 } }

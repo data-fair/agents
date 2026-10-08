@@ -4,7 +4,7 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { checkQuota, computeCreditBreakdown, priceTokens, priceTokensBreakdown, toCredits, firstQuotaViolation, isUntrustedRole, encodeBreakdownKey, decodeBreakdownKey, quotaWindows, quotaErrorBody, type UsageInfo, type UsageLimits } from '../../../api/src/usage/operations.ts'
+import { checkQuota, computeCreditBreakdown, priceTokensBreakdown, toCredits, firstQuotaViolation, isUntrustedRole, encodeBreakdownKey, decodeBreakdownKey, quotaWindows, quotaErrorBody, type UsageInfo, type UsageLimits } from '../../../api/src/usage/operations.ts'
 
 function mkUsage (daily: number, weekly: number, monthly: number): UsageInfo {
   return {
@@ -86,51 +86,51 @@ test.describe('isUntrustedRole', () => {
   })
 })
 
-test.describe('priceTokens', () => {
+test.describe('priceTokensBreakdown rules', () => {
   const prices = { inputPricePerMillion: 3, outputPricePerMillion: 15, cachedInputPricePerMillion: 0.3 }
 
   test('prices input and output per million', () => {
-    const cost = priceTokens({ inputTokens: 500_000, outputTokens: 100_000 }, { inputPricePerMillion: 2, outputPricePerMillion: 6 })
+    const cost = priceTokensBreakdown({ inputTokens: 500_000, outputTokens: 100_000 }, { inputPricePerMillion: 2, outputPricePerMillion: 6 })
     assert.equal(cost.input, 1)
     assert.equal(cost.output, 0.6)
     assert.equal(cost.total, 1.6)
   })
 
   test('zero tokens cost zero', () => {
-    assert.equal(priceTokens({ inputTokens: 0, outputTokens: 0 }, prices).total, 0)
+    assert.equal(priceTokensBreakdown({ inputTokens: 0, outputTokens: 0 }, prices).total, 0)
   })
 
   test('no cache details bills the whole input at the input price', () => {
-    assert.equal(priceTokens({ inputTokens: 1_000_000, outputTokens: 0 }, prices).total, 3)
+    assert.equal(priceTokensBreakdown({ inputTokens: 1_000_000, outputTokens: 0 }, prices).total, 3)
   })
 
   test('noCacheTokens is taken verbatim, never recomputed', () => {
-    const cost = priceTokens({ inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 100_000, cacheReadTokens: 900_000 }, prices)
+    const cost = priceTokensBreakdown({ inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 100_000, cacheReadTokens: 900_000 }, prices)
     assert.equal(cost.total, 0.3 + 0.27)
   })
 
   test('falls back to subtraction when noCacheTokens is absent', () => {
-    const cost = priceTokens({ inputTokens: 1_000_000, outputTokens: 0, cacheReadTokens: 900_000 }, prices)
+    const cost = priceTokensBreakdown({ inputTokens: 1_000_000, outputTokens: 0, cacheReadTokens: 900_000 }, prices)
     assert.equal(cost.total, 0.3 + 0.27)
   })
 
   test('the subtraction fallback never goes negative', () => {
-    const cost = priceTokens({ inputTokens: 100, outputTokens: 0, cacheReadTokens: 900 }, prices)
+    const cost = priceTokensBreakdown({ inputTokens: 100, outputTokens: 0, cacheReadTokens: 900 }, prices)
     assert.equal(cost.total, 900 * 0.3 / 1_000_000)
   })
 
   test('cache writes bill at the input price, never free', () => {
-    const cost = priceTokens({ inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 0, cacheWriteTokens: 1_000_000 }, prices)
+    const cost = priceTokensBreakdown({ inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 0, cacheWriteTokens: 1_000_000 }, prices)
     assert.equal(cost.total, 3)
   })
 
   test('cache writes are added to the non-cached portion, not substituted for it', () => {
-    const cost = priceTokens({ inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 400_000, cacheReadTokens: 200_000, cacheWriteTokens: 400_000 }, prices)
+    const cost = priceTokensBreakdown({ inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 400_000, cacheReadTokens: 200_000, cacheWriteTokens: 400_000 }, prices)
     assert.equal(cost.total, 2.4 + 0.06)
   })
 
   test('an absent cache price bills cache reads at 0 \u2014 the catalog resolves it, not this function', () => {
-    const cost = priceTokens(
+    const cost = priceTokensBreakdown(
       { inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 0, cacheReadTokens: 1_000_000 },
       { inputPricePerMillion: 3, outputPricePerMillion: 15 }
     )
@@ -195,14 +195,6 @@ test.describe('priceTokensBreakdown', () => {
     assert.equal(breakdown.input, (400_000 + 400_000) * 3 / 1_000_000)
     assert.equal(breakdown.cachedInput, 0.06)
   })
-
-  test('the classes always sum to the historical priceTokens total', () => {
-    const counts = { inputTokens: 1_000_000, outputTokens: 100_000, noCacheTokens: 400_000, cacheReadTokens: 200_000, cacheWriteTokens: 400_000 }
-    const breakdown = priceTokensBreakdown(counts, prices)
-    const historical = priceTokens(counts, prices)
-    assert.equal(breakdown.total, historical.total)
-    assert.equal(breakdown.input + breakdown.cachedInput, historical.input)
-  })
 })
 
 test.describe('computeCreditBreakdown', () => {
@@ -210,7 +202,7 @@ test.describe('computeCreditBreakdown', () => {
     const counts = { inputTokens: 1_000_000, outputTokens: 100_000, noCacheTokens: 500_000, cacheReadTokens: 500_000, cacheWriteTokens: 0 }
     const prices = { inputPricePerMillion: 0.4, cachedInputPricePerMillion: 0.08, outputPricePerMillion: 0.8 }
     const breakdown = computeCreditBreakdown(counts, prices, 0.4)
-    assert.equal(breakdown.total, toCredits(priceTokens(counts, prices).total, 0.4))
+    assert.equal(breakdown.total, toCredits(priceTokensBreakdown(counts, prices).total, 0.4))
     // 500k @0.40 = 0.20 EUR = 0.5 credit, 500k @0.08 = 0.04 EUR = 0.1 credit, 100k @0.80 = 0.08 EUR = 0.2 credit
     assert.equal(Number(breakdown.input.toFixed(10)), 0.5)
     assert.equal(Number(breakdown.cachedInput.toFixed(10)), 0.1)

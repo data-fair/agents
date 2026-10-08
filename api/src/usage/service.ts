@@ -1,14 +1,8 @@
 import type { AccountKeys } from '@data-fair/lib-express'
 import mongo from '#mongo'
-import config from '#config'
-import type { ConversationRun } from '#types'
 import { incrementConsumption } from '../limits/service.ts'
-import { encodeBreakdownKey, decodeBreakdownKey, computeCreditBreakdown } from './operations.ts'
-import type { UsageInfo, CreditBreakdown } from './operations.ts'
-import type { UsageIdentity } from './enforce.ts'
-import type { CatalogModel, ModelRole } from '../models/operations.ts'
-import { incrementRunSpend } from '../conversations/service.ts'
-import { recordCall } from '../conversations/turn-telemetry.ts'
+import { encodeBreakdownKey, decodeBreakdownKey } from './operations.ts'
+import type { UsageInfo } from './operations.ts'
 export { checkQuota } from './operations.ts'
 export type { UsageLimits, UsagePeriodInfo, UsageInfo, QuotaExceeded } from './operations.ts'
 
@@ -200,79 +194,6 @@ export async function recordUsage (owner: AccountKeys, record: UsageRecord): Pro
     // keep the customers-facing credit consumption counter in sync — another collection, so its own write
     incrementConsumption(owner, cost)
   ])
-}
-
-/** One model call's token counts, as the AI SDK reports them (`usage` + `usage.inputTokenDetails`). */
-export interface ModelCallUsage {
-  inputTokens?: number
-  outputTokens?: number
-  noCacheTokens?: number
-  cacheReadTokens?: number
-  cacheWriteTokens?: number
-  finishReason?: string
-}
-
-/**
- * Price one model call and record it everywhere it counts: the usage ledger (with the untrusted pool),
- * and the run's spend and telemetry when a run is given. ONE function, because the seven copies it
- * replaced had already drifted: compaction ignored cache tokens, and the pool id had been added at
- * three sites separately ("without it, their chat spend never reached the pool").
- *
- * - `identity` absent: the call is the account's own, with no caller (the admin moderation probe).
- * - `run.steps`: steps of the LEAD's loop this call was — 1 for a lead step, 0 (the default) for
- *   anything spent beside it (a worker step, a compaction, the moderator), so the step limit and the
- *   run's own record agree.
- * - `run.durationMs`: records the call's telemetry entry on the run. The lead omits it: it records ONE
- *   entry for its whole turn, aggregated over its steps (see the executor).
- *
- * Returns the breakdown, so a caller that bounds a budget keeps doing it.
- */
-export async function chargeModelCall (input: {
-  owner: AccountKeys
-  identity?: UsageIdentity
-  modelRole: ModelRole
-  entry: CatalogModel
-  usage: ModelCallUsage
-  run?: { run: ConversationRun, steps?: number, durationMs?: number }
-}): Promise<CreditBreakdown> {
-  const { owner, identity, modelRole, entry, usage, run } = input
-  const inputTokens = usage.inputTokens ?? 0
-  const outputTokens = usage.outputTokens ?? 0
-  const credits = computeCreditBreakdown(
-    { inputTokens, outputTokens, noCacheTokens: usage.noCacheTokens, cacheReadTokens: usage.cacheReadTokens, cacheWriteTokens: usage.cacheWriteTokens },
-    entry,
-    config.eurosPerCredit
-  )
-  const tokenCosts = { input: credits.input, cachedInput: credits.cachedInput, output: credits.output }
-  // On the RUN as well as in usage, per call, so a turn stopped by its budget or its clock still shows
-  // what it actually consumed, and the two never disagree.
-  if (run) await incrementRunSpend(run.run.id, credits.total, run.steps ?? 0)
-  if (credits.total > 0) {
-    await recordUsage(owner, {
-      cost: credits.total,
-      userId: identity?.usageUserId,
-      userName: identity?.usageUserName,
-      poolId: identity?.poolId,
-      dimensions: { modelRole, model: entry.id, profile: identity?.role, tokenCosts }
-    })
-  }
-  if (run?.durationMs !== undefined) {
-    recordCall(run.run, {
-      modelRole,
-      entry,
-      usage: {
-        inputTokens,
-        outputTokens,
-        ...(usage.cacheReadTokens !== undefined ? { cacheReadTokens: usage.cacheReadTokens } : {}),
-        ...(usage.cacheWriteTokens !== undefined ? { cacheWriteTokens: usage.cacheWriteTokens } : {})
-      },
-      credits: credits.total,
-      creditBreakdown: tokenCosts,
-      durationMs: run.durationMs,
-      ...(usage.finishReason ? { finishReason: usage.finishReason } : {})
-    })
-  }
-  return credits
 }
 
 export async function getOwnerUsage (owner: AccountKeys): Promise<UsageInfo> {

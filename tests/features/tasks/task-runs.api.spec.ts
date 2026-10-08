@@ -24,9 +24,9 @@ const createTask = async (agentId: string, prompt: string) =>
   (await admin.post(base(agentId), { title: 'Probe', prompt, scheduling: [daily] })).data
 const runNow = async (agentId: string, taskId: string) =>
   (await admin.post(`${base(agentId)}/${taskId}/run`)).data.runId as string
-const awaitRun = async (runId: string) => {
+const awaitRun = async (agentId: string, runId: string) => {
   for (let i = 0; i < 150; i++) {
-    const run = (await orgAdmin.get(`/api/runs/organization/test1/${runId}`)).data
+    const run = (await orgAdmin.get(`/api/autonomous-agents/organization/test1/${agentId}/runs/${runId}`)).data
     if (run.status !== 'running') return run
     await new Promise(resolve => setTimeout(resolve, 100))
   }
@@ -50,7 +50,7 @@ test.describe('Task runs', () => {
   test('run now: one turn on the task prompt, recorded on the run, outcome reported', async () => {
     const agent = await createAgent()
     const task = await createTask(agent.id, 'call tool report_outcome {"status":"done","summary":"all good"}')
-    const run = await awaitRun(await runNow(agent.id, task.id))
+    const run = await awaitRun(agent.id, await runNow(agent.id, task.id))
     assert.equal(run.kind, 'task')
     assert.equal(run.trigger, 'manual')
     assert.equal(run.status, 'done')
@@ -62,14 +62,14 @@ test.describe('Task runs', () => {
 
   test('no report_outcome leaves the outcome absent, not a guessed done', async () => {
     const agent = await createAgent()
-    const run = await awaitRun(await runNow(agent.id, (await createTask(agent.id, 'hello')).id))
+    const run = await awaitRun(agent.id, await runNow(agent.id, (await createTask(agent.id, 'hello')).id))
     assert.equal(run.status, 'done')
     assert.equal(run.outcome, undefined)
   })
 
   test('a tool needing approval is not offered, and never runs', async () => {
     const agent = await createAgent()
-    const run = await awaitRun(await runNow(agent.id, (await createTask(agent.id, 'call tool wipe_everything {}')).id))
+    const run = await awaitRun(agent.id, await runNow(agent.id, (await createTask(agent.id, 'call tool wipe_everything {}')).id))
     const part = run.parts.find((p: any) => p.type === 'dynamic-tool' && p.toolName === 'wipe_everything')
     assert.notEqual(part?.state, 'output-available')
     assert.deepEqual(fixture.invokedTools(), [])
@@ -83,7 +83,7 @@ test.describe('Task runs', () => {
 
   test('an allowed catalog tool runs', async () => {
     const agent = await createAgent()
-    await awaitRun(await runNow(agent.id, (await createTask(agent.id, 'call tool echo {"value":"x"}')).id))
+    await awaitRun(agent.id, await runNow(agent.id, (await createTask(agent.id, 'call tool echo {"value":"x"}')).id))
     assert.deepEqual(fixture.invokedTools(), ['echo'])
   })
 
@@ -92,7 +92,7 @@ test.describe('Task runs', () => {
     const task = await createTask(agent.id, 'slow hello')
     const runId = await runNow(agent.id, task.id)
     await assert.rejects(admin.post(`${base(agent.id)}/${task.id}/run`), { status: 409 })
-    await awaitRun(runId)
+    await awaitRun(agent.id, runId)
     await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, { title: 'Tasker', persona: 'You answer briefly.', mcpServers: [{ serverId: 'dev-public-mcp' }], enabled: false })
     await assert.rejects(admin.post(`${base(agent.id)}/${task.id}/run`), { status: 409 })
   })
@@ -101,8 +101,8 @@ test.describe('Task runs', () => {
     const agent = await createAgent()
     const runId = await runNow(agent.id, (await createTask(agent.id, 'stall')).id)
     await new Promise(resolve => setTimeout(resolve, 300))
-    assert.equal((await orgAdmin.post(`/api/runs/organization/test1/${runId}/abort`)).data.aborted, true)
-    const run = await awaitRun(runId)
+    assert.equal((await orgAdmin.post(`/api/autonomous-agents/organization/test1/${agent.id}/runs/${runId}/abort`)).data.aborted, true)
+    const run = await awaitRun(agent.id, runId)
     assert.equal(run.status, 'aborted')
   })
 
@@ -113,7 +113,7 @@ test.describe('Task runs', () => {
     // Only the field, as another API process would write it: this process's controller is not touched.
     await admin.post('/api/test-env/request-abort', { runId })
     const requestedAt = Date.now()
-    const run = await awaitRun(runId)
+    const run = await awaitRun(agent.id, runId)
     assert.equal(run.status, 'aborted')
     assert.equal(run.stopReason, 'aborted')
     assert.ok(Date.now() - requestedAt < 5000, 'the turn polls its run every couple of seconds')
@@ -124,7 +124,7 @@ test.describe('Task runs', () => {
     const runId = await runNow(agent.id, (await createTask(agent.id, 'stall')).id)
     await new Promise(resolve => setTimeout(resolve, 300))
     await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, { title: 'Tasker', persona: 'You answer briefly.', mcpServers: [{ serverId: 'dev-public-mcp' }], enabled: false })
-    const run = await awaitRun(runId)
+    const run = await awaitRun(agent.id, runId)
     assert.equal(run.status, 'aborted')
     assert.ok(run.abortRequestedAt)
     assert.equal(run.abortReason, 'agent-stopped')
@@ -134,7 +134,7 @@ test.describe('Task runs', () => {
   test('a run cut short by a guard is a failure: error, stop reason kept, notified', async () => {
     const agent = await createAgent()
     const task = await createTask(agent.id, 'loop forever')
-    const run = await awaitRun(await runNow(agent.id, task.id))
+    const run = await awaitRun(agent.id, await runNow(agent.id, task.id))
     assert.equal(run.status, 'error')
     assert.equal(run.stopReason, 'repeated-calls')
     assert.match(run.error, /repeating the same tool call/)
@@ -165,7 +165,7 @@ test.describe('Task runs', () => {
     await putMockSettings(admin, 'organization/test1', { quotas: { admin: { unlimited: false, monthlyLimit: 1 } } })
     await admin.post('/api/test-env/usage', { owner: { type: 'organization', id: 'test1' }, userId: `autonomous-agent:${agent.id}`, cost: 5 })
     const task = await createTask(agent.id, 'hello')
-    const run = await awaitRun(await runNow(agent.id, task.id))
+    const run = await awaitRun(agent.id, await runNow(agent.id, task.id))
     assert.equal(run.status, 'skipped')
     assert.match(run.error, /could not run/)
     assert.deepEqual(await events(), [])
@@ -198,11 +198,11 @@ test.describe('Task runs', () => {
   test('needs-attention and failures notify; five failures in a row pause the task', async () => {
     const agent = await createAgent()
     const attention = await createTask(agent.id, 'call tool report_outcome {"status":"needs-attention","summary":"look"}')
-    await awaitRun(await runNow(agent.id, attention.id))
+    await awaitRun(agent.id, await runNow(agent.id, attention.id))
     assert.ok((await events()).some(e => e.topic.key === `agents:task-needs-attention:${attention.id}`))
 
     const failing = await createTask(agent.id, 'stream error')
-    for (let i = 0; i < 5; i++) await awaitRun(await runNow(agent.id, failing.id))
+    for (let i = 0; i < 5; i++) await awaitRun(agent.id, await runNow(agent.id, failing.id))
     const topics = (await events()).map(e => e.topic.key)
     assert.equal(topics.filter(t => t === `agents:task-failed:${failing.id}`).length, 5)
     assert.ok(topics.includes(`agents:task-paused:${failing.id}`))
@@ -214,7 +214,7 @@ test.describe('Task runs', () => {
   test('a resumed task is not re-paused by its first new failure', async () => {
     const agent = await createAgent()
     const failing = await createTask(agent.id, 'stream error')
-    for (let i = 0; i < 5; i++) await awaitRun(await runNow(agent.id, failing.id))
+    for (let i = 0; i < 5; i++) await awaitRun(agent.id, await runNow(agent.id, failing.id))
     assert.ok((await admin.get(`${base(agent.id)}/${failing.id}`)).data.pausedReason)
 
     // The admin resumes it by saving it enabled: the failures that paused it no longer count.
@@ -224,7 +224,7 @@ test.describe('Task runs', () => {
     assert.ok(resumed.nextRunAt)
 
     await admin.delete('/api/test-env/pushed-events')
-    await awaitRun(await runNow(agent.id, failing.id))
+    await awaitRun(agent.id, await runNow(agent.id, failing.id))
     const after = (await admin.get(`${base(agent.id)}/${failing.id}`)).data
     assert.equal(after.pausedReason, undefined)
     assert.ok(after.nextRunAt)

@@ -10,7 +10,7 @@ import mongo from '#mongo'
 import locks from '@data-fair/lib-node/locks.js'
 import type { ConversationRun } from '#types'
 import type { AutonomousAgentTask } from '#types/autonomous-agent-task/index.ts'
-import { createTaskRun, finishTaskRun } from '../conversations/service.ts'
+import { createRun, finishRun } from '../conversations/service.ts'
 import { driveTurn, isRunLive } from '../conversations/executor.ts'
 import { taskTarget } from './task-target.ts'
 import { afterTaskRun } from './follow-up.ts'
@@ -95,16 +95,16 @@ export const startTaskRun = async (
   const accountCap = await checkAccountCreditCap(task.owner)
   if (accountCap) {
     const reason = `${accountCap.reason} (${accountCap.scope}, ${accountCap.period} limit ${accountCap.limit}, used ${accountCap.usage}). Resets at ${accountCap.resetsAt}.`
-    return { run: await createTaskRun({ ...base, status: 'skipped', endedAt: now, error: reason }) }
+    return { run: await createRun({ ...base, status: 'skipped', endedAt: now, error: reason }) }
   }
 
   const lockId = taskLockId(task.id)
   if (!await acquireTaskLock(task.id)) {
-    return { run: await createTaskRun({ ...base, status: 'skipped', endedAt: now, error: PREVIOUS_RUN_STILL_RUNNING }) }
+    return { run: await createRun({ ...base, status: 'skipped', endedAt: now, error: PREVIOUS_RUN_STILL_RUNNING }) }
   }
   let run: ConversationRun
   try {
-    run = await createTaskRun({ ...base, status: 'running', prompt: task.prompt })
+    run = await createRun({ ...base, status: 'running', prompt: task.prompt })
   } catch (err) {
     await locks.release(lockId)
     throw err
@@ -131,7 +131,7 @@ export const recoverOwnerlessTaskRuns = async (): Promise<{ interrupted: number,
   for (const run of taskCandidates) {
     if (isRunLive(run.id) || (run.taskId && heldTaskLocks.has(run.taskId))) { skipped++; continue }
     const patch = { status: 'interrupted', stopReason: 'error', error: 'interrupted by a restart' } as const
-    if (await finishTaskRun(run, patch)) {
+    if ((await finishRun(run, patch)).closed) {
       // Caught: one task's notification must not stop the others being recovered.
       await afterTaskRun({ ...run, ...patch }).catch(err => console.error('an interrupted task run could not be followed up', err))
     }

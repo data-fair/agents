@@ -12,7 +12,7 @@ export default {
      * The ONE person this conversation belongs to.
      *
      * A conversation used to be a shared timeline: several instructors of one agent contributed to it,
-     * which is what made the attribution envelope necessary and what the `?sinceVersion=` fan-out
+     * which is what made the attribution envelope necessary and what an HTTP polling fan-out
      * existed to serve. One user per conversation drops all of that — see
      * docs/superpowers/specs/2026-10-01-one-server-loop-prototype-design.md §2.
      *
@@ -50,7 +50,7 @@ export default {
       }
     },
     createdAt: { type: 'string', format: 'date-time' },
-    // Declared because the service WRITES it — bumpConversationVersion and appendMessage both $set it.
+    // Declared because the service WRITES it — appendMessage and finishRun both $set it.
     // With additionalProperties: false and no declaration, every stored conversation violated its own
     // schema and the generated type lacked a field the collection always has. The other three
     // autonomous-agent schemas all declare theirs.
@@ -60,18 +60,10 @@ export default {
     messageSeq: { type: 'number', minimum: 0 },
     /**
      * What this conversation has cost so far, in credits: the sum of its runs, kept as a running total
-     * by the write that closes each run (see `finishTurn`). Read on every attach and after every turn,
+     * by the write that closes each run (see `finishRun`). Read on every attach and after every turn,
      * so the total is stored rather than aggregated over the runs each time.
      */
     credits: { type: 'number', minimum: 0 },
-    // Monotonic across EVERY change to the conversation: a message appended, a message updated
-    // in place (the assistant's message finalised at the end of its turn), a run transition. It is
-    // what `GET .../messages?sinceVersion=` fetches from, so a client needs nothing but this number
-    // to catch up.
-    //
-    // A counter rather than a timestamp on purpose: two writes in the same millisecond make a
-    // timestamp-based cursor either skip one or re-deliver it, while an $inc cannot collide.
-    version: { type: 'number', minimum: 0 },
     /**
      * Whether this person agreed that an admin of the account may read this thread.
      *

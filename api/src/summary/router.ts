@@ -3,7 +3,7 @@ import { generateText } from 'ai'
 import { type AccountKeys, reqSession, isAuthenticated } from '@data-fair/lib-express'
 import { getSettings, defaultQuotas } from '../settings/service.ts'
 import { resolveRoleModel, type ResolvedRoleModel } from '../models/service.ts'
-import { chargeModelCall } from '../usage/service.ts'
+import { chargeModelCall } from '../usage/charge.ts'
 import { resolveUsageIdentity, enforceQuotas } from '../usage/enforce.ts'
 import { isStrikeCooldownActive, recordStrikeRefusal } from '../moderation/service.ts'
 

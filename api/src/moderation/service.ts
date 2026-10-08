@@ -9,7 +9,7 @@ import type { ConversationRun, Settings } from '#types'
 import type { UsageIdentity } from '../usage/enforce.ts'
 import { OPENAI_COMPATIBLE_PROVIDER_NAME } from '../models/operations.ts'
 import { resolveRoleModel } from '../models/service.ts'
-import { chargeModelCall } from '../usage/service.ts'
+import { chargeModelCall } from '../usage/charge.ts'
 import {
   buildModerationSystemPrompt, truncateForModeration, truncateExcerpt, formatModerationInput,
   verdictSchema, isInCooldown, isReasoningEffortRejected,
@@ -262,6 +262,7 @@ export async function runProbe (settings: Settings, owner: AccountKeys): Promise
       // The account's own call: no caller identity, so no per-user record and no profile.
       await chargeModelCall({
         owner,
+        identity: null,
         modelRole: 'moderator',
         entry,
         usage: {

@@ -23,6 +23,7 @@ import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean, defaultQuotas, anonymousAx, directoryUrl, getAnonymousActionToken } from '../../support/axios.ts'
 import { putSettings } from '../../support/settings.ts'
 import { runTurn } from '../../support/turn.ts'
+import { runOf } from '../../support/socket-turn.ts'
 import { MODERATION_REFUSAL } from '../../../api/src/moderation/operations.ts'
 import { openAgentSession } from '../../support/ws.ts'
 
@@ -221,7 +222,7 @@ test.describe('Moderation admin API', () => {
     const messages = (await externalUser.get(`/api/conversations/${OWNER_PATH}/${conversationId}/messages`)).data.results as any[]
     const answer = messages.filter(m => m.role === 'assistant').pop()
     assert.deepEqual(answer.parts.find((p: any) => p.type === 'data-refusal')?.data, { kind: 'moderation' })
-    const run = (await admin.get(`/api/runs/${OWNER_PATH}/${answer.runId}`)).data
+    const run = await runOf(externalUser, conversationId, answer.runId, OWNER_PATH)
     assert.equal(run.status, 'done')
     assert.equal(run.stopReason, 'completed')
     await waitForEvents(events => events.some(e => e.action === 'late-block'), 'late-block')

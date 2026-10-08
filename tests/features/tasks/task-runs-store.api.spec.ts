@@ -15,6 +15,7 @@ const createAgent = async () => {
   await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
   return agent
 }
+const runRoute = (agentId: string, runId: string) => `/api/autonomous-agents/organization/test1/${agentId}/runs/${runId}`
 const insertTaskRun = async (agentId: string, over: any = {}) =>
   (await admin.post('/api/test-env/task-run', { agentId, taskId: 'task-1', status: 'running', ...over })).data
 
@@ -24,10 +25,10 @@ test.describe('Task runs in the store', () => {
   test('an admin reads a task run; a member cannot', async () => {
     const agent = await createAgent()
     const run = await insertTaskRun(agent.id, { status: 'done', prompt: 'p', parts: [{ type: 'text', text: 'answer' }] })
-    const read = (await orgAdmin.get(`/api/runs/organization/test1/${run.id}`)).data
+    const read = (await orgAdmin.get(runRoute(agent.id, run.id))).data
     assert.equal(read.kind, 'task')
     assert.equal(read.taskId, 'task-1')
-    await assert.rejects(member.get(`/api/runs/organization/test1/${run.id}`), { status: 403 })
+    await assert.rejects(member.get(runRoute(agent.id, run.id)), { status: 403 })
   })
 
   test('recovery interrupts a task run nobody runs, and never resumes it', async () => {
@@ -35,7 +36,7 @@ test.describe('Task runs in the store', () => {
     const run = await insertTaskRun(agent.id)
     const recovered = (await admin.post('/api/test-env/recover-ownerless-runs')).data
     assert.equal(recovered.resumed, 0)
-    const read = (await orgAdmin.get(`/api/runs/organization/test1/${run.id}`)).data
+    const read = (await orgAdmin.get(runRoute(agent.id, run.id))).data
     assert.equal(read.status, 'interrupted')
     assert.equal(read.error, 'interrupted by a restart')
   })
@@ -46,7 +47,7 @@ test.describe('Task runs in the store', () => {
     await admin.post('/api/test-env/lock-task', { taskId: 'task-1' })
     try {
       await admin.post('/api/test-env/recover-ownerless-runs')
-      assert.equal((await orgAdmin.get(`/api/runs/organization/test1/${run.id}`)).data.status, 'running')
+      assert.equal((await orgAdmin.get(runRoute(agent.id, run.id))).data.status, 'running')
     } finally {
       await admin.post('/api/test-env/unlock-task', { taskId: 'task-1' })
     }
@@ -66,10 +67,10 @@ test.describe('Task runs in the store', () => {
   test('aborting a task run this process is not running records the stop; an ended run answers false', async () => {
     const agent = await createAgent()
     const run = await insertTaskRun(agent.id)
-    const res = await orgAdmin.post(`/api/runs/organization/test1/${run.id}/abort`)
+    const res = await orgAdmin.post(`${runRoute(agent.id, run.id)}/abort`)
     assert.equal(res.data.aborted, true)
-    assert.ok((await orgAdmin.get(`/api/runs/organization/test1/${run.id}`)).data.abortRequestedAt)
+    assert.ok((await orgAdmin.get(runRoute(agent.id, run.id))).data.abortRequestedAt)
     const ended = await insertTaskRun(agent.id, { status: 'done' })
-    assert.equal((await orgAdmin.post(`/api/runs/organization/test1/${ended.id}/abort`)).data.aborted, false)
+    assert.equal((await orgAdmin.post(`${runRoute(agent.id, ended.id)}/abort`)).data.aborted, false)
   })
 })

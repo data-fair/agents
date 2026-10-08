@@ -26,7 +26,7 @@ any more, and the agent-session socket is now the service's only websocket endpo
 | Collection | Holds |
 | --- | --- |
 | `autonomous-agents` | the configuration: title, persona, instructions, MCP server selection, instructors, NHI enrolment, `enabled` |
-| `conversations` | one thread, of one agent (`agentId`), for one person (`userId`): title, `messageSeq`, `version`, running `credits`, review consent, the cached compaction recap |
+| `conversations` | one thread, of one agent (`agentId`), for one person (`userId`): title, `messageSeq`, running `credits`, review consent, the cached compaction recap |
 | `messages` | the turns, as ordered `UIMessage` parts — **the conversation of record** |
 | `runs` | one document per turn: status, stop reason, steps, credits, the system prompt and per-call telemetry (`calls`) |
 
@@ -52,10 +52,9 @@ Consequences worth stating, because they are what the design buys and costs:
   just prose about them. That is why erasure is a route rather than a timer (below).
 - A failed call is the part's own `output-error` state, so nothing downstream can mistake it for a
   result.
-- `seq` orders the timeline and `version` is the incremental cursor: `?sinceVersion=` catches a message
-  **updated in place** — the assistant message is created pending and finalised at the same `seq` —
-  which `seq` alone cannot reveal. An API client polls it; the chat does not need to, since it follows
-  the turn over its socket.
+- `seq` orders the timeline. The socket is the only live channel: the chat follows a turn over it and
+  keys messages by `seq` (the assistant message is created pending and finalised at the same `seq`).
+  `GET …/:conversationId/messages` and `…/runs` are plain full reads, for the export, review and tests.
 - The answer is **not written as it streams**. A watching browser gets every token, and a page that
   attaches mid-turn is served the answer so far from the executor's in-process `liveTurns`. The store
   gets tool calls as they open and settle, and the text at the end of the turn: a restart mid-answer
@@ -144,7 +143,7 @@ envelope and the system-prompt clause that told the model to trust it were remov
 
 ## Stopping and erasing
 
-- **Abort** one turn: a conversation turn is stopped by the `abort` frame of its chat socket; `POST /api/runs/:type/:id/:runId/abort` serves task runs only (404 for a conversation run). A run does not migrate, so only the
+- **Abort** one turn: a conversation turn is stopped by the `abort` frame of its chat socket; a task run, which has no socket, by `POST /api/autonomous-agents/:type/:id/:agentId/runs/:runId/abort` (admin; 404 for a conversation run). A run does not migrate, so only the
   process holding it can abort its controller: the route aborts it at once when that is this process,
   and otherwise records `abortRequestedAt` on the still-`running` run, which the holding process reads
   within 2 s (every live turn polls its own run, `watchStopRequests` in `driveTurn`). It answers
@@ -210,7 +209,7 @@ and it is atomic: a second decision on the same approval is a `409`. So is a dec
 written** (`pending`), with "the turn is still finishing": the AI SDK asks for an approval before the step's other
 calls return, and the run's own last writes put the message's whole parts array back, which would restore the
 request over the decision and erase who made it. The run sends the message closed (`pending: false`) only once
-`finishTurn` has written it, and the card is shown locked until then. `decideAndContinue` (`api/src/conversations/approvals.ts`) records it on the part, then starts a run with
+`finishRun` has written it, and the card is shown locked until then. `decideAndContinue` (`api/src/conversations/approvals.ts`) records it on the part, then starts a run with
 trigger `approval` **only once no `approval-requested` part remains in the message**; while another call of the same
 step is undecided it returns `{ pending: n }` instead of `{ runId }`. Two calls in one step are therefore decided
 one by one and the model resumes once, after the last.
@@ -262,7 +261,7 @@ label reads "Awaiting your approval", with a static icon rather than a spinner, 
 
 The executor talks to providers directly and does its own accounting: the quota/credit gate before the
 turn, per-step credits against the per-run budget, the account credit cap re-checked between steps, and
-every model call charged through one function, `chargeModelCall` (`api/src/usage/service.ts`): it
+every model call charged through one function, `chargeModelCall` (`api/src/usage/charge.ts`): it
 prices the call (cache tokens included), records usage under its model role (with the untrusted pool)
 and, when the call belongs to a run, adds it to the run's spend and telemetry — the moderation
 classifier and the summarizer's compaction call included, which are real model calls and are billed

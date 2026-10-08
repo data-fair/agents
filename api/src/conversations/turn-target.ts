@@ -33,7 +33,7 @@ import { withHostContext, LOCATION_KEY } from '@agents/shared/host-events'
 import { MODERATION_REFUSAL } from '../moderation/operations.ts'
 import { loadHistory, compactHistory } from './turn-history.ts'
 import { pendingWaitReminder, settleInterruptedParts, type InterruptReason } from './interrupted-turn.ts'
-import { updateMessage, settleStoredToolPart, finishTurn, conversationCost } from './service.ts'
+import { updateMessage, settleStoredToolPart, finishRun, conversationCost } from './service.ts'
 import { sessionFor } from '../agent-session/registry.ts'
 import { maybeReflect } from '../memory/reflection.ts'
 
@@ -234,7 +234,7 @@ export const closeConversationRunBare = async (run: ConversationTurnRun, failure
     await settleApprovedWithoutRunning(run.conversationId, undefined, unknownApprovedOutcome(detail))
       .catch(settleErr => console.error('approved calls could not be settled', settleErr))
   }
-  const finished = await finishTurn(run, undefined, { status, stopReason, ...(error !== undefined ? { error } : {}) })
+  const finished = await finishRun(run, { status, stopReason, ...(error !== undefined ? { error } : {}) })
     .catch(finishErr => { console.error('autonomous agent run could not be closed out', finishErr); return undefined })
   await sendConversationCost(run.conversationId, finished?.conversationCredits).catch(() => {})
   sessionFor(run.conversationId)?.send({ type: 'turn-end', stopReason, detail })
@@ -332,31 +332,35 @@ export const conversationTarget = (
         ? ''
         : runStopReasonMessage(result.stopReason, result.stopDetail)
       const finalParts = notice ? withAppendedText(result.parts, notice) : result.parts
-      // The answer and the run's close in one write sequence under one version bump — see finishTurn.
+      // The answer and the run's close in one write sequence — see finishRun.
       // A run stopped by a guard or a budget is still a completed run: it did work and said so. But a
       // turn that REFUSED — no enrolled identity, an exhausted credit cap — returns stopReason 'error'
       // without throwing, and must not be reported as done.
       const handoverLocation = result.handover
         ? sessionFor(run.conversationId)?.hostEvents.snapshot().state.find(event => event.key === LOCATION_KEY)?.detail
         : undefined
-      const finished = await finishTurn(
+      const finished = await finishRun(
         run,
-        { seq: messageSeq, patch: { parts: finalParts as any, pending: false } },
         { status: result.stopReason === 'error' ? 'error' : 'done', stopReason: result.stopReason },
-        result.handover
-          ? {
-              pendingWait: {
-                messageSeq,
-                toolCallId: result.handover.toolCallId,
-                ...(result.handover.expecting ? { expecting: result.handover.expecting } : {}),
-                since: new Date().toISOString(),
-                ...(handoverLocation ? { location: handoverLocation } : {}),
-                // The person whose turn handed over: their action starts the next one, billed as theirs.
-                ...(run.triggeredBy ? { triggeredBy: run.triggeredBy } : {}),
-                ...(run.triggeredByRole ? { triggeredByRole: run.triggeredByRole } : {})
+        {
+          message: { seq: messageSeq, patch: { parts: finalParts as any, pending: false } },
+          ...(result.handover
+            ? {
+                conversation: {
+                  pendingWait: {
+                    messageSeq,
+                    toolCallId: result.handover.toolCallId,
+                    ...(result.handover.expecting ? { expecting: result.handover.expecting } : {}),
+                    since: new Date().toISOString(),
+                    ...(handoverLocation ? { location: handoverLocation } : {}),
+                    // The person whose turn handed over: their action starts the next one, billed as theirs.
+                    ...(run.triggeredBy ? { triggeredBy: run.triggeredBy } : {}),
+                    ...(run.triggeredByRole ? { triggeredByRole: run.triggeredByRole } : {})
+                  }
+                }
               }
-            }
-          : {}
+            : {})
+        }
       )
       // PUBLISHED FOR THE PATHS THE LOOP NEVER REACHED: a moderation block, a quota refusal and a
       // missing non-human identity all return their refusal before any model call, so the loop's own
@@ -364,7 +368,7 @@ export const conversationTarget = (
       // message showed the person an empty turn and a stopped spinner, with the refusal they were
       // supposed to read sitting in the database until a reload.
       // An approval request's card becomes decidable here, once the message is closed in the store — not
-      // at the loop's last frame, which went out before finishTurn (see decideApproval).
+      // at the loop's last frame, which went out before finishRun (see decideApproval).
       if (!result.published || result.awaitingApproval) {
         sessionFor(run.conversationId)?.send({
           type: 'message',
@@ -459,12 +463,12 @@ export const conversationTarget = (
             : unknownApprovedOutcome(detail))
             .catch(settleErr => console.error('approved calls could not be settled', settleErr))
         }
-        // The message, then the run, under one bump (finishTurn) — the message write CAUGHT inside it, so
-        // whatever failed it still lets the run close.
-        const finished = await finishTurn(
+        // The message, then the run (finishRun) — the message write CAUGHT inside it, so whatever failed
+        // it still lets the run close.
+        const finished = await finishRun(
           run,
-          { seq: messageSeq, patch: { parts: finalParts as any, pending: false } },
-          { status, stopReason, ...(error !== undefined ? { error } : {}) }
+          { status, stopReason, ...(error !== undefined ? { error } : {}) },
+          { message: { seq: messageSeq, patch: { parts: finalParts as any, pending: false } } }
         ).catch(finishErr => { console.error('autonomous agent run could not be closed out', finishErr); return undefined })
         // Same reason as the success path: the notice explaining the failure has to reach the page that
         // is watching, not only the store. `turn-end` alone stops the spinner without saying why. From

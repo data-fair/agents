@@ -124,9 +124,9 @@ telemetry as a `moderator` call. A verdict that lands after the gate failed open
 is in the usage ledger only: the run has moved on by then.
 
 A live run's spend and telemetry are held in memory (`bufferRunWrites`) and
-written by the write that closes it (`finishTurn`, `api/src/conversations/service.ts`),
+written by the write that closes it (`finishRun`, `api/src/conversations/service.ts`),
 which adds the run's credits to the conversation's running total (`credits`) on
-the same version bump. `conversationCost()` reads that total — the conversation's
+the same close. `conversationCost()` reads that total — the conversation's
 own document rather than an aggregate over its runs. The agent session sends it as a `cost` frame when a session
 attaches to the conversation and after every turn, before `turn-end`; the
 Consumption tab shows it. A turn abandoned at its deadline that is still

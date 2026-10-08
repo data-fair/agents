@@ -143,9 +143,6 @@ export default {
     abortReason: { type: 'string', enum: ['agent-stopped'] },
     steps: { type: 'number', minimum: 0 },
     credits: { type: 'number', minimum: 0 },
-    // The conversation version at which this run last changed, so a client can fetch run state
-    // incrementally through the same cursor as messages.
-    version: { type: 'number', minimum: 1 },
     startedAt: { type: 'string', format: 'date-time' },
     endedAt: { type: 'string', format: 'date-time' }
   }

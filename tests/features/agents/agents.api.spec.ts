@@ -12,6 +12,7 @@ import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
 import { runTurn } from '../../support/turn.ts'
+import { runOf } from '../../support/socket-turn.ts'
 
 const user = await axiosAuth('test-standalone1')
 const admin = await superAdmin
@@ -45,12 +46,12 @@ test.describe('Chat API', () => {
   })
 
   test('the run reaches a terminal status, so a caller can tell the turn ended', async () => {
-    const { runId } = await runTurn(user, 'user/test-standalone1', 'hello')
-    assert.ok(runId, 'the POST must return a runId for the caller to follow or abort')
+    const { conversationId, runId } = await runTurn(user, 'user/test-standalone1', 'hello')
+    assert.ok(runId, 'the turn must have a run for the caller to follow')
 
-    // Runs are read through their own mount, not nested under the conversation.
-    const res = await user.get(`/api/runs/user/test-standalone1/${runId}`)
-    assert.equal(res.data.status, 'done')
-    assert.equal(res.data.stopReason, 'completed')
+    // A conversation's runs are read through the conversation, by the person it belongs to.
+    const run = await runOf(user, conversationId, runId, 'user/test-standalone1')
+    assert.equal(run.status, 'done')
+    assert.equal(run.stopReason, 'completed')
   })
 })

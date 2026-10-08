@@ -44,6 +44,16 @@ const base = (owner: string, conversationId: string) => `/api/conversations/${ow
 const runsOf = async (ax: Ax, owner: string, conversationId: string): Promise<any[]> =>
   (await ax.get(`${base(owner, conversationId)}/runs`)).data.results
 
+/**
+ * One run of a conversation, as its owner reads it: through the conversation's runs, the only route a
+ * conversation run has (a task run is read through its agent's `GET …/runs/:runId`).
+ */
+export const runOf = async (ax: Ax, conversationId: string, runId: string, owner = 'organization/test1'): Promise<any> => {
+  const run = (await runsOf(ax, owner, conversationId)).find(r => r.id === runId)
+  if (!run) throw new Error(`no run ${runId} in conversation ${conversationId}`)
+  return run
+}
+
 /** Open a socket as `ax`, bound to the conversation, past its `attached` frame. */
 const attach = async (ax: Ax, conversationId: string, timeoutMs: number) => {
   const socket = await openAgentSession(await ax.cookieJar.getCookieString(directoryUrl))
@@ -141,7 +151,7 @@ export const turnOverSocket = async (
   const owner = opts.owner ?? 'organization/test1'
   const started = await startTurnOverSocket(ax, conversationId, content, opts)
   const frames = await started.done
-  const run = (await ax.get(`/api/runs/${owner}/${started.runId}`)).data
+  const run = await runOf(ax, conversationId, started.runId, owner)
   const messages: any[] = (await ax.get(`${base(owner, conversationId)}/messages`)).data.results
   const assistant = [...messages].reverse().find(m => m.role === 'assistant')
   return { runId: started.runId, run, messages, assistant, frames }

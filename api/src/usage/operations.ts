@@ -166,12 +166,6 @@ export function priceTokensBreakdown (counts: TokenCounts, prices: TokenPrices):
   return { input, cachedInput, output, total: input + cachedInput + output }
 }
 
-/** Historical shape kept for the trace view: `input` includes cache reads. */
-export function priceTokens (counts: TokenCounts, prices: TokenPrices): { input: number, output: number, total: number } {
-  const breakdown = priceTokensBreakdown(counts, prices)
-  return { input: breakdown.input + breakdown.cachedInput, output: breakdown.output, total: breakdown.total }
-}
-
 /** Euros to the billed unit. The peg is deployment-global config (`eurosPerCredit`). */
 export function toCredits (euros: number, eurosPerCredit: number): number {
   return euros / eurosPerCredit

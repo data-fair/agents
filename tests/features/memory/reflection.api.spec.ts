@@ -9,7 +9,7 @@ import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
 import { putMockSettings, mockModels } from '../../support/settings.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
-import { decideOverSocketToRun, startTurnOverSocket } from '../../support/socket-turn.ts'
+import { decideOverSocketToRun, startTurnOverSocket, runOf } from '../../support/socket-turn.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
@@ -23,16 +23,16 @@ const createAgent = async (memory = true, over: any = {}) => {
   return agent
 }
 const thread = async (agentId: string) => (await orgAdmin.post(BASE, { agentId, title: 't' })).data.id as string
-const awaitRun = async (runId: string) => {
+const awaitRun = async (conversationId: string, runId: string) => {
   for (let i = 0; i < 100; i++) {
-    if ((await orgAdmin.get(`/api/runs/organization/test1/${runId}`)).data.status !== 'running') return
+    if ((await runOf(orgAdmin, conversationId, runId)).status !== 'running') return
     await new Promise(resolve => setTimeout(resolve, 100))
   }
   throw new Error('run never ended')
 }
 const say = async (conversationId: string, content: string) => {
   const { runId } = await startTurnOverSocket(orgAdmin, conversationId, content)
-  await awaitRun(runId)
+  await awaitRun(conversationId, runId)
 }
 const messages = async (conversationId: string) => (await orgAdmin.get(`${BASE}/${conversationId}/messages`)).data.results
 const reflect = async (conversationId: string, extra: any = {}) => (await admin.post('/api/test-env/reflect-conversation', { conversationId, ...extra })).data
@@ -175,7 +175,7 @@ test.describe('Memory reflection and the approval gate', () => {
 
     const approvalId = asking.parts.find((p: any) => p.state === 'approval-requested').approval.id
     const { runId } = await decideOverSocketToRun(orgAdmin, conversationId, approvalId, { approved: true })
-    await awaitRun(runId)
+    await awaitRun(conversationId, runId)
     assert.deepEqual(fixture.invokedTools(), ['wipe_everything'])
     const after = await reflect(conversationId)
     assert.equal(after.reflected, true)

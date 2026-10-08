@@ -254,7 +254,7 @@ euros   = (noCacheTokens + cacheWriteTokens) × inputPricePerMillion       / 1_0
 credits = euros / EUROS_PER_CREDIT
 ```
 
-(`priceTokensBreakdown()` and `toCredits()`, joined by `computeCreditBreakdown()`, in `api/src/usage/operations.ts`; every model call is charged through `chargeModelCall()` in `api/src/usage/service.ts`.) The three prices come from the resolved catalog entry — global `MODELS[]` or org `settings.models[]` — and the peg is the global env var above.
+(`priceTokensBreakdown()` and `toCredits()`, joined by `computeCreditBreakdown()`, in `api/src/usage/operations.ts`; every model call is charged through `chargeModelCall()` in `api/src/usage/charge.ts`.) The three prices come from the resolved catalog entry — global `MODELS[]` or org `settings.models[]` — and the peg is the global env var above.
 
 **Cache reads are the reason this is priced per class.** Providers charge them at a fraction of fresh input (Scaleway: 0.08 €/M against 0.40, a factor of 5) and claim a 50–90% hit ratio on agentic workloads, so billing them at the fresh rate over-states input cost by 1.67x to 3.57x.
 

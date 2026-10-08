@@ -18,7 +18,7 @@ import tasksRouter from './tasks/router.ts'
 import { runSchedulerPass } from './tasks/scheduler.ts'
 import { pushedTaskEvents, clearPushedTaskEvents } from './tasks/notifications.ts'
 import autonomousAgentsRouter from './autonomous-agents/router.ts'
-import autonomousAgentRuntimeRouter, { runsRouter } from './conversations/router.ts'
+import autonomousAgentRuntimeRouter from './conversations/router.ts'
 import { recoverOwnerlessRuns } from './conversations/executor.ts'
 import { recoverOwnerlessTaskRuns } from './tasks/execution.ts'
 import { purgeExpiredArchives } from './conversations/service.ts'
@@ -63,7 +63,6 @@ app.use('/api/catalog', catalogRouter)
 app.use('/api/autonomous-agents', tasksRouter)
 app.use('/api/autonomous-agents', autonomousAgentsRouter)
 app.use('/api/conversations', autonomousAgentRuntimeRouter)
-app.use('/api/runs', runsRouter)
 app.use('/api/nhi', nhiRouter)
 app.use('/api/summary', summaryRouter)
 app.use('/api/usage', usageRouter)
@@ -191,7 +190,6 @@ if (process.env.NODE_ENV === 'development') {
       trigger: 'manual' as const,
       status,
       startedAt: new Date().toISOString(),
-      version: 1,
       ...rest
     }
     await mongo.runs.insertOne({ ...run })

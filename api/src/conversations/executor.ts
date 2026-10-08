@@ -56,7 +56,7 @@ import { waitHandover, repairWaitInput, WAIT_TOOL_NAME, WAIT_ACCEPTED } from '@a
 import { settlePendingWait } from './waits.ts'
 import { PERSON_SPOKE, interruptedWaitResult, interruptReason } from './interrupted-turn.ts'
 import { checkAccountCreditCap } from '../usage/enforce.ts'
-import { chargeModelCall } from '../usage/service.ts'
+import { chargeModelCall } from '../usage/charge.ts'
 import type { MemoryDocument } from '../memory/operations.ts'
 import { buildServiceTools } from './service-tools.ts'
 import { mayBePageTool } from './service-tool-names.ts'
@@ -1001,7 +1001,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   // The last word on this turn's structure, with pending cleared — so a page stops rendering it as in
   // progress without having to infer that from `turn-end`.
   //
-  // Except when it asks for an approval: the message is closed only by finishTurn, and a decision is
+  // Except when it asks for an approval: the message is closed only by finishRun, and a decision is
   // refused until then (see decideApproval), so the card must not offer one before. runTurn sends the
   // closed frame once the message really is.
   target.frames.message(finalParts, awaitingApproval)
@@ -1041,7 +1041,7 @@ export const driveTurn = async (
   liveRuns.set(run.id, { controller: abortController, agentId: run.agentId, conversationId: run.conversationId, taskId: run.taskId })
   // A stop received by another API process reaches this turn through its run document.
   const stopWatching = watchStopRequests(run.id, abortController)
-  // The run's telemetry and spend are held from here until finishTurn writes them (see bufferRunWrites).
+  // The run's telemetry and spend are held from here until finishRun writes them (see bufferRunWrites).
   bufferRunWrites(run.id)
 
   // The ceiling has to be enforced twice over, because abort() is only a REQUEST.
